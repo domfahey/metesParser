@@ -41,7 +41,9 @@ class CallExtractor:
         calls = []
         course_num = 1
         for call_text in call_texts:
-            call = cls.extract_single_call(call_text, course=course_num, distance_unit=distance_unit)
+            call = cls.extract_single_call(
+                call_text, course=course_num, distance_unit=distance_unit
+            )
             if call:
                 calls.append(call)
                 course_num += 1
@@ -81,9 +83,7 @@ class CallExtractor:
             cardinal1, degrees, cardinal2 = parsed_bearing
             deg_int = int(degrees)
             minutes = (degrees - deg_int) * 60
-            bearing_quadrant = (
-                f"{cardinal1} {deg_int}°{round(minutes):02d}' {cardinal2}"
-            )
+            bearing_quadrant = f"{cardinal1} {deg_int}°{round(minutes):02d}' {cardinal2}"
             azimuth = BearingConverter.quadrant_to_azimuth(cardinal1, degrees, cardinal2)
         else:
             # Could be a meander/cardinal-only (e.g., "southwesterly")
