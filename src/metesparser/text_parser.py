@@ -211,15 +211,25 @@ class TextParser:
         Returns:
             Cleaned text
         """
-        # Fix common degree symbol OCR errors
-        # "S 56 0 40' W" -> "S 56°40' W" (0 mistaken for degree)
-        text = re.sub(r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4", text)
-
-        # Fix "5outh" -> "South", etc.
+        # Fix "5outh" -> "South", "NOrth" -> "North", etc. FIRST
+        # This must run before degree symbol fixes so we can handle both formats
         text = re.sub(r"\b5outh\b", "South", text, flags=re.IGNORECASE)
         text = re.sub(r"\bNOrth\b", "North", text, flags=re.IGNORECASE)
         text = re.sub(r"\bEa5t\b", "East", text, flags=re.IGNORECASE)
         text = re.sub(r"\bWe5t\b", "West", text, flags=re.IGNORECASE)
+
+        # Fix common degree symbol OCR errors
+        # "S 56 0 40' W" -> "S 56°40' W" (0 mistaken for degree symbol)
+        text = re.sub(r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4", text)
+
+        # Also handle full cardinal names: "South 56 0 40' West" -> "South 56 degrees 40 minutes West"
+        # This allows standardize_cardinal_directions to convert it properly
+        text = re.sub(
+            r"\b(North|South)\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*(East|West)\b",
+            r"\1 \2 degrees \3 minutes \4",
+            text,
+            flags=re.IGNORECASE,
+        )
 
         return text
 
