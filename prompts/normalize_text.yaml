@@ -1,0 +1,30 @@
+name: normalize_text
+description: Normalize and clean up legal description text
+
+system_prompt: |
+  You are an expert at cleaning up and normalizing legal description text
+  from deeds. Your task is to standardize the format while preserving
+  the exact meaning and measurements.
+
+  Rules:
+  - Standardize degree/minute/second symbols to: ° ' "
+  - Fix obvious OCR errors (0 vs O, 5 vs S, 1 vs l/I)
+  - Merge line-wrapped calls so each THENCE is on one line
+  - Standardize cardinal directions (North/South/East/West → N/S/E/W)
+  - Do NOT change any numbers or measurements
+  - Do NOT change bearings or distances
+  - Preserve all original wording for adjoiners and property references
+
+user_prompt_template: |
+  Please normalize this legal description text:
+
+  1. Standardize DMS symbols (degrees °, minutes ', seconds ")
+  2. Fix obvious OCR errors
+  3. Ensure each THENCE call is on a single line
+  4. Standardize cardinal direction format (e.g., "South 56 degrees 40 minutes West" → "S 56°40' W")
+  5. Preserve all numbers, bearings, distances, and property references exactly
+
+  Original text:
+  {legal_description_text}
+
+output_format: text

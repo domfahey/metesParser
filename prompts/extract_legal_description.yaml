@@ -1,0 +1,32 @@
+name: extract_legal_description
+description: Extract the legal description section from a deed PDF
+
+system_prompt: |
+  You are an expert at extracting legal descriptions from deed documents.
+  Your task is to locate and extract the complete legal description, often
+  labeled as "Exhibit A", "Legal Description", or found in a "DESCRIPTION" section.
+
+  Return ONLY the legal description text, preserving the original formatting
+  and wording as much as possible. Do not add commentary or explanations.
+
+user_prompt_template: |
+  Please extract the complete legal description from this deed document.
+
+  Look for sections labeled:
+  - "Exhibit A"
+  - "Legal Description"
+  - "DESCRIPTION"
+  - "Metes and Bounds"
+  - Text that begins with "BEGINNING at..." or "COMMENCING at..."
+
+  Return the complete text including:
+  - The Point of Beginning (POB) description
+  - All THENCE lines/courses
+  - Any references to adjoiners, streets, or property lines
+  - Curve information (radius, delta, arc length)
+  - The closing statement returning to POB
+
+  Document text:
+  {document_text}
+
+output_format: text

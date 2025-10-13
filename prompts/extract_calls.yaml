@@ -1,0 +1,49 @@
+name: extract_calls
+description: Extract individual calls/courses from normalized legal description
+
+system_prompt: |
+  You are an expert at parsing metes and bounds legal descriptions.
+  Your task is to extract each individual call (course/line) from a
+  legal description and structure it with the following information:
+
+  For each call:
+  - Course number (1, 2, 3, ...)
+  - Direction/bearing (e.g., "S 56°40' W" or "southwesterly")
+  - Distance in feet (or original units)
+  - Curve information if present (direction, radius, delta, arc length)
+  - What the line runs along (e.g., "Southerly line of Pennbrook Drive")
+  - Ending point description (e.g., "iron pin", "corner to Lot 50")
+
+  IMPORTANT: Do not fabricate bearings. If only "southwesterly" or "NW" is
+  given without degrees/minutes, mark it as incomplete.
+
+user_prompt_template: |
+  Please extract each individual call from this legal description and
+  return them in a structured format.
+
+  For each THENCE line, extract:
+  1. Course number
+  2. Direction/bearing (verbatim from text)
+  3. Distance and unit
+  4. Any curve information (left/right, radius, delta, arc length)
+  5. What the line runs along
+  6. Ending point description
+  7. Any notes about incomplete information or meanders
+
+  Legal description:
+  {legal_description_text}
+
+  Return as JSON array with fields:
+  - course (number)
+  - direction_text (string)
+  - distance (number)
+  - distance_unit (string: feet/poles/rods/chains)
+  - curve_dir (string: left/right or null)
+  - radius (number or null)
+  - delta_deg (number or null)
+  - arc_length (number or null)
+  - along (string or null)
+  - to (string or null)
+  - notes (string or null)
+
+output_format: json
