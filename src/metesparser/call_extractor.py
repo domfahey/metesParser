@@ -39,10 +39,12 @@ class CallExtractor:
         call_texts = TextParser.split_into_calls(normalized)
 
         calls = []
-        for i, call_text in enumerate(call_texts, start=1):
-            call = cls.extract_single_call(call_text, course=i, distance_unit=distance_unit)
+        course_num = 1
+        for call_text in call_texts:
+            call = cls.extract_single_call(call_text, course=course_num, distance_unit=distance_unit)
             if call:
                 calls.append(call)
+                course_num += 1
 
         return calls
 
@@ -60,6 +62,10 @@ class CallExtractor:
         Returns:
             DeedCall object or None if parsing fails
         """
+        # Skip POB lines (BEGINNING, COMMENCING, etc.)
+        if re.match(r"^\s*(BEGINNING|COMMENCING|POB)\b", call_text, re.IGNORECASE):
+            return None
+
         # Extract direction (bearing)
         direction_text = cls.extract_direction(call_text)
         if not direction_text:
@@ -73,8 +79,10 @@ class CallExtractor:
         parsed_bearing = BearingConverter.parse_quadrant_bearing(direction_text)
         if parsed_bearing:
             cardinal1, degrees, cardinal2 = parsed_bearing
+            deg_int = int(degrees)
+            minutes = (degrees - deg_int) * 60
             bearing_quadrant = (
-                f"{cardinal1} {int(degrees)}°{int((degrees % 1) * 60):02d}' {cardinal2}"
+                f"{cardinal1} {deg_int}°{round(minutes):02d}' {cardinal2}"
             )
             azimuth = BearingConverter.quadrant_to_azimuth(cardinal1, degrees, cardinal2)
         else:

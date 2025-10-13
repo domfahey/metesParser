@@ -32,10 +32,14 @@ class TestTraverseComputation:
     def test_compute_square_traverse(self):
         """Square traverse should close perfectly."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),  # North
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),  # East
-            DeedCall(course=3, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),  # South
-            DeedCall(course=4, bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),  # West
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),  # North
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),  # East
+            DeedCall(course=3,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),  # South
+            DeedCall(course=4,
+                direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),  # West
         ]
 
         points = ClosureChecker.compute_traverse(calls)
@@ -49,7 +53,8 @@ class TestTraverseComputation:
         """Compute traverse with custom starting point."""
         start = Point(x=100.0, y=200.0)
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=50.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=50.0),
         ]
 
         points = ClosureChecker.compute_traverse(calls, start_point=start)
@@ -61,14 +66,17 @@ class TestTraverseComputation:
     def test_skips_incomplete_bearings(self):
         """Skip calls with None bearings (meanders)."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
             DeedCall(
                 course=2,
+                direction_text="incomplete bearing",
                 bearing_azimuth_deg_from_north=None,
                 distance_ft=50.0,
                 notes="incomplete bearing",
             ),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
         ]
 
         points = ClosureChecker.compute_traverse(calls)
@@ -83,10 +91,14 @@ class TestClosureVerification:
     def test_perfect_closure(self):
         """Perfect square should pass closure check."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
-            DeedCall(course=4, bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=4,
+                direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls)
@@ -102,6 +114,7 @@ class TestClosureVerification:
             # N 33°20' E, 60.00 feet
             DeedCall(
                 course=1,
+                direction_text="N 33°20' E",
                 bearing_quadrant="N 33°20' E",
                 bearing_azimuth_deg_from_north=33.333333,
                 distance_ft=60.0,
@@ -109,6 +122,7 @@ class TestClosureVerification:
             # S 56°40' W, 125.00 feet
             DeedCall(
                 course=2,
+                direction_text="S 56°40' W",
                 bearing_quadrant="S 56°40' W",
                 bearing_azimuth_deg_from_north=236.666667,
                 distance_ft=125.0,
@@ -116,6 +130,7 @@ class TestClosureVerification:
             # S 33°20' W, 60.00 feet
             DeedCall(
                 course=3,
+                direction_text="S 33°20' W",
                 bearing_quadrant="S 33°20' W",
                 bearing_azimuth_deg_from_north=213.333333,
                 distance_ft=60.0,
@@ -123,6 +138,7 @@ class TestClosureVerification:
             # N 56°40' E, 125.00 feet
             DeedCall(
                 course=4,
+                direction_text="N 56°40' E",
                 bearing_quadrant="N 56°40' E",
                 bearing_azimuth_deg_from_north=56.666667,
                 distance_ft=125.0,
@@ -138,8 +154,10 @@ class TestClosureVerification:
     def test_open_traverse(self):
         """Open traverse should fail closure."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
             # Missing closing calls
         ]
 
@@ -155,10 +173,14 @@ class TestAreaCalculation:
     def test_square_area(self):
         """100 ft × 100 ft square = 10,000 sq ft."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
-            DeedCall(course=4, bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=4,
+                direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls)
@@ -167,34 +189,42 @@ class TestAreaCalculation:
         assert math.isclose(result.area_acres, 10000.0 / 43560.0, abs_tol=0.001)
 
     def test_18_pennbrook_area(self):
-        """18 Pennbrook: 60 × 125 = 7,500 sq ft ≈ 0.172 acres."""
+        """18 Pennbrook: Parallelogram (not rectangle), area ≈ 2,971 sq ft."""
         calls = [
             DeedCall(
-                course=1, bearing_azimuth_deg_from_north=33.333333, distance_ft=60.0
+                course=1,
+                direction_text="N 33°20' E", bearing_azimuth_deg_from_north=33.333333, distance_ft=60.0
             ),  # N 33°20' E
             DeedCall(
-                course=2, bearing_azimuth_deg_from_north=236.666667, distance_ft=125.0
+                course=2,
+                direction_text="S 56°40' W", bearing_azimuth_deg_from_north=236.666667, distance_ft=125.0
             ),  # S 56°40' W
             DeedCall(
-                course=3, bearing_azimuth_deg_from_north=213.333333, distance_ft=60.0
+                course=3,
+                direction_text="S 33°20' W", bearing_azimuth_deg_from_north=213.333333, distance_ft=60.0
             ),  # S 33°20' W
             DeedCall(
-                course=4, bearing_azimuth_deg_from_north=56.666667, distance_ft=125.0
+                course=4,
+                direction_text="N 56°40' E", bearing_azimuth_deg_from_north=56.666667, distance_ft=125.0
             ),  # N 56°40' E
         ]
 
         result = ClosureChecker.verify_closure(calls)
 
-        # Area should be approximately 7,500 sq ft
-        assert math.isclose(result.area_sq_ft, 7500.0, abs_tol=10.0)
-        assert math.isclose(result.area_acres, 0.172, abs_tol=0.001)
+        # This is a parallelogram with opposite sides parallel but not perpendicular
+        # Area is NOT 60 × 125 (that would assume 90° angles)
+        assert math.isclose(result.area_sq_ft, 2970.6, abs_tol=10.0)
+        assert math.isclose(result.area_acres, 0.0682, abs_tol=0.001)
 
     def test_triangle_area(self):
         """Right triangle: 100 ft base × 100 ft height / 2 = 5,000 sq ft."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),  # East
-            DeedCall(course=2, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),  # South
-            DeedCall(course=3, bearing_azimuth_deg_from_north=315.0, distance_ft=141.42),  # NW
+            DeedCall(course=1,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),  # East
+            DeedCall(course=2,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),  # South
+            DeedCall(course=3,
+                direction_text="N 45° W", bearing_azimuth_deg_from_north=315.0, distance_ft=141.42),  # NW
         ]
 
         result = ClosureChecker.verify_closure(calls)
@@ -208,10 +238,14 @@ class TestPerimeterCalculation:
     def test_square_perimeter(self):
         """100 ft × 4 sides = 400 ft."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
-            DeedCall(course=4, bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=4,
+                direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls)
@@ -221,9 +255,11 @@ class TestPerimeterCalculation:
     def test_perimeter_with_curve(self):
         """Perimeter uses arc length for curves."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
             DeedCall(
                 course=2,
+                direction_text="East",
                 bearing_azimuth_deg_from_north=90.0,
                 distance_ft=100.0,
                 curve_dir="right",
@@ -245,10 +281,14 @@ class TestInteriorAngleCheck:
     def test_square_interior_angles(self):
         """Square: (4-2)×180° = 360°."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
-            DeedCall(course=4, bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=4,
+                direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls)
@@ -258,9 +298,12 @@ class TestInteriorAngleCheck:
     def test_triangle_interior_angles(self):
         """Triangle: (3-2)×180° = 180°."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=120.0, distance_ft=100.0),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=240.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="S 60° E", bearing_azimuth_deg_from_north=120.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="S 60° W", bearing_azimuth_deg_from_north=240.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls)
@@ -272,9 +315,11 @@ class TestInteriorAngleCheck:
     def test_skips_curves(self):
         """Angle check skipped if curves present."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
             DeedCall(
                 course=2,
+                direction_text="East",
                 bearing_azimuth_deg_from_north=90.0,
                 distance_ft=50.0,
                 curve_dir="right",
@@ -296,12 +341,14 @@ class TestParallelismCheck:
         calls = [
             DeedCall(
                 course=1,
+                direction_text="N 45° E",
                 bearing_azimuth_deg_from_north=45.0,
                 distance_ft=100.0,
                 along="the north line",
             ),
             DeedCall(
                 course=2,
+                direction_text="N 45° E",
                 bearing_azimuth_deg_from_north=45.0,
                 distance_ft=50.0,
                 along="continuing along the same line",
@@ -318,12 +365,14 @@ class TestParallelismCheck:
         calls = [
             DeedCall(
                 course=1,
+                direction_text="N 45° E",
                 bearing_azimuth_deg_from_north=45.0,
                 distance_ft=100.0,
                 along="the north line",
             ),
             DeedCall(
                 course=2,
+                direction_text="East",
                 bearing_azimuth_deg_from_north=90.0,
                 distance_ft=50.0,
                 along="continuing along the same line",
@@ -348,6 +397,7 @@ class TestCurveConsistency:
         calls = [
             DeedCall(
                 course=1,
+                direction_text="North",
                 bearing_azimuth_deg_from_north=0.0,
                 distance_ft=100.0,
                 curve_dir="right",
@@ -366,6 +416,7 @@ class TestCurveConsistency:
         calls = [
             DeedCall(
                 course=1,
+                direction_text="North",
                 bearing_azimuth_deg_from_north=0.0,
                 distance_ft=100.0,
                 curve_dir="right",
@@ -384,6 +435,7 @@ class TestCurveConsistency:
         calls = [
             DeedCall(
                 course=1,
+                direction_text="North",
                 bearing_azimuth_deg_from_north=0.0,
                 distance_ft=100.0,
                 curve_dir="right",
@@ -404,10 +456,14 @@ class TestAreaReasonableness:
     def test_matching_area(self):
         """Computed area matches stated area (no warning)."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
-            DeedCall(course=4, bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=4,
+                direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls, stated_area_sq_ft=10000.0)
@@ -418,10 +474,14 @@ class TestAreaReasonableness:
     def test_area_mismatch_warning(self):
         """Computed area differs significantly from stated (warning)."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
-            DeedCall(course=4, bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=4,
+                direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
         ]
 
         # Stated area way off (should be 10,000 sq ft)
@@ -439,11 +499,13 @@ class TestIncompleteBearingWarning:
         calls = [
             DeedCall(
                 course=1,
+                direction_text="incomplete bearing",
                 bearing_azimuth_deg_from_north=None,
                 distance_ft=50.0,
                 notes="incomplete bearing",
             ),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls)
@@ -459,12 +521,14 @@ class TestDoubleEntryValidation:
         """Matching entries should have no discrepancies."""
         calls1 = [
             DeedCall(
-                course=1, bearing_quadrant="N 45° E", bearing_azimuth_deg_from_north=45.0, distance_ft=100.0
+                course=1,
+                direction_text="N 45° E", bearing_quadrant="N 45° E", bearing_azimuth_deg_from_north=45.0, distance_ft=100.0
             )
         ]
         calls2 = [
             DeedCall(
-                course=1, bearing_quadrant="N 45° E", bearing_azimuth_deg_from_north=45.0, distance_ft=100.0
+                course=1,
+                direction_text="N 45° E", bearing_quadrant="N 45° E", bearing_azimuth_deg_from_north=45.0, distance_ft=100.0
             )
         ]
 
@@ -475,10 +539,12 @@ class TestDoubleEntryValidation:
     def test_bearing_mismatch(self):
         """Different bearings should be flagged."""
         calls1 = [
-            DeedCall(course=1, bearing_quadrant="N 45° E", distance_ft=100.0)
+            DeedCall(course=1,
+                direction_text="N 45° E", bearing_quadrant="N 45° E", distance_ft=100.0)
         ]
         calls2 = [
-            DeedCall(course=1, bearing_quadrant="N 50° E", distance_ft=100.0)
+            DeedCall(course=1,
+                direction_text="N 50° E", bearing_quadrant="N 50° E", distance_ft=100.0)
         ]
 
         discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
@@ -489,10 +555,12 @@ class TestDoubleEntryValidation:
     def test_distance_mismatch(self):
         """Different distances should be flagged."""
         calls1 = [
-            DeedCall(course=1, bearing_quadrant="N 45° E", distance_ft=100.0)
+            DeedCall(course=1,
+                direction_text="N 45° E", bearing_quadrant="N 45° E", distance_ft=100.0)
         ]
         calls2 = [
-            DeedCall(course=1, bearing_quadrant="N 45° E", distance_ft=105.0)
+            DeedCall(course=1,
+                direction_text="N 45° E", bearing_quadrant="N 45° E", distance_ft=105.0)
         ]
 
         discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
@@ -503,11 +571,14 @@ class TestDoubleEntryValidation:
     def test_different_call_count(self):
         """Different number of calls should be flagged."""
         calls1 = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=45.0, distance_ft=100.0)
+            DeedCall(course=1,
+                direction_text="N 45° E", bearing_azimuth_deg_from_north=45.0, distance_ft=100.0)
         ]
         calls2 = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=45.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=50.0),
+            DeedCall(course=1,
+                direction_text="N 45° E", bearing_azimuth_deg_from_north=45.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=50.0),
         ]
 
         discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
@@ -522,10 +593,14 @@ class TestClosureSummary:
     def test_summary_format(self):
         """Summary should be formatted correctly."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
-            DeedCall(course=4, bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=4,
+                direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls)
@@ -542,10 +617,14 @@ class TestClosureSummary:
     def test_fully_verified_status(self):
         """Fully verified should show in summary."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
-            DeedCall(course=4, bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=4,
+                direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls)
@@ -563,10 +642,14 @@ class TestIsFullyVerified:
     def test_perfect_closure_verified(self):
         """Perfect closure should be fully verified."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
-            DeedCall(course=4, bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=4,
+                direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls)
@@ -576,8 +659,10 @@ class TestIsFullyVerified:
     def test_open_traverse_not_verified(self):
         """Open traverse should not be verified."""
         calls = [
-            DeedCall(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=1,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls)
@@ -589,13 +674,17 @@ class TestIsFullyVerified:
         calls = [
             DeedCall(
                 course=1,
+                direction_text="incomplete bearing",
                 bearing_azimuth_deg_from_north=None,
                 distance_ft=50.0,
                 notes="incomplete bearing",
             ),
-            DeedCall(course=2, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=3, bearing_azimuth_deg_from_north=90.0, distance_ft=50.0),
-            DeedCall(course=4, bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=2,
+                direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=3,
+                direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=50.0),
+            DeedCall(course=4,
+                direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
         ]
 
         result = ClosureChecker.verify_closure(calls)

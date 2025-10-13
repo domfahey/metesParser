@@ -163,7 +163,7 @@ class ClosureResult(BaseModel):
             return "POOR"
 
 
-class ConversionFactors(BaseModel):
+class ConversionFactors:
     """Unit conversion factors."""
 
     POLE_TO_FEET: float = 16.5
