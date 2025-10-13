@@ -260,21 +260,28 @@ class TextParser:
         along = ""
         to = ""
 
-        # Look for "along X to Y" pattern
-        along_pattern = r"along\s+(.*?)\s+to\s+(.*?)(?:\.|;|$)"
-        match = re.search(along_pattern, call_text, re.IGNORECASE | re.DOTALL)
-        if match:
-            along = match.group(1).strip()
-            to = match.group(2).strip()
-        else:
-            # Try just "along X"
-            along_match = re.search(r"along\s+(.*?)(?:\.|;|$)", call_text, re.IGNORECASE | re.DOTALL)
-            if along_match:
-                along = along_match.group(1).strip()
+        # Normalized text for searching
+        lower_text = call_text.lower()
 
-            # Try just "to X"
-            to_match = re.search(r"to\s+(.*?)(?:\.|;|$)", call_text, re.IGNORECASE | re.DOTALL)
-            if to_match:
-                to = to_match.group(1).strip()
+        # Determine along segment
+        along_idx = lower_text.find("along")
+        if along_idx != -1:
+            segment = call_text[along_idx + len("along") :].lstrip()
+            to_tokens = list(re.finditer(r"\bto\b", segment, re.IGNORECASE))
+            if to_tokens:
+                last_to = to_tokens[-1]
+                along = segment[: last_to.start()].strip(" ,;.")
+                to_section = segment[last_to.end() :].strip()
+                to = re.split(r"[.;]", to_section, maxsplit=1)[0].strip(" ,")
+            else:
+                along = re.split(r"[.;]", segment, maxsplit=1)[0].strip(" ,")
+
+        # If no 'along' or we still need an endpoint, grab the final 'to'
+        if not to:
+            to_matches = list(re.finditer(r"\bto\b", call_text, re.IGNORECASE))
+            if to_matches:
+                last = to_matches[-1]
+                to_candidate = call_text[last.end() :].strip()
+                to = re.split(r"[.;]", to_candidate, maxsplit=1)[0].strip(" ,")
 
         return (along, to)

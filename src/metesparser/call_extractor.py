@@ -67,16 +67,16 @@ class CallExtractor:
             return None
 
         # Extract direction (bearing)
-        direction_text = cls.extract_direction(call_text)
-        if not direction_text:
-            # Can't parse without direction
-            return None
+        raw_direction = cls.extract_direction(call_text)
+        direction_text = raw_direction if raw_direction else call_text.strip()
 
         # Try to parse quadrant bearing
         bearing_quadrant = None
         azimuth = None
 
-        parsed_bearing = BearingConverter.parse_quadrant_bearing(direction_text)
+        parsed_bearing = (
+            BearingConverter.parse_quadrant_bearing(raw_direction) if raw_direction else None
+        )
         if parsed_bearing:
             cardinal1, degrees, cardinal2 = parsed_bearing
             deg_int = int(degrees)
@@ -103,15 +103,34 @@ class CallExtractor:
         # Extract curve information if present
         curve_info = cls.extract_curve_info(call_text)
 
+        if curve_info.get("arc_length_ft"):
+            distance_ft = curve_info["arc_length_ft"]
+        elif curve_info.get("radius_ft") and curve_info.get("delta_deg"):
+            props = BearingConverter.calculate_curve_properties(
+                curve_info["radius_ft"], delta_deg=curve_info["delta_deg"]
+            )
+            distance_ft = props["arc_length_ft"]
+            curve_info.setdefault("arc_length_ft", props["arc_length_ft"])
+            curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
+
         # Extract along/to fields
         along, to = TextParser.extract_along_to_fields(call_text)
 
         # Check for meander/incomplete flags
         notes = ""
+        cardinal_only = False
+        if raw_direction and not parsed_bearing:
+            if re.fullmatch(
+                r"(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly)?",
+                raw_direction.strip(),
+                flags=re.IGNORECASE,
+            ):
+                cardinal_only = True
+
         if "meander" in call_text.lower() or "approximate" in call_text.lower():
             notes = "meander / approximate"
-        elif not bearing_quadrant:
-            notes = "incomplete bearing - cardinal only"
+        elif not parsed_bearing:
+            notes = "incomplete bearing - cardinal only" if cardinal_only else "incomplete bearing"
 
         # Build DeedCall
         call = DeedCall(
@@ -208,12 +227,13 @@ class CallExtractor:
             if match.group(5):
                 delta_deg += float(match.group(5)) / 3600.0
 
-            arc_length = float(match.group(6))
+            arc_length_str = match.group(6)
 
             # Calculate properties
-            from .bearing_converter import BearingConverter
-
             props = BearingConverter.calculate_curve_properties(radius, delta_deg=delta_deg)
+            arc_length = (
+                float(arc_length_str) if arc_length_str is not None else props["arc_length_ft"]
+            )
 
             curve_info = {
                 "direction": direction,
@@ -230,14 +250,14 @@ class CallExtractor:
             if dir_match:
                 curve_info["direction"] = dir_match.group(1).lower()
 
-            # "radius of X"
-            radius_match = re.search(r"radius\s+of\s+(\d+(?:\.\d+)?)", text, re.IGNORECASE)
+            # "radius of X" or "radius X"
+            radius_match = re.search(r"radius\s+(?:of\s+)?(\d+(?:\.\d+)?)", text, re.IGNORECASE)
             if radius_match:
                 curve_info["radius_ft"] = float(radius_match.group(1))
 
-            # "delta X°Y'"
+            # "delta X°Y'" or "delta X degrees"
             delta_match = re.search(
-                r"delta\s+(?:angle\s+)?(?:of\s+)?(\d+)°(?:\s*(\d+)')?",
+                r"delta\s+(?:angle\s+)?(?:of\s+)?(\d+)(?:°|(?:\s+)?degrees?)(?:\s*(\d+)')?",
                 text,
                 re.IGNORECASE,
             )
@@ -251,6 +271,14 @@ class CallExtractor:
             arc_match = re.search(r"arc\s+length\s+of\s+(\d+(?:\.\d+)?)", text, re.IGNORECASE)
             if arc_match:
                 curve_info["arc_length_ft"] = float(arc_match.group(1))
+
+        if curve_info.get("radius_ft") and curve_info.get("delta_deg"):
+            props = BearingConverter.calculate_curve_properties(
+                curve_info["radius_ft"], delta_deg=curve_info["delta_deg"]
+            )
+            if not curve_info.get("arc_length_ft"):
+                curve_info["arc_length_ft"] = props["arc_length_ft"]
+            curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
 
         return curve_info
 

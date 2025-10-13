@@ -275,6 +275,16 @@ class TestExtractAlongToFields:
         assert "boundary" in along
         assert "corner" in to
 
+    def test_multi_to_phrases(self):
+        """Prefer the final 'to' clause for the endpoint."""
+        text = (
+            "N 45° E 100 feet along a curve to the right having a radius of 50.00 feet "
+            "and an arc length of 78.54 feet to an iron pin"
+        )
+        along, to = TextParser.extract_along_to_fields(text)
+        assert along.startswith("a curve to the right")
+        assert to == "an iron pin"
+
 
 class TestNormalizeLegalDescription:
     """Integration test: full normalization pipeline."""
