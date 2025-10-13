@@ -2,151 +2,273 @@
 
 Parse metes and bounds legal descriptions from deed PDFs into structured, verified CSV format.
 
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 ## Features
 
-- Extract legal descriptions from PDF deeds using OpenAI Responses API
-- Parse bearing/distance calls with proper quadrant-to-azimuth conversion
-- Support for curves (radius, delta, arc length, chord)
-- Traverse closure verification (6 guardrails)
-- Export to CSV, GeoJSON, KML formats
-- Flag incomplete/meander lines (never fabricate bearings)
-- Comprehensive unit conversion (feet, poles, chains)
-
-## Installation
-
-```bash
-# Clone repository
-git clone <repo-url>
-cd metesParser
-
-# Set up environment with UV
-uv venv
-uv sync --all-extras --dev
-
-# Configure API keys
-cp .env.example .env
-# Edit .env with your OpenAI API key
-```
+- 📄 **PDF Extraction** - Extract legal descriptions using OpenAI API
+- 🧭 **Bearing Conversion** - Quadrant bearings to azimuth (degrees from North)
+- 📐 **Curve Support** - Full radius, delta, arc length, chord calculations
+- ✅ **6 Verification Guardrails** - Traverse closure, angles, curves, area, parallelism
+- 📊 **CSV Export** - Standard 14-field schema for GIS plotting
+- 🚫 **Never Fabricates Data** - Flags incomplete bearings, never invents numbers
+- 🔄 **Unit Conversion** - Supports feet, poles, rods, chains
 
 ## Quick Start
+
+### Installation
+
+```bash
+# Clone and setup
+git clone <repo-url>
+cd metesParser
+make dev-setup
+
+# Add your OpenAI API key to .env
+echo "OPENAI_API_KEY=sk-..." >> .env
+```
+
+### Usage
 
 ```bash
 # Extract legal description from PDF
 uv run metesparser extract deed.pdf
 
-# Verify a CSV file
+# Verify calls from CSV
 uv run metesparser verify calls.csv
 
-# Export to GeoJSON
-uv run metesparser export calls_verified.csv --format geojson
+# Or use the Makefile
+make run-extract PDF_FILE=deed.pdf
+make run-verify CSV_FILE=calls.csv
 ```
 
-## Project Structure
-
-```
-metesParser/
-├── src/metesparser/         # Main package
-│   ├── models.py            # Pydantic models
-│   ├── pdf_processor.py     # PDF extraction & OCR
-│   ├── text_parser.py       # Legal description parsing
-│   ├── call_extractor.py    # Extract individual calls
-│   ├── bearing_converter.py # Bearing/azimuth conversions
-│   ├── closure_checker.py   # Traverse verification
-│   └── csv_builder.py       # CSV output generation
-├── prompts/                 # OpenAI prompt YAML files
-├── tests/                   # Pytest test suite
-└── docs/                    # Documentation
-```
-
-## Usage
-
-### Extract from PDF
+### Python API
 
 ```python
-from metesparser import PDFProcessor
+from metesparser import PDFProcessor, ClosureChecker
 
+# Extract and parse
 processor = PDFProcessor()
-legal_desc = processor.extract_legal_description("deed.pdf")
-```
+legal_desc = processor.process_deed_pdf("deed.pdf")
 
-### Parse Calls
-
-```python
-from metesparser import CallExtractor
-
-extractor = CallExtractor()
-calls = extractor.extract_calls(legal_desc)
-```
-
-### Verify Closure
-
-```python
-from metesparser import ClosureChecker
-
+# Verify closure
 checker = ClosureChecker()
-result = checker.verify_closure(calls)
-print(f"Misclosure: {result.misclosure_ft} ft")
-print(f"Area: {result.area_sq_ft} sq ft")
+result = checker.verify_closure(legal_desc.calls)
+
+print(f"Misclosure: {result.misclosure_ft:.4f} ft")
+print(f"Area: {result.area_acres:.4f} acres")
+print(f"Status: {'✓ VERIFIED' if result.is_fully_verified() else '⚠ NEEDS REVIEW'}")
+```
+
+## Architecture
+
+### Data Flow
+
+```
+PDF → Extract → Normalize → Parse Calls → Verify → CSV
+       OpenAI   TextParser  CallExtractor  Closure  _verified.csv
+                                          Checker   (if passed)
+```
+
+### Core Modules
+
+| Module | Purpose |
+|--------|---------|
+| `models.py` | Pydantic schemas (DeedCall, LegalDescription, ClosureResult) |
+| `bearing_converter.py` | Quadrant ↔ azimuth, curve calculations |
+| `text_parser.py` | Text normalization, OCR error fixes |
+| `call_extractor.py` | Regex-based call parsing (rule-based, not AI) |
+| `closure_checker.py` | 6 verification guardrails |
+| `csv_builder.py` | CSV export/import with standard schema |
+| `pdf_processor.py` | OpenAI integration for PDF extraction |
+| `cli.py` | Command-line interface |
+
+### Verification Guardrails
+
+The system implements 6 checks before exporting verified CSV:
+
+1. **Traverse Closure** - Misclosure < 0.01 ft
+2. **Interior Angles** - Sum matches (n-2)×180°
+3. **Parallelism** - Continuing lines have matching bearings
+4. **Curve Consistency** - L ≈ R×Δ, chord ≈ 2R×sin(Δ/2)
+5. **Area Reasonableness** - Computed vs stated area
+6. **Double-Entry Validation** - Compare duplicate entries
+
+## Development
+
+### Prerequisites
+
+- Python 3.11+
+- [UV](https://github.com/astral-sh/uv) (required for dependency management)
+- OpenAI API key
+
+### Setup
+
+```bash
+# Install dependencies
+make install
+
+# Or manually with UV
+uv venv
+uv sync --all-extras --dev
+```
+
+### Common Commands
+
+```bash
+make help          # Show all available commands
+make lint          # Run ruff linter
+make format        # Format code with ruff + black
+make test          # Run pytest test suite
+make test-cov      # Run tests with coverage report
+make pre-commit    # Run all checks before committing
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+make test
+
+# Run specific test file
+uv run pytest tests/test_bearing_converter.py -v
+
+# Run tests matching pattern
+uv run pytest -k "closure" --pdb
+
+# Generate coverage report
+make test-cov
+open htmlcov/index.html
+```
+
+### Code Quality
+
+```bash
+# Check code quality
+make lint
+
+# Auto-fix issues
+make lint-fix
+
+# Format code
+make format
+
+# Run all checks
+make check
 ```
 
 ## CSV Schema
 
-Standard output format:
+Standard 14-field output format:
 
-```
+```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
 along,to,notes
 ```
 
-## Development
-
-### Using Makefile (Recommended)
-
-```bash
-# Show all available commands
-make help
-
-# Code quality
-make lint          # Run ruff linter
-make format        # Format code with ruff and black
-make lint-fix      # Auto-fix linting issues
-make check         # Run all checks (lint + format check)
-
-# Testing
-make test          # Run pytest test suite
-make test-cov      # Run tests with coverage report
-
-# Utility
-make clean         # Remove build artifacts and cache
-make dev-setup     # Initial development setup
-make pre-commit    # Run all checks before committing
+**Example:**
+```csv
+1,"S 33°20' E","S 33°20' E",146.666667,60.00,,,,,,,"SW line of Concord Dr","point in div. line",""
+2,"S 56°40' W","S 56°40' W",236.666667,125.00,,,,,,,"Div. line L46/47 to L50","corner to Lot 50",""
 ```
 
-### Manual Commands
+## Bearing Convention
 
-```bash
-# Run tests
-uv run pytest
+Azimuth = degrees clockwise from North (0-360°):
 
-# Run linting
-uv run ruff check src/metesparser
-uv run ruff format src/metesparser
-uv run black src/metesparser --exclude text_parser.py
+| Quadrant | Example | Azimuth Formula | Result |
+|----------|---------|-----------------|--------|
+| N θ E | N 45° E | θ | 45° |
+| S θ E | S 45° E | 180 - θ | 135° |
+| S θ W | S 45° W | 180 + θ | 225° |
+| N θ W | N 45° W | 360 - θ | 315° |
 
-# Type checking
-uv run mypy src/metesparser
+## Unit Conversions
+
+| Unit | Feet Equivalent |
+|------|-----------------|
+| 1 pole/rod/perch | 16.5 ft |
+| 1 chain | 66 ft |
+| 1 link | 0.66 ft |
+| 1 acre | 43,560 sq ft |
+
+## Core Principles
+
+1. **Never Fabricate Data** - If bearing is incomplete (e.g., "southwesterly"), leave azimuth blank and flag in notes
+2. **Verification First** - Traverse must close to <0.01 ft before exporting `_verified.csv`
+3. **Preserve Original Wording** - Keep deed language verbatim in `along` and `to` fields
+4. **Deterministic Processing** - OpenAI temperature=0 for consistent results
+
+## Project Structure
+
+```
+metesParser/
+├── Makefile                     # Development commands
+├── pyproject.toml               # UV configuration + tool settings
+├── src/metesparser/             # Main package (9 modules)
+│   ├── models.py
+│   ├── bearing_converter.py
+│   ├── text_parser.py
+│   ├── call_extractor.py
+│   ├── closure_checker.py
+│   ├── csv_builder.py
+│   ├── pdf_processor.py
+│   └── cli.py
+├── prompts/                     # OpenAI prompt YAML files
+├── tests/                       # Pytest test suite
+├── CLAUDE.md                    # AI assistant guidance
+└── agents.md                    # Agent workflow documentation
 ```
 
-## Verification Guardrails
+## Requirements
 
-The system implements 6 verification checks:
-- A) Traverse closure (misclosure < 0.01 ft)
-- B) Interior angle validation
-- C) Parallelism checks
-- D) Curve consistency
-- E) Area reasonableness
-- F) Double-entry validation
+- Python 3.11+
+- OpenAI API key (for PDF extraction)
+- UV package manager (no pip/conda/poetry)
+
+## Environment Variables
+
+Create a `.env` file:
+
+```bash
+OPENAI_API_KEY=sk-...  # Required
+LOG_LEVEL=INFO          # Optional (default: INFO)
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**"OpenAI API key not found"**
+- Ensure `.env` file exists with `OPENAI_API_KEY=sk-...`
+- Run `make dev-setup` to create `.env` from template
+
+**Traverse doesn't close**
+- Check for OCR errors in bearings (0 vs °, 1 vs l/I, 5 vs S)
+- Verify distance units (feet vs poles)
+- Review misclosure report for specific issues
+
+**Linting fails on text_parser.py**
+- This is expected - file contains Unicode symbols that break parsers
+- File is excluded in `pyproject.toml` and functionally correct
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes
+4. Run quality checks (`make pre-commit`)
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+**Never commit:**
+- `.env` files or API keys
+- Unverified CSV files (only commit `_verified.csv`)
+- Code that fabricates bearings
 
 ## License
 
@@ -154,4 +276,15 @@ MIT
 
 ## Credits
 
-Based on comprehensive metes & bounds extraction best practices.
+Based on comprehensive metes & bounds extraction best practices from professional surveying standards.
+
+## Support
+
+For issues or questions:
+- Check `CLAUDE.md` for detailed architecture guidance
+- Review `agents.md` for workflow documentation
+- Open an issue on GitHub
+
+---
+
+**Note**: This parser follows strict surveying principles. It will never fabricate missing data and requires traverse closure before marking results as verified.

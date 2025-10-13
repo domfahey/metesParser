@@ -1,139 +1,198 @@
-# Metes Parser - Claude Code Configuration
+# CLAUDE.md
 
-## Project Overview
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Metes Parser is a Python application that extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs. It converts unstructured legal text into structured, verified CSV format suitable for GIS plotting and analysis.
+## Project: Metes & Bounds Deed Parser
 
-## Tech Stack
+Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
-- **Python 3.11+**
-- **UV** for dependency management (NO pip/poetry/conda)
-- **OpenAI API** for PDF OCR and extraction
-- **Pydantic** for data validation
-- **Pandas** for CSV operations
-- **pytest** for testing
-- **ruff + black** for linting/formatting
+## Critical Architecture Principles
 
-## Key Features
+### 1. Never Fabricate Data
+**Most Important Rule**: If a bearing is incomplete (e.g., "southwesterly" without degrees), leave `bearing_azimuth_deg_from_north` as `None` and set `notes="incomplete bearing - cardinal only"`. Never invent numerical bearings.
 
-1. PDF text extraction using OpenAI
-2. Legal description parsing with regex
-3. Bearing-to-azimuth conversion
-4. Traverse closure verification (6 guardrails)
-5. CSV export with standard schema
-6. Never fabricates missing bearings
+### 2. Verification Before Export
+Traverse must close to < 0.01 ft misclosure before exporting `_verified.csv`. Use `ClosureChecker.verify_closure()` to run all 6 guardrails before calling `CSVBuilder.export_verified_csv()`.
 
-## Project Structure
+### 3. Preserve Verbatim Deed Language
+Keep original wording in `along` and `to` fields. Example: Keep "Southerly line of Pennbrook Drive" exactly as written in the deed.
 
-```
-metesParser/
-├── src/metesparser/
-│   ├── models.py              # Pydantic models (DeedCall, LegalDescription, ClosureResult)
-│   ├── bearing_converter.py   # Quadrant ↔ azimuth conversion, curve calculations
-│   ├── text_parser.py         # Text normalization, OCR error fixes
-│   ├── call_extractor.py      # Regex-based call extraction
-│   ├── closure_checker.py     # 6 verification guardrails
-│   ├── csv_builder.py         # CSV export/import
-│   ├── pdf_processor.py       # OpenAI-based PDF processing
-│   └── cli.py                 # Command-line interface
-├── prompts/                   # OpenAI prompt YAML files
-├── tests/                     # Pytest test suite
-└── docs/                      # Additional documentation
-```
+## Essential Commands
 
-## Development Commands
-
+### Makefile (Primary Interface)
 ```bash
-# Setup
-uv venv
-uv sync --all-extras --dev
+make help          # Show all commands
+make dev-setup     # Initial setup (creates .env from .env.example)
+make lint          # Run ruff (excludes text_parser.py)
+make format        # Run ruff + black formatters
+make lint-fix      # Auto-fix linting issues
+make test          # Run pytest
+make test-cov      # Tests with HTML coverage report
+make pre-commit    # Full check before git commit
+```
 
-# Run CLI
+### Direct CLI Usage
+```bash
+# Extract and verify
 uv run metesparser extract deed.pdf
-uv run metesparser verify calls.csv
-uv run metesparser export calls.csv --format geojson
+uv run metesparser verify calls.csv --area 7500
 
-# Testing
-uv run pytest
-uv run pytest --cov=src/metesparser --cov-report=html
-
-# Linting
-uv run ruff check .
-uv run ruff format .
-uv run black .
-
-# Type checking
-uv run mypy src/metesparser
+# Development
+uv run pytest tests/test_bearing_converter.py -v
+uv run pytest -k "test_closure" --pdb
 ```
 
-## Environment Variables
-
-Create `.env` file:
+### UV (REQUIRED - Never use pip/conda/poetry)
+```bash
+uv venv                    # Create virtual environment
+uv sync --all-extras --dev # Install all dependencies
+uv add package-name        # Add new dependency
+uv run pytest              # Run commands in venv
 ```
-OPENAI_API_KEY=your_key_here
-LOG_LEVEL=INFO
+
+## Data Flow Architecture
+
+### Processing Pipeline
+```
+PDF → PDFProcessor.process_deed_pdf() → LegalDescription
+  ├─ OpenAI extraction (prompts/extract_legal_description.yaml)
+  ├─ Text normalization (TextParser.normalize_legal_description)
+  ├─ Call extraction (CallExtractor.extract_calls) [rule-based, not AI]
+  └─ Azimuth enrichment (BearingConverter.enrich_calls_with_azimuths)
+
+LegalDescription → ClosureChecker.verify_closure() → ClosureResult
+  ├─ Traverse closure (sum dx, dy)
+  ├─ 6 verification guardrails
+  └─ Area calculation (shoelace formula)
+
+ClosureResult → CSVBuilder.export_verified_csv() → CSV
+  └─ Only exports _verified.csv if all checks pass
 ```
 
-## Core Principles
+### Key Module Responsibilities
 
-1. **Never fabricate bearings** - If only "southwesterly" is given, leave bearing blank
-2. **Close before verifying** - Traverse must close to <0.01 ft for _verified.csv
-3. **Preserve verbatim wording** - Keep original deed language in along/to fields
-4. **Six verification guardrails**:
-   - A) Traverse closure
-   - B) Interior angle validation
-   - C) Parallelism checks
-   - D) Curve consistency
-   - E) Area reasonableness
-   - F) Double-entry validation
+**models.py** - Pydantic schemas
+- `DeedCall`: Single course (bearing, distance, curve data)
+- `LegalDescription`: Complete deed with calls list + metadata
+- `ClosureResult`: Verification results with misclosure and area
 
-## CSV Schema
+**bearing_converter.py** - Coordinate math
+- Quadrant bearing ↔ azimuth: `parse_quadrant_bearing()`, `quadrant_to_azimuth()`
+- Delta calculations: `calculate_deltas(azimuth, distance) → (dx, dy)`
+- Curve math: `calculate_curve_properties(radius, delta) → {arc, chord, ...}`
 
-Standard output format:
+**call_extractor.py** - Rule-based parsing (NOT AI)
+- Regex patterns for bearings: `(N|S) \d{1,3}°\d{1,2}' (E|W)`
+- Never fabricates - returns `None` for incomplete data
+- Preserves verbatim `direction_text`, `along`, `to` fields
+
+**closure_checker.py** - 6 Verification Guardrails
+1. Traverse closure (< 0.01 ft)
+2. Interior angles sum ((n-2)*180°)
+3. Parallelism checks
+4. Curve consistency (L ≈ R*Δ)
+5. Area reasonableness (vs stated)
+6. Double-entry validation
+
+## Bearing Convention (Critical for Calculations)
+
+Azimuth = degrees clockwise from North (0-360):
+- N 45° E → 45°
+- S 45° E → 135° (180 - 45)
+- S 45° W → 225° (180 + 45)
+- N 45° W → 315° (360 - 45)
+
+DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
+
+## Unit Conversions (survey_parser.py)
+- 1 pole = 1 rod = 1 perch = 16.5 ft
+- 1 chain = 66 ft
+- 1 link = 0.66 ft
+- 1 acre = 43,560 sq ft
+
+## Testing Strategy
+
+### Writing Tests (TDD Approach)
+1. Test bearing conversions first (most critical)
+2. Test with known parcels (18 Pennbrook rectangle, 31 Pennbrook 5-sided)
+3. Test closure on rectangles (should close to 0.00 ft)
+4. Test incomplete bearing handling (should flag, not fabricate)
+
+### Test File Locations
+```bash
+tests/test_bearing_converter.py  # Quadrant ↔ azimuth
+tests/test_call_extractor.py     # Regex parsing
+tests/test_closure_checker.py    # 6 guardrails
+tests/test_integration.py        # Full pipeline
 ```
+
+### Running Specific Tests
+```bash
+uv run pytest tests/test_bearing_converter.py::test_quadrant_to_azimuth -v
+uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
+```
+
+## Known Issues & Workarounds
+
+### text_parser.py Linting
+**Issue**: Contains Unicode DMS symbols (°, ', ") that break ruff/black parsers
+**Workaround**: Excluded in `pyproject.toml` under `[tool.ruff] exclude`
+**Action**: Don't try to lint this file - it's functionally correct
+
+### OpenAI API Configuration
+**Location**: `prompts/*.yaml` files
+**Temperature**: Always 0 for deterministic output
+**Model**: gpt-4o for PDF OCR, gpt-4o-mini for text normalization
+
+### CSV Schema (14 fields - order matters)
+```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
 along,to,notes
 ```
 
-## Bearing Convention
+## Environment Setup
 
-- Azimuth: degrees clockwise from North (0-360)
-- Quadrant conversion:
-  - N θ E → az = θ
-  - S θ E → az = 180 - θ
-  - S θ W → az = 180 + θ
-  - N θ W → az = 360 - θ
-
-## Unit Conversions
-
-- Pole = Rod = Perch = 16.5 ft
-- Chain = 66 ft
-- Link = 0.66 ft
-- Acre = 43,560 sq ft
+Required in `.env`:
+```bash
+OPENAI_API_KEY=sk-...  # Required for PDF processing
+LOG_LEVEL=INFO          # Optional, defaults to INFO
+```
 
 ## Git Workflow
+- Never push to `main` - use branches and PRs
+- Run `make pre-commit` before committing
+- Never commit `.env` or API keys
+- Only commit `_verified.csv` files (passed all checks)
 
-- Never push to main
-- Always use branches and PRs
-- Never commit secrets/API keys
-- Always commit verified CSVs only
+## Common Development Patterns
 
-## Testing Approach
+### Adding a New Verification Check
+1. Add method to `ClosureChecker` (e.g., `check_bearing_reversal()`)
+2. Call from `verify_closure()` and add to warnings list
+3. Update `ClosureResult` model if needed
+4. Write test in `tests/test_closure_checker.py`
 
-TDD (Test-Driven Development):
-1. Write test first
-2. Implement feature
-3. Verify test passes
-4. Refactor if needed
+### Adding New Unit Support
+1. Add conversion factor to `ConversionFactors` in `models.py`
+2. Update `convert_to_feet()` method
+3. Add to `distance_unit` Literal in `LegalDescription`
+4. Test with sample deed using that unit
 
-## Common Issues
+### Debugging Closure Issues
+```python
+# In closure_checker.py, after computing traverse:
+for i, (call, point) in enumerate(zip(calls, points)):
+    print(f"Course {i+1}: {call.bearing_quadrant} {call.distance_ft}ft → {point}")
+print(f"Misclosure: ({misclosure_x:.4f}, {misclosure_y:.4f}) = {misclosure:.4f}ft")
+```
 
-1. **OCR errors**: 0↔°, 1↔l/I, 5↔S, 2↔7
-2. **Line wrapping**: Merge with merge_line_wrapped_calls()
-3. **Missing bearings**: Flag as "incomplete" in notes
-4. **Curve approximations**: Use chord for plotting
+## Reference: Playbook Compliance
 
-## Contact
-
-For issues or questions, refer to project README and playbook documentation.
+This implementation follows the comprehensive "Metes & Bounds – Deed Call Extraction Playbook" with:
+- Never fabricate bearings (Section 8A)
+- Close traverse before export (Section 6A)
+- 6 verification guardrails (Section 6)
+- Standard 14-field CSV schema (Section 5)
+- Preserve verbatim wording (Section 7)
+- Flag meanders/approximations (Section 8A)

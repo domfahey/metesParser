@@ -10,18 +10,6 @@ from typing import List
 class TextParser:
     """Parse and normalize legal description text."""
 
-    # Common OCR substitution errors
-    OCR_FIXES = {
-        "°": ["0", "º", "°"],  # Degree symbol variations
-        "'": ["'", "'", "`"],  # Minute symbol variations
-        '"': ['"', '"', """],  # Second symbol variations
-        "1": ["l", "I"],  # Number 1 vs letter l/I
-        "4": ["A"],  # Number 4 vs letter A (rare)
-        "7": ["T"],  # Number 7 vs letter T (rare)
-        "S": ["5"],  # Letter S vs number 5
-        "O": ["0"],  # Letter O vs number 0
-    }
-
     @classmethod
     def normalize_dms_symbols(cls, text: str) -> str:
         """Standardize degree/minute/second symbols.
@@ -218,7 +206,7 @@ class TextParser:
         This is a best-effort cleanup. Manual review is always recommended.
 
         Args:
-            text: OCR'd text
+            text: OCR text
 
         Returns:
             Cleaned text
@@ -261,7 +249,7 @@ class TextParser:
 
     @classmethod
     def extract_along_to_fields(cls, call_text: str) -> tuple[str, str]:
-        """Extract 'along' and 'to' fields from a call description.
+        """Extract along and to fields from a call description.
 
         Args:
             call_text: Single call text
