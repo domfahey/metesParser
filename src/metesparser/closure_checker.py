@@ -35,7 +35,8 @@ class ClosureChecker:
         # Compute traverse
         points = cls.compute_traverse(calls)
 
-        # Calculate misclosure
+        # Calculate misclosure (difference between end and start points)
+        # Should be zero for perfectly closed traverse
         misclosure_x = points[-1].x - points[0].x
         misclosure_y = points[-1].y - points[0].y
         misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
@@ -150,7 +151,8 @@ class ClosureChecker:
         if len(points) < 3:
             return 0.0
 
-        # Shoelace formula
+        # Shoelace formula (Gauss's area formula)
+        # Sum of (x[i] * y[i+1] - x[i+1] * y[i]) / 2
         area = 0.0
         n = len(points)
 
