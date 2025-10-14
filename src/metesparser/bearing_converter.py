@@ -14,8 +14,9 @@ class BearingConverter:
     """Convert bearings and calculate coordinate deltas."""
 
     # Regex for parsing quadrant bearings: (N|S) degrees [minutes] [seconds] (E|W)
+    # Degrees: 0-90, Minutes: 0-59, Seconds: 0-59
     QUADRANT_PATTERN = re.compile(
-        r"(N|S)\s*(\d{1,3})[°º]\s*(?:(\d{1,2})['′])?\s*(?:(\d{1,2}(?:\.\d+)?)[\"″])?\s*(E|W)",
+        r"(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)",
         re.IGNORECASE,
     )
 
@@ -40,8 +41,20 @@ class BearingConverter:
         seconds = float(match.group(4)) if match.group(4) else 0.0
         cardinal2 = match.group(5).upper()
 
+        # Validate ranges (redundant check since regex constrains, but defensive)
+        if not (0 <= degrees <= 90):
+            return None
+        if not (0 <= minutes < 60):
+            return None
+        if not (0 <= seconds < 60):
+            return None
+
         # Convert DMS to decimal degrees
         decimal_degrees = degrees + (minutes / 60.0) + (seconds / 3600.0)
+
+        # Validate result is within quadrant range
+        if decimal_degrees > 90.0:
+            return None
 
         return (cardinal1, decimal_degrees, cardinal2)
 
@@ -131,6 +144,14 @@ class BearingConverter:
         minutes = int(remainder)
         seconds = (remainder - minutes) * 60
 
+        # Handle rounding edge case: if seconds rounds to 60, carry to minutes
+        if seconds >= 59.95:  # Will round to 60.0 in display
+            seconds = 0.0
+            minutes += 1
+            if minutes >= 60:  # Carry to degrees
+                minutes = 0
+                degrees += 1
+
         if seconds < 0.5:
             return f"{cardinal1} {degrees}°{minutes:02d}' {cardinal2}"
         else:
@@ -174,22 +195,48 @@ class BearingConverter:
             chord = 2R * sin(Δ/2)
 
         Args:
-            radius_ft: Radius in feet
-            delta_deg: Central angle in degrees (optional)
+            radius_ft: Radius in feet (must be > 0)
+            delta_deg: Central angle in degrees (optional, 0-360)
             arc_length_ft: Arc length in feet (optional)
 
         Returns:
             Dict with keys: radius_ft, delta_deg, arc_length_ft, chord_length_ft
+
+        Raises:
+            ValueError: If radius <= 0, delta > 360, or neither delta/arc provided
         """
+        # Critical: Validate radius to prevent division by zero
+        if radius_ft <= 0:
+            raise ValueError(f"Radius must be positive, got {radius_ft}")
+
+        # Initialize delta_rad to prevent UnboundLocalError
+        delta_rad = 0.0
+
         if delta_deg is not None:
+            # Validate delta angle range
+            if not (0 <= delta_deg <= 360):
+                raise ValueError(f"Delta angle must be 0-360 degrees, got {delta_deg}")
+
             # Given R and Δ
             delta_rad = math.radians(delta_deg)
             arc = radius_ft * delta_rad
             chord = 2 * radius_ft * math.sin(delta_rad / 2)
         elif arc_length_ft is not None:
+            # Validate arc length
+            if arc_length_ft < 0:
+                raise ValueError(f"Arc length must be non-negative, got {arc_length_ft}")
+
             # Given R and L
-            delta_rad = arc_length_ft / radius_ft
+            delta_rad = arc_length_ft / radius_ft  # Safe: radius_ft > 0
             delta_deg = math.degrees(delta_rad)
+
+            # Validate computed delta
+            if delta_deg > 360:
+                raise ValueError(
+                    f"Computed delta angle {delta_deg:.2f}° exceeds 360° "
+                    f"(arc={arc_length_ft}, radius={radius_ft})"
+                )
+
             arc = arc_length_ft
             chord = 2 * radius_ft * math.sin(delta_rad / 2)
         else:

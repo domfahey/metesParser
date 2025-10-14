@@ -83,7 +83,14 @@ class CallExtractor:
             cardinal1, degrees, cardinal2 = parsed_bearing
             deg_int = int(degrees)
             minutes = (degrees - deg_int) * 60
-            bearing_quadrant = f"{cardinal1} {deg_int}°{round(minutes):02d}' {cardinal2}"
+
+            # Handle rounding edge case: if minutes rounds to 60, carry to degrees
+            rounded_minutes = round(minutes)
+            if rounded_minutes >= 60:
+                rounded_minutes = 0
+                deg_int += 1
+
+            bearing_quadrant = f"{cardinal1} {deg_int}°{rounded_minutes:02d}' {cardinal2}"
             azimuth = BearingConverter.quadrant_to_azimuth(cardinal1, degrees, cardinal2)
         else:
             # Could be a meander/cardinal-only (e.g., "southwesterly")

@@ -22,16 +22,25 @@ class ClosureChecker:
     CLOSURE_TOLERANCE_FT = 0.01
 
     @classmethod
-    def verify_closure(cls, calls: list[DeedCall], stated_area_sq_ft: float = 0.0) -> ClosureResult:
+    def verify_closure(
+        cls,
+        calls: list[DeedCall],
+        stated_area_sq_ft: float = 0.0,
+        closure_tolerance_ft: float | None = None,
+    ) -> ClosureResult:
         """Verify traverse closure and perform all validation checks.
 
         Args:
             calls: List of DeedCall objects
             stated_area_sq_ft: Stated area from deed (optional, for comparison)
+            closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft)
 
         Returns:
             ClosureResult with all checks and computed values
         """
+        # Use provided tolerance or default
+        tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
+
         # Compute traverse
         points = cls.compute_traverse(calls)
 
@@ -42,18 +51,23 @@ class ClosureChecker:
         misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
 
         # Calculate area (shoelace formula)
-        area_sq_ft = cls.calculate_area(points)
-        area_acres = area_sq_ft / 43560.0
+        warnings = []
+        try:
+            area_sq_ft = cls.calculate_area(points)
+            area_acres = area_sq_ft / 43560.0
+        except ValueError as e:
+            # Not enough points for area calculation
+            area_sq_ft = 0.0
+            area_acres = 0.0
+            warnings.append(f"Cannot calculate area: {e}")
 
         # Calculate perimeter
         perimeter = cls.calculate_perimeter(calls)
 
         # Perform verification checks
-        closure_passed = misclosure < cls.CLOSURE_TOLERANCE_FT
+        closure_passed = misclosure < tolerance
         angle_check_passed = cls.check_interior_angles(calls)
         curve_consistency_passed = cls.check_curve_consistency(calls)
-
-        warnings = []
 
         # Check parallelism
         parallel_warnings = cls.check_parallelism(calls)
@@ -146,10 +160,15 @@ class ClosureChecker:
             points: List of Point objects forming a polygon
 
         Returns:
-            Area in square feet
+            Area in square feet (0.0 if < 3 points)
+
+        Raises:
+            ValueError: If fewer than 3 points provided
         """
         if len(points) < 3:
-            return 0.0
+            # Cannot calculate area with < 3 points - this is an error condition
+            # Silent return of 0 could mask issues
+            raise ValueError(f"Cannot calculate area with {len(points)} points (need at least 3)")
 
         # Shoelace formula (Gauss's area formula)
         # Sum of (x[i] * y[i+1] - x[i+1] * y[i]) / 2
