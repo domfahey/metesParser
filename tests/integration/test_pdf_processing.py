@@ -22,16 +22,17 @@ from metesparser.csv_builder import CSVBuilder
 from metesparser.pdf_processor import PDFProcessor
 from metesparser.text_parser import TextParser
 
-# Project root directory containing sample PDFs
+# Project root directory containing sample_deeds folder
 PROJECT_ROOT = Path(__file__).parent.parent.parent
+SAMPLE_DEEDS_DIR = PROJECT_ROOT / "sample_deeds"
 
 # Sample deed PDF files
-PDF_18_PENNBROOK = PROJECT_ROOT / "18 Pennbrook Dr - Deed Image (11985 - 00829).pdf"
-PDF_24_PENNBROOK = PROJECT_ROOT / "24 Pennbrook Dr - Deed Image (11793 - 00217).pdf"
-PDF_31_PENNBROOK_1 = PROJECT_ROOT / "31 Pennbrook Dr - Deed Image (4618 - 717).pdf"
-PDF_31_PENNBROOK_2 = PROJECT_ROOT / "31 Pennbrook Dr - Deed Image (9777 - 1354).pdf"
-PDF_31_PENNBROOK_3 = PROJECT_ROOT / "31 Pennbrook Dr - Deed Image (10989 - 916).pdf"
-PDF_31_PENNBROOK_4 = PROJECT_ROOT / "31 Pennbrook Dr - Deed Image (11191 - 01716).pdf"
+PDF_18_PENNBROOK = SAMPLE_DEEDS_DIR / "18 Pennbrook Dr - Deed Image (11985 - 00829).pdf"
+PDF_24_PENNBROOK = SAMPLE_DEEDS_DIR / "24 Pennbrook Dr - Deed Image (11793 - 00217).pdf"
+PDF_31_PENNBROOK_1 = SAMPLE_DEEDS_DIR / "31 Pennbrook Dr - Deed Image (4618 - 717).pdf"
+PDF_31_PENNBROOK_2 = SAMPLE_DEEDS_DIR / "31 Pennbrook Dr - Deed Image (9777 - 1354).pdf"
+PDF_31_PENNBROOK_3 = SAMPLE_DEEDS_DIR / "31 Pennbrook Dr - Deed Image (10989 - 916).pdf"
+PDF_31_PENNBROOK_4 = SAMPLE_DEEDS_DIR / "31 Pennbrook Dr - Deed Image (11191 - 01716).pdf"
 
 
 def has_openai_key() -> bool:
