@@ -85,7 +85,12 @@ class BearingConverter:
         elif cardinal1 == "N" and cardinal2 == "W":
             azimuth = 360.0 - degrees
         else:
-            raise ValueError(f"Invalid cardinal combination: {cardinal1} {cardinal2}")
+            # Provide helpful error message for invalid combinations
+            valid_combos = "N-E, S-E, S-W, N-W"
+            raise ValueError(
+                f"Invalid cardinal combination: {cardinal1}-{cardinal2}. "
+                f"Valid combinations are: {valid_combos}"
+            )
 
         # Normalize to [0, 360)
         return azimuth % 360.0
@@ -297,14 +302,22 @@ class BearingConverter:
         Args:
             start_point: Starting point
             tangent_azimuth: Tangent azimuth at start (degrees)
-            radius_ft: Curve radius (feet)
-            delta_deg: Central angle (degrees)
+            radius_ft: Curve radius (feet, must be > 0)
+            delta_deg: Central angle (degrees, 0-360)
             curve_dir: "left" or "right"
 
         Returns:
             Endpoint of curve
+
+        Raises:
+            ValueError: If radius <= 0 or delta out of range
         """
-        # Calculate chord
+        # Validate inputs (calculate_curve_properties will validate internally)
+        # But we add explicit check here for clarity
+        if radius_ft <= 0:
+            raise ValueError(f"Radius must be positive, got {radius_ft}")
+
+        # Calculate chord - this will also validate delta_deg
         curve_props = cls.calculate_curve_properties(radius_ft, delta_deg=delta_deg)
         chord_length = curve_props["chord_length_ft"]
 

@@ -177,47 +177,32 @@ class CSVBuilder:
             direction_text = row["direction_text"]
             distance_ft = float(row["distance_ft"])
 
-            # Parse optional fields
-            bearing_quadrant = row.get("bearing_quadrant") or None
-            if bearing_quadrant == "":
-                bearing_quadrant = None
+            # Helper function to parse optional string field
+            def parse_optional_str(field_name: str) -> str | None:
+                value = row.get(field_name, "").strip()
+                return value if value else None
 
-            azimuth_str = row.get("bearing_azimuth_deg_from_north", "")
-            azimuth = float(azimuth_str) if azimuth_str else None
+            # Helper function to parse optional float field
+            def parse_optional_float(field_name: str) -> float | None:
+                value = row.get(field_name, "").strip()
+                return float(value) if value else None
+
+            # Parse optional fields - cleaner with helper functions
+            bearing_quadrant = parse_optional_str("bearing_quadrant")
+            azimuth = parse_optional_float("bearing_azimuth_deg_from_north")
 
             # Curve fields
-            curve_dir = row.get("curve_dir") or None
-            if curve_dir == "":
-                curve_dir = None
-
-            radius_str = row.get("radius_ft", "")
-            radius_ft = float(radius_str) if radius_str else None
-
-            delta_str = row.get("delta_deg", "")
-            delta_deg = float(delta_str) if delta_str else None
-
-            arc_str = row.get("arc_length_ft", "")
-            arc_length_ft = float(arc_str) if arc_str else None
-
-            chord_bearing = row.get("chord_bearing") or None
-            if chord_bearing == "":
-                chord_bearing = None
-
-            chord_len_str = row.get("chord_length_ft", "")
-            chord_length_ft = float(chord_len_str) if chord_len_str else None
+            curve_dir = parse_optional_str("curve_dir")
+            radius_ft = parse_optional_float("radius_ft")
+            delta_deg = parse_optional_float("delta_deg")
+            arc_length_ft = parse_optional_float("arc_length_ft")
+            chord_bearing = parse_optional_str("chord_bearing")
+            chord_length_ft = parse_optional_float("chord_length_ft")
 
             # Descriptive fields
-            along = row.get("along") or None
-            if along == "":
-                along = None
-
-            to = row.get("to") or None
-            if to == "":
-                to = None
-
-            notes = row.get("notes") or None
-            if notes == "":
-                notes = None
+            along = parse_optional_str("along")
+            to = parse_optional_str("to")
+            notes = parse_optional_str("notes")
 
             return DeedCall(
                 course=course,
