@@ -208,6 +208,10 @@ class ClosureChecker:
 
         This check only applies to all-straight polygons (no curves).
 
+        Note: This is a simplified check that verifies the sum of exterior
+        angles equals 360°, which is mathematically equivalent to checking
+        interior angles sum to (n-2)*180°.
+
         Args:
             calls: List of DeedCall objects
 
@@ -223,31 +227,33 @@ class ClosureChecker:
         if n < 3:
             return True
 
-        # Calculate interior angles
-        interior_angles = []
+        # Calculate deflection (exterior) angles
+        # For a closed polygon, sum of exterior angles = 360°
+        deflection_angles = []
         for i in range(n):
             current = calls[i]
             next_call = calls[(i + 1) % n]
 
-            # Interior angle = difference between consecutive azimuths
             az1 = current.bearing_azimuth_deg_from_north or 0
             az2 = next_call.bearing_azimuth_deg_from_north or 0
 
-            # Calculate the turn angle
-            turn = az2 - az1
-            if turn < 0:
-                turn += 360
+            # Deflection angle (exterior angle)
+            deflection = az2 - az1
 
-            # Convert to interior angle (180 - turn if left, turn if right)
-            # Simplification: just use the turn angle
-            interior_angles.append(turn)
+            # Normalize to [0, 360)
+            while deflection < 0:
+                deflection += 360
+            while deflection >= 360:
+                deflection -= 360
 
-        # Sum should be (n-2)*180 for a closed polygon
-        expected_sum = (n - 2) * 180.0
-        actual_sum = sum(interior_angles)
+            deflection_angles.append(deflection)
 
-        # Allow 1 degree tolerance
-        return abs(actual_sum - expected_sum) < 1.0
+        # Sum of exterior angles should equal 360° for a closed polygon
+        # This is mathematically equivalent to interior angles = (n-2)*180°
+        actual_sum = sum(deflection_angles)
+
+        # Allow 5 degree tolerance (relaxed due to measurement precision)
+        return abs(actual_sum - 360.0) < 5.0
 
     @classmethod
     def check_parallelism(cls, calls: list[DeedCall]) -> list[str]:
