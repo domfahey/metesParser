@@ -128,12 +128,25 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
+The test suite includes 170+ tests organized by type:
+
 ```bash
-# Run all tests
+# Run all tests (unit + integration + regression)
 make test
 
+# Run only fast unit tests
+uv run pytest tests/unit/ -v
+
+# Run integration tests
+uv run pytest tests/integration/ -v
+
+# Run specific test markers
+uv run pytest -m curve           # Curve-related tests
+uv run pytest -m validation      # Input validation tests
+uv run pytest -m "not slow"      # Skip slow tests
+
 # Run specific test file
-uv run pytest tests/test_bearing_converter.py -v
+uv run pytest tests/unit/test_bearing_converter.py -v
 
 # Run tests matching pattern
 uv run pytest -k "closure" --pdb
@@ -142,6 +155,8 @@ uv run pytest -k "closure" --pdb
 make test-cov
 open htmlcov/index.html
 ```
+
+See [docs/TESTING.md](docs/TESTING.md) for comprehensive testing documentation.
 
 ### Code Quality
 
@@ -218,9 +233,20 @@ metesParser/
 │   ├── pdf_processor.py
 │   └── cli.py
 ├── prompts/                     # OpenAI prompt YAML files
-├── tests/                       # Pytest test suite
+├── tests/                       # Pytest test suite (170+ tests)
+│   ├── conftest.py              # Shared fixtures
+│   ├── helpers.py               # Test utilities
+│   ├── fixtures/                # Sample legal descriptions
+│   ├── unit/                    # Unit tests (6 files)
+│   ├── integration/             # End-to-end tests
+│   └── regression/              # Bug fix tests
+├── docs/                        # Documentation
+│   ├── TESTING.md               # Test suite guide
+│   ├── ARCHITECTURE.md          # System design
+│   ├── API.md                   # Python API reference
+│   └── CONTRIBUTING.md          # Development guidelines
 ├── CLAUDE.md                    # AI assistant guidance
-└── agents.md                    # Agent workflow documentation
+└── AGENTS.md                    # Agent workflow documentation
 ```
 
 ## Requirements
@@ -278,11 +304,21 @@ MIT
 
 Based on comprehensive metes & bounds extraction best practices from professional surveying standards.
 
+## Documentation
+
+- **[README.md](README.md)** - This file, overview and quick start
+- **[docs/TESTING.md](docs/TESTING.md)** - Test suite guide and best practices
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System design and data flow
+- **[docs/API.md](docs/API.md)** - Python API reference
+- **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Development guidelines
+- **[CLAUDE.md](CLAUDE.md)** - AI assistant context and guidance
+- **[AGENTS.md](AGENTS.md)** - Agent workflow documentation
+
 ## Support
 
 For issues or questions:
-- Check `CLAUDE.md` for detailed architecture guidance
-- Review `agents.md` for workflow documentation
+- Check relevant documentation above
+- Run `make help` for available commands
 - Open an issue on GitHub
 
 ---
