@@ -44,9 +44,7 @@ class MonumentClassifier:
     ]
 
     @classmethod
-    def classify_monument(
-        cls, text: str
-    ) -> (
+    def classify_monument(cls, text: str) -> (
         Literal[
             "iron_rod",
             "iron_pin",

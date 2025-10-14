@@ -213,9 +213,9 @@ class PDFProcessor:
         print("Extracting PLSS metadata...")
         plss_data = TextParser.extract_plss_metadata(normalized_text)
 
-        # Step 4: Extract POB
-        print("Extracting Point of Beginning...")
-        pob = TextParser.extract_pob(normalized_text)
+        # Step 4: Extract POC and POB
+        print("Extracting Point of Commencement and Point of Beginning...")
+        poc, pob = TextParser.extract_poc_and_pob(normalized_text)
 
         # Step 5: Extract calls (using rule-based extractor for reliability)
         print("Extracting calls...")
@@ -226,6 +226,7 @@ class PDFProcessor:
 
         # Build LegalDescription
         legal_desc = LegalDescription(
+            poc_description=poc if poc else None,
             pob_description=pob,
             calls=calls,
             source_doc=Path(pdf_path).name,

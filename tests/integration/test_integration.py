@@ -1,11 +1,9 @@
 """Integration tests - Full pipeline from text to verified CSV."""
 
 import math
-from pathlib import Path
 
 import pytest
 
-from metesparser.bearing_converter import BearingConverter
 from metesparser.call_extractor import CallExtractor
 from metesparser.closure_checker import ClosureChecker
 from metesparser.csv_builder import CSVBuilder

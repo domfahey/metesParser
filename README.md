@@ -16,6 +16,8 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 - 🏛️ **Monument Classification** - Automatically identifies survey marker types (iron rod, stone, brass cap, etc.)
 - 🗺️ **PLSS Support** - Extracts Section, Township, Range, Principal Meridian metadata
 - ⚠️ **Exception Handling** - Parses EXCEPT/LESS AND EXCEPT clauses with proper area calculations
+- 🔁 **POB Closure Detection** - Identifies calls that close back to Point of Beginning
+- 📍 **POC vs POB Distinction** - Separates Point of Commencement (survey reference) from Point of Beginning (parcel boundary)
 - 🚫 **Never Fabricates Data** - Flags incomplete bearings, never invents numbers
 - 🔄 **Unit Conversion** - Supports feet, poles, rods, chains
 
@@ -131,7 +133,7 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite includes 170+ tests organized by type:
+The test suite includes 184 tests organized by type:
 
 ```bash
 # Run all tests (unit + integration + regression)
@@ -240,7 +242,7 @@ metesParser/
 │   ├── pdf_processor.py
 │   └── cli.py
 ├── prompts/                     # OpenAI prompt YAML files
-├── tests/                       # Pytest test suite (170+ tests)
+├── tests/                       # Pytest test suite (184 tests)
 │   ├── conftest.py              # Shared fixtures
 │   ├── helpers.py               # Test utilities
 │   ├── fixtures/                # Sample legal descriptions

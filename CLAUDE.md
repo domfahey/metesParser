@@ -193,6 +193,32 @@ along,to,monument_type,is_exception,notes
   4. Adds warnings about exception tracts
 - **Validation**: Closure checks run on main tract only
 
+### 5. POB Closure Detection (Phase 2A)
+- **Module**: `text_parser.py` - `is_closure_to_pob()` method
+- **Feature**: Detects when a deed call indicates closure back to Point of Beginning
+- **Patterns Detected**: "to [the] [point of] beginning", "to [the] POB", "returning to beginning", "back to POB"
+- **Smart Matching**: Only checks last 60 characters of call text to avoid false positives
+- **Use Case**: Identifies the final call that closes the parcel traverse (essential for verification)
+- **Testing**: 8 test cases covering various closure patterns and edge cases
+- **Implementation**: Case-insensitive regex patterns with word boundaries
+
+### 6. POC vs POB Distinction (Phase 2B)
+- **Module**: `text_parser.py` - `extract_poc()`, `extract_poc_and_pob()` methods
+- **Concept**: Distinguishes Point of Commencement (survey reference) from Point of Beginning (parcel boundary)
+- **Pattern Recognition**: Extracts POC only when text contains both "COMMENCING at" AND later "POINT OF BEGINNING"
+- **Model Update**: Added `poc_description` field to `LegalDescription` class
+- **CSV Export**: POC included in metadata file alongside POB
+- **Example**:
+  ```
+  COMMENCING at NW corner of Section 12;        ← POC (reference point)
+  THENCE S 89° E 100 feet to the                ← Tie-in call
+  POINT OF BEGINNING;                            ← POB (parcel starts here)
+  THENCE N 45° E 200 feet...                     ← Boundary calls begin
+  ```
+- **Use Case**: Essential for understanding survey methodology and locating parcel from control points
+- **Testing**: 6 test cases covering POC extraction, POB-only scenarios, and combined extraction
+- **Integration**: `pdf_processor.py` automatically extracts both during processing
+
 ## Environment Setup
 
 Required in `.env`:

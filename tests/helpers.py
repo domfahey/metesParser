@@ -7,7 +7,6 @@ import math
 
 from metesparser.models import ClosureResult, DeedCall, Point
 
-
 # ============================================================================
 # Assertion Helpers
 # ============================================================================
@@ -46,9 +45,7 @@ def assert_closure_within_tolerance(
     Raises:
         AssertionError: If misclosure exceeds tolerance
     """
-    error_msg = (
-        msg or f"Misclosure {result.misclosure_ft:.4f} ft exceeds tolerance {tolerance} ft"
-    )
+    error_msg = msg or f"Misclosure {result.misclosure_ft:.4f} ft exceeds tolerance {tolerance} ft"
 
     assert result.misclosure_ft <= tolerance, error_msg
     assert result.closure_passed is True, error_msg
@@ -87,9 +84,7 @@ def assert_angle_near(
 # ============================================================================
 
 
-def create_square(
-    size: float, start_azimuth: float = 0.0, start_course: int = 1
-) -> list[DeedCall]:
+def create_square(size: float, start_azimuth: float = 0.0, start_course: int = 1) -> list[DeedCall]:
     """Generate calls for a square traverse.
 
     Args:
@@ -106,7 +101,7 @@ def create_square(
         calls.append(
             DeedCall(
                 course=start_course + i,
-                direction_text=f"Side {i+1}",
+                direction_text=f"Side {i + 1}",
                 bearing_azimuth_deg_from_north=azimuth,
                 distance_ft=size,
             )
@@ -144,7 +139,7 @@ def create_rectangle(
         calls.append(
             DeedCall(
                 course=start_course + i,
-                direction_text=f"Side {i+1}",
+                direction_text=f"Side {i + 1}",
                 bearing_azimuth_deg_from_north=azimuths[i],
                 distance_ft=distances[i],
             )
@@ -182,7 +177,7 @@ def create_regular_polygon(
         calls.append(
             DeedCall(
                 course=start_course + i,
-                direction_text=f"Side {i+1}",
+                direction_text=f"Side {i + 1}",
                 bearing_azimuth_deg_from_north=current_azimuth,
                 distance_ft=side_length,
             )

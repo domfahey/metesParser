@@ -99,8 +99,14 @@ class Point(BaseModel):
 class LegalDescription(BaseModel):
     """Represents a complete legal description from a deed."""
 
-    # Point of Beginning
-    pob_description: str | None = Field(None, description="Description of Point of Beginning")
+    # Point of Commencement (starting reference) vs Point of Beginning (parcel start)
+    poc_description: str | None = Field(
+        None,
+        description="Point of Commencement - survey reference point (distinct from POB)",
+    )
+    pob_description: str | None = Field(
+        None, description="Point of Beginning - where parcel boundary starts"
+    )
 
     # List of calls/courses
     calls: list[DeedCall] = Field(

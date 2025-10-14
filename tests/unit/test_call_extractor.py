@@ -201,9 +201,7 @@ class TestCallExtraction:
     def test_enrich_with_azimuths(self, deed_call_factory):
         """Enrich calls with azimuths from quadrant bearings."""
         calls = [
-            deed_call_factory(
-                bearing_quadrant="N 45°00' E", bearing_azimuth_deg_from_north=None
-            )
+            deed_call_factory(bearing_quadrant="N 45°00' E", bearing_azimuth_deg_from_north=None)
         ]
 
         enriched = CallExtractor.enrich_calls_with_azimuths(calls)

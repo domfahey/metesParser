@@ -112,6 +112,7 @@ class CSVBuilder:
             output_path: Output file path
         """
         metadata = {
+            "poc_description": legal_desc.poc_description,
             "pob_description": legal_desc.pob_description,
             "source_doc": legal_desc.source_doc,
             "exhibit": legal_desc.exhibit,

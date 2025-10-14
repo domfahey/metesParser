@@ -1,6 +1,5 @@
 """Tests for text_parser.py - Text normalization and OCR fixes."""
 
-import pytest
 
 from metesparser.text_parser import TextParser
 
@@ -22,15 +21,15 @@ class TestNormalizeDMSSymbols:
 
     def test_normalize_second_symbols(self):
         """Normalize various second symbol variants to \"."""
-        text = 'N 45°30\'15" E'  # Smart quote
+        text = "N 45°30'15\" E"  # Smart quote
         result = TextParser.normalize_dms_symbols(text)
-        assert '45°30\'15"' in result
+        assert "45°30'15\"" in result
 
     def test_mixed_symbols(self):
         """Normalize mixed symbol variants."""
-        text = 'N 45º30\'15" E'
+        text = "N 45º30'15\" E"
         result = TextParser.normalize_dms_symbols(text)
-        assert '45°30\'15" E' in result
+        assert "45°30'15\" E" in result
 
 
 class TestMergeLineWrappedCalls:
@@ -90,10 +89,10 @@ class TestStandardizeCardinalDirections:
 
     def test_normalize_spacing_with_seconds(self):
         """Normalize spacing with seconds."""
-        text = 'S 45 ° 30 \' 15 " W'
+        text = "S 45 ° 30 ' 15 \" W"
         result = TextParser.standardize_cardinal_directions(text)
         # Accept either escaped or unescaped double quote
-        assert ('S 45°30\'15" W' in result or 'S 45°30\'15\\" W' in result)
+        assert "S 45°30'15\" W" in result or "S 45°30'15\\\" W" in result
 
 
 class TestExtractPOB:
@@ -128,6 +127,108 @@ class TestExtractPOB:
         text = "THENCE N 45° E 100 feet"
         pob = TextParser.extract_pob(text)
         assert pob == ""
+
+
+class TestExtractPOC:
+    """Test Point of Commencement extraction (distinct from POB)."""
+
+    def test_extract_commencing_separate_from_pob(self):
+        """Extract POC when distinct from POB."""
+        text = "COMMENCING at the NW corner of Section 12; THENCE S 89° E 100 feet to the POINT OF BEGINNING"
+        poc = TextParser.extract_poc(text)
+        assert "NW corner of Section 12" in poc
+
+    def test_extract_starting_at(self):
+        """Extract POC from 'starting at' pattern."""
+        text = "Starting at the intersection of Main St and 1st Ave, thence N 45° E to the point of beginning"
+        poc = TextParser.extract_poc(text)
+        assert "intersection of Main St and 1st Ave" in poc
+
+    def test_no_poc_when_only_pob(self):
+        """Return empty string when only POB exists (no separate POC)."""
+        text = "BEGINNING at a point in the center of Main Street. THENCE N 45° E"
+        poc = TextParser.extract_poc(text)
+        assert poc == ""
+
+    def test_poc_with_multiple_thence(self):
+        """Extract POC with multiple THENCE clauses before POB."""
+        text = """COMMENCING at an iron rod;
+        THENCE N 0°15' E 50 feet;
+        THENCE S 89°45' E 100 feet to the POINT OF BEGINNING;
+        THENCE continuing S 89°45' E"""
+        poc = TextParser.extract_poc(text)
+        assert "iron rod" in poc
+
+
+class TestDistinguishPOCvsPOB:
+    """Test extraction of both POC and POB from same description."""
+
+    def test_extract_both_poc_and_pob(self):
+        """Extract both POC and POB when both present."""
+        text = "COMMENCING at the SW corner of Lot 5; THENCE N 100 feet to the POINT OF BEGINNING; THENCE"
+        poc, pob = TextParser.extract_poc_and_pob(text)
+        assert "SW corner of Lot 5" in poc
+        assert poc != ""
+        assert pob != ""  # Should find subsequent POB
+
+    def test_pob_only_no_poc(self):
+        """When only POB exists, POC should be empty."""
+        text = "BEGINNING at an iron pin. THENCE N 45° E"
+        poc, pob = TextParser.extract_poc_and_pob(text)
+        assert poc == ""
+        assert "iron pin" in pob
+
+
+class TestDetectPOBClosure:
+    """Test detection of closure patterns (returning to POB)."""
+
+    def test_detect_to_point_of_beginning(self):
+        """Detect 'to the point of beginning' closure."""
+        text = "N 45° E 100 feet to the point of beginning"
+        is_closure = TextParser.is_closure_to_pob(text)
+        assert is_closure is True
+
+    def test_detect_to_pob(self):
+        """Detect 'to the POB' closure."""
+        text = "S 30° W 150.5 feet to the POB"
+        is_closure = TextParser.is_closure_to_pob(text)
+        assert is_closure is True
+
+    def test_detect_to_point_of_beginning_no_article(self):
+        """Detect 'to point of beginning' without article."""
+        text = "returning to point of beginning"
+        is_closure = TextParser.is_closure_to_pob(text)
+        assert is_closure is True
+
+    def test_detect_returning_to_beginning(self):
+        """Detect 'returning to the beginning' pattern."""
+        text = "thence returning to the beginning"
+        is_closure = TextParser.is_closure_to_pob(text)
+        assert is_closure is True
+
+    def test_detect_back_to_pob(self):
+        """Detect 'back to the POB' pattern."""
+        text = "100 feet back to the POB"
+        is_closure = TextParser.is_closure_to_pob(text)
+        assert is_closure is True
+
+    def test_detect_case_insensitive(self):
+        """Detect closure patterns case-insensitively."""
+        text = "TO THE POINT OF BEGINNING"
+        is_closure = TextParser.is_closure_to_pob(text)
+        assert is_closure is True
+
+    def test_no_closure_pattern(self):
+        """Return False when no closure pattern found."""
+        text = "N 45° E 100 feet to an iron pin"
+        is_closure = TextParser.is_closure_to_pob(text)
+        assert is_closure is False
+
+    def test_pob_in_middle_not_closure(self):
+        """Don't detect POB in middle of description as closure."""
+        text = "from the point of beginning, thence N 45° E"
+        is_closure = TextParser.is_closure_to_pob(text)
+        assert is_closure is False
 
 
 class TestSplitIntoCalls:

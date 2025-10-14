@@ -109,9 +109,9 @@ class TestHighBug4And5InvalidDMS:
     def test_reject_seconds_over_59(self):
         """Bearings with seconds >= 60 should not parse."""
         invalid_bearings = [
-            'N 45°30\'60" E',
-            'S 30°30\'70" W',
-            'N 89°59\'99" E',
+            "N 45°30'60\" E",
+            "S 30°30'70\" W",
+            "N 89°59'99\" E",
         ]
 
         for bearing in invalid_bearings:
@@ -124,7 +124,7 @@ class TestHighBug4And5InvalidDMS:
             ("N 90°00' E", 90.0),
             ("S 00°00' W", 0.0),
             ("N 45°59' E", 45.983333),
-            ('S 89°59\'59" W', 89.999722),
+            ("S 89°59'59\" W", 89.999722),
         ]
 
         for bearing, expected_degrees in valid_bearings:
@@ -167,7 +167,6 @@ class TestMediumBug7AreaCalculation:
 
     def test_area_with_zero_points(self):
         """Zero points should raise ValueError."""
-        from metesparser.models import Point
 
         points = []
         with pytest.raises(ValueError, match="Cannot calculate area with 0 points"):

@@ -2,8 +2,6 @@
 
 import math
 
-import pytest
-
 from metesparser.bearing_converter import BearingConverter
 from metesparser.models import Point
 
@@ -26,7 +24,7 @@ class TestQuadrantParsing:
 
     def test_parse_with_seconds(self):
         """Parse N 45°30'15\" E format."""
-        result = BearingConverter.parse_quadrant_bearing('N 45°30\'15" E')
+        result = BearingConverter.parse_quadrant_bearing("N 45°30'15\" E")
         c1, deg, c2 = result
         assert c1 == "N"
         assert math.isclose(deg, 45.504167, abs_tol=0.000001)  # 45 + 30/60 + 15/3600

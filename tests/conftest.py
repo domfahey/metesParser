@@ -4,12 +4,10 @@ Provides reusable fixtures for common test scenarios and test data.
 """
 
 import math
-from pathlib import Path
 
 import pytest
 
 from metesparser.models import DeedCall, Point
-
 
 # Test tolerance constants
 TOLERANCE_FT = 0.01  # Standard closure tolerance
@@ -18,17 +16,13 @@ TOLERANCE_ANGLE = 0.000001  # Angle comparison tolerance
 
 def pytest_configure(config):
     """Register custom markers."""
-    config.addinivalue_line("markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')")
     config.addinivalue_line(
-        "markers", "integration: marks tests as integration tests (end-to-end)"
+        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
     )
-    config.addinivalue_line(
-        "markers", "regression: marks tests as regression tests (bug fixes)"
-    )
+    config.addinivalue_line("markers", "integration: marks tests as integration tests (end-to-end)")
+    config.addinivalue_line("markers", "regression: marks tests as regression tests (bug fixes)")
     config.addinivalue_line("markers", "curve: marks tests related to curve calculations")
-    config.addinivalue_line(
-        "markers", "validation: marks tests related to input validation"
-    )
+    config.addinivalue_line("markers", "validation: marks tests related to input validation")
 
 
 # ============================================================================

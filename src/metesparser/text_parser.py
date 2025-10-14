@@ -42,17 +42,19 @@ class TextParser:
         )
         if township_match:
             township_num = township_match.group(1)
-            direction = "N" if "NORTH" in township_match.group(0) or "N" in township_match.group(0) else "S"
+            direction = (
+                "N" if "NORTH" in township_match.group(0) or "N" in township_match.group(0) else "S"
+            )
             plss_data["township"] = f"{township_num} {direction}"
 
         # Extract Range (various formats)
         # "Range 3 East" or "R3E" or "R. 3 E."
-        range_match = re.search(
-            r"\b(?:RANGE|R\.?)\s*(\d+)\s*(?:EAST|E\.?|WEST|W\.?)\b", text_upper
-        )
+        range_match = re.search(r"\b(?:RANGE|R\.?)\s*(\d+)\s*(?:EAST|E\.?|WEST|W\.?)\b", text_upper)
         if range_match:
             range_num = range_match.group(1)
-            direction = "E" if "EAST" in range_match.group(0) or "E" in range_match.group(0) else "W"
+            direction = (
+                "E" if "EAST" in range_match.group(0) or "E" in range_match.group(0) else "W"
+            )
             plss_data["range"] = f"{range_num} {direction}"
 
         # Extract Principal Meridian
@@ -99,7 +101,7 @@ class TextParser:
         text = re.sub(r"[''\u2018\u2019`]", "'", text)
 
         # Replace second symbols
-        text = re.sub(r"[""\u201C\u201D]", '"', text)
+        text = re.sub(r"[" "\u201c\u201d]", '"', text)
 
         return text
 
@@ -171,7 +173,10 @@ class TextParser:
                 lambda m: f"{m.group(1)[0]} {m.group(2)}° {m.group(3)[0]}",
             ),
             # Normalize spacing around DMS
-            (r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])", r"\1 \2°\3'\4\" \5"),
+            (
+                r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])",
+                r"\1 \2°\3'\4\" \5",
+            ),
             (r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4"),
             (r"([NS])\s*(\d{1,3})\s*°\s*([EW])", r"\1 \2° \3"),
         ]
@@ -205,6 +210,98 @@ class TextParser:
                 return match.group(1).strip()
 
         return ""
+
+    @classmethod
+    def is_closure_to_pob(cls, text: str) -> bool:
+        """Detect if call text indicates closure back to Point of Beginning.
+
+        Args:
+            text: Call text to check
+
+        Returns:
+            True if text indicates returning to POB, False otherwise
+        """
+        # Patterns for closure to POB (must be at/near end of text)
+        # Use \b for word boundaries and require "to" keyword
+        closure_patterns = [
+            r"\bto\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",  # to [the] [point of] beginning
+            r"\bto\s+(?:the\s+)?POB\b",  # to [the] POB
+            r"\breturning\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",  # returning to...
+            r"\bback\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",  # back to...
+            r"\bback\s+to\s+(?:the\s+)?POB\b",  # back to POB
+        ]
+
+        text_lower = text.lower()
+
+        for pattern in closure_patterns:
+            # Must be in last 60 characters (near end of call)
+            # to avoid matching "from the point of beginning" at start
+            last_part = text_lower[-60:] if len(text_lower) > 60 else text_lower
+            if re.search(pattern, last_part, re.IGNORECASE):
+                return True
+
+        return False
+
+    @classmethod
+    def extract_poc(cls, text: str) -> str:
+        """Extract Point of Commencement (distinct from Point of Beginning).
+
+        POC is the reference point where the survey starts, often distinct from
+        where the parcel boundary begins (POB). Common pattern:
+        "COMMENCING at [POC]; THENCE ... to the POINT OF BEGINNING; THENCE ..."
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            POC description string (empty if no separate POC found)
+        """
+        # Look for COMMENCING or STARTING patterns that occur BEFORE "POINT OF BEGINNING"
+        # This indicates a separate POC from POB
+        pob_pattern = r"\b(?:point\s+of\s+)?beginning\b"
+
+        # Check if there's a "POINT OF BEGINNING" later in the text
+        has_later_pob = bool(re.search(pob_pattern, text, re.IGNORECASE))
+
+        if not has_later_pob:
+            # No separate POB found, so no distinct POC
+            return ""
+
+        # Extract POC patterns that come before POB
+        poc_patterns = [
+            r"COMMENCING\s+at\s+(.*?)(?:;|THENCE)",
+            r"STARTING\s+at\s+(.*?)(?:,|;|THENCE)",
+        ]
+
+        for pattern in poc_patterns:
+            match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+            if match:
+                # Verify this comes before "POINT OF BEGINNING"
+                poc_text = match.group(1).strip()
+                poc_end_pos = match.end()
+
+                # Find position of POB
+                pob_match = re.search(pob_pattern, text[poc_end_pos:], re.IGNORECASE)
+                if pob_match:
+                    # POC comes before POB - this is a valid POC
+                    return poc_text
+
+        return ""
+
+    @classmethod
+    def extract_poc_and_pob(cls, text: str) -> tuple[str, str]:
+        """Extract both Point of Commencement and Point of Beginning.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            Tuple of (poc_description, pob_description)
+        """
+        poc = cls.extract_poc(text)
+        pob = cls.extract_pob(text)
+
+        return (poc, pob)
 
     @classmethod
     def split_into_calls(cls, text: str) -> List[str]:
