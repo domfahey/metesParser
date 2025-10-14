@@ -12,7 +12,10 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 - 🧭 **Bearing Conversion** - Quadrant bearings to azimuth (degrees from North)
 - 📐 **Curve Support** - Full radius, delta, arc length, chord calculations
 - ✅ **6 Verification Guardrails** - Traverse closure, angles, curves, area, parallelism
-- 📊 **CSV Export** - Standard 14-field schema for GIS plotting
+- 📊 **CSV Export** - Standard 16-field schema for GIS plotting
+- 🏛️ **Monument Classification** - Automatically identifies survey marker types (iron rod, stone, brass cap, etc.)
+- 🗺️ **PLSS Support** - Extracts Section, Township, Range, Principal Meridian metadata
+- ⚠️ **Exception Handling** - Parses EXCEPT/LESS AND EXCEPT clauses with proper area calculations
 - 🚫 **Never Fabricates Data** - Flags incomplete bearings, never invents numbers
 - 🔄 **Unit Conversion** - Supports feet, poles, rods, chains
 
@@ -176,19 +179,23 @@ make check
 
 ## CSV Schema
 
-Standard 14-field output format:
+Standard 16-field output format:
 
 ```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
-along,to,notes
+along,to,monument_type,is_exception,notes
 ```
 
 **Example:**
 ```csv
-1,"S 33°20' E","S 33°20' E",146.666667,60.00,,,,,,,"SW line of Concord Dr","point in div. line",""
-2,"S 56°40' W","S 56°40' W",236.666667,125.00,,,,,,,"Div. line L46/47 to L50","corner to Lot 50",""
+1,"S 33°20' E","S 33°20' E",146.666667,60.00,,,,,,,"SW line of Concord Dr","iron pin",iron_pin,false,""
+2,"S 56°40' W","S 56°40' W",236.666667,125.00,,,,,,,"Div. line L46/47 to L50","stone monument",stone,false,""
 ```
+
+**New Fields:**
+- `monument_type`: Classified survey marker type (iron_rod, iron_pin, iron_pipe, stone, concrete, wooden_post, brass_cap, rebar, railroad_spike, nail, other)
+- `is_exception`: Boolean indicating if this call is part of an EXCEPT clause
 
 ## Bearing Convention
 

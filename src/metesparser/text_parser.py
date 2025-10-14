@@ -11,6 +11,76 @@ class TextParser:
     """Parse and normalize legal description text."""
 
     @classmethod
+    def extract_plss_metadata(cls, text: str) -> dict[str, str | None]:
+        """Extract PLSS (Public Land Survey System) metadata from text.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            Dict with section, township, range, principal_meridian, aliquot
+        """
+        plss_data = {
+            "section": None,
+            "township": None,
+            "range": None,
+            "principal_meridian": None,
+            "aliquot": None,
+        }
+
+        text_upper = text.upper()
+
+        # Extract Section
+        section_match = re.search(r"\bSECTION\s+(\d+)\b", text_upper)
+        if section_match:
+            plss_data["section"] = section_match.group(1)
+
+        # Extract Township (various formats)
+        # "Township 15 North" or "T15N" or "T. 15 N."
+        township_match = re.search(
+            r"\b(?:TOWNSHIP|T\.?)\s*(\d+)\s*(?:NORTH|N\.?|SOUTH|S\.?)\b", text_upper
+        )
+        if township_match:
+            township_num = township_match.group(1)
+            direction = "N" if "NORTH" in township_match.group(0) or "N" in township_match.group(0) else "S"
+            plss_data["township"] = f"{township_num} {direction}"
+
+        # Extract Range (various formats)
+        # "Range 3 East" or "R3E" or "R. 3 E."
+        range_match = re.search(
+            r"\b(?:RANGE|R\.?)\s*(\d+)\s*(?:EAST|E\.?|WEST|W\.?)\b", text_upper
+        )
+        if range_match:
+            range_num = range_match.group(1)
+            direction = "E" if "EAST" in range_match.group(0) or "E" in range_match.group(0) else "W"
+            plss_data["range"] = f"{range_num} {direction}"
+
+        # Extract Principal Meridian
+        # Common meridians: Willamette, San Bernardino, Mount Diablo, etc.
+        pm_patterns = [
+            r"\b(\w+)\s+PRINCIPAL\s+MERIDIAN\b",
+            r"\b(\w+)\s+P\.?M\.?\b",
+        ]
+        for pattern in pm_patterns:
+            pm_match = re.search(pattern, text_upper)
+            if pm_match:
+                meridian_name = pm_match.group(1).title()
+                plss_data["principal_meridian"] = f"{meridian_name} Principal Meridian"
+                break
+
+        # Extract Aliquot (e.g., "SW 1/4 of NE 1/4")
+        # Pattern: cardinal direction + fraction "of" cardinal direction + fraction...
+        aliquot_pattern = r"\b((?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\s+OF\s+(?:THE\s+)?)+(?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\b"
+        aliquot_match = re.search(aliquot_pattern, text_upper)
+        if aliquot_match:
+            # Normalize fractions
+            aliquot_text = aliquot_match.group(0)
+            aliquot_text = aliquot_text.replace("½", "1/2").replace("¼", "1/4")
+            plss_data["aliquot"] = aliquot_text
+
+        return plss_data
+
+    @classmethod
     def normalize_dms_symbols(cls, text: str) -> str:
         """Standardize degree/minute/second symbols.
 
@@ -256,6 +326,62 @@ class TextParser:
         text = cls.standardize_cardinal_directions(text)
 
         return text
+
+    @classmethod
+    def split_exception_clauses(cls, text: str) -> list[tuple[str, bool]]:
+        """Split text into main tract and exception/inclusion tracts.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            List of tuples (tract_text, is_exception)
+            where is_exception=True for EXCEPT clauses, False for main/ALSO
+        """
+        # Patterns for exception/inclusion keywords
+        # Order matters - check longer phrases first
+        split_patterns = [
+            (r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", True),  # EXCEPT or LESS AND EXCEPT
+            (r"\b(?:ALSO|INCLUDING)\b", False),  # ALSO or INCLUDING
+        ]
+
+        tracts = []
+        remaining_text = text
+        last_end = 0
+
+        # Find all split points
+        splits = []
+        for pattern, is_exception in split_patterns:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                splits.append((match.start(), match.end(), is_exception))
+
+        # Sort by position
+        splits.sort(key=lambda x: x[0])
+
+        if not splits:
+            # No exceptions - return entire text as main tract
+            return [(text, False)]
+
+        # Add main tract (everything before first split)
+        first_split_pos = splits[0][0]
+        if first_split_pos > 0:
+            main_tract = text[:first_split_pos].strip()
+            if main_tract:
+                tracts.append((main_tract, False))
+
+        # Add subsequent tracts
+        for i, (start, end, is_exception) in enumerate(splits):
+            # Find where this tract ends (at next split or end of text)
+            if i + 1 < len(splits):
+                tract_end = splits[i + 1][0]
+            else:
+                tract_end = len(text)
+
+            tract_text = text[end:tract_end].strip()
+            if tract_text:
+                tracts.append((tract_text, is_exception))
+
+        return tracts if tracts else [(text, False)]
 
     @classmethod
     def extract_along_to_fields(cls, call_text: str) -> tuple[str, str]:

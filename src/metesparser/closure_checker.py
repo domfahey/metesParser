@@ -43,8 +43,12 @@ class ClosureChecker:
             closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
         )
 
-        # Compute traverse
-        points = cls.compute_traverse(calls)
+        # Separate main tract from exception tracts
+        main_calls = [c for c in calls if not c.is_exception]
+        exception_calls = [c for c in calls if c.is_exception]
+
+        # Compute traverse for main tract
+        points = cls.compute_traverse(main_calls)
 
         # Calculate misclosure (difference between end and start points)
         # Should be zero for perfectly closed traverse
@@ -55,7 +59,22 @@ class ClosureChecker:
         # Calculate area (shoelace formula)
         warnings = []
         try:
-            area_sq_ft = cls.calculate_area(points)
+            main_area_sq_ft = cls.calculate_area(points)
+
+            # Calculate exception areas if present
+            exception_area_sq_ft = 0.0
+            if exception_calls:
+                warnings.append(
+                    f"Found {len(exception_calls)} exception calls - calculating exception area to subtract"
+                )
+                try:
+                    exception_points = cls.compute_traverse(exception_calls)
+                    exception_area_sq_ft = cls.calculate_area(exception_points)
+                except ValueError as e:
+                    warnings.append(f"Cannot calculate exception area: {e}")
+
+            # Net area = main area - exception area
+            area_sq_ft = main_area_sq_ft - exception_area_sq_ft
             area_acres = area_sq_ft / 43560.0
         except ValueError as e:
             # Not enough points for area calculation
@@ -63,13 +82,13 @@ class ClosureChecker:
             area_acres = 0.0
             warnings.append(f"Cannot calculate area: {e}")
 
-        # Calculate perimeter
-        perimeter = cls.calculate_perimeter(calls)
+        # Calculate perimeter (main tract only)
+        perimeter = cls.calculate_perimeter(main_calls)
 
-        # Perform verification checks
+        # Perform verification checks (main tract only)
         closure_passed = misclosure < tolerance
-        angle_check_passed = cls.check_interior_angles(calls)
-        curve_consistency_passed = cls.check_curve_consistency(calls)
+        angle_check_passed = cls.check_interior_angles(main_calls)
+        curve_consistency_passed = cls.check_curve_consistency(main_calls)
 
         # Check parallelism
         parallel_warnings = cls.check_parallelism(calls)
@@ -84,12 +103,20 @@ class ClosureChecker:
                     f"(computed: {area_sq_ft:.1f} sq ft, stated: {stated_area_sq_ft:.1f} sq ft)"
                 )
 
-        # Check for incomplete bearings
-        incomplete = [c for c in calls if not c.is_complete_bearing()]
+        # Check for incomplete bearings (main tract)
+        incomplete = [c for c in main_calls if not c.is_complete_bearing()]
         if incomplete:
             warnings.append(
                 f"{len(incomplete)} call(s) have incomplete bearings (cardinal-only or meanders)"
             )
+
+        # Warn about exception tracts
+        if exception_calls:
+            exception_incomplete = [c for c in exception_calls if not c.is_complete_bearing()]
+            if exception_incomplete:
+                warnings.append(
+                    f"Exception tract has {len(exception_incomplete)} incomplete bearing(s)"
+                )
 
         return ClosureResult(
             misclosure_x_ft=misclosure_x,

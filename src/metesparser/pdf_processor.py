@@ -209,15 +209,19 @@ class PDFProcessor:
         print("Normalizing text...")
         normalized_text = self.normalize_legal_description(legal_desc_text)
 
-        # Step 3: Extract POB
+        # Step 3: Extract PLSS metadata
+        print("Extracting PLSS metadata...")
+        plss_data = TextParser.extract_plss_metadata(normalized_text)
+
+        # Step 4: Extract POB
         print("Extracting Point of Beginning...")
         pob = TextParser.extract_pob(normalized_text)
 
-        # Step 4: Extract calls (using rule-based extractor for reliability)
+        # Step 5: Extract calls (using rule-based extractor for reliability)
         print("Extracting calls...")
         calls = CallExtractor.extract_calls(normalized_text)
 
-        # Step 5: Enrich with azimuths
+        # Step 6: Enrich with azimuths
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
 
         # Build LegalDescription
@@ -225,6 +229,11 @@ class PDFProcessor:
             pob_description=pob,
             calls=calls,
             source_doc=Path(pdf_path).name,
+            section=plss_data.get("section"),
+            township=plss_data.get("township"),
+            range=plss_data.get("range"),
+            principal_meridian=plss_data.get("principal_meridian"),
+            aliquot=plss_data.get("aliquot"),
         )
 
         print(f"Extracted {legal_desc.num_calls()} calls")

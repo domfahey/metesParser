@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
+**Version**: 0.2 (Enhanced with monument classification, PLSS support, exception handling)
+
 ## Critical Architecture Principles
 
 ### 1. Never Fabricate Data
@@ -144,12 +146,52 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 **Temperature**: Always 0 for deterministic output
 **Model**: gpt-4o for PDF OCR, gpt-4o-mini for text normalization
 
-### CSV Schema (14 fields - order matters)
+### CSV Schema (16 fields - order matters)
 ```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
-along,to,notes
+along,to,monument_type,is_exception,notes
 ```
+
+**New in v0.2:**
+- `monument_type`: Auto-classified from "to" field (iron_rod, iron_pin, iron_pipe, stone, concrete, wooden_post, brass_cap, rebar, railroad_spike, nail, other)
+- `is_exception`: Boolean flag for EXCEPT/LESS AND EXCEPT clause calls
+
+## Recent Enhancements (v0.2)
+
+### 1. Monument Type Classification
+- **Module**: `call_extractor.py` - `MonumentClassifier` class
+- **Feature**: Automatically classifies survey markers from the "to" field
+- **Supported Types**: iron_rod, iron_pin, iron_pipe, stone, concrete, wooden_post, brass_cap, rebar, railroad_spike, nail, other
+- **Pattern Matching**: Regex-based classification with specificity ordering
+- **Use Case**: Helps assess survey reliability (e.g., iron monuments are more permanent than wooden posts)
+
+### 2. PLSS (Public Land Survey System) Support
+- **Module**: `text_parser.py` - `extract_plss_metadata()` method
+- **Fields Added to LegalDescription**: section, township, range, principal_meridian, aliquot
+- **Extraction**: Automatically parses Section/Township/Range/PM from deed text
+- **Formats Supported**: "Section 12, Township 15 N, Range 3 E, Willamette PM" and abbreviated forms
+- **Use Case**: Essential for western US deeds, locates parcel within broader survey system
+- **Integration**: `pdf_processor.py` calls this automatically during deed processing
+
+### 3. Exception/Inclusion Clause Handling
+- **Module**: `text_parser.py` - `split_exception_clauses()` method
+- **Keywords**: EXCEPT, EXCEPTING, LESS AND EXCEPT, ALSO, INCLUDING
+- **Functionality**: Splits legal description into main tract and exception/inclusion tracts
+- **Marking**: Calls in exception tracts have `is_exception=True`
+- **Area Calculation**: `closure_checker.py` subtracts exception areas from main area
+- **Use Case**: Handles complex deeds like "All of Lot 5 EXCEPT the North 50 feet thereof"
+- **Warnings**: Adds warnings to ClosureResult when exception tracts are found
+
+### 4. Enhanced Area Verification
+- **Module**: `closure_checker.py` - `verify_closure()` method
+- **Change**: Now handles exception tracts separately
+- **Process**:
+  1. Separates main tract from exception calls
+  2. Computes area for each independently
+  3. Net area = main area - exception area
+  4. Adds warnings about exception tracts
+- **Validation**: Closure checks run on main tract only
 
 ## Environment Setup
 

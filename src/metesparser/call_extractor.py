@@ -4,10 +4,86 @@ Parses normalized text to create structured DeedCall objects.
 """
 
 import re
+from typing import Literal
 
 from .bearing_converter import BearingConverter
 from .models import ConversionFactors, DeedCall
 from .text_parser import TextParser
+
+
+class MonumentClassifier:
+    """Classify survey monument types from text descriptions."""
+
+    # Monument type patterns (order matters - more specific first)
+    MONUMENT_PATTERNS = [
+        # Iron monuments
+        (r"\biron\s+rod\b", "iron_rod"),
+        (r"\biron\s+pin\b", "iron_pin"),
+        (r"\biron\s+pipe\b", "iron_pipe"),
+        (r"\biron\s+stake\b", "iron_rod"),
+        (r"\biron\s+monument\b", "iron_rod"),
+        (r"\brebar\b", "rebar"),
+        (r"\b(?:mag|magnetic)\s+nail\b", "nail"),
+        (r"\bnail\b", "nail"),
+        # Railroad markers
+        (r"\brailroad\s+(?:spike|tie)\b", "railroad_spike"),
+        (r"\bgin\s+(?:spike|pole)\b", "railroad_spike"),
+        # Stone/concrete
+        (r"\bstone\s+monument\b", "stone"),
+        (r"\bstone\b", "stone"),
+        (r"\bconcrete\s+monument\b", "concrete"),
+        (r"\bconcrete\b", "concrete"),
+        # Brass
+        (r"\bbrass\s+(?:cap|marker|monument)\b", "brass_cap"),
+        # Wood
+        (r"\bwooden\s+(?:post|stake)\b", "wooden_post"),
+        (r"\bhedge\s+post\b", "wooden_post"),
+        (r"\bwood\s+stake\b", "wooden_post"),
+        # Landscape markers
+        (r"\blandscap(?:e|ing)\s+(?:rod|pin)\b", "iron_rod"),
+    ]
+
+    @classmethod
+    def classify_monument(
+        cls, text: str
+    ) -> (
+        Literal[
+            "iron_rod",
+            "iron_pin",
+            "iron_pipe",
+            "stone",
+            "concrete",
+            "wooden_post",
+            "brass_cap",
+            "rebar",
+            "railroad_spike",
+            "nail",
+            "other",
+        ]
+        | None
+    ):
+        """Classify monument type from text description.
+
+        Args:
+            text: Text description (typically from 'to' field)
+
+        Returns:
+            Monument type literal or None if not found
+        """
+        if not text:
+            return None
+
+        text_lower = text.lower()
+
+        for pattern, monument_type in cls.MONUMENT_PATTERNS:
+            if re.search(pattern, text_lower):
+                return monument_type
+
+        # Check for generic monument keywords
+        if re.search(r"\bmonument\b", text_lower):
+            return "other"
+
+        return None
 
 
 class CallExtractor:
@@ -25,6 +101,9 @@ class CallExtractor:
     def extract_calls(cls, text: str, distance_unit: str = "feet") -> list[DeedCall]:
         """Extract all calls from normalized legal description text.
 
+        Handles exception clauses (EXCEPT, LESS AND EXCEPT, ALSO, INCLUDING)
+        and marks calls accordingly.
+
         Args:
             text: Normalized legal description text
             distance_unit: Primary distance unit (feet, poles, etc.)
@@ -35,18 +114,26 @@ class CallExtractor:
         # First normalize the text
         normalized = TextParser.normalize_legal_description(text)
 
-        # Split into individual calls
-        call_texts = TextParser.split_into_calls(normalized)
+        # Split into main tract and exception/inclusion tracts
+        tracts = TextParser.split_exception_clauses(normalized)
 
         calls = []
         course_num = 1
-        for call_text in call_texts:
-            call = cls.extract_single_call(
-                call_text, course=course_num, distance_unit=distance_unit
-            )
-            if call:
-                calls.append(call)
-                course_num += 1
+
+        for tract_text, is_exception_tract in tracts:
+            # Split tract into individual calls
+            call_texts = TextParser.split_into_calls(tract_text)
+
+            for call_text in call_texts:
+                call = cls.extract_single_call(
+                    call_text, course=course_num, distance_unit=distance_unit
+                )
+                if call:
+                    # Mark as exception if this is an exception tract
+                    if is_exception_tract:
+                        call = call.model_copy(update={"is_exception": True})
+                    calls.append(call)
+                    course_num += 1
 
         return calls
 
@@ -123,6 +210,9 @@ class CallExtractor:
         # Extract along/to fields
         along, to = TextParser.extract_along_to_fields(call_text)
 
+        # Classify monument type from 'to' field
+        monument_type = MonumentClassifier.classify_monument(to) if to else None
+
         # Check for meander/incomplete flags
         notes = ""
         cardinal_only = False
@@ -154,6 +244,8 @@ class CallExtractor:
             chord_length_ft=curve_info.get("chord_length_ft"),
             along=along if along else None,
             to=to if to else None,
+            monument_type=monument_type,
+            is_exception=False,  # Will be set later when parsing EXCEPT clauses
             notes=notes if notes else None,
         )
 

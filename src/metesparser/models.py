@@ -40,6 +40,25 @@ class DeedCall(BaseModel):
     to: str | None = Field(
         None, description="Ending point description (e.g., 'iron pin', 'corner to Lot 50')"
     )
+    monument_type: (
+        Literal[
+            "iron_rod",
+            "iron_pin",
+            "iron_pipe",
+            "stone",
+            "concrete",
+            "wooden_post",
+            "brass_cap",
+            "rebar",
+            "railroad_spike",
+            "nail",
+            "other",
+        ]
+        | None
+    ) = Field(None, description="Type of survey monument at endpoint")
+    is_exception: bool = Field(
+        False, description="True if this call is part of an exception/exclusion tract"
+    )
     notes: str | None = Field(None, description="Additional notes (meander flag, issues, etc.)")
 
     @field_validator("bearing_azimuth_deg_from_north")
@@ -97,6 +116,15 @@ class LegalDescription(BaseModel):
         None, description="Basis of bearing (e.g., 'True North', 'Magnetic North')"
     )
     datum: str | None = Field(None, description="Datum/ellipsoid if specified")
+
+    # PLSS (Public Land Survey System) metadata
+    section: str | None = Field(None, description="Section number (e.g., '12')")
+    township: str | None = Field(None, description="Township designation (e.g., '15 N' or 'T15N')")
+    range: str | None = Field(None, description="Range designation (e.g., '3 E' or 'R3E')")
+    principal_meridian: str | None = Field(
+        None, description="Principal Meridian (e.g., 'Willamette Principal Meridian')"
+    )
+    aliquot: str | None = Field(None, description="Aliquot subdivision (e.g., 'SW 1/4 of NE 1/4')")
 
     # Units
     distance_unit: Literal["feet", "us_survey_feet", "poles", "rods", "chains"] = Field(

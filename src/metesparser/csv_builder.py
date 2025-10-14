@@ -12,7 +12,7 @@ from .models import ClosureResult, DeedCall, LegalDescription
 class CSVBuilder:
     """Build and export deed calls to CSV format."""
 
-    # Standard CSV schema
+    # Standard CSV schema (16 fields)
     FIELDNAMES = [
         "course",
         "direction_text",
@@ -27,6 +27,8 @@ class CSVBuilder:
         "chord_length_ft",
         "along",
         "to",
+        "monument_type",
+        "is_exception",
         "notes",
     ]
 
@@ -92,6 +94,8 @@ class CSVBuilder:
             "chord_length_ft": f"{call.chord_length_ft:.2f}" if call.chord_length_ft else "",
             "along": call.along or "",
             "to": call.to or "",
+            "monument_type": call.monument_type or "",
+            "is_exception": "true" if call.is_exception else "false",
             "notes": call.notes or "",
         }
 
@@ -116,6 +120,11 @@ class CSVBuilder:
             "basis_of_bearing": legal_desc.basis_of_bearing,
             "datum": legal_desc.datum,
             "distance_unit": legal_desc.distance_unit,
+            "section": legal_desc.section,
+            "township": legal_desc.township,
+            "range": legal_desc.range,
+            "principal_meridian": legal_desc.principal_meridian,
+            "aliquot": legal_desc.aliquot,
         }
 
         cls.calls_to_csv(legal_desc.calls, output_path, metadata)
@@ -202,6 +211,9 @@ class CSVBuilder:
             # Descriptive fields
             along = parse_optional_str("along")
             to = parse_optional_str("to")
+            monument_type = parse_optional_str("monument_type")
+            is_exception_str = row.get("is_exception", "").strip().lower()
+            is_exception = is_exception_str in ("true", "1", "yes")
             notes = parse_optional_str("notes")
 
             return DeedCall(
@@ -218,6 +230,8 @@ class CSVBuilder:
                 chord_length_ft=chord_length_ft,
                 along=along,
                 to=to,
+                monument_type=monument_type,
+                is_exception=is_exception,
                 notes=notes,
             )
 
