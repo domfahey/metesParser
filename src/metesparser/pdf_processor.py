@@ -55,10 +55,9 @@ class PDFProcessor:
             return base64.b64encode(f.read()).decode("utf-8")
 
     def extract_text_from_pdf(self, pdf_path: str) -> str:
-        """Extract all text from a PDF using OpenAI.
+        """Extract all text from a PDF using OpenAI with file upload.
 
-        Note: This is a simplified implementation. For production use,
-        consider using dedicated PDF libraries like PyMuPDF or pypdf.
+        Uses OpenAI's file upload and message attachments to properly handle PDF documents.
 
         Args:
             pdf_path: Path to PDF file
@@ -66,36 +65,43 @@ class PDFProcessor:
         Returns:
             Extracted text
         """
-        # For now, use a simple approach with OpenAI vision
-        # In production, you might want to use PyMuPDF or similar first
-        pdf_base64 = self._encode_pdf(pdf_path)
+        # Upload the PDF file to OpenAI
+        with open(pdf_path, "rb") as f:
+            file_response = self.client.files.create(file=f, purpose="assistants")
 
+        # Create message with file attachment
         response = self.client.chat.completions.create(
-            model="gpt-4o",  # Use vision-capable model
+            model="gpt-4o",
             messages=[
                 {
                     "role": "system",
-                    "content": "You are an OCR system. Extract all text from this document, "
-                    "preserving formatting and structure as much as possible.",
+                    "content": "You are an OCR system. Extract all text from the provided PDF document, "
+                    "preserving formatting and structure as much as possible. Focus on extracting "
+                    "legal descriptions, metes and bounds calls, bearings, distances, and property descriptions.",
                 },
                 {
                     "role": "user",
                     "content": [
                         {
                             "type": "text",
-                            "text": "Please extract all text from this PDF document.",
+                            "text": "Please extract all text from the attached PDF document. "
+                            "Pay special attention to legal descriptions with bearings, distances, and property boundaries.",
                         },
                         {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:application/pdf;base64,{pdf_base64}",
-                            },
+                            "type": "file",
+                            "file_id": file_response.id,
                         },
                     ],
                 },
             ],
             max_tokens=4096,
         )
+
+        # Clean up: delete the uploaded file
+        try:
+            self.client.files.delete(file_response.id)
+        except Exception:
+            pass  # Don't fail if cleanup fails
 
         return response.choices[0].message.content or ""
 
