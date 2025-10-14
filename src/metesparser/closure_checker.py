@@ -39,7 +39,9 @@ class ClosureChecker:
             ClosureResult with all checks and computed values
         """
         # Use provided tolerance or default
-        tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
+        tolerance = (
+            closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
+        )
 
         # Compute traverse
         points = cls.compute_traverse(calls)
