@@ -1,12 +1,13 @@
 # Testing Guide
 
-Comprehensive guide to the metesParser test suite (170+ tests).
+Comprehensive guide to the metesParser test suite (200+ tests).
 
 ## Table of Contents
 
 - [Overview](#overview)
 - [Test Organization](#test-organization)
 - [Running Tests](#running-tests)
+- [PDF Processing Tests](#pdf-processing-tests)
 - [Writing Tests](#writing-tests)
 - [Fixtures and Helpers](#fixtures-and-helpers)
 - [Test Markers](#test-markers)
@@ -16,24 +17,25 @@ Comprehensive guide to the metesParser test suite (170+ tests).
 ## Overview
 
 The test suite ensures correctness of metes & bounds parsing with:
-- **170+ tests** across unit, integration, and regression categories
+- **200+ tests** across unit, integration, regression, and PDF categories
 - **Shared fixtures** for common test scenarios (squares, rectangles, curves)
 - **Parametrized tests** to reduce duplication
 - **Custom markers** for selective test execution
-- **Fast execution** (~0.06 seconds for full suite)
+- **Fast execution** (~0.06 seconds for non-PDF tests)
 
 ### Test Statistics
 
 | Category | Tests | Files | Purpose |
 |----------|-------|-------|---------|
 | Unit | 147 | 6 | Individual module testing |
-| Integration | 17 | 1 | End-to-end pipeline |
+| Integration (Text) | 17 | 1 | End-to-end text pipeline |
+| Integration (PDF) | 20+ | 1 | Full PDF processing pipeline |
 | Regression | 26 | 1 | Bug fix validation |
-| **Total** | **170** | **8** | Full coverage |
+| **Total** | **210+** | **9** | Full coverage |
 
 ## Test Organization
 
-Tests are organized into a 3-tier hierarchy:
+Tests are organized into a 4-tier hierarchy:
 
 ```
 tests/
@@ -49,7 +51,8 @@ tests/
 │   ├── test_text_parser.py           # 40 tests
 │   └── ...
 ├── integration/             # End-to-end tests
-│   └── test_integration.py           # 17 tests
+│   ├── test_integration.py           # 17 tests (text-based)
+│   └── test_pdf_processing.py        # 20+ tests (PDF pipeline)
 └── regression/              # Bug fix tests
     └── test_bug_fixes.py             # 26 tests
 ```
@@ -145,6 +148,197 @@ uv run pytest -n 4
 # Run tests in parallel (auto-detect CPU count)
 uv run pytest -n auto
 ```
+
+## PDF Processing Tests
+
+The `test_pdf_processing.py` module contains 20+ integration tests that validate the full PDF extraction pipeline using actual deed PDFs from the project root directory.
+
+### Sample Deeds
+
+Six sample deed PDFs are included for testing:
+- `18 Pennbrook Dr - Deed Image (11985 - 00829).pdf`
+- `24 Pennbrook Dr - Deed Image (11793 - 00217).pdf`
+- `31 Pennbrook Dr - Deed Image (4618 - 717).pdf`
+- `31 Pennbrook Dr - Deed Image (9777 - 1354).pdf`
+- `31 Pennbrook Dr - Deed Image (10989 - 916).pdf`
+- `31 Pennbrook Dr - Deed Image (11191 - 01716).pdf`
+
+The 31 Pennbrook deeds represent a chain of title (4 historical deeds for the same property), which enables consistency testing across multiple surveys.
+
+### Prerequisites
+
+PDF processing tests require:
+1. **OpenAI API Key**: Set `OPENAI_API_KEY` in `.env` file
+2. **Network Connection**: Tests make live API calls to OpenAI
+3. **Sample PDFs**: Must be present in project root directory
+
+If the API key is not set, PDF tests are automatically skipped (not failed).
+
+### Running PDF Tests
+
+```bash
+# Run all PDF processing tests (SLOW - makes API calls)
+uv run pytest tests/integration/test_pdf_processing.py -v
+
+# Run specific PDF test class
+uv run pytest tests/integration/test_pdf_processing.py::Test18PennbrookPDF -v
+
+# Run specific PDF test
+uv run pytest tests/integration/test_pdf_processing.py::Test18PennbrookPDF::test_closure_verification -v
+
+# Skip PDF tests during development (no API calls)
+uv run pytest -m "not slow"
+
+# Run only PDF tests
+uv run pytest tests/integration/test_pdf_processing.py -v
+
+# Run PDF tests with output logging
+uv run pytest tests/integration/test_pdf_processing.py -v -s
+```
+
+### Test Coverage
+
+PDF tests validate:
+
+#### 1. Extraction Pipeline
+- PDF → OpenAI API → Legal description extraction
+- Text normalization and OCR error correction
+- Call parsing from extracted text
+- Monument type classification
+- POC vs POB distinction
+
+#### 2. Closure Verification
+- Traverse closure calculation
+- Area and perimeter computation
+- Misclosure tolerance checks
+- Angle sum verification
+
+#### 3. CSV Export
+- Standard CSV export (always works)
+- Verified CSV export (only if fully verified)
+- Metadata file generation
+- Round-trip import/export validation
+
+#### 4. Chain of Title Analysis
+- Consistency across multiple deeds for same parcel
+- Call count stability (±1 variation acceptable)
+- Area consistency (within 10%)
+- Perimeter consistency (within 10%)
+
+#### 5. Error Handling
+- Missing PDF file handling
+- Empty path handling
+- Malformed PDF handling
+
+### Test Class Organization
+
+```python
+class Test18PennbrookPDF:
+    """Tests for 18 Pennbrook Dr (parallelogram parcel)."""
+    # 5 tests: extraction, closure, monuments, CSV export, file existence
+
+class Test24PennbrookPDF:
+    """Tests for 24 Pennbrook Dr (different parcel)."""
+    # 2 tests: extraction, closure verification
+
+class Test31PennbrookChainOfTitle:
+    """Tests for 31 Pennbrook Dr (4 historical deeds)."""
+    # 6 tests: 4 individual deeds + existence check + consistency comparison
+
+class TestPOCvsPOBInPDFs:
+    """Tests POC vs POB extraction from actual PDFs."""
+    # 2 tests: checking 18 and 24 Pennbrook for POC/POB distinction
+
+class TestPDFVerifiedExport:
+    """Tests verified CSV export from PDF pipeline."""
+    # 1 test: end-to-end PDF → verified CSV if closure passes
+
+class TestPDFBatchProcessing:
+    """Tests batch processing of all sample PDFs."""
+    # 1 test: processes all 6 PDFs and generates summary report
+
+class TestPDFErrorHandling:
+    """Tests error handling for edge cases."""
+    # 2 tests: missing file, empty path
+```
+
+### Expected Behavior
+
+#### 18 Pennbrook Dr
+- **Shape**: Parallelogram (NOT rectangle)
+- **Calls**: 4
+- **Bearings**: N 33°20' E, S 56°40' W, S 33°20' W, N 56°40' E
+- **Distances**: 60 ft, 125 ft, 60 ft, 125 ft
+- **Closure**: Should close perfectly (misclosure < 0.01 ft)
+- **Area**: ~2,971 sq ft (parallelogram, NOT 60×125=7,500)
+- **Perimeter**: ~370 ft
+
+#### 24 Pennbrook Dr
+- **Status**: Different parcel, characteristics TBD
+- **Tests**: Basic extraction and closure verification
+
+#### 31 Pennbrook Dr (Chain of Title)
+- **Deeds**: 4 historical surveys of same property
+- **Expected**: Consistent call counts, areas, and perimeters across all deeds
+- **Tolerance**: ±1 call, ±10% area/perimeter variation acceptable
+
+### Cost Considerations
+
+PDF tests make live OpenAI API calls, which incur costs:
+- **Per test**: ~$0.01-0.05 depending on PDF size
+- **Full PDF suite**: ~$0.20-0.50 per run
+- **Recommendation**: Skip PDF tests during rapid development cycles
+
+Use `pytest -m "not slow"` to run fast tests only during development, then run full suite (including PDF tests) before commits.
+
+### Setup Instructions
+
+1. **Create .env file** (if not exists):
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Add OpenAI API key**:
+   ```bash
+   echo "OPENAI_API_KEY=sk-your-actual-key-here" >> .env
+   ```
+
+3. **Verify sample PDFs exist**:
+   ```bash
+   ls -1 *.pdf
+   ```
+
+4. **Run a single test to verify setup**:
+   ```bash
+   uv run pytest tests/integration/test_pdf_processing.py::Test18PennbrookPDF::test_pdf_exists -v
+   ```
+
+5. **Run full PDF suite**:
+   ```bash
+   uv run pytest tests/integration/test_pdf_processing.py -v
+   ```
+
+### Troubleshooting PDF Tests
+
+**"OPENAI_API_KEY not set - skipping PDF processing tests"**
+- This is expected behavior if API key is missing
+- Tests are skipped, not failed
+- Add API key to `.env` file to enable tests
+
+**"PDF not found" error**
+- Verify PDFs are in project root directory
+- Check exact filenames match (case-sensitive)
+- Re-download PDFs if missing
+
+**API rate limit errors**
+- OpenAI has rate limits on API calls
+- Add delays between tests if needed
+- Consider running tests sequentially instead of parallel
+
+**High API costs**
+- Use `pytest -m "not slow"` during development
+- Only run PDF tests before commits/PRs
+- Consider mocking OpenAI responses for development
 
 ## Writing Tests
 

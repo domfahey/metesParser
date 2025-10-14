@@ -1,4 +1,4 @@
-# Metes Parser
+ # Metes Parser
 
 Parse metes and bounds legal descriptions from deed PDFs into structured, verified CSV format.
 
@@ -133,22 +133,27 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite includes 184 tests organized by type:
+The test suite includes 210+ tests organized by type:
 
 ```bash
 # Run all tests (unit + integration + regression)
 make test
 
-# Run only fast unit tests
+# Run only fast unit tests (skip PDF tests)
 uv run pytest tests/unit/ -v
 
-# Run integration tests
+# Run integration tests (includes PDF tests if OPENAI_API_KEY set)
 uv run pytest tests/integration/ -v
+
+# Skip slow tests (excludes PDF processing tests)
+uv run pytest -m "not slow"
+
+# Run only PDF processing tests (requires OPENAI_API_KEY)
+uv run pytest tests/integration/test_pdf_processing.py -v
 
 # Run specific test markers
 uv run pytest -m curve           # Curve-related tests
 uv run pytest -m validation      # Input validation tests
-uv run pytest -m "not slow"      # Skip slow tests
 
 # Run specific test file
 uv run pytest tests/unit/test_bearing_converter.py -v
@@ -161,7 +166,13 @@ make test-cov
 open htmlcov/index.html
 ```
 
-See [docs/TESTING.md](docs/TESTING.md) for comprehensive testing documentation.
+**PDF Processing Tests**: 20+ additional tests validate the full pipeline using actual deed PDFs. These tests:
+- Require `OPENAI_API_KEY` in `.env` file
+- Make live API calls (incur costs ~$0.20-0.50 per full run)
+- Are automatically skipped if API key not set
+- Test extraction from 6 sample deed PDFs in project root
+
+See [docs/TESTING.md](docs/TESTING.md) for comprehensive testing documentation including detailed PDF test guide.
 
 ### Code Quality
 

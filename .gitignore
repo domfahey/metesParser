@@ -56,6 +56,11 @@ htmlcov/
 *.kml
 *_verified.csv
 
+# Sample deed PDFs (not committed - contain real addresses/names)
+# Tests will skip if sample PDFs not present
+*.pdf
+*Pennbrook*.pdf
+
 # Temporary files
 debug_*
 temp_*
