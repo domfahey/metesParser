@@ -56,10 +56,10 @@ htmlcov/
 *.kml
 *_verified.csv
 
-# Sample deed PDFs (not committed - contain real addresses/names)
-# Tests will skip if sample PDFs not present
+# PDFs (but allow sample_deeds/ directory)
 *.pdf
-*Pennbrook*.pdf
+# Explicitly allow sample deeds from county recorder (public records)
+!sample_deeds/*.pdf
 
 # Temporary files
 debug_*
