@@ -1,20 +1,71 @@
 # Ground Truth Data
 
-This folder contains ground truth reference data for validating PDF extraction accuracy.
+Ground truth reference files are stored **next to each PDF** in `sample_deeds/` as JSON files.
+
+## File Format
+
+Each PDF has a corresponding `.ground_truth.json` file:
+```
+sample_deeds/
+├── 18 Pennbrook Dr - Deed Image (11985 - 00829).pdf
+├── 18 Pennbrook Dr - Deed Image (11985 - 00829).ground_truth.json  ← Ground truth
+├── 24 Pennbrook Dr - Deed Image (11793 - 00217).pdf
+└── ...
+```
 
 ## Purpose
 
 Ground truth files document the expected output at each stage of the PDF processing pipeline:
-1. **Raw PDF Text** - What GPT-4.1 should extract from the PDF
-2. **Legal Description** - The isolated legal description section
-3. **Normalized Text** - Standardized formatting (DMS symbols, cardinal directions)
-4. **Expected Calls** - How the calls should be parsed
+1. **Raw PDF Text** (`raw_ocr_text`) - What GPT-4.1 should extract from the PDF
+2. **Legal Description** (`expected_legal_description`) - The isolated legal description section
+3. **Normalized Text** (`expected_normalized_text`) - Standardized formatting (DMS symbols, cardinal directions)
+4. **Expected Calls** (`expected_calls`) - Structured call data with bearings, distances, along/to fields
+5. **Critical Assertions** (`critical_assertions`) - Required test conditions
 
-## Files
+## JSON Schema
+
+```json
+{
+  "deed_info": {
+    "address": "18 Pennbrook Drive",
+    "city": "Haddonfield",
+    "book": "11985",
+    "page": "00829"
+  },
+  "raw_ocr_text": "LAND AND PREMISES...",
+  "expected_legal_description": "BEGINNING at a point...",
+  "expected_normalized_text": "BEGINNING at a point...",
+  "expected_pob": "a point at the southwesterly corner...",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 33°20'00\" E",
+      "bearing_azimuth_deg_from_north": 146.666667,
+      "distance_ft": 60.0,
+      "along": "southwesterly line of Concord Drive",
+      "to": "a point in the division line..."
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0,
+    "area_sq_ft": 7500.0,
+    "area_acres": 0.172
+  },
+  "critical_assertions": {
+    "num_calls": {"expected": 4, "operator": "=="},
+    "area_matches": {"expected_sq_ft": 7500.0, "tolerance_percent": 5.0}
+  },
+  "common_failure_modes": [...]
+}
+```
+
+## Reference Files
+
+This folder contains reference documentation:
 
 ### 18_pennbrook_ground_truth.txt
+- **Legacy format** - Human-readable text version
 - **Parcel**: 18 Pennbrook Drive, Haddonfield, NJ
-- **Deed**: Book 11985, Page 00829
 - **Shape**: Rectangle (60' × 125')
 - **Calls**: 4 numbered calls
 - **Area**: 7,500 sq ft (0.172 acres)
