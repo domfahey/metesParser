@@ -1,0 +1,117 @@
+==========================================
+18 PENNBROOK GROUND TRUTH
+==========================================
+
+RAW OCR TEXT (from PDF):
+-----------------------------------------
+LAND AND PREMISES situate in the Borough of Haddonfield, County of Camden and State of New Jersey as
+follows:
+BEGINNING at a point at the Southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet
+wide); thence
+1. South 33 degrees 20 minutes 00 seconds East, along Southwesterly line of Concord Drive, 60 feet to a point in
+the division line between Lots 46 and 47 on plan hereinafter mentioned; thence
+2. South 56 degrees 40 minutes, 00 seconds West along said division line 125 feet to point corner to Lot 50 said
+plan; thence
+3. North 33 degrees 20 minutes, 00 seconds West along said Lot 50, 60 feet to Southeasterly line of Pennbrook
+Drive; thence
+4. North 56 degrees 40 minutes 00 seconds East along said Southeasterly line of Pennbrook Drive, 125 feet to the
+point and place of beginning.
+THE ABOVE DESCRIBED tract or parcel of land and premises being described according to a Survey of
+Premises made by Walter H. Macnamara Assoc., Inc. Professional Land Surveyors, dated October 12, 2021.
+
+
+EXPECTED LEGAL DESCRIPTION EXTRACTION:
+-----------------------------------------
+BEGINNING at a point at the Southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide); thence
+1. South 33 degrees 20 minutes 00 seconds East, along Southwesterly line of Concord Drive, 60 feet to a point in the division line between Lots 46 and 47 on plan hereinafter mentioned; thence
+2. South 56 degrees 40 minutes, 00 seconds West along said division line 125 feet to point corner to Lot 50 said plan; thence
+3. North 33 degrees 20 minutes, 00 seconds West along said Lot 50, 60 feet to Southeasterly line of Pennbrook Drive; thence
+4. North 56 degrees 40 minutes 00 seconds East along said Southeasterly line of Pennbrook Drive, 125 feet to the point and place of beginning.
+
+
+EXPECTED NORMALIZED TEXT:
+-----------------------------------------
+BEGINNING at a point at the southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide); thence
+1. S 33°20'00" E, along southwesterly line of Concord Drive, 60 feet to a point in the division line between Lots 46 and 47 on plan hereinafter mentioned; thence
+2. S 56°40'00" W along said division line 125 feet to point corner to Lot 50 said plan; thence
+3. N 33°20'00" W along said Lot 50, 60 feet to southeasterly line of Pennbrook Drive; thence
+4. N 56°40'00" E along said southeasterly line of Pennbrook Drive, 125 feet to the point and place of beginning.
+
+
+EXPECTED CALL EXTRACTION (4 calls):
+-----------------------------------------
+Call 1:
+  course: 1
+  direction_text: "S 33°20'00" E"
+  bearing_quadrant: "S 33°20' E"
+  bearing_azimuth_deg_from_north: 146.666667
+  distance_ft: 60.0
+  along: "southwesterly line of Concord Drive"
+  to: "a point in the division line between Lots 46 and 47 on plan hereinafter mentioned"
+
+Call 2:
+  course: 2
+  direction_text: "S 56°40'00" W"
+  bearing_quadrant: "S 56°40' W"
+  bearing_azimuth_deg_from_north: 236.666667
+  distance_ft: 125.0
+  along: "said division line"
+  to: "point corner to Lot 50 said plan"
+
+Call 3:
+  course: 3
+  direction_text: "N 33°20'00" W"
+  bearing_quadrant: "N 33°20' W"
+  bearing_azimuth_deg_from_north: 326.666667
+  distance_ft: 60.0
+  along: "said Lot 50"
+  to: "southeasterly line of Pennbrook Drive"
+
+Call 4:
+  course: 4
+  direction_text: "N 56°40'00" E"
+  bearing_quadrant: "N 56°40' E"
+  bearing_azimuth_deg_from_north: 56.666667
+  distance_ft: 125.0
+  along: "said southeasterly line of Pennbrook Drive"
+  to: "the point and place of beginning"
+
+
+EXPECTED POB:
+-----------------------------------------
+"a point at the southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide)"
+
+
+EXPECTED CLOSURE VERIFICATION:
+-----------------------------------------
+Shape: Rectangle (4 calls, opposite sides equal)
+Perimeter: 2*(60 + 125) = 370 feet
+Area: 60 * 125 = 7,500 sq ft = 0.172 acres
+Misclosure: < 0.01 ft (should close perfectly)
+
+Traverse:
+  Start: (0, 0)
+  After Call 1: (32.97, -50.13) [S 33°20' E, 60 ft]
+  After Call 2: (-70.06, -83.10) [S 56°40' W, 125 ft]
+  After Call 3: (-103.03, -33.00) [N 33°20' W, 60 ft]
+  After Call 4: (0.00, 0.00) [N 56°40' E, 125 ft] ← Should return to origin
+
+
+CRITICAL ASSERTIONS:
+-----------------------------------------
+✓ MUST extract 4 calls (not 1, not 2)
+✓ MUST preserve numbered format (1., 2., 3., 4.)
+✓ MUST NOT merge all calls into call #1's "along" field
+✓ Each call MUST have separate direction_text, distance, along, and to fields
+✓ Traverse MUST close to < 0.01 ft
+✓ Area MUST be approximately 7,500 sq ft
+
+COMMON FAILURE MODE:
+-----------------------------------------
+❌ WRONG: Extracting only 1 call with all 4 numbered calls merged into the "along" field:
+  Call 1:
+    direction_text: "S 33°20'00" E"
+    distance_ft: 60.0
+    along: "southwesterly line of Concord Drive, 60 feet to a point in the division line between Lots 46 and 47 on plan hereinafter mentioned; 2. S 56°40'00" W along said division line 125 feet to point corner to Lot 50 said plan; 3. N 33°20'00" W along said Lot 50, 60 feet to southeasterly line of Pennbrook Drive; 4. N 56°40'00" E along said southeasterly line of Pennbrook Drive, 125 feet to the point and place of beginning..."
+
+This is INCORRECT and happens when prompts don't explicitly preserve numbered call formatting.
