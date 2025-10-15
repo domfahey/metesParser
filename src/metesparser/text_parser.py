@@ -162,7 +162,12 @@ class TextParser:
         """
         # Standardize common patterns
         patterns = [
-            # South 56 degrees 40 minutes West -> S 56°40' W
+            # South 87 degrees 7 minutes 30 seconds West -> S 87°7'30" W (with seconds)
+            (
+                r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
+                lambda m: f'{m.group(1)[0]} {m.group(2)}°{m.group(3)}\'{m.group(4)}" {m.group(5)[0]}',
+            ),
+            # South 56 degrees 40 minutes West -> S 56°40' W (without seconds)
             (
                 r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(North|South|East|West)\b",
                 lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}' {m.group(4)[0]}",
@@ -172,11 +177,12 @@ class TextParser:
                 r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(North|South|East|West)\b",
                 lambda m: f"{m.group(1)[0]} {m.group(2)}° {m.group(3)[0]}",
             ),
-            # Normalize spacing around DMS
-            (
-                r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])",
-                r"\1 \2°\3'\4\" \5",
-            ),
+            # Normalize spacing around DMS with seconds
+            # NOTE: This pattern is redundant - the lambda above already handles this format
+            # (
+            #     r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])",
+            #     r'\1 \2°\3\'\4" \5',
+            # ),
             (r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4"),
             (r"([NS])\s*(\d{1,3})\s*°\s*([EW])", r"\1 \2° \3"),
         ]
@@ -307,20 +313,39 @@ class TextParser:
     def split_into_calls(cls, text: str) -> List[str]:
         """Split text into individual THENCE calls.
 
+        Handles multiple formats:
+        - Numbered (1., 2., 3.) - checked FIRST (most specific)
+        - THENCE keyword separated
+        - Semicolon separated
+
         Args:
             text: Legal description text
 
         Returns:
             List of call strings
         """
-        # Split on THENCE keyword
-        parts = re.split(r"\bTHENCE\b", text, flags=re.IGNORECASE)
+        # Try numbered patterns FIRST (1., 2., etc.) - more specific than THENCE
+        if re.search(r"(?:^|\n)\s*\d+\.\s+", text, re.MULTILINE):
+            parts = re.split(r"(?:^|\n)\s*(?=\d+\.\s+)", text, flags=re.MULTILINE)
+        # Then try splitting on THENCE keyword
+        elif re.search(r"\bTHENCE\b", text, re.IGNORECASE):
+            parts = re.split(r"\bTHENCE\b", text, flags=re.IGNORECASE)
+        # Try semicolon-separated calls (most common in normalized text)
+        else:
+            parts = text.split(";")
 
         calls = []
         for part in parts:
             cleaned = part.strip()
             if not cleaned:
                 continue
+
+            # Skip POB/BEGINNING lines
+            if re.match(r"^\s*(?:BEGINNING|COMMENCING|POB|POINT)", cleaned, re.IGNORECASE):
+                continue
+
+            # Remove leading number patterns like "1. " or "2. "
+            cleaned = re.sub(r"^\d+\.\s+", "", cleaned)
 
             # Remove trailing punctuation and whitespace
             cleaned = re.sub(r"[;,\.\s]+$", "", cleaned)

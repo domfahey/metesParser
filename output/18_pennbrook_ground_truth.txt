@@ -1,0 +1,45 @@
+18 PENNBROOK DRIVE - GROUND TRUTH LEGAL DESCRIPTION
+===================================================
+
+POB (Point of Beginning):
+"a point at the Southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide)"
+
+CALLS (4 total - should form a closed rectangle):
+
+1. S 33°20'00" E
+   Distance: 60 feet
+   Along: Southwesterly line of Concord Drive
+   To: a point in the division line between Lots 46 and 47 on plan hereinafter mentioned
+
+2. S 56°40'00" W
+   Distance: 125 feet
+   Along: said division line
+   To: point corner to Lot 50 said plan
+
+3. N 33°20'00" W
+   Distance: 60 feet
+   Along: said Lot 50
+   To: Southeasterly line of Pennbrook Drive
+
+4. N 56°40'00" E
+   Distance: 125 feet
+   Along: said Southeasterly line of Pennbrook Drive
+   To: the point and place of beginning
+
+CLOSURE:
+- This is a rectangle (opposite sides are parallel and equal)
+- Call 1 and Call 3: opposite directions (S 33°20' E vs N 33°20' W), same distance (60 ft)
+- Call 2 and Call 4: opposite directions (S 56°40' W vs N 56°40' E), same distance (125 ft)
+- Should close with 0.00 ft misclosure
+
+AREA CALCULATION:
+- Using opposite sides: 60 ft × 125 ft = 7,500 sq ft = 0.172 acres
+
+SURVEY REFERENCE:
+"Survey of Premises made by Walter H. Macnamara Assoc., Inc. Professional Land Surveyors, dated October 12, 2021"
+
+CRITICAL EXTRACTION REQUIREMENTS:
+- Extract all 4 numbered calls (1., 2., 3., 4.)
+- Do NOT merge calls into one
+- Preserve the numbering from the original document
+- Each call should be extracted as a separate DeedCall object
