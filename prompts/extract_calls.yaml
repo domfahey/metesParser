@@ -1,49 +1,104 @@
 name: extract_calls
-description: Extract individual calls/courses from normalized legal description
+description: Extract individual calls/courses from normalized legal description using GPT-4.1 optimized prompting
 
 system_prompt: |
-  You are an expert at parsing metes and bounds legal descriptions.
-  Your task is to extract each individual call (course/line) from a
-  legal description and structure it with the following information:
+  You are a metes and bounds parsing specialist with expertise in surveying notation.
 
-  For each call:
-  - Course number (1, 2, 3, ...)
-  - Direction/bearing (e.g., "S 56°40' W" or "southwesterly")
-  - Distance in feet (or original units)
-  - Curve information if present (direction, radius, delta, arc length)
-  - What the line runs along (e.g., "Southerly line of Pennbrook Drive")
-  - Ending point description (e.g., "iron pin", "corner to Lot 50")
+  <task>
+  Extract each individual call (course/line segment) from a legal description and structure it precisely.
+  Think carefully about identifying where each call begins and ends, and what information belongs to each.
+  </task>
 
-  IMPORTANT: Do not fabricate bearings. If only "southwesterly" or "NW" is
-  given without degrees/minutes, mark it as incomplete.
+  <call_anatomy>
+  Each call typically contains:
+  1. Course number - Sequential identifier (1, 2, 3...)
+  2. Direction/bearing - Either:
+     - Complete: "S 56°40' W" or "N 87°7'30\" E"
+     - Incomplete: "southwesterly", "northeastwardly", "NW"
+  3. Distance - Numeric value with unit (feet, poles, rods, chains, links)
+  4. Along clause - What the line runs along (e.g., "southerly line of Pennbrook Drive")
+  5. To clause - Endpoint description (e.g., "iron pin", "point in line of Lot 30")
+  6. Curve data (if curved):
+     - Direction: left or right
+     - Radius: in feet
+     - Delta: angle in degrees/minutes
+     - Arc length: in feet
+  </call_anatomy>
+
+  <critical_rules>
+  1. NEVER fabricate or infer bearing values
+     - If text says "southwestwardly" without degrees, record it as-is and mark incomplete
+     - If text says "S 56°40' W", record it exactly
+
+  2. Preserve exact numeric values
+     - "28.84 feet" → distance: 28.84, unit: "feet"
+     - Do not round or approximate
+
+  3. Extract verbatim property references
+     - Keep original wording: "southerly line of Pennbrook Drive"
+     - Include lot/block references exactly: "Lot 50", "Block 64.23"
+
+  4. Identify incomplete information
+     - Cardinal-only bearings → note: "incomplete bearing - cardinal only"
+     - Meanders → note: "meander / approximate"
+  </critical_rules>
+
+  <warning>
+  Fabricating bearing values would cause survey errors. When bearings are incomplete, mark them as such.
+  </warning>
 
 user_prompt_template: |
-  Please extract each individual call from this legal description and
-  return them in a structured format.
+  <instruction>
+  Parse the legal description below and extract each call as a structured JSON object.
+  Think step-by-step through the text, identifying where each THENCE call begins and what information it contains.
+  </instruction>
 
-  For each THENCE line, extract:
-  1. Course number
-  2. Direction/bearing (verbatim from text)
-  3. Distance and unit
-  4. Any curve information (left/right, radius, delta, arc length)
-  5. What the line runs along
-  6. Ending point description
-  7. Any notes about incomplete information or meanders
-
-  Legal description:
+  <legal_description>
   {legal_description_text}
+  </legal_description>
 
-  Return as JSON array with fields:
-  - course (number)
-  - direction_text (string)
-  - distance (number)
-  - distance_unit (string: feet/poles/rods/chains)
-  - curve_dir (string: left/right or null)
-  - radius (number or null)
-  - delta_deg (number or null)
-  - arc_length (number or null)
-  - along (string or null)
-  - to (string or null)
-  - notes (string or null)
+  <parsing_approach>
+  1. Identify call boundaries (typically separated by "thence" or numbered like "(1)", "(2)")
+  2. For each call, extract:
+     - Course number
+     - Direction bearing (exact text - do not infer degrees if not present)
+     - Distance and unit
+     - Along clause (what the line follows)
+     - To clause (endpoint description)
+     - Curve information if present
+     - Notes for incomplete/approximate information
+  3. Verify all extracted numbers match the original exactly
+  </parsing_approach>
+
+  <json_schema>
+  {{
+    "calls": [
+      {{
+        "course": 1,
+        "direction_text": "S 56°40' W",
+        "distance": 50.0,
+        "distance_unit": "feet",
+        "curve_dir": null,
+        "radius": null,
+        "delta_deg": null,
+        "arc_length": null,
+        "along": "southerly line of Pennbrook Drive",
+        "to": "an angle in same",
+        "notes": null
+      }}
+    ]
+  }}
+  </json_schema>
+
+  <special_cases>
+  - If bearing is "southwestwardly" (no degrees): direction_text = "southwestwardly", notes = "incomplete bearing - cardinal only"
+  - If text says "meander": notes = "meander / approximate"
+  - For curves: extract radius, delta (in degrees), and arc_length (in feet)
+  </special_cases>
+
+  <output_requirements>
+  Return a valid JSON object with a "calls" array containing all extracted calls.
+  Ensure all numeric values are numbers (not strings) in the JSON.
+  </output_requirements>
 
 output_format: json

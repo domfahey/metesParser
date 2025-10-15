@@ -72,11 +72,20 @@ call = DeedCall(
 ### 4. Deterministic Processing
 
 ```python
-# OpenAI extraction uses temperature=0 for consistency
-response = openai_client.chat.completions.create(
-    model="gpt-4",
-    temperature=0,  # Deterministic output
-    messages=[...],
+# OpenAI Responses API extraction for consistency
+response = openai_client.responses.create(
+    model="gpt-4.1",
+    input=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": combined_prompt,
+                },
+            ],
+        },
+    ],
 )
 ```
 

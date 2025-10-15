@@ -55,9 +55,9 @@ class PDFProcessor:
             return base64.b64encode(f.read()).decode("utf-8")
 
     def extract_text_from_pdf(self, pdf_path: str) -> str:
-        """Extract all text from a PDF using OpenAI with file upload.
+        """Extract all text from a PDF using OpenAI Responses API with GPT-4.1.
 
-        Uses OpenAI's file upload and message attachments to properly handle PDF documents.
+        Uses Responses API with base64-encoded PDF files.
 
         Args:
             pdf_path: Path to PDF file
@@ -65,45 +65,35 @@ class PDFProcessor:
         Returns:
             Extracted text
         """
-        # Upload the PDF file to OpenAI
-        with open(pdf_path, "rb") as f:
-            file_response = self.client.files.create(file=f, purpose="assistants")
+        # Load prompt
+        prompt_config = self._load_prompt("extract_text_from_pdf")
 
-        # Create message with file attachment
-        response = self.client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are an OCR system. Extract all text from the provided PDF document, "
-                    "preserving formatting and structure as much as possible. Focus on extracting "
-                    "legal descriptions, metes and bounds calls, bearings, distances, and property descriptions.",
-                },
+        # Encode PDF to base64
+        pdf_base64 = self._encode_pdf(pdf_path)
+        filename = Path(pdf_path).name
+
+        # Use Responses API with PDF file
+        response = self.client.responses.create(
+            model="gpt-4.1",
+            input=[
                 {
                     "role": "user",
                     "content": [
                         {
-                            "type": "text",
-                            "text": "Please extract all text from the attached PDF document. "
-                            "Pay special attention to legal descriptions with bearings, distances, and property boundaries.",
+                            "type": "input_file",
+                            "filename": filename,
+                            "file_data": f"data:application/pdf;base64,{pdf_base64}",
                         },
                         {
-                            "type": "file",
-                            "file_id": file_response.id,
+                            "type": "input_text",
+                            "text": prompt_config["user_prompt_template"],
                         },
                     ],
                 },
             ],
-            max_tokens=4096,
         )
 
-        # Clean up: delete the uploaded file
-        try:
-            self.client.files.delete(file_response.id)
-        except Exception:
-            pass  # Don't fail if cleanup fails
-
-        return response.choices[0].message.content or ""
+        return response.output_text or ""
 
     def extract_legal_description(self, pdf_path: str) -> str:
         """Extract legal description from a deed PDF.
@@ -120,19 +110,25 @@ class PDFProcessor:
         # Load prompt
         prompt_config = self._load_prompt("extract_legal_description")
 
-        # Build message
-        user_prompt = prompt_config["user_prompt_template"].format(document_text=document_text)
+        # Build combined prompt with system and user content
+        combined_prompt = f"{prompt_config['system_prompt']}\n\n{prompt_config['user_prompt_template'].format(document_text=document_text)}"
 
-        response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": prompt_config["system_prompt"]},
-                {"role": "user", "content": user_prompt},
+        response = self.client.responses.create(
+            model="gpt-4.1",
+            input=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": combined_prompt,
+                        },
+                    ],
+                },
             ],
-            max_tokens=2048,
         )
 
-        return response.choices[0].message.content or ""
+        return response.output_text or ""
 
     def normalize_legal_description(self, legal_desc_text: str) -> str:
         """Normalize and clean up legal description text.
@@ -145,20 +141,28 @@ class PDFProcessor:
         """
         prompt_config = self._load_prompt("normalize_text")
 
+        # Build combined prompt with system and user content
         user_prompt = prompt_config["user_prompt_template"].format(
             legal_description_text=legal_desc_text
         )
+        combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
 
-        response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": prompt_config["system_prompt"]},
-                {"role": "user", "content": user_prompt},
+        response = self.client.responses.create(
+            model="gpt-4.1",
+            input=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": combined_prompt,
+                        },
+                    ],
+                },
             ],
-            max_tokens=2048,
         )
 
-        return response.choices[0].message.content or ""
+        return response.output_text or ""
 
     def extract_calls_ai(self, legal_desc_text: str) -> list[dict]:
         """Extract calls using OpenAI (experimental).
@@ -172,25 +176,32 @@ class PDFProcessor:
         Returns:
             List of call dicts
         """
+        import json
+
         prompt_config = self._load_prompt("extract_calls")
 
+        # Build combined prompt with system and user content
         user_prompt = prompt_config["user_prompt_template"].format(
             legal_description_text=legal_desc_text
         )
+        combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
 
-        response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": prompt_config["system_prompt"]},
-                {"role": "user", "content": user_prompt},
+        response = self.client.responses.create(
+            model="gpt-4.1",
+            input=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": combined_prompt,
+                        },
+                    ],
+                },
             ],
-            max_tokens=4096,
-            response_format={"type": "json_object"},
         )
 
-        import json
-
-        result = json.loads(response.choices[0].message.content or "{}")
+        result = json.loads(response.output_text or "{}")
         return result.get("calls", [])
 
     def process_deed_pdf(self, pdf_path: str) -> LegalDescription:

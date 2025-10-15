@@ -143,8 +143,8 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 
 ### OpenAI API Configuration
 **Location**: `prompts/*.yaml` files
-**Temperature**: Always 0 for deterministic output
-**Model**: gpt-4o for PDF OCR, gpt-4o-mini for text normalization
+**API**: Responses API (not Chat Completions)
+**Model**: gpt-4.1 for all operations (PDF OCR, legal description extraction, text normalization, AI call extraction)
 
 ### CSV Schema (16 fields - order matters)
 ```csv
