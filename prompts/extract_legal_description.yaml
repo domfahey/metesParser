@@ -62,7 +62,21 @@ user_prompt_template: |
 
   <output_format>
   Return ONLY the legal description text with no additional commentary.
-  Preserve all line breaks and formatting from the original document.
+
+  **CRITICAL - LINE BREAK PRESERVATION**:
+  - If the original has numbered calls (1., 2., 3., 4.), each number MUST start on a NEW LINE
+  - NEVER merge numbered calls onto the same line
+  - Preserve ALL line breaks between numbered items exactly as in the original document
+
+  Example of CORRECT formatting:
+  BEGINNING at a point...
+  1. South 33 degrees 20 minutes East, along...
+  2. South 56 degrees 40 minutes West, along...
+  3. North 33 degrees 20 minutes West, along...
+  4. North 56 degrees 40 minutes East, along...
+
+  Example of WRONG formatting (DO NOT DO THIS):
+  BEGINNING at a point... 1. South 33 degrees 20 minutes East, along... 2. South 56 degrees 40 minutes West, along...
   </output_format>
 
 output_format: text

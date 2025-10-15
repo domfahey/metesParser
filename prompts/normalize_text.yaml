@@ -94,10 +94,20 @@ user_prompt_template: |
 
   <output_requirements>
   - Return the normalized text only
-  - Preserve line breaks between courses
-  - **CRITICAL**: If the original has numbered calls (1., 2., 3., 4.), preserve the numbering and keep each call on a separate line
+  - **CRITICAL LINE BREAKS**: Preserve ALL line breaks between courses - each numbered call MUST be on its own line
+  - **NEVER merge numbered calls**: If the original has calls numbered (1., 2., 3., 4.), keep EACH number at the START of a NEW LINE
   - Maintain exact spelling of property references
   - Keep all numbers identical to the original
+
+  **CORRECT example** (each number on new line):
+  BEGINNING at a point...
+  1. S 33°20' E along southerly line, 60 feet to a point;
+  2. S 56°40' W along said division line, 125 feet to corner;
+  3. N 33°20' W along said Lot 50, 60 feet to line;
+  4. N 56°40' E along southerly line, 125 feet to beginning.
+
+  **WRONG example** (DO NOT DO THIS - calls merged):
+  BEGINNING at a point... 1. S 33°20' E along southerly line, 60 feet to a point; 2. S 56°40' W...
   </output_requirements>
 
 output_format: text
