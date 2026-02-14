@@ -16,7 +16,7 @@ sample_deeds/
 ## Purpose
 
 Ground truth files document the expected output at each stage of the PDF processing pipeline:
-1. **Raw PDF Text** (`raw_ocr_text`) - What GPT-4.1 should extract from the PDF
+1. **Raw PDF Text** (`raw_ocr_text`) - What the configured prompt flow should extract from the PDF
 2. **Legal Description** (`expected_legal_description`) - The isolated legal description section
 3. **Normalized Text** (`expected_normalized_text`) - Standardized formatting (DMS symbols, cardinal directions)
 4. **Expected Calls** (`expected_calls`) - Structured call data with bearings, distances, along/to fields
@@ -106,7 +106,7 @@ When adding new sample deeds:
 
 ### Issue: Only 1-2 calls extracted
 **Symptom**: All 4 numbered calls merged into call #1 or #2's "along" field
-**Cause**: GPT-4.1 not preserving line breaks between numbered calls
+**Cause**: Prompt changes not preserving line breaks between numbered calls
 **Fix**: Strengthen prompts with explicit line break examples
 
 ### Issue: Calls have incomplete bearings

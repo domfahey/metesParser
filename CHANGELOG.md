@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Full History Backfill (all commits in repository)
+
+- 225fbf6 (2025-10-14): feat: Add JSON ground truth files next to source PDFs
+- e8a5a4d (2025-10-14): docs: Add ground truth folder for PDF extraction validation
+- 124dae0 (2025-10-14): fix: Strengthen prompts to preserve numbered call line breaks
+- de370c3 (2025-10-14): fix: Prioritize numbered call detection over THENCE splitting (Bug #19)
+- f00ebf9 (2025-10-14): feat: Migrate to GPT-4.1 with OpenAI Responses API and optimize prompts
+- 2d9cfa4 (2025-10-14): fix: Use OpenAI file upload API for PDF processing
+- 67f5681 (2025-10-14): fix: Update PDF test paths to use sample_deeds/ directory
+- 61f9f39 (2025-10-14): docs: Add sample deed PDFs from Camden County Recorder (public records)
+- 24ae692 (2025-10-14): feat: Add comprehensive PDF processing test suite (20+ tests)
+- 5cb6c2d (2025-10-14): feat: Add POC/POB distinction and closure detection (Phase 2A+2B)
+- 5a09d85 (2025-10-14): feat: Add monument classification, PLSS support, and exception handling (v0.2)
+- 3a413fa (2025-10-13): docs: Comprehensive documentation overhaul following best practices
+- a2672df (2025-10-13): refactor: Enhance test suite with fixtures and parametrization (147→170 tests)
+- 58c4497 (2025-10-13): refactor: Create test infrastructure and reorganize test suite
+- 70d464c (2025-10-13): fix: Low priority bugs #11, #14, #16 - improve validation and code quality
+- bbb269d (2025-10-13): fix: correct interior angle check algorithm (Bug #8)
+- c53227a (2025-10-13): style: apply ruff formatting to closure_checker.py
+- 12176c9 (2025-10-13): fix: resolve 9 critical/high/medium bugs + add 26 comprehensive tests
+- dadad66 (2025-10-13): style: apply ruff formatting to call_extractor.py
+- 0c2d925 (2025-10-13): fix: resolve final 2 test failures - complete Phase 1 (121/121 tests passing)
+- cca8391 (2025-10-12): Fix curve extraction regex patterns - now 116/121 tests passing
+- 71d95b0 (2025-10-12): Fix 132 test failures - align tests with implementation APIs
+- a9addb2 (2025-10-12): Enhance code comments for clarity in closure_checker.py
+- 0fc5c5d (2025-10-12): Add comprehensive pytest test suite with 155 tests
+- d0735ac (2025-10-12): Initial commit: Metes & Bounds Deed Parser
+
+## [0.3.1] - 2025-10-14
+
+### Added
+- Added JSON ground truth artifacts alongside source PDFs for PDF extraction comparison and reproducibility.
+- Added ground truth folder documentation to describe folder-based extraction validation artifacts.
+
+### Fixed
+- Fixed prompt-driven normalization behavior to better preserve numbered-call formatting and line breaks.
+- Fixed call-splitting so numbered call notation is prioritized over generic `THENCE` splitting, resolving exception-style split regressions.
+- Fixed numbering-related extraction ordering issues in curve/exception parsing edge cases tracked as Bug #19.
+
+### Changed
+- Added prompt/ground-truth-oriented workflow updates for PDF validation around extraction and normalization.
+
 ## [0.3.0] - 2025-10-14
 
 ### Added

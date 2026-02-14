@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
-**Version**: 0.2 (Enhanced with monument classification, PLSS support, exception handling)
+**Version**: 0.3.1 (Latest release; v0.2 features retained)
 
 ## Critical Architecture Principles
 
@@ -57,7 +57,7 @@ uv run pytest              # Run commands in venv
 ### Processing Pipeline
 ```
 PDF → PDFProcessor.process_deed_pdf() → LegalDescription
-  ├─ OpenAI extraction (prompts/extract_legal_description.yaml)
+  ├─ Configured LLM extraction (`OpenAIClient` / `GeminiClient`)
   ├─ Text normalization (TextParser.normalize_legal_description)
   ├─ Call extraction (CallExtractor.extract_calls) [rule-based, not AI]
   └─ Azimuth enrichment (BearingConverter.enrich_calls_with_azimuths)
@@ -116,8 +116,8 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 
 ### Writing Tests (TDD Approach)
 1. Test bearing conversions first (most critical)
-2. Test with known parcels (18 Pennbrook rectangle, 31 Pennbrook 5-sided)
-3. Test closure on rectangles (should close to 0.00 ft)
+2. Test with known parcels (18 Pennbrook parallelogram, 24 Pennbrook, square fixture)
+3. Test closure cases where misclosure should be near zero
 4. Test incomplete bearing handling (should flag, not fabricate)
 
 ### Test File Locations
@@ -125,7 +125,9 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 tests/test_bearing_converter.py  # Quadrant ↔ azimuth
 tests/test_call_extractor.py     # Regex parsing
 tests/test_closure_checker.py    # 6 guardrails
-tests/test_integration.py        # Full pipeline
+tests/integration/test_integration.py        # Full pipeline
+tests/integration/test_pdf_processing.py       # PDF extraction orchestration
+tests/unit/test_pdf_processor_llm.py          # Provider behavior
 ```
 
 ### Running Specific Tests
@@ -141,10 +143,10 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 **Workaround**: Excluded in `pyproject.toml` under `[tool.ruff] exclude`
 **Action**: Don't try to lint this file - it's functionally correct
 
-### OpenAI API Configuration
+### LLM Configuration
 **Location**: `prompts/*.yaml` files
-**API**: Responses API (not Chat Completions)
-**Model**: gpt-4.1 for all operations (PDF OCR, legal description extraction, text normalization, AI call extraction)
+**Provider Clients**: `OpenAIClient` and `GeminiClient` behind `METESPARSER_LLM_PROVIDER`
+**Model**: OpenAI defaults to `gpt-4.1`; Gemini defaults to `gemini-2.5-pro` with fallback.
 
 ### CSV Schema (16 fields - order matters)
 ```csv
@@ -223,7 +225,8 @@ along,to,monument_type,is_exception,notes
 
 Required in `.env`:
 ```bash
-OPENAI_API_KEY=sk-...  # Required for PDF processing
+OPENAI_API_KEY=sk-...  # Required if METESPARSER_LLM_PROVIDER=openai
+GEMINI_API_KEY=...      # Required if METESPARSER_LLM_PROVIDER=gemini
 LOG_LEVEL=INFO          # Optional, defaults to INFO
 ```
 
@@ -261,6 +264,6 @@ This implementation follows the comprehensive "Metes & Bounds – Deed Call Extr
 - Never fabricate bearings (Section 8A)
 - Close traverse before export (Section 6A)
 - 6 verification guardrails (Section 6)
-- Standard 14-field CSV schema (Section 5)
+- Standard 16-field CSV schema (Section 5)
 - Preserve verbatim wording (Section 7)
 - Flag meanders/approximations (Section 8A)

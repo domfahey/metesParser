@@ -8,7 +8,7 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 
 ## Features
 
-- 📄 **PDF Extraction** - Extract legal descriptions using OpenAI API
+- 📄 **PDF Extraction** - Extract legal descriptions using OpenAI or Gemini APIs
 - 🧭 **Bearing Conversion** - Quadrant bearings to azimuth (degrees from North)
 - 📐 **Curve Support** - Full radius, delta, arc length, chord calculations
 - ✅ **6 Verification Guardrails** - Traverse closure, angles, curves, area, parallelism
@@ -21,6 +21,34 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 - 🚫 **Never Fabricates Data** - Flags incomplete bearings, never invents numbers
 - 🔄 **Unit Conversion** - Supports feet, poles, rods, chains
 
+## Recent Updates
+
+- Ground truth JSON files are now stored alongside each sample PDF in `sample_deeds/` for replayable extraction checks.
+- Prompt pipeline updates improved preservation of numbered-call formatting and line breaks for easier parser downstreaming.
+- `CHANGELOG.md` now includes backfilled commit history under **Unreleased** and follows Keep-a-Changelog format.
+- Ground-truth and changelog workflows are documented for reproducibility and auditability.
+
+## Ground Truth Workflow
+
+- Generate missing ground-truth JSON outputs:
+```bash
+uv run python scripts/generate_ground_truth.py
+```
+- Extract and verify a sample PDF:
+```bash
+uv run metesparser extract sample_deeds/"18 Pennbrook Dr - Deed Image (11985 - 00829).pdf"
+uv run metesparser verify sample_deeds/"18 Pennbrook Dr - Deed Image (11985 - 00829).csv"
+```
+- Run full sample extraction report generation:
+```bash
+uv run python extract_sample_deeds.py
+```
+
+## Project Workflow Notes
+
+- Use `make run-extract` and `make run-verify` for quick local checks.
+- Use `make test` for the full test suite and `make test-cov` for coverage.
+
 ## Quick Start
 
 ### Installation
@@ -31,8 +59,15 @@ git clone <repo-url>
 cd metesParser
 make dev-setup
 
-# Add your OpenAI API key to .env
+# Copy environment template
+cp .env.example .env
+
+# Configure your preferred LLM provider in .env
+echo "METESPARSER_LLM_PROVIDER=openai" >> .env
 echo "OPENAI_API_KEY=sk-..." >> .env
+# or for Gemini:
+# echo "METESPARSER_LLM_PROVIDER=gemini" >> .env
+# echo "GEMINI_API_KEY=..." >> .env
 ```
 
 ### Usage
@@ -47,6 +82,15 @@ uv run metesparser verify calls.csv
 # Or use the Makefile
 make run-extract PDF_FILE=deed.pdf
 make run-verify CSV_FILE=calls.csv
+```
+
+#### Choosing an LLM Provider
+
+By default MetesParser uses OpenAI. To switch providers either set the environment variable
+`METESPARSER_LLM_PROVIDER` (`openai` or `gemini`) or pass the CLI flag:
+
+```bash
+uv run metesparser extract deed.pdf --llm-provider gemini
 ```
 
 ### Python API
@@ -73,7 +117,7 @@ print(f"Status: {'✓ VERIFIED' if result.is_fully_verified() else '⚠ NEEDS RE
 
 ```
 PDF → Extract → Normalize → Parse Calls → Verify → CSV
-       OpenAI   TextParser  CallExtractor  Closure  _verified.csv
+       LLM      TextParser  CallExtractor  Closure  _verified.csv
                                           Checker   (if passed)
 ```
 
@@ -87,7 +131,7 @@ PDF → Extract → Normalize → Parse Calls → Verify → CSV
 | `call_extractor.py` | Regex-based call parsing (rule-based, not AI) |
 | `closure_checker.py` | 6 verification guardrails |
 | `csv_builder.py` | CSV export/import with standard schema |
-| `pdf_processor.py` | OpenAI integration for PDF extraction |
+| `pdf_processor.py` | LLM integration for PDF extraction (OpenAI/Gemini) |
 | `cli.py` | Command-line interface |
 
 ### Verification Guardrails
@@ -107,7 +151,7 @@ The system implements 6 checks before exporting verified CSV:
 
 - Python 3.11+
 - [UV](https://github.com/astral-sh/uv) (required for dependency management)
-- OpenAI API key
+- OpenAI or Google Gemini API key
 
 ### Setup
 
@@ -118,6 +162,9 @@ make install
 # Or manually with UV
 uv venv
 uv sync --all-extras --dev
+
+# Using pip? Install optional Gemini support with:
+# pip install "metesparser[gemini]"
 ```
 
 ### Common Commands
@@ -133,7 +180,7 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite includes 210+ tests organized by type:
+The test suite has about 190+ tests organized by type:
 
 ```bash
 # Run all tests (unit + integration + regression)
@@ -142,13 +189,13 @@ make test
 # Run only fast unit tests (skip PDF tests)
 uv run pytest tests/unit/ -v
 
-# Run integration tests (includes PDF tests if OPENAI_API_KEY set)
+# Run integration tests
 uv run pytest tests/integration/ -v
 
 # Skip slow tests (excludes PDF processing tests)
 uv run pytest -m "not slow"
 
-# Run only PDF processing tests (requires OPENAI_API_KEY)
+# Run PDF processing tests
 uv run pytest tests/integration/test_pdf_processing.py -v
 
 # Run specific test markers
@@ -166,11 +213,10 @@ make test-cov
 open htmlcov/index.html
 ```
 
-**PDF Processing Tests**: 20+ additional tests validate the full pipeline using actual deed PDFs. These tests:
-- Require `OPENAI_API_KEY` in `.env` file
-- Make live API calls (incur costs ~$0.20-0.50 per full run)
-- Are automatically skipped if API key not set
-- Test extraction from 6 sample deed PDFs in project root
+**PDF Processing Tests**: The current integration PDF suite is mocked, so no live LLM calls are required by default.
+- Verifies extraction orchestration and geometry pipeline behavior with fixture inputs
+- Uses `sample_deeds/` fixture PDFs for realistic input coverage
+- Focuses on deterministic behavior and regression protection
 
 See [docs/TESTING.md](docs/TESTING.md) for comprehensive testing documentation including detailed PDF test guide.
 
@@ -235,7 +281,7 @@ Azimuth = degrees clockwise from North (0-360°):
 1. **Never Fabricate Data** - If bearing is incomplete (e.g., "southwesterly"), leave azimuth blank and flag in notes
 2. **Verification First** - Traverse must close to <0.01 ft before exporting `_verified.csv`
 3. **Preserve Original Wording** - Keep deed language verbatim in `along` and `to` fields
-4. **Deterministic Processing** - OpenAI temperature=0 for consistent results
+4. **Deterministic Processing** - LLM temperature=0 for consistent results
 
 ## Project Structure
 
@@ -252,8 +298,8 @@ metesParser/
 │   ├── csv_builder.py
 │   ├── pdf_processor.py
 │   └── cli.py
-├── prompts/                     # OpenAI prompt YAML files
-├── tests/                       # Pytest test suite (184 tests)
+├── prompts/                     # Prompt YAML files
+├── tests/                       # Pytest test suite (about 190+ tests)
 │   ├── conftest.py              # Shared fixtures
 │   ├── helpers.py               # Test utilities
 │   ├── fixtures/                # Sample legal descriptions
@@ -272,7 +318,7 @@ metesParser/
 ## Requirements
 
 - Python 3.11+
-- OpenAI API key (for PDF extraction)
+- OpenAI or Gemini API key (based on selected provider)
 - UV package manager (no pip/conda/poetry)
 
 ## Environment Variables
@@ -280,7 +326,9 @@ metesParser/
 Create a `.env` file:
 
 ```bash
+METESPARSER_LLM_PROVIDER=openai
 OPENAI_API_KEY=sk-...  # Required
+GEMINI_API_KEY=...      # Required when using Gemini
 LOG_LEVEL=INFO          # Optional (default: INFO)
 ```
 
@@ -288,8 +336,8 @@ LOG_LEVEL=INFO          # Optional (default: INFO)
 
 ### Common Issues
 
-**"OpenAI API key not found"**
-- Ensure `.env` file exists with `OPENAI_API_KEY=sk-...`
+**"LLM API key not found"**
+- Ensure `.env` file exists with `OPENAI_API_KEY` or `GEMINI_API_KEY` for your selected provider
 - Run `make dev-setup` to create `.env` from template
 
 **Traverse doesn't close**

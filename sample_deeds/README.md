@@ -56,7 +56,7 @@ These sample deeds serve as:
 
 ## Usage in Tests
 
-The test suite uses these files for integration and regression testing:
+The test suite uses these files for integration testing and ground-truth validation:
 
 ```python
 # Example usage

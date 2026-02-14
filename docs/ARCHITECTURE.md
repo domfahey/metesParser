@@ -28,9 +28,9 @@ metesParser is a deterministic metes & bounds parser that converts legal descrip
 
 - **Python 3.11+** - Modern Python with type hints (`|` unions)
 - **Pydantic v2** - Data validation and schema enforcement
-- **OpenAI API** - PDF text extraction only
+- **OpenAI + optional Gemini** - Configurable LLM providers for PDF extraction
 - **UV** - Dependency management (no pip/conda/poetry)
-- **pytest** - Test framework with 170+ tests
+- **pytest** - Test framework with ~190+ tests
 
 ## Core Principles
 
@@ -72,21 +72,14 @@ call = DeedCall(
 ### 4. Deterministic Processing
 
 ```python
-# OpenAI Responses API extraction for consistency
-response = openai_client.responses.create(
-    model="gpt-4.1",
-    input=[
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "input_text",
-                    "text": combined_prompt,
-                },
-            ],
-        },
-    ],
-)
+# LLM extraction for deterministic behavior
+from metesparser.llm_clients import OpenAIClient, GeminiClient
+
+response_client = OpenAIClient()
+# or
+response_client = GeminiClient()
+
+response = response_client.generate_text(combined_prompt)
 ```
 
 ## Data Flow
@@ -95,7 +88,7 @@ response = openai_client.responses.create(
 
 ```
 ┌──────┐     ┌─────────┐     ┌───────────┐     ┌────────┐     ┌──────────┐     ┌────────┐
-│ PDF  │────>│ OpenAI  │────>│   Text    │────>│  Call  │────>│ Closure  │────>│  CSV   │
+│ PDF  │────>│ LLM    │────>│   Text    │────>│  Call  │────>│ Closure  │────>│  CSV   │
 │ File │     │ Extract │     │  Parser   │     │Extract │     │ Checker  │     │ Export │
 └──────┘     └─────────┘     └───────────┘     └────────┘     └──────────┘     └────────┘
              (API call)      (Normalize)       (Regex)        (Verify)         (if passed)
@@ -105,7 +98,7 @@ response = openai_client.responses.create(
 
 ```
 1. PDF Extraction (pdf_processor.py)
-   ├─> OpenAI API with zero-shot prompt
+   ├─> Configured LLM provider (OpenAI or Gemini)
    ├─> Temperature=0 for determinism
    └─> Returns: Raw legal description text
 
@@ -155,7 +148,7 @@ response = openai_client.responses.create(
       │
       v
 ┌─────────────────┐
-│ pdf_processor.py│  (OpenAI API)
+│ pdf_processor.py│  (OpenAI/Gemini provider)
 └─────┬───────────┘
       │
       v
@@ -295,26 +288,26 @@ dy = distance × cos(azimuth)
 - `export_verified_csv()` - Export only if verified
 - `legal_description_to_csv()` - Export with metadata
 
-**CSV Schema** (14 fields):
+**CSV Schema** (16 fields):
 ```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
-along,to,notes
+along,to,monument_type,is_exception,notes
 ```
 
 #### pdf_processor.py
-**Purpose**: Extract legal description from PDF using OpenAI
+**Purpose**: Extract legal description from PDF using configured LLM provider
 
 **Key Methods**:
 - `process_deed_pdf()` - Main extraction
 - `extract_text_from_pdf()` - PDF → text
-- `call_openai_api()` - OpenAI extraction
+- `generate_text_with_pdf()` - Provider extraction
 
 **Strategy**:
 - Zero-shot prompt with examples
 - Temperature=0 for determinism
 - Structured output format
-- Retry logic for transient failures
+  - Retry logic for transient failures
 
 #### cli.py
 **Purpose**: Command-line interface
@@ -502,12 +495,12 @@ return ClosureResult(..., warnings=warnings)
 
 ### Slow Operations
 
-- **PDF extraction**: OpenAI API call (~2-5 seconds)
+- **PDF extraction**: LLM API call (~2-5 seconds)
 - **Large parcels**: 100+ calls take longer to verify
 
 ### Optimization Strategies
 
-1. **Cache OpenAI calls** - Don't re-extract same PDF
+1. **Cache extraction calls** - Avoid re-extracting the same PDF
 2. **Batch processing** - Process multiple PDFs in parallel
 3. **Skip verification** - For quick viewing, don't run all checks
 

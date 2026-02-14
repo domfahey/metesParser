@@ -1,14 +1,14 @@
-# OpenAI Prompts for Deed Processing
+# LLM Prompts for Deed Processing
 
-This directory contains all OpenAI API prompts used by the metesParser system. All prompts are stored as YAML files for easy modification and version control.
+This directory contains all prompts used by the metesParser system. Prompts are provider-agnostic by design and configured through `PDFProcessor`.
 
 ## Prompt Files
 
 ### 1. extract_text_from_pdf.yaml
-**Purpose**: Extract all text from a PDF document using the Responses API
+**Purpose**: Extract all text from a PDF document (LLM prompt input for downstream parsing)
 
-**Model**: gpt-4.1
-**API**: OpenAI Responses API
+**Model**: OpenAI `gpt-4.1` (default)
+**API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
 **Input**: PDF file (base64 encoded)
 **Output**: Complete document text
 
@@ -19,8 +19,8 @@ This directory contains all OpenAI API prompts used by the metesParser system. A
 ### 2. extract_legal_description.yaml
 **Purpose**: Locate and extract the legal description section from deed text
 
-**Model**: gpt-4.1
-**API**: Responses API
+**Model**: OpenAI `gpt-4.1` (default)
+**API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
 **Input**: Full document text
 **Output**: Legal description text only
 
@@ -36,8 +36,8 @@ This directory contains all OpenAI API prompts used by the metesParser system. A
 ### 3. normalize_text.yaml
 **Purpose**: Normalize and clean up legal description text
 
-**Model**: gpt-4.1
-**API**: Responses API
+**Model**: OpenAI `gpt-4.1` (default)
+**API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
 **Input**: Raw legal description text
 **Output**: Normalized, standardized text
 
@@ -55,8 +55,8 @@ This directory contains all OpenAI API prompts used by the metesParser system. A
 ### 4. extract_calls.yaml
 **Purpose**: Extract individual calls/courses from normalized legal description (AI-assisted experimental method)
 
-**Model**: gpt-4.1
-**API**: Responses API
+**Model**: OpenAI `gpt-4.1` (default)
+**API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
 **Input**: Normalized legal description text
 **Output**: JSON array of structured call data
 
@@ -120,23 +120,10 @@ Then used with appropriate formatting:
 prompt_config = self._load_prompt("extract_legal_description")
 user_prompt = prompt_config["user_prompt_template"].format(document_text=doc_text)
 
-# Combine system and user prompts for Responses API
+# Combine system and user prompts for the configured LLM client
 combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
 
-response = client.responses.create(
-    model="gpt-4.1",
-    input=[
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "input_text",
-                    "text": combined_prompt,
-                },
-            ],
-        },
-    ],
-)
+response = client.generate_text(combined_prompt)
 ```
 
 ## Processing Pipeline
@@ -178,12 +165,12 @@ The complete PDF processing pipeline uses prompts in this order:
 
 ## Model Configuration
 
-All prompts currently use **GPT-4.1** for:
-- Better PDF OCR accuracy
-- Improved legal terminology understanding
-- More reliable pattern recognition
+Defaults are:
 
-To change models, update the `model` parameter in `pdf_processor.py` methods.
+- OpenAI: **gpt-4.1**
+- Gemini: **gemini-2.5-pro** (with optional fallback model in `GeminiClient`)
+
+Prompts are provider-agnostic, so model changes are provider-specific and should be made in the client configuration.
 
 ## Testing Prompts
 

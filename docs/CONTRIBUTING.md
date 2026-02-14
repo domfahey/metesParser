@@ -9,7 +9,7 @@ Guidelines for contributing to metesParser.
 - Python 3.11+
 - [UV package manager](https://github.com/astral-sh/uv)
 - Git
-- OpenAI API key (for PDF extraction)
+- OpenAI and/or Gemini API key (for PDF extraction, depending on provider)
 
 ### Initial Setup
 
@@ -218,7 +218,7 @@ if bearing is None:
 
 All processing must be deterministic:
 ```python
-# Temperature=0 for OpenAI
+# Temperature=0 for LLM calls
 # No random sampling
 # Same input → same output always
 ```
