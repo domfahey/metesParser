@@ -448,7 +448,11 @@ class TestErrorHandling:
         calls = CallExtractor.extract_calls(normalized)
 
         # Should attempt to parse (may succeed or fail gracefully)
-        assert len(calls) >= 0
+        assert len(calls) in (1, 2)
+        assert math.isclose(calls[-1].bearing_azimuth_deg_from_north or 0.0, 225.0, abs_tol=0.01)
+        assert math.isclose(calls[-1].distance_ft, 100.0, abs_tol=0.01)
+        if len(calls) == 2:
+            assert calls[0].bearing_azimuth_deg_from_north is None
 
 
 class TestRealWorldScenarios:

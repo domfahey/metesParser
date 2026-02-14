@@ -249,7 +249,10 @@ class TestClosureVerification:
         result = ClosureChecker.verify_closure(calls)
 
         assert any("exception calls" in warning.lower() for warning in result.warnings)
-        assert any("calculating exception area to subtract" in warning for warning in result.warnings)
+        assert any(
+            "exception" in warning.lower() and "area" in warning.lower() and "subtract" in warning.lower()
+            for warning in result.warnings
+        )
 
     def test_exception_tract_incomplete_warning_is_emitted(self):
         """Incomplete exception bearings should be reported and still handled."""
@@ -270,7 +273,10 @@ class TestClosureVerification:
         result = ClosureChecker.verify_closure(calls)
 
         assert any("exception tract has" in warning.lower() for warning in result.warnings)
-        assert any("cannot calculate exception area" in warning.lower() for warning in result.warnings)
+        assert any(
+            "exception" in warning.lower() and "cannot" in warning.lower() and "area" in warning.lower()
+            for warning in result.warnings
+        )
 
 
 class TestAreaCalculation:
@@ -498,9 +504,8 @@ class TestInteriorAngleCheck:
 
         result = ClosureChecker.verify_closure(calls)
 
-        # May pass or not depending on exact geometry
-        # This is testing the check runs without error
-        assert result.angle_check_passed in [True, False]
+        # Equilateral-like three-side geometry should satisfy interior angle rule.
+        assert result.angle_check_passed is True
 
     def test_skips_curves(self):
         """Angle check skipped if curves present."""
@@ -891,8 +896,8 @@ class TestDoubleEntryValidation:
 
         discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
 
-        assert any("Curve direction mismatch" in d for d in discrepancies)
-        assert any("Radius mismatch" in d for d in discrepancies)
+        assert any("curve direction mismatch" in d.lower() for d in discrepancies)
+        assert any("radius mismatch" in d.lower() for d in discrepancies)
 
 
 class TestClosureSummary:

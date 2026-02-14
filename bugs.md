@@ -85,3 +85,24 @@
 - **Impact:** For curve calls without explicit arc length, `distance_ft` falls back to the first parsed feet token (often the radius), yielding an incorrect straight-line-like segment distance instead of curve arc length.
 - **Why it is a bug:** Legal descriptions commonly include decimal-degree curve deltas; dropping them silently changes geometry magnitude while preserving only partial curve metadata.
 - **Suggested fix:** Allow decimal delta capture in the parser (`\d+(?:\.\d+)?` and decimal minutes parsing), then compute/override distance from computed arc length whenever radius+delta exists.
+
+### 13) `extract_along_to_fields` matches `along` as a substring, not a keyword
+- **Location:** `src/metesparser/text_parser.py` (`TextParser.extract_along_to_fields`)
+- **Issue:** Detection uses `lower_text.find("along")` instead of a token-level match.
+- **Impact:** Words like `"alongside"` are parsed as if they were `along` clauses. For example, `"N 45°E 100 feet alongside the north fence"` yields `along="side the north fence"` and an empty `to`, corrupting extracted metadata.
+- **Why it is a bug:** The parser should only treat the standalone keyword `along` as a field delimiter; substring matches create phantom `along` descriptors.
+- **Suggested fix:** Use a word-boundary pattern (e.g., `re.search(r"\\balong\\b")`) on normalized spacing to avoid substring matching.
+
+### 14) Curve direction phrase (`to the right/left`) is misread as endpoint
+- **Location:** `src/metesparser/text_parser.py` (`TextParser.extract_along_to_fields`) and downstream `src/metesparser/call_extractor.py` (`CallExtractor.extract_single_call`)
+- **Issue:** For curve calls, the phrase `"to the right"` / `"to the left"` (which describes curve direction) is interpreted by the `to` parser as an endpoint.
+- **Impact:** `to` field is set to junk text like `"the right having a radius ..."` when a curve call has no explicit endpoint, while the actual endpoint may be absent or different.
+- **Why it is a bug:** This drops usable curve intent and injects incorrect endpoint data, because the parser does not distinguish directional `to` from endpoint `to`.
+- **Suggested fix:** In `extract_along_to_fields`, when scanning the `along` segment, ignore structural direction phrase tokens (e.g., `to the (left|right)` for curve text) from endpoint detection.
+
+### 15) Double-entry validation misses several curve mismatches
+- **Location:** `src/metesparser/closure_checker.py` (`ClosureChecker.compare_double_entry`)
+- **Issue:** When either call has curve data, comparison only checks `curve_dir` and radius if both `radius_ft` values are present.
+- **Impact:** Discrepancies such as differing `delta_deg` values, or one call missing `radius_ft` while the other has it, are not flagged. This can report false positives as matching entries.
+- **Why it is a bug:** Double-entry validation is intended to detect all meaningful geometry differences; omitting these curve fields reduces audit reliability.
+- **Suggested fix:** Compare curve geometry consistently whenever either call is a curve (including `delta_deg`, radius presence/values, arc/chord if present) and treat asymmetric curve fields as discrepancies.

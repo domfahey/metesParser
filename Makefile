@@ -4,6 +4,7 @@ SHELL := /bin/bash
 UV ?= uv
 UV_RUN := $(UV) run
 PY_SRC := src/metesparser
+PY_TESTS := tests
 
 # Cache/tooling behavior.
 UV_CACHE_DIR ?= $(CURDIR)/.uv-cache
@@ -136,14 +137,14 @@ lockfile-check: ## Ensure uv.lock is present and in sync with pyproject.toml.
 
 lint: ## Run static analysis with Ruff.
 	@echo "Running ruff linter..."
-	$(UV_RUN) ruff check $(PY_SRC)
+	$(UV_RUN) ruff check $(PY_SRC) $(PY_TESTS)
 	@echo "✓ Linting complete"
 
 format: ## Format source files with Ruff and Black.
 	@echo "Formatting code with ruff..."
-	$(UV_RUN) ruff format $(PY_SRC)
+	$(UV_RUN) ruff format $(PY_SRC) $(PY_TESTS)
 	@echo "Formatting code with black..."
-	$(UV_RUN) black $(PY_SRC) --exclude text_parser.py
+	$(UV_RUN) black $(PY_SRC) $(PY_TESTS) --exclude text_parser.py
 	@echo "✓ Formatting complete"
 
 lint-fix: ## Auto-fix Ruff-detected issues.
@@ -153,8 +154,8 @@ lint-fix: ## Auto-fix Ruff-detected issues.
 
 format-check: ## Verify formatting without making changes.
 	@echo "Checking code formatting..."
-	$(UV_RUN) ruff format $(PY_SRC) --check
-	$(UV_RUN) black $(PY_SRC) --exclude text_parser.py --check
+	$(UV_RUN) ruff format $(PY_SRC) $(PY_TESTS) --check
+	$(UV_RUN) black $(PY_SRC) $(PY_TESTS) --exclude text_parser.py --check
 	@echo "✓ All checks passed"
 
 quality: lint format-check ## Run lint + format checks.

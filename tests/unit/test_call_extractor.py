@@ -230,8 +230,12 @@ class TestEdgeCases:
         # This may create a call with None bearing, or skip it entirely
         calls = CallExtractor.extract_calls(sample_deeds.INVALID_BEARING)
 
-        # Should not crash, may have 0-2 calls depending on handling
-        assert len(calls) >= 0
+        # Should not crash; malformed first call should not prevent later parsing.
+        assert len(calls) in (1, 2)
+        assert math.isclose(calls[-1].bearing_azimuth_deg_from_north or 0.0, 225.0, abs_tol=0.01)
+        assert math.isclose(calls[-1].distance_ft, 100.0, abs_tol=0.01)
+        if len(calls) == 2:
+            assert calls[0].bearing_azimuth_deg_from_north is None
 
     def test_with_ocr_errors(self):
         """Text with OCR errors should be corrected during normalization."""
