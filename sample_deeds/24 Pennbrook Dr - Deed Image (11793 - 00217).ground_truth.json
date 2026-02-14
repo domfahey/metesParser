@@ -1,0 +1,108 @@
+{
+  "deed_info": {
+    "address": "24 Pennbrook Drive",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "11793",
+    "page": "00217",
+    "parcel_shape": "Irregular polygon",
+    "dimensions": "Multiple calls with curves"
+  },
+  "raw_ocr_text": "Certainly! Here is the extracted text from your provided PDF document, with careful attention to formatting, line breaks, capitalization, and special symbols, particularly for legal property descriptions as requested:\n\n---\n\n**Page 1 of 6**\n\n---\nCAMDEN COUNTY  \nDOCUMENT SUMMARY SHEET\n\nCAMDEN COUNTY, NJ  \nCAMDEN COUNTY CLERK’S OFFICE  \nRECORDING DEPARTMENT  \n520 MARKET STREET, RM 105 PO 371  \nCAMDEN, NEW JERSEY 08101-3071  \n(856) 225-5300  \nWebsite: https://www.camdencounty.com  \nFAX:  444 000 440  \n\n520 MARKET ST  \nCAMDEN NJ 08102  \n\nTransaction Identification Number\n---------------------------\n357028  \n536295\n\nSubmission Date/Time  \n06/29/2021\n\nReturn Address  \nCITY ABSTRACT (DIANA)\n\nNo. of Pages (excluding Summary Sheet)  \n6\n\nRecording Fee  \n$53.00\n\nReturn Address\nCITY ABSTRACT (DIANA)  \n123 EGG HARBOR ROAD  \nSUITE 806  \nSEWELL NJ 08080\n\nRealty Transfer Tax  \n0.00\n\nDocument Type  \nDEED\n\nMunicipal Codes  \nCAMDEN COUNTY\n\nComments  \nL2 - LIB1/2 (WITH IMAGES)  \n\n635949\n\nAdditional Informa...",
+  "expected_legal_description": "All that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden,\nState of New Jersey, and being more particularly described as follows:\n\nBEGINNING at a point in the southwesterly line of Pennbrook Drive 145 feet southwesterly from the southwestern\nside of Concord Place; thence (1) South 53° 50’ 56” West a distance of 125 feet to a corner; thence (2) South\n36° 09’ 04” East a distance of 142 feet to a corner; thence (3) North 53° 50’ 56” East a distance of 125 feet to a \npoint in a line of Pennbrook Drive; thence (4) North 36° 09’ 04” West along and along the southwesterly line of\nPennbrook Drive 142 feet to the place of BEGINNING.\n\nBEING Lot 12 in Block 64.23 on the Tax Map of the Borough of Haddonfield, County of Camden and State of New\nJersey. SAID premises being commonly known and designated as 24 Pennbrook Drive, Haddonfield, NJ 08033.\n\nNOTE FOR INFORMATION ONLY:\nLot and Block shown in this legal description are for informational purposes only.\n\nLot and Block shown are utilized for Tax Map of the Borough of Haddonfield, County of Camden.",
+  "expected_normalized_text": "All that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden,  \nState of New Jersey, and being more particularly described as follows:\n\nBEGINNING at a point in the southwesterly line of Pennbrook Drive 145 feet southwesterly from the southwestern side of Concord Place;  \n1. S 53°50'56\" W a distance of 125 feet to a corner;  \n2. S 36°09'04\" E a distance of 142 feet to a corner;  \n3. N 53°50'56\" E a distance of 125 feet to a point in a line of Pennbrook Drive;  \n4. N 36°09'04\" W along and along the southwesterly line of Pennbrook Drive 142 feet to the place of BEGINNING.\n\nBEING Lot 12 in Block 64.23 on the Tax Map of the Borough of Haddonfield, County of Camden and State of New Jersey. SAID premises being commonly known and designated as 24 Pennbrook Drive, Haddonfield, NJ 08033.\n\nNOTE FOR INFORMATION ONLY:  \nLot and Block shown in this legal description are for informational purposes only.\n\nLot and Block shown are utilized for Tax Map of the Borough of Haddonfield, County of Camden.",
+  "expected_poc": null,
+  "expected_pob": "a point in the southwesterly line of Pennbrook Drive 145 feet southwesterly from the southwestern side of Concord Place",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "southwesterly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 145.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 2,
+      "direction_text": "S 53°50'56\" W",
+      "bearing_quadrant": "S 53°51' W",
+      "bearing_azimuth_deg_from_north": 233.8488888888889,
+      "distance_ft": 125.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "a corner",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "S 36°09'04\" E",
+      "bearing_quadrant": "S 36°09' E",
+      "bearing_azimuth_deg_from_north": 143.8488888888889,
+      "distance_ft": 142.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "a corner",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "N 53°50'56\" E",
+      "bearing_quadrant": "N 53°51' E",
+      "bearing_azimuth_deg_from_north": 53.848888888888894,
+      "distance_ft": 125.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "a point in a line of Pennbrook Drive",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "N 36°09'04\" W",
+      "bearing_quadrant": "N 36°09' W",
+      "bearing_azimuth_deg_from_north": 323.8488888888889,
+      "distance_ft": 142.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "and along the southwesterly line of Pennbrook Drive 142 feet",
+      "to": "the place of BEGINNING",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0,
+    "area_sq_ft": 17750.0,
+    "area_acres": 0.4075,
+    "perimeter_ft": 679.0,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 5,
+      "operator": "==",
+      "description": "MUST extract exactly 5 calls"
+    }
+  },
+  "notes": "Ground truth generated from GPT-4.1 extraction on 1760497144.3267987"
+}

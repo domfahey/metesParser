@@ -1,0 +1,48 @@
+{
+  "deed_info": {
+    "address": "31 Pennbrook Drive",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "10989",
+    "page": "916",
+    "parcel_shape": "Polygon",
+    "dimensions": "Chain of title deed"
+  },
+  "raw_ocr_text": "Certainly! Here is the complete, exact text extracted from the provided images, including all formatting, line breaks, capitalization, numbers, and symbols.\n\n---\n\n**Page 1 of 2**\n\nCamden County  \nDocument Summary Sheet\n\nCAMDEN COUNTY CLERK\n\n520 MARKET ST  \nCamden, NJ 08102\n\n| -------------------------------------------------------------------------------------------------------------------------- |\n| Transaction Identification Number:      |      3587236                                                                               |\n| Submission Date/Time:                   |      06/28/2018 14:13                                                                     |\n| No. of Pages (excluding Summary Sheet): |      5                                                                                     |\n| Convenience Charge ($3.00)?:            |      $0.00                                                                                 |\n| Document Type:                          |      DE...",
+  "expected_legal_description": "ALL that certain tract or parcel of land, lying and being in Haddonfield Borough, County of Camden, and State of New Jersey, more particularly bounded and described as follows:\n\nAMENDED  \nBEGINNING AT A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, 50’w, said point being distant 204.50’ southwesterly from a point in the southeasterly line of Greenmount Road, 50’w, bounded and described as follows:\n\nTHENCE (1) SOUTH 17 DEGREES 36 MINUTES 25 SECONDS EAST ALONG THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 23.07 FEET TO AN ANGLE POINT:\n\nTHENCE (2) SOUTH 35 DEGREES 10 MINUTES 30 SECONDS EAST ALONG THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 132.65 FEET ALONG THE NORTHEASTERLY LINE OF PENNBROOK DRIVE TO A POINT:\n\nTHENCE (3) SOUTH 48 DEGREES 06 MINUTES 38 SECONDS EAST ALONG THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 36.37 FEET TO A POINT FOR A CORNER:\n\nTHENCE (4) NORTH 41 DEGREES 42 MINUTES 40 SECONDS EAST ALONG LOT 12, A DISTANCE OF 142.02 FEET TO A POINT FOR A CORNER:\n\nTHENCE (5) NORTH 47 DEGREES 37 MINUTES 20 SECONDS WEST ALONG LOT 10, A DISTANCE OF 177.44 FEET TO A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, THE PLACE AND POINT OF BEGINNING.\n\nBEING KNOWN AS: 31 PENNBROOK DRIVE, HADDONFIELD, NJ 08033.",
+  "expected_normalized_text": "ALL that certain tract or parcel of land, lying and being in Haddonfield Borough, County of Camden, and State of New Jersey, more particularly bounded and described as follows:\n\nAMENDED  \nBEGINNING AT A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, 50’w, said point being distant 204.50’ southwesterly from a point in the southeasterly line of Greenmount Road, 50’w, bounded and described as follows:\n\n1. S 17°36'25\" E along the northeasterly line of Pennbrook Drive, a distance of 23.07 feet to an angle point:\n\n2. S 35°10'30\" E along the northeasterly line of Pennbrook Drive, a distance of 132.65 feet along the northeasterly line of Pennbrook Drive to a point:\n\n3. S 48°06'38\" E along the northeasterly line of Pennbrook Drive, a distance of 36.37 feet to a point for a corner:\n\n4. N 41°42'40\" E along Lot 12, a distance of 142.02 feet to a point for a corner:\n\n5. N 47°37'20\" W along Lot 10, a distance of 177.44 feet to a point in the northeasterly line of Pennbrook Drive, the place and point of beginning.\n\nBEING KNOWN AS: 31 PENNBROOK DRIVE, HADDONFIELD, NJ 08033.",
+  "expected_poc": null,
+  "expected_pob": "A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, 50’w, said point being distant 204",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 17°36'25\" E",
+      "bearing_quadrant": "S 17°36' E",
+      "bearing_azimuth_deg_from_north": 162.39305555555555,
+      "distance_ft": 23.07,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the northeasterly line of Pennbrook Drive, a distance of 23.07 feet to an angle point: 2. S 35°10'30\" E along the northeasterly line of Pennbrook Drive, a distance of 132.65 feet along the northeasterly line of Pennbrook Drive to a point: 3. S 48°06'38\" E along the northeasterly line of Pennbrook Drive, a distance of 36.37 feet to a point for a corner: 4. N 41°42'40\" E along Lot 12, a distance of 142.02 feet to a point for a corner: 5. N 47°37'20\" W along Lot 10, a distance of 177.44 feet",
+      "to": "a point in the northeasterly line of Pennbrook Drive, the place and point of beginning",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 23.07,
+    "area_sq_ft": 0.0,
+    "area_acres": 0.0,
+    "perimeter_ft": 23.07,
+    "closure_passed": false
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 1,
+      "operator": "==",
+      "description": "MUST extract exactly 1 calls"
+    }
+  },
+  "notes": "Ground truth generated from GPT-4.1 extraction on 1760497144.3267987"
+}
