@@ -24,8 +24,8 @@ make dev-setup
 # Install dependencies
 make install
 
-# Run tests to verify setup
-make test
+# Verify setup with full quality checks
+make check
 ```
 
 ## Development Workflow
@@ -66,6 +66,7 @@ This runs:
 - Formatting (black)
 - Type checking (mypy)
 - Full test suite
+- (Equivalent to `make check`.)
 
 ### 4. Commit Changes
 

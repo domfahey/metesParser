@@ -27,6 +27,7 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 - Prompt pipeline updates improved preservation of numbered-call formatting and line breaks for easier parser downstreaming.
 - `CHANGELOG.md` now includes backfilled commit history under **Unreleased** and follows Keep-a-Changelog format.
 - Ground-truth and changelog workflows are documented for reproducibility and auditability.
+- `make check` now runs the full quality gate (`lint`, `format`, `type`, `test`) in one command.
 
 ## Ground Truth Workflow
 
@@ -47,7 +48,7 @@ uv run python scripts/extract_sample_deeds.py
 ## Project Workflow Notes
 
 - Use `make run-extract` and `make run-verify` for quick local checks.
-- Use `make test` for the full test suite and `make test-cov` for coverage.
+- Use `make check` for the full quality gate (lint + format + type + tests) and `make test-cov` for coverage.
 
 ## Quick Start
 
@@ -171,6 +172,7 @@ uv sync --all-extras --dev
 
 ```bash
 make help          # Show all available commands
+make check         # Run full quality gate (lint + format + type + tests)
 make lint          # Run ruff linter
 make format        # Format code with ruff + black
 make test          # Run pytest test suite
@@ -233,6 +235,7 @@ make lint-fix
 make format
 
 # Run all checks
+# Includes lint, format, type checking, and test suite
 make check
 ```
 

@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Full History Backfill (all commits in repository)
 
+- e65cba6 (2026-02-14): Fix type and quality-gate reliability
+- 92e1145 (2026-02-14): fix: tighten pydantic guardrails for deed calls
+- 65feac1 (2026-02-14): fix: enforce pydantic guardrails for curve and numeric inputs
+- b3a30db (2026-02-14): fix: extend lint/format to tests, tighten assertions, document new bugs
+- 61ae4ed (2026-02-14): docs: add bugs.md for tracking known issues
+- d1bb11b (2026-02-14): feat: add ground truth JSONs for 24/31 Pennbrook and generate script
+- 5a35fb6 (2026-02-14): feat: add Gemini LLM provider support and refactor PDF processor
+- c5a2b5b (2026-02-14): chore: organize project root - move scripts, PDFs, and ground truth
+- 7c41dde (2026-02-14): chore: apply pydantic best practices audit fixes
+- 602557b (2026-02-14): test: expand closure checker branch coverage
+- 22d007a (2026-02-14): docs: sync documentation with current suite and provider behavior
+- 8eda598 (2026-02-14): docs: Add comprehensive metes and bounds legal description reference
+- 6697559 (2026-02-14): Add parsed markdown outputs for project PDFs
+- c6970e3 (2026-02-14): test: expand coverage for cli and llm clients
+- 1d53270 (2026-02-14): chore: improve Makefile for reliability and workflow targets
 - 225fbf6 (2025-10-14): feat: Add JSON ground truth files next to source PDFs
 - e8a5a4d (2025-10-14): docs: Add ground truth folder for PDF extraction validation
 - 124dae0 (2025-10-14): fix: Strengthen prompts to preserve numbered call line breaks
