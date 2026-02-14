@@ -15,6 +15,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "structlog>=24.4.0",
     "openai>=2.3.0",
+    "pypdf>=6.1.1",
 ]
 
 [project.optional-dependencies]
@@ -25,6 +26,9 @@ dev = [
     "ruff>=0.8.0",
     "black>=24.10.0",
     "mypy>=1.13.0",
+]
+gemini = [
+    "google-genai>=0.3.0",
 ]
 
 [project.scripts]

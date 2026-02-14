@@ -1,32 +1,36 @@
-"""PDF processing using OpenAI for OCR and extraction.
+"""PDF processing using pluggable LLM providers for OCR and extraction."""
 
-Uses OpenAI's API to extract text and legal descriptions from deed PDFs.
-"""
+from __future__ import annotations
 
-import base64
+import json
 import os
 from pathlib import Path
 
 import yaml
-from openai import OpenAI
 
+from .llm_clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
 from .models import LegalDescription
 
 
 class PDFProcessor:
     """Process PDF deeds and extract legal descriptions."""
 
-    def __init__(self, api_key: str | None = None):
-        """Initialize PDF processor.
+    def __init__(
+        self,
+        api_key: str | None = None,
+        *,
+        provider: str | None = None,
+        client: BaseLLMClient | None = None,
+    ):
+        """Initialize PDF processor with configurable LLM provider.
 
         Args:
-            api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
+            api_key: Optional API key override for the chosen provider
+            provider: LLM provider name ("openai" or "gemini")
+            client: Optional pre-constructed LLM client implementation
         """
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OpenAI API key not found. Set OPENAI_API_KEY environment variable.")
-
-        self.client = OpenAI(api_key=self.api_key)
+        self._configured_api_key = api_key
+        self.client = client or self._create_client(provider)
         self.prompts_dir = Path(__file__).parent.parent.parent / "prompts"
 
     def _load_prompt(self, prompt_name: str) -> dict:
@@ -42,179 +46,56 @@ class PDFProcessor:
         with open(prompt_path) as f:
             return yaml.safe_load(f)
 
-    def _encode_pdf(self, pdf_path: str) -> str:
-        """Encode PDF file to base64.
-
-        Args:
-            pdf_path: Path to PDF file
-
-        Returns:
-            Base64-encoded PDF string
-        """
-        with open(pdf_path, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
-
     def extract_text_from_pdf(self, pdf_path: str) -> str:
-        """Extract all text from a PDF using OpenAI Responses API with GPT-4.1.
-
-        Uses Responses API with base64-encoded PDF files.
-
-        Args:
-            pdf_path: Path to PDF file
-
-        Returns:
-            Extracted text
-        """
-        # Load prompt
+        """Extract all text from a PDF using the configured LLM provider."""
         prompt_config = self._load_prompt("extract_text_from_pdf")
-
-        # Encode PDF to base64
-        pdf_base64 = self._encode_pdf(pdf_path)
-        filename = Path(pdf_path).name
-
-        # Use Responses API with PDF file
-        response = self.client.responses.create(
-            model="gpt-4.1",
-            input=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_file",
-                            "filename": filename,
-                            "file_data": f"data:application/pdf;base64,{pdf_base64}",
-                        },
-                        {
-                            "type": "input_text",
-                            "text": prompt_config["user_prompt_template"],
-                        },
-                    ],
-                },
-            ],
+        prompt_text = prompt_config["user_prompt_template"]
+        response_mime_type = prompt_config.get("response_mime_type")
+        return self.client.generate_text_with_pdf(
+            prompt_text, pdf_path, response_mime_type=response_mime_type
         )
-
-        return response.output_text or ""
 
     def extract_legal_description(self, pdf_path: str) -> str:
-        """Extract legal description from a deed PDF.
-
-        Args:
-            pdf_path: Path to PDF file
-
-        Returns:
-            Extracted legal description text
-        """
-        # First extract all text
+        """Extract legal description from a deed PDF."""
         document_text = self.extract_text_from_pdf(pdf_path)
-
-        # Load prompt
         prompt_config = self._load_prompt("extract_legal_description")
 
-        # Build combined prompt with system and user content
         combined_prompt = f"{prompt_config['system_prompt']}\n\n{prompt_config['user_prompt_template'].format(document_text=document_text)}"
-
-        response = self.client.responses.create(
-            model="gpt-4.1",
-            input=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": combined_prompt,
-                        },
-                    ],
-                },
-            ],
-        )
-
-        return response.output_text or ""
+        return self.client.generate_text(combined_prompt)
 
     def normalize_legal_description(self, legal_desc_text: str) -> str:
-        """Normalize and clean up legal description text.
-
-        Args:
-            legal_desc_text: Raw legal description text
-
-        Returns:
-            Normalized text
-        """
+        """Normalize and clean up legal description text."""
         prompt_config = self._load_prompt("normalize_text")
 
-        # Build combined prompt with system and user content
         user_prompt = prompt_config["user_prompt_template"].format(
             legal_description_text=legal_desc_text
         )
         combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
 
-        response = self.client.responses.create(
-            model="gpt-4.1",
-            input=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": combined_prompt,
-                        },
-                    ],
-                },
-            ],
-        )
-
-        return response.output_text or ""
+        return self.client.generate_text(combined_prompt)
 
     def extract_calls_ai(self, legal_desc_text: str) -> list[dict]:
-        """Extract calls using OpenAI (experimental).
-
-        This is an AI-assisted approach. For production, consider using
-        the rule-based CallExtractor for more reliability.
-
-        Args:
-            legal_desc_text: Normalized legal description text
-
-        Returns:
-            List of call dicts
-        """
-        import json
-
+        """Extract calls using the configured LLM (experimental)."""
         prompt_config = self._load_prompt("extract_calls")
 
-        # Build combined prompt with system and user content
         user_prompt = prompt_config["user_prompt_template"].format(
             legal_description_text=legal_desc_text
         )
         combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
 
-        response = self.client.responses.create(
-            model="gpt-4.1",
-            input=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": combined_prompt,
-                        },
-                    ],
-                },
-            ],
+        raw_response = self.client.generate_text(
+            combined_prompt, response_mime_type="application/json"
         )
 
-        result = json.loads(response.output_text or "{}")
+        try:
+            result = json.loads(raw_response or "{}")
+        except json.JSONDecodeError as exc:  # pragma: no cover - defensive
+            raise ValueError("LLM returned invalid JSON when extracting calls") from exc
+
         return result.get("calls", [])
 
     def process_deed_pdf(self, pdf_path: str) -> LegalDescription:
-        """Process a deed PDF and return structured LegalDescription.
-
-        This is the main entry point that orchestrates the full pipeline.
-
-        Args:
-            pdf_path: Path to PDF file
-
-        Returns:
-            LegalDescription object
-        """
+        """Process a deed PDF and return structured LegalDescription."""
         from .call_extractor import CallExtractor
         from .text_parser import TextParser
 
@@ -241,7 +122,6 @@ class PDFProcessor:
         # Step 6: Enrich with azimuths
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
 
-        # Build LegalDescription
         legal_desc = LegalDescription(
             poc_description=poc if poc else None,
             pob_description=pob,
@@ -257,3 +137,18 @@ class PDFProcessor:
         print(f"Extracted {legal_desc.num_calls()} calls")
 
         return legal_desc
+
+    def _create_client(self, provider: str | None) -> BaseLLMClient:
+        provider_name = (provider or os.getenv("METESPARSER_LLM_PROVIDER") or "openai").lower()
+
+        try:
+            if provider_name == "openai":
+                return OpenAIClient(api_key=self._configured_api_key)
+            if provider_name == "gemini":
+                return GeminiClient(api_key=self._configured_api_key)
+        except LLMClientError as exc:
+            raise ValueError(str(exc)) from exc
+
+        raise ValueError(
+            f"Unsupported LLM provider '{provider_name}'. Choose from: openai, gemini."
+        )

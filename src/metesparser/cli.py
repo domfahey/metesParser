@@ -8,12 +8,15 @@ import structlog
 logger = structlog.get_logger()
 
 
-def extract_command(pdf_path: str, output: str | None = None) -> None:
+def extract_command(
+    pdf_path: str, output: str | None = None, llm_provider: str | None = None
+) -> None:
     """Extract legal description from PDF and save to CSV.
 
     Args:
         pdf_path: Path to input PDF file
         output: Output CSV path (default: derived from input filename)
+        llm_provider: Optional LLM provider override
     """
     from .closure_checker import ClosureChecker
     from .csv_builder import CSVBuilder
@@ -33,7 +36,7 @@ def extract_command(pdf_path: str, output: str | None = None) -> None:
 
     try:
         # Process PDF
-        processor = PDFProcessor()
+        processor = PDFProcessor(provider=llm_provider)
         legal_desc = processor.process_deed_pdf(pdf_path)
 
         # Verify closure
@@ -142,6 +145,11 @@ def main() -> None:
     extract_parser.add_argument(
         "-o", "--output", help="Output CSV file path (default: derived from input)"
     )
+    extract_parser.add_argument(
+        "--llm-provider",
+        choices=["openai", "gemini"],
+        help="LLM provider to use (overrides METESPARSER_LLM_PROVIDER env var)",
+    )
 
     # Verify command
     verify_parser = subparsers.add_parser("verify", help="Verify a CSV file of calls")
@@ -172,7 +180,7 @@ def main() -> None:
 
     # Route to command
     if args.command == "extract":
-        extract_command(args.pdf, args.output)
+        extract_command(args.pdf, args.output, args.llm_provider)
     elif args.command == "verify":
         verify_command(args.csv, args.area)
     elif args.command == "export":

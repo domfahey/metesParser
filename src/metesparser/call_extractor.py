@@ -10,6 +10,20 @@ from .bearing_converter import BearingConverter
 from .models import ConversionFactors, DeedCall
 from .text_parser import TextParser
 
+MonumentType = Literal[
+    "iron_rod",
+    "iron_pin",
+    "iron_pipe",
+    "stone",
+    "concrete",
+    "wooden_post",
+    "brass_cap",
+    "rebar",
+    "railroad_spike",
+    "nail",
+    "other",
+]
+
 
 class MonumentClassifier:
     """Classify survey monument types from text descriptions."""
@@ -44,22 +58,7 @@ class MonumentClassifier:
     ]
 
     @classmethod
-    def classify_monument(cls, text: str) -> (
-        Literal[
-            "iron_rod",
-            "iron_pin",
-            "iron_pipe",
-            "stone",
-            "concrete",
-            "wooden_post",
-            "brass_cap",
-            "rebar",
-            "railroad_spike",
-            "nail",
-            "other",
-        ]
-        | None
-    ):
+    def classify_monument(cls, text: str) -> MonumentType | None:
         """Classify monument type from text description.
 
         Args:
@@ -103,13 +102,13 @@ class CallExtractor:
         and marks calls accordingly.
 
         Args:
-            text: Normalized legal description text
+            text: Normalized legal description text (should already be normalized)
             distance_unit: Primary distance unit (feet, poles, etc.)
 
         Returns:
             List of DeedCall objects
         """
-        # First normalize the text
+        # Normalize legal description text (idempotent if already cleaned)
         normalized = TextParser.normalize_legal_description(text)
 
         # Split into main tract and exception/inclusion tracts
@@ -226,6 +225,10 @@ class CallExtractor:
             notes = "meander / approximate"
         elif not parsed_bearing:
             notes = "incomplete bearing - cardinal only" if cardinal_only else "incomplete bearing"
+
+        # Skip if no valid distance found (not a real call, just descriptive text)
+        if distance_ft <= 0.0:
+            return None
 
         # Build DeedCall
         call = DeedCall(

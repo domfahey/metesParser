@@ -30,6 +30,18 @@ THENCE North 56 degrees 40 minutes West 25.26 feet to the POINT OF BEGINNING.
 """
 
 # ===========================================================================
+# Additional Real Parcels
+# ===========================================================================
+
+PENNBROOK_24 = """
+BEGINNING at a point in the southwesterly line of Pennbrook Drive 145 feet southwesterly from the southwestern side of Concord Place;
+THENCE South 53 degrees 50 minutes 56 seconds West 125 feet to a corner;
+THENCE South 36 degrees 09 minutes 04 seconds East 142 feet to a corner;
+THENCE North 53 degrees 50 minutes 56 seconds East 125 feet to a point in a line of Pennbrook Drive;
+THENCE North 36 degrees 09 minutes 04 seconds West 142 feet along the southwesterly line of Pennbrook Drive to the POINT OF BEGINNING.
+"""
+
+# ===========================================================================
 # Simple Geometric Shapes
 # ===========================================================================
 

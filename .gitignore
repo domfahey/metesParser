@@ -38,7 +38,6 @@ env/
 
 # UV
 .uv/
-uv.lock
 .python-version
 
 # Packaging / local metadata
@@ -74,7 +73,6 @@ htmlcov/
 .env
 .env.local
 .env.*.local
-.venvrc
 
 # Logs
 *.log
@@ -111,7 +109,6 @@ temp_*
 *.swp
 *.swo
 *.swn
-*.swo
 *.pid
 *.seed
 *.backup

@@ -1,6 +1,5 @@
 """Tests for text_parser.py - Text normalization and OCR fixes."""
 
-
 from metesparser.text_parser import TextParser
 
 
