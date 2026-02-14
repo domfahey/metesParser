@@ -188,7 +188,7 @@ class BearingConverter:
         radius_ft: float,
         delta_deg: float | None = None,
         arc_length_ft: float | None = None,
-    ) -> dict:
+    ) -> dict[str, float | None]:
         """Calculate curve properties from radius and either delta or arc length.
 
         Given R and Δ:
@@ -320,6 +320,8 @@ class BearingConverter:
         # Calculate chord - this will also validate delta_deg
         curve_props = cls.calculate_curve_properties(radius_ft, delta_deg=delta_deg)
         chord_length = curve_props["chord_length_ft"]
+        if chord_length is None:
+            raise ValueError("Curve chord length could not be calculated.")
 
         # Calculate chord bearing
         chord_azimuth = cls.calculate_chord_bearing(tangent_azimuth, delta_deg, curve_dir)

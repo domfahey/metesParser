@@ -4,7 +4,8 @@ Handles cleaning up OCR errors, standardizing DMS notation, merging line breaks,
 """
 
 import re
-from typing import List
+from re import Match
+from typing import Callable
 
 
 class TextParser:
@@ -20,7 +21,7 @@ class TextParser:
         Returns:
             Dict with section, township, range, principal_meridian, aliquot
         """
-        plss_data = {
+        plss_data: dict[str, str | None] = {
             "section": None,
             "township": None,
             "range": None,
@@ -161,7 +162,7 @@ class TextParser:
             Text with standardized cardinal directions
         """
         # Standardize common patterns
-        patterns = [
+        patterns: list[tuple[str, str | Callable[[Match[str]], str]]] = [
             # South 87 degrees 7 minutes 30 seconds West -> S 87°7'30" W (with seconds)
             (
                 r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
@@ -309,7 +310,7 @@ class TextParser:
         return (poc, pob)
 
     @classmethod
-    def split_into_calls(cls, text: str) -> List[str]:
+    def split_into_calls(cls, text: str) -> list[str]:
         """Split text into individual THENCE calls.
 
         Handles multiple formats:

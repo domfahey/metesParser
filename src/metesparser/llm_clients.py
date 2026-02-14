@@ -6,7 +6,7 @@ import base64
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 class LLMClientError(RuntimeError):
@@ -43,6 +43,7 @@ class OpenAIClient:
 
     api_key: str | None = None
     model: str = "gpt-4.1"
+    _client: Any = object()
 
     def __post_init__(self) -> None:
         key = self.api_key or os.getenv("OPENAI_API_KEY")
@@ -51,7 +52,7 @@ class OpenAIClient:
                 "OpenAI API key not found. Set OPENAI_API_KEY environment variable."
             )
         try:
-            from openai import OpenAI  # type: ignore import-not-found
+            from openai import OpenAI
         except ImportError as exc:  # pragma: no cover - defensive
             raise LLMConfigurationError(
                 "openai package not installed. Install metesparser with OpenAI extras."
@@ -111,6 +112,9 @@ class GeminiClient:
     api_key: str | None = None
     model: str = "gemini-2.5-pro"
     fallback_model: str | None = "gemini-2.5-flash"
+    _client: Any = object()
+    _types: Any = object()
+    _errors: Any = object()
 
     def __post_init__(self) -> None:
         key = self.api_key or os.getenv("GEMINI_API_KEY")
@@ -119,9 +123,9 @@ class GeminiClient:
                 "Gemini API key not found. Set GEMINI_API_KEY environment variable."
             )
         try:
-            from google import genai  # type: ignore import-not-found
-            from google.genai import errors as genai_errors  # type: ignore import-not-found
-            from google.genai import types as genai_types  # type: ignore import-not-found
+            from google import genai
+            from google.genai import errors as genai_errors
+            from google.genai import types as genai_types
         except ImportError as exc:  # pragma: no cover - defensive
             raise LLMConfigurationError(
                 "google-genai package not installed. Install metesparser with the gemini extra: pip install 'metesparser[gemini]'."
@@ -151,7 +155,7 @@ class GeminiClient:
         )
         return self._generate([content], response_mime_type=response_mime_type)
 
-    def _generate(self, contents: list, *, response_mime_type: str | None = None) -> str:
+    def _generate(self, contents: list[object], *, response_mime_type: str | None = None) -> str:
         generate_kwargs: dict[str, object] = {"temperature": 0}
         if response_mime_type:
             generate_kwargs["response_mime_type"] = response_mime_type
@@ -172,7 +176,7 @@ class GeminiClient:
                     config=config,
                 )
                 return self._collect_response_text(response)
-            except (self._errors.ClientError, self._errors.ServerError) as exc:  # type: ignore[attr-defined]
+            except (self._errors.ClientError, self._errors.ServerError) as exc:
                 status_code = getattr(exc, "status_code", None)
                 retryable_codes = {429, 502, 503, 504}
                 if status_code in retryable_codes and index < len(models_to_try) - 1:

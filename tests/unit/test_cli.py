@@ -54,12 +54,15 @@ def test_main_dispatches_extract(monkeypatch, tmp_path):
 
     called: list[tuple[str, str | None, str | None]] = []
     monkeypatch.setattr(
-        "metesparser.cli.extract_command", lambda pdf_path, output=None, llm_provider=None: called.append(
+        "metesparser.cli.extract_command",
+        lambda pdf_path, output=None, llm_provider=None: called.append(
             (pdf_path, output, llm_provider)
-        )
+        ),
     )
 
-    monkeypatch.setattr(sys, "argv", ["metesparser", "extract", str(pdf), "--llm-provider", "openai"])
+    monkeypatch.setattr(
+        sys, "argv", ["metesparser", "extract", str(pdf), "--llm-provider", "openai"]
+    )
     cli.main()
 
     assert called == [(str(pdf), None, "openai")]
@@ -71,7 +74,8 @@ def test_main_dispatches_verify(monkeypatch, tmp_path):
 
     called: list[tuple[str, float | None]] = []
     monkeypatch.setattr(
-        "metesparser.cli.verify_command", lambda csv_path, area=None: called.append((csv_path, area))
+        "metesparser.cli.verify_command",
+        lambda csv_path, area=None: called.append((csv_path, area)),
     )
 
     monkeypatch.setattr(sys, "argv", ["metesparser", "verify", str(csv), "-a", "2500"])
@@ -91,7 +95,9 @@ def test_main_dispatches_export(monkeypatch, tmp_path):
     )
 
     output = tmp_path / "out.geojson"
-    monkeypatch.setattr(sys, "argv", ["metesparser", "export", str(csv), "-f", "geojson", "-o", str(output)])
+    monkeypatch.setattr(
+        sys, "argv", ["metesparser", "export", str(csv), "-f", "geojson", "-o", str(output)]
+    )
     cli.main()
 
     assert called == [(str(csv), "geojson", str(output))]
@@ -109,7 +115,12 @@ def test_extract_command_exports_verified_csv(monkeypatch, tmp_path):
     output = tmp_path / "out.csv"
     legal_desc = LegalDescription(
         calls=[
-            DeedCall(course=1, direction_text="N 90° E", bearing_azimuth_deg_from_north=90.0, distance_ft=10.0)
+            DeedCall(
+                course=1,
+                direction_text="N 90° E",
+                bearing_azimuth_deg_from_north=90.0,
+                distance_ft=10.0,
+            )
         ],
         source_doc="deed.pdf",
     )
@@ -121,8 +132,12 @@ def test_extract_command_exports_verified_csv(monkeypatch, tmp_path):
         "metesparser.pdf_processor.PDFProcessor",
         lambda provider=None: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
     )
-    monkeypatch.setattr("metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: verified)
-    monkeypatch.setattr("metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED")
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: verified
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+    )
     monkeypatch.setattr(
         "metesparser.csv_builder.CSVBuilder.export_verified_csv",
         lambda calls, closure_result, output_path, legal_desc_obj: export_calls.append(
@@ -140,7 +155,12 @@ def test_extract_command_defaults_output_path_to_csv(monkeypatch, tmp_path):
     pdf.write_text("pdf")
     legal_desc = LegalDescription(
         calls=[
-            DeedCall(course=1, direction_text="N 90° E", bearing_azimuth_deg_from_north=90.0, distance_ft=10.0)
+            DeedCall(
+                course=1,
+                direction_text="N 90° E",
+                bearing_azimuth_deg_from_north=90.0,
+                distance_ft=10.0,
+            )
         ],
         source_doc="deed.pdf",
     )
@@ -151,8 +171,12 @@ def test_extract_command_defaults_output_path_to_csv(monkeypatch, tmp_path):
         "metesparser.pdf_processor.PDFProcessor",
         lambda provider=None: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
     )
-    monkeypatch.setattr("metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: verified)
-    monkeypatch.setattr("metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED")
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: verified
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+    )
     monkeypatch.setattr(
         "metesparser.csv_builder.CSVBuilder.export_verified_csv",
         lambda calls, closure_result, output_path, legal_desc_obj: exported.append((output_path,)),
@@ -184,7 +208,12 @@ def test_extract_command_exports_unverified_csv(monkeypatch, tmp_path):
     output = tmp_path / "out.csv"
     legal_desc = LegalDescription(
         calls=[
-            DeedCall(course=1, direction_text="N 90° E", bearing_azimuth_deg_from_north=90.0, distance_ft=10.0)
+            DeedCall(
+                course=1,
+                direction_text="N 90° E",
+                bearing_azimuth_deg_from_north=90.0,
+                distance_ft=10.0,
+            )
         ],
         source_doc="deed.pdf",
     )
@@ -196,11 +225,18 @@ def test_extract_command_exports_unverified_csv(monkeypatch, tmp_path):
         "metesparser.pdf_processor.PDFProcessor",
         lambda provider=None: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
     )
-    monkeypatch.setattr("metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: unverified)
-    monkeypatch.setattr("metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "UNVERIFIED")
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: unverified
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+        lambda result: "UNVERIFIED",
+    )
     monkeypatch.setattr(
         "metesparser.csv_builder.CSVBuilder.legal_description_to_csv",
-        lambda legal_description, output_path: export_calls.append((legal_description, output_path)),
+        lambda legal_description, output_path: export_calls.append(
+            (legal_description, output_path)
+        ),
     )
 
     cli.extract_command(str(pdf), output=str(output))
@@ -211,16 +247,31 @@ def test_extract_command_exports_unverified_csv(monkeypatch, tmp_path):
 def test_verify_command_success_and_failure(monkeypatch, tmp_path):
     csv = tmp_path / "calls.csv"
     csv.write_text("course,direction_text,distance_ft\n")
-    calls = [DeedCall(course=1, direction_text="N 90° E", bearing_azimuth_deg_from_north=90.0, distance_ft=10.0)]
+    calls = [
+        DeedCall(
+            course=1,
+            direction_text="N 90° E",
+            bearing_azimuth_deg_from_north=90.0,
+            distance_ft=10.0,
+        )
+    ]
 
     monkeypatch.setattr("metesparser.csv_builder.CSVBuilder.csv_to_calls", lambda _: calls)
-    monkeypatch.setattr("metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED")
-    monkeypatch.setattr("metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls, area=0.0: _verified_result())
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.verify_closure",
+        lambda calls, area=0.0: _verified_result(),
+    )
 
     cli.verify_command(str(csv))
 
     calls[0].distance_ft = 20.0
-    monkeypatch.setattr("metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls, area=0.0: _not_verified_result())
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.verify_closure",
+        lambda calls, area=0.0: _not_verified_result(),
+    )
 
     with pytest.raises(SystemExit) as exc:
         cli.verify_command(str(csv))

@@ -22,7 +22,7 @@ UV_SYNC_ARGS_DEV ?= --all-extras --dev
 .DEFAULT_GOAL := help
 
 # Targets that are not real files.
-.PHONY: all help install install-minimal install-dev install-offline check-tools lockfile-check quality ci distclean test-fast lint lint-fix format format-check check test test-cov clean run-extract run-verify dev-setup pre-commit doctor
+.PHONY: all help install install-minimal install-dev install-offline check-tools lockfile-check quality ci distclean test-fast lint lint-fix format format-check check test test-cov clean run-extract run-verify dev-setup pre-commit doctor type
 
 all: help
 
@@ -45,7 +45,8 @@ help: ## Show available development commands and their usage.
 	@echo "  make lint-fix      Run ruff with auto-fix"
 	@echo "  make format        Format code with ruff and black"
 	@echo "  make format-check  Check formatter compliance"
-	@echo "  make check         Run all checks (lint + format check)"
+	@echo "  make type          Run mypy type checks"
+	@echo "  make check         Run all checks (lint + format + type + test)"
 	@echo "  make quality       Run lint + formatting checks"
 	@echo ""
 	@echo "Testing:"
@@ -149,7 +150,7 @@ format: ## Format source files with Ruff and Black.
 
 lint-fix: ## Auto-fix Ruff-detected issues.
 	@echo "Running ruff linter with auto-fix..."
-	$(UV_RUN) ruff check $(PY_SRC) --fix
+	$(UV_RUN) ruff check $(PY_SRC) $(PY_TESTS) --fix
 	@echo "✓ Auto-fix complete"
 
 format-check: ## Verify formatting without making changes.
@@ -161,8 +162,13 @@ format-check: ## Verify formatting without making changes.
 quality: lint format-check ## Run lint + format checks.
 	@echo "✓ Quality checks complete"
 
-check: lint format-check ## Alias for lint + format checks.
+check: lint format type test ## Run lint, format, type checks, and tests.
 	@echo "✓ All checks passed"
+
+type: ## Run mypy static type checking.
+	@echo "Running mypy checks..."
+	$(UV_RUN) mypy src/metesparser
+	@echo "✓ Type checks complete"
 
 test: ## Run full test suite.
 	@echo "Running test suite..."

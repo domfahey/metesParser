@@ -106,3 +106,45 @@
 - **Impact:** Discrepancies such as differing `delta_deg` values, or one call missing `radius_ft` while the other has it, are not flagged. This can report false positives as matching entries.
 - **Why it is a bug:** Double-entry validation is intended to detect all meaningful geometry differences; omitting these curve fields reduces audit reliability.
 - **Suggested fix:** Compare curve geometry consistently whenever either call is a curve (including `delta_deg`, radius presence/values, arc/chord if present) and treat asymmetric curve fields as discrepancies.
+
+### 16) OpenAI client drops response format hints
+- **Location:** `src/metesparser/llm_clients.py` (`OpenAIClient.generate_text`, `OpenAIClient.generate_text_with_pdf`)
+- **Issue:** Both methods remove `response_mime_type` via `del` and call `self._client.responses.create(...)` without passing the requested format.
+- **Impact:** `PDFProcessor.extract_calls_ai` always requests JSON (`response_mime_type="application/json"`), but OpenAI calls ignore this. If the model returns non-JSON text, `extract_calls_ai` JSON parsing fails and AI extraction cannot be used reliably.
+- **Why it is a bug:** The API contract for `extract_calls_ai` depends on `response_mime_type`, but the OpenAI backend silently discards that control path.
+- **Suggested fix:** Forward `response_mime_type` into OpenAI requests (or map to the provider’s supported response-format mechanism).
+
+### 17) Prompt loading path is hard-coded to source checkout layout
+- **Location:** `src/metesparser/pdf_processor.py` (`PDFProcessor.__init__`)
+- **Issue:** `prompts_dir` is computed as `Path(__file__).parent.parent.parent / "prompts"`, which assumes prompts live at repo root.
+- **Impact:** Installed package layouts do not guarantee prompts are present at that path, so `_load_prompt` can raise `FileNotFoundError` in non-source environments.
+- **Why it is a bug:** This breaks prompt loading for packaged deployments, despite being a required runtime dependency for PDF extraction.
+- **Suggested fix:** Resolve prompts with package resources/importlib.resources and ensure prompts are declared as package data in `pyproject.toml`.
+
+### 18) `extract_sample_deeds.py` points to a non-existent `sample_deeds` directory
+- **Location:** `scripts/extract_sample_deeds.py` (`SAMPLE_DEEDS_DIR`)
+- **Issue:** `SAMPLE_DEEDS_DIR` is set to `Path(__file__).parent / "sample_deeds"`, which resolves to `scripts/sample_deeds`.
+- **Impact:** The directory does not exist in this repo (the actual folder is `sample_deeds/` at repository root), so the full batch script silently skips every PDF listed in `SAMPLE_PDFS`.
+- **Why it is a bug:** Running the documented workflow `uv run python scripts/extract_sample_deeds.py` does not process any deeds, producing an empty report and false sense of success.
+- **Suggested fix:** Resolve the path from the project root (`Path(__file__).parent.parent / "sample_deeds"`), or derive it from cwd with a clear relative fallback.
+
+### 19) Ground-truth `notes` field records script mtime instead of generation time
+- **Location:** `scripts/generate_ground_truth.py` (`generate_ground_truth`, `notes` field)
+- **Issue:** `notes` stores `Path(__file__).stat().st_mtime` from `generate_ground_truth.py`.
+- **Impact:** Generated ground-truth metadata reflects the script file modification time, not when each run occurred, and is misleading for audit/reproducibility.
+- **Why it is a bug:** In provenance-sensitive workflows, this timestamp is meant to indicate generation context; using source file mtime can regress or lie after edits.
+- **Suggested fix:** Use runtime generation timestamp (e.g., `datetime.now(timezone.utc).isoformat()`), ideally with model/provider metadata as well.
+
+### 20) Zero-degree curve distances are dropped as non-calls
+- **Location:** `src/metesparser/call_extractor.py` (`CallExtractor.extract_single_call`, lines 197-240)
+- **Issue:** When parsed curve data includes a zero-degree deflection, `extract_curve_info` returns `arc_length_ft=0.0`, which the extractor treats as a valid float and overrides `distance_ft` to `0.0` in `extract_single_call`.
+- **Impact:** Calls like `"curve to the right radius of 50 feet delta of 0° ..."` are silently skipped (`distance_ft <= 0.0` triggers `None`), so a valid call with a straight-line equivalent segment is lost from output.
+- **Why it is a bug:** Zero-degree curves are handled as valid in curve utilities and should either be treated as straight segments (original distance) or as explicit zero-curved geometry, not dropped.
+- **Suggested fix:** Only override `distance_ft` from arc length when computed arc length is positive, and/or fall back to the parsed line distance when `delta_deg == 0.0`.
+
+### 21) `metesparser` root package does not expose documented public classes
+- **Location:** `src/metesparser/__init__.py` and usage in `README.md:99`, `docs/API.md:8,214`
+- **Issue:** `metesparser` root exports only `__version__`, so examples like `from metesparser import PDFProcessor` or `ClosureChecker` fail with `ImportError`.
+- **Impact:** The public API advertised in docs and examples is currently non-functional for users importing from package root, creating false negatives in onboarding and user scripts.
+- **Why it is a bug:** The docs intentionally use root-level imports, but package `__init__.py` never re-exports those symbols.
+- **Suggested fix:** Re-export core public classes in `__init__.py` or update docs to require module-specific imports everywhere.

@@ -5,8 +5,9 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from .llm_clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
 from .models import LegalDescription
@@ -33,7 +34,7 @@ class PDFProcessor:
         self.client = client or self._create_client(provider)
         self.prompts_dir = Path(__file__).parent.parent.parent / "prompts"
 
-    def _load_prompt(self, prompt_name: str) -> dict:
+    def _load_prompt(self, prompt_name: str) -> dict[str, Any]:
         """Load a prompt from YAML file.
 
         Args:
@@ -44,7 +45,12 @@ class PDFProcessor:
         """
         prompt_path = self.prompts_dir / f"{prompt_name}.yaml"
         with open(prompt_path) as f:
-            return yaml.safe_load(f)
+            prompt_config = yaml.safe_load(f)
+
+        if not isinstance(prompt_config, dict):
+            raise ValueError(f"Prompt file '{prompt_name}' did not contain a mapping")
+
+        return cast(dict[str, Any], prompt_config)
 
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract all text from a PDF using the configured LLM provider."""
@@ -74,7 +80,7 @@ class PDFProcessor:
 
         return self.client.generate_text(combined_prompt)
 
-    def extract_calls_ai(self, legal_desc_text: str) -> list[dict]:
+    def extract_calls_ai(self, legal_desc_text: str) -> list[dict[str, Any]]:
         """Extract calls using the configured LLM (experimental)."""
         prompt_config = self._load_prompt("extract_calls")
 
@@ -92,7 +98,14 @@ class PDFProcessor:
         except json.JSONDecodeError as exc:  # pragma: no cover - defensive
             raise ValueError("LLM returned invalid JSON when extracting calls") from exc
 
-        return result.get("calls", [])
+        if not isinstance(result, dict):
+            raise ValueError("LLM returned a non-object JSON payload for calls extraction")
+
+        calls = result.get("calls", [])
+        if not isinstance(calls, list):
+            raise ValueError("LLM returned malformed calls payload (expected list)")
+
+        return cast(list[dict[str, Any]], calls)
 
     def process_deed_pdf(self, pdf_path: str) -> LegalDescription:
         """Process a deed PDF and return structured LegalDescription."""
@@ -127,6 +140,12 @@ class PDFProcessor:
             pob_description=pob,
             calls=calls,
             source_doc=Path(pdf_path).name,
+            exhibit=None,
+            page=None,
+            survey_date=None,
+            basis_of_bearing=None,
+            datum=None,
+            distance_unit="feet",
             section=plss_data.get("section"),
             township=plss_data.get("township"),
             range=plss_data.get("range"),

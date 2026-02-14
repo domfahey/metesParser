@@ -9,6 +9,24 @@ from metesparser.closure_checker import ClosureChecker
 from metesparser.csv_builder import CSVBuilder
 from metesparser.models import LegalDescription
 from metesparser.text_parser import TextParser
+from tests.fixtures.sample_deeds import (
+    CARDINAL_ONLY,
+    EMPTY_TEXT,
+    INVALID_BEARING,
+    LINE_WRAPPING,
+    MIXED_FEET_AND_POLES,
+    NO_THENCE,
+    OPEN_TRAVERSE,
+    PARCEL_WITH_CURVE,
+    PARCEL_WITH_MEANDER,
+    PENNBROOK_18,
+    PENNBROOK_31,
+    RECTANGLE_60X125,
+    SQUARE_100FT,
+    VERY_SMALL_PARCEL,
+    WITH_OCR_ERRORS,
+    WITH_STATED_AREA,
+)
 
 
 class Test18PennbrookParcel:
@@ -17,18 +35,7 @@ class Test18PennbrookParcel:
     @pytest.fixture
     def legal_description_text(self):
         """Legal description for 18 Pennbrook (simplified)."""
-        return """
-        BEGINNING at a point in the division line between Lots 46 and 47,
-        said point being in the southwesterly line of Concord Drive;
-        THENCE South 33 degrees 20 minutes East 60.00 feet along said
-        southwesterly line of Concord Drive to a point in said division line;
-        THENCE South 56 degrees 40 minutes West 125.00 feet along the
-        division line between Lots 46 and 47 to the corner to Lot 50;
-        THENCE North 33 degrees 20 minutes West 60.00 feet along the
-        division line between Lots 46 and 50;
-        THENCE North 56 degrees 40 minutes East 125.00 feet along the
-        division line between Lots 46 and 47 to the POINT OF BEGINNING.
-        """
+        return PENNBROOK_18
 
     def test_full_pipeline(self, legal_description_text):
         """Test complete pipeline: parse → verify → should close."""
@@ -72,14 +79,7 @@ class Test31PennbrookParcel:
     @pytest.fixture
     def legal_description_text(self):
         """Legal description for 31 Pennbrook (5 sides)."""
-        return """
-        BEGINNING at a point;
-        THENCE North 56 degrees 40 minutes East 125.26 feet;
-        THENCE South 33 degrees 20 minutes East 60.00 feet;
-        THENCE South 56 degrees 40 minutes West 100.00 feet;
-        THENCE South 33 degrees 20 minutes East 40.00 feet;
-        THENCE North 56 degrees 40 minutes West 25.26 feet to the POINT OF BEGINNING.
-        """
+        return PENNBROOK_31
 
     def test_five_sided_closure(self, legal_description_text):
         """Test 5-sided parcel parsing (note: test data doesn't actually close)."""
@@ -110,13 +110,7 @@ class TestSquareParcel:
 
     def test_100ft_square(self):
         """Test 100 ft × 100 ft square."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 0 degrees East 100 feet;
-        THENCE North 90 degrees East 100 feet;
-        THENCE South 0 degrees East 100 feet;
-        THENCE South 90 degrees West 100 feet to the POINT OF BEGINNING.
-        """
+        text = SQUARE_100FT
 
         # Process
         normalized = TextParser.normalize_legal_description(text)
@@ -142,12 +136,7 @@ class TestIncompleteBearings:
 
     def test_meander_call(self):
         """Test parcel with meander call."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 45 degrees East 100 feet;
-        THENCE meander along the stream 150 feet;
-        THENCE South 45 degrees West 100 feet to the POINT OF BEGINNING.
-        """
+        text = PARCEL_WITH_MEANDER
 
         # Process
         normalized = TextParser.normalize_legal_description(text)
@@ -173,12 +162,7 @@ class TestIncompleteBearings:
 
     def test_cardinal_only_bearing(self):
         """Test parcel with cardinal-only bearing."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 45 degrees East 100 feet;
-        THENCE southwesterly 75 feet;
-        THENCE North 45 degrees West 100 feet to the POINT OF BEGINNING.
-        """
+        text = CARDINAL_ONLY
 
         # Process
         normalized = TextParser.normalize_legal_description(text)
@@ -194,12 +178,7 @@ class TestCurveIntegration:
 
     def test_curve_properties_calculated(self):
         """Test curve with all properties calculated."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 0 degrees East 100 feet;
-        THENCE along a curve to the right, radius 50 feet, delta 90 degrees;
-        THENCE South 0 degrees East 50 feet to the POINT OF BEGINNING.
-        """
+        text = PARCEL_WITH_CURVE
 
         # Process
         normalized = TextParser.normalize_legal_description(text)
@@ -212,7 +191,7 @@ class TestCurveIntegration:
         assert calls[1].delta_deg == 90.0
 
         # Verify curve consistency
-        result = ClosureChecker.verify_closure(calls)
+        ClosureChecker.verify_closure(calls)
 
         # If arc length provided, should be consistent
         if calls[1].arc_length_ft:
@@ -225,13 +204,7 @@ class TestCSVExportIntegration:
 
     def test_export_verified_csv(self, tmp_path):
         """Test exporting verified CSV."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 0 degrees East 100 feet;
-        THENCE North 90 degrees East 100 feet;
-        THENCE South 0 degrees East 100 feet;
-        THENCE South 90 degrees West 100 feet to the POINT OF BEGINNING.
-        """
+        text = SQUARE_100FT
 
         # Process
         normalized = TextParser.normalize_legal_description(text)
@@ -269,11 +242,7 @@ class TestCSVExportIntegration:
 
     def test_cannot_export_unverified(self, tmp_path):
         """Test that unverified parcels cannot be exported as verified."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 0 degrees East 100 feet;
-        THENCE North 90 degrees East 100 feet;
-        """
+        text = OPEN_TRAVERSE
 
         # Process
         normalized = TextParser.normalize_legal_description(text)
@@ -300,13 +269,7 @@ class TestCSVImportExportRoundTrip:
 
     def test_round_trip(self, tmp_path):
         """Test exporting and re-importing CSV."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 33 degrees 20 minutes East 60 feet along the south line to a point;
-        THENCE South 56 degrees 40 minutes West 125 feet along the division line to a corner;
-        THENCE South 33 degrees 20 minutes West 60 feet along the west line;
-        THENCE North 56 degrees 40 minutes East 125 feet to the POINT OF BEGINNING.
-        """
+        text = RECTANGLE_60X125
 
         # Process
         normalized = TextParser.normalize_legal_description(text)
@@ -352,11 +315,7 @@ class TestTextNormalizationPipeline:
 
     def test_ocr_error_correction(self):
         """Test OCR error correction in full pipeline."""
-        text = """
-        BEGINNING at a point;
-        THENCE 5outh 56 0 40' We5t 125 feet;
-        THENCE NOrth 33 0 20' Ea5t 60 feet to the POINT OF BEGINNING.
-        """
+        text = WITH_OCR_ERRORS
 
         # Normalize - should fix OCR errors
         normalized = TextParser.normalize_legal_description(text)
@@ -389,13 +348,7 @@ class TestTextNormalizationPipeline:
 
     def test_line_wrapping_fix(self):
         """Test line wrapping correction."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 45 degrees East 100 feet along the div-
-        ision line between Lots 1 and 2 to
-        a point in the north line;
-        THENCE South 45 degrees East 100 feet to the POINT OF BEGINNING.
-        """
+        text = LINE_WRAPPING
 
         # Normalize - should merge wrapped lines
         normalized = TextParser.normalize_legal_description(text)
@@ -417,7 +370,7 @@ class TestErrorHandling:
 
     def test_empty_text(self):
         """Test handling of empty text."""
-        text = ""
+        text = EMPTY_TEXT
 
         normalized = TextParser.normalize_legal_description(text)
         calls = CallExtractor.extract_calls(normalized)
@@ -427,7 +380,7 @@ class TestErrorHandling:
 
     def test_no_thence_calls(self):
         """Test text with no THENCE calls."""
-        text = "BEGINNING at a point in the center of Main Street."
+        text = NO_THENCE
 
         normalized = TextParser.normalize_legal_description(text)
         calls = CallExtractor.extract_calls(normalized)
@@ -437,11 +390,7 @@ class TestErrorHandling:
 
     def test_malformed_bearing(self):
         """Test handling of malformed bearing."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 999 degrees East 100 feet;
-        THENCE South 45 degrees West 100 feet to the POINT OF BEGINNING.
-        """
+        text = INVALID_BEARING
 
         # Should not crash
         normalized = TextParser.normalize_legal_description(text)
@@ -460,13 +409,7 @@ class TestRealWorldScenarios:
 
     def test_mixed_units(self):
         """Test parcel with mixed units (feet and poles)."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 45 degrees East 100 feet;
-        THENCE South 45 degrees East 10 poles;
-        THENCE South 45 degrees West 100 feet;
-        THENCE North 45 degrees West 10 poles to the POINT OF BEGINNING.
-        """
+        text = MIXED_FEET_AND_POLES
 
         # Process
         normalized = TextParser.normalize_legal_description(text)
@@ -484,14 +427,7 @@ class TestRealWorldScenarios:
 
     def test_parcel_with_stated_area(self):
         """Test area comparison with stated area."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 0 degrees East 100 feet;
-        THENCE North 90 degrees East 100 feet;
-        THENCE South 0 degrees East 100 feet;
-        THENCE South 90 degrees West 100 feet to the POINT OF BEGINNING.
-        Containing 10,000 square feet.
-        """
+        text = WITH_STATED_AREA
 
         # Process
         normalized = TextParser.normalize_legal_description(text)
@@ -506,13 +442,7 @@ class TestRealWorldScenarios:
 
     def test_very_small_parcel(self):
         """Test very small parcel (10 ft × 10 ft)."""
-        text = """
-        BEGINNING at a point;
-        THENCE North 0 degrees East 10 feet;
-        THENCE North 90 degrees East 10 feet;
-        THENCE South 0 degrees East 10 feet;
-        THENCE South 90 degrees West 10 feet to the POINT OF BEGINNING.
-        """
+        text = VERY_SMALL_PARCEL
 
         # Process
         normalized = TextParser.normalize_legal_description(text)

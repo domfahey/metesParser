@@ -133,7 +133,7 @@ class DeedCall(_Model):
         if isinstance(value, (int, float)):
             if value in (0, 1):
                 return bool(value)
-            raise TypeError("is_exception must be a boolean value")
+            raise ValueError("is_exception must be a boolean value")
 
         if isinstance(value, str):
             normalized = value.strip().lower()
@@ -142,21 +142,28 @@ class DeedCall(_Model):
             if normalized in {"false", "0", "no", "n", "off"}:
                 return False
 
-        raise TypeError("is_exception must be a boolean value")
+        raise ValueError("is_exception must be a boolean value")
+
+    @field_validator("bearing_azimuth_deg_from_north", mode="before")
+    @classmethod
+    def _normalize_bearing_azimuth(cls, value: float | int | str | None) -> float | None:
+        if value is None:
+            return None
+        azimuth = float(value)
+        return azimuth % 360.0
 
     @model_validator(mode="after")
-    @classmethod
-    def validate_curve_geometry(cls, value: "DeedCall") -> "DeedCall":
+    def validate_curve_geometry(self) -> "DeedCall":
         """Require consistent curve attributes when curve geometry is present."""
-        has_curve_direction = value.curve_dir is not None
-        has_radius = value.radius_ft is not None
-        has_delta = value.delta_deg is not None
-        has_arc = value.arc_length_ft is not None
-        has_chord = value.chord_length_ft is not None
+        has_curve_direction = self.curve_dir is not None
+        has_radius = self.radius_ft is not None
+        has_delta = self.delta_deg is not None
+        has_arc = self.arc_length_ft is not None
+        has_chord = self.chord_length_ft is not None
         has_curve_measure = has_radius or has_delta or has_arc or has_chord
 
         if not has_curve_measure and not has_curve_direction:
-            return value
+            return self
 
         if not has_curve_direction:
             raise ValueError("curve_dir is required when any curve field is provided")
@@ -166,7 +173,7 @@ class DeedCall(_Model):
                 "Curve geometry requires radius_ft and either delta_deg or arc_length_ft"
             )
 
-        return value
+        return self
 
     def is_curve(self) -> bool:
         """Check if this call represents a curve."""

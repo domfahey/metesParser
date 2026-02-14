@@ -25,9 +25,7 @@ class RecordingClient:
         )
         return "RAW DOCUMENT TEXT"
 
-    def generate_text(
-        self, prompt: str, *, response_mime_type: str | None = None
-    ) -> str:
+    def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
         self.calls.append(
             (
                 "generate_text",

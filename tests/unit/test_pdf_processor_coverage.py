@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from metesparser.pdf_processor import PDFProcessor
 from metesparser.llm_clients import LLMClientError
+from metesparser.pdf_processor import PDFProcessor
 
 
 def test_normalize_legal_description_uses_prompt_template(monkeypatch):
@@ -21,7 +21,10 @@ def test_normalize_legal_description_uses_prompt_template(monkeypatch):
     monkeypatch.setattr(
         processor,
         "_load_prompt",
-        lambda _: {"system_prompt": "SYS", "user_prompt_template": "Normalize this legal description: {legal_description_text}"},
+        lambda _: {
+            "system_prompt": "SYS",
+            "user_prompt_template": "Normalize this legal description: {legal_description_text}",
+        },
     )
 
     assert processor.normalize_legal_description("line 1") == "normalized"

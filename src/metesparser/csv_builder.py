@@ -15,7 +15,7 @@ class CSVBuilder:
     """Build and export deed calls to CSV format."""
 
     # Standard CSV schema (16 fields)
-    FIELDNAMES = [
+    FIELDNAMES: list[str] = [
         "course",
         "direction_text",
         "bearing_quadrant",
@@ -39,7 +39,7 @@ class CSVBuilder:
         cls,
         calls: list[DeedCall],
         output_path: str,
-        metadata: dict | None = None,
+        metadata: dict[str, str | int | float | None] | None = None,
     ) -> None:
         """Export calls to CSV file.
 
@@ -69,7 +69,7 @@ class CSVBuilder:
                 writer.writerow(row)
 
     @classmethod
-    def _call_to_row(cls, call: DeedCall) -> dict:
+    def _call_to_row(cls, call: DeedCall) -> dict[str, str]:
         """Convert a DeedCall to a CSV row dict.
 
         Args:
@@ -79,7 +79,7 @@ class CSVBuilder:
             Dict matching FIELDNAMES schema
         """
         return {
-            "course": call.course,
+            "course": str(call.course),
             "direction_text": call.direction_text,
             "bearing_quadrant": call.bearing_quadrant or "",
             "bearing_azimuth_deg_from_north": (
@@ -113,7 +113,7 @@ class CSVBuilder:
             legal_desc: LegalDescription object
             output_path: Output file path
         """
-        metadata = {
+        metadata: dict[str, str | int | float | None] = {
             "poc_description": legal_desc.poc_description,
             "pob_description": legal_desc.pob_description,
             "source_doc": legal_desc.source_doc,
@@ -137,7 +137,9 @@ class CSVBuilder:
         cls._write_metadata(metadata, metadata_path)
 
     @classmethod
-    def _write_metadata(cls, metadata: dict, output_path: Path) -> None:
+    def _write_metadata(
+        cls, metadata: dict[str, str | int | float | None], output_path: Path
+    ) -> None:
         """Write metadata to a text file.
 
         Args:
@@ -174,7 +176,7 @@ class CSVBuilder:
         return calls
 
     @classmethod
-    def _row_to_call(cls, row: dict) -> DeedCall | None:
+    def _row_to_call(cls, row: dict[str, str | None]) -> DeedCall | None:
         """Convert a CSV row to a DeedCall object.
 
         Args:
@@ -188,9 +190,15 @@ class CSVBuilder:
             normalized_row = {k: (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
 
             # Parse required fields
-            course = int(normalized_row["course"])
+            course_value = normalized_row.get("course")
+            if not isinstance(course_value, str) or not course_value:
+                raise ValueError("Missing required field 'course'")
+            course = int(course_value)
             direction_text = normalized_row["direction_text"]
-            distance_ft = float(normalized_row["distance_ft"])
+            distance_value = normalized_row.get("distance_ft")
+            if not isinstance(distance_value, str) or not distance_value:
+                raise ValueError("Missing required field 'distance_ft'")
+            distance_ft = float(distance_value)
 
             # Helper function to parse optional string field
             def parse_optional_str(field_name: str) -> str | None:

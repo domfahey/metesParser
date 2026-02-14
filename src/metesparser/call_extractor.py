@@ -29,7 +29,7 @@ class MonumentClassifier:
     """Classify survey monument types from text descriptions."""
 
     # Monument type patterns (order matters - more specific first)
-    MONUMENT_PATTERNS = [
+    MONUMENT_PATTERNS: list[tuple[str, MonumentType]] = [
         # Iron monuments
         (r"\biron\s+rod\b", "iron_rod"),
         (r"\biron\s+pin\b", "iron_pin"),
@@ -114,7 +114,7 @@ class CallExtractor:
         # Split into main tract and exception/inclusion tracts
         tracts = TextParser.split_exception_clauses(normalized)
 
-        calls = []
+        calls: list[DeedCall] = []
         course_num = 1
 
         for tract_text, is_exception_tract in tracts:
@@ -194,13 +194,20 @@ class CallExtractor:
         # Extract curve information if present
         curve_info = cls.extract_curve_info(call_text)
 
-        if curve_info.get("arc_length_ft"):
-            distance_ft = curve_info["arc_length_ft"]
+        arc_length_ft = curve_info.get("arc_length_ft")
+        if isinstance(arc_length_ft, float):
+            distance_ft = arc_length_ft
         elif curve_info.get("radius_ft") and curve_info.get("delta_deg"):
-            props = BearingConverter.calculate_curve_properties(
-                curve_info["radius_ft"], delta_deg=curve_info["delta_deg"]
-            )
-            distance_ft = props["arc_length_ft"]
+            radius_ft = curve_info.get("radius_ft")
+            delta_deg = curve_info.get("delta_deg")
+            if isinstance(radius_ft, float) and isinstance(delta_deg, float):
+                props = BearingConverter.calculate_curve_properties(radius_ft, delta_deg=delta_deg)
+            else:
+                raise ValueError("Curve info missing numeric radius/delta")
+            arc_length_ft = props["arc_length_ft"]
+            if arc_length_ft is None:
+                raise ValueError("Curve props missing arc length")
+            distance_ft = arc_length_ft
             curve_info.setdefault("arc_length_ft", props["arc_length_ft"])
             curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
 
@@ -231,18 +238,42 @@ class CallExtractor:
             return None
 
         # Build DeedCall
+        curve_dir = curve_info.get("direction")
+        curve_direction: Literal["left", "right"] | None
+        if curve_dir == "left":
+            curve_direction = "left"
+        elif curve_dir == "right":
+            curve_direction = "right"
+        else:
+            curve_direction = None
+
+        radius_value = curve_info.get("radius_ft")
+        radius_ft = radius_value if isinstance(radius_value, float) else None
+
+        delta_value = curve_info.get("delta_deg")
+        delta_deg = delta_value if isinstance(delta_value, float) else None
+
+        arc_length_value = curve_info.get("arc_length_ft")
+        arc_length_ft = arc_length_value if isinstance(arc_length_value, float) else None
+
+        chord_bearing_value = curve_info.get("chord_bearing")
+        chord_bearing = chord_bearing_value if isinstance(chord_bearing_value, str) else None
+
+        chord_length_value = curve_info.get("chord_length_ft")
+        chord_length_ft = chord_length_value if isinstance(chord_length_value, float) else None
+
         call = DeedCall(
             course=course,
             direction_text=direction_text,
             bearing_quadrant=bearing_quadrant,
             bearing_azimuth_deg_from_north=azimuth,
             distance_ft=distance_ft,
-            curve_dir=curve_info.get("direction"),
-            radius_ft=curve_info.get("radius_ft"),
-            delta_deg=curve_info.get("delta_deg"),
-            arc_length_ft=curve_info.get("arc_length_ft"),
-            chord_bearing=curve_info.get("chord_bearing"),
-            chord_length_ft=curve_info.get("chord_length_ft"),
+            curve_dir=curve_direction,
+            radius_ft=radius_ft,
+            delta_deg=delta_deg,
+            arc_length_ft=arc_length_ft,
+            chord_bearing=chord_bearing,
+            chord_length_ft=chord_length_ft,
             along=along if along else None,
             to=to if to else None,
             monument_type=monument_type,
@@ -299,7 +330,7 @@ class CallExtractor:
         return 0.0
 
     @classmethod
-    def extract_curve_info(cls, text: str) -> dict:
+    def extract_curve_info(cls, text: str) -> dict[str, float | str | None]:
         """Extract curve information from call text.
 
         Args:
@@ -308,7 +339,7 @@ class CallExtractor:
         Returns:
             Dict with curve properties (empty if no curve)
         """
-        curve_info: dict = {}
+        curve_info: dict[str, float | str | None] = {}
 
         # Check if it's a curve
         if "curve" not in text.lower():
@@ -372,9 +403,11 @@ class CallExtractor:
             if arc_match:
                 curve_info["arc_length_ft"] = float(arc_match.group(1))
 
-        if curve_info.get("radius_ft") and curve_info.get("delta_deg"):
+        radius_ft = curve_info.get("radius_ft")
+        curve_delta_deg = curve_info.get("delta_deg")
+        if isinstance(radius_ft, float) and isinstance(curve_delta_deg, float):
             props = BearingConverter.calculate_curve_properties(
-                curve_info["radius_ft"], delta_deg=curve_info["delta_deg"]
+                radius_ft, delta_deg=curve_delta_deg
             )
             if not curve_info.get("arc_length_ft"):
                 curve_info["arc_length_ft"] = props["arc_length_ft"]

@@ -7,9 +7,9 @@ from types import ModuleType, SimpleNamespace
 import pytest
 
 from metesparser.llm_clients import (
+    GeminiClient,
     LLMConfigurationError,
     OpenAIClient,
-    GeminiClient,
     _read_pdf,
 )
 
@@ -155,7 +155,9 @@ def test_openai_generate_text_with_pdf_includes_encoded_pdf(monkeypatch, tmp_pat
     pdf.write_bytes(b"%PDF")
 
     client = OpenAIClient()
-    assert client.generate_text_with_pdf("prompt", str(pdf), response_mime_type="text/plain") == "ok"
+    assert (
+        client.generate_text_with_pdf("prompt", str(pdf), response_mime_type="text/plain") == "ok"
+    )
 
     call = client._client.responses.calls[0]
     content = call["input"][0]["content"]
@@ -181,7 +183,11 @@ def test_gemini_client_retries_retryable_errors_and_collects_candidate_text(monk
             raise server_error(503)
         return SimpleNamespace(
             text="",
-            candidates=[SimpleNamespace(content=SimpleNamespace(parts=[SimpleNamespace(text="via candidates")]))],
+            candidates=[
+                SimpleNamespace(
+                    content=SimpleNamespace(parts=[SimpleNamespace(text="via candidates")])
+                )
+            ],
         )
 
     _, _, _ = _install_fake_gemini(monkeypatch, handler)
