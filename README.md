@@ -41,7 +41,7 @@ uv run metesparser verify sample_deeds/"18 Pennbrook Dr - Deed Image (11985 - 00
 ```
 - Run full sample extraction report generation:
 ```bash
-uv run python extract_sample_deeds.py
+uv run python scripts/extract_sample_deeds.py
 ```
 
 ## Project Workflow Notes
@@ -306,7 +306,10 @@ metesParser/
 │   ├── unit/                    # Unit tests (6 files)
 │   ├── integration/             # End-to-end tests
 │   └── regression/              # Bug fix tests
+├── scripts/                     # Standalone utility scripts
+├── sample_deeds/                # Sample PDFs + ground truth JSON
 ├── docs/                        # Documentation
+│   ├── reference/               # Reference PDFs (BLM manual, etc.)
 │   ├── TESTING.md               # Test suite guide
 │   ├── ARCHITECTURE.md          # System design
 │   ├── API.md                   # Python API reference

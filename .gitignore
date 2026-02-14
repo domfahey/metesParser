@@ -3,10 +3,13 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyc
+*.pyo
 .Python
 build/
-develop-eggs/
 dist/
+site/
+develop-eggs/
 downloads/
 eggs/
 .eggs/
@@ -17,17 +20,30 @@ sdist/
 var/
 wheels/
 *.egg-info/
+pip-wheel-metadata/
 .installed.cfg
 *.egg
+*.pyd
+*.dll
+*.so
 
 # Virtual environments
 .venv/
 venv/
 ENV/
 env/
+/.venv
+/.venv/*
+/.pyenv/
 
 # UV
 .uv/
+uv.lock
+.python-version
+
+# Packaging / local metadata
+*.egg-info/
+*.spec
 
 # IDE
 .vscode/
@@ -35,36 +51,84 @@ env/
 *.swp
 *.swo
 *~
+*.iml
+.vscode-test/
+.classpath
+.project
 
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
 .nox/
+.hypothesis/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.pyright/
+.cache/
 
 # Environment variables
 .env
 .env.local
+.env.*.local
+.venvrc
 
 # Logs
 *.log
+*.log.*
+nohup.out
 
 # Output files
 *.csv
 *.geojson
 *.kml
 *_verified.csv
+*.gpkg
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.aux.xml
+*.xml
+*.jsonl
 
-# PDFs (but allow sample_deeds/ directory)
+# PDFs (but allow sample_deeds/ and docs/reference/)
 *.pdf
 # Explicitly allow sample deeds from county recorder (public records)
 !sample_deeds/*.pdf
+# Allow reference PDFs in docs
+!docs/reference/*.pdf
 
 # Temporary files
 debug_*
 temp_*
 *.tmp
+*.temp
+*.swp
+*.swo
+*.swn
+*.swo
+*.pid
+*.seed
+*.backup
+*.bak
+*.orig
+*.rej
+
+# Generated output
+extraction_output/
+output/
+results/
+tmp/
+
+# Benchmarks
+.benchmarks/
 
 # macOS
 .DS_Store
+Thumbs.db
+desktop.ini

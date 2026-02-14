@@ -178,7 +178,7 @@ Test prompt changes using:
 
 ```bash
 # Test full pipeline
-uv run python extract_sample_deeds.py
+uv run python scripts/extract_sample_deeds.py
 
 # Test specific deed
 uv run metesparser extract sample_deeds/deed.pdf
