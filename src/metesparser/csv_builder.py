@@ -6,6 +6,8 @@ Exports structured calls to the standard CSV schema defined in the playbook.
 import csv
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from .models import ClosureResult, DeedCall, LegalDescription
 
 
@@ -236,7 +238,7 @@ class CSVBuilder:
                 notes=notes,
             )
 
-        except (KeyError, ValueError) as e:
+        except (KeyError, TypeError, ValueError, ValidationError) as e:
             print(f"Error parsing CSV row: {e}")
             return None
 

@@ -44,7 +44,7 @@ class _Model(BaseModel):
 class DeedCall(_Model):
     """Represents a single metes and bounds call (course/line)."""
 
-    course: int = Field(..., description="Sequential course number (1, 2, 3, ...)")
+    course: int = Field(..., ge=1, description="Sequential course number (1, 2, 3, ...)")
     direction_text: str = Field(
         ...,
         description="Verbatim direction from deed (e.g., 'S 56°40' W' or 'southwesterly')",
@@ -121,18 +121,23 @@ class DeedCall(_Model):
     @classmethod
     def validate_curve_geometry(cls, value: "DeedCall") -> "DeedCall":
         """Require consistent curve attributes when curve geometry is present."""
+        has_curve_direction = value.curve_dir is not None
         has_radius = value.radius_ft is not None
         has_delta = value.delta_deg is not None
         has_arc = value.arc_length_ft is not None
         has_chord = value.chord_length_ft is not None
         has_curve_measure = has_radius or has_delta or has_arc or has_chord
-        has_curve_direction = value.curve_dir is not None
 
         if not has_curve_measure and not has_curve_direction:
             return value
 
         if not has_curve_direction:
             raise ValueError("curve_dir is required when any curve field is provided")
+
+        if not has_radius or not (has_delta or has_arc):
+            raise ValueError(
+                "Curve geometry requires radius_ft and either delta_deg or arc_length_ft"
+            )
 
         return value
 
@@ -175,7 +180,7 @@ class LegalDescription(_Model):
     # Metadata
     source_doc: str | None = Field(None, description="Source document (book/page, etc.)")
     exhibit: str | None = Field(None, description="Exhibit identifier (e.g., 'Exhibit A')")
-    page: int | None = Field(None, description="Page number in document")
+    page: int | None = Field(None, ge=1, description="Page number in document")
     survey_date: str | None = Field(None, description="Survey date if specified")
     basis_of_bearing: str | None = Field(
         None, description="Basis of bearing (e.g., 'True North', 'Magnetic North')"

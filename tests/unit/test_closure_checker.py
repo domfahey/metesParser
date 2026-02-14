@@ -523,6 +523,7 @@ class TestInteriorAngleCheck:
                 distance_ft=50.0,
                 curve_dir="right",
                 radius_ft=50.0,
+                delta_deg=90.0,
             ),
         ]
 
@@ -881,6 +882,7 @@ class TestDoubleEntryValidation:
                 distance_ft=100.0,
                 curve_dir="left",
                 radius_ft=50.0,
+                delta_deg=90.0,
             )
         ]
         calls2 = [
@@ -891,6 +893,7 @@ class TestDoubleEntryValidation:
                 distance_ft=100.0,
                 curve_dir="right",
                 radius_ft=55.0,
+                delta_deg=90.0,
             )
         ]
 
