@@ -2,80 +2,139 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
+
+CurveDirection = Literal["left", "right"]
+MonumentType = Literal[
+    "iron_rod",
+    "iron_pin",
+    "iron_pipe",
+    "stone",
+    "concrete",
+    "wooden_post",
+    "brass_cap",
+    "rebar",
+    "railroad_spike",
+    "nail",
+    "other",
+]
+DistanceUnit = Literal[
+    "feet",
+    "us_survey_feet",
+    "poles",
+    "rods",
+    "perches",
+    "perch",
+    "chains",
+    "links",
+    "link",
+]
 
 
-class DeedCall(BaseModel):
+class _Model(BaseModel):
+    """Project-wide Pydantic base configuration."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        str_strip_whitespace=True,
+        validate_assignment=True,
+    )
+
+
+class DeedCall(_Model):
     """Represents a single metes and bounds call (course/line)."""
 
     course: int = Field(..., description="Sequential course number (1, 2, 3, ...)")
     direction_text: str = Field(
-        ..., description="Verbatim direction from deed (e.g., 'S 56°40' W' or 'southwesterly')"
+        ...,
+        description="Verbatim direction from deed (e.g., 'S 56°40' W' or 'southwesterly')",
     )
     bearing_quadrant: str | None = Field(
         None, description="Quadrant bearing if specified (e.g., 'S 56°40' W')"
     )
-    bearing_azimuth_deg_from_north: float | None = Field(
+    bearing_azimuth_deg_from_north: FiniteFloat | None = Field(
         None,
         description="Azimuth in degrees clockwise from North (0-360)",
         ge=0,
         lt=360,
     )
-    distance_ft: float = Field(..., description="Distance in decimal feet", gt=0)
+    distance_ft: FiniteFloat = Field(
+        ...,
+        description="Distance in decimal feet",
+        gt=0,
+    )
 
     # Curve fields (optional)
-    curve_dir: Literal["left", "right"] | None = Field(
-        None, description="Curve direction (left/right)"
+    curve_dir: CurveDirection | None = Field(None, description="Curve direction (left/right)")
+    radius_ft: FiniteFloat | None = Field(
+        None,
+        description="Curve radius in feet",
+        gt=0,
     )
-    radius_ft: float | None = Field(None, description="Curve radius in feet", gt=0)
-    delta_deg: float | None = Field(None, description="Central angle (Δ) in degrees", gt=0, le=360)
-    arc_length_ft: float | None = Field(None, description="Arc length in feet", gt=0)
+    delta_deg: FiniteFloat | None = Field(
+        None,
+        description="Central angle (Δ) in degrees",
+        gt=0,
+        le=360,
+    )
+    arc_length_ft: FiniteFloat | None = Field(
+        None,
+        description="Arc length in feet",
+        gt=0,
+    )
     chord_bearing: str | None = Field(None, description="Chord bearing")
-    chord_length_ft: float | None = Field(None, description="Chord length in feet", gt=0)
+    chord_length_ft: FiniteFloat | None = Field(
+        None,
+        description="Chord length in feet",
+        gt=0,
+    )
 
     # Descriptive fields
     along: str | None = Field(
-        None, description="What the line runs along (e.g., 'Southerly line of Pennbrook Drive')"
+        None,
+        description="What the line runs along (e.g., 'Southerly line of Pennbrook Drive')",
     )
     to: str | None = Field(
-        None, description="Ending point description (e.g., 'iron pin', 'corner to Lot 50')"
+        None,
+        description="Ending point description (e.g., 'iron pin', 'corner to Lot 50')",
     )
-    monument_type: (
-        Literal[
-            "iron_rod",
-            "iron_pin",
-            "iron_pipe",
-            "stone",
-            "concrete",
-            "wooden_post",
-            "brass_cap",
-            "rebar",
-            "railroad_spike",
-            "nail",
-            "other",
-        ]
-        | None
-    ) = Field(None, description="Type of survey monument at endpoint")
+    monument_type: MonumentType | None = Field(
+        None,
+        description="Type of survey monument at endpoint",
+    )
     is_exception: bool = Field(
         False, description="True if this call is part of an exception/exclusion tract"
     )
     notes: str | None = Field(None, description="Additional notes (meander flag, issues, etc.)")
 
-    @field_validator("bearing_azimuth_deg_from_north")
+    @field_validator("curve_dir", "monument_type", mode="before")
     @classmethod
-    def validate_azimuth(cls, v: float | None) -> float | None:
-        """Ensure azimuth is in valid range."""
-        if v is not None and (v < 0 or v >= 360):
-            raise ValueError("Azimuth must be in range [0, 360)")
-        return v
+    def _normalize_literals(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise TypeError("Curve/monument values must be strings")
+        normalized = value.strip().lower()
+        return normalized or None
 
-    @field_validator("distance_ft", "radius_ft", "arc_length_ft", "chord_length_ft")
+    @model_validator(mode="after")
     @classmethod
-    def validate_positive(cls, v: float | None) -> float | None:
-        """Ensure distance values are positive."""
-        if v is not None and v <= 0:
-            raise ValueError("Distance/radius/length must be positive")
-        return v
+    def validate_curve_geometry(cls, value: "DeedCall") -> "DeedCall":
+        """Require consistent curve attributes when curve geometry is present."""
+        has_radius = value.radius_ft is not None
+        has_delta = value.delta_deg is not None
+        has_arc = value.arc_length_ft is not None
+        has_chord = value.chord_length_ft is not None
+        has_curve_measure = has_radius or has_delta or has_arc or has_chord
+        has_curve_direction = value.curve_dir is not None
+
+        if not has_curve_measure and not has_curve_direction:
+            return value
+
+        if not has_curve_direction:
+            raise ValueError("curve_dir is required when any curve field is provided")
+
+        return value
 
     def is_curve(self) -> bool:
         """Check if this call represents a curve."""
@@ -86,17 +145,17 @@ class DeedCall(BaseModel):
         return self.bearing_azimuth_deg_from_north is not None
 
 
-class Point(BaseModel):
+class Point(_Model):
     """Represents a 2D coordinate point."""
 
-    x: float = Field(..., description="X coordinate (feet)")
-    y: float = Field(..., description="Y coordinate (feet)")
+    x: FiniteFloat = Field(..., description="X coordinate (feet)")
+    y: FiniteFloat = Field(..., description="Y coordinate (feet)")
 
     def __str__(self) -> str:
         return f"({self.x:.2f}, {self.y:.2f})"
 
 
-class LegalDescription(BaseModel):
+class LegalDescription(_Model):
     """Represents a complete legal description from a deed."""
 
     # Point of Commencement (starting reference) vs Point of Beginning (parcel start)
@@ -133,9 +192,7 @@ class LegalDescription(BaseModel):
     aliquot: str | None = Field(None, description="Aliquot subdivision (e.g., 'SW 1/4 of NE 1/4')")
 
     # Units
-    distance_unit: Literal["feet", "us_survey_feet", "poles", "rods", "chains"] = Field(
-        "feet", description="Primary distance unit in the deed"
-    )
+    distance_unit: DistanceUnit = Field("feet", description="Primary distance unit in the deed")
 
     def num_calls(self) -> int:
         """Return number of calls."""
@@ -146,27 +203,35 @@ class LegalDescription(BaseModel):
         return any(not call.is_complete_bearing() for call in self.calls)
 
 
-class ClosureResult(BaseModel):
+class ClosureResult(_Model):
     """Results of traverse closure verification."""
 
     # Closure errors
-    misclosure_x_ft: float = Field(..., description="Misclosure in X direction (feet)")
-    misclosure_y_ft: float = Field(..., description="Misclosure in Y direction (feet)")
-    misclosure_ft: float = Field(..., description="Total misclosure distance (feet)")
+    misclosure_x_ft: FiniteFloat = Field(..., description="Misclosure in X direction (feet)")
+    misclosure_y_ft: FiniteFloat = Field(..., description="Misclosure in Y direction (feet)")
+    misclosure_ft: FiniteFloat = Field(..., description="Total misclosure distance (feet)")
 
     # Computed values
-    area_sq_ft: float = Field(..., description="Area in square feet (shoelace formula)")
-    area_acres: float = Field(..., description="Area in acres")
-    perimeter_ft: float = Field(..., description="Total perimeter in feet")
+    area_sq_ft: FiniteFloat = Field(
+        ...,
+        description="Area in square feet (shoelace formula)",
+    )
+    area_acres: FiniteFloat = Field(..., description="Area in acres")
+    perimeter_ft: FiniteFloat = Field(..., description="Total perimeter in feet")
 
     # Validation flags
     closure_passed: bool = Field(
-        ..., description="True if misclosure is within tolerance (< 0.01 ft)"
+        ...,
+        description="True if misclosure is within tolerance (< 0.01 ft)",
     )
     angle_check_passed: bool = Field(
-        ..., description="True if interior angles sum correctly ((n-2)*180°)"
+        ...,
+        description="True if interior angles sum correctly ((n-2)*180°)",
     )
-    curve_consistency_passed: bool = Field(..., description="True if curve math is consistent")
+    curve_consistency_passed: bool = Field(
+        ...,
+        description="True if curve math is consistent",
+    )
 
     # Warnings/issues
     warnings: list[str] = Field(default_factory=list, description="List of warnings or issues")
@@ -189,12 +254,11 @@ class ClosureResult(BaseModel):
         """Get human-readable closure status."""
         if self.misclosure_ft < 0.01:
             return "EXCELLENT"
-        elif self.misclosure_ft < 0.1:
+        if self.misclosure_ft < 0.1:
             return "GOOD"
-        elif self.misclosure_ft < 1.0:
+        if self.misclosure_ft < 1.0:
             return "ACCEPTABLE"
-        else:
-            return "POOR"
+        return "POOR"
 
 
 class ConversionFactors:
@@ -217,8 +281,10 @@ class ConversionFactors:
             "us_survey_feet": 1.0,  # Functionally same for most purposes
             "poles": cls.POLE_TO_FEET,
             "rods": cls.ROD_TO_FEET,
+            "perch": cls.PERCH_TO_FEET,
             "perches": cls.PERCH_TO_FEET,
             "chains": cls.CHAIN_TO_FEET,
+            "link": cls.LINK_TO_FEET,
             "links": cls.LINK_TO_FEET,
         }
         factor = conversions.get(unit.lower(), 1.0)
