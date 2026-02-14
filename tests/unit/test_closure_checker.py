@@ -219,10 +219,30 @@ class TestClosureVerification:
     def test_exception_tract_area_is_subtracted_and_reported(self):
         """Exception tracts should contribute warning and subtract their area."""
         calls = [
-            DeedCall(course=1, direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-            DeedCall(course=3, direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
-            DeedCall(course=4, direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(
+                course=1,
+                direction_text="North",
+                bearing_azimuth_deg_from_north=0.0,
+                distance_ft=100.0,
+            ),
+            DeedCall(
+                course=2,
+                direction_text="East",
+                bearing_azimuth_deg_from_north=90.0,
+                distance_ft=100.0,
+            ),
+            DeedCall(
+                course=3,
+                direction_text="South",
+                bearing_azimuth_deg_from_north=180.0,
+                distance_ft=100.0,
+            ),
+            DeedCall(
+                course=4,
+                direction_text="West",
+                bearing_azimuth_deg_from_north=270.0,
+                distance_ft=100.0,
+            ),
             DeedCall(
                 course=5,
                 direction_text="North",
@@ -250,17 +270,39 @@ class TestClosureVerification:
 
         assert any("exception calls" in warning.lower() for warning in result.warnings)
         assert any(
-            "exception" in warning.lower() and "area" in warning.lower() and "subtract" in warning.lower()
+            "exception" in warning.lower()
+            and "area" in warning.lower()
+            and "subtract" in warning.lower()
             for warning in result.warnings
         )
 
     def test_exception_tract_incomplete_warning_is_emitted(self):
         """Incomplete exception bearings should be reported and still handled."""
         calls = [
-            DeedCall(course=1, direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
-            DeedCall(course=2, direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-            DeedCall(course=3, direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
-            DeedCall(course=4, direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(
+                course=1,
+                direction_text="North",
+                bearing_azimuth_deg_from_north=0.0,
+                distance_ft=100.0,
+            ),
+            DeedCall(
+                course=2,
+                direction_text="East",
+                bearing_azimuth_deg_from_north=90.0,
+                distance_ft=100.0,
+            ),
+            DeedCall(
+                course=3,
+                direction_text="South",
+                bearing_azimuth_deg_from_north=180.0,
+                distance_ft=100.0,
+            ),
+            DeedCall(
+                course=4,
+                direction_text="West",
+                bearing_azimuth_deg_from_north=270.0,
+                distance_ft=100.0,
+            ),
             DeedCall(
                 course=5,
                 direction_text="exception bearing unknown",
@@ -274,7 +316,9 @@ class TestClosureVerification:
 
         assert any("exception tract has" in warning.lower() for warning in result.warnings)
         assert any(
-            "exception" in warning.lower() and "cannot" in warning.lower() and "area" in warning.lower()
+            "exception" in warning.lower()
+            and "cannot" in warning.lower()
+            and "area" in warning.lower()
             for warning in result.warnings
         )
 
@@ -535,21 +579,21 @@ class TestInteriorAngleCheck:
     def test_interior_angle_normalization_wraps_over_360(self):
         """Large deflection angles wrap to 0-360 during normalization."""
         calls = [
-            DeedCall.model_construct(
+            DeedCall(
                 course=1,
                 direction_text="North",
                 bearing_quadrant="N 10° E",
                 bearing_azimuth_deg_from_north=100.0,
                 distance_ft=100.0,
             ),
-            DeedCall.model_construct(
+            DeedCall(
                 course=2,
                 direction_text="East",
                 bearing_quadrant="S 10° E",
                 bearing_azimuth_deg_from_north=800.0,
                 distance_ft=100.0,
             ),
-            DeedCall.model_construct(
+            DeedCall(
                 course=3,
                 direction_text="South",
                 bearing_quadrant="S 10° W",

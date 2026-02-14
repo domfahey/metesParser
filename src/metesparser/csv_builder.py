@@ -184,19 +184,24 @@ class CSVBuilder:
             DeedCall object or None if parsing fails
         """
         try:
+            # Trim all text values first
+            normalized_row = {k: (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
+
             # Parse required fields
-            course = int(row["course"])
-            direction_text = row["direction_text"]
-            distance_ft = float(row["distance_ft"])
+            course = int(normalized_row["course"])
+            direction_text = normalized_row["direction_text"]
+            distance_ft = float(normalized_row["distance_ft"])
 
             # Helper function to parse optional string field
             def parse_optional_str(field_name: str) -> str | None:
-                value = row.get(field_name, "").strip()
+                value = normalized_row.get(field_name, "")
+                value = "" if value is None else value
                 return value if value else None
 
             # Helper function to parse optional float field
             def parse_optional_float(field_name: str) -> float | None:
-                value = row.get(field_name, "").strip()
+                value = normalized_row.get(field_name, "")
+                value = "" if value is None else value
                 return float(value) if value else None
 
             # Parse optional fields - cleaner with helper functions
@@ -215,27 +220,33 @@ class CSVBuilder:
             along = parse_optional_str("along")
             to = parse_optional_str("to")
             monument_type = parse_optional_str("monument_type")
-            is_exception_str = row.get("is_exception", "").strip().lower()
-            is_exception = is_exception_str in ("true", "1", "yes")
+            is_exception = normalized_row.get("is_exception")
+            if isinstance(is_exception, str):
+                is_exception = is_exception.strip()
+                if not is_exception:
+                    is_exception = None
             notes = parse_optional_str("notes")
 
-            return DeedCall(
-                course=course,
-                direction_text=direction_text,
-                bearing_quadrant=bearing_quadrant,
-                bearing_azimuth_deg_from_north=azimuth,
-                distance_ft=distance_ft,
-                curve_dir=curve_dir,
-                radius_ft=radius_ft,
-                delta_deg=delta_deg,
-                arc_length_ft=arc_length_ft,
-                chord_bearing=chord_bearing,
-                chord_length_ft=chord_length_ft,
-                along=along,
-                to=to,
-                monument_type=monument_type,
-                is_exception=is_exception,
-                notes=notes,
+            return DeedCall.model_validate(
+                {
+                    "course": course,
+                    "direction_text": direction_text,
+                    "bearing_quadrant": bearing_quadrant,
+                    "bearing_azimuth_deg_from_north": azimuth,
+                    "distance_ft": distance_ft,
+                    "curve_dir": curve_dir,
+                    "radius_ft": radius_ft,
+                    "delta_deg": delta_deg,
+                    "arc_length_ft": arc_length_ft,
+                    "chord_bearing": chord_bearing,
+                    "chord_length_ft": chord_length_ft,
+                    "along": along,
+                    "to": to,
+                    "monument_type": monument_type,
+                    "is_exception": is_exception,
+                    "notes": notes,
+                },
+                strict=True,
             )
 
         except (KeyError, TypeError, ValueError, ValidationError) as e:

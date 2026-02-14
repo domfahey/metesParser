@@ -44,7 +44,9 @@ class _Model(BaseModel):
 class DeedCall(_Model):
     """Represents a single metes and bounds call (course/line)."""
 
-    course: int = Field(..., ge=1, description="Sequential course number (1, 2, 3, ...)")
+    course: int = Field(
+        ..., ge=1, strict=True, description="Sequential course number (1, 2, 3, ...)"
+    )
     direction_text: str = Field(
         ...,
         description="Verbatim direction from deed (e.g., 'S 56°40' W' or 'southwesterly')",
@@ -103,7 +105,9 @@ class DeedCall(_Model):
         description="Type of survey monument at endpoint",
     )
     is_exception: bool = Field(
-        False, description="True if this call is part of an exception/exclusion tract"
+        False,
+        strict=True,
+        description="True if this call is part of an exception/exclusion tract",
     )
     notes: str | None = Field(None, description="Additional notes (meander flag, issues, etc.)")
 
@@ -116,6 +120,29 @@ class DeedCall(_Model):
             raise TypeError("Curve/monument values must be strings")
         normalized = value.strip().lower()
         return normalized or None
+
+    @field_validator("is_exception", mode="before")
+    @classmethod
+    def _normalize_is_exception(cls, value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+
+        if value is None:
+            return False
+
+        if isinstance(value, (int, float)):
+            if value in (0, 1):
+                return bool(value)
+            raise TypeError("is_exception must be a boolean value")
+
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "1", "yes", "y", "on"}:
+                return True
+            if normalized in {"false", "0", "no", "n", "off"}:
+                return False
+
+        raise TypeError("is_exception must be a boolean value")
 
     @model_validator(mode="after")
     @classmethod
@@ -180,7 +207,7 @@ class LegalDescription(_Model):
     # Metadata
     source_doc: str | None = Field(None, description="Source document (book/page, etc.)")
     exhibit: str | None = Field(None, description="Exhibit identifier (e.g., 'Exhibit A')")
-    page: int | None = Field(None, ge=1, description="Page number in document")
+    page: int | None = Field(None, ge=1, strict=True, description="Page number in document")
     survey_date: str | None = Field(None, description="Survey date if specified")
     basis_of_bearing: str | None = Field(
         None, description="Basis of bearing (e.g., 'True North', 'Magnetic North')"
