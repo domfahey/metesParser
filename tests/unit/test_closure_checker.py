@@ -216,6 +216,62 @@ class TestClosureVerification:
         assert result.misclosure_ft > 0.01
         assert result.closure_passed is False
 
+    def test_exception_tract_area_is_subtracted_and_reported(self):
+        """Exception tracts should contribute warning and subtract their area."""
+        calls = [
+            DeedCall(course=1, direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2, direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3, direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=4, direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(
+                course=5,
+                direction_text="North",
+                bearing_azimuth_deg_from_north=0.0,
+                distance_ft=100.0,
+                is_exception=True,
+            ),
+            DeedCall(
+                course=6,
+                direction_text="East",
+                bearing_azimuth_deg_from_north=90.0,
+                distance_ft=60.0,
+                is_exception=True,
+            ),
+            DeedCall(
+                course=7,
+                direction_text="South",
+                bearing_azimuth_deg_from_north=180.0,
+                distance_ft=60.0,
+                is_exception=True,
+            ),
+        ]
+
+        result = ClosureChecker.verify_closure(calls)
+
+        assert any("exception calls" in warning.lower() for warning in result.warnings)
+        assert any("calculating exception area to subtract" in warning for warning in result.warnings)
+
+    def test_exception_tract_incomplete_warning_is_emitted(self):
+        """Incomplete exception bearings should be reported and still handled."""
+        calls = [
+            DeedCall(course=1, direction_text="North", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
+            DeedCall(course=2, direction_text="East", bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
+            DeedCall(course=3, direction_text="South", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0),
+            DeedCall(course=4, direction_text="West", bearing_azimuth_deg_from_north=270.0, distance_ft=100.0),
+            DeedCall(
+                course=5,
+                direction_text="exception bearing unknown",
+                bearing_azimuth_deg_from_north=None,
+                distance_ft=50.0,
+                is_exception=True,
+            ),
+        ]
+
+        result = ClosureChecker.verify_closure(calls)
+
+        assert any("exception tract has" in warning.lower() for warning in result.warnings)
+        assert any("cannot calculate exception area" in warning.lower() for warning in result.warnings)
+
 
 class TestAreaCalculation:
     """Test area calculation using shoelace formula."""
@@ -469,6 +525,34 @@ class TestInteriorAngleCheck:
 
         # Should return True (skipped check)
         assert result.angle_check_passed is True
+
+    def test_interior_angle_normalization_wraps_over_360(self):
+        """Large deflection angles wrap to 0-360 during normalization."""
+        calls = [
+            DeedCall.model_construct(
+                course=1,
+                direction_text="North",
+                bearing_quadrant="N 10° E",
+                bearing_azimuth_deg_from_north=100.0,
+                distance_ft=100.0,
+            ),
+            DeedCall.model_construct(
+                course=2,
+                direction_text="East",
+                bearing_quadrant="S 10° E",
+                bearing_azimuth_deg_from_north=800.0,
+                distance_ft=100.0,
+            ),
+            DeedCall.model_construct(
+                course=3,
+                direction_text="South",
+                bearing_quadrant="S 10° W",
+                bearing_azimuth_deg_from_north=100.0,
+                distance_ft=100.0,
+            ),
+        ]
+
+        assert ClosureChecker.check_interior_angles(calls) is True
 
 
 class TestParallelismCheck:
@@ -782,6 +866,34 @@ class TestDoubleEntryValidation:
         assert len(discrepancies) > 0
         assert any("number of calls" in d.lower() for d in discrepancies)
 
+    def test_curve_direction_and_radius_mismatches(self):
+        """Curve-specific mismatches should be detected."""
+        calls1 = [
+            DeedCall(
+                course=1,
+                direction_text="North",
+                bearing_azimuth_deg_from_north=0.0,
+                distance_ft=100.0,
+                curve_dir="left",
+                radius_ft=50.0,
+            )
+        ]
+        calls2 = [
+            DeedCall(
+                course=1,
+                direction_text="North",
+                bearing_azimuth_deg_from_north=0.0,
+                distance_ft=100.0,
+                curve_dir="right",
+                radius_ft=55.0,
+            )
+        ]
+
+        discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
+
+        assert any("Curve direction mismatch" in d for d in discrepancies)
+        assert any("Radius mismatch" in d for d in discrepancies)
+
 
 class TestClosureSummary:
     """Test human-readable closure summary."""
@@ -862,6 +974,29 @@ class TestClosureSummary:
             assert "FULLY VERIFIED" in summary
         else:
             assert "NEEDS REVIEW" in summary
+
+    def test_summary_includes_warning_block(self):
+        """Warnings should render under the summary warnings block."""
+        calls = [
+            DeedCall(
+                course=1,
+                direction_text="incomplete",
+                bearing_azimuth_deg_from_north=None,
+                distance_ft=50.0,
+            ),
+            DeedCall(
+                course=2,
+                direction_text="East",
+                bearing_azimuth_deg_from_north=90.0,
+                distance_ft=100.0,
+            ),
+        ]
+
+        result = ClosureChecker.verify_closure(calls)
+        summary = ClosureChecker.get_closure_summary(result)
+
+        assert "Warnings (" in summary
+        assert any(line.strip().startswith("-") for line in summary.splitlines())
 
 
 class TestIsFullyVerified:
