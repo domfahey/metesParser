@@ -26,6 +26,12 @@ MonumentType = Literal[
     "rebar",
     "railroad_spike",
     "nail",
+    "pk_nail",
+    "hub_and_tack",
+    "monitoring_well",
+    "capped_pin",
+    "capped_rod",
+    "txdot_monument",
     "other",
 ]
 
@@ -35,6 +41,12 @@ class MonumentClassifier:
 
     # Monument type patterns (order matters - more specific first)
     MONUMENT_PATTERNS: list[tuple[str, MonumentType]] = [
+        # TxDOT monuments (before generic concrete)
+        (r"\btxdot\b.*\bmonument\b", "txdot_monument"),
+        # Capped monuments (before generic iron rod/pin/rebar)
+        (r"\bcapped\s+(?:iron\s+)?rod\b", "capped_rod"),
+        (r"\bcapped\s+(?:iron\s+)?pin\b", "capped_pin"),
+        (r"\bcapped\s+rebar\b", "capped_rod"),
         # Iron monuments
         (r"\biron\s+rod\b", "iron_rod"),
         (r"\biron\s+pin\b", "iron_pin"),
@@ -42,8 +54,14 @@ class MonumentClassifier:
         (r"\biron\s+stake\b", "iron_rod"),
         (r"\biron\s+monument\b", "iron_rod"),
         (r"\brebar\b", "rebar"),
+        # PK nail (before generic nail)
+        (r"\bpk\s+nail\b", "pk_nail"),
         (r"\b(?:mag|magnetic)\s+nail\b", "nail"),
         (r"\bnail\b", "nail"),
+        # Hub and tack
+        (r"\bhub\s+(?:and|&)\s+tack\b", "hub_and_tack"),
+        # Monitoring well
+        (r"\bmonitoring\s+well\b", "monitoring_well"),
         # Railroad markers
         (r"\brailroad\s+(?:spike|tie)\b", "railroad_spike"),
         (r"\bgin\s+(?:spike|pole)\b", "railroad_spike"),

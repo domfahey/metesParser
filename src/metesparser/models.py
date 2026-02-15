@@ -16,6 +16,12 @@ MonumentType = Literal[
     "rebar",
     "railroad_spike",
     "nail",
+    "pk_nail",
+    "hub_and_tack",
+    "monitoring_well",
+    "capped_pin",
+    "capped_rod",
+    "txdot_monument",
     "other",
 ]
 DistanceUnit = Literal[
@@ -28,6 +34,14 @@ DistanceUnit = Literal[
     "chains",
     "links",
     "link",
+    "varas",
+    "arpents",
+    "toises",
+    "furlongs",
+    "meters",
+    "miles",
+    "engineer_chains",
+    "engineer_links",
 ]
 
 
@@ -71,7 +85,6 @@ class DeedCall(_Model):
     radius_ft: FiniteFloat | None = Field(
         None,
         description="Curve radius in feet",
-        gt=0,
     )
     delta_deg: FiniteFloat | None = Field(
         None,
@@ -108,6 +121,15 @@ class DeedCall(_Model):
         False,
         strict=True,
         description="True if this call is part of an exception/exclusion tract",
+    )
+    non_tangent: bool = Field(
+        False,
+        strict=True,
+        description="True if this curve is non-tangent (radial bearing provided)",
+    )
+    radial_bearing: str | None = Field(
+        None,
+        description="Radial bearing for non-tangent curves (e.g., 'N 15°22' E')",
     )
     notes: str | None = Field(None, description="Additional notes (meander flag, issues, etc.)")
 
@@ -152,6 +174,16 @@ class DeedCall(_Model):
         azimuth = float(value)
         return azimuth % 360.0
 
+    @field_validator("radius_ft", mode="before")
+    @classmethod
+    def _normalize_radius(cls, value: float | int | str | None) -> float | None:
+        if value is None:
+            return None
+        radius = float(value)
+        if radius == 0:
+            raise ValueError("radius_ft must be non-zero")
+        return radius
+
     @model_validator(mode="after")
     def validate_curve_geometry(self) -> "DeedCall":
         """Require consistent curve attributes when curve geometry is present."""
@@ -167,6 +199,11 @@ class DeedCall(_Model):
 
         if not has_curve_direction:
             raise ValueError("curve_dir is required when any curve field is provided")
+
+        if self.radius_ft is not None and self.radius_ft < 0:
+            if self.curve_dir != "left":
+                raise ValueError("radius_ft sign conflicts with curve_dir")
+            self.radius_ft = abs(self.radius_ft)
 
         if not has_radius or not (has_delta or has_arc):
             raise ValueError(
@@ -272,6 +309,13 @@ class ClosureResult(_Model):
         description="True if curve math is consistent",
     )
 
+    # Precision
+    precision_ratio: FiniteFloat | None = Field(
+        None,
+        description="Misclosure / perimeter (e.g., 0.00004 means 1:25,000)",
+        ge=0,
+    )
+
     # Warnings/issues
     warnings: list[str] = Field(default_factory=list, description="List of warnings or issues")
 
@@ -310,6 +354,14 @@ class ConversionFactors:
     PERCH_TO_FEET: float = 16.5  # Same as pole/rod
     CHAIN_TO_FEET: float = 66.0
     LINK_TO_FEET: float = 0.66
+    VARA_TO_FEET: float = 2.778  # Texas standard vara
+    ARPENT_TO_FEET: float = 191.8  # French colonial
+    TOISE_TO_FEET: float = 6.395  # French
+    FURLONG_TO_FEET: float = 660.0
+    MILE_TO_FEET: float = 5280.0
+    METER_TO_FEET: float = 3.28084  # International foot
+    ENGINEER_CHAIN_TO_FEET: float = 100.0
+    ENGINEER_LINK_TO_FEET: float = 1.0
     ACRE_TO_SQ_FEET: float = 43560.0
     FOOT_TO_METERS: float = 0.3048
     US_SURVEY_FOOT_TO_METERS: float = 0.30480061
@@ -327,6 +379,14 @@ class ConversionFactors:
             "chains": cls.CHAIN_TO_FEET,
             "link": cls.LINK_TO_FEET,
             "links": cls.LINK_TO_FEET,
+            "varas": cls.VARA_TO_FEET,
+            "arpents": cls.ARPENT_TO_FEET,
+            "toises": cls.TOISE_TO_FEET,
+            "furlongs": cls.FURLONG_TO_FEET,
+            "meters": cls.METER_TO_FEET,
+            "miles": cls.MILE_TO_FEET,
+            "engineer_chains": cls.ENGINEER_CHAIN_TO_FEET,
+            "engineer_links": cls.ENGINEER_LINK_TO_FEET,
         }
         normalized_unit = unit.strip().lower()
         if normalized_unit not in conversions:
