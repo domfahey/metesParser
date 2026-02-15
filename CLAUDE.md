@@ -140,6 +140,7 @@ tests/unit/test_bearing_converter.py  # Quadrant ↔ azimuth
 tests/unit/test_call_extractor.py     # Regex parsing
 tests/unit/test_closure_checker.py    # 6 guardrails
 tests/unit/test_phase1_foundation.py  # Units, monuments, precision ratio, non-tangent
+tests/unit/test_phase2_enhanced_parsing.py # Packed DMS, chord/non-tangent, extractors, CSV 18-field
 tests/unit/test_pydantic_guardrails.py # Model validation and normalization
 tests/integration/test_integration.py        # Full pipeline
 tests/integration/test_pdf_processing.py       # PDF extraction orchestration
@@ -244,6 +245,58 @@ along,to,monument_type,is_exception,non_tangent,radial_bearing,notes
 - **Testing**: 6 test cases covering POC extraction, POB-only scenarios, and combined extraction
 - **Integration**: `pdf_processor.py` automatically extracts both during processing
 
+## Phase 2 Enhancements (Enhanced Parsing)
+
+### 7. Packed DMS Parsing
+- **Module**: `bearing_converter.py` - `parse_packed_dms()` method
+- **Feature**: Converts packed DMS values (e.g., 46.1631 → 46°16'31" → 46.2753°)
+- **Formula**: `degrees + minutes/60 + seconds/3600` where MM.SS are extracted from fractional part
+- **Validation**: Raises `ValueError` for minutes >= 60 or seconds >= 60
+
+### 8. Chord Bearing Extraction
+- **Module**: `call_extractor.py` - within `extract_curve_info()`
+- **Patterns**: `"chord of which bears S 34°57' E"`, `"chord bears"`, `"the chord bears"`
+- **Normalization**: Spelled-out cardinals standardized via `TextParser.standardize_cardinal_directions()`
+- **Storage**: Populates `chord_bearing` field as normalized quadrant bearing string
+
+### 9. Non-Tangent Curve Detection
+- **Module**: `call_extractor.py` - within `extract_curve_info()`
+- **Keywords**: `non-tangent`, `nontangent`, `radial line bears`, `radial bearing of`
+- **Fields Populated**: `non_tangent=True`, `radial_bearing="N 15°22' E"`
+- **Integration**: `extract_single_call()` reads from `curve_info` dict (no longer hardcoded)
+
+### 10. Basis of Bearing Extraction
+- **Module**: `text_parser.py` - `extract_basis_of_bearing()` method
+- **Patterns**: "Basis of Bearings:", "bearings based on", "referenced to", "bearings are magnetic/assumed"
+- **Integration**: Wired into `process_deed_pdf()` — replaces hardcoded `None`
+
+### 11. Surveyor Certification Extraction
+- **Module**: `text_parser.py` - `extract_surveyor_certification()` method
+- **Patterns**: "That I, [name]," + "Licensed/Registered", "I hereby certify", "Certified by:", "Surveyed by"
+- **Model Field**: `surveyor_certification: str | None` on `LegalDescription`
+
+### 12. Prior Conveyance Extraction
+- **Module**: `text_parser.py` - `extract_prior_conveyance()` method
+- **Patterns**: "BEING the same premises", "Deed Book \d+", "Instrument Number", "Official Records Book"
+- **Model Field**: `prior_conveyance: str | None` on `LegalDescription`
+
+### 13. Extended Distance Unit Parsing
+- **Module**: `text_parser.py` - `extract_distance()` method (extended)
+- **New Units**: varas, arpents, toises, furlongs, meters, miles (singular + plural)
+- **Conversion**: Uses existing `ConversionFactors` from Phase 1
+
+### 14. Unit-Inference Heuristics
+- **Module**: `text_parser.py` - `infer_distance_unit()` method
+- **Advisory Only**: Returns suggestion string, caller decides whether to apply
+- **Rules**: Texas pre-1900 → varas, Louisiana → arpents, New England pre-1850 → rods, "chains and links" → chains
+- **Text Keywords**: Detects "varas", "arpents" in deed text
+
+### 15. CSV Schema Expansion (16 → 18 fields)
+- **Module**: `csv_builder.py` - `FIELDNAMES`, `_call_to_row()`
+- **New Fields**: `non_tangent` ("true"/"false"), `radial_bearing` (string or "")
+- **Position**: After `is_exception`, before `notes`
+- **Metadata Export**: `surveyor_certification` and `prior_conveyance` added to `.metadata.txt`
+
 ## Environment Setup
 
 Required in `.env`:
@@ -294,6 +347,6 @@ This implementation follows the comprehensive "Metes & Bounds – Deed Call Extr
 - Never fabricate bearings (Section 8A)
 - Close traverse before export (Section 6A)
 - 6 verification guardrails (Section 6)
-- Standard 16-field CSV schema (Section 5)
+- Standard 18-field CSV schema (Section 5)
 - Preserve verbatim wording (Section 7)
 - Flag meanders/approximations (Section 8A)
