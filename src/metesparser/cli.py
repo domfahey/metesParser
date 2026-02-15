@@ -1,11 +1,16 @@
 """Command-line interface for metesparser."""
 
+from __future__ import annotations
+
+import os
 import sys
 from pathlib import Path
 
 import structlog
 
-logger = structlog.get_logger()
+from .logging_config import configure_logging
+
+logger = structlog.get_logger(__name__)
 
 
 def extract_command(
@@ -30,13 +35,14 @@ def extract_command(
     if not output:
         output = str(pdf_file.with_suffix(".csv"))
 
-    logger.info("Processing deed PDF", input=pdf_path, output=output)
+    command_logger = logger.bind(command="extract", input_pdf=pdf_path, output_csv=output)
+    command_logger.info("Processing deed PDF")
 
     try:
         processor = PDFProcessor(provider=llm_provider)
         legal_desc = processor.process_deed_pdf(pdf_path)
 
-        logger.info("Verifying closure...")
+        command_logger.info("Verifying closure")
         closure_result = ClosureChecker.verify_closure(legal_desc.calls)
 
         print()
@@ -44,15 +50,15 @@ def extract_command(
         print()
 
         if closure_result.is_fully_verified():
-            logger.info("Exporting verified CSV...")
+            command_logger.info("Exporting verified CSV")
             CSVBuilder.export_verified_csv(legal_desc.calls, closure_result, output, legal_desc)
         else:
-            logger.warning("Verification did not pass completely. Exporting unverified CSV.")
+            command_logger.warning("Verification did not pass completely; exporting unverified CSV")
             CSVBuilder.legal_description_to_csv(legal_desc, output)
-            logger.info("Exported to", path=output)
+            command_logger.info("Exported unverified CSV")
 
-    except Exception as e:
-        logger.error("Failed to process PDF", error=str(e))
+    except Exception:
+        command_logger.exception("Failed to process PDF")
         sys.exit(1)
 
 
@@ -71,11 +77,12 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
         logger.error("CSV file not found", path=csv_path)
         sys.exit(1)
 
-    logger.info("Verifying calls from CSV", path=csv_path)
+    command_logger = logger.bind(command="verify", input_csv=csv_path)
+    command_logger.info("Verifying calls from CSV")
 
     try:
         calls = CSVBuilder.csv_to_calls(csv_path)
-        logger.info("Loaded calls", count=len(calls))
+        command_logger.info("Loaded calls", count=len(calls))
 
         closure_result = ClosureChecker.verify_closure(calls, stated_area or 0.0)
 
@@ -84,13 +91,13 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
         print()
 
         if closure_result.is_fully_verified():
-            logger.info("✓ All verification checks passed")
+            command_logger.info("All verification checks passed")
         else:
-            logger.warning("Some verification checks did not pass")
+            command_logger.warning("Some verification checks did not pass")
             sys.exit(1)
 
-    except Exception as e:
-        logger.error("Failed to verify CSV", error=str(e))
+    except Exception:
+        command_logger.exception("Failed to verify CSV")
         sys.exit(1)
 
 
@@ -116,18 +123,26 @@ def main() -> None:
     # Load environment variables
     load_dotenv()
 
-    # Configure logging
-    structlog.configure(
-        processors=[
-            structlog.processors.add_log_level,
-            structlog.processors.TimeStamper(fmt="iso"),
-            structlog.dev.ConsoleRenderer(),
-        ]
-    )
-
     parser = argparse.ArgumentParser(
         description="Metes & Bounds Deed Parser - Extract and verify legal descriptions"
     )
+    parser.add_argument(
+        "--log-level",
+        default=os.getenv("METESPARSER_LOG_LEVEL", "INFO"),
+        help="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    )
+    parser.add_argument(
+        "--log-format",
+        choices=["console", "json"],
+        default=os.getenv("METESPARSER_LOG_FORMAT", "console"),
+        help="Log output format",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging with callsite metadata",
+    )
+
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # Extract command
@@ -150,6 +165,18 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    try:
+        configured_level = "DEBUG" if args.debug else args.log_level
+        configure_logging(level=configured_level, log_format=args.log_format, debug=args.debug)
+        logger.debug(
+            "Logging configured",
+            level=configured_level,
+            format=args.log_format,
+            debug=args.debug,
+        )
+    except ValueError as exc:
+        parser.error(str(exc))
 
     if not args.command:
         parser.print_help()
