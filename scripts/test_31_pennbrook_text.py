@@ -48,7 +48,7 @@ def main():
         print(f"CALL {i}:")
         print(f"  Direction:  {call.direction_text}")
         print(f"  Bearing:    {call.bearing_quadrant or '(incomplete)'}")
-        print(f"  Azimuth:    {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north else '(none)'}")
+        print(f"  Azimuth:    {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north is not None else '(none)'}")
         print(f"  Distance:   {call.distance_ft:.2f} ft")
         print(f"  Along:      {call.along[:60] if call.along else '(none)'}...")
         print(f"  Notes:      {call.notes or '(none)'}")

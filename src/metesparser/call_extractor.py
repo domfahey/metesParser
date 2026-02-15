@@ -3,12 +3,17 @@
 Parses normalized text to create structured DeedCall objects.
 """
 
+import logging
 import re
 from typing import Literal
+
+from pydantic import ValidationError
 
 from .bearing_converter import BearingConverter
 from .models import ConversionFactors, DeedCall
 from .text_parser import TextParser
+
+logger = logging.getLogger(__name__)
 
 MonumentType = Literal[
     "iron_rod",
@@ -121,15 +126,22 @@ class CallExtractor:
             call_texts = TextParser.split_into_calls(tract_text)
 
             for call_text in call_texts:
-                call = cls.extract_single_call(
-                    call_text, course=course_num, distance_unit=distance_unit
-                )
-                if call:
-                    # Mark as exception if this is an exception tract
-                    if is_exception_tract:
-                        call = call.model_copy(update={"is_exception": True})
-                    calls.append(call)
-                    course_num += 1
+                try:
+                    call = cls.extract_single_call(
+                        call_text, course=course_num, distance_unit=distance_unit
+                    )
+                except (ValidationError, ValueError, TypeError) as exc:
+                    logger.warning("Skipping malformed call %s: %s", call_text, exc)
+                    continue
+
+                if call is None:
+                    continue
+
+                # Mark as exception if this is an exception tract
+                if is_exception_tract:
+                    call = call.model_copy(update={"is_exception": True})
+                calls.append(call)
+                course_num += 1
 
         return calls
 

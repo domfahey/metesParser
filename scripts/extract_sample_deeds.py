@@ -6,6 +6,7 @@ showing the extraction results for human review.
 """
 
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from metesparser.closure_checker import ClosureChecker
@@ -41,7 +42,7 @@ def create_extraction_report(legal_desc, closure_result, output_file):
 
         # Source info
         f.write(f"Source PDF: {legal_desc.source_doc}\n")
-        f.write(f"Date Extracted: {Path(output_file).stat().st_mtime}\n\n")
+        f.write(f"Date Extracted: {datetime.now(timezone.utc).isoformat()}\n\n")
 
         # Point of Commencement
         f.write("-" * 80 + "\n")
@@ -81,15 +82,15 @@ def create_extraction_report(legal_desc, closure_result, output_file):
             f.write("-" * 80 + "\n")
             f.write(f"Direction Text:  {call.direction_text}\n")
             f.write(f"Bearing:         {call.bearing_quadrant or '(incomplete)'}\n")
-            f.write(f"Azimuth:         {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north else '(none)'}\n")
+            f.write(f"Azimuth:         {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north is not None else '(none)'}\n")
             f.write(f"Distance:        {call.distance_ft:.2f} feet\n")
 
             # Curve info if present
             if call.curve_dir:
                 f.write(f"Curve Direction: {call.curve_dir}\n")
-                f.write(f"Radius:          {f'{call.radius_ft:.2f} ft' if call.radius_ft else '(none)'}\n")
-                f.write(f"Delta:           {f'{call.delta_deg:.4f}°' if call.delta_deg else '(none)'}\n")
-                f.write(f"Arc Length:      {f'{call.arc_length_ft:.2f} ft' if call.arc_length_ft else '(none)'}\n")
+                f.write(f"Radius:          {f'{call.radius_ft:.2f} ft' if call.radius_ft is not None else '(none)'}\n")
+                f.write(f"Delta:           {f'{call.delta_deg:.4f}°' if call.delta_deg is not None else '(none)'}\n")
+                f.write(f"Arc Length:      {f'{call.arc_length_ft:.2f} ft' if call.arc_length_ft is not None else '(none)'}\n")
 
             f.write(f"Along:           {call.along or '(none)'}\n")
             f.write(f"To:              {call.to or '(none)'}\n")

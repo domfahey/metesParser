@@ -156,22 +156,32 @@ class ClosureChecker:
                 continue
 
             if call.is_curve():
-                # Handle curve (approximate with chord)
-                if (
-                    call.radius_ft is not None
-                    and call.delta_deg is not None
-                    and call.curve_dir is not None
-                ):
-                    next_point = BearingConverter.compute_curve_endpoint(
-                        current,
+                next_point: Point | None = None
+
+                if call.radius_ft is not None and call.curve_dir is not None:
+                    delta_deg = call.delta_deg
+                    if (
+                        delta_deg is None
+                        and call.arc_length_ft is not None
+                        and call.radius_ft > 0.0
+                    ):
+                        delta_deg = math.degrees(call.arc_length_ft / call.radius_ft)
+
+                    if delta_deg is not None and abs(delta_deg) > 1e-9:
+                        next_point = BearingConverter.compute_curve_endpoint(
+                            current,
+                            call.bearing_azimuth_deg_from_north,
+                            call.radius_ft,
+                            delta_deg,
+                            call.curve_dir,
+                        )
+
+                if next_point is None:
+                    dx, dy = BearingConverter.calculate_deltas(
                         call.bearing_azimuth_deg_from_north,
-                        call.radius_ft,
-                        call.delta_deg,
-                        call.curve_dir,
+                        call.distance_ft,
                     )
-                else:
-                    # Incomplete curve info - skip
-                    continue
+                    next_point = Point(x=current.x + dx, y=current.y + dy)
             else:
                 # Straight line
                 dx, dy = BearingConverter.calculate_deltas(
@@ -228,7 +238,7 @@ class ClosureChecker:
         """
         perimeter = 0.0
         for call in calls:
-            if call.is_curve() and call.arc_length_ft:
+            if call.is_curve() and call.arc_length_ft is not None:
                 perimeter += call.arc_length_ft
             else:
                 perimeter += call.distance_ft
