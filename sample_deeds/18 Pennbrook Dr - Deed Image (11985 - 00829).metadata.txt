@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+pob_description: a point at the Southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide)
+source_doc: 18 Pennbrook Dr - Deed Image (11985 - 00829).pdf
+distance_unit: feet
