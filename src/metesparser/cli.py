@@ -95,13 +95,14 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
 
 
 def export_command(csv_path: str, format: str = "geojson", output: str | None = None) -> None:
-    """Export calls to GeoJSON or KML.
+    """Export calls to GeoJSON or KML (currently not implemented).
 
     Args:
         csv_path: Path to CSV file
         format: Output format (geojson or kml)
         output: Output file path (default: derived from input)
     """
+    # Export targets are placeholders for a future release.
     logger.error("Export functionality not yet implemented")
     sys.exit(1)
 

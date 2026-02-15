@@ -187,12 +187,15 @@ class DeedCall(_Model):
 
     @model_validator(mode="before")
     @classmethod
-    def normalize_curve_radius_sign(cls, values: dict) -> dict:
+    def normalize_curve_radius_sign(cls, values: dict[str, object]) -> dict[str, object]:
         """Normalize negative curve radii to positive for left curves and validate sign."""
         radius_value = values.get("radius_ft")
         curve_dir = values.get("curve_dir")
 
         if radius_value is None:
+            return values
+
+        if not isinstance(radius_value, (int, float, str)):
             return values
 
         try:
@@ -389,15 +392,16 @@ class ConversionFactors:
     ACRE_TO_SQ_FEET: float = 43560.0
     FOOT_TO_METERS: float = 0.3048
     US_SURVEY_FOOT_TO_METERS: float = 0.30480061
+    US_SURVEY_FOOT_TO_FEET: float = US_SURVEY_FOOT_TO_METERS / FOOT_TO_METERS
 
     @classmethod
     def convert_to_feet(cls, value: float, unit: str) -> float:
         """Convert a distance value to feet."""
         conversions = {
             "feet": 1.0,
-            # Keep US survey foot behavior backward-compatible; precise conversion differs
-            # very slightly (≈0.00000061 ft per foot), track US_SURVEY_FOOT_TO_METERS if needed.
-            "us_survey_feet": 1.0,
+            # Keep US survey foot as an intentional compatibility alias to feet.
+            # Precise conversion: 1 US survey foot = 1.000002001312336 international feet.
+            "us_survey_feet": cls.US_SURVEY_FOOT_TO_FEET,
             "poles": cls.POLE_TO_FEET,
             "rods": cls.ROD_TO_FEET,
             "perch": cls.PERCH_TO_FEET,
