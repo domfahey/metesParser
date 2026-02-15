@@ -244,6 +244,5 @@ class TestEdgeCases:
         calls = CallExtractor.extract_calls(sample_deeds.WITH_OCR_ERRORS)
 
         # Should successfully parse despite OCR errors
-        assert len(calls) >= 1
-        # At least one should have a bearing
-        assert any(c.bearing_azimuth_deg_from_north is not None for c in calls)
+        assert len(calls) == 2
+        assert all(c.bearing_azimuth_deg_from_north is not None for c in calls)
