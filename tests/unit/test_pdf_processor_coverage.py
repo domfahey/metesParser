@@ -37,7 +37,7 @@ def test_extract_calls_ai_raises_for_invalid_json(monkeypatch):
 
     processor = PDFProcessor(client=InvalidJsonClient())
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="invalid JSON"):
         processor.extract_calls_ai("text")
 
 

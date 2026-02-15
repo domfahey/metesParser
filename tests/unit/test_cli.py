@@ -48,6 +48,13 @@ def test_main_with_no_command_exits_gracefully(monkeypatch):
     assert exc.value.code == 0
 
 
+def test_main_with_unknown_command_exits_with_error(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["metesparser", "unknown"])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+    assert exc.value.code == 1
+
+
 def test_main_dispatches_extract(monkeypatch, tmp_path):
     pdf = tmp_path / "input.pdf"
     pdf.write_text("pdf")

@@ -125,14 +125,14 @@ def test_read_pdf_raises_when_missing():
 
 def test_openai_client_requires_api_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    with pytest.raises(LLMConfigurationError):
+    with pytest.raises(LLMConfigurationError, match="OPENAI_API_KEY"):
         OpenAIClient()
 
 
 def test_openai_client_raises_when_sdk_missing(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "key")
     monkeypatch.setitem(sys.modules, "openai", ModuleType("openai"))
-    with pytest.raises(LLMConfigurationError):
+    with pytest.raises(LLMConfigurationError, match="openai package not installed"):
         OpenAIClient()
 
 
@@ -173,7 +173,7 @@ def test_gemini_client_requires_api_key(monkeypatch):
         lambda **kwargs: SimpleNamespace(text="irrelevant"),
     )
 
-    with pytest.raises(LLMConfigurationError):
+    with pytest.raises(LLMConfigurationError, match="GEMINI_API_KEY"):
         GeminiClient()
 
 

@@ -135,7 +135,7 @@ def test_provider_argument_overrides_env(monkeypatch):
 
 def test_invalid_provider_raises_value_error(monkeypatch):
     monkeypatch.delenv("METESPARSER_LLM_PROVIDER", raising=False)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Unknown LLM provider"):
         PDFProcessor(provider="does-not-exist")
 
 

@@ -9,7 +9,7 @@ from metesparser.models import DeedCall, LegalDescription
 
 
 def test_deedcall_rejects_incomplete_curve_geometry():
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="curve_dir"):
         DeedCall(
             course=1,
             direction_text="North",
@@ -20,7 +20,7 @@ def test_deedcall_rejects_incomplete_curve_geometry():
 
 
 def test_deedcall_rejects_invalid_course_and_legaldescription_rejects_invalid_page():
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="greater than or equal to 1"):
         DeedCall(
             course=0,
             direction_text="North",
@@ -28,7 +28,7 @@ def test_deedcall_rejects_invalid_course_and_legaldescription_rejects_invalid_pa
             bearing_azimuth_deg_from_north=0.0,
         )
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="greater than or equal to 1"):
         LegalDescription(page=0)
 
 
@@ -64,7 +64,7 @@ def test_deedcall_normalizes_exception_flags():
     )
     assert call.is_exception is True
 
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="is_exception"):
         DeedCall(
             course=2,
             direction_text="North",
