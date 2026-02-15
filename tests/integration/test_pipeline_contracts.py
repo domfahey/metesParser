@@ -57,9 +57,7 @@ def test_verified_export_roundtrip_preserves_calls_and_artifacts(tmp_path):
     assert [call.distance_ft for call in parsed_calls] == pytest.approx(
         [call.distance_ft for call in legal_desc.calls]
     )
-    assert [
-        call.bearing_azimuth_deg_from_north for call in parsed_calls
-    ] == pytest.approx(
+    assert [call.bearing_azimuth_deg_from_north for call in parsed_calls] == pytest.approx(
         [call.bearing_azimuth_deg_from_north for call in legal_desc.calls],
         nan_ok=False,
     )
