@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import csv
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -98,7 +98,15 @@ def test_cli_extract_and_verify_railcar_flow_happy_path(monkeypatch, tmp_path, c
     assert verified_csv.exists()
     assert verification_txt.exists()
     assert metadata_txt.exists()
-    assert [row["course"] for row in verified_rows] == ["1", "2", "3", "4"]
+    assert [
+        (row["course"], row["direction_text"], row["distance_ft"])
+        for row in verified_rows
+    ] == [
+        ("1", "North", "100.00"),
+        ("2", "East", "100.00"),
+        ("3", "South", "100.00"),
+        ("4", "West", "100.00"),
+    ]
     assert "CLOSURE VERIFICATION SUMMARY" in extract_output
     assert "Status: FULLY VERIFIED ✓" in verification_txt.read_text(encoding="utf-8")
     assert "source_doc: parcel.pdf" in metadata_txt.read_text(encoding="utf-8")
@@ -129,7 +137,10 @@ def test_cli_extract_and_verify_open_traverse_is_rejected(monkeypatch, tmp_path,
     unverified_rows = _read_csv_rows(unverified_csv)
 
     assert unverified_csv.exists()
-    assert [row["course"] for row in unverified_rows] == ["1", "2"]
+    assert [(row["course"], row["direction_text"], row["distance_ft"]) for row in unverified_rows] == [
+        ("1", "North", "100.00"),
+        ("2", "East", "100.00"),
+    ]
 
     monkeypatch.setattr(sys, "argv", ["metesparser", "verify", str(unverified_csv)])
     with pytest.raises(SystemExit) as exc:
