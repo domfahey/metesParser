@@ -384,7 +384,7 @@ class CallExtractor:
                 delta_deg += float(match.group(5)) / 3600.0
 
             arc_length_match = re.search(
-                r"arc\s+length\s+of\s+(\d+(?:\.\d+)?)", text, re.IGNORECASE
+                r"arc\s+(?:length|distance)\s+(?:of\s+)?(\d+(?:\.\d+)?)", text, re.IGNORECASE
             )
             arc_length = float(arc_length_match.group(1)) if arc_length_match else None
 
@@ -427,8 +427,8 @@ class CallExtractor:
 
                 curve_info["delta_deg"] = delta
 
-            # "arc length of X"
-            arc_match = re.search(r"arc\s+length\s+of\s+(\d+(?:\.\d+)?)", text, re.IGNORECASE)
+            # "arc length of X" or "arc distance of X"
+            arc_match = re.search(r"arc\s+(?:length|distance)\s+(?:of\s+)?(\d+(?:\.\d+)?)", text, re.IGNORECASE)
             if arc_match:
                 curve_info["arc_length_ft"] = float(arc_match.group(1))
 
