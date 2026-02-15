@@ -60,7 +60,10 @@ PDF → PDFProcessor.process_deed_pdf() → LegalDescription
   ├─ Configured LLM extraction (`OpenAIClient` / `GeminiClient`)
   ├─ Text normalization (TextParser.normalize_legal_description)
   ├─ Call extraction (CallExtractor.extract_calls) [rule-based, not AI]
-  └─ Azimuth enrichment (BearingConverter.enrich_calls_with_azimuths)
+  ├─ Azimuth enrichment (BearingConverter.enrich_calls_with_azimuths)
+  ├─ Basis of bearing (TextParser.extract_basis_of_bearing)
+  ├─ Surveyor certification (TextParser.extract_surveyor_certification)
+  └─ Prior conveyance (TextParser.extract_prior_conveyance)
 
 LegalDescription → ClosureChecker.verify_closure() → ClosureResult
   ├─ Traverse closure (sum dx, dy)
@@ -80,11 +83,14 @@ ClosureResult → CSVBuilder.export_verified_csv() → CSV
 
 **bearing_converter.py** - Coordinate math
 - Quadrant bearing ↔ azimuth: `parse_quadrant_bearing()`, `quadrant_to_azimuth()`
+- Packed DMS conversion: `parse_packed_dms(46.1631)` → 46.2753° decimal
 - Delta calculations: `calculate_deltas(azimuth, distance) → (dx, dy)`
 - Curve math: `calculate_curve_properties(radius, delta) → {arc, chord, ...}`
 
 **call_extractor.py** - Rule-based parsing (NOT AI)
 - Regex patterns for bearings: `(N|S) \d{1,3}°\d{1,2}' (E|W)`
+- Chord bearing extraction: `"chord of which bears S 34°57' E"` → `chord_bearing` field
+- Non-tangent curve detection: `"non-tangent"`, `"radial line bears"` → `non_tangent=True`
 - Never fabricates - returns `None` for incomplete data
 - Preserves verbatim `direction_text`, `along`, `to` fields
 
