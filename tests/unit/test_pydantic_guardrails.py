@@ -32,6 +32,29 @@ def test_deedcall_rejects_invalid_course_and_legaldescription_rejects_invalid_pa
         LegalDescription(page=0)
 
 
+def test_deedcall_rejects_non_int_course():
+    with pytest.raises(ValidationError, match="course"):
+        DeedCall(
+            course="1",
+            direction_text="North",
+            distance_ft=100.0,
+            bearing_azimuth_deg_from_north=45.0,
+        )
+
+
+def test_deedcall_rejects_extra_fields():
+    with pytest.raises(ValidationError, match="extra"):
+        DeedCall.model_validate(
+            {
+                "course": 1,
+                "direction_text": "North",
+                "distance_ft": 100.0,
+                "bearing_azimuth_deg_from_north": 45.0,
+                "unexpected_field": "oops",
+            }
+        )
+
+
 def test_deedcall_normalizes_exception_flags():
     call = DeedCall(
         course=1,
@@ -48,6 +71,24 @@ def test_deedcall_normalizes_exception_flags():
             distance_ft=100.0,
             is_exception="maybe",
         )
+
+
+def test_deedcall_normalizes_azimuth_to_north_reference_range():
+    wrapped_call = DeedCall(
+        course=3,
+        direction_text="North",
+        distance_ft=100.0,
+        bearing_azimuth_deg_from_north=450.0,
+    )
+    assert wrapped_call.bearing_azimuth_deg_from_north == 90.0
+
+    negative_call = DeedCall(
+        course=4,
+        direction_text="South",
+        distance_ft=100.0,
+        bearing_azimuth_deg_from_north=-45.0,
+    )
+    assert negative_call.bearing_azimuth_deg_from_north == 315.0
 
 
 def test_csv_row_to_call_skips_invalid_curve_row(tmp_path: Path):
@@ -172,3 +213,8 @@ def test_csv_row_to_call_default_false_for_blank_exception_flag(tmp_path: Path):
 
     assert len(calls) == 1
     assert calls[0].is_exception is False
+
+
+def test_legaldescription_rejects_non_int_page_number():
+    with pytest.raises(ValidationError, match="page"):
+        LegalDescription(page="1")

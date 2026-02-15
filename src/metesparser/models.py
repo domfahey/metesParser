@@ -76,19 +76,19 @@ class DeedCall(_Model):
     delta_deg: FiniteFloat | None = Field(
         None,
         description="Central angle (Δ) in degrees",
-        gt=0,
+        ge=0,
         le=360,
     )
     arc_length_ft: FiniteFloat | None = Field(
         None,
         description="Arc length in feet",
-        gt=0,
+        ge=0,
     )
     chord_bearing: str | None = Field(None, description="Chord bearing")
     chord_length_ft: FiniteFloat | None = Field(
         None,
         description="Chord length in feet",
-        gt=0,
+        ge=0,
     )
 
     # Descriptive fields
