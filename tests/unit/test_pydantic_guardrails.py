@@ -24,6 +24,8 @@ CSV_FIELDNAMES: list[str] = [
     "monument_type",
     "is_exception",
     "notes",
+    "non_tangent",
+    "radial_bearing",
 ]
 
 
@@ -44,6 +46,8 @@ def _base_csv_row(overrides: dict[str, str] | None = None) -> dict[str, str]:
         "to": "",
         "monument_type": "",
         "is_exception": "false",
+        "non_tangent": "false",
+        "radial_bearing": "",
         "notes": "",
     }
     if overrides:

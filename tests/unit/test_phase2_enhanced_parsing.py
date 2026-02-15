@@ -13,7 +13,6 @@ TDD tests for Phase 2 features:
 - pipeline wiring
 """
 
-import math
 from pathlib import Path
 
 import pytest
@@ -102,9 +101,7 @@ class TestChordBearingExtraction:
         )
         info = CallExtractor.extract_curve_info(text)
         assert info.get("chord_length_ft") is not None
-        assert info["chord_length_ft"] == pytest.approx(254.22, abs=0.5) or info[
-            "chord_length_ft"
-        ] == pytest.approx(2 * 300.0 * math.sin(math.radians(25.5) / 2), abs=0.5)
+        assert info["chord_length_ft"] == pytest.approx(254.22, abs=0.5)
 
     def test_no_chord_bearing_no_match(self) -> None:
         text = (
