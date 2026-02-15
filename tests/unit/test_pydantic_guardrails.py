@@ -109,6 +109,24 @@ def test_deedcall_normalizes_exception_flags():
         )
 
 
+def test_deedcall_normalizes_int_exception_flag():
+    true_call = DeedCall(
+        course=1,
+        direction_text="North",
+        distance_ft=100.0,
+        is_exception=1,
+    )
+    false_call = DeedCall(
+        course=2,
+        direction_text="North",
+        distance_ft=100.0,
+        is_exception=0,
+    )
+
+    assert true_call.is_exception is True
+    assert false_call.is_exception is False
+
+
 def test_deedcall_normalizes_azimuth_to_north_reference_range():
     wrapped_call = DeedCall(
         course=3,

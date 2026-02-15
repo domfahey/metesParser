@@ -104,8 +104,10 @@ def test_extract_sample_deeds_report_shows_zero_azimuth_and_runtime_timestamp(
 
     module.create_extraction_report(legal_desc, _sample_closure_result(), output_file)
     report = output_file.read_text()
+    report_lines = report.splitlines()
 
-    assert "Azimuth:         0.00°" in report
+    assert "Source PDF: example.pdf" in report_lines
+    assert any(line == "Azimuth:         0.00°" for line in report_lines)
     date_line = next(line for line in report.splitlines() if line.startswith("Date Extracted: "))
     timestamp = date_line.removeprefix("Date Extracted: ").strip()
     datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
@@ -143,4 +145,7 @@ def test_31_pennbrook_script_prints_zero_azimuth(monkeypatch, capsys) -> None:
 
     module.main()
     output = capsys.readouterr().out
-    assert "Azimuth:    0.00°" in output
+    output_lines = output.splitlines()
+    assert "CALL 1:" in output_lines
+    assert any(line == "  Azimuth:    0.00°" for line in output_lines)
+    assert any(line.startswith("Closure Status: ") for line in output_lines)

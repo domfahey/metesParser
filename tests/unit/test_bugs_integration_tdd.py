@@ -58,7 +58,19 @@ def test_openai_client_forwards_json_response_format(monkeypatch) -> None:
     client.generate_text("hello", response_mime_type="application/json")
 
     kwargs = client._client.responses.calls[0]
-    assert "text" in kwargs
+    assert kwargs["model"] == "gpt-4.1"
+    assert kwargs["input"] == [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "input_text",
+                    "text": "hello",
+                }
+            ],
+        }
+    ]
+    assert kwargs["text"] == {"format": {"type": "json_object"}}
 
 
 def test_calls_to_csv_writes_metadata_sidecar_when_metadata_provided(tmp_path: Path) -> None:

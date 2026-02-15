@@ -83,7 +83,12 @@ def test_extract_legal_description_passes_document_text(tmp_path):
 
     _, _ = _find_call(client, "generate_text_with_pdf")
     (prompt,), _ = _find_call(client, "generate_text")
-    assert "RAW DOCUMENT TEXT" in prompt
+    prompt_config = processor._load_prompt("extract_legal_description")
+    expected_prompt = (
+        f"{prompt_config['system_prompt']}\n\n"
+        f"{prompt_config['user_prompt_template'].format(document_text='RAW DOCUMENT TEXT')}"
+    )
+    assert prompt == expected_prompt
 
 
 def test_extract_calls_ai_requests_json_response():

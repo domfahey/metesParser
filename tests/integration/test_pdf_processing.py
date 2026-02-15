@@ -31,6 +31,7 @@ class PdfCase:
     expected_azimuths: list[float]
     expected_area_sq_ft: float
     expected_perimeter_ft: float
+    expected_pob_substring: str
 
     @property
     def normalized_text(self) -> str:
@@ -46,6 +47,7 @@ PDF_CASES: tuple[PdfCase, ...] = (
         expected_azimuths=[0.0, 90.0, 180.0, 270.0],
         expected_area_sq_ft=10000.0,
         expected_perimeter_ft=400.0,
+        expected_pob_substring="a point",
     ),
     PdfCase(
         case_id="pennbrook-18",
@@ -54,6 +56,7 @@ PDF_CASES: tuple[PdfCase, ...] = (
         expected_azimuths=[146.666667, 236.666667, 326.666667, 56.666667],
         expected_area_sq_ft=7500.0,
         expected_perimeter_ft=370.0,
+        expected_pob_substring="a point in the division line between lots 46 and 47",
     ),
     PdfCase(
         case_id="pennbrook-24",
@@ -62,6 +65,7 @@ PDF_CASES: tuple[PdfCase, ...] = (
         expected_azimuths=[233.848889, 143.848889, 53.848889, 323.848889],
         expected_area_sq_ft=17750.0,
         expected_perimeter_ft=534.0,
+        expected_pob_substring="a point in the southwesterly line of pennbrook drive",
     ),
 )
 
@@ -134,7 +138,8 @@ def test_process_deed_pdf_structures_calls(processed_case):
     case, legal_desc = processed_case
 
     assert legal_desc.source_doc.endswith(".pdf")
-    assert legal_desc.pob_description  # normalized text should retain POB wording
+    assert legal_desc.pob_description
+    assert case.expected_pob_substring in legal_desc.pob_description.lower()
     assert legal_desc.num_calls() == len(case.expected_distances)
 
     distances = [call.distance_ft for call in legal_desc.calls]
