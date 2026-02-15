@@ -101,6 +101,8 @@ The body of the description — a sequential series of courses, each specifying:
 - **Distance** (length in feet, chains, or other units)
 - **Along** reference (what the line runs along, e.g., "along lands of Smith")
 - **To** reference (what the line terminates at, e.g., "to an iron pin set")
+- **Calls for monuments** (physical markers at termini)
+- **Calls by reference** (references to previously surveyed or described boundary lines, e.g., "with the line common to land of Mrs. Mary Olbum")
 
 > "thence along the southerly line of Pennbrook Drive North 56°40'30" East 100.00 feet to an iron pin found;"
 
@@ -116,15 +118,23 @@ Many descriptions conclude with a stated area:
 
 > "CONTAINING 7,500 square feet, or 0.1722 acres, more or less."
 
-The phrase "more or less" is legally significant — it indicates the area is approximate and subordinate to the metes and bounds courses.
+The phrase "more or less" is legally significant — it indicates the area is approximate and subordinate to the metes and bounds courses. Area may be expressed in acres (to the nearest hundredth where justified by survey accuracy) or in square feet for smaller parcels such as subdivision lots. Approximate areas should be indicated as such and given to the nearest full acre.
 
-### 2.9 Exception Clauses
+### 2.9 Basis of Bearings
+
+Many descriptions include a statement of the reference meridian used for bearing measurements:
+
+> "Basis of Bearings: Are based upon the Bureau of Land Management official plat of survey, officially filed June 12, 2014. All reported distances are horizontal ground distances rounded to the nearest one tenth of a foot and the directions (bearings) are referenced to the true meridian."
+
+The basis of bearings establishes whether directions reference true north, magnetic north, grid north, or a specific survey plat. This is critical for correctly interpreting and comparing bearings across different surveys or time periods.
+
+### 2.10 Exception Clauses
 
 If portions are excluded from the conveyance:
 
 > "EXCEPTING THEREFROM the northerly 10 feet thereof heretofore conveyed to the Township for road widening purposes by deed dated..."
 
-### 2.10 Recital of Prior Conveyance
+### 2.11 Recital of Prior Conveyance
 
 > "BEING the same premises which John Smith and Mary Smith, his wife, by deed dated June 15, 1985, and recorded in the Office of the Recorder of Deeds in and for Camden County in Deed Book 4520, Page 217, granted and conveyed unto Robert Jones."
 
@@ -325,9 +335,11 @@ Natural features referenced as boundary markers:
 - **Rock outcrops**: "to a large standing rock"
 - **Shorelines**: "along the mean high-water line"
 
-Natural monuments have the highest legal priority but are also the most impermanent. Trees die, streams shift, and shorelines erode.
+Natural monuments have the highest legal priority but are also the most impermanent. Trees die, streams shift, and shorelines erode. Boundaries defined by natural features are normally winding, and they are legally defined by the location of the feature itself — not by straight lines between angle points. The intent is clear when described with words like "along" or "with" the feature.
 
-### 6.2 Artificial Monuments
+### 6.2 Artificial Boundaries and Monuments
+
+When referring to permanent artificial features such as highways, railroads, or utility lines as boundaries, the description must specify the exact line intended — whether a right-of-way line, center line, or another location. Over time, roadways and utility lines can move via official actions or unofficial activity; typically, the location on the date of the description is considered the best evidence of intent.
 
 Man-made markers set by surveyors:
 
@@ -516,7 +528,13 @@ Three approaches surveyors used:
 | **Arroyo** | A steep-walled, usually dry watercourse with a flat floor (Southwest US) |
 | **Vly** | Dutch-origin term for swampy lowland (New York) |
 
-### 9.5 Upstream/Downstream References
+### 9.5 Ambulatory Descriptions
+
+Ambulatory descriptions contain references to limits that do not have fixed positions or that are subject to change over time. Water boundaries are the most common example — they are generally referenced to a specific line along a water body such as the ordinary high water mark, medial line, thread, or line of mean high tide.
+
+Because these boundaries shift with natural forces (accretion, erosion, avulsion), the courses and distances recorded along a water body's meanders describe the approximate path at the time of the survey, not a fixed boundary line. The water feature itself — not the surveyed meander line — is the legal boundary.
+
+### 9.6 Upstream/Downstream References
 
 Deed language like "up the creek" or "down the stream" indicates the direction of travel along a watercourse:
 - **Up**: Against the current, toward the headwaters
@@ -556,6 +574,28 @@ Legally distinct:
 
 > "RESERVING unto the Grantor an easement for ingress and egress over the northerly 10 feet..."
 
+When **exception** and **reservation** are used together, the customary meaning holds that certain property is both withdrawn from the description of what is conveyed and/or an independent right to an interest in the land is created and vested in the grantor.
+
+### 10.4 Clause Taxonomy
+
+Clauses follow the body of a land description and serve different purposes. The words used have legal significance and proper usage is critical:
+
+| Clause Type | Purpose | Example |
+|-------------|---------|---------|
+| **Clarifying** | Defines the intent of the parties | "Meaning and intending to convey a portion of the land acquired by the grantor from Joe Smith as shown on Barrett County Record of Survey No. 12534" |
+| **Qualifying** | Reserves some use or ownership right for a previous owner | "Reserving all minerals; except coal" |
+| **Augmenting** | Adds a right or privilege to the land described | "Together with an easement for ingress and egress" |
+| **Severed Rights** | Identifies rights already separated from the property, often referencing legal documents of record | "Subject to a 66 foot wide road parcel, Document No. 652, filed February 01, 1906" |
+| **Reversionary** | Specifies what happens if terms and conditions of use/ownership are not met | "Used for health facilities only" (reverter clause) |
+
+Key legal terms in clauses:
+
+| Term | Meaning |
+|------|---------|
+| **Except** | Excluding from the area; cutting off a portion of the whole area just described |
+| **Reserving** | Keeping a certain right from the area just granted; taking back a part of something granted |
+| **Subject to** | A reservation already exists; means "subordinate to," "subservient to," "limited by," or "charged to" |
+
 ---
 
 ## 11. Public Land Survey System (PLSS) References
@@ -592,9 +632,27 @@ PLSS references commonly appear as location anchors:
 
 > "BEGINNING at a point in the SE¼ of Section 17, Township 2 North, Range 4 East, 3rd Principal Meridian, said point being 500 feet north and 200 feet east of the SW corner of said SE¼..."
 
-### 11.5 Principal Meridians
+### 11.5 Special Surveys
+
+Special surveys of nonrectangular parcels were created when there was a need to depart from the rectangular system. These are incorporated into the PLSS as metes-and-bounds surveys and include:
+
+- **Reservations** (e.g., Indian reservations spanning state boundaries)
+- **Mineral Surveys** (mining claims with irregular boundaries)
+- **Forest Homestead Entries**
+- **Small Holding Claims**
+- **U.S. Surveys** (e.g., Alaska)
+- **Donation Land Claims** (Oregon, Washington)
+- **Congressionally Designated Areas** (wilderness areas, wild and scenic river corridors)
+
+For federal land, special survey descriptions are typically a reference to an official government survey designation (e.g., "H.E.S. No. 345" for Homestead Entry Survey Number 345). Metes-and-bounds descriptions published in the Federal Register should be copied from official records, written by a land surveyor, or referred to a land surveyor for review.
+
+### 11.6 Principal Meridians
 
 There are 37 principal meridians in the US. Each governs a region. Common examples: Black Hills, Boise, Chickasaw, Cimarron, Copper River, Fairbanks, Fifth, First, Fourth, Gila and Salt River, Humboldt, Huntsville, Indian, Louisiana, Michigan, Mount Diablo, New Mexico, Saint Helena, Saint Stephens, Salt Lake, San Bernardino, Second, Seward, Sixth, Tallahassee, Third, Uintah, Ute, Washington, Willamette, Wind River.
+
+### 11.7 Protraction Diagrams
+
+A protraction diagram is a representation of the theoretical positions of township, section, and other survey lines. Approximate areas are shown in parentheses within protraction blocks (e.g., "(452)" for 452 acres). Whole sections are considered to contain 640 acres. Protraction diagrams are used when actual surveys have not been completed on the ground.
 
 ---
 
