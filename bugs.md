@@ -338,3 +338,75 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Issue:** Decimal-minute textual tokens needed explicit float parsing.
 - **Impact:** Could understate curve deltas in textual minute notation.
 - **Suggested fix:** Accept decimal minute/second tokens and normalize to decimal degrees.
+
+### 35) Prompt formatting crashes when extracted text contains braces
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `always` (for any legal description text containing `{` or `}`)
+- **Location:** `src/metesparser/pdf_processor.py` (`extract_legal_description`, `normalize_legal_description`, `extract_calls_ai`)
+- **Issue:** These methods build prompts via `str.format(...)` using raw extracted legal description text as a substitution value.
+- **Impact:** Braces in source text are interpreted as format fields and trigger `KeyError`/`IndexError`, aborting extraction even when OCR is otherwise usable.
+- **Expected behavior:** Any `{...}` characters in extracted text should be treated as plain text and safely embedded in the user prompt.
+- **Actual behavior:** Processing fails at prompt render time with a formatting exception before LLM submission.
+- **Suggested test:** Unit test that monkeypatches an injected client returning `document_text="... {TEST} ..."` and asserts `extract_legal_description`/`normalize_legal_description` do not raise and call the client once.
+- **Suggested fix:** Use escaped template interpolation (`{`/`}` doubling), `str.format_map` with explicit context, or `.replace` placeholder assembly that avoids interpreting user-supplied text as format fields.
+
+### 36) Bearing-minute apostrophes after `°` can be parsed as distances
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/call_extractor.py` (`extract_distance_alternate`)
+- **Issue:** The alternate distance fallback only blocks north/south no-degree DMS forms, but does not block already formatted `"°` bearings like `N 45°30'`.
+- **Impact:** Bearing minute components can be misinterpreted as a 30-feet/30-meter distance, creating inflated or phantom calls and corrupting traverse/closure.
+- **Expected behavior:** `N 45°30' along the north line` should yield no alternate-distance fallback value.
+- **Actual behavior:** `extract_distance_alternate` returns `30.0` for the minutes token, and call extraction continues with a bogus distance.
+- **Suggested test:** Add unit test asserting `CallExtractor.extract_single_call("N 45°30' along the north line", course=1)` does not pick up distance from the apostrophe-minutes term (distance remains 0 when no explicit distance units exist).
+- **Suggested fix:** Extend the bearing-context guard to treat any minute token adjacent to a quadrant bearing (`N|S ... °...`) as non-distance.
+
+### 37) Distance parser drops many valid units
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/text_parser.py` (`TextParser.extract_distance`)
+- **Issue:** Linear distance parsing supports only feet/ft and a few legacy survey units, but ignores project-recognized units like `varas`, `arpents`, `toises`, `furlongs`, `meters`, `miles`, `engineer_chains`, and `engineer_links`.
+- **Impact:** Valid calls using those units are treated as `(0.0, 'feet')`, so geometry lines may be dropped or silently reduced to zero distance.
+- **Expected behavior:** Units listed in `DistanceUnit` should be parsed and converted via `ConversionFactors`.
+- **Actual behavior:** Non-foot units are silently ignored at extraction time.
+- **Suggested test:** Add fixtures for each unsupported unit in `extract_distance` and assert non-zero `distance_ft` is produced after conversion.
+- **Suggested fix:** Extend unit regex/normalization in `extract_distance` to include additional supported unit families and aliases.
+
+### 38) Curve parsing ignores unit qualifiers for radius/arc length
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/call_extractor.py` (`extract_curve_info`)
+- **Issue:** Curve `radius` and `arc length` extraction patterns match numbers only and do not capture/convert unit tokens.
+- **Impact:** Curved lines expressed with non-foot units (`meters`, `chains`, etc.) are interpreted as feet and materially skew closure, area, and endpoint geometry.
+- **Expected behavior:** Curve geometry units should be normalized using the same unit conversion path as straight distances.
+- **Actual behavior:** Units are dropped and values are interpreted as feet without warning.
+- **Suggested test:** Add non-foot curve fixture (for example, `radius of 50 meters`) and assert normalized converted values flow into traverse checks.
+- **Suggested fix:** Parse optional units for radius/arc, validate against `ConversionFactors`, and convert before math.
+
+### 39) Curve consistency skips radius+arc-only curves
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/closure_checker.py` (`check_curve_consistency`)
+- **Issue:** Calls with `radius_ft` and `arc_length_ft` but no `delta_deg` are excluded from consistency checks.
+- **Impact:** A malformed radius/arc pair can pass closure verification as consistent even when the values are geometrically incompatible.
+- **Expected behavior:** Radius+arc-only curves should be validated by deriving the implied delta and checking arc math.
+- **Actual behavior:** `check_curve_consistency` returns `True` for such calls without validating `arc_length_ft` vs `radius_ft`.
+- **Suggested test:** Build a `DeedCall` with matching radius+arc but intentionally mismatched geometry and assert curve consistency fails.
+- **Suggested fix:** Derive `delta_deg` from `arc_length_ft / radius_ft` when missing and run the same consistency checks used for explicit deltas.
+
+### 40) `to` endpoint parsing drops `to the right/left of` clauses
+- **Status:** `open`
+- **Severity:** `low`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/text_parser.py` (`TextParser.extract_along_to_fields`)
+- **Issue:** The curve-direction exclusion only guards `to the (left|right)` but also suppresses non-curve phrases like `to the right of` / `to the left of`.
+- **Impact:** Endpoint text is lost (`to` becomes empty) in common legal wording such as `"to the right of intersection"`.
+- **Expected behavior:** Non-curve `to` clauses should still populate the endpoint field.
+- **Actual behavior:** Phrases matching the simple left/right guard are treated as directional and excluded from endpoint extraction.
+- **Suggested test:** Assert non-empty `to` for `N 45° E 100 feet to the right of intersection`.
+- **Suggested fix:** Expand the guard to only filter true curve-direction tokens (e.g., followed by end-of-phrase/comma/period), not general spatial descriptors like `to the right of`.
