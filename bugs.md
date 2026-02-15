@@ -193,3 +193,17 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Issue:** `Date Extracted` is populated from `Path(output_file).stat().st_mtime` after report creation.
 - **Impact:** The field reflects file metadata timing/mutation rather than a deterministic extraction timestamp.
 - **Suggested fix:** Write a runtime `datetime.now(timezone.utc)` stamp at report generation time.
+
+### 25) Export CLI command is advertised but always fails
+- **Status:** `open`
+- **Location:** `src/metesparser/cli.py` (`export_command`, `main`)
+- **Issue:** The CLI exposes an `export` subcommand with `--format` flags, but it immediately exits with a hard failure (`"Export functionality not yet implemented"`).
+- **Impact:** Users cannot export calls to GeoJSON/KML via CLI even though the interface advertises support.
+- **Suggested fix:** Either remove/disable the command in the interface or implement export pipeline and tests for both formats.
+
+### 26) Perimeter undercounts zero-deflection curve calls
+- **Status:** `open`
+- **Location:** `src/metesparser/closure_checker.py` (`calculate_perimeter`)
+- **Issue:** For `is_curve()` calls where `arc_length_ft = 0.0` (e.g., `delta_deg == 0`), perimeter always adds arc length and ignores the line distance.
+- **Impact:** Perimeter becomes smaller than actual geometric movement when traversal falls back to straight-line distance, creating closure/perimeter inconsistency.
+- **Suggested fix:** Mirror traversal behavior and use `distance_ft` when angular deflection is effectively zero.
