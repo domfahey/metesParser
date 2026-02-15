@@ -1,0 +1,6 @@
+course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,is_exception,notes
+1,"S 71°15'30"" E",S 71°16' E,108.741667,360.90,,,,,,,"the northeasterly line of Pennbrook Drive, a distance of 236.75 feet",an angle point,,false,
+2,"N 86°43'30"" E",N 86°44' E,86.725000,36.37,,,,,,,"the northerly line of Pennbrook Drive, a distance of 36.37 feet",an angle point,,false,
+3,"N 28°15'30"" W",N 28°15' W,331.741667,208.68,,,,,,,,a point in the southeasterly line of Greenmount Road aforesaid,,false,
+4,S 44°50' W,S 44°50' W,224.833333,94.54,,,,,,,,a point,,false,
+5,"S 18°44'30"" W",S 18°45' W,198.741667,132.10,,,,,,,,the point and place of beginning,,false,

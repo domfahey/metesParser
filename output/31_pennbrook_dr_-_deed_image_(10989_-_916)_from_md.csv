@@ -1,0 +1,7 @@
+course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,is_exception,non_tangent,radial_bearing,notes
+1,northeasterly,,,310.00,,,,,,,,,,false,false,,incomplete bearing - cardinal only
+2,"S 71°53'10"" E",S 71°53' E,108.113889,23.67,,,,,,,"THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 23.67 FEET",AN ANGLE POINT,,false,false,,
+3,"N 87°07'30"" E",N 87°08' E,87.125000,125.26,,,,,,,"THE NORTHERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 125.26 FEET",AN ANGLE POINT,,false,false,,
+4,"N 56°40'00"" E",N 56°40' E,56.666667,36.39,,,,,,,"THE NORTHERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 36.39 FEET",A POINT AND CORNER/IRON PIPE,iron_pipe,false,false,,
+5,"N 33°20'00"" W",N 33°20' W,326.666667,208.80,,,,,,,"THE DIVISION LINE BETWEEN LOT 11 AND LOT NOS. 10, 8 AND 7, BLOCK 64.21 ON THE OFFICIAL TAX MAP, A DISTANCE OF 208.80 FEET",A POINT AND CORNER/CONCRETE MARKER,concrete,false,false,,
+6,"S 18°06'50"" W",S 18°07' W,198.113889,203.45,,,,,,,"THE DIVISION LINE BETWEEN LOT 11 AND LOT 12, SAID BLOCK, A DISTANCE OF 203.45 FEET",THE POINT AND PLACE OF BEGINNING,,false,false,,
