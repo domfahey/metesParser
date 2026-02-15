@@ -335,3 +335,39 @@ def test_export_command_is_not_implemented():
     with pytest.raises(SystemExit) as exc:
         cli.export_command("calls.csv")
     assert exc.value.code == 1
+
+
+def test_main_configures_logging_from_cli_flags(monkeypatch, tmp_path):
+    pdf = tmp_path / "input.pdf"
+    pdf.write_text("pdf")
+
+    observed: list[tuple[str, str, bool]] = []
+
+    def _configure_logging(*, level: str, log_format: str, debug: bool) -> None:
+        observed.append((level, log_format, debug))
+
+    monkeypatch.setattr("metesparser.cli.configure_logging", _configure_logging)
+    monkeypatch.setattr(
+        "metesparser.cli.extract_command",
+        lambda pdf_path, output=None, llm_provider=None: None,
+    )
+
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["metesparser", "--debug", "--log-format", "json", "extract", str(pdf)],
+    )
+    cli.main()
+
+    assert observed == [("DEBUG", "json", True)]
+
+
+def test_main_rejects_invalid_log_level(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["metesparser", "--log-level", "VERBOSE"])
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    assert "Invalid log level" in (captured.out + captured.err)

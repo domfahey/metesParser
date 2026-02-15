@@ -21,6 +21,37 @@ class BearingConverter:
     )
 
     @classmethod
+    def parse_packed_dms(cls, value: float) -> float:
+        """Convert packed DMS value to decimal degrees.
+
+        Packed DMS format: degrees.MMSS where MM=minutes, SS=seconds.
+        Example: 46.1631 → 46°16'31" → 46.275278°
+
+        Args:
+            value: Packed DMS value (e.g., 46.1631)
+
+        Returns:
+            Decimal degrees
+
+        Raises:
+            ValueError: If minutes >= 60 or seconds >= 60
+        """
+        degrees = int(value)
+        frac = value - degrees
+
+        # Extract minutes and seconds from fractional part
+        minutes_seconds = frac * 100
+        minutes = int(round(minutes_seconds * 100) // 100)
+        seconds = round((minutes_seconds - minutes) * 100, 4)
+
+        if minutes >= 60:
+            raise ValueError(f"Invalid packed DMS: minutes={minutes} (must be 0-59)")
+        if seconds >= 60:
+            raise ValueError(f"Invalid packed DMS: seconds={seconds:.0f} (must be 0-59)")
+
+        return degrees + minutes / 60.0 + seconds / 3600.0
+
+    @classmethod
     def parse_quadrant_bearing(cls, bearing_text: str) -> tuple[str, float, str] | None:
         """Parse a quadrant bearing string.
 

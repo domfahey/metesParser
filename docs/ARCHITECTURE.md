@@ -12,6 +12,7 @@ System design and data flow for metesParser.
 - [Verification Pipeline](#verification-pipeline)
 - [Error Handling](#error-handling)
 - [Performance Considerations](#performance-considerations)
+- [Concrete Sample Workflow](#concrete-sample-workflow)
 
 ## System Overview
 
@@ -559,6 +560,12 @@ Minimal memory footprint:
 - **Quality control** - Prevent bad data from entering GIS
 - **Audit trail** - Clear distinction between verified/unverified
 - **Professional standards** - Surveying requires verification
+
+## Concrete Sample Workflow
+
+For a concrete, request-by-request walkthrough with actual object snapshots from a real sample PDF, see:
+
+- [pennbrook_sample_workflow_diagrams.md](pennbrook_sample_workflow_diagrams.md)
 
 ---
 

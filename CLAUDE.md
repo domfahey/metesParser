@@ -156,15 +156,15 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 ### LLM Configuration
 **Location**: `prompts/*.yaml` files
 **Provider Clients**: `OpenAIClient` and `GeminiClient` behind `METESPARSER_LLM_PROVIDER`
-**Model**: OpenAI defaults to `gpt-4.1`; Gemini defaults to `gemini-2.5-pro` with fallback.
+**Model**: OpenAI defaults to `gpt-5.2`; Gemini defaults to `gemini-3-flash-preview` with fallback.
 **Architecture**: `llm_clients.py` defines `BaseLLMClient` ABC; `PDFProcessor` accepts `provider=` or `client=` for DI
 **CLI**: `uv run metesparser extract deed.pdf --llm-provider gemini`
 
-### CSV Schema (16 fields - order matters)
+### CSV Schema (18 fields - order matters)
 ```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
-along,to,monument_type,is_exception,notes
+along,to,monument_type,is_exception,non_tangent,radial_bearing,notes
 ```
 
 **New in v0.2:**

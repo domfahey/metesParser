@@ -1,0 +1,93 @@
+%% Pennbrook sample concrete workflow diagrams (Mermaid)
+
+%% 1) sequence diagram with explicit LLM calls
+sequenceDiagram
+  autonumber
+  participant User
+  participant CLI as cli.main/extract_command
+  participant PP as PDFProcessor
+  participant LLM as LLM Provider
+  participant TP as TextParser
+  participant CE as CallExtractor
+  participant CC as ClosureChecker
+  participant CSV as CSVBuilder
+  participant FS as Filesystem
+
+  User->>CLI: `metesparser extract sample_deeds/18 Pennbrook Dr - Deed Image (11985 - 00829).pdf`
+  CLI->>PP: instantiate
+  Note over CLI,PP: provider from env or --llm-provider
+
+  CLI->>PP: process_deed_pdf(pdf_path)
+  PP->>LLM: request #1 `extract_text_from_pdf` + PDF bytes
+  LLM-->>PP: raw OCR text
+  Note right of LLM: contains full deed text
+
+  PP->>LLM: request #2 `extract_legal_description` + raw OCR text
+  LLM-->>PP: legal description block
+  Note right of PP: raw legal text from BEGINNING to closure
+
+  PP->>LLM: request #3 `normalize_text` + legal text
+  LLM-->>PP: normalized text
+  Note right of PP: includes `S 33°20'00" E`, etc.
+
+  PP->>TP: extract_plss_metadata(normalized_text)
+  TP-->>PP: {section: None, township: None, range: None, ...}
+  PP->>TP: extract_poc_and_pob(normalized_text)
+  TP-->>PP: pob_description set, poc_description=None
+  PP->>CE: extract_calls(normalized_text)
+  CE-->>PP: 4 DeedCall objects
+  Note right of CE: no exceptions, no curves, no monuments
+
+  PP->>TP: (enrichment helpers)
+  TP-->>PP: distance/unit + along/to parsing context
+  PP->>CC: verify_closure(calls)
+  CC-->>PP: ClosureResult(misclosure=0.0, area=7500.0, perimeter=370.0, warnings=[])
+
+  PP->>CSV: export_verified_csv(...)
+  CSV-->>FS: write `...00829_verified.csv`
+  CSV-->>FS: write `...00829_verified.verification.txt`
+  CSV-->>FS: write `...00829_verified.metadata.txt`
+
+  PP-->>CLI: return legal_desc + closure_result
+  CLI-->>User: print closure summary + exit 0
+
+
+%% 2) UML-style state transition diagram
+stateDiagram-v2
+  [*] --> CommandParsed: extract command invoked
+  CommandParsed --> ProcessorInit: args validated
+
+  state ProcessorInit {
+    [*] --> ClientReady: PDFProcessor created
+    ClientReady --> TextExtraction: extract_text_from_pdf()
+    TextExtraction --> DescriptionExtracted: legal text block extracted
+    DescriptionExtracted --> TextNormalized: normalize_text()
+  }
+
+  ProcessorInit --> MetadataPOB: extract_poc_and_pob()
+  MetadataPOB --> CallsParsed: extract_calls()
+  CallsParsed --> CallsEnriched: enrich_calls_with_azimuths()
+
+  CallsEnriched --> LegalDescriptionBuilt: create LegalDescription
+  state LegalDescriptionBuilt {
+    [*] --> LD_State
+    LD_State: source_doc=sample_deeds/...00829.pdf\nnum_calls=4\npoc=None\npob='a point at the southwesterly corner...'
+  }
+
+  LegalDescriptionBuilt --> ClosureComputed: ClosureChecker.verify_closure()
+  state ClosureComputed {
+    [*] --> CR_State
+    CR_State: misclosure_ft=0.0\narea_sq_ft=7500.0\nperimeter_ft=370.0\nwarnings=0\nprecision_ratio=0.0
+  }
+
+  ClosureComputed --> ExportVerified: is_fully_verified()==true
+  ClosureComputed --> ExportUnverified: is_fully_verified()==false
+
+  ExportVerified --> FSVerified: export verified csv + summary + metadata
+  ExportUnverified --> FSUnverified: export unverified csv
+
+  FSVerified --> [*]
+  FSUnverified --> [*]
+
+  ExportVerified: Writes ...00829_verified.csv, ...verification.txt, ...metadata.txt
+  ExportUnverified: Writes ...00829.csv
