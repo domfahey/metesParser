@@ -38,7 +38,7 @@ class TestBearingExtraction:
         assert call is not None
         assert call.bearing_quadrant is None
         assert call.bearing_azimuth_deg_from_north is None
-        assert "incomplete" in call.notes.lower() or "cardinal" in call.notes.lower()
+        assert call.notes == "incomplete bearing - cardinal only"
 
     def test_meander_flagged(self):
         """Meander calls should be flagged as incomplete."""

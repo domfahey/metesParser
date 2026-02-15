@@ -18,44 +18,33 @@ logger = structlog.get_logger(__name__)
 class MonumentClassifier:
     """Classify survey monument types from text descriptions."""
 
-    # Monument type patterns (order matters - more specific first)
+    # Specificity is intentional: narrower patterns should be checked before generic matches.
     MONUMENT_PATTERNS: list[tuple[str, MonumentType]] = [
-        # TxDOT monuments (before generic concrete)
         (r"\btxdot\b.*\bmonument\b", "txdot_monument"),
-        # Capped monuments (before generic iron rod/pin/rebar)
         (r"\bcapped\s+(?:iron\s+)?rod\b", "capped_rod"),
         (r"\bcapped\s+(?:iron\s+)?pin\b", "capped_pin"),
         (r"\bcapped\s+rebar\b", "capped_rod"),
-        # Iron monuments
         (r"\biron\s+rod\b", "iron_rod"),
         (r"\biron\s+pin\b", "iron_pin"),
         (r"\biron\s+pipe\b", "iron_pipe"),
         (r"\biron\s+stake\b", "iron_rod"),
         (r"\biron\s+monument\b", "iron_rod"),
         (r"\brebar\b", "rebar"),
-        # PK nail (before generic nail)
         (r"\bpk\s+nail\b", "pk_nail"),
         (r"\b(?:mag|magnetic)\s+nail\b", "nail"),
         (r"\bnail\b", "nail"),
-        # Hub and tack
         (r"\bhub\s+(?:and|&)\s+tack\b", "hub_and_tack"),
-        # Monitoring well
         (r"\bmonitoring\s+well\b", "monitoring_well"),
-        # Railroad markers
         (r"\brailroad\s+(?:spike|tie)\b", "railroad_spike"),
         (r"\bgin\s+(?:spike|pole)\b", "railroad_spike"),
-        # Stone/concrete
         (r"\bstone\s+monument\b", "stone"),
         (r"\bstone\b", "stone"),
         (r"\bconcrete\s+monument\b", "concrete"),
         (r"\bconcrete\b", "concrete"),
-        # Brass
         (r"\bbrass\s+(?:cap|marker|monument)\b", "brass_cap"),
-        # Wood
         (r"\bwooden\s+(?:post|stake)\b", "wooden_post"),
         (r"\bhedge\s+post\b", "wooden_post"),
         (r"\bwood\s+stake\b", "wooden_post"),
-        # Landscape markers
         (r"\blandscap(?:e|ing)\s+(?:rod|pin)\b", "iron_rod"),
     ]
 
@@ -78,7 +67,6 @@ class MonumentClassifier:
             if re.search(pattern, text_lower):
                 return monument_type
 
-        # Check for generic monument keywords
         if re.search(r"\bmonument\b", text_lower):
             return "other"
 
@@ -88,7 +76,6 @@ class MonumentClassifier:
 class CallExtractor:
     """Extract and structure deed calls from legal description text."""
 
-    # Pattern for curve information
     CURVE_PATTERN = re.compile(
         r"curve\s+to\s+the\s+(left|right).*?radius\s+of\s+(\d+(?:\.\d+)?)\s*(?:feet|ft)?.*?"
         r"(?:delta\s+(?:angle\s+)?of\s+)?(\d+(?:\.\d+)?)(?:°|\s+degrees?)(?:\s*(\d+(?:\.\d+)?)(?:'|\s+minutes?))?(?:\s*(\d+(?:\.\d+)?)(?:\"|\s+seconds?))?",
@@ -109,17 +96,14 @@ class CallExtractor:
         Returns:
             List of DeedCall objects
         """
-        # Normalize legal description text (idempotent if already cleaned)
         normalized = TextParser.normalize_legal_description(text)
 
-        # Split into main tract and exception/inclusion tracts
         tracts = TextParser.split_exception_clauses(normalized)
 
         calls: list[DeedCall] = []
         course_num = 1
 
         for tract_text, is_exception_tract in tracts:
-            # Split tract into individual calls
             call_texts = TextParser.split_into_calls(tract_text)
 
             for call_text in call_texts:
@@ -134,7 +118,6 @@ class CallExtractor:
                 if call is None:
                     continue
 
-                # Mark as exception if this is an exception tract
                 if is_exception_tract:
                     call = call.model_copy(update={"is_exception": True})
                 calls.append(call)
@@ -156,15 +139,12 @@ class CallExtractor:
         Returns:
             DeedCall object or None if parsing fails
         """
-        # Skip POB lines (BEGINNING, COMMENCING, etc.)
         if re.match(r"^\s*(BEGINNING|COMMENCING|POB)\b", call_text, re.IGNORECASE):
             return None
 
-        # Extract direction (bearing)
         raw_direction = cls.extract_direction(call_text)
         direction_text = raw_direction if raw_direction else call_text.strip()
 
-        # Try to parse quadrant bearing
         bearing_quadrant = None
         azimuth = None
 
@@ -176,7 +156,6 @@ class CallExtractor:
             deg_int = int(degrees)
             minutes = (degrees - deg_int) * 60
 
-            # Handle rounding edge case: if minutes rounds to 60, carry to degrees
             rounded_minutes = round(minutes)
             if rounded_minutes >= 60:
                 rounded_minutes = 0
@@ -185,21 +164,16 @@ class CallExtractor:
             bearing_quadrant = f"{cardinal1} {deg_int}°{rounded_minutes:02d}' {cardinal2}"
             azimuth = BearingConverter.quadrant_to_azimuth(cardinal1, degrees, cardinal2)
         else:
-            # Could be a meander/cardinal-only (e.g., "southwesterly")
             bearing_quadrant = None
             azimuth = None
 
-        # Extract distance
         distance, unit = TextParser.extract_distance(call_text)
         if distance == 0:
-            # Try alternate pattern
             distance = cls.extract_distance_alternate(call_text)
             unit = distance_unit
 
-        # Convert to feet
         distance_ft = ConversionFactors.convert_to_feet(distance, unit)
 
-        # Extract curve information if present
         curve_info = cls.extract_curve_info(call_text)
 
         arc_length_ft = curve_info.get("arc_length_ft")
@@ -220,13 +194,10 @@ class CallExtractor:
             curve_info.setdefault("arc_length_ft", props["arc_length_ft"])
             curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
 
-        # Extract along/to fields
         along, to = TextParser.extract_along_to_fields(call_text)
 
-        # Classify monument type from 'to' field
         monument_type = MonumentClassifier.classify_monument(to) if to else None
 
-        # Check for meander/incomplete flags
         notes = ""
         cardinal_only = False
         if raw_direction and not parsed_bearing:
@@ -242,11 +213,9 @@ class CallExtractor:
         elif not parsed_bearing:
             notes = "incomplete bearing - cardinal only" if cardinal_only else "incomplete bearing"
 
-        # Skip if no valid distance found (not a real call, just descriptive text)
         if distance_ft <= 0.0:
             return None
 
-        # Build DeedCall
         curve_dir = curve_info.get("direction")
         curve_direction: CurveDirection | None
         if curve_dir == "left":
@@ -271,6 +240,8 @@ class CallExtractor:
         chord_length_value = curve_info.get("chord_length_ft")
         chord_length_ft = chord_length_value if isinstance(chord_length_value, float) else None
 
+        radial_bearing_value = curve_info.get("radial_bearing")
+
         call = DeedCall(
             course=course,
             direction_text=direction_text,
@@ -286,12 +257,10 @@ class CallExtractor:
             along=along if along else None,
             to=to if to else None,
             monument_type=monument_type,
-            is_exception=False,  # Will be set later when parsing EXCEPT clauses
+            is_exception=False,
             non_tangent=bool(curve_info.get("non_tangent", False)),
             radial_bearing=(
-                curve_info.get("radial_bearing")
-                if isinstance(curve_info.get("radial_bearing"), str)
-                else None
+                radial_bearing_value if isinstance(radial_bearing_value, str) else None
             ),
             notes=notes if notes else None,
         )
@@ -308,12 +277,10 @@ class CallExtractor:
         Returns:
             Direction string (e.g., "S 56°40' W" or "southwesterly")
         """
-        # Try quadrant bearing first
         quadrant_match = BearingConverter.QUADRANT_PATTERN.search(text)
         if quadrant_match:
             return quadrant_match.group(0)
 
-        # Try cardinal-only directions
         cardinal_pattern = (
             r"\b(north(?:erly)?|south(?:erly)?|east(?:erly)?|west(?:erly)?|"
             r"northeast(?:erly)?|northwest(?:erly)?|southeast(?:erly)?|southwest(?:erly)?)\b"
@@ -370,18 +337,15 @@ class CallExtractor:
         """
         curve_info: dict[str, float | str | None] = {}
 
-        # Check if it's a curve
         if "curve" not in text.lower():
             return curve_info
 
-        # Try to match full curve pattern
         match = cls.CURVE_PATTERN.search(text)
         if match:
-            direction = match.group(1).lower()  # left or right
+            direction = match.group(1).lower()
             radius = float(match.group(2))
             delta_deg = float(match.group(3))
 
-            # Add minutes/seconds if present
             if match.group(4):
                 delta_deg += float(match.group(4)) / 60.0
             if match.group(5):
@@ -392,7 +356,6 @@ class CallExtractor:
             )
             arc_length = float(arc_length_match.group(1)) if arc_length_match else None
 
-            # Calculate properties
             props = BearingConverter.calculate_curve_properties(radius, delta_deg=delta_deg)
             computed_arc_length = arc_length if arc_length is not None else props["arc_length_ft"]
 
@@ -405,18 +368,14 @@ class CallExtractor:
             }
 
         else:
-            # Try simpler patterns
-            # "curve to the right/left"
             dir_match = re.search(r"curve\s+to\s+the\s+(left|right)", text, re.IGNORECASE)
             if dir_match:
                 curve_info["direction"] = dir_match.group(1).lower()
 
-            # "radius of X" or "radius X"
             radius_match = re.search(r"radius\s+(?:of\s+)?(\d+(?:\.\d+)?)", text, re.IGNORECASE)
             if radius_match:
                 curve_info["radius_ft"] = float(radius_match.group(1))
 
-            # "delta X°Y'" or "delta X degrees"
             delta_match = re.search(
                 r"delta\s+(?:angle\s+)?(?:of\s+)?(\d+(?:\.\d+)?)(?:°|(?:\s+)?degrees?)(?:\s*(\d+(?:\.\d+)?)(?:'|\s+minutes?))?(?:\s*(\d+(?:\.\d+)?)(?:\"|\s+seconds?))?",
                 text,
@@ -431,7 +390,6 @@ class CallExtractor:
 
                 curve_info["delta_deg"] = delta
 
-            # "arc length of X" or "arc distance of X"
             arc_match = re.search(
                 r"arc\s+(?:length|distance)\s+(?:of\s+)?(\d+(?:\.\d+)?)", text, re.IGNORECASE
             )
@@ -448,7 +406,6 @@ class CallExtractor:
                 curve_info["arc_length_ft"] = props["arc_length_ft"]
             curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
 
-        # --- Chord bearing extraction ---
         chord_bearing_match = re.search(
             r"(?:the\s+)?chord\s+(?:of\s+which\s+)?bears\s+(.+?)(?:,\s*(\d+(?:\.\d+)?)\s*(?:feet|ft))?(?:\s*$|\s*(?:to|along|;|\.))",
             text,
@@ -456,21 +413,16 @@ class CallExtractor:
         )
         if chord_bearing_match:
             raw_chord_bearing = chord_bearing_match.group(1).strip().rstrip(",")
-            # Normalize spelled-out cardinals
             normalized = TextParser.standardize_cardinal_directions(raw_chord_bearing)
-            # Extract the bearing part
             bearing_match = BearingConverter.QUADRANT_PATTERN.search(normalized)
             if bearing_match:
                 curve_info["chord_bearing"] = bearing_match.group(0)
-            # Extract chord length if present after bearing
             if chord_bearing_match.group(2):
                 curve_info["chord_length_ft"] = float(chord_bearing_match.group(2))
 
-        # --- Non-tangent detection ---
         if re.search(r"\bnon-?tangent\b", text, re.IGNORECASE):
             curve_info["non_tangent"] = True
 
-        # Radial bearing extraction
         radial_match = re.search(
             r"radial\s+(?:line\s+)?bear(?:s|ing)\s+(?:of\s+)?(.+?)(?:,|\s*radius|\s*$)",
             text,

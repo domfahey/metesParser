@@ -109,7 +109,6 @@ def export_command(csv_path: str, format: str = "geojson", output: str | None = 
         format: Output format (geojson or kml)
         output: Output file path (default: derived from input)
     """
-    # Export targets are placeholders for a future release.
     logger.error("Export functionality not yet implemented")
     sys.exit(1)
 
@@ -120,7 +119,6 @@ def main() -> None:
 
     from dotenv import load_dotenv
 
-    # Load environment variables
     load_dotenv()
 
     parser = argparse.ArgumentParser(
@@ -145,7 +143,6 @@ def main() -> None:
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
-    # Extract command
     extract_parser = subparsers.add_parser("extract", help="Extract legal description from PDF")
     extract_parser.add_argument("pdf", help="Path to PDF file")
     extract_parser.add_argument(
@@ -157,7 +154,6 @@ def main() -> None:
         help="LLM provider to use (overrides METESPARSER_LLM_PROVIDER env var)",
     )
 
-    # Verify command
     verify_parser = subparsers.add_parser("verify", help="Verify a CSV file of calls")
     verify_parser.add_argument("csv", help="Path to CSV file")
     verify_parser.add_argument(
@@ -182,7 +178,6 @@ def main() -> None:
         parser.print_help()
         sys.exit(0)
 
-    # Route to command
     if args.command == "extract":
         extract_command(args.pdf, args.output, args.llm_provider)
     elif args.command == "verify":

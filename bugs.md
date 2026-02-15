@@ -434,3 +434,27 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Actual behavior:** Such inputs return `None` despite valid format.
 - **Suggested test:** Add regression case to assert `TextParser.extract_plss_metadata("IN 6th Principal Meridian")["principal_meridian"] == "6th Principal Meridian"`.
 - **Suggested fix:** Extend principal-meridian token pattern to allow ordinal digits/suffixes (e.g., `\d+(?:st|nd|rd|th)?`) alongside alphabetic words before `Principal Meridian`/`P.M.`.
+
+### 43) Packed-DMS bearings are never parsed from call text
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/bearing_converter.py` (`BearingConverter.parse_packed_dms`), `src/metesparser/call_extractor.py` (`CallExtractor.extract_direction`, `CallExtractor.extract_single_call`)
+- **Issue:** `parse_packed_dms` exists but is not used in the main call parsing pipeline, so bearings written as packed decimal degrees (for example, `N 46.1631° E`) are not recognized as valid bearings.
+- **Impact:** These calls are treated as missing/incomplete bearings, then skipped or treated as straight-line approximations, corrupting traversal, closure, and derived area/perimeter when the bearing format appears in source text.
+- **Expected behavior:** Packed DMS bearings should be normalized to decimal degrees and parsed into `bearing_quadrant`/`bearing_azimuth_deg_from_north`.
+- **Actual behavior:** `extract_direction()` only checks `QUADRANT_PATTERN`; compact values are never converted.
+- **Suggested test:** Add regression: `CallExtractor.extract_single_call("N 46.1631° E 100 feet", course=1)` should yield `bearing_azimuth_deg_from_north` equal to `46.275278` and a non-empty `bearing_quadrant`.
+- **Suggested fix:** Add packed-DMS pre-parse in `CallExtractor.extract_direction` (or embed it into `BearingConverter.parse_quadrant_bearing`) and route through the same validation/rejection logic as standard quadrant bearings.
+
+### 44) Unit inference helper is never applied in extraction pipeline
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always` (for unitless distances with context hints)
+- **Location:** `src/metesparser/text_parser.py` (`TextParser.infer_distance_unit`), `src/metesparser/call_extractor.py` (`CallExtractor.extract_calls`), `src/metesparser/pdf_processor.py` (`PDFProcessor.process_deed_pdf`)
+- **Issue:** `infer_distance_unit()` is defined but not used by production code; `process_deed_pdf()` hardcodes `distance_unit="feet"` and `extract_calls()` defaults to feet.
+- **Impact:** Deeds that omit explicit units but provide contextual clues (state/year patterns from docs) are interpreted as feet or drop to 0.0, producing incorrect distances and potentially losing calls.
+- **Expected behavior:** The extraction path should infer a preferred distance unit once from document context and pass it to call extraction.
+- **Actual behavior:** Unit inference is isolated in tests only.
+- **Suggested test:** Add regression fixture with unitless distance and strong context (e.g., Texas pre-1900 varas/deed text), assert parsed `distance_ft` matches inferred unit conversion instead of zero.
+- **Suggested fix:** Thread document metadata/state/year context into `PDFProcessor.process_deed_pdf` and call `TextParser.infer_distance_unit` before `CallExtractor.extract_calls`.
