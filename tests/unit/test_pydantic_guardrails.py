@@ -398,3 +398,29 @@ def test_closure_result_status_thresholds():
         ).get_closure_status()
         == "POOR"
     )
+
+
+def test_deedcall_normalizes_negative_radius_with_left_curve_direction():
+    call = DeedCall(
+        course=5,
+        direction_text="curve",
+        distance_ft=100.0,
+        curve_dir="left",
+        radius_ft=-50.0,
+        delta_deg=45.0,
+    )
+
+    assert call.curve_dir == "left"
+    assert call.radius_ft == 50.0
+
+
+def test_deedcall_rejects_negative_radius_when_curve_direction_conflicts():
+    with pytest.raises(ValidationError, match="radius_ft sign conflicts with curve_dir"):
+        DeedCall(
+            course=6,
+            direction_text="curve",
+            distance_ft=100.0,
+            curve_dir="right",
+            radius_ft=-50.0,
+            delta_deg=45.0,
+        )

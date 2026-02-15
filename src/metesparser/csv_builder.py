@@ -182,74 +182,9 @@ class CSVBuilder:
         try:
             # Trim all text values first
             normalized_row = {k: (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
+            normalized_row = {k: (None if v == "" else v) for k, v in normalized_row.items()}
 
-            # Parse required fields
-            course_value = normalized_row.get("course")
-            if not isinstance(course_value, str) or not course_value:
-                raise ValueError("Missing required field 'course'")
-            course = int(course_value)
-            direction_text = normalized_row["direction_text"]
-            distance_value = normalized_row.get("distance_ft")
-            if not isinstance(distance_value, str) or not distance_value:
-                raise ValueError("Missing required field 'distance_ft'")
-            distance_ft = float(distance_value)
-
-            # Helper function to parse optional string field
-            def parse_optional_str(field_name: str) -> str | None:
-                value = normalized_row.get(field_name, "")
-                value = "" if value is None else value
-                return value if value else None
-
-            # Helper function to parse optional float field
-            def parse_optional_float(field_name: str) -> float | None:
-                value = normalized_row.get(field_name, "")
-                value = "" if value is None else value
-                return float(value) if value else None
-
-            # Parse optional fields - cleaner with helper functions
-            bearing_quadrant = parse_optional_str("bearing_quadrant")
-            azimuth = parse_optional_float("bearing_azimuth_deg_from_north")
-
-            # Curve fields
-            curve_dir = parse_optional_str("curve_dir")
-            radius_ft = parse_optional_float("radius_ft")
-            delta_deg = parse_optional_float("delta_deg")
-            arc_length_ft = parse_optional_float("arc_length_ft")
-            chord_bearing = parse_optional_str("chord_bearing")
-            chord_length_ft = parse_optional_float("chord_length_ft")
-
-            # Descriptive fields
-            along = parse_optional_str("along")
-            to = parse_optional_str("to")
-            monument_type = parse_optional_str("monument_type")
-            is_exception = normalized_row.get("is_exception")
-            if isinstance(is_exception, str):
-                is_exception = is_exception.strip()
-                if not is_exception:
-                    is_exception = None
-            notes = parse_optional_str("notes")
-
-            return DeedCall.model_validate(
-                {
-                    "course": course,
-                    "direction_text": direction_text,
-                    "bearing_quadrant": bearing_quadrant,
-                    "bearing_azimuth_deg_from_north": azimuth,
-                    "distance_ft": distance_ft,
-                    "curve_dir": curve_dir,
-                    "radius_ft": radius_ft,
-                    "delta_deg": delta_deg,
-                    "arc_length_ft": arc_length_ft,
-                    "chord_bearing": chord_bearing,
-                    "chord_length_ft": chord_length_ft,
-                    "along": along,
-                    "to": to,
-                    "monument_type": monument_type,
-                    "is_exception": is_exception,
-                    "notes": notes,
-                },
-                strict=True,
-            )
+            return DeedCall.model_validate(normalized_row, strict=False)
 
         except (KeyError, TypeError, ValueError, ValidationError) as e:
             print(f"Error parsing CSV row: {e}")

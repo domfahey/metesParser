@@ -137,27 +137,21 @@ class PDFProcessor:
         from .call_extractor import CallExtractor
         from .text_parser import TextParser
 
-        # Step 1: Extract legal description from PDF
         print("Extracting legal description from PDF...")
         legal_desc_text = self.extract_legal_description(pdf_path)
 
-        # Step 2: Normalize text
         print("Normalizing text...")
         normalized_text = self.normalize_legal_description(legal_desc_text)
 
-        # Step 3: Extract PLSS metadata
         print("Extracting PLSS metadata...")
         plss_data = TextParser.extract_plss_metadata(normalized_text)
 
-        # Step 4: Extract POC and POB
         print("Extracting Point of Commencement and Point of Beginning...")
         poc, pob = TextParser.extract_poc_and_pob(normalized_text)
 
-        # Step 5: Extract calls (using rule-based extractor for reliability)
         print("Extracting calls...")
         calls = CallExtractor.extract_calls(normalized_text)
 
-        # Step 6: Enrich with azimuths
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
 
         legal_desc = LegalDescription(

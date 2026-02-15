@@ -432,16 +432,10 @@ class TextParser:
         Returns:
             Normalized text
         """
-        # Step 1: Clean OCR errors
+        # Normalization pipeline: OCR cleanup -> symbol normalization -> line merge -> cardinal standardization.
         text = cls.clean_ocr_errors(text)
-
-        # Step 2: Normalize DMS symbols
         text = cls.normalize_dms_symbols(text)
-
-        # Step 3: Merge line-wrapped calls
         text = cls.merge_line_wrapped_calls(text)
-
-        # Step 4: Standardize cardinal directions
         text = cls.standardize_cardinal_directions(text)
 
         return text

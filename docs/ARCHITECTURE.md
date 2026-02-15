@@ -30,7 +30,7 @@ metesParser is a deterministic metes & bounds parser that converts legal descrip
 - **Pydantic v2** - Data validation and schema enforcement
 - **OpenAI + optional Gemini** - Configurable LLM providers for PDF extraction
 - **UV** - Dependency management (no pip/conda/poetry)
-- **pytest** - Test framework with 297 tests (as of 2026-02-15)
+- **pytest** - Test framework with 300 tests (as of 2026-02-15)
 
 ## Core Principles
 
@@ -52,7 +52,8 @@ if bearing is None:
 result = ClosureChecker.verify_closure(calls)
 
 if result.is_fully_verified():
-    CSVBuilder.export_verified_csv(calls, result, output_path)
+    # Pass legal_desc for metadata-rich verified output
+    CSVBuilder.export_verified_csv(calls, result, output_path, legal_desc=legal_desc)
 else:
     print(f"Cannot export verified CSV: {result.misclosure_ft:.4f} ft misclosure")
 ```
@@ -103,7 +104,7 @@ response = response_client.generate_text(combined_prompt)
    └─> Returns: Raw legal description text
 
 2. Text Normalization (text_parser.py)
-   ├─> Fix OCR errors (5outh → South, 0 → °)
+   ├─> Fix OCR errors via `clean_ocr_errors` (5outh → South, Ea5t → East, 56 0 40' → 56°40')
    ├─> Merge wrapped lines (div-\nision → division)
    ├─> Standardize cardinal directions (South → S)
    └─> Returns: Normalized text
@@ -113,7 +114,7 @@ response = response_client.generate_text(combined_prompt)
    └─> Returns: Point of Beginning description
 
 4. Call Extraction (call_extractor.py)
-   ├─> Split on THENCE/THENCE keywords
+   ├─> Split calls by numbered markers, THENCE, or semicolons
    ├─> Parse bearing (quadrant format)
    ├─> Parse distance + unit
    ├─> Parse curve parameters (R, Δ, L)
@@ -127,14 +128,14 @@ response = response_client.generate_text(combined_prompt)
 
 6. Closure Verification (closure_checker.py)
    ├─> Compute traverse (calculate all points)
-   ├─> Check 6 verification guardrails
+   ├─> Check mandatory guardrails plus optional double-entry validation
    ├─> Calculate area, perimeter, misclosure
    └─> Returns: ClosureResult
 
 7. CSV Export (csv_builder.py)
    ├─> If fully verified: export _verified.csv
    ├─> Else: export regular .csv with warnings
-   └─> Also export metadata and verification summary
+   └─> Export metadata; verification summary is written only for verified outputs
 ```
 
 ## Module Architecture
@@ -222,8 +223,9 @@ L = R × Δ (radians)
 chord = 2R × sin(Δ/2)
 
 # Deltas
-dx = distance × sin(azimuth)
-dy = distance × cos(azimuth)
+# azimuth is in degrees from North and converted to radians
+dx = distance × sin(radians(azimuth))
+dy = distance × cos(radians(azimuth))
 ```
 
 #### text_parser.py
@@ -231,11 +233,11 @@ dy = distance × cos(azimuth)
 
 **Key Methods**:
 - `normalize_legal_description()` - Full normalization pipeline
-- `fix_ocr_errors()` - Correct common OCR mistakes
-- `merge_wrapped_lines()` - Fix line breaks mid-word
+- `clean_ocr_errors()` - Correct common OCR mistakes
+- `merge_line_wrapped_calls()` - Fix line breaks mid-word
 - `standardize_cardinal_directions()` - North → N
 - `extract_pob()` - Extract point of beginning
-- `split_into_calls()` - Split on THENCE
+- `split_into_calls()` - Split on numbered calls, THENCE, or semicolons
 
 **OCR Corrections**:
 ```python
@@ -261,7 +263,7 @@ dy = distance × cos(azimuth)
 - **Flag uncertainties** - never fabricate
 
 #### closure_checker.py
-**Purpose**: Verify traverse and perform 6 guardrails
+**Purpose**: Verify traverse with mandatory guardrails plus optional double-entry comparison
 
 **Key Methods**:
 - `verify_closure()` - Main verification entry point
@@ -269,15 +271,15 @@ dy = distance × cos(azimuth)
 - `calculate_area()` - Shoelace formula
 - `check_interior_angles()` - Verify (n-2)×180°
 - `check_curve_consistency()` - Verify L ≈ R×Δ
-- `compare_double_entry()` - Compare two entry sets
+- `compare_double_entry()` - Compare two independently entered call sets
 
 **Verification Guardrails**:
-1. **Traverse Closure** - Misclosure < 0.01 ft
-2. **Interior Angles** - Sum = (n-2)×180°
+1. **Traverse Closure** - Misclosure < 0.01 ft by default
+2. **Interior Angles** - Sum = (n-2)×180° (straight-line polygons only)
 3. **Parallelism** - "continuing" lines match
 4. **Curve Math** - L ≈ R×Δ, chord ≈ 2R×sin(Δ/2)
-5. **Area Check** - Computed vs stated within 5%
-6. **Double Entry** - No discrepancies
+5. **Area Check** - When a stated area is provided, flags if computed area differs by more than 5%
+6. **Double Entry** - Optional comparison if a second call set is supplied
 
 #### csv_builder.py
 **Purpose**: CSV import/export with verification
@@ -325,7 +327,6 @@ metesparser verify <csv_file>   # Verify closure
 Core data structure representing one deed call:
 
 ```python
-@dataclass
 class DeedCall:
     course: int                                    # Sequential number (1, 2, 3...)
     direction_text: str                            # Raw direction text
@@ -337,13 +338,17 @@ class DeedCall:
     curve_dir: str | None                          # "left" or "right"
     radius_ft: float | None                        # Curve radius
     delta_deg: float | None                        # Central angle
+    non_tangent: bool                             # Non-tangent curve flag
+    radial_bearing: str | None                    # Radial bearing (if non_tangent)
     arc_length_ft: float | None                    # Arc length
     chord_bearing: str | None                      # Chord bearing
     chord_length_ft: float | None                  # Chord length
+    is_exception: bool                             # EXCEPT/LESS AND EXCEPT marker
 
     # Descriptive fields
     along: str | None                              # "along the division line"
     to: str | None                                 # "to an iron pin"
+    monument_type: str | None                      # Survey marker type
     notes: str | None                              # Warnings/flags
 
     def is_complete_bearing(self) -> bool:
@@ -352,7 +357,7 @@ class DeedCall:
 
     def is_curve(self) -> bool:
         """Check if this is a curve call."""
-        return self.curve_dir is not None
+        return self.curve_dir is not None or self.radius_ft is not None
 ```
 
 ### ClosureResult
@@ -360,7 +365,6 @@ class DeedCall:
 Verification results:
 
 ```python
-@dataclass
 class ClosureResult:
     misclosure_x_ft: float                     # X component of misclosure
     misclosure_y_ft: float                     # Y component
@@ -368,6 +372,7 @@ class ClosureResult:
     area_sq_ft: float                          # Computed area
     area_acres: float                          # Area in acres
     perimeter_ft: float                        # Total perimeter
+    precision_ratio: float | None              # Misclosure / perimeter ratio
 
     closure_passed: bool                       # Misclosure < tolerance?
     angle_check_passed: bool                   # Angles sum correctly?

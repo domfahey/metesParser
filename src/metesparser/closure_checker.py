@@ -27,6 +27,7 @@ class ClosureChecker:
         calls: list[DeedCall],
         stated_area_sq_ft: float = 0.0,
         closure_tolerance_ft: float | None = None,
+        double_entry_calls: list[DeedCall] | None = None,
     ) -> ClosureResult:
         """Verify traverse closure and perform all validation checks.
 
@@ -34,6 +35,7 @@ class ClosureChecker:
             calls: List of DeedCall objects
             stated_area_sq_ft: Stated area from deed (optional, for comparison)
             closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft)
+            double_entry_calls: Optional independently-entered call set for guardrail F
 
         Returns:
             ClosureResult with all checks and computed values
@@ -94,6 +96,13 @@ class ClosureChecker:
         parallel_warnings = cls.check_parallelism(calls)
         warnings.extend(parallel_warnings)
 
+        # Guardrail F: optional double-entry comparison
+        if double_entry_calls is not None:
+            discrepancies = cls.compare_double_entry(calls, double_entry_calls)
+            warnings.extend(
+                f"Double-entry discrepancy: {discrepancy}" for discrepancy in discrepancies
+            )
+
         # Check area reasonableness
         if stated_area_sq_ft > 0:
             area_diff_pct = abs(area_sq_ft - stated_area_sq_ft) / stated_area_sq_ft * 100
@@ -130,6 +139,7 @@ class ClosureChecker:
             curve_consistency_passed=curve_consistency_passed,
             warnings=warnings,
             points=points,
+            precision_ratio=misclosure / perimeter if perimeter else None,
         )
 
     @classmethod
@@ -203,14 +213,13 @@ class ClosureChecker:
             points: List of Point objects forming a polygon
 
         Returns:
-            Area in square feet (0.0 if < 3 points)
+            Area in square feet
 
         Raises:
             ValueError: If fewer than 3 points provided
         """
         if len(points) < 3:
-            # Cannot calculate area with < 3 points - this is an error condition
-            # Silent return of 0 could mask issues
+            # Cannot calculate area with fewer than three vertices
             raise ValueError(f"Cannot calculate area with {len(points)} points (need at least 3)")
 
         # Shoelace formula (Gauss's area formula)

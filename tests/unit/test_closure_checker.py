@@ -1144,5 +1144,5 @@ class TestIsFullyVerified:
         result = ClosureChecker.verify_closure(calls)
 
         # Should have warnings about incomplete bearings
-        if len(result.warnings) > 0:
-            assert result.is_fully_verified() is False
+        assert result.warnings
+        assert result.is_fully_verified() is False

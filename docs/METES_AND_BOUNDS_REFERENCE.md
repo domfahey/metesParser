@@ -333,8 +333,10 @@ A deed typically specifies 2-3 of these elements, from which the others can be c
 
 ### 5.3 Curve Direction Convention
 
-**"To the right"** = clockwise from direction of travel (positive radius in COGO)
-**"To the left"** = counterclockwise from direction of travel (negative radius in COGO)
+**"To the right"** = clockwise from direction of travel.
+**"To the left"** = counterclockwise from direction of travel.
+
+Implementation note: COGO tools vary. Some store left curves as negative radius. In this project, `radius_ft` is stored as positive and handedness is represented by curve direction (`curve_dir`: `left`/`right`).
 
 Example deed language:
 
@@ -748,7 +750,7 @@ Any line feature class can store COGO data using five fields:
 | **Direction** | North azimuth (0°-360°), decimal degrees | Straight lines, arcs, spirals |
 | **Distance** | Length in coordinate system units | Straight lines only |
 | **Arclength** | Length along curve | Arcs, spirals |
-| **Radius** | Circle radius; positive = right/CW, negative = left/CCW | Arcs, spirals |
+| **Radius** | Circle radius. Convention varies by software: some use signed radius (right/CW positive, left/CCW negative). In this project schema, radius is stored as positive and direction is carried separately (`curve_dir`). | Arcs, spirals |
 | **Radius2** | End radius for spirals | Spirals only |
 
 ### 13.3 State Plane Coordinate Systems
@@ -1080,14 +1082,16 @@ Flag courses with distances that seem unreasonable:
 
 ### 18.7 Six-Guardrail Verification Framework
 
-A comprehensive verification system checks:
+A comprehensive verification system includes these checks:
 
 1. **Traverse closure** — misclosure within tolerance
 2. **Interior angle sum** — equals (n-2) × 180°
 3. **Parallelism** — opposite sides of rectangular lots are parallel
 4. **Curve consistency** — arc ≈ R × Δ
 5. **Area reasonableness** — computed area matches stated area within tolerance
-6. **Double-entry validation** — each course can be independently verified
+6. **Double-entry validation** — each course can be independently verified when a second independently-entered call set is available
+
+In this codebase, `verify_closure()` runs checks 1-5 by default and runs check 6 only when a second call set is provided (for example, `double_entry_calls`).
 
 ---
 
