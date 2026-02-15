@@ -70,4 +70,4 @@ Tests will automatically skip if these files are not present (graceful degradati
 
 ## Legal Note
 
-These are **public domain records** obtained from the Camden County Recorder's Office. Property deeds are public records under New Jersey Open Public Records Act (OPRA). No confidential information is contained in these files.
+These are **public records** obtained from the Camden County Recorder's Office. Property deeds are public records under New Jersey Open Public Records Act (OPRA). No confidential information is contained in these files.

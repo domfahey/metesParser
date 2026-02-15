@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
-**Version**: 0.3.1 (Latest release; v0.2 features retained)
+**Version**: 0.1.0
 
 ## Critical Architecture Principles
 
@@ -40,7 +40,7 @@ uv run metesparser extract deed.pdf
 uv run metesparser verify calls.csv --area 7500
 
 # Development
-uv run pytest tests/test_bearing_converter.py -v
+uv run pytest tests/unit/test_bearing_converter.py -v
 uv run pytest -k "test_closure" --pdb
 ```
 
@@ -127,9 +127,9 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 
 ### Test File Locations
 ```bash
-tests/test_bearing_converter.py  # Quadrant ↔ azimuth
-tests/test_call_extractor.py     # Regex parsing
-tests/test_closure_checker.py    # 6 guardrails
+tests/unit/test_bearing_converter.py  # Quadrant ↔ azimuth
+tests/unit/test_call_extractor.py     # Regex parsing
+tests/unit/test_closure_checker.py    # 6 guardrails
 tests/integration/test_integration.py        # Full pipeline
 tests/integration/test_pdf_processing.py       # PDF extraction orchestration
 tests/unit/test_pdf_processor_llm.py          # Provider behavior
@@ -137,7 +137,7 @@ tests/unit/test_pdf_processor_llm.py          # Provider behavior
 
 ### Running Specific Tests
 ```bash
-uv run pytest tests/test_bearing_converter.py::test_quadrant_to_azimuth -v
+uv run pytest tests/unit/test_bearing_converter.py::TestQuadrantToAzimuth::test_ne_quadrant -v
 uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 ```
 
@@ -256,7 +256,7 @@ LOG_LEVEL=INFO          # Optional, defaults to INFO
 1. Add method to `ClosureChecker` (e.g., `check_bearing_reversal()`)
 2. Call from `verify_closure()` and add to warnings list
 3. Update `ClosureResult` model if needed
-4. Write test in `tests/test_closure_checker.py`
+4. Write test in `tests/unit/test_closure_checker.py`
 
 ### Adding New Unit Support
 1. Add conversion factor to `ConversionFactors` in `models.py`

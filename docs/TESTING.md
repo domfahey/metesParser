@@ -1,6 +1,6 @@
 # Testing Guide
 
-Comprehensive guide to the metesParser test suite (about 280+ tests).
+Comprehensive guide to the metesParser test suite (297 tests as of 2026-02-15).
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ Comprehensive guide to the metesParser test suite (about 280+ tests).
 ## Overview
 
 The test suite ensures correctness of metes & bounds parsing with:
-- **about 280+ function-level tests** across unit, integration, regression, e2e, and PDF categories
+- **297 function-level tests** across unit, integration, regression, e2e, and PDF categories (as of 2026-02-15)
 - **Shared fixtures** for common test scenarios (squares, rectangles, curves)
 - **Parametrized tests** to reduce duplication
 - **Custom markers** for selective test execution
@@ -32,7 +32,7 @@ The test suite ensures correctness of metes & bounds parsing with:
 | Integration (PDF) | 2 | 2 | Full PDF + pipeline contract checks |
 | Regression | 26 | 1 | Bug fix validation |
 | E2E | 2 | 1 | End-to-end CLI workflows |
-| **Total** | **~281** | **19** | Full coverage |
+| **Total** | **297** | **19** | Full coverage |
 
 ## Test Organization
 
@@ -557,11 +557,12 @@ uv run pytest --cov=src/metesparser --cov-report=term-missing
 
 ### Coverage Goals
 
-- **Overall**: > 90% line coverage
-- **Critical modules**: > 95% coverage
-  - `bearing_converter.py`
-  - `closure_checker.py`
-  - `call_extractor.py`
+- **Overall target**: > 90% line coverage (current: 93% as of 2026-02-15)
+- **Critical modules stretch target**: > 95% coverage
+  - Current baseline: `bearing_converter.py` 80%
+  - Current baseline: `closure_checker.py` 99%
+  - Current baseline: `call_extractor.py` 88%
+  - Treat >95% as an improvement goal until these baselines rise
 
 ### Excluding from Coverage
 

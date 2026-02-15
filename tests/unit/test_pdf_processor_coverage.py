@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import tomllib
+from pathlib import Path
+
 import pytest
 
 from metesparser.llm_clients import LLMClientError
@@ -83,3 +86,19 @@ def test_extract_calls_ai_raises_for_non_list_calls():
 
     with pytest.raises(ValueError, match="malformed calls payload"):
         processor.extract_calls_ai("text")
+
+
+def test_wheel_build_config_force_includes_packaged_prompts() -> None:
+    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    pyproject = tomllib.loads(pyproject_path.read_text())
+
+    force_include = (
+        pyproject.get("tool", {})
+        .get("hatch", {})
+        .get("build", {})
+        .get("targets", {})
+        .get("wheel", {})
+        .get("force-include", {})
+    )
+
+    assert force_include.get("src/metesparser/prompts") == "metesparser/prompts"

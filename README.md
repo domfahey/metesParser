@@ -182,7 +182,7 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite currently runs about 280+ tests organized by type:
+The test suite currently runs 297 tests organized by type (as of 2026-02-15):
 
 ```bash
 # Run all tests (unit + integration + e2e + regression)
@@ -303,7 +303,7 @@ metesParser/
 │   ├── llm_clients.py
 │   └── cli.py
 ├── prompts/                     # Prompt YAML files
-├── tests/                       # Pytest test suite (~280+ tests)
+├── tests/                       # Pytest test suite (297 tests as of 2026-02-15)
 │   ├── conftest.py              # Shared fixtures
 │   ├── helpers.py               # Test utilities
 │   ├── fixtures/                # Sample legal descriptions

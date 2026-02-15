@@ -5,8 +5,8 @@
 MetesParser transforms scanned deeds into structured metes-and-bounds data. Follow these guardrails so every contribution stays reliable, auditable, and easy to review.
 
 ## Project Structure & Module Organization
-- Core pipeline lives in `src/metesparser/` (PDF extraction, parsing, geometry, closure). Mirror tests reside in `tests/`; fixtures in `tests/data/`; prompts in `prompts/`; docs in `docs/`.
-- Keep sanitized deed PDFs and expected CSVs in `tests/data/`. Record provenance (book/page, survey date, plats) in doc notes so downstream analysts can verify sources.
+- Core pipeline lives in `src/metesparser/` (PDF extraction, parsing, geometry, closure). Mirror tests reside in `tests/`; fixtures in `tests/fixtures/`; prompts in `prompts/`; docs in `docs/`.
+- Keep sanitized deed PDFs and expected CSVs in `tests/fixtures/`. Record provenance (book/page, survey date, plats) in doc notes so downstream analysts can verify sources.
 
 ## Build, Test, and Development Commands
 - `make dev-setup` bootstraps UV and installs dependencies for a new machine or virtualenv.
@@ -18,7 +18,7 @@ MetesParser transforms scanned deeds into structured metes-and-bounds data. Foll
 - Use Ruff + Black for formatting (`text_parser.py` excluded from Black). Keep imports sorted and add concise comments only when geometry rules or guardrails need justification.
 
 ## Testing Guidelines
-- Run Pytest via `make test`; mock LLM calls to keep suites deterministic. Store sanitized inputs and expected outputs under `tests/data/`.
+- Run Pytest via `make test`; mock LLM calls to keep suites deterministic. Store sanitized inputs and expected outputs under `tests/fixtures/`.
 - Name tests after behaviors (`test_parse_curve_segments`) and review `htmlcov/index.html` after `make test-cov` to confirm coverage.
 
 ## Commit & Pull Request Guidelines

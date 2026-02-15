@@ -99,8 +99,7 @@ def test_cli_extract_and_verify_railcar_flow_happy_path(monkeypatch, tmp_path, c
     assert verification_txt.exists()
     assert metadata_txt.exists()
     assert [
-        (row["course"], row["direction_text"], row["distance_ft"])
-        for row in verified_rows
+        (row["course"], row["direction_text"], row["distance_ft"]) for row in verified_rows
     ] == [
         ("1", "North", "100.00"),
         ("2", "East", "100.00"),
@@ -137,7 +136,9 @@ def test_cli_extract_and_verify_open_traverse_is_rejected(monkeypatch, tmp_path,
     unverified_rows = _read_csv_rows(unverified_csv)
 
     assert unverified_csv.exists()
-    assert [(row["course"], row["direction_text"], row["distance_ft"]) for row in unverified_rows] == [
+    assert [
+        (row["course"], row["direction_text"], row["distance_ft"]) for row in unverified_rows
+    ] == [
         ("1", "North", "100.00"),
         ("2", "East", "100.00"),
     ]

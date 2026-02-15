@@ -18,27 +18,32 @@
 
 ## Documentation Audit To-Dos (2026-02-14)
 
-- [ ] High: Fix broken public API examples in docs that import non-exported package symbols.
+- [x] High: Fix broken public API examples in docs that import non-exported package symbols.
   - Update `README.md:99`, `docs/API.md:8`, and `docs/API.md:214` imports to import concrete modules or export symbols in `src/metesparser/__init__.py:6`.
-- [ ] High: Correct `CHANGELOG.md` backfill completeness claims.
+  - **Resolved**: `__init__.py` now exports all 7 public symbols; all doc examples use valid imports.
+- [x] High: Correct `CHANGELOG.md` backfill completeness claims.
   - `CHANGELOG.md:10-36` says all commits are included in Unreleased, but `git log -n 30` includes commits not represented (e.g., `602557b`, `8eda598`).
   - Either include missing entries or adjust scope wording.
-- [ ] High: Replace or guard references to missing scripts in docs.
+  - **Resolved**: Both commits `602557b` and `8eda598` are present in the CHANGELOG backfill.
+- [x] High: Replace or guard references to missing scripts in docs.
   - `README.md:35`, `README.md:44`, and `prompts/README.md:181` reference `scripts/generate_ground_truth.py` / `extract_sample_deeds.py`.
   - These files are not tracked by git (`git ls-files` does not return them).
-- [ ] Medium: Update stale test-count language.
-  - `README.md:183`, `README.md:302`, `docs/ARCHITECTURE.md:33`, and `docs/TESTING.md:3,20,34` state ~188/190+ tests.
-  - Current suite reports 228 collected tests (`pytest --collect-only -q`).
-- [ ] Medium: Reconcile versioning mismatch across docs and package metadata.
-  - `CLAUDE.md:9` states `0.3.1` while `src/metesparser/__init__.py:6` is `0.1.0`.
-  - Align with a single source of truth.
-- [ ] Medium: Update test path guidance to current layout.
-  - `CLAUDE.md:43`, `CLAUDE.md:135` and related sections reference `tests/test_*.py`.
-  - Use current layout (`tests/unit`, `tests/integration`, `tests/regression`).
-- [ ] Medium: Align docs coverage targets with current status.
-  - `docs/TESTING.md:547-551` claims >90%/95% coverage targets, which do not match current measured coverage output.
-  - Clarify as targets or recalculate from current baseline.
-- [ ] Low: Correct legal wording for deed dataset documentation.
-  - Replace “public domain” phrasing in `sample_deeds/README.md:3` and `sample_deeds/README.md:73` with public-records language.
-- [ ] Low: Update fixture-path reference in `AGENTS.md`.
-  - `AGENTS.md:8-9` references `tests/data`; current fixtures are under `tests/fixtures`.
+  - **Resolved**: Both scripts now exist and are git-tracked (organized in `d1bb11b`, updated in `55f9948`).
+- [x] Medium: Update stale test-count language.
+  - `README.md:185` and `README.md:306`, `docs/ARCHITECTURE.md:33`, and `docs/TESTING.md:3,20,35` now reflect current test volume.
+  - **Resolved**: Updated to **297 collected tests** (`uv run pytest --collect-only -q`) as of 2026-02-15.
+- [x] Medium: Reconcile versioning mismatch across docs and package metadata.
+  - `CLAUDE.md:9` previously stated `0.3.1` while `src/metesparser/__init__.py:13` is `0.1.0`.
+  - **Resolved**: `CLAUDE.md` now matches package version `0.1.0`.
+- [x] Medium: Update test path guidance to current layout.
+  - `CLAUDE.md` development and test-location examples now use `tests/unit/...` paths.
+  - **Resolved**: Removed stale `tests/test_*.py` references in commands and guidance.
+- [x] Medium: Align docs coverage targets with current status.
+  - `docs/TESTING.md` coverage section now treats `>95%` critical-module coverage as a stretch target and shows current baselines.
+  - **Resolved**: Captures current metrics (overall 93%, `bearing_converter.py` 80%, `call_extractor.py` 88%, `closure_checker.py` 99%).
+- [x] Low: Correct legal wording for deed dataset documentation.
+  - Replace "public domain" phrasing in `sample_deeds/README.md:73` with public-records language.
+  - **Resolved**: Legal note now says "public records" consistently.
+- [x] Low: Update fixture-path reference in `AGENTS.md`.
+  - `AGENTS.md:8-9` and `AGENTS.md:21` now reference `tests/fixtures` instead of `tests/data`.
+  - **Resolved**: Fixture guidance now matches current repository layout.
