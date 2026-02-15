@@ -54,9 +54,10 @@ When a deed contains multiple description methods that conflict, the general ord
 3. **Adjoining boundaries** (calls to abutter lines)
 4. **Courses** (bearings/directions)
 5. **Distances**
-6. **Area/quantity** (acreage) — lowest priority
+6. **Area/quantity** (acreage)
+7. **Coordinates** (if provided) — lowest priority
 
-This hierarchy reflects the legal principle that monuments on the ground are more reliable than written measurements, and that area is the least reliable element of a legal description.
+This hierarchy reflects the legal principle that monuments on the ground are more reliable than written measurements, and that area is the least reliable element of a legal description. See Section 16.1 for detailed rules of construction and case law principles governing how conflicts are resolved.
 
 ---
 
@@ -144,6 +145,14 @@ If portions are excluded from the conveyance:
 
 > "BEING the same premises which John Smith and Mary Smith, his wife, by deed dated June 15, 1985, and recorded in the Office of the Recorder of Deeds in and for Camden County in Deed Book 4520, Page 217, granted and conveyed unto Robert Jones."
 
+### 2.12 Surveyor's Certification
+
+Many descriptions include a signed certification by the licensed surveyor attesting to the accuracy of the description:
+
+> "That I, Henry A. Dufeau, a Registered Professional Land Surveyor, do hereby certify that the above description is true and correct to the best of my knowledge and belief and that the property described herein was determined by a survey made on the ground under my direction and supervision."
+
+The certification typically includes the surveyor's name, license number, state of licensure, date, and seal. In many states (e.g., Texas), only a Registered Professional Land Surveyor (RPLS) may legally write land descriptions.
+
 ---
 
 ## 3. Bearings and Direction
@@ -227,11 +236,20 @@ Fractional points were also used: "North by East one quarter point North" ≈ N 
 
 ### 4.1 Modern Units
 
-Modern descriptions use **feet** (US survey foot or international foot) and decimal fractions:
+Modern descriptions use **feet** and decimal fractions:
 
 > "...North 56°40'30" East 100.00 feet..."
 
 Two-decimal precision (hundredths of a foot) is standard in professional surveys.
+
+There are two definitions of the foot in US surveying:
+
+| Unit | Definition | Use |
+|------|-----------|-----|
+| **International foot** | Exactly 0.3048 meters | Most modern surveys |
+| **US survey foot** | Exactly 1200/3937 meters | State Plane coordinates, federal surveys |
+
+The difference is approximately 2 parts per million (about 0.01 feet per mile). While negligible for individual parcels, it accumulates over large distances and matters when working with State Plane Coordinate Systems. Some states have legislated which foot to use; surveyors must specify which definition applies.
 
 ### 4.2 Historical Units and Conversions
 
@@ -284,15 +302,23 @@ Curves appear in legal descriptions wherever property lines follow roads, cul-de
 | **Point of Curvature** | PC | Where a straight line transitions into a curve |
 | **Point of Tangency** | PT | Where a curve transitions back to a straight line |
 | **Point of Reverse Curvature** | PRC | Where one curve transitions directly into a curve bending the opposite direction |
+| **Point of Intersection** | PI | Where the two tangent lines (back tangent and forward tangent) meet |
+| **External Distance** | E | Distance from the PI to the midpoint of the curve |
+| **Middle Ordinate** | M | Distance from the midpoint of the chord to the midpoint of the curve |
+| **Degree of Curvature** | D° | Central angle subtended by a 100-foot arc (arc definition) |
 
 ### 5.2 Curve Relationships
 
 The fundamental relationships between curve elements:
 
 ```
-Arc Length:    L = R × Δ  (Δ in radians)
-Chord Length:  C = 2R × sin(Δ/2)
-Tangent:       T = R × tan(Δ/2)
+Arc Length:          L = R × Δ           (Δ in radians)
+                    L = 2πR × (Δ/360°)  (Δ in degrees)
+Chord Length:       C = 2R × sin(Δ/2)
+Tangent:            T = R × tan(Δ/2)
+External Distance:  E = R × (1/cos(Δ/2) - 1)
+Middle Ordinate:    M = R × (1 - cos(Δ/2))
+Degree of Curve:    D° = 100 × (Δ/L)    (Δ in degrees)
 ```
 
 A deed typically specifies 2-3 of these elements, from which the others can be calculated. Common combinations:
@@ -557,9 +583,7 @@ Three approaches surveyors used:
 
 ### 9.5 Ambulatory Descriptions
 
-Ambulatory descriptions contain references to limits that do not have fixed positions or that are subject to change over time. Water boundaries are the most common example — they are generally referenced to a specific line along a water body such as the ordinary high water mark, medial line, thread, or line of mean high tide.
-
-Because these boundaries shift with natural forces (accretion, erosion, avulsion), the courses and distances recorded along a water body's meanders describe the approximate path at the time of the survey, not a fixed boundary line. The water feature itself — not the surveyed meander line — is the legal boundary.
+Ambulatory descriptions contain references to limits that do not have fixed positions or that are subject to change over time. Water boundaries are the most common example — they are generally referenced to a specific line along a water body such as the ordinary high water mark, medial line, thread, or line of mean high tide. Because these features shift with natural forces (see Sections 9.2 and 9.3), the surveyed meander lines are approximations, not fixed boundaries.
 
 ### 9.6 Upstream/Downstream References
 
@@ -615,13 +639,7 @@ Clauses follow the body of a land description and serve different purposes. The 
 | **Severed Rights** | Identifies rights already separated from the property, often referencing legal documents of record | "Subject to a 66 foot wide road parcel, Document No. 652, filed February 01, 1906" |
 | **Reversionary** | Specifies what happens if terms and conditions of use/ownership are not met | "Used for health facilities only" (reverter clause) |
 
-Key legal terms in clauses:
-
-| Term | Meaning |
-|------|---------|
-| **Except** | Excluding from the area; cutting off a portion of the whole area just described |
-| **Reserving** | Keeping a certain right from the area just granted; taking back a part of something granted |
-| **Subject to** | A reservation already exists; means "subordinate to," "subservient to," "limited by," or "charged to" |
+For definitions of the key legal terms used in clauses (Except, Reserving, Subject to), see Section 10.3.
 
 ---
 
@@ -819,7 +837,7 @@ Example: `N 46°16'31" E 1622.32'` → Quadrant 1, Bearing 46.1631, Distance 162
 | CMP | Capped Monument/Pin |
 | Con Mon F | Concrete Monument Found |
 | FD / FND | Found |
-| S / SET | Set (by surveyor) |
+| S / SET | Set (by surveyor) — note: "S" also means South (14.1) or Section (14.4); context disambiguates |
 | PP | Property Pin / Power Pole |
 | RR | Railroad |
 | PK | Parker Kalon (survey nail) |
@@ -911,15 +929,7 @@ When a legal description is ambiguous, courts apply established rules to resolve
 
 ### 16.1 Monument Priority Hierarchy
 
-When elements of a description conflict, the following order of priority generally applies:
-
-1. **Natural monuments** (streams, ridges, shorelines)
-2. **Artificial monuments** (iron pins, concrete markers, fences)
-3. **Adjoiners** (calls to neighboring property lines)
-4. **Courses** (bearings/directions)
-5. **Distances**
-6. **Area** (acreage)
-7. **Coordinates** (if provided)
+The priority hierarchy (see Section 1.4) governs which elements control when a description contains conflicts. In practice, this means:
 
 ### 16.2 Key Principles
 
