@@ -119,7 +119,10 @@ Many descriptions conclude with a stated area:
 
 > "CONTAINING 7,500 square feet, or 0.1722 acres, more or less."
 
-The phrase "more or less" is legally significant — it indicates the area is approximate and subordinate to the metes and bounds courses. Area may be expressed in acres (to the nearest hundredth where justified by survey accuracy) or in square feet for smaller parcels such as subdivision lots. Approximate areas should be indicated as such and given to the nearest full acre.
+The phrase "more or less" is legally significant — it indicates the area is approximate and subordinate to the metes and bounds courses.
+
+- **Precise surveys**: Area may be expressed in acres to the nearest hundredth (e.g., 0.1722 acres) or in square feet for smaller parcels such as subdivision lots.
+- **Approximate areas**: When survey accuracy does not justify decimal precision, areas should be indicated as approximate and given to the nearest full acre (e.g., "approximately 5 acres").
 
 ### 2.9 Basis of Bearings
 
@@ -306,7 +309,7 @@ Curves appear in legal descriptions wherever property lines follow roads, cul-de
 | **Point of Intersection** | PI | Where the two tangent lines (back tangent and forward tangent) meet |
 | **External Distance** | E | Distance from the PI to the midpoint of the curve |
 | **Middle Ordinate** | M | Distance from the midpoint of the chord to the midpoint of the curve |
-| **Degree of Curvature** | D° | Central angle subtended by a 100-foot arc (arc definition) |
+| **Degree of Curvature** | D° | Central angle subtended by a 100-foot arc (arc definition, standard in highway/property surveying). An alternative **chord definition** (angle subtended by a 100-foot chord) is used in railroad surveying. |
 
 ### 5.2 Curve Relationships
 
@@ -640,7 +643,7 @@ Clauses follow the body of a land description and serve different purposes. The 
 | **Severed Rights** | Identifies rights already separated from the property, often referencing legal documents of record | "Subject to a 66 foot wide road parcel, Document No. 652, filed February 01, 1906" |
 | **Reversionary** | Specifies what happens if terms and conditions of use/ownership are not met | "Used for health facilities only" (reverter clause) |
 
-For definitions of the key legal terms used in clauses (Except, Reserving, Subject to), see Section 10.3.
+For definitions of the key legal terms used in clauses (Except, Reserving), see Section 10.3. **"Subject to"** indicates existing encumbrances, easements, or restrictions that burden the property and remain in effect after the conveyance.
 
 ---
 
@@ -794,6 +797,8 @@ To plot a metes and bounds description in GIS:
 | NW | N _ W | 4 |
 
 Example: `N 46°16'31" E 1622.32'` → Quadrant 1, Bearing 46.1631, Distance 1622.32
+
+**Note**: The bearing value `46.1631` is in **packed DMS** format (DD.MMSS), not decimal degrees. In decimal degrees, 46°16'31" = 46.2753°. Do not use packed DMS values directly in trigonometric calculations — convert to decimal degrees first.
 
 **Tools**: ArcGIS Pro COGO traverse (requires Standard/Advanced license), Plat Plotter (web-based), or programmatic COGO libraries.
 
