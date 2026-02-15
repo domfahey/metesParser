@@ -106,10 +106,13 @@ Azimuth = degrees clockwise from North (0-360):
 
 DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 
-## Unit Conversions (survey_parser.py)
+## Unit Conversions (models.py — `ConversionFactors`)
 - 1 pole = 1 rod = 1 perch = 16.5 ft
-- 1 chain = 66 ft
-- 1 link = 0.66 ft
+- 1 chain = 66 ft | 1 link = 0.66 ft
+- 1 vara = 2.778 ft (Texas) | 1 arpent = 191.8 ft (French colonial)
+- 1 toise = 6.395 ft | 1 furlong = 660 ft
+- 1 meter = 3.28084 ft | 1 mile = 5,280 ft
+- 1 engineer chain = 100 ft | 1 engineer link = 1.0 ft
 - 1 acre = 43,560 sq ft
 
 ## Key Directories
@@ -130,6 +133,8 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 tests/unit/test_bearing_converter.py  # Quadrant ↔ azimuth
 tests/unit/test_call_extractor.py     # Regex parsing
 tests/unit/test_closure_checker.py    # 6 guardrails
+tests/unit/test_phase1_foundation.py  # Units, monuments, precision ratio, non-tangent
+tests/unit/test_pydantic_guardrails.py # Model validation and normalization
 tests/integration/test_integration.py        # Full pipeline
 tests/integration/test_pdf_processing.py       # PDF extraction orchestration
 tests/unit/test_pdf_processor_llm.py          # Provider behavior
@@ -163,8 +168,13 @@ along,to,monument_type,is_exception,notes
 ```
 
 **New in v0.2:**
-- `monument_type`: Auto-classified from "to" field (iron_rod, iron_pin, iron_pipe, stone, concrete, wooden_post, brass_cap, rebar, railroad_spike, nail, other)
+- `monument_type`: Auto-classified from "to" field (iron_rod, iron_pin, iron_pipe, stone, concrete, wooden_post, brass_cap, rebar, railroad_spike, nail, pk_nail, hub_and_tack, monitoring_well, capped_pin, capped_rod, txdot_monument, other)
 - `is_exception`: Boolean flag for EXCEPT/LESS AND EXCEPT clause calls
+
+**New in Phase 1:**
+- `non_tangent`: Boolean flag for non-tangent curves
+- `radial_bearing`: Radial bearing string for non-tangent curves
+- `precision_ratio` on `ClosureResult`: Misclosure/perimeter ratio for survey quality
 
 ## Recent Enhancements (v0.2)
 

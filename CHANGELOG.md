@@ -9,8 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Full History Backfill (all commits in repository)
 
-- b1c8a20 (2026-02-15): fix: add optional double-entry verification and align docs
-- a65f076 (2026-02-15): feat: Phase 1 foundation — units, monuments, precision ratio, non-tangent fields
+- 14af5e0 (2026-02-15): feat: Phase 1 foundation — units, monuments, precision ratio, non-tangent fields (#1)
+  - 8 new distance units (varas, arpents, toises, furlongs, meters, miles, engineer chains/links)
+  - 6 new monument types (pk_nail, hub_and_tack, monitoring_well, capped_pin, capped_rod, txdot_monument)
+  - precision_ratio field on ClosureResult, non_tangent/radial_bearing on DeedCall
+  - Precise US survey foot conversion factor
+  - 52 new TDD tests, 368 total passing, 93% coverage
 - 932b19f (2026-02-15): chore: commit pending repository updates
 - 0af774c (2026-02-15): docs: fourth-pass audit fixes for metes and bounds reference
 - 25d6f65 (2026-02-15): docs: third-pass audit fixes for metes and bounds reference
