@@ -302,6 +302,7 @@ Curves appear in legal descriptions wherever property lines follow roads, cul-de
 | **Point of Curvature** | PC | Where a straight line transitions into a curve |
 | **Point of Tangency** | PT | Where a curve transitions back to a straight line |
 | **Point of Reverse Curvature** | PRC | Where one curve transitions directly into a curve bending the opposite direction |
+| **Point of Compound Curvature** | PCC | Where one curve transitions directly into a curve bending the same direction with a different radius |
 | **Point of Intersection** | PI | Where the two tangent lines (back tangent and forward tangent) meet |
 | **External Distance** | E | Distance from the PI to the midpoint of the curve |
 | **Middle Ordinate** | M | Distance from the midpoint of the chord to the midpoint of the curve |
@@ -318,7 +319,7 @@ Chord Length:       C = 2R × sin(Δ/2)
 Tangent:            T = R × tan(Δ/2)
 External Distance:  E = R × (1/cos(Δ/2) - 1)
 Middle Ordinate:    M = R × (1 - cos(Δ/2))
-Degree of Curve:    D° = 100 × (Δ/L)    (Δ in degrees)
+Degree of Curve:    D° = 100 × (Δ/L)    (arc definition; Δ in degrees)
 ```
 
 A deed typically specifies 2-3 of these elements, from which the others can be calculated. Common combinations:
@@ -815,7 +816,7 @@ Example: `N 46°16'31" E 1622.32'` → Quadrant 1, Bearing 46.1631, Distance 162
 
 | Abbrev. | Meaning |
 |---------|---------|
-| R | Radius |
+| R | Radius — note: "R" also means Range (14.4); context disambiguates |
 | A / L | Arc length |
 | Δ / D | Delta (central angle) |
 | Ch / CB | Chord / Chord bearing |
@@ -929,7 +930,7 @@ When a legal description is ambiguous, courts apply established rules to resolve
 
 ### 16.1 Monument Priority Hierarchy
 
-The priority hierarchy (see Section 1.4) governs which elements control when a description contains conflicts. In practice, this means:
+The priority hierarchy (see Section 1.4) governs which elements control when a description contains conflicts. In practice, a monument found on the ground will override a written bearing or distance, and a natural monument (stream, ridge) will override an artificial one (iron pin). Courts apply this hierarchy only when elements genuinely conflict — when all elements agree, all are given effect.
 
 ### 16.2 Key Principles
 
@@ -1164,7 +1165,7 @@ and conveyed unto Robert Jones.
 | Arpents | Feet | 191.8 |
 | Furlongs | Feet | 660 |
 | Miles | Feet | 5,280 |
-| Meters | Feet | 3.28084 |
+| Meters | Feet (international) | 3.28084 |
 | Toises | Feet | 6.395 |
 
 | Area Unit | Square Feet |
