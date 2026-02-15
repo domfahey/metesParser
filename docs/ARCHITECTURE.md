@@ -52,7 +52,8 @@ if bearing is None:
 result = ClosureChecker.verify_closure(calls)
 
 if result.is_fully_verified():
-    CSVBuilder.export_verified_csv(calls, result, output_path)
+    # Pass legal_desc for metadata-rich verified output
+    CSVBuilder.export_verified_csv(calls, result, output_path, legal_desc=legal_desc)
 else:
     print(f"Cannot export verified CSV: {result.misclosure_ft:.4f} ft misclosure")
 ```
