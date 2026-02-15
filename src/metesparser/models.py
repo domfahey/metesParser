@@ -63,6 +63,7 @@ class DeedCall(_Model):
     )
     direction_text: str = Field(
         ...,
+        min_length=1,
         description="Verbatim direction from deed (e.g., 'S 56°40' W' or 'southwesterly')",
     )
     bearing_quadrant: str | None = Field(
@@ -119,7 +120,6 @@ class DeedCall(_Model):
     )
     is_exception: bool = Field(
         False,
-        strict=True,
         description="True if this call is part of an exception/exclusion tract",
     )
     non_tangent: bool = Field(
@@ -182,13 +182,14 @@ class DeedCall(_Model):
         radius = float(value)
         if radius == 0:
             raise ValueError("radius_ft must be non-zero")
-        return radius
+        return abs(radius)
 
     @model_validator(mode="after")
     def validate_curve_geometry(self) -> "DeedCall":
         """Require consistent curve attributes when curve geometry is present."""
+        radius_ft = self.radius_ft
         has_curve_direction = self.curve_dir is not None
-        has_radius = self.radius_ft is not None
+        has_radius = radius_ft is not None
         has_delta = self.delta_deg is not None
         has_arc = self.arc_length_ft is not None
         has_chord = self.chord_length_ft is not None
@@ -200,10 +201,10 @@ class DeedCall(_Model):
         if not has_curve_direction:
             raise ValueError("curve_dir is required when any curve field is provided")
 
-        if self.radius_ft is not None and self.radius_ft < 0:
+        if radius_ft is not None and radius_ft < 0:
             if self.curve_dir != "left":
                 raise ValueError("radius_ft sign conflicts with curve_dir")
-            self.radius_ft = abs(self.radius_ft)
+            self.radius_ft = abs(radius_ft)
 
         if not has_radius or not (has_delta or has_arc):
             raise ValueError(
@@ -371,7 +372,9 @@ class ConversionFactors:
         """Convert a distance value to feet."""
         conversions = {
             "feet": 1.0,
-            "us_survey_feet": 1.0,  # Functionally same for most purposes
+            # Keep US survey foot behavior backward-compatible; precise conversion differs
+            # very slightly (≈0.00000061 ft per foot), track US_SURVEY_FOOT_TO_METERS if needed.
+            "us_survey_feet": 1.0,
             "poles": cls.POLE_TO_FEET,
             "rods": cls.ROD_TO_FEET,
             "perch": cls.PERCH_TO_FEET,

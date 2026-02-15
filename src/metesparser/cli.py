@@ -22,33 +22,27 @@ def extract_command(
     from .csv_builder import CSVBuilder
     from .pdf_processor import PDFProcessor
 
-    # Check if PDF exists
     pdf_file = Path(pdf_path)
     if not pdf_file.exists():
         logger.error("PDF file not found", path=pdf_path)
         sys.exit(1)
 
-    # Determine output path
     if not output:
         output = str(pdf_file.with_suffix(".csv"))
 
     logger.info("Processing deed PDF", input=pdf_path, output=output)
 
     try:
-        # Process PDF
         processor = PDFProcessor(provider=llm_provider)
         legal_desc = processor.process_deed_pdf(pdf_path)
 
-        # Verify closure
         logger.info("Verifying closure...")
         closure_result = ClosureChecker.verify_closure(legal_desc.calls)
 
-        # Print closure summary
         print()
         print(ClosureChecker.get_closure_summary(closure_result))
         print()
 
-        # Export CSV
         if closure_result.is_fully_verified():
             logger.info("Exporting verified CSV...")
             CSVBuilder.export_verified_csv(legal_desc.calls, closure_result, output, legal_desc)
@@ -72,7 +66,6 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
     from .closure_checker import ClosureChecker
     from .csv_builder import CSVBuilder
 
-    # Check if CSV exists
     csv_file = Path(csv_path)
     if not csv_file.exists():
         logger.error("CSV file not found", path=csv_path)
@@ -81,14 +74,11 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
     logger.info("Verifying calls from CSV", path=csv_path)
 
     try:
-        # Load calls
         calls = CSVBuilder.csv_to_calls(csv_path)
         logger.info("Loaded calls", count=len(calls))
 
-        # Verify closure
         closure_result = ClosureChecker.verify_closure(calls, stated_area or 0.0)
 
-        # Print summary
         print()
         print(ClosureChecker.get_closure_summary(closure_result))
         print()
