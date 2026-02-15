@@ -192,7 +192,7 @@ class DeedCall(_Model):
             return self
 
         if self.curve_dir == "left":
-            self.radius_ft = abs(self.radius_ft)
+            object.__setattr__(self, "radius_ft", abs(self.radius_ft))
             return self
         if self.curve_dir == "right":
             raise ValueError("radius_ft sign conflicts with curve_dir")
