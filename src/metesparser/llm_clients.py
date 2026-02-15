@@ -68,6 +68,7 @@ class OpenAIClient:
     def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
         generate_kwargs: dict[str, object] = {
             "model": self.model,
+            "temperature": 0,
             "input": [
                 {
                     "role": "user",
@@ -92,6 +93,7 @@ class OpenAIClient:
         pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
         generate_kwargs: dict[str, object] = {
             "model": self.model,
+            "temperature": 0,
             "input": [
                 {
                     "role": "user",
