@@ -5,35 +5,14 @@ Parses normalized text to create structured DeedCall objects.
 
 import logging
 import re
-from typing import Literal
 
 from pydantic import ValidationError
 
 from .bearing_converter import BearingConverter
-from .models import ConversionFactors, DeedCall
+from .models import ConversionFactors, CurveDirection, DeedCall, MonumentType
 from .text_parser import TextParser
 
 logger = logging.getLogger(__name__)
-
-MonumentType = Literal[
-    "iron_rod",
-    "iron_pin",
-    "iron_pipe",
-    "stone",
-    "concrete",
-    "wooden_post",
-    "brass_cap",
-    "rebar",
-    "railroad_spike",
-    "nail",
-    "pk_nail",
-    "hub_and_tack",
-    "monitoring_well",
-    "capped_pin",
-    "capped_rod",
-    "txdot_monument",
-    "other",
-]
 
 
 class MonumentClassifier:
@@ -269,7 +248,7 @@ class CallExtractor:
 
         # Build DeedCall
         curve_dir = curve_info.get("direction")
-        curve_direction: Literal["left", "right"] | None
+        curve_direction: CurveDirection | None
         if curve_dir == "left":
             curve_direction = "left"
         elif curve_dir == "right":
@@ -308,6 +287,8 @@ class CallExtractor:
             to=to if to else None,
             monument_type=monument_type,
             is_exception=False,  # Will be set later when parsing EXCEPT clauses
+            non_tangent=False,
+            radial_bearing=None,
             notes=notes if notes else None,
         )
 

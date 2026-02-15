@@ -177,6 +177,7 @@ class DeedCall(_Model):
     @field_validator("radius_ft", mode="before")
     @classmethod
     def _normalize_radius(cls, value: float | int | str | None) -> float | None:
+        """Normalize radius to positive; zero is rejected."""
         if value is None:
             return None
         radius = float(value)
@@ -184,12 +185,39 @@ class DeedCall(_Model):
             raise ValueError("radius_ft must be non-zero")
         return abs(radius)
 
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_curve_radius_sign(cls, values: dict) -> dict:
+        """Normalize negative curve radii to positive for left curves and validate sign."""
+        radius_value = values.get("radius_ft")
+        curve_dir = values.get("curve_dir")
+
+        if radius_value is None:
+            return values
+
+        try:
+            radius_value = float(radius_value)
+        except (TypeError, ValueError):
+            return values
+
+        if radius_value >= 0:
+            return values
+
+        if not isinstance(curve_dir, str):
+            return values
+
+        curve_direction = curve_dir.strip().lower()
+        if curve_direction == "left":
+            values["radius_ft"] = abs(radius_value)
+        elif curve_direction == "right":
+            raise ValueError("radius_ft sign conflicts with curve_dir")
+        return values
+
     @model_validator(mode="after")
     def validate_curve_geometry(self) -> "DeedCall":
         """Require consistent curve attributes when curve geometry is present."""
-        radius_ft = self.radius_ft
         has_curve_direction = self.curve_dir is not None
-        has_radius = radius_ft is not None
+        has_radius = self.radius_ft is not None
         has_delta = self.delta_deg is not None
         has_arc = self.arc_length_ft is not None
         has_chord = self.chord_length_ft is not None
@@ -200,11 +228,6 @@ class DeedCall(_Model):
 
         if not has_curve_direction:
             raise ValueError("curve_dir is required when any curve field is provided")
-
-        if radius_ft is not None and radius_ft < 0:
-            if self.curve_dir != "left":
-                raise ValueError("radius_ft sign conflicts with curve_dir")
-            self.radius_ft = abs(radius_ft)
 
         if not has_radius or not (has_delta or has_arc):
             raise ValueError(

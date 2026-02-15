@@ -75,63 +75,66 @@ class TestHighBug3MinutesRounding:
         # Should have a valid bearing_quadrant
         assert calls[0].bearing_quadrant is not None
         # Should not have 60 minutes if present
-        if "'" in calls[0].bearing_quadrant:
-            assert "60'" not in calls[0].bearing_quadrant
+        assert "60'" not in calls[0].bearing_quadrant
 
 
 class TestHighBug4And5InvalidDMS:
     """Bugs #4 & #5: Regex accepts invalid degrees/minutes/seconds."""
 
-    def test_reject_degrees_over_90(self):
-        """Bearings with degrees > 90 should not parse."""
-        invalid_bearings = [
+    @pytest.mark.parametrize(
+        "bearing",
+        [
             "N 91°00' E",
             "S 95°30' W",
             "N 120°00' E",
-        ]
+        ],
+    )
+    def test_reject_degrees_over_90(self, bearing: str):
+        """Bearings with degrees > 90 should not parse."""
+        result = BearingConverter.parse_quadrant_bearing(bearing)
+        assert result is None, f"Should reject invalid bearing: {bearing}"
 
-        for bearing in invalid_bearings:
-            result = BearingConverter.parse_quadrant_bearing(bearing)
-            assert result is None, f"Should reject invalid bearing: {bearing}"
-
-    def test_reject_minutes_over_59(self):
-        """Bearings with minutes >= 60 should not parse."""
-        invalid_bearings = [
+    @pytest.mark.parametrize(
+        "bearing",
+        [
             "N 45°60' E",
             "S 30°70' W",
             "N 89°99' E",
-        ]
+        ],
+    )
+    def test_reject_minutes_over_59(self, bearing: str):
+        """Bearings with minutes >= 60 should not parse."""
+        result = BearingConverter.parse_quadrant_bearing(bearing)
+        assert result is None, f"Should reject invalid bearing: {bearing}"
 
-        for bearing in invalid_bearings:
-            result = BearingConverter.parse_quadrant_bearing(bearing)
-            assert result is None, f"Should reject invalid bearing: {bearing}"
-
-    def test_reject_seconds_over_59(self):
-        """Bearings with seconds >= 60 should not parse."""
-        invalid_bearings = [
+    @pytest.mark.parametrize(
+        "bearing",
+        [
             "N 45°30'60\" E",
             "S 30°30'70\" W",
             "N 89°59'99\" E",
-        ]
+        ],
+    )
+    def test_reject_seconds_over_59(self, bearing: str):
+        """Bearings with seconds >= 60 should not parse."""
+        result = BearingConverter.parse_quadrant_bearing(bearing)
+        assert result is None, f"Should reject invalid bearing: {bearing}"
 
-        for bearing in invalid_bearings:
-            result = BearingConverter.parse_quadrant_bearing(bearing)
-            assert result is None, f"Should reject invalid bearing: {bearing}"
-
-    def test_accept_valid_edge_cases(self):
-        """Valid edge cases should parse correctly."""
-        valid_bearings = [
+    @pytest.mark.parametrize(
+        ("bearing", "expected_degrees"),
+        [
             ("N 90°00' E", 90.0),
             ("S 00°00' W", 0.0),
             ("N 45°59' E", 45.983333),
             ("S 89°59'59\" W", 89.999722),
-        ]
-
-        for bearing, expected_degrees in valid_bearings:
-            result = BearingConverter.parse_quadrant_bearing(bearing)
-            assert result is not None, f"Should accept valid bearing: {bearing}"
-            _, degrees, _ = result
-            assert math.isclose(degrees, expected_degrees, abs_tol=0.001)
+        ],
+    )
+    def test_accept_valid_edge_cases(self, bearing: str, expected_degrees: float):
+        """Valid edge cases should parse correctly."""
+        result = BearingConverter.parse_quadrant_bearing(bearing)
+        assert result is not None, f"Should accept valid bearing: {bearing}"
+        _, degrees, _ = result
+        assert math.isclose(degrees, expected_degrees, abs_tol=0.001)
 
 
 class TestHighBug6DeltaValidation:
@@ -153,13 +156,11 @@ class TestHighBug6DeltaValidation:
         with pytest.raises(ValueError, match="Computed delta angle.*exceeds 360"):
             BearingConverter.calculate_curve_properties(radius_ft=10.0, arc_length_ft=10000.0)
 
-    def test_accept_valid_deltas(self):
+    @pytest.mark.parametrize("delta", [0.0, 45.0, 90.0, 180.0, 270.0, 360.0])
+    def test_accept_valid_deltas(self, delta: float):
         """Valid delta angles should work correctly."""
-        valid_deltas = [0.0, 45.0, 90.0, 180.0, 270.0, 360.0]
-
-        for delta in valid_deltas:
-            result = BearingConverter.calculate_curve_properties(radius_ft=50.0, delta_deg=delta)
-            assert result["delta_deg"] == delta
+        result = BearingConverter.calculate_curve_properties(radius_ft=50.0, delta_deg=delta)
+        assert result["delta_deg"] == delta
 
 
 class TestMediumBug7AreaCalculation:
