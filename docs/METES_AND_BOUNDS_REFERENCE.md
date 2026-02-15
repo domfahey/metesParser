@@ -128,6 +128,12 @@ Many descriptions include a statement of the reference meridian used for bearing
 
 The basis of bearings establishes whether directions reference true north, magnetic north, grid north, or a specific survey plat. This is critical for correctly interpreting and comparing bearings across different surveys or time periods.
 
+Some surveys use a **custom or assumed coordinate system** rather than a standard meridian. For example, airport or military base surveys may define their own north reference:
+
+> "The bearings described herein are based on the Bergstrom Airport Coordinate System (BACS). The reference for this project is two brass disks in concrete found on the centerline of the west runway at the Austin-Bergstrom International Airport at an assumed bearing of NORTH."
+
+When a custom coordinate system is used, the boundary may need to be **rotated without distortion** to align with a standard basemap, aerial image, or field coordinates. The orientation to "north" and coordinate system selection directly affects the bearing angles in the description.
+
 ### 2.10 Exception Clauses
 
 If portions are excluded from the conveyance:
@@ -180,9 +186,19 @@ Older or informal descriptions may state direction without precise degrees:
 
 These are legally valid but geometrically imprecise. A parser should flag these as incomplete bearings and never fabricate numerical values. The direction constrains the line to a general quadrant but does not define a specific angle.
 
-### 3.5 Magnetic vs. True North
+### 3.5 Types of North
 
-Historical deeds used magnetic north (the compass reading at the time of the survey). The earth's magnetic pole shifts over time — the difference between magnetic and true north is called **declination**.
+There are several definitions of "north" used in surveying, and the choice directly affects bearing values:
+
+| Type | Definition |
+|------|-----------|
+| **True north** | The direction along the earth's surface toward the geographic North Pole |
+| **Magnetic north** | The direction a compass needle points; wanders over time (the magnetic pole has shifted significantly since AD 800) |
+| **Grid north** | The direction northward along the grid lines of a map projection (e.g., State Plane, UTM) |
+| **Geodetic north** | A mathematical estimation of astronomic north derived using the Laplace equation |
+| **Astronomical north** | Marked by the north celestial pole (Polaris) |
+
+The difference between magnetic and true north is called **declination**. Historical deeds used magnetic north (the compass reading at the time of the survey). The earth's magnetic pole shifts over time:
 
 - A deed from 1800 in Philadelphia might have a declination of ~3° west
 - A deed from 1850 in the same location might have ~6° west
@@ -357,8 +373,19 @@ Man-made markers set by surveyors:
 | **Wooden post/stake** | Wooden marker, usually temporary | Low |
 | **Hub and tack** | 2"×2" wooden stake with nail marking precise point | Temporary |
 | **PK nail** | "Parker Kalon" — a specific type of survey nail | Moderate |
+| **Monitoring well** | Well casing used as a survey point, common on military/environmental sites | High |
+| **TxDOT Type I concrete monument** | Texas DOT standard concrete survey marker | Very high |
 
-### 6.3 Monument Language in Deeds
+### 6.3 Non-Traditional Monuments
+
+In some contexts, existing infrastructure serves as survey monuments even though it was not originally placed for that purpose. Examples include:
+
+- **Monitoring wells**: Environmental monitoring well casings used as angle points, common on former military bases and environmental remediation sites (e.g., "a point occupied by monitoring well MW8-15")
+- **Utility structures**: Power poles, fire hydrants, manholes
+- **Transportation markers**: TxDOT concrete monuments along highway rights-of-way, mile markers, centerline markers
+- **Reference bearings to offset monuments**: When the actual corner is inaccessible, a nearby monument is referenced with a bearing and distance (e.g., "from said point, a TxDOT Type I concrete monument found bears S 58°17'05\" E, 167.32 feet")
+
+### 6.4 Monument Language in Deeds
 
 Deeds distinguish between monuments that already exist and those placed by the surveyor:
 
@@ -369,11 +396,11 @@ Example:
 > "...to an iron pin found..." (pre-existing marker)
 > "...to a capped iron rod set..." (placed during survey)
 
-### 6.4 Called-For vs. Found Monuments
+### 6.5 Called-For vs. Found Monuments
 
 A "called-for" monument is one referenced in the deed. A "found" monument is one physically located on the ground. Discrepancies between called-for and found positions create title issues. When a monument is called for but cannot be found, the surveyor must reconstruct its position from the mathematical description.
 
-### 6.5 Witness Trees and Reference Marks
+### 6.6 Witness Trees and Reference Marks
 
 **Witness trees** (bearing trees) were trees near survey corners marked by surveyors as evidence. The surveyor would blaze the tree and record its species, diameter, and bearing/distance from the corner:
 
@@ -702,11 +729,24 @@ Any line feature class can store COGO data using five fields:
 | **Radius** | Circle radius; positive = right/CW, negative = left/CCW | Arcs, spirals |
 | **Radius2** | End radius for spirals | Spirals only |
 
-### 13.3 Ground-to-Grid Correction
+### 13.3 State Plane Coordinate Systems
+
+State Plane Coordinate Systems (SPCS) divide each US state into one or more zones, each with its own map projection optimized to minimize distortion within that zone. Surveys referenced to a state plane system use **grid north** (not true or magnetic north), which may differ slightly from true north.
+
+Key characteristics:
+- Each zone has a unique FIPS code (e.g., Texas South Central = FIPS 4204)
+- Larger states have multiple zones (Texas has 5, Alaska has 10)
+- Based on either Lambert Conformal Conic (east-west oriented states) or Transverse Mercator (north-south oriented states) projections
+- Coordinates are expressed as Easting/Northing in feet or meters
+- The datum (e.g., NAD 1983) must be specified alongside the zone
+
+When a deed references a state plane coordinate system, the boundary can be plotted directly in a GIS without rotation. When a deed uses an assumed or custom coordinate system, rotation may be needed to align with the state plane grid.
+
+### 13.4 Ground-to-Grid Correction
 
 Survey measurements (ground distances) differ from projected coordinate system distances (grid distances) due to map projection distortion. COGO-aware tools apply a scale factor to convert between the two. The correction is typically small but matters for high-precision work.
 
-### 13.4 Geometry Types in COGO
+### 13.5 Geometry Types in COGO
 
 | Type | COGO Fields Used |
 |------|-----------------|
@@ -714,6 +754,29 @@ Survey measurements (ground distances) differ from projected coordinate system d
 | Circular arc | Direction + Radius + Arclength |
 | Spiral curve | Direction + Radius + Arclength + Radius2 |
 | Multi-segment polyline | Direction + Distance (start to end) |
+
+### 13.6 Practical GIS Traverse Workflow
+
+To plot a metes and bounds description in GIS:
+
+1. **Obtain a starting coordinate** — either from GPS, a known control point, or a county appraisal district parcel map
+2. **Enter courses as a traverse** — each course requires a direction (bearing or azimuth) and distance
+3. **Handle curves** — enter chord bearing and chord length to close the perimeter; adjust to fit the full curve data later
+4. **Check closure** — the traverse should return to the starting point; any gap is the survey error
+5. **Export** — as KML, shapefile, or feature class for overlay on aerial imagery
+
+**Quadrant numbering for data entry**: Some tools number the quadrants 1-4 for shorthand entry:
+
+| Quadrant | Direction | Number |
+|----------|-----------|--------|
+| NE | N _ E | 1 |
+| SE | S _ E | 2 |
+| SW | S _ W | 3 |
+| NW | N _ W | 4 |
+
+Example: `N 46°16'31" E 1622.32'` → Quadrant 1, Bearing 46.1631, Distance 1622.32
+
+**Tools**: ArcGIS Pro COGO traverse (requires Standard/Advanced license), Plat Plotter (web-based), or programmatic COGO libraries.
 
 ---
 
@@ -760,6 +823,7 @@ Survey measurements (ground distances) differ from projected coordinate system d
 | PP | Property Pin / Power Pole |
 | RR | Railroad |
 | PK | Parker Kalon (survey nail) |
+| MW | Monitoring Well |
 
 ### 14.4 Legal and Recording
 
@@ -781,6 +845,14 @@ Survey measurements (ground distances) differ from projected coordinate system d
 | Et Al | And Others |
 | NTS | Not to Scale |
 | LS | Licensed/Land Surveyor (followed by license number) |
+| RPLS | Registered Professional Land Surveyor (Texas) |
+| CE | Conservation Easement |
+| M&B | Metes and Bounds |
+| SPCS | State Plane Coordinate System |
+| FIPS | Federal Information Processing Standard (zone codes) |
+| NAD 83 | North American Datum of 1983 |
+| Vol / V | Volume |
+| GLO | General Land Office |
 
 ### 14.5 Measurement
 
@@ -1106,3 +1178,5 @@ and conveyed unto Robert Jones.
 - [How To Read Metes And Bounds — Probity Title (Part 1)](https://www.probitytitle.com/how-to-read-metes-and-bounds-part-1/)
 - [How To Read Metes And Bounds — Probity Title (Part 2)](https://www.probitytitle.com/how-to-read-metes-and-bounds-part-2/)
 - [Understanding COGO — Geospatial Training Services](https://geospatialtraining.com/understanding-cogo-a-beginners-guide-to-coordinate-geometry-in-arcgis-pro/)
+- Stephanie Prosser, "Learning and Understanding Metes and Bounds Descriptions" — Texas Land Trust Council presentation (conservation easement practitioner perspective)
+- BLM Module 3: Metes-and-Bounds Study Guide — U.S. Department of the Interior, Bureau of Land Management
