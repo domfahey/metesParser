@@ -122,7 +122,7 @@ class GeminiClient:
     """Gemini-backed LLM client with optional fallback model."""
 
     api_key: str | None = None
-    model: str = "gemini-2.5-pro"
+    model: str = "gemini-3-flash-preview"
     fallback_model: str | None = "gemini-2.5-flash"
     _client: Any = object()
     _types: Any = object()
