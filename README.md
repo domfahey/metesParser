@@ -23,11 +23,11 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 
 ## Recent Updates
 
-- Ground truth JSON files are now stored alongside each sample PDF in `sample_deeds/` for replayable extraction checks.
-- Prompt pipeline updates improved preservation of numbered-call formatting and line breaks for easier parser downstreaming.
-- `CHANGELOG.md` now includes backfilled commit history under **Unreleased** and follows Keep-a-Changelog format.
-- Ground-truth and changelog workflows are documented for reproducibility and auditability.
-- `make check` now runs the full quality gate (`lint`, `format`, `type`, `test`) in one command.
+- Gemini LLM provider support added alongside OpenAI (`--llm-provider gemini`).
+- Pydantic guardrails tightened for curve and numeric inputs with comprehensive TDD coverage.
+- End-to-end CLI and pipeline-contract tests validate full extraction/verification workflows.
+- Ground truth JSON files stored alongside each sample PDF in `sample_deeds/` for replayable extraction checks.
+- `make check` runs the full quality gate (`lint`, `format`, `type`, `test`) in one command.
 
 ## Ground Truth Workflow
 
@@ -133,6 +133,7 @@ PDF → Extract → Normalize → Parse Calls → Verify → CSV
 | `closure_checker.py` | 6 verification guardrails |
 | `csv_builder.py` | CSV export/import with standard schema |
 | `pdf_processor.py` | LLM integration for PDF extraction (OpenAI/Gemini) |
+| `llm_clients.py` | BaseLLMClient ABC, OpenAIClient, GeminiClient providers |
 | `cli.py` | Command-line interface |
 
 ### Verification Guardrails
@@ -163,9 +164,6 @@ make install
 # Or manually with UV
 uv venv
 uv sync --all-extras --dev
-
-# Using pip? Install optional Gemini support with:
-# pip install "metesparser[gemini]"
 ```
 
 ### Common Commands
@@ -182,10 +180,10 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite has about 190+ tests organized by type:
+The test suite currently runs about 290 tests organized by type:
 
 ```bash
-# Run all tests (unit + integration + regression)
+# Run all tests (unit + integration + e2e + regression)
 make test
 
 # Run only fast unit tests (skip PDF tests)
@@ -292,7 +290,7 @@ Azimuth = degrees clockwise from North (0-360°):
 metesParser/
 ├── Makefile                     # Development commands
 ├── pyproject.toml               # UV configuration + tool settings
-├── src/metesparser/             # Main package (9 modules)
+├── src/metesparser/             # Main package (10 modules)
 │   ├── models.py
 │   ├── bearing_converter.py
 │   ├── text_parser.py
@@ -300,25 +298,29 @@ metesParser/
 │   ├── closure_checker.py
 │   ├── csv_builder.py
 │   ├── pdf_processor.py
+│   ├── llm_clients.py
 │   └── cli.py
 ├── prompts/                     # Prompt YAML files
-├── tests/                       # Pytest test suite (about 190+ tests)
+├── tests/                       # Pytest test suite (~290 tests)
 │   ├── conftest.py              # Shared fixtures
 │   ├── helpers.py               # Test utilities
 │   ├── fixtures/                # Sample legal descriptions
-│   ├── unit/                    # Unit tests (6 files)
-│   ├── integration/             # End-to-end tests
+│   ├── unit/                    # Unit tests (13 files)
+│   ├── integration/             # Integration tests
+│   ├── e2e/                     # End-to-end CLI tests
 │   └── regression/              # Bug fix tests
 ├── scripts/                     # Standalone utility scripts
 ├── sample_deeds/                # Sample PDFs + ground truth JSON
 ├── docs/                        # Documentation
 │   ├── reference/               # Reference PDFs (BLM manual, etc.)
+│   ├── METES_AND_BOUNDS_REFERENCE.md  # Surveying reference
 │   ├── TESTING.md               # Test suite guide
 │   ├── ARCHITECTURE.md          # System design
 │   ├── API.md                   # Python API reference
 │   └── CONTRIBUTING.md          # Development guidelines
 ├── CLAUDE.md                    # AI assistant guidance
-└── AGENTS.md                    # Agent workflow documentation
+├── AGENTS.md                    # Agent workflow documentation
+└── bugs.md                      # Known issues tracker
 ```
 
 ## Requirements
@@ -387,6 +389,8 @@ Based on comprehensive metes & bounds extraction best practices from professiona
 - **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Development guidelines
 - **[CLAUDE.md](CLAUDE.md)** - AI assistant context and guidance
 - **[AGENTS.md](AGENTS.md)** - Agent workflow documentation
+- **[docs/METES_AND_BOUNDS_REFERENCE.md](docs/METES_AND_BOUNDS_REFERENCE.md)** - Surveying reference guide
+- **[bugs.md](bugs.md)** - Known issues tracker
 
 ## Support
 
