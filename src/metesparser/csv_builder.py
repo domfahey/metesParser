@@ -4,21 +4,20 @@ Exports structured calls to the standard CSV schema defined in the playbook.
 """
 
 import csv
-import logging
 from pathlib import Path
 
+import structlog
 from pydantic import ValidationError
 
 from .models import ClosureResult, DeedCall, LegalDescription
 
-
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class CSVBuilder:
     """Build and export deed calls to CSV format."""
 
-    # Standard CSV schema (16 fields)
+    # Standard CSV schema (18 fields)
     FIELDNAMES: list[str] = [
         "course",
         "direction_text",
@@ -35,6 +34,8 @@ class CSVBuilder:
         "to",
         "monument_type",
         "is_exception",
+        "non_tangent",
+        "radial_bearing",
         "notes",
     ]
 
@@ -101,6 +102,8 @@ class CSVBuilder:
             "to": call.to or "",
             "monument_type": call.monument_type or "",
             "is_exception": "true" if call.is_exception else "false",
+            "non_tangent": "true" if call.non_tangent else "false",
+            "radial_bearing": call.radial_bearing or "",
             "notes": call.notes or "",
         }
 
@@ -131,6 +134,8 @@ class CSVBuilder:
             "range": legal_desc.range,
             "principal_meridian": legal_desc.principal_meridian,
             "aliquot": legal_desc.aliquot,
+            "surveyor_certification": legal_desc.surveyor_certification,
+            "prior_conveyance": legal_desc.prior_conveyance,
         }
         cls.calls_to_csv(legal_desc.calls, output_path, metadata)
 
@@ -194,7 +199,7 @@ class CSVBuilder:
 
         except (KeyError, TypeError, ValueError, ValidationError) as e:
             row_label = row_number if row_number is not None else "unknown"
-            logger.warning("Skipping invalid CSV row %s: %s", row_label, e)
+            logger.warning("Skipping invalid CSV row", row=row_label, error=str(e))
             return None
 
     @classmethod
@@ -243,5 +248,5 @@ class CSVBuilder:
         with open(summary_path, "w") as f:
             f.write(summary)
 
-        print(f"Verified CSV exported to: {verified_path}")
-        print(f"Verification summary: {summary_path}")
+        logger.info("Verified CSV exported", path=str(verified_path))
+        logger.info("Verification summary written", path=str(summary_path))

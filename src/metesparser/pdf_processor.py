@@ -8,10 +8,13 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, cast
 
+import structlog
 import yaml  # type: ignore[import-untyped]
 
 from .llm_clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
 from .models import LegalDescription
+
+logger = structlog.get_logger(__name__)
 
 
 class PDFProcessor:
@@ -162,7 +165,7 @@ class PDFProcessor:
             exhibit=None,
             page=None,
             survey_date=None,
-            basis_of_bearing=None,
+            basis_of_bearing=TextParser.extract_basis_of_bearing(normalized_text),
             datum=None,
             distance_unit="feet",
             section=plss_data.get("section"),
@@ -170,6 +173,8 @@ class PDFProcessor:
             range=plss_data.get("range"),
             principal_meridian=plss_data.get("principal_meridian"),
             aliquot=plss_data.get("aliquot"),
+            surveyor_certification=TextParser.extract_surveyor_certification(normalized_text),
+            prior_conveyance=TextParser.extract_prior_conveyance(normalized_text),
         )
 
         print(f"Extracted {legal_desc.num_calls()} calls")
