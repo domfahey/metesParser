@@ -227,15 +227,16 @@ class TestEdgeCases:
 
     def test_invalid_bearing(self):
         """Invalid bearing (degrees > 90) should be handled gracefully."""
-        # This may create a call with None bearing, or skip it entirely
         calls = CallExtractor.extract_calls(sample_deeds.INVALID_BEARING)
 
-        # Should not crash; malformed first call should not prevent later parsing.
-        assert len(calls) in (1, 2)
+        # Should not crash; malformed first call should be preserved as incomplete,
+        # and later bearing should still parse.
+        assert len(calls) == 2
+        assert calls[0].course == 1
+        assert calls[0].bearing_azimuth_deg_from_north is None
+        assert calls[0].notes is not None and "incomplete" in calls[0].notes.lower()
         assert math.isclose(calls[-1].bearing_azimuth_deg_from_north or 0.0, 225.0, abs_tol=0.01)
         assert math.isclose(calls[-1].distance_ft, 100.0, abs_tol=0.01)
-        if len(calls) == 2:
-            assert calls[0].bearing_azimuth_deg_from_north is None
 
     def test_with_ocr_errors(self):
         """Text with OCR errors should be corrected during normalization."""

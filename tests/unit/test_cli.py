@@ -285,6 +285,35 @@ def test_verify_command_success_and_failure(monkeypatch, tmp_path):
     assert exc.value.code == 1
 
 
+def test_verify_command_forwards_stated_area(monkeypatch, tmp_path):
+    csv = tmp_path / "calls.csv"
+    csv.write_text("course,direction_text,distance_ft\n")
+    calls = [
+        DeedCall(
+            course=1,
+            direction_text="N 90° E",
+            bearing_azimuth_deg_from_north=90.0,
+            distance_ft=10.0,
+        )
+    ]
+
+    observed_areas: list[float] = []
+
+    def _verify(calls_arg: list[DeedCall], area: float = 0.0) -> ClosureResult:
+        observed_areas.append(area)
+        return _verified_result()
+
+    monkeypatch.setattr("metesparser.csv_builder.CSVBuilder.csv_to_calls", lambda _: calls)
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+    )
+    monkeypatch.setattr("metesparser.closure_checker.ClosureChecker.verify_closure", _verify)
+
+    cli.verify_command(str(csv), stated_area=2500.0)
+
+    assert observed_areas == [2500.0]
+
+
 def test_verify_command_errors_on_csv_load_failure(monkeypatch, tmp_path):
     csv = tmp_path / "calls.csv"
     csv.write_text("course,direction_text,distance_ft\n")

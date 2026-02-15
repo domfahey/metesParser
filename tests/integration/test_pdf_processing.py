@@ -20,6 +20,8 @@ from metesparser.text_parser import TextParser
 
 from ..fixtures import sample_deeds
 
+pytestmark = pytest.mark.integration
+
 
 @dataclass(frozen=True)
 class PdfCase:

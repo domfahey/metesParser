@@ -7,6 +7,49 @@ from pydantic import ValidationError
 from metesparser.csv_builder import CSVBuilder
 from metesparser.models import ClosureResult, DeedCall, LegalDescription, Point
 
+CSV_FIELDNAMES: list[str] = [
+    "course",
+    "direction_text",
+    "bearing_quadrant",
+    "bearing_azimuth_deg_from_north",
+    "distance_ft",
+    "curve_dir",
+    "radius_ft",
+    "delta_deg",
+    "arc_length_ft",
+    "chord_bearing",
+    "chord_length_ft",
+    "along",
+    "to",
+    "monument_type",
+    "is_exception",
+    "notes",
+]
+
+
+def _base_csv_row(overrides: dict[str, str] | None = None) -> dict[str, str]:
+    row: dict[str, str] = {
+        "course": "1",
+        "direction_text": "N 90° E",
+        "bearing_quadrant": "N 90° E",
+        "bearing_azimuth_deg_from_north": "90.0",
+        "distance_ft": "100.0",
+        "curve_dir": "",
+        "radius_ft": "",
+        "delta_deg": "",
+        "arc_length_ft": "",
+        "chord_bearing": "",
+        "chord_length_ft": "",
+        "along": "",
+        "to": "",
+        "monument_type": "",
+        "is_exception": "false",
+        "notes": "",
+    }
+    if overrides:
+        row.update(overrides)
+    return row
+
 
 def test_deedcall_rejects_incomplete_curve_geometry():
     with pytest.raises(ValidationError, match="Curve geometry requires"):
@@ -148,27 +191,7 @@ def test_deedcall_normalizes_azimuth_to_north_reference_range():
 def test_csv_row_to_call_skips_invalid_curve_row(tmp_path: Path):
     csv_path = tmp_path / "calls.csv"
     with csv_path.open("w", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "course",
-                "direction_text",
-                "bearing_quadrant",
-                "bearing_azimuth_deg_from_north",
-                "distance_ft",
-                "curve_dir",
-                "radius_ft",
-                "delta_deg",
-                "arc_length_ft",
-                "chord_bearing",
-                "chord_length_ft",
-                "along",
-                "to",
-                "monument_type",
-                "is_exception",
-                "notes",
-            ],
-        )
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
         writer.writeheader()
         writer.writerow(
             {
@@ -220,27 +243,7 @@ def test_csv_row_to_call_skips_invalid_curve_row(tmp_path: Path):
 def test_csv_row_to_call_default_false_for_blank_exception_flag(tmp_path: Path):
     csv_path = tmp_path / "calls.csv"
     with csv_path.open("w", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "course",
-                "direction_text",
-                "bearing_quadrant",
-                "bearing_azimuth_deg_from_north",
-                "distance_ft",
-                "curve_dir",
-                "radius_ft",
-                "delta_deg",
-                "arc_length_ft",
-                "chord_bearing",
-                "chord_length_ft",
-                "along",
-                "to",
-                "monument_type",
-                "is_exception",
-                "notes",
-            ],
-        )
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
         writer.writeheader()
         writer.writerow(
             {
@@ -267,6 +270,39 @@ def test_csv_row_to_call_default_false_for_blank_exception_flag(tmp_path: Path):
 
     assert len(calls) == 1
     assert calls[0].is_exception is False
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"course": ""},
+        {"course": "abc"},
+        {"distance_ft": ""},
+        {"distance_ft": "abc"},
+        {"distance_ft": "-10.0"},
+        {"is_exception": "maybe"},
+        {"course": "0"},
+    ],
+    ids=[
+        "missing_course",
+        "non_numeric_course",
+        "missing_distance",
+        "non_numeric_distance",
+        "negative_distance",
+        "invalid_is_exception",
+        "invalid_course_range",
+    ],
+)
+def test_csv_row_to_call_skips_invalid_rows(tmp_path: Path, overrides: dict[str, str]):
+    csv_path = tmp_path / "calls.csv"
+    with csv_path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
+        writer.writeheader()
+        writer.writerow(_base_csv_row(overrides))
+
+    calls = CSVBuilder.csv_to_calls(str(csv_path))
+
+    assert calls == []
 
 
 def test_legaldescription_rejects_non_int_page_number():

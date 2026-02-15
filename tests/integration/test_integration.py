@@ -28,6 +28,8 @@ from tests.fixtures.sample_deeds import (
     WITH_STATED_AREA,
 )
 
+pytestmark = pytest.mark.integration
+
 
 class Test18PennbrookParcel:
     """Integration test for 18 Pennbrook parcel (known rectangle)."""
@@ -396,12 +398,13 @@ class TestErrorHandling:
         normalized = TextParser.normalize_legal_description(text)
         calls = CallExtractor.extract_calls(normalized)
 
-        # Should attempt to parse (may succeed or fail gracefully)
-        assert len(calls) in (1, 2)
+        # Should preserve malformed first call as incomplete and parse second call.
+        assert len(calls) == 2
+        assert calls[0].course == 1
+        assert calls[0].bearing_azimuth_deg_from_north is None
+        assert calls[0].notes is not None and "incomplete" in calls[0].notes.lower()
         assert math.isclose(calls[-1].bearing_azimuth_deg_from_north or 0.0, 225.0, abs_tol=0.01)
         assert math.isclose(calls[-1].distance_ft, 100.0, abs_tol=0.01)
-        if len(calls) == 2:
-            assert calls[0].bearing_azimuth_deg_from_north is None
 
 
 class TestRealWorldScenarios:
