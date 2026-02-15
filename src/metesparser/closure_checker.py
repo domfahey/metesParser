@@ -238,7 +238,7 @@ class ClosureChecker:
         """
         perimeter = 0.0
         for call in calls:
-            if call.is_curve() and call.arc_length_ft is not None:
+            if call.is_curve() and call.arc_length_ft is not None and call.arc_length_ft > 0.0:
                 perimeter += call.arc_length_ft
             else:
                 perimeter += call.distance_ft

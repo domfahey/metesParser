@@ -39,13 +39,12 @@ class TextParser:
         # Extract Township (various formats)
         # "Township 15 North" or "T15N" or "T. 15 N."
         township_match = re.search(
-            r"\b(?:TOWNSHIP|T\.?)\s*(\d+)\s*(?:NORTH|N\.?|SOUTH|S\.?)\b", text_upper
+            r"\b(?:TOWNSHIP|T\.?)\s*(\d+)\s*(NORTH|N\.?|SOUTH|S\.?)\b", text_upper
         )
         if township_match:
             township_num = township_match.group(1)
-            direction = (
-                "N" if "NORTH" in township_match.group(0) or "N" in township_match.group(0) else "S"
-            )
+            direction_token = township_match.group(2)
+            direction = "N" if direction_token.startswith("N") else "S"
             plss_data["township"] = f"{township_num} {direction}"
 
         # Extract Range (various formats)
@@ -62,8 +61,8 @@ class TextParser:
         # Extract Principal Meridian
         # Common meridians: Willamette, San Bernardino, Mount Diablo, etc.
         pm_patterns = [
-            r"\b(\w+)\s+PRINCIPAL\s+MERIDIAN\b",
-            r"\b(\w+)\s+P\.?M\.?\b",
+            r"\b(?:IN\s+|THE\s+)?([A-Z]+(?:\s+[A-Z]+){0,4})\s+PRINCIPAL\s+MERIDIAN\b",
+            r"\b(?:IN\s+|THE\s+)?([A-Z]+(?:\s+[A-Z]+){0,4})\s+P\.?M\.?\b",
         ]
         for pattern in pm_patterns:
             pm_match = re.search(pattern, text_upper)
@@ -265,7 +264,7 @@ class TextParser:
         """
         # Look for COMMENCING or STARTING patterns that occur BEFORE "POINT OF BEGINNING"
         # This indicates a separate POC from POB
-        pob_pattern = r"\b(?:point\s+of\s+)?beginning\b"
+        pob_pattern = r"\b(?:point\s+of\s+beginning|beginning|POB)\b"
 
         # Check if there's a "POINT OF BEGINNING" later in the text
         has_later_pob = bool(re.search(pob_pattern, text, re.IGNORECASE))

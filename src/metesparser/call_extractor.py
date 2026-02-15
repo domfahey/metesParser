@@ -94,7 +94,7 @@ class CallExtractor:
     # Pattern for curve information
     CURVE_PATTERN = re.compile(
         r"curve\s+to\s+the\s+(left|right).*?radius\s+of\s+(\d+(?:\.\d+)?)\s*(?:feet|ft)?.*?"
-        r"(?:delta\s+(?:angle\s+)?of\s+)?(\d+(?:\.\d+)?)(?:°|\s+degrees?)(?:\s*(\d+)')?(?:\s*(\d+(?:\.\d+)?)\")?",
+        r"(?:delta\s+(?:angle\s+)?of\s+)?(\d+(?:\.\d+)?)(?:°|\s+degrees?)(?:\s*(\d+(?:\.\d+)?)(?:'|\s+minutes?))?(?:\s*(\d+(?:\.\d+)?)(?:\"|\s+seconds?))?",
         re.IGNORECASE | re.DOTALL,
     )
 
@@ -408,7 +408,7 @@ class CallExtractor:
 
             # "delta X°Y'" or "delta X degrees"
             delta_match = re.search(
-                r"delta\s+(?:angle\s+)?(?:of\s+)?(\d+(?:\.\d+)?)(?:°|(?:\s+)?degrees?)(?:\s*(\d+(?:\.\d+)?)')?",
+                r"delta\s+(?:angle\s+)?(?:of\s+)?(\d+(?:\.\d+)?)(?:°|(?:\s+)?degrees?)(?:\s*(\d+(?:\.\d+)?)(?:'|\s+minutes?))?(?:\s*(\d+(?:\.\d+)?)(?:\"|\s+seconds?))?",
                 text,
                 re.IGNORECASE,
             )
@@ -416,6 +416,9 @@ class CallExtractor:
                 delta = float(delta_match.group(1))
                 if delta_match.group(2):
                     delta += float(delta_match.group(2)) / 60.0
+                if delta_match.group(3):
+                    delta += float(delta_match.group(3)) / 3600.0
+
                 curve_info["delta_deg"] = delta
 
             # "arc length of X"

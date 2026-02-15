@@ -91,23 +91,15 @@ def test_main_dispatches_verify(monkeypatch, tmp_path):
     assert called == [(str(csv), 2500.0)]
 
 
-def test_main_dispatches_export(monkeypatch, tmp_path):
+def test_main_rejects_export_command(monkeypatch, tmp_path):
     csv = tmp_path / "calls.csv"
     csv.write_text("course,direction_text,distance_ft\n")
 
-    called: list[tuple[str, str, str | None]] = []
-    monkeypatch.setattr(
-        "metesparser.cli.export_command",
-        lambda csv_path, format="geojson", output=None: called.append((csv_path, format, output)),
-    )
+    monkeypatch.setattr(sys, "argv", ["metesparser", "export", str(csv)])
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
 
-    output = tmp_path / "out.geojson"
-    monkeypatch.setattr(
-        sys, "argv", ["metesparser", "export", str(csv), "-f", "geojson", "-o", str(output)]
-    )
-    cli.main()
-
-    assert called == [(str(csv), "geojson", str(output))]
+    assert exc.value.code == 2
 
 
 def test_extract_command_handles_missing_pdf_path():

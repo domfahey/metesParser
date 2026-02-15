@@ -158,20 +158,6 @@ def main() -> None:
         "-a", "--area", type=float, help="Stated area in square feet (for comparison)"
     )
 
-    # Export command
-    export_parser = subparsers.add_parser("export", help="Export calls to GeoJSON or KML")
-    export_parser.add_argument("csv", help="Path to CSV file")
-    export_parser.add_argument(
-        "-f",
-        "--format",
-        choices=["geojson", "kml"],
-        default="geojson",
-        help="Output format",
-    )
-    export_parser.add_argument(
-        "-o", "--output", help="Output file path (default: derived from input)"
-    )
-
     args = parser.parse_args()
 
     if not args.command:
@@ -183,8 +169,6 @@ def main() -> None:
         extract_command(args.pdf, args.output, args.llm_provider)
     elif args.command == "verify":
         verify_command(args.csv, args.area)
-    elif args.command == "export":
-        export_command(args.csv, args.format, args.output)
     else:
         parser.print_help()
         sys.exit(1)

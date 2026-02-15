@@ -291,6 +291,8 @@ class ClosureResult(_Model):
 
     def get_closure_status(self) -> str:
         """Get human-readable closure status."""
+        if self.warnings:
+            return "NEEDS REVIEW"
         if self.misclosure_ft < 0.01:
             return "EXCELLENT"
         if self.misclosure_ft < 0.1:
@@ -326,5 +328,8 @@ class ConversionFactors:
             "link": cls.LINK_TO_FEET,
             "links": cls.LINK_TO_FEET,
         }
-        factor = conversions.get(unit.lower(), 1.0)
+        normalized_unit = unit.strip().lower()
+        if normalized_unit not in conversions:
+            raise ValueError(f"Unsupported distance unit: {unit}")
+        factor = conversions[normalized_unit]
         return value * factor
