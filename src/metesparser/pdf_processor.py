@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from importlib import resources
 from pathlib import Path
 from typing import Any, cast
 
@@ -43,9 +44,33 @@ class PDFProcessor:
         Returns:
             Dict with prompt configuration
         """
-        prompt_path = self.prompts_dir / f"{prompt_name}.yaml"
-        with open(prompt_path) as f:
-            prompt_config = yaml.safe_load(f)
+        prompt_file = f"{prompt_name}.yaml"
+        candidate_paths = [
+            self.prompts_dir / prompt_file,
+            Path(__file__).parent.parent / "prompts" / prompt_file,
+            Path(__file__).parent.parent.parent / "prompts" / prompt_file,
+        ]
+
+        prompt_text: str | None = None
+        for prompt_path in candidate_paths:
+            if prompt_path.exists():
+                prompt_text = prompt_path.read_text()
+                break
+
+        if prompt_text is None:
+            try:
+                packaged_prompt = resources.files("metesparser").joinpath("prompts", prompt_file)
+                if packaged_prompt.is_file():
+                    prompt_text = packaged_prompt.read_text()
+            except (ModuleNotFoundError, FileNotFoundError):
+                prompt_text = None
+
+        if prompt_text is None:
+            raise FileNotFoundError(
+                f"Prompt file not found for '{prompt_name}' in configured prompt locations"
+            )
+
+        prompt_config = yaml.safe_load(prompt_text)
 
         if not isinstance(prompt_config, dict):
             raise ValueError(f"Prompt file '{prompt_name}' did not contain a mapping")

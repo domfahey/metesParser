@@ -132,3 +132,35 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Issue:** Package root exports only `__version__`, but docs show root-level imports.
 - **Impact:** Documented import examples fail with `ImportError`.
 - **Suggested fix:** Re-export documented public classes in `__init__.py` or update docs to module-level imports.
+
+### 20) Incomplete curve specs crash call extraction
+- **Location:** `src/metesparser/call_extractor.py` (`CallExtractor.extract_single_call`, `CallExtractor.extract_calls`)
+- **Issue:** Curve parsing can produce incomplete curve metadata (e.g., radius only or delta only), which fails `DeedCall` validation.
+- **Impact:** `ValidationError` is raised and bubbles out of `extract_calls`, aborting extraction of the whole description instead of skipping the bad segment.
+- **Suggested fix:** Catch validation/parse errors per-call, emit a warning, and continue parsing remaining calls (or preserve malformed text for audit).
+
+### 21) Curves with `radius` + `arc_length` but no `delta` are not traversed
+- **Location:** `src/metesparser/call_extractor.py` (`extract_single_call`), `src/metesparser/closure_checker.py` (`ClosureChecker.compute_traverse`)
+- **Issue:** `distance_ft` is set from `arc_length_ft`, but traversal only moves for curves when `call.delta_deg` is present.
+- **Impact:** The segment is included in call output (and perimeter may include `arc_length`), but compute-traverse area/closure ignores it, producing inconsistent geometry.
+- **Suggested fix:** Derive missing `delta_deg` when possible (`arc_length` + `radius`) or at minimum include an approximation branch for radius+arc-length curves in traversal.
+
+### 22) Zero-deflection (`Δ = 0`) curves are treated as zero-move in traverse
+- **Location:** `src/metesparser/closure_checker.py` (`ClosureChecker.compute_traverse`), `src/metesparser/call_extractor.py` (`CallExtractor.extract_single_call`), `src/metesparser/bearing_converter.py` (`BearingConverter.compute_curve_endpoint`)
+- **Issue:** `compute_traverse` routes any curve call with `curve_dir/radius/delta` to `compute_curve_endpoint`, which computes an endpoint by chord length. For `delta_deg = 0`, chord length is `0`, so the curve advances no distance even if the call carried a positive `distance_ft` fallback for arc/line handling.
+- **Impact:** Valid zero-deflection curve records are over-traversed (understated geometry) while perimeter logic can still add the call distance, producing inconsistent closure and area outcomes.
+- **Suggested fix:** In curve traversal, treat `delta_deg = 0` as straight-line movement (distance from `distance_ft`) or explicitly document and validate that such records are unsupported.
+
+## Low
+
+### 23) Zero-valued azimuths are hidden as missing in script outputs
+- **Location:** `scripts/test_31_pennbrook_text.py` (`main`), `scripts/extract_sample_deeds.py` (`create_extraction_report`)
+- **Issue:** Truthiness checks (`if call.bearing_azimuth_deg_from_north`) suppress valid `0.0°` values and render them as `"(none)"`.
+- **Impact:** Bearings at true north are misreported during manual review, obscuring data quality and leading to false assumptions in downstream inspection.
+- **Suggested fix:** Compare against `is not None` when rendering azimuth fields.
+
+### 24) Extraction report writes `Date Extracted` from file mtime, not runtime timestamp
+- **Location:** `scripts/extract_sample_deeds.py` (`create_extraction_report`)
+- **Issue:** `Date Extracted` is populated from `Path(output_file).stat().st_mtime` after report creation.
+- **Impact:** The field reflects file metadata timing/mutation rather than a deterministic extraction timestamp.
+- **Suggested fix:** Write a runtime `datetime.now(timezone.utc)` stamp at report generation time.

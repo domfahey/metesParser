@@ -56,17 +56,14 @@ class CSVBuilder:
 
             # Write header
             writer.writeheader()
-
-            # Write metadata as comments (if provided)
-            if metadata:
-                # CSV doesn't support comments well, so we'll skip this
-                # Alternatively, could write to separate metadata file
-                pass
-
             # Write calls
             for call in calls:
                 row = cls._call_to_row(call)
                 writer.writerow(row)
+
+        if metadata:
+            metadata_path = output_file.with_suffix(".metadata.txt")
+            cls._write_metadata(metadata, metadata_path)
 
     @classmethod
     def _call_to_row(cls, call: DeedCall) -> dict[str, str]:
@@ -89,11 +86,13 @@ class CSVBuilder:
             ),
             "distance_ft": f"{call.distance_ft:.2f}",
             "curve_dir": call.curve_dir or "",
-            "radius_ft": f"{call.radius_ft:.2f}" if call.radius_ft else "",
-            "delta_deg": f"{call.delta_deg:.6f}" if call.delta_deg else "",
-            "arc_length_ft": f"{call.arc_length_ft:.2f}" if call.arc_length_ft else "",
+            "radius_ft": f"{call.radius_ft:.2f}" if call.radius_ft is not None else "",
+            "delta_deg": f"{call.delta_deg:.6f}" if call.delta_deg is not None else "",
+            "arc_length_ft": f"{call.arc_length_ft:.2f}" if call.arc_length_ft is not None else "",
             "chord_bearing": call.chord_bearing or "",
-            "chord_length_ft": f"{call.chord_length_ft:.2f}" if call.chord_length_ft else "",
+            "chord_length_ft": (
+                f"{call.chord_length_ft:.2f}" if call.chord_length_ft is not None else ""
+            ),
             "along": call.along or "",
             "to": call.to or "",
             "monument_type": call.monument_type or "",
@@ -129,12 +128,7 @@ class CSVBuilder:
             "principal_meridian": legal_desc.principal_meridian,
             "aliquot": legal_desc.aliquot,
         }
-
         cls.calls_to_csv(legal_desc.calls, output_path, metadata)
-
-        # Write metadata to separate file
-        metadata_path = Path(output_path).with_suffix(".metadata.txt")
-        cls._write_metadata(metadata, metadata_path)
 
     @classmethod
     def _write_metadata(

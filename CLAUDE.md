@@ -112,6 +112,11 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 - 1 link = 0.66 ft
 - 1 acre = 43,560 sq ft
 
+## Key Directories
+- `scripts/` — standalone utility scripts (extract_sample_deeds.py, generate_ground_truth.py)
+- `docs/reference/` — reference PDFs (BLM manual, etc.) — tracked via `!docs/reference/*.pdf`
+- `sample_deeds/` — sample PDFs + ground truth JSON files (co-located)
+
 ## Testing Strategy
 
 ### Writing Tests (TDD Approach)
@@ -147,6 +152,8 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 **Location**: `prompts/*.yaml` files
 **Provider Clients**: `OpenAIClient` and `GeminiClient` behind `METESPARSER_LLM_PROVIDER`
 **Model**: OpenAI defaults to `gpt-4.1`; Gemini defaults to `gemini-2.5-pro` with fallback.
+**Architecture**: `llm_clients.py` defines `BaseLLMClient` ABC; `PDFProcessor` accepts `provider=` or `client=` for DI
+**CLI**: `uv run metesparser extract deed.pdf --llm-provider gemini`
 
 ### CSV Schema (16 fields - order matters)
 ```csv
@@ -235,6 +242,13 @@ LOG_LEVEL=INFO          # Optional, defaults to INFO
 - Run `make pre-commit` before committing
 - Never commit `.env` or API keys
 - Only commit `_verified.csv` files (passed all checks)
+
+### Git Gotchas
+- `*.pdf` is globally gitignored — use `mv` not `git mv` for PDFs, add `!path/*.pdf` exceptions
+- Pre-commit hooks may reformat files — check `git status` after every commit for new unstaged changes
+- `uv.lock` is tracked (not gitignored) — commit lockfile changes with dependency updates
+- GitHub remote: `gh repo create --private --source=. --push` if no remote configured
+- Default branch is `main` — rename with `gh api repos/OWNER/REPO/branches/master/rename -X POST -f new_name=main`
 
 ## Common Development Patterns
 

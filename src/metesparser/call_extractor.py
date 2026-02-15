@@ -89,8 +89,7 @@ class CallExtractor:
     # Pattern for curve information
     CURVE_PATTERN = re.compile(
         r"curve\s+to\s+the\s+(left|right).*?radius\s+of\s+(\d+(?:\.\d+)?)\s*(?:feet|ft)?.*?"
-        r"(?:delta\s+(?:angle\s+)?of\s+)?(\d+)°(?:\s*(\d+)')?\s*(?:(\d+(?:\.\d+)?)\")?"
-        r".*?(?:arc\s+length\s+of\s+)?(\d+(?:\.\d+)?)\s*(?:feet|ft)?",
+        r"(?:delta\s+(?:angle\s+)?of\s+)?(\d+(?:\.\d+)?)(?:°|\s+degrees?)(?:\s*(\d+)')?(?:\s*(\d+(?:\.\d+)?)\")?",
         re.IGNORECASE | re.DOTALL,
     )
 
@@ -195,9 +194,9 @@ class CallExtractor:
         curve_info = cls.extract_curve_info(call_text)
 
         arc_length_ft = curve_info.get("arc_length_ft")
-        if isinstance(arc_length_ft, float):
+        if isinstance(arc_length_ft, float) and arc_length_ft > 0.0:
             distance_ft = arc_length_ft
-        elif curve_info.get("radius_ft") and curve_info.get("delta_deg"):
+        elif curve_info.get("radius_ft") is not None and curve_info.get("delta_deg") is not None:
             radius_ft = curve_info.get("radius_ft")
             delta_deg = curve_info.get("delta_deg")
             if isinstance(radius_ft, float) and isinstance(delta_deg, float):
@@ -207,7 +206,8 @@ class CallExtractor:
             arc_length_ft = props["arc_length_ft"]
             if arc_length_ft is None:
                 raise ValueError("Curve props missing arc length")
-            distance_ft = arc_length_ft
+            if arc_length_ft > 0.0:
+                distance_ft = arc_length_ft
             curve_info.setdefault("arc_length_ft", props["arc_length_ft"])
             curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
 
@@ -314,7 +314,7 @@ class CallExtractor:
     def extract_distance_alternate(cls, text: str) -> float:
         """Extract distance using alternate patterns.
 
-        Some deeds use formats like "125.26' along..." instead of "125.26 feet"
+        Some deeds use formats like "125.26' along..." instead of "125.26 feet".
 
         Args:
             text: Call text
@@ -322,11 +322,18 @@ class CallExtractor:
         Returns:
             Distance value (0.0 if not found)
         """
-        # Pattern: number followed by ' or "
-        pattern = r"(\d+(?:\.\d+)?)\s*(?:'|feet|ft)\b"
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            return float(match.group(1))
+        feet_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:feet|ft)\b", text, re.IGNORECASE)
+        if feet_match:
+            return float(feet_match.group(1))
+
+        apostrophe_match = re.search(
+            r"(?<!°)(\d+(?:\.\d+)?)\s*'(?=(?:\s+(?:along|to)\b|[.,;)]|$))",
+            text,
+            re.IGNORECASE,
+        )
+        if apostrophe_match:
+            return float(apostrophe_match.group(1))
+
         return 0.0
 
     @classmethod
@@ -358,19 +365,20 @@ class CallExtractor:
             if match.group(5):
                 delta_deg += float(match.group(5)) / 3600.0
 
-            arc_length_str = match.group(6)
+            arc_length_match = re.search(
+                r"arc\s+length\s+of\s+(\d+(?:\.\d+)?)", text, re.IGNORECASE
+            )
+            arc_length = float(arc_length_match.group(1)) if arc_length_match else None
 
             # Calculate properties
             props = BearingConverter.calculate_curve_properties(radius, delta_deg=delta_deg)
-            arc_length = (
-                float(arc_length_str) if arc_length_str is not None else props["arc_length_ft"]
-            )
+            computed_arc_length = arc_length if arc_length is not None else props["arc_length_ft"]
 
             curve_info = {
                 "direction": direction,
                 "radius_ft": radius,
                 "delta_deg": delta_deg,
-                "arc_length_ft": arc_length,
+                "arc_length_ft": computed_arc_length,
                 "chord_length_ft": props["chord_length_ft"],
             }
 
@@ -388,7 +396,7 @@ class CallExtractor:
 
             # "delta X°Y'" or "delta X degrees"
             delta_match = re.search(
-                r"delta\s+(?:angle\s+)?(?:of\s+)?(\d+)(?:°|(?:\s+)?degrees?)(?:\s*(\d+)')?",
+                r"delta\s+(?:angle\s+)?(?:of\s+)?(\d+(?:\.\d+)?)(?:°|(?:\s+)?degrees?)(?:\s*(\d+(?:\.\d+)?)')?",
                 text,
                 re.IGNORECASE,
             )
@@ -409,7 +417,7 @@ class CallExtractor:
             props = BearingConverter.calculate_curve_properties(
                 radius_ft, delta_deg=curve_delta_deg
             )
-            if not curve_info.get("arc_length_ft"):
+            if curve_info.get("arc_length_ft") is None:
                 curve_info["arc_length_ft"] = props["arc_length_ft"]
             curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
 

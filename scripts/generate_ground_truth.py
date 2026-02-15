@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate ground truth JSON files for all sample PDFs."""
 import json
+from datetime import datetime, timezone
 import sys
 from pathlib import Path
 
@@ -158,7 +159,7 @@ def generate_ground_truth(pdf_path: Path, processor: PDFProcessor) -> dict:
                 "description": f"MUST extract exactly {len(calls)} calls"
             },
         },
-        "notes": f"Ground truth generated from GPT-4.1 extraction on {Path(__file__).stat().st_mtime}",
+        "notes": f"Ground truth generated at {datetime.now(timezone.utc).isoformat()}",
     }
 
     return ground_truth

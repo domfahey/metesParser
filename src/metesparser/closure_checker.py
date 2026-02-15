@@ -157,7 +157,11 @@ class ClosureChecker:
 
             if call.is_curve():
                 # Handle curve (approximate with chord)
-                if call.radius_ft and call.delta_deg and call.curve_dir:
+                if (
+                    call.radius_ft is not None
+                    and call.delta_deg is not None
+                    and call.curve_dir is not None
+                ):
                     next_point = BearingConverter.compute_curve_endpoint(
                         current,
                         call.bearing_azimuth_deg_from_north,
@@ -204,9 +208,10 @@ class ClosureChecker:
         area = 0.0
         n = len(points)
 
-        for i in range(n - 1):
-            area += points[i].x * points[i + 1].y
-            area -= points[i + 1].x * points[i].y
+        for i in range(n):
+            j = (i + 1) % n
+            area += points[i].x * points[j].y
+            area -= points[j].x * points[i].y
 
         area = abs(area) / 2.0
         return area
@@ -301,12 +306,17 @@ class ClosureChecker:
 
             if "continuing" in call.along.lower() or "same line" in call.along.lower():
                 # Should match previous bearing
-                if i > 0 and calls[i - 1].bearing_azimuth_deg_from_north:
+                if (
+                    i > 0
+                    and calls[i - 1].bearing_azimuth_deg_from_north is not None
+                    and call.bearing_azimuth_deg_from_north is not None
+                ):
                     prev_az = calls[i - 1].bearing_azimuth_deg_from_north or 0
                     curr_az = call.bearing_azimuth_deg_from_north or 0
 
                     # Should be same or 180° apart
-                    diff = abs(curr_az - prev_az)
+                    diff = abs(curr_az - prev_az) % 360.0
+                    diff = min(diff, 360.0 - diff)
                     if not (diff < 1.0 or abs(diff - 180.0) < 1.0):
                         warnings.append(
                             f"Course {call.course}: 'continuing' line but bearing differs "
@@ -329,7 +339,7 @@ class ClosureChecker:
             if not call.is_curve():
                 continue
 
-            if not (call.radius_ft and call.delta_deg):
+            if call.radius_ft is None or call.delta_deg is None:
                 # Incomplete curve info
                 continue
 
@@ -337,7 +347,7 @@ class ClosureChecker:
             delta_rad = math.radians(call.delta_deg)
             expected_arc = call.radius_ft * delta_rad
 
-            if call.arc_length_ft:
+            if call.arc_length_ft is not None:
                 arc_diff = abs(call.arc_length_ft - expected_arc)
                 if arc_diff > 0.1:  # 0.1 ft tolerance
                     return False
@@ -345,7 +355,7 @@ class ClosureChecker:
             # Check chord ≈ 2R * sin(Δ/2)
             expected_chord = 2 * call.radius_ft * math.sin(delta_rad / 2)
 
-            if call.chord_length_ft:
+            if call.chord_length_ft is not None:
                 chord_diff = abs(call.chord_length_ft - expected_chord)
                 if chord_diff > 0.1:  # 0.1 ft tolerance
                     return False
@@ -363,35 +373,60 @@ class ClosureChecker:
         Returns:
             List of discrepancy messages
         """
-        discrepancies = []
+        discrepancies: list[str] = []
 
         if len(calls1) != len(calls2):
             discrepancies.append(f"Different number of calls: {len(calls1)} vs {len(calls2)}")
             return discrepancies
 
+        def compare_optional_float(
+            course_num: int,
+            label: str,
+            value1: float | None,
+            value2: float | None,
+            tolerance: float = 0.01,
+        ) -> None:
+            if value1 is None and value2 is None:
+                return
+            if value1 is None or value2 is None:
+                discrepancies.append(f"Course {course_num}: {label} presence mismatch")
+                return
+            if abs(value1 - value2) > tolerance:
+                discrepancies.append(
+                    f"Course {course_num}: {label} mismatch - {value1:.2f} vs {value2:.2f}"
+                )
+
         for i, (c1, c2) in enumerate(zip(calls1, calls2, strict=False), start=1):
-            # Check bearing
             if c1.bearing_quadrant != c2.bearing_quadrant:
                 discrepancies.append(
                     f"Course {i}: Bearing mismatch - '{c1.bearing_quadrant}' vs '{c2.bearing_quadrant}'"
                 )
 
-            # Check distance (within 0.01 ft)
             if abs(c1.distance_ft - c2.distance_ft) > 0.01:
                 discrepancies.append(
                     f"Course {i}: Distance mismatch - {c1.distance_ft:.2f} vs {c2.distance_ft:.2f}"
                 )
 
-            # Check curve parameters if applicable
-            if c1.is_curve() or c2.is_curve():
-                if c1.curve_dir != c2.curve_dir:
-                    discrepancies.append(f"Course {i}: Curve direction mismatch")
+            curve1 = c1.is_curve()
+            curve2 = c2.is_curve()
+            if curve1 != curve2:
+                discrepancies.append(f"Course {i}: Curve geometry presence mismatch")
 
-                if c1.radius_ft and c2.radius_ft:
-                    if abs(c1.radius_ft - c2.radius_ft) > 0.01:
-                        discrepancies.append(
-                            f"Course {i}: Radius mismatch - {c1.radius_ft:.2f} vs {c2.radius_ft:.2f}"
-                        )
+            if not (curve1 or curve2):
+                continue
+
+            if c1.curve_dir != c2.curve_dir:
+                discrepancies.append(f"Course {i}: Curve direction mismatch")
+
+            compare_optional_float(i, "Radius", c1.radius_ft, c2.radius_ft)
+            compare_optional_float(i, "Delta", c1.delta_deg, c2.delta_deg, tolerance=0.0001)
+            compare_optional_float(i, "Arc length", c1.arc_length_ft, c2.arc_length_ft)
+            compare_optional_float(i, "Chord length", c1.chord_length_ft, c2.chord_length_ft)
+
+            if c1.chord_bearing != c2.chord_bearing:
+                discrepancies.append(
+                    f"Course {i}: Chord bearing mismatch - '{c1.chord_bearing}' vs '{c2.chord_bearing}'"
+                )
 
         return discrepancies
 

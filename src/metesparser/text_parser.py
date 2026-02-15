@@ -50,12 +50,13 @@ class TextParser:
 
         # Extract Range (various formats)
         # "Range 3 East" or "R3E" or "R. 3 E."
-        range_match = re.search(r"\b(?:RANGE|R\.?)\s*(\d+)\s*(?:EAST|E\.?|WEST|W\.?)\b", text_upper)
+        range_match = re.search(
+            r"\b(?:RANGE|R\.?)\s*(\d+)\s*(EAST|E\.?|WEST|W\.?)\b", text_upper
+        )
         if range_match:
             range_num = range_match.group(1)
-            direction = (
-                "E" if "EAST" in range_match.group(0) or "E" in range_match.group(0) else "W"
-            )
+            direction_token = range_match.group(2)
+            direction = "W" if direction_token.startswith("W") else "E"
             plss_data["range"] = f"{range_num} {direction}"
 
         # Extract Principal Meridian
@@ -314,7 +315,7 @@ class TextParser:
         """Split text into individual THENCE calls.
 
         Handles multiple formats:
-        - Numbered (1., 2., 3.) - checked FIRST (most specific)
+        - Numbered (1., 2., 3.; 1), 2); (1), (2))
         - THENCE keyword separated
         - Semicolon separated
 
@@ -324,13 +325,16 @@ class TextParser:
         Returns:
             List of call strings
         """
-        # Try numbered patterns FIRST (1., 2., etc.) - more specific than THENCE
-        if re.search(r"(?:^|\n)\s*\d+\.\s+", text, re.MULTILINE):
-            parts = re.split(r"(?:^|\n)\s*(?=\d+\.\s+)", text, flags=re.MULTILINE)
-        # Then try splitting on THENCE keyword
+        numbered_pattern = r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+"
+
+        if re.search(numbered_pattern, text, re.MULTILINE):
+            parts = re.split(
+                r"(?:^|\n)\s*(?=(?:\(\d+\)|\d+[.)])\s+)",
+                text,
+                flags=re.MULTILINE,
+            )
         elif re.search(r"\bTHENCE\b", text, re.IGNORECASE):
             parts = re.split(r"\bTHENCE\b", text, flags=re.IGNORECASE)
-        # Try semicolon-separated calls (most common in normalized text)
         else:
             parts = text.split(";")
 
@@ -340,14 +344,10 @@ class TextParser:
             if not cleaned:
                 continue
 
-            # Skip POB/BEGINNING lines
             if re.match(r"^\s*(?:BEGINNING|COMMENCING|POB|POINT)", cleaned, re.IGNORECASE):
                 continue
 
-            # Remove leading number patterns like "1. " or "2. "
-            cleaned = re.sub(r"^\d+\.\s+", "", cleaned)
-
-            # Remove trailing punctuation and whitespace
+            cleaned = re.sub(r"^(?:\(\d+\)|\d+[.)])\s+", "", cleaned)
             cleaned = re.sub(r"[;,\.\s]+$", "", cleaned)
 
             if cleaned:
@@ -365,15 +365,13 @@ class TextParser:
         Returns:
             Tuple of (distance_value, unit)
         """
-        # Pattern for distance
-        pattern = r"(\d+(?:\.\d+)?)\s*(feet|ft|poles?|rods?|perches?|chains?|links?)"
+        pattern = r"(\d+(?:\.\d+)?)\s*(foot|feet|ft|poles?|rods?|perches?|chains?|links?)"
 
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
             value = float(match.group(1))
             unit = match.group(2).lower()
 
-            # Normalize unit names
             if unit in ["ft", "feet", "foot"]:
                 unit = "feet"
             elif unit in ["pole", "poles"]:
@@ -460,45 +458,29 @@ class TextParser:
             List of tuples (tract_text, is_exception)
             where is_exception=True for EXCEPT clauses, False for main/ALSO
         """
-        # Patterns for exception/inclusion keywords
-        # Order matters - check longer phrases first
-        split_patterns = [
-            (r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", True),  # EXCEPT or LESS AND EXCEPT
-            (r"\b(?:ALSO|INCLUDING)\b", False),  # ALSO or INCLUDING
-        ]
+        splits: list[tuple[int, int, bool]] = []
 
-        tracts = []
-        remaining_text = text
-        last_end = 0
+        for match in re.finditer(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", text, re.IGNORECASE):
+            splits.append((match.start(), match.end(), True))
 
-        # Find all split points
-        splits = []
-        for pattern, is_exception in split_patterns:
-            for match in re.finditer(pattern, text, re.IGNORECASE):
-                splits.append((match.start(), match.end(), is_exception))
+        for match in re.finditer(r"(?:^|[;\n.])\s*(ALSO|INCLUDING)\b", text, re.IGNORECASE):
+            splits.append((match.start(1), match.end(1), False))
 
-        # Sort by position
-        splits.sort(key=lambda x: x[0])
+        splits.sort(key=lambda item: item[0])
 
         if not splits:
-            # No exceptions - return entire text as main tract
             return [(text, False)]
 
-        # Add main tract (everything before first split)
+        tracts = []
+
         first_split_pos = splits[0][0]
         if first_split_pos > 0:
             main_tract = text[:first_split_pos].strip()
             if main_tract:
                 tracts.append((main_tract, False))
 
-        # Add subsequent tracts
-        for i, (start, end, is_exception) in enumerate(splits):
-            # Find where this tract ends (at next split or end of text)
-            if i + 1 < len(splits):
-                tract_end = splits[i + 1][0]
-            else:
-                tract_end = len(text)
-
+        for i, (_, end, is_exception) in enumerate(splits):
+            tract_end = splits[i + 1][0] if i + 1 < len(splits) else len(text)
             tract_text = text[end:tract_end].strip()
             if tract_text:
                 tracts.append((tract_text, is_exception))
@@ -518,14 +500,19 @@ class TextParser:
         along = ""
         to = ""
 
-        # Normalized text for searching
-        lower_text = call_text.lower()
+        def is_curve_direction_to(segment: str, token_end: int) -> bool:
+            after = segment[token_end:].lstrip()
+            return bool(re.match(r"the\s+(?:left|right)\b", after, re.IGNORECASE))
 
-        # Determine along segment
-        along_idx = lower_text.find("along")
-        if along_idx != -1:
-            segment = call_text[along_idx + len("along") :].lstrip()
-            to_tokens = list(re.finditer(r"\bto\b", segment, re.IGNORECASE))
+        along_match = re.search(r"\balong\b", call_text, re.IGNORECASE)
+        if along_match:
+            segment = call_text[along_match.end() :].lstrip()
+            to_tokens = [
+                match
+                for match in re.finditer(r"\bto\b", segment, re.IGNORECASE)
+                if not is_curve_direction_to(segment, match.end())
+            ]
+
             if to_tokens:
                 last_to = to_tokens[-1]
                 along = segment[: last_to.start()].strip(" ,;.")
@@ -534,11 +521,14 @@ class TextParser:
             else:
                 along = re.split(r"[.;]", segment, maxsplit=1)[0].strip(" ,")
 
-        # If no 'along' or we still need an endpoint, grab the final 'to'
         if not to:
-            to_matches = list(re.finditer(r"\bto\b", call_text, re.IGNORECASE))
-            if to_matches:
-                last = to_matches[-1]
+            to_tokens = [
+                match
+                for match in re.finditer(r"\bto\b", call_text, re.IGNORECASE)
+                if not is_curve_direction_to(call_text, match.end())
+            ]
+            if to_tokens:
+                last = to_tokens[-1]
                 to_candidate = call_text[last.end() :].strip()
                 to = re.split(r"[.;]", to_candidate, maxsplit=1)[0].strip(" ,")
 

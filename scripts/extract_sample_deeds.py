@@ -13,8 +13,8 @@ from metesparser.csv_builder import CSVBuilder
 from metesparser.pdf_processor import PDFProcessor
 
 # Sample deed PDFs
-SAMPLE_DEEDS_DIR = Path(__file__).parent / "sample_deeds"
-OUTPUT_DIR = Path(__file__).parent / "extraction_output"
+SAMPLE_DEEDS_DIR = Path(__file__).resolve().parent.parent / "sample_deeds"
+OUTPUT_DIR = Path(__file__).parent.parent / "extraction_output"
 
 SAMPLE_PDFS = [
     ("18 Pennbrook Dr - Deed Image (11985 - 00829).pdf", "18_pennbrook"),

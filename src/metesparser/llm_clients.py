@@ -59,11 +59,16 @@ class OpenAIClient:
             ) from exc
         object.__setattr__(self, "_client", OpenAI(api_key=key))
 
+    @staticmethod
+    def _response_format_kwargs(response_mime_type: str | None) -> dict[str, object]:
+        if response_mime_type == "application/json":
+            return {"text": {"format": {"type": "json_object"}}}
+        return {}
+
     def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
-        del response_mime_type  # OpenAI Responses API always returns text
-        response = self._client.responses.create(
-            model=self.model,
-            input=[
+        generate_kwargs: dict[str, object] = {
+            "model": self.model,
+            "input": [
                 {
                     "role": "user",
                     "content": [
@@ -74,18 +79,20 @@ class OpenAIClient:
                     ],
                 }
             ],
-        )
+        }
+        generate_kwargs.update(self._response_format_kwargs(response_mime_type))
+
+        response = self._client.responses.create(**generate_kwargs)
         return response.output_text or ""
 
     def generate_text_with_pdf(
         self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
     ) -> str:
-        del response_mime_type
         filename, pdf_bytes = _read_pdf(pdf_path)
         pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
-        response = self._client.responses.create(
-            model=self.model,
-            input=[
+        generate_kwargs: dict[str, object] = {
+            "model": self.model,
+            "input": [
                 {
                     "role": "user",
                     "content": [
@@ -101,7 +108,10 @@ class OpenAIClient:
                     ],
                 }
             ],
-        )
+        }
+        generate_kwargs.update(self._response_format_kwargs(response_mime_type))
+
+        response = self._client.responses.create(**generate_kwargs)
         return response.output_text or ""
 
 
