@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Full History Backfill (all commits in repository)
 
+- 78c1a8f (2026-02-15): test: add e2e and integration coverage for CLI and pipeline contracts
+- c6a78bf (2026-02-15): test: strengthen guardrail assertions and integration checks
+- 51f2ba2 (2026-02-15): test: strengthen guardrail and coverage effectiveness assertions
+- 8230dcf (2026-02-15): docs: update bugs audit status
+- aa74023 (2026-02-15): test: tighten exception-path assertions
+- 07c2ff0 (2026-02-15): fix: stabilize parser guardrails and prompts
+- 55f9948 (2026-02-15): fix: close bugs 20-24 with TDD
+- 2e6c857 (2026-02-15): docs: update CLAUDE.md with session learnings and bug fixes
+- 7ec96e2 (2026-02-14): test: strengthen pydantic guardrail checks
+- cc114da (2026-02-14): Audit and deduplicate bugs list
+- 717468f (2026-02-14): docs: update changelog and quality-gate documentation
 - e65cba6 (2026-02-14): Fix type and quality-gate reliability
 - 92e1145 (2026-02-14): fix: tighten pydantic guardrails for deed calls
 - 65feac1 (2026-02-14): fix: enforce pydantic guardrails for curve and numeric inputs
