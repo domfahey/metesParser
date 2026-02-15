@@ -42,7 +42,7 @@ class OpenAIClient:
     """OpenAI-backed LLM client."""
 
     api_key: str | None = None
-    model: str = "gpt-4.1"
+    model: str = "gpt-5.2"
     _client: Any = object()
 
     def __post_init__(self) -> None:

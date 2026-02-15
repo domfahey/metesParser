@@ -156,7 +156,7 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 ### LLM Configuration
 **Location**: `prompts/*.yaml` files
 **Provider Clients**: `OpenAIClient` and `GeminiClient` behind `METESPARSER_LLM_PROVIDER`
-**Model**: OpenAI defaults to `gpt-4.1`; Gemini defaults to `gemini-2.5-pro` with fallback.
+**Model**: OpenAI defaults to `gpt-5.2`; Gemini defaults to `gemini-2.5-pro` with fallback.
 **Architecture**: `llm_clients.py` defines `BaseLLMClient` ABC; `PDFProcessor` accepts `provider=` or `client=` for DI
 **CLI**: `uv run metesparser extract deed.pdf --llm-provider gemini`
 
