@@ -195,10 +195,10 @@ class TestCurveIntegration:
         # Verify curve consistency
         ClosureChecker.verify_closure(calls)
 
-        # If arc length provided, should be consistent
-        if calls[1].arc_length_ft:
-            expected_arc = 50.0 * math.radians(90.0)
-            assert math.isclose(calls[1].arc_length_ft, expected_arc, abs_tol=0.1)
+        # Curve arc length should match radius/delta geometry.
+        expected_arc = 50.0 * math.radians(90.0)
+        assert calls[1].arc_length_ft is not None
+        assert math.isclose(calls[1].arc_length_ft, expected_arc, abs_tol=0.1)
 
 
 class TestCSVExportIntegration:
@@ -310,6 +310,8 @@ class TestCSVImportExportRoundTrip:
                 assert imported.bearing_azimuth_deg_from_north == pytest.approx(
                     original.bearing_azimuth_deg_from_north, abs=0.000001
                 )
+            else:
+                assert imported.bearing_azimuth_deg_from_north is None
 
 
 class TestTextNormalizationPipeline:
@@ -403,7 +405,8 @@ class TestErrorHandling:
         assert calls[0].course == 1
         assert calls[0].bearing_azimuth_deg_from_north is None
         assert calls[0].notes is not None and "incomplete" in calls[0].notes.lower()
-        assert math.isclose(calls[-1].bearing_azimuth_deg_from_north or 0.0, 225.0, abs_tol=0.01)
+        assert calls[-1].bearing_azimuth_deg_from_north is not None
+        assert math.isclose(calls[-1].bearing_azimuth_deg_from_north, 225.0, abs_tol=0.01)
         assert math.isclose(calls[-1].distance_ft, 100.0, abs_tol=0.01)
 
 

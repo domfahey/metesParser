@@ -98,8 +98,10 @@ class TestCurveExtraction:
         assert call.direction_text.startswith("along a curve")
         assert call.bearing_quadrant is None
         assert math.isclose(call.distance_ft, 78.54, abs_tol=0.01)
-        assert math.isclose(call.arc_length_ft or 0.0, 78.54, abs_tol=0.01)
-        assert math.isclose(call.radius_ft or 0.0, 50.0, abs_tol=0.01)
+        assert call.arc_length_ft is not None
+        assert call.radius_ft is not None
+        assert math.isclose(call.arc_length_ft, 78.54, abs_tol=0.01)
+        assert math.isclose(call.radius_ft, 50.0, abs_tol=0.01)
         assert call.to == "an iron pin"
         assert call.along.startswith("a curve to the right")
         assert call.notes == "incomplete bearing"
@@ -115,7 +117,8 @@ class TestCurveExtraction:
         assert call is not None
         expected_arc = 100.0 * math.radians(45.0)
         assert math.isclose(call.distance_ft, expected_arc, abs_tol=0.01)
-        assert math.isclose(call.arc_length_ft or 0.0, expected_arc, abs_tol=0.01)
+        assert call.arc_length_ft is not None
+        assert math.isclose(call.arc_length_ft, expected_arc, abs_tol=0.01)
         assert call.notes == "incomplete bearing"
 
     @pytest.mark.curve
@@ -129,9 +132,12 @@ class TestCurveExtraction:
 
         assert call is not None
         assert call.curve_dir == "right"
-        assert math.isclose(call.radius_ft or 0.0, 50.0, abs_tol=0.1)
-        assert math.isclose(call.delta_deg or 0.0, 90.0, abs_tol=0.1)
-        assert math.isclose(call.arc_length_ft or 0.0, 78.54, abs_tol=0.1)
+        assert call.radius_ft is not None
+        assert call.delta_deg is not None
+        assert call.arc_length_ft is not None
+        assert math.isclose(call.radius_ft, 50.0, abs_tol=0.1)
+        assert math.isclose(call.delta_deg, 90.0, abs_tol=0.1)
+        assert math.isclose(call.arc_length_ft, 78.54, abs_tol=0.1)
 
 
 class TestAlongToFields:
@@ -186,7 +192,8 @@ class TestCallExtraction:
 
         assert len(calls) == 4
         # Check first call
-        assert math.isclose(calls[0].bearing_azimuth_deg_from_north or 0, 146.666667, abs_tol=0.01)
+        assert calls[0].bearing_azimuth_deg_from_north is not None
+        assert math.isclose(calls[0].bearing_azimuth_deg_from_north, 146.666667, abs_tol=0.01)
         assert math.isclose(calls[0].distance_ft, 60.0, abs_tol=0.01)
 
     def test_skip_pob_lines(self):
@@ -207,7 +214,7 @@ class TestCallExtraction:
         enriched = CallExtractor.enrich_calls_with_azimuths(calls)
 
         assert enriched[0].bearing_azimuth_deg_from_north is not None
-        assert math.isclose(enriched[0].bearing_azimuth_deg_from_north or 0, 45.0, abs_tol=0.01)
+        assert math.isclose(enriched[0].bearing_azimuth_deg_from_north, 45.0, abs_tol=0.01)
 
 
 class TestEdgeCases:
@@ -235,7 +242,8 @@ class TestEdgeCases:
         assert calls[0].course == 1
         assert calls[0].bearing_azimuth_deg_from_north is None
         assert calls[0].notes is not None and "incomplete" in calls[0].notes.lower()
-        assert math.isclose(calls[-1].bearing_azimuth_deg_from_north or 0.0, 225.0, abs_tol=0.01)
+        assert calls[-1].bearing_azimuth_deg_from_north is not None
+        assert math.isclose(calls[-1].bearing_azimuth_deg_from_north, 225.0, abs_tol=0.01)
         assert math.isclose(calls[-1].distance_ft, 100.0, abs_tol=0.01)
 
     def test_with_ocr_errors(self):
