@@ -38,8 +38,8 @@ sequenceDiagram
   CE-->>PP: 4 DeedCall objects
   Note right of CE: no exceptions, no curves, no monuments
 
-  PP->>TP: (enrichment helpers)
-  TP-->>PP: distance/unit + along/to parsing context
+  PP->>CE: enrich_calls_with_azimuths(calls)
+  CE-->>PP: calls unchanged with azimuths ensured where possible (via BearingConverter)
   PP->>CC: verify_closure(calls)
   CC-->>PP: ClosureResult(misclosure=0.0, area=7500.0, perimeter=370.0, warnings=[])
 
