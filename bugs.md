@@ -410,3 +410,27 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Actual behavior:** Phrases matching the simple left/right guard are treated as directional and excluded from endpoint extraction.
 - **Suggested test:** Assert non-empty `to` for `N 45° E 100 feet to the right of intersection`.
 - **Suggested fix:** Expand the guard to only filter true curve-direction tokens (e.g., followed by end-of-phrase/comma/period), not general spatial descriptors like `to the right of`.
+
+### 42) Curve parser only matches "arc length", not "arc distance"
+- **Status:** `fixed` (verified 2026-02-15)
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/call_extractor.py` (`extract_curve_info`, lines 387 and 431)
+- **Minimal input:** `ALONG THE SOUTHEASTERLY LINE OF GREENMOUNT ROAD, ON A CURVE TO THE RIGHT HAVING A RADIUS OF 50.00 FEET, AN ARC DISTANCE OF 36.35 FEET TO A POINT OF TANGENCY`
+- **Expected behavior:** Curve call is extracted with `arc_length_ft=36.35`, `radius_ft=50.0`, `curve_dir="right"`.
+- **Actual behavior:** Arc length regex only matched `"arc length of"`, not `"arc distance of"`. The curve call failed Pydantic validation (`Curve geometry requires radius_ft and either delta_deg or arc_length_ft`) and was silently dropped.
+- **Impact:** Entire curve calls were lost from the traverse, producing incorrect call counts, inflated misclosure, and wrong area calculations. Affected 31 Pennbrook Dr (Book 11191) ground truth extraction.
+- **Fix:** Updated both arc length regex patterns to `arc\s+(?:length|distance)\s+(?:of\s+)?(\d+(?:\.\d+)?)`.
+- **Commit:** `d99a592`
+
+### 41) Numeric principal meridian ordinals are not parsed
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/text_parser.py` (`TextParser.extract_plss_metadata`)
+- **Issue:** `pm_pattern` only matches token characters `[A-Z]+`, so ordinals like `6th` or `11TH` are rejected.
+- **Impact:** Parcels using ordinal principal meridians (e.g., `"IN 6TH PRINCIPAL MERIDIAN"`) lose PLSS metadata (`principal_meridian=None`), which breaks downstream filtering and reporting.
+- **Expected behavior:** Numeric ordinals should be normalized to principal meridian names (`6th Principal Meridian`).
+- **Actual behavior:** Such inputs return `None` despite valid format.
+- **Suggested test:** Add regression case to assert `TextParser.extract_plss_metadata("IN 6th Principal Meridian")["principal_meridian"] == "6th Principal Meridian"`.
+- **Suggested fix:** Extend principal-meridian token pattern to allow ordinal digits/suffixes (e.g., `\d+(?:st|nd|rd|th)?`) alongside alphabetic words before `Principal Meridian`/`P.M.`.
