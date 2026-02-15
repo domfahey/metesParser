@@ -1025,10 +1025,9 @@ class TestClosureSummary:
         result = ClosureChecker.verify_closure(calls)
         summary = ClosureChecker.get_closure_summary(result)
 
-        if result.is_fully_verified():
-            assert "FULLY VERIFIED" in summary
-        else:
-            assert "NEEDS REVIEW" in summary
+        assert result.is_fully_verified() is True
+        assert "FULLY VERIFIED" in summary
+        assert "NEEDS REVIEW" not in summary
 
     def test_summary_includes_warning_block(self):
         """Warnings should render under the summary warnings block."""
