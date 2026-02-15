@@ -30,7 +30,7 @@ flowchart TD
   H --> H4["Call 4 snapshot\ncourse=4, bearing_quadrant='N 56°40\' E'\nbearing_azimuth=56.666667\ndistance_ft=125.0\nalong='said southeasterly line of Pennbrook Drive'\nto='the point and place of beginning'"]
 
   H --> I["`enrich_calls_with_azimuths()`\nNo missing azimuth corrections needed\n4 calls unchanged"]
-  I --> J["`LegalDescription` object created\nsource_doc='18 Pennbrook Dr - Deed Image (11985 - 00829).pdf'\ndistance_unit='feet'\nnum_calls=4\nnotes all None\nmetada: basis_of_bearing=None, datum=None"]
+  I --> J["`LegalDescription` object created (representative snapshot)\nsource_doc='18 Pennbrook Dr - Deed Image (11985 - 00829).pdf'\npoc_description=None\npob_description='a point at the southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide)'\ndistance_unit='feet'\nnum_calls=4\nall per-call note fields are None\noptional metadata fields (poc/sections/POC/metadata) are None"]
   J --> K["`ClosureChecker.verify_closure(calls)`\nCompute traverse, area, perimeter"]
   K --> L["`ClosureResult`\nmisclosure_x=0.0\nmisclosure_y=0.0\nmisclosure_ft=0.0\narea_sq_ft=7500.0\narea_acres=0.172131...\nperimeter_ft=370.0\nprecision_ratio=0.0\nclosure_passed=true\nangle_check_passed=true\ncurve_consistency_passed=true\nwarnings=[]\npoints=[(0,0),(32.970538,-50.129269),(-71.465438,-118.817891),(-104.435977,-68.688622),(0,0)]"]
   L --> M{`is_fully_verified()`}
@@ -80,8 +80,8 @@ sequenceDiagram
   CE-->>PP: 4 DeedCall objects
   Note right of CE: no exceptions, no curves, no monuments
 
-  PP->>TP: (enrichment helpers)
-  TP-->>PP: distance/unit + along/to parsing context
+  PP->>CE: `enrich_calls_with_azimuths(calls)`
+  CE-->>PP: calls unchanged with azimuths ensured when possible (via BearingConverter)
   PP->>CC: verify_closure(calls)
   CC-->>PP: ClosureResult(misclosure=0.0, area=7500.0, perimeter=370.0, warnings=[])
 
