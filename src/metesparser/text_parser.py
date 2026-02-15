@@ -364,25 +364,41 @@ class TextParser:
         Returns:
             Tuple of (distance_value, unit)
         """
-        pattern = r"(\d+(?:\.\d+)?)\s*(foot|feet|ft|poles?|rods?|perches?|chains?|links?)"
+        pattern = (
+            r"(\d+(?:\.\d+)?)\s*"
+            r"(foot|feet|ft|poles?|rods?|perches?|chains?|links?"
+            r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
+        )
 
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
             value = float(match.group(1))
             unit = match.group(2).lower()
 
-            if unit in ["ft", "feet", "foot"]:
+            if unit in ("ft", "feet", "foot"):
                 unit = "feet"
-            elif unit in ["pole", "poles"]:
+            elif unit in ("pole", "poles"):
                 unit = "poles"
-            elif unit in ["rod", "rods"]:
+            elif unit in ("rod", "rods"):
                 unit = "rods"
-            elif unit in ["perch", "perches"]:
+            elif unit in ("perch", "perches"):
                 unit = "perches"
-            elif unit in ["chain", "chains"]:
+            elif unit in ("chain", "chains"):
                 unit = "chains"
-            elif unit in ["link", "links"]:
+            elif unit in ("link", "links"):
                 unit = "links"
+            elif unit in ("vara", "varas"):
+                unit = "varas"
+            elif unit in ("arpent", "arpents"):
+                unit = "arpents"
+            elif unit in ("toise", "toises"):
+                unit = "toises"
+            elif unit in ("furlong", "furlongs"):
+                unit = "furlongs"
+            elif unit in ("meter", "meters"):
+                unit = "meters"
+            elif unit in ("mile", "miles"):
+                unit = "miles"
 
             return (value, unit)
 
@@ -526,3 +542,112 @@ class TextParser:
                 to = re.split(r"[.;]", to_candidate, maxsplit=1)[0].strip(" ,")
 
         return (along, to)
+
+    @classmethod
+    def extract_basis_of_bearing(cls, text: str) -> str | None:
+        """Extract basis of bearing from legal description text.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            Basis of bearing string or None if not found
+        """
+        patterns = [
+            (r"basis\s+of\s+bearings?\s*:\s*(.+?)(?:\.|$)", re.IGNORECASE),
+            (r"bearings?\s+(?:are\s+)?based\s+on\s+(.+?)(?:\.|$)", re.IGNORECASE),
+            (r"bearings?\s+referenced\s+to\s+(.+?)(?:\.|$)", re.IGNORECASE),
+            (r"bearings?\s+(?:herein\s+)?are\s+(magnetic|assumed|true\s+north|grid\s+north)(?:\b.*?)(?:\.|$)", re.IGNORECASE),
+        ]
+
+        for pattern, flags in patterns:
+            match = re.search(pattern, text, flags)
+            if match:
+                return match.group(1).strip()
+
+        return None
+
+    @classmethod
+    def extract_surveyor_certification(cls, text: str) -> str | None:
+        """Extract surveyor certification from legal description text.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            Surveyor certification string or None if not found
+        """
+        patterns = [
+            (r"(?:That\s+I,\s+)(.+?)(?:,\s+(?:a\s+)?(?:Licensed|Registered|Professional))", re.IGNORECASE | re.DOTALL),
+            (r"(?:Certified\s+by:\s*)(.+?)(?:\.|$)", re.IGNORECASE),
+            (r"(?:Surveyed\s+by\s+)(.+?)(?:\.|$)", re.IGNORECASE),
+            (r"(I\s+hereby\s+certify\s+.+?)(?:\.|$)", re.IGNORECASE),
+        ]
+
+        for pattern, flags in patterns:
+            match = re.search(pattern, text, flags)
+            if match:
+                return match.group(1).strip()
+
+        return None
+
+    @classmethod
+    def extract_prior_conveyance(cls, text: str) -> str | None:
+        """Extract prior conveyance reference from legal description text.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            Prior conveyance string or None if not found
+        """
+        patterns = [
+            (r"(BEING\s+the\s+same\s+premises\s+.+?)(?:\.|$)", re.IGNORECASE),
+            (r"((?:Deed|Official\s+Records)\s+Book\s+\d+.*?(?:Page\s+\d+)?)(?:\b.*?)(?:\.|$)", re.IGNORECASE),
+            (r"(Instrument\s+Number\s+\d+.+?)(?:\.|$)", re.IGNORECASE),
+        ]
+
+        for pattern, flags in patterns:
+            match = re.search(pattern, text, flags)
+            if match:
+                return match.group(1).strip()
+
+        return None
+
+    @classmethod
+    def infer_distance_unit(
+        cls, text: str, state: str | None = None, year: int | None = None
+    ) -> str | None:
+        """Infer the primary distance unit from context.
+
+        Advisory only — returns a suggestion, caller decides whether to apply it.
+
+        Args:
+            text: Legal description text
+            state: US state abbreviation (e.g., "TX", "LA")
+            year: Year of the deed
+
+        Returns:
+            Suggested unit string or None if no inference
+        """
+        text_lower = text.lower()
+
+        # Text keyword detection takes priority
+        if "varas" in text_lower or "vara" in text_lower:
+            return "varas"
+        if "chains and links" in text_lower:
+            return "chains"
+        if "arpents" in text_lower or "arpent" in text_lower:
+            return "arpents"
+
+        # State/year heuristics
+        if state == "TX" and year is not None and year < 1900:
+            return "varas"
+        if state == "LA":
+            return "arpents"
+
+        new_england = {"MA", "CT", "ME", "NH", "VT", "RI"}
+        if state in new_england and year is not None and year < 1850:
+            return "rods"
+
+        return None

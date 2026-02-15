@@ -3,16 +3,16 @@
 Parses normalized text to create structured DeedCall objects.
 """
 
-import logging
 import re
 
+import structlog
 from pydantic import ValidationError
 
 from .bearing_converter import BearingConverter
 from .models import ConversionFactors, CurveDirection, DeedCall, MonumentType
 from .text_parser import TextParser
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class MonumentClassifier:
@@ -128,7 +128,7 @@ class CallExtractor:
                         call_text, course=course_num, distance_unit=distance_unit
                     )
                 except (ValidationError, ValueError, TypeError) as exc:
-                    logger.warning("Skipping malformed call %s: %s", call_text, exc)
+                    logger.warning("Skipping malformed call", call_text=call_text, error=str(exc))
                     continue
 
                 if call is None:
@@ -287,8 +287,12 @@ class CallExtractor:
             to=to if to else None,
             monument_type=monument_type,
             is_exception=False,  # Will be set later when parsing EXCEPT clauses
-            non_tangent=False,
-            radial_bearing=None,
+            non_tangent=bool(curve_info.get("non_tangent", False)),
+            radial_bearing=(
+                curve_info.get("radial_bearing")
+                if isinstance(curve_info.get("radial_bearing"), str)
+                else None
+            ),
             notes=notes if notes else None,
         )
 
@@ -428,7 +432,9 @@ class CallExtractor:
                 curve_info["delta_deg"] = delta
 
             # "arc length of X" or "arc distance of X"
-            arc_match = re.search(r"arc\s+(?:length|distance)\s+(?:of\s+)?(\d+(?:\.\d+)?)", text, re.IGNORECASE)
+            arc_match = re.search(
+                r"arc\s+(?:length|distance)\s+(?:of\s+)?(\d+(?:\.\d+)?)", text, re.IGNORECASE
+            )
             if arc_match:
                 curve_info["arc_length_ft"] = float(arc_match.group(1))
 
@@ -441,6 +447,42 @@ class CallExtractor:
             if curve_info.get("arc_length_ft") is None:
                 curve_info["arc_length_ft"] = props["arc_length_ft"]
             curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
+
+        # --- Chord bearing extraction ---
+        chord_bearing_match = re.search(
+            r"(?:the\s+)?chord\s+(?:of\s+which\s+)?bears\s+(.+?)(?:,\s*(\d+(?:\.\d+)?)\s*(?:feet|ft))?(?:\s*$|\s*(?:to|along|;|\.))",
+            text,
+            re.IGNORECASE,
+        )
+        if chord_bearing_match:
+            raw_chord_bearing = chord_bearing_match.group(1).strip().rstrip(",")
+            # Normalize spelled-out cardinals
+            normalized = TextParser.standardize_cardinal_directions(raw_chord_bearing)
+            # Extract the bearing part
+            bearing_match = BearingConverter.QUADRANT_PATTERN.search(normalized)
+            if bearing_match:
+                curve_info["chord_bearing"] = bearing_match.group(0)
+            # Extract chord length if present after bearing
+            if chord_bearing_match.group(2):
+                curve_info["chord_length_ft"] = float(chord_bearing_match.group(2))
+
+        # --- Non-tangent detection ---
+        if re.search(r"\bnon-?tangent\b", text, re.IGNORECASE):
+            curve_info["non_tangent"] = True
+
+        # Radial bearing extraction
+        radial_match = re.search(
+            r"radial\s+(?:line\s+)?bear(?:s|ing)\s+(?:of\s+)?(.+?)(?:,|\s*radius|\s*$)",
+            text,
+            re.IGNORECASE,
+        )
+        if radial_match:
+            curve_info["non_tangent"] = True
+            raw_radial = radial_match.group(1).strip()
+            normalized_radial = TextParser.standardize_cardinal_directions(raw_radial)
+            radial_bearing_match = BearingConverter.QUADRANT_PATTERN.search(normalized_radial)
+            if radial_bearing_match:
+                curve_info["radial_bearing"] = radial_bearing_match.group(0)
 
         return curve_info
 

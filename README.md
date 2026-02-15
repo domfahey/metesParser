@@ -96,6 +96,28 @@ By default MetesParser uses OpenAI. To switch providers either set the environme
 uv run metesparser extract deed.pdf --llm-provider gemini
 ```
 
+#### Logging
+
+MetesParser uses `structlog` for structured logs in both CLI and library modules.
+
+```bash
+# Human-readable console logs (default)
+uv run metesparser --log-level INFO extract deed.pdf
+
+# Debug mode (includes callsite metadata)
+uv run metesparser --debug extract deed.pdf
+
+# JSON logs for ingestion/automation
+uv run metesparser --log-format json verify calls.csv
+```
+
+You can also configure defaults via environment variables:
+
+```bash
+export METESPARSER_LOG_LEVEL=DEBUG
+export METESPARSER_LOG_FORMAT=json   # console or json
+```
+
 ### Python API
 
 ```python

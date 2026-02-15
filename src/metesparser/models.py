@@ -192,7 +192,8 @@ class DeedCall(_Model):
             return self
 
         if self.curve_dir == "left":
-            return self.model_copy(update={"radius_ft": abs(self.radius_ft)})
+            object.__setattr__(self, "radius_ft", abs(self.radius_ft))
+            return self
         if self.curve_dir == "right":
             raise ValueError("radius_ft sign conflicts with curve_dir")
 
@@ -275,6 +276,12 @@ class LegalDescription(_Model):
         None, description="Principal Meridian (e.g., 'Willamette Principal Meridian')"
     )
     aliquot: str | None = Field(None, description="Aliquot subdivision (e.g., 'SW 1/4 of NE 1/4')")
+
+    # Surveyor and conveyance
+    surveyor_certification: str | None = Field(None, description="Surveyor certification text")
+    prior_conveyance: str | None = Field(
+        None, description="Prior conveyance reference (e.g., Deed Book 1234, Page 567)"
+    )
 
     # Units
     distance_unit: DistanceUnit = Field("feet", description="Primary distance unit in the deed")

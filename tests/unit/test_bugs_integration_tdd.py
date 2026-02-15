@@ -58,7 +58,7 @@ def test_openai_client_forwards_json_response_format(monkeypatch) -> None:
     client.generate_text("hello", response_mime_type="application/json")
 
     kwargs = client._client.responses.calls[0]
-    assert kwargs["model"] == "gpt-4.1"
+    assert kwargs["model"] == "gpt-5.2"
     assert kwargs["input"] == [
         {
             "role": "user",
