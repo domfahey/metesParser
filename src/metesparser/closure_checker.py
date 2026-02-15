@@ -27,6 +27,7 @@ class ClosureChecker:
         calls: list[DeedCall],
         stated_area_sq_ft: float = 0.0,
         closure_tolerance_ft: float | None = None,
+        double_entry_calls: list[DeedCall] | None = None,
     ) -> ClosureResult:
         """Verify traverse closure and perform all validation checks.
 
@@ -34,6 +35,7 @@ class ClosureChecker:
             calls: List of DeedCall objects
             stated_area_sq_ft: Stated area from deed (optional, for comparison)
             closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft)
+            double_entry_calls: Optional independently-entered call set for guardrail F
 
         Returns:
             ClosureResult with all checks and computed values
@@ -93,6 +95,11 @@ class ClosureChecker:
         # Check parallelism
         parallel_warnings = cls.check_parallelism(calls)
         warnings.extend(parallel_warnings)
+
+        # Guardrail F: optional double-entry comparison
+        if double_entry_calls is not None:
+            discrepancies = cls.compare_double_entry(calls, double_entry_calls)
+            warnings.extend(f"Double-entry discrepancy: {discrepancy}" for discrepancy in discrepancies)
 
         # Check area reasonableness
         if stated_area_sq_ft > 0:
