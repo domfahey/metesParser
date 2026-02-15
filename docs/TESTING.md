@@ -1,6 +1,6 @@
 # Testing Guide
 
-Comprehensive guide to the metesParser test suite (297 tests as of 2026-02-15).
+Comprehensive guide to the metesParser test suite (300 tests as of 2026-02-15).
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ Comprehensive guide to the metesParser test suite (297 tests as of 2026-02-15).
 ## Overview
 
 The test suite ensures correctness of metes & bounds parsing with:
-- **297 function-level tests** across unit, integration, regression, e2e, and PDF categories (as of 2026-02-15)
+- **300 function-level tests** across unit, integration, regression, and e2e categories (as of 2026-02-15)
 - **Shared fixtures** for common test scenarios (squares, rectangles, curves)
 - **Parametrized tests** to reduce duplication
 - **Custom markers** for selective test execution
@@ -27,12 +27,11 @@ The test suite ensures correctness of metes & bounds parsing with:
 
 | Category | Tests | Files | Purpose |
 |----------|-------|-------|---------|
-| Unit | 232 | 14 | Individual module testing |
-| Integration (Text) | 17 | 1 | End-to-end text pipeline |
-| Integration (PDF) | 2 | 2 | Full PDF + pipeline contract checks |
+| Unit | 251 | 15 | Individual module testing |
+| Integration | 21 | 3 | End-to-end text/PDF/pipeline integration |
 | Regression | 26 | 1 | Bug fix validation |
 | E2E | 2 | 1 | End-to-end CLI workflows |
-| **Total** | **297** | **19** | Full coverage |
+| **Total** | **300** | **20** | Full coverage |
 
 ## Test Organization
 
@@ -47,22 +46,24 @@ tests/
 │   └── sample_deeds.py      # Legal description samples
 ├── unit/                    # Fast, isolated tests
 │   ├── test_bearing_converter.py     # 30 tests
-│   ├── test_bugs_closure_tdd.py      # 4 tests
+│   ├── test_bugs_closure_tdd.py      # 6 tests
 │   ├── test_bugs_integration_tdd.py   # 8 tests
 │   ├── test_bugs_parser_tdd.py        # 11 tests
-│   ├── test_bugs_remaining_tdd.py     # 4 tests
+│   ├── test_bugs_remaining_tdd.py     # 5 tests
 │   ├── test_call_extractor.py         # 19 tests
-│   ├── test_cli.py                    # 12 tests
-│   ├── test_closure_checker.py        # 32 tests
+│   ├── test_cli.py                    # 15 tests
+│   ├── test_closure_checker.py        # 37 tests
 │   ├── test_llm_clients.py            # 9 tests
-│   ├── test_open_bugs_tdd.py          # 3 tests
-│   ├── test_pdf_processor_coverage.py # 4 tests
+│   ├── test_open_bugs_tdd.py          # 9 tests
+│   ├── test_pdf_processor_coverage.py # 7 tests
 │   ├── test_pdf_processor_llm.py      # 8 tests
 │   ├── test_pydantic_guardrails.py    # 15 tests
+│   ├── test_phase1_foundation.py      # 14 tests
 │   └── test_text_parser.py            # 54 tests
 ├── integration/             # End-to-end tests
 │   ├── test_integration.py           # 17 tests (text-based)
 │   ├── test_pdf_processing.py        # 2 tests (PDF pipeline)
+│   └── test_pipeline_contracts.py     # 2 tests (pipeline contracts)
 │   └── test_pipeline_contracts.py     # 2 tests (pipeline contracts)
 ├── e2e/                     # End-to-end CLI tests
 │   └── test_cli_end_to_end.py        # 2 tests (CLI contract workflow)
