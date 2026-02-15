@@ -108,7 +108,11 @@ def test_extract_sample_deeds_report_shows_zero_azimuth_and_runtime_timestamp(
 
     assert "Source PDF: example.pdf" in report_lines
     assert any(line == "Azimuth:         0.00°" for line in report_lines)
-    date_line = next(line for line in report.splitlines() if line.startswith("Date Extracted: "))
+    date_lines = [
+        line for line in report.splitlines() if line.startswith("Date Extracted: ")
+    ]
+    assert len(date_lines) == 1
+    date_line = date_lines[0]
     timestamp = date_line.removeprefix("Date Extracted: ").strip()
     datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
 
