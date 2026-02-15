@@ -90,8 +90,7 @@ class TestStandardizeCardinalDirections:
         """Normalize spacing with seconds."""
         text = "S 45 ° 30 ' 15 \" W"
         result = TextParser.standardize_cardinal_directions(text)
-        # Accept either escaped or unescaped double quote
-        assert "S 45°30'15\" W" in result or "S 45°30'15\\\" W" in result
+        assert "S 45°30'15\" W" in result
 
 
 class TestExtractPOB:

@@ -97,6 +97,8 @@ class Test31PennbrookParcel:
         for call in calls:
             if call.bearing_quadrant:
                 assert call.bearing_azimuth_deg_from_north is not None
+            else:
+                assert call.bearing_azimuth_deg_from_north is None
 
         # Verify closure calculation works (even if it doesn't close)
         result = ClosureChecker.verify_closure(calls)
@@ -172,7 +174,7 @@ class TestIncompleteBearings:
 
         # Second call should be incomplete
         assert calls[1].bearing_azimuth_deg_from_north is None
-        assert "incomplete" in calls[1].notes.lower() or "cardinal" in calls[1].notes.lower()
+        assert calls[1].notes == "incomplete bearing - cardinal only"
 
 
 class TestCurveIntegration:

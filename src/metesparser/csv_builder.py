@@ -7,11 +7,57 @@ import csv
 from pathlib import Path
 
 import structlog
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError, field_validator
 
 from .models import ClosureResult, DeedCall, LegalDescription
 
 logger = structlog.get_logger(__name__)
+
+
+class _CSVDeedCallRow(BaseModel):
+    """Validated CSV row shape before building a strict DeedCall."""
+
+    course: int
+    direction_text: str
+    bearing_quadrant: str | None = None
+    bearing_azimuth_deg_from_north: float | None = None
+    distance_ft: float
+    curve_dir: str | None = None
+    radius_ft: float | None = None
+    delta_deg: float | None = None
+    arc_length_ft: float | None = None
+    chord_bearing: str | None = None
+    chord_length_ft: float | None = None
+    along: str | None = None
+    to: str | None = None
+    monument_type: str | None = None
+    is_exception: bool = False
+    non_tangent: bool = False
+    radial_bearing: str | None = None
+    notes: str | None = None
+
+    @field_validator("is_exception", "non_tangent", mode="before")
+    @classmethod
+    def _normalize_bool_fields(cls, value: object) -> bool:
+        if value is None:
+            return False
+
+        if isinstance(value, bool):
+            return value
+
+        if isinstance(value, (int, float)):
+            if value in (0, 1):
+                return bool(value)
+            raise ValueError("flag must be boolean-like")
+
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"", "false", "0", "no", "n", "off"}:
+                return False
+            if normalized in {"true", "1", "yes", "y", "on"}:
+                return True
+
+        raise ValueError("flag must be boolean-like")
 
 
 class CSVBuilder:
@@ -195,7 +241,11 @@ class CSVBuilder:
             normalized_row = {k: (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
             normalized_row = {k: (None if v == "" else v) for k, v in normalized_row.items()}
 
-            return DeedCall.model_validate(normalized_row, strict=False)
+            csv_row = _CSVDeedCallRow.model_validate(normalized_row)
+            normalized_payload = csv_row.model_dump()
+            normalized_payload["is_exception"] = bool(csv_row.is_exception)
+            normalized_payload["non_tangent"] = bool(csv_row.non_tangent)
+            return DeedCall.model_validate(normalized_payload, strict=True)
 
         except (KeyError, TypeError, ValueError, ValidationError) as e:
             row_label = row_number if row_number is not None else "unknown"

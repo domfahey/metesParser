@@ -63,7 +63,7 @@ class TestHighBug3MinutesRounding:
         # Should not contain "60'" anywhere
         assert "60'" not in result
         # Should either be 46° or have valid seconds
-        assert ("46°" in result) or ("45°59'" in result and "59" in result)
+        assert result.startswith("N 46°") or result.startswith("N 45°59'")
 
     def test_call_extractor_handles_rounding(self):
         """CallExtractor should handle minutes rounding edge case."""
