@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Full History Backfill (all commits in repository)
 
+- b1c8a20 (2026-02-15): fix: add optional double-entry verification and align docs
+- a65f076 (2026-02-15): feat: Phase 1 foundation — units, monuments, precision ratio, non-tangent fields
+- 932b19f (2026-02-15): chore: commit pending repository updates
+- 0af774c (2026-02-15): docs: fourth-pass audit fixes for metes and bounds reference
+- 25d6f65 (2026-02-15): docs: third-pass audit fixes for metes and bounds reference
+- 9360462 (2026-02-15): docs: second-pass audit fixes for metes and bounds reference
+- f8f41ef (2026-02-15): docs: normalize bugs metadata and status summary
+- 50ff7ae (2026-02-15): docs: apply audit fixes to metes and bounds reference
+- 343abd8 (2026-02-15): test: add bug-33 regression and mark bugs.md closed
+- 46b49a5 (2026-02-15): fix: repair call extractor distance regex
+- 15217a6 (2026-02-15): docs: sync changelog and testing docs with recent history
+- dede9d9 (2026-02-15): docs: backfill changelog and update test suite docs
+- a7f4edd (2026-02-15): test: normalize e2e and pipeline contract assertions
+- bb6c531 (2026-02-15): test: tighten e2e csv row contract assertions
+- 2f5b3bb (2026-02-15): test: tighten warning and discrepancy assertions
+- f05ce7b (2026-02-15): test: tighten warning contract assertions
+- fe58737 (2026-02-15): test: tighten OCR extraction expectations
+- 2183e72 (2026-02-15): test: strengthen pydantic guardrail and integration assertions
+- 0f9d2b8 (2026-02-15): docs: audit README for accuracy against current codebase
 - 435a638 (2026-02-15): test: harden CLI and LLM client exception assertions
 - aaf51f6 (2026-02-15): docs: add Prosser presentation content to metes and bounds reference
 - 770b908 (2026-02-15): docs: sync bugs audit status with current fixes
