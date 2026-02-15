@@ -344,6 +344,13 @@ class CallExtractor:
             re.IGNORECASE,
         )
         if apostrophe_match:
+            prefix = text[: apostrophe_match.end()]
+            if re.search(
+                r"\b(?:NORTH|SOUTH|N|S)\s+\d{1,3}\s+\d+(?:\.\d+)?\s*\x27\s*$",
+                prefix,
+                re.IGNORECASE,
+            ):
+                return 0.0
             return float(apostrophe_match.group(1))
 
         return 0.0
