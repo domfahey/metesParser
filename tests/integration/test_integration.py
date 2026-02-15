@@ -158,6 +158,7 @@ class TestIncompleteBearings:
         # Should warn about incomplete bearings
         assert len(result.warnings) > 0
         assert any("incomplete" in w.lower() for w in result.warnings)
+        assert any("1 call" in w and "incomplete" in w.lower() for w in result.warnings)
 
         # Should not be fully verified
         assert result.is_fully_verified() is False
@@ -441,7 +442,7 @@ class TestRealWorldScenarios:
         result = ClosureChecker.verify_closure(calls, stated_area_sq_ft=10000.0)
 
         # Should match (no warning)
-        assert not any("area" in w.lower() and "differ" in w.lower() for w in result.warnings)
+        assert result.warnings == []
 
     def test_very_small_parcel(self):
         """Test very small parcel (10 ft × 10 ft)."""

@@ -757,7 +757,7 @@ class TestAreaReasonableness:
         result = ClosureChecker.verify_closure(calls, stated_area_sq_ft=10000.0)
 
         # Should not have area warning
-        assert not any("area" in w.lower() for w in result.warnings)
+        assert result.warnings == []
 
     def test_area_mismatch_warning(self):
         """Computed area differs significantly from stated (warning)."""
@@ -793,6 +793,7 @@ class TestAreaReasonableness:
 
         # Should have warning about area difference
         assert any("area" in w.lower() and "differ" in w.lower() for w in result.warnings)
+        assert any("Computed area differs from stated" in w for w in result.warnings)
 
 
 class TestIncompleteBearingWarning:
@@ -820,6 +821,7 @@ class TestIncompleteBearingWarning:
 
         # Should warn about incomplete bearings
         assert any("incomplete" in w.lower() for w in result.warnings)
+        assert any("1 call" in w and "incomplete" in w.lower() for w in result.warnings)
 
 
 class TestDoubleEntryValidation:
