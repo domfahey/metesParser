@@ -52,7 +52,7 @@ def test_main_with_unknown_command_exits_with_error(monkeypatch):
     monkeypatch.setattr(sys, "argv", ["metesparser", "unknown"])
     with pytest.raises(SystemExit) as exc:
         cli.main()
-    assert exc.value.code == 1
+    assert exc.value.code == 2
 
 
 def test_main_dispatches_extract(monkeypatch, tmp_path):

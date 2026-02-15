@@ -49,3 +49,37 @@ def test_create_client_raises_value_error_for_client_error(monkeypatch):
     monkeypatch.setattr("metesparser.pdf_processor.OpenAIClient", FailingClient)
     with pytest.raises(ValueError, match="broken provider"):
         PDFProcessor(provider="openai")
+
+
+def test_load_prompt_raises_file_not_found():
+    class DummyClient:
+        pass
+
+    processor = PDFProcessor(client=DummyClient())
+
+    with pytest.raises(FileNotFoundError, match="Prompt file not found for 'does_not_exist'"):
+        processor._load_prompt("does_not_exist")
+
+
+def test_load_prompt_raises_on_non_mapping_yaml(tmp_path):
+    class DummyClient:
+        pass
+
+    processor = PDFProcessor(client=DummyClient())
+    processor.prompts_dir = tmp_path
+
+    (tmp_path / "bad_prompt.yaml").write_text("[]")
+
+    with pytest.raises(ValueError, match="did not contain a mapping"):
+        processor._load_prompt("bad_prompt")
+
+
+def test_extract_calls_ai_raises_for_non_list_calls():
+    class InvalidCallsClient:
+        def generate_text(self, prompt: str, response_mime_type: str | None = None):
+            return '{"calls": "string"}'
+
+    processor = PDFProcessor(client=InvalidCallsClient())
+
+    with pytest.raises(ValueError, match="malformed calls payload"):
+        processor.extract_calls_ai("text")
