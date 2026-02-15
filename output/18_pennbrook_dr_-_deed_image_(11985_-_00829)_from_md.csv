@@ -1,0 +1,6 @@
+course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,is_exception,non_tangent,radial_bearing,notes
+1,southwesterly,,,50.00,,,,,,,,,,false,false,,incomplete bearing - cardinal only
+2,"S 33°20'00"" E",S 33°20' E,146.666667,60.00,,,,,,,"Southwesterly line of Concord Drive, 60 feet",a point in the division line between Lots 46 and 47 on plan hereinafter mentioned,,false,false,,
+3,"S 56°40'00"" W",S 56°40' W,236.666667,125.00,,,,,,,said division line 125 feet to point corner,Lot 50 said plan,,false,false,,
+4,"N 33°20'00"" W",N 33°20' W,326.666667,60.00,,,,,,,"said Lot 50, 60 feet",Southeasterly line of Pennbrook Drive,,false,false,,
+5,"N 56°40'00"" E",N 56°40' E,56.666667,125.00,,,,,,,"said Southeasterly line of Pennbrook Drive, 125 feet to the point and place of beginning. THE ABOVE DESCRIBED tract or parcel of land and premises being described according",a Survey of Premises made by Walter H,,false,false,,

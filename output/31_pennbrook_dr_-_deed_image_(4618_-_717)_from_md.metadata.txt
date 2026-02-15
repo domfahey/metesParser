@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+pob_description: a point in the Northerly line of Pennbrook Drive distant 310 feet Ewardly from the Northeasterly corner of Pennbrook Drive and Greenmount Road, said beginning point being in the division line between Lots Nos
+source_doc: 31 Pennbrook Dr - Deed Image (4618 - 717).pdf.md
+distance_unit: feet

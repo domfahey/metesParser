@@ -1,0 +1,5 @@
+course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,is_exception,notes
+1,"S 71°15'50"" E",S 71°16' E,108.736111,50.00,,,,,,,"said line from a point in the southeasterly line of Greenwood Road, 50 feet wide, and described as follows: 1. S 71°15'50"" E along the northeasterly line of Pennbrook Drive, a distance of 32.75 feet",an angle point,,false,
+2,"N 8°26'35"" E",N 8°27' E,8.443056,120.00,,,,,,,"said line, a distance of 120.00 feet",a point,,false,
+3,"N 81°33'25"" W",N 81°33' W,278.443056,32.75,,,,,,,,a point,,false,
+4,"S 8°26'35"" W",S 8°27' W,188.443056,120.00,,,,,,,,the point and place of beginning,,false,

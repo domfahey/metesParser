@@ -1,0 +1,7 @@
+course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,is_exception,notes
+1,"S 71°15'55"" E",S 71°16' E,108.734722,36.00,,,,,,,"the northeasterly line of Pennbrook Drive, a distance of 32.25 feet",an angle point,,false,
+2,"N 86°43'30"" E",N 86°44' E,86.725000,115.75,,,,,,,"the northerly line of Pennbrook Drive, a distance of 115.75 feet",a point in line of Lot 124,,false,
+3,"N 3°44'30"" W",N 3°44' W,356.258333,200.88,,,,,,,,a point,,false,
+4,"N 53°36'28"" W",N 53°36' W,306.392222,36.35,,,,,,,,a point in line of Lot 119,,false,
+5,"S 59°52'19"" W",S 59°52' W,239.871944,208.68,,,,,,,,a point in the northeasterly line of Pennbrook Drive,,false,
+6,"S 18°44'05"" E",S 18°44' E,161.265278,74.40,,,,,,,"said line, a distance of 74.40 feet",the point and place of beginning,,false,

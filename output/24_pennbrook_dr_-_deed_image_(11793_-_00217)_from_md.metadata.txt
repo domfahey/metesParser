@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+pob_description: a point in the southerly line of Pennbrook Drive 125 feet southwestwardly from the southwesterly line of Concord Drive
+source_doc: 24 Pennbrook Dr - Deed Image (11793 - 00217).pdf.md
+distance_unit: feet

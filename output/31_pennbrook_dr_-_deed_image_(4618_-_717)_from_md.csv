@@ -1,0 +1,6 @@
+course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,is_exception,non_tangent,radial_bearing,notes
+1,"S 71°53'10"" E",S 71°53' E,108.113889,23.67,,,,,,,the Northerly line of Pennbrook Drive 23.67 feet,an angle in same,,false,false,,
+2,"N 87°07'30"" E",N 87°08' E,87.125000,125.26,,,,,,,the Northerly line of Pennbrook Drive 125.26 feet,another angle in same,,false,false,,
+3,"N 56°40'00"" E",N 56°40' E,56.666667,36.39,,,,,,,,a point in the division line between Lots Nos,,false,false,,
+4,"Northwestwardly along the rear line of Lots Nos. 58 and 59, 60 and partly along 61, said plan, 208.80 feet to corner to Lot No. 56, said plan",,,208.80,,,,,,,"the rear line of Lots Nos. 58 and 59, 60 and partly along 61, said plan, 208.80 feet to corner",Lot No,,false,false,,incomplete bearing
+5,"S 18°06'50"" W",S 18°07' W,198.113889,203.45,,,,,,,"the division line between Lots Nos. 56 and 57, said plan, 203.45 feet",point and place of beginning,,false,false,,
