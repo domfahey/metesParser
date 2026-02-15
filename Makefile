@@ -17,6 +17,8 @@ OFFLINE ?= 0
 UV_SYNC_ARGS ?= --all-extras --dev
 UV_SYNC_ARGS_MINIMAL ?= --no-dev
 UV_SYNC_ARGS_DEV ?= --all-extras --dev
+# Set to 1 to fail doctor when provider endpoints are unreachable.
+DOCTOR_REQUIRE_CONNECTIVITY ?= 0
 
 # Default target when running `make` with no args.
 .DEFAULT_GOAL := help
@@ -119,10 +121,71 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 		echo "Run 'make install' to install required tool dependencies."; \
 		exit 1; \
 	fi
+	@echo "Checking UV cache directory..."
+	@if [ ! -d "$(UV_CACHE_DIR)" ]; then \
+		mkdir -p "$(UV_CACHE_DIR)" || { echo "ERROR: unable to create UV cache directory: $(UV_CACHE_DIR)"; exit 1; }; \
+		echo "✓ created UV cache directory $(UV_CACHE_DIR)"; \
+	fi
+	@cache_check_file="$(UV_CACHE_DIR)/.doctor-write-test"; \
+	echo "test" > "$$cache_check_file" || { echo "ERROR: cannot write to UV cache directory: $(UV_CACHE_DIR)"; exit 1; }; \
+	rm -f "$$cache_check_file"
+	@echo "✓ UV cache directory is writable: $(UV_CACHE_DIR)"
 	@if [ -f .env ]; then \
 		echo "✓ .env file present"; \
 	else \
 		echo "WARN: .env file missing; run 'make dev-setup' or copy from .env.example"; \
+	fi
+	@if [ -f .env ]; then \
+		echo "Loading .env values for validation..."; \
+		set -a; . ./.env; set +a; \
+	else \
+		echo "INFO: continuing with current shell environment only"; \
+	fi
+	@provider="$${METESPARSER_LLM_PROVIDER:-openai}"; \
+	if [ -z "$$provider" ]; then \
+		provider="openai"; \
+	fi; \
+	case "$$provider" in \
+		openai|gemini) \
+			echo "✓ METESPARSER_LLM_PROVIDER=$$provider"; \
+			;; \
+		*) \
+			echo "ERROR: unsupported METESPARSER_LLM_PROVIDER=$$provider"; \
+			echo "Expected: openai or gemini"; \
+			exit 1; \
+			;; \
+	esac; \
+	if [ "$$provider" = "openai" ]; then \
+		if [ -z "$$OPENAI_API_KEY" ]; then \
+			echo "ERROR: OPENAI_API_KEY is required when provider is openai"; \
+			exit 1; \
+		fi; \
+		echo "✓ OPENAI_API_KEY is set"; \
+		provider_url="https://api.openai.com"; \
+	else \
+		if [ -z "$$GEMINI_API_KEY" ]; then \
+			echo "ERROR: GEMINI_API_KEY is required when provider is gemini"; \
+			exit 1; \
+		fi; \
+		echo "✓ GEMINI_API_KEY is set"; \
+		provider_url="https://generativelanguage.googleapis.com"; \
+	fi; \
+	echo "Checking network connectivity to $$provider provider endpoint..."; \
+	connectivity_ok=1; \
+	if command -v curl >/dev/null 2>&1; then \
+		if curl -sS -m 6 -o /dev/null "$$provider_url" >/dev/null; then \
+			echo "✓ provider endpoint reachable: $$provider_url"; \
+		else \
+			echo "ERROR: cannot reach $$provider_url from this environment (possible DNS/network restriction)."; \
+			connectivity_ok=0; \
+		fi; \
+	else \
+		echo "ERROR: curl not installed; cannot verify provider endpoint reachability."; \
+		connectivity_ok=0; \
+	fi; \
+	if [ "$$connectivity_ok" -eq 0 ] && [ "$(DOCTOR_REQUIRE_CONNECTIVITY)" = "1" ]; then \
+		echo "Set DOCTOR_REQUIRE_CONNECTIVITY=0 to allow doctor to pass without outbound connectivity."; \
+		exit 1; \
 	fi
 	@echo "✓ Doctor checks complete"
 
