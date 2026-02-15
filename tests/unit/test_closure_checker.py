@@ -268,13 +268,9 @@ class TestClosureVerification:
 
         result = ClosureChecker.verify_closure(calls)
 
-        assert any("exception calls" in warning.lower() for warning in result.warnings)
-        assert any(
-            "exception" in warning.lower()
-            and "area" in warning.lower()
-            and "subtract" in warning.lower()
-            for warning in result.warnings
-        )
+        assert result.warnings == [
+            "Found 3 exception calls - calculating exception area to subtract"
+        ]
 
     def test_exception_tract_incomplete_warning_is_emitted(self):
         """Incomplete exception bearings should be reported and still handled."""
@@ -314,13 +310,11 @@ class TestClosureVerification:
 
         result = ClosureChecker.verify_closure(calls)
 
-        assert any("exception tract has" in warning.lower() for warning in result.warnings)
-        assert any(
-            "exception" in warning.lower()
-            and "cannot" in warning.lower()
-            and "area" in warning.lower()
-            for warning in result.warnings
-        )
+        assert result.warnings == [
+            "Found 1 exception calls - calculating exception area to subtract",
+            "Cannot calculate exception area: Cannot calculate area with 1 points (need at least 3)",
+            "Exception tract has 1 incomplete bearing(s)",
+        ]
 
 
 class TestAreaCalculation:
@@ -654,7 +648,9 @@ class TestParallelismCheck:
         result = ClosureChecker.verify_closure(calls)
 
         # Should have warning about bearing mismatch
-        assert any("continuing" in w.lower() for w in result.warnings)
+        assert result.warnings == [
+            "Course 2: 'continuing' line but bearing differs from previous (45.0° difference)"
+        ]
 
 
 class TestCurveConsistency:
@@ -792,8 +788,9 @@ class TestAreaReasonableness:
         result = ClosureChecker.verify_closure(calls, stated_area_sq_ft=5000.0)
 
         # Should have warning about area difference
-        assert any("area" in w.lower() and "differ" in w.lower() for w in result.warnings)
-        assert any("Computed area differs from stated" in w for w in result.warnings)
+        assert result.warnings == [
+            "Computed area differs from stated by 100.0% (computed: 10000.0 sq ft, stated: 5000.0 sq ft)"
+        ]
 
 
 class TestIncompleteBearingWarning:
@@ -820,8 +817,10 @@ class TestIncompleteBearingWarning:
         result = ClosureChecker.verify_closure(calls)
 
         # Should warn about incomplete bearings
-        assert any("incomplete" in w.lower() for w in result.warnings)
-        assert any("1 call" in w and "incomplete" in w.lower() for w in result.warnings)
+        assert result.warnings == [
+            "Cannot calculate area: Cannot calculate area with 2 points (need at least 3)",
+            "1 call(s) have incomplete bearings (cardinal-only or meanders)",
+        ]
 
 
 class TestDoubleEntryValidation:
@@ -868,7 +867,7 @@ class TestDoubleEntryValidation:
         discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
 
         assert len(discrepancies) > 0
-        assert any("bearing" in d.lower() for d in discrepancies)
+        assert discrepancies == ["Course 1: Bearing mismatch - 'N 45° E' vs 'N 50° E'"]
 
     def test_distance_mismatch(self):
         """Different distances should be flagged."""
@@ -886,7 +885,7 @@ class TestDoubleEntryValidation:
         discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
 
         assert len(discrepancies) > 0
-        assert any("distance" in d.lower() for d in discrepancies)
+        assert discrepancies == ["Course 1: Distance mismatch - 100.00 vs 105.00"]
 
     def test_different_call_count(self):
         """Different number of calls should be flagged."""
@@ -916,7 +915,7 @@ class TestDoubleEntryValidation:
         discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
 
         assert len(discrepancies) > 0
-        assert any("number of calls" in d.lower() for d in discrepancies)
+        assert discrepancies == ["Different number of calls: 1 vs 2"]
 
     def test_curve_direction_and_radius_mismatches(self):
         """Curve-specific mismatches should be detected."""
@@ -945,8 +944,10 @@ class TestDoubleEntryValidation:
 
         discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
 
-        assert any("curve direction mismatch" in d.lower() for d in discrepancies)
-        assert any("radius mismatch" in d.lower() for d in discrepancies)
+        assert discrepancies == [
+            "Course 1: Curve direction mismatch",
+            "Course 1: Radius mismatch - 50.00 vs 55.00",
+        ]
 
 
 class TestClosureSummary:
@@ -1050,7 +1051,7 @@ class TestClosureSummary:
         summary = ClosureChecker.get_closure_summary(result)
 
         assert "Warnings (" in summary
-        assert any(line.strip().startswith("-") for line in summary.splitlines())
+        assert "  - 1 call(s) have incomplete bearings (cardinal-only or meanders)" in summary
 
 
 class TestIsFullyVerified:

@@ -157,8 +157,7 @@ class TestIncompleteBearings:
 
         # Should warn about incomplete bearings
         assert len(result.warnings) > 0
-        assert any("incomplete" in w.lower() for w in result.warnings)
-        assert any("1 call" in w and "incomplete" in w.lower() for w in result.warnings)
+        assert result.warnings == ["1 call(s) have incomplete bearings (cardinal-only or meanders)"]
 
         # Should not be fully verified
         assert result.is_fully_verified() is False
