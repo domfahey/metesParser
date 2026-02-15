@@ -41,18 +41,22 @@ def _not_verified_result() -> ClosureResult:
     )
 
 
-def test_main_with_no_command_exits_gracefully(monkeypatch):
+def test_main_with_no_command_exits_gracefully(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["metesparser"])
     with pytest.raises(SystemExit) as exc:
         cli.main()
     assert exc.value.code == 0
+    captured = capsys.readouterr()
+    assert "usage:" in (captured.out + captured.err)
 
 
-def test_main_with_unknown_command_exits_with_error(monkeypatch):
+def test_main_with_unknown_command_exits_with_error(monkeypatch, capsys):
     monkeypatch.setattr(sys, "argv", ["metesparser", "unknown"])
     with pytest.raises(SystemExit) as exc:
         cli.main()
     assert exc.value.code == 2
+    captured = capsys.readouterr()
+    assert "invalid choice" in (captured.out + captured.err)
 
 
 def test_main_dispatches_extract(monkeypatch, tmp_path):
@@ -91,7 +95,7 @@ def test_main_dispatches_verify(monkeypatch, tmp_path):
     assert called == [(str(csv), 2500.0)]
 
 
-def test_main_rejects_export_command(monkeypatch, tmp_path):
+def test_main_rejects_export_command(monkeypatch, tmp_path, capsys):
     csv = tmp_path / "calls.csv"
     csv.write_text("course,direction_text,distance_ft\n")
 
@@ -100,6 +104,8 @@ def test_main_rejects_export_command(monkeypatch, tmp_path):
         cli.main()
 
     assert exc.value.code == 2
+    captured = capsys.readouterr()
+    assert "invalid choice" in (captured.out + captured.err)
 
 
 def test_extract_command_handles_missing_pdf_path():

@@ -204,5 +204,5 @@ def test_gemini_client_re_raises_non_retryable_client_error(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     client = GeminiClient(model="gemini-2.5-pro", fallback_model=None)
 
-    with pytest.raises(client_error):
+    with pytest.raises(client_error, match="client 400"):
         client.generate_text("hello")
