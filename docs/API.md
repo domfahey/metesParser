@@ -166,6 +166,7 @@ call = DeedCall(
     distance_ft=125.0,
     along="the division line",
     to="an iron pin",
+    monument_type="iron_pin",
     notes=None
 )
 
@@ -186,6 +187,7 @@ result = ClosureResult(
     area_sq_ft=10000.0,
     area_acres=0.2296,
     perimeter_ft=400.0,
+    precision_ratio=0.0,  # misclosure / perimeter
     closure_passed=True,
     angle_check_passed=True,
     curve_consistency_passed=True,

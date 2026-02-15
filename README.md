@@ -19,15 +19,15 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 - 🔁 **POB Closure Detection** - Identifies calls that close back to Point of Beginning
 - 📍 **POC vs POB Distinction** - Separates Point of Commencement (survey reference) from Point of Beginning (parcel boundary)
 - 🚫 **Never Fabricates Data** - Flags incomplete bearings, never invents numbers
-- 🔄 **Unit Conversion** - Supports feet, poles, rods, chains
+- 🔄 **Unit Conversion** - Supports feet, poles, rods, chains, varas, arpents, toises, furlongs, meters, miles, engineer chains/links
 
 ## Recent Updates
 
+- **Phase 1 Foundation**: 8 new distance units (varas, arpents, toises, furlongs, meters, miles, engineer chains/links), 6 new monument types, `precision_ratio` on `ClosureResult`, and `non_tangent`/`radial_bearing` on `DeedCall`.
 - Reference docs gained prosser/metes-and-bounds content updates and BLM module additions from recent sessions.
 - Gemini LLM provider support added alongside OpenAI (`--llm-provider gemini`).
 - Pydantic guardrails tightened for curve and numeric inputs with comprehensive TDD coverage.
 - End-to-end CLI and pipeline-contract tests validate full extraction/verification workflows.
-- CLI and LLM client exception assertions, and report/date parsing edge-case assertions were hardened.
 - Ground truth JSON files stored alongside each sample PDF in `sample_deeds/` for replayable extraction checks.
 - `make check` runs the full quality gate (`lint`, `format`, `type`, `test`) in one command.
 
@@ -182,7 +182,7 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite currently runs 300 tests organized by type (as of 2026-02-15):
+The test suite currently runs 368 tests organized by type (as of 2026-02-15):
 
 ```bash
 # Run all tests (unit + integration + e2e + regression)
@@ -256,8 +256,10 @@ along,to,monument_type,is_exception,notes
 ```
 
 **New Fields:**
-- `monument_type`: Classified survey marker type (iron_rod, iron_pin, iron_pipe, stone, concrete, wooden_post, brass_cap, rebar, railroad_spike, nail, other)
+- `monument_type`: Classified survey marker type (iron_rod, iron_pin, iron_pipe, stone, concrete, wooden_post, brass_cap, rebar, railroad_spike, nail, pk_nail, hub_and_tack, monitoring_well, capped_pin, capped_rod, txdot_monument, other)
 - `is_exception`: Boolean indicating if this call is part of an EXCEPT clause
+- `non_tangent`: Boolean flag for non-tangent curves
+- `radial_bearing`: Radial bearing for non-tangent curves
 
 ## Bearing Convention
 
@@ -277,6 +279,14 @@ Azimuth = degrees clockwise from North (0-360°):
 | 1 pole/rod/perch | 16.5 ft |
 | 1 chain | 66 ft |
 | 1 link | 0.66 ft |
+| 1 vara | 2.778 ft (Texas) |
+| 1 arpent | 191.8 ft (French colonial) |
+| 1 toise | 6.395 ft |
+| 1 furlong | 660 ft |
+| 1 meter | 3.28084 ft |
+| 1 mile | 5,280 ft |
+| 1 engineer chain | 100 ft |
+| 1 engineer link | 1.0 ft |
 | 1 acre | 43,560 sq ft |
 
 ## Core Principles
@@ -303,11 +313,11 @@ metesParser/
 │   ├── llm_clients.py
 │   └── cli.py
 ├── prompts/                     # Prompt YAML files
-├── tests/                       # Pytest test suite (300 tests as of 2026-02-15)
+├── tests/                       # Pytest test suite (368 tests as of 2026-02-15)
 │   ├── conftest.py              # Shared fixtures
 │   ├── helpers.py               # Test utilities
 │   ├── fixtures/                # Sample legal descriptions
-│   ├── unit/                    # Unit tests (15 files)
+│   ├── unit/                    # Unit tests (15 files, 301 tests)
 │   ├── integration/             # Integration tests
 │   ├── e2e/                     # End-to-end CLI tests
 │   └── regression/              # Bug fix tests
