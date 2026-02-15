@@ -119,7 +119,7 @@ def test_read_pdf_reads_bytes(tmp_path):
 
 
 def test_read_pdf_raises_when_missing():
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError, match="PDF not found at missing.pdf"):
         _read_pdf("missing.pdf")
 
 
