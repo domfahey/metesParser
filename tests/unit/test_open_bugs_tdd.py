@@ -81,3 +81,8 @@ def test_extract_poc_detects_pob_abbreviation() -> None:
 def test_principal_meridian_keeps_multiword_name() -> None:
     metadata = TextParser.extract_plss_metadata("in Mount Diablo Principal Meridian")
     assert metadata["principal_meridian"] == "Mount Diablo Principal Meridian"
+
+
+def test_ocr_style_dms_minutes_not_parsed_as_apostrophe_distance() -> None:
+    value = CallExtractor.extract_distance_alternate("N 45 30' along the north line")
+    assert value == 0.0

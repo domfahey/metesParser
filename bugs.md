@@ -8,7 +8,7 @@
 ## Status Update (2026-02-15)
 - Baseline audit tickets `#1-24` are marked `fixed`.
 - Recent tickets `#25-34` were re-audited on 2026-02-15.
-- Open tickets: `#33` (OCR no-degree-symbol minute apostrophe can be misread as distance).
+- Open tickets: none.
 - Verification gates passed after the baseline fixes: `make check` and full test suite.
 
 
@@ -271,7 +271,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Parse minute/second textual tokens as decimal degrees.
 
 ### 33) OCR/no-degree DMS apostrophe can be misread as distance feet
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-15)
 - **Severity:** `medium`
 - **Reproducibility:** `intermittent`
 - **Location:** `src/metesparser/call_extractor.py` (`CallExtractor.extract_distance_alternate`)
