@@ -4,11 +4,15 @@ Exports structured calls to the standard CSV schema defined in the playbook.
 """
 
 import csv
+import logging
 from pathlib import Path
 
 from pydantic import ValidationError
 
 from .models import ClosureResult, DeedCall, LegalDescription
+
+
+logger = logging.getLogger(__name__)
 
 
 class CSVBuilder:
@@ -162,15 +166,17 @@ class CSVBuilder:
         with open(input_path) as f:
             reader = csv.DictReader(f)
 
-            for row in reader:
-                call = cls._row_to_call(row)
+            for row_number, row in enumerate(reader, start=2):
+                call = cls._row_to_call(row, row_number=row_number)
                 if call:
                     calls.append(call)
 
         return calls
 
     @classmethod
-    def _row_to_call(cls, row: dict[str, str | None]) -> DeedCall | None:
+    def _row_to_call(
+        cls, row: dict[str, str | None], row_number: int | None = None
+    ) -> DeedCall | None:
         """Convert a CSV row to a DeedCall object.
 
         Args:
@@ -187,7 +193,8 @@ class CSVBuilder:
             return DeedCall.model_validate(normalized_row, strict=False)
 
         except (KeyError, TypeError, ValueError, ValidationError) as e:
-            print(f"Error parsing CSV row: {e}")
+            row_label = row_number if row_number is not None else "unknown"
+            logger.warning("Skipping invalid CSV row %s: %s", row_label, e)
             return None
 
     @classmethod

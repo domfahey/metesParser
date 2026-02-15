@@ -51,7 +51,7 @@ class _Model(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         str_strip_whitespace=True,
-        validate_assignment=True,
+        validate_assignment=False,
     )
 
 
@@ -139,7 +139,7 @@ class DeedCall(_Model):
         if value is None:
             return None
         if not isinstance(value, str):
-            raise TypeError("Curve/monument values must be strings")
+            raise ValueError("Curve/monument values must be strings")
         normalized = value.strip().lower()
         return normalized or None
 
@@ -177,44 +177,26 @@ class DeedCall(_Model):
     @field_validator("radius_ft", mode="before")
     @classmethod
     def _normalize_radius(cls, value: float | int | str | None) -> float | None:
-        """Normalize radius to positive; zero is rejected."""
+        """Ensure radius is numeric and non-zero."""
         if value is None:
             return None
         radius = float(value)
         if radius == 0:
             raise ValueError("radius_ft must be non-zero")
-        return abs(radius)
+        return radius
 
-    @model_validator(mode="before")
-    @classmethod
-    def normalize_curve_radius_sign(cls, values: dict[str, object]) -> dict[str, object]:
-        """Normalize negative curve radii to positive for left curves and validate sign."""
-        radius_value = values.get("radius_ft")
-        curve_dir = values.get("curve_dir")
+    @model_validator(mode="after")
+    def normalize_curve_radius_sign(self) -> "DeedCall":
+        """Normalize negative radii based on curve direction."""
+        if self.radius_ft is None or self.radius_ft >= 0:
+            return self
 
-        if radius_value is None:
-            return values
-
-        if not isinstance(radius_value, (int, float, str)):
-            return values
-
-        try:
-            radius_value = float(radius_value)
-        except (TypeError, ValueError):
-            return values
-
-        if radius_value >= 0:
-            return values
-
-        if not isinstance(curve_dir, str):
-            return values
-
-        curve_direction = curve_dir.strip().lower()
-        if curve_direction == "left":
-            values["radius_ft"] = abs(radius_value)
-        elif curve_direction == "right":
+        if self.curve_dir == "left":
+            return self.model_copy(update={"radius_ft": abs(self.radius_ft)})
+        if self.curve_dir == "right":
             raise ValueError("radius_ft sign conflicts with curve_dir")
-        return values
+
+        return self
 
     @model_validator(mode="after")
     def validate_curve_geometry(self) -> "DeedCall":
