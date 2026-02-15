@@ -23,9 +23,11 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 
 ## Recent Updates
 
+- Reference docs gained prosser/metes-and-bounds content updates and BLM module additions from recent sessions.
 - Gemini LLM provider support added alongside OpenAI (`--llm-provider gemini`).
 - Pydantic guardrails tightened for curve and numeric inputs with comprehensive TDD coverage.
 - End-to-end CLI and pipeline-contract tests validate full extraction/verification workflows.
+- CLI and LLM client exception assertions, and report/date parsing edge-case assertions were hardened.
 - Ground truth JSON files stored alongside each sample PDF in `sample_deeds/` for replayable extraction checks.
 - `make check` runs the full quality gate (`lint`, `format`, `type`, `test`) in one command.
 
@@ -180,7 +182,7 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite currently runs about 290 tests organized by type:
+The test suite currently runs about 280+ tests organized by type:
 
 ```bash
 # Run all tests (unit + integration + e2e + regression)
@@ -301,11 +303,11 @@ metesParser/
 │   ├── llm_clients.py
 │   └── cli.py
 ├── prompts/                     # Prompt YAML files
-├── tests/                       # Pytest test suite (~290 tests)
+├── tests/                       # Pytest test suite (~280+ tests)
 │   ├── conftest.py              # Shared fixtures
 │   ├── helpers.py               # Test utilities
 │   ├── fixtures/                # Sample legal descriptions
-│   ├── unit/                    # Unit tests (13 files)
+│   ├── unit/                    # Unit tests (14 files)
 │   ├── integration/             # Integration tests
 │   ├── e2e/                     # End-to-end CLI tests
 │   └── regression/              # Bug fix tests

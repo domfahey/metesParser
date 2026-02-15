@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Full History Backfill (all commits in repository)
 
+- 435a638 (2026-02-15): test: harden CLI and LLM client exception assertions
+- aaf51f6 (2026-02-15): docs: add Prosser presentation content to metes and bounds reference
+- 770b908 (2026-02-15): docs: sync bugs audit status with current fixes
+- 6a6ab37 (2026-02-15): test: assert missing-pdf error message for read_pdf
+- 1aad945 (2026-02-15): docs: enrich metes and bounds reference with BLM Module 3 content
+- e64a09a (2026-02-15): test: harden date extraction assertion in report parsing test
+- dec07c0 (2026-02-15): fix: resolve prioritized open bugs with tdd
+- 1624137 (2026-02-15): docs: audit and reprioritize open bug tickets
 - 78c1a8f (2026-02-15): test: add e2e and integration coverage for CLI and pipeline contracts
 - c6a78bf (2026-02-15): test: strengthen guardrail assertions and integration checks
 - 51f2ba2 (2026-02-15): test: strengthen guardrail and coverage effectiveness assertions
