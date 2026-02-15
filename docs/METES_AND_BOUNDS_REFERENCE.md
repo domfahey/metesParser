@@ -111,7 +111,7 @@ The body of the description — a sequential series of courses, each specifying:
 
 The final course returns to the Point of Beginning:
 
-> "thence South 33°19'30" East 75.00 feet to the point and place of BEGINNING."
+> "thence North 33°19'30" West 75.00 feet to the point and place of BEGINNING."
 
 ### 2.8 Area Statement
 
@@ -413,7 +413,7 @@ In some contexts, existing infrastructure serves as survey monuments even though
 - **Monitoring wells**: Environmental monitoring well casings used as angle points, common on former military bases and environmental remediation sites (e.g., "a point occupied by monitoring well MW8-15")
 - **Utility structures**: Power poles, fire hydrants, manholes
 - **Transportation markers**: TxDOT concrete monuments along highway rights-of-way, mile markers, centerline markers
-- **Reference bearings to offset monuments**: When the actual corner is inaccessible, a nearby monument is referenced with a bearing and distance (e.g., "from said point, a TxDOT Type I concrete monument found bears S 58°17'05\" E, 167.32 feet")
+- **Reference bearings to offset monuments**: When the actual corner is inaccessible, a nearby monument is referenced with a bearing and distance (e.g., "from said point, a TxDOT Type I concrete monument found bears S 58°17'05" E, 167.32 feet")
 
 ### 6.4 Monument Language in Deeds
 
@@ -1025,7 +1025,7 @@ For each course:
   dx = distance × sin(azimuth)    (departure / easting)
   dy = distance × cos(azimuth)    (latitude / northing)
 
-Misclosure = √(Σdx² + Σdy²)
+Misclosure = √((Σdx)² + (Σdy)²)
 ```
 
 A well-surveyed modern parcel should close to within 0.01 feet or better. Older surveys may have larger misclosures.
