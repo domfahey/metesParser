@@ -6,8 +6,9 @@
 - Added a triage metadata checklist to make each bug easier to verify and close.
 
 ## Status Update (2026-02-15)
-- All 24 audited bug tickets are now marked `fixed`.
-- Verification gates passed after fixes: `make check` and full test suite.
+- Baseline audit tickets `#1-24` are marked `fixed`.
+- New tickets `#25-32` remain `open` and are triaged below with checklist metadata.
+- Verification gates passed after the baseline fixes: `make check` and full test suite.
 
 
 ## Triage Metadata Checklist
@@ -178,7 +179,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Impact:** Valid zero-deflection curve records are over-traversed (understated geometry) while perimeter logic can still add the call distance, producing inconsistent closure and area outcomes.
 - **Suggested fix:** In curve traversal, treat `delta_deg = 0` as straight-line movement (distance from `distance_ft`) or explicitly document and validate that such records are unsupported.
 
-## Low
+## Low (Fixed)
 
 ### 23) Zero-valued azimuths are hidden as missing in script outputs
 - **Status:** `fixed` (verified 2026-02-15)
@@ -194,16 +195,100 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Impact:** The field reflects file metadata timing/mutation rather than a deterministic extraction timestamp.
 - **Suggested fix:** Write a runtime `datetime.now(timezone.utc)` stamp at report generation time.
 
+## Open
+
 ### 25) Export CLI command is advertised but always fails
 - **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
 - **Location:** `src/metesparser/cli.py` (`export_command`, `main`)
-- **Issue:** The CLI exposes an `export` subcommand with `--format` flags, but it immediately exits with a hard failure (`"Export functionality not yet implemented"`).
+- **Minimal input:** `metesparser export calls.csv --format geojson`
+- **Expected behavior:** Export command should either run successfully or not be advertised as an available command.
+- **Actual behavior:** CLI exits with `"Export functionality not yet implemented"` and status code `1`.
 - **Impact:** Users cannot export calls to GeoJSON/KML via CLI even though the interface advertises support.
+- **Suggested test:** CLI integration test that `export` is either hidden/disabled or produces a valid output file.
 - **Suggested fix:** Either remove/disable the command in the interface or implement export pipeline and tests for both formats.
 
 ### 26) Perimeter undercounts zero-deflection curve calls
 - **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
 - **Location:** `src/metesparser/closure_checker.py` (`calculate_perimeter`)
-- **Issue:** For `is_curve()` calls where `arc_length_ft = 0.0` (e.g., `delta_deg == 0`), perimeter always adds arc length and ignores the line distance.
+- **Minimal input:** One curve call with `delta_deg=0.0`, `arc_length_ft=0.0`, and positive `distance_ft`.
+- **Expected behavior:** Perimeter should use the effective traveled distance (`distance_ft`) when angular deflection is effectively zero.
+- **Actual behavior:** `calculate_perimeter` adds `arc_length_ft` whenever curve fields are present, yielding `0.0` for zero-deflection curves.
 - **Impact:** Perimeter becomes smaller than actual geometric movement when traversal falls back to straight-line distance, creating closure/perimeter inconsistency.
+- **Suggested test:** Unit test asserting perimeter equals straight-line distance for a zero-deflection curve call.
 - **Suggested fix:** Mirror traversal behavior and use `distance_ft` when angular deflection is effectively zero.
+
+### 27) PLSS township parser treats many SOUTH entries as NORTH
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/text_parser.py` (`extract_plss_metadata`)
+- **Minimal input:** `Township 15 South`
+- **Expected behavior:** Township parses as `15 S`.
+- **Actual behavior:** Township parses as `15 N` because direction logic checks `"N" in township_match.group(0)`.
+- **Impact:** SOUTH township metadata can be silently flipped to NORTH.
+- **Suggested test:** Unit tests for `Township 15 South`, `T15S`, `Township 15 North`, and `T15N`.
+- **Suggested fix:** Parse direction from an anchored direction capture group and compare complete direction tokens only.
+
+### 28) POC extraction misses explicit `POB` abbreviations
+- **Status:** `open`
+- **Severity:** `low`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/text_parser.py` (`extract_poc`)
+- **Minimal input:** `COMMENCING at A; THENCE ... to the POB; THENCE ...`
+- **Expected behavior:** `extract_poc` should return the commencement text before `POB`.
+- **Actual behavior:** `extract_poc` returns `""` because `pob_pattern` only matches `point of beginning` / `beginning`.
+- **Impact:** Descriptions with `POB` abbreviation can lose distinct POC metadata.
+- **Suggested test:** Unit test covering both `point of beginning` and `POB` variants.
+- **Suggested fix:** Include `POB` in `pob_pattern` while preserving ordering checks.
+
+### 29) Principal meridian parser truncates multi-word names
+- **Status:** `open`
+- **Severity:** `low`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/text_parser.py` (`extract_plss_metadata`)
+- **Minimal input:** `Mount Diablo Principal Meridian`
+- **Expected behavior:** Meridian parses as `Mount Diablo Principal Meridian`.
+- **Actual behavior:** Regex `(\\w+)` captures only one token, producing `Diablo Principal Meridian`.
+- **Impact:** Multi-word meridian names are truncated in PLSS metadata.
+- **Suggested test:** Unit tests for `Mount Diablo`, `San Bernardino`, and single-word meridians.
+- **Suggested fix:** Expand meridian regex to capture full token sequences before the meridian marker.
+
+### 30) Closure status ignores warning context
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/models.py` (`ClosureResult.get_closure_status`)
+- **Minimal input:** `ClosureResult` with `misclosure_ft=0.001` and non-empty `warnings`.
+- **Expected behavior:** Status should reflect that warnings are present (for example a dedicated `NEEDS_REVIEW` state).
+- **Actual behavior:** `get_closure_status()` derives status only from `misclosure_ft` and can return `"EXCELLENT"` despite warnings.
+- **Impact:** Operators may treat warned results as fully healthy.
+- **Suggested test:** Unit test asserting warning-bearing closure results do not report top-tier status.
+- **Suggested fix:** Include warning-aware state in status classification when `warnings` is non-empty.
+
+### 31) Unknown distance units silently default to feet
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/models.py` (`ConversionFactors.convert_to_feet`)
+- **Minimal input:** `ConversionFactors.convert_to_feet(10.0, "fott")`
+- **Expected behavior:** Unsupported units should raise or propagate a hard validation failure.
+- **Actual behavior:** Unknown units fall through to factor `1.0` and are treated as feet.
+- **Impact:** Typos/OCR corruption can silently corrupt measured distances.
+- **Suggested test:** Unit test expecting failure on unsupported units.
+- **Suggested fix:** Raise `ValueError` for unsupported units or return an explicit parse failure path.
+
+### 32) Curve parser ignores degree-minute text tokens
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/call_extractor.py` (`CallExtractor.extract_curve_info`)
+- **Minimal input:** `delta angle of 90 degrees 30 minutes`
+- **Expected behavior:** Delta should normalize to `90.5` degrees.
+- **Actual behavior:** Parser captures only `90.0` and ignores textual `minutes` tokens.
+- **Impact:** Arc/chord geometry can be understated by up to `0.5°` in affected descriptions.
+- **Suggested test:** Unit test for degree+minute textual curve delta parsing.
+- **Suggested fix:** Extend delta parsing to support explicit `minutes` and `seconds` tokens.
