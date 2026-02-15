@@ -31,13 +31,10 @@ class TextParser:
 
         text_upper = text.upper()
 
-        # Extract Section
         section_match = re.search(r"\bSECTION\s+(\d+)\b", text_upper)
         if section_match:
             plss_data["section"] = section_match.group(1)
 
-        # Extract Township (various formats)
-        # "Township 15 North" or "T15N" or "T. 15 N."
         township_match = re.search(
             r"\b(?:TOWNSHIP|T\.?)\s*(\d+)\s*(NORTH|N\.?|SOUTH|S\.?)\b", text_upper
         )
@@ -47,8 +44,6 @@ class TextParser:
             direction = "N" if direction_token.startswith("N") else "S"
             plss_data["township"] = f"{township_num} {direction}"
 
-        # Extract Range (various formats)
-        # "Range 3 East" or "R3E" or "R. 3 E."
         range_match = re.search(
             r"\b(?:RANGE|R\.?)\s*(\d+)\s*(EAST|E\.?|WEST|W\.?)\b", text_upper
         )
@@ -58,8 +53,6 @@ class TextParser:
             direction = "W" if direction_token.startswith("W") else "E"
             plss_data["range"] = f"{range_num} {direction}"
 
-        # Extract Principal Meridian
-        # Common meridians: Willamette, San Bernardino, Mount Diablo, etc.
         pm_patterns = [
             r"\b(?:IN\s+|THE\s+)?([A-Z]+(?:\s+[A-Z]+){0,4})\s+PRINCIPAL\s+MERIDIAN\b",
             r"\b(?:IN\s+|THE\s+)?([A-Z]+(?:\s+[A-Z]+){0,4})\s+P\.?M\.?\b",
@@ -71,12 +64,9 @@ class TextParser:
                 plss_data["principal_meridian"] = f"{meridian_name} Principal Meridian"
                 break
 
-        # Extract Aliquot (e.g., "SW 1/4 of NE 1/4")
-        # Pattern: cardinal direction + fraction "of" cardinal direction + fraction...
         aliquot_pattern = r"\b((?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\s+OF\s+(?:THE\s+)?)+(?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\b"
         aliquot_match = re.search(aliquot_pattern, text_upper)
         if aliquot_match:
-            # Normalize fractions
             aliquot_text = aliquot_match.group(0)
             aliquot_text = aliquot_text.replace("½", "1/2").replace("¼", "1/4")
             plss_data["aliquot"] = aliquot_text
@@ -95,13 +85,10 @@ class TextParser:
         Returns:
             Text with standardized DMS symbols
         """
-        # Replace common degree symbol variants
         text = re.sub(r"[°º\u00B0\u00BA]", "°", text)
 
-        # Replace minute symbols
         text = re.sub(r"[''\u2018\u2019`]", "'", text)
 
-        # Replace second symbols
         text = re.sub(r"[" "\u201c\u201d]", '"', text)
 
         return text
@@ -119,10 +106,8 @@ class TextParser:
         Returns:
             Text with wrapped calls merged
         """
-        # Replace hyphenated line breaks
         text = re.sub(r"-\s*\n\s*", "", text)
 
-        # Merge lines that don't start with THENCE/BEGINNING/FROM
         lines = text.split("\n")
         merged = []
         current = ""
@@ -132,13 +117,11 @@ class TextParser:
             if not stripped:
                 continue
 
-            # If line starts with keyword, it's a new call
             if re.match(r"^(THENCE|BEGINNING|FROM|POB|POINT)", stripped, re.IGNORECASE):
                 if current:
                     merged.append(current)
                 current = stripped
             else:
-                # Continue previous line
                 if current:
                     current += " " + stripped
                 else:
@@ -161,24 +144,19 @@ class TextParser:
         Returns:
             Text with standardized cardinal directions
         """
-        # Standardize common patterns
         patterns: list[tuple[str, str | Callable[[Match[str]], str]]] = [
-            # South 87 degrees 7 minutes 30 seconds West -> S 87°7'30" W (with seconds)
             (
                 r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
                 lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0]}",
             ),
-            # South 56 degrees 40 minutes West -> S 56°40' W (without seconds)
             (
                 r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(North|South|East|West)\b",
                 lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}' {m.group(4)[0]}",
             ),
-            # North 45 degrees East -> N 45° E
             (
                 r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(North|South|East|West)\b",
                 lambda m: f"{m.group(1)[0]} {m.group(2)}° {m.group(3)[0]}",
             ),
-            # Normalize spacing when seconds are present (keeps lambda output tidy)
             (
                 r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])",
                 "\\1 \\2°\\3'\\4\" \\5",
@@ -202,7 +180,6 @@ class TextParser:
         Returns:
             POB description string
         """
-        # Look for BEGINNING/POB/POINT OF BEGINNING
         pob_patterns = [
             r"BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
             r"POB\s+at\s+(.*?)(?:\.|;|THENCE)",
@@ -227,8 +204,6 @@ class TextParser:
         Returns:
             True if text indicates returning to POB, False otherwise
         """
-        # Patterns for closure to POB (must be at/near end of text)
-        # Use \b for word boundaries and require "to" keyword
         closure_patterns = [
             r"\bto\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",  # to [the] [point of] beginning
             r"\bto\s+(?:the\s+)?POB\b",  # to [the] POB
@@ -240,8 +215,6 @@ class TextParser:
         text_lower = text.lower()
 
         for pattern in closure_patterns:
-            # Must be in last 60 characters (near end of call)
-            # to avoid matching "from the point of beginning" at start
             last_part = text_lower[-60:] if len(text_lower) > 60 else text_lower
             if re.search(pattern, last_part, re.IGNORECASE):
                 return True
@@ -262,18 +235,13 @@ class TextParser:
         Returns:
             POC description string (empty if no separate POC found)
         """
-        # Look for COMMENCING or STARTING patterns that occur BEFORE "POINT OF BEGINNING"
-        # This indicates a separate POC from POB
         pob_pattern = r"\b(?:point\s+of\s+beginning|beginning|POB)\b"
 
-        # Check if there's a "POINT OF BEGINNING" later in the text
         has_later_pob = bool(re.search(pob_pattern, text, re.IGNORECASE))
 
         if not has_later_pob:
-            # No separate POB found, so no distinct POC
             return ""
 
-        # Extract POC patterns that come before POB
         poc_patterns = [
             r"COMMENCING\s+at\s+(.*?)(?:;|THENCE)",
             r"STARTING\s+at\s+(.*?)(?:,|;|THENCE)",
@@ -282,14 +250,11 @@ class TextParser:
         for pattern in poc_patterns:
             match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
             if match:
-                # Verify this comes before "POINT OF BEGINNING"
                 poc_text = match.group(1).strip()
                 poc_end_pos = match.end()
 
-                # Find position of POB
                 pob_match = re.search(pob_pattern, text[poc_end_pos:], re.IGNORECASE)
                 if pob_match:
-                    # POC comes before POB - this is a valid POC
                     return poc_text
 
         return ""
@@ -416,19 +381,15 @@ class TextParser:
         Returns:
             Cleaned text
         """
-        # Fix "5outh" -> "South", "NOrth" -> "North", etc. FIRST
-        # This must run before degree symbol fixes so we can handle both formats
+        # Handle common OCR character substitutions.
         text = re.sub(r"\b5outh\b", "South", text, flags=re.IGNORECASE)
         text = re.sub(r"\bNOrth\b", "North", text, flags=re.IGNORECASE)
         text = re.sub(r"\bEa5t\b", "East", text, flags=re.IGNORECASE)
         text = re.sub(r"\bWe5t\b", "West", text, flags=re.IGNORECASE)
 
-        # Fix common degree symbol OCR errors
-        # "S 56 0 40' W" -> "S 56°40' W" (0 mistaken for degree symbol)
+        # Convert OCR artifacts in bearing notation.
         text = re.sub(r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4", text)
 
-        # Also handle full cardinal names: "South 56 0 40' West" -> "South 56 degrees 40 minutes West"
-        # This allows standardize_cardinal_directions to convert it properly
         text = re.sub(
             r"\b(North|South)\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*(East|West)\b",
             r"\1 \2 degrees \3 minutes \4",
@@ -448,7 +409,6 @@ class TextParser:
         Returns:
             Normalized text
         """
-        # Normalization pipeline: OCR cleanup -> symbol normalization -> line merge -> cardinal standardization.
         text = cls.clean_ocr_errors(text)
         text = cls.normalize_dms_symbols(text)
         text = cls.merge_line_wrapped_calls(text)
@@ -632,7 +592,6 @@ class TextParser:
         """
         text_lower = text.lower()
 
-        # Text keyword detection takes priority
         if "varas" in text_lower or "vara" in text_lower:
             return "varas"
         if "chains and links" in text_lower:
@@ -640,7 +599,6 @@ class TextParser:
         if "arpents" in text_lower or "arpent" in text_lower:
             return "arpents"
 
-        # State/year heuristics
         if state == "TX" and year is not None and year < 1900:
             return "varas"
         if state == "LA":

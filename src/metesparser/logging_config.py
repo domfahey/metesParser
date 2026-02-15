@@ -46,9 +46,10 @@ def configure_logging(
         debug: Enable debug-friendly options (DEBUG level + callsite metadata).
         stream: Optional stream override for tests.
     """
-    resolved_level = _normalize_level(level or os.getenv("METESPARSER_LOG_LEVEL", _DEFAULT_LEVEL))
+    resolved_level_value: str | None = level or os.getenv("METESPARSER_LOG_LEVEL")
+    resolved_level = _normalize_level(resolved_level_value or _DEFAULT_LEVEL)
     resolved_format = _normalize_format(
-        log_format or os.getenv("METESPARSER_LOG_FORMAT", _DEFAULT_FORMAT)
+        (log_format or os.getenv("METESPARSER_LOG_FORMAT")) or _DEFAULT_FORMAT
     )
 
     if debug:
