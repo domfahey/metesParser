@@ -253,3 +253,67 @@ class TestCalculateConfidenceScore:
         result = _make_closure_result()
         score = ClosureChecker.calculate_confidence_score(result, [])
         assert score == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Step 4: Pipeline wiring + get_closure_summary tests
+# ---------------------------------------------------------------------------
+
+
+class TestVerifyClosurePopulatesConfidence:
+    """verify_closure() should populate confidence_score on the result."""
+
+    def test_verify_closure_sets_confidence_score(self) -> None:
+        calls = [
+            _make_call(course=1, bearing_azimuth_deg_from_north=0.0,
+                       direction_text="N 0° E"),
+            _make_call(course=2, bearing_azimuth_deg_from_north=90.0,
+                       direction_text="N 90° E"),
+            _make_call(course=3, bearing_azimuth_deg_from_north=180.0,
+                       direction_text="S 0° E"),
+            _make_call(course=4, bearing_azimuth_deg_from_north=270.0,
+                       direction_text="N 90° W"),
+        ]
+        result = ClosureChecker.verify_closure(calls)
+        assert result.confidence_score is not None
+        assert 0.0 <= result.confidence_score <= 1.0
+
+
+class TestGetClosureSummaryEnhancements:
+    """get_closure_summary() should include confidence score and precision ratio."""
+
+    def test_summary_includes_confidence_score(self) -> None:
+        result = _make_closure_result(confidence_score=0.85)
+        summary = ClosureChecker.get_closure_summary(result)
+        assert "Confidence: 0.85" in summary
+
+    def test_summary_includes_precision_ratio(self) -> None:
+        result = _make_closure_result(
+            misclosure_ft=0.004,
+            perimeter_ft=1000.0,
+            precision_ratio=0.000004,
+        )
+        summary = ClosureChecker.get_closure_summary(result)
+        assert "Precision: 1:" in summary
+
+    def test_summary_omits_precision_when_none(self) -> None:
+        result = _make_closure_result(precision_ratio=None)
+        summary = ClosureChecker.get_closure_summary(result)
+        assert "Precision:" not in summary
+
+    def test_summary_includes_per_call_quality(self) -> None:
+        """When calls are provided, summary should include quality breakdown."""
+        calls = [
+            _make_call(course=1, quality="high"),
+            _make_call(course=2, quality="medium", monument_type="wooden_post"),
+            _make_call(course=3, quality="low", bearing_azimuth_deg_from_north=None),
+        ]
+        result = _make_closure_result(confidence_score=0.7)
+        summary = ClosureChecker.get_closure_summary(result, calls=calls)
+        assert "Quality Breakdown:" in summary
+        assert "high" in summary.lower()
+
+    def test_summary_without_calls_omits_quality_breakdown(self) -> None:
+        result = _make_closure_result(confidence_score=0.9)
+        summary = ClosureChecker.get_closure_summary(result)
+        assert "Quality Breakdown:" not in summary

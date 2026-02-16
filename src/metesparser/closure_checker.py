@@ -137,7 +137,7 @@ class ClosureChecker:
                     f"Exception tract has {len(exception_incomplete)} incomplete bearing(s)"
                 )
 
-        return ClosureResult(
+        closure_result = ClosureResult(
             misclosure_x_ft=misclosure_x,
             misclosure_y_ft=misclosure_y,
             misclosure_ft=misclosure,
@@ -151,6 +151,9 @@ class ClosureChecker:
             points=points,
             precision_ratio=misclosure / perimeter if perimeter else None,
         )
+
+        confidence = cls.calculate_confidence_score(closure_result, calls)
+        return closure_result.model_copy(update={"confidence_score": confidence})
 
     @classmethod
     def compute_traverse(
@@ -640,11 +643,16 @@ class ClosureChecker:
         return discrepancies
 
     @classmethod
-    def get_closure_summary(cls, result: ClosureResult) -> str:
+    def get_closure_summary(
+        cls,
+        result: ClosureResult,
+        calls: list[DeedCall] | None = None,
+    ) -> str:
         """Generate a human-readable closure summary.
 
         Args:
             result: ClosureResult object
+            calls: Optional list of DeedCall objects for per-call quality breakdown
 
         Returns:
             Formatted summary string
@@ -656,9 +664,18 @@ class ClosureChecker:
         summary.append(f"Misclosure: {result.misclosure_ft:.4f} ft ({result.get_closure_status()})")
         summary.append(f"  X: {result.misclosure_x_ft:.4f} ft")
         summary.append(f"  Y: {result.misclosure_y_ft:.4f} ft")
+
+        if result.precision_ratio is not None and result.precision_ratio > 0:
+            ratio_inv = round(1.0 / result.precision_ratio)
+            summary.append(f"  Precision: 1:{ratio_inv:,}")
+
         summary.append("")
         summary.append(f"Area: {result.area_sq_ft:,.2f} sq ft ({result.area_acres:.4f} acres)")
         summary.append(f"Perimeter: {result.perimeter_ft:,.2f} ft")
+
+        if result.confidence_score is not None:
+            summary.append(f"Confidence: {result.confidence_score:.2f}")
+
         summary.append("")
         summary.append("Verification Checks:")
         summary.append(f"  Closure: {'PASS' if result.closure_passed else 'FAIL'}")
@@ -672,6 +689,18 @@ class ClosureChecker:
                 summary.append(f"  - {warning}")
         else:
             summary.append("No warnings.")
+
+        if calls:
+            quality_counts = {"high": 0, "medium": 0, "low": 0}
+            for call in calls:
+                q = call.quality or cls.score_call_quality(call)
+                quality_counts[q] += 1
+            summary.append("")
+            summary.append("Quality Breakdown:")
+            for level in ("high", "medium", "low"):
+                count = quality_counts[level]
+                if count > 0:
+                    summary.append(f"  {level}: {count} call(s)")
 
         summary.append("")
         summary.append(
