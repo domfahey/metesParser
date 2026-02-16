@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
+from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
 from typing import Any, cast
@@ -13,16 +15,20 @@ import structlog
 import yaml  # type: ignore[import-untyped]
 
 from .llm_clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
-from .models import ConversionFactors, DistanceUnit, LegalDescription
+from .models import (
+    PRIOR_CONVEYANCE_SIGNALS,
+    AuditContext,
+    ConversionFactors,
+    DistanceUnit,
+    ExtractionRecord,
+    LegalDescription,
+    RunMetadata,
+)
 
 logger = structlog.get_logger(__name__)
 
 _PRIOR_CONVEYANCE_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(r"BEING the same premises", re.IGNORECASE),
-    re.compile(r"previously conveyed", re.IGNORECASE),
-    re.compile(r"derived from", re.IGNORECASE),
-    re.compile(r"by deed dated", re.IGNORECASE),
-    re.compile(r"recorded in Book", re.IGNORECASE),
+    re.compile(signal, re.IGNORECASE) for signal in PRIOR_CONVEYANCE_SIGNALS
 ]
 
 
@@ -165,8 +171,17 @@ class PDFProcessor:
 
         return cast(list[dict[str, Any]], calls)
 
-    def process_deed_pdf(self, pdf_path: str) -> LegalDescription:
-        """Process a deed PDF and return structured LegalDescription."""
+    def process_deed_pdf(
+        self, pdf_path: str, *, audit: bool = False
+    ) -> LegalDescription | tuple[LegalDescription, AuditContext]:
+        """Process a deed PDF and return structured LegalDescription.
+
+        Args:
+            pdf_path: Path to the deed PDF file.
+            audit: When True, return ``(LegalDescription, AuditContext)``
+                with full pipeline provenance.  Defaults to False (returns
+                ``LegalDescription`` only, preserving existing behaviour).
+        """
         from .call_extractor import CallExtractor
         from .text_parser import TextParser
 
@@ -208,8 +223,20 @@ class PDFProcessor:
                 )
         processing_logger.info("Distance unit resolved", distance_unit=distance_unit)
 
+        # -- Build audit context early so it can be threaded through pipeline --
+        ctx: AuditContext | None = None
+        if audit:
+            ctx = self._build_audit_context(
+                pdf_path=pdf_path,
+                legal_desc_text=legal_desc_text,
+                normalized_text=normalized_text,
+                distance_unit=distance_unit,
+            )
+
         processing_logger.info("Extracting calls")
-        calls = CallExtractor.extract_calls(normalized_text, distance_unit=distance_unit)
+        calls = CallExtractor.extract_calls(
+            normalized_text, distance_unit=distance_unit, audit_context=ctx
+        )
 
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
 
@@ -257,7 +284,157 @@ class PDFProcessor:
 
         processing_logger.info("Extracted calls", count=legal_desc.num_calls())
 
-        return legal_desc
+        if not audit:
+            return legal_desc
+
+        assert ctx is not None  # guaranteed when audit=True
+        return legal_desc, ctx
+
+    # -- Audit helpers ----------------------------------------------------------
+
+    def _build_audit_context(
+        self,
+        *,
+        pdf_path: str,
+        legal_desc_text: str,
+        normalized_text: str,
+        distance_unit: DistanceUnit,
+    ) -> AuditContext:
+        """Build an ``AuditContext`` populated with run metadata and extraction record."""
+        import metesparser  # noqa: PLW0406 – local import to read __version__
+
+        from .llm_cache import CachedLLMClient
+
+        # Determine LLM provider name from client type
+        inner = self._unwrap_client(self.client)
+        if isinstance(inner, OpenAIClient):
+            llm_provider = "openai"
+        elif isinstance(inner, GeminiClient):
+            llm_provider = "gemini"
+        else:
+            llm_provider = "unknown"
+
+        llm_model = self._get_model_name()
+
+        # Compute prompt hash from normalize_text prompt template content
+        prompt_hash = self._compute_prompt_hash("normalize_text")
+
+        log_level = os.getenv("LOG_LEVEL", "INFO")
+
+        run_metadata = RunMetadata(
+            parser_version=metesparser.__version__,
+            llm_provider=llm_provider,
+            llm_model=llm_model,
+            prompt_hash=prompt_hash,
+            timestamp_utc=datetime.now(UTC),
+            source_pdf=Path(pdf_path).name,
+            cache_enabled=isinstance(self.client, CachedLLMClient),
+            config={
+                "closure_tolerance_ft": 0.01,
+                "distance_unit": distance_unit,
+                "log_level": log_level,
+            },
+        )
+
+        ctx = AuditContext(run_metadata=run_metadata)
+
+        # Compute LLM confidence on the normalized text
+        llm_confidence, confidence_signals = self._compute_llm_confidence(normalized_text)
+
+        ctx.extraction_record = ExtractionRecord(
+            raw_llm_response=legal_desc_text,
+            normalized_text=normalized_text,
+            llm_confidence=llm_confidence,
+            confidence_signals=confidence_signals,
+        )
+
+        return ctx
+
+    def _get_model_name(self) -> str:
+        """Return the LLM model name from the underlying client."""
+        inner = self._unwrap_client(self.client)
+        model: object = getattr(inner, "model", None)
+        if isinstance(model, str):
+            return model
+        return "unknown"
+
+    def _compute_prompt_hash(self, prompt_name: str) -> str:
+        """Return SHA-256 hex digest of a prompt template's content."""
+        try:
+            prompt_config = self._load_prompt(prompt_name)
+            content = yaml.dump(prompt_config, sort_keys=True)
+            return hashlib.sha256(content.encode()).hexdigest()
+        except FileNotFoundError:
+            return "unknown"
+
+    @staticmethod
+    def _compute_llm_confidence(text: str) -> tuple[float, dict[str, bool]]:
+        """Score the quality of extracted legal description text.
+
+        Returns ``(confidence, signals)`` where *confidence* is 0.0-1.0
+        and *signals* maps signal names to their boolean results.
+
+        Heuristic signals (7 total, weighted):
+        - has_pob (+0.20)
+        - has_bearing_calls (+0.20)
+        - has_closure_language (+0.15)
+        - has_distances (+0.15)
+        - text_length_reasonable (+0.10)
+        - has_plss (+0.10)
+        - no_garbled_chars (+0.10)
+        """
+        has_pob = bool(
+            re.search(r"(?:POINT\s+OF\s+BEGINNING|BEGINNING\s+at|POB)\b", text, re.IGNORECASE)
+        )
+
+        bearing_matches = re.findall(r"(?:North|South|[NS])\s+\d+\s+degrees?", text, re.IGNORECASE)
+        has_bearing_calls = len(bearing_matches) >= 3
+
+        has_closure_language = bool(
+            re.search(
+                r"(?:POINT\s+OF\s+BEGINNING|place\s+of\s+beginning)\s*(?:[.;]|\s*$)",
+                text,
+                re.IGNORECASE,
+            )
+        )
+
+        has_distances = bool(re.search(r"\d+\.\d+\s+(?:feet|ft)", text, re.IGNORECASE))
+
+        text_length_reasonable = 50 < len(text) < 50_000
+
+        has_plss = bool(re.search(r"(?:Section|Township|Range)", text, re.IGNORECASE))
+
+        # Non-ASCII ratio excluding common surveying symbols
+        allowed_non_ascii = set("\u00b0\u2032\u2033\u2018\u2019\u201c\u201d\u2013\u2014")
+        non_ascii_count = sum(1 for ch in text if ord(ch) > 127 and ch not in allowed_non_ascii)
+        total_chars = max(len(text), 1)
+        no_garbled_chars = (non_ascii_count / total_chars) < 0.05
+
+        signals: dict[str, bool] = {
+            "has_pob": has_pob,
+            "has_bearing_calls": has_bearing_calls,
+            "has_closure_language": has_closure_language,
+            "has_distances": has_distances,
+            "text_length_reasonable": text_length_reasonable,
+            "has_plss": has_plss,
+            "no_garbled_chars": no_garbled_chars,
+        }
+
+        weights: dict[str, float] = {
+            "has_pob": 0.20,
+            "has_bearing_calls": 0.20,
+            "has_closure_language": 0.15,
+            "has_distances": 0.15,
+            "text_length_reasonable": 0.10,
+            "has_plss": 0.10,
+            "no_garbled_chars": 0.10,
+        }
+
+        confidence = sum(weights[k] for k, v in signals.items() if v)
+        # Clamp to [0.0, 1.0] to be safe with floating point
+        confidence = max(0.0, min(1.0, confidence))
+
+        return confidence, signals
 
     @staticmethod
     def _unwrap_client(client: BaseLLMClient) -> BaseLLMClient:

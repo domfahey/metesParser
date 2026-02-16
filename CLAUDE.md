@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
-**Version**: 0.2.0 | **Tests**: ~800 | **Coverage**: ~90%
+**Version**: 0.3.0 | **Tests**: ~860 | **Coverage**: ~90%
 
 ## Critical Architecture Principles
 
@@ -85,9 +85,19 @@ LegalDescription → ClosureChecker.verify_closure() → ClosureResult
   ├─ 8 verification checks
   └─ Area calculation (shoelace formula)
 
-ClosureResult → CSVBuilder.export_verified_csv() → CSV
-  └─ Only exports _verified.csv if all checks pass
+ClosureResult → CSVBuilder.export_verified_csv() → CSV + Audit
+  ├─ Only exports _verified.csv if all checks pass
+  ├─ .audit.json sidecar (if audit_context provided)
+  └─ .audit.html report (if audit_context provided)
 ```
+
+### Audit Sidecar (Optional)
+When `PDFProcessor.process_deed_pdf(audit=True)`, an `AuditContext` threads through the pipeline:
+- **PDFProcessor**: Creates context, captures LLM extraction + confidence scoring (7 heuristic signals)
+- **CallExtractor**: Records source excerpts, transformations, decisions, and per-field confidence
+- **ClosureChecker**: Records verification check results and closure summary
+- **CSVBuilder**: Writes `.audit.json` + `.audit.html` alongside verified CSV
+- **AuditReporter**: Self-contained HTML with collapsible sections, confidence color coding
 
 ### Key Module Responsibilities
 
@@ -95,6 +105,8 @@ ClosureResult → CSVBuilder.export_verified_csv() → CSV
 - `DeedCall`: Single course (bearing, distance, curve data)
 - `LegalDescription`: Complete deed with calls list + metadata
 - `ClosureResult`: Verification results with misclosure and area
+- `AuditContext`: Mutable accumulator for audit trail (NOT frozen — extends `BaseModel` directly)
+- Audit models: `RunMetadata`, `ExtractionRecord`, `CallAudit`, `Transformation`, `Decision`, `CheckResult`, `VerificationAudit`
 
 **bearing_converter.py** - Coordinate math
 - Quadrant bearing ↔ azimuth: `parse_quadrant_bearing()`, `quadrant_to_azimuth()`
@@ -108,6 +120,12 @@ ClosureResult → CSVBuilder.export_verified_csv() → CSV
 - Non-tangent curve detection: `"non-tangent"`, `"radial line bears"` → `non_tangent=True`
 - Never fabricates - returns `None` for incomplete data
 - Preserves verbatim `direction_text`, `along`, `to` fields
+
+**audit_reporter.py** - HTML audit report generation
+- `AuditReporter.generate_html()`: Self-contained HTML from `AuditContext`
+- Embedded CSS, collapsible `<details>` sections, no external dependencies
+- Confidence color coding: green (>=0.8), yellow (0.5-0.8), red (<0.5)
+- XSS prevention via `html.escape()` on all user content
 
 **closure_checker.py** - 8 Verification Checks
 1. Traverse closure (< 0.01 ft)
@@ -170,7 +188,7 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 
 ### Expected Test Output
 ```
-~790 passed
+~860 passed
 ```
 All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`, investigate before committing.
 
@@ -206,12 +224,14 @@ non_tangent,radial_bearing,notes
 ```
 
 **Field notes:**
-- `monument_type`: Auto-classified from "to" field (19 types)
+- `monument_type`: Auto-classified from "to" field (20 types)
 - `monument_status`: "found", "set", or null
 - `is_exception`/`is_meander`/`is_tie_in`/`non_tangent`: Boolean flags (CSV: "true"/"false")
 - `radial_bearing`: String for non-tangent curves, empty string if N/A
 - `is_indefinite`, `curve_type`, `quality`: Model-only fields (not exported to CSV)
 - `precision_ratio`: On `ClosureResult`, not `DeedCall`
+- `confidence_score`: On `ClosureResult`, not exported to CSV
+- `AuditContext`: Separate sidecar output (`.audit.json`), not part of CSV schema
 
 ## Feature Reference
 
@@ -245,6 +265,12 @@ non_tangent,radial_bearing,notes
 | 26 | Call quality scoring | `closure_checker.py` | `score_call_quality()` | high/medium/low based on bearing + monument + flags |
 | 27 | Confidence scoring | `closure_checker.py` | `calculate_confidence_score()` | 0.0–1.0 weighted: closure 30%, checks 20%, bearings 25%, quality 15%, warnings 10% |
 | 28 | Enhanced closure summary | `closure_checker.py` | `get_closure_summary()` | Confidence score, precision ratio (1:N), per-call quality breakdown |
+| 29 | Audit sidecar (JSON) | `csv_builder.py` | `export_verified_csv(audit_context=)` | `.audit.json` alongside verified CSV |
+| 30 | Audit HTML report | `audit_reporter.py` | `AuditReporter.generate_html()` | Self-contained HTML, collapsible sections, confidence colors |
+| 31 | LLM confidence scoring | `pdf_processor.py` | `_compute_llm_confidence()` | 7 weighted heuristic signals, 0.0–1.0 |
+| 32 | Source excerpt capture | `call_extractor.py` | `extract_calls(audit_context=)` | Verbatim call text preserved per course |
+| 33 | Transformation recording | `call_extractor.py` | `_audit_single_call()` | Step-by-step extraction log per field |
+| 34 | Verification audit | `closure_checker.py` | `verify_closure(audit_context=)` | CheckResults + closure_summary in audit trail |
 
 ## Environment Setup
 
