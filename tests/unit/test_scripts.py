@@ -51,12 +51,30 @@ class TestAuditGtVsMdCardinalPattern:
         audit_pattern: re.Pattern[str] = mod.CARDINAL_ONLY_PATTERN
 
         all_forms = [
-            "north", "south", "east", "west",
-            "northeast", "northwest", "southeast", "southwest",
-            "northerly", "southerly", "easterly", "westerly",
-            "northeasterly", "northwesterly", "southeasterly", "southwesterly",
-            "northwardly", "southwardly", "eastwardly", "westwardly",
-            "northeastwardly", "northwestwardly", "southeastwardly", "southwestwardly",
+            "north",
+            "south",
+            "east",
+            "west",
+            "northeast",
+            "northwest",
+            "southeast",
+            "southwest",
+            "northerly",
+            "southerly",
+            "easterly",
+            "westerly",
+            "northeasterly",
+            "northwesterly",
+            "southeasterly",
+            "southwesterly",
+            "northwardly",
+            "southwardly",
+            "eastwardly",
+            "westwardly",
+            "northeastwardly",
+            "northwestwardly",
+            "southeastwardly",
+            "southwestwardly",
         ]
 
         for form in all_forms:
