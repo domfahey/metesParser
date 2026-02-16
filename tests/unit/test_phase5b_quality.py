@@ -69,8 +69,17 @@ class TestModelFields:
 # Step 2: score_call_quality tests
 # ---------------------------------------------------------------------------
 
-PERMANENT_MONUMENTS = {"iron_rod", "iron_pin", "iron_pipe", "concrete", "brass_cap",
-                       "rebar", "capped_pin", "capped_rod", "railroad_spike"}
+PERMANENT_MONUMENTS = {
+    "iron_rod",
+    "iron_pin",
+    "iron_pipe",
+    "concrete",
+    "brass_cap",
+    "rebar",
+    "capped_pin",
+    "capped_rod",
+    "railroad_spike",
+}
 
 
 def _make_call(**overrides) -> DeedCall:
@@ -171,15 +180,24 @@ class TestCalculateConfidenceScore:
         """All checks pass, all bearings complete, permanent monuments."""
         calls = [
             _make_call(course=1, monument_type="iron_pin"),
-            _make_call(course=2, monument_type="iron_rod",
-                       bearing_azimuth_deg_from_north=135.0,
-                       direction_text="S 45° E"),
-            _make_call(course=3, monument_type="concrete",
-                       bearing_azimuth_deg_from_north=225.0,
-                       direction_text="S 45° W"),
-            _make_call(course=4, monument_type="rebar",
-                       bearing_azimuth_deg_from_north=315.0,
-                       direction_text="N 45° W"),
+            _make_call(
+                course=2,
+                monument_type="iron_rod",
+                bearing_azimuth_deg_from_north=135.0,
+                direction_text="S 45° E",
+            ),
+            _make_call(
+                course=3,
+                monument_type="concrete",
+                bearing_azimuth_deg_from_north=225.0,
+                direction_text="S 45° W",
+            ),
+            _make_call(
+                course=4,
+                monument_type="rebar",
+                bearing_azimuth_deg_from_north=315.0,
+                direction_text="N 45° W",
+            ),
         ]
         result = _make_closure_result()
         score = ClosureChecker.calculate_confidence_score(result, calls)
@@ -246,8 +264,9 @@ class TestCalculateConfidenceScore:
         calls = [_make_call(course=i) for i in range(1, 5)]
         good = _make_closure_result()
         bad = _make_closure_result(angle_check_passed=False)
-        assert ClosureChecker.calculate_confidence_score(bad, calls) < \
-            ClosureChecker.calculate_confidence_score(good, calls)
+        assert ClosureChecker.calculate_confidence_score(
+            bad, calls
+        ) < ClosureChecker.calculate_confidence_score(good, calls)
 
     def test_empty_calls_returns_zero(self) -> None:
         result = _make_closure_result()
@@ -265,14 +284,10 @@ class TestVerifyClosurePopulatesConfidence:
 
     def test_verify_closure_sets_confidence_score(self) -> None:
         calls = [
-            _make_call(course=1, bearing_azimuth_deg_from_north=0.0,
-                       direction_text="N 0° E"),
-            _make_call(course=2, bearing_azimuth_deg_from_north=90.0,
-                       direction_text="N 90° E"),
-            _make_call(course=3, bearing_azimuth_deg_from_north=180.0,
-                       direction_text="S 0° E"),
-            _make_call(course=4, bearing_azimuth_deg_from_north=270.0,
-                       direction_text="N 90° W"),
+            _make_call(course=1, bearing_azimuth_deg_from_north=0.0, direction_text="N 0° E"),
+            _make_call(course=2, bearing_azimuth_deg_from_north=90.0, direction_text="N 90° E"),
+            _make_call(course=3, bearing_azimuth_deg_from_north=180.0, direction_text="S 0° E"),
+            _make_call(course=4, bearing_azimuth_deg_from_north=270.0, direction_text="N 90° W"),
         ]
         result = ClosureChecker.verify_closure(calls)
         assert result.confidence_score is not None

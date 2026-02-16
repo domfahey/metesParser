@@ -472,16 +472,35 @@ class ClosureChecker:
 
         return warnings
 
-    PERMANENT_MONUMENTS = frozenset({
-        "iron_rod", "iron_pin", "iron_pipe", "concrete", "brass_cap",
-        "rebar", "capped_pin", "capped_rod", "railroad_spike",
-    })
+    PERMANENT_MONUMENTS = frozenset(
+        {
+            "iron_rod",
+            "iron_pin",
+            "iron_pipe",
+            "concrete",
+            "brass_cap",
+            "rebar",
+            "capped_pin",
+            "capped_rod",
+            "railroad_spike",
+        }
+    )
 
-    NON_PERMANENT_MONUMENTS = frozenset({
-        "stone", "wooden_post", "nail", "pk_nail", "hub_and_tack",
-        "monitoring_well", "txdot_monument", "tree", "rock",
-        "natural_feature", "other",
-    })
+    NON_PERMANENT_MONUMENTS = frozenset(
+        {
+            "stone",
+            "wooden_post",
+            "nail",
+            "pk_nail",
+            "hub_and_tack",
+            "monitoring_well",
+            "txdot_monument",
+            "tree",
+            "rock",
+            "natural_feature",
+            "other",
+        }
+    )
 
     @classmethod
     def score_call_quality(cls, call: DeedCall) -> str:
@@ -510,9 +529,7 @@ class ClosureChecker:
         return "high"
 
     @classmethod
-    def calculate_confidence_score(
-        cls, result: ClosureResult, calls: list[DeedCall]
-    ) -> float:
+    def calculate_confidence_score(cls, result: ClosureResult, calls: list[DeedCall]) -> float:
         """Calculate overall confidence score (0.0–1.0) for a closure result.
 
         Weighted components:
@@ -546,10 +563,12 @@ class ClosureChecker:
             closure_score = max(0.0, 0.3 - result.misclosure_ft * 0.02)
 
         # Verification checks (20%)
-        checks_passed = sum([
-            result.angle_check_passed,
-            result.curve_consistency_passed,
-        ])
+        checks_passed = sum(
+            [
+                result.angle_check_passed,
+                result.curve_consistency_passed,
+            ]
+        )
         checks_score = checks_passed / 2.0
 
         # Bearing completeness (25%)
