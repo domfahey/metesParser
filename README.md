@@ -4,15 +4,14 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ## Features
 
 - 📄 **PDF Extraction** - Extract legal descriptions using OpenAI or Gemini APIs
 - 🧭 **Bearing Conversion** - Quadrant bearings to azimuth (degrees from North)
-- 📐 **Curve Support** - Full radius, delta, arc length, chord calculations
-- ✅ **6 Verification Guardrails** - Traverse closure, angles, curves, area, parallelism
-- 📊 **CSV Export** - Standard 19-field schema for GIS plotting
+- 📐 **Curve Support** - Full radius, delta, arc length, chord calculations; compound/reverse curves
+- ✅ **8 Verification Checks** - Traverse closure, angles, curves, area, parallelism, double-entry, bearing reversals, distance reasonableness
+- 📊 **CSV Export** - Standard 21-field schema for GIS plotting
 - 🏛️ **Monument Classification** - Automatically identifies survey marker types (iron rod, stone, brass cap, etc.)
 - 🗺️ **PLSS Support** - Extracts Section, Township, Range, Principal Meridian metadata
 - ⚠️ **Exception Handling** - Parses EXCEPT/LESS AND EXCEPT clauses with proper area calculations
@@ -20,16 +19,19 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 - 📍 **POC vs POB Distinction** - Separates Point of Commencement (survey reference) from Point of Beginning (parcel boundary)
 - 🚫 **Never Fabricates Data** - Flags incomplete bearings, never invents numbers
 - 🔄 **Unit Conversion** - Supports feet, poles, rods, chains, varas, arpents, toises, furlongs, meters, miles, engineer chains/links
+- 📊 **Quality Scoring** - Per-call quality (high/medium/low) and overall confidence score (0.0-1.0)
+- 🔍 **Audit Sidecar** - Optional `.audit.json` + `.audit.html` alongside verified CSV for full transparency
+- 💾 **LLM Caching** - File-based response caching for deterministic, cost-effective re-extraction
 
-## Recent Updates
+## Recent Updates (v0.4.0)
 
-- **Phase 1 Foundation**: 8 new distance units (varas, arpents, toises, furlongs, meters, miles, engineer chains/links), 6 new monument types, `precision_ratio` on `ClosureResult`, and `non_tangent`/`radial_bearing` on `DeedCall`.
-- Reference docs gained prosser/metes-and-bounds content updates and BLM module additions from recent sessions.
-- Gemini LLM provider support added alongside OpenAI (`--llm-provider gemini`).
-- Pydantic guardrails tightened for curve and numeric inputs with comprehensive TDD coverage.
-- End-to-end CLI and pipeline-contract tests validate full extraction/verification workflows.
+- **Phase 6: Audit Sidecar** - Full transparency with `.audit.json` + `.audit.html` alongside verified CSV. Tracks LLM extraction confidence, per-call source excerpts, field-level transformations, and verification results.
+- **Quality Scoring** - Per-call quality (high/medium/low) and weighted confidence score (0.0-1.0) on `ClosureResult`.
+- **34 features** across 6 phases: foundation units, enhanced parsing, verification checks, geometric completeness, production features, and audit transparency.
+- **866 tests, ~93% coverage** with unit, integration, regression, and e2e categories.
+- Gemini LLM provider support alongside OpenAI (`--llm-provider gemini`).
+- File-based LLM response caching via `CachedLLMClient`.
 - Ground truth JSON files stored alongside each sample PDF in `sample_deeds/` for replayable extraction checks.
-- `make check` runs the full quality gate (`lint`, `format`, `type`, `test`) in one command.
 
 ## Ground Truth Workflow
 
@@ -150,19 +152,22 @@ PDF → Extract → Normalize → Parse Calls → Verify → CSV
 
 | Module | Purpose |
 |--------|---------|
-| `models.py` | Pydantic schemas (DeedCall, LegalDescription, ClosureResult) |
+| `models.py` | Pydantic schemas (DeedCall, LegalDescription, ClosureResult, AuditContext) |
 | `bearing_converter.py` | Quadrant ↔ azimuth, curve calculations |
 | `text_parser.py` | Text normalization, OCR error fixes |
 | `call_extractor.py` | Regex-based call parsing (rule-based, not AI) |
-| `closure_checker.py` | 6 verification guardrails |
-| `csv_builder.py` | CSV export/import with standard schema |
+| `closure_checker.py` | 8 verification checks + quality/confidence scoring |
+| `csv_builder.py` | CSV export/import with standard 21-field schema |
 | `pdf_processor.py` | LLM integration for PDF extraction (OpenAI/Gemini) |
 | `llm_clients.py` | BaseLLMClient ABC, OpenAIClient, GeminiClient providers |
+| `llm_cache.py` | File-based LLM response caching (CachedLLMClient) |
+| `audit_reporter.py` | Self-contained HTML audit report generation |
+| `logging_config.py` | structlog configuration (console + JSON modes) |
 | `cli.py` | Command-line interface |
 
-### Verification Guardrails
+### Verification Checks
 
-The system implements 6 checks before exporting verified CSV:
+The system implements 8 checks before exporting verified CSV:
 
 1. **Traverse Closure** - Misclosure < 0.01 ft
 2. **Interior Angles** - Sum matches (n-2)×180°
@@ -170,6 +175,8 @@ The system implements 6 checks before exporting verified CSV:
 4. **Curve Consistency** - L ≈ R×Δ, chord ≈ 2R×sin(Δ/2)
 5. **Area Reasonableness** - Computed vs stated area
 6. **Double-Entry Validation** - Compare duplicate entries
+7. **Bearing Reversal Detection** - Adjacent courses ~180° apart (5° threshold)
+8. **Distance Reasonableness** - Flags <0.5 ft, >10x median, >90% perimeter
 
 ## Development
 
@@ -196,7 +203,7 @@ uv sync --all-extras --dev
 make help          # Show all available commands
 make check         # Run full quality gate (lint + format + type + tests)
 make lint          # Run ruff linter
-make format        # Format code with ruff + black
+make format        # Format code with ruff
 make test          # Run pytest test suite
 make test-cov      # Run tests with coverage report
 make pre-commit    # Run all checks before committing
@@ -204,7 +211,7 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite currently runs 368 tests organized by type (as of 2026-02-15):
+The test suite runs 866 tests organized by type:
 
 ```bash
 # Run all tests (unit + integration + e2e + regression)
@@ -263,12 +270,13 @@ make check
 
 ## CSV Schema
 
-Standard 19-field output format:
+Standard 21-field output format:
 
 ```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
-along,to,monument_type,monument_status,is_exception,non_tangent,radial_bearing,notes
+along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,
+non_tangent,radial_bearing,notes
 ```
 
 **Example:**
@@ -277,10 +285,12 @@ along,to,monument_type,monument_status,is_exception,non_tangent,radial_bearing,n
 2,"S 56°40' W","S 56°40' W",236.666667,125.00,,,,,,"Div. line L46/47 to L50","point corner to Lot 50","stone",,false,false,"",""
 ```
 
-**New Fields:**
-- `monument_type`: Classified survey marker type (iron_rod, iron_pin, iron_pipe, stone, concrete, wooden_post, brass_cap, rebar, railroad_spike, nail, pk_nail, hub_and_tack, monitoring_well, capped_pin, capped_rod, txdot_monument, other)
+**Key Fields:**
+- `monument_type`: Classified survey marker type (20 types including iron_rod, iron_pin, stone, brass_cap, etc.)
 - `monument_status`: Endpoint monument status (`found`, `set`, or empty)
 - `is_exception`: Boolean indicating if this call is part of an EXCEPT clause
+- `is_meander`: Boolean flag for water boundary / meander line
+- `is_tie_in`: Boolean flag for tie-in calls (POC-to-POB, excluded from closure)
 - `non_tangent`: Boolean flag for non-tangent curves
 - `radial_bearing`: Radial bearing for non-tangent curves
 
@@ -325,7 +335,7 @@ Azimuth = degrees clockwise from North (0-360°):
 metesParser/
 ├── Makefile                     # Development commands
 ├── pyproject.toml               # UV configuration + tool settings
-├── src/metesparser/             # Main package (10 modules)
+├── src/metesparser/             # Main package (13 modules)
 │   ├── models.py
 │   ├── bearing_converter.py
 │   ├── text_parser.py
@@ -334,16 +344,19 @@ metesParser/
 │   ├── csv_builder.py
 │   ├── pdf_processor.py
 │   ├── llm_clients.py
+│   ├── llm_cache.py
+│   ├── audit_reporter.py
+│   ├── logging_config.py
 │   └── cli.py
 ├── prompts/                     # Prompt YAML files
-├── tests/                       # Pytest test suite (368 tests as of 2026-02-15)
+├── tests/                       # Pytest test suite (866 tests, ~93% coverage)
 │   ├── conftest.py              # Shared fixtures
 │   ├── helpers.py               # Test utilities
 │   ├── fixtures/                # Sample legal descriptions
-│   ├── unit/                    # Unit tests (15 files, 301 tests)
-│   ├── integration/             # Integration tests
-│   ├── e2e/                     # End-to-end CLI tests
-│   └── regression/              # Bug fix tests
+│   ├── unit/                    # Unit tests (32 files, 793 tests)
+│   ├── integration/             # Integration tests (31 tests)
+│   ├── e2e/                     # End-to-end CLI tests (2 tests)
+│   └── regression/              # Bug fix tests (40 tests)
 ├── scripts/                     # Standalone utility scripts
 ├── sample_deeds/                # Sample PDFs + ground truth JSON
 ├── docs/                        # Documentation

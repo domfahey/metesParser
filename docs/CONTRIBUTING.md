@@ -63,7 +63,7 @@ make pre-commit
 
 This runs:
 - Linting (ruff)
-- Formatting (black)
+- Formatting (ruff)
 - Type checking (mypy)
 - Full test suite
 - (Equivalent to `make check`.)
@@ -108,7 +108,7 @@ Then create Pull Request on GitHub.
 - **Type hints** for all functions
 - **Docstrings** for public APIs
 - **Line length**: 100 characters
-- **Formatter**: black + ruff
+- **Formatter**: ruff
 
 ```python
 def calculate_area(points: list[Point]) -> float:

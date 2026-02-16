@@ -260,6 +260,66 @@ else:
     print("Review required before verification")
 ```
 
+## Audit Sidecar
+
+Generate transparency reports alongside verified CSV output.
+
+```python
+from metesparser import PDFProcessor, ClosureChecker, CSVBuilder
+
+# Extract with audit trail enabled
+processor = PDFProcessor()
+legal_desc, audit_context = processor.process_deed_pdf("deed.pdf", audit=True)
+
+# Verify closure (audit context records check results)
+result = ClosureChecker.verify_closure(
+    legal_desc.calls,
+    audit_context=audit_context
+)
+
+# Export with audit sidecar (.audit.json + .audit.html alongside CSV)
+if result.is_fully_verified():
+    CSVBuilder.export_verified_csv(
+        legal_desc.calls,
+        result,
+        "output.csv",
+        legal_desc=legal_desc,
+        audit_context=audit_context
+    )
+    # Creates: output_verified.csv, output.audit.json, output.audit.html
+```
+
+### AuditContext
+
+```python
+from metesparser.models import AuditContext
+
+# AuditContext is a mutable accumulator (NOT frozen)
+# It threads through the pipeline collecting:
+# - LLM extraction metadata and confidence scoring
+# - Per-call source excerpts and transformations
+# - Verification check results and closure summary
+```
+
+### Quality Scoring
+
+```python
+from metesparser import ClosureChecker
+
+result = ClosureChecker.verify_closure(calls)
+
+# Overall confidence score (0.0 - 1.0)
+print(f"Confidence: {result.confidence_score:.2f}")
+
+# Per-call quality (high / medium / low)
+for call in calls:
+    print(f"Course {call.course}: quality={call.quality}")
+
+# Enhanced closure summary with precision ratio
+summary = ClosureChecker.get_closure_summary(result)
+print(summary)
+```
+
 ---
 
 For more information:
