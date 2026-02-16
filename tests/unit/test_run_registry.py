@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 from metesparser.run_registry import (
     PromptVersion,
@@ -94,3 +95,38 @@ class TestRunManifest:
         json_str = m.model_dump_json()
         loaded = RunManifest.model_validate_json(json_str)
         assert loaded.run_id == m.run_id
+
+
+class TestGetPromptVersions:
+    def test_returns_dict_of_prompt_versions(self, tmp_path: Path) -> None:
+        prompt_file = tmp_path / "test_prompt.yaml"
+        prompt_file.write_text("system_prompt: hello\n")
+
+        from metesparser.run_registry import get_prompt_versions
+
+        versions = get_prompt_versions(tmp_path)
+        assert "test_prompt" in versions
+        assert versions["test_prompt"].content_hash  # non-empty hash
+
+    def test_content_hash_changes_with_content(self, tmp_path: Path) -> None:
+        prompt_file = tmp_path / "test_prompt.yaml"
+
+        prompt_file.write_text("version: 1\n")
+        from metesparser.run_registry import get_prompt_versions
+
+        v1 = get_prompt_versions(tmp_path)
+
+        prompt_file.write_text("version: 2\n")
+        v2 = get_prompt_versions(tmp_path)
+
+        assert v1["test_prompt"].content_hash != v2["test_prompt"].content_hash
+
+    def test_git_sha_is_none_outside_repo(self, tmp_path: Path) -> None:
+        prompt_file = tmp_path / "test_prompt.yaml"
+        prompt_file.write_text("system_prompt: hello\n")
+
+        from metesparser.run_registry import get_prompt_versions
+
+        versions = get_prompt_versions(tmp_path)
+        # tmp_path is not inside a git repo, so git_sha should be None
+        assert versions["test_prompt"].git_sha is None
