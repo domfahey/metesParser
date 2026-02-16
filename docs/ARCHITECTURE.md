@@ -31,7 +31,7 @@ metesParser is a deterministic metes & bounds parser that converts legal descrip
 - **Pydantic v2** - Data validation and schema enforcement
 - **OpenAI + optional Gemini** - Configurable LLM providers for PDF extraction
 - **UV** - Dependency management (no pip/conda/poetry)
-- **pytest** - Test framework with 368 tests (as of 2026-02-15)
+- **pytest** - Test framework with 604 tests (as of 2026-02-15)
 
 ## Core Principles
 
@@ -264,7 +264,7 @@ dy = distance × cos(radians(azimuth))
 - **Flag uncertainties** - never fabricate
 
 #### closure_checker.py
-**Purpose**: Verify traverse with mandatory guardrails plus optional double-entry comparison
+**Purpose**: Verify traverse with 8 checks (6 mandatory guardrails + 2 supplementary)
 
 **Key Methods**:
 - `verify_closure()` - Main verification entry point
@@ -273,14 +273,18 @@ dy = distance × cos(radians(azimuth))
 - `check_interior_angles()` - Verify (n-2)×180°
 - `check_curve_consistency()` - Verify L ≈ R×Δ
 - `compare_double_entry()` - Compare two independently entered call sets
+- `check_bearing_reversals()` - Detect adjacent courses ~180° apart
+- `check_distance_reasonableness()` - Flag short, long, or dominant distances
 
-**Verification Guardrails**:
+**Verification Checks** (8 total):
 1. **Traverse Closure** - Misclosure < 0.01 ft by default
 2. **Interior Angles** - Sum = (n-2)×180° (straight-line polygons only)
 3. **Parallelism** - "continuing" lines match
 4. **Curve Math** - L ≈ R×Δ, chord ≈ 2R×sin(Δ/2)
 5. **Area Check** - When a stated area is provided, flags if computed area differs by more than 5%
 6. **Double Entry** - Optional comparison if a second call set is supplied
+7. **Bearing Reversal** - Adjacent courses ~180° apart suggest transcription error
+8. **Distance Reasonableness** - Flags < 0.5 ft (short), > 10x median (long), > 90% perimeter (dominant)
 
 #### csv_builder.py
 **Purpose**: CSV import/export with verification
@@ -291,11 +295,12 @@ dy = distance × cos(radians(azimuth))
 - `export_verified_csv()` - Export only if verified
 - `legal_description_to_csv()` - Export with metadata
 
-**CSV Schema** (19 fields):
+**CSV Schema** (21 fields):
 ```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
-along,to,monument_type,monument_status,is_exception,non_tangent,radial_bearing,notes
+along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,
+non_tangent,radial_bearing,notes
 ```
 
 #### pdf_processor.py
@@ -344,13 +349,17 @@ class DeedCall:
     arc_length_ft: float | None                    # Arc length
     chord_bearing: str | None                      # Chord bearing
     chord_length_ft: float | None                  # Chord length
-    is_exception: bool                             # EXCEPT/LESS AND EXCEPT marker
 
     # Descriptive fields
     along: str | None                              # "along the division line"
     to: str | None                                 # "to an iron pin"
+    monument_status: str | None                    # Found/set monument status
     monument_type: str | None                      # Survey marker type
-    monument_status: str | None                    # Endpoint monument status (found/set)
+    is_exception: bool                             # EXCEPT/LESS AND EXCEPT marker
+    is_meander: bool                               # Water boundary (meander line)
+    is_tie_in: bool                                # Tie-in call between POC and POB
+    is_indefinite: bool                            # Vague direction without precise bearing
+    curve_type: str | None                         # simple, compound, or reverse
     notes: str | None                              # Warnings/flags
 
     def is_complete_bearing(self) -> bool:

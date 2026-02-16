@@ -140,10 +140,11 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 ```bash
 tests/unit/test_bearing_converter.py  # Quadrant ↔ azimuth
 tests/unit/test_call_extractor.py     # Regex parsing
-tests/unit/test_closure_checker.py    # Core 6 guardrails
+tests/unit/test_closure_checker.py    # Core 8 verification checks
 tests/unit/test_phase1_foundation.py  # Units, monuments, precision ratio, non-tangent
-tests/unit/test_phase2_enhanced_parsing.py # Packed DMS, chord/non-tangent, extractors, CSV 19-field
+tests/unit/test_phase2_enhanced_parsing.py # Packed DMS, chord/non-tangent, extractors, CSV 21-field
 tests/unit/test_phase3_verification.py  # Area extraction, monument status, abbreviations, bearing reversal, distance checks
+tests/unit/test_phase4_geometric.py   # Meander detection, tie-in calls, curve types, indefinite bearings
 tests/unit/test_pydantic_guardrails.py # Model validation and normalization
 tests/integration/test_integration.py        # Full pipeline
 tests/integration/test_pdf_processing.py       # PDF extraction orchestration
@@ -170,11 +171,12 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 **Architecture**: `llm_clients.py` defines `BaseLLMClient` ABC; `PDFProcessor` accepts `provider=` or `client=` for DI
 **CLI**: `uv run metesparser extract deed.pdf --llm-provider gemini`
 
-### CSV Schema (19 fields - order matters)
+### CSV Schema (21 fields - order matters)
 ```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
-along,to,monument_type,monument_status,is_exception,non_tangent,radial_bearing,notes
+along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,
+non_tangent,radial_bearing,notes
 ```
 
 **New in v0.2:**
@@ -185,6 +187,8 @@ along,to,monument_type,monument_status,is_exception,non_tangent,radial_bearing,n
 **New in Phase 1:**
 - `non_tangent`: Boolean flag for non-tangent curves
 - `radial_bearing`: Radial bearing string for non-tangent curves
+- `is_meander`: Boolean flag for water boundary (meander line) calls
+- `is_tie_in`: Boolean flag for tie-in calls between POC and POB
 - `precision_ratio` on `ClosureResult`: Misclosure/perimeter ratio for survey quality
 
 ## Recent Enhancements (v0.2)
@@ -295,10 +299,10 @@ along,to,monument_type,monument_status,is_exception,non_tangent,radial_bearing,n
 - **Rules**: Texas pre-1900 → varas, Louisiana → arpents, New England pre-1850 → rods, "chains and links" → chains
 - **Text Keywords**: Detects "varas", "arpents" in deed text
 
-### 15. CSV Schema Expansion (16 → 19 fields)
+### 15. CSV Schema Expansion (16 → 21 fields)
 - **Module**: `csv_builder.py` - `FIELDNAMES`, `_call_to_row()`
-- **New Fields**: `monument_status` (Phase 3), `non_tangent` ("true"/"false"), `radial_bearing` (string or "")
-- **Position**: `monument_status` after `monument_type`; `non_tangent`/`radial_bearing` after `is_exception`, before `notes`
+- **New Fields**: `monument_status` (Phase 3), `is_meander`, `is_tie_in`, `non_tangent` ("true"/"false"), `radial_bearing` (string or "")
+- **Position**: `monument_status` after `monument_type`; `is_meander`/`is_tie_in` after `is_exception`; `non_tangent`/`radial_bearing` before `notes`
 - **Metadata Export**: `surveyor_certification` and `prior_conveyance` added to `.metadata.txt`
 
 ## Phase 3 Enhancements (Enhanced Verification)
@@ -378,6 +382,6 @@ This implementation follows the comprehensive "Metes & Bounds – Deed Call Extr
 - Never fabricate bearings (Section 8A)
 - Close traverse before export (Section 6A)
 - 8 verification checks (Section 6 + supplementary)
-- Standard 19-field CSV schema (Section 5)
+- Standard 21-field CSV schema (Section 5)
 - Preserve verbatim wording (Section 7)
 - Flag meanders/approximations (Section 8A)

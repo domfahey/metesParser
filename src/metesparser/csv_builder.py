@@ -33,11 +33,13 @@ class _CSVDeedCallRow(_Model):
     monument_type: str | None = None
     monument_status: str | None = None
     is_exception: bool = False
+    is_meander: bool = False
+    is_tie_in: bool = False
     non_tangent: bool = False
     radial_bearing: str | None = None
     notes: str | None = None
 
-    @field_validator("is_exception", "non_tangent", mode="before")
+    @field_validator("is_exception", "is_meander", "is_tie_in", "non_tangent", mode="before")
     @classmethod
     def _normalize_bool_fields(cls, value: object) -> bool:
         return cls._coerce_bool_field(value)
@@ -63,6 +65,8 @@ class CSVBuilder:
         "monument_type",
         "monument_status",
         "is_exception",
+        "is_meander",
+        "is_tie_in",
         "non_tangent",
         "radial_bearing",
         "notes",
@@ -130,6 +134,8 @@ class CSVBuilder:
             "monument_type": call.monument_type or "",
             "monument_status": call.monument_status or "",
             "is_exception": "true" if call.is_exception else "false",
+            "is_meander": "true" if call.is_meander else "false",
+            "is_tie_in": "true" if call.is_tie_in else "false",
             "non_tangent": "true" if call.non_tangent else "false",
             "radial_bearing": call.radial_bearing or "",
             "notes": call.notes or "",
@@ -225,6 +231,8 @@ class CSVBuilder:
             csv_row = _CSVDeedCallRow.model_validate(normalized_row)
             normalized_payload = csv_row.model_dump()
             normalized_payload["is_exception"] = bool(csv_row.is_exception)
+            normalized_payload["is_meander"] = bool(csv_row.is_meander)
+            normalized_payload["is_tie_in"] = bool(csv_row.is_tie_in)
             normalized_payload["non_tangent"] = bool(csv_row.non_tangent)
             return DeedCall.model_validate(normalized_payload, strict=True)
 

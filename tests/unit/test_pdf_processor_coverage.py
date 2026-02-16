@@ -109,6 +109,10 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
         lambda calls: calls,
     )
     monkeypatch.setattr(
+        "metesparser.call_extractor.CallExtractor.mark_tie_in_calls",
+        lambda calls, poc_description: calls,
+    )
+    monkeypatch.setattr(
         "metesparser.text_parser.TextParser.extract_basis_of_bearing", lambda _: None
     )
     monkeypatch.setattr(
@@ -144,6 +148,7 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
         "Extracting Point of Commencement and Point of Beginning",
         "Extracting area statement",
         "Extracting calls",
+        "Marking tie-in calls",
         "Extracted calls",
     ]
     assert captured_events[-1][1]["count"] == 0

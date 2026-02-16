@@ -48,7 +48,7 @@ class ClosureChecker:
             closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
         )
 
-        main_calls = [c for c in calls if not c.is_exception]
+        main_calls = [c for c in calls if not c.is_exception and not c.is_tie_in]
         exception_calls = [c for c in calls if c.is_exception]
 
         points = cls.compute_traverse(main_calls)
@@ -93,6 +93,22 @@ class ClosureChecker:
 
         distance_warnings = cls.check_distance_reasonableness(main_calls)
         warnings.extend(distance_warnings)
+
+        meander_calls = [c for c in main_calls if c.is_meander]
+        if meander_calls:
+            course_nums = ", ".join(str(c.course) for c in meander_calls)
+            warnings.append(
+                f"{len(meander_calls)} meander/water boundary call(s) "
+                f"(courses {course_nums}) may affect closure accuracy"
+            )
+
+        indefinite_calls = [c for c in main_calls if c.is_indefinite]
+        if indefinite_calls:
+            course_nums = ", ".join(str(c.course) for c in indefinite_calls)
+            warnings.append(
+                f"{len(indefinite_calls)} indefinite call(s) "
+                f"(courses {course_nums}) have vague direction without precise bearing"
+            )
 
         if double_entry_calls is not None:
             discrepancies = cls.compare_double_entry(calls, double_entry_calls)
