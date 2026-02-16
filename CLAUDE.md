@@ -31,9 +31,8 @@ make lint-fix      # Auto-fix linting issues
 make test          # Run pytest
 make test-fast     # Run pytest with fail-fast (stop on first failure)
 make test-cov      # Tests with HTML coverage report
-make test-watch    # Re-run tests on file changes (pytest-watcher)
 make pre-commit    # Full check before git commit
-make check         # Run all checks (lint + format-check + type + docs-check + test)
+make check         # Run all checks (lint + format-check + type + test)
 make clean         # Remove generated artifacts and caches
 make doctor        # Verify project dependencies and environment
 ```
@@ -168,7 +167,7 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 
 ### Expected Test Output
 ```
-785 passed in 0.38s
+~790 passed
 ```
 All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`, investigate before committing.
 
@@ -204,7 +203,7 @@ non_tangent,radial_bearing,notes
 ```
 
 **Field notes:**
-- `monument_type`: Auto-classified from "to" field (20 types)
+- `monument_type`: Auto-classified from "to" field (19 types)
 - `monument_status`: "found", "set", or null
 - `is_exception`/`is_meander`/`is_tie_in`/`non_tangent`: Boolean flags (CSV: "true"/"false")
 - `radial_bearing`: String for non-tangent curves, empty string if N/A
@@ -250,7 +249,7 @@ Required in `.env`:
 ```bash
 OPENAI_API_KEY=sk-...  # Required if METESPARSER_LLM_PROVIDER=openai
 GEMINI_API_KEY=...      # Required if METESPARSER_LLM_PROVIDER=gemini
-LOG_LEVEL=INFO          # Optional, defaults to INFO
+METESPARSER_LOG_LEVEL=INFO  # Optional, defaults to INFO
 ```
 
 ## Git Workflow
@@ -291,10 +290,9 @@ LOG_LEVEL=INFO          # Optional, defaults to INFO
 
 ### Debugging Closure Issues
 ```python
-# Temporary debug snippet — remove after use (project uses structlog for logging)
-import structlog
-log = structlog.get_logger()
-for i, (call, point) in enumerate(zip(calls, points)):
-    log.debug("traverse_step", course=i+1, bearing=call.bearing_quadrant, distance=call.distance_ft, point=point)
+# Add inside ClosureChecker._compute_traverse(), after the traversal loop
+import structlog; log = structlog.get_logger()
+for i, call in enumerate(calls):
+    log.debug("traverse_step", course=i+1, bearing=call.bearing_quadrant, distance=call.distance_ft)
 log.debug("misclosure", dx=f"{misclosure_x:.4f}", dy=f"{misclosure_y:.4f}", total=f"{misclosure:.4f}")
 ```
