@@ -126,7 +126,11 @@ output/
 !output/*.metadata.txt
 !output/*.md
 results/
+runs/
 tmp/
+
+# Git worktrees
+.worktrees/
 
 # Benchmarks
 .benchmarks/

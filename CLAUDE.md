@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
-**Version**: 0.3.0 | **Tests**: ~860 | **Coverage**: ~90%
+**Version**: 0.4.0 | **Tests**: ~885 | **Coverage**: ~93%
 
 ## Critical Architecture Principles
 
@@ -45,6 +45,10 @@ make doctor        # Verify project dependencies and environment
 # Extract and verify
 uv run metesparser extract deed.pdf
 uv run metesparser verify calls.csv --area 7500
+
+# Compare prompt versions across runs
+uv run metesparser compare-runs
+uv run metesparser compare-runs --pdf pennbrook
 
 # Development
 uv run pytest tests/unit/test_bearing_converter.py -v
@@ -137,6 +141,13 @@ When `PDFProcessor.process_deed_pdf(audit=True)`, an `AuditContext` threads thro
 7. Bearing reversal detection (adjacent courses ~180° apart)
 8. Distance reasonableness (short/long/dominant)
 
+**run_registry.py** - Prompt A/B testing
+- `RunManifest`, `PromptVersion`, `RunResults`: Pydantic models for per-run tracking
+- `get_prompt_versions()`: Git SHA + SHA-256 content hash per prompt YAML
+- `write_run_manifest()` / `load_run_manifests()`: Per-run JSON I/O in `runs/` directory
+- `format_comparison_table()`: Grouped table comparing runs across prompt versions
+- CLI: `metesparser compare-runs [--pdf <name>] [--runs-dir <path>]`
+
 ## Bearing Convention (Critical for Calculations)
 
 Azimuth = degrees clockwise from North (0-360):
@@ -188,7 +199,7 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 
 ### Expected Test Output
 ```
-~860 passed
+~885 passed
 ```
 All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`, investigate before committing.
 
@@ -271,6 +282,7 @@ non_tangent,radial_bearing,notes
 | 32 | Source excerpt capture | `call_extractor.py` | `extract_calls(audit_context=)` | Verbatim call text preserved per course |
 | 33 | Transformation recording | `call_extractor.py` | `_audit_single_call()` | Step-by-step extraction log per field |
 | 34 | Verification audit | `closure_checker.py` | `verify_closure(audit_context=)` | CheckResults + closure_summary in audit trail |
+| 35 | Run registry | `run_registry.py` | `RunManifest`, `get_prompt_versions()` | Git SHA prompt versioning, per-run JSON, compare-runs CLI |
 
 ## Environment Setup
 
