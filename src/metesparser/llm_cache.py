@@ -38,7 +38,8 @@ class CachedLLMClient:
         try:
             data = json.loads(path.read_text())
             logger.debug("Cache hit", cache_key=key[:12])
-            return data["response"]
+            response: str = data["response"]
+            return response
         except (json.JSONDecodeError, KeyError):
             return None
 
