@@ -40,7 +40,7 @@ class RunManifest(BaseModel):
     source_pdf: str = Field(..., description="Source PDF filename")
     llm_provider: str = Field(..., description="LLM provider name")
     llm_model: str = Field(..., description="LLM model identifier")
-    cache_hit: bool = Field(..., description="Whether LLM cache was used")
+    cache_enabled: bool = Field(..., description="Whether LLM caching was enabled")
     prompt_versions: dict[str, PromptVersion] = Field(
         default_factory=dict, description="Per-prompt version info"
     )

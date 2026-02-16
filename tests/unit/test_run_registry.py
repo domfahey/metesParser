@@ -55,7 +55,7 @@ class TestRunManifest:
             source_pdf="test.pdf",
             llm_provider="openai",
             llm_model="gpt-5.2",
-            cache_hit=False,
+            cache_enabled=False,
             prompt_versions={
                 "extract_text_from_pdf": PromptVersion(git_sha="aaa", content_hash="bbb"),
             },
@@ -79,7 +79,7 @@ class TestRunManifest:
             source_pdf="test.pdf",
             llm_provider="openai",
             llm_model="gpt-5.2",
-            cache_hit=False,
+            cache_enabled=False,
             prompt_versions={},
             results=RunResults(
                 call_count=4,
