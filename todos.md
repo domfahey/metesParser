@@ -116,7 +116,20 @@ Phased rollout based on gap analysis between `docs/METES_AND_BOUNDS_REFERENCE.md
 - [x] Medium: Flag meander calls in `call_extractor.py` with `notes="meander / water boundary"`.
 - [x] Low: Add closure warning when meander calls are present in `closure_checker.py`.
 
-### Phase 5: Output & Reporting Enhancements
+### Phase 5a: Production Completeness (COMPLETE — PR #5)
+
+- [x] Degree of curvature parsing (D° → radius)
+- [x] Extended curve properties (T, E, M)
+- [x] Natural monument classification (tree, rock, natural_feature)
+- [x] 32-point compass system (mariner's notation → azimuth)
+- [x] Clause taxonomy (reservation, subject_to, together_with)
+- [x] Subdivision lot/block + TPOB/RPOB recognition
+- [x] Witness tree extraction
+- [x] Spiral/transition curve detection
+- [x] State Plane Coordinate System metadata + FIPS code
+- [x] Pipeline wiring (all new methods into `process_deed_pdf()`)
+
+### Phase 5b: Output & Reporting Enhancements (future work)
 
 - [ ] Medium: Add `score_call_quality(call) -> str` to `closure_checker.py`.
   - Returns "high" / "medium" / "low" based on bearing completeness, monument permanence, meander flags.
