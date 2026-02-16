@@ -1,6 +1,8 @@
 """Bearing conversion and curve math for metes and bounds parsing."""
 
 from .azimuth import (
+    COMPASS_POINTS,
+    QUADRANT_PATTERN,
     azimuth_to_quadrant,
     bearing_to_azimuth,
     compass_point_to_azimuth,
@@ -20,6 +22,8 @@ from .deltas import calculate_deltas
 __version__ = "1.0.0"
 
 __all__ = [
+    "COMPASS_POINTS",
+    "QUADRANT_PATTERN",
     "azimuth_to_quadrant",
     "bearing_to_azimuth",
     "calculate_chord_bearing",
