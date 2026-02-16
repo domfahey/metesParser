@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No unreleased changes._
+### Added
+- Run registry for prompt A/B testing (`run_registry.py`)
+- `RunManifest`, `PromptVersion`, `RunResults` Pydantic models for run tracking
+- `get_prompt_versions()` — resolves git SHA + content hash per prompt file
+- `write_run_manifest()` / `load_run_manifests()` — per-run JSON I/O in `runs/` directory
+- `metesparser compare-runs` CLI command — grouped table comparing extraction results across prompt versions
+- `--pdf` filter and `--runs-dir` options for compare-runs command
 
 ## [0.4.0] - 2026-02-16
 
