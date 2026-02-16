@@ -6,6 +6,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+import structlog
 
 from metesparser import cli
 from metesparser.logging_config import configure_logging
@@ -279,7 +280,7 @@ def test_verify_command_success_and_failure(monkeypatch, tmp_path):
 
     cli.verify_command(str(csv))
 
-    calls[0].distance_ft = 20.0
+    calls[0] = calls[0].model_copy(update={"distance_ft": 20.0})
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
         lambda calls, area=0.0: _not_verified_result(),
@@ -389,6 +390,109 @@ def test_extract_command_json_mode_logs_summary_without_stdout(monkeypatch, tmp_
         line.get("event") == "Closure summary" and line.get("summary") == "VERIFIED"
         for line in _json_log_lines(log_stream.getvalue())
     )
+
+
+def test_extract_command_console_mode_logs_summary_and_stdout(monkeypatch, tmp_path, capsys):
+    pdf = tmp_path / "deed.pdf"
+    pdf.write_text("pdf")
+    legal_desc = LegalDescription(
+        calls=[
+            DeedCall(
+                course=1,
+                direction_text="N 90° E",
+                bearing_azimuth_deg_from_north=90.0,
+                distance_ft=10.0,
+            )
+        ],
+        source_doc="deed.pdf",
+    )
+
+    log_stream = io.StringIO()
+    configure_logging(level="INFO", log_format="console", stream=log_stream)
+
+    monkeypatch.setattr(
+        "metesparser.pdf_processor.PDFProcessor",
+        lambda provider=None, **kwargs: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.verify_closure",
+        lambda calls: _verified_result(),
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+    )
+    monkeypatch.setattr(
+        "metesparser.csv_builder.CSVBuilder.export_verified_csv",
+        lambda calls, closure_result, output_path, legal_desc_obj: None,
+    )
+
+    try:
+        cli.extract_command(str(pdf))
+    finally:
+        configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+    captured = capsys.readouterr()
+    assert "VERIFIED" in captured.out
+    assert "Closure summary" in log_stream.getvalue()
+    assert "VERIFIED" in log_stream.getvalue()
+
+
+def test_extract_command_propagates_contextvars_and_clears_after_completion(monkeypatch, tmp_path):
+    pdf = tmp_path / "deed.pdf"
+    pdf.write_text("pdf")
+    legal_desc = LegalDescription(
+        calls=[
+            DeedCall(
+                course=1,
+                direction_text="N 90° E",
+                bearing_azimuth_deg_from_north=90.0,
+                distance_ft=10.0,
+            )
+        ],
+        source_doc="deed.pdf",
+    )
+
+    log_stream = io.StringIO()
+    configure_logging(level="INFO", log_format="json", stream=log_stream)
+
+    def _process(_: str) -> LegalDescription:
+        structlog.get_logger("metesparser.call_extractor").warning("downstream parse warning")
+        return legal_desc
+
+    monkeypatch.setattr(
+        "metesparser.pdf_processor.PDFProcessor",
+        lambda provider=None, **kwargs: SimpleNamespace(process_deed_pdf=_process),
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.verify_closure",
+        lambda calls: _verified_result(),
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+    )
+    monkeypatch.setattr(
+        "metesparser.csv_builder.CSVBuilder.export_verified_csv",
+        lambda calls, closure_result, output_path, legal_desc_obj: None,
+    )
+
+    try:
+        cli.extract_command(str(pdf))
+        structlog.get_logger("metesparser.after").info("after command")
+    finally:
+        configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+    lines = _json_log_lines(log_stream.getvalue())
+    downstream = next(line for line in lines if line.get("event") == "downstream parse warning")
+    assert downstream["command"] == "extract"
+    assert downstream["input_pdf"] == str(pdf)
+    assert downstream["output_csv"] == str(pdf.with_suffix(".csv"))
+    assert isinstance(downstream.get("run_id"), str)
+    assert downstream["run_id"]
+
+    after = next(line for line in lines if line.get("event") == "after command")
+    assert "command" not in after
+    assert "input_pdf" not in after
+    assert "run_id" not in after
 
 
 def test_verify_command_json_mode_logs_summary_without_stdout(monkeypatch, tmp_path, capsys):
