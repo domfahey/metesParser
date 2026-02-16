@@ -12,7 +12,7 @@ import structlog
 import yaml  # type: ignore[import-untyped]
 
 from .llm_clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
-from .models import LegalDescription
+from .models import ConversionFactors, DistanceUnit, LegalDescription
 
 logger = structlog.get_logger(__name__)
 
@@ -26,6 +26,8 @@ class PDFProcessor:
         *,
         provider: str | None = None,
         client: BaseLLMClient | None = None,
+        cache: bool | None = None,
+        cache_dir: Path | None = None,
     ):
         """Initialize PDF processor with configurable LLM provider.
 
@@ -33,10 +35,26 @@ class PDFProcessor:
             api_key: Optional API key override for the chosen provider
             provider: LLM provider name ("openai" or "gemini")
             client: Optional pre-constructed LLM client implementation
+            cache: Enable/disable LLM response caching (default: True, env: METESPARSER_LLM_CACHE)
+            cache_dir: Directory for cached responses (env: METESPARSER_CACHE_DIR)
         """
         self._configured_api_key = api_key
         self.client = client or self._create_client(provider)
         self.prompts_dir = Path(__file__).parent.parent.parent / "prompts"
+
+        # Wrap client with caching if enabled
+        cache_enabled = (
+            cache
+            if cache is not None
+            else os.getenv("METESPARSER_LLM_CACHE", "true").lower() != "false"
+        )
+        if cache_enabled:
+            from .llm_cache import CachedLLMClient
+
+            resolved_cache_dir = cache_dir or Path(os.getenv("METESPARSER_CACHE_DIR", ".cache/llm"))
+            self.client = CachedLLMClient(
+                self._unwrap_client(self.client), cache_dir=resolved_cache_dir
+            )
 
     def _load_prompt(self, prompt_name: str) -> dict[str, Any]:
         """Load a prompt from YAML file.
@@ -162,7 +180,16 @@ class PDFProcessor:
 
         processing_logger.info("Inferring distance unit")
         inferred_unit = TextParser.infer_distance_unit(normalized_text)
-        distance_unit = inferred_unit or "feet"
+        distance_unit: DistanceUnit = "feet"
+        if inferred_unit is not None:
+            try:
+                ConversionFactors.convert_to_feet(1.0, inferred_unit)
+                distance_unit = cast(DistanceUnit, inferred_unit)
+            except ValueError:
+                processing_logger.warning(
+                    "Unsupported inferred distance unit; defaulting to feet",
+                    inferred_unit=inferred_unit,
+                )
         processing_logger.info("Distance unit resolved", distance_unit=distance_unit)
 
         processing_logger.info("Extracting calls")
@@ -191,6 +218,9 @@ class PDFProcessor:
             aliquot=plss_data.get("aliquot"),
             surveyor_certification=TextParser.extract_surveyor_certification(normalized_text),
             prior_conveyance=TextParser.extract_prior_conveyance(normalized_text),
+            subdivision_ref=None,
+            coordinate_system=None,
+            fips_code=None,
             stated_area_sq_ft=stated_area["value_sq_ft"] if stated_area else None,
             stated_area_approximate=stated_area["approximate"] if stated_area else False,
         )
@@ -198,6 +228,15 @@ class PDFProcessor:
         processing_logger.info("Extracted calls", count=legal_desc.num_calls())
 
         return legal_desc
+
+    @staticmethod
+    def _unwrap_client(client: BaseLLMClient) -> BaseLLMClient:
+        """Unwrap an already-cached client to avoid double-wrapping."""
+        from .llm_cache import CachedLLMClient
+
+        if isinstance(client, CachedLLMClient):
+            return client._client
+        return client
 
     def _create_client(self, provider: str | None) -> BaseLLMClient:
         provider_name = (provider or os.getenv("METESPARSER_LLM_PROVIDER") or "openai").lower()
