@@ -98,7 +98,7 @@ class TestDeedCallPhase4Fields:
                 curve_dir="left",
                 radius_ft=200.0,
                 delta_deg=30.0,
-                curve_type="spiral",
+                curve_type="invalid_curve",
             )
 
 

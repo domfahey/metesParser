@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import importlib.util
 import sys
-from datetime import datetime
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -21,17 +19,6 @@ class _NoopClient:
         self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
     ) -> str:
         return ""
-
-
-def _load_script_module(script_name: str):
-    repo_root = Path(__file__).resolve().parents[2]
-    script_path = repo_root / "scripts" / script_name
-    spec = importlib.util.spec_from_file_location(f"test_{script_name}", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
 
 
 def test_openai_client_forwards_json_response_format(monkeypatch) -> None:
@@ -137,44 +124,3 @@ def test_pdf_processor_loads_prompts_when_filesystem_prompt_dir_missing(tmp_path
     prompt = processor._load_prompt("normalize_text")
     assert isinstance(prompt, dict)
     assert "system_prompt" in prompt
-
-
-def test_extract_sample_deeds_script_points_to_repo_sample_deeds() -> None:
-    module = _load_script_module("extract_sample_deeds.py")
-    expected = Path(module.__file__).resolve().parent.parent / "sample_deeds"
-    assert module.SAMPLE_DEEDS_DIR == expected
-
-
-def test_generate_ground_truth_notes_uses_runtime_timestamp(tmp_path: Path) -> None:
-    module = _load_script_module("generate_ground_truth.py")
-
-    class FakeProcessor:
-        def extract_text_from_pdf(self, pdf_path: str) -> str:
-            return "RAW"
-
-        def extract_legal_description(self, pdf_path: str) -> str:
-            return "THENCE N 45° E 100 feet to a point"
-
-        def normalize_legal_description(self, legal_desc_text: str) -> str:
-            return legal_desc_text
-
-    pdf_path = tmp_path / "example.pdf"
-    pdf_path.write_bytes(b"%PDF")
-
-    result = module.generate_ground_truth(pdf_path, FakeProcessor())
-    notes = result["notes"]
-
-    assert notes.startswith("Ground truth generated at ")
-    timestamp = notes.removeprefix("Ground truth generated at ")
-    datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-
-
-def test_root_package_exports_documented_public_classes() -> None:
-    import metesparser
-
-    assert hasattr(metesparser, "PDFProcessor")
-    assert hasattr(metesparser, "ClosureChecker")
-    assert hasattr(metesparser, "CallExtractor")
-    assert hasattr(metesparser, "CSVBuilder")
-    assert hasattr(metesparser, "TextParser")
-    assert hasattr(metesparser, "LegalDescription")

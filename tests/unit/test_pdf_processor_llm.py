@@ -53,13 +53,13 @@ def test_pdf_processor_prefers_injected_client(monkeypatch):
 
     monkeypatch.setattr(PDFProcessor, "_create_client", _fail_factory, raising=False)
 
-    processor = PDFProcessor(client=RecordingClient())
+    processor = PDFProcessor(client=RecordingClient(), cache=False)
     assert isinstance(processor.client, RecordingClient)
 
 
 def test_extract_text_from_pdf_uses_llm_client(tmp_path):
     client = RecordingClient()
-    processor = PDFProcessor(client=client)
+    processor = PDFProcessor(client=client, cache=False)
 
     fake_pdf = tmp_path / "fake.pdf"
     fake_pdf.write_bytes(b"%PDF-1.4\n%Test")
@@ -74,7 +74,7 @@ def test_extract_text_from_pdf_uses_llm_client(tmp_path):
 
 def test_extract_legal_description_passes_document_text(tmp_path):
     client = RecordingClient()
-    processor = PDFProcessor(client=client)
+    processor = PDFProcessor(client=client, cache=False)
 
     fake_pdf = tmp_path / "fake.pdf"
     fake_pdf.write_bytes(b"%PDF-1.4\n%Test")
@@ -93,7 +93,7 @@ def test_extract_legal_description_passes_document_text(tmp_path):
 
 def test_extract_calls_ai_requests_json_response():
     client = RecordingClient()
-    processor = PDFProcessor(client=client)
+    processor = PDFProcessor(client=client, cache=False)
 
     calls = processor.extract_calls_ai("NORMALIZED TEXT")
     assert calls == []
@@ -116,7 +116,7 @@ def test_provider_env_selects_gemini(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     monkeypatch.setattr("metesparser.pdf_processor.GeminiClient", DummyGemini)
 
-    processor = PDFProcessor()
+    processor = PDFProcessor(cache=False)
     assert isinstance(processor.client, DummyGemini)
     assert created["api_key"] is None
 
@@ -133,7 +133,7 @@ def test_provider_argument_overrides_env(monkeypatch):
     monkeypatch.setenv("METESPARSER_LLM_PROVIDER", "gemini")
     monkeypatch.setattr("metesparser.pdf_processor.OpenAIClient", DummyOpenAI)
 
-    processor = PDFProcessor(provider="openai")
+    processor = PDFProcessor(provider="openai", cache=False)
     assert isinstance(processor.client, DummyOpenAI)
     assert created["api_key"] is None
 

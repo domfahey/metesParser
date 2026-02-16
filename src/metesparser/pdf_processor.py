@@ -12,7 +12,7 @@ import structlog
 import yaml  # type: ignore[import-untyped]
 
 from .llm_clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
-from .models import LegalDescription
+from .models import ConversionFactors, DistanceUnit, LegalDescription
 
 logger = structlog.get_logger(__name__)
 
@@ -26,6 +26,8 @@ class PDFProcessor:
         *,
         provider: str | None = None,
         client: BaseLLMClient | None = None,
+        cache: bool | None = None,
+        cache_dir: Path | None = None,
     ):
         """Initialize PDF processor with configurable LLM provider.
 
@@ -33,10 +35,26 @@ class PDFProcessor:
             api_key: Optional API key override for the chosen provider
             provider: LLM provider name ("openai" or "gemini")
             client: Optional pre-constructed LLM client implementation
+            cache: Enable/disable LLM response caching (default: True, env: METESPARSER_LLM_CACHE)
+            cache_dir: Directory for cached responses (env: METESPARSER_CACHE_DIR)
         """
         self._configured_api_key = api_key
         self.client = client or self._create_client(provider)
         self.prompts_dir = Path(__file__).parent.parent.parent / "prompts"
+
+        # Wrap client with caching if enabled
+        cache_enabled = (
+            cache
+            if cache is not None
+            else os.getenv("METESPARSER_LLM_CACHE", "true").lower() != "false"
+        )
+        if cache_enabled:
+            from .llm_cache import CachedLLMClient
+
+            resolved_cache_dir = cache_dir or Path(os.getenv("METESPARSER_CACHE_DIR", ".cache/llm"))
+            self.client = CachedLLMClient(
+                self._unwrap_client(self.client), cache_dir=resolved_cache_dir
+            )
 
     def _load_prompt(self, prompt_name: str) -> dict[str, Any]:
         """Load a prompt from YAML file.
@@ -94,15 +112,18 @@ class PDFProcessor:
         document_text = self.extract_text_from_pdf(pdf_path)
         prompt_config = self._load_prompt("extract_legal_description")
 
-        combined_prompt = f"{prompt_config['system_prompt']}\n\n{prompt_config['user_prompt_template'].format(document_text=document_text)}"
+        user_prompt = prompt_config["user_prompt_template"].replace(
+            "{document_text}", document_text
+        )
+        combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
         return self.client.generate_text(combined_prompt)
 
     def normalize_legal_description(self, legal_desc_text: str) -> str:
         """Normalize and clean up legal description text."""
         prompt_config = self._load_prompt("normalize_text")
 
-        user_prompt = prompt_config["user_prompt_template"].format(
-            legal_description_text=legal_desc_text
+        user_prompt = prompt_config["user_prompt_template"].replace(
+            "{legal_description_text}", legal_desc_text
         )
         combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
 
@@ -112,8 +133,8 @@ class PDFProcessor:
         """Extract calls using the configured LLM (experimental)."""
         prompt_config = self._load_prompt("extract_calls")
 
-        user_prompt = prompt_config["user_prompt_template"].format(
-            legal_description_text=legal_desc_text
+        user_prompt = prompt_config["user_prompt_template"].replace(
+            "{legal_description_text}", legal_desc_text
         )
         combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
 
@@ -157,13 +178,39 @@ class PDFProcessor:
         processing_logger.info("Extracting area statement")
         stated_area = TextParser.extract_area_statement(normalized_text)
 
+        processing_logger.info("Inferring distance unit")
+        inferred_unit = TextParser.infer_distance_unit(normalized_text)
+        distance_unit: DistanceUnit = "feet"
+        if inferred_unit is not None:
+            try:
+                ConversionFactors.convert_to_feet(1.0, inferred_unit)
+                distance_unit = cast(DistanceUnit, inferred_unit)
+            except ValueError:
+                processing_logger.warning(
+                    "Unsupported inferred distance unit; defaulting to feet",
+                    inferred_unit=inferred_unit,
+                )
+        processing_logger.info("Distance unit resolved", distance_unit=distance_unit)
+
         processing_logger.info("Extracting calls")
-        calls = CallExtractor.extract_calls(normalized_text)
+        calls = CallExtractor.extract_calls(normalized_text, distance_unit=distance_unit)
 
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
 
         processing_logger.info("Marking tie-in calls")
         calls = CallExtractor.mark_tie_in_calls(calls, poc_description=poc if poc else None)
+
+        processing_logger.info("Extracting deed clauses")
+        clauses = TextParser.extract_deed_clauses(normalized_text)
+
+        processing_logger.info("Extracting subdivision reference")
+        subdivision_ref = TextParser.extract_subdivision_reference(normalized_text)
+
+        processing_logger.info("Extracting witness trees")
+        witness_trees = TextParser.extract_witness_trees(normalized_text)
+
+        processing_logger.info("Extracting coordinate system")
+        coordinate_system, fips_code = TextParser.extract_coordinate_system(normalized_text)
 
         legal_desc = LegalDescription(
             poc_description=poc if poc else None,
@@ -175,7 +222,7 @@ class PDFProcessor:
             survey_date=None,
             basis_of_bearing=TextParser.extract_basis_of_bearing(normalized_text),
             datum=None,
-            distance_unit="feet",
+            distance_unit=distance_unit,
             section=plss_data.get("section"),
             township=plss_data.get("township"),
             range=plss_data.get("range"),
@@ -183,6 +230,11 @@ class PDFProcessor:
             aliquot=plss_data.get("aliquot"),
             surveyor_certification=TextParser.extract_surveyor_certification(normalized_text),
             prior_conveyance=TextParser.extract_prior_conveyance(normalized_text),
+            clauses=clauses,
+            subdivision_ref=subdivision_ref,
+            witness_trees=witness_trees,
+            coordinate_system=coordinate_system,
+            fips_code=fips_code,
             stated_area_sq_ft=stated_area["value_sq_ft"] if stated_area else None,
             stated_area_approximate=stated_area["approximate"] if stated_area else False,
         )
@@ -190,6 +242,15 @@ class PDFProcessor:
         processing_logger.info("Extracted calls", count=legal_desc.num_calls())
 
         return legal_desc
+
+    @staticmethod
+    def _unwrap_client(client: BaseLLMClient) -> BaseLLMClient:
+        """Unwrap an already-cached client to avoid double-wrapping."""
+        from .llm_cache import CachedLLMClient
+
+        if isinstance(client, CachedLLMClient):
+            return client._client
+        return client
 
     def _create_client(self, provider: str | None) -> BaseLLMClient:
         provider_name = (provider or os.getenv("METESPARSER_LLM_PROVIDER") or "openai").lower()

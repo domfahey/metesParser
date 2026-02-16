@@ -18,6 +18,54 @@ class BearingConverter:
         re.IGNORECASE,
     )
 
+    COMPASS_POINTS: dict[str, float] = {
+        "north": 0.0,
+        "north by east": 11.25,
+        "north-northeast": 22.5,
+        "northeast by north": 33.75,
+        "northeast": 45.0,
+        "northeast by east": 56.25,
+        "east-northeast": 67.5,
+        "east by north": 78.75,
+        "east": 90.0,
+        "east by south": 101.25,
+        "east-southeast": 112.5,
+        "southeast by east": 123.75,
+        "southeast": 135.0,
+        "southeast by south": 146.25,
+        "south-southeast": 157.5,
+        "south by east": 168.75,
+        "south": 180.0,
+        "south by west": 191.25,
+        "south-southwest": 202.5,
+        "southwest by south": 213.75,
+        "southwest": 225.0,
+        "southwest by west": 236.25,
+        "west-southwest": 247.5,
+        "west by south": 258.75,
+        "west": 270.0,
+        "west by north": 281.25,
+        "west-northwest": 292.5,
+        "northwest by west": 303.75,
+        "northwest": 315.0,
+        "northwest by north": 326.25,
+        "north-northwest": 337.5,
+        "north by west": 348.75,
+    }
+
+    @classmethod
+    def compass_point_to_azimuth(cls, compass_point: str) -> float | None:
+        """Convert a 32-point compass direction to azimuth.
+
+        Args:
+            compass_point: Compass point name (e.g., "North by East", "Northeast")
+
+        Returns:
+            Azimuth in degrees or None if not a recognized compass point
+        """
+        normalized = compass_point.strip().lower()
+        return cls.COMPASS_POINTS.get(normalized)
+
     @classmethod
     def parse_packed_dms(cls, value: float) -> float:
         """Convert packed DMS value to decimal degrees.
@@ -47,6 +95,28 @@ class BearingConverter:
             raise ValueError(f"Invalid packed DMS: seconds={seconds:.0f} (must be 0-59)")
 
         return degrees + minutes / 60.0 + seconds / 3600.0
+
+    @classmethod
+    def degree_of_curvature_to_radius(cls, degree_of_curve: float) -> float:
+        """Convert degree of curvature to radius using arc definition.
+
+        The degree of curvature is the central angle subtended by a 100-ft arc.
+        Formula: R = 5729.578 / D°
+
+        Args:
+            degree_of_curve: Degree of curvature (must be > 0)
+
+        Returns:
+            Radius in feet
+
+        Raises:
+            ValueError: If degree_of_curve is zero or negative
+        """
+        if degree_of_curve <= 0:
+            raise ValueError(
+                f"Degree of curvature must be positive and non-zero, got {degree_of_curve}"
+            )
+        return 5729.578 / degree_of_curve
 
     @classmethod
     def parse_quadrant_bearing(cls, bearing_text: str) -> tuple[str, float, str] | None:
@@ -255,12 +325,24 @@ class BearingConverter:
         else:
             raise ValueError("Must provide either delta_deg or arc_length_ft")
 
+        cos_half = math.cos(delta_rad / 2)
+        if abs(cos_half) < 1e-10:
+            tangent_length_ft = float("inf")
+            external_distance_ft = float("inf")
+        else:
+            tangent_length_ft = radius_ft * math.tan(delta_rad / 2)
+            external_distance_ft = radius_ft * (1.0 / cos_half - 1.0)
+        middle_ordinate_ft = radius_ft * (1.0 - math.cos(delta_rad / 2))
+
         return {
             "radius_ft": radius_ft,
             "delta_deg": delta_deg,
             "delta_rad": delta_rad,
             "arc_length_ft": arc,
             "chord_length_ft": chord,
+            "tangent_length_ft": tangent_length_ft,
+            "external_distance_ft": external_distance_ft,
+            "middle_ordinate_ft": middle_ordinate_ft,
         }
 
     @classmethod
@@ -384,6 +466,12 @@ class BearingConverter:
             delta_rad = math.radians(delta_deg)
             radius_ft = chord_length_ft / (2 * math.sin(delta_rad / 2))
         elif arc_length_ft is not None and chord_length_ft is not None:
+            if arc_length_ft <= 0:
+                raise ValueError(f"Arc length must be positive, got {arc_length_ft}")
+            if chord_length_ft >= arc_length_ft:
+                raise ValueError(
+                    f"Chord ({chord_length_ft} ft) must be less than arc ({arc_length_ft} ft)"
+                )
             # Approximate delta from arc/chord ratio
             # For small angles: L/C ≈ delta / (2*sin(delta/2))
             delta_rad = 2 * math.sqrt(6 * (1 - chord_length_ft / arc_length_ft))
@@ -396,7 +484,14 @@ class BearingConverter:
             arc_length_ft = radius_ft * delta_rad  # type: ignore[operator]
         if chord_length_ft is None:
             chord_length_ft = 2 * radius_ft * math.sin(delta_rad / 2)  # type: ignore[operator]
-        tangent_length_ft = radius_ft * math.tan(delta_rad / 2)  # type: ignore[operator]
+        cos_half = math.cos(delta_rad / 2)
+        if abs(cos_half) < 1e-10:
+            tangent_length_ft = float("inf")
+            external_distance_ft = float("inf")
+        else:
+            tangent_length_ft = radius_ft * math.tan(delta_rad / 2)  # type: ignore[operator]
+            external_distance_ft = radius_ft * (1.0 / cos_half - 1.0)  # type: ignore[operator]
+        middle_ordinate_ft = radius_ft * (1.0 - math.cos(delta_rad / 2))  # type: ignore[operator]
 
         return {
             "radius_ft": radius_ft,  # type: ignore[dict-item]
@@ -404,6 +499,8 @@ class BearingConverter:
             "arc_length_ft": arc_length_ft,
             "chord_length_ft": chord_length_ft,
             "tangent_length_ft": tangent_length_ft,
+            "external_distance_ft": external_distance_ft,
+            "middle_ordinate_ft": middle_ordinate_ft,
         }
 
     @classmethod

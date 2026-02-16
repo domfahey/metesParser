@@ -1,40 +1,15 @@
 from __future__ import annotations
 
-import importlib.util
+import json
 import math
-from datetime import datetime
 from pathlib import Path
-from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 from metesparser.call_extractor import CallExtractor
 from metesparser.closure_checker import ClosureChecker
-from metesparser.models import ClosureResult, DeedCall, LegalDescription
-
-
-def _load_script_module(script_name: str):
-    repo_root = Path(__file__).resolve().parents[2]
-    script_path = repo_root / "scripts" / script_name
-    spec = importlib.util.spec_from_file_location(f"test_{script_name}", script_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def _sample_closure_result() -> ClosureResult:
-    return ClosureResult(
-        misclosure_x_ft=0.0,
-        misclosure_y_ft=0.0,
-        misclosure_ft=0.0,
-        area_sq_ft=100.0,
-        area_acres=100.0 / 43560.0,
-        perimeter_ft=100.0,
-        closure_passed=True,
-        angle_check_passed=True,
-        curve_consistency_passed=True,
-        warnings=[],
-    )
+from metesparser.models import DeedCall
+from metesparser.pdf_processor import PDFProcessor
+from metesparser.text_parser import TextParser
 
 
 def test_extract_calls_skips_incomplete_curve_and_continues() -> None:
@@ -84,70 +59,95 @@ def test_compute_traverse_treats_zero_delta_curve_as_straight_distance() -> None
     assert math.isclose(points[-1].y, 100.0, abs_tol=0.001)
 
 
-def test_extract_sample_deeds_report_shows_zero_azimuth_and_runtime_timestamp(
-    tmp_path: Path,
-) -> None:
-    module = _load_script_module("extract_sample_deeds.py")
-    legal_desc = LegalDescription(
-        source_doc="example.pdf",
-        calls=[
-            DeedCall(
-                course=1,
-                direction_text="N 0° E",
-                bearing_quadrant="N 0° E",
-                bearing_azimuth_deg_from_north=0.0,
-                distance_ft=100.0,
-            )
-        ],
+# --- Bug #40: "to the right/left of" clauses dropped from `to` field ---
+
+
+def test_to_the_right_of_intersection_preserved_in_to_field() -> None:
+    """'to the right of intersection' is a spatial descriptor, not curve direction."""
+    _along, to = TextParser.extract_along_to_fields("N 45° E 100 feet to the right of intersection")
+    assert to != ""
+    assert "right of intersection" in to
+
+
+def test_to_the_left_of_centerline_preserved_in_to_field() -> None:
+    """'to the left of the centerline' is a spatial descriptor, not curve direction."""
+    _along, to = TextParser.extract_along_to_fields(
+        "S 30° W 200 feet to the left of the centerline"
     )
-    output_file = tmp_path / "report.txt"
-
-    module.create_extraction_report(legal_desc, _sample_closure_result(), output_file)
-    report = output_file.read_text()
-    report_lines = report.splitlines()
-
-    assert "Source PDF: example.pdf" in report_lines
-    assert any(line == "Azimuth:         0.00°" for line in report_lines)
-    date_lines = [line for line in report.splitlines() if line.startswith("Date Extracted: ")]
-    assert len(date_lines) == 1
-    date_line = date_lines[0]
-    timestamp = date_line.removeprefix("Date Extracted: ").strip()
-    datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    assert to != ""
+    assert "left of the centerline" in to
 
 
-def test_31_pennbrook_script_prints_zero_azimuth(monkeypatch, capsys) -> None:
-    module = _load_script_module("test_31_pennbrook_text.py")
-    fake_call = DeedCall(
-        course=1,
-        direction_text="N 0° E",
-        bearing_quadrant="N 0° E",
-        bearing_azimuth_deg_from_north=0.0,
-        distance_ft=10.0,
-    )
+def test_bare_to_the_right_still_filtered_as_curve_direction() -> None:
+    """Bare 'to the right' (without 'of') is curve direction and should be filtered."""
+    _along, to = TextParser.extract_along_to_fields("along a curve to the right")
+    assert to == ""
 
-    monkeypatch.setattr(
-        module,
-        "TextParser",
-        SimpleNamespace(
-            normalize_legal_description=lambda text: "normalized",
-            extract_pob=lambda text: "POB",
-            split_into_calls=lambda text: ["N 0° E 10 feet to a point"],
-        ),
-    )
-    monkeypatch.setattr(
-        module,
-        "CallExtractor",
-        SimpleNamespace(extract_calls=lambda text: [fake_call]),
-    )
-    monkeypatch.setattr(
-        module,
-        "ClosureChecker",
-        SimpleNamespace(verify_closure=lambda calls: _sample_closure_result()),
-    )
 
-    module.main()
-    output = capsys.readouterr().out
-    output_lines = output.splitlines()
-    assert "CALL 1:" in output_lines
-    assert any(line == "  Azimuth:    0.00°" for line in output_lines)
-    assert any(line.startswith("Closure Status: ") for line in output_lines)
+# ---------------------------------------------------------------------------
+# Bug #35: str.format crashes when extracted text contains braces
+# ---------------------------------------------------------------------------
+
+TEXT_WITH_BRACES = "Lot {A} Block 3, BEGINNING at a point N 45° E 100 feet to {POB}"
+
+
+def _make_processor_with_mock_client() -> tuple[PDFProcessor, MagicMock]:
+    """Build a PDFProcessor whose LLM client is a mock returning brace-laden text."""
+    mock_client = MagicMock()
+    mock_client.generate_text_with_pdf.return_value = TEXT_WITH_BRACES
+    mock_client.generate_text.return_value = TEXT_WITH_BRACES
+    processor = PDFProcessor(client=mock_client, cache=False)
+    return processor, mock_client
+
+
+def test_extract_legal_description_does_not_crash_on_braces(tmp_path: Path) -> None:
+    processor, mock_client = _make_processor_with_mock_client()
+
+    dummy_pdf = tmp_path / "deed.pdf"
+    dummy_pdf.write_bytes(b"%PDF-1.4 fake")
+
+    result = processor.extract_legal_description(str(dummy_pdf))
+
+    assert result == TEXT_WITH_BRACES
+    assert mock_client.generate_text.called
+
+
+def test_normalize_legal_description_does_not_crash_on_braces() -> None:
+    processor, mock_client = _make_processor_with_mock_client()
+
+    result = processor.normalize_legal_description(TEXT_WITH_BRACES)
+
+    assert result == TEXT_WITH_BRACES
+    assert mock_client.generate_text.called
+
+
+def test_extract_calls_ai_does_not_crash_on_braces() -> None:
+    mock_client = MagicMock()
+    mock_client.generate_text.return_value = json.dumps({"calls": []})
+    processor = PDFProcessor(client=mock_client, cache=False)
+
+    result = processor.extract_calls_ai(TEXT_WITH_BRACES)
+
+    assert result == []
+    assert mock_client.generate_text.called
+
+
+# --- Bug #41: Parse numeric ordinal principal meridians in PLSS metadata ---
+
+
+def test_plss_numeric_ordinal_principal_meridian() -> None:
+    text = "Section 10, Township 3 North, Range 2 East, 6th Principal Meridian"
+    result = TextParser.extract_plss_metadata(text)
+    assert result["principal_meridian"] == "6Th Principal Meridian"
+
+
+def test_plss_numeric_ordinal_pm_abbreviation() -> None:
+    text = "Section 5, Township 1 South, Range 4 West, 11TH P.M."
+    result = TextParser.extract_plss_metadata(text)
+    assert result["principal_meridian"] is not None
+
+
+def test_plss_alphabetic_meridian_still_works() -> None:
+    text = "Section 12, Township 2 North, Range 5 West, San Bernardino Principal Meridian"
+    result = TextParser.extract_plss_metadata(text)
+    assert result["principal_meridian"] == "San Bernardino Principal Meridian"

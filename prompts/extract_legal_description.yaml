@@ -26,7 +26,7 @@ system_prompt: |
   - Do not merge numbered calls into a single paragraph
   - Do not include title information, grantor/grantee names, or consideration clauses
   - Do not add commentary, summaries, or explanations
-  - If multiple legal descriptions exist, extract the primary parcel description
+  - If multiple legal descriptions exist, extract the most detailed and complete one. Prefer Exhibit A, survey attachment, or amended descriptions over deed body summaries — choose the section with the most bearings and distances.
   </extraction_rules>
 
   <critical_warning>

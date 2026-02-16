@@ -170,6 +170,21 @@ class CSVBuilder:
             "aliquot": legal_desc.aliquot,
             "surveyor_certification": legal_desc.surveyor_certification,
             "prior_conveyance": legal_desc.prior_conveyance,
+            "coordinate_system": legal_desc.coordinate_system,
+            "fips_code": legal_desc.fips_code,
+            "clauses": (
+                "; ".join(f"[{c.clause_type}] {c.text}" for c in legal_desc.clauses)
+                if legal_desc.clauses
+                else None
+            ),
+            "subdivision_ref": (
+                f"Lot {legal_desc.subdivision_ref.lot or '?'}, Block {legal_desc.subdivision_ref.block or '?'}, {legal_desc.subdivision_ref.subdivision_name or '?'}"
+                if legal_desc.subdivision_ref
+                else None
+            ),
+            "witness_trees": (
+                "; ".join(legal_desc.witness_trees) if legal_desc.witness_trees else None
+            ),
         }
         cls.calls_to_csv(legal_desc.calls, output_path, metadata)
 

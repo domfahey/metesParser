@@ -61,7 +61,7 @@ def _stub_processor(legal_desc: LegalDescription):
         def process_deed_pdf(self, _pdf_path: str) -> LegalDescription:
             return legal_desc
 
-    return lambda provider=None: _Processor()
+    return lambda provider=None, **kwargs: _Processor()
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:
