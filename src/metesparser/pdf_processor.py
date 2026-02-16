@@ -200,6 +200,18 @@ class PDFProcessor:
         processing_logger.info("Marking tie-in calls")
         calls = CallExtractor.mark_tie_in_calls(calls, poc_description=poc if poc else None)
 
+        processing_logger.info("Extracting deed clauses")
+        clauses = TextParser.extract_deed_clauses(normalized_text)
+
+        processing_logger.info("Extracting subdivision reference")
+        subdivision_ref = TextParser.extract_subdivision_reference(normalized_text)
+
+        processing_logger.info("Extracting witness trees")
+        witness_trees = TextParser.extract_witness_trees(normalized_text)
+
+        processing_logger.info("Extracting coordinate system")
+        coordinate_system, fips_code = TextParser.extract_coordinate_system(normalized_text)
+
         legal_desc = LegalDescription(
             poc_description=poc if poc else None,
             pob_description=pob,
@@ -218,9 +230,11 @@ class PDFProcessor:
             aliquot=plss_data.get("aliquot"),
             surveyor_certification=TextParser.extract_surveyor_certification(normalized_text),
             prior_conveyance=TextParser.extract_prior_conveyance(normalized_text),
-            subdivision_ref=None,
-            coordinate_system=None,
-            fips_code=None,
+            clauses=clauses,
+            subdivision_ref=subdivision_ref,
+            witness_trees=witness_trees,
+            coordinate_system=coordinate_system,
+            fips_code=fips_code,
             stated_area_sq_ft=stated_area["value_sq_ft"] if stated_area else None,
             stated_area_approximate=stated_area["approximate"] if stated_area else False,
         )
