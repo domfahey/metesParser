@@ -710,7 +710,9 @@ class TestPDFProcessorAudit:
         assert isinstance(legal_desc, LegalDescription)
         assert isinstance(ctx, AuditContext)
         assert ctx.run_metadata.source_pdf == "path.pdf"
-        assert ctx.run_metadata.parser_version == "0.2.0"
+        import metesparser
+
+        assert ctx.run_metadata.parser_version == metesparser.__version__
 
     def test_process_deed_pdf_default_returns_legal_desc(self):
         """Default (audit=False) returns LegalDescription directly."""
