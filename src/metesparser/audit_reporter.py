@@ -63,7 +63,7 @@ class AuditReporter:
     def write_report(cls, ctx: AuditContext, path: Path) -> None:
         """Write HTML audit report to file."""
         html_content = cls.generate_html(ctx)
-        path.write_text(html_content)
+        path.write_text(html_content, encoding="utf-8")
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -117,8 +117,8 @@ class AuditReporter:
         parts.append(
             f"<span>LLM: {html.escape(rm.llm_provider)} / {html.escape(rm.llm_model)}</span>"
         )
-        if rm.cache_hit:
-            parts.append("<span>Cache: HIT</span>")
+        if rm.cache_enabled:
+            parts.append("<span>Cache: ENABLED</span>")
         parts.append("</div>")
 
         # Overall confidence bar (from extraction if available)
