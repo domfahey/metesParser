@@ -56,7 +56,7 @@ class TextParser:
 
             prefix = normalized_text[max(0, match.start() - 45) : match.end() + 45]
             approximate = bool(
-                "~" in match.group(0)
+                "~" in prefix
                 or re.search(r"\bapprox(?:imately)?\.?\b", prefix)
                 or "more or less" in prefix
             )

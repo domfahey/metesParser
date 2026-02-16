@@ -58,6 +58,15 @@ def configure_logging(
     level_num = logging.getLevelNamesMapping()[resolved_level]
     include_callsite = debug or resolved_level == "DEBUG"
 
+    exception_processor: structlog.typing.Processor
+    renderer: structlog.typing.Processor
+    if resolved_format == "json":
+        exception_processor = structlog.processors.dict_tracebacks
+        renderer = structlog.processors.JSONRenderer(sort_keys=True)
+    else:
+        exception_processor = structlog.processors.format_exc_info
+        renderer = structlog.dev.ConsoleRenderer(colors=False)
+
     shared_processors: list[structlog.typing.Processor] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_logger_name,
@@ -79,16 +88,10 @@ def configure_logging(
     shared_processors.extend(
         [
             structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
+            exception_processor,
             structlog.processors.UnicodeDecoder(),
         ]
     )
-
-    renderer: structlog.typing.Processor
-    if resolved_format == "json":
-        renderer = structlog.processors.JSONRenderer(sort_keys=True)
-    else:
-        renderer = structlog.dev.ConsoleRenderer(colors=False)
 
     formatter = structlog.stdlib.ProcessorFormatter(
         foreign_pre_chain=shared_processors,
@@ -102,7 +105,12 @@ def configure_logging(
     handler.setFormatter(formatter)
 
     root_logger = logging.getLogger()
-    root_logger.handlers[:] = [handler]
+    previous_handlers = list(root_logger.handlers)
+    for previous_handler in previous_handlers:
+        root_logger.removeHandler(previous_handler)
+        previous_handler.close()
+
+    root_logger.addHandler(handler)
     root_logger.setLevel(level_num)
 
     logging.captureWarnings(True)

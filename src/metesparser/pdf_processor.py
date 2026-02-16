@@ -140,19 +140,24 @@ class PDFProcessor:
         from .call_extractor import CallExtractor
         from .text_parser import TextParser
 
-        print("Extracting legal description from PDF...")
+        processing_logger = logger.bind(pdf_path=pdf_path)
+
+        processing_logger.info("Extracting legal description from PDF")
         legal_desc_text = self.extract_legal_description(pdf_path)
 
-        print("Normalizing text...")
+        processing_logger.info("Normalizing text")
         normalized_text = self.normalize_legal_description(legal_desc_text)
 
-        print("Extracting PLSS metadata...")
+        processing_logger.info("Extracting PLSS metadata")
         plss_data = TextParser.extract_plss_metadata(normalized_text)
 
-        print("Extracting Point of Commencement and Point of Beginning...")
+        processing_logger.info("Extracting Point of Commencement and Point of Beginning")
         poc, pob = TextParser.extract_poc_and_pob(normalized_text)
 
-        print("Extracting calls...")
+        processing_logger.info("Extracting area statement")
+        stated_area = TextParser.extract_area_statement(normalized_text)
+
+        processing_logger.info("Extracting calls")
         calls = CallExtractor.extract_calls(normalized_text)
 
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
@@ -175,9 +180,11 @@ class PDFProcessor:
             aliquot=plss_data.get("aliquot"),
             surveyor_certification=TextParser.extract_surveyor_certification(normalized_text),
             prior_conveyance=TextParser.extract_prior_conveyance(normalized_text),
+            stated_area_sq_ft=stated_area["value_sq_ft"] if stated_area else None,
+            stated_area_approximate=stated_area["approximate"] if stated_area else False,
         )
 
-        print(f"Extracted {legal_desc.num_calls()} calls")
+        processing_logger.info("Extracted calls", count=legal_desc.num_calls())
 
         return legal_desc
 

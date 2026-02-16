@@ -7,14 +7,14 @@ import csv
 from pathlib import Path
 
 import structlog
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import ValidationError, field_validator
 
-from .models import ClosureResult, DeedCall, LegalDescription
+from .models import ClosureResult, DeedCall, LegalDescription, _Model
 
 logger = structlog.get_logger(__name__)
 
 
-class _CSVDeedCallRow(BaseModel):
+class _CSVDeedCallRow(_Model):
     """Validated CSV row shape before building a strict DeedCall."""
 
     course: int
@@ -31,6 +31,7 @@ class _CSVDeedCallRow(BaseModel):
     along: str | None = None
     to: str | None = None
     monument_type: str | None = None
+    monument_status: str | None = None
     is_exception: bool = False
     non_tangent: bool = False
     radial_bearing: str | None = None
@@ -63,7 +64,6 @@ class _CSVDeedCallRow(BaseModel):
 class CSVBuilder:
     """Build and export deed calls to CSV format."""
 
-    # Standard CSV schema (18 fields)
     FIELDNAMES: list[str] = [
         "course",
         "direction_text",
@@ -79,6 +79,7 @@ class CSVBuilder:
         "along",
         "to",
         "monument_type",
+        "monument_status",
         "is_exception",
         "non_tangent",
         "radial_bearing",
@@ -105,9 +106,7 @@ class CSVBuilder:
         with open(output_file, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=cls.FIELDNAMES)
 
-            # Write header
             writer.writeheader()
-            # Write calls
             for call in calls:
                 row = cls._call_to_row(call)
                 writer.writerow(row)
@@ -147,6 +146,7 @@ class CSVBuilder:
             "along": call.along or "",
             "to": call.to or "",
             "monument_type": call.monument_type or "",
+            "monument_status": call.monument_status or "",
             "is_exception": "true" if call.is_exception else "false",
             "non_tangent": "true" if call.non_tangent else "false",
             "radial_bearing": call.radial_bearing or "",
@@ -237,7 +237,6 @@ class CSVBuilder:
             DeedCall object or None if parsing fails
         """
         try:
-            # Trim all text values first
             normalized_row = {k: (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
             normalized_row = {k: (None if v == "" else v) for k, v in normalized_row.items()}
 
@@ -280,17 +279,14 @@ class CSVBuilder:
                 f"Warnings: {len(closure_result.warnings)}"
             )
 
-        # Add '_verified' suffix
         output_file = Path(output_path)
         verified_path = output_file.with_stem(output_file.stem + "_verified")
 
-        # Export
         if legal_desc:
             cls.legal_description_to_csv(legal_desc, str(verified_path))
         else:
             cls.calls_to_csv(calls, str(verified_path))
 
-        # Also write closure summary
         summary_path = verified_path.with_suffix(".verification.txt")
         from .closure_checker import ClosureChecker
 
