@@ -421,6 +421,20 @@ class CallExtractor:
                 deg += 1
             return f"{cardinal1} {deg}°{rounded_minutes:02d}' {cardinal2}"
 
+        # Compound compass point check (32-point system) — must come before
+        # simple cardinal check so "North by East" is not truncated to "North"
+        compound_compass_names = sorted(
+            [name for name in BearingConverter.COMPASS_POINTS if " " in name or "-" in name],
+            key=len,
+            reverse=True,
+        )
+        compound_compass_regex = (
+            r"\b(" + "|".join(re.escape(name) for name in compound_compass_names) + r")\b"
+        )
+        compound_compass_match = re.search(compound_compass_regex, text, re.IGNORECASE)
+        if compound_compass_match:
+            return compound_compass_match.group(0).lower()
+
         cardinal_pattern = (
             r"\b(north(?:erly|wardly)?|south(?:erly|wardly)?|east(?:erly|wardly)?|west(?:erly|wardly)?|"
             r"northeast(?:erly|wardly)?|northwest(?:erly|wardly)?|southeast(?:erly|wardly)?|southwest(?:erly|wardly)?)\b"
