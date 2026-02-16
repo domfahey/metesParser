@@ -10,7 +10,7 @@ from .models import LegalDescription
 from .pdf_processor import PDFProcessor
 from .text_parser import TextParser
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "__version__",
