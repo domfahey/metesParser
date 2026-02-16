@@ -570,3 +570,123 @@ def test_main_rejects_invalid_log_level(monkeypatch, capsys):
     assert exc.value.code == 2
     captured = capsys.readouterr()
     assert "Invalid log level" in (captured.out + captured.err)
+
+
+class TestCompareRunsCommand:
+    def test_compare_runs_logs_with_structlog(self, monkeypatch, tmp_path, capsys):
+        """compare-runs should use structured logging like other commands."""
+        log_stream = io.StringIO()
+        configure_logging(level="INFO", log_format="json", stream=log_stream)
+
+        runs_dir = tmp_path / "runs"
+        runs_dir.mkdir()
+
+        try:
+            cli.compare_runs_command(runs_dir=str(runs_dir))
+        finally:
+            configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+        lines = _json_log_lines(log_stream.getvalue())
+        assert any(line.get("command") == "compare-runs" for line in lines), (
+            f"Expected structlog entry with command='compare-runs', got: {lines}"
+        )
+
+    def test_compare_runs_exits_on_error(self, monkeypatch, tmp_path):
+        """compare-runs should sys.exit(1) on unexpected errors, not raise."""
+        monkeypatch.setattr(
+            "metesparser.run_registry.load_run_manifests",
+            lambda _: (_ for _ in ()).throw(RuntimeError("disk error")),
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            cli.compare_runs_command(runs_dir=str(tmp_path))
+        assert exc.value.code == 1
+
+    def test_compare_runs_outputs_table_to_stdout(self, monkeypatch, tmp_path, capsys):
+        """compare-runs should still print the table to stdout."""
+        monkeypatch.setattr("metesparser.run_registry.load_run_manifests", lambda _: [])
+        monkeypatch.setattr(
+            "metesparser.run_registry.format_comparison_table",
+            lambda manifests, pdf_filter=None: "No runs found.",
+        )
+
+        cli.compare_runs_command(runs_dir=str(tmp_path))
+
+        captured = capsys.readouterr()
+        assert "No runs found." in captured.out
+
+
+class TestExtractRunManifest:
+    def test_extract_writes_run_manifest(self, monkeypatch, tmp_path):
+        """Extract command should write a run manifest to runs/ directory."""
+        from metesparser.run_registry import load_run_manifests
+
+        pdf = tmp_path / "test.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        output = tmp_path / "out.csv"
+        runs_dir = tmp_path / "runs"
+
+        legal_desc = LegalDescription(
+            calls=[
+                DeedCall(
+                    course=1,
+                    direction_text="N 0° E",
+                    bearing_quadrant="N 0° E",
+                    bearing_azimuth_deg_from_north=0.0,
+                    distance_ft=100.0,
+                ),
+                DeedCall(
+                    course=2,
+                    direction_text="S 90° E",
+                    bearing_quadrant="N 90° E",
+                    bearing_azimuth_deg_from_north=90.0,
+                    distance_ft=100.0,
+                ),
+                DeedCall(
+                    course=3,
+                    direction_text="S 0° W",
+                    bearing_quadrant="S 0° W",
+                    bearing_azimuth_deg_from_north=180.0,
+                    distance_ft=100.0,
+                ),
+                DeedCall(
+                    course=4,
+                    direction_text="N 90° W",
+                    bearing_quadrant="N 90° W",
+                    bearing_azimuth_deg_from_north=270.0,
+                    distance_ft=100.0,
+                ),
+            ],
+            source_doc="test.pdf",
+        )
+
+        verified = _verified_result()
+
+        monkeypatch.setattr(
+            "metesparser.pdf_processor.PDFProcessor",
+            lambda **_kw: SimpleNamespace(
+                process_deed_pdf=lambda _: legal_desc,
+                prompts_dir=tmp_path,
+                client=SimpleNamespace(model="gpt-5.2"),
+            ),
+        )
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.verify_closure",
+            lambda calls: verified,
+        )
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+            lambda result: "VERIFIED",
+        )
+        monkeypatch.setattr(
+            "metesparser.csv_builder.CSVBuilder.export_verified_csv",
+            lambda calls, closure_result, output_path, legal_desc_obj: None,
+        )
+        monkeypatch.setattr("metesparser.cli.RUNS_DIR", runs_dir)
+
+        cli.extract_command(str(pdf), output=str(output))
+
+        manifests = load_run_manifests(runs_dir)
+        assert len(manifests) == 1
+        assert manifests[0].source_pdf == "test.pdf"
+        assert manifests[0].results.call_count == 4

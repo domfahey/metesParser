@@ -12,6 +12,16 @@ _No unreleased changes._
 ## [0.4.0] - 2026-02-16
 
 ### Added
+- Run registry for prompt A/B testing (`run_registry.py`)
+- `RunManifest`, `PromptVersion`, `RunResults` Pydantic models for run tracking
+- `get_prompt_versions()` — resolves git SHA + content hash per prompt file
+- `write_run_manifest()` / `load_run_manifests()` — per-run JSON I/O in `runs/` directory
+- `metesparser compare-runs` CLI command — grouped table comparing extraction results across prompt versions
+- `--pdf` filter and `--runs-dir` options for compare-runs command
+
+## [0.4.0] - 2026-02-16
+
+### Added
 
 #### Phase 1: Foundation (PR #1)
 - 8 new distance units: varas, arpents, toises, furlongs, meters, miles, engineer chains/links
