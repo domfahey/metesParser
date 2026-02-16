@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from metesparser.models import ClosureResult, DeedCall  # noqa: E402
+from metesparser.closure_checker import ClosureChecker
+from metesparser.models import ClosureResult, DeedCall
 
 # ---------------------------------------------------------------------------
 # Step 1: Model field tests
@@ -62,3 +63,79 @@ class TestModelFields:
             confidence_score=0.95,
         )
         assert result.confidence_score == 0.95
+
+
+# ---------------------------------------------------------------------------
+# Step 2: score_call_quality tests
+# ---------------------------------------------------------------------------
+
+PERMANENT_MONUMENTS = {"iron_rod", "iron_pin", "iron_pipe", "concrete", "brass_cap",
+                       "rebar", "capped_pin", "capped_rod", "railroad_spike"}
+
+
+def _make_call(**overrides) -> DeedCall:
+    """Helper to build a DeedCall with sensible defaults."""
+    defaults = {
+        "course": 1,
+        "direction_text": "N 45° E",
+        "bearing_quadrant": "N 45° E",
+        "bearing_azimuth_deg_from_north": 45.0,
+        "distance_ft": 100.0,
+    }
+    defaults.update(overrides)
+    return DeedCall(**defaults)
+
+
+class TestScoreCallQuality:
+    """Tests for ClosureChecker.score_call_quality()."""
+
+    def test_high_quality_complete_bearing_permanent_monument(self) -> None:
+        call = _make_call(monument_type="iron_pin")
+        assert ClosureChecker.score_call_quality(call) == "high"
+
+    def test_high_quality_complete_bearing_no_monument_still_high(self) -> None:
+        """Complete bearing without monument is still high (monument is bonus)."""
+        call = _make_call()
+        assert ClosureChecker.score_call_quality(call) == "high"
+
+    def test_medium_quality_complete_bearing_non_permanent_monument(self) -> None:
+        call = _make_call(monument_type="wooden_post")
+        assert ClosureChecker.score_call_quality(call) == "medium"
+
+    def test_medium_quality_complete_bearing_meander(self) -> None:
+        """Meander flag downgrades quality even with complete bearing."""
+        call = _make_call(
+            is_meander=True,
+            curve_dir="right",
+            radius_ft=500.0,
+            arc_length_ft=100.0,
+        )
+        assert ClosureChecker.score_call_quality(call) == "medium"
+
+    def test_low_quality_no_bearing(self) -> None:
+        call = _make_call(bearing_azimuth_deg_from_north=None)
+        assert ClosureChecker.score_call_quality(call) == "low"
+
+    def test_low_quality_indefinite(self) -> None:
+        call = _make_call(is_indefinite=True)
+        assert ClosureChecker.score_call_quality(call) == "low"
+
+    def test_low_quality_indefinite_and_meander(self) -> None:
+        call = _make_call(
+            bearing_azimuth_deg_from_north=None,
+            is_indefinite=True,
+            is_meander=True,
+            curve_dir="left",
+            radius_ft=500.0,
+            arc_length_ft=50.0,
+        )
+        assert ClosureChecker.score_call_quality(call) == "low"
+
+    def test_natural_monument_is_medium(self) -> None:
+        call = _make_call(monument_type="tree")
+        assert ClosureChecker.score_call_quality(call) == "medium"
+
+    def test_all_permanent_monuments_score_high(self) -> None:
+        for monument in PERMANENT_MONUMENTS:
+            call = _make_call(monument_type=monument)
+            assert ClosureChecker.score_call_quality(call) == "high", f"Failed for {monument}"
