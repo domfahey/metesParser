@@ -9,6 +9,8 @@ import pytest
 from metesparser import cli
 from metesparser.models import DeedCall, LegalDescription
 
+pytestmark = pytest.mark.integration
+
 
 def _verified_square_calls() -> list[DeedCall]:
     return [
@@ -74,7 +76,6 @@ def _read_csv_rows(path: Path) -> list[dict[str, str]]:
     return rows
 
 
-@pytest.mark.e2e
 def test_cli_extract_and_verify_railcar_flow_happy_path(monkeypatch, tmp_path, capsys):
     pdf_path = tmp_path / "parcel.pdf"
     pdf_path.write_bytes(b"%PDF-1.4\n")
@@ -120,7 +121,6 @@ def test_cli_extract_and_verify_railcar_flow_happy_path(monkeypatch, tmp_path, c
     assert "Status: FULLY VERIFIED ✓" in verify_output
 
 
-@pytest.mark.e2e
 def test_cli_extract_and_verify_open_traverse_is_rejected(monkeypatch, tmp_path, capsys):
     pdf_path = tmp_path / "open_traverse.pdf"
     pdf_path.write_bytes(b"%PDF-1.4\n")
