@@ -164,6 +164,15 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 **Workaround**: Excluded in `pyproject.toml` under `[tool.ruff] exclude`
 **Action**: Don't try to lint this file - it's functionally correct
 
+### Boolean Field Validation
+**Rule**: Do NOT use `strict=True` on boolean `Field()` declarations in `DeedCall`
+**Reason**: Contradicts the `_coerce_bool_field` validator that coerces strings ("true"/"false") to bools
+
+### Cardinal Direction Patterns
+**Rule**: Cardinal-only patterns must include both `(?:erly|wardly)?` suffixes
+**Locations**: `call_extractor.py` (~lines 226, 337) AND `text_parser.py` (`CARDINAL_ONLY_PATTERN`)
+**Bug history**: Bug #48 — missing `wardly` caused false negatives in indefinite detection
+
 ### LLM Configuration
 **Location**: `prompts/*.yaml` files
 **Provider Clients**: `OpenAIClient` and `GeminiClient` behind `METESPARSER_LLM_PROVIDER`
@@ -187,9 +196,13 @@ non_tangent,radial_bearing,notes
 **New in Phase 1:**
 - `non_tangent`: Boolean flag for non-tangent curves
 - `radial_bearing`: Radial bearing string for non-tangent curves
+- `precision_ratio` on `ClosureResult`: Misclosure/perimeter ratio for survey quality
+
+**New in Phase 4:**
 - `is_meander`: Boolean flag for water boundary (meander line) calls
 - `is_tie_in`: Boolean flag for tie-in calls between POC and POB
-- `precision_ratio` on `ClosureResult`: Misclosure/perimeter ratio for survey quality
+- `is_indefinite`: Boolean flag for vague cardinal-only directions (not in CSV)
+- `curve_type`: "simple", "compound", or "reverse" (not in CSV)
 
 ## Recent Enhancements (v0.2)
 
@@ -329,6 +342,36 @@ non_tangent,radial_bearing,notes
 ### 20. Distance Reasonableness Checks
 - **Module**: `closure_checker.py` - `check_distance_reasonableness()` method
 - **Flags**: < 0.5 ft (short), > 10x median (long), > 90% perimeter (dominant)
+
+## Phase 4 Enhancements (Geometric Completeness)
+
+### 21. Meander/Water Boundary Detection
+- **Module**: `text_parser.py` — `detect_meander()` method
+- **Keywords**: creek, stream, river, lake, pond, etc. with prepositions (along, with, up, down)
+- **Model Field**: `is_meander` on `DeedCall`, included in CSV
+- **Closure**: Warning-only — meander calls NOT auto-excluded from closure
+
+### 22. Compound/Reverse Curve Detection
+- **Module**: `call_extractor.py` — within `extract_curve_info()`
+- **Keywords**: PCC/point of compound curvature, PRC/point of reverse curvature
+- **Model Field**: `curve_type` on `DeedCall` ("simple"/"compound"/"reverse"), not in CSV
+
+### 23. Missing Curve Element Calculation
+- **Module**: `bearing_converter.py` — `calculate_missing_curve_elements()`
+- **Input**: Any 2+ of radius/delta/arc/chord → computes all 5 (+ tangent)
+- **Validation**: Rejects chord > diameter, zero delta angle
+
+### 24. Tie-In Call Separation
+- **Module**: `call_extractor.py` — `mark_tie_in_calls()`
+- **Logic**: Marks calls between POC and first POB terminus as `is_tie_in=True`
+- **Closure**: Tie-in calls filtered from closure alongside `is_exception`
+- **Gotcha**: `is_closure_to_pob()` expects "to" prefix — prepend "to " when passing `to` field
+
+### 25. Indefinite Call Flagging
+- **Module**: `text_parser.py` — `is_indefinite_call()`
+- **Detection**: Cardinal-only ("northerly", "southwestwardly") + physical references ("along the road")
+- **Requirement**: `has_bearing=False` — precise bearings never flagged as indefinite
+- **Model Field**: `is_indefinite` on `DeedCall`, not in CSV
 
 ## Environment Setup
 
