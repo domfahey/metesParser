@@ -5,6 +5,7 @@ UV ?= uv
 UV_RUN := $(UV) run
 PY_SRC := src/metesparser
 PY_TESTS := tests
+TRASH ?= trash
 
 # Cache/tooling behavior.
 UV_CACHE_DIR ?= $(CURDIR)/.uv-cache
@@ -23,48 +24,25 @@ DOCTOR_REQUIRE_CONNECTIVITY ?= 0
 # Default target when running `make` with no args.
 .DEFAULT_GOAL := help
 
-# Targets that are not real files.
-.PHONY: all help install install-minimal install-dev install-offline check-tools lockfile-check quality ci distclean test-fast lint lint-fix format format-check check test test-cov clean run-extract run-verify dev-setup pre-commit doctor type
+# --------------------------------------------------------------------------- #
+# Help (auto-generated from ## comments; ##@ lines become section headers)
+# --------------------------------------------------------------------------- #
 
-all: help
+.PHONY: help
+help: ## Show available commands.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nMetes Parser — Development Commands\n\n"} \
+		/^##@/ {printf "\033[1m%s\033[0m\n", substr($$0, 5)} \
+		/^[a-zA-Z0-9_-]+:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' \
+		$(MAKEFILE_LIST)
+	@echo ""
 
-help: ## Show available development commands and their usage.
-	@echo "Metes Parser - Development Commands"
-	@echo ""
-	@echo "Setup:"
-	@echo "  make install       Install full dependency set (defaults to all extras + dev)"
-	@echo "  make install-minimal Install runtime dependencies only (skip dev dependencies)"
-	@echo "  make install-dev     Install dependencies with extras and dev tooling"
-	@echo "  make install-offline Install deps without network access (uses existing environment)"
-	@echo "  make install-offline OFFLINE=1  Also works as a direct alias"
-	@echo "  make check-tools   Verify required CLI tools"
-	@echo "  make lockfile-check Verify uv.lock sync state"
-	@echo "  make doctor        Check project dependencies and environment"
-	@echo "  make dev-setup     Bootstrap repo and create .env"
-	@echo ""
-	@echo "Code Quality:"
-	@echo "  make lint          Run ruff linter"
-	@echo "  make lint-fix      Run ruff with auto-fix"
-	@echo "  make format        Format code with ruff and black"
-	@echo "  make format-check  Check formatter compliance"
-	@echo "  make type          Run mypy type checks"
-	@echo "  make check         Run all checks (lint + format + type + test)"
-	@echo "  make quality       Run lint + formatting checks"
-	@echo ""
-	@echo "Testing:"
-	@echo "  make test          Run pytest test suite"
-	@echo "  make test-fast     Run tests with fail-fast behavior"
-	@echo "  make test-cov      Run tests with coverage report"
-	@echo "  make ci            Run the CI-style full check workflow"
-	@echo ""
-	@echo "Utility:"
-	@echo "  make clean         Remove build artifacts and cache"
-	@echo "  make distclean      Remove environment and ephemeral caches"
-	@echo "  make run-extract   Extract from sample PDF (requires PDF_FILE var)"
-	@echo "  make run-verify    Verify sample CSV (requires CSV_FILE var)"
-	@echo "  make pre-commit    Run lint-fix, format, and tests"
+# =========================================================================== #
+##@ Setup
+# =========================================================================== #
 
-install: ## Install dependencies using UV with default profile (extras + dev).
+.PHONY: install install-minimal install-dev install-offline check-tools lockfile-check doctor dev-setup
+
+install: ## Install dependencies (defaults to all extras + dev).
 	@echo "Setting up virtual environment and installing dependencies..."
 	@if [ -d ".venv" ]; then \
 		echo "Using existing virtual environment at .venv"; \
@@ -75,8 +53,8 @@ install: ## Install dependencies using UV with default profile (extras + dev).
 		echo "Running in offline mode (OFFLINE=1): skipping network dependency sync."; \
 		echo "Verifying existing runtime tooling..."; \
 		$(UV_RUN) ruff --version >/dev/null 2>&1 && \
-		$(UV_RUN) pytest --version >/dev/null 2>&1 && \
-		$(UV_RUN) black --version >/dev/null 2>&1 || { echo "WARN: missing expected dependencies (ruff/pytest/black)"; }; \
+		$(UV_RUN) pytest --version >/dev/null 2>&1 || \
+			{ echo "WARN: missing expected dependencies (ruff/pytest)"; }; \
 	else \
 		if ! $(UV) sync $(UV_SYNC_ARGS); then \
 			echo "✗ Dependency installation failed"; \
@@ -88,16 +66,13 @@ install: ## Install dependencies using UV with default profile (extras + dev).
 	@echo "✓ Installation complete"
 
 install-minimal: UV_SYNC_ARGS=$(UV_SYNC_ARGS_MINIMAL)
-install-minimal: install ## Install runtime dependencies only.
-	@echo "Minimal install complete."
+install-minimal: install ## Install runtime dependencies only (no dev).
 
 install-dev: UV_SYNC_ARGS=$(UV_SYNC_ARGS_DEV)
 install-dev: install ## Install dependencies with extras and dev tooling.
-	@echo "Development install complete."
 
 install-offline: OFFLINE=1
 install-offline: install ## Install in offline mode (no dependency sync).
-	@echo "Offline install requested; rerun 'make install' on a networked machine when available."
 
 check-tools: ## Verify required CLI tools are available.
 	@echo "Checking required CLI tools..."
@@ -114,7 +89,7 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 	@echo "Verifying toolchain access..."
 	@$(UV_RUN) python --version
 	@missing_tools=0; \
-	for dep in ruff pytest black; do \
+	for dep in ruff pytest mypy; do \
 		$(UV_RUN) "$${dep}" --version >/dev/null 2>&1 || { echo "ERROR: missing dependency in .venv: $${dep}"; missing_tools=1; }; \
 	done; \
 	if [ "$$missing_tools" -ne 0 ]; then \
@@ -189,7 +164,7 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 	fi
 	@echo "✓ Doctor checks complete"
 
-lockfile-check: ## Ensure uv.lock is present and in sync with pyproject.toml.
+lockfile-check: ## Ensure uv.lock is in sync with pyproject.toml.
 	@echo "Checking uv.lock freshness..."
 	@[ -f uv.lock ] || { echo "ERROR: uv.lock not found"; exit 1; }
 	@if [ pyproject.toml -nt uv.lock ]; then \
@@ -199,46 +174,68 @@ lockfile-check: ## Ensure uv.lock is present and in sync with pyproject.toml.
 	fi
 	@echo "✓ uv.lock present and up to date"
 
+dev-setup: install ## Bootstrap local environment (.env + dependencies).
+	@if [ ! -f .env ]; then \
+		cp .env.example .env; \
+		echo "✓ Created .env file — please add your API keys"; \
+	fi
+	@echo ""
+	@echo "✓ Development setup complete!"
+	@echo ""
+	@echo "Next steps:"
+	@echo "  1. Edit .env and set METESPARSER_LLM_PROVIDER plus the matching API key"
+	@echo "  2. Run 'make lint' to check code quality"
+	@echo "  3. Run 'make test' to run tests"
+
+# =========================================================================== #
+##@ Code Quality
+# =========================================================================== #
+
+.PHONY: lint lint-fix format format-check quality type check
+
 lint: ## Run static analysis with Ruff.
 	@echo "Running ruff linter..."
 	$(UV_RUN) ruff check $(PY_SRC) $(PY_TESTS)
 	@echo "✓ Linting complete"
-
-format: ## Format source files with Ruff and Black.
-	@echo "Formatting code with ruff..."
-	$(UV_RUN) ruff format $(PY_SRC) $(PY_TESTS)
-	@echo "Formatting code with black..."
-	$(UV_RUN) black $(PY_SRC) $(PY_TESTS) --exclude text_parser.py
-	@echo "✓ Formatting complete"
 
 lint-fix: ## Auto-fix Ruff-detected issues.
 	@echo "Running ruff linter with auto-fix..."
 	$(UV_RUN) ruff check $(PY_SRC) $(PY_TESTS) --fix
 	@echo "✓ Auto-fix complete"
 
+format: ## Format source files with Ruff.
+	@echo "Formatting code with ruff..."
+	$(UV_RUN) ruff format $(PY_SRC) $(PY_TESTS)
+	@echo "✓ Formatting complete"
+
 format-check: ## Verify formatting without making changes.
 	@echo "Checking code formatting..."
 	$(UV_RUN) ruff format $(PY_SRC) $(PY_TESTS) --check
-	$(UV_RUN) black $(PY_SRC) $(PY_TESTS) --exclude text_parser.py --check
-	@echo "✓ All checks passed"
+	@echo "✓ Format check passed"
 
-quality: lint format-check ## Run lint + format checks.
+quality: lint format-check ## Run lint + format checks (read-only).
 	@echo "✓ Quality checks complete"
-
-check: lint format type test ## Run lint, format, type checks, and tests.
-	@echo "✓ All checks passed"
 
 type: ## Run mypy static type checking.
 	@echo "Running mypy checks..."
 	$(UV_RUN) mypy src/metesparser
 	@echo "✓ Type checks complete"
 
+check: lint format-check type test ## Run all checks (lint + format-check + type + test).
+	@echo "✓ All checks passed"
+
+# =========================================================================== #
+##@ Testing
+# =========================================================================== #
+
+.PHONY: test test-fast test-cov test-unit test-integration test-e2e test-watch ci
+
 test: ## Run full test suite.
 	@echo "Running test suite..."
 	$(UV_RUN) pytest
 	@echo "✓ Tests complete"
 
-test-fast: ## Run tests with fail-fast behavior.
+test-fast: ## Run tests with fail-fast (stop on first failure).
 	@echo "Running tests with fail-fast..."
 	$(UV_RUN) pytest -x --maxfail=1
 	@echo "✓ Fast tests complete"
@@ -248,32 +245,56 @@ test-cov: ## Run tests with HTML and terminal coverage reports.
 	$(UV_RUN) pytest --cov=$(PY_SRC) --cov-report=html --cov-report=term-missing
 	@echo "✓ Coverage report generated in htmlcov/"
 
-ci: clean check-tools install quality test-cov ## CI-oriented end-to-end validation lane.
+test-unit: ## Run unit tests only.
+	@echo "Running unit tests..."
+	$(UV_RUN) pytest tests/unit -v
+	@echo "✓ Unit tests complete"
+
+test-integration: ## Run integration tests only.
+	@echo "Running integration tests..."
+	$(UV_RUN) pytest tests/integration -v
+	@echo "✓ Integration tests complete"
+
+test-e2e: ## Run end-to-end tests only.
+	@echo "Running end-to-end tests..."
+	$(UV_RUN) pytest tests/e2e -v
+	@echo "✓ End-to-end tests complete"
+
+test-watch: ## Re-run tests on file changes.
+	$(UV_RUN) ptw . -- -v --maxfail=1
+
+ci: clean check-tools install quality test-cov ## CI-oriented full validation lane.
 	@echo "✓ CI checks complete"
+
+# =========================================================================== #
+##@ Utility
+# =========================================================================== #
+
+.PHONY: clean distclean run-extract run-verify pre-commit bump-patch bump-minor
 
 clean: ## Remove generated artifacts and caches.
 	@echo "Cleaning build artifacts..."
-	rm -rf .venv
-	rm -rf build/
-	rm -rf dist/
-	rm -rf *.egg-info
-	rm -rf .pytest_cache/
-	rm -rf .ruff_cache/
-	rm -rf htmlcov/
-	rm -rf .coverage
-	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete
-	find . -type f -name "*.pyo" -delete
+	$(TRASH) .venv 2>/dev/null || true
+	$(TRASH) build 2>/dev/null || true
+	$(TRASH) dist 2>/dev/null || true
+	$(TRASH) *.egg-info 2>/dev/null || true
+	$(TRASH) .pytest_cache 2>/dev/null || true
+	$(TRASH) .ruff_cache 2>/dev/null || true
+	$(TRASH) htmlcov 2>/dev/null || true
+	$(TRASH) .coverage 2>/dev/null || true
+	find . -type d -name __pycache__ -exec $(TRASH) {} + 2>/dev/null || true
+	find . -type f -name "*.pyc" -exec $(TRASH) {} + 2>/dev/null || true
+	find . -type f -name "*.pyo" -exec $(TRASH) {} + 2>/dev/null || true
 	@echo "✓ Cleanup complete"
 
-distclean: clean ## Remove environments and extra local artifacts.
+distclean: clean ## Remove environment and extra local caches.
 	@echo "Cleaning extra development artifacts..."
-	rm -rf .uv-cache
-	rm -rf output/
-	rm -rf extraction_output/
+	$(TRASH) .uv-cache 2>/dev/null || true
+	$(TRASH) output 2>/dev/null || true
+	$(TRASH) extraction_output 2>/dev/null || true
 	@echo "✓ Dist-clean complete"
 
-run-extract: ## Run extraction on a deed PDF (requires PDF_FILE).
+run-extract: ## Extract from a deed PDF (requires PDF_FILE=...).
 	@if [ -z "$(PDF_FILE)" ]; then \
 		echo "Error: PDF_FILE variable not set"; \
 		echo "Usage: make run-extract PDF_FILE=path/to/deed.pdf"; \
@@ -290,13 +311,12 @@ run-extract: ## Run extraction on a deed PDF (requires PDF_FILE).
 	@echo "Extracting legal description from $(PDF_FILE)..."
 	$(UV_RUN) metesparser extract "$(PDF_FILE)"
 
-run-verify: ## Run CSV verification workflow (requires CSV_FILE).
+run-verify: ## Verify a CSV file (requires CSV_FILE=...).
 	@if [ -z "$(CSV_FILE)" ]; then \
 		echo "Error: CSV_FILE variable not set"; \
 		echo "Usage: make run-verify CSV_FILE=path/to/calls.csv"; \
 		exit 1; \
 	fi
-	@echo "Verifying calls from $(CSV_FILE)..."
 	@if [ ! -f "$(CSV_FILE)" ]; then \
 		echo "Error: CSV file not found: $(CSV_FILE)"; \
 		exit 1; \
@@ -305,20 +325,22 @@ run-verify: ## Run CSV verification workflow (requires CSV_FILE).
 		echo "Error: CSV file is empty: $(CSV_FILE)"; \
 		exit 1; \
 	fi
+	@echo "Verifying calls from $(CSV_FILE)..."
 	$(UV_RUN) metesparser verify "$(CSV_FILE)"
 
-# Development workflow shortcuts
-dev-setup: install ## Bootstrap local environment (.env + dependencies).
-	@echo "Creating .env file from example..."
-	@if [ ! -f .env ]; then cp .env.example .env; echo "✓ Created .env file - please add your API keys"; fi
-	@echo ""
-	@echo "✓ Development setup complete!"
-	@echo ""
-	@echo "Next steps:"
-	@echo "  1. Edit .env and set METESPARSER_LLM_PROVIDER plus the matching API key"
-	@echo "  2. Run 'make lint' to check code quality"
-	@echo "  3. Run 'make test' to run tests"
+pre-commit: lint-fix format test ## Lint-fix, format, and test before committing.
+	@echo "✓ Pre-commit checks complete — ready to commit!"
 
-# Quick quality check before commit
-pre-commit: lint-fix format test ## Run pre-commit style quality checks.
-	@echo "✓ Pre-commit checks complete - ready to commit!"
+bump-patch: ## Bump patch version (e.g. 0.2.0 -> 0.2.1).
+	@current=$$(grep -m1 'version' pyproject.toml | cut -d'"' -f2); \
+	IFS='.' read -r major minor patch <<< "$$current"; \
+	new="$$major.$$minor.$$((patch+1))"; \
+	sed -i '' "s/version = \"$$current\"/version = \"$$new\"/" pyproject.toml; \
+	echo "Bumped $$current -> $$new"
+
+bump-minor: ## Bump minor version (e.g. 0.2.0 -> 0.3.0).
+	@current=$$(grep -m1 'version' pyproject.toml | cut -d'"' -f2); \
+	IFS='.' read -r major minor patch <<< "$$current"; \
+	new="$$major.$$((minor+1)).0"; \
+	sed -i '' "s/version = \"$$current\"/version = \"$$new\"/" pyproject.toml; \
+	echo "Bumped $$current -> $$new"
