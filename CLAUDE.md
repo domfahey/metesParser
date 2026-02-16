@@ -14,7 +14,7 @@ Extracts, parses, and verifies metes and bounds legal descriptions from deed PDF
 **Most Important Rule**: If a bearing is incomplete (e.g., "southwesterly" without degrees), leave `bearing_azimuth_deg_from_north` as `None` and set `notes="incomplete bearing - cardinal only"`. Never invent numerical bearings.
 
 ### 2. Verification Before Export
-Traverse must close to < 0.01 ft misclosure before exporting `_verified.csv`. Use `ClosureChecker.verify_closure()` to run all 6 guardrails before calling `CSVBuilder.export_verified_csv()`.
+Traverse must close to < 0.01 ft misclosure before exporting `_verified.csv`. Use `ClosureChecker.verify_closure()` to run all 8 verification checks before calling `CSVBuilder.export_verified_csv()`.
 
 ### 3. Preserve Verbatim Deed Language
 Keep original wording in `along` and `to` fields. Example: Keep "Southerly line of Pennbrook Drive" exactly as written in the deed.
@@ -67,7 +67,7 @@ PDF → PDFProcessor.process_deed_pdf() → LegalDescription
 
 LegalDescription → ClosureChecker.verify_closure() → ClosureResult
   ├─ Traverse closure (sum dx, dy)
-  ├─ 6 verification guardrails
+  ├─ 8 verification checks
   └─ Area calculation (shoelace formula)
 
 ClosureResult → CSVBuilder.export_verified_csv() → CSV
@@ -94,13 +94,15 @@ ClosureResult → CSVBuilder.export_verified_csv() → CSV
 - Never fabricates - returns `None` for incomplete data
 - Preserves verbatim `direction_text`, `along`, `to` fields
 
-**closure_checker.py** - 6 Verification Guardrails
+**closure_checker.py** - 8 Verification Checks
 1. Traverse closure (< 0.01 ft)
 2. Interior angles sum ((n-2)*180°)
 3. Parallelism checks
 4. Curve consistency (L ≈ R*Δ)
 5. Area reasonableness (vs stated)
 6. Double-entry validation
+7. Bearing reversal detection (adjacent courses ~180° apart)
+8. Distance reasonableness (short/long/dominant)
 
 ## Bearing Convention (Critical for Calculations)
 
@@ -138,9 +140,10 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 ```bash
 tests/unit/test_bearing_converter.py  # Quadrant ↔ azimuth
 tests/unit/test_call_extractor.py     # Regex parsing
-tests/unit/test_closure_checker.py    # 6 guardrails
+tests/unit/test_closure_checker.py    # Core 6 guardrails
 tests/unit/test_phase1_foundation.py  # Units, monuments, precision ratio, non-tangent
-tests/unit/test_phase2_enhanced_parsing.py # Packed DMS, chord/non-tangent, extractors, CSV 18-field
+tests/unit/test_phase2_enhanced_parsing.py # Packed DMS, chord/non-tangent, extractors, CSV 19-field
+tests/unit/test_phase3_verification.py  # Area extraction, monument status, abbreviations, bearing reversal, distance checks
 tests/unit/test_pydantic_guardrails.py # Model validation and normalization
 tests/integration/test_integration.py        # Full pipeline
 tests/integration/test_pdf_processing.py       # PDF extraction orchestration
@@ -167,15 +170,16 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 **Architecture**: `llm_clients.py` defines `BaseLLMClient` ABC; `PDFProcessor` accepts `provider=` or `client=` for DI
 **CLI**: `uv run metesparser extract deed.pdf --llm-provider gemini`
 
-### CSV Schema (18 fields - order matters)
+### CSV Schema (19 fields - order matters)
 ```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
-along,to,monument_type,is_exception,non_tangent,radial_bearing,notes
+along,to,monument_type,monument_status,is_exception,non_tangent,radial_bearing,notes
 ```
 
 **New in v0.2:**
 - `monument_type`: Auto-classified from "to" field (iron_rod, iron_pin, iron_pipe, stone, concrete, wooden_post, brass_cap, rebar, railroad_spike, nail, pk_nail, hub_and_tack, monitoring_well, capped_pin, capped_rod, txdot_monument, other)
+- `monument_status`: Found/set distinction ("found", "set", or null)
 - `is_exception`: Boolean flag for EXCEPT/LESS AND EXCEPT clause calls
 
 **New in Phase 1:**
@@ -291,11 +295,36 @@ along,to,monument_type,is_exception,non_tangent,radial_bearing,notes
 - **Rules**: Texas pre-1900 → varas, Louisiana → arpents, New England pre-1850 → rods, "chains and links" → chains
 - **Text Keywords**: Detects "varas", "arpents" in deed text
 
-### 15. CSV Schema Expansion (16 → 18 fields)
+### 15. CSV Schema Expansion (16 → 19 fields)
 - **Module**: `csv_builder.py` - `FIELDNAMES`, `_call_to_row()`
-- **New Fields**: `non_tangent` ("true"/"false"), `radial_bearing` (string or "")
-- **Position**: After `is_exception`, before `notes`
+- **New Fields**: `monument_status` (Phase 3), `non_tangent` ("true"/"false"), `radial_bearing` (string or "")
+- **Position**: `monument_status` after `monument_type`; `non_tangent`/`radial_bearing` after `is_exception`, before `notes`
 - **Metadata Export**: `surveyor_certification` and `prior_conveyance` added to `.metadata.txt`
+
+## Phase 3 Enhancements (Enhanced Verification)
+
+### 16. Area Statement Extraction
+- **Module**: `text_parser.py` - `extract_area_statement()` method
+- **Patterns**: "CONTAINING X square feet", "X acres more or less", "approximately X acres"
+- **Model Fields**: `stated_area_sq_ft`, `stated_area_approximate` on `LegalDescription`
+
+### 17. Survey Abbreviation Expansion
+- **Module**: `text_parser.py` - `expand_abbreviations()` method
+- **Abbreviations**: IPF, IPS, IRF, IRS, CIP, CMP, R/W, ROW, N/F, PK, Con Mon F
+- **Integration**: Wired into `normalize_legal_description()`
+
+### 18. Found/Set Monument Status
+- **Module**: `call_extractor.py` - `MonumentClassifier.classify_monument_status()`
+- **Keywords**: found/FD/FND → "found", set/placed → "set"
+- **Model Field**: `monument_status` on `DeedCall`, CSV field after `monument_type`
+
+### 19. Bearing Reversal Detection
+- **Module**: `closure_checker.py` - `check_bearing_reversals()` method
+- **Logic**: Adjacent courses ~180° apart (within 5° threshold) suggest quadrant transcription error
+
+### 20. Distance Reasonableness Checks
+- **Module**: `closure_checker.py` - `check_distance_reasonableness()` method
+- **Flags**: < 0.5 ft (short), > 10x median (long), > 90% perimeter (dominant)
 
 ## Environment Setup
 
@@ -346,7 +375,7 @@ print(f"Misclosure: ({misclosure_x:.4f}, {misclosure_y:.4f}) = {misclosure:.4f}f
 This implementation follows the comprehensive "Metes & Bounds – Deed Call Extraction Playbook" with:
 - Never fabricate bearings (Section 8A)
 - Close traverse before export (Section 6A)
-- 6 verification guardrails (Section 6)
-- Standard 18-field CSV schema (Section 5)
+- 8 verification checks (Section 6 + supplementary)
+- Standard 19-field CSV schema (Section 5)
 - Preserve verbatim wording (Section 7)
 - Flag meanders/approximations (Section 8A)
