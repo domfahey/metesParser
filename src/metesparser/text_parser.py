@@ -5,11 +5,69 @@ Handles cleaning up OCR errors, standardizing DMS notation, merging line breaks,
 
 import re
 from re import Match
-from typing import Callable
+from typing import Callable, TypedDict
+
+from .models import ConversionFactors
 
 
 class TextParser:
     """Parse and normalize legal description text."""
+
+    class _AreaStatement(TypedDict):
+        value_sq_ft: float
+        unit: str
+        approximate: bool
+
+    @classmethod
+    def extract_area_statement(cls, text: str) -> _AreaStatement | None:
+        """Extract the first stated area statement from legal text.
+
+        Returns a dict with:
+            value_sq_ft: numeric area in square feet
+            unit: original unit label ("sq_ft" or "acres")
+            approximate: whether wording indicates approximation
+
+        If no parseable area statement exists, returns None.
+        """
+        if not isinstance(text, str):
+            return None
+
+        normalized_text = text.lower()
+        if not normalized_text:
+            return None
+
+        area_pattern = re.compile(
+            r"(?:(?:(?:approximately|approx\.?|~)\s+)?)"
+            r"(?P<value>\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)"
+            r"\s*(?P<unit>sq\.?\s*ft\.?|square\s+feet?|acres?)",
+            re.IGNORECASE,
+        )
+
+        for match in area_pattern.finditer(normalized_text):
+            unit = match.group("unit").replace(" ", "")
+            value = float(match.group("value").replace(",", ""))
+
+            if "acre" in unit:
+                value_sq_ft = value * ConversionFactors.ACRE_TO_SQ_FEET
+                unit_key = "acres"
+            else:
+                value_sq_ft = value
+                unit_key = "sq_ft"
+
+            prefix = normalized_text[max(0, match.start() - 45) : match.end() + 45]
+            approximate = bool(
+                "~" in match.group(0)
+                or re.search(r"\bapprox(?:imately)?\.?\b", prefix)
+                or "more or less" in prefix
+            )
+
+            return {
+                "value_sq_ft": value_sq_ft,
+                "unit": unit_key,
+                "approximate": approximate,
+            }
+
+        return None
 
     @classmethod
     def extract_plss_metadata(cls, text: str) -> dict[str, str | None]:
@@ -205,11 +263,11 @@ class TextParser:
             True if text indicates returning to POB, False otherwise
         """
         closure_patterns = [
-            r"\bto\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",  # to [the] [point of] beginning
-            r"\bto\s+(?:the\s+)?POB\b",  # to [the] POB
-            r"\breturning\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",  # returning to...
-            r"\bback\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",  # back to...
-            r"\bback\s+to\s+(?:the\s+)?POB\b",  # back to POB
+            r"\bto\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
+            r"\bto\s+(?:the\s+)?POB\b",
+            r"\breturning\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
+            r"\bback\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
+            r"\bback\s+to\s+(?:the\s+)?POB\b",
         ]
 
         text_lower = text.lower()
@@ -381,13 +439,11 @@ class TextParser:
         Returns:
             Cleaned text
         """
-        # Handle common OCR character substitutions.
         text = re.sub(r"\b5outh\b", "South", text, flags=re.IGNORECASE)
         text = re.sub(r"\bNOrth\b", "North", text, flags=re.IGNORECASE)
         text = re.sub(r"\bEa5t\b", "East", text, flags=re.IGNORECASE)
         text = re.sub(r"\bWe5t\b", "West", text, flags=re.IGNORECASE)
 
-        # Convert OCR artifacts in bearing notation.
         text = re.sub(r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4", text)
 
         text = re.sub(
