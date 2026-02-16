@@ -195,7 +195,7 @@ def format_comparison_table(manifests: list[RunManifest], pdf_filter: str | None
             status = "PASS" if m.results.closure_passed else "FAIL"
             lines.append(
                 f"{ts:<20} {prompt_sha:<9} {m.results.call_count:>5} "
-                f"{m.results.misclosure_ft:>10.4f}' {m.results.confidence_score:>9.2f} "
+                f"{m.results.misclosure_ft:>10.4f}' {m.results.confidence_score:>10.2f} "
                 f"{status:>6}"
             )
 
