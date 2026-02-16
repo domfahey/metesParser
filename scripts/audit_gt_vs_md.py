@@ -1,0 +1,270 @@
+#!/usr/bin/env python3
+"""Audit ground truth JSON files against LlamaParse markdown for each sample deed.
+
+Reads each .md and .ground_truth.json pair, extracts bearings/distances from
+the markdown text, and flags discrepancies with the GT expected_calls.
+"""
+
+import json
+import re
+import sys
+from pathlib import Path
+
+SAMPLE_DIR = Path(__file__).resolve().parent.parent / "sample_deeds"
+
+# Regex patterns for extracting metes & bounds data from markdown text
+BEARING_PATTERN = re.compile(
+    r"([NS])\s*(?:orth|outh)?\s*(\d{1,3})\s*(?:degrees?|°|deg\.?)\s*"
+    r"(\d{1,2})\s*(?:minutes?|\'|min\.?)\s*"
+    r"(?:(\d{1,2})\s*(?:seconds?|\"|sec\.?)\s*)?"
+    r"([EW])\s*(?:ast|est)?",
+    re.IGNORECASE,
+)
+
+DISTANCE_PATTERN = re.compile(
+    r"(?:a?\s*distance\s+of\s+|,\s*)?(\d+(?:\.\d+)?)\s*(?:feet|ft\.?|foot)",
+    re.IGNORECASE,
+)
+
+THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
+BEGINNING_PATTERN = re.compile(r"\bBEGINNING\b", re.IGNORECASE)
+
+# Cardinal-only pattern (no DMS)
+CARDINAL_ONLY_PATTERN = re.compile(
+    r"\b(North|South|East|West|Northerly|Southerly|Easterly|Westerly|"
+    r"Northwardly|Southwardly|Eastwardly|Westwardly|Northeasterly|"
+    r"Northwesterly|Southeasterly|Southwesterly)\b",
+    re.IGNORECASE,
+)
+
+
+def dms_to_decimal(deg, minutes, seconds=0):
+    """Convert DMS to decimal degrees."""
+    return float(deg) + float(minutes) / 60.0 + float(seconds or 0) / 3600.0
+
+
+def bearing_to_azimuth(quadrant1, angle_decimal, quadrant2):
+    """Convert quadrant bearing to azimuth."""
+    q1 = quadrant1.upper()
+    q2 = quadrant2.upper()
+    if q1 == "N" and q2 == "E":
+        return angle_decimal
+    elif q1 == "S" and q2 == "E":
+        return 180.0 - angle_decimal
+    elif q1 == "S" and q2 == "W":
+        return 180.0 + angle_decimal
+    elif q1 == "N" and q2 == "W":
+        return 360.0 - angle_decimal
+    return None
+
+
+def extract_calls_from_md(md_text):
+    """Extract bearing/distance pairs from markdown text."""
+    calls = []
+
+    # Find the legal description section (between BEGINNING and end)
+    begin_match = BEGINNING_PATTERN.search(md_text)
+    if not begin_match:
+        return calls
+
+    legal_text = md_text[begin_match.start():]
+
+    # Split by THENCE to get individual calls
+    thence_splits = re.split(r"\bthence\b", legal_text, flags=re.IGNORECASE)
+
+    for i, segment in enumerate(thence_splits[1:], 1):  # Skip text before first thence
+        # Try to extract bearing
+        bearing_match = BEARING_PATTERN.search(segment)
+        distance_match = DISTANCE_PATTERN.search(segment)
+
+        call_data = {"call_num": i, "segment": segment[:200].strip()}
+
+        if bearing_match:
+            q1, deg, mins, secs, q2 = bearing_match.groups()
+            angle = dms_to_decimal(deg, mins, secs)
+            azimuth = bearing_to_azimuth(q1, angle, q2)
+            call_data["bearing"] = f"{q1.upper()} {deg}°{mins}'{secs or '00'}\" {q2.upper()}"
+            call_data["azimuth"] = azimuth
+        else:
+            # Check for cardinal-only
+            cardinal_match = CARDINAL_ONLY_PATTERN.search(segment[:100])
+            if cardinal_match:
+                call_data["bearing"] = f"cardinal-only: {cardinal_match.group()}"
+                call_data["azimuth"] = None
+
+        if distance_match:
+            call_data["distance_ft"] = float(distance_match.group(1))
+
+        if "bearing" in call_data or "distance_ft" in call_data:
+            calls.append(call_data)
+
+    return calls
+
+
+def audit_deed(pdf_base):
+    """Audit a single deed's GT against its markdown."""
+    md_path = SAMPLE_DIR / f"{pdf_base}.md"
+    gt_path = SAMPLE_DIR / f"{pdf_base}.ground_truth.json"
+
+    if not md_path.exists() or not gt_path.exists():
+        return {"name": pdf_base, "status": "SKIP", "issues": ["Missing md or gt file"]}
+
+    md_text = md_path.read_text()
+    with open(gt_path) as f:
+        gt = json.load(f)
+
+    gt_calls = gt.get("expected_calls", [])
+    issues = []
+
+    # Extract calls from markdown
+    md_calls = extract_calls_from_md(md_text)
+
+    # 1. Call count comparison
+    n_gt = len(gt_calls)
+    n_md = len(md_calls)
+
+    # Count thence occurrences in markdown as a secondary check
+    thence_count = len(THENCE_PATTERN.findall(md_text))
+
+    if n_gt != n_md and n_gt > 0:
+        issues.append(f"CALL_COUNT: GT={n_gt}, MD extracted={n_md}, thence count={thence_count}")
+
+    # 2. Compare individual calls
+    for i in range(min(n_gt, n_md)):
+        gc = gt_calls[i]
+        mc = md_calls[i]
+
+        # Compare azimuth
+        gt_az = gc.get("bearing_azimuth_deg_from_north")
+        md_az = mc.get("azimuth")
+
+        if gt_az is not None and md_az is not None:
+            diff = abs(gt_az - md_az)
+            if diff > 0.05:
+                issues.append(
+                    f"BEARING_C{i+1}: GT={gt_az:.4f}°, MD={md_az:.4f}° "
+                    f"(diff={diff:.4f}°) | MD text: {mc.get('bearing', '?')}"
+                )
+        elif gt_az is not None and md_az is None:
+            # GT has azimuth but MD shows cardinal-only — check if MD text actually has bearing
+            issues.append(
+                f"BEARING_C{i+1}: GT has azimuth {gt_az:.4f}° but MD shows cardinal-only | "
+                f"MD: {mc.get('bearing', 'none')}"
+            )
+
+        # Compare distance
+        gt_dist = gc.get("distance_ft")
+        md_dist = mc.get("distance_ft")
+
+        if gt_dist is not None and md_dist is not None:
+            diff = abs(gt_dist - md_dist)
+            if diff > 0.05:
+                issues.append(
+                    f"DISTANCE_C{i+1}: GT={gt_dist:.2f}ft, MD={md_dist:.2f}ft (diff={diff:.2f}ft)"
+                )
+        elif gt_dist is not None and md_dist is None:
+            issues.append(f"DISTANCE_MISSING_C{i+1}: GT={gt_dist:.2f}ft, not found in MD")
+
+    # 3. Check if BEGINNING is present in markdown
+    if not BEGINNING_PATTERN.search(md_text):
+        if n_gt > 0:
+            issues.append("NO_BEGINNING: MD has no BEGINNING keyword but GT expects calls")
+
+    # 4. Check GT raw_ocr_text vs MD content (rough similarity)
+    gt_ocr = gt.get("raw_ocr_text", "")
+    if gt_ocr and len(gt_ocr) > 50:
+        # Check if key phrases from GT OCR appear in MD
+        # Extract first bearing from GT OCR
+        gt_bearing_match = BEARING_PATTERN.search(gt_ocr)
+        if gt_bearing_match:
+            bearing_str = gt_bearing_match.group(0)
+            # Check if similar bearing exists in MD
+            if not BEARING_PATTERN.search(md_text):
+                issues.append("OCR_BEARING_ABSENT: GT OCR has bearings but MD has none")
+
+    # 5. Check POB consistency
+    gt_pob = gt.get("expected_pob", "")
+    if gt_pob:
+        # Check if key POB terms appear in MD
+        pob_keywords = [w for w in gt_pob.split() if len(w) > 4][:5]
+        md_lower = md_text.lower()
+        missing_kw = [kw for kw in pob_keywords if kw.lower() not in md_lower]
+        if len(missing_kw) > len(pob_keywords) // 2:
+            issues.append(
+                f"POB_MISMATCH: GT POB keywords not found in MD: {missing_kw}"
+            )
+
+    status = "PASS" if not issues else "FAIL"
+    return {"name": pdf_base, "status": status, "issues": issues, "n_gt": n_gt, "n_md": n_md}
+
+
+def main():
+    pdf_files = sorted(SAMPLE_DIR.glob("*.pdf"))
+    print(f"Auditing {len(pdf_files)} deeds: GT vs Markdown\n")
+
+    results = []
+    for pdf_path in pdf_files:
+        base = pdf_path.stem
+        result = audit_deed(base)
+        results.append(result)
+
+    # Summary
+    pass_count = sum(1 for r in results if r["status"] == "PASS")
+    fail_count = sum(1 for r in results if r["status"] == "FAIL")
+    skip_count = sum(1 for r in results if r["status"] == "SKIP")
+
+    print("=" * 90)
+    print(f"GT AUDIT: {pass_count} PASS / {fail_count} FAIL / {skip_count} SKIP out of {len(results)}")
+    print("=" * 90)
+
+    # Error type summary
+    error_types = {}
+    for r in results:
+        for issue in r.get("issues", []):
+            etype = issue.split(":")[0]
+            if etype.startswith("BEARING_C"):
+                etype = "BEARING_MISMATCH"
+            elif etype.startswith("DISTANCE_C"):
+                etype = "DISTANCE_MISMATCH"
+            elif etype.startswith("DISTANCE_MISSING"):
+                etype = "DISTANCE_MISSING"
+            error_types.setdefault(etype, []).append((r["name"], issue))
+
+    if error_types:
+        print("\n--- ISSUE TYPE SUMMARY ---")
+        for etype, instances in sorted(error_types.items(), key=lambda x: -len(x[1])):
+            print(f"  {etype}: {len(instances)} occurrences")
+
+    print("\n--- DETAILED ISSUES ---")
+    for r in results:
+        if r["status"] == "FAIL":
+            print(f"\n  FAIL | {r['name']}")
+            print(f"         GT calls: {r.get('n_gt', '?')}, MD extracted: {r.get('n_md', '?')}")
+            for issue in r["issues"]:
+                print(f"         - {issue}")
+
+    print("\n--- PASSING DEEDS ---")
+    for r in results:
+        if r["status"] == "PASS":
+            print(f"  PASS | {r['name']} (GT={r.get('n_gt', '?')}, MD={r.get('n_md', '?')} calls)")
+
+    # Property summary
+    print("\n--- PROPERTY SUMMARY ---")
+    properties = {}
+    for r in results:
+        parts = r["name"].split(" - Deed Image")
+        prop = parts[0] if parts else r["name"]
+        properties.setdefault(prop, {"pass": 0, "fail": 0, "total": 0})
+        properties[prop]["total"] += 1
+        properties[prop][r["status"].lower()] += 1
+
+    for prop, counts in sorted(properties.items()):
+        p = counts.get("pass", 0)
+        t = counts["total"]
+        f = counts.get("fail", 0)
+        pct = p / t * 100 if t > 0 else 0
+        print(f"  {prop}: {p}/{t} pass ({pct:.0f}%) | {f} fail")
+
+
+if __name__ == "__main__":
+    main()
