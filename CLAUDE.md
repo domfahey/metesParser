@@ -143,7 +143,7 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 ### Test File Locations
 ```bash
 tests/unit/test_<module>.py           # Unit tests mirror src/ modules
-tests/unit/test_phase{1,2,3,4}_*.py   # Phase-specific feature tests
+tests/unit/test_phase*.py             # Phase-specific feature tests
 tests/unit/test_bugs_*_tdd.py         # Bug fix regression tests
 tests/integration/test_integration.py # Full pipeline (known parcels)
 tests/e2e/test_cli_end_to_end.py      # CLI end-to-end
@@ -224,6 +224,9 @@ non_tangent,radial_bearing,notes
 | 23 | Missing curve elements | `bearing_converter.py` | `calculate_missing_curve_elements()` | Any 2+ → all 5; rejects chord>diameter, zero delta |
 | 24 | Tie-in call separation | `call_extractor.py` | `mark_tie_in_calls()` | POC-to-POB calls filtered from closure |
 | 25 | Indefinite call flagging | `text_parser.py` | `is_indefinite_call()` | Cardinal-only + physical references; needs `has_bearing=False` |
+| 26 | Call quality scoring | `closure_checker.py` | `score_call_quality()` | high/medium/low based on bearing + monument + flags |
+| 27 | Confidence scoring | `closure_checker.py` | `calculate_confidence_score()` | 0.0–1.0 weighted: closure 30%, checks 20%, bearings 25%, quality 15%, warnings 10% |
+| 28 | Enhanced closure summary | `closure_checker.py` | `get_closure_summary()` | Confidence score, precision ratio (1:N), per-call quality breakdown |
 
 ## Environment Setup
 
