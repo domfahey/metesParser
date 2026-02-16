@@ -237,6 +237,22 @@ class CallExtractor:
         if distance_ft <= 0.0:
             return None
 
+        has_curve = bool(curve_info.get("direction") or curve_info.get("radius_ft"))
+        has_direction_intent = bool(
+            raw_direction
+            or parsed_bearing
+            or has_curve
+            or re.search(r"\bmeander", call_text, re.IGNORECASE)
+            or re.search(r"\b[NS]\s+\d+°", call_text)
+        )
+        if not has_direction_intent:
+            logger.warning(
+                "Rejecting bearingless non-curve call",
+                call_text=call_text,
+                distance_ft=distance_ft,
+            )
+            return None
+
         curve_dir = curve_info.get("direction")
         curve_direction: CurveDirection | None
         if curve_dir == "left":
@@ -263,6 +279,16 @@ class CallExtractor:
 
         radial_bearing_value = curve_info.get("radial_bearing")
 
+        is_meander = TextParser.detect_meander(call_text)
+        is_indefinite = TextParser.is_indefinite_call(
+            call_text, has_bearing=parsed_bearing is not None
+        )
+
+        curve_type_value = curve_info.get("curve_type")
+        curve_type = curve_type_value if isinstance(curve_type_value, str) else None
+        if curve_direction is not None and curve_type is None:
+            curve_type = "simple"
+
         call = DeedCall(
             course=course,
             direction_text=direction_text,
@@ -284,6 +310,9 @@ class CallExtractor:
             radial_bearing=(
                 radial_bearing_value if isinstance(radial_bearing_value, str) else None
             ),
+            is_meander=is_meander,
+            is_indefinite=is_indefinite,
+            curve_type=curve_type,
             notes=notes if notes else None,
         )
 
@@ -442,6 +471,19 @@ class CallExtractor:
             if chord_bearing_match.group(2):
                 curve_info["chord_length_ft"] = float(chord_bearing_match.group(2))
 
+        if re.search(
+            r"\b(?:point\s+of\s+compound\s+curvature|PCC|compound\s+curve)\b",
+            text,
+            re.IGNORECASE,
+        ):
+            curve_info["curve_type"] = "compound"
+        elif re.search(
+            r"\b(?:point\s+of\s+reverse\s+curvature|PRC|reverse\s+curve)\b",
+            text,
+            re.IGNORECASE,
+        ):
+            curve_info["curve_type"] = "reverse"
+
         if re.search(r"\bnon-?tangent\b", text, re.IGNORECASE):
             curve_info["non_tangent"] = True
 
@@ -459,6 +501,44 @@ class CallExtractor:
                 curve_info["radial_bearing"] = radial_bearing_match.group(0)
 
         return curve_info
+
+    @classmethod
+    def mark_tie_in_calls(
+        cls, calls: list[DeedCall], poc_description: str | None
+    ) -> list[DeedCall]:
+        """Mark calls between POC and POB as tie-in calls.
+
+        When a POC exists, calls before (and including) the first call whose
+        'to' field references the Point of Beginning are marked as tie-in.
+
+        Args:
+            calls: List of DeedCall objects
+            poc_description: POC description (None or empty means no POC)
+
+        Returns:
+            List of DeedCall objects with is_tie_in set appropriately
+        """
+        if not poc_description:
+            return calls
+
+        pob_index = None
+        for i, call in enumerate(calls):
+            if call.to and TextParser.is_closure_to_pob(call.to):
+                pob_index = i
+                break
+
+        if pob_index is None:
+            return calls
+
+        result = []
+        for i, call in enumerate(calls):
+            if i <= pob_index:
+                result.append(
+                    DeedCall.model_validate({**call.model_dump(), "is_tie_in": True})
+                )
+            else:
+                result.append(call)
+        return result
 
     @classmethod
     def enrich_calls_with_azimuths(cls, calls: list[DeedCall]) -> list[DeedCall]:

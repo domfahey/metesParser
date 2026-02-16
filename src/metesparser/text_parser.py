@@ -455,6 +455,77 @@ class TextParser:
 
         return text
 
+    WATER_BODY_KEYWORDS = re.compile(
+        r"\b(?:creek|stream|river|brook|run|branch|kill|pond|lake|"
+        r"shore|bank|thalweg|thread)\b",
+        re.IGNORECASE,
+    )
+
+    MEANDER_PATTERNS = re.compile(
+        r"\b(?:meander(?:ing)?|meander\s+line)\b",
+        re.IGNORECASE,
+    )
+
+    WATER_PREPOSITION_PATTERN = re.compile(
+        r"\b(?:along|with|up|down)\s+(?:the\s+)?",
+        re.IGNORECASE,
+    )
+
+    @classmethod
+    def detect_meander(cls, text: str) -> bool:
+        """Detect if call text references a water boundary (meander).
+
+        Args:
+            text: Call text to check
+
+        Returns:
+            True if text references a water boundary
+        """
+        if not text:
+            return False
+
+        if cls.MEANDER_PATTERNS.search(text):
+            return True
+
+        if cls.WATER_PREPOSITION_PATTERN.search(text) and cls.WATER_BODY_KEYWORDS.search(text):
+            return True
+
+        return False
+
+    INDEFINITE_PATTERNS = re.compile(
+        r"\b(?:as\s+it\s+now\s+runs|top\s+of\s+the|"
+        r"old\s+ford|down\s+the|up\s+the|"
+        r"by\s+the\s+road|along\s+the\s+road)\b",
+        re.IGNORECASE,
+    )
+
+    CARDINAL_ONLY_PATTERN = re.compile(
+        r"^(?:north|south|east|west|northeast|northwest|southeast|southwest)(?:erly)?$",
+        re.IGNORECASE,
+    )
+
+    @classmethod
+    def is_indefinite_call(cls, direction_text: str, has_bearing: bool) -> bool:
+        """Detect if a call has vague/indefinite direction.
+
+        Args:
+            direction_text: The direction text of the call
+            has_bearing: Whether a precise quadrant bearing was parsed
+
+        Returns:
+            True if the call is indefinite (no precise bearing)
+        """
+        if not direction_text or has_bearing:
+            return False
+
+        if cls.CARDINAL_ONLY_PATTERN.match(direction_text.strip()):
+            return True
+
+        if cls.INDEFINITE_PATTERNS.search(direction_text):
+            return True
+
+        return False
+
     SURVEY_ABBREVIATIONS: list[tuple[str, str]] = [
         (r"\bCon\s+Mon\s+F\b", "concrete monument found"),
         (r"\bIPF\b", "iron pin found"),

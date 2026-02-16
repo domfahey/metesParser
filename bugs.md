@@ -476,7 +476,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Introduce a shared numeric normalization helper that strips commas before conversion and reuse it for straight/alternate/cuve distance and radius/arc extraction.
 
 ### 46) POB description distances leak into call extraction as phantom courses
-- **Status:** `open`
+- **Status:** `fixed`
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/call_extractor.py` (`CallExtractor.extract_calls`), `src/metesparser/text_parser.py` (`TextParser.split_into_calls`)
