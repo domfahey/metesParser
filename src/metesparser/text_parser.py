@@ -3,6 +3,8 @@
 Handles cleaning up OCR errors, standardizing DMS notation, merging line breaks, etc.
 """
 
+from __future__ import annotations
+
 import re
 from re import Match
 from typing import TYPE_CHECKING, Callable, Literal, TypedDict
@@ -10,7 +12,7 @@ from typing import TYPE_CHECKING, Callable, Literal, TypedDict
 from .models import ConversionFactors
 
 if TYPE_CHECKING:
-    from .models import DeedClause
+    from .models import DeedClause, SubdivisionReference
 
 # Regex fragment for numbers with optional comma grouping (e.g., "1,200" or "3,500.00")
 _COMMA_NUMBER = r"\d[\d,]*(?:\.\d+)?"
@@ -257,6 +259,11 @@ class TextParser:
             r"POB\s+at\s+(.*?)(?:\.|;|THENCE)",
             r"POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
             r"commencing\s+at\s+(.*?)(?:\.|;|THENCE)",
+            r"TRUE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
+            r"TPOB\s+at\s+(.*?)(?:\.|;|THENCE)",
+            r"T\.P\.O\.B\.\s+at\s+(.*?)(?:\.|;|THENCE)",
+            r"REMOTE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
+            r"RPOB\s+at\s+(.*?)(?:\.|;|THENCE)",
         ]
 
         for pattern in pob_patterns:
@@ -282,6 +289,8 @@ class TextParser:
             r"\breturning\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
             r"\bback\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
             r"\bback\s+to\s+(?:the\s+)?POB\b",
+            r"\bto\s+(?:the\s+)?(?:true\s+point\s+of\s+beginning\b|TPOB\b|T\.P\.O\.B\.)",
+            r"\bto\s+(?:the\s+)?(?:remote\s+point\s+of\s+beginning\b|RPOB\b|R\.P\.O\.B\.)",
         ]
 
         text_lower = text.lower()
@@ -776,6 +785,58 @@ class TextParser:
         return clauses
 
     @classmethod
+    def extract_subdivision_reference(cls, text: str) -> SubdivisionReference | None:
+        """Extract subdivision lot/block reference from deed text.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            SubdivisionReference or None if no subdivision reference found
+        """
+        from .models import SubdivisionReference
+
+        lot = None
+        block = None
+        subdivision_name = None
+        plat_book = None
+        plat_page = None
+
+        lot_match = re.search(r"\bLot\s+(\w+)", text, re.IGNORECASE)
+        if lot_match:
+            lot = lot_match.group(1)
+
+        block_match = re.search(r"\bBlock\s+(\w+)", text, re.IGNORECASE)
+        if block_match:
+            block = block_match.group(1)
+
+        # Subdivision name: typically in ALL CAPS after Lot/Block
+        name_match = re.search(
+            r"(?:Block\s+\w+|Lot\s+\w+),?\s+([A-Z][A-Z\s]+(?:ESTATES?|SUBDIVISION|ADDITION|HEIGHTS?|HILLS?|PARK|PLACE|MANOR|ACRES|VILLAGE|LANDING|TERRACE|GARDENS?)?)\b",
+            text,
+        )
+        if name_match:
+            subdivision_name = name_match.group(1).strip()
+
+        plat_match = re.search(
+            r"Plat\s+Book\s+(\d+),?\s*Page\s+(\d+)", text, re.IGNORECASE
+        )
+        if plat_match:
+            plat_book = plat_match.group(1)
+            plat_page = plat_match.group(2)
+
+        if any([lot, block, subdivision_name, plat_book]):
+            return SubdivisionReference(
+                lot=lot,
+                block=block,
+                subdivision_name=subdivision_name,
+                plat_book=plat_book,
+                plat_page=plat_page,
+            )
+
+        return None
+
+    @classmethod
     def infer_distance_unit(
         cls, text: str, state: str | None = None, year: int | None = None
     ) -> str | None:
@@ -810,3 +871,31 @@ class TextParser:
             return "rods"
 
         return None
+
+    @classmethod
+    def extract_witness_trees(cls, text: str) -> list[str]:
+        """Extract witness tree / reference mark descriptions.
+
+        Historical surveyors recorded trees near corners with species,
+        diameter, bearing and distance. Stored verbatim per architecture
+        principle #3 (preserve deed language).
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            List of verbatim witness tree descriptions
+        """
+        trees: list[str] = []
+
+        tree_pattern = re.compile(
+            r"((?:a\s+)?(?:\w+\s+)?(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|"
+            r"poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)"
+            r"[^;.]*?\bbears?\b[^;.]*?(?:dist(?:ant)?|links?|feet|ft)[^;.]*)",
+            re.IGNORECASE,
+        )
+
+        for match in tree_pattern.finditer(text):
+            trees.append(match.group(1).strip())
+
+        return trees
