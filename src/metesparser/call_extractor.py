@@ -9,7 +9,14 @@ import structlog
 from pydantic import ValidationError
 
 from .bearing_converter import BearingConverter
-from .models import ConversionFactors, CurveDirection, DeedCall, MonumentStatus, MonumentType
+from .models import (
+    ConversionFactors,
+    CurveDirection,
+    CurveType,
+    DeedCall,
+    MonumentStatus,
+    MonumentType,
+)
 from .text_parser import _COMMA_NUMBER, TextParser, parse_comma_number
 
 logger = structlog.get_logger(__name__)
@@ -82,6 +89,20 @@ class MonumentClassifier:
         (r"\bhedge\s+post\b", "wooden_post"),
         (r"\bwood\s+stake\b", "wooden_post"),
         (r"\blandscap(?:e|ing)\s+(?:rod|pin)\b", "iron_rod"),
+        # Natural monuments — trees
+        (
+            r"\b(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)\b",
+            "tree",
+        ),
+        (r"\btree\b", "tree"),
+        # Natural monuments — rocks
+        (r"\bboulder\b", "rock"),
+        (r"\brock\s+outcrop\b", "rock"),
+        (r"\bstanding\s+rock\b", "rock"),
+        (r"\blarge\s+rock\b", "rock"),
+        # Natural features — water/terrain
+        (r"\b(?:stream|creek|river|brook|branch|run)\b", "natural_feature"),
+        (r"\b(?:ridge|bluff|cliff|shoreline|lakeshore|shore)\b", "natural_feature"),
     ]
 
     @classmethod
@@ -323,7 +344,17 @@ class CallExtractor:
         )
 
         curve_type_value = curve_info.get("curve_type")
-        curve_type = curve_type_value if isinstance(curve_type_value, str) else None
+        curve_type: CurveType | None = None
+        if isinstance(curve_type_value, str):
+            normalized_curve_type = curve_type_value.strip().lower()
+            if normalized_curve_type == "simple":
+                curve_type = "simple"
+            elif normalized_curve_type == "compound":
+                curve_type = "compound"
+            elif normalized_curve_type == "reverse":
+                curve_type = "reverse"
+            elif normalized_curve_type == "spiral":
+                curve_type = "spiral"
         if curve_direction is not None and curve_type is None:
             curve_type = "simple"
 
@@ -349,6 +380,7 @@ class CallExtractor:
                 radial_bearing_value if isinstance(radial_bearing_value, str) else None
             ),
             is_meander=is_meander,
+            is_tie_in=False,
             is_indefinite=is_indefinite,
             curve_type=curve_type,
             notes=notes if notes else None,
@@ -541,7 +573,9 @@ class CallExtractor:
                 if doc_match.group(3):
                     doc_deg += float(doc_match.group(3)) / 3600.0
                 if doc_deg > 0:
-                    curve_info["radius_ft"] = BearingConverter.degree_of_curvature_to_radius(doc_deg)
+                    curve_info["radius_ft"] = BearingConverter.degree_of_curvature_to_radius(
+                        doc_deg
+                    )
 
         radius_ft = curve_info.get("radius_ft")
         curve_delta_deg = curve_info.get("delta_deg")
