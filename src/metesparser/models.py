@@ -423,7 +423,7 @@ class LegalDescription(_Model):
         default=None, description="FIPS zone code for State Plane coordinates"
     )
 
-    distance_unit: DistanceUnit = Field("feet", description="Primary distance unit in the deed")
+    distance_unit: DistanceUnit = Field(default="feet", description="Primary distance unit in the deed")
 
     @field_validator("distance_unit", mode="before")
     @classmethod
