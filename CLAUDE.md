@@ -142,17 +142,12 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 
 ### Test File Locations
 ```bash
-tests/unit/test_bearing_converter.py  # Quadrant ↔ azimuth
-tests/unit/test_call_extractor.py     # Regex parsing
-tests/unit/test_closure_checker.py    # Core 8 verification checks
-tests/unit/test_phase1_foundation.py  # Units, monuments, precision ratio, non-tangent
-tests/unit/test_phase2_enhanced_parsing.py # Packed DMS, chord/non-tangent, extractors, CSV 21-field
-tests/unit/test_phase3_verification.py  # Area extraction, monument status, abbreviations, bearing reversal, distance checks
-tests/unit/test_phase4_geometric.py   # Meander detection, tie-in calls, curve types, indefinite bearings
-tests/unit/test_pydantic_guardrails.py # Model validation and normalization
-tests/integration/test_integration.py        # Full pipeline
-tests/integration/test_pdf_processing.py       # PDF extraction orchestration
-tests/unit/test_pdf_processor_llm.py          # Provider behavior
+tests/unit/test_<module>.py           # Unit tests mirror src/ modules
+tests/unit/test_phase{1,2,3,4}_*.py   # Phase-specific feature tests
+tests/unit/test_bugs_*_tdd.py         # Bug fix regression tests
+tests/integration/test_integration.py # Full pipeline (known parcels)
+tests/e2e/test_cli_end_to_end.py      # CLI end-to-end
+tests/fixtures/sample_deeds.py        # Shared DeedCall fixtures
 ```
 
 ### Running Specific Tests
@@ -192,21 +187,13 @@ along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,
 non_tangent,radial_bearing,notes
 ```
 
-**New in v0.2:**
-- `monument_type`: Auto-classified from "to" field (iron_rod, iron_pin, iron_pipe, stone, concrete, wooden_post, brass_cap, rebar, railroad_spike, nail, pk_nail, hub_and_tack, monitoring_well, capped_pin, capped_rod, txdot_monument, other)
-- `monument_status`: Found/set distinction ("found", "set", or null)
-- `is_exception`: Boolean flag for EXCEPT/LESS AND EXCEPT clause calls
-
-**New in Phase 1:**
-- `non_tangent`: Boolean flag for non-tangent curves
-- `radial_bearing`: Radial bearing string for non-tangent curves
-- `precision_ratio` on `ClosureResult`: Misclosure/perimeter ratio for survey quality
-
-**New in Phase 4:**
-- `is_meander`: Boolean flag for water boundary (meander line) calls
-- `is_tie_in`: Boolean flag for tie-in calls between POC and POB
-- `is_indefinite`: Boolean flag for vague cardinal-only directions (not in CSV)
-- `curve_type`: "simple", "compound", or "reverse" (not in CSV)
+**Field notes:**
+- `monument_type`: Auto-classified from "to" field (17 types)
+- `monument_status`: "found", "set", or null
+- `is_exception`/`is_meander`/`is_tie_in`/`non_tangent`: Boolean flags (CSV: "true"/"false")
+- `radial_bearing`: String for non-tangent curves, empty string if N/A
+- `is_indefinite`, `curve_type`: Model-only fields (not exported to CSV)
+- `precision_ratio`: On `ClosureResult`, not `DeedCall`
 
 ## Feature Reference
 
@@ -276,7 +263,8 @@ LOG_LEVEL=INFO          # Optional, defaults to INFO
 3. Add to `_CSVDeedCallRow` in `csv_builder.py`
 4. Wire extraction into `call_extractor.py` or `text_parser.py`
 5. Update fieldnames count test in `test_phase2_enhanced_parsing.py`
-6. Add feature tests in appropriate phase test file
+6. Add/update fixtures in `tests/fixtures/sample_deeds.py` if needed
+7. Add feature tests in appropriate phase test file
 
 ### Adding New Unit Support
 1. Add conversion factor to `ConversionFactors` in `models.py`
