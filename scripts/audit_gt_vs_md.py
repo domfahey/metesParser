@@ -198,9 +198,20 @@ def extract_calls_from_md(md_text):
         return []
 
     # Step 3: Extract calls from all blocks
+    block_calls = [extract_calls_from_block(block) for block in blocks]
+
+    # Step 4: If some blocks have DMS bearings and others are cardinal-only,
+    # drop the cardinal-only blocks (duplicate descriptions of the same parcel).
+    dms_blocks = [
+        calls for calls in block_calls
+        if any(c.get("azimuth") is not None for c in calls)
+    ]
+    if dms_blocks and len(dms_blocks) < len(block_calls):
+        block_calls = dms_blocks
+
     all_calls = []
-    for block in blocks:
-        all_calls.extend(extract_calls_from_block(block))
+    for calls in block_calls:
+        all_calls.extend(calls)
 
     return all_calls
 
