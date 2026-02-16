@@ -201,6 +201,14 @@ class CallExtractor:
         course_num = 1
 
         for tract_text, is_exception_tract in tracts:
+            # Strip POB preamble — everything before first THENCE is not a call.
+            # Without this, distances in the BEGINNING text (e.g. "50 feet wide",
+            # "310.00 FEET SOUTHEASTWARDLY") leak through as phantom calls when
+            # the text includes pre-BEGINNING content that shifts the split.
+            thence_match = re.search(r"\bTHENCE\b", tract_text, re.IGNORECASE)
+            if thence_match:
+                tract_text = tract_text[thence_match.start() :]
+
             call_texts = TextParser.split_into_calls(tract_text)
 
             for call_text in call_texts:

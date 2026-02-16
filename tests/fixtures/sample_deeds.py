@@ -185,3 +185,76 @@ PENNBROOK_24_EXHIBIT_A = (
     "along rear line of Lot Number 47, 120 feet to a point in the Southerly line of "
     "Pennbrook Drive and place of BEGINNING."
 )
+
+
+# Actual LLM-extracted text from ground truth — numbered (1), (2), ... format
+# with POB preambles containing distances that must NOT become phantom calls.
+
+PENNBROOK_18_GROUND_TRUTH = (
+    "LAND AND PREMISES situate in the Borough of Haddonfield, County of "
+    "Camden and State of New Jersey as follows:\n"
+    "BEGINNING at a point at the Southwesterly corner of Concord Drive "
+    "(50 feet wide) and Pennbrook Drive (50 feet wide); thence\n"
+    "1. South 33 degrees 20 minutes 00 seconds East, along Southwesterly "
+    "line of Concord Drive, 60 feet to a point in the division line between "
+    "Lots 46 and 47 on plan hereinafter mentioned; thence\n"
+    "2. South 56 degrees 40 minutes, 00 seconds West along said division "
+    "line 125 feet to point corner to Lot 50 said plan; thence\n"
+    "3. North 33 degrees 20 minutes, 00 seconds West along said Lot 50, "
+    "60 feet to Southeasterly line of Pennbrook Drive; thence\n"
+    "4. North 56 degrees 40 minutes 00 seconds East along said "
+    "Southeasterly line of Pennbrook Drive, 125 feet to the point and "
+    "place of beginning."
+)
+
+PENNBROOK_31_10989_GROUND_TRUTH = (
+    "All that certain tract or parcel of land, situated, lying and being in "
+    "Haddonfield Borough, County of Camden, and State of New Jersey, more "
+    "particularly described as follows:\n\n"
+    "AMENDED\n\n"
+    "BEGINNING AT A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, "
+    "50' WIDE, A DISTANCE OF 310.00 FEET SOUTHEASTWARDLY FROM A POINT IN "
+    "THE SOUTHEASTERLY LINE OF GREENMOUNT ROAD, 50' WIDE, BOUNDED AND "
+    "DESCRIBED AS FOLLOWS:\n\n"
+    "THENCE (1) SOUTH 71 DEGREES 53 MINUTES 10 SECONDS EAST ALONG THE "
+    "NORTHEASTERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 23.67 FEET TO AN "
+    "ANGLE POINT;\n\n"
+    "THENCE (2) NORTH 87 DEGREES 07 MINUTES 30 SECONDS EAST ALONG THE "
+    "NORTHERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 125.26 FEET TO AN "
+    "ANGLE POINT;\n\n"
+    "THENCE (3) NORTH 56 DEGREES 40 MINUTES 00 SECONDS EAST ALONG THE "
+    "NORTHERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 36.39 FEET TO A "
+    "POINT AND CORNER/IRON PIPE;\n\n"
+    "THENCE (4) NORTH 33 DEGREES 20 MINUTES 00 SECONDS WEST ALONG THE "
+    "DIVISION LINE BETWEEN LOT 11 AND LOT NOS. 10, 8 AND 7, BLOCK 64.21 "
+    "ON THE OFFICIAL TAX MAP, A DISTANCE OF 208.80 FEET TO A POINT AND "
+    "CORNER/CONCRETE MARKER;\n\n"
+    "THENCE (5) SOUTH 18 DEGREES 06 MINUTES 50 SECONDS WEST ALONG THE "
+    "DIVISION LINE BETWEEN LOT 11 AND LOT 12, SAID BLOCK, A DISTANCE OF "
+    "203.45 FEET TO THE POINT AND PLACE OF BEGINNING."
+)
+
+PENNBROOK_31_11191_GROUND_TRUTH = (
+    "All that certain land in the Borough of Haddonfield, County of Camden "
+    "and State of New Jersey described as follows:\n\n"
+    "BEGINNING AT A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, "
+    "50 FEET WIDE, A DISTANCE OF 310.00 FEET SOUTHEASTWARDLY FROM A POINT "
+    "IN THE SOUTHEASTERLY LINE OF GREENMOUNT ROAD, 50 FEET WIDE, BOUNDED "
+    "AND DESCRIBED AS FOLLOWS:\n\n"
+    "THENCE (1) SOUTH 71 DEGREES 53 MINUTES 10 SECONDS EAST ALONG THE "
+    "NORTHEASTERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 23.67 FEET TO AN "
+    "ANGLE POINT;\n\n"
+    "THENCE (2) NORTH 87 DEGREES 07 MINUTES 30 SECONDS EAST ALONG THE "
+    "NORTHERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 125.26 FEET TO AN "
+    "ANGLE POINT;\n\n"
+    "THENCE (3) NORTH 56 DEGREES 40 MINUTES 00 SECONDS EAST ALONG THE "
+    "NORTHERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 36.39 FEET TO A "
+    "POINT AND CORNER/IRON PIPE;\n\n"
+    "THENCE (4) NORTH 33 DEGREES 20 MINUTES 00 SECONDS WEST ALONG THE "
+    "DIVISION LINE BETWEEN LOT 11 AND LOT NOS. 10, 8 AND 7, BLOCK 64.21 "
+    "ON THE OFFICIAL TAX MAP, A DISTANCE OF 208.80 FEET TO A POINT AND "
+    "CORNER/CONCRETE MARKER;\n\n"
+    "THENCE (5) SOUTH 18 DEGREES 06 MINUTES 50 SECONDS WEST ALONG THE "
+    "DIVISION LINE BETWEEN LOT 11 AND LOT 12, SAID BLOCK, A DISTANCE OF "
+    "203.45 FEET TO THE POINT AND PLACE OF BEGINNING."
+)

@@ -17,6 +17,27 @@ if TYPE_CHECKING:
 # Regex fragment for numbers with optional comma grouping (e.g., "1,200" or "3,500.00")
 _COMMA_NUMBER = r"\d[\d,]*(?:\.\d+)?"
 
+# Sentence-boundary markers where the legal description ends and post-description
+# metadata begins.  The pattern requires ". " before the keyword so that phrases
+# embedded *within* a call (e.g., "subject to easement rights") are not matched.
+_METADATA_BOUNDARY = re.compile(
+    r"\.\s+(?:"
+    r"THE ABOVE DESCRIBED"
+    r"|BEING (?:the same|all that|lot|part)"
+    r"|CONTAINING"
+    r"|SUBJECT TO"
+    r"|TOGETHER WITH"
+    r"|RESERVING"
+    r"|Said premises"
+    r"|This conveyance"
+    r"|I hereby certify"
+    r"|Certified by"
+    r"|Surveyed by"
+    r"|AS SHOWN ON"
+    r")",
+    re.IGNORECASE,
+)
+
 
 def parse_comma_number(s: str) -> float:
     """Convert a numeric string with optional comma grouping to float.
@@ -393,6 +414,14 @@ class TextParser:
                 continue
 
             cleaned = re.sub(r"^(?:\(\d+\)|\d+[.)])\s+", "", cleaned)
+
+            # Truncate at metadata section boundaries (e.g., "THE ABOVE DESCRIBED",
+            # "CONTAINING", "BEING the same").  The pattern is sentence-boundary
+            # anchored (". KEYWORD") so mid-call phrases are not affected.
+            boundary = _METADATA_BOUNDARY.search(cleaned)
+            if boundary:
+                cleaned = cleaned[: boundary.start()]
+
             cleaned = re.sub(r"[;,\.\s]+$", "", cleaned)
 
             if cleaned:
