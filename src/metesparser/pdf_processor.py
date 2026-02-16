@@ -288,6 +288,7 @@ class PDFProcessor:
         if not audit:
             return legal_desc
 
+        assert ctx is not None  # guaranteed when audit=True
         return legal_desc, ctx
 
     # -- Audit helpers ----------------------------------------------------------
