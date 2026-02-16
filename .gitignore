@@ -44,6 +44,9 @@ env/
 *.egg-info/
 *.spec
 
+# Claude Code
+.claude/settings.local.json
+
 # IDE
 .vscode/
 .idea/
