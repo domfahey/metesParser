@@ -244,3 +244,102 @@ class TestEdgeCases:
 
         assert len(calls) == 2
         assert all(c.bearing_azimuth_deg_from_north is not None for c in calls)
+
+
+class TestPOBPreambleFiltering:
+    """Bug #46: POB preamble distances must not leak into call extraction."""
+
+    def test_road_width_not_parsed_as_call(self):
+        """Road widths like '(50 feet wide)' in POB must not create phantom calls."""
+        calls = CallExtractor.extract_calls(sample_deeds.POB_WITH_ROAD_WIDTH)
+
+        assert len(calls) == 4
+        assert calls[0].course == 1
+        assert calls[0].bearing_azimuth_deg_from_north is not None
+        assert math.isclose(calls[0].distance_ft, 60.0, abs_tol=0.01)
+
+    def test_offset_distance_not_parsed_as_call(self):
+        """Offset distances like '100 feet easterly from' in POB must not create phantom calls."""
+        calls = CallExtractor.extract_calls(sample_deeds.POB_WITH_OFFSET_DISTANCE)
+
+        assert len(calls) == 4
+        assert calls[0].course == 1
+        assert calls[0].bearing_azimuth_deg_from_north is not None
+        assert math.isclose(calls[0].distance_ft, 100.0, abs_tol=0.01)
+
+    def test_bearingless_distance_only_rejected(self):
+        """A call with distance but no bearing and no curve data should return None."""
+        call = CallExtractor.extract_single_call("50 feet wide", course=1)
+
+        assert call is None
+
+    def test_bearingless_distance_with_context_rejected(self):
+        """Distance embedded in descriptive text without any direction should return None."""
+        call = CallExtractor.extract_single_call(
+            "in the line of Greenmount Road (50 feet wide)", course=1
+        )
+
+        assert call is None
+
+    def test_cardinal_only_still_accepted(self):
+        """Cardinal-only directions (e.g., 'southwesterly') should still produce calls."""
+        call = CallExtractor.extract_single_call("southwesterly 75 feet", course=1)
+
+        assert call is not None
+        assert call.distance_ft == 75.0
+        assert call.is_indefinite is True
+        assert call.notes == "incomplete bearing - cardinal only"
+
+    def test_water_boundary_meander_without_literal_word_still_accepted(self):
+        """Water-boundary meanders should pass direction-intent without literal 'meander'."""
+        call = CallExtractor.extract_single_call("with the creek 100 feet", course=1)
+
+        assert call is not None
+        assert call.distance_ft == 100.0
+        assert call.is_meander is True
+
+    def test_curve_without_bearing_still_accepted(self):
+        """Curves without quadrant bearings should still produce calls."""
+        call = CallExtractor.extract_single_call(
+            "along a curve to the right having a radius of 50.00 feet "
+            "and an arc length of 78.54 feet",
+            course=1,
+        )
+
+        assert call is not None
+        assert math.isclose(call.distance_ft, 78.54, abs_tol=0.01)
+
+
+class TestCardinalWardlySuffix:
+    """Bug #48: Cardinal directions with -wardly suffix must be recognized."""
+
+    def test_southwestwardly_recognized(self):
+        """'southwestwardly' should be extracted as a cardinal direction."""
+        direction = CallExtractor.extract_direction("southwestwardly 75 feet")
+
+        assert direction == "southwestwardly"
+
+    def test_northeastwardly_recognized(self):
+        """'northeastwardly' should be extracted as a cardinal direction."""
+        direction = CallExtractor.extract_direction("northeastwardly along the line 50 feet")
+
+        assert direction == "northeastwardly"
+
+    def test_northwestwardly_produces_call(self):
+        """'Northwestwardly' should produce a call with cardinal-only note."""
+        call = CallExtractor.extract_single_call("Northwestwardly 120 feet", course=1)
+
+        assert call is not None
+        assert call.distance_ft == 120.0
+        assert call.notes == "incomplete bearing - cardinal only"
+
+    def test_24_pennbrook_inline_thence_extraction(self):
+        """24 Pennbrook Exhibit A with inline thence (N) should produce 7 calls."""
+        calls = CallExtractor.extract_calls(sample_deeds.PENNBROOK_24_EXHIBIT_A)
+
+        assert len(calls) == 7
+        assert math.isclose(calls[0].distance_ft, 50.0, abs_tol=0.01)
+        assert calls[0].bearing_quadrant is not None
+        assert math.isclose(calls[1].distance_ft, 28.84, abs_tol=0.01)
+        assert calls[2].notes == "incomplete bearing - cardinal only"
+        assert math.isclose(calls[2].distance_ft, 134.52, abs_tol=0.01)

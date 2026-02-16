@@ -148,3 +148,40 @@ BEGINNING at a point;
 THENCE North 999 degrees East 100 feet;
 THENCE South 45 degrees West 100 feet to the POINT OF BEGINNING.
 """
+
+POB_WITH_ROAD_WIDTH = """
+BEGINNING at a point at the Southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide);
+THENCE South 33 degrees 20 minutes East 60.00 feet along said southwesterly line of Concord Drive to a point;
+THENCE South 56 degrees 40 minutes West 125.00 feet along said division line to point corner to Lot 50;
+THENCE North 33 degrees 20 minutes West 60.00 feet along said Lot 50 to Southeasterly line of Pennbrook Drive;
+THENCE North 56 degrees 40 minutes East 125.00 feet along said Southeasterly line of Pennbrook Drive to the point and place of beginning.
+"""
+
+POB_WITH_OFFSET_DISTANCE = """
+BEGINNING at a point in the northerly line of Main Street, 100 feet easterly from the corner of Elm Avenue;
+THENCE North 0 degrees East 100 feet;
+THENCE North 90 degrees East 100 feet;
+THENCE South 0 degrees East 100 feet;
+THENCE South 90 degrees West 100 feet to the POINT OF BEGINNING.
+"""
+
+PENNBROOK_24_EXHIBIT_A = (
+    "BEGINNING at a point in the southerly line of Pennbrook Drive 125 feet "
+    "southwestwardly from the southwesterly line of Concord Drive; "
+    "thence (1) south 56 degrees 40 minutes west along said southerly line of "
+    "Pennbrook Drive 50 feet to an angle in same; "
+    "thence (2) still along said southerly line of Pennbrook Drive south 87 degrees "
+    "7 minutes 30 seconds west 28.84 feet to a point in the division line between "
+    "lots 50 and 52 on plan hereinafter mentioned; "
+    "thence (3) southwestwardly along said division line 134.52 feet to a point "
+    "corner common to lots 28, 29, 50 and 52 said plan; "
+    "thence (4) southeastwardly along the rear line of lot number 29, 90 feet to a "
+    "point in line of lot 30 said plan; "
+    "thence (5) northeastwardly along said line of lot number 30, 31.47 feet to an "
+    "angle in same; "
+    "thence (6) still continuing along said line of Lot Number 30, 99.37 feet to a "
+    "point in the rear line of Lot Number 46, said plan; "
+    "thence (7) Northwestwardly partly along rear line of Lot Number 46 and all "
+    "along rear line of Lot Number 47, 120 feet to a point in the Southerly line of "
+    "Pennbrook Drive and place of BEGINNING."
+)
