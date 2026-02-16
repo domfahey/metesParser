@@ -25,6 +25,7 @@ MonumentType = Literal[
     "other",
 ]
 MonumentStatus = Literal["found", "set"]
+CurveType = Literal["simple", "compound", "reverse"]
 DistanceUnit = Literal[
     "feet",
     "us_survey_feet",
@@ -150,16 +151,31 @@ class DeedCall(_Model):
     )
     non_tangent: bool = Field(
         False,
-        strict=True,
         description="True if this curve is non-tangent (radial bearing provided)",
     )
     radial_bearing: str | None = Field(
         None,
         description="Radial bearing for non-tangent curves (e.g., 'N 15°22' E')",
     )
+    is_meander: bool = Field(
+        False,
+        description="True if this call follows a water boundary (meander line)",
+    )
+    is_tie_in: bool = Field(
+        False,
+        description="True if this call is a tie-in call between POC and POB",
+    )
+    is_indefinite: bool = Field(
+        False,
+        description="True if this call has vague direction without precise bearing",
+    )
+    curve_type: CurveType | None = Field(
+        None,
+        description="Type of curve: simple, compound, or reverse (None for non-curves)",
+    )
     notes: str | None = Field(None, description="Additional notes (meander flag, issues, etc.)")
 
-    @field_validator("curve_dir", "monument_type", mode="before")
+    @field_validator("curve_dir", "monument_type", "curve_type", mode="before")
     @classmethod
     def _normalize_literals(cls, value: str | None) -> str | None:
         if value is None:
@@ -188,13 +204,13 @@ class DeedCall(_Model):
 
         raise ValueError("monument_status must be one of: found, set")
 
-    @field_validator("is_exception", mode="before")
+    @field_validator("is_exception", "is_meander", "is_tie_in", "is_indefinite", mode="before")
     @classmethod
     def _normalize_is_exception(cls, value: object) -> bool:
         try:
             return cls._coerce_bool_field(value)
         except ValueError as exc:
-            raise ValueError("is_exception must be a boolean value") from exc
+            raise ValueError("flag field must be a boolean value") from exc
 
     @field_validator("bearing_azimuth_deg_from_north", mode="before")
     @classmethod

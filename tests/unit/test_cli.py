@@ -367,7 +367,8 @@ def test_extract_command_json_mode_logs_summary_without_stdout(monkeypatch, tmp_
         lambda provider=None: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
     )
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: _verified_result()
+        "metesparser.closure_checker.ClosureChecker.verify_closure",
+        lambda calls: _verified_result(),
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
@@ -433,7 +434,9 @@ def test_main_configures_logging_from_cli_flags(monkeypatch, tmp_path):
 
     observed: list[tuple[str, str, bool, bool]] = []
 
-    def _configure_logging(*, level: str, log_format: str, debug: bool, take_over_root: bool) -> None:
+    def _configure_logging(
+        *, level: str, log_format: str, debug: bool, take_over_root: bool
+    ) -> None:
         observed.append((level, log_format, debug, take_over_root))
 
     monkeypatch.setattr("metesparser.cli.configure_logging", _configure_logging)

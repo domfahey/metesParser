@@ -165,8 +165,9 @@ call = DeedCall(
     bearing_azimuth_deg_from_north=236.667,
     distance_ft=125.0,
     along="the division line",
-    to="an iron pin",
+    to="an iron pin found",
     monument_type="iron_pin",
+    monument_status="found",
     notes=None
 )
 

@@ -179,8 +179,8 @@ class TestMonumentStatusOnDeedCall:
 class TestMonumentStatusCSV:
     """Tests for monument_status in CSV schema."""
 
-    def test_fieldnames_count_19(self) -> None:
-        assert len(CSVBuilder.FIELDNAMES) == 19
+    def test_fieldnames_count_21(self) -> None:
+        assert len(CSVBuilder.FIELDNAMES) == 21
 
     def test_monument_status_in_fieldnames(self) -> None:
         assert "monument_status" in CSVBuilder.FIELDNAMES
