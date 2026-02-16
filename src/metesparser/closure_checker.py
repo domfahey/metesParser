@@ -7,6 +7,10 @@ C) Parallelism checks
 D) Curve consistency
 E) Area reasonableness
 F) Double-entry validation
+
+Plus supplementary validation checks:
+G) Bearing reversal detection
+H) Distance reasonableness
 """
 
 import math
@@ -81,7 +85,7 @@ class ClosureChecker:
         angle_check_passed = cls.check_interior_angles(main_calls)
         curve_consistency_passed = cls.check_curve_consistency(main_calls)
 
-        parallel_warnings = cls.check_parallelism(calls)
+        parallel_warnings = cls.check_parallelism(main_calls)
         warnings.extend(parallel_warnings)
 
         reversal_warnings = cls.check_bearing_reversals(main_calls)
