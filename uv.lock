@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "metesparser",
+    "mp-bearing",
     "mp-models",
 ]
 
@@ -460,6 +461,28 @@ requires-dist = [
     { name = "structlog", specifier = ">=24.4.0" },
 ]
 provides-extras = ["dev", "gemini"]
+
+[[package]]
+name = "mp-bearing"
+version = "1.0.0"
+source = { editable = "packages/mp-bearing" }
+dependencies = [
+    { name = "mp-models" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mp-models", editable = "packages/mp-models" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "mp-models"
