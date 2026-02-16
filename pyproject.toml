@@ -86,6 +86,7 @@ disallow_untyped_defs = true
 mp-models = { workspace = true }
 mp-bearing = { workspace = true }
 mp-ocr = { workspace = true }
+mp-parse = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
