@@ -21,7 +21,7 @@ flowchart TD
   E3 --> F3["Normalized text\nS 33°20'00\" E ... 4 numbered calls preserved"]
 
   F3 --> G1["`TextParser.extract_plss_metadata()`\n{section: None, township: None, range: None, principal_meridian: None, aliquot: None}"]
-  F3 --> G2["`TextParser.extract_pob_and_poc()`\npob_description set\n`a point at the southwesterly corner ... Pennbrook Drive (50 feet wide)`\npoc_description=None"]
+  F3 --> G2["`TextParser.extract_poc_and_pob()`\npob_description set\n`a point at the southwesterly corner ... Pennbrook Drive (50 feet wide)`\npoc_description=None"]
 
   F3 --> H["`CallExtractor.extract_calls()`\n4 call candidates parsed\nno exceptions\ncurve flags none"]
   H --> H1["Call 1 snapshot\ncourse=1, bearing_quadrant='S 33°20\' E'\nbearing_azimuth=146.666667\ndistance_ft=60.0\nalong='southwesterly line of Concord Drive'\nto='a point in the division line between Lots 46 and 47 ...'"]
