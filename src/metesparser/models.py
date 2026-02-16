@@ -3,7 +3,15 @@
 from datetime import datetime
 from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    FiniteFloat,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 CurveDirection = Literal["left", "right"]
 MonumentType = Literal[
@@ -39,6 +47,16 @@ PERMANENT_MONUMENTS: frozenset[str] = frozenset(
         "capped_pin",
         "capped_rod",
         "railroad_spike",
+    }
+)
+PRIOR_CONVEYANCE_SIGNALS: frozenset[str] = frozenset(
+    {
+        "BEING the same premises",
+        "previously conveyed",
+        "derived from",
+        "by deed dated",
+        "recorded in Book",
+        "Instrument Number",
     }
 )
 MonumentStatus = Literal["found", "set"]
@@ -253,11 +271,12 @@ class DeedCall(_Model):
         "is_exception", "is_meander", "is_tie_in", "is_indefinite", "non_tangent", mode="before"
     )
     @classmethod
-    def _coerce_bool_fields(cls, value: object) -> bool:
+    def _coerce_bool_fields(cls, value: object, info: ValidationInfo) -> bool:
         try:
             return cls._coerce_bool_field(value)
         except ValueError as exc:
-            raise ValueError("flag field must be a boolean value") from exc
+            field = info.field_name or "flag"
+            raise ValueError(f"{field} must be a boolean value") from exc
 
     @field_validator("bearing_azimuth_deg_from_north", mode="before")
     @classmethod
@@ -420,11 +439,12 @@ class LegalDescription(_Model):
 
     @field_validator("stated_area_approximate", mode="before")
     @classmethod
-    def _coerce_bool_fields(cls, value: object) -> bool:
+    def _coerce_bool_fields(cls, value: object, info: ValidationInfo) -> bool:
         try:
             return cls._coerce_bool_field(value)
         except ValueError as exc:
-            raise ValueError("flag field must be a boolean value") from exc
+            field = info.field_name or "flag"
+            raise ValueError(f"{field} must be a boolean value") from exc
 
     @model_validator(mode="after")
     def validate_stated_area_state(self) -> Self:
@@ -490,11 +510,12 @@ class ClosureResult(_Model):
         "closure_passed", "angle_check_passed", "curve_consistency_passed", mode="before"
     )
     @classmethod
-    def _coerce_bool_fields(cls, value: object) -> bool:
+    def _coerce_bool_fields(cls, value: object, info: ValidationInfo) -> bool:
         try:
             return cls._coerce_bool_field(value)
         except ValueError as exc:
-            raise ValueError("flag field must be a boolean value") from exc
+            field = info.field_name or "flag"
+            raise ValueError(f"{field} must be a boolean value") from exc
 
     def is_fully_verified(self) -> bool:
         """Check if all verification checks passed."""
