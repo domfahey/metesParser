@@ -231,7 +231,7 @@ class CallExtractor:
                     continue
 
                 if is_exception_tract:
-                    call = DeedCall.model_validate({**call.model_dump(), "is_exception": True})
+                    call = call.model_copy(update={"is_exception": True})
                 calls.append(call)
                 course_num += 1
 
@@ -347,7 +347,9 @@ class CallExtractor:
                 "call_hash": _call_hash(call_text),
             }
             if _is_debug_logging_enabled():
-                logger.warning("Rejecting bearingless non-curve call", **payload, call_text=call_text)
+                logger.warning(
+                    "Rejecting bearingless non-curve call", **payload, call_text=call_text
+                )
             else:
                 logger.warning("Rejecting bearingless non-curve call", **payload)
             return None
@@ -722,7 +724,7 @@ class CallExtractor:
         result = []
         for i, call in enumerate(calls):
             if i <= pob_index:
-                result.append(DeedCall.model_validate({**call.model_dump(), "is_tie_in": True}))
+                result.append(call.model_copy(update={"is_tie_in": True}))
             else:
                 result.append(call)
         return result
