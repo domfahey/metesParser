@@ -3,6 +3,8 @@
 Parses normalized text to create structured DeedCall objects.
 """
 
+import hashlib
+import logging
 import re
 
 import structlog
@@ -57,6 +59,23 @@ def _normalize_unit_token(token: str | None) -> str:
     if t in ("mile", "miles"):
         return "miles"
     return "feet"
+
+
+def _call_preview(call_text: str, max_len: int = 120) -> str:
+    """Return a compact single-line preview suitable for warning logs."""
+    compact = " ".join(call_text.split())
+    if len(compact) <= max_len:
+        return compact
+    return f"{compact[: max_len - 3]}..."
+
+
+def _call_hash(call_text: str) -> str:
+    """Stable short hash for correlating call text without logging full content."""
+    return hashlib.sha256(call_text.encode("utf-8")).hexdigest()[:12]
+
+
+def _is_debug_logging_enabled() -> bool:
+    return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
 
 
 class MonumentClassifier:
@@ -190,7 +209,22 @@ class CallExtractor:
                         call_text, course=course_num, distance_unit=distance_unit
                     )
                 except (ValidationError, ValueError, TypeError) as exc:
-                    logger.warning("Skipping malformed call", call_text=call_text, error=str(exc))
+                    payload = {
+                        "course": course_num,
+                        "call_preview": _call_preview(call_text),
+                        "call_hash": _call_hash(call_text),
+                        "error": str(exc),
+                        "error_type": type(exc).__name__,
+                    }
+                    if _is_debug_logging_enabled():
+                        logger.warning(
+                            "Skipping malformed call",
+                            **payload,
+                            call_text=call_text,
+                            exc_info=exc,
+                        )
+                    else:
+                        logger.warning("Skipping malformed call", **payload)
                     continue
 
                 if call is None:
@@ -306,11 +340,16 @@ class CallExtractor:
             or re.search(r"\b[NS]\s+\d+°", call_text)
         )
         if not has_direction_intent:
-            logger.warning(
-                "Rejecting bearingless non-curve call",
-                call_text=call_text,
-                distance_ft=distance_ft,
-            )
+            payload = {
+                "course": course,
+                "distance_ft": distance_ft,
+                "call_preview": _call_preview(call_text),
+                "call_hash": _call_hash(call_text),
+            }
+            if _is_debug_logging_enabled():
+                logger.warning("Rejecting bearingless non-curve call", **payload, call_text=call_text)
+            else:
+                logger.warning("Rejecting bearingless non-curve call", **payload)
             return None
 
         curve_dir = curve_info.get("direction")
