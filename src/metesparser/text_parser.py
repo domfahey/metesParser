@@ -5,9 +5,12 @@ Handles cleaning up OCR errors, standardizing DMS notation, merging line breaks,
 
 import re
 from re import Match
-from typing import Callable, TypedDict
+from typing import TYPE_CHECKING, Callable, Literal, TypedDict
 
 from .models import ConversionFactors
+
+if TYPE_CHECKING:
+    from .models import DeedClause
 
 # Regex fragment for numbers with optional comma grouping (e.g., "1,200" or "3,500.00")
 _COMMA_NUMBER = r"\d[\d,]*(?:\.\d+)?"
@@ -740,6 +743,37 @@ class TextParser:
                 return match.group(1).strip()
 
         return None
+
+    @classmethod
+    def extract_deed_clauses(cls, text: str) -> list[DeedClause]:
+        """Extract deed clauses (reservations, subject-to, together-with).
+
+        These are metadata clauses that don't change the boundary geometry.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            List of DeedClause objects
+        """
+        from .models import DeedClause
+
+        clauses: list[DeedClause] = []
+        ClauseType = Literal["reservation", "subject_to", "together_with"]
+
+        patterns: list[tuple[str, ClauseType]] = [
+            (r"(RESERVING\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "reservation"),
+            (r"(SUBJECT\s+TO\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "subject_to"),
+            (r"(TOGETHER\s+WITH\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "together_with"),
+        ]
+
+        for pattern, clause_type in patterns:
+            for match in re.finditer(pattern, text, re.IGNORECASE | re.DOTALL):
+                clause_text = match.group(1).strip().rstrip(".")
+                if clause_text:
+                    clauses.append(DeedClause(clause_type=clause_type, text=clause_text))
+
+        return clauses
 
     @classmethod
     def infer_distance_unit(
