@@ -193,6 +193,10 @@ class DeedCall(_Model):
         None,
         description="Type of curve: simple, compound, or reverse (None for non-curves)",
     )
+    quality: Literal["high", "medium", "low"] | None = Field(
+        None,
+        description="Call quality rating based on bearing completeness and monument permanence",
+    )
     notes: str | None = Field(None, description="Additional notes (meander flag, issues, etc.)")
 
     @field_validator("curve_dir", "monument_type", "curve_type", mode="before")
@@ -429,6 +433,12 @@ class ClosureResult(_Model):
         None,
         description="Misclosure / perimeter (e.g., 0.00004 means 1:25,000)",
         ge=0,
+    )
+    confidence_score: FiniteFloat | None = Field(
+        None,
+        description="Overall confidence score (0.0–1.0) based on closure, bearings, monuments",
+        ge=0.0,
+        le=1.0,
     )
 
     warnings: list[str] = Field(default_factory=list, description="List of warnings or issues")
