@@ -15,7 +15,7 @@ SAMPLE_DIR = Path(__file__).resolve().parent.parent / "sample_deeds"
 # Regex patterns for extracting metes & bounds data from markdown text
 BEARING_PATTERN = re.compile(
     r"([NS])\s*(?:orth|outh)?\s*(\d{1,3})\s*(?:degrees?|°|deg\.?)\s*"
-    r"(\d{1,2})\s*(?:minutes?|\'|min\.?)\s*"
+    r"(\d{1,2})\s*(?:minutes?|\'|min\.?)[,\s]*"
     r"(?:(\d{1,2})\s*(?:seconds?|\"|sec\.?)\s*)?"
     r"([EW])\s*(?:ast|est)?",
     re.IGNORECASE,
@@ -27,7 +27,7 @@ DISTANCE_PATTERN = re.compile(
 )
 
 THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
-BEGINNING_PATTERN = re.compile(r"\bBEGINNING\b", re.IGNORECASE)
+BEGINNING_PATTERN = re.compile(r"\bBEGINNING\s+at\b", re.IGNORECASE)
 
 # Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from call_extractor.py
 CARDINAL_ONLY_PATTERN = re.compile(
