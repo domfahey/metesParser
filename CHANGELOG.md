@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+_No unreleased changes._
+
+## [0.4.0] - 2026-02-16
+
 ### Added
 
 #### Phase 1: Foundation (PR #1)
@@ -76,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bug tracking system (`docs/bugs.md`) — all 48 bugs resolved
 
 ### Changed
-- Version bumped to 0.3.0
+- Version bumped to 0.4.0 (pyproject.toml + __init__.py now in sync)
 - Default Gemini model upgraded to `gemini-3-flash-preview`
 - OpenAI calls use `temperature=0` for deterministic extraction
 - Removed black formatter — ruff handles all formatting and linting
@@ -233,14 +237,27 @@ This project uses [Semantic Versioning](https://semver.org/):
 
 ## Migration Guides
 
-### Migrating from 0.3.1 to next release
+### Migrating from 0.3.1 to 0.4.0
 
 **CSV Schema**:
 CSV output now has 21 fields instead of 16. New fields added across Phases 1–4:
 - `is_meander`, `is_tie_in`, `monument_status`, `non_tangent`, `radial_bearing`
 
+**Verification Checks**:
+Now 8 checks (up from 6). Added: bearing reversal detection, distance reasonableness.
+
+**Audit Sidecar**:
+`PDFProcessor.process_deed_pdf(audit=True)` returns `(LegalDescription, AuditContext)` tuple.
+`.audit.json` and `.audit.html` files are written alongside `_verified.csv` when `audit_context` is provided to `CSVBuilder.export_verified_csv()`.
+
+**Quality Scoring**:
+New fields on `ClosureResult`: `confidence_score` (0.0–1.0) and per-call `quality` (high/medium/low).
+
 **LLM Provider**:
 Gemini is now supported as an alternative provider. Set `METESPARSER_LLM_PROVIDER=gemini` and `GEMINI_API_KEY` in `.env`.
+
+**LLM Caching**:
+File-based LLM response caching is enabled by default via `CachedLLMClient`.
 
 **Tooling**:
 Black has been removed. Ruff handles all formatting and linting. Update any CI scripts that reference `black`.

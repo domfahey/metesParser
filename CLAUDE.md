@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
-**Version**: 0.3.0 | **Tests**: ~860 | **Coverage**: ~90%
+**Version**: 0.4.0 | **Tests**: 866 | **Coverage**: ~93%
 
 ## Critical Architecture Principles
 

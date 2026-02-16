@@ -31,7 +31,7 @@ metesParser is a deterministic metes & bounds parser that converts legal descrip
 - **Pydantic v2** - Data validation and schema enforcement
 - **OpenAI + optional Gemini** - Configurable LLM providers for PDF extraction
 - **UV** - Dependency management (no pip/conda/poetry)
-- **pytest** - Test framework with 604 tests (as of 2026-02-15)
+- **pytest** - Test framework with 866 tests (~93% coverage)
 
 ## Core Principles
 
@@ -136,7 +136,14 @@ response = response_client.generate_text(combined_prompt)
 7. CSV Export (csv_builder.py)
    ├─> If fully verified: export _verified.csv
    ├─> Else: export regular .csv with warnings
-   └─> Export metadata; verification summary is written only for verified outputs
+   ├─> Export metadata; verification summary is written only for verified outputs
+   └─> If audit_context provided: write .audit.json + .audit.html sidecars
+
+8. Audit Sidecar (optional — audit_reporter.py)
+   ├─> AuditContext threads through pipeline (created before extraction)
+   ├─> Captures: LLM confidence, source excerpts, transformations, decisions
+   ├─> .audit.json: canonical audit data store
+   └─> .audit.html: self-contained report with collapsible sections, confidence colors
 ```
 
 ## Module Architecture
@@ -178,6 +185,15 @@ response = response_client.generate_text(combined_prompt)
          ┌─────────────┐
          │  models.py  │ (Used by all modules)
          └─────────────┘
+
+┌──────────────────┐       ┌──────────────────┐
+│ audit_reporter.py│       │  llm_cache.py    │
+│  (HTML reports)  │       │ (response cache) │
+└──────────────────┘       └──────────────────┘
+
+         ┌──────────────────┐
+         │logging_config.py │ (structlog setup)
+         └──────────────────┘
 ```
 
 ### Module Responsibilities
@@ -199,7 +215,9 @@ class DeedCall(BaseModel):
 - `DeedCall` - Individual call
 - `Point` - X/Y coordinate
 - `LegalDescription` - Full parcel description
-- `ClosureResult` - Verification results
+- `ClosureResult` - Verification results with confidence scoring
+- `AuditContext` - Mutable accumulator for audit trail (not frozen)
+- `CallAudit`, `Transformation`, `Decision` - Per-call audit details
 
 #### bearing_converter.py
 **Purpose**: Bearing/azimuth conversions and curve math
@@ -264,7 +282,7 @@ dy = distance × cos(radians(azimuth))
 - **Flag uncertainties** - never fabricate
 
 #### closure_checker.py
-**Purpose**: Verify traverse with 8 checks (6 mandatory guardrails + 2 supplementary)
+**Purpose**: Verify traverse with 8 checks
 
 **Key Methods**:
 - `verify_closure()` - Main verification entry point
@@ -325,6 +343,37 @@ non_tangent,radial_bearing,notes
 metesparser extract <pdf_file>  # Extract from PDF
 metesparser verify <csv_file>   # Verify closure
 ```
+
+#### audit_reporter.py
+**Purpose**: Generate self-contained HTML audit reports
+
+**Key Methods**:
+- `AuditReporter.generate_html()` - Generate HTML from `AuditContext`
+
+**Design**:
+- Self-contained HTML with embedded CSS (no external dependencies)
+- Collapsible `<details>` sections for each pipeline stage
+- Confidence color coding: green (>=0.8), yellow (0.5-0.8), red (<0.5)
+- XSS prevention via `html.escape()` on all user content
+
+#### llm_cache.py
+**Purpose**: File-based LLM response caching
+
+**Key Classes**:
+- `CachedLLMClient` - Wraps any `BaseLLMClient` with disk caching
+- Cache key = hash of prompt + model + provider
+
+**Design**:
+- Enabled by default for cost-effective re-extraction
+- Deterministic: same prompt always returns cached response
+- Cache files stored alongside project (gitignored)
+
+#### logging_config.py
+**Purpose**: structlog configuration for console and JSON output modes
+
+**Key Methods**:
+- `configure_logging()` - Set up structlog with console or JSON renderer
+- Supports `run_id` correlation via `structlog.contextvars`
 
 ## Data Models
 
