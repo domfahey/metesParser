@@ -57,7 +57,9 @@ def extract_command(
 
     try:
         processor = PDFProcessor(provider=llm_provider, cache=not no_cache)
-        legal_desc = processor.process_deed_pdf(pdf_path)
+        result = processor.process_deed_pdf(pdf_path)
+        assert not isinstance(result, tuple)  # audit=False (default)
+        legal_desc = result
 
         command_logger.info("Verifying closure")
         closure_result = ClosureChecker.verify_closure(legal_desc.calls)
