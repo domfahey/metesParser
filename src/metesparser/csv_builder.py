@@ -9,7 +9,7 @@ from pathlib import Path
 import structlog
 from pydantic import ValidationError, field_validator
 
-from .models import ClosureResult, DeedCall, LegalDescription, _Model
+from .models import AuditContext, ClosureResult, DeedCall, LegalDescription, _Model
 
 logger = structlog.get_logger(__name__)
 
@@ -263,6 +263,8 @@ class CSVBuilder:
         closure_result: ClosureResult,
         output_path: str,
         legal_desc: LegalDescription | None = None,
+        *,
+        audit_context: AuditContext | None = None,
     ) -> None:
         """Export verified CSV only if all checks pass.
 
@@ -273,6 +275,7 @@ class CSVBuilder:
             closure_result: ClosureResult from verification
             output_path: Base output file path
             legal_desc: Optional LegalDescription for metadata
+            audit_context: Optional AuditContext for audit trail output
 
         Raises:
             ValueError: If verification checks did not pass
@@ -301,3 +304,14 @@ class CSVBuilder:
 
         logger.info("Verified CSV exported", path=str(verified_path))
         logger.info("Verification summary written", path=str(summary_path))
+
+        if audit_context is not None:
+            audit_json_path = verified_path.with_suffix(".audit.json")
+            audit_json_path.write_text(audit_context.model_dump_json(indent=2))
+            logger.info("Audit trail written", path=str(audit_json_path))
+
+            from .audit_reporter import AuditReporter
+
+            audit_html_path = verified_path.with_suffix(".audit.html")
+            AuditReporter.write_report(audit_context, audit_html_path)
+            logger.info("Audit HTML report written", path=str(audit_html_path))
