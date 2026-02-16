@@ -94,7 +94,9 @@ def extract_command(
                 run_id=run_id,
                 timestamp_utc=datetime.now(UTC),
                 source_pdf=pdf_file.name,
-                llm_provider=llm_provider or os.getenv("METESPARSER_LLM_PROVIDER", "openai"),
+                llm_provider=llm_provider
+                if llm_provider is not None
+                else os.getenv("METESPARSER_LLM_PROVIDER", "openai"),
                 llm_model=getattr(getattr(processor, "client", None), "model", "unknown"),
                 cache_enabled=not no_cache,
                 prompt_versions=prompt_versions,
