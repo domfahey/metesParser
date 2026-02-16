@@ -29,11 +29,9 @@ DISTANCE_PATTERN = re.compile(
 THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
 BEGINNING_PATTERN = re.compile(r"\bBEGINNING\b", re.IGNORECASE)
 
-# Cardinal-only pattern (no DMS)
+# Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from call_extractor.py
 CARDINAL_ONLY_PATTERN = re.compile(
-    r"\b(North|South|East|West|Northerly|Southerly|Easterly|Westerly|"
-    r"Northwardly|Southwardly|Eastwardly|Westwardly|Northeasterly|"
-    r"Northwesterly|Southeasterly|Southwesterly)\b",
+    r"\b(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly|wardly)?\b",
     re.IGNORECASE,
 )
 
@@ -58,22 +56,67 @@ def bearing_to_azimuth(quadrant1, angle_decimal, quadrant2):
     return None
 
 
-def extract_calls_from_md(md_text):
-    """Extract bearing/distance pairs from markdown text."""
+# Exhibit A / Schedule C section markers
+EXHIBIT_PATTERN = re.compile(
+    r"(?:EXHIBIT\s*[\"']?\s*[\"']?A[\"']?|SCHEDULE\s+C)",
+    re.IGNORECASE,
+)
+
+# "place of BEGINNING" closure marker
+POB_CLOSE_PATTERN = re.compile(
+    r"(?:point\s+and\s+)?place\s+of\s+BEGINNING",
+    re.IGNORECASE,
+)
+
+# Numbered call starters: "1. " or "(1) " at start of line
+CALL_NUM_PATTERN = re.compile(
+    r"(?:^|\n)\s*(?:\d+\.\s|\(\d+\)\s)",
+)
+
+
+def find_preferred_text(md_text):
+    """Return text from Exhibit A / Schedule C section, or full text if none."""
+    matches = list(EXHIBIT_PATTERN.finditer(md_text))
+    if matches:
+        return md_text[matches[0].start():]
+    return md_text
+
+
+def extract_first_legal_block(text):
+    """Extract first BEGINNING...place of BEGINNING block from text."""
+    begin_match = BEGINNING_PATTERN.search(text)
+    if not begin_match:
+        return None
+
+    start = begin_match.start()
+    close_match = POB_CLOSE_PATTERN.search(text, start + 10)
+    if close_match:
+        return text[start : close_match.end()]
+    return text[start:]
+
+
+def extract_calls_from_block(block_text):
+    """Extract bearing/distance pairs from a single legal description block."""
     calls = []
 
-    # Find the legal description section (between BEGINNING and end)
-    begin_match = BEGINNING_PATTERN.search(md_text)
-    if not begin_match:
-        return calls
+    # Try numbered call detection first (handles semicolons between calls)
+    num_matches = list(CALL_NUM_PATTERN.finditer(block_text))
 
-    legal_text = md_text[begin_match.start():]
+    if len(num_matches) >= 2:
+        segments = []
+        for j, m in enumerate(num_matches):
+            seg_start = m.start()
+            seg_end = (
+                num_matches[j + 1].start()
+                if j + 1 < len(num_matches)
+                else len(block_text)
+            )
+            segments.append(block_text[seg_start:seg_end])
+    else:
+        # Fall back to thence splitting
+        segments = re.split(r"\bthence\b", block_text, flags=re.IGNORECASE)[1:]
 
-    # Split by THENCE to get individual calls
-    thence_splits = re.split(r"\bthence\b", legal_text, flags=re.IGNORECASE)
-
-    for i, segment in enumerate(thence_splits[1:], 1):  # Skip text before first thence
-        # Try to extract bearing
+    for i, segment in enumerate(segments, 1):
         bearing_match = BEARING_PATTERN.search(segment)
         distance_match = DISTANCE_PATTERN.search(segment)
 
@@ -83,10 +126,11 @@ def extract_calls_from_md(md_text):
             q1, deg, mins, secs, q2 = bearing_match.groups()
             angle = dms_to_decimal(deg, mins, secs)
             azimuth = bearing_to_azimuth(q1, angle, q2)
-            call_data["bearing"] = f"{q1.upper()} {deg}°{mins}'{secs or '00'}\" {q2.upper()}"
+            call_data["bearing"] = (
+                f"{q1.upper()} {deg}°{mins}'{secs or '00'}\" {q2.upper()}"
+            )
             call_data["azimuth"] = azimuth
         else:
-            # Check for cardinal-only
             cardinal_match = CARDINAL_ONLY_PATTERN.search(segment[:100])
             if cardinal_match:
                 call_data["bearing"] = f"cardinal-only: {cardinal_match.group()}"
@@ -99,6 +143,30 @@ def extract_calls_from_md(md_text):
             calls.append(call_data)
 
     return calls
+
+
+def extract_calls_from_md(md_text):
+    """Extract bearing/distance pairs from markdown text.
+
+    Prefers Exhibit A / Schedule C sections over deed body text.
+    Extracts the first complete BEGINNING...place of BEGINNING block.
+    Uses numbered call patterns, falling back to thence splitting.
+    """
+    # Step 1: Prefer Exhibit A / Schedule C section
+    search_text = find_preferred_text(md_text)
+
+    # Step 2: Find the first complete legal description block
+    block = extract_first_legal_block(search_text)
+
+    if not block and search_text != md_text:
+        # No block in exhibit section — try full text
+        block = extract_first_legal_block(md_text)
+
+    if not block:
+        return []
+
+    # Step 3: Extract calls from the block
+    return extract_calls_from_block(block)
 
 
 def audit_deed(pdf_base):
