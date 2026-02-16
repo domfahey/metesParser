@@ -26,12 +26,14 @@ Keep original wording in `along` and `to` fields. Example: Keep "Southerly line 
 make help          # Show all commands
 make dev-setup     # Initial setup (creates .env from .env.example)
 make lint          # Run ruff (excludes text_parser.py)
-make format        # Run ruff + black formatters
+make format        # Run ruff formatter
 make lint-fix      # Auto-fix linting issues
 make test          # Run pytest
+make test-fast     # Run pytest with fail-fast (stop on first failure)
 make test-cov      # Tests with HTML coverage report
+make test-watch    # Re-run tests on file changes (pytest-watcher)
 make pre-commit    # Full check before git commit
-make check         # Run all checks (lint + format + type + test)
+make check         # Run all checks (lint + format-check + type + docs-check + test)
 make clean         # Remove generated artifacts and caches
 make doctor        # Verify project dependencies and environment
 ```
@@ -166,14 +168,14 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 
 ### Expected Test Output
 ```
-786 passed in 0.29s
+785 passed in 0.38s
 ```
 All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`, investigate before committing.
 
 ## Known Issues & Workarounds
 
 ### text_parser.py Linting
-**Issue**: Contains Unicode DMS symbols (°, ', ") that break ruff/black parsers
+**Issue**: Contains Unicode DMS symbols (°, ', ") that break ruff parser
 **Workaround**: Excluded in `pyproject.toml` under `[tool.ruff] exclude`
 **Action**: Don't try to lint this file - it's functionally correct
 
@@ -184,7 +186,7 @@ All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`
 ### Cardinal Direction Patterns
 **Rule**: Cardinal-only patterns must include both `(?:erly|wardly)?` suffixes
 **Locations**: `call_extractor.py` (~lines 226, 337) AND `text_parser.py` (`CARDINAL_ONLY_PATTERN`)
-**Bug history**: Missing `wardly` suffix caused false negatives in indefinite call detection
+**Bug history**: Missing `wardly` suffix caused false negatives in indefinite call detection (fixed in `d25fcc9`)
 
 ### LLM Configuration
 **Location**: `prompts/*.yaml` files
