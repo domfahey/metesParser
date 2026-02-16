@@ -627,6 +627,12 @@ class CallExtractor:
             re.IGNORECASE,
         ):
             curve_info["curve_type"] = "reverse"
+        elif re.search(
+            r"\b(?:spiral\s+curve|transition\s+curve)\b",
+            text,
+            re.IGNORECASE,
+        ):
+            curve_info["curve_type"] = "spiral"
 
         if re.search(r"\bnon-?tangent\b", text, re.IGNORECASE):
             curve_info["non_tangent"] = True
