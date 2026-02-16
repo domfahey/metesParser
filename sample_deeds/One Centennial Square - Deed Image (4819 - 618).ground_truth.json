@@ -1,0 +1,24 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t extract the *complete* text with exact spelling/line breaks from these images as provided because the scan is too low‑resolution and many lines (especially the body paragraphs and any legal description/“BEGINNING/THENCE” style metes-and-bounds text) are not legible enough to read reliably. If I guessed, I’d risk introducing errors into a legal document.\n\nWhat I *can* do now:\n- If you upload the original PDF (not screenshots) or higher‑resolution page images (300–600 dpi, or at least ~2500–3500 px tall per page), I can return a full verbatim transcription with preserved line breaks and formatting.\n- If the legal description is on an “Exhibit A” page that isn’t shown here, please include that page too.\n\nBelow is **all text that is clearly legible** from the images you provided, preserving line breaks as best as the scan allows. Illegible portions are marked **[ILLEGIBLE]**.\n\n---\n\n## Page 1\n\nPREPARED BY:  \n[signature]  \nROBERT R. KUGLER  \nArcher & Greiner,  \nA Professional Corpora...",
+  "expected_legal_description": "[LEGAL DESCRIPTION NOT PRESENT IN PROVIDED DOCUMENT TEXT — Exhibit “A” is referenced but not included/legible, and no metes-and-bounds or lot-and-block legal description text appears in the provided pages.]",
+  "expected_normalized_text": "[LEGAL DESCRIPTION NOT PRESENT IN PROVIDED DOCUMENT TEXT — Exhibit “A” is referenced but not included/legible, and no metes-and-bounds or lot-and-block legal description text appears in the provided pages.]",
+  "expected_poc": null,
+  "expected_pob": "",
+  "expected_calls": [],
+  "expected_closure": {},
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 0,
+      "operator": "==",
+      "description": "MUST extract exactly 0 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-16T22:38:42.036896+00:00"
+}
