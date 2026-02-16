@@ -56,14 +56,18 @@
 - [x] High: Clarify six-guardrail runtime scope vs helper methods.
   - Revise `docs/METES_AND_BOUNDS_REFERENCE.md:1083-1090` to distinguish checks performed by `verify_closure()` from separate workflows like `compare_double_entry()` in `src/metesparser/closure_checker.py:376`.
   - **Resolved**: Updated Section 18.7 to state that `verify_closure()` runs checks 1-5 by default and check 6 when `double_entry_calls` is provided.
-- [ ] Medium: Fix precision-ratio definition wording.
+- [x] Medium: Fix precision-ratio definition wording.
   - Correct `docs/METES_AND_BOUNDS_REFERENCE.md:1033` so "1:X" precision is expressed as total perimeter divided by misclosure (or explicitly label if using inverse form).
-- [ ] Medium: Resolve area precision contradiction.
+  - **Resolved**: Changed to "Misclosure / Total perimeter, stored as a decimal" with worked example showing inverse 1:X display convention. Matches code storage format (`misclosure / perimeter`).
+- [x] Medium: Resolve area precision contradiction.
   - Update `docs/METES_AND_BOUNDS_REFERENCE.md:124` so the stated rounding precision is consistent with example `0.1722` acres.
-- [ ] Medium: Soften absolute legal validity statements.
+  - **Resolved**: Changed "nearest hundredth" to "four decimal places" to match 0.1722 example.
+- [x] Medium: Soften absolute legal validity statements.
   - Reword `docs/METES_AND_BOUNDS_REFERENCE.md:527` and `docs/METES_AND_BOUNDS_REFERENCE.md:944` from universal "legally required/must" language to jurisdiction-dependent guidance.
-- [ ] Low: Correct geodetic north definition.
+  - **Resolved**: Changed to "Generally required in most jurisdictions" (line 529) and "should close / in most jurisdictions" with riparian exception note (line 946).
+- [x] Low: Correct geodetic north definition.
   - Replace/reframe `docs/METES_AND_BOUNDS_REFERENCE.md:210` to avoid the inaccurate "derived using the Laplace equation" definition.
+  - **Resolved**: Replaced with "direction of the meridian at a point on the reference ellipsoid (e.g., NAD 83)" with deflection-of-the-vertical note.
 
 ## Reference-Doc Gap Improvements (2026-02-15)
 
