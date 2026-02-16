@@ -260,8 +260,8 @@ test-e2e: ## Run end-to-end tests only.
 	$(UV_RUN) pytest tests/e2e -v
 	@echo "✓ End-to-end tests complete"
 
-test-watch: ## Re-run tests on file changes.
-	$(UV_RUN) ptw . -- -v --maxfail=1
+test-watch: ## Re-run unit tests on file changes (requires pytest-watcher).
+	$(UV_RUN) ptw . -- tests/unit -v --maxfail=1
 
 ci: clean check-tools install quality test-cov ## CI-oriented full validation lane.
 	@echo "✓ CI checks complete"
@@ -332,14 +332,14 @@ pre-commit: lint-fix format test ## Lint-fix, format, and test before committing
 	@echo "✓ Pre-commit checks complete — ready to commit!"
 
 bump-patch: ## Bump patch version (e.g. 0.2.0 -> 0.2.1).
-	@current=$$(grep -m1 'version' pyproject.toml | cut -d'"' -f2); \
+	@current=$$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2); \
 	IFS='.' read -r major minor patch <<< "$$current"; \
 	new="$$major.$$minor.$$((patch+1))"; \
 	sed -i '' "s/version = \"$$current\"/version = \"$$new\"/" pyproject.toml; \
 	echo "Bumped $$current -> $$new"
 
 bump-minor: ## Bump minor version (e.g. 0.2.0 -> 0.3.0).
-	@current=$$(grep -m1 'version' pyproject.toml | cut -d'"' -f2); \
+	@current=$$(grep -m1 '^version = ' pyproject.toml | cut -d'"' -f2); \
 	IFS='.' read -r major minor patch <<< "$$current"; \
 	new="$$major.$$((minor+1)).0"; \
 	sed -i '' "s/version = \"$$current\"/version = \"$$new\"/" pyproject.toml; \
