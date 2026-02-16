@@ -19,6 +19,9 @@ Traverse must close to < 0.01 ft misclosure before exporting `_verified.csv`. Us
 ### 3. Preserve Verbatim Deed Language
 Keep original wording in `along` and `to` fields. Example: Keep "Southerly line of Pennbrook Drive" exactly as written in the deed.
 
+### 4. GenAI Transparency & Auditability
+Build for transparency by design. All LLM-generated outputs must be traceable and auditable — log prompts, responses, and extraction decisions so users can verify what the AI produced vs. what the parser derived deterministically.
+
 ## Essential Commands
 
 ### Makefile (Primary Interface)
