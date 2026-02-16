@@ -13,6 +13,8 @@ from structlog.processors import CallsiteParameter, CallsiteParameterAdder
 _DEFAULT_LEVEL = "INFO"
 _DEFAULT_FORMAT = "console"
 _VALID_FORMATS = {"console", "json"}
+_CURRENT_FORMAT = _DEFAULT_FORMAT
+_OWNS_WARNING_CAPTURE = False
 
 
 def _normalize_level(level: str) -> str:
@@ -31,12 +33,30 @@ def _normalize_format(log_format: str) -> str:
     return normalized
 
 
+def get_log_format() -> str:
+    """Return currently configured logging format (`console` or `json`)."""
+    return _CURRENT_FORMAT
+
+
+def _clear_handlers(target_logger: logging.Logger) -> None:
+    previous_handlers = list(target_logger.handlers)
+    for previous_handler in previous_handlers:
+        target_logger.removeHandler(previous_handler)
+        previous_handler.close()
+
+
+def _replace_handlers(target_logger: logging.Logger, handler: logging.Handler) -> None:
+    _clear_handlers(target_logger)
+    target_logger.addHandler(handler)
+
+
 def configure_logging(
     level: str | None = None,
     *,
     log_format: str | None = None,
     debug: bool = False,
     stream: TextIO | None = None,
+    take_over_root: bool = False,
 ) -> None:
     """Configure structured logging for CLI and library code.
 
@@ -45,6 +65,7 @@ def configure_logging(
         log_format: Output format (`console` or `json`).
         debug: Enable debug-friendly options (DEBUG level + callsite metadata).
         stream: Optional stream override for tests.
+        take_over_root: Replace root logger handlers (preferred for CLI entrypoints).
     """
     resolved_level_value: str | None = level or os.getenv("METESPARSER_LOG_LEVEL")
     resolved_level = _normalize_level(resolved_level_value or _DEFAULT_LEVEL)
@@ -104,17 +125,37 @@ def configure_logging(
     handler = logging.StreamHandler(stream or sys.stderr)
     handler.setFormatter(formatter)
 
-    root_logger = logging.getLogger()
-    previous_handlers = list(root_logger.handlers)
-    for previous_handler in previous_handlers:
-        root_logger.removeHandler(previous_handler)
-        previous_handler.close()
+    package_logger = logging.getLogger("metesparser")
 
-    root_logger.addHandler(handler)
-    root_logger.setLevel(level_num)
+    global _CURRENT_FORMAT
+    global _OWNS_WARNING_CAPTURE
 
-    logging.captureWarnings(True)
+    if take_over_root:
+        root_logger = logging.getLogger()
+        _replace_handlers(root_logger, handler)
+        root_logger.setLevel(level_num)
+
+        # Remove stale package handlers from prior non-root configuration.
+        _clear_handlers(package_logger)
+        package_logger.setLevel(logging.NOTSET)
+        package_logger.propagate = True
+
+        logging.captureWarnings(True)
+        _OWNS_WARNING_CAPTURE = True
+    else:
+        _replace_handlers(package_logger, handler)
+        package_logger.setLevel(level_num)
+        package_logger.propagate = False
+
+        # If root warning capture was enabled by this module, disable it when returning
+        # to package-scoped logging.
+        if _OWNS_WARNING_CAPTURE:
+            logging.captureWarnings(False)
+            _OWNS_WARNING_CAPTURE = False
+
     structlog.contextvars.clear_contextvars()
+
+    _CURRENT_FORMAT = resolved_format
 
     structlog.configure(
         processors=[

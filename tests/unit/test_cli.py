@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import io
+import json
 import sys
 from types import SimpleNamespace
 
 import pytest
 
 from metesparser import cli
+from metesparser.logging_config import configure_logging
 from metesparser.models import ClosureResult, DeedCall, LegalDescription, Point
+
+
+def _json_log_lines(payload: str) -> list[dict[str, object]]:
+    return [json.loads(line) for line in payload.splitlines() if line.strip()]
 
 
 def _verified_result() -> ClosureResult:
@@ -337,14 +344,97 @@ def test_export_command_is_not_implemented():
     assert exc.value.code == 1
 
 
+def test_extract_command_json_mode_logs_summary_without_stdout(monkeypatch, tmp_path, capsys):
+    pdf = tmp_path / "deed.pdf"
+    pdf.write_text("pdf")
+    legal_desc = LegalDescription(
+        calls=[
+            DeedCall(
+                course=1,
+                direction_text="N 90° E",
+                bearing_azimuth_deg_from_north=90.0,
+                distance_ft=10.0,
+            )
+        ],
+        source_doc="deed.pdf",
+    )
+
+    log_stream = io.StringIO()
+    configure_logging(level="INFO", log_format="json", stream=log_stream)
+
+    monkeypatch.setattr(
+        "metesparser.pdf_processor.PDFProcessor",
+        lambda provider=None: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: _verified_result()
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+    )
+    monkeypatch.setattr(
+        "metesparser.csv_builder.CSVBuilder.export_verified_csv",
+        lambda calls, closure_result, output_path, legal_desc_obj: None,
+    )
+
+    try:
+        cli.extract_command(str(pdf))
+    finally:
+        configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert any(
+        line.get("event") == "Closure summary" and line.get("summary") == "VERIFIED"
+        for line in _json_log_lines(log_stream.getvalue())
+    )
+
+
+def test_verify_command_json_mode_logs_summary_without_stdout(monkeypatch, tmp_path, capsys):
+    csv = tmp_path / "calls.csv"
+    csv.write_text("course,direction_text,distance_ft\n")
+    calls = [
+        DeedCall(
+            course=1,
+            direction_text="N 90° E",
+            bearing_azimuth_deg_from_north=90.0,
+            distance_ft=10.0,
+        )
+    ]
+
+    log_stream = io.StringIO()
+    configure_logging(level="INFO", log_format="json", stream=log_stream)
+
+    monkeypatch.setattr("metesparser.csv_builder.CSVBuilder.csv_to_calls", lambda _: calls)
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.verify_closure",
+        lambda calls, area=0.0: _verified_result(),
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+    )
+
+    try:
+        cli.verify_command(str(csv))
+    finally:
+        configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert any(
+        line.get("event") == "Closure summary" and line.get("summary") == "VERIFIED"
+        for line in _json_log_lines(log_stream.getvalue())
+    )
+
+
 def test_main_configures_logging_from_cli_flags(monkeypatch, tmp_path):
     pdf = tmp_path / "input.pdf"
     pdf.write_text("pdf")
 
-    observed: list[tuple[str, str, bool]] = []
+    observed: list[tuple[str, str, bool, bool]] = []
 
-    def _configure_logging(*, level: str, log_format: str, debug: bool) -> None:
-        observed.append((level, log_format, debug))
+    def _configure_logging(*, level: str, log_format: str, debug: bool, take_over_root: bool) -> None:
+        observed.append((level, log_format, debug, take_over_root))
 
     monkeypatch.setattr("metesparser.cli.configure_logging", _configure_logging)
     monkeypatch.setattr(
@@ -359,7 +449,7 @@ def test_main_configures_logging_from_cli_flags(monkeypatch, tmp_path):
     )
     cli.main()
 
-    assert observed == [("DEBUG", "json", True)]
+    assert observed == [("DEBUG", "json", True, True)]
 
 
 def test_main_rejects_invalid_log_level(monkeypatch, capsys):
