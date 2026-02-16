@@ -79,7 +79,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Confidence scoring (`calculate_confidence_score()` — 0.0–1.0 weighted composite)
 - Enhanced closure summary with confidence, precision ratio (1:N), per-call quality
 
-#### Phase 6: Audit Sidecar — Transparency by Design
+#### Phase 6: Audit Sidecar — Transparency by Design (PR #13)
 - Audit data models: `AuditContext`, `RunMetadata`, `ExtractionRecord`, `CallAudit`, `Transformation`, `Decision`, `CheckResult`, `VerificationAudit`
 - `PDFProcessor.process_deed_pdf(audit=True)` returns `(LegalDescription, AuditContext)` tuple
 - LLM extraction confidence scoring with 7 weighted heuristic signals (POB, bearings, closure language, distances, text length, PLSS, garbled chars)
@@ -99,6 +99,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Version bumped to 0.4.0 (pyproject.toml + __init__.py now in sync)
+- Default OpenAI model upgraded from `gpt-4.1` to `gpt-5.2`
 - Default Gemini model upgraded to `gemini-3-flash-preview`
 - OpenAI calls use `temperature=0` for deterministic extraction
 - Removed black formatter — ruff handles all formatting and linting
@@ -106,12 +107,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Coverage reporting separated from default `make test`
 - `make doctor` checks both OpenAI and Gemini providers (active = required, inactive = optional)
 - CLI uses `structlog.contextvars` for log context propagation with `run_id` correlation
-- Pydantic v2 best practices: `model_copy()`, explicit `default=None`, bool coercion validators
+- Pydantic v2 best practices: `model_copy()`, explicit `default=None`, bool coercion validators (PRs #8, #9, #11)
 - Makefile streamlined — removed all black references, improved provider checks
 - CLAUDE.md scored 100/100 on quality audit (feature table, approximate stats, debug snippets)
 
 ### Fixed
 - 48 bugs resolved (#20–#48) across Phases 1–5 with TDD regression tests
+- 5 extraction errors found by ground truth comparison (PR #12)
+- Reference doc audit fixes (PR #7)
 - CLI logging: `_emit_closure_summary` now logs to structlog in all modes, prints only in console mode
 - Arc distance curve parsing — match "arc distance", not just "arc length" (Bug #42)
 - Curve math edge cases: 180° delta returns infinity, arc/chord validation guards
@@ -124,16 +127,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.1] - 2025-10-14
 
 ### Added
-- Added JSON ground truth artifacts alongside source PDFs for PDF extraction comparison and reproducibility.
-- Added ground truth folder documentation to describe folder-based extraction validation artifacts.
+- JSON ground truth artifacts alongside source PDFs for PDF extraction comparison and reproducibility
+- Ground truth folder documentation to describe folder-based extraction validation artifacts
+- Prompt/ground-truth-oriented workflow updates for PDF validation around extraction and normalization
 
 ### Fixed
-- Fixed prompt-driven normalization behavior to better preserve numbered-call formatting and line breaks.
-- Fixed call-splitting so numbered call notation is prioritized over generic `THENCE` splitting, resolving exception-style split regressions.
-- Fixed numbering-related extraction ordering issues in curve/exception parsing edge cases tracked as Bug #19.
-
-### Changed
-- Added prompt/ground-truth-oriented workflow updates for PDF validation around extraction and normalization.
+- Prompt-driven normalization behavior to better preserve numbered-call formatting and line breaks
+- Call-splitting so numbered call notation is prioritized over generic `THENCE` splitting, resolving exception-style split regressions
+- Numbering-related extraction ordering issues in curve/exception parsing edge cases (Bug #19)
 
 ## [0.3.0] - 2025-10-14
 
@@ -165,9 +166,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added lambda pattern to handle seconds in bearing text (`text_parser.py:168`)
 - Call #2 extraction for 24 Pennbrook CANJ-115553 now correctly extracts "S 87°08' W" (267.12°)
 - Text parser now correctly processes bearings with seconds notation
-
-### Security
-- No security vulnerabilities in this release
 
 ## [0.2.0] - 2024-10-13
 
@@ -211,47 +209,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial prompt files: `extract_legal_description.yaml`, `normalize_text.yaml`, `extract_calls.yaml`
 - Test suite with pytest
 
-### Changed
-- N/A (initial release)
-
-### Fixed
-- N/A (initial release)
-
 ## [0.0.1] - 2024-10-05
 
 ### Added
 - Project initialization
 - Repository structure
 - Basic configuration files
-
----
-
-## Version Numbering
-
-This project uses [Semantic Versioning](https://semver.org/):
-
-- **MAJOR** version (X.0.0): Incompatible API changes
-- **MINOR** version (0.X.0): New functionality in a backward-compatible manner
-- **PATCH** version (0.0.X): Backward-compatible bug fixes
-
-## Release Types
-
-- **[Unreleased]**: Changes in development not yet released
-- **[X.Y.Z]**: Released versions with dates
-
-## Change Categories
-
-- **Added**: New features
-- **Changed**: Changes in existing functionality
-- **Deprecated**: Soon-to-be removed features
-- **Removed**: Removed features
-- **Fixed**: Bug fixes
-- **Security**: Security vulnerability fixes
-
-## Links
-
-- [Keep a Changelog](https://keepachangelog.com/)
-- [Semantic Versioning](https://semver.org/)
 
 ## Migration Guides
 
@@ -314,3 +277,11 @@ Update any code that reads CSV files to handle the new fields.
 
 **Testing**:
 Session-scoped fixtures may affect test timing. Use `pytest --cache-clear` if you encounter caching issues.
+
+[Unreleased]: https://github.com/domfahey/metesParser/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/domfahey/metesParser/compare/v0.3.1...v0.4.0
+[0.3.1]: https://github.com/domfahey/metesParser/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/domfahey/metesParser/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/domfahey/metesParser/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/domfahey/metesParser/compare/v0.0.1...v0.1.0
+[0.0.1]: https://github.com/domfahey/metesParser/releases/tag/v0.0.1
