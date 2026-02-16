@@ -313,10 +313,7 @@ class TestSplitIntoCallsMetadataTruncation:
 
     def test_no_metadata_leaves_call_unchanged(self):
         """Call without trailing metadata is returned unchanged."""
-        text = (
-            "THENCE N 45° E 100 feet along the north line "
-            "THENCE S 45° W 125 feet to an iron pin"
-        )
+        text = "THENCE N 45° E 100 feet along the north line THENCE S 45° W 125 feet to an iron pin"
         calls = TextParser.split_into_calls(text)
         assert len(calls) == 2
         assert "iron pin" in calls[1]

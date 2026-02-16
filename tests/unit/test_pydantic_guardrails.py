@@ -5,7 +5,13 @@ import pytest
 from pydantic import ValidationError
 
 from metesparser.csv_builder import CSVBuilder
-from metesparser.models import ClosureResult, DeedCall, LegalDescription, Point
+from metesparser.models import (
+    PRIOR_CONVEYANCE_SIGNALS,
+    ClosureResult,
+    DeedCall,
+    LegalDescription,
+    Point,
+)
 
 CSV_FIELDNAMES: list[str] = [
     "course",
@@ -154,6 +160,31 @@ def test_deedcall_normalizes_exception_flags():
             distance_ft=100.0,
             is_exception="maybe",
         )
+
+
+def test_prior_conveyance_signals_shared_constant():
+    """PRIOR_CONVEYANCE_SIGNALS in models.py is the single source of truth."""
+    assert isinstance(PRIOR_CONVEYANCE_SIGNALS, frozenset)
+    assert "BEING the same premises" in PRIOR_CONVEYANCE_SIGNALS
+    assert "previously conveyed" in PRIOR_CONVEYANCE_SIGNALS
+    assert "derived from" in PRIOR_CONVEYANCE_SIGNALS
+    assert "by deed dated" in PRIOR_CONVEYANCE_SIGNALS
+    assert "recorded in Book" in PRIOR_CONVEYANCE_SIGNALS
+    assert "Instrument Number" in PRIOR_CONVEYANCE_SIGNALS
+
+
+def test_bool_coercion_error_includes_field_name():
+    """Boolean coercion errors should mention the specific field name."""
+    with pytest.raises(ValidationError, match="is_meander") as exc_info:
+        DeedCall(
+            course=1,
+            direction_text="North",
+            distance_ft=100.0,
+            is_meander="maybe",
+        )
+    # Verify the error message itself (not just Pydantic wrapper) includes the field name
+    error_msg = str(exc_info.value)
+    assert "is_meander" in error_msg
 
 
 def test_legaldescription_requires_area_when_approximate_is_true():

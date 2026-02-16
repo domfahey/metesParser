@@ -12,16 +12,25 @@ from pydantic import ValidationError
 
 from .bearing_converter import BearingConverter
 from .models import (
+    AuditContext,
+    CallAudit,
     ConversionFactors,
     CurveDirection,
     CurveType,
+    Decision,
     DeedCall,
     MonumentStatus,
     MonumentType,
+    Transformation,
 )
 from .text_parser import _COMMA_NUMBER, TextParser, parse_comma_number
 
 logger = structlog.get_logger(__name__)
+
+_CARDINAL_ONLY_PATTERN = re.compile(
+    r"(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly|wardly)?",
+    re.IGNORECASE,
+)
 
 _UNIT_TOKEN = (
     r"(?:feet|foot|ft|poles?|rods?|perches?|chains?|links?"
@@ -180,7 +189,13 @@ class CallExtractor:
     )
 
     @classmethod
-    def extract_calls(cls, text: str, distance_unit: str = "feet") -> list[DeedCall]:
+    def extract_calls(
+        cls,
+        text: str,
+        distance_unit: str = "feet",
+        *,
+        audit_context: AuditContext | None = None,
+    ) -> list[DeedCall]:
         """Extract all calls from normalized legal description text.
 
         Handles exception clauses (EXCEPT, LESS AND EXCEPT, ALSO, INCLUDING)
@@ -189,6 +204,7 @@ class CallExtractor:
         Args:
             text: Normalized legal description text (should already be normalized)
             distance_unit: Primary distance unit (feet, poles, etc.)
+            audit_context: Optional audit context for recording parsing decisions
 
         Returns:
             List of DeedCall objects
@@ -241,6 +257,19 @@ class CallExtractor:
                 if is_exception_tract:
                     call = call.model_copy(update={"is_exception": True})
                 calls.append(call)
+
+                if audit_context is not None:
+                    transformations, decisions, flags = cls._audit_single_call(call_text, call)
+                    audit_context.call_audits.append(
+                        CallAudit(
+                            course=course_num,
+                            source_excerpt=call_text,
+                            transformations=transformations,
+                            decisions=decisions,
+                            flags=flags,
+                        )
+                    )
+
                 course_num += 1
 
         return calls
@@ -323,11 +352,7 @@ class CallExtractor:
         notes = ""
         cardinal_only = False
         if raw_direction and not parsed_bearing:
-            if re.fullmatch(
-                r"(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly|wardly)?",
-                raw_direction.strip(),
-                flags=re.IGNORECASE,
-            ):
+            if _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip()):
                 cardinal_only = True
 
         if is_meander or "approximate" in call_text.lower():
@@ -436,6 +461,135 @@ class CallExtractor:
         )
 
         return call
+
+    @classmethod
+    def _audit_single_call(
+        cls,
+        call_text: str,
+        call: DeedCall,
+    ) -> tuple[list[Transformation], list[Decision], list[str]]:
+        """Build audit data for a successfully parsed call.
+
+        This is a pure function that inspects the parsed call and original text
+        to construct transformation, decision, and flag lists for the audit trail.
+
+        Args:
+            call_text: Original text of the call
+            call: The successfully parsed DeedCall
+
+        Returns:
+            Tuple of (transformations, decisions, flags)
+        """
+        transformations: list[Transformation] = []
+        decisions: list[Decision] = []
+        flags: list[str] = []
+
+        # --- Bearing transformation ---
+        raw_direction = cls.extract_direction(call_text)
+        if raw_direction:
+            transformations.append(
+                Transformation(
+                    step="extract_bearing",
+                    input=raw_direction,
+                    output=call.bearing_quadrant or "none",
+                )
+            )
+
+        # --- Azimuth transformation ---
+        if call.bearing_quadrant and call.bearing_azimuth_deg_from_north is not None:
+            parsed = BearingConverter.parse_quadrant_bearing(raw_direction)
+            rule_str = None
+            if parsed:
+                cardinal1, degrees, cardinal2 = parsed
+                rule_str = f"quadrant_to_azimuth: {cardinal1} {degrees} {cardinal2}"
+            transformations.append(
+                Transformation(
+                    step="compute_azimuth",
+                    input=call.bearing_quadrant,
+                    output=str(call.bearing_azimuth_deg_from_north),
+                    rule=rule_str,
+                )
+            )
+
+        # --- Distance transformation ---
+        distance, unit = TextParser.extract_distance(call_text)
+        distance_input = f"{distance} {unit}" if distance > 0 else call_text.strip()
+        transformations.append(
+            Transformation(
+                step="extract_distance",
+                input=distance_input,
+                output=str(call.distance_ft),
+            )
+        )
+
+        # --- Monument classification transformation ---
+        if call.to and call.monument_type:
+            # Find which pattern matched
+            matched_rule = None
+            to_lower = call.to.lower()
+            for pattern, _mtype in MonumentClassifier.MONUMENT_PATTERNS:
+                if re.search(pattern, to_lower):
+                    matched_rule = pattern
+                    break
+            transformations.append(
+                Transformation(
+                    step="classify_monument",
+                    input=call.to,
+                    output=call.monument_type,
+                    rule=matched_rule,
+                )
+            )
+
+        # --- Bearing decision ---
+        if call.bearing_azimuth_deg_from_north is not None:
+            decisions.append(
+                Decision(
+                    field="bearing_azimuth_deg_from_north",
+                    value=str(call.bearing_azimuth_deg_from_north),
+                    reason="exact quadrant bearing parsed",
+                    confidence=0.95,
+                )
+            )
+
+        # --- Monument type decision ---
+        if call.monument_type:
+            confidence = 0.60 if call.monument_type == "other" else 0.90
+            decisions.append(
+                Decision(
+                    field="monument_type",
+                    value=call.monument_type,
+                    reason="keyword pattern match",
+                    confidence=confidence,
+                )
+            )
+
+        # --- Monument status decision ---
+        if call.monument_status:
+            decisions.append(
+                Decision(
+                    field="monument_status",
+                    value=call.monument_status,
+                    reason="explicit found/set keyword",
+                    confidence=0.95,
+                )
+            )
+
+        # --- Flags ---
+        cardinal_only = False
+        if raw_direction and not call.bearing_quadrant:
+            if _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip()):
+                cardinal_only = True
+
+        if cardinal_only or (raw_direction and not call.bearing_quadrant):
+            flags.append("incomplete_bearing")
+
+        if call.is_indefinite:
+            flags.append("indefinite")
+
+        if call.is_meander:
+            flags.append("meander")
+
+        return transformations, decisions, flags
 
     PACKED_DMS_PATTERN = re.compile(
         r"(N|S)\s+(\d{1,3}\.\d+)°\s*(E|W)",

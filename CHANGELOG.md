@@ -57,6 +57,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Confidence scoring (`calculate_confidence_score()` — 0.0–1.0 weighted composite)
 - Enhanced closure summary with confidence, precision ratio (1:N), per-call quality
 
+#### Phase 6: Audit Sidecar — Transparency by Design
+- Audit data models: `AuditContext`, `RunMetadata`, `ExtractionRecord`, `CallAudit`, `Transformation`, `Decision`, `CheckResult`, `VerificationAudit`
+- `PDFProcessor.process_deed_pdf(audit=True)` returns `(LegalDescription, AuditContext)` tuple
+- LLM extraction confidence scoring with 7 weighted heuristic signals (POB, bearings, closure language, distances, text length, PLSS, garbled chars)
+- Source excerpt capture: verbatim call text preserved per course in `CallAudit.source_excerpt`
+- Transformation recording: step-by-step extraction log (bearing, azimuth, distance, monument)
+- Per-field parse confidence: 0.95 (exact regex), 0.90 (specific monument), 0.60 (generic), 0.40 (cardinal-only)
+- Verification audit recording: `CheckResult` per verification check + closure summary
+- `.audit.json` sidecar written alongside `_verified.csv` (via `CSVBuilder.export_verified_csv(audit_context=)`)
+- `.audit.html` report: self-contained HTML with embedded CSS, collapsible sections, confidence color coding (green/yellow/red), XSS prevention
+- `AuditReporter` module for HTML report generation (no external dependencies)
+
 #### Infrastructure
 - Gemini LLM provider support with auto-fallback (`GeminiClient`)
 - Ground truth JSON files for 24/31 Pennbrook deed validation
@@ -64,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bug tracking system (`docs/bugs.md`) — all 48 bugs resolved
 
 ### Changed
-- Version bumped to 0.2.0
+- Version bumped to 0.3.0
 - Default Gemini model upgraded to `gemini-3-flash-preview`
 - OpenAI calls use `temperature=0` for deterministic extraction
 - Removed black formatter — ruff handles all formatting and linting
