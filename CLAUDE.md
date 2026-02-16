@@ -59,8 +59,12 @@ uv run pytest              # Run commands in venv
 PDF → PDFProcessor.process_deed_pdf() → LegalDescription
   ├─ Configured LLM extraction (`OpenAIClient` / `GeminiClient`)
   ├─ Text normalization (TextParser.normalize_legal_description)
+  ├─ PLSS metadata (TextParser.extract_plss_metadata)
+  ├─ POC/POB extraction (TextParser.extract_poc_and_pob)
+  ├─ Area statement (TextParser.extract_area_statement)
   ├─ Call extraction (CallExtractor.extract_calls) [rule-based, not AI]
   ├─ Azimuth enrichment (BearingConverter.enrich_calls_with_azimuths)
+  ├─ Tie-in marking (CallExtractor.mark_tie_in_calls)
   ├─ Basis of bearing (TextParser.extract_basis_of_bearing)
   ├─ Surveyor certification (TextParser.extract_surveyor_certification)
   └─ Prior conveyance (TextParser.extract_prior_conveyance)
@@ -204,174 +208,35 @@ non_tangent,radial_bearing,notes
 - `is_indefinite`: Boolean flag for vague cardinal-only directions (not in CSV)
 - `curve_type`: "simple", "compound", or "reverse" (not in CSV)
 
-## Recent Enhancements (v0.2)
+## Feature Reference
 
-### 1. Monument Type Classification
-- **Module**: `call_extractor.py` - `MonumentClassifier` class
-- **Feature**: Automatically classifies survey markers from the "to" field
-- **Supported Types**: iron_rod, iron_pin, iron_pipe, stone, concrete, wooden_post, brass_cap, rebar, railroad_spike, nail, other
-- **Pattern Matching**: Regex-based classification with specificity ordering
-- **Use Case**: Helps assess survey reliability (e.g., iron monuments are more permanent than wooden posts)
-
-### 2. PLSS (Public Land Survey System) Support
-- **Module**: `text_parser.py` - `extract_plss_metadata()` method
-- **Fields Added to LegalDescription**: section, township, range, principal_meridian, aliquot
-- **Extraction**: Automatically parses Section/Township/Range/PM from deed text
-- **Formats Supported**: "Section 12, Township 15 N, Range 3 E, Willamette PM" and abbreviated forms
-- **Use Case**: Essential for western US deeds, locates parcel within broader survey system
-- **Integration**: `pdf_processor.py` calls this automatically during deed processing
-
-### 3. Exception/Inclusion Clause Handling
-- **Module**: `text_parser.py` - `split_exception_clauses()` method
-- **Keywords**: EXCEPT, EXCEPTING, LESS AND EXCEPT, ALSO, INCLUDING
-- **Functionality**: Splits legal description into main tract and exception/inclusion tracts
-- **Marking**: Calls in exception tracts have `is_exception=True`
-- **Area Calculation**: `closure_checker.py` subtracts exception areas from main area
-- **Use Case**: Handles complex deeds like "All of Lot 5 EXCEPT the North 50 feet thereof"
-- **Warnings**: Adds warnings to ClosureResult when exception tracts are found
-
-### 4. Enhanced Area Verification
-- **Module**: `closure_checker.py` - `verify_closure()` method
-- **Change**: Now handles exception tracts separately
-- **Process**:
-  1. Separates main tract from exception calls
-  2. Computes area for each independently
-  3. Net area = main area - exception area
-  4. Adds warnings about exception tracts
-- **Validation**: Closure checks run on main tract only
-
-### 5. POB Closure Detection (Phase 2A)
-- **Module**: `text_parser.py` - `is_closure_to_pob()` method
-- **Feature**: Detects when a deed call indicates closure back to Point of Beginning
-- **Patterns Detected**: "to [the] [point of] beginning", "to [the] POB", "returning to beginning", "back to POB"
-- **Smart Matching**: Only checks last 60 characters of call text to avoid false positives
-- **Use Case**: Identifies the final call that closes the parcel traverse (essential for verification)
-- **Testing**: 8 test cases covering various closure patterns and edge cases
-- **Implementation**: Case-insensitive regex patterns with word boundaries
-
-### 6. POC vs POB Distinction (Phase 2B)
-- **Module**: `text_parser.py` - `extract_poc()`, `extract_poc_and_pob()` methods
-- **Concept**: Distinguishes Point of Commencement (survey reference) from Point of Beginning (parcel boundary)
-- **Pattern Recognition**: Extracts POC only when text contains both "COMMENCING at" AND later "POINT OF BEGINNING"
-- **Model Update**: Added `poc_description` field to `LegalDescription` class
-- **CSV Export**: POC included in metadata file alongside POB
-- **Example**:
-  ```
-  COMMENCING at NW corner of Section 12;        ← POC (reference point)
-  THENCE S 89° E 100 feet to the                ← Tie-in call
-  POINT OF BEGINNING;                            ← POB (parcel starts here)
-  THENCE N 45° E 200 feet...                     ← Boundary calls begin
-  ```
-- **Use Case**: Essential for understanding survey methodology and locating parcel from control points
-- **Testing**: 6 test cases covering POC extraction, POB-only scenarios, and combined extraction
-- **Integration**: `pdf_processor.py` automatically extracts both during processing
-
-## Phase 2 Enhancements (Enhanced Parsing)
-
-### 7. Packed DMS Parsing
-- **Module**: `bearing_converter.py` - `parse_packed_dms()` method
-- **Feature**: Converts packed DMS values (e.g., 46.1631 → 46°16'31" → 46.2753°)
-- **Formula**: `degrees + minutes/60 + seconds/3600` where MM.SS are extracted from fractional part
-- **Validation**: Raises `ValueError` for minutes >= 60 or seconds >= 60
-
-### 8. Chord Bearing Extraction
-- **Module**: `call_extractor.py` - within `extract_curve_info()`
-- **Patterns**: `"chord of which bears S 34°57' E"`, `"chord bears"`, `"the chord bears"`
-- **Normalization**: Spelled-out cardinals standardized via `TextParser.standardize_cardinal_directions()`
-- **Storage**: Populates `chord_bearing` field as normalized quadrant bearing string
-
-### 9. Non-Tangent Curve Detection
-- **Module**: `call_extractor.py` - within `extract_curve_info()`
-- **Keywords**: `non-tangent`, `nontangent`, `radial line bears`, `radial bearing of`
-- **Fields Populated**: `non_tangent=True`, `radial_bearing="N 15°22' E"`
-- **Integration**: `extract_single_call()` reads from `curve_info` dict (no longer hardcoded)
-
-### 10. Basis of Bearing Extraction
-- **Module**: `text_parser.py` - `extract_basis_of_bearing()` method
-- **Patterns**: "Basis of Bearings:", "bearings based on", "referenced to", "bearings are magnetic/assumed"
-- **Integration**: Wired into `process_deed_pdf()` — replaces hardcoded `None`
-
-### 11. Surveyor Certification Extraction
-- **Module**: `text_parser.py` - `extract_surveyor_certification()` method
-- **Patterns**: "That I, [name]," + "Licensed/Registered", "I hereby certify", "Certified by:", "Surveyed by"
-- **Model Field**: `surveyor_certification: str | None` on `LegalDescription`
-
-### 12. Prior Conveyance Extraction
-- **Module**: `text_parser.py` - `extract_prior_conveyance()` method
-- **Patterns**: "BEING the same premises", "Deed Book \d+", "Instrument Number", "Official Records Book"
-- **Model Field**: `prior_conveyance: str | None` on `LegalDescription`
-
-### 13. Extended Distance Unit Parsing
-- **Module**: `text_parser.py` - `extract_distance()` method (extended)
-- **New Units**: varas, arpents, toises, furlongs, meters, miles (singular + plural)
-- **Conversion**: Uses existing `ConversionFactors` from Phase 1
-
-### 14. Unit-Inference Heuristics
-- **Module**: `text_parser.py` - `infer_distance_unit()` method
-- **Advisory Only**: Returns suggestion string, caller decides whether to apply
-- **Rules**: Texas pre-1900 → varas, Louisiana → arpents, New England pre-1850 → rods, "chains and links" → chains
-- **Text Keywords**: Detects "varas", "arpents" in deed text
-
-### 15. CSV Schema Expansion (16 → 21 fields)
-- **Module**: `csv_builder.py` - `FIELDNAMES`, `_call_to_row()`
-- **New Fields**: `monument_status` (Phase 3), `is_meander`, `is_tie_in`, `non_tangent` ("true"/"false"), `radial_bearing` (string or "")
-- **Position**: `monument_status` after `monument_type`; `is_meander`/`is_tie_in` after `is_exception`; `non_tangent`/`radial_bearing` before `notes`
-- **Metadata Export**: `surveyor_certification` and `prior_conveyance` added to `.metadata.txt`
-
-## Phase 3 Enhancements (Enhanced Verification)
-
-### 16. Area Statement Extraction
-- **Module**: `text_parser.py` - `extract_area_statement()` method
-- **Patterns**: "CONTAINING X square feet", "X acres more or less", "approximately X acres"
-- **Model Fields**: `stated_area_sq_ft`, `stated_area_approximate` on `LegalDescription`
-
-### 17. Survey Abbreviation Expansion
-- **Module**: `text_parser.py` - `expand_abbreviations()` method
-- **Abbreviations**: IPF, IPS, IRF, IRS, CIP, CMP, R/W, ROW, N/F, PK, Con Mon F
-- **Integration**: Wired into `normalize_legal_description()`
-
-### 18. Found/Set Monument Status
-- **Module**: `call_extractor.py` - `MonumentClassifier.classify_monument_status()`
-- **Keywords**: found/FD/FND → "found", set/placed → "set"
-- **Model Field**: `monument_status` on `DeedCall`, CSV field after `monument_type`
-
-### 19. Bearing Reversal Detection
-- **Module**: `closure_checker.py` - `check_bearing_reversals()` method
-- **Logic**: Adjacent courses ~180° apart (within 5° threshold) suggest quadrant transcription error
-
-### 20. Distance Reasonableness Checks
-- **Module**: `closure_checker.py` - `check_distance_reasonableness()` method
-- **Flags**: < 0.5 ft (short), > 10x median (long), > 90% perimeter (dominant)
-
-## Phase 4 Enhancements (Geometric Completeness)
-
-### 21. Meander/Water Boundary Detection
-- **Module**: `text_parser.py` — `detect_meander()` method
-- **Keywords**: creek, stream, river, lake, pond, etc. with prepositions (along, with, up, down)
-- **Model Field**: `is_meander` on `DeedCall`, included in CSV
-- **Closure**: Warning-only — meander calls NOT auto-excluded from closure
-
-### 22. Compound/Reverse Curve Detection
-- **Module**: `call_extractor.py` — within `extract_curve_info()`
-- **Keywords**: PCC/point of compound curvature, PRC/point of reverse curvature
-- **Model Field**: `curve_type` on `DeedCall` ("simple"/"compound"/"reverse"), not in CSV
-
-### 23. Missing Curve Element Calculation
-- **Module**: `bearing_converter.py` — `calculate_missing_curve_elements()`
-- **Input**: Any 2+ of radius/delta/arc/chord → computes all 5 (+ tangent)
-- **Validation**: Rejects chord > diameter, zero delta angle
-
-### 24. Tie-In Call Separation
-- **Module**: `call_extractor.py` — `mark_tie_in_calls()`
-- **Logic**: Marks calls between POC and first POB terminus as `is_tie_in=True`
-- **Closure**: Tie-in calls filtered from closure alongside `is_exception`
-- **Gotcha**: `is_closure_to_pob()` expects "to" prefix — prepend "to " when passing `to` field
-
-### 25. Indefinite Call Flagging
-- **Module**: `text_parser.py` — `is_indefinite_call()`
-- **Detection**: Cardinal-only ("northerly", "southwestwardly") + physical references ("along the road")
-- **Requirement**: `has_bearing=False` — precise bearings never flagged as indefinite
-- **Model Field**: `is_indefinite` on `DeedCall`, not in CSV
+| # | Feature | Module | Key Method/Class | Notes |
+|---|---------|--------|-------------------|-------|
+| 1 | Monument type classification | `call_extractor.py` | `MonumentClassifier.classify_monument()` | Regex-based, specificity-ordered |
+| 2 | PLSS metadata | `text_parser.py` | `extract_plss_metadata()` | Section/Township/Range/PM/aliquot |
+| 3 | Exception/inclusion clauses | `text_parser.py` | `split_exception_clauses()` | EXCEPT, LESS AND EXCEPT, ALSO |
+| 4 | Exception area verification | `closure_checker.py` | `verify_closure()` | Net area = main - exception |
+| 5 | POB closure detection | `text_parser.py` | `is_closure_to_pob()` | Checks last 60 chars of call text |
+| 6 | POC vs POB distinction | `text_parser.py` | `extract_poc_and_pob()` | COMMENCING at → POC, POINT OF BEGINNING → POB |
+| 7 | Packed DMS parsing | `bearing_converter.py` | `parse_packed_dms()` | 46.1631 → 46°16'31" → 46.2753° |
+| 8 | Chord bearing extraction | `call_extractor.py` | `extract_curve_info()` | "chord of which bears S 34°57' E" |
+| 9 | Non-tangent curve detection | `call_extractor.py` | `extract_curve_info()` | Keywords: non-tangent, radial line bears |
+| 10 | Basis of bearing | `text_parser.py` | `extract_basis_of_bearing()` | "bearings based on", "referenced to" |
+| 11 | Surveyor certification | `text_parser.py` | `extract_surveyor_certification()` | "I hereby certify", "Certified by:" |
+| 12 | Prior conveyance | `text_parser.py` | `extract_prior_conveyance()` | "BEING the same premises", "Deed Book" |
+| 13 | Extended distance units | `text_parser.py` | `extract_distance()` | varas, arpents, toises, furlongs, meters, miles |
+| 14 | Unit-inference heuristics | `text_parser.py` | `infer_distance_unit()` | Advisory only — TX→varas, LA→arpents |
+| 15 | CSV schema (21 fields) | `csv_builder.py` | `FIELDNAMES`, `_call_to_row()` | See CSV Schema section above |
+| 16 | Area statement extraction | `text_parser.py` | `extract_area_statement()` | "CONTAINING X sq ft", "X acres more or less" |
+| 17 | Abbreviation expansion | `text_parser.py` | `expand_abbreviations()` | IPF, IPS, IRF, IRS, CIP, R/W, N/F, PK |
+| 18 | Monument status (found/set) | `call_extractor.py` | `classify_monument_status()` | found/FD/FND → "found", set/placed → "set" |
+| 19 | Bearing reversal detection | `closure_checker.py` | `check_bearing_reversals()` | Adjacent courses ~180° apart (5° threshold) |
+| 20 | Distance reasonableness | `closure_checker.py` | `check_distance_reasonableness()` | <0.5ft, >10x median, >90% perimeter |
+| 21 | Meander/water boundary | `text_parser.py` | `detect_meander()` | Warning-only, NOT auto-excluded from closure |
+| 22 | Compound/reverse curves | `call_extractor.py` | `extract_curve_info()` | PCC/PRC keywords → `curve_type` field |
+| 23 | Missing curve elements | `bearing_converter.py` | `calculate_missing_curve_elements()` | Any 2+ → all 5; rejects chord>diameter, zero delta |
+| 24 | Tie-in call separation | `call_extractor.py` | `mark_tie_in_calls()` | POC-to-POB calls filtered from closure |
+| 25 | Indefinite call flagging | `text_parser.py` | `is_indefinite_call()` | Cardinal-only + physical references; needs `has_bearing=False` |
 
 ## Environment Setup
 
@@ -404,6 +269,14 @@ LOG_LEVEL=INFO          # Optional, defaults to INFO
 2. Call from `verify_closure()` and add to warnings list
 3. Update `ClosureResult` model if needed
 4. Write test in appropriate phase file (e.g., `tests/unit/test_phase3_verification.py`)
+
+### Adding a New DeedCall Field
+1. Add field to `DeedCall` in `models.py` (with `Field()` default, no `strict=True` on bools)
+2. Add to `FIELDNAMES` in `csv_builder.py` (order matters) and `_call_to_row()`
+3. Add to `_CSVDeedCallRow` in `csv_builder.py`
+4. Wire extraction into `call_extractor.py` or `text_parser.py`
+5. Update fieldnames count test in `test_phase2_enhanced_parsing.py`
+6. Add feature tests in appropriate phase test file
 
 ### Adding New Unit Support
 1. Add conversion factor to `ConversionFactors` in `models.py`
