@@ -11,6 +11,7 @@ Refactor metesParser into composable modules following Unix philosophy:
 - **CLI composability**: Pipe commands together (`mp-ocr deed.pdf | mp-parse | mp-verify | mp-export`)
 - **Library reuse**: Import individual packages without pulling in the whole system
 - **Architectural clarity**: Each module has one job with clean boundaries
+- **Transparency by design**: Every LLM-generated output is traceable; users can always verify what AI produced vs. what code derived deterministically
 
 ## Architecture Overview
 
@@ -39,6 +40,42 @@ mp-models (zero internal deps -- just pydantic + structlog)
 ```
 
 Key win: 5 of 7 packages have zero LLM dependencies.
+
+## GenAI Transparency & Auditability
+
+The architecture enforces a hard boundary between AI-generated content and deterministic processing. This is the system's most important transparency property.
+
+### The AI Boundary
+
+Only **mp-ocr** calls an LLM. Everything downstream is deterministic:
+
+| Stage | AI or Deterministic | What It Does | Reproducible? |
+|-------|-------------------|--------------|---------------|
+| mp-ocr | **AI** (LLM call) | PDF -> raw legal text | Same prompt version + same PDF + cache = identical output |
+| mp-parse | Deterministic (regex) | Text -> structured calls | Always identical for same input |
+| mp-verify | Deterministic (math) | Calls -> closure result | Always identical for same input |
+| mp-export | Deterministic (format) | JSONL -> CSV/JSON/HTML | Always identical for same input |
+
+A user inspecting a verified CSV can trace every field back to either:
+- **AI origin**: The raw text came from mp-ocr (LLM extraction). The `llm_provider`, `llm_model`, and `source` fields identify exactly which AI produced it.
+- **Deterministic derivation**: Everything else (bearings, distances, closure, verification) was computed by rule-based code with no AI involvement.
+
+### Always-On Provenance (Not Opt-In)
+
+Every JSONL message carries provenance metadata by default -- no `--audit` flag required:
+
+- `source`: Original PDF filename (lineage)
+- `llm_provider` / `llm_model`: Which AI produced the raw text (carried through by envelope pattern)
+- `extracted_at`: Timestamp of LLM extraction
+
+The `--audit` flag adds **detailed** tracing (per-field transformations, confidence signals, prompt hashes) but basic provenance is always present.
+
+### Audit Detail Levels
+
+| Level | Flag | What's Captured | Use Case |
+|-------|------|----------------|----------|
+| **Provenance** | Always on | source, llm_provider, llm_model, extracted_at | Basic traceability |
+| **Audit** | `--audit` | Full per-stage audit records (see Audit Trail section) | Professional review, debugging, regulatory |
 
 ## JSONL Interchange Format
 
@@ -271,10 +308,12 @@ mp-ocr deed1.pdf deed2.pdf deed3.pdf > raw.jsonl  # batch mode
 mp-ocr deed.pdf --no-cache > raw.jsonl
 ```
 
-Output:
+Output (provenance fields always present -- transparency by default):
 ```jsonl
 {"type": "raw_text", "source": "deed.pdf", "text": "BEGINNING at an iron pin...", "llm_provider": "openai", "llm_model": "gpt-5.2", "confidence": 0.87, "extracted_at": "2026-02-16T14:30:00Z", "cache_hit": false}
 ```
+
+With `--audit`, adds full LLM traceability (raw response, prompt hash, confidence signals). See Audit Trail section.
 
 Stdin alternative -- skip OCR entirely if you have pre-extracted text:
 ```bash
@@ -307,12 +346,12 @@ mp-ocr deed.pdf | mp-parse > parsed.jsonl
 mp-parse --input legal_text.txt > parsed.jsonl  # from file
 ```
 
-Output:
+Output (provenance fields passed through from upstream -- transparency by default):
 ```jsonl
-{"type": "legal_description", "source": "deed.pdf", "calls": [{"course": 1, "direction_text": "North 45 degrees 30 minutes East", ...}], "plss": {"section": 12, "township": "3N", "range": "2W"}, "pob": "an iron pin in the south line of Elm Street", "area_statement": "containing 0.25 acres"}
+{"type": "legal_description", "source": "deed.pdf", "calls": [{"course": 1, "direction_text": "North 45 degrees 30 minutes East", ...}], "plss": {"section": 12, "township": "3N", "range": "2W"}, "pob": "an iron pin in the south line of Elm Street", "area_statement": "containing 0.25 acres", "llm_provider": "openai", "llm_model": "gpt-5.2", "extracted_at": "2026-02-16T14:30:00Z"}
 ```
 
-Passes through upstream fields (`llm_provider`, `llm_model`, etc.) it doesn't use.
+Provenance fields (`llm_provider`, `llm_model`, `extracted_at`) pass through from upstream via the envelope pattern. A downstream consumer always knows which AI produced the original text.
 
 Dependencies: `mp-models>=1.0.0`, `mp-bearing>=1.0.0`
 
@@ -392,26 +431,102 @@ Dependencies: all 6 other packages + `python-dotenv>=1.0.0`
 
 ## Audit Trail Design
 
-In the composable system, audit data accumulates in the JSONL stream itself -- no mutable accumulator needed.
+In the composable system, audit data accumulates in the JSONL stream itself -- no mutable accumulator needed. Each stage optionally adds an `audit` field when invoked with `--audit`.
 
-Each stage optionally adds an `audit` field when invoked with `--audit`:
+### Per-Stage Audit Records
+
+**mp-ocr audit** (AI stage -- the most critical for transparency):
+```json
+{
+  "stage": "ocr",
+  "prompt_file": "extract_legal_description.yaml",
+  "prompt_content_hash": "sha256:abc123...",
+  "prompt_git_sha": "1f32a7e",
+  "raw_llm_response": "BEGINNING at an iron pin found...",
+  "llm_provider": "openai",
+  "llm_model": "gpt-5.2",
+  "llm_confidence": 0.87,
+  "confidence_signals": {
+    "has_pob": true,
+    "has_bearing": true,
+    "has_distance": true,
+    "has_closure_language": true,
+    "call_count": 12,
+    "response_length": 2450,
+    "formatting_score": 0.92
+  },
+  "cache_hit": false,
+  "extracted_at": "2026-02-16T14:30:00Z"
+}
+```
+
+The `raw_llm_response` field captures the verbatim LLM output before any normalization. Combined with `prompt_content_hash` and `prompt_git_sha`, this enables full reproducibility: re-run the same prompt version against the same PDF to verify the AI output independently.
+
+**mp-parse audit** (deterministic stage):
+```json
+{
+  "stage": "parse",
+  "call_audits": [
+    {
+      "course": 1,
+      "source_excerpt": "North 45 degrees 30 minutes 15 seconds East, a distance of 150.00 feet",
+      "transformations": [
+        {"step": "normalize_dms", "before": "45 degrees 30 minutes 15 seconds", "after": "45d30m15s"},
+        {"step": "parse_bearing", "field": "bearing_quadrant", "value": "N 45d30m15s E"},
+        {"step": "compute_azimuth", "field": "bearing_azimuth_deg_from_north", "value": 45.504167}
+      ],
+      "decisions": [
+        {"field": "monument_type", "value": "iron_pin", "reason": "matched 'iron pin' in to-clause", "confidence": 0.95}
+      ]
+    }
+  ]
+}
+```
+
+Every field in every call has a traceable derivation: `source_excerpt` shows the verbatim deed text, `transformations` show each processing step, and `decisions` explain choices with confidence ratings.
+
+**mp-verify audit** (deterministic stage):
+```json
+{
+  "stage": "verify",
+  "check_results": [
+    {"name": "traverse_closure", "passed": true, "detail": "misclosure 0.003 ft", "threshold": 0.01},
+    {"name": "interior_angles", "passed": true, "detail": "sum 360.02 vs expected 360.00", "threshold": 1.0},
+    {"name": "curve_consistency", "passed": true, "detail": "all curves L~R*delta within 0.5%", "threshold": 0.005}
+  ],
+  "closure_summary": "Verified: 12 calls, misclosure 0.003 ft, precision 1:50000, confidence 0.94"
+}
+```
+
+### Nested Audit Chain
+
+Each stage nests upstream audit under `audit.upstream`:
 
 ```jsonl
-// mp-ocr output (--audit)
-{"type": "raw_text", ..., "audit": {"stage": "ocr", "llm_confidence": 0.87, "prompt_hash": "abc123"}}
-
-// mp-parse output (nests upstream audit)
-{"type": "legal_description", ..., "audit": {"stage": "parse", "call_audits": [...], "upstream": {"stage": "ocr", "llm_confidence": 0.87}}}
-
-// mp-verify output (nests full chain)
+{"type": "raw_text", ..., "audit": {"stage": "ocr", "raw_llm_response": "...", ...}}
+{"type": "legal_description", ..., "audit": {"stage": "parse", "call_audits": [...], "upstream": {"stage": "ocr", ...}}}
 {"type": "closure_result", ..., "audit": {"stage": "verify", "check_results": [...], "upstream": {"stage": "parse", "upstream": {"stage": "ocr", ...}}}}
 ```
 
-Each stage nests upstream audit under `audit.upstream`, creating a 3-level chain (ocr -> parse -> verify). `mp-export --format audit-html` unrolls this chain into the full HTML report.
+`mp-export --format audit-html` unrolls this 3-level chain into the full HTML report with collapsible sections per stage.
 
-Without `--audit`: no `audit` field emitted, zero overhead.
+Without `--audit`: no `audit` field emitted, zero overhead. Provenance fields (`source`, `llm_provider`, `llm_model`, `extracted_at`) are always present regardless.
 
-**Migration from current AuditContext**: The current `AuditContext` is a mutable accumulator threaded through the pipeline via optional parameter. In v1.0, this becomes the nested JSONL pattern above. The `AuditContext` Pydantic model is retained in mp-models for the orchestrator's programmatic API (`Pipeline.run(audit=True)`), which collects the same data without requiring JSONL serialization.
+### Prompt Versioning
+
+The run registry (in the metesparser orchestrator) tracks prompt versions for A/B testing:
+
+- **Content hash** (`sha256:`): Detects any change to prompt content
+- **Git SHA**: Links to the exact commit that introduced the prompt version
+- **Audit inclusion**: When `--audit` is active, mp-ocr embeds both hashes in the JSONL so any output can be traced back to the exact prompt that produced it
+
+```bash
+mp compare-runs --pdf pennbrook  # compare results across prompt versions
+```
+
+### Migration from v0.4.0 AuditContext
+
+The current `AuditContext` is a mutable accumulator threaded through the pipeline via optional parameter. In v1.0, this becomes the nested JSONL pattern above for CLI piping. The `AuditContext` Pydantic model is retained in mp-models for the orchestrator's programmatic API (`Pipeline.run(audit=True)`), which collects the same data without requiring JSONL serialization.
 
 ## CLI Conventions
 
@@ -569,3 +684,6 @@ All 7 packages share the same version number, bumped together (lockstep). Starti
 | review_packet | metesparser orchestrator | Professional audit output, orchestrator-level feature |
 | Shared number parsing | mp_parse.numbers | Both consumers (calls.py, normalizer.py) are in mp-parse |
 | Test fixtures | mp_models.testing + per-package | deed_call_factory shared; sample texts stay with orchestrator |
+| Transparency | Always-on provenance + opt-in audit | Provenance (source, llm_provider, llm_model) on every JSONL line by default; `--audit` adds detailed per-field tracing |
+| AI boundary | mp-ocr is the only AI stage | Hard architectural separation: 6/7 packages are fully deterministic, making AI vs. code derivation trivially auditable |
+| Prompt versioning | Content hash + Git SHA in audit | Enables reproducibility and A/B comparison via run registry |
