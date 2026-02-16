@@ -31,10 +31,10 @@
   - **Resolved**: Both scripts now exist and are git-tracked (organized in `d1bb11b`, updated in `55f9948`).
 - [x] Medium: Update stale test-count language.
   - `README.md:185` and `README.md:306`, `docs/ARCHITECTURE.md:33`, and `docs/TESTING.md:3,20,35` now reflect current test volume.
-  - **Resolved**: Updated to **297 collected tests** (`uv run pytest --collect-only -q`) as of 2026-02-15.
+  - **Resolved**: Updated to **643 collected tests** (`uv run pytest --collect-only -q`) as of 2026-02-15.
 - [x] Medium: Reconcile versioning mismatch across docs and package metadata.
   - `CLAUDE.md:9` previously stated `0.3.1` while `src/metesparser/__init__.py:13` is `0.1.0`.
-  - **Resolved**: `CLAUDE.md` now matches package version `0.1.0`.
+  - **Resolved**: `CLAUDE.md` now matches package version `0.2.0`.
 - [x] Medium: Update test path guidance to current layout.
   - `CLAUDE.md` development and test-location examples now use `tests/unit/...` paths.
   - **Resolved**: Removed stale `tests/test_*.py` references in commands and guidance.
@@ -57,11 +57,11 @@
   - Revise `docs/METES_AND_BOUNDS_REFERENCE.md:1083-1090` to distinguish checks performed by `verify_closure()` from separate workflows like `compare_double_entry()` in `src/metesparser/closure_checker.py:376`.
   - **Resolved**: Updated Section 18.7 to state that `verify_closure()` runs checks 1-5 by default and check 6 when `double_entry_calls` is provided.
 - [ ] Medium: Fix precision-ratio definition wording.
-  - Correct `docs/METES_AND_BOUNDS_REFERENCE.md:1033` so “1:X” precision is expressed as total perimeter divided by misclosure (or explicitly label if using inverse form).
+  - Correct `docs/METES_AND_BOUNDS_REFERENCE.md:1033` so "1:X" precision is expressed as total perimeter divided by misclosure (or explicitly label if using inverse form).
 - [ ] Medium: Resolve area precision contradiction.
   - Update `docs/METES_AND_BOUNDS_REFERENCE.md:124` so the stated rounding precision is consistent with example `0.1722` acres.
 - [ ] Medium: Soften absolute legal validity statements.
-  - Reword `docs/METES_AND_BOUNDS_REFERENCE.md:527` and `docs/METES_AND_BOUNDS_REFERENCE.md:944` from universal “legally required/must” language to jurisdiction-dependent guidance.
+  - Reword `docs/METES_AND_BOUNDS_REFERENCE.md:527` and `docs/METES_AND_BOUNDS_REFERENCE.md:944` from universal "legally required/must" language to jurisdiction-dependent guidance.
 - [ ] Low: Correct geodetic north definition.
   - Replace/reframe `docs/METES_AND_BOUNDS_REFERENCE.md:210` to avoid the inaccurate "derived using the Laplace equation" definition.
 
@@ -84,39 +84,52 @@ Phased rollout based on gap analysis between `docs/METES_AND_BOUNDS_REFERENCE.md
 
 ### Phase 2: Enhanced Parsing — Packed DMS, Chord Bearings, Non-Tangent Curves
 
-- [ ] High: Add `parse_packed_dms(value: float) -> float` to `bearing_converter.py`.
+- [x] High: Add `parse_packed_dms(value: float) -> float` to `bearing_converter.py`.
   - Convert packed DMS format (46.1631 → 46.2753°) to decimal degrees.
-- [ ] High: Extract chord bearing from curve text in `call_extractor.py`.
+- [x] High: Extract chord bearing from curve text in `call_extractor.py`.
   - Pattern: `chord of which bears S 34°57'37" E, 254.22 feet`.
-- [ ] Medium: Detect non-tangent curves in `call_extractor.py`.
+- [x] Medium: Detect non-tangent curves in `call_extractor.py`.
   - Patterns: `non-tangent curve`, `radial line...bears`.
-- [ ] Medium: Add `extract_basis_of_bearing(text) -> str | None` to `text_parser.py`.
-- [ ] Medium: Add `extract_surveyor_certification(text) -> str | None` to `text_parser.py`.
-- [ ] Medium: Add `extract_prior_conveyance(text) -> str | None` to `text_parser.py`.
-- [ ] Low: Add distance extraction support for varas, arpents, toises, furlongs, meters, miles in `text_parser.py`.
-- [ ] Low: Add unit-inference heuristics from reference Section 4.3 (Texas pre-1900 → varas, Louisiana → arpents, etc.).
+- [x] Medium: Add `extract_basis_of_bearing(text) -> str | None` to `text_parser.py`.
+- [x] Medium: Add `extract_surveyor_certification(text) -> str | None` to `text_parser.py`.
+- [x] Medium: Add `extract_prior_conveyance(text) -> str | None` to `text_parser.py`.
+- [x] Low: Add distance extraction support for varas, arpents, toises, furlongs, meters, miles in `text_parser.py`.
+- [x] Low: Add unit-inference heuristics from reference Section 4.3 (Texas pre-1900 → varas, Louisiana → arpents, etc.).
 
 ### Phase 3: Verification Guardrails — Bearing Reversal, Distance Reasonableness, Precision Ratio
 
-- [ ] High: Add `check_bearing_reversal(calls) -> list[str]` to `closure_checker.py`.
+- [x] High: Add `check_bearing_reversal(calls) -> list[str]` to `closure_checker.py`.
   - Flag consecutive courses with azimuths within 5° of ±180° reversal (possible quadrant transcription error).
-- [ ] High: Add `check_distance_reasonableness(calls) -> list[str]` to `closure_checker.py`.
+- [x] High: Add `check_distance_reasonableness(calls) -> list[str]` to `closure_checker.py`.
   - Flag: distance < 0.1 ft, distance > 5,280 ft, distance ratio > 100× median.
-- [ ] Medium: Compute and store `precision_ratio` in `verify_closure()`.
+- [x] Medium: Compute and store `precision_ratio` in `verify_closure()`.
   - Formula: `misclosure_ft / perimeter_ft`. Display as ratio (e.g., "1:15,000") in `get_closure_summary()`.
-- [ ] Medium: Wire new checks into `verify_closure()` as warnings (no blocking).
+- [x] Medium: Wire new checks into `verify_closure()` as warnings (no blocking).
 
 ### Phase 4: Water Boundaries & Meander Detection
 
-- [ ] High: Add `detect_water_boundary(text) -> dict | None` to `text_parser.py`.
+- [x] High: Add `detect_water_boundary(text) -> dict | None` to `text_parser.py`.
   - Detect riparian language: creek, river, stream, shore, bank, high-water mark, thread, thalweg.
-- [ ] Medium: Add `is_meander_call(call_text) -> bool` to `text_parser.py`.
+- [x] Medium: Add `is_meander_call(call_text) -> bool` to `text_parser.py`.
   - Detect meander keywords and "along the creek/river/stream" patterns.
-- [ ] Medium: Add `is_meander` bool field (default False) to `DeedCall` in `models.py`.
-- [ ] Medium: Flag meander calls in `call_extractor.py` with `notes="meander / water boundary"`.
-- [ ] Low: Add closure warning when meander calls are present in `closure_checker.py`.
+- [x] Medium: Add `is_meander` bool field (default False) to `DeedCall` in `models.py`.
+- [x] Medium: Flag meander calls in `call_extractor.py` with `notes="meander / water boundary"`.
+- [x] Low: Add closure warning when meander calls are present in `closure_checker.py`.
 
-### Phase 5: Output & Reporting Enhancements
+### Phase 5a: Production Completeness (COMPLETE — PR #5)
+
+- [x] Degree of curvature parsing (D° → radius)
+- [x] Extended curve properties (T, E, M)
+- [x] Natural monument classification (tree, rock, natural_feature)
+- [x] 32-point compass system (mariner's notation → azimuth)
+- [x] Clause taxonomy (reservation, subject_to, together_with)
+- [x] Subdivision lot/block + TPOB/RPOB recognition
+- [x] Witness tree extraction
+- [x] Spiral/transition curve detection
+- [x] State Plane Coordinate System metadata + FIPS code
+- [x] Pipeline wiring (all new methods into `process_deed_pdf()`)
+
+### Phase 5b: Output & Reporting Enhancements (future work)
 
 - [ ] Medium: Add `score_call_quality(call) -> str` to `closure_checker.py`.
   - Returns "high" / "medium" / "low" based on bearing completeness, monument permanence, meander flags.

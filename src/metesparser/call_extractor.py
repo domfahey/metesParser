@@ -9,10 +9,54 @@ import structlog
 from pydantic import ValidationError
 
 from .bearing_converter import BearingConverter
-from .models import ConversionFactors, CurveDirection, DeedCall, MonumentStatus, MonumentType
-from .text_parser import TextParser
+from .models import (
+    ConversionFactors,
+    CurveDirection,
+    CurveType,
+    DeedCall,
+    MonumentStatus,
+    MonumentType,
+)
+from .text_parser import _COMMA_NUMBER, TextParser, parse_comma_number
 
 logger = structlog.get_logger(__name__)
+
+_UNIT_TOKEN = (
+    r"(?:feet|foot|ft|poles?|rods?|perches?|chains?|links?"
+    r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
+)
+
+
+def _normalize_unit_token(token: str | None) -> str:
+    """Normalize a captured unit token to a ConversionFactors-compatible key."""
+    if token is None:
+        return "feet"
+    t = token.strip().lower()
+    if t in ("ft", "feet", "foot", ""):
+        return "feet"
+    if t in ("pole", "poles"):
+        return "poles"
+    if t in ("rod", "rods"):
+        return "rods"
+    if t in ("perch", "perches"):
+        return "perches"
+    if t in ("chain", "chains"):
+        return "chains"
+    if t in ("link", "links"):
+        return "links"
+    if t in ("vara", "varas"):
+        return "varas"
+    if t in ("arpent", "arpents"):
+        return "arpents"
+    if t in ("toise", "toises"):
+        return "toises"
+    if t in ("furlong", "furlongs"):
+        return "furlongs"
+    if t in ("meter", "meters"):
+        return "meters"
+    if t in ("mile", "miles"):
+        return "miles"
+    return "feet"
 
 
 class MonumentClassifier:
@@ -45,6 +89,20 @@ class MonumentClassifier:
         (r"\bhedge\s+post\b", "wooden_post"),
         (r"\bwood\s+stake\b", "wooden_post"),
         (r"\blandscap(?:e|ing)\s+(?:rod|pin)\b", "iron_rod"),
+        # Natural monuments — trees
+        (
+            r"\b(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)\b",
+            "tree",
+        ),
+        (r"\btree\b", "tree"),
+        # Natural monuments — rocks
+        (r"\bboulder\b", "rock"),
+        (r"\brock\s+outcrop\b", "rock"),
+        (r"\bstanding\s+rock\b", "rock"),
+        (r"\blarge\s+rock\b", "rock"),
+        # Natural features — water/terrain
+        (r"\b(?:stream|creek|river|brook|branch|run)\b", "natural_feature"),
+        (r"\b(?:ridge|bluff|cliff|shoreline|lakeshore|shore)\b", "natural_feature"),
     ]
 
     @classmethod
@@ -97,8 +155,8 @@ class CallExtractor:
     """Extract and structure deed calls from legal description text."""
 
     CURVE_PATTERN = re.compile(
-        r"curve\s+to\s+the\s+(left|right).*?radius\s+of\s+(\d+(?:\.\d+)?)\s*(?:feet|ft)?.*?"
-        r"(?:delta\s+(?:angle\s+)?of\s+)?(\d+(?:\.\d+)?)(?:°|\s+degrees?)(?:\s*(\d+(?:\.\d+)?)(?:'|\s+minutes?))?(?:\s*(\d+(?:\.\d+)?)(?:\"|\s+seconds?))?",
+        rf"curve\s+to\s+the\s+(left|right).*?radius\s+of\s+({_COMMA_NUMBER})\s*({_UNIT_TOKEN})?.*?"
+        rf"(?:delta\s+(?:angle\s+)?of\s+)?({_COMMA_NUMBER})(?:°|\s+degrees?)(?:\s*({_COMMA_NUMBER})(?:'|\s+minutes?))?(?:\s*({_COMMA_NUMBER})(?:\"|\s+seconds?))?",
         re.IGNORECASE | re.DOTALL,
     )
 
@@ -230,7 +288,7 @@ class CallExtractor:
             ):
                 cardinal_only = True
 
-        if "meander" in call_text.lower() or "approximate" in call_text.lower():
+        if is_meander or "approximate" in call_text.lower():
             notes = "meander / approximate"
         elif not parsed_bearing:
             notes = "incomplete bearing - cardinal only" if cardinal_only else "incomplete bearing"
@@ -244,7 +302,7 @@ class CallExtractor:
             or parsed_bearing
             or has_curve
             or along
-            or re.search(r"\bmeander", call_text, re.IGNORECASE)
+            or is_meander
             or re.search(r"\b[NS]\s+\d+°", call_text)
         )
         if not has_direction_intent:
@@ -281,13 +339,22 @@ class CallExtractor:
 
         radial_bearing_value = curve_info.get("radial_bearing")
 
-        is_meander = TextParser.detect_meander(call_text)
         is_indefinite = TextParser.is_indefinite_call(
-            raw_direction or call_text, has_bearing=parsed_bearing is not None
+            direction_text, has_bearing=parsed_bearing is not None
         )
 
         curve_type_value = curve_info.get("curve_type")
-        curve_type = curve_type_value if isinstance(curve_type_value, str) else None
+        curve_type: CurveType | None = None
+        if isinstance(curve_type_value, str):
+            normalized_curve_type = curve_type_value.strip().lower()
+            if normalized_curve_type == "simple":
+                curve_type = "simple"
+            elif normalized_curve_type == "compound":
+                curve_type = "compound"
+            elif normalized_curve_type == "reverse":
+                curve_type = "reverse"
+            elif normalized_curve_type == "spiral":
+                curve_type = "spiral"
         if curve_direction is not None and curve_type is None:
             curve_type = "simple"
 
@@ -313,12 +380,18 @@ class CallExtractor:
                 radial_bearing_value if isinstance(radial_bearing_value, str) else None
             ),
             is_meander=is_meander,
+            is_tie_in=False,
             is_indefinite=is_indefinite,
             curve_type=curve_type,
             notes=notes if notes else None,
         )
 
         return call
+
+    PACKED_DMS_PATTERN = re.compile(
+        r"(N|S)\s+(\d{1,3}\.\d+)°\s*(E|W)",
+        re.IGNORECASE,
+    )
 
     @classmethod
     def extract_direction(cls, text: str) -> str:
@@ -333,6 +406,34 @@ class CallExtractor:
         quadrant_match = BearingConverter.QUADRANT_PATTERN.search(text)
         if quadrant_match:
             return quadrant_match.group(0)
+
+        packed_match = cls.PACKED_DMS_PATTERN.search(text)
+        if packed_match:
+            cardinal1 = packed_match.group(1).upper()
+            packed_value = float(packed_match.group(2))
+            cardinal2 = packed_match.group(3).upper()
+            decimal_degrees = BearingConverter.parse_packed_dms(packed_value)
+            deg = int(decimal_degrees)
+            minutes = (decimal_degrees - deg) * 60
+            rounded_minutes = round(minutes)
+            if rounded_minutes >= 60:
+                rounded_minutes = 0
+                deg += 1
+            return f"{cardinal1} {deg}°{rounded_minutes:02d}' {cardinal2}"
+
+        # Compound compass point check (32-point system) — must come before
+        # simple cardinal check so "North by East" is not truncated to "North"
+        compound_compass_names = sorted(
+            [name for name in BearingConverter.COMPASS_POINTS if " " in name or "-" in name],
+            key=len,
+            reverse=True,
+        )
+        compound_compass_regex = (
+            r"\b(" + "|".join(re.escape(name) for name in compound_compass_names) + r")\b"
+        )
+        compound_compass_match = re.search(compound_compass_regex, text, re.IGNORECASE)
+        if compound_compass_match:
+            return compound_compass_match.group(0).lower()
 
         cardinal_pattern = (
             r"\b(north(?:erly|wardly)?|south(?:erly|wardly)?|east(?:erly|wardly)?|west(?:erly|wardly)?|"
@@ -357,9 +458,9 @@ class CallExtractor:
         Returns:
             Distance value (0.0 if not found)
         """
-        feet_match = re.search(r"(\d+(?:\.\d+)?)\s*(?:feet|ft)\b", text, re.IGNORECASE)
+        feet_match = re.search(rf"({_COMMA_NUMBER})\s*(?:feet|ft)\b", text, re.IGNORECASE)
         if feet_match:
-            return float(feet_match.group(1))
+            return parse_comma_number(feet_match.group(1))
 
         apostrophe_match = re.search(
             r"(?<!°)(\d+(?:\.\d+)?)\s*'(?=(?:\s+(?:along|to)\b|[.,;)]|$))",
@@ -372,6 +473,11 @@ class CallExtractor:
                 r"\b(?:NORTH|SOUTH|N|S)\s+\d{1,3}\s+\d+(?:\.\d+)?\s*\x27\s*$",
                 prefix,
                 re.IGNORECASE,
+            ):
+                return 0.0
+            if re.search(
+                r"\d+°\s*\d+(?:\.\d+)?\s*\x27\s*$",
+                prefix,
             ):
                 return 0.0
             return float(apostrophe_match.group(1))
@@ -390,24 +496,32 @@ class CallExtractor:
         """
         curve_info: dict[str, float | str | None] = {}
 
-        if "curve" not in text.lower():
+        if not re.search(r"\b(?:curve|spiral|transition)\b", text, re.IGNORECASE):
             return curve_info
 
         match = cls.CURVE_PATTERN.search(text)
         if match:
             direction = match.group(1).lower()
-            radius = float(match.group(2))
-            delta_deg = float(match.group(3))
+            radius_raw = parse_comma_number(match.group(2))
+            radius_unit = _normalize_unit_token(match.group(3))
+            radius = ConversionFactors.convert_to_feet(radius_raw, radius_unit)
+            delta_deg = parse_comma_number(match.group(4))
 
-            if match.group(4):
-                delta_deg += float(match.group(4)) / 60.0
             if match.group(5):
-                delta_deg += float(match.group(5)) / 3600.0
+                delta_deg += parse_comma_number(match.group(5)) / 60.0
+            if match.group(6):
+                delta_deg += parse_comma_number(match.group(6)) / 3600.0
 
             arc_length_match = re.search(
-                r"arc\s+(?:length|distance)\s+(?:of\s+)?(\d+(?:\.\d+)?)", text, re.IGNORECASE
+                rf"arc\s+(?:length|distance)\s+(?:of\s+)?({_COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
+                text,
+                re.IGNORECASE,
             )
-            arc_length = float(arc_length_match.group(1)) if arc_length_match else None
+            arc_length: float | None = None
+            if arc_length_match:
+                arc_raw = parse_comma_number(arc_length_match.group(1))
+                arc_unit = _normalize_unit_token(arc_length_match.group(2))
+                arc_length = ConversionFactors.convert_to_feet(arc_raw, arc_unit)
 
             props = BearingConverter.calculate_curve_properties(radius, delta_deg=delta_deg)
             computed_arc_length = arc_length if arc_length is not None else props["arc_length_ft"]
@@ -425,9 +539,13 @@ class CallExtractor:
             if dir_match:
                 curve_info["direction"] = dir_match.group(1).lower()
 
-            radius_match = re.search(r"radius\s+(?:of\s+)?(\d+(?:\.\d+)?)", text, re.IGNORECASE)
+            radius_match = re.search(
+                rf"radius\s+(?:of\s+)?({_COMMA_NUMBER})\s*({_UNIT_TOKEN})?", text, re.IGNORECASE
+            )
             if radius_match:
-                curve_info["radius_ft"] = float(radius_match.group(1))
+                radius_raw = parse_comma_number(radius_match.group(1))
+                radius_unit = _normalize_unit_token(radius_match.group(2))
+                curve_info["radius_ft"] = ConversionFactors.convert_to_feet(radius_raw, radius_unit)
 
             delta_match = re.search(
                 r"delta\s+(?:angle\s+)?(?:of\s+)?(\d+(?:\.\d+)?)(?:°|(?:\s+)?degrees?)(?:\s*(\d+(?:\.\d+)?)(?:'|\s+minutes?))?(?:\s*(\d+(?:\.\d+)?)(?:\"|\s+seconds?))?",
@@ -444,10 +562,34 @@ class CallExtractor:
                 curve_info["delta_deg"] = delta
 
             arc_match = re.search(
-                r"arc\s+(?:length|distance)\s+(?:of\s+)?(\d+(?:\.\d+)?)", text, re.IGNORECASE
+                rf"arc\s+(?:length|distance)\s+(?:of\s+)?({_COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
+                text,
+                re.IGNORECASE,
             )
             if arc_match:
-                curve_info["arc_length_ft"] = float(arc_match.group(1))
+                arc_raw = parse_comma_number(arc_match.group(1))
+                arc_unit = _normalize_unit_token(arc_match.group(2))
+                curve_info["arc_length_ft"] = ConversionFactors.convert_to_feet(arc_raw, arc_unit)
+
+            # Degree of curvature → radius conversion
+            doc_match = re.search(
+                r"degree\s+of\s+(?:curve|curvature)\s+(?:of\s+)?"
+                r"(\d+(?:\.\d+)?)(?:°|(?:\s+)?degrees?)"
+                r"(?:\s*(\d+(?:\.\d+)?)(?:'|\s+minutes?))?"
+                r'(?:\s*(\d+(?:\.\d+)?)(?:"|\s+seconds?))?',
+                text,
+                re.IGNORECASE,
+            )
+            if doc_match and curve_info.get("radius_ft") is None:
+                doc_deg = float(doc_match.group(1))
+                if doc_match.group(2):
+                    doc_deg += float(doc_match.group(2)) / 60.0
+                if doc_match.group(3):
+                    doc_deg += float(doc_match.group(3)) / 3600.0
+                if doc_deg > 0:
+                    curve_info["radius_ft"] = BearingConverter.degree_of_curvature_to_radius(
+                        doc_deg
+                    )
 
         radius_ft = curve_info.get("radius_ft")
         curve_delta_deg = curve_info.get("delta_deg")
@@ -485,6 +627,12 @@ class CallExtractor:
             re.IGNORECASE,
         ):
             curve_info["curve_type"] = "reverse"
+        elif re.search(
+            r"\b(?:spiral\s+curve|transition\s+curve)\b",
+            text,
+            re.IGNORECASE,
+        ):
+            curve_info["curve_type"] = "spiral"
 
         if re.search(r"\bnon-?tangent\b", text, re.IGNORECASE):
             curve_info["non_tangent"] = True

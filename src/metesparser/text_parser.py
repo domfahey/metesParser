@@ -3,11 +3,27 @@
 Handles cleaning up OCR errors, standardizing DMS notation, merging line breaks, etc.
 """
 
+from __future__ import annotations
+
 import re
 from re import Match
-from typing import Callable, TypedDict
+from typing import TYPE_CHECKING, Callable, Literal, TypedDict
 
 from .models import ConversionFactors
+
+if TYPE_CHECKING:
+    from .models import DeedClause, SubdivisionReference
+
+# Regex fragment for numbers with optional comma grouping (e.g., "1,200" or "3,500.00")
+_COMMA_NUMBER = r"\d[\d,]*(?:\.\d+)?"
+
+
+def parse_comma_number(s: str) -> float:
+    """Convert a numeric string with optional comma grouping to float.
+
+    Examples: "1,200" -> 1200.0, "3,500.00" -> 3500.0, "42" -> 42.0
+    """
+    return float(s.replace(",", ""))
 
 
 class TextParser:
@@ -112,8 +128,8 @@ class TextParser:
             plss_data["range"] = f"{range_num} {direction}"
 
         pm_patterns = [
-            r"\b(?:IN\s+|THE\s+)?([A-Z]+(?:\s+[A-Z]+){0,4})\s+PRINCIPAL\s+MERIDIAN\b",
-            r"\b(?:IN\s+|THE\s+)?([A-Z]+(?:\s+[A-Z]+){0,4})\s+P\.?M\.?\b",
+            r"\b(?:IN\s+|THE\s+)?([A-Z0-9]+(?:\s+[A-Z0-9]+){0,4})\s+PRINCIPAL\s+MERIDIAN\b",
+            r"\b(?:IN\s+|THE\s+)?([A-Z0-9]+(?:\s+[A-Z0-9]+){0,4})\s+P\.?M\.?\b",
         ]
         for pattern in pm_patterns:
             pm_match = re.search(pattern, text_upper)
@@ -243,6 +259,11 @@ class TextParser:
             r"POB\s+at\s+(.*?)(?:\.|;|THENCE)",
             r"POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
             r"commencing\s+at\s+(.*?)(?:\.|;|THENCE)",
+            r"TRUE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
+            r"TPOB\s+at\s+(.*?)(?:\.|;|THENCE)",
+            r"T\.P\.O\.B\.\s+at\s+(.*?)(?:\.|;|THENCE)",
+            r"REMOTE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
+            r"RPOB\s+at\s+(.*?)(?:\.|;|THENCE)",
         ]
 
         for pattern in pob_patterns:
@@ -268,6 +289,8 @@ class TextParser:
             r"\breturning\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
             r"\bback\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
             r"\bback\s+to\s+(?:the\s+)?POB\b",
+            r"\bto\s+(?:the\s+)?(?:true\s+point\s+of\s+beginning\b|TPOB\b|T\.P\.O\.B\.)",
+            r"\bto\s+(?:the\s+)?(?:remote\s+point\s+of\s+beginning\b|RPOB\b|R\.P\.O\.B\.)",
         ]
 
         text_lower = text.lower()
@@ -388,14 +411,14 @@ class TextParser:
             Tuple of (distance_value, unit)
         """
         pattern = (
-            r"(\d+(?:\.\d+)?)\s*"
+            rf"({_COMMA_NUMBER})\s*"
             r"(foot|feet|ft|poles?|rods?|perches?|chains?|links?"
             r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
         )
 
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            value = float(match.group(1))
+            value = parse_comma_number(match.group(1))
             unit = match.group(2).lower()
 
             if unit in ("ft", "feet", "foot"):
@@ -627,7 +650,7 @@ class TextParser:
 
         def is_curve_direction_to(segment: str, token_end: int) -> bool:
             after = segment[token_end:].lstrip()
-            return bool(re.match(r"the\s+(?:left|right)\b", after, re.IGNORECASE))
+            return bool(re.match(r"the\s+(?:left|right)(?!\s+of)\b", after, re.IGNORECASE))
 
         along_match = re.search(r"\balong\b", call_text, re.IGNORECASE)
         if along_match:
@@ -731,6 +754,89 @@ class TextParser:
         return None
 
     @classmethod
+    def extract_deed_clauses(cls, text: str) -> list[DeedClause]:
+        """Extract deed clauses (reservations, subject-to, together-with).
+
+        These are metadata clauses that don't change the boundary geometry.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            List of DeedClause objects
+        """
+        from .models import DeedClause
+
+        clauses: list[DeedClause] = []
+        ClauseType = Literal["reservation", "subject_to", "together_with"]
+
+        patterns: list[tuple[str, ClauseType]] = [
+            (r"(RESERVING\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "reservation"),
+            (r"(SUBJECT\s+TO\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "subject_to"),
+            (r"(TOGETHER\s+WITH\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "together_with"),
+        ]
+
+        for pattern, clause_type in patterns:
+            for match in re.finditer(pattern, text, re.IGNORECASE | re.DOTALL):
+                clause_text = match.group(1).strip().rstrip(".")
+                if clause_text:
+                    clauses.append(DeedClause(clause_type=clause_type, text=clause_text))
+
+        return clauses
+
+    @classmethod
+    def extract_subdivision_reference(cls, text: str) -> SubdivisionReference | None:
+        """Extract subdivision lot/block reference from deed text.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            SubdivisionReference or None if no subdivision reference found
+        """
+        from .models import SubdivisionReference
+
+        lot = None
+        block = None
+        subdivision_name = None
+        plat_book = None
+        plat_page = None
+
+        lot_match = re.search(r"\bLot\s+(\w+)", text, re.IGNORECASE)
+        if lot_match:
+            lot = lot_match.group(1)
+
+        block_match = re.search(r"\bBlock\s+(\w+)", text, re.IGNORECASE)
+        if block_match:
+            block = block_match.group(1)
+
+        # Subdivision name: typically in ALL CAPS after Lot/Block
+        name_match = re.search(
+            r"(?:Block\s+\w+|Lot\s+\w+),?\s+([A-Z][A-Z\s]+(?:ESTATES?|SUBDIVISION|ADDITION|HEIGHTS?|HILLS?|PARK|PLACE|MANOR|ACRES|VILLAGE|LANDING|TERRACE|GARDENS?)?)\b",
+            text,
+        )
+        if name_match:
+            subdivision_name = name_match.group(1).strip()
+
+        plat_match = re.search(
+            r"Plat\s+Book\s+(\d+),?\s*Page\s+(\d+)", text, re.IGNORECASE
+        )
+        if plat_match:
+            plat_book = plat_match.group(1)
+            plat_page = plat_match.group(2)
+
+        if any([lot, block, subdivision_name, plat_book]):
+            return SubdivisionReference(
+                lot=lot,
+                block=block,
+                subdivision_name=subdivision_name,
+                plat_book=plat_book,
+                plat_page=plat_page,
+            )
+
+        return None
+
+    @classmethod
     def infer_distance_unit(
         cls, text: str, state: str | None = None, year: int | None = None
     ) -> str | None:
@@ -765,3 +871,60 @@ class TextParser:
             return "rods"
 
         return None
+
+    @classmethod
+    def extract_witness_trees(cls, text: str) -> list[str]:
+        """Extract witness tree / reference mark descriptions.
+
+        Historical surveyors recorded trees near corners with species,
+        diameter, bearing and distance. Stored verbatim per architecture
+        principle #3 (preserve deed language).
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            List of verbatim witness tree descriptions
+        """
+        trees: list[str] = []
+
+        tree_pattern = re.compile(
+            r"((?:a\s+)?(?:\w+\s+)?(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|"
+            r"poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)"
+            r"[^;.]*?\bbears?\b[^;.]*?(?:dist(?:ant)?|links?|feet|ft)[^;.]*)",
+            re.IGNORECASE,
+        )
+
+        for match in tree_pattern.finditer(text):
+            trees.append(match.group(1).strip())
+
+        return trees
+
+    @classmethod
+    def extract_coordinate_system(cls, text: str) -> tuple[str | None, str | None]:
+        """Extract State Plane or other coordinate system reference.
+
+        Advisory only — no grid correction computation.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            Tuple of (coordinate_system, fips_code) — both may be None
+        """
+        coordinate_system = None
+        fips_code = None
+
+        spcs_match = re.search(
+            r"(State\s+Plane\s+Coordinate\s+System[^.;]*?)(?:\.|;|$)",
+            text,
+            re.IGNORECASE,
+        )
+        if spcs_match:
+            coordinate_system = spcs_match.group(1).strip()
+
+        fips_match = re.search(r"\bFIPS\s+(?:Zone\s+)?(\d{4})\b", text, re.IGNORECASE)
+        if fips_match:
+            fips_code = fips_match.group(1)
+
+        return (coordinate_system, fips_code)

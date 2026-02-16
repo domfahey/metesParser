@@ -22,10 +22,13 @@ MonumentType = Literal[
     "capped_pin",
     "capped_rod",
     "txdot_monument",
+    "tree",
+    "rock",
+    "natural_feature",
     "other",
 ]
 MonumentStatus = Literal["found", "set"]
-CurveType = Literal["simple", "compound", "reverse"]
+CurveType = Literal["simple", "compound", "reverse", "spiral"]
 DistanceUnit = Literal[
     "feet",
     "us_survey_feet",
@@ -78,6 +81,23 @@ class _Model(BaseModel):
                 return True
 
         raise ValueError("flag must be a boolean value")
+
+
+class DeedClause(_Model):
+    """A deed clause (reservation, subject-to, or together-with)."""
+
+    clause_type: Literal["reservation", "subject_to", "together_with"]
+    text: str = Field(..., min_length=1, description="Verbatim clause text from deed")
+
+
+class SubdivisionReference(_Model):
+    """Subdivision lot/block reference from a deed."""
+
+    lot: str | None = None
+    block: str | None = None
+    subdivision_name: str | None = None
+    plat_book: str | None = None
+    plat_page: str | None = None
 
 
 class DeedCall(_Model):
@@ -332,6 +352,22 @@ class LegalDescription(_Model):
         False,
         description="Whether the stated area is approximate",
     )
+
+    clauses: list[DeedClause] = Field(
+        default_factory=list,
+        description="Deed clauses (reservations, subject-to, together-with)",
+    )
+    subdivision_ref: SubdivisionReference | None = Field(
+        None, description="Subdivision lot/block reference"
+    )
+    witness_trees: list[str] = Field(
+        default_factory=list,
+        description="Witness tree/reference mark descriptions (verbatim)",
+    )
+    coordinate_system: str | None = Field(
+        None, description="State Plane or other coordinate system reference"
+    )
+    fips_code: str | None = Field(None, description="FIPS zone code for State Plane coordinates")
 
     distance_unit: DistanceUnit = Field("feet", description="Primary distance unit in the deed")
 

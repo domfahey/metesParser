@@ -82,7 +82,7 @@ def test_extract_calls_ai_raises_for_non_list_calls():
         def generate_text(self, prompt: str, response_mime_type: str | None = None):
             return '{"calls": "string"}'
 
-    processor = PDFProcessor(client=InvalidCallsClient())
+    processor = PDFProcessor(client=InvalidCallsClient(), cache=False)
 
     with pytest.raises(ValueError, match="malformed calls payload"):
         processor.extract_calls_ai("text")
@@ -103,7 +103,10 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
         "metesparser.text_parser.TextParser.extract_poc_and_pob", lambda _: ("POC", "POB")
     )
     monkeypatch.setattr("metesparser.text_parser.TextParser.extract_area_statement", lambda _: None)
-    monkeypatch.setattr("metesparser.call_extractor.CallExtractor.extract_calls", lambda _: [])
+    monkeypatch.setattr("metesparser.text_parser.TextParser.infer_distance_unit", lambda _: None)
+    monkeypatch.setattr(
+        "metesparser.call_extractor.CallExtractor.extract_calls", lambda _, distance_unit="feet": []
+    )
     monkeypatch.setattr(
         "metesparser.call_extractor.CallExtractor.enrich_calls_with_azimuths",
         lambda calls: calls,
@@ -120,6 +123,14 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "metesparser.text_parser.TextParser.extract_prior_conveyance", lambda _: None
+    )
+    monkeypatch.setattr("metesparser.text_parser.TextParser.extract_deed_clauses", lambda _: [])
+    monkeypatch.setattr(
+        "metesparser.text_parser.TextParser.extract_subdivision_reference", lambda _: None
+    )
+    monkeypatch.setattr("metesparser.text_parser.TextParser.extract_witness_trees", lambda _: [])
+    monkeypatch.setattr(
+        "metesparser.text_parser.TextParser.extract_coordinate_system", lambda _: (None, None)
     )
 
     captured_events: list[tuple[str, dict[str, object]]] = []
@@ -147,8 +158,14 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
         "Extracting PLSS metadata",
         "Extracting Point of Commencement and Point of Beginning",
         "Extracting area statement",
+        "Inferring distance unit",
+        "Distance unit resolved",
         "Extracting calls",
         "Marking tie-in calls",
+        "Extracting deed clauses",
+        "Extracting subdivision reference",
+        "Extracting witness trees",
+        "Extracting coordinate system",
         "Extracted calls",
     ]
     assert captured_events[-1][1]["count"] == 0
