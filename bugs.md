@@ -476,7 +476,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Introduce a shared numeric normalization helper that strips commas before conversion and reuse it for straight/alternate/cuve distance and radius/arc extraction.
 
 ### 46) POB description distances leak into call extraction as phantom courses
-- **Status:** `open`
+- **Status:** `fixed`
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/call_extractor.py` (`CallExtractor.extract_calls`), `src/metesparser/text_parser.py` (`TextParser.split_into_calls`)
@@ -502,7 +502,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Update `extract_legal_description.yaml` prompt to explicitly instruct the LLM to prefer Exhibit A, survey attachments, or the most detailed metes-and-bounds section when multiple descriptions exist.
 
 ### 48) Markdown-based extraction fails to split inline-numbered `thence (N)` calls
-- **Status:** `open`
+- **Status:** `fixed`
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/text_parser.py` (`TextParser.split_into_calls`), `src/metesparser/call_extractor.py` (`CallExtractor.extract_calls`)

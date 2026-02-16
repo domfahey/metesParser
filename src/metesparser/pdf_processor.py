@@ -162,6 +162,9 @@ class PDFProcessor:
 
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
 
+        processing_logger.info("Marking tie-in calls")
+        calls = CallExtractor.mark_tie_in_calls(calls, poc_description=poc if poc else None)
+
         legal_desc = LegalDescription(
             poc_description=poc if poc else None,
             pob_description=pob,
