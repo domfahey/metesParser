@@ -8,7 +8,8 @@
 ## Status Update (2026-02-15)
 - Baseline audit tickets `#1-24` are marked `fixed`.
 - Recent tickets `#25-34` were re-audited on 2026-02-15.
-- Open tickets: #35, #36, #37, #38, #39, #40, #41, #43, #44, #45, #46, #47, #48.
+- Open tickets: none remaining.
+- Tickets #35-#48 fixed on 2026-02-16 (commit `902898a`). #37, #46, #48 were already fixed but unmarked.
 - Verification gates passed after baseline and recent fixes (latest run: 2026-02-15): `make check` and full test suite.
 
 ## Error Analysis (2026-02-15)
@@ -345,7 +346,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Accept decimal minute/second tokens and normalize to decimal degrees.
 
 ### 35) Prompt formatting crashes when extracted text contains braces
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `high`
 - **Reproducibility:** `always` (for any legal description text containing `{` or `}`)
 - **Location:** `src/metesparser/pdf_processor.py` (`extract_legal_description`, `normalize_legal_description`, `extract_calls_ai`)
@@ -357,7 +358,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Use escaped template interpolation (`{`/`}` doubling), `str.format_map` with explicit context, or `.replace` placeholder assembly that avoids interpreting user-supplied text as format fields.
 
 ### 36) Bearing-minute apostrophes after `°` can be parsed as distances
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/call_extractor.py` (`extract_distance_alternate`)
@@ -369,7 +370,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Extend the bearing-context guard to treat any minute token adjacent to a quadrant bearing (`N|S ... °...`) as non-distance.
 
 ### 37) Distance parser drops many valid units
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/text_parser.py` (`TextParser.extract_distance`)
@@ -381,7 +382,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Extend unit regex/normalization in `extract_distance` to include additional supported unit families and aliases.
 
 ### 38) Curve parsing ignores unit qualifiers for radius/arc length
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/call_extractor.py` (`extract_curve_info`)
@@ -393,7 +394,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Parse optional units for radius/arc, validate against `ConversionFactors`, and convert before math.
 
 ### 39) Curve consistency skips radius+arc-only curves
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/closure_checker.py` (`check_curve_consistency`)
@@ -405,7 +406,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Derive `delta_deg` from `arc_length_ft / radius_ft` when missing and run the same consistency checks used for explicit deltas.
 
 ### 40) `to` endpoint parsing drops `to the right/left of` clauses
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `low`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/text_parser.py` (`TextParser.extract_along_to_fields`)
@@ -429,7 +430,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Commit:** `d99a592`
 
 ### 41) Numeric principal meridian ordinals are not parsed
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/text_parser.py` (`TextParser.extract_plss_metadata`)
@@ -441,7 +442,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Extend principal-meridian token pattern to allow ordinal digits/suffixes (e.g., `\d+(?:st|nd|rd|th)?`) alongside alphabetic words before `Principal Meridian`/`P.M.`.
 
 ### 43) Packed-DMS bearings are never parsed from call text
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/bearing_converter.py` (`BearingConverter.parse_packed_dms`), `src/metesparser/call_extractor.py` (`CallExtractor.extract_direction`, `CallExtractor.extract_single_call`)
@@ -453,7 +454,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Add packed-DMS pre-parse in `CallExtractor.extract_direction` (or embed it into `BearingConverter.parse_quadrant_bearing`) and route through the same validation/rejection logic as standard quadrant bearings.
 
 ### 44) Unit inference helper is never applied in extraction pipeline
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `medium`
 - **Reproducibility:** `always` (for unitless distances with context hints)
 - **Location:** `src/metesparser/text_parser.py` (`TextParser.infer_distance_unit`), `src/metesparser/call_extractor.py` (`CallExtractor.extract_calls`), `src/metesparser/pdf_processor.py` (`PDFProcessor.process_deed_pdf`)
@@ -465,7 +466,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Thread document metadata/state/year context into `PDFProcessor.process_deed_pdf` and call `TextParser.infer_distance_unit` before `CallExtractor.extract_calls`.
 
 ### 45) Numeric parsing rejects comma-separated distances and curve measurements
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/text_parser.py` (`TextParser.extract_distance`), `src/metesparser/call_extractor.py` (`CallExtractor.extract_curve_info`, `CallExtractor.extract_distance_alternate`)
@@ -489,7 +490,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Strip text before the first `THENCE`/`thence` keyword (or first recognized bearing) before passing to `split_into_calls`. Alternatively, reject calls with `distance_ft > 0` but `bearing_azimuth_deg_from_north is None` and no curve data.
 
 ### 47) LLM extracts wrong legal description section from multi-section deeds
-- **Status:** `open`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `high`
 - **Reproducibility:** `intermittent` (depends on LLM prompt response)
 - **Location:** `src/metesparser/pdf_processor.py` (`PDFProcessor.extract_legal_description`), `prompts/extract_legal_description.yaml`
