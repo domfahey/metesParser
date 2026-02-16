@@ -9,6 +9,17 @@ from typing import Callable, TypedDict
 
 from .models import ConversionFactors
 
+# Regex fragment for numbers with optional comma grouping (e.g., "1,200" or "3,500.00")
+_COMMA_NUMBER = r"\d[\d,]*(?:\.\d+)?"
+
+
+def parse_comma_number(s: str) -> float:
+    """Convert a numeric string with optional comma grouping to float.
+
+    Examples: "1,200" -> 1200.0, "3,500.00" -> 3500.0, "42" -> 42.0
+    """
+    return float(s.replace(",", ""))
+
 
 class TextParser:
     """Parse and normalize legal description text."""
@@ -112,8 +123,8 @@ class TextParser:
             plss_data["range"] = f"{range_num} {direction}"
 
         pm_patterns = [
-            r"\b(?:IN\s+|THE\s+)?([A-Z]+(?:\s+[A-Z]+){0,4})\s+PRINCIPAL\s+MERIDIAN\b",
-            r"\b(?:IN\s+|THE\s+)?([A-Z]+(?:\s+[A-Z]+){0,4})\s+P\.?M\.?\b",
+            r"\b(?:IN\s+|THE\s+)?([A-Z0-9]+(?:\s+[A-Z0-9]+){0,4})\s+PRINCIPAL\s+MERIDIAN\b",
+            r"\b(?:IN\s+|THE\s+)?([A-Z0-9]+(?:\s+[A-Z0-9]+){0,4})\s+P\.?M\.?\b",
         ]
         for pattern in pm_patterns:
             pm_match = re.search(pattern, text_upper)
@@ -388,14 +399,14 @@ class TextParser:
             Tuple of (distance_value, unit)
         """
         pattern = (
-            r"(\d+(?:\.\d+)?)\s*"
+            rf"({_COMMA_NUMBER})\s*"
             r"(foot|feet|ft|poles?|rods?|perches?|chains?|links?"
             r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
         )
 
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
-            value = float(match.group(1))
+            value = parse_comma_number(match.group(1))
             unit = match.group(2).lower()
 
             if unit in ("ft", "feet", "foot"):
@@ -627,7 +638,7 @@ class TextParser:
 
         def is_curve_direction_to(segment: str, token_end: int) -> bool:
             after = segment[token_end:].lstrip()
-            return bool(re.match(r"the\s+(?:left|right)\b", after, re.IGNORECASE))
+            return bool(re.match(r"the\s+(?:left|right)(?!\s+of)\b", after, re.IGNORECASE))
 
         along_match = re.search(r"\balong\b", call_text, re.IGNORECASE)
         if along_match:

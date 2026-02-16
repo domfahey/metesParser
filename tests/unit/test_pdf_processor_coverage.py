@@ -103,7 +103,10 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
         "metesparser.text_parser.TextParser.extract_poc_and_pob", lambda _: ("POC", "POB")
     )
     monkeypatch.setattr("metesparser.text_parser.TextParser.extract_area_statement", lambda _: None)
-    monkeypatch.setattr("metesparser.call_extractor.CallExtractor.extract_calls", lambda _: [])
+    monkeypatch.setattr("metesparser.text_parser.TextParser.infer_distance_unit", lambda _: None)
+    monkeypatch.setattr(
+        "metesparser.call_extractor.CallExtractor.extract_calls", lambda _, distance_unit="feet": []
+    )
     monkeypatch.setattr(
         "metesparser.call_extractor.CallExtractor.enrich_calls_with_azimuths",
         lambda calls: calls,
@@ -147,6 +150,8 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
         "Extracting PLSS metadata",
         "Extracting Point of Commencement and Point of Beginning",
         "Extracting area statement",
+        "Inferring distance unit",
+        "Distance unit resolved",
         "Extracting calls",
         "Marking tie-in calls",
         "Extracted calls",

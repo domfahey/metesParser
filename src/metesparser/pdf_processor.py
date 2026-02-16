@@ -94,15 +94,18 @@ class PDFProcessor:
         document_text = self.extract_text_from_pdf(pdf_path)
         prompt_config = self._load_prompt("extract_legal_description")
 
-        combined_prompt = f"{prompt_config['system_prompt']}\n\n{prompt_config['user_prompt_template'].format(document_text=document_text)}"
+        user_prompt = prompt_config["user_prompt_template"].replace(
+            "{document_text}", document_text
+        )
+        combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
         return self.client.generate_text(combined_prompt)
 
     def normalize_legal_description(self, legal_desc_text: str) -> str:
         """Normalize and clean up legal description text."""
         prompt_config = self._load_prompt("normalize_text")
 
-        user_prompt = prompt_config["user_prompt_template"].format(
-            legal_description_text=legal_desc_text
+        user_prompt = prompt_config["user_prompt_template"].replace(
+            "{legal_description_text}", legal_desc_text
         )
         combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
 
@@ -112,8 +115,8 @@ class PDFProcessor:
         """Extract calls using the configured LLM (experimental)."""
         prompt_config = self._load_prompt("extract_calls")
 
-        user_prompt = prompt_config["user_prompt_template"].format(
-            legal_description_text=legal_desc_text
+        user_prompt = prompt_config["user_prompt_template"].replace(
+            "{legal_description_text}", legal_desc_text
         )
         combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
 
@@ -157,8 +160,13 @@ class PDFProcessor:
         processing_logger.info("Extracting area statement")
         stated_area = TextParser.extract_area_statement(normalized_text)
 
+        processing_logger.info("Inferring distance unit")
+        inferred_unit = TextParser.infer_distance_unit(normalized_text)
+        distance_unit = inferred_unit or "feet"
+        processing_logger.info("Distance unit resolved", distance_unit=distance_unit)
+
         processing_logger.info("Extracting calls")
-        calls = CallExtractor.extract_calls(normalized_text)
+        calls = CallExtractor.extract_calls(normalized_text, distance_unit=distance_unit)
 
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
 
@@ -175,7 +183,7 @@ class PDFProcessor:
             survey_date=None,
             basis_of_bearing=TextParser.extract_basis_of_bearing(normalized_text),
             datum=None,
-            distance_unit="feet",
+            distance_unit=distance_unit,
             section=plss_data.get("section"),
             township=plss_data.get("township"),
             range=plss_data.get("range"),

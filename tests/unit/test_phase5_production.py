@@ -186,7 +186,10 @@ class TestPhase5ModelChanges:
         assert ld.witness_trees == []
 
     def test_legal_description_witness_trees_populated(self) -> None:
-        trees = ["White Oak 16 in dia bears N 45 E 25 links", "Black Gum 10 in dia bears S 30 W 18 links"]
+        trees = [
+            "White Oak 16 in dia bears N 45 E 25 links",
+            "Black Gum 10 in dia bears S 30 W 18 links",
+        ]
         ld = LegalDescription(witness_trees=trees)
         assert len(ld.witness_trees) == 2
         assert "White Oak" in ld.witness_trees[0]

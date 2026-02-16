@@ -367,9 +367,7 @@ class LegalDescription(_Model):
     coordinate_system: str | None = Field(
         None, description="State Plane or other coordinate system reference"
     )
-    fips_code: str | None = Field(
-        None, description="FIPS zone code for State Plane coordinates"
-    )
+    fips_code: str | None = Field(None, description="FIPS zone code for State Plane coordinates")
 
     distance_unit: DistanceUnit = Field("feet", description="Primary distance unit in the deed")
 
