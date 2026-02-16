@@ -3,6 +3,8 @@
 import pytest
 from pydantic import ValidationError
 
+from metesparser.bearing_converter import BearingConverter
+from metesparser.call_extractor import CallExtractor
 from metesparser.models import (
     DeedCall,
     DeedClause,
@@ -209,3 +211,47 @@ class TestPhase5ModelChanges:
     def test_legal_description_fips_code_populated(self) -> None:
         ld = LegalDescription(fips_code="2900")
         assert ld.fips_code == "2900"
+
+
+class TestDegreeOfCurvature:
+    """Tests for degree of curvature parsing."""
+
+    def test_degree_of_curvature_to_radius_5_degrees(self) -> None:
+        radius = BearingConverter.degree_of_curvature_to_radius(5.0)
+        assert abs(radius - 1145.9156) < 0.001
+
+    def test_degree_of_curvature_to_radius_1_degree(self) -> None:
+        radius = BearingConverter.degree_of_curvature_to_radius(1.0)
+        assert abs(radius - 5729.578) < 0.001
+
+    def test_degree_of_curvature_to_radius_10_degrees(self) -> None:
+        radius = BearingConverter.degree_of_curvature_to_radius(10.0)
+        assert abs(radius - 572.9578) < 0.001
+
+    def test_degree_of_curvature_zero_raises(self) -> None:
+        with pytest.raises(ValueError, match="non-zero"):
+            BearingConverter.degree_of_curvature_to_radius(0.0)
+
+    def test_degree_of_curvature_negative_raises(self) -> None:
+        with pytest.raises(ValueError, match="positive"):
+            BearingConverter.degree_of_curvature_to_radius(-5.0)
+
+    def test_extract_curve_info_degree_of_curve(self) -> None:
+        text = (
+            "along a curve to the right having a degree of curve of 5°00'00\", "
+            "a delta angle of 30°00'00\", an arc length of 600.00 feet"
+        )
+        info = CallExtractor.extract_curve_info(text)
+        assert info.get("direction") == "right"
+        assert info.get("radius_ft") is not None
+        assert abs(info["radius_ft"] - 1145.9156) < 0.1
+
+    def test_extract_curve_info_degree_of_curvature_variant(self) -> None:
+        text = (
+            "along a curve to the left having a degree of curvature of 2°30', "
+            "a delta angle of 15°, an arc distance of 200.00 feet"
+        )
+        info = CallExtractor.extract_curve_info(text)
+        assert info.get("direction") == "left"
+        assert info.get("radius_ft") is not None
+        assert abs(info["radius_ft"] - 2291.8312) < 0.1

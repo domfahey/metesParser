@@ -49,6 +49,28 @@ class BearingConverter:
         return degrees + minutes / 60.0 + seconds / 3600.0
 
     @classmethod
+    def degree_of_curvature_to_radius(cls, degree_of_curve: float) -> float:
+        """Convert degree of curvature to radius using arc definition.
+
+        The degree of curvature is the central angle subtended by a 100-ft arc.
+        Formula: R = 5729.578 / D°
+
+        Args:
+            degree_of_curve: Degree of curvature (must be > 0)
+
+        Returns:
+            Radius in feet
+
+        Raises:
+            ValueError: If degree_of_curve is zero or negative
+        """
+        if degree_of_curve <= 0:
+            raise ValueError(
+                f"Degree of curvature must be positive and non-zero, got {degree_of_curve}"
+            )
+        return 5729.578 / degree_of_curve
+
+    @classmethod
     def parse_quadrant_bearing(cls, bearing_text: str) -> tuple[str, float, str] | None:
         """Parse a quadrant bearing string.
 
