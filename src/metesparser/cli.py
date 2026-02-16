@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import os
 import sys
+import uuid
 from pathlib import Path
 
 import structlog
+import structlog.contextvars
 
 from .logging_config import configure_logging, get_log_format
 
@@ -14,13 +16,11 @@ logger = structlog.get_logger(__name__)
 
 
 def _emit_closure_summary(summary: str, command_logger: structlog.stdlib.BoundLogger) -> None:
-    if get_log_format() == "json":
-        command_logger.info("Closure summary", summary=summary)
-        return
-
-    print()
-    print(summary)
-    print()
+    command_logger.info("Closure summary", summary=summary)
+    if get_log_format() != "json":
+        print()
+        print(summary)
+        print()
 
 
 def extract_command(
@@ -49,7 +49,10 @@ def extract_command(
     if not output:
         output = str(pdf_file.with_suffix(".csv"))
 
-    command_logger = logger.bind(command="extract", input_pdf=pdf_path, output_csv=output)
+    run_id = str(uuid.uuid4())
+    ctx = {"command": "extract", "input_pdf": pdf_path, "output_csv": output, "run_id": run_id}
+    structlog.contextvars.bind_contextvars(**ctx)
+    command_logger = logger.bind(**ctx)
     command_logger.info("Processing deed PDF")
 
     try:
@@ -73,6 +76,8 @@ def extract_command(
     except Exception:
         command_logger.exception("Failed to process PDF")
         sys.exit(1)
+    finally:
+        structlog.contextvars.clear_contextvars()
 
 
 def verify_command(csv_path: str, stated_area: float | None = None) -> None:
