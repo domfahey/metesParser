@@ -16,6 +16,7 @@ dependencies = [
     "structlog>=24.4.0",
     "openai>=2.3.0",
     "pypdf>=6.1.1",
+    "mp-ocr>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -84,6 +85,7 @@ disallow_untyped_defs = true
 [tool.uv.sources]
 mp-models = { workspace = true }
 mp-bearing = { workspace = true }
+mp-ocr = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
