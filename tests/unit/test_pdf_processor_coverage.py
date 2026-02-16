@@ -82,7 +82,7 @@ def test_extract_calls_ai_raises_for_non_list_calls():
         def generate_text(self, prompt: str, response_mime_type: str | None = None):
             return '{"calls": "string"}'
 
-    processor = PDFProcessor(client=InvalidCallsClient())
+    processor = PDFProcessor(client=InvalidCallsClient(), cache=False)
 
     with pytest.raises(ValueError, match="malformed calls payload"):
         processor.extract_calls_ai("text")
