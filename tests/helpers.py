@@ -7,10 +7,6 @@ import math
 
 from metesparser.models import ClosureResult, DeedCall, Point
 
-# ============================================================================
-# Assertion Helpers
-# ============================================================================
-
 
 def assert_point_near(
     p1: Point, p2: Point, tolerance: float = 0.01, msg: str | None = None
@@ -65,11 +61,9 @@ def assert_angle_near(
     Raises:
         AssertionError: If angles differ by more than tolerance
     """
-    # Normalize both angles to [0, 360)
     a1 = angle1 % 360.0
     a2 = angle2 % 360.0
 
-    # Calculate minimum angular difference (accounts for wrap around)
     diff = abs(a1 - a2)
     if diff > 180.0:
         diff = 360.0 - diff
@@ -77,11 +71,6 @@ def assert_angle_near(
     error_msg = msg or f"Angles differ by {diff:.6f}° (tolerance: {tolerance}°)"
 
     assert diff <= tolerance, error_msg
-
-
-# ============================================================================
-# Data Generators
-# ============================================================================
 
 
 def create_square(size: float, start_azimuth: float = 0.0, start_course: int = 1) -> list[DeedCall]:
@@ -123,7 +112,6 @@ def create_rectangle(
     Returns:
         List of 4 DeedCall objects forming a closed rectangle
     """
-    # Calculate azimuths for 4 sides
     azimuths = [
         start_azimuth,
         (start_azimuth + 90.0) % 360.0,
@@ -131,7 +119,6 @@ def create_rectangle(
         (start_azimuth + 270.0) % 360.0,
     ]
 
-    # Distances alternate: height, width, height, width
     distances = [height, width, height, width]
 
     calls = []
@@ -167,7 +154,6 @@ def create_regular_polygon(
     if n_sides < 3:
         raise ValueError(f"Polygon must have at least 3 sides, got {n_sides}")
 
-    # Exterior angle = 360° / n
     exterior_angle = 360.0 / n_sides
 
     calls = []
@@ -187,23 +173,15 @@ def create_regular_polygon(
     return calls
 
 
-# ============================================================================
-# Test Data Constants
-# ============================================================================
+EXPECTED_DX_N33E_60FT = 32.9
+EXPECTED_DY_N33E_60FT = 50.2
 
-# Expected deltas for common bearings (for N 33°20' E, 60 ft)
-EXPECTED_DX_N33E_60FT = 32.9  # 60 * sin(33.333°) ≈ 32.9 ft
-EXPECTED_DY_N33E_60FT = 50.2  # 60 * cos(33.333°) ≈ 50.2 ft
+EXPECTED_DX_S56W_125FT = -104.5
+EXPECTED_DY_S56W_125FT = -68.7
 
-# Expected deltas for S 56°40' W, 125 ft
-EXPECTED_DX_S56W_125FT = -104.5  # 125 * sin(236.667°) ≈ -104.5 ft
-EXPECTED_DY_S56W_125FT = -68.7  # 125 * cos(236.667°) ≈ -68.7 ft
+TOLERANCE_FT = 0.01
+TOLERANCE_ANGLE = 0.000001
+TOLERANCE_AREA = 1.0
 
-# Standard tolerance values
-TOLERANCE_FT = 0.01  # Closure tolerance (feet)
-TOLERANCE_ANGLE = 0.000001  # Angular tolerance (degrees)
-TOLERANCE_AREA = 1.0  # Area tolerance (square feet)
-
-# 18 Pennbrook actual area (parallelogram, not rectangle!)
-PENNBROOK_18_AREA_SQ_FT = 2970.6  # NOT 60×125=7500 (that assumes 90° angles)
+PENNBROOK_18_AREA_SQ_FT = 2970.6
 PENNBROOK_18_AREA_ACRES = 0.0682

@@ -8,19 +8,19 @@ class TestNormalizeDMSSymbols:
 
     def test_normalize_degree_symbols(self):
         """Normalize various degree symbol variants to °."""
-        text = "N 45º30' E"  # Different degree symbol
+        text = "N 45º30' E"
         result = TextParser.normalize_dms_symbols(text)
         assert "45°30'" in result
 
     def test_normalize_minute_symbols(self):
         """Normalize various minute symbol variants to '."""
-        text = "N 45°30' E"  # Curly apostrophe
+        text = "N 45°30' E"
         result = TextParser.normalize_dms_symbols(text)
         assert "45°30'" in result
 
     def test_normalize_second_symbols(self):
         """Normalize various second symbol variants to \"."""
-        text = "N 45°30'15\" E"  # Smart quote
+        text = "N 45°30'15\" E"
         result = TextParser.normalize_dms_symbols(text)
         assert "45°30'15\"" in result
 
@@ -82,7 +82,7 @@ class TestStandardizeCardinalDirections:
 
     def test_normalize_spacing_dms(self):
         """Normalize spacing around DMS symbols."""
-        text = "N  33 ° 20 ' E"  # Extra spaces
+        text = "N  33 ° 20 ' E"
         result = TextParser.standardize_cardinal_directions(text)
         assert "N 33°20' E" in result
 
@@ -167,7 +167,7 @@ class TestDistinguishPOCvsPOB:
         poc, pob = TextParser.extract_poc_and_pob(text)
         assert "SW corner of Lot 5" in poc
         assert poc != ""
-        assert pob != ""  # Should find subsequent POB
+        assert pob != ""
 
     def test_pob_only_no_poc(self):
         """When only POB exists, POC should be empty."""
@@ -308,7 +308,7 @@ class TestCleanOCRErrors:
 
     def test_fix_degree_symbol_zero(self):
         """Fix '0' mistaken for degree symbol."""
-        text = "S 56 0 40' W"  # '0' should be '°'
+        text = "S 56 0 40' W"
         result = TextParser.clean_ocr_errors(text)
         assert "S 56°40' W" in result
 
@@ -399,17 +399,10 @@ class TestNormalizeLegalDescription:
         THENCE North 45 degrees East 100 feet.
         """
         result = TextParser.normalize_legal_description(text)
-
-        # OCR fixes: "5outh 56 0 40' West" becomes "South 56 degrees 40 minutes West"
-        # then gets converted to "S 56°40' W" by standardize_cardinal_directions
         assert "S" in result and "W" in result
-        assert "56°40'" in result  # "0" converted to degrees/minutes format
-
-        # Line wrapping
+        assert "56°40'" in result
         assert "division line" in result
         assert "div-\n" not in result
-
-        # Cardinal standardization
         assert "N 45° E" in result
 
     def test_preserves_content(self):

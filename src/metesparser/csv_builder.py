@@ -40,25 +40,7 @@ class _CSVDeedCallRow(_Model):
     @field_validator("is_exception", "non_tangent", mode="before")
     @classmethod
     def _normalize_bool_fields(cls, value: object) -> bool:
-        if value is None:
-            return False
-
-        if isinstance(value, bool):
-            return value
-
-        if isinstance(value, (int, float)):
-            if value in (0, 1):
-                return bool(value)
-            raise ValueError("flag must be boolean-like")
-
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            if normalized in {"", "false", "0", "no", "n", "off"}:
-                return False
-            if normalized in {"true", "1", "yes", "y", "on"}:
-                return True
-
-        raise ValueError("flag must be boolean-like")
+        return cls._coerce_bool_field(value)
 
 
 class CSVBuilder:

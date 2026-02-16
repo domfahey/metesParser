@@ -3,10 +3,6 @@
 Real-world and synthetic legal descriptions for testing the full pipeline.
 """
 
-# ===========================================================================
-# Real Parcels (Based on actual deeds)
-# ===========================================================================
-
 PENNBROOK_18 = """
 BEGINNING at a point in the division line between Lots 46 and 47,
 said point being in the southwesterly line of Concord Drive;
@@ -29,9 +25,6 @@ THENCE South 33 degrees 20 minutes East 40.00 feet;
 THENCE North 56 degrees 40 minutes West 25.26 feet to the POINT OF BEGINNING.
 """
 
-# ===========================================================================
-# Additional Real Parcels
-# ===========================================================================
 
 PENNBROOK_24 = """
 BEGINNING at a point in the southwesterly line of Pennbrook Drive 145 feet southwesterly from the southwestern side of Concord Place;
@@ -41,9 +34,6 @@ THENCE North 53 degrees 50 minutes 56 seconds East 125 feet to a point in a line
 THENCE North 36 degrees 09 minutes 04 seconds West 142 feet along the southwesterly line of Pennbrook Drive to the POINT OF BEGINNING.
 """
 
-# ===========================================================================
-# Simple Geometric Shapes
-# ===========================================================================
 
 SQUARE_100FT = """
 BEGINNING at a point;
@@ -68,9 +58,6 @@ THENCE South 45 degrees East 100 feet;
 THENCE South 45 degrees West 141.42 feet to the POINT OF BEGINNING.
 """
 
-# ===========================================================================
-# Parcels with Curves
-# ===========================================================================
 
 PARCEL_WITH_CURVE = """
 BEGINNING at a point;
@@ -87,9 +74,6 @@ and a delta angle of 45 degrees 00 minutes to an iron pin;
 THENCE South 45 degrees West 100 feet to the POINT OF BEGINNING.
 """
 
-# ===========================================================================
-# Incomplete/Meander Calls
-# ===========================================================================
 
 PARCEL_WITH_MEANDER = """
 BEGINNING at a point;
@@ -105,9 +89,6 @@ THENCE southwesterly 75 feet;
 THENCE North 45 degrees West 100 feet to the POINT OF BEGINNING.
 """
 
-# ===========================================================================
-# Mixed Units
-# ===========================================================================
 
 MIXED_FEET_AND_POLES = """
 BEGINNING at a point;
@@ -117,9 +98,6 @@ THENCE South 45 degrees West 100 feet;
 THENCE North 45 degrees West 10 poles to the POINT OF BEGINNING.
 """
 
-# ===========================================================================
-# OCR Errors (for testing correction)
-# ===========================================================================
 
 WITH_OCR_ERRORS = """
 BEGINNING at a point;
@@ -135,9 +113,6 @@ a point in the north line;
 THENCE South 45 degrees East 100 feet to the POINT OF BEGINNING.
 """
 
-# ===========================================================================
-# Edge Cases
-# ===========================================================================
 
 VERY_SMALL_PARCEL = """
 BEGINNING at a point;
@@ -163,9 +138,6 @@ THENCE North 0 degrees East 100 feet;
 THENCE North 90 degrees East 100 feet.
 """
 
-# ===========================================================================
-# Malformed Input
-# ===========================================================================
 
 EMPTY_TEXT = ""
 

@@ -55,26 +55,19 @@ class TestHighBug3MinutesRounding:
 
     def test_bearing_rounds_to_60_minutes(self):
         """Bearing with 59.99 minutes should round to next degree, not 60 minutes."""
-        # Test the rounding logic with a value that would round to 60 minutes
-        # 45.999722° = 45°59'59.0" which might display seconds
         azimuth = 45.999722
         result = BearingConverter.azimuth_to_quadrant(azimuth)
 
-        # Should not contain "60'" anywhere
         assert "60'" not in result
-        # Should either be 46° or have valid seconds
         assert result.startswith("N 46°") or result.startswith("N 45°59'")
 
     def test_call_extractor_handles_rounding(self):
         """CallExtractor should handle minutes rounding edge case."""
-        # Use a valid bearing that will be normalized
         text = "THENCE North 45 degrees East 100 feet"
         calls = CallExtractor.extract_calls(text)
 
         assert len(calls) == 1
-        # Should have a valid bearing_quadrant
         assert calls[0].bearing_quadrant is not None
-        # Should not have 60 minutes if present
         assert "60'" not in calls[0].bearing_quadrant
 
 
@@ -152,7 +145,6 @@ class TestHighBug6DeltaValidation:
 
     def test_computed_delta_over_360(self):
         """Computed delta from large arc/small radius should raise ValueError."""
-        # arc = 10000 ft, radius = 10 ft => delta = 1000/10 = 100 radians ≈ 5730°
         with pytest.raises(ValueError, match="Computed delta angle.*exceeds 360"):
             BearingConverter.calculate_curve_properties(radius_ft=10.0, arc_length_ft=10000.0)
 
@@ -202,9 +194,7 @@ class TestMediumBug7AreaCalculation:
 
         result = ClosureChecker.verify_closure(calls)
 
-        # Should have warning about insufficient points
         assert any("Cannot calculate area" in w for w in result.warnings)
-        # Area should be 0
         assert result.area_sq_ft == 0.0
 
 
@@ -245,7 +235,6 @@ class TestMediumBug13ConfigurableTolerance:
 
     def test_custom_tolerance(self):
         """Custom tolerance should be respected."""
-        # Create a nearly-closed square (off by 0.5 ft)
         calls = [
             DeedCall(
                 course=1,
@@ -269,15 +258,13 @@ class TestMediumBug13ConfigurableTolerance:
                 course=4,
                 direction_text="West",
                 bearing_azimuth_deg_from_north=270.0,
-                distance_ft=99.5,  # 0.5 ft short
+                distance_ft=99.5,
             ),
         ]
 
-        # With default tolerance (0.01 ft), should fail
         result_strict = ClosureChecker.verify_closure(calls)
         assert result_strict.closure_passed is False
 
-        # With 1.0 ft tolerance, should pass
         result_relaxed = ClosureChecker.verify_closure(calls, closure_tolerance_ft=1.0)
         assert result_relaxed.closure_passed is True
 

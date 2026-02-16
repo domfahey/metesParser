@@ -9,9 +9,8 @@ import pytest
 
 from metesparser.models import DeedCall, Point
 
-# Test tolerance constants
-TOLERANCE_FT = 0.01  # Standard closure tolerance
-TOLERANCE_ANGLE = 0.000001  # Angle comparison tolerance
+TOLERANCE_FT = 0.01
+TOLERANCE_ANGLE = 0.000001
 
 
 def pytest_configure(config):
@@ -24,11 +23,6 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "regression: marks tests as regression tests (bug fixes)")
     config.addinivalue_line("markers", "curve: marks tests related to curve calculations")
     config.addinivalue_line("markers", "validation: marks tests related to input validation")
-
-
-# ============================================================================
-# Factory Fixtures
-# ============================================================================
 
 
 @pytest.fixture
@@ -73,11 +67,6 @@ def point_factory():
         return Point(x=x, y=y)
 
     return _create
-
-
-# ============================================================================
-# Common Shape Fixtures
-# ============================================================================
 
 
 @pytest.fixture
@@ -138,7 +127,6 @@ def pennbrook_18_rectangle(deed_call_factory):
     - Perfect closure (misclosure < 0.01 ft)
     """
     return [
-        # N 33°20' E, 60.00 feet
         deed_call_factory(
             course=1,
             direction_text="N 33°20' E",
@@ -146,7 +134,6 @@ def pennbrook_18_rectangle(deed_call_factory):
             bearing_azimuth_deg_from_north=33.333333,
             distance_ft=60.0,
         ),
-        # S 56°40' W, 125.00 feet
         deed_call_factory(
             course=2,
             direction_text="S 56°40' W",
@@ -154,7 +141,6 @@ def pennbrook_18_rectangle(deed_call_factory):
             bearing_azimuth_deg_from_north=236.666667,
             distance_ft=125.0,
         ),
-        # S 33°20' W, 60.00 feet
         deed_call_factory(
             course=3,
             direction_text="S 33°20' W",
@@ -162,7 +148,6 @@ def pennbrook_18_rectangle(deed_call_factory):
             bearing_azimuth_deg_from_north=213.333333,
             distance_ft=60.0,
         ),
-        # N 56°40' E, 125.00 feet
         deed_call_factory(
             course=4,
             direction_text="N 56°40' E",
@@ -198,14 +183,9 @@ def right_triangle(deed_call_factory):
             course=3,
             direction_text="N 45° W",
             bearing_azimuth_deg_from_north=315.0,
-            distance_ft=math.sqrt(100**2 + 100**2),  # ~141.42 ft
+            distance_ft=math.sqrt(100**2 + 100**2),
         ),
     ]
-
-
-# ============================================================================
-# Curve Fixtures
-# ============================================================================
 
 
 @pytest.fixture
@@ -233,11 +213,6 @@ def curve_90deg_right(deed_call_factory):
     )
 
 
-# ============================================================================
-# Invalid/Edge Case Fixtures
-# ============================================================================
-
-
 @pytest.fixture
 def incomplete_bearing_call(deed_call_factory):
     """Call with incomplete bearing (meander/cardinal-only)."""
@@ -257,13 +232,7 @@ def open_traverse(deed_call_factory):
     return [
         deed_call_factory(course=1, bearing_azimuth_deg_from_north=0.0, distance_ft=100.0),
         deed_call_factory(course=2, bearing_azimuth_deg_from_north=90.0, distance_ft=100.0),
-        # Missing closing calls - will not close
     ]
-
-
-# ============================================================================
-# File/Path Fixtures
-# ============================================================================
 
 
 @pytest.fixture
