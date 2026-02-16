@@ -325,8 +325,13 @@ class BearingConverter:
         else:
             raise ValueError("Must provide either delta_deg or arc_length_ft")
 
-        tangent_length_ft = radius_ft * math.tan(delta_rad / 2)
-        external_distance_ft = radius_ft * (1.0 / math.cos(delta_rad / 2) - 1.0)
+        cos_half = math.cos(delta_rad / 2)
+        if abs(cos_half) < 1e-10:
+            tangent_length_ft = float("inf")
+            external_distance_ft = float("inf")
+        else:
+            tangent_length_ft = radius_ft * math.tan(delta_rad / 2)
+            external_distance_ft = radius_ft * (1.0 / cos_half - 1.0)
         middle_ordinate_ft = radius_ft * (1.0 - math.cos(delta_rad / 2))
 
         return {
@@ -461,6 +466,12 @@ class BearingConverter:
             delta_rad = math.radians(delta_deg)
             radius_ft = chord_length_ft / (2 * math.sin(delta_rad / 2))
         elif arc_length_ft is not None and chord_length_ft is not None:
+            if arc_length_ft <= 0:
+                raise ValueError(f"Arc length must be positive, got {arc_length_ft}")
+            if chord_length_ft >= arc_length_ft:
+                raise ValueError(
+                    f"Chord ({chord_length_ft} ft) must be less than arc ({arc_length_ft} ft)"
+                )
             # Approximate delta from arc/chord ratio
             # For small angles: L/C ≈ delta / (2*sin(delta/2))
             delta_rad = 2 * math.sqrt(6 * (1 - chord_length_ft / arc_length_ft))
@@ -473,8 +484,13 @@ class BearingConverter:
             arc_length_ft = radius_ft * delta_rad  # type: ignore[operator]
         if chord_length_ft is None:
             chord_length_ft = 2 * radius_ft * math.sin(delta_rad / 2)  # type: ignore[operator]
-        tangent_length_ft = radius_ft * math.tan(delta_rad / 2)  # type: ignore[operator]
-        external_distance_ft = radius_ft * (1.0 / math.cos(delta_rad / 2) - 1.0)  # type: ignore[operator]
+        cos_half = math.cos(delta_rad / 2)
+        if abs(cos_half) < 1e-10:
+            tangent_length_ft = float("inf")
+            external_distance_ft = float("inf")
+        else:
+            tangent_length_ft = radius_ft * math.tan(delta_rad / 2)  # type: ignore[operator]
+            external_distance_ft = radius_ft * (1.0 / cos_half - 1.0)  # type: ignore[operator]
         middle_ordinate_ft = radius_ft * (1.0 - math.cos(delta_rad / 2))  # type: ignore[operator]
 
         return {

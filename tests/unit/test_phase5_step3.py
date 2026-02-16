@@ -1,5 +1,7 @@
 """Phase 5 Step 3: Extended Curve Properties (T, E, M) tests."""
 
+import pytest
+
 from metesparser.bearing_converter import BearingConverter
 
 
@@ -45,3 +47,29 @@ class TestExtendedCurveProperties:
         assert "external_distance_ft" in result
         assert "middle_ordinate_ft" in result
         assert abs(result["tangent_length_ft"] - 100.0) < 0.5
+
+    def test_calculate_curve_properties_180_degree_delta_returns_inf(self) -> None:
+        """Delta of 180° makes tangent/external undefined — should return inf."""
+        result = BearingConverter.calculate_curve_properties(100.0, delta_deg=180.0)
+        assert result["tangent_length_ft"] == float("inf")
+        assert result["external_distance_ft"] == float("inf")
+        # Middle ordinate is still valid at 180°: M = R
+        assert abs(result["middle_ordinate_ft"] - 100.0) < 0.01
+
+    def test_calculate_missing_curve_elements_180_degree_delta_returns_inf(self) -> None:
+        result = BearingConverter.calculate_missing_curve_elements(radius_ft=100.0, delta_deg=180.0)
+        assert result["tangent_length_ft"] == float("inf")
+        assert result["external_distance_ft"] == float("inf")
+
+    def test_calculate_missing_curve_elements_rejects_chord_ge_arc(self) -> None:
+        """Chord must be strictly less than arc length."""
+        with pytest.raises(ValueError, match="Chord.*must be less than arc"):
+            BearingConverter.calculate_missing_curve_elements(
+                arc_length_ft=100.0, chord_length_ft=100.0
+            )
+
+    def test_calculate_missing_curve_elements_rejects_zero_arc(self) -> None:
+        with pytest.raises(ValueError, match="Arc length must be positive"):
+            BearingConverter.calculate_missing_curve_elements(
+                arc_length_ft=0.0, chord_length_ft=50.0
+            )
