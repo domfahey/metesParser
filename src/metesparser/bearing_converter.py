@@ -18,6 +18,54 @@ class BearingConverter:
         re.IGNORECASE,
     )
 
+    COMPASS_POINTS: dict[str, float] = {
+        "north": 0.0,
+        "north by east": 11.25,
+        "north-northeast": 22.5,
+        "northeast by north": 33.75,
+        "northeast": 45.0,
+        "northeast by east": 56.25,
+        "east-northeast": 67.5,
+        "east by north": 78.75,
+        "east": 90.0,
+        "east by south": 101.25,
+        "east-southeast": 112.5,
+        "southeast by east": 123.75,
+        "southeast": 135.0,
+        "southeast by south": 146.25,
+        "south-southeast": 157.5,
+        "south by east": 168.75,
+        "south": 180.0,
+        "south by west": 191.25,
+        "south-southwest": 202.5,
+        "southwest by south": 213.75,
+        "southwest": 225.0,
+        "southwest by west": 236.25,
+        "west-southwest": 247.5,
+        "west by south": 258.75,
+        "west": 270.0,
+        "west by north": 281.25,
+        "west-northwest": 292.5,
+        "northwest by west": 303.75,
+        "northwest": 315.0,
+        "northwest by north": 326.25,
+        "north-northwest": 337.5,
+        "north by west": 348.75,
+    }
+
+    @classmethod
+    def compass_point_to_azimuth(cls, compass_point: str) -> float | None:
+        """Convert a 32-point compass direction to azimuth.
+
+        Args:
+            compass_point: Compass point name (e.g., "North by East", "Northeast")
+
+        Returns:
+            Azimuth in degrees or None if not a recognized compass point
+        """
+        normalized = compass_point.strip().lower()
+        return cls.COMPASS_POINTS.get(normalized)
+
     @classmethod
     def parse_packed_dms(cls, value: float) -> float:
         """Convert packed DMS value to decimal degrees.
