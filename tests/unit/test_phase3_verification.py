@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from metesparser.call_extractor import MonumentClassifier
+from metesparser.closure_checker import ClosureChecker
 from metesparser.csv_builder import CSVBuilder
 from metesparser.models import ConversionFactors, DeedCall, LegalDescription
 from metesparser.text_parser import TextParser
@@ -211,3 +212,199 @@ class TestMonumentStatusCSV:
         loaded = CSVBuilder.csv_to_calls(str(output_path))
         assert len(loaded) == 1
         assert loaded[0].monument_status == "found"
+
+
+# ── Step 3: Abbreviation Expansion ─────────────────────────────────────────
+
+
+class TestExpandAbbreviations:
+    """Tests for TextParser.expand_abbreviations()."""
+
+    @pytest.mark.parametrize(
+        "abbrev, expected",
+        [
+            ("IPF", "iron pin found"),
+            ("IPS", "iron pin set"),
+            ("IRF", "iron rod found"),
+            ("IRS", "iron rod set"),
+            ("CIP", "capped iron pin"),
+            ("CMP", "concrete monument placed"),
+            ("R/W", "right-of-way"),
+            ("ROW", "right-of-way"),
+            ("N/F", "now or formerly"),
+            ("PK", "pk nail"),
+        ],
+    )
+    def test_single_abbreviation(self, abbrev: str, expected: str) -> None:
+        result = TextParser.expand_abbreviations(f"to an {abbrev} in concrete")
+        assert expected in result.lower()
+
+    def test_con_mon_f(self) -> None:
+        result = TextParser.expand_abbreviations("to a Con Mon F")
+        assert "concrete monument found" in result.lower()
+
+    def test_case_insensitive(self) -> None:
+        result = TextParser.expand_abbreviations("to an ipf in concrete")
+        assert "iron pin found" in result.lower()
+
+    def test_multiple_abbreviations(self) -> None:
+        result = TextParser.expand_abbreviations("from IPF along R/W to IRS")
+        assert "iron pin found" in result.lower()
+        assert "right-of-way" in result.lower()
+        assert "iron rod set" in result.lower()
+
+    def test_no_abbreviations(self) -> None:
+        text = "along the southerly line to an iron pin"
+        result = TextParser.expand_abbreviations(text)
+        assert result == text
+
+    def test_wired_into_normalize(self) -> None:
+        text = "THENCE S 45° E 100 feet to an IPF"
+        result = TextParser.normalize_legal_description(text)
+        assert "iron pin found" in result.lower()
+
+
+# ── Step 4: Bearing Reversal Check ─────────────────────────────────────────
+
+
+def _make_call(course: int, azimuth: float, distance: float = 100.0) -> DeedCall:
+    """Helper to create a DeedCall with specific azimuth."""
+    return DeedCall(
+        course=course,
+        direction_text=f"bearing {azimuth}",
+        bearing_azimuth_deg_from_north=azimuth,
+        distance_ft=distance,
+    )
+
+
+class TestCheckBearingReversals:
+    """Tests for ClosureChecker.check_bearing_reversals()."""
+
+    def test_exact_180_degree_reversal(self) -> None:
+        calls = [_make_call(1, 45.0), _make_call(2, 225.0)]
+        warnings = ClosureChecker.check_bearing_reversals(calls)
+        assert len(warnings) == 1
+        assert "1" in warnings[0] and "2" in warnings[0]
+
+    def test_within_5_degree_threshold(self) -> None:
+        # 45° and 228° → diff = 183° → within 5° of 180°
+        calls = [_make_call(1, 45.0), _make_call(2, 228.0)]
+        warnings = ClosureChecker.check_bearing_reversals(calls)
+        assert len(warnings) == 1
+
+    def test_outside_threshold_no_warning(self) -> None:
+        # 45° and 235° → diff = 190° → outside 5° threshold
+        calls = [_make_call(1, 45.0), _make_call(2, 235.0)]
+        warnings = ClosureChecker.check_bearing_reversals(calls)
+        assert len(warnings) == 0
+
+    def test_non_adjacent_no_warning(self) -> None:
+        # Only checks adjacent pairs
+        calls = [_make_call(1, 45.0), _make_call(2, 90.0), _make_call(3, 225.0)]
+        warnings = ClosureChecker.check_bearing_reversals(calls)
+        assert len(warnings) == 0
+
+    def test_single_call_no_warning(self) -> None:
+        calls = [_make_call(1, 45.0)]
+        warnings = ClosureChecker.check_bearing_reversals(calls)
+        assert len(warnings) == 0
+
+    def test_none_azimuth_skipped(self) -> None:
+        call_with_none = DeedCall(course=2, direction_text="southwesterly", distance_ft=100.0)
+        calls = [_make_call(1, 45.0), call_with_none, _make_call(3, 225.0)]
+        warnings = ClosureChecker.check_bearing_reversals(calls)
+        assert len(warnings) == 0
+
+    def test_normal_polygon_no_warnings(self) -> None:
+        # Simple square: N, E, S, W (0, 90, 180, 270)
+        calls = [
+            _make_call(1, 0.0),
+            _make_call(2, 90.0),
+            _make_call(3, 180.0),
+            _make_call(4, 270.0),
+        ]
+        warnings = ClosureChecker.check_bearing_reversals(calls)
+        assert len(warnings) == 0
+
+    def test_warning_message_includes_courses(self) -> None:
+        calls = [_make_call(1, 0.0), _make_call(2, 180.0)]
+        warnings = ClosureChecker.check_bearing_reversals(calls)
+        assert len(warnings) == 1
+        assert "reversal" in warnings[0].lower() or "180" in warnings[0]
+
+
+# ── Step 5: Distance Reasonableness Check ──────────────────────────────────
+
+
+class TestCheckDistanceReasonableness:
+    """Tests for ClosureChecker.check_distance_reasonableness()."""
+
+    def test_short_distance_warning(self) -> None:
+        calls = [
+            _make_call(1, 0.0, distance=0.3),
+            _make_call(2, 90.0, distance=100.0),
+            _make_call(3, 180.0, distance=100.0),
+        ]
+        warnings = ClosureChecker.check_distance_reasonableness(calls)
+        assert any("short" in w.lower() for w in warnings)
+
+    def test_long_distance_warning(self) -> None:
+        # Median is ~100, course 3 is 1500 (15x median)
+        calls = [
+            _make_call(1, 0.0, distance=100.0),
+            _make_call(2, 90.0, distance=100.0),
+            _make_call(3, 180.0, distance=1500.0),
+        ]
+        warnings = ClosureChecker.check_distance_reasonableness(calls)
+        assert any("long" in w.lower() or "10x" in w.lower() for w in warnings)
+
+    def test_perimeter_dominance_warning(self) -> None:
+        # Course 1 is 95% of perimeter
+        calls = [
+            _make_call(1, 0.0, distance=950.0),
+            _make_call(2, 90.0, distance=25.0),
+            _make_call(3, 180.0, distance=25.0),
+        ]
+        warnings = ClosureChecker.check_distance_reasonableness(calls)
+        assert any("90%" in w or "perimeter" in w.lower() for w in warnings)
+
+    def test_normal_distances_no_warnings(self) -> None:
+        calls = [
+            _make_call(1, 0.0, distance=100.0),
+            _make_call(2, 90.0, distance=120.0),
+            _make_call(3, 180.0, distance=100.0),
+            _make_call(4, 270.0, distance=120.0),
+        ]
+        warnings = ClosureChecker.check_distance_reasonableness(calls)
+        assert len(warnings) == 0
+
+    def test_single_call_no_warnings(self) -> None:
+        calls = [_make_call(1, 0.0, distance=100.0)]
+        warnings = ClosureChecker.check_distance_reasonableness(calls)
+        assert len(warnings) == 0
+
+    def test_two_calls_works(self) -> None:
+        calls = [
+            _make_call(1, 0.0, distance=100.0),
+            _make_call(2, 90.0, distance=100.0),
+        ]
+        warnings = ClosureChecker.check_distance_reasonableness(calls)
+        assert len(warnings) == 0
+
+    def test_all_same_distance_no_warnings(self) -> None:
+        calls = [
+            _make_call(1, 0.0, distance=100.0),
+            _make_call(2, 90.0, distance=100.0),
+            _make_call(3, 180.0, distance=100.0),
+        ]
+        warnings = ClosureChecker.check_distance_reasonableness(calls)
+        assert len(warnings) == 0
+
+    def test_warning_includes_course_number(self) -> None:
+        calls = [
+            _make_call(1, 0.0, distance=0.1),
+            _make_call(2, 90.0, distance=100.0),
+            _make_call(3, 180.0, distance=100.0),
+        ]
+        warnings = ClosureChecker.check_distance_reasonableness(calls)
+        assert any("1" in w for w in warnings)

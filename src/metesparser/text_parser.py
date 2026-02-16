@@ -455,6 +455,34 @@ class TextParser:
 
         return text
 
+    SURVEY_ABBREVIATIONS: list[tuple[str, str]] = [
+        (r"\bCon\s+Mon\s+F\b", "concrete monument found"),
+        (r"\bIPF\b", "iron pin found"),
+        (r"\bIPS\b", "iron pin set"),
+        (r"\bIRF\b", "iron rod found"),
+        (r"\bIRS\b", "iron rod set"),
+        (r"\bCIP\b", "capped iron pin"),
+        (r"\bCMP\b", "concrete monument placed"),
+        (r"\bR/W\b", "right-of-way"),
+        (r"\bROW\b", "right-of-way"),
+        (r"\bN/F\b", "now or formerly"),
+        (r"\bPK\b", "pk nail"),
+    ]
+
+    @classmethod
+    def expand_abbreviations(cls, text: str) -> str:
+        """Expand common survey abbreviations.
+
+        Args:
+            text: Text with potential abbreviations
+
+        Returns:
+            Text with abbreviations expanded
+        """
+        for pattern, expansion in cls.SURVEY_ABBREVIATIONS:
+            text = re.sub(pattern, expansion, text, flags=re.IGNORECASE)
+        return text
+
     @classmethod
     def normalize_legal_description(cls, text: str) -> str:
         """Apply all normalization steps to a legal description.
@@ -469,6 +497,7 @@ class TextParser:
         text = cls.normalize_dms_symbols(text)
         text = cls.merge_line_wrapped_calls(text)
         text = cls.standardize_cardinal_directions(text)
+        text = cls.expand_abbreviations(text)
 
         return text
 
