@@ -1,0 +1,108 @@
+{
+  "deed_info": {
+    "address": "17 Kings Highway West",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "8494",
+    "page": "812",
+    "parcel_shape": "Trapezoid (non-closing due to distance error in call 2)",
+    "dimensions": "~135 ft x ~87 ft (nominal, but traverse does not close)"
+  },
+  "raw_ocr_text": "EXHIBIT \"A\"\n\nLegal Description of the Property\n\nAll that certain tract or parcel of land and premises situate in the Borough of Haddonfield, County of Camden and the State of New Jersey, bounded and described as follows:\n\nBEGINNING at the Northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n\n(1) North 32 degrees 6 minutes 30 seconds West along the Northeasterly side of Linden Avenue 135 feet to a point; thence\n\n(2) North 57 degrees 53 minutes 30 seconds East parallel with Kings Highway West, 90.72 feet to the line of land now or formerly of William G. Moore; thence\n\n(3) South 33 degrees 9 minutes East partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the Northwesterly line of Kings Highway West; thence\n\n(4) South 57 degrees 53 minutes 30 seconds West along the Northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.\n\nBeing the same lands and premises that The Howard Savings Bank, a New Jersey state chartered savings bank granted and conveyed unto the Covenant Bank For Savings, a New Jersey state chartered savings bank by Deed dated October 21, 1991, and recorded October 21, 1991, in Deed Book DB4524, Page 0015.",
+  "expected_legal_description": "BEGINNING at the Northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n(1) North 32 degrees 6 minutes 30 seconds West along the Northeasterly side of Linden Avenue 135 feet to a point; thence\n(2) North 57 degrees 53 minutes 30 seconds East parallel with Kings Highway West, 90.72 feet to the line of land now or formerly of William G. Moore; thence\n(3) South 33 degrees 9 minutes East partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the Northwesterly line of Kings Highway West; thence\n(4) South 57 degrees 53 minutes 30 seconds West along the Northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.",
+  "expected_normalized_text": "BEGINNING at the northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n(1) N 32\u00b006'30\" W along the northeasterly side of Linden Avenue 135 feet to a point; thence\n(2) N 57\u00b053'30\" E parallel with Kings Highway West, 90.72 feet to the line of land now or formerly of William G. Moore; thence\n(3) S 33\u00b009' E partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the northwesterly line of Kings Highway West; thence\n(4) S 57\u00b053'30\" W along the northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.",
+  "expected_pob": "the Northerly corner of Kings Highway and Linden Avenue (50 feet wide)",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 32\u00b006'30\" W",
+      "bearing_quadrant": "N 32\u00b006'30\" W",
+      "bearing_azimuth_deg_from_north": 327.891667,
+      "distance_ft": 135.0,
+      "along": "the Northeasterly side of Linden Avenue",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "N 57\u00b053'30\" E",
+      "bearing_quadrant": "N 57\u00b053'30\" E",
+      "bearing_azimuth_deg_from_north": 57.891667,
+      "distance_ft": 90.72,
+      "along": "parallel with Kings Highway West",
+      "to": "the line of land now or formerly of William G. Moore",
+      "notes": "distance error - should be 80.72 ft per corrective deeds (Book 8658 Page 1822 and Book 10394 Page 9)"
+    },
+    {
+      "course": 3,
+      "direction_text": "S 33\u00b009' E",
+      "bearing_quadrant": "S 33\u00b009' E",
+      "bearing_azimuth_deg_from_north": 146.85,
+      "distance_ft": 135.02,
+      "along": "partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey",
+      "to": "the Northwesterly line of Kings Highway West",
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "S 57\u00b053'30\" W",
+      "bearing_quadrant": "S 57\u00b053'30\" W",
+      "bearing_azimuth_deg_from_north": 237.891667,
+      "distance_ft": 83.17,
+      "along": "the Northwesterly line of Kings Highway West",
+      "to": "the place of beginning",
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 10.0046,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": 12412.78,
+    "area_acres": 0.285,
+    "perimeter_ft": 443.91,
+    "closure_passed": false
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    },
+    "erroneous_distance_call_2": {
+      "expected": 90.72,
+      "operator": "==",
+      "description": "Call 2 distance MUST be 90.72 ft as written in this deed (known error, later corrected)"
+    },
+    "traverse_does_not_close": {
+      "expected": false,
+      "tolerance_ft": 0.01,
+      "description": "Traverse MUST NOT close - misclosure should be ~10 ft due to the 10 ft distance error in call 2"
+    },
+    "call_3_no_seconds": {
+      "expected": true,
+      "description": "Call 3 bearing has no seconds (S 33 deg 09 min E) - parser must handle DMS with missing seconds"
+    },
+    "prior_conveyance_present": {
+      "expected": true,
+      "description": "Deed references prior conveyance: Howard Savings Bank to Covenant Bank, Deed Book DB4524 Page 0015"
+    }
+  },
+  "common_failure_modes": [
+    {
+      "symptom": "Traverse does not close (~10 ft misclosure)",
+      "cause": "This is EXPECTED behavior - the deed contains a known distance error in call 2 (90.72 ft instead of correct 80.72 ft)",
+      "fix": "No fix needed - the parser correctly identifies the non-closure. Corrective deeds 8658-1822 and 10394-9 fix this error."
+    },
+    {
+      "symptom": "Call 3 bearing parsed as S 33d09m30s E instead of S 33d09m E",
+      "cause": "Parser may infer 30 seconds from neighboring calls or default to 30s",
+      "fix": "Parser must not fabricate seconds - S 33 degrees 9 minutes East has zero seconds"
+    },
+    {
+      "symptom": "Tax map reference parsed as Block 9.01 Lot 134 (swapped)",
+      "cause": "Original deed text has 'Block No. 9.01, Lot No. 134' which appears to have block/lot swapped vs other deeds for same property (Block 134, Lot 9.01)",
+      "fix": "Parser should extract as written; cross-referencing with other deeds in chain of title would catch the swap"
+    }
+  ],
+  "notes": "2006 Original Deed (Wachovia Bank to First States Investors 3613 LLC) for $517,500. This deed contains a KNOWN distance error in call 2: 90.72 ft instead of the correct 80.72 ft. This error was identified and corrected by two subsequent corrective deeds: Book 8658 Page 1822 (2007) and Book 10394 Page 9 (2016). The ~10 ft misclosure is entirely explained by the 10 ft overstatement in call 2 (90.72 - 80.72 = 10.00 ft). Same property and legal description as deeds 8658-1822, 8673-1087, and 10394-9. Tax map reference in this deed appears to have Block/Lot swapped (says Block 9.01 Lot 134 instead of Block 134 Lot 9.01). Prior conveyance chain: Howard Savings Bank -> Covenant Bank For Savings -> Wachovia Bank (by merger)."
+}

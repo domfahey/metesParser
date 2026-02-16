@@ -1,0 +1,114 @@
+{
+  "deed_info": {
+    "address": "16 Washington Avenue",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "7501",
+    "page": "1265",
+    "parcel_shape": "irregular polygon (7-sided)",
+    "dimensions": "Lot 12.08, Block 76 (Willits Court subdivision)",
+    "lot": "12.08",
+    "block": "76",
+    "date": "June 17, 2004",
+    "grantor": "Select Real Estate, LLC",
+    "grantee": "Clyde J. Donohugh and Lyn M. Donohugh",
+    "consideration": "$419,900.00"
+  },
+  "raw_ocr_text": "ALL that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden and State of New Jersey being more particularly described in accordance with a survey prepared by Bach Associates, PC, dated 6/16/04 as follows:\n\nBeginning at a point in the Northeasterly line of Lot 10, Block 76 where intersected by the Southerly line of Lot 12.08, Block 76 as shown on Plan hereinafter mentioned, said point being North 32 degrees 22 minutes 35 seconds West, 121.22 feet from the intersection of the said Northeasterly line of Lot 10 with the Southerly line of Lot 12.13, Block 76, said point also being the point of intersection of Lots 12.08, 10 and 11 and running; thence\n\n(1) Along the division line of Lots 11 and 12.08, Block 76, North 12 degrees 00 minutes 41 seconds East, 31.69 feet to a point in the division line between Lots 12.08 and 11.01 on Plan hereinafter mentioned; thence\n\n(2) Along said division line, North 61 degrees 15 minutes 26 seconds East, 58.57 feet to a point; thence\n\n(3) Still along said division line, North 28 degrees 44 minutes 34 seconds West, 13.35 feet to a point; thence\n\n(4) Still along said division line, North 61 degrees 15 minutes 26 seconds East, 8.54 feet to a point in the division line of Lots 12.08 and 12.02 as shown on Plan hereinafter mentioned; thence\n\n(5) Along said division line and the division line of Lots 12.08 and 12.03, South 28 degrees 36 minutes 51 seconds East, 37.10 feet to a point in the division line between Lots 12.08 and 12.09 as shown on Plan hereinafter mentioned; thence\n\n(6) Along said division line, South 61 degrees 11 minutes 33 seconds West, 57.39 feet to a point; thence\n\n(7) South 60 degrees 54 minutes 43 seconds West, 30.33 feet to the point and place of beginning.",
+  "expected_legal_description": "Beginning at a point in the Northeasterly line of Lot 10, Block 76 where intersected by the Southerly line of Lot 12.08, Block 76; thence (1) through (7) to the point and place of beginning.",
+  "expected_normalized_text": "Beginning at a point in the Northeasterly line of Lot 10, Block 76 where intersected by the Southerly line of Lot 12.08, Block 76 as shown on Plan hereinafter mentioned, said point being North 32 degrees 22 minutes 35 seconds West, 121.22 feet from the intersection of the said Northeasterly line of Lot 10 with the Southerly line of Lot 12.13, Block 76",
+  "expected_pob": "a point in the Northeasterly line of Lot 10, Block 76 where intersected by the Southerly line of Lot 12.08, Block 76",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 12 degrees 00 minutes 41 seconds E",
+      "bearing_quadrant": "N 12\u00b000'41\" E",
+      "bearing_azimuth_deg_from_north": 12.0114,
+      "distance_ft": 31.69,
+      "along": "division line of Lots 11 and 12.08, Block 76",
+      "to": "a point in the division line between Lots 12.08 and 11.01",
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "N 61 degrees 15 minutes 26 seconds E",
+      "bearing_quadrant": "N 61\u00b015'26\" E",
+      "bearing_azimuth_deg_from_north": 61.2572,
+      "distance_ft": 58.57,
+      "along": "said division line",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "N 28 degrees 44 minutes 34 seconds W",
+      "bearing_quadrant": "N 28\u00b044'34\" W",
+      "bearing_azimuth_deg_from_north": 331.2572,
+      "distance_ft": 13.35,
+      "along": "said division line",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "N 61 degrees 15 minutes 26 seconds E",
+      "bearing_quadrant": "N 61\u00b015'26\" E",
+      "bearing_azimuth_deg_from_north": 61.2572,
+      "distance_ft": 8.54,
+      "along": "said division line",
+      "to": "a point in the division line of Lots 12.08 and 12.02",
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "S 28 degrees 36 minutes 51 seconds E",
+      "bearing_quadrant": "S 28\u00b036'51\" E",
+      "bearing_azimuth_deg_from_north": 151.3858,
+      "distance_ft": 37.1,
+      "along": "said division line and the division line of Lots 12.08 and 12.03",
+      "to": "a point in the division line between Lots 12.08 and 12.09",
+      "notes": null
+    },
+    {
+      "course": 6,
+      "direction_text": "S 61 degrees 11 minutes 33 seconds W",
+      "bearing_quadrant": "S 61\u00b011'33\" W",
+      "bearing_azimuth_deg_from_north": 241.1925,
+      "distance_ft": 57.39,
+      "along": "said division line",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 7,
+      "direction_text": "S 60 degrees 54 minutes 43 seconds W",
+      "bearing_quadrant": "S 60\u00b054'43\" W",
+      "bearing_azimuth_deg_from_north": 240.9119,
+      "distance_ft": 30.33,
+      "along": null,
+      "to": "the point and place of beginning",
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0096,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": 1956.06,
+    "area_acres": 0.0449,
+    "perimeter_ft": 236.97,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "total_calls": 7,
+    "is_willits_court_lot": true,
+    "lot_number": "12.08",
+    "has_jog_in_boundary": true,
+    "note": "Lot 12.08 is the corner lot at the junction of the old Lot 11 boundary and the Willits Court lots. The jog at calls 2-3-4 follows the notch in the 11.01 lot line."
+  },
+  "common_failure_modes": [
+    "Seven-sided lot is unusual for a subdivision - may confuse parsers expecting 4-sided lots",
+    "Calls 2 and 4 share the same bearing (N 61d15'26\" E) but different distances",
+    "Call 7 has no 'along' description"
+  ],
+  "notes": "Lot 12.08 is at the back (southwest) end of the Willits Court development, at the three-way junction of Lots 10, 11, and 12.08. Its unusual 7-sided shape results from the notch created by the Lot 11/11.01 division line."
+}

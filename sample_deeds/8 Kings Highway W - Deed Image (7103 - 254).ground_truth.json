@@ -1,0 +1,83 @@
+{
+  "deed_info": {
+    "address": "8 Kings Highway West",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "7103",
+    "page": "254",
+    "parcel_shape": "irregular quadrilateral",
+    "dimensions": "Tract Two - Lot 11, Block 76 (frontage on Kings Highway West)",
+    "lot": "11",
+    "block": "76",
+    "date": "June 19, 2003",
+    "grantor": "MSSK, LLC",
+    "grantee": "12 Kings Highway, LLC",
+    "consideration": "$250,000.00"
+  },
+  "raw_ocr_text": "Land and premises situate in the Borough of Haddonfield, County of Camden, State of New Jersey being more particularly bounded and described as follows:\n\nTRACT TWO\nBeginning at a point in the Southeasterly line of Kings Highway West, also known as Main Street (66.00 feet wide), said point being South 59 degrees 02 minutes 00 seconds West, a distance of 163.90 feet to a point in the division line between Lots 11 and 11.01, Block 76 on the current tax map of the Borough of Haddonfield; thence\n\n(1) South 32 degrees 22 minutes 35 seconds East along the aforementioned division line between Lots 11 and 11.01, Block 76 a distance of 164.01 feet to a point; thence\n\n(2) South 12 degrees 00 minutes 41 seconds West, a distance of 31.69 feet to a point in the line of Lot 10, Block 76; thence\n\n(3) North 32 degrees 22 minutes 35 seconds West along the division line between Lots 10 and 11, Block 76, a distance of 187.20 feet to a point in the Southeasterly line of Kings Highway West; thence\n\n(4) North 59 degrees 02 minutes 00 seconds East along the Southeasterly line of Kings Highway West, a distance of 22.17 feet to the point and place of beginning.",
+  "expected_legal_description": "TRACT TWO: Beginning at a point in the Southeasterly line of Kings Highway West, also known as Main Street (66.00 feet wide), said point being South 59 degrees 02 minutes 00 seconds West, a distance of 163.90 feet to a point in the division line between Lots 11 and 11.01, Block 76; thence (1) through (4) to the point and place of beginning.",
+  "expected_normalized_text": "Beginning at a point in the Southeasterly line of Kings Highway West, also known as Main Street (66.00 feet wide), said point being South 59 degrees 02 minutes 00 seconds West, a distance of 163.90 feet to a point in the division line between Lots 11 and 11.01, Block 76",
+  "expected_pob": "a point in the Southeasterly line of Kings Highway West, also known as Main Street (66.00 feet wide), said point being South 59 degrees 02 minutes 00 seconds West, a distance of 163.90 feet",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 32 degrees 22 minutes 35 seconds E",
+      "bearing_quadrant": "S 32\u00b022'35\" E",
+      "bearing_azimuth_deg_from_north": 147.6236,
+      "distance_ft": 164.01,
+      "along": "division line between Lots 11 and 11.01, Block 76",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "S 12 degrees 00 minutes 41 seconds W",
+      "bearing_quadrant": "S 12\u00b000'41\" W",
+      "bearing_azimuth_deg_from_north": 192.0114,
+      "distance_ft": 31.69,
+      "along": null,
+      "to": "a point in the line of Lot 10, Block 76",
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "N 32 degrees 22 minutes 35 seconds W",
+      "bearing_quadrant": "N 32\u00b022'35\" W",
+      "bearing_azimuth_deg_from_north": 327.6236,
+      "distance_ft": 187.2,
+      "along": "division line between Lots 10 and 11, Block 76",
+      "to": "a point in the Southeasterly line of Kings Highway West",
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "N 59 degrees 02 minutes 00 seconds E",
+      "bearing_quadrant": "N 59\u00b002'00\" E",
+      "bearing_azimuth_deg_from_north": 59.0333,
+      "distance_ft": 22.17,
+      "along": "Southeasterly line of Kings Highway West",
+      "to": "the point and place of beginning",
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0046,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": 3892.73,
+    "area_acres": 0.0894,
+    "perimeter_ft": 405.07,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "total_calls": 4,
+    "parcel_is_tract_two": true,
+    "frontage_on_kings_highway": true,
+    "narrow_lot_along_kings_highway": true,
+    "note": "This is the narrow strip lot (22.17 ft frontage on Kings Highway) that was the old Lot 11. It extends ~164-187 ft deep behind the main 8 Kings Highway building."
+  },
+  "common_failure_modes": [
+    "POB description uses 'S 59d02m W, a distance of 163.90 feet' which is a reference bearing to locate the POB, not a call",
+    "Call (2) has no 'along' description - just a bearing and distance"
+  ],
+  "notes": "Tract Two (Lot 11) was transferred from MSSK LLC to 12 Kings Highway LLC. This is the Kings Highway frontage portion of the original 8 Kings Highway property. Narrow irregular quadrilateral shape with 22.17 ft frontage on Kings Highway and ~164-187 ft depth."
+}

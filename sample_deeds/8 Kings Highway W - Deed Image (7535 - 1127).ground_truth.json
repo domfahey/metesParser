@@ -1,0 +1,82 @@
+{
+  "deed_info": {
+    "address": "12 Washington Avenue",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "7535",
+    "page": "1127",
+    "parcel_shape": "approximate parallelogram",
+    "dimensions": "Lot 12.10, Block 76 (Willits Court subdivision)",
+    "lot": "12.10",
+    "block": "76",
+    "date": "July 1, 2004",
+    "grantor": "Select Real Estate, LLC",
+    "grantee": "Dorothy P. O'Donnell",
+    "consideration": "$409,999.00"
+  },
+  "raw_ocr_text": "ALL that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden and State of New Jersey being more particularly described in accordance with a survey prepared by Back Associates, PC, dated 6/1/04, as follows:\n\nBeginning at a point in the Northeasterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12.10, Block 76, said point being North 32 degrees 22 minutes 35 seconds West, 81.33 feet from the intersection of Northeasterly line of Lot 10 with the Southerly line of Lot 12.13, Block 76 as shown on Plan hereinafter mentioned; thence\n\n(1) Along said division line, North 32 degrees 22 minutes 34 seconds West, 20.01 feet to a point in the division line of Lots 12.10 and 12.09 as shown on Plan hereinafter mentioned; thence\n\n(2) Along said division line, North 61 degrees 11 minutes 34 seconds East, 86.41 feet to a point in the Southwesterly line of Lot 12.04, Block 76; thence\n\n(3) Along said Southwesterly line of Lot 12.04 and along the Southwesterly line of Lot 12.05 as shown on Plan hereinafter mentioned; thence South 28 degrees 36 minutes 51 seconds East, 19.98 feet to a point in the division line of Lots 12.10 and 12.11 as shown on Plan hereinafter mentioned; thence\n\n(4) Along said division line, South 61 degrees 11 minutes 34 seconds West, 85.10 feet to the point and place of beginning.",
+  "expected_legal_description": "Beginning at a point in the Northeasterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12.10, Block 76; thence (1) through (4) to the point and place of beginning.",
+  "expected_normalized_text": "Beginning at a point in the Northeasterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12.10, Block 76, said point being North 32 degrees 22 minutes 35 seconds West, 81.33 feet from the intersection of Northeasterly line of Lot 10 with the Southerly line of Lot 12.13, Block 76",
+  "expected_pob": "a point in the Northeasterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12.10, Block 76",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 32 degrees 22 minutes 34 seconds W",
+      "bearing_quadrant": "N 32\u00b022'34\" W",
+      "bearing_azimuth_deg_from_north": 327.6239,
+      "distance_ft": 20.01,
+      "along": "said division line",
+      "to": "a point in the division line of Lots 12.10 and 12.09",
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "N 61 degrees 11 minutes 34 seconds E",
+      "bearing_quadrant": "N 61\u00b011'34\" E",
+      "bearing_azimuth_deg_from_north": 61.1928,
+      "distance_ft": 86.41,
+      "along": "said division line",
+      "to": "a point in the Southwesterly line of Lot 12.04, Block 76",
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "S 28 degrees 36 minutes 51 seconds E",
+      "bearing_quadrant": "S 28\u00b036'51\" E",
+      "bearing_azimuth_deg_from_north": 151.3858,
+      "distance_ft": 19.98,
+      "along": "Southwesterly line of Lot 12.04 and along the Southwesterly line of Lot 12.05",
+      "to": "a point in the division line of Lots 12.10 and 12.11",
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "S 61 degrees 11 minutes 34 seconds W",
+      "bearing_quadrant": "S 61\u00b011'34\" W",
+      "bearing_azimuth_deg_from_north": 241.1928,
+      "distance_ft": 85.1,
+      "along": "said division line",
+      "to": "the point and place of beginning",
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0092,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": 1712.97,
+    "area_acres": 0.0393,
+    "perimeter_ft": 211.5,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "total_calls": 4,
+    "is_willits_court_lot": true,
+    "lot_number": "12.10",
+    "note": "Original sale of Lot 12.10 from Select Real Estate to O'Donnell. Uses 34\" seconds in bearings. Same lot later resold in deed 7609-137 which uses 33\" and 35\" seconds."
+  },
+  "common_failure_modes": [
+    "Call (3) has unusual structure: 'along...Lot 12.05 as shown on Plan hereinafter mentioned; thence South...' - the semicolon/thence may confuse parsers",
+    "Bearing seconds (34\") differ from resale deed 7609-137 (33\"/35\") for same lot"
+  ],
+  "notes": "Lot 12.10 is an interior lot in Willits Court. First sold to Dorothy O'Donnell, who resold it the same year (deed 7609-137). The resurvey for the resale used slightly different bearing seconds (33\"/35\" vs 34\")."
+}

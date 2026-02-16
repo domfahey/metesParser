@@ -1,0 +1,133 @@
+{
+  "deed_info": {
+    "address": "38 Birchall Drive",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "12673",
+    "page": "00546",
+    "parcel_shape": "Near-rectangle (interior angles 89\u00b052' and 90\u00b008')",
+    "dimensions": "95 ft \u00d7 ~112.85 ft (avg)"
+  },
+  "raw_ocr_text": "ALL THAT certain tract or parcel of land and premises lying, being and situate in Haddonfield Borough, Camden County, and State of New Jersey being more particularly described as follows:\n\nBEGINNING at a point in the Westerly line of Birchall Drive distant 576.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet, said beginning point being in the division line between Lots 6 and 7 on the plan hereinafter mentioned; thence:\n\n(1) Northwardly along the Westerly line of Birchall Drive 95 feet to a point in the division line between Lots 7 and 8; thence\n\n(2) Westerly along said division line at right angles to Birchall Drive 112.96 feet to a point in the Westerly boundary line of said plan; thence\n\n(3) Southwardly along said boundary line forming an interior angle of 89 degrees 52 minutes with the last course the distance of 95 feet to a point in the aforementioned division line between Lots 6 and 7; thence\n\n(4) Eastwardly along said last mentioned division line forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive 112.74 feet to the place of BEGINNING.\n\nBEING Lot 7 on Plan of Country Club Estates, made by Walter H. Macnamara C.E., dated December 1956 revised January 14, 1957.\n\nFOR INFORMATIONAL PURPOSES ONLY:\nBEING premises No. 38 Birchall Drive.\n\nBEING Tax Block 91.11, Lot 33 on the Official Tax Map of the Borough of Haddonfield.",
+  "expected_legal_description": "BEGINNING at a point in the Westerly line of Birchall Drive distant 576.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet, said beginning point being in the division line between Lots 6 and 7 on the plan hereinafter mentioned; thence:\n(1) Northwardly along the Westerly line of Birchall Drive 95 feet to a point in the division line between Lots 7 and 8; thence\n(2) Westerly along said division line at right angles to Birchall Drive 112.96 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle of 89 degrees 52 minutes with the last course the distance of 95 feet to a point in the aforementioned division line between Lots 6 and 7; thence\n(4) Eastwardly along said last mentioned division line forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive 112.74 feet to the place of BEGINNING.",
+  "expected_normalized_text": null,
+  "expected_poc": null,
+  "expected_pob": "a point in the Westerly line of Birchall Drive distant 576.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet, said beginning point being in the division line between Lots 6 and 7",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "Northwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 95.0,
+      "along": "the Westerly line of Birchall Drive",
+      "to": "a point in the division line between Lots 7 and 8",
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 2,
+      "direction_text": "Westerly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 112.96,
+      "along": "said division line at right angles to Birchall Drive",
+      "to": "a point in the Westerly boundary line of said plan",
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 3,
+      "direction_text": "Southwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 95.0,
+      "along": "said boundary line",
+      "to": "a point in the aforementioned division line between Lots 6 and 7",
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 4,
+      "direction_text": "Eastwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 112.74,
+      "along": "said last mentioned division line",
+      "to": "the place of BEGINNING",
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": null,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": 415.7,
+    "closure_passed": false,
+    "closure_notes": "Cannot compute closure \u2014 all 4 calls have cardinal-only bearings. Interior angles (89\u00b052' and 90\u00b008') suggest near-rectangular parcel ~95 \u00d7 112.85 ft \u2248 10,720 sq ft."
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    },
+    "all_cardinal_only": {
+      "expected": true,
+      "description": "All 4 calls MUST have null azimuth; parser must NEVER fabricate numerical bearings for cardinal-only directions"
+    },
+    "parenthesized_format_preserved": {
+      "expected": true,
+      "description": "MUST preserve parenthesized format ((1), (2), (3), (4)) - each on separate line"
+    },
+    "calls_not_merged": {
+      "expected": true,
+      "description": "MUST NOT merge all calls into call #1 or #2's along field"
+    },
+    "traverse_closes": {
+      "expected": false,
+      "description": "Traverse CANNOT close because all bearings are cardinal-only (no azimuths = no dx/dy)"
+    }
+  },
+  "common_failure_modes": [
+    {
+      "symptom": "Non-null azimuth values on cardinal-only calls",
+      "cause": "Parser fabricating numerical bearings for 'Northwardly', 'Westerly', etc.",
+      "fix": "Cardinal-only directions must always yield null bearing_quadrant and null bearing_azimuth_deg_from_north"
+    },
+    {
+      "symptom": "Only 1-2 calls extracted instead of 4",
+      "cause": "LLM not preserving line breaks between parenthesized numbered calls",
+      "fix": "Strengthen prompts with explicit line break preservation examples for (1), (2), (3), (4) format"
+    },
+    {
+      "symptom": "Interior angle text merged into along/to fields incorrectly",
+      "cause": "Parser treating 'forming an interior angle of 89 degrees 52 minutes with the last course' as part of direction",
+      "fix": "Interior angle clauses should be parsed separately or noted, not confused with bearing data"
+    },
+    {
+      "symptom": "Distance 'the distance of 95 feet' not parsed correctly for course 3",
+      "cause": "Prefix 'the distance of' before the number confusing distance extractor",
+      "fix": "Distance regex should handle optional 'the distance of' prefix"
+    }
+  ],
+  "notes": "This is the newest deed in the chain of title for 38 Birchall Dr (Lot 7, Block 91.11/Lot 33). Same legal description as book 12100/pg 503 and book 10054/pg 595. Plan of Country Club Estates by Walter H. Macnamara C.E. (Dec 1956, rev Jan 14 1957). All bearings are cardinal-only \u2014 the deed uses 'Northwardly', 'Westerly', 'Southwardly', 'Eastwardly' with interior angles specified but no precise DMS bearings."
+}

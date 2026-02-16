@@ -1,0 +1,133 @@
+{
+  "deed_info": {
+    "address": "26 Chews Landing Road",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "8566",
+    "page": "209",
+    "parcel_shape": "Irregular 5-sided polygon",
+    "dimensions": "~301 ft x 121 ft x 177 ft x 281 ft x 59 ft"
+  },
+  "raw_ocr_text": "LAND AND PREMISES situate in the Borough of Haddonfield, County of Camden and State of New Jersey as follows:\n\nBEGINNING at a point in the Southeasterly line of Kings Highway West distant 80.00 feet Southwesterly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to lands of the Borough of Haddonfield; thence\n\n(1) South 54 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings Highway West, 300.55 feet to a point; thence\n\n(2) South 25 degrees 37 minutes 35 seconds East at right angles to Kings Highway West 120.68 feet to corner to other lands of John J. Litz and Caroline, His Wife; thence\n\n(3) South 68 degrees 39 minutes 05 seconds East along said land of Litz, at right angles to Chews Landing Road, 177.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n\n(4) North 21 degrees 20 minutes 55 seconds East along the Northwesterly line of Chews Landing Road, 280.55 feet to corner to said lands of the Borough of Haddonfield; thence\n\n(5) North 47 degrees 08 minutes 20 seconds West along said land of the Borough of Haddonfield, 58.67 feet to the point and place of BEGINNING.\n\nBEING DESCRIBED in accordance with a survey made by Richard S. Humphries, P.L.S., dated April 20, 2007.",
+  "expected_legal_description": "BEGINNING at a point in the Southeasterly line of Kings Highway West distant 80.00 feet Southwesterly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to lands of the Borough of Haddonfield; thence\n(1) South 54 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings Highway West, 300.55 feet to a point; thence\n(2) South 25 degrees 37 minutes 35 seconds East at right angles to Kings Highway West 120.68 feet to corner to other lands of John J. Litz and Caroline, His Wife; thence\n(3) South 68 degrees 39 minutes 05 seconds East along said land of Litz, at right angles to Chews Landing Road, 177.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n(4) North 21 degrees 20 minutes 55 seconds East along the Northwesterly line of Chews Landing Road, 280.55 feet to corner to said lands of the Borough of Haddonfield; thence\n(5) North 47 degrees 08 minutes 20 seconds West along said land of the Borough of Haddonfield, 58.67 feet to the point and place of BEGINNING.",
+  "expected_normalized_text": null,
+  "expected_pob": "a point in the Southeasterly line of Kings Highway West distant 80.00 feet Southwesterly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to lands of the Borough of Haddonfield",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "South 54 degrees 22 minutes 25 seconds West",
+      "bearing_quadrant": "S 54\u00b022'25\" W",
+      "bearing_azimuth_deg_from_north": 234.3736,
+      "distance_ft": 300.55,
+      "along": "the Southeasterly line of Kings Highway West",
+      "to": "a point",
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "South 25 degrees 37 minutes 35 seconds East",
+      "bearing_quadrant": "S 25\u00b037'35\" E",
+      "bearing_azimuth_deg_from_north": 154.3736,
+      "distance_ft": 120.68,
+      "along": "at right angles to Kings Highway West",
+      "to": "corner to other lands of John J. Litz and Caroline, His Wife",
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "South 68 degrees 39 minutes 05 seconds East",
+      "bearing_quadrant": "S 68\u00b039'05\" E",
+      "bearing_azimuth_deg_from_north": 111.3486,
+      "distance_ft": 177.43,
+      "along": "said land of Litz, at right angles to Chews Landing Road",
+      "to": "a point in the Northwesterly line of said Chews Landing Road",
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "monument_type": null,
+      "notes": "Distance is 177.43 ft - differs from 171.43 ft in companion deed 8566/200. Likely OCR error or transcription variant."
+    },
+    {
+      "course": 4,
+      "direction_text": "North 21 degrees 20 minutes 55 seconds East",
+      "bearing_quadrant": "N 21\u00b020'55\" E",
+      "bearing_azimuth_deg_from_north": 21.3486,
+      "distance_ft": 280.55,
+      "along": "the Northwesterly line of Chews Landing Road",
+      "to": "corner to said lands of the Borough of Haddonfield",
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "North 47 degrees 08 minutes 20 seconds West",
+      "bearing_quadrant": "N 47\u00b008'20\" W",
+      "bearing_azimuth_deg_from_north": 312.8611,
+      "distance_ft": 58.67,
+      "along": "said land of the Borough of Haddonfield",
+      "to": "the point and place of BEGINNING",
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 57.2336,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": 61807.41,
+    "area_acres": 1.4189,
+    "perimeter_ft": 937.88,
+    "closure_passed": false,
+    "closure_notes": "Significant misclosure (57 ft). Nearly identical to 8566/200 except call 3 distance is 177.43 ft instead of 171.43 ft (6 ft difference, possibly OCR misread of '1' vs '7' in the tens digit). This increases the misclosure from 52.39 ft (8566/200 version) to 57.23 ft. Same surveyor reference (Humphries P.L.S.)."
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 5,
+      "operator": "==",
+      "description": "MUST extract exactly 5 calls"
+    },
+    "call_3_distance": {
+      "expected": 177.43,
+      "description": "Call 3 distance must be 177.43 ft as written in THIS deed (not 171.43 as in 8566/200)"
+    },
+    "call_3_distance_discrepancy": {
+      "expected": true,
+      "description": "This deed shows 177.43 ft on call 3 while companion deed 8566/200 shows 171.43 ft - parser must faithfully reproduce what is in each deed"
+    },
+    "traverse_closes": {
+      "expected": false,
+      "description": "Traverse does NOT close - 57 ft misclosure"
+    }
+  },
+  "common_failure_modes": [
+    {
+      "symptom": "177.43 read as 171.43 or vice versa",
+      "cause": "OCR confusion between 1 and 7 in the tens digit of call 3 distance",
+      "fix": "This is likely an OCR error in the original scan. The companion deed 8566/200 and later deed 9701/296 both use 171.43, suggesting 177.43 may be an OCR artifact. However, ground truth should reflect what the OCR actually extracted from this specific deed."
+    },
+    {
+      "symptom": "Legal description on Exhibit A page not extracted",
+      "cause": "Same structure as 8566/200 - legal description is on Schedule C (Exhibit A), not main deed body",
+      "fix": "Parser must process all pages of multi-page deeds"
+    }
+  ],
+  "notes": "Chain-of-title deed for 26 Chews Landing Rd. Grantor: Sirva Relocation, LLC. Grantee: Christopher Poyatt. Dated April 11, 2007, delivered April 27, 2007. Consideration: $1,100,000.00. Block 79.01, Lot 6. Uses same surveyed description as 8566/200 (Humphries P.L.S., April 20, 2007) EXCEPT call 3 shows 177.43 ft instead of 171.43 ft - likely an OCR misread since the same survey produced both descriptions. This deed transfers from the relocation company to the new buyer (Poyatt). Prior conveyance from Furtkevic/Lynch parties."
+}

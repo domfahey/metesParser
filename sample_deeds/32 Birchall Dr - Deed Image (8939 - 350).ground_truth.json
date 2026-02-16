@@ -1,0 +1,79 @@
+{
+  "deed_info": {
+    "address": "32 Birchall Drive",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "8939",
+    "page": "350",
+    "parcel_shape": "Near-rectangle",
+    "dimensions": "90 ft x ~112.64 ft"
+  },
+  "raw_ocr_text": "ALL THAT CERTAIN tract or parcel of land and premises lying, being and situate in the Borough of Haddonfield, County of Camden, and State of New Jersey being more particularly described as follows:\n\nBEGINNING at a point in the Westerly line of Birchall Drive, distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of King's Highway said connecting curve having a radius of 75 feet; thence\n\nBEING part of Lot 6 on Plan of County Club Estates, made by Walter H. Macnamara, C.E., dated December 1956, revised January 4, 1957.\n\nFOR INFORMATION ONLY: BEING known and designated as Block 91.11, Lot 32 on the Official Tax Map of the Borough of Haddonfield.\n\nCOMMONLY known as 32 Birchall Drive.",
+  "expected_legal_description": "BEGINNING at a point in the Westerly line of Birchall Drive, distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of King's Highway said connecting curve having a radius of 75 feet; thence",
+  "expected_normalized_text": null,
+  "expected_pob": "a point in the Westerly line of Birchall Drive, distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of King's Highway, said connecting curve having a radius of 75 feet",
+  "expected_poc": null,
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "Northwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 90.0,
+      "along": "Westerly line of Birchall Drive",
+      "to": null,
+      "notes": "incomplete bearing - cardinal only; not extractable from this OCR text"
+    },
+    {
+      "course": 2,
+      "direction_text": "Westwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 112.74,
+      "along": "division line",
+      "to": null,
+      "notes": "incomplete bearing - cardinal only; not extractable from this OCR text"
+    },
+    {
+      "course": 3,
+      "direction_text": "Southwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 90.0,
+      "along": "boundary line",
+      "to": null,
+      "notes": "incomplete bearing - cardinal only; not extractable from this OCR text"
+    },
+    {
+      "course": 4,
+      "direction_text": "Eastwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 112.53,
+      "along": null,
+      "to": "the point and place of beginning",
+      "notes": "incomplete bearing - cardinal only; not extractable from this OCR text"
+    }
+  ],
+  "expected_closure": {},
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "actual_extracted": 0,
+      "operator": "==",
+      "description": "Deed contains 4 calls, but actual extraction yields 0 due to OCR failure"
+    },
+    "ocr_extraction_fails": {
+      "expected": true,
+      "description": "LLM OCR cannot read the call details from this scanned PDF"
+    }
+  },
+  "common_failure_modes": [
+    {
+      "symptom": "0 calls extracted from PDF",
+      "cause": "Scanned PDF quality too poor; LLM skips from BEGINNING clause directly to BEING clause, missing all 4 THENCE calls",
+      "fix": "Use higher resolution scan or alternative OCR"
+    }
+  ],
+  "notes": "Middle deed in chain of title for 32 Birchall Dr (part of Lot 6, Block 91.11/Lot 32). Same property as book 10234/pg 1230 and book 5070/pg 937. LLM extraction fails — the scan quality is insufficient to read the thence clauses. The actual deed contains 4 cardinal-only calls identical to 10234/1230."
+}
