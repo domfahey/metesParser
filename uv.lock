@@ -6,6 +6,12 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 
+[manifest]
+members = [
+    "metesparser",
+    "mp-models",
+]
+
 [[package]]
 name = "annotated-types"
 version = "0.7.0"
@@ -454,6 +460,34 @@ requires-dist = [
     { name = "structlog", specifier = ">=24.4.0" },
 ]
 provides-extras = ["dev", "gemini"]
+
+[[package]]
+name = "mp-models"
+version = "1.0.0"
+source = { editable = "packages/mp-models" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13.0" },
+    { name = "pydantic", specifier = ">=2.10.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+    { name = "structlog", specifier = ">=24.4.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "mypy"
