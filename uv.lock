@@ -12,6 +12,7 @@ members = [
     "mp-bearing",
     "mp-models",
     "mp-ocr",
+    "mp-parse",
 ]
 
 [[package]]
@@ -548,6 +549,32 @@ requires-dist = [
     { name = "structlog", specifier = ">=24.4.0" },
 ]
 provides-extras = ["gemini", "dev"]
+
+[[package]]
+name = "mp-parse"
+version = "1.0.0"
+source = { editable = "packages/mp-parse" }
+dependencies = [
+    { name = "mp-bearing" },
+    { name = "mp-models" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mp-bearing", editable = "packages/mp-bearing" },
+    { name = "mp-models", editable = "packages/mp-models" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+    { name = "structlog", specifier = ">=24.4.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "mypy"
