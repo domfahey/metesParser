@@ -121,7 +121,7 @@ Many descriptions conclude with a stated area:
 
 The phrase "more or less" is legally significant — it indicates the area is approximate and subordinate to the metes and bounds courses.
 
-- **Precise surveys**: Area may be expressed in acres to the nearest hundredth (e.g., 0.1722 acres) or in square feet for smaller parcels such as subdivision lots.
+- **Precise surveys**: Area may be expressed in acres to four decimal places (e.g., 0.1722 acres) or in square feet for smaller parcels such as subdivision lots.
 - **Approximate areas**: When survey accuracy does not justify decimal precision, areas should be indicated as approximate and given to the nearest full acre (e.g., "approximately 5 acres").
 
 ### 2.9 Basis of Bearings
@@ -207,7 +207,7 @@ There are several definitions of "north" used in surveying, and the choice direc
 | **True north** | The direction along the earth's surface toward the geographic North Pole |
 | **Magnetic north** | The direction a compass needle points; wanders over time (the magnetic pole has shifted significantly since AD 800) |
 | **Grid north** | The direction northward along the grid lines of a map projection (e.g., State Plane, UTM) |
-| **Geodetic north** | A mathematical estimation of astronomic north derived using the Laplace equation |
+| **Geodetic north** | The direction of the meridian at a point on the reference ellipsoid (e.g., NAD 83); closely approximates astronomic north after applying deflection-of-the-vertical corrections |
 | **Astronomical north** | Marked by the north celestial pole (Polaris) |
 
 The difference between magnetic and true north is called **declination**. Historical deeds used magnetic north (the compass reading at the time of the survey). The earth's magnetic pole shifts over time:
@@ -526,7 +526,7 @@ The POC/POB distinction only arises when the surveyor needs to connect the parce
 
 **"To a point"** — The terminus is a mathematical point without a physical monument. Less reliable than "to an iron pin found."
 
-**"To the place of BEGINNING"** — Closure call. The traverse returns to the POB. Legally required for a valid metes and bounds description.
+**"To the place of BEGINNING"** — Closure call. The traverse returns to the POB. Generally required in most jurisdictions for a valid metes and bounds description.
 
 **"Containing X acres, more or less"** — The stated area is approximate. If the courses close to a different area, the courses control.
 
@@ -943,7 +943,7 @@ The priority hierarchy (see Section 1.4) governs which elements control when a d
 
 **Intent of the parties**: The description should be construed to effectuate the parties' intent as expressed in the deed as a whole.
 
-**Description must close**: A valid metes and bounds description must return to its point of beginning, forming a closed polygon.
+**Description should close**: In most jurisdictions, a metes and bounds description should return to its point of beginning, forming a closed polygon. Some jurisdictions or special cases (e.g., riparian boundaries) may allow open traverses.
 
 **Monuments control**: If a bearing says "N 45° E" but the iron pin called for is actually at N 47° E, the pin controls. Physical evidence on the ground outweighs written measurements.
 
@@ -1032,7 +1032,7 @@ Misclosure = √((Σdx)² + (Σdy)²)
 
 A well-surveyed modern parcel should close to within 0.01 feet or better. Older surveys may have larger misclosures.
 
-**Precision ratio**: Misclosure / Total perimeter. Modern surveys: 1:10,000 or better. Acceptable minimums vary by jurisdiction.
+**Precision ratio**: Misclosure / Total perimeter, stored as a decimal (e.g., 0.01 ft misclosure over 100 ft of perimeter = 0.0001). Conventionally displayed as the inverse 1:X (0.0001 → 1:10,000). Modern surveys: 1:10,000 or better. Acceptable minimums vary by jurisdiction.
 
 ### 18.2 Area Calculation (Shoelace Formula)
 
