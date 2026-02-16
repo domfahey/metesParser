@@ -151,3 +151,59 @@ def test_plss_alphabetic_meridian_still_works() -> None:
     text = "Section 12, Township 2 North, Range 5 West, San Bernardino Principal Meridian"
     result = TextParser.extract_plss_metadata(text)
     assert result["principal_meridian"] == "San Bernardino Principal Meridian"
+
+
+# ── Bug: abbreviated cardinal directions (NW, SW, NE, SE) not recognized ──
+
+
+def test_extract_direction_abbreviated_sw() -> None:
+    """extract_direction() must match abbreviated cardinal 'SW'."""
+    result = CallExtractor.extract_direction(
+        "SW, FORMING AN INTERIOR ANGLE OF 89°43'30\", 200 FEET"
+    )
+    assert result != "", "Abbreviated 'SW' should be recognized as a direction"
+    assert "sw" in result.lower()
+
+
+def test_extract_direction_abbreviated_ne() -> None:
+    """extract_direction() must match abbreviated cardinal 'NE'."""
+    result = CallExtractor.extract_direction("NE FORMING AN INTERIOR ANGLE")
+    assert result != ""
+    assert "ne" in result.lower()
+
+
+def test_extract_direction_abbreviated_nw() -> None:
+    """extract_direction() must match abbreviated cardinal 'NW'."""
+    result = CallExtractor.extract_direction(
+        "NW ALONG THE SW LINE OF HADDON AVENUE 129 FEET"
+    )
+    assert result != ""
+    assert "nw" in result.lower()
+
+
+def test_cardinal_only_pattern_matches_abbreviations() -> None:
+    """_CARDINAL_ONLY_PATTERN must match abbreviated cardinals."""
+    from metesparser.call_extractor import _CARDINAL_ONLY_PATTERN
+
+    for abbr in ["NW", "SW", "NE", "SE"]:
+        assert _CARDINAL_ONLY_PATTERN.fullmatch(abbr), (
+            f"_CARDINAL_ONLY_PATTERN should match '{abbr}'"
+        )
+
+
+def test_extract_calls_retains_abbreviated_cardinal_calls() -> None:
+    """Calls with LLM-abbreviated cardinals (NW/SW/NE/SE) must be retained."""
+    text = (
+        "BEGINNING AT THE WEST CORNER; THENCE\n"
+        "1. NW ALONG THE SW LINE 129 FEET; THENCE\n"
+        "2. SW, FORMING AN INTERIOR ANGLE OF 89°43'30\", "
+        "200 FEET TO THE NE LINE; THENCE\n"
+        "3. SE, FORMING AN INTERIOR ANGLE OF 90°16'10\", "
+        "129 FEET TO THE NW LINE; AND THENCE\n"
+        "4. NE FORMING AN INTERIOR ANGLE OF 89°43'30\", "
+        "200 FEET TO THE SW LINE AND PLACE OF BEGINNING."
+    )
+    calls = CallExtractor.extract_calls(text)
+    assert len(calls) == 4, f"Expected 4 calls, got {len(calls)}"
+    for call in calls:
+        assert call.notes == "incomplete bearing - cardinal only"
