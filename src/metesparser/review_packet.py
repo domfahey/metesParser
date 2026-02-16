@@ -339,7 +339,7 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
     for i, call in enumerate(plottable):
         mid_x = (points[i][0] + points[i + 1][0]) / 2
         mid_y = (points[i][1] + points[i + 1][1]) / 2
-        label = f"#{call.get('course', i + 1)}"
+        label = _esc(f"#{call.get('course', i + 1)}")
         dist_label = f"{call.get('distance_ft', 0):.1f}'"
         parts.append(
             f"<text x='{mid_x:.2f}' y='{mid_y:.2f}' "

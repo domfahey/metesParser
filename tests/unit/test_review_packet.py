@@ -501,6 +501,41 @@ class TestGenerateTraversePlot:
         svg = generate_traverse_plot(RECTANGLE_GT)
         assert "N" in svg  # North label
 
+    def test_escapes_html_in_svg_labels(self) -> None:
+        """Course labels in SVG are HTML-escaped to prevent XSS."""
+        gt_xss = {
+            **SIMPLE_GT,
+            "expected_calls": [
+                {
+                    "course": '<script>alert("xss")</script>',
+                    "bearing_azimuth_deg_from_north": 146.666667,
+                    "distance_ft": 60.0,
+                    "direction_text": "S 33°20' E",
+                },
+                {
+                    "course": 2,
+                    "bearing_azimuth_deg_from_north": 236.666667,
+                    "distance_ft": 125.0,
+                    "direction_text": "S 56°40' W",
+                },
+                {
+                    "course": 3,
+                    "bearing_azimuth_deg_from_north": 326.666667,
+                    "distance_ft": 60.0,
+                    "direction_text": "N 33°20' W",
+                },
+                {
+                    "course": 4,
+                    "bearing_azimuth_deg_from_north": 56.666667,
+                    "distance_ft": 125.0,
+                    "direction_text": "N 56°40' E",
+                },
+            ],
+        }
+        svg = generate_traverse_plot(gt_xss)
+        assert "<script>" not in svg
+        assert "&lt;script&gt;" in svg
+
 
 class TestGenerateReviewHtml:
     """Tests for generate_review_html()."""
