@@ -347,6 +347,8 @@ LOG_LEVEL=INFO          # Optional, defaults to INFO
 - `uv.lock` is tracked (not gitignored) — commit lockfile changes with dependency updates
 - GitHub remote: `gh repo create --private --source=. --push` if no remote configured
 - Default branch is `main` — rename with `gh api repos/OWNER/REPO/branches/master/rename -X POST -f new_name=main`
+- Hooks may auto-commit on both `main` and feature branches — if branches diverge, recreate feature branch from main
+- `gh pr merge` requires clean working tree — `git stash` before merging if unstaged changes exist
 
 ## Common Development Patterns
 
@@ -354,7 +356,7 @@ LOG_LEVEL=INFO          # Optional, defaults to INFO
 1. Add method to `ClosureChecker` (e.g., `check_bearing_reversal()`)
 2. Call from `verify_closure()` and add to warnings list
 3. Update `ClosureResult` model if needed
-4. Write test in `tests/unit/test_closure_checker.py`
+4. Write test in appropriate phase file (e.g., `tests/unit/test_phase3_verification.py`)
 
 ### Adding New Unit Support
 1. Add conversion factor to `ConversionFactors` in `models.py`
