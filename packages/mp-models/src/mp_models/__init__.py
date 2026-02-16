@@ -22,6 +22,16 @@ from .deed_call import (
     SubdivisionReference,
 )
 from .legal_description import LegalDescription
+from .envelope import (
+    ClosureResultMessage,
+    LegalDescriptionMessage,
+    MessageType,
+    RawTextMessage,
+    parse_message,
+    read_jsonl,
+    write_jsonl,
+)
+from .logging import configure_logging, get_log_format
 from .units import ConversionFactors, DistanceUnit
 
 __version__ = "1.0.0"
@@ -30,6 +40,7 @@ __all__ = [
     "AuditContext",
     "CallAudit",
     "CheckResult",
+    "ClosureResultMessage",
     "ClosureResult",
     "ConversionFactors",
     "CurveDirection",
@@ -40,14 +51,22 @@ __all__ = [
     "DistanceUnit",
     "ExtractionRecord",
     "LegalDescription",
+    "LegalDescriptionMessage",
+    "MessageType",
     "MonumentStatus",
     "MonumentType",
     "PERMANENT_MONUMENTS",
     "PRIOR_CONVEYANCE_SIGNALS",
     "Point",
+    "RawTextMessage",
     "RunMetadata",
     "SubdivisionReference",
     "Transformation",
     "VerificationAudit",
     "_Model",
+    "configure_logging",
+    "get_log_format",
+    "parse_message",
+    "read_jsonl",
+    "write_jsonl",
 ]
