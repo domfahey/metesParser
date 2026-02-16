@@ -139,3 +139,117 @@ class TestScoreCallQuality:
         for monument in PERMANENT_MONUMENTS:
             call = _make_call(monument_type=monument)
             assert ClosureChecker.score_call_quality(call) == "high", f"Failed for {monument}"
+
+
+# ---------------------------------------------------------------------------
+# Step 3: calculate_confidence_score tests
+# ---------------------------------------------------------------------------
+
+
+def _make_closure_result(**overrides) -> ClosureResult:
+    """Helper to build a ClosureResult with sensible defaults."""
+    defaults = {
+        "misclosure_x_ft": 0.0,
+        "misclosure_y_ft": 0.0,
+        "misclosure_ft": 0.0,
+        "area_sq_ft": 10000.0,
+        "area_acres": 10000.0 / 43560.0,
+        "perimeter_ft": 400.0,
+        "closure_passed": True,
+        "angle_check_passed": True,
+        "curve_consistency_passed": True,
+        "warnings": [],
+    }
+    defaults.update(overrides)
+    return ClosureResult(**defaults)
+
+
+class TestCalculateConfidenceScore:
+    """Tests for ClosureChecker.calculate_confidence_score()."""
+
+    def test_perfect_survey_scores_high(self) -> None:
+        """All checks pass, all bearings complete, permanent monuments."""
+        calls = [
+            _make_call(course=1, monument_type="iron_pin"),
+            _make_call(course=2, monument_type="iron_rod",
+                       bearing_azimuth_deg_from_north=135.0,
+                       direction_text="S 45° E"),
+            _make_call(course=3, monument_type="concrete",
+                       bearing_azimuth_deg_from_north=225.0,
+                       direction_text="S 45° W"),
+            _make_call(course=4, monument_type="rebar",
+                       bearing_azimuth_deg_from_north=315.0,
+                       direction_text="N 45° W"),
+        ]
+        result = _make_closure_result()
+        score = ClosureChecker.calculate_confidence_score(result, calls)
+        assert 0.9 <= score <= 1.0
+
+    def test_poor_closure_scores_lower(self) -> None:
+        """Failed closure should drag score down vs perfect closure."""
+        calls = [_make_call(course=i) for i in range(1, 5)]
+        good = _make_closure_result()
+        bad = _make_closure_result(misclosure_ft=5.0, closure_passed=False)
+        good_score = ClosureChecker.calculate_confidence_score(good, calls)
+        bad_score = ClosureChecker.calculate_confidence_score(bad, calls)
+        assert bad_score < good_score
+        assert bad_score < 0.85
+
+    def test_all_incomplete_bearings_scores_lower(self) -> None:
+        """No complete bearings → lower than all-complete bearings."""
+        complete_calls = [_make_call(course=i) for i in range(1, 3)]
+        incomplete_calls = [
+            _make_call(course=1, bearing_azimuth_deg_from_north=None),
+            _make_call(course=2, bearing_azimuth_deg_from_north=None),
+        ]
+        result = _make_closure_result()
+        complete_score = ClosureChecker.calculate_confidence_score(result, complete_calls)
+        incomplete_score = ClosureChecker.calculate_confidence_score(result, incomplete_calls)
+        assert incomplete_score < complete_score
+        assert incomplete_score < 0.7
+
+    def test_meander_calls_reduce_confidence(self) -> None:
+        """Meander calls should reduce confidence vs identical non-meander calls."""
+        base_calls = [_make_call(course=i) for i in range(1, 5)]
+        meander_calls = [
+            _make_call(
+                course=i,
+                is_meander=True,
+                curve_dir="right",
+                radius_ft=500.0,
+                arc_length_ft=100.0,
+            )
+            for i in range(1, 5)
+        ]
+        result = _make_closure_result()
+        base_score = ClosureChecker.calculate_confidence_score(result, base_calls)
+        meander_score = ClosureChecker.calculate_confidence_score(result, meander_calls)
+        assert meander_score < base_score
+
+    def test_returns_float_between_0_and_1(self) -> None:
+        calls = [_make_call(course=1)]
+        result = _make_closure_result()
+        score = ClosureChecker.calculate_confidence_score(result, calls)
+        assert isinstance(score, float)
+        assert 0.0 <= score <= 1.0
+
+    def test_warnings_reduce_confidence(self) -> None:
+        """Warnings should reduce confidence vs clean result."""
+        calls = [_make_call(course=i) for i in range(1, 5)]
+        clean = _make_closure_result()
+        warned = _make_closure_result(warnings=["Something unusual", "Another issue"])
+        clean_score = ClosureChecker.calculate_confidence_score(clean, calls)
+        warned_score = ClosureChecker.calculate_confidence_score(warned, calls)
+        assert warned_score < clean_score
+
+    def test_failed_angle_check_reduces_confidence(self) -> None:
+        calls = [_make_call(course=i) for i in range(1, 5)]
+        good = _make_closure_result()
+        bad = _make_closure_result(angle_check_passed=False)
+        assert ClosureChecker.calculate_confidence_score(bad, calls) < \
+            ClosureChecker.calculate_confidence_score(good, calls)
+
+    def test_empty_calls_returns_zero(self) -> None:
+        result = _make_closure_result()
+        score = ClosureChecker.calculate_confidence_score(result, [])
+        assert score == 0.0
