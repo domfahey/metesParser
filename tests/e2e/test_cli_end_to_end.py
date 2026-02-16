@@ -9,7 +9,7 @@ import pytest
 from metesparser import cli
 from metesparser.models import DeedCall, LegalDescription
 
-pytestmark = pytest.mark.integration
+pytestmark = (pytest.mark.integration, pytest.mark.e2e)
 
 
 def _verified_square_calls() -> list[DeedCall]:

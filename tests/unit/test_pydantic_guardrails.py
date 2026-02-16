@@ -1,11 +1,16 @@
 import csv
+import io
+import json
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from metesparser.csv_builder import CSVBuilder
+from metesparser.logging_config import configure_logging
 from metesparser.models import ClosureResult, DeedCall, LegalDescription, Point
+
+pytestmark = pytest.mark.usefixtures("isolate_logging_state")
 
 CSV_FIELDNAMES: list[str] = [
     "course",
@@ -53,6 +58,10 @@ def _base_csv_row(overrides: dict[str, str] | None = None) -> dict[str, str]:
     if overrides:
         row.update(overrides)
     return row
+
+
+def _json_log_lines(payload: str) -> list[dict[str, object]]:
+    return [json.loads(line) for line in payload.splitlines() if line.strip()]
 
 
 def test_deedcall_rejects_incomplete_curve_geometry():
@@ -318,6 +327,28 @@ def test_csv_row_to_call_skips_invalid_rows(tmp_path: Path, overrides: dict[str,
     calls = CSVBuilder.csv_to_calls(str(csv_path))
 
     assert calls == []
+
+
+def test_csv_row_to_call_logs_error_type_for_invalid_row(tmp_path: Path):
+    csv_path = tmp_path / "calls.csv"
+    with csv_path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
+        writer.writeheader()
+        writer.writerow(_base_csv_row({"course": "abc"}))
+
+    stream = io.StringIO()
+    configure_logging(level="INFO", log_format="json", stream=stream)
+
+    try:
+        calls = CSVBuilder.csv_to_calls(str(csv_path))
+    finally:
+        configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+    assert calls == []
+    line = _json_log_lines(stream.getvalue())[0]
+    assert line["event"] == "Skipping invalid CSV row"
+    assert line["row"] == 2
+    assert line["error_type"] == "ValidationError"
 
 
 def test_legaldescription_rejects_non_int_page_number():

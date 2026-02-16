@@ -1,12 +1,21 @@
 """Tests for call_extractor.py - Parsing deed calls."""
 
+import io
+import json
 import math
 
 import pytest
 
 from metesparser.call_extractor import CallExtractor
+from metesparser.logging_config import configure_logging
 
 from ..fixtures import sample_deeds
+
+pytestmark = pytest.mark.usefixtures("isolate_logging_state")
+
+
+def _json_log_lines(payload: str) -> list[dict[str, object]]:
+    return [json.loads(line) for line in payload.splitlines() if line.strip()]
 
 
 class TestBearingExtraction:
@@ -343,3 +352,71 @@ class TestCardinalWardlySuffix:
         assert math.isclose(calls[1].distance_ft, 28.84, abs_tol=0.01)
         assert calls[2].notes == "incomplete bearing - cardinal only"
         assert math.isclose(calls[2].distance_ft, 134.52, abs_tol=0.01)
+
+
+class TestCallExtractionLogging:
+    """Structured logging shape for malformed and rejected calls."""
+
+    def test_malformed_call_warning_redacts_full_text_at_info_level(self, monkeypatch):
+        stream = io.StringIO()
+        configure_logging(level="INFO", log_format="json", stream=stream)
+
+        def _raise_error(cls, call_text: str, course: int, distance_unit: str = "feet"):
+            raise ValueError("bad call payload")
+
+        monkeypatch.setattr(CallExtractor, "extract_single_call", classmethod(_raise_error))
+
+        try:
+            calls = CallExtractor.extract_calls("THENCE North 45 degrees East 100 feet.")
+        finally:
+            configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+        assert calls == []
+        line = _json_log_lines(stream.getvalue())[0]
+        assert line["event"] == "Skipping malformed call"
+        assert line["error_type"] == "ValueError"
+        assert "call_preview" in line
+        assert "call_hash" in line
+        assert "call_text" not in line
+
+    def test_malformed_call_warning_includes_full_text_and_exception_at_debug_level(
+        self, monkeypatch
+    ):
+        stream = io.StringIO()
+        configure_logging(level="DEBUG", log_format="json", debug=True, stream=stream)
+
+        def _raise_error(cls, call_text: str, course: int, distance_unit: str = "feet"):
+            raise ValueError("bad call payload")
+
+        monkeypatch.setattr(CallExtractor, "extract_single_call", classmethod(_raise_error))
+
+        try:
+            calls = CallExtractor.extract_calls("THENCE North 45 degrees East 100 feet.")
+        finally:
+            configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+        assert calls == []
+        line = _json_log_lines(stream.getvalue())[0]
+        assert line["event"] == "Skipping malformed call"
+        assert line["error_type"] == "ValueError"
+        assert isinstance(line.get("call_text"), str)
+        assert "100 feet" in str(line["call_text"])
+        assert "exception" in line
+
+    def test_bearingless_rejection_uses_preview_and_hash(self):
+        stream = io.StringIO()
+        configure_logging(level="INFO", log_format="json", stream=stream)
+
+        try:
+            call = CallExtractor.extract_single_call(
+                "in the line of Greenmount Road (50 feet wide)", 1
+            )
+        finally:
+            configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+        assert call is None
+        line = _json_log_lines(stream.getvalue())[0]
+        assert line["event"] == "Rejecting bearingless non-curve call"
+        assert "call_preview" in line
+        assert "call_hash" in line
+        assert "call_text" not in line

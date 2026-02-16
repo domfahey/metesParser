@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import io
+import json
 import sys
 from types import ModuleType, SimpleNamespace
 
@@ -12,6 +14,13 @@ from metesparser.llm_clients import (
     OpenAIClient,
     _read_pdf,
 )
+from metesparser.logging_config import configure_logging
+
+pytestmark = pytest.mark.usefixtures("isolate_logging_state")
+
+
+def _json_log_lines(payload: str) -> list[dict[str, object]]:
+    return [json.loads(line) for line in payload.splitlines() if line.strip()]
 
 
 def _install_fake_openai(monkeypatch):
@@ -166,6 +175,80 @@ def test_openai_generate_text_with_pdf_includes_encoded_pdf(monkeypatch, tmp_pat
     assert base64.b64decode(file_data.split(",", 1)[1]) == b"%PDF"
 
 
+def test_openai_client_emits_failure_telemetry(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    _install_fake_openai(monkeypatch)
+
+    stream = io.StringIO()
+    configure_logging(level="DEBUG", log_format="json", stream=stream)
+
+    try:
+        client = OpenAIClient()
+        client._client.responses.create = lambda **kwargs: (_ for _ in ()).throw(
+            RuntimeError("boom")
+        )
+
+        with pytest.raises(RuntimeError, match="boom"):
+            client.generate_text("hello")
+    finally:
+        configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+    lines = [
+        line
+        for line in _json_log_lines(stream.getvalue())
+        if line.get("logger") == "metesparser.llm_clients"
+    ]
+    failure = next(line for line in lines if line.get("event") == "LLM request failed")
+    assert failure["provider"] == "openai"
+    assert failure["model"] == "gpt-5.2"
+    assert failure["attempt"] == 1
+    assert failure["with_pdf"] is False
+    assert failure["error_type"] == "RuntimeError"
+    assert failure["error"] == "boom"
+    assert failure["retrying"] is False
+    assert failure["status_code"] is None
+    assert isinstance(failure.get("elapsed_ms"), float)
+    assert "exception" in failure
+
+
+def test_openai_pdf_request_emits_failure_telemetry(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    _install_fake_openai(monkeypatch)
+    pdf = tmp_path / "input.pdf"
+    pdf.write_bytes(b"%PDF")
+
+    stream = io.StringIO()
+    configure_logging(level="DEBUG", log_format="json", stream=stream)
+
+    try:
+        client = OpenAIClient()
+        client._client.responses.create = lambda **kwargs: (_ for _ in ()).throw(
+            RuntimeError("pdf boom")
+        )
+
+        with pytest.raises(RuntimeError, match="pdf boom"):
+            client.generate_text_with_pdf("prompt", str(pdf))
+    finally:
+        configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+    lines = [
+        line
+        for line in _json_log_lines(stream.getvalue())
+        if line.get("logger") == "metesparser.llm_clients"
+    ]
+    failure = next(line for line in lines if line.get("event") == "LLM request failed")
+    assert failure["provider"] == "openai"
+    assert failure["model"] == "gpt-5.2"
+    assert failure["attempt"] == 1
+    assert failure["with_pdf"] is True
+    assert failure["error_type"] == "RuntimeError"
+    assert failure["error"] == "pdf boom"
+    assert failure["retrying"] is False
+    assert failure["status_code"] is None
+    assert isinstance(failure.get("elapsed_ms"), float)
+    assert "exception" in failure
+
+
 def test_gemini_client_requires_api_key(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     _install_fake_gemini(
@@ -194,6 +277,55 @@ def test_gemini_client_retries_retryable_errors_and_collects_candidate_text(monk
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     client = GeminiClient(model="gemini-2.5-pro", fallback_model="gemini-2.5-flash")
     assert client.generate_text("hello") == "via candidates"
+
+
+def test_gemini_client_emits_retry_and_fallback_telemetry(monkeypatch):
+    def handler(*, model, contents, config, client_error, server_error):
+        if model == "gemini-2.5-pro":
+            raise server_error(503)
+        return SimpleNamespace(text="ok")
+
+    _install_fake_gemini(monkeypatch, handler)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+
+    stream = io.StringIO()
+    configure_logging(level="DEBUG", log_format="json", stream=stream)
+
+    try:
+        client = GeminiClient(model="gemini-2.5-pro", fallback_model="gemini-2.5-flash")
+        assert client.generate_text("hello") == "ok"
+    finally:
+        configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+    lines = [
+        line
+        for line in _json_log_lines(stream.getvalue())
+        if line.get("logger") == "metesparser.llm_clients"
+    ]
+    assert any(
+        line.get("event") == "LLM request attempt"
+        and line.get("model") == "gemini-2.5-pro"
+        and line.get("attempt") == 1
+        for line in lines
+    )
+
+    retry_line = next(line for line in lines if line.get("event") == "LLM request failed")
+    assert retry_line["provider"] == "gemini"
+    assert retry_line["model"] == "gemini-2.5-pro"
+    assert retry_line["attempt"] == 1
+    assert retry_line["status_code"] == 503
+    assert retry_line["retrying"] is True
+    assert retry_line["next_model"] == "gemini-2.5-flash"
+
+    fallback_success = next(
+        line
+        for line in lines
+        if line.get("event") == "LLM request succeeded" and line.get("model") == "gemini-2.5-flash"
+    )
+    assert fallback_success["provider"] == "gemini"
+    assert fallback_success["attempt"] == 2
+    assert fallback_success["used_fallback"] is True
+    assert isinstance(fallback_success.get("elapsed_ms"), float)
 
 
 def test_gemini_client_re_raises_non_retryable_client_error(monkeypatch):

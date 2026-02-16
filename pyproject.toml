@@ -68,6 +68,10 @@ python_functions = ["test_*"]
 addopts = [
     "-v",
     "--strict-markers",
+    "--cov=src/metesparser",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    "--cov-fail-under=90",
 ]
 
 [tool.mypy]
