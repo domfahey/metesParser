@@ -7,17 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_No unreleased changes._
-
-## [0.4.0] - 2026-02-16
-
 ### Added
-- Run registry for prompt A/B testing (`run_registry.py`)
+- Run registry for prompt A/B testing (`run_registry.py`) (PR #14)
 - `RunManifest`, `PromptVersion`, `RunResults` Pydantic models for run tracking
 - `get_prompt_versions()` — resolves git SHA + content hash per prompt file
 - `write_run_manifest()` / `load_run_manifests()` — per-run JSON I/O in `runs/` directory
 - `metesparser compare-runs` CLI command — grouped table comparing extraction results across prompt versions
 - `--pdf` filter and `--runs-dir` options for compare-runs command
+- Run registry backfill script (`scripts/backfill_run_registry.py`) to populate registry from existing ground truth (PR #15)
+- Ground truth review packet generator (`review_packet.py`) for professional surveyor audit (PR #16)
+- `generate_review_html()` — self-contained HTML with metadata, call table, closure summary, text comparison, and SVG traverse plot
+- `generate_all_packets()` — batch generation across a sample_deeds directory
+- `scripts/generate_review_packet.py` and `scripts/audit_gt_vs_md.py` utility scripts
+- 34 additional sample deeds with ground truth for 4 properties (8 Kings Hwy W, 17 Kings Hwy W, 32/38 Birchall Dr, 236 Chews Landing Rd)
+- LlamaParse markdown conversions for all 40 sample deeds
+- Unix composable modules design document (`docs/plans/`)
+
+### Fixed
+- Reparsed 4 problem deeds with GPT-5, fixed audit extraction bugs (PR #17)
+- Closure semantics for cardinal-only and empty traverses
 
 ## [0.4.0] - 2026-02-16
 
