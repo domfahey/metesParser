@@ -625,6 +625,46 @@ class TestAuditReporter:
         assert "<script>" not in html
         assert "&lt;script&gt;" in html
 
+    def test_html_escapes_decision_field_names(self):
+        """S-5: Decision field names should be html-escaped in report output."""
+        from metesparser.audit_reporter import AuditReporter
+
+        ctx = AuditContext(
+            run_metadata=RunMetadata(
+                parser_version="0.2.0",
+                llm_provider="test",
+                llm_model="test",
+                prompt_hash="test",
+                timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
+                source_pdf="test.pdf",
+                cache_enabled=False,
+            ),
+            call_audits=[
+                CallAudit(
+                    course=1,
+                    source_excerpt="test",
+                    decisions=[
+                        Decision(
+                            field='<img src="x">',
+                            value="safe_value",
+                            reason="test",
+                            confidence=0.9,
+                        ),
+                    ],
+                ),
+            ],
+        )
+        html = AuditReporter.generate_html(ctx)
+        assert '<img src="x">' not in html
+        assert "&lt;img" in html
+
+    def test_no_dead_confidence_bar_css(self):
+        """S-3: Dead .confidence-bar CSS class should be removed."""
+        from metesparser.audit_reporter import AuditReporter
+
+        css = AuditReporter._css()
+        assert ".confidence-bar" not in css
+
     def test_html_report_written_alongside_csv(self, tmp_path):
         from metesparser.csv_builder import CSVBuilder
 
@@ -686,13 +726,25 @@ def _make_mock_client(
     extract_legal_return: str = "Raw legal description extracted",
     normalize_return: str = _SAMPLE_LEGAL_TEXT,
 ) -> MagicMock:
-    """Build a MagicMock that satisfies the BaseLLMClient protocol."""
+    """Build a MagicMock that satisfies the BaseLLMClient protocol.
+
+    Uses ``side_effect`` for exactly 2 ``generate_text`` calls.
+    Call ``_assert_mock_client_exhausted(mock)`` after processing
+    to verify no unexpected extra calls were made.
+    """
     mock = MagicMock()
     mock.generate_text_with_pdf.return_value = extract_text_return
     # generate_text is called twice: once for extract_legal_description,
     # once for normalize_legal_description.
     mock.generate_text.side_effect = [extract_legal_return, normalize_return]
     return mock
+
+
+def _assert_mock_client_exhausted(mock: MagicMock) -> None:
+    """Verify mock_client received exactly the expected number of LLM calls."""
+    assert mock.generate_text.call_count == 2, (
+        f"Expected 2 generate_text calls, got {mock.generate_text.call_count}"
+    )
 
 
 class TestPDFProcessorAudit:
@@ -713,6 +765,7 @@ class TestPDFProcessorAudit:
         import metesparser
 
         assert ctx.run_metadata.parser_version == metesparser.__version__
+        _assert_mock_client_exhausted(mock_client)
 
     def test_process_deed_pdf_default_returns_legal_desc(self):
         """Default (audit=False) returns LegalDescription directly."""
@@ -723,6 +776,7 @@ class TestPDFProcessorAudit:
         assert isinstance(result, LegalDescription)
         # Should NOT be a tuple
         assert not isinstance(result, tuple)
+        _assert_mock_client_exhausted(mock_client)
 
     def test_audit_captures_extraction_record(self):
         """AuditContext captures raw LLM response and normalized text."""
@@ -885,3 +939,19 @@ class TestLLMConfidenceScoring:
         )
         _, signals = PDFProcessor._compute_llm_confidence(text)
         assert signals["no_garbled_chars"] is True
+
+    def test_bare_beginning_not_matched_as_pob(self):
+        """I-2: Bare word 'BEGINNING' in non-deed context should not trigger has_pob."""
+        text = "BEGINNING of the fiscal year, the department reviewed its policies."
+        _, signals = PDFProcessor._compute_llm_confidence(text)
+        assert signals["has_pob"] is False
+
+    def test_closure_language_without_trailing_punctuation(self):
+        """S-2: 'POINT OF BEGINNING' at end-of-string (no trailing .; ) should match."""
+        text = (
+            "THENCE South 33 degrees East 60.00 feet; "
+            "THENCE North 56 degrees East 125.00 feet to the "
+            "POINT OF BEGINNING"
+        )
+        _, signals = PDFProcessor._compute_llm_confidence(text)
+        assert signals["has_closure_language"] is True

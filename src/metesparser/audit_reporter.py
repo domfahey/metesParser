@@ -100,7 +100,6 @@ class AuditReporter:
             ".side-by-side { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }\n"
             ".side-by-side pre { background: #f8f9fa; padding: 12px; border-radius: 4px; "
             "white-space: pre-wrap; overflow-x: auto; font-size: 0.85em; }\n"
-            ".confidence-bar { height: 8px; border-radius: 4px; margin-top: 4px; }\n"
         )
 
     @classmethod
@@ -190,7 +189,9 @@ class AuditReporter:
             truncated = excerpt[:80] + "..." if len(excerpt) > 80 else excerpt
 
             # Gather parsed values from decisions
-            parsed_vals = ", ".join(f"{d.field}={html.escape(d.value)}" for d in ca.decisions)
+            parsed_vals = ", ".join(
+                f"{html.escape(d.field)}={html.escape(d.value)}" for d in ca.decisions
+            )
 
             # Average confidence from decisions
             if ca.decisions:

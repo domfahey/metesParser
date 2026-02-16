@@ -27,6 +27,11 @@ from .text_parser import _COMMA_NUMBER, TextParser, parse_comma_number
 
 logger = structlog.get_logger(__name__)
 
+_CARDINAL_ONLY_PATTERN = re.compile(
+    r"(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly|wardly)?",
+    re.IGNORECASE,
+)
+
 _UNIT_TOKEN = (
     r"(?:feet|foot|ft|poles?|rods?|perches?|chains?|links?"
     r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
@@ -347,11 +352,7 @@ class CallExtractor:
         notes = ""
         cardinal_only = False
         if raw_direction and not parsed_bearing:
-            if re.fullmatch(
-                r"(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly|wardly)?",
-                raw_direction.strip(),
-                flags=re.IGNORECASE,
-            ):
+            if _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip()):
                 cardinal_only = True
 
         if is_meander or "approximate" in call_text.lower():
@@ -576,11 +577,7 @@ class CallExtractor:
         # --- Flags ---
         cardinal_only = False
         if raw_direction and not call.bearing_quadrant:
-            if re.fullmatch(
-                r"(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly|wardly)?",
-                raw_direction.strip(),
-                flags=re.IGNORECASE,
-            ):
+            if _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip()):
                 cardinal_only = True
 
         if cardinal_only or (raw_direction and not call.bearing_quadrant):
