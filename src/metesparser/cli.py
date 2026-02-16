@@ -8,9 +8,19 @@ from pathlib import Path
 
 import structlog
 
-from .logging_config import configure_logging
+from .logging_config import configure_logging, get_log_format
 
 logger = structlog.get_logger(__name__)
+
+
+def _emit_closure_summary(summary: str, command_logger: structlog.stdlib.BoundLogger) -> None:
+    if get_log_format() == "json":
+        command_logger.info("Closure summary", summary=summary)
+        return
+
+    print()
+    print(summary)
+    print()
 
 
 def extract_command(
@@ -45,9 +55,8 @@ def extract_command(
         command_logger.info("Verifying closure")
         closure_result = ClosureChecker.verify_closure(legal_desc.calls)
 
-        print()
-        print(ClosureChecker.get_closure_summary(closure_result))
-        print()
+        summary = ClosureChecker.get_closure_summary(closure_result)
+        _emit_closure_summary(summary, command_logger)
 
         if closure_result.is_fully_verified():
             command_logger.info("Exporting verified CSV")
@@ -86,9 +95,8 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
 
         closure_result = ClosureChecker.verify_closure(calls, stated_area or 0.0)
 
-        print()
-        print(ClosureChecker.get_closure_summary(closure_result))
-        print()
+        summary = ClosureChecker.get_closure_summary(closure_result)
+        _emit_closure_summary(summary, command_logger)
 
         if closure_result.is_fully_verified():
             command_logger.info("All verification checks passed")
@@ -164,7 +172,12 @@ def main() -> None:
 
     try:
         configured_level = "DEBUG" if args.debug else args.log_level
-        configure_logging(level=configured_level, log_format=args.log_format, debug=args.debug)
+        configure_logging(
+            level=configured_level,
+            log_format=args.log_format,
+            debug=args.debug,
+            take_over_root=True,
+        )
         logger.debug(
             "Logging configured",
             level=configured_level,
