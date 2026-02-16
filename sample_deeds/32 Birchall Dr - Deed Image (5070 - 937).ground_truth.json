@@ -1,0 +1,166 @@
+{
+  "deed_info": {
+    "address": "32 Birchall Drive",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "5070",
+    "page": "937",
+    "parcel_shape": "Near-rectangle",
+    "dimensions": "94.10 ft x 112.74 ft x 90 ft x 112.52 ft (approximate — cardinal-only bearings, not a perfect rectangle)"
+  },
+  "raw_ocr_text": "All that certain lot or parcel of land and premises, situate in the Borough of Haddonfield and County of Camden and State of New Jersey, known and described as follows:\n\nBEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet from the Northerly line of Kings Highway, said point being the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet, thence\n(1) Northerly along the Westerly line of Birchall Drive 94.10 feet to a point in the division line between Lots 6 and 7, thence\n(2) Westerly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan, thence\n(3) Southerly along said boundary line at another right angle 89 degrees 52 minutes with the last course the distance of 90 feet to a point, thence\n(4) Easterly [ILLEGIBLE] an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive 112.52 feet to the place of BEGINNING.\n\nBeing part of Lot 6, on Plan of County Club Estates, made by Walter H. Macmoran, C.E., dated December 1950, revised January 4, 1957.\n\nALSO BEING KNOWN as Block 91.1, Lot 32 on the Tax Map of the Borough of Haddonfield.\n\nBEING KNOWN AS 32 Birchall Drive, Haddonfield, New Jersey",
+  "expected_legal_description": "BEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet from the Northerly line of Kings Highway, said point being the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet, thence\n(1) Northerly along the Westerly line of Birchall Drive 94.10 feet to a point in the division line between Lots 6 and 7, thence\n(2) Westerly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan, thence\n(3) Southerly along said boundary line at another right angle 89 degrees 52 minutes with the last course the distance of 90 feet to a point, thence\n(4) Easterly [ILLEGIBLE] an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive 112.52 feet to the place of BEGINNING.",
+  "expected_normalized_text": null,
+  "expected_pob": "a point in the Westerly line of Birchall Drive distant 486.81 feet from the Northerly line of Kings Highway, said point being the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet",
+  "expected_poc": null,
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "Northerly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 94.10,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
+      "along": "the Westerly line of Birchall Drive",
+      "to": "a point in the division line between Lots 6 and 7",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 2,
+      "direction_text": "Westerly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 112.74,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
+      "along": "said division line at right angles to Birchall Drive",
+      "to": "a point in the Westerly boundary line of said plan",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 3,
+      "direction_text": "Southerly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 90.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
+      "along": "said boundary line",
+      "to": "a point",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 4,
+      "direction_text": "Easterly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 112.52,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
+      "along": null,
+      "to": "the place of BEGINNING",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only"
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": null,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": 409.36,
+    "closure_passed": false,
+    "closure_notes": "Cannot compute closure — all 4 calls have cardinal-only bearings. Note: call 1 distance (94.10 ft) differs from newer deeds (90.00 ft) and call 3 (90 ft) differs from call 1, so this is not a perfect rectangle."
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    },
+    "all_cardinal_only": {
+      "expected": true,
+      "description": "All 4 calls MUST have cardinal-only bearings (Northerly, Westerly, Southerly, Easterly) with no numerical bearing extracted"
+    },
+    "no_fabricated_bearings": {
+      "expected": true,
+      "description": "MUST NOT fabricate numerical bearings — bearing_quadrant and bearing_azimuth_deg_from_north MUST be null for all calls"
+    },
+    "closure_not_computable": {
+      "expected": true,
+      "description": "Closure MUST NOT be computed — cardinal-only bearings lack sufficient precision for traverse calculation"
+    }
+  },
+  "common_failure_modes": [
+    {
+      "symptom": "OCR artifact: '[ILLEGIBLE]' in call 4 text",
+      "cause": "Scanned deed image has degraded or obscured text in call 4",
+      "fix": "Distance (112.52 ft) and interior angle (90 degrees 08 minutes) were readable despite illegible surrounding text; parser should extract what is available"
+    },
+    {
+      "symptom": "OCR artifact: surveyor name 'Macmoran' instead of 'Macnamara'",
+      "cause": "Poor scan quality of older deed document",
+      "fix": "Accept OCR text as-is; do not attempt to correct proper nouns"
+    },
+    {
+      "symptom": "OCR artifact: date 'December 1950' instead of 'December 1956'",
+      "cause": "Digit '6' misread as '0' in scanned image",
+      "fix": "Accept OCR text as-is; note discrepancy in documentation"
+    },
+    {
+      "symptom": "Fabricated numerical bearings for cardinal-only directions",
+      "cause": "Parser or LLM inventing N 0°00' E for 'Northerly' or similar",
+      "fix": "Cardinal-only directions MUST produce null bearing_quadrant and null bearing_azimuth_deg_from_north with notes='incomplete bearing - cardinal only'"
+    },
+    {
+      "symptom": "Interior angles parsed as bearings",
+      "cause": "Call 3 mentions '89 degrees 52 minutes' and call 4 mentions '90 degrees 08 minutes' — these are interior angles, not bearings",
+      "fix": "Interior angle references describe the angle between adjacent courses, not compass bearings — parser must not treat them as bearings"
+    }
+  ],
+  "notes": "Oldest deed in chain of title for 32 Birchall Dr (part of Lot 6, Block 91.11/Lot 32). Same property as book 10234/pg 1230 and book 8939/pg 350. Call 1 distance (94.10 ft) differs from newer deeds (90.00 ft) — may be OCR error or pre-subdivision measurement. Multiple OCR artifacts: surveyor name 'Macmoran' (should be 'Macnamara'), date 'December 1950' (should be 'December 1956'). Uses parenthesized numbering format (1), (2), (3), (4) instead of period-delimited 1., 2., 3., 4. format."
+}

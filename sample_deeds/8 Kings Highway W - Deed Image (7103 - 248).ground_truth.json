@@ -1,0 +1,155 @@
+{
+  "deed_info": {
+    "address": "8 Kings Highway West",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "7103",
+    "page": "248",
+    "parcel_shape": "irregular polygon (11-sided)",
+    "dimensions": "Tract Three - consolidated Lots 11, 11.01, 12.01 Block 76",
+    "lot": "11, 11.01, 12.01",
+    "block": "76",
+    "date": "June 19, 2003",
+    "grantor": "MSSK, LLC",
+    "grantee": "Select Real Estate, LLC",
+    "consideration": "$700,000.00"
+  },
+  "raw_ocr_text": "All that certain land and premises situate in the Borough of Haddonfield, County of Camden, State of New Jersey being more particularly bounded and described as follows:\n\nTRACT THREE\nBeginning at a point in the Southwesterly line of Washington Avenue (40 feet wide) said point being South 25 degrees 06 minutes 00 seconds East, a distance of 157.01 feet measured along the Southwesterly line of Washington Avenue from the intersection of same with the Southeasterly line of Kings Highway West, also known as Main Street (66.00 feet wide) and extending; thence\n\n(1) South 25 degrees 06 minutes 00 seconds East along the Southwesterly line of Washington Avenue, a distance of 39.01 feet to a point; thence\n\n(2) South 64 degrees 58 minutes 58 seconds West along the division line between Lots 12.01 and 26, Block 76, a distance of 49.32 feet to a point; thence\n\n(3) South 30 degrees 01 minutes 38 seconds East along the division line between Lots 11.01 and 26, Block 76, a distance of 105.25 feet to a point; thence\n\n(4) North 57 degrees 49 minutes 45 seconds East still along the division line between Lots 16.01 and 26, Block 76 a distance of 40.57 feet to a point in the Southwesterly line of Washington Avenue; thence\n\n(5) South 25 degrees 06 minutes 00 seconds East along the Southwesterly line of Washington avenue, a distance of 11.45 feet to a point; thence\n\n(6) South 58 degrees 01 minutes 30 seconds West along the division line between Lots 11, 11.01 and 13, Block 76 a distance of 147.10 feet; thence\n\n(7) North 32 degrees 22 minutes 35 seconds West, along the division line between Lots 10 and 11, Block 76, a distance of 121.22 feet to a point; thence\n\n(8) North 12 degrees 00 minutes 41 seconds East along the proposed division line between Lots 11, 12.01, Block 76, a distance of 31.69 feet to a point; thence\n\n(9) North 61 degrees 15 minutes 26 seconds East along the division line between proposed Lots 11.01 and 12.01, Block 76, a distance of 58.57 feet to a point; thence\n\n(10) North 28 degrees 44 minutes 34 seconds West still along the division line between Lots 11.01 and 12.01, Block 76, a distance of 13.35 feet to a point; thence\n\n(11) North 61 degrees 15 minutes 26 seconds East again along the division line between proposed Lots 11.01 and 12.01, Block 76, a distance of 84.84 feet to the point and place of beginning.",
+  "expected_legal_description": "TRACT THREE: Beginning at a point in the Southwesterly line of Washington Avenue (40 feet wide) said point being South 25 degrees 06 minutes 00 seconds East, a distance of 157.01 feet measured along the Southwesterly line of Washington Avenue from the intersection of same with the Southeasterly line of Kings Highway West, also known as Main Street (66.00 feet wide) and extending; thence (1) through (11) to the point and place of beginning.",
+  "expected_normalized_text": "Beginning at a point in the Southwesterly line of Washington Avenue (40 feet wide) said point being South 25 degrees 06 minutes 00 seconds East, a distance of 157.01 feet measured along the Southwesterly line of Washington Avenue from the intersection of same with the Southeasterly line of Kings Highway West, also known as Main Street (66.00 feet wide)",
+  "expected_pob": "a point in the Southwesterly line of Washington Avenue (40 feet wide) said point being South 25 degrees 06 minutes 00 seconds East, a distance of 157.01 feet measured along the Southwesterly line of Washington Avenue from the intersection of same with the Southeasterly line of Kings Highway West",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 25 degrees 06 minutes 00 seconds E",
+      "bearing_quadrant": "S 25\u00b006'00\" E",
+      "bearing_azimuth_deg_from_north": 154.9,
+      "distance_ft": 39.01,
+      "along": "Southwesterly line of Washington Avenue",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "S 64 degrees 58 minutes 58 seconds W",
+      "bearing_quadrant": "S 64\u00b058'58\" W",
+      "bearing_azimuth_deg_from_north": 244.9828,
+      "distance_ft": 49.32,
+      "along": "division line between Lots 12.01 and 26, Block 76",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "S 30 degrees 01 minutes 38 seconds E",
+      "bearing_quadrant": "S 30\u00b001'38\" E",
+      "bearing_azimuth_deg_from_north": 149.9728,
+      "distance_ft": 105.25,
+      "along": "division line between Lots 11.01 and 26, Block 76",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "N 57 degrees 49 minutes 45 seconds E",
+      "bearing_quadrant": "N 57\u00b049'45\" E",
+      "bearing_azimuth_deg_from_north": 57.8292,
+      "distance_ft": 40.57,
+      "along": "division line between Lots 16.01 and 26, Block 76",
+      "to": "a point in the Southwesterly line of Washington Avenue",
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "S 25 degrees 06 minutes 00 seconds E",
+      "bearing_quadrant": "S 25\u00b006'00\" E",
+      "bearing_azimuth_deg_from_north": 154.9,
+      "distance_ft": 11.45,
+      "along": "Southwesterly line of Washington avenue",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 6,
+      "direction_text": "S 58 degrees 01 minutes 30 seconds W",
+      "bearing_quadrant": "S 58\u00b001'30\" W",
+      "bearing_azimuth_deg_from_north": 238.025,
+      "distance_ft": 147.1,
+      "along": "division line between Lots 11, 11.01 and 13, Block 76",
+      "to": null,
+      "notes": null
+    },
+    {
+      "course": 7,
+      "direction_text": "N 32 degrees 22 minutes 35 seconds W",
+      "bearing_quadrant": "N 32\u00b022'35\" W",
+      "bearing_azimuth_deg_from_north": 327.6236,
+      "distance_ft": 121.22,
+      "along": "division line between Lots 10 and 11, Block 76",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 8,
+      "direction_text": "N 12 degrees 00 minutes 41 seconds E",
+      "bearing_quadrant": "N 12\u00b000'41\" E",
+      "bearing_azimuth_deg_from_north": 12.0114,
+      "distance_ft": 31.69,
+      "along": "proposed division line between Lots 11, 12.01, Block 76",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 9,
+      "direction_text": "N 61 degrees 15 minutes 26 seconds E",
+      "bearing_quadrant": "N 61\u00b015'26\" E",
+      "bearing_azimuth_deg_from_north": 61.2572,
+      "distance_ft": 58.57,
+      "along": "division line between proposed Lots 11.01 and 12.01, Block 76",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 10,
+      "direction_text": "N 28 degrees 44 minutes 34 seconds W",
+      "bearing_quadrant": "N 28\u00b044'34\" W",
+      "bearing_azimuth_deg_from_north": 331.2572,
+      "distance_ft": 13.35,
+      "along": "division line between Lots 11.01 and 12.01, Block 76",
+      "to": "a point",
+      "notes": null
+    },
+    {
+      "course": 11,
+      "direction_text": "N 61 degrees 15 minutes 26 seconds E",
+      "bearing_quadrant": "N 61\u00b015'26\" E",
+      "bearing_azimuth_deg_from_north": 61.2572,
+      "distance_ft": 84.84,
+      "along": "division line between proposed Lots 11.01 and 12.01, Block 76",
+      "to": "the point and place of beginning",
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0886,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": 18209.91,
+    "area_acres": 0.418,
+    "perimeter_ft": 702.37,
+    "closure_passed": false
+  },
+  "critical_assertions": {
+    "total_calls": 11,
+    "parcel_is_tract_three": true,
+    "contains_irregular_lot_lines": true,
+    "misclosure_exceeds_tolerance": true,
+    "note": "Misclosure of 0.0885 ft exceeds 0.01 ft tolerance. This is the consolidated parcel before subdivision into individual lots. The irregular shape (11 sides) comes from merging the Kings Highway frontage lot (Lot 11) with the Washington Avenue lots (11.01, 12.01)."
+  },
+  "common_failure_modes": [
+    "Parser may miss calls due to multi-page OCR",
+    "Lot reference 16.01 in call (4) may be OCR error for 11.01",
+    "Call (6) has no explicit 'to a point' phrase",
+    "Misclosure is above 0.01 ft threshold - deed description may have minor survey inconsistency"
+  ],
+  "notes": "This deed transfers the consolidated Lots 11, 11.01, and 12.01 from MSSK LLC to Select Real Estate LLC as part of the Willits Court subdivision. It was subsequently subdivided into individual townhouse lots (12.02 through 12.13). The parcel shape is irregular because it wraps around the corner from Kings Highway West to Washington Avenue."
+}

@@ -1,0 +1,68 @@
+{
+  "deed_info": {
+    "address": "26 Chews Landing Road",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "10965",
+    "page": "1948",
+    "parcel_shape": "Irregular 5-sided polygon (expected)",
+    "dimensions": "~301 ft x 121 ft x 171 ft x 281 ft x 59 ft (expected, based on other deeds in chain)"
+  },
+  "raw_ocr_text": "BEGINNING at a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwesterly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road; said point being corner to land of the Borough of Haddonfield; thence\n\n(1) South 54 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings West, 300.55 feet to a point; thence\n\n[Calls (2) through (5) not readable due to low resolution scan]",
+  "expected_legal_description": null,
+  "expected_normalized_text": null,
+  "expected_pob": "a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwesterly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road; said point being corner to land of the Borough of Haddonfield",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "South 54 degrees 22 minutes 25 seconds West",
+      "bearing_quadrant": "S 54\u00b022'25\" W",
+      "bearing_azimuth_deg_from_north": 234.3736,
+      "distance_ft": 300.55,
+      "along": "the Southeasterly line of Kings West",
+      "to": "a point",
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "monument_type": null,
+      "notes": "Only call readable from OCR. Calls 2-5 not extractable due to low-resolution scan."
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": null,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "closure_notes": "Cannot compute closure - only 1 of 5 calls extractable from OCR. The parser reported misclosure of 300.55 ft which is simply the distance of the single extracted call (the endpoint of call 1 relative to the POB). Based on other deeds in this chain, the full description has 5 calls. If the full description matches 8566/200 or 9701/296 (surveyed version), expected misclosure would be ~52 ft."
+  },
+  "critical_assertions": {
+    "ocr_quality_issue": {
+      "expected": true,
+      "description": "Only 1 of 5 calls extractable - this is an OCR/scan quality issue, not a parser error"
+    },
+    "call_1_matches_survey_version": {
+      "expected": true,
+      "description": "The one readable call (S 54\u00b022'25\" W, 300.55 ft) matches the surveyed version (8566, 9701), not the pre-survey version (7797 which has S 64 and 229.89 ft)"
+    },
+    "call_1_along_text": {
+      "expected": "Kings West",
+      "description": "Call 1 along text says 'Kings West' (missing 'Highway') - same verbatim phrasing as 9701/296"
+    }
+  },
+  "common_failure_modes": [
+    {
+      "symptom": "Only 1 call extracted, large misclosure reported",
+      "cause": "Low-resolution scan - the LLM OCR could not read calls 2-5 with sufficient confidence to transcribe them",
+      "fix": "Re-scan PDF at 300+ DPI for reliable OCR extraction"
+    },
+    {
+      "symptom": "Parser shows OPEN traverse with misclosure equal to call 1 distance",
+      "cause": "With only 1 call extracted, the 'misclosure' is simply the endpoint of that call relative to origin",
+      "fix": "This is expected behavior when only partial calls are extracted"
+    }
+  ],
+  "notes": "Most recent deed in the chain of title for 26 Chews Landing Rd. Grantor: Christopher C. Poyatt and Margaret M. Poyatt, H/W. Grantee: Thomas J. Holt III, Thomas Holt Jr., and Angela Holt (joint tenants with right of survivorship). Dated July 25, 2018. Consideration: $1,200,000.00. Block 79.01, Lot 6. Recorded September 13, 2018 as File Number 2018065462. The OCR was severely limited by low-resolution scan quality. Only the POB and call (1) were readable. The readable portion shows this deed uses the surveyed description (S 54, 300.55 ft) matching 8566/200 and 9701/296. Calls 2-5 are expected to be: S 25\u00b037'35\" E 120.68 ft, S 68\u00b039'05\" E 171.43 ft, N 21\u00b020'55\" E 280.55 ft, N 47\u00b008'20\" W 58.67 ft (based on chain of title)."
+}

@@ -1,0 +1,81 @@
+{
+  "deed_info": {
+    "address": "26 Washington Avenue",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "7535",
+    "page": "960",
+    "parcel_shape": "approximate parallelogram",
+    "dimensions": "Lot 12.06, Block 76 (Willits Court subdivision)",
+    "lot": "12.06",
+    "block": "76",
+    "date": "July 16, 2004",
+    "grantor": "Select Real Estate, LLC",
+    "grantee": "Joseph Famular and Nan Famular",
+    "consideration": "$459,900.00"
+  },
+  "raw_ocr_text": "ALL that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden and State of New Jersey being more particularly described as follows:\n\nBeginning at a point in the Southwesterly right of way line of Washington Avenue (40 feet wide) where intersected by the Northerly line of Lot 12.06 as shown on Plan hereinafter mentioned, said point being South 25 degrees 06 minutes 00 seconds East, 156.69 feet from the intersection of said right of way line of Washington Avenue with the Southeasterly line of Lot 12, Block 76 and running; thence\n\n(1) along said Southwesterly line of Washington Avenue, South 25 degrees 06 minutes 00 seconds East, 20.07 feet to a point in the division line of Lots 12.06 and 12.07 on Plan hereinafter mentioned; thence\n\n(2) along said division line, South 61 degrees 23 minutes 09 seconds West, 69.88 feet to a point in the Northeasterly line of Lot 12.12, Block 76; thence\n\n(3) Along the Northeasterly line of Lot 12.12 and Lot 12.11, North 28 degrees 36 minutes 51 seconds West, 20.03 feet to a point in the division line of Lots 12.05 and 12.06 on Plan hereinafter mentioned; thence\n\n(4) Along said division line, North 61 degrees 23 minutes 09 seconds East, 71.11 feet to the point and place of beginning.",
+  "expected_legal_description": "Beginning at a point in the Southwesterly right of way line of Washington Avenue (40 feet wide) where intersected by the Northerly line of Lot 12.06; thence (1) through (4) to the point and place of beginning.",
+  "expected_normalized_text": "Beginning at a point in the Southwesterly right of way line of Washington Avenue (40 feet wide) where intersected by the Northerly line of Lot 12.06 as shown on Plan hereinafter mentioned, said point being South 25 degrees 06 minutes 00 seconds East, 156.69 feet from the intersection of said right of way line of Washington Avenue with the Southeasterly line of Lot 12, Block 76",
+  "expected_pob": "a point in the Southwesterly right of way line of Washington Avenue (40 feet wide) where intersected by the Northerly line of Lot 12.06",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 25 degrees 06 minutes 00 seconds E",
+      "bearing_quadrant": "S 25\u00b006'00\" E",
+      "bearing_azimuth_deg_from_north": 154.9,
+      "distance_ft": 20.07,
+      "along": "Southwesterly line of Washington Avenue",
+      "to": "a point in the division line of Lots 12.06 and 12.07",
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "S 61 degrees 23 minutes 09 seconds W",
+      "bearing_quadrant": "S 61\u00b023'09\" W",
+      "bearing_azimuth_deg_from_north": 241.3858,
+      "distance_ft": 69.88,
+      "along": "said division line",
+      "to": "a point in the Northeasterly line of Lot 12.12, Block 76",
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "N 28 degrees 36 minutes 51 seconds W",
+      "bearing_quadrant": "N 28\u00b036'51\" W",
+      "bearing_azimuth_deg_from_north": 331.3858,
+      "distance_ft": 20.03,
+      "along": "Northeasterly line of Lot 12.12 and Lot 12.11",
+      "to": "a point in the division line of Lots 12.05 and 12.06",
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "N 61 degrees 23 minutes 09 seconds E",
+      "bearing_quadrant": "N 61\u00b023'09\" E",
+      "bearing_azimuth_deg_from_north": 61.3858,
+      "distance_ft": 71.11,
+      "along": "said division line",
+      "to": "the point and place of beginning",
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0023,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": 1412.1,
+    "area_acres": 0.0324,
+    "perimeter_ft": 181.09,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "total_calls": 4,
+    "is_willits_court_lot": true,
+    "lot_number": "12.06",
+    "has_washington_ave_frontage": true
+  },
+  "common_failure_modes": [
+    "Calls 1 and 2 start with lowercase 'along' - may affect parsing if case-sensitive"
+  ],
+  "notes": "Lot 12.06 is an interior lot in Willits Court fronting on Washington Avenue. Approximately 20 ft wide by 70 ft deep. One of the narrower lots in the subdivision."
+}

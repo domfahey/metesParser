@@ -1,0 +1,161 @@
+{
+  "deed_info": {
+    "address": "32 Birchall Drive",
+    "city": "Haddonfield",
+    "state": "NJ",
+    "book": "10234",
+    "page": "1230",
+    "parcel_shape": "Near-rectangle",
+    "dimensions": "90 ft x ~112.64 ft"
+  },
+  "raw_ocr_text": "BEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75.00 feet; thence\n\n(1) Northwardly along the Westerly line of Birchall Drive 90.00 feet to a point in the division line between Lots 6 and 7; thence\n\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan; thence\n\n(3) Southwardly along said boundary line forming an interior angle 89 degrees 52 minutes with the last course the distance of 90.00 feet to a point; thence\n\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course at right angles to Birchall Drive 112.53 feet to the place of BEGINNING.\n\nBEING part of Lot 6, on Plan of Country Club Estates, made by Walter H. Macnamara, C.E., dated December 1956, revised January 14, 1957 and duly filed in the Camden County Register of Deeds Office on July 15, 1958 as File 121 Map 10.\n\nBEING commonly known as 32 Birchall Drive.\n\nBeing known as Block 91.11, Lot 32 as shown on the Official Tax Map of the Borough of Haddonfield.",
+  "expected_legal_description": "BEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75.00 feet; thence\n(1) Northwardly along the Westerly line of Birchall Drive 90.00 feet to a point in the division line between Lots 6 and 7; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle 89 degrees 52 minutes with the last course the distance of 90.00 feet to a point; thence\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course at right angles to Birchall Drive 112.53 feet to the place of BEGINNING.",
+  "expected_normalized_text": "BEGINNING at a point in the westerly line of Birchall Drive distant 486.81 feet northwardly from the northerly end of the curve connecting the westerly line of Birchall Drive with the northerly line of Kings Highway, said connecting curve having a radius of 75.00 feet; thence\n(1) Northwardly along the westerly line of Birchall Drive 90.00 feet to a point in the division line between Lots 6 and 7; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle 89\u00b052' with the last course the distance of 90.00 feet to a point; thence\n(4) Eastwardly forming an interior angle of 90\u00b008' with the last course at right angles to Birchall Drive 112.53 feet to the place of BEGINNING.",
+  "expected_pob": "a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75.00 feet",
+  "expected_poc": null,
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "Northwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 90.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
+      "along": "the Westerly line of Birchall Drive",
+      "to": "a point in the division line between Lots 6 and 7",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 2,
+      "direction_text": "Westwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 112.74,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
+      "along": "said division line at right angles to Birchall Drive",
+      "to": "a point in the Westerly boundary line of said plan",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 3,
+      "direction_text": "Southwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 90.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
+      "along": "said boundary line",
+      "to": "a point",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 4,
+      "direction_text": "Eastwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 112.53,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
+      "along": null,
+      "to": "the place of BEGINNING",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only"
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": null,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": 405.27,
+    "closure_passed": false,
+    "closure_notes": "Cannot compute closure \u2014 all 4 calls have cardinal-only bearings. Interior angles (89\u00b052' and 90\u00b008') suggest near-rectangular parcel ~90 \u00d7 112.64 ft \u2248 10,137 sq ft."
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    },
+    "all_cardinal_only": {
+      "expected": true,
+      "description": "All 4 calls use cardinal-only directions (Northwardly, Westwardly, Southwardly, Eastwardly) with no numeric bearings"
+    },
+    "no_fabricated_bearings": {
+      "expected": true,
+      "description": "bearing_quadrant and bearing_azimuth_deg_from_north MUST be null for all calls — never invent bearings from cardinal directions"
+    },
+    "closure_not_computed": {
+      "expected": true,
+      "description": "Closure calculation cannot proceed without numeric bearings — closure_passed MUST be false"
+    }
+  },
+  "common_failure_modes": [
+    {
+      "symptom": "Fabricated numeric bearings (e.g., N 0\u00b0 E for 'Northwardly')",
+      "cause": "Parser converting cardinal directions to assumed bearings instead of leaving null",
+      "fix": "Cardinal-only directions must result in null bearing_quadrant and null bearing_azimuth_deg_from_north with notes='incomplete bearing - cardinal only'"
+    },
+    {
+      "symptom": "Interior angle text merged into 'along' field for calls 3 and 4",
+      "cause": "Parser not separating interior angle clauses from along/to field extraction",
+      "fix": "Interior angle text ('forming an interior angle...') should be parsed separately, not included in along or to fields"
+    },
+    {
+      "symptom": "Closure reported as passed with fabricated azimuths",
+      "cause": "System assumed N/S/E/W map to 0/180/90/270 and computed closure",
+      "fix": "Without explicit degree-minute-second bearings, closure computation must be skipped"
+    },
+    {
+      "symptom": "Only 2-3 calls extracted instead of 4",
+      "cause": "Parenthesized numbering format (1)/(2)/(3)/(4) not recognized",
+      "fix": "Call extractor must handle both '1.' and '(1)' numbering formats"
+    }
+  ],
+  "notes": "Newest deed in chain of title for 32 Birchall Dr (part of Lot 6, Block 91.11/Lot 32). Same property as book 8939/pg 350 and book 5070/pg 937. Plan of Country Club Estates by Walter H. Macnamara C.E. (Dec 1956, rev Jan 14 1957, filed Jul 15 1958 as File 121 Map 10)."
+}
