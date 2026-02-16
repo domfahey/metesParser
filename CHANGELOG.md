@@ -7,90 +7,85 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Full History Backfill (all commits in repository)
+### Added
 
-- 14af5e0 (2026-02-15): feat: Phase 1 foundation — units, monuments, precision ratio, non-tangent fields (#1)
-  - 8 new distance units (varas, arpents, toises, furlongs, meters, miles, engineer chains/links)
-  - 6 new monument types (pk_nail, hub_and_tack, monitoring_well, capped_pin, capped_rod, txdot_monument)
-  - precision_ratio field on ClosureResult, non_tangent/radial_bearing on DeedCall
-  - Precise US survey foot conversion factor
-  - 52 new TDD tests, 368 total passing, 93% coverage
-- 932b19f (2026-02-15): chore: commit pending repository updates
-- 0af774c (2026-02-15): docs: fourth-pass audit fixes for metes and bounds reference
-- 25d6f65 (2026-02-15): docs: third-pass audit fixes for metes and bounds reference
-- 9360462 (2026-02-15): docs: second-pass audit fixes for metes and bounds reference
-- f8f41ef (2026-02-15): docs: normalize bugs metadata and status summary
-- 50ff7ae (2026-02-15): docs: apply audit fixes to metes and bounds reference
-- 343abd8 (2026-02-15): test: add bug-33 regression and mark bugs.md closed
-- 46b49a5 (2026-02-15): fix: repair call extractor distance regex
-- 15217a6 (2026-02-15): docs: sync changelog and testing docs with recent history
-- dede9d9 (2026-02-15): docs: backfill changelog and update test suite docs
-- a7f4edd (2026-02-15): test: normalize e2e and pipeline contract assertions
-- bb6c531 (2026-02-15): test: tighten e2e csv row contract assertions
-- 2f5b3bb (2026-02-15): test: tighten warning and discrepancy assertions
-- f05ce7b (2026-02-15): test: tighten warning contract assertions
-- fe58737 (2026-02-15): test: tighten OCR extraction expectations
-- 2183e72 (2026-02-15): test: strengthen pydantic guardrail and integration assertions
-- 0f9d2b8 (2026-02-15): docs: audit README for accuracy against current codebase
-- 435a638 (2026-02-15): test: harden CLI and LLM client exception assertions
-- aaf51f6 (2026-02-15): docs: add Prosser presentation content to metes and bounds reference
-- 770b908 (2026-02-15): docs: sync bugs audit status with current fixes
-- 6a6ab37 (2026-02-15): test: assert missing-pdf error message for read_pdf
-- 1aad945 (2026-02-15): docs: enrich metes and bounds reference with BLM Module 3 content
-- e64a09a (2026-02-15): test: harden date extraction assertion in report parsing test
-- dec07c0 (2026-02-15): fix: resolve prioritized open bugs with tdd
-- 1624137 (2026-02-15): docs: audit and reprioritize open bug tickets
-- 78c1a8f (2026-02-15): test: add e2e and integration coverage for CLI and pipeline contracts
-- c6a78bf (2026-02-15): test: strengthen guardrail assertions and integration checks
-- 51f2ba2 (2026-02-15): test: strengthen guardrail and coverage effectiveness assertions
-- 8230dcf (2026-02-15): docs: update bugs audit status
-- aa74023 (2026-02-15): test: tighten exception-path assertions
-- 07c2ff0 (2026-02-15): fix: stabilize parser guardrails and prompts
-- 55f9948 (2026-02-15): fix: close bugs 20-24 with TDD
-- 2e6c857 (2026-02-15): docs: update CLAUDE.md with session learnings and bug fixes
-- 7ec96e2 (2026-02-14): test: strengthen pydantic guardrail checks
-- cc114da (2026-02-14): Audit and deduplicate bugs list
-- 717468f (2026-02-14): docs: update changelog and quality-gate documentation
-- e65cba6 (2026-02-14): Fix type and quality-gate reliability
-- 92e1145 (2026-02-14): fix: tighten pydantic guardrails for deed calls
-- 65feac1 (2026-02-14): fix: enforce pydantic guardrails for curve and numeric inputs
-- b3a30db (2026-02-14): fix: extend lint/format to tests, tighten assertions, document new bugs
-- 61ae4ed (2026-02-14): docs: add bugs.md for tracking known issues
-- d1bb11b (2026-02-14): feat: add ground truth JSONs for 24/31 Pennbrook and generate script
-- 5a35fb6 (2026-02-14): feat: add Gemini LLM provider support and refactor PDF processor
-- c5a2b5b (2026-02-14): chore: organize project root - move scripts, PDFs, and ground truth
-- 7c41dde (2026-02-14): chore: apply pydantic best practices audit fixes
-- 602557b (2026-02-14): test: expand closure checker branch coverage
-- 22d007a (2026-02-14): docs: sync documentation with current suite and provider behavior
-- 8eda598 (2026-02-14): docs: Add comprehensive metes and bounds legal description reference
-- 6697559 (2026-02-14): Add parsed markdown outputs for project PDFs
-- c6970e3 (2026-02-14): test: expand coverage for cli and llm clients
-- 1d53270 (2026-02-14): chore: improve Makefile for reliability and workflow targets
-- 225fbf6 (2025-10-14): feat: Add JSON ground truth files next to source PDFs
-- e8a5a4d (2025-10-14): docs: Add ground truth folder for PDF extraction validation
-- 124dae0 (2025-10-14): fix: Strengthen prompts to preserve numbered call line breaks
-- de370c3 (2025-10-14): fix: Prioritize numbered call detection over THENCE splitting (Bug #19)
-- f00ebf9 (2025-10-14): feat: Migrate to GPT-4.1 with OpenAI Responses API and optimize prompts
-- 2d9cfa4 (2025-10-14): fix: Use OpenAI file upload API for PDF processing
-- 67f5681 (2025-10-14): fix: Update PDF test paths to use sample_deeds/ directory
-- 61f9f39 (2025-10-14): docs: Add sample deed PDFs from Camden County Recorder (public records)
-- 24ae692 (2025-10-14): feat: Add comprehensive PDF processing test suite (20+ tests)
-- 5cb6c2d (2025-10-14): feat: Add POC/POB distinction and closure detection (Phase 2A+2B)
-- 5a09d85 (2025-10-14): feat: Add monument classification, PLSS support, and exception handling (v0.2)
-- 3a413fa (2025-10-13): docs: Comprehensive documentation overhaul following best practices
-- a2672df (2025-10-13): refactor: Enhance test suite with fixtures and parametrization (147→170 tests)
-- 58c4497 (2025-10-13): refactor: Create test infrastructure and reorganize test suite
-- 70d464c (2025-10-13): fix: Low priority bugs #11, #14, #16 - improve validation and code quality
-- bbb269d (2025-10-13): fix: correct interior angle check algorithm (Bug #8)
-- c53227a (2025-10-13): style: apply ruff formatting to closure_checker.py
-- 12176c9 (2025-10-13): fix: resolve 9 critical/high/medium bugs + add 26 comprehensive tests
-- dadad66 (2025-10-13): style: apply ruff formatting to call_extractor.py
-- 0c2d925 (2025-10-13): fix: resolve final 2 test failures - complete Phase 1 (121/121 tests passing)
-- cca8391 (2025-10-12): Fix curve extraction regex patterns - now 116/121 tests passing
-- 71d95b0 (2025-10-12): Fix 132 test failures - align tests with implementation APIs
-- a9addb2 (2025-10-12): Enhance code comments for clarity in closure_checker.py
-- 0fc5c5d (2025-10-12): Add comprehensive pytest test suite with 155 tests
-- d0735ac (2025-10-12): Initial commit: Metes & Bounds Deed Parser
+#### Phase 1: Foundation (PR #1)
+- 8 new distance units: varas, arpents, toises, furlongs, meters, miles, engineer chains/links
+- 6 new monument types: pk_nail, hub_and_tack, monitoring_well, capped_pin, capped_rod, txdot_monument
+- `precision_ratio` field on `ClosureResult`; `non_tangent`/`radial_bearing` on `DeedCall`
+- Precise US survey foot conversion factor (3937/1200)
+
+#### Phase 2: Enhanced Parsing (PR #2)
+- POC vs POB distinction (`extract_poc_and_pob()`)
+- Packed DMS parsing (`parse_packed_dms()` — e.g., 46.1631 → 46°16'31")
+- Chord bearing extraction from curve descriptions
+- Non-tangent curve detection (keywords: "non-tangent", "radial line bears")
+- Basis of bearing, surveyor certification, and prior conveyance extraction
+- Unit-inference heuristics (advisory: TX → varas, LA → arpents)
+- CSV schema expanded from 16 → 18 fields
+
+#### Phase 3: Enhanced Verification (PR #3)
+- Area statement extraction ("CONTAINING X sq ft", "X acres more or less")
+- Abbreviation expansion (IPF, IPS, IRF, IRS, CIP, R/W, N/F, PK)
+- Monument status classification (found/set from deed text)
+- Bearing reversal detection (adjacent courses ~180° apart, 5° threshold)
+- Distance reasonableness checks (<0.5 ft, >10x median, >90% perimeter)
+- CSV schema expanded to 19 fields (`monument_status`)
+
+#### Phase 4: Geometric Completeness (PR #4)
+- Missing curve element calculation (any 2 of 5 → all 5: R, Δ, L, C, T)
+- Compound/reverse curve detection (PCC/PRC keywords → `curve_type` field)
+- Tie-in call separation (POC-to-POB calls filtered from closure)
+- Indefinite call flagging (cardinal-only + physical references)
+- Meander/water boundary detection (warning-only, not excluded from closure)
+- CSV schema expanded to 21 fields (`is_meander`, `is_tie_in`)
+
+#### Phase 5a: Production Completeness (PR #5)
+- Natural monument classification (tree, rock, natural_feature)
+- Extended curve properties: tangent (T), external distance (E), middle ordinate (M)
+- Degree of curvature parsing (D° → R = 5729.578/D°)
+- Clause taxonomy: reservation, subject_to, together_with extraction
+- 32-point compass system (mariner's notation → azimuth conversion)
+- Subdivision lot/block extraction and TPOB/RPOB recognition
+- Witness tree extraction
+- Spiral curve detection
+- State Plane Coordinate System (SPCS) metadata extraction
+- File-based LLM response caching (`CachedLLMClient`, enabled by default)
+
+#### Phase 5b: Quality Scoring (PR #6)
+- Call quality scoring (`score_call_quality()` — high/medium/low)
+- Confidence scoring (`calculate_confidence_score()` — 0.0–1.0 weighted composite)
+- Enhanced closure summary with confidence, precision ratio (1:N), per-call quality
+
+#### Infrastructure
+- Gemini LLM provider support with auto-fallback (`GeminiClient`)
+- Ground truth JSON files for 24/31 Pennbrook deed validation
+- Comprehensive metes and bounds reference document (BLM Manual, Prosser)
+- Bug tracking system (`docs/bugs.md`) — all 48 bugs resolved
+
+### Changed
+- Version bumped to 0.2.0
+- Default Gemini model upgraded to `gemini-3-flash-preview`
+- OpenAI calls use `temperature=0` for deterministic extraction
+- Removed black formatter — ruff handles all formatting and linting
+- Swapped pytest-watch for pytest-watcher (actively maintained)
+- Coverage reporting separated from default `make test`
+- `make doctor` checks both OpenAI and Gemini providers (active = required, inactive = optional)
+- CLI uses `structlog.contextvars` for log context propagation with `run_id` correlation
+- Pydantic v2 best practices: `model_copy()`, explicit `default=None`, bool coercion validators
+- Makefile streamlined — removed all black references, improved provider checks
+- CLAUDE.md scored 100/100 on quality audit (feature table, approximate stats, debug snippets)
+
+### Fixed
+- 48 bugs resolved (#20–#48) across Phases 1–5 with TDD regression tests
+- CLI logging: `_emit_closure_summary` now logs to structlog in all modes, prints only in console mode
+- Arc distance curve parsing — match "arc distance", not just "arc length" (Bug #42)
+- Curve math edge cases: 180° delta returns infinity, arc/chord validation guards
+- CSV guardrails and bearing test stability
+- structlog mode transitions and JSON CLI output hardening
+- mypy strict mode: explicit `default=None` in Pydantic `Field()` declarations
+- Call extractor distance regex repair
+- `check_parallelism` input parameter fix
 
 ## [0.3.1] - 2025-10-14
 
@@ -223,9 +218,20 @@ This project uses [Semantic Versioning](https://semver.org/):
 
 - [Keep a Changelog](https://keepachangelog.com/)
 - [Semantic Versioning](https://semver.org/)
-- [OpenAI GPT-5 Prompting Guide](https://cookbook.openai.com/examples/gpt-5/gpt-5_prompting_guide)
 
 ## Migration Guides
+
+### Migrating from 0.3.1 to next release
+
+**CSV Schema**:
+CSV output now has 21 fields instead of 16. New fields added across Phases 1–4:
+- `is_meander`, `is_tie_in`, `monument_status`, `non_tangent`, `radial_bearing`
+
+**LLM Provider**:
+Gemini is now supported as an alternative provider. Set `METESPARSER_LLM_PROVIDER=gemini` and `GEMINI_API_KEY` in `.env`.
+
+**Tooling**:
+Black has been removed. Ruff handles all formatting and linting. Update any CI scripts that reference `black`.
 
 ### Migrating from 0.2.0 to 0.3.0
 
