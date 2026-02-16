@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -130,3 +131,98 @@ class TestGetPromptVersions:
         versions = get_prompt_versions(tmp_path)
         # tmp_path is not inside a git repo, so git_sha should be None
         assert versions["test_prompt"].git_sha is None
+
+
+class TestWriteRunManifest:
+    def _make_manifest(self) -> RunManifest:
+        return RunManifest(
+            run_id="test-uuid",
+            timestamp_utc=datetime(2026, 2, 16, 15, 30, 0, tzinfo=UTC),
+            source_pdf="18 Pennbrook Dr - Deed Image (11985 - 00829).pdf",
+            llm_provider="openai",
+            llm_model="gpt-5.2",
+            cache_enabled=False,
+            prompt_versions={},
+            results=RunResults(
+                call_count=4,
+                closure_passed=True,
+                misclosure_ft=0.0,
+                area_sq_ft=10000.0,
+                confidence_score=0.9,
+                warnings=[],
+            ),
+            parser_version="0.4.0",
+        )
+
+    def test_writes_json_file(self, tmp_path: Path) -> None:
+        from metesparser.run_registry import write_run_manifest
+
+        manifest = self._make_manifest()
+        path = write_run_manifest(manifest, tmp_path)
+
+        assert path.exists()
+        assert path.suffix == ".json"
+        data = json.loads(path.read_text())
+        assert data["run_id"] == "test-uuid"
+
+    def test_filename_contains_timestamp_and_pdf_stem(self, tmp_path: Path) -> None:
+        from metesparser.run_registry import write_run_manifest
+
+        manifest = self._make_manifest()
+        path = write_run_manifest(manifest, tmp_path)
+
+        assert "2026-02-16" in path.name
+        assert "18-pennbrook" in path.name.lower()
+
+    def test_creates_runs_dir_if_missing(self, tmp_path: Path) -> None:
+        from metesparser.run_registry import write_run_manifest
+
+        runs_dir = tmp_path / "runs"
+        manifest = self._make_manifest()
+        path = write_run_manifest(manifest, runs_dir)
+
+        assert runs_dir.exists()
+        assert path.exists()
+
+
+class TestLoadRunManifests:
+    def test_loads_all_manifests(self, tmp_path: Path) -> None:
+        from metesparser.run_registry import load_run_manifests, write_run_manifest
+
+        for i in range(3):
+            m = RunManifest(
+                run_id=f"uuid-{i}",
+                timestamp_utc=datetime(2026, 2, 16, 15, i, 0, tzinfo=UTC),
+                source_pdf="test.pdf",
+                llm_provider="openai",
+                llm_model="gpt-5.2",
+                cache_enabled=False,
+                prompt_versions={},
+                results=RunResults(
+                    call_count=4,
+                    closure_passed=True,
+                    misclosure_ft=0.0,
+                    area_sq_ft=10000.0,
+                    confidence_score=0.9,
+                    warnings=[],
+                ),
+                parser_version="0.4.0",
+            )
+            write_run_manifest(m, tmp_path)
+
+        manifests = load_run_manifests(tmp_path)
+        assert len(manifests) == 3
+
+    def test_empty_dir_returns_empty_list(self, tmp_path: Path) -> None:
+        from metesparser.run_registry import load_run_manifests
+
+        manifests = load_run_manifests(tmp_path)
+        assert manifests == []
+
+    def test_skips_malformed_json(self, tmp_path: Path) -> None:
+        (tmp_path / "bad.json").write_text("{invalid json")
+
+        from metesparser.run_registry import load_run_manifests
+
+        manifests = load_run_manifests(tmp_path)
+        assert manifests == []

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+import json
+import re
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -96,3 +98,51 @@ def get_prompt_versions(prompts_dir: Path) -> dict[str, PromptVersion]:
         )
         logger.debug("resolved_prompt_version", prompt=name, git_sha=versions[name].git_sha)
     return versions
+
+
+def _slugify_pdf_name(pdf_name: str) -> str:
+    """Convert PDF filename to a short slug for the manifest filename."""
+    stem = Path(pdf_name).stem
+    slug = re.sub(r"[^a-z0-9]+", "-", stem[:30].lower()).strip("-")
+    return slug
+
+
+def write_run_manifest(manifest: RunManifest, runs_dir: Path) -> Path:
+    """Write a run manifest to a JSON file.
+
+    Args:
+        manifest: The run manifest to write.
+        runs_dir: Directory to write the manifest to.
+
+    Returns:
+        Path to the written JSON file.
+    """
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    ts = manifest.timestamp_utc.strftime("%Y-%m-%dT%H%M%S")
+    slug = _slugify_pdf_name(manifest.source_pdf)
+    filename = f"{ts}-{slug}.json"
+    path = runs_dir / filename
+    path.write_text(manifest.model_dump_json(indent=2))
+    logger.debug("Run manifest written", path=str(path))
+    return path
+
+
+def load_run_manifests(runs_dir: Path) -> list[RunManifest]:
+    """Load all run manifests from a directory.
+
+    Args:
+        runs_dir: Directory containing run manifest JSON files.
+
+    Returns:
+        List of RunManifest objects, sorted by filename.
+    """
+    if not runs_dir.exists():
+        return []
+    manifests: list[RunManifest] = []
+    for json_file in sorted(runs_dir.glob("*.json")):
+        try:
+            data = json.loads(json_file.read_text())
+            manifests.append(RunManifest.model_validate(data))
+        except (json.JSONDecodeError, ValueError):
+            logger.warning("Skipping malformed run manifest", path=str(json_file))
+    return manifests
