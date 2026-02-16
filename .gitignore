@@ -104,6 +104,9 @@ nohup.out
 # Allow reference PDFs in docs
 !docs/reference/*.pdf
 
+# Generated review packets (output of scripts/generate_review_packet.py)
+sample_deeds/review_packets/
+
 # Temporary files
 debug_*
 temp_*
