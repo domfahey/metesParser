@@ -226,3 +226,93 @@ class TestLoadRunManifests:
 
         manifests = load_run_manifests(tmp_path)
         assert manifests == []
+
+
+class TestFormatComparisonTable:
+    def test_formats_grouped_by_pdf(self) -> None:
+        from metesparser.run_registry import format_comparison_table
+
+        manifests = [
+            RunManifest(
+                run_id="uuid-1",
+                timestamp_utc=datetime(2026, 2, 16, 15, 0, 0, tzinfo=UTC),
+                source_pdf="deed_a.pdf",
+                llm_provider="openai",
+                llm_model="gpt-5.2",
+                cache_enabled=False,
+                prompt_versions={
+                    "normalize_text": PromptVersion(git_sha="aaa1111bbb2222ccc", content_hash="x"),
+                },
+                results=RunResults(
+                    call_count=4,
+                    closure_passed=True,
+                    misclosure_ft=0.001,
+                    area_sq_ft=10000.0,
+                    confidence_score=0.9,
+                    warnings=[],
+                ),
+                parser_version="0.4.0",
+            ),
+            RunManifest(
+                run_id="uuid-2",
+                timestamp_utc=datetime(2026, 2, 16, 16, 0, 0, tzinfo=UTC),
+                source_pdf="deed_a.pdf",
+                llm_provider="openai",
+                llm_model="gpt-5.2",
+                cache_enabled=False,
+                prompt_versions={
+                    "normalize_text": PromptVersion(git_sha="ddd4444eee5555fff", content_hash="y"),
+                },
+                results=RunResults(
+                    call_count=5,
+                    closure_passed=False,
+                    misclosure_ft=0.5,
+                    area_sq_ft=10200.0,
+                    confidence_score=0.7,
+                    warnings=["Misclosure too high"],
+                ),
+                parser_version="0.4.0",
+            ),
+        ]
+
+        output = format_comparison_table(manifests)
+        assert "deed_a.pdf" in output
+        assert "aaa1111" in output
+        assert "ddd4444" in output
+        assert "PASS" in output
+        assert "FAIL" in output
+
+    def test_empty_manifests(self) -> None:
+        from metesparser.run_registry import format_comparison_table
+
+        output = format_comparison_table([])
+        assert "No runs found" in output
+
+    def test_filter_by_pdf(self) -> None:
+        from metesparser.run_registry import format_comparison_table
+
+        manifests = [
+            RunManifest(
+                run_id=f"uuid-{i}",
+                timestamp_utc=datetime(2026, 2, 16, 15, i, 0, tzinfo=UTC),
+                source_pdf=f"deed_{c}.pdf",
+                llm_provider="openai",
+                llm_model="gpt-5.2",
+                cache_enabled=False,
+                prompt_versions={},
+                results=RunResults(
+                    call_count=4,
+                    closure_passed=True,
+                    misclosure_ft=0.0,
+                    area_sq_ft=10000.0,
+                    confidence_score=0.9,
+                    warnings=[],
+                ),
+                parser_version="0.4.0",
+            )
+            for i, c in enumerate(["a", "b"])
+        ]
+
+        output = format_comparison_table(manifests, pdf_filter="deed_a")
+        assert "deed_a.pdf" in output
+        assert "deed_b.pdf" not in output

@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 from datetime import datetime
+from itertools import groupby
 from pathlib import Path
 
 import structlog
@@ -146,3 +147,56 @@ def load_run_manifests(runs_dir: Path) -> list[RunManifest]:
         except (json.JSONDecodeError, ValueError):
             logger.warning("Skipping malformed run manifest", path=str(json_file))
     return manifests
+
+
+def _short_prompt_sha(manifest: RunManifest) -> str:
+    """Return the first 7 chars of the first prompt git SHA, or content hash."""
+    for pv in manifest.prompt_versions.values():
+        if pv.git_sha:
+            return pv.git_sha[:7]
+    for pv in manifest.prompt_versions.values():
+        return pv.content_hash[:7]
+    return "unknown"
+
+
+def format_comparison_table(manifests: list[RunManifest], pdf_filter: str | None = None) -> str:
+    """Format run manifests as a grouped comparison table.
+
+    Args:
+        manifests: List of run manifests to display.
+        pdf_filter: Optional substring to filter by PDF name.
+
+    Returns:
+        Formatted table string.
+    """
+    if pdf_filter:
+        manifests = [m for m in manifests if pdf_filter.lower() in m.source_pdf.lower()]
+
+    if not manifests:
+        return "No runs found."
+
+    lines: list[str] = []
+    sorted_manifests = sorted(manifests, key=lambda m: (m.source_pdf, m.timestamp_utc))
+
+    header = (
+        f"{'Timestamp':<20} {'Prompt':<9} {'Calls':>5} "
+        f"{'Misclosure':>11} {'Confidence':>10} {'Status':>6}"
+    )
+    separator = "-" * len(header)
+
+    for pdf_name, group in groupby(sorted_manifests, key=lambda m: m.source_pdf):
+        lines.append(f"\n{pdf_name}")
+        lines.append(separator)
+        lines.append(header)
+        lines.append(separator)
+        for m in group:
+            ts = m.timestamp_utc.strftime("%Y-%m-%d %H:%M")
+            prompt_sha = _short_prompt_sha(m)
+            status = "PASS" if m.results.closure_passed else "FAIL"
+            lines.append(
+                f"{ts:<20} {prompt_sha:<9} {m.results.call_count:>5} "
+                f"{m.results.misclosure_ft:>10.4f}' {m.results.confidence_score:>9.2f} "
+                f"{status:>6}"
+            )
+
+    return "\n".join(lines)

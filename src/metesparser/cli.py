@@ -169,6 +169,16 @@ def export_command(csv_path: str, format: str = "geojson", output: str | None = 
     sys.exit(1)
 
 
+def compare_runs_command(runs_dir: str | None = None, pdf_filter: str | None = None) -> None:
+    """Compare extraction runs across prompt versions."""
+    from .run_registry import format_comparison_table, load_run_manifests
+
+    resolved_dir = Path(runs_dir) if runs_dir else RUNS_DIR
+    manifests = load_run_manifests(resolved_dir)
+    output = format_comparison_table(manifests, pdf_filter=pdf_filter)
+    print(output)
+
+
 def main() -> None:
     """Main CLI entry point."""
     import argparse
@@ -222,6 +232,12 @@ def main() -> None:
         "-a", "--area", type=float, help="Stated area in square feet (for comparison)"
     )
 
+    compare_parser = subparsers.add_parser("compare-runs", help="Compare extraction runs")
+    compare_parser.add_argument(
+        "--runs-dir", help="Directory containing run manifests (default: runs/)"
+    )
+    compare_parser.add_argument("--pdf", help="Filter by PDF name (substring match)")
+
     args = parser.parse_args()
 
     try:
@@ -249,6 +265,8 @@ def main() -> None:
         extract_command(args.pdf, args.output, args.llm_provider, no_cache=args.no_cache)
     elif args.command == "verify":
         verify_command(args.csv, args.area)
+    elif args.command == "compare-runs":
+        compare_runs_command(args.runs_dir, args.pdf)
     else:
         parser.print_help()
         sys.exit(1)
