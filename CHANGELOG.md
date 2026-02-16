@@ -76,7 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bug tracking system (`docs/bugs.md`) — all 48 bugs resolved
 
 ### Changed
-- Version bumped to 0.2.0
+- Version bumped to 0.3.0
 - Default Gemini model upgraded to `gemini-3-flash-preview`
 - OpenAI calls use `temperature=0` for deterministic extraction
 - Removed black formatter — ruff handles all formatting and linting

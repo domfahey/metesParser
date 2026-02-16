@@ -126,7 +126,7 @@ class TestPriorConveyanceWarning:
         )
         monkeypatch.setattr(
             "metesparser.call_extractor.CallExtractor.extract_calls",
-            lambda _, distance_unit="feet": [],
+            lambda _, distance_unit="feet", **_kw: [],
         )
         monkeypatch.setattr(
             "metesparser.call_extractor.CallExtractor.enrich_calls_with_azimuths",
@@ -204,7 +204,7 @@ class TestPriorConveyanceWarning:
         )
         monkeypatch.setattr(
             "metesparser.call_extractor.CallExtractor.extract_calls",
-            lambda _, distance_unit="feet": [],
+            lambda _, distance_unit="feet", **_kw: [],
         )
         monkeypatch.setattr(
             "metesparser.call_extractor.CallExtractor.enrich_calls_with_azimuths",
@@ -271,7 +271,8 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
     monkeypatch.setattr("metesparser.text_parser.TextParser.extract_area_statement", lambda _: None)
     monkeypatch.setattr("metesparser.text_parser.TextParser.infer_distance_unit", lambda _: None)
     monkeypatch.setattr(
-        "metesparser.call_extractor.CallExtractor.extract_calls", lambda _, distance_unit="feet": []
+        "metesparser.call_extractor.CallExtractor.extract_calls",
+        lambda _, distance_unit="feet", **_kw: [],
     )
     monkeypatch.setattr(
         "metesparser.call_extractor.CallExtractor.enrich_calls_with_azimuths",

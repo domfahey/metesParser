@@ -234,10 +234,9 @@ class PDFProcessor:
             )
 
         processing_logger.info("Extracting calls")
-        extract_kwargs: dict[str, object] = {"distance_unit": distance_unit}
-        if ctx is not None:
-            extract_kwargs["audit_context"] = ctx
-        calls = CallExtractor.extract_calls(normalized_text, **extract_kwargs)  # type: ignore[arg-type]
+        calls = CallExtractor.extract_calls(
+            normalized_text, distance_unit=distance_unit, audit_context=ctx
+        )
 
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
 
@@ -384,14 +383,16 @@ class PDFProcessor:
         - has_plss (+0.10)
         - no_garbled_chars (+0.10)
         """
-        has_pob = bool(re.search(r"(?:POINT\s+OF\s+)?BEGINNING|POB", text, re.IGNORECASE))
+        has_pob = bool(
+            re.search(r"(?:POINT\s+OF\s+BEGINNING|BEGINNING\s+at|POB)\b", text, re.IGNORECASE)
+        )
 
         bearing_matches = re.findall(r"(?:North|South|[NS])\s+\d+\s+degrees?", text, re.IGNORECASE)
         has_bearing_calls = len(bearing_matches) >= 3
 
         has_closure_language = bool(
             re.search(
-                r"(?:POINT\s+OF\s+BEGINNING|place\s+of\s+beginning)\s*[.;]",
+                r"(?:POINT\s+OF\s+BEGINNING|place\s+of\s+beginning)\s*(?:[.;]|\s*$)",
                 text,
                 re.IGNORECASE,
             )
