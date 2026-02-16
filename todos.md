@@ -129,11 +129,11 @@ Phased rollout based on gap analysis between `docs/METES_AND_BOUNDS_REFERENCE.md
 - [x] State Plane Coordinate System metadata + FIPS code
 - [x] Pipeline wiring (all new methods into `process_deed_pdf()`)
 
-### Phase 5b: Output & Reporting Enhancements (future work)
+### Phase 5b: Output & Reporting Enhancements (COMPLETE)
 
-- [ ] Medium: Add `score_call_quality(call) -> str` to `closure_checker.py`.
+- [x] Medium: Add `score_call_quality(call) -> str` to `closure_checker.py`.
   - Returns "high" / "medium" / "low" based on bearing completeness, monument permanence, meander flags.
-- [ ] Medium: Add `calculate_confidence_score(result, calls) -> float` (0.0–1.0) to `closure_checker.py`.
-  - Incorporates: closure quality, bearing completeness, monument reliability, meander presence.
-- [ ] Medium: Add `confidence_score` (float | None) and `quality` (str | None) fields to `ClosureResult` and `DeedCall` in `models.py`.
-- [ ] Low: Update `get_closure_summary()` with confidence score, precision ratio, per-call quality breakdown.
+- [x] Medium: Add `calculate_confidence_score(result, calls) -> float` (0.0–1.0) to `closure_checker.py`.
+  - Incorporates: closure quality (30%), verification checks (20%), bearing completeness (25%), call quality (15%), warning penalty (10%).
+- [x] Medium: Add `confidence_score` (float | None) and `quality` (str | None) fields to `ClosureResult` and `DeedCall` in `models.py`.
+- [x] Low: Update `get_closure_summary()` with confidence score, precision ratio, per-call quality breakdown.

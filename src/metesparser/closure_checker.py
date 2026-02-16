@@ -1,4 +1,4 @@
-"""Closure verification and traverse calculations.
+"""Closure verification, traverse calculations, and quality scoring.
 
 Implements the 6 verification guardrails from the playbook:
 A) Traverse closure
@@ -11,13 +11,17 @@ F) Double-entry validation
 Plus supplementary validation checks:
 G) Bearing reversal detection
 H) Distance reasonableness
+
+Quality and confidence scoring:
+- Per-call quality rating (high/medium/low)
+- Overall confidence score (0.0–1.0)
 """
 
 import math
 import statistics
 
 from .bearing_converter import BearingConverter
-from .models import ClosureResult, DeedCall, Point
+from .models import PERMANENT_MONUMENTS, ClosureResult, DeedCall, Point
 
 
 class ClosureChecker:
@@ -42,7 +46,7 @@ class ClosureChecker:
             double_entry_calls: Optional independently-entered call set for guardrail F
 
         Returns:
-            ClosureResult with all checks and computed values
+            ClosureResult with all checks, computed values, and confidence_score
         """
         tolerance = (
             closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
@@ -137,7 +141,7 @@ class ClosureChecker:
                     f"Exception tract has {len(exception_incomplete)} incomplete bearing(s)"
                 )
 
-        return ClosureResult(
+        closure_result = ClosureResult(
             misclosure_x_ft=misclosure_x,
             misclosure_y_ft=misclosure_y,
             misclosure_ft=misclosure,
@@ -151,6 +155,9 @@ class ClosureChecker:
             points=points,
             precision_ratio=misclosure / perimeter if perimeter else None,
         )
+
+        confidence = cls.calculate_confidence_score(closure_result, calls)
+        return closure_result.model_copy(update={"confidence_score": confidence})
 
     @classmethod
     def compute_traverse(
@@ -470,6 +477,97 @@ class ClosureChecker:
         return warnings
 
     @classmethod
+    def score_call_quality(cls, call: DeedCall) -> str:
+        """Rate individual call quality as high/medium/low.
+
+        Scoring logic:
+        - low: incomplete bearing (no azimuth) OR indefinite call
+        - medium: complete bearing but has meander flag or non-permanent monument
+        - high: complete bearing with permanent or no monument, no flags
+
+        Args:
+            call: DeedCall to score
+
+        Returns:
+            "high", "medium", or "low"
+        """
+        if not call.is_complete_bearing() or call.is_indefinite:
+            return "low"
+
+        if call.is_meander:
+            return "medium"
+
+        if call.monument_type and call.monument_type not in PERMANENT_MONUMENTS:
+            return "medium"
+
+        return "high"
+
+    @classmethod
+    def calculate_confidence_score(cls, result: ClosureResult, calls: list[DeedCall]) -> float:
+        """Calculate overall confidence score (0.0–1.0) for a closure result.
+
+        Weighted components:
+        - Closure quality (30%): based on misclosure distance and pass/fail
+        - Verification checks (20%): angle + curve consistency
+        - Bearing completeness (25%): ratio of calls with complete bearings
+        - Call quality (15%): ratio of high-quality calls
+        - Warning penalty (10%): deducted per warning
+
+        Args:
+            result: ClosureResult from verify_closure()
+            calls: List of DeedCall objects
+
+        Returns:
+            Score between 0.0 and 1.0 (inclusive)
+        """
+        if not calls:
+            return 0.0
+
+        # Closure quality (30%)
+        if result.closure_passed:
+            if result.misclosure_ft < 0.001:
+                closure_score = 1.0
+            elif result.misclosure_ft < 0.01:
+                closure_score = 0.9
+            elif result.misclosure_ft < 0.1:
+                closure_score = 0.7
+            else:
+                closure_score = 0.5
+        else:
+            closure_score = max(0.0, 0.3 - result.misclosure_ft * 0.02)
+
+        # Verification checks (20%)
+        checks_passed = sum(
+            [
+                result.angle_check_passed,
+                result.curve_consistency_passed,
+            ]
+        )
+        checks_score = checks_passed / 2.0
+
+        # Bearing completeness (25%)
+        complete = sum(1 for c in calls if c.is_complete_bearing())
+        bearing_score = complete / len(calls)
+
+        # Call quality (15%)
+        qualities = [cls.score_call_quality(c) for c in calls]
+        quality_weights = {"high": 1.0, "medium": 0.6, "low": 0.2}
+        quality_score = sum(quality_weights[q] for q in qualities) / len(calls)
+
+        # Warning penalty (10%)
+        warning_score = max(0.0, 1.0 - len(result.warnings) * 0.2)
+
+        weighted = (
+            closure_score * 0.30
+            + checks_score * 0.20
+            + bearing_score * 0.25
+            + quality_score * 0.15
+            + warning_score * 0.10
+        )
+
+        return max(0.0, min(1.0, weighted))
+
+    @classmethod
     def compare_double_entry(cls, calls1: list[DeedCall], calls2: list[DeedCall]) -> list[str]:
         """Compare two entry sets for discrepancies (double-entry validation).
 
@@ -538,11 +636,16 @@ class ClosureChecker:
         return discrepancies
 
     @classmethod
-    def get_closure_summary(cls, result: ClosureResult) -> str:
+    def get_closure_summary(
+        cls,
+        result: ClosureResult,
+        calls: list[DeedCall] | None = None,
+    ) -> str:
         """Generate a human-readable closure summary.
 
         Args:
             result: ClosureResult object
+            calls: Optional list of DeedCall objects for per-call quality breakdown
 
         Returns:
             Formatted summary string
@@ -554,9 +657,18 @@ class ClosureChecker:
         summary.append(f"Misclosure: {result.misclosure_ft:.4f} ft ({result.get_closure_status()})")
         summary.append(f"  X: {result.misclosure_x_ft:.4f} ft")
         summary.append(f"  Y: {result.misclosure_y_ft:.4f} ft")
+
+        if result.precision_ratio is not None and result.precision_ratio > 1e-10:
+            ratio_inv = round(1.0 / result.precision_ratio)
+            summary.append(f"  Precision: 1:{ratio_inv:,}")
+
         summary.append("")
         summary.append(f"Area: {result.area_sq_ft:,.2f} sq ft ({result.area_acres:.4f} acres)")
         summary.append(f"Perimeter: {result.perimeter_ft:,.2f} ft")
+
+        if result.confidence_score is not None:
+            summary.append(f"Confidence: {result.confidence_score:.2f}")
+
         summary.append("")
         summary.append("Verification Checks:")
         summary.append(f"  Closure: {'PASS' if result.closure_passed else 'FAIL'}")
@@ -570,6 +682,18 @@ class ClosureChecker:
                 summary.append(f"  - {warning}")
         else:
             summary.append("No warnings.")
+
+        if calls:
+            quality_counts = {"high": 0, "medium": 0, "low": 0}
+            for call in calls:
+                q = call.quality or cls.score_call_quality(call)
+                quality_counts[q] += 1
+            summary.append("")
+            summary.append("Quality Breakdown:")
+            for level in ("high", "medium", "low"):
+                count = quality_counts[level]
+                if count > 0:
+                    summary.append(f"  {level}: {count} call(s)")
 
         summary.append("")
         summary.append(

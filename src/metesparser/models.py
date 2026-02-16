@@ -27,6 +27,10 @@ MonumentType = Literal[
     "natural_feature",
     "other",
 ]
+PERMANENT_MONUMENTS: frozenset[str] = frozenset({
+    "iron_rod", "iron_pin", "iron_pipe", "concrete", "brass_cap",
+    "rebar", "capped_pin", "capped_rod", "railroad_spike",
+})
 MonumentStatus = Literal["found", "set"]
 CurveType = Literal["simple", "compound", "reverse", "spiral"]
 DistanceUnit = Literal[
@@ -192,6 +196,10 @@ class DeedCall(_Model):
     curve_type: CurveType | None = Field(
         None,
         description="Type of curve: simple, compound, or reverse (None for non-curves)",
+    )
+    quality: Literal["high", "medium", "low"] | None = Field(
+        default=None,
+        description="Call quality rating based on bearing completeness and monument permanence",
     )
     notes: str | None = Field(None, description="Additional notes (meander flag, issues, etc.)")
 
@@ -429,6 +437,12 @@ class ClosureResult(_Model):
         None,
         description="Misclosure / perimeter (e.g., 0.00004 means 1:25,000)",
         ge=0,
+    )
+    confidence_score: FiniteFloat | None = Field(
+        default=None,
+        description="Overall confidence score (0.0–1.0) based on closure, bearings, monuments",
+        ge=0.0,
+        le=1.0,
     )
 
     warnings: list[str] = Field(default_factory=list, description="List of warnings or issues")
