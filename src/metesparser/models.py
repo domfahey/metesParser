@@ -27,10 +27,19 @@ MonumentType = Literal[
     "natural_feature",
     "other",
 ]
-PERMANENT_MONUMENTS: frozenset[str] = frozenset({
-    "iron_rod", "iron_pin", "iron_pipe", "concrete", "brass_cap",
-    "rebar", "capped_pin", "capped_rod", "railroad_spike",
-})
+PERMANENT_MONUMENTS: frozenset[str] = frozenset(
+    {
+        "iron_rod",
+        "iron_pin",
+        "iron_pipe",
+        "concrete",
+        "brass_cap",
+        "rebar",
+        "capped_pin",
+        "capped_rod",
+        "railroad_spike",
+    }
+)
 MonumentStatus = Literal["found", "set"]
 CurveType = Literal["simple", "compound", "reverse", "spiral"]
 DistanceUnit = Literal[

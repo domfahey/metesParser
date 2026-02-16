@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
-**Version**: 0.2.0
+**Version**: 0.2.0 | **Tests**: ~800 | **Coverage**: ~90%
 
 ## Critical Architecture Principles
 
@@ -31,6 +31,9 @@ make lint-fix      # Auto-fix linting issues
 make test          # Run pytest
 make test-cov      # Tests with HTML coverage report
 make pre-commit    # Full check before git commit
+make check         # Run all checks (lint + format + type + test)
+make clean         # Remove generated artifacts and caches
+make doctor        # Verify project dependencies and environment
 ```
 
 ### Direct CLI Usage
@@ -67,7 +70,11 @@ PDF → PDFProcessor.process_deed_pdf() → LegalDescription
   ├─ Tie-in marking (CallExtractor.mark_tie_in_calls)
   ├─ Basis of bearing (TextParser.extract_basis_of_bearing)
   ├─ Surveyor certification (TextParser.extract_surveyor_certification)
-  └─ Prior conveyance (TextParser.extract_prior_conveyance)
+  ├─ Prior conveyance (TextParser.extract_prior_conveyance)
+  ├─ Deed clauses (TextParser.extract_deed_clauses)
+  ├─ Subdivision reference (TextParser.extract_subdivision_reference)
+  ├─ Witness trees (TextParser.extract_witness_trees)
+  └─ Coordinate system + FIPS (TextParser.extract_coordinate_system)
 
 LegalDescription → ClosureChecker.verify_closure() → ClosureResult
   ├─ Traverse closure (sum dx, dy)
@@ -147,6 +154,7 @@ tests/unit/test_phase*.py             # Phase-specific feature tests
 tests/unit/test_bugs_*_tdd.py         # Bug fix regression tests
 tests/integration/test_integration.py # Full pipeline (known parcels)
 tests/e2e/test_cli_end_to_end.py      # CLI end-to-end
+tests/conftest.py                     # Custom markers, logging isolation, deed_call_factory, sample_legal_text
 tests/fixtures/sample_deeds.py        # Shared DeedCall fixtures
 ```
 
@@ -155,6 +163,12 @@ tests/fixtures/sample_deeds.py        # Shared DeedCall fixtures
 uv run pytest tests/unit/test_bearing_converter.py::TestQuadrantToAzimuth::test_ne_quadrant -v
 uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 ```
+
+### Expected Test Output
+```
+786 passed in 0.29s
+```
+All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`, investigate before committing.
 
 ## Known Issues & Workarounds
 
@@ -170,7 +184,7 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 ### Cardinal Direction Patterns
 **Rule**: Cardinal-only patterns must include both `(?:erly|wardly)?` suffixes
 **Locations**: `call_extractor.py` (~lines 226, 337) AND `text_parser.py` (`CARDINAL_ONLY_PATTERN`)
-**Bug history**: Bug #48 — missing `wardly` caused false negatives in indefinite detection
+**Bug history**: Missing `wardly` suffix caused false negatives in indefinite call detection
 
 ### LLM Configuration
 **Location**: `prompts/*.yaml` files
@@ -179,7 +193,7 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 **Architecture**: `llm_clients.py` defines `BaseLLMClient` ABC; `PDFProcessor` accepts `provider=` or `client=` for DI
 **CLI**: `uv run metesparser extract deed.pdf --llm-provider gemini`
 
-### CSV Schema (21 fields - order matters)
+### CSV Schema (21 fields - order matters, defined in `csv_builder.py:51`)
 ```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
@@ -188,7 +202,7 @@ non_tangent,radial_bearing,notes
 ```
 
 **Field notes:**
-- `monument_type`: Auto-classified from "to" field (17 types)
+- `monument_type`: Auto-classified from "to" field (20 types)
 - `monument_status`: "found", "set", or null
 - `is_exception`/`is_meander`/`is_tie_in`/`non_tangent`: Boolean flags (CSV: "true"/"false")
 - `radial_bearing`: String for non-tangent curves, empty string if N/A
@@ -248,8 +262,6 @@ LOG_LEVEL=INFO          # Optional, defaults to INFO
 - Pre-commit hooks may reformat files — check `git status` after every commit for new unstaged changes
 - `uv.lock` is tracked (not gitignored) — commit lockfile changes with dependency updates
 - GitHub remote: `gh repo create --private --source=. --push` if no remote configured
-- Default branch is `main` — rename with `gh api repos/OWNER/REPO/branches/master/rename -X POST -f new_name=main`
-- Hooks may auto-commit on both `main` and feature branches — if branches diverge, recreate feature branch from main
 - `gh pr merge` requires clean working tree — `git stash` before merging if unstaged changes exist
 
 ## Common Development Patterns
@@ -277,18 +289,10 @@ LOG_LEVEL=INFO          # Optional, defaults to INFO
 
 ### Debugging Closure Issues
 ```python
-# In closure_checker.py, after computing traverse:
+# Temporary debug snippet — remove after use (project uses structlog for logging)
+import structlog
+log = structlog.get_logger()
 for i, (call, point) in enumerate(zip(calls, points)):
-    print(f"Course {i+1}: {call.bearing_quadrant} {call.distance_ft}ft → {point}")
-print(f"Misclosure: ({misclosure_x:.4f}, {misclosure_y:.4f}) = {misclosure:.4f}ft")
+    log.debug("traverse_step", course=i+1, bearing=call.bearing_quadrant, distance=call.distance_ft, point=point)
+log.debug("misclosure", dx=f"{misclosure_x:.4f}", dy=f"{misclosure_y:.4f}", total=f"{misclosure:.4f}")
 ```
-
-## Reference: Playbook Compliance
-
-This implementation follows the comprehensive "Metes & Bounds – Deed Call Extraction Playbook" with:
-- Never fabricate bearings (Section 8A)
-- Close traverse before export (Section 6A)
-- 8 verification checks (Section 6 + supplementary)
-- Standard 21-field CSV schema (Section 5)
-- Preserve verbatim wording (Section 7)
-- Flag meanders/approximations (Section 8A)
