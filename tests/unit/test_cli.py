@@ -570,3 +570,79 @@ def test_main_rejects_invalid_log_level(monkeypatch, capsys):
     assert exc.value.code == 2
     captured = capsys.readouterr()
     assert "Invalid log level" in (captured.out + captured.err)
+
+
+class TestExtractRunManifest:
+    def test_extract_writes_run_manifest(self, monkeypatch, tmp_path):
+        """Extract command should write a run manifest to runs/ directory."""
+        from metesparser.run_registry import load_run_manifests
+
+        pdf = tmp_path / "test.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        output = tmp_path / "out.csv"
+        runs_dir = tmp_path / "runs"
+
+        legal_desc = LegalDescription(
+            calls=[
+                DeedCall(
+                    course=1,
+                    direction_text="N 0° E",
+                    bearing_quadrant="N 0° E",
+                    bearing_azimuth_deg_from_north=0.0,
+                    distance_ft=100.0,
+                ),
+                DeedCall(
+                    course=2,
+                    direction_text="S 90° E",
+                    bearing_quadrant="N 90° E",
+                    bearing_azimuth_deg_from_north=90.0,
+                    distance_ft=100.0,
+                ),
+                DeedCall(
+                    course=3,
+                    direction_text="S 0° W",
+                    bearing_quadrant="S 0° W",
+                    bearing_azimuth_deg_from_north=180.0,
+                    distance_ft=100.0,
+                ),
+                DeedCall(
+                    course=4,
+                    direction_text="N 90° W",
+                    bearing_quadrant="N 90° W",
+                    bearing_azimuth_deg_from_north=270.0,
+                    distance_ft=100.0,
+                ),
+            ],
+            source_doc="test.pdf",
+        )
+
+        verified = _verified_result()
+
+        monkeypatch.setattr(
+            "metesparser.pdf_processor.PDFProcessor",
+            lambda **_kw: SimpleNamespace(
+                process_deed_pdf=lambda _: legal_desc,
+                prompts_dir=tmp_path,
+                client=SimpleNamespace(model="gpt-5.2"),
+            ),
+        )
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.verify_closure",
+            lambda calls: verified,
+        )
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+            lambda result: "VERIFIED",
+        )
+        monkeypatch.setattr(
+            "metesparser.csv_builder.CSVBuilder.export_verified_csv",
+            lambda calls, closure_result, output_path, legal_desc_obj: None,
+        )
+        monkeypatch.setattr("metesparser.cli.RUNS_DIR", runs_dir)
+
+        cli.extract_command(str(pdf), output=str(output))
+
+        manifests = load_run_manifests(runs_dir)
+        assert len(manifests) == 1
+        assert manifests[0].source_pdf == "test.pdf"
+        assert manifests[0].results.call_count == 4
