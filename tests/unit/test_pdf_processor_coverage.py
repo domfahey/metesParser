@@ -98,7 +98,9 @@ class TestPriorConveyanceWarning:
             ("As conveyed by deed dated January 1, 2020", "by deed dated"),
         ],
     )
-    def test_warns_on_prior_conveyance_patterns(self, text, expected_pattern, monkeypatch, tmp_path):
+    def test_warns_on_prior_conveyance_patterns(
+        self, text, expected_pattern, monkeypatch, tmp_path
+    ):
         """Should emit structlog warning when extracted text has prior conveyance language."""
 
         class DummyClient:
@@ -143,9 +145,7 @@ class TestPriorConveyanceWarning:
         monkeypatch.setattr(
             "metesparser.text_parser.TextParser.extract_prior_conveyance", lambda _: None
         )
-        monkeypatch.setattr(
-            "metesparser.text_parser.TextParser.extract_deed_clauses", lambda _: []
-        )
+        monkeypatch.setattr("metesparser.text_parser.TextParser.extract_deed_clauses", lambda _: [])
         monkeypatch.setattr(
             "metesparser.text_parser.TextParser.extract_subdivision_reference", lambda _: None
         )
@@ -223,9 +223,7 @@ class TestPriorConveyanceWarning:
         monkeypatch.setattr(
             "metesparser.text_parser.TextParser.extract_prior_conveyance", lambda _: None
         )
-        monkeypatch.setattr(
-            "metesparser.text_parser.TextParser.extract_deed_clauses", lambda _: []
-        )
+        monkeypatch.setattr("metesparser.text_parser.TextParser.extract_deed_clauses", lambda _: [])
         monkeypatch.setattr(
             "metesparser.text_parser.TextParser.extract_subdivision_reference", lambda _: None
         )
