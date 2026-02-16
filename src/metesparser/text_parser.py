@@ -899,3 +899,32 @@ class TextParser:
             trees.append(match.group(1).strip())
 
         return trees
+
+    @classmethod
+    def extract_coordinate_system(cls, text: str) -> tuple[str | None, str | None]:
+        """Extract State Plane or other coordinate system reference.
+
+        Advisory only — no grid correction computation.
+
+        Args:
+            text: Legal description text
+
+        Returns:
+            Tuple of (coordinate_system, fips_code) — both may be None
+        """
+        coordinate_system = None
+        fips_code = None
+
+        spcs_match = re.search(
+            r"(State\s+Plane\s+Coordinate\s+System[^.;]*?)(?:\.|;|$)",
+            text,
+            re.IGNORECASE,
+        )
+        if spcs_match:
+            coordinate_system = spcs_match.group(1).strip()
+
+        fips_match = re.search(r"\bFIPS\s+(?:Zone\s+)?(\d{4})\b", text, re.IGNORECASE)
+        if fips_match:
+            fips_code = fips_match.group(1)
+
+        return (coordinate_system, fips_code)
