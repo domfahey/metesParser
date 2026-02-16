@@ -450,7 +450,7 @@ class CallExtractor:
         """
         curve_info: dict[str, float | str | None] = {}
 
-        if "curve" not in text.lower():
+        if not re.search(r"\b(?:curve|spiral|transition)\b", text, re.IGNORECASE):
             return curve_info
 
         match = cls.CURVE_PATTERN.search(text)
@@ -524,6 +524,24 @@ class CallExtractor:
                 arc_raw = parse_comma_number(arc_match.group(1))
                 arc_unit = _normalize_unit_token(arc_match.group(2))
                 curve_info["arc_length_ft"] = ConversionFactors.convert_to_feet(arc_raw, arc_unit)
+
+            # Degree of curvature → radius conversion
+            doc_match = re.search(
+                r"degree\s+of\s+(?:curve|curvature)\s+(?:of\s+)?"
+                r"(\d+(?:\.\d+)?)(?:°|(?:\s+)?degrees?)"
+                r"(?:\s*(\d+(?:\.\d+)?)(?:'|\s+minutes?))?"
+                r'(?:\s*(\d+(?:\.\d+)?)(?:"|\s+seconds?))?',
+                text,
+                re.IGNORECASE,
+            )
+            if doc_match and curve_info.get("radius_ft") is None:
+                doc_deg = float(doc_match.group(1))
+                if doc_match.group(2):
+                    doc_deg += float(doc_match.group(2)) / 60.0
+                if doc_match.group(3):
+                    doc_deg += float(doc_match.group(3)) / 3600.0
+                if doc_deg > 0:
+                    curve_info["radius_ft"] = BearingConverter.degree_of_curvature_to_radius(doc_deg)
 
         radius_ft = curve_info.get("radius_ft")
         curve_delta_deg = curve_info.get("delta_deg")
