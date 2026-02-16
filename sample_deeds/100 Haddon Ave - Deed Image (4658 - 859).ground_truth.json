@@ -14,7 +14,7 @@
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "NW ALONG THE SW LINE OF HADDON AVENUE 129 FEET",
+      "direction_text": "NW",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 129.0,
@@ -25,11 +25,26 @@
       "along": "THE SW LINE OF HADDON AVENUE 129 FEET",
       "to": null,
       "monument_type": null,
-      "notes": "incomplete bearing"
+      "notes": "incomplete bearing - cardinal only"
     },
     {
       "course": 2,
-      "direction_text": "SE, FORMING AN INTERIOR ANGLE OF 90°16'10\" WITH LAST MENTIONED COURSE, AND RUNNING ALONG THE NE LINE OF TURNLEY AVENUE, 129 FEET TO THE NE LINE OF EUCLID AVENUE; AND",
+      "direction_text": "SW",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 200.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "THE NE LINE OF TURNLEY AVENUE",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 3,
+      "direction_text": "SE",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 129.0,
@@ -40,11 +55,11 @@
       "along": "THE NE LINE OF TURNLEY AVENUE, 129 FEET",
       "to": "THE NE LINE OF EUCLID AVENUE",
       "monument_type": null,
-      "notes": "incomplete bearing"
+      "notes": "incomplete bearing - cardinal only"
     },
     {
-      "course": 3,
-      "direction_text": "NE FORMING AN INTERIOR ANGLE OF 89°43'30\" WITH TURNLEY AVENUE AND RUNNING ALONG THE NW LINE OF EUCLID AVENUE 200 FEET TO THE SW LINE OF HADDON AVENUE AND PLACE OF BEGINNING. BEING KNOWN AS LOTS 6 AND 9, BLOCK 130 AS SHOWN ON THE TAX MAP",
+      "course": 4,
+      "direction_text": "NE",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 200.0,
@@ -55,22 +70,22 @@
       "along": "THE NW LINE OF EUCLID AVENUE 200 FEET",
       "to": "THE SW LINE OF HADDON AVENUE AND PLACE OF BEGINNING",
       "monument_type": null,
-      "notes": "incomplete bearing"
+      "notes": "incomplete bearing - cardinal only"
     }
   ],
   "expected_closure": {
     "misclosure_ft": 0.0,
     "area_sq_ft": 0.0,
     "area_acres": 0.0,
-    "perimeter_ft": 458.0,
+    "perimeter_ft": 658.0,
     "closure_passed": false
   },
   "critical_assertions": {
     "num_calls": {
-      "expected": 3,
+      "expected": 4,
       "operator": "==",
-      "description": "MUST extract exactly 3 calls"
+      "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-16T22:24:33.782526+00:00"
+  "notes": "Ground truth regenerated (Fix 3: abbreviated cardinals) at 2026-02-16T23:31:15.706429+00:00"
 }
