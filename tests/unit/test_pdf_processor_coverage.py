@@ -85,6 +85,7 @@ def test_extract_calls_ai_raises_for_non_list_calls():
         processor.extract_calls_ai("text")
 
 
+
 class TestPriorConveyanceWarning:
     """Warn when extracted text contains prior conveyance language."""
 
