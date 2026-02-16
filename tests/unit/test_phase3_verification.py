@@ -18,8 +18,6 @@ from metesparser.csv_builder import CSVBuilder
 from metesparser.models import ConversionFactors, DeedCall, LegalDescription
 from metesparser.text_parser import TextParser
 
-# ── Step 1: Area Statement Extraction ──────────────────────────────────────
-
 
 class TestExtractAreaStatement:
     """Tests for TextParser.extract_area_statement()."""
@@ -72,9 +70,8 @@ class TestExtractAreaStatement:
         text = "CONTAINING 7,500 square feet, or 0.1722 acres, more or less"
         result = TextParser.extract_area_statement(text)
         assert result is not None
-        # Should pick up the first area value
         assert result["value_sq_ft"] == pytest.approx(7500.0)
-        assert result["approximate"] is True  # "more or less" applies
+        assert result["approximate"] is True
 
     def test_no_area_statement(self) -> None:
         text = "THENCE S 56°40' W 125.26 feet to an iron pin"
@@ -119,9 +116,6 @@ class TestAreaStatementModelFields:
         ld = LegalDescription(stated_area_sq_ft=7500.0, stated_area_approximate=True)
         assert ld.stated_area_sq_ft == 7500.0
         assert ld.stated_area_approximate is True
-
-
-# ── Step 2: Found/Set Monument Distinction ─────────────────────────────────
 
 
 class TestClassifyMonumentStatus:
@@ -214,9 +208,6 @@ class TestMonumentStatusCSV:
         assert loaded[0].monument_status == "found"
 
 
-# ── Step 3: Abbreviation Expansion ─────────────────────────────────────────
-
-
 class TestExpandAbbreviations:
     """Tests for TextParser.expand_abbreviations()."""
 
@@ -264,9 +255,6 @@ class TestExpandAbbreviations:
         assert "iron pin found" in result.lower()
 
 
-# ── Step 4: Bearing Reversal Check ─────────────────────────────────────────
-
-
 def _make_call(course: int, azimuth: float, distance: float = 100.0) -> DeedCall:
     """Helper to create a DeedCall with specific azimuth."""
     return DeedCall(
@@ -287,19 +275,16 @@ class TestCheckBearingReversals:
         assert "1" in warnings[0] and "2" in warnings[0]
 
     def test_within_5_degree_threshold(self) -> None:
-        # 45° and 228° → diff = 183° → within 5° of 180°
         calls = [_make_call(1, 45.0), _make_call(2, 228.0)]
         warnings = ClosureChecker.check_bearing_reversals(calls)
         assert len(warnings) == 1
 
     def test_outside_threshold_no_warning(self) -> None:
-        # 45° and 235° → diff = 190° → outside 5° threshold
         calls = [_make_call(1, 45.0), _make_call(2, 235.0)]
         warnings = ClosureChecker.check_bearing_reversals(calls)
         assert len(warnings) == 0
 
     def test_non_adjacent_no_warning(self) -> None:
-        # Only checks adjacent pairs
         calls = [_make_call(1, 45.0), _make_call(2, 90.0), _make_call(3, 225.0)]
         warnings = ClosureChecker.check_bearing_reversals(calls)
         assert len(warnings) == 0
@@ -316,7 +301,6 @@ class TestCheckBearingReversals:
         assert len(warnings) == 0
 
     def test_normal_polygon_no_warnings(self) -> None:
-        # Simple square: N, E, S, W (0, 90, 180, 270)
         calls = [
             _make_call(1, 0.0),
             _make_call(2, 90.0),
@@ -333,9 +317,6 @@ class TestCheckBearingReversals:
         assert "reversal" in warnings[0].lower() or "180" in warnings[0]
 
 
-# ── Step 5: Distance Reasonableness Check ──────────────────────────────────
-
-
 class TestCheckDistanceReasonableness:
     """Tests for ClosureChecker.check_distance_reasonableness()."""
 
@@ -349,7 +330,6 @@ class TestCheckDistanceReasonableness:
         assert any("short" in w.lower() for w in warnings)
 
     def test_long_distance_warning(self) -> None:
-        # Median is ~100, course 3 is 1500 (15x median)
         calls = [
             _make_call(1, 0.0, distance=100.0),
             _make_call(2, 90.0, distance=100.0),
@@ -359,7 +339,6 @@ class TestCheckDistanceReasonableness:
         assert any("long" in w.lower() or "10x" in w.lower() for w in warnings)
 
     def test_perimeter_dominance_warning(self) -> None:
-        # Course 1 is 95% of perimeter
         calls = [
             _make_call(1, 0.0, distance=950.0),
             _make_call(2, 90.0, distance=25.0),

@@ -12,10 +12,6 @@ from pydantic import ValidationError
 from metesparser.call_extractor import MonumentClassifier
 from metesparser.models import ClosureResult, ConversionFactors, DeedCall
 
-# ---------------------------------------------------------------------------
-# Phase 1a: Distance unit conversions
-# ---------------------------------------------------------------------------
-
 
 class TestNewDistanceUnits:
     """Test conversion of historical/regional distance units to feet."""
@@ -23,28 +19,20 @@ class TestNewDistanceUnits:
     @pytest.mark.parametrize(
         "value,unit,expected_ft",
         [
-            # Varas: 1 vara = 2.778 ft (Texas standard)
             (1.0, "varas", 2.778),
             (100.0, "varas", 277.8),
-            # Arpents: 1 arpent = 191.8 ft (French colonial)
             (1.0, "arpents", 191.8),
             (2.5, "arpents", 479.5),
-            # Toises: 1 toise = 6.395 ft (French)
             (1.0, "toises", 6.395),
             (10.0, "toises", 63.95),
-            # Furlongs: 1 furlong = 660 ft
             (1.0, "furlongs", 660.0),
             (0.5, "furlongs", 330.0),
-            # Meters: 1 meter = 3.28084 ft (international)
             (1.0, "meters", 3.28084),
             (100.0, "meters", 328.084),
-            # Miles: 1 mile = 5280 ft
             (1.0, "miles", 5280.0),
             (0.25, "miles", 1320.0),
-            # Engineer's chain: 1 chain = 100 ft
             (1.0, "engineer_chains", 100.0),
             (3.5, "engineer_chains", 350.0),
-            # Engineer's link: 1 link = 1.0 ft
             (1.0, "engineer_links", 1.0),
             (50.0, "engineer_links", 50.0),
         ],
@@ -106,11 +94,6 @@ class TestDistanceUnitLiteral:
         assert ld.distance_unit == unit
 
 
-# ---------------------------------------------------------------------------
-# Phase 1b: Monument types and classifier patterns
-# ---------------------------------------------------------------------------
-
-
 class TestNewMonumentTypes:
     """Test that new monument types are accepted by the model."""
 
@@ -141,21 +124,16 @@ class TestMonumentClassifierNewPatterns:
     @pytest.mark.parametrize(
         "text,expected_type",
         [
-            # PK nail
             ("to a PK nail set", "pk_nail"),
             ("to a PK nail found in the pavement", "pk_nail"),
             ("to a pk nail", "pk_nail"),
-            # Hub and tack
             ("to a hub and tack set", "hub_and_tack"),
             ("to a hub & tack", "hub_and_tack"),
-            # Monitoring well
             ("to monitoring well MW8-15", "monitoring_well"),
             ("to a point occupied by monitoring well MW-3", "monitoring_well"),
-            # Capped pin/rod
             ("to a capped iron pin set", "capped_pin"),
             ("to a capped iron rod found", "capped_rod"),
             ("to a capped rebar set", "capped_rod"),
-            # TxDOT monument
             ("to a TxDOT Type I concrete monument found", "txdot_monument"),
             ("to a TxDOT concrete monument", "txdot_monument"),
         ],
@@ -186,11 +164,6 @@ class TestMonumentClassifierNewPatterns:
         assert MonumentClassifier.classify_monument("rebar") == "rebar"
         assert MonumentClassifier.classify_monument("railroad spike") == "railroad_spike"
         assert MonumentClassifier.classify_monument("nail in pavement") == "nail"
-
-
-# ---------------------------------------------------------------------------
-# Phase 1c: precision_ratio on ClosureResult
-# ---------------------------------------------------------------------------
 
 
 class TestPrecisionRatio:
@@ -240,11 +213,6 @@ class TestPrecisionRatio:
                 curve_consistency_passed=True,
                 precision_ratio=-0.01,
             )
-
-
-# ---------------------------------------------------------------------------
-# Phase 1d: non_tangent and radial_bearing on DeedCall
-# ---------------------------------------------------------------------------
 
 
 class TestNonTangentFields:

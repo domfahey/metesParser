@@ -52,8 +52,31 @@ class _Model(BaseModel):
     model_config = ConfigDict(
         extra="forbid",
         str_strip_whitespace=True,
-        validate_assignment=False,
+        validate_assignment=True,
     )
+
+    @staticmethod
+    def _coerce_bool_field(value: object) -> bool:
+        """Normalize boolean-like values used by multiple models."""
+        if isinstance(value, bool):
+            return value
+
+        if value is None:
+            return False
+
+        if isinstance(value, (int, float)):
+            if value in (0, 1):
+                return bool(value)
+            raise ValueError("flag must be a boolean value")
+
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"", "false", "0", "no", "n", "off"}:
+                return False
+            if normalized in {"true", "1", "yes", "y", "on"}:
+                return True
+
+        raise ValueError("flag must be a boolean value")
 
 
 class DeedCall(_Model):
@@ -168,25 +191,10 @@ class DeedCall(_Model):
     @field_validator("is_exception", mode="before")
     @classmethod
     def _normalize_is_exception(cls, value: object) -> bool:
-        if isinstance(value, bool):
-            return value
-
-        if value is None:
-            return False
-
-        if isinstance(value, (int, float)):
-            if value in (0, 1):
-                return bool(value)
-            raise ValueError("is_exception must be a boolean value")
-
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            if normalized in {"true", "1", "yes", "y", "on"}:
-                return True
-            if normalized in {"false", "0", "no", "n", "off"}:
-                return False
-
-        raise ValueError("is_exception must be a boolean value")
+        try:
+            return cls._coerce_bool_field(value)
+        except ValueError as exc:
+            raise ValueError("is_exception must be a boolean value") from exc
 
     @field_validator("bearing_azimuth_deg_from_north", mode="before")
     @classmethod
@@ -310,6 +318,24 @@ class LegalDescription(_Model):
     )
 
     distance_unit: DistanceUnit = Field("feet", description="Primary distance unit in the deed")
+
+    @field_validator("distance_unit", mode="before")
+    @classmethod
+    def _normalize_distance_unit(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+
+        if not isinstance(value, str):
+            raise ValueError("distance_unit must be a string")
+
+        normalized = value.strip().lower()
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_stated_area_state(self) -> "LegalDescription":
+        if self.stated_area_approximate and self.stated_area_sq_ft is None:
+            raise ValueError("stated_area_sq_ft must be set when stated_area_approximate is true")
+        return self
 
     def num_calls(self) -> int:
         """Return number of calls."""

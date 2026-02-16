@@ -24,9 +24,6 @@ from metesparser.models import DeedCall, LegalDescription
 from metesparser.text_parser import TextParser
 
 
-# ============================================================
-# Step 1: parse_packed_dms
-# ============================================================
 class TestParsePackedDMS:
     """Test BearingConverter.parse_packed_dms()."""
 
@@ -36,11 +33,11 @@ class TestParsePackedDMS:
             (46.1631, pytest.approx(46 + 16 / 60 + 31 / 3600, abs=1e-6)),
             (0.0000, pytest.approx(0.0, abs=1e-6)),
             (90.0000, pytest.approx(90.0, abs=1e-6)),
-            (45.3000, pytest.approx(45.5, abs=1e-6)),  # 45°30'00"
+            (45.3000, pytest.approx(45.5, abs=1e-6)),
             (1.0130, pytest.approx(1 + 1 / 60 + 30 / 3600, abs=1e-6)),
             (89.5959, pytest.approx(89 + 59 / 60 + 59 / 3600, abs=1e-6)),
             (12.3045, pytest.approx(12 + 30 / 60 + 45 / 3600, abs=1e-6)),
-            (56.4030, pytest.approx(56 + 40 / 60 + 30 / 3600, abs=1e-6)),  # S 56°40'30" W
+            (56.4030, pytest.approx(56 + 40 / 60 + 30 / 3600, abs=1e-6)),
         ],
     )
     def test_packed_dms_conversions(self, packed: float, expected: float) -> None:
@@ -48,19 +45,14 @@ class TestParsePackedDMS:
         assert result == expected
 
     def test_invalid_minutes_raises(self) -> None:
-        # 46.6000 → minutes = 60, invalid
         with pytest.raises(ValueError, match="minutes"):
             BearingConverter.parse_packed_dms(46.6000)
 
     def test_invalid_seconds_raises(self) -> None:
-        # 46.1560 → seconds = 60, invalid
         with pytest.raises(ValueError, match="seconds"):
             BearingConverter.parse_packed_dms(46.1560)
 
 
-# ============================================================
-# Step 2: Chord Bearing Extraction
-# ============================================================
 class TestChordBearingExtraction:
     """Test chord bearing extraction from curve text."""
 
@@ -140,9 +132,6 @@ class TestChordBearingExtraction:
         assert info.get("chord_bearing") is not None
 
 
-# ============================================================
-# Step 3: Non-Tangent Curve Detection
-# ============================================================
 class TestNonTangentCurveDetection:
     """Test non-tangent curve detection and radial bearing extraction."""
 
@@ -229,9 +218,6 @@ class TestNonTangentCurveDetection:
         assert info.get("radial_bearing") is not None
 
 
-# ============================================================
-# Step 4: Basis of Bearing Extraction
-# ============================================================
 class TestBasisOfBearingExtraction:
     """Test TextParser.extract_basis_of_bearing()."""
 
@@ -280,9 +266,6 @@ class TestBasisOfBearingExtraction:
         assert result is not None
 
 
-# ============================================================
-# Step 5: Surveyor Certification Extraction
-# ============================================================
 class TestSurveyorCertificationExtraction:
     """Test TextParser.extract_surveyor_certification()."""
 
@@ -325,9 +308,6 @@ class TestSurveyorCertificationExtraction:
         assert ld.surveyor_certification is None
 
 
-# ============================================================
-# Step 6: Prior Conveyance Extraction
-# ============================================================
 class TestPriorConveyanceExtraction:
     """Test TextParser.extract_prior_conveyance()."""
 
@@ -371,9 +351,6 @@ class TestPriorConveyanceExtraction:
         assert ld.prior_conveyance is None
 
 
-# ============================================================
-# Step 7: Extended Distance Extraction
-# ============================================================
 class TestExtendedDistanceExtraction:
     """Test extended distance units in TextParser.extract_distance()."""
 
@@ -386,7 +363,6 @@ class TestExtendedDistanceExtraction:
             ("50 links", 50.0, "links"),
             ("15 rods", 15.0, "rods"),
             ("20 perches", 20.0, "perches"),
-            # New units
             ("100.5 varas", 100.5, "varas"),
             ("12 vara", 12.0, "varas"),
             ("5.0 arpents", 5.0, "arpents"),
@@ -415,9 +391,6 @@ class TestExtendedDistanceExtraction:
         assert unit == "feet"
 
 
-# ============================================================
-# Step 8: Unit-Inference Heuristics
-# ============================================================
 class TestUnitInferenceHeuristics:
     """Test TextParser.infer_distance_unit()."""
 
@@ -455,9 +428,6 @@ class TestUnitInferenceHeuristics:
         assert result == "varas"
 
 
-# ============================================================
-# Step 9: CSV Schema Expansion
-# ============================================================
 class TestCSVSchemaExpansion:
     """Test CSV schema now includes non_tangent and radial_bearing."""
 
@@ -519,9 +489,6 @@ class TestCSVSchemaExpansion:
         assert loaded[0].radial_bearing == "N 15°22' E"
 
 
-# ============================================================
-# Step 10: Pipeline Wiring
-# ============================================================
 class TestPipelineWiring:
     """Test that process_deed_pdf wires new extractors."""
 

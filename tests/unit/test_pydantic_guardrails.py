@@ -156,6 +156,17 @@ def test_deedcall_normalizes_exception_flags():
         )
 
 
+def test_legaldescription_requires_area_when_approximate_is_true():
+    with pytest.raises(ValidationError, match="stated_area_sq_ft"):
+        LegalDescription(stated_area_approximate=True)
+
+
+def test_legaldescription_normalizes_distance_unit():
+    legal_desc = LegalDescription(distance_unit="FEET")
+
+    assert legal_desc.distance_unit == "feet"
+
+
 def test_deedcall_normalizes_int_exception_flag():
     true_call = DeedCall(
         course=1,

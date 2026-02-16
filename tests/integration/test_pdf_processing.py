@@ -92,10 +92,8 @@ def pdf_processor_factory(monkeypatch: pytest.MonkeyPatch):
             return ""
 
     def factory(case: PdfCase) -> PDFProcessor:
-        # Patch OpenAI so PDFProcessor can be constructed without real credentials.
         monkeypatch.setattr("metesparser.pdf_processor.OpenAIClient", DummyOpenAIClient)
 
-        # Patch extraction steps to return deterministic fixtures.
         def extract_legal_description(self, _pdf_path: str, *, _text=case.raw_text) -> str:
             return _text
 
@@ -127,7 +125,7 @@ def processed_case(
 
     case: PdfCase = request.param
     pdf_path = tmp_path / f"{case.case_id}.pdf"
-    pdf_path.write_bytes(b"%PDF-1.4\n% mocked content\n")  # create a placeholder file
+    pdf_path.write_bytes(b"%PDF-1.4\n% mocked content\n")
 
     processor = pdf_processor_factory(case)
     legal_desc = processor.process_deed_pdf(str(pdf_path))
@@ -163,4 +161,4 @@ def test_process_deed_pdf_closure_metrics(processed_case):
     assert closure.closure_passed
     assert math.isclose(closure.area_sq_ft, case.expected_area_sq_ft, abs_tol=0.1)
     assert math.isclose(closure.perimeter_ft, case.expected_perimeter_ft, abs_tol=0.1)
-    assert not closure.warnings  # mocked calls are fully specified
+    assert not closure.warnings

@@ -15,8 +15,6 @@ class TestBearingExtraction:
     @pytest.mark.parametrize(
         "call_text,expected_quadrant",
         [
-            # Note: extract_single_call expects already-normalized text
-            # Use standardized format with ° symbol
             ("N 45° E 100 feet", "N 45°00' E"),
             ("S 56°40' W 125 feet", "S 56°40' W"),
             ("N 33°20' E 60.00 feet", "N 33°20' E"),
@@ -59,8 +57,8 @@ class TestDistanceExtraction:
         [
             ("THENCE North 45 degrees East 100 feet", 100.0),
             ("THENCE North 45 degrees East 100.50 feet", 100.5),
-            ("THENCE North 45 degrees East 10 poles", 165.0),  # 10 poles = 165 ft
-            ("THENCE North 45 degrees East 1 chain", 66.0),  # 1 chain = 66 ft
+            ("THENCE North 45 degrees East 10 poles", 165.0),
+            ("THENCE North 45 degrees East 1 chain", 66.0),
         ],
     )
     def test_parse_distance_with_units(self, call_text, expected_ft):
@@ -72,7 +70,6 @@ class TestDistanceExtraction:
 
     def test_distance_from_alternate_format(self):
         """Parse distance in alternate format (e.g., '125.26 feet along...')."""
-        # This tests distance extraction without bearing present
         call = CallExtractor.extract_single_call(
             "N 45° E 125.26 feet along the division line", course=1
         )
@@ -181,7 +178,6 @@ class TestCallExtraction:
         calls = CallExtractor.extract_calls(sample_deeds.SQUARE_100FT)
 
         assert len(calls) == 4
-        # All should have complete bearings
         for call in calls:
             assert call.bearing_azimuth_deg_from_north is not None
             assert call.distance_ft == 100.0
@@ -191,7 +187,6 @@ class TestCallExtraction:
         calls = CallExtractor.extract_calls(sample_deeds.PENNBROOK_18)
 
         assert len(calls) == 4
-        # Check first call
         assert calls[0].bearing_azimuth_deg_from_north is not None
         assert math.isclose(calls[0].bearing_azimuth_deg_from_north, 146.666667, abs_tol=0.01)
         assert math.isclose(calls[0].distance_ft, 60.0, abs_tol=0.01)
@@ -201,7 +196,6 @@ class TestCallExtraction:
         text = "BEGINNING at a point. THENCE North 45 degrees East 100 feet."
         calls = CallExtractor.extract_calls(text)
 
-        # Should have 1 call (the THENCE), not 2
         assert len(calls) == 1
         assert calls[0].course == 1
 
@@ -236,8 +230,6 @@ class TestEdgeCases:
         """Invalid bearing (degrees > 90) should be handled gracefully."""
         calls = CallExtractor.extract_calls(sample_deeds.INVALID_BEARING)
 
-        # Should not crash; malformed first call should be preserved as incomplete,
-        # and later bearing should still parse.
         assert len(calls) == 2
         assert calls[0].course == 1
         assert calls[0].bearing_azimuth_deg_from_north is None
@@ -248,9 +240,7 @@ class TestEdgeCases:
 
     def test_with_ocr_errors(self):
         """Text with OCR errors should be corrected during normalization."""
-        # The normalizer should fix "5outh" → "South", "0" → "°", etc.
         calls = CallExtractor.extract_calls(sample_deeds.WITH_OCR_ERRORS)
 
-        # Should successfully parse despite OCR errors
         assert len(calls) == 2
         assert all(c.bearing_azimuth_deg_from_north is not None for c in calls)

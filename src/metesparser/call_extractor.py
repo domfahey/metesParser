@@ -139,7 +139,7 @@ class CallExtractor:
                     continue
 
                 if is_exception_tract:
-                    call = call.model_copy(update={"is_exception": True})
+                    call = DeedCall.model_validate({**call.model_dump(), "is_exception": True})
                 calls.append(call)
                 course_num += 1
 
