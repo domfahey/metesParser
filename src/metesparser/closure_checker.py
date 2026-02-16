@@ -66,11 +66,23 @@ class ClosureChecker:
 
         points = cls.compute_traverse(main_calls)
 
+        # Check for degenerate traverse: no calls contributed azimuths
+        computable_calls = sum(
+            1 for c in main_calls if c.bearing_azimuth_deg_from_north is not None
+        )
+        has_computable_traverse = computable_calls > 0
+
         misclosure_x = points[-1].x - points[0].x
         misclosure_y = points[-1].y - points[0].y
         misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
 
         warnings = []
+
+        if not has_computable_traverse:
+            warnings.append(
+                "No computable traverse — all calls lack bearings (cardinal-only or empty)"
+            )
+
         try:
             main_area_sq_ft = cls.calculate_area(points)
 
@@ -94,7 +106,7 @@ class ClosureChecker:
 
         perimeter = cls.calculate_perimeter(main_calls)
 
-        closure_passed = misclosure < tolerance
+        closure_passed = has_computable_traverse and misclosure < tolerance
         angle_check_passed = cls.check_interior_angles(main_calls)
         curve_consistency_passed = cls.check_curve_consistency(main_calls)
 
