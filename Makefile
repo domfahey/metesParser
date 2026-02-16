@@ -45,7 +45,7 @@ help: ## Show available development commands and their usage.
 	@echo "Code Quality:"
 	@echo "  make lint          Run ruff linter"
 	@echo "  make lint-fix      Run ruff with auto-fix"
-	@echo "  make format        Format code with ruff and black"
+	@echo "  make format        Format code with ruff"
 	@echo "  make format-check  Check formatter compliance"
 	@echo "  make type          Run mypy type checks"
 	@echo "  make check         Run all checks (lint + format + type + test)"
@@ -75,8 +75,7 @@ install: ## Install dependencies using UV with default profile (extras + dev).
 		echo "Running in offline mode (OFFLINE=1): skipping network dependency sync."; \
 		echo "Verifying existing runtime tooling..."; \
 		$(UV_RUN) ruff --version >/dev/null 2>&1 && \
-		$(UV_RUN) pytest --version >/dev/null 2>&1 && \
-		$(UV_RUN) black --version >/dev/null 2>&1 || { echo "WARN: missing expected dependencies (ruff/pytest/black)"; }; \
+		$(UV_RUN) pytest --version >/dev/null 2>&1 || { echo "WARN: missing expected dependencies (ruff/pytest)"; }; \
 	else \
 		if ! $(UV) sync $(UV_SYNC_ARGS); then \
 			echo "✗ Dependency installation failed"; \
@@ -114,7 +113,7 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 	@echo "Verifying toolchain access..."
 	@$(UV_RUN) python --version
 	@missing_tools=0; \
-	for dep in ruff pytest black; do \
+	for dep in ruff pytest; do \
 		$(UV_RUN) "$${dep}" --version >/dev/null 2>&1 || { echo "ERROR: missing dependency in .venv: $${dep}"; missing_tools=1; }; \
 	done; \
 	if [ "$$missing_tools" -ne 0 ]; then \
@@ -204,11 +203,9 @@ lint: ## Run static analysis with Ruff.
 	$(UV_RUN) ruff check $(PY_SRC) $(PY_TESTS)
 	@echo "✓ Linting complete"
 
-format: ## Format source files with Ruff and Black.
+format: ## Format source files with Ruff.
 	@echo "Formatting code with ruff..."
 	$(UV_RUN) ruff format $(PY_SRC) $(PY_TESTS)
-	@echo "Formatting code with black..."
-	$(UV_RUN) black $(PY_SRC) $(PY_TESTS) --exclude text_parser.py
 	@echo "✓ Formatting complete"
 
 lint-fix: ## Auto-fix Ruff-detected issues.
@@ -219,7 +216,6 @@ lint-fix: ## Auto-fix Ruff-detected issues.
 format-check: ## Verify formatting without making changes.
 	@echo "Checking code formatting..."
 	$(UV_RUN) ruff format $(PY_SRC) $(PY_TESTS) --check
-	$(UV_RUN) black $(PY_SRC) $(PY_TESTS) --exclude text_parser.py --check
 	@echo "✓ All checks passed"
 
 quality: lint format-check ## Run lint + format checks.
