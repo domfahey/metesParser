@@ -1,5 +1,8 @@
 # Phase 5: Production Completeness — TDD Implementation Plan
 
+> Historical snapshot: This plan/design document captures implementation context on its date. It may not reflect current code, defaults, test counts, or workflow state.
+
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Close all remaining gaps between METES_AND_BOUNDS_REFERENCE.md and parser capabilities. Adds curve completeness, deed language richness, historical deed support, and lightweight COGO metadata.

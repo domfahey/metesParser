@@ -1,5 +1,8 @@
 # Phase 4: Geometric Completeness — Design
 
+> Historical snapshot: This plan/design document captures implementation context on its date. It may not reflect current code, defaults, test counts, or workflow state.
+
+
 ## Context
 
 Phases 1-3 established foundation models, extraction logic, and enhanced verification. Phase 4 addresses remaining geometric gaps between the parser and the reference document (docs/METES_AND_BOUNDS_REFERENCE.md), focusing on real-world scenarios the parser cannot yet handle correctly.

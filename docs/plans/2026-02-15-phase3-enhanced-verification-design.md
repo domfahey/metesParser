@@ -1,5 +1,8 @@
 # Phase 3: Enhanced Verification & Parsing — Design
 
+> Historical snapshot: This plan/design document captures implementation context on its date. It may not reflect current code, defaults, test counts, or workflow state.
+
+
 ## Context
 
 Phase 1 added foundation models (units, monuments, precision ratio, non-tangent fields). Phase 2 added extraction logic (packed DMS, chord bearings, non-tangent detection, basis of bearing, surveyor certification, prior conveyance, extended distance units, unit inference, CSV 18-field schema). Phase 3 fills remaining parsing and verification gaps identified from the metes and bounds reference document.

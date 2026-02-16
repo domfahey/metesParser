@@ -31,7 +31,7 @@ metesParser is a deterministic metes & bounds parser that converts legal descrip
 - **Pydantic v2** - Data validation and schema enforcement
 - **OpenAI + optional Gemini** - Configurable LLM providers for PDF extraction
 - **UV** - Dependency management (no pip/conda/poetry)
-- **pytest** - Test framework with 604 tests (as of 2026-02-15)
+- **pytest** - Test framework (snapshot: 795 tests collected on 2026-02-16 via `uv run --no-sync pytest --collect-only -q -o addopts=`)
 
 ## Core Principles
 
@@ -307,9 +307,11 @@ non_tangent,radial_bearing,notes
 **Purpose**: Extract legal description from PDF using configured LLM provider
 
 **Key Methods**:
-- `process_deed_pdf()` - Main extraction
-- `extract_text_from_pdf()` - PDF → text
-- `generate_text_with_pdf()` - Provider extraction
+- `process_deed_pdf()` - Main extraction pipeline returning `LegalDescription`
+- `extract_text_from_pdf()` - PDF → text via configured provider
+- `extract_legal_description()` - Isolate legal-description section from extracted text
+- `normalize_legal_description()` - Normalize legal-description text
+- `extract_calls_ai()` - Optional AI-assisted call extraction payload
 
 **Strategy**:
 - Zero-shot prompt with examples

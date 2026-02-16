@@ -1,5 +1,8 @@
 # Makefile Improvements Implementation Plan
 
+> Historical snapshot: This plan/design document captures implementation context on its date. It may not reflect current code, defaults, test counts, or workflow state.
+
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Clean up the Makefile by fixing correctness bugs, removing black redundancy, auto-generating help, and adding useful new targets.

@@ -198,7 +198,7 @@ result = ClosureResult(
 
 # Methods
 result.is_fully_verified()     # Returns: True
-result.get_closure_status()    # Returns: "PASS"
+result.get_closure_status()    # Returns: "EXCELLENT"
 ```
 
 ### Point
@@ -213,51 +213,33 @@ p2 = Point(x=100.0, y=100.0)
 ## Complete Example
 
 ```python
-from pathlib import Path
-from metesparser import (
-    PDFProcessor,
-    TextParser,
-    CallExtractor,
-    ClosureChecker,
-    CSVBuilder,
-    LegalDescription
-)
+from metesparser import PDFProcessor, ClosureChecker, CSVBuilder
 
-# 1. Extract from PDF
+# 1. Extract structured description from PDF
 processor = PDFProcessor()
-legal_text = processor.process_deed_pdf("deed.pdf")
+legal_desc = processor.process_deed_pdf("deed.pdf")
 
-# 2. Normalize
-normalized = TextParser.normalize_legal_description(legal_text)
-pob = TextParser.extract_pob(normalized)
+# 2. Use parsed calls from extraction
+calls = legal_desc.calls
 
-# 3. Extract calls
-calls = CallExtractor.extract_calls(normalized)
-calls = CallExtractor.enrich_calls_with_azimuths(calls)
-
-# 4. Verify
-result = ClosureChecker.verify_closure(calls)
-
-# 5. Create legal description
-legal_desc = LegalDescription(
-    pob_description=pob,
-    calls=calls,
-    source_doc="deed.pdf"
+# 3. Verify closure (using stated area when present)
+result = ClosureChecker.verify_closure(
+    calls,
+    stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0,
 )
 
-# 6. Export
+# 4. Export
 if result.is_fully_verified():
     CSVBuilder.export_verified_csv(
-        calls,
-        result,
-        "output.csv",
-        legal_desc
+        calls=calls,
+        closure_result=result,
+        output_path="output.csv",
+        legal_desc=legal_desc,
     )
-    print("✓ Exported verified CSV")
+    print("Verified CSV exported")
 else:
     CSVBuilder.legal_description_to_csv(legal_desc, "output.csv")
-    print(f"⚠ Misclosure: {result.misclosure_ft:.4f} ft")
-    print("Review required before verification")
+    print(f"Review required: misclosure={result.misclosure_ft:.4f} ft")
 ```
 
 ---

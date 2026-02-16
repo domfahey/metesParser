@@ -1,5 +1,8 @@
 # LLM Output Caching Design
 
+> Historical snapshot: This plan/design document captures implementation context on its date. It may not reflect current code, defaults, test counts, or workflow state.
+
+
 ## Problem
 
 LLM extraction results are non-deterministic between runs even with `temperature=0`. This causes inconsistent call extraction — the same PDF may yield 0 calls on one run and 8 on the next.

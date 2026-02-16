@@ -1,6 +1,6 @@
 # Testing Guide
 
-Comprehensive guide to the metesParser test suite (604 tests as of 2026-02-15).
+Comprehensive guide to the metesParser test suite (snapshot: 795 tests collected on 2026-02-16).
 
 ## Table of Contents
 
@@ -17,21 +17,21 @@ Comprehensive guide to the metesParser test suite (604 tests as of 2026-02-15).
 ## Overview
 
 The test suite ensures correctness of metes & bounds parsing with:
-- **604 function-level tests** across unit, integration, regression, and e2e categories (as of 2026-02-15)
+- **795 collected tests** across unit, integration, regression, and e2e categories (snapshot: 2026-02-16)
 - **Shared fixtures** for common test scenarios (squares, rectangles, curves)
 - **Parametrized tests** to reduce duplication
 - **Custom markers** for selective test execution
-- **Fast execution** (~0.06 seconds for non-PDF tests)
+- **Fast local feedback** for non-PDF tests
 
 ### Test Statistics
 
 | Category | Tests | Files | Purpose |
 |----------|-------|-------|---------|
-| Unit | 537 | 19 | Individual module testing |
-| Integration | 25 | 3 | End-to-end text/PDF/pipeline integration |
+| Unit | 722 | 31 | Individual module testing |
+| Integration | 31 | 4 | End-to-end text/PDF/pipeline integration |
 | Regression | 40 | 1 | Bug fix validation |
 | E2E | 2 | 1 | End-to-end CLI workflows |
-| **Total** | **604** | **24** | Full coverage |
+| **Total** | **795** | **37** | Full coverage |
 
 ## Test Organization
 
@@ -39,39 +39,15 @@ Tests are organized into a 5-tier hierarchy:
 
 ```
 tests/
-├── conftest.py              # Shared fixtures and pytest configuration
-├── helpers.py               # Assertion helpers and data generators
+├── conftest.py
+├── helpers.py
 ├── fixtures/
 │   ├── __init__.py
-│   └── sample_deeds.py      # Legal description samples
-├── unit/                    # Fast, isolated tests
-│   ├── test_bearing_converter.py      # 30 tests
-│   ├── test_bugs_closure_tdd.py       # 6 tests
-│   ├── test_bugs_integration_tdd.py   # 8 tests
-│   ├── test_bugs_parser_tdd.py        # 11 tests
-│   ├── test_bugs_remaining_tdd.py     # 5 tests
-│   ├── test_call_extractor.py         # 25 tests
-│   ├── test_cli.py                    # 19 tests
-│   ├── test_closure_checker.py        # 37 tests
-│   ├── test_llm_clients.py           # 9 tests
-│   ├── test_logging_config.py        # 9 tests
-│   ├── test_open_bugs_tdd.py         # 9 tests
-│   ├── test_pdf_processor_coverage.py # 8 tests
-│   ├── test_pdf_processor_llm.py     # 8 tests
-│   ├── test_phase1_foundation.py     # 52 tests
-│   ├── test_phase2_enhanced_parsing.py # 84 tests
-│   ├── test_phase3_verification.py   # 62 tests
-│   ├── test_phase4_geometric.py      # 74 tests
-│   ├── test_pydantic_guardrails.py   # 27 tests
-│   └── test_text_parser.py           # 54 tests
-├── integration/             # End-to-end tests
-│   ├── test_integration.py           # 17 tests (text-based)
-│   ├── test_pdf_processing.py        # 6 tests (PDF pipeline)
-│   └── test_pipeline_contracts.py     # 2 tests (pipeline contracts)
-├── e2e/                     # End-to-end CLI tests
-│   └── test_cli_end_to_end.py        # 2 tests (CLI contract workflow)
-└── regression/              # Bug fix tests
-    └── test_bug_fixes.py             # 40 tests
+│   └── sample_deeds.py
+├── unit/                    # 31 files, 722 tests (snapshot: 2026-02-16)
+├── integration/             # 4 files, 31 tests
+├── e2e/                     # 1 file, 2 tests
+└── regression/              # 1 file, 40 tests
 ```
 
 ### Test File Naming
@@ -168,7 +144,7 @@ uv run pytest -n auto
 
 ## PDF Processing Tests
 
-The `test_pdf_processing.py` module contains 2 integration tests that validate the PDF extraction pipeline using fixture deed text with mocked LLM clients.
+The `test_pdf_processing.py` module contains 2 integration tests that validate the PDF extraction pipeline using fixture deed text with mocked LLM clients. Additional integration coverage lives in `test_integration.py`, `test_pipeline_contracts.py`, and `test_script_and_packaging_contracts.py`.
 
 ### Sample Deeds
 
@@ -561,18 +537,15 @@ uv run pytest --cov=src/metesparser --cov-report=term-missing
 
 ### Coverage Goals
 
-- **Overall target**: > 90% line coverage (current: 93% as of 2026-02-15)
+- **Overall target**: > 90% line coverage
 - **Critical modules stretch target**: > 95% coverage
-  - Current baseline: `bearing_converter.py` 80%
-  - Current baseline: `closure_checker.py` 99%
-  - Current baseline: `call_extractor.py` 88%
-  - Treat >95% as an improvement goal until these baselines rise
+- Regenerate current metrics with `make test-cov` and inspect `htmlcov/index.html`
 
 ### Excluding from Coverage
 
 Some files are intentionally excluded:
-- `cli.py` - Command-line interface (integration tested)
-- `pdf_processor.py` - External API dependency (mocked)
+- No module-level omit list is configured by default.
+- Use `make test-cov` to inspect current per-module coverage in `htmlcov/index.html`.
 
 ## Best Practices
 

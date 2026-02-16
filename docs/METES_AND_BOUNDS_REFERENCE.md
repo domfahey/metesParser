@@ -1076,8 +1076,9 @@ Sequential courses should not double back on themselves unless the description e
 ### 18.6 Distance Reasonableness
 
 Flag courses with distances that seem unreasonable:
-- Extremely short (< 1 ft) — may indicate a rounding error or typo
-- Extremely long relative to other courses — may indicate a unit error (chains vs. feet)
+- Suspiciously short (< 0.5 ft) — may indicate rounding/OCR/transcription issues
+- Unusually long (> 10x median course distance) — may indicate unit or parsing errors
+- Single course dominating perimeter (> 90%) — may indicate malformed extraction
 - Distance of exactly 0.00 — invalid
 
 ### 18.7 Six-Guardrail Verification Framework
@@ -1091,7 +1092,7 @@ A comprehensive verification system includes these checks:
 5. **Area reasonableness** — computed area matches stated area within tolerance
 6. **Double-entry validation** — each course can be independently verified when a second independently-entered call set is available
 
-In this codebase, `verify_closure()` runs checks 1-5 by default and runs check 6 only when a second call set is provided (for example, `double_entry_calls`).
+In this codebase, `verify_closure()` runs checks 1-5 by default and runs check 6 only when a second call set is provided (for example, `double_entry_calls`). It also emits warning checks for bearing reversals, distance reasonableness, meander calls, indefinite calls, and incomplete bearings.
 
 ---
 

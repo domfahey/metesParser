@@ -1,5 +1,8 @@
 # Makefile Improvements Design
 
+> Historical snapshot: This plan/design document captures implementation context on its date. It may not reflect current code, defaults, test counts, or workflow state.
+
+
 **Date:** 2026-02-16
 **Approach:** Surgical Cleanup + Targeted Additions (Approach A)
 

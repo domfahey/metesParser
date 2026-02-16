@@ -1,5 +1,8 @@
 # LLM Output Caching Implementation Plan
 
+> Historical snapshot: This plan/design document captures implementation context on its date. It may not reflect current code, defaults, test counts, or workflow state.
+
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Add file-based LLM response caching so PDF extraction produces consistent results across runs.

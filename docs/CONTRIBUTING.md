@@ -66,7 +66,7 @@ This runs:
 - Formatting (black)
 - Type checking (mypy)
 - Full test suite
-- (Equivalent to `make check`.)
+- (`make check` is stricter than this command.)
 
 ### 4. Commit Changes
 

@@ -17,7 +17,7 @@ flowchart TD
   E1 --> F1["raw OCR text captured\n(contains all page text)\ncontains 4 numbered calls block"]
   F1 --> E2["`extract_legal_description`\nLLM call #2\nInput=raw OCR text"]
   E2 --> F2["Legal description block (raw) extracted\nBEGINNING at a point ... to point and place of beginning"]
-  F2 --> E3["`normalize_text`\nLLM call #3\nInput=raw legal desc"]
+  F2 --> E3["`normalize_legal_description`\nLLM call #3\nInput=raw legal desc"]
   E3 --> F3["Normalized text\nS 33°20'00\" E ... 4 numbered calls preserved"]
 
   F3 --> G1["`TextParser.extract_plss_metadata()`\n{section: None, township: None, range: None, principal_meridian: None, aliquot: None}"]
@@ -31,13 +31,14 @@ flowchart TD
 
   H --> I["`enrich_calls_with_azimuths()`\nNo missing azimuth corrections needed\n4 calls unchanged"]
   I --> J["`LegalDescription` object created (representative snapshot)\nsource_doc='18 Pennbrook Dr - Deed Image (11985 - 00829).pdf'\npoc_description=None\npob_description='a point at the southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide)'\ndistance_unit='feet'\nnum_calls=4\nall per-call note fields are None\noptional metadata fields (poc/sections/POC/metadata) are None"]
-  J --> K["`ClosureChecker.verify_closure(calls)`\nCompute traverse, area, perimeter"]
-  K --> L["`ClosureResult`\nmisclosure_x=0.0\nmisclosure_y=0.0\nmisclosure_ft=0.0\narea_sq_ft=7500.0\narea_acres=0.172131...\nperimeter_ft=370.0\nprecision_ratio=0.0\nclosure_passed=true\nangle_check_passed=true\ncurve_consistency_passed=true\nwarnings=[]\npoints=[(0,0),(32.970538,-50.129269),(-71.465438,-118.817891),(-104.435977,-68.688622),(0,0)]"]
-  L --> M{`is_fully_verified()`}
-  M -->|true| N["`CSVBuilder.export_verified_csv()`\nWrites\n`sample_deeds/...00829_verified.csv`\n`..._verified.verification.txt`\n`..._verified.metadata.txt`"]
-  M -->|false| O["`CSVBuilder.legal_description_to_csv()`\nWrites unverified csv"]
-  N --> P["CLI prints closure summary and exits 0"]
-  O --> P
+  J --> K["`PDFProcessor.process_deed_pdf()` returns `LegalDescription` to CLI"]
+  K --> L["`ClosureChecker.verify_closure(legal_desc.calls)`\nCompute traverse, area, perimeter"]
+  L --> M["`ClosureResult`\nmisclosure_x=0.0\nmisclosure_y=0.0\nmisclosure_ft=0.0\narea_sq_ft=7500.0\narea_acres=0.172131...\nperimeter_ft=370.0\nprecision_ratio=0.0\nclosure_passed=true\nangle_check_passed=true\ncurve_consistency_passed=true\nwarnings=[]\npoints=[(0,0),(32.970538,-50.129269),(-71.465438,-118.817891),(-104.435977,-68.688622),(0,0)]"]
+  M --> N{`is_fully_verified()`}
+  N -->|true| O["`CSVBuilder.export_verified_csv()`\nWrites\n`sample_deeds/...00829_verified.csv`\n`..._verified.verification.txt`\n`..._verified.metadata.txt`"]
+  N -->|false| P["`CSVBuilder.legal_description_to_csv()`\nWrites unverified csv"]
+  O --> Q["CLI prints closure summary and exits 0"]
+  P --> Q
 ```
 
 ## 2) Sequence diagram (explicit external LLM calls)
@@ -68,7 +69,7 @@ sequenceDiagram
   LLM-->>PP: legal description block
   Note right of PP: raw legal text from BEGINNING to closure
 
-  PP->>LLM: request #3 `normalize_text` + legal text
+  PP->>LLM: request #3 `normalize_legal_description` + legal text
   LLM-->>PP: normalized text
   Note right of PP: includes `S 33°20'00" E`, etc.
 
@@ -82,15 +83,16 @@ sequenceDiagram
 
   PP->>CE: `enrich_calls_with_azimuths(calls)`
   CE-->>PP: calls unchanged with azimuths ensured when possible (via BearingConverter)
-  PP->>CC: verify_closure(calls)
-  CC-->>PP: ClosureResult(misclosure=0.0, area=7500.0, perimeter=370.0, warnings=[])
 
-  PP->>CSV: export_verified_csv(...)
+  PP-->>CLI: return legal_desc
+  CLI->>CC: verify_closure(legal_desc.calls)
+  CC-->>CLI: ClosureResult(misclosure=0.0, area=7500.0, perimeter=370.0, warnings=[])
+
+  CLI->>CSV: export_verified_csv(...)
   CSV-->>FS: write `...00829_verified.csv`
   CSV-->>FS: write `...00829_verified.verification.txt`
   CSV-->>FS: write `...00829_verified.metadata.txt`
 
-  PP-->>CLI: return legal_desc + closure_result
   CLI-->>User: print closure summary + exit 0
 ```
 
@@ -105,7 +107,7 @@ stateDiagram-v2
     [*] --> ClientReady: PDFProcessor created
     ClientReady --> TextExtraction: extract_text_from_pdf()
     TextExtraction --> DescriptionExtracted: legal text block extracted
-    DescriptionExtracted --> TextNormalized: normalize_text()
+    DescriptionExtracted --> TextNormalized: normalize_legal_description()
   }
 
   ProcessorInit --> MetadataPOB: extract_poc_and_pob()
