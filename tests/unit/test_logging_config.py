@@ -10,6 +10,8 @@ import structlog
 
 from metesparser.logging_config import configure_logging, get_log_format
 
+pytestmark = pytest.mark.usefixtures("isolate_logging_state")
+
 
 def _json_lines(stream: io.StringIO) -> list[dict[str, object]]:
     return [json.loads(line) for line in stream.getvalue().splitlines() if line.strip()]
