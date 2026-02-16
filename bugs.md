@@ -8,8 +8,13 @@
 ## Status Update (2026-02-15)
 - Baseline audit tickets `#1-24` are marked `fixed`.
 - Recent tickets `#25-34` were re-audited on 2026-02-15.
-- Open tickets: none.
+- Open tickets: #35, #36, #37, #38, #39, #40, #41, #43, #44, #45, #46, #47, #48.
 - Verification gates passed after baseline and recent fixes (latest run: 2026-02-15): `make check` and full test suite.
+
+## Error Analysis (2026-02-15)
+- Ran full pipeline on 6 sample deeds (18, 24, 31 Pennbrook variants) using GPT-5.2 and Gemini 3 Flash Preview.
+- Identified 7 error categories; 3 are new parser bugs (#46-#48), 2 were ground truth corruption (fixed), 2 are working-as-designed.
+- Ground truth regenerated for 4618, 10989, and 11191 using GPT-5.2 verified output (commit `3869a81`).
 
 
 ## Triage Metadata Checklist
@@ -458,3 +463,53 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Actual behavior:** Unit inference is isolated in tests only.
 - **Suggested test:** Add regression fixture with unitless distance and strong context (e.g., Texas pre-1900 varas/deed text), assert parsed `distance_ft` matches inferred unit conversion instead of zero.
 - **Suggested fix:** Thread document metadata/state/year context into `PDFProcessor.process_deed_pdf` and call `TextParser.infer_distance_unit` before `CallExtractor.extract_calls`.
+
+### 45) Numeric parsing rejects comma-separated distances and curve measurements
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/text_parser.py` (`TextParser.extract_distance`), `src/metesparser/call_extractor.py` (`CallExtractor.extract_curve_info`, `CallExtractor.extract_distance_alternate`)
+- **Issue:** Distance/curve numeric regexes only accept digits and optional decimals (`\d+(?:\.\d+)?`), so valid thousand-formatted values like `1,200 feet`, `3,500.00 ft`, `radius of 10,000 feet`, and `1,000 feet arc length` never match.
+- **Expected behavior:** Parser should tolerate thousands separators in metric/length values and normalize them to floats before conversion.
+- **Actual behavior:** These calls resolve to `(0.0, "feet")` in `extract_distance` (and miss radius/arc data in curve parsing), so valid geometry is skipped or interpreted as zero-length.
+- **Suggested test:** Assert `TextParser.extract_distance("1,200 feet") == (1200.0, "feet")` and that `CallExtractor.extract_single_call("THENCE N 45° E 1,200 feet to a point", course=1)` returns a parsed call with `distance_ft == 1200.0`.
+- **Suggested fix:** Introduce a shared numeric normalization helper that strips commas before conversion and reuse it for straight/alternate/cuve distance and radius/arc extraction.
+
+### 46) POB description distances leak into call extraction as phantom courses
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/call_extractor.py` (`CallExtractor.extract_calls`), `src/metesparser/text_parser.py` (`TextParser.split_into_calls`)
+- **Minimal input:** `BEGINNING at a point in the Southerly line of Greenmount Road (50 feet wide)...` (18 Pennbrook Dr, Book 11985)
+- **Issue:** The POB/preamble text is not stripped before call splitting. Distance values embedded in POB descriptions (road widths like `"50 feet wide"`, offset distances like `"100 feet from the corner"`) are parsed as standalone deed calls.
+- **Expected behavior:** POB/preamble text before the first `THENCE` should be excluded from call extraction. Only traverse calls should produce `DeedCall` objects.
+- **Actual behavior:** A phantom Course 1 is created from the POB text with `distance_ft=50.0` and no bearing, injecting a zero-azimuth leg into the traverse that inflates call count and corrupts closure/area.
+- **Impact:** Observed on 18 Pennbrook (all extraction runs) — pipeline produces 5 calls instead of 4, with Course 1 being a phantom 50-foot call from the road width.
+- **Suggested test:** Assert `CallExtractor.extract_calls("BEGINNING at a point in the Southerly line of Greenmount Road (50 feet wide); THENCE S 71°53'10\" E 125.26 feet...")` returns calls starting from the first bearing, not a phantom distance-only call.
+- **Suggested fix:** Strip text before the first `THENCE`/`thence` keyword (or first recognized bearing) before passing to `split_into_calls`. Alternatively, reject calls with `distance_ft > 0` but `bearing_azimuth_deg_from_north is None` and no curve data.
+
+### 47) LLM extracts wrong legal description section from multi-section deeds
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `intermittent` (depends on LLM prompt response)
+- **Location:** `src/metesparser/pdf_processor.py` (`PDFProcessor.extract_legal_description`), `prompts/extract_legal_description.yaml`
+- **Minimal input:** 24 Pennbrook Dr (Book 11793) — PDF contains both a deed body (short description with bearings) and an Exhibit A (full metes and bounds with 8 calls)
+- **Issue:** When a deed PDF contains multiple legal description sections (e.g., deed body + Exhibit A, or main tract + AMENDED description), the LLM extraction prompt does not specify which section to prefer. The LLM may return the deed body (which has fewer calls or abbreviated descriptions) instead of the Exhibit A or survey attachment.
+- **Expected behavior:** Extraction should prefer the most complete/detailed legal description, typically the Exhibit A or survey attachment when present.
+- **Actual behavior:** For 24 Pennbrook PDF, the LLM extracted the deed body (yielding 2 calls from merged text) instead of Exhibit A (which has 8 distinct calls with full bearings/distances).
+- **Impact:** Produces incomplete call sets, wrong call counts, and failed closure. The 24 Pennbrook PDF extraction returned 2 calls instead of 8.
+- **Suggested test:** Integration-level test with a multi-section deed confirming the Exhibit A calls are extracted.
+- **Suggested fix:** Update `extract_legal_description.yaml` prompt to explicitly instruct the LLM to prefer Exhibit A, survey attachments, or the most detailed metes-and-bounds section when multiple descriptions exist.
+
+### 48) Markdown-based extraction fails to split inline-numbered `thence (N)` calls
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/text_parser.py` (`TextParser.split_into_calls`), `src/metesparser/call_extractor.py` (`CallExtractor.extract_calls`)
+- **Minimal input:** `thence (1) S 71°53'10" E 125.26 feet; thence (2) S 33°20'00" E 60 feet; thence (3) N 71°53'10" W 125.26 feet...` (24 Pennbrook from markdown extraction)
+- **Issue:** When legal description text uses inline parenthesized numbering within a single text block (e.g., `thence (1) ... thence (2) ...`), `split_into_calls` does not split on the `thence` keyword when all calls are concatenated into one line/paragraph. This is distinct from bug #10 (which addressed `(1)` at line start); the issue here is that markdown-parsed text collapses multi-line calls into flowing text where `thence` is the only delimiter.
+- **Expected behavior:** Each `thence` keyword should start a new call segment, producing 8 separate calls for 24 Pennbrook.
+- **Actual behavior:** All calls are merged into 1-2 segments. Only the first bearing/distance pair is extracted per segment, losing subsequent calls.
+- **Impact:** Observed on 24 Pennbrook markdown extraction — produced 2 calls instead of 8, with most bearings/distances lost.
+- **Suggested test:** Assert `len(CallExtractor.extract_calls("thence (1) S 71°53'10\" E 125.26 feet; thence (2) S 33°20'00\" E 60 feet; thence (3) N 71°53'10\" W 125.26 feet")) == 3`.
+- **Suggested fix:** Add `thence` as a call delimiter in `split_into_calls` (in addition to existing numbered/semicolon patterns). Ensure the split preserves the `thence` keyword in each resulting segment for downstream direction extraction.
