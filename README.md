@@ -22,13 +22,15 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 - 📊 **Quality Scoring** - Per-call quality (high/medium/low) and overall confidence score (0.0-1.0)
 - 🔍 **Audit Sidecar** - Optional `.audit.json` + `.audit.html` alongside verified CSV for full transparency
 - 💾 **LLM Caching** - File-based response caching for deterministic, cost-effective re-extraction
+- 🔬 **Run Registry** - Track prompt versions and extraction results for A/B comparison across runs
 
 ## Recent Updates (v0.4.0)
 
 - **Phase 6: Audit Sidecar** - Full transparency with `.audit.json` + `.audit.html` alongside verified CSV. Tracks LLM extraction confidence, per-call source excerpts, field-level transformations, and verification results.
 - **Quality Scoring** - Per-call quality (high/medium/low) and weighted confidence score (0.0-1.0) on `ClosureResult`.
-- **34 features** across 6 phases: foundation units, enhanced parsing, verification checks, geometric completeness, production features, and audit transparency.
-- **866 tests, ~93% coverage** with unit, integration, regression, and e2e categories.
+- **Run Registry** - Track prompt versions (git SHA + content hash) and extraction metrics per run. Compare results with `metesparser compare-runs`.
+- **35 features** across 6 phases: foundation units, enhanced parsing, verification checks, geometric completeness, production features, and audit transparency.
+- **888 tests, ~93% coverage** with unit, integration, regression, and e2e categories.
 - Gemini LLM provider support alongside OpenAI (`--llm-provider gemini`).
 - File-based LLM response caching via `CachedLLMClient`.
 - Ground truth JSON files stored alongside each sample PDF in `sample_deeds/` for replayable extraction checks.
@@ -83,6 +85,10 @@ uv run metesparser extract deed.pdf
 
 # Verify calls from CSV
 uv run metesparser verify calls.csv
+
+# Compare extraction runs across prompt versions
+uv run metesparser compare-runs
+uv run metesparser compare-runs --pdf pennbrook
 
 # Or use the Makefile
 make run-extract PDF_FILE=deed.pdf
@@ -162,6 +168,7 @@ PDF → Extract → Normalize → Parse Calls → Verify → CSV
 | `llm_clients.py` | BaseLLMClient ABC, OpenAIClient, GeminiClient providers |
 | `llm_cache.py` | File-based LLM response caching (CachedLLMClient) |
 | `audit_reporter.py` | Self-contained HTML audit report generation |
+| `run_registry.py` | Run manifest tracking, prompt versioning, A/B comparison |
 | `logging_config.py` | structlog configuration (console + JSON modes) |
 | `cli.py` | Command-line interface |
 
@@ -211,7 +218,7 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite runs 866 tests organized by type:
+The test suite runs ~888 tests organized by type:
 
 ```bash
 # Run all tests (unit + integration + e2e + regression)
@@ -335,7 +342,7 @@ Azimuth = degrees clockwise from North (0-360°):
 metesParser/
 ├── Makefile                     # Development commands
 ├── pyproject.toml               # UV configuration + tool settings
-├── src/metesparser/             # Main package (13 modules)
+├── src/metesparser/             # Main package (14 modules)
 │   ├── models.py
 │   ├── bearing_converter.py
 │   ├── text_parser.py
@@ -345,11 +352,12 @@ metesParser/
 │   ├── pdf_processor.py
 │   ├── llm_clients.py
 │   ├── llm_cache.py
+│   ├── run_registry.py
 │   ├── audit_reporter.py
 │   ├── logging_config.py
 │   └── cli.py
 ├── prompts/                     # Prompt YAML files
-├── tests/                       # Pytest test suite (866 tests, ~93% coverage)
+├── tests/                       # Pytest test suite (~888 tests, ~93% coverage)
 │   ├── conftest.py              # Shared fixtures
 │   ├── helpers.py               # Test utilities
 │   ├── fixtures/                # Sample legal descriptions

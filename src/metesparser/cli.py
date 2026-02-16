@@ -176,9 +176,17 @@ def compare_runs_command(runs_dir: str | None = None, pdf_filter: str | None = N
     from .run_registry import format_comparison_table, load_run_manifests
 
     resolved_dir = Path(runs_dir) if runs_dir else RUNS_DIR
-    manifests = load_run_manifests(resolved_dir)
-    output = format_comparison_table(manifests, pdf_filter=pdf_filter)
-    print(output)
+    command_logger = logger.bind(command="compare-runs", runs_dir=str(resolved_dir))
+    command_logger.info("Comparing runs")
+
+    try:
+        manifests = load_run_manifests(resolved_dir)
+        command_logger.info("Loaded run manifests", count=len(manifests))
+        output = format_comparison_table(manifests, pdf_filter=pdf_filter)
+        print(output)
+    except Exception:
+        command_logger.exception("Failed to compare runs")
+        sys.exit(1)
 
 
 def main() -> None:

@@ -572,6 +572,50 @@ def test_main_rejects_invalid_log_level(monkeypatch, capsys):
     assert "Invalid log level" in (captured.out + captured.err)
 
 
+class TestCompareRunsCommand:
+    def test_compare_runs_logs_with_structlog(self, monkeypatch, tmp_path, capsys):
+        """compare-runs should use structured logging like other commands."""
+        log_stream = io.StringIO()
+        configure_logging(level="INFO", log_format="json", stream=log_stream)
+
+        runs_dir = tmp_path / "runs"
+        runs_dir.mkdir()
+
+        try:
+            cli.compare_runs_command(runs_dir=str(runs_dir))
+        finally:
+            configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+
+        lines = _json_log_lines(log_stream.getvalue())
+        assert any(line.get("command") == "compare-runs" for line in lines), (
+            f"Expected structlog entry with command='compare-runs', got: {lines}"
+        )
+
+    def test_compare_runs_exits_on_error(self, monkeypatch, tmp_path):
+        """compare-runs should sys.exit(1) on unexpected errors, not raise."""
+        monkeypatch.setattr(
+            "metesparser.run_registry.load_run_manifests",
+            lambda _: (_ for _ in ()).throw(RuntimeError("disk error")),
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            cli.compare_runs_command(runs_dir=str(tmp_path))
+        assert exc.value.code == 1
+
+    def test_compare_runs_outputs_table_to_stdout(self, monkeypatch, tmp_path, capsys):
+        """compare-runs should still print the table to stdout."""
+        monkeypatch.setattr("metesparser.run_registry.load_run_manifests", lambda _: [])
+        monkeypatch.setattr(
+            "metesparser.run_registry.format_comparison_table",
+            lambda manifests, pdf_filter=None: "No runs found.",
+        )
+
+        cli.compare_runs_command(runs_dir=str(tmp_path))
+
+        captured = capsys.readouterr()
+        assert "No runs found." in captured.out
+
+
 class TestExtractRunManifest:
     def test_extract_writes_run_manifest(self, monkeypatch, tmp_path):
         """Extract command should write a run manifest to runs/ directory."""
