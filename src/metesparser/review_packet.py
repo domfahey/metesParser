@@ -4,10 +4,16 @@ Produces self-contained HTML review worksheets from ground truth JSON files
 so attorneys or surveyors can verify parsed data against source deed PDFs.
 """
 
+from __future__ import annotations
+
 import html as html_mod
 import json
 import math
 from pathlib import Path
+from typing import Any
+
+# Ground truth data is unstructured JSON — use a type alias for clarity.
+GroundTruth = dict[str, Any]
 
 _REQUIRED_KEYS = {
     "deed_info",
@@ -19,7 +25,7 @@ _REQUIRED_KEYS = {
 }
 
 
-def load_ground_truth(path: Path) -> dict:
+def load_ground_truth(path: Path) -> GroundTruth:
     """Load and validate a ground truth JSON file.
 
     Args:
@@ -45,7 +51,8 @@ def load_ground_truth(path: Path) -> dict:
     if missing:
         raise ValueError(f"Missing required keys in {path}: {sorted(missing)}")
 
-    return data
+    result: GroundTruth = data
+    return result
 
 
 def _esc(value: object) -> str:
@@ -55,7 +62,7 @@ def _esc(value: object) -> str:
     return html_mod.escape(str(value))
 
 
-def build_metadata_section(gt: dict, source_pdf: str) -> str:
+def build_metadata_section(gt: GroundTruth, source_pdf: str) -> str:
     """Build HTML metadata header from ground truth deed_info.
 
     Args:
@@ -104,7 +111,7 @@ _CALL_COLUMNS = [
 ]
 
 
-def build_call_table(gt: dict) -> str:
+def build_call_table(gt: GroundTruth) -> str:
     """Build HTML review table for expected calls.
 
     Includes reviewer columns (Correct?, Reviewer Notes) for marking
@@ -145,7 +152,7 @@ def build_call_table(gt: dict) -> str:
     return "\n".join(parts)
 
 
-def build_closure_section(gt: dict) -> str:
+def build_closure_section(gt: GroundTruth) -> str:
     """Build HTML section for closure/verification data.
 
     Args:
@@ -206,7 +213,7 @@ def build_closure_section(gt: dict) -> str:
     return "\n".join(parts)
 
 
-def build_text_comparison(gt: dict) -> str:
+def build_text_comparison(gt: GroundTruth) -> str:
     """Build HTML section for side-by-side text comparison.
 
     Shows raw OCR text, expected legal description, and normalized text
@@ -261,7 +268,7 @@ def build_text_comparison(gt: dict) -> str:
     return "\n".join(parts)
 
 
-def generate_traverse_plot(gt: dict) -> str:
+def generate_traverse_plot(gt: GroundTruth) -> str:
     """Generate an SVG traverse plot from ground truth calls.
 
     Produces a pure-SVG diagram (no external dependencies) showing the
@@ -426,7 +433,7 @@ def _review_css() -> str:
     )
 
 
-def generate_review_html(gt: dict, source_pdf: str) -> str:
+def generate_review_html(gt: GroundTruth, source_pdf: str) -> str:
     """Generate a complete self-contained HTML review packet.
 
     Assembles all sections (metadata, text comparison, call table,
