@@ -277,12 +277,19 @@ class BearingConverter:
         else:
             raise ValueError("Must provide either delta_deg or arc_length_ft")
 
+        tangent_length_ft = radius_ft * math.tan(delta_rad / 2)
+        external_distance_ft = radius_ft * (1.0 / math.cos(delta_rad / 2) - 1.0)
+        middle_ordinate_ft = radius_ft * (1.0 - math.cos(delta_rad / 2))
+
         return {
             "radius_ft": radius_ft,
             "delta_deg": delta_deg,
             "delta_rad": delta_rad,
             "arc_length_ft": arc,
             "chord_length_ft": chord,
+            "tangent_length_ft": tangent_length_ft,
+            "external_distance_ft": external_distance_ft,
+            "middle_ordinate_ft": middle_ordinate_ft,
         }
 
     @classmethod
@@ -419,6 +426,8 @@ class BearingConverter:
         if chord_length_ft is None:
             chord_length_ft = 2 * radius_ft * math.sin(delta_rad / 2)  # type: ignore[operator]
         tangent_length_ft = radius_ft * math.tan(delta_rad / 2)  # type: ignore[operator]
+        external_distance_ft = radius_ft * (1.0 / math.cos(delta_rad / 2) - 1.0)  # type: ignore[operator]
+        middle_ordinate_ft = radius_ft * (1.0 - math.cos(delta_rad / 2))  # type: ignore[operator]
 
         return {
             "radius_ft": radius_ft,  # type: ignore[dict-item]
@@ -426,6 +435,8 @@ class BearingConverter:
             "arc_length_ft": arc_length_ft,
             "chord_length_ft": chord_length_ft,
             "tangent_length_ft": tangent_length_ft,
+            "external_distance_ft": external_distance_ft,
+            "middle_ordinate_ft": middle_ordinate_ft,
         }
 
     @classmethod
