@@ -23,19 +23,24 @@ Keep original wording in `along` and `to` fields. Example: Keep "Southerly line 
 
 ### Makefile (Primary Interface)
 ```bash
-make help          # Show all commands
-make dev-setup     # Initial setup (creates .env from .env.example)
-make lint          # Run ruff (excludes text_parser.py)
-make format        # Run ruff formatter
-make lint-fix      # Auto-fix linting issues
-make test          # Run pytest
-make test-fast     # Run pytest with fail-fast (stop on first failure)
-make test-cov      # Tests with HTML coverage report
-make test-watch    # Re-run tests on file changes (pytest-watcher)
-make pre-commit    # Full check before git commit
-make check         # Run all checks (lint + format-check + type + docs-check + test)
-make clean         # Remove generated artifacts and caches
-make doctor        # Verify project dependencies and environment
+make help             # Show all commands
+make dev-setup        # Initial setup (creates .env from .env.example)
+make lint             # Run ruff (excludes text_parser.py)
+make format           # Run ruff formatter
+make lint-fix         # Auto-fix linting issues
+make test             # Run pytest
+make test-fast        # Run pytest with fail-fast (stop on first failure)
+make test-cov         # Tests with HTML coverage report
+make test-unit        # Run unit tests only
+make test-integration # Run integration tests only
+make test-e2e         # Run end-to-end tests only
+make test-watch       # Re-run tests on file changes (pytest-watcher)
+make pre-commit       # Full check before git commit
+make check            # Run all checks (lint + format-check + type + test)
+make clean            # Remove generated artifacts and caches
+make doctor           # Verify project dependencies and environment
+make bump-patch       # Bump patch version (e.g. 0.2.0 -> 0.2.1)
+make bump-minor       # Bump minor version (e.g. 0.2.0 -> 0.3.0)
 ```
 
 ### Direct CLI Usage
