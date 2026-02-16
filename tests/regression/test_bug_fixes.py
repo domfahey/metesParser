@@ -15,6 +15,8 @@ from metesparser.call_extractor import CallExtractor
 from metesparser.closure_checker import ClosureChecker
 from metesparser.models import DeedCall
 
+pytestmark = pytest.mark.regression
+
 
 class TestCriticalBug1DivisionByZero:
     """Bug #1: Division by zero in curve calculations when radius = 0."""

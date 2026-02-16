@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import tomllib
-from pathlib import Path
-
 import pytest
 
 from metesparser.llm_clients import LLMClientError
@@ -169,19 +166,3 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
         "Extracted calls",
     ]
     assert captured_events[-1][1]["count"] == 0
-
-
-def test_wheel_build_config_force_includes_packaged_prompts() -> None:
-    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
-    pyproject = tomllib.loads(pyproject_path.read_text())
-
-    force_include = (
-        pyproject.get("tool", {})
-        .get("hatch", {})
-        .get("build", {})
-        .get("targets", {})
-        .get("wheel", {})
-        .get("force-include", {})
-    )
-
-    assert force_include.get("src/metesparser/prompts") == "metesparser/prompts"

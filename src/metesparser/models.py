@@ -1,6 +1,6 @@
 """Pydantic models for metes and bounds deed parsing."""
 
-from typing import Literal
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, FiniteFloat, field_validator, model_validator
 
@@ -66,8 +66,11 @@ DistanceUnit = Literal[
 class _Model(BaseModel):
     """Project-wide Pydantic base configuration."""
 
+    # frozen=True: models are immutable. The object.__setattr__() bypass in
+    # normalize_curve_radius_sign() still works on frozen models.
     model_config = ConfigDict(
         extra="forbid",
+        frozen=True,
         str_strip_whitespace=True,
         validate_assignment=True,
     )
@@ -106,11 +109,11 @@ class DeedClause(_Model):
 class SubdivisionReference(_Model):
     """Subdivision lot/block reference from a deed."""
 
-    lot: str | None = None
-    block: str | None = None
-    subdivision_name: str | None = None
-    plat_book: str | None = None
-    plat_page: str | None = None
+    lot: str | None = Field(default=None, description="Lot number or identifier")
+    block: str | None = Field(default=None, description="Block number or identifier")
+    subdivision_name: str | None = Field(default=None, description="Name of the subdivision")
+    plat_book: str | None = Field(default=None, description="Plat book reference number")
+    plat_page: str | None = Field(default=None, description="Plat page reference number")
 
 
 class DeedCall(_Model):
@@ -125,10 +128,10 @@ class DeedCall(_Model):
         description="Verbatim direction from deed (e.g., 'S 56°40' W' or 'southwesterly')",
     )
     bearing_quadrant: str | None = Field(
-        None, description="Quadrant bearing if specified (e.g., 'S 56°40' W')"
+        default=None, description="Quadrant bearing if specified (e.g., 'S 56°40' W')"
     )
     bearing_azimuth_deg_from_north: FiniteFloat | None = Field(
-        None,
+        default=None,
         description="Azimuth in degrees clockwise from North (0-360)",
         ge=0,
         lt=360,
@@ -139,43 +142,43 @@ class DeedCall(_Model):
         gt=0,
     )
 
-    curve_dir: CurveDirection | None = Field(None, description="Curve direction (left/right)")
+    curve_dir: CurveDirection | None = Field(default=None, description="Curve direction (left/right)")
     radius_ft: FiniteFloat | None = Field(
-        None,
+        default=None,
         description="Curve radius in feet",
     )
     delta_deg: FiniteFloat | None = Field(
-        None,
+        default=None,
         description="Central angle (Δ) in degrees",
         ge=0,
         le=360,
     )
     arc_length_ft: FiniteFloat | None = Field(
-        None,
+        default=None,
         description="Arc length in feet",
         ge=0,
     )
-    chord_bearing: str | None = Field(None, description="Chord bearing")
+    chord_bearing: str | None = Field(default=None, description="Chord bearing")
     chord_length_ft: FiniteFloat | None = Field(
-        None,
+        default=None,
         description="Chord length in feet",
         ge=0,
     )
 
     along: str | None = Field(
-        None,
+        default=None,
         description="What the line runs along (e.g., 'Southerly line of Pennbrook Drive')",
     )
     to: str | None = Field(
-        None,
+        default=None,
         description="Ending point description (e.g., 'iron pin', 'corner to Lot 50')",
     )
     monument_status: MonumentStatus | None = Field(
-        None,
+        default=None,
         description="Whether monument text indicates found or set",
     )
     monument_type: MonumentType | None = Field(
-        None,
+        default=None,
         description="Type of survey monument at endpoint",
     )
     is_exception: bool = Field(
@@ -187,7 +190,7 @@ class DeedCall(_Model):
         description="True if this curve is non-tangent (radial bearing provided)",
     )
     radial_bearing: str | None = Field(
-        None,
+        default=None,
         description="Radial bearing for non-tangent curves (e.g., 'N 15°22' E')",
     )
     is_meander: bool = Field(
@@ -203,14 +206,14 @@ class DeedCall(_Model):
         description="True if this call has vague direction without precise bearing",
     )
     curve_type: CurveType | None = Field(
-        None,
+        default=None,
         description="Type of curve: simple, compound, or reverse (None for non-curves)",
     )
     quality: Literal["high", "medium", "low"] | None = Field(
         default=None,
         description="Call quality rating based on bearing completeness and monument permanence",
     )
-    notes: str | None = Field(None, description="Additional notes (meander flag, issues, etc.)")
+    notes: str | None = Field(default=None, description="Additional notes (meander flag, issues, etc.)")
 
     @field_validator("curve_dir", "monument_type", "curve_type", mode="before")
     @classmethod
@@ -241,9 +244,11 @@ class DeedCall(_Model):
 
         raise ValueError("monument_status must be one of: found, set")
 
-    @field_validator("is_exception", "is_meander", "is_tie_in", "is_indefinite", mode="before")
+    @field_validator(
+        "is_exception", "is_meander", "is_tie_in", "is_indefinite", "non_tangent", mode="before"
+    )
     @classmethod
-    def _normalize_is_exception(cls, value: object) -> bool:
+    def _coerce_bool_fields(cls, value: object) -> bool:
         try:
             return cls._coerce_bool_field(value)
         except ValueError as exc:
@@ -269,7 +274,7 @@ class DeedCall(_Model):
         return radius
 
     @model_validator(mode="after")
-    def normalize_curve_radius_sign(self) -> "DeedCall":
+    def normalize_curve_radius_sign(self) -> Self:
         """Normalize negative radii based on curve direction."""
         if self.radius_ft is None or self.radius_ft >= 0:
             return self
@@ -283,7 +288,7 @@ class DeedCall(_Model):
         return self
 
     @model_validator(mode="after")
-    def validate_curve_geometry(self) -> "DeedCall":
+    def validate_curve_geometry(self) -> Self:
         """Require consistent curve attributes when curve geometry is present."""
         has_curve_direction = self.curve_dir is not None
         has_radius = self.radius_ft is not None
@@ -328,41 +333,41 @@ class LegalDescription(_Model):
     """Represents a complete legal description from a deed."""
 
     poc_description: str | None = Field(
-        None,
+        default=None,
         description="Point of Commencement - survey reference point (distinct from POB)",
     )
     pob_description: str | None = Field(
-        None, description="Point of Beginning - where parcel boundary starts"
+        default=None, description="Point of Beginning - where parcel boundary starts"
     )
 
     calls: list[DeedCall] = Field(
         default_factory=list, description="List of metes and bounds calls"
     )
 
-    source_doc: str | None = Field(None, description="Source document (book/page, etc.)")
-    exhibit: str | None = Field(None, description="Exhibit identifier (e.g., 'Exhibit A')")
-    page: int | None = Field(None, ge=1, strict=True, description="Page number in document")
-    survey_date: str | None = Field(None, description="Survey date if specified")
+    source_doc: str | None = Field(default=None, description="Source document (book/page, etc.)")
+    exhibit: str | None = Field(default=None, description="Exhibit identifier (e.g., 'Exhibit A')")
+    page: int | None = Field(default=None, ge=1, strict=True, description="Page number in document")
+    survey_date: str | None = Field(default=None, description="Survey date if specified")
     basis_of_bearing: str | None = Field(
-        None, description="Basis of bearing (e.g., 'True North', 'Magnetic North')"
+        default=None, description="Basis of bearing (e.g., 'True North', 'Magnetic North')"
     )
-    datum: str | None = Field(None, description="Datum/ellipsoid if specified")
+    datum: str | None = Field(default=None, description="Datum/ellipsoid if specified")
 
-    section: str | None = Field(None, description="Section number (e.g., '12')")
-    township: str | None = Field(None, description="Township designation (e.g., '15 N' or 'T15N')")
-    range: str | None = Field(None, description="Range designation (e.g., '3 E' or 'R3E')")
+    section: str | None = Field(default=None, description="Section number (e.g., '12')")
+    township: str | None = Field(default=None, description="Township designation (e.g., '15 N' or 'T15N')")
+    range: str | None = Field(default=None, description="Range designation (e.g., '3 E' or 'R3E')")
     principal_meridian: str | None = Field(
-        None, description="Principal Meridian (e.g., 'Willamette Principal Meridian')"
+        default=None, description="Principal Meridian (e.g., 'Willamette Principal Meridian')"
     )
-    aliquot: str | None = Field(None, description="Aliquot subdivision (e.g., 'SW 1/4 of NE 1/4')")
+    aliquot: str | None = Field(default=None, description="Aliquot subdivision (e.g., 'SW 1/4 of NE 1/4')")
 
-    surveyor_certification: str | None = Field(None, description="Surveyor certification text")
+    surveyor_certification: str | None = Field(default=None, description="Surveyor certification text")
     prior_conveyance: str | None = Field(
-        None, description="Prior conveyance reference (e.g., Deed Book 1234, Page 567)"
+        default=None, description="Prior conveyance reference (e.g., Deed Book 1234, Page 567)"
     )
 
     stated_area_sq_ft: FiniteFloat | None = Field(
-        None,
+        default=None,
         description="Stated area from the legal description (square feet)",
     )
     stated_area_approximate: bool = Field(
@@ -375,16 +380,16 @@ class LegalDescription(_Model):
         description="Deed clauses (reservations, subject-to, together-with)",
     )
     subdivision_ref: SubdivisionReference | None = Field(
-        None, description="Subdivision lot/block reference"
+        default=None, description="Subdivision lot/block reference"
     )
     witness_trees: list[str] = Field(
         default_factory=list,
         description="Witness tree/reference mark descriptions (verbatim)",
     )
     coordinate_system: str | None = Field(
-        None, description="State Plane or other coordinate system reference"
+        default=None, description="State Plane or other coordinate system reference"
     )
-    fips_code: str | None = Field(None, description="FIPS zone code for State Plane coordinates")
+    fips_code: str | None = Field(default=None, description="FIPS zone code for State Plane coordinates")
 
     distance_unit: DistanceUnit = Field("feet", description="Primary distance unit in the deed")
 
@@ -401,7 +406,7 @@ class LegalDescription(_Model):
         return normalized
 
     @model_validator(mode="after")
-    def validate_stated_area_state(self) -> "LegalDescription":
+    def validate_stated_area_state(self) -> Self:
         if self.stated_area_approximate and self.stated_area_sq_ft is None:
             raise ValueError("stated_area_sq_ft must be set when stated_area_approximate is true")
         return self
@@ -443,7 +448,7 @@ class ClosureResult(_Model):
     )
 
     precision_ratio: FiniteFloat | None = Field(
-        None,
+        default=None,
         description="Misclosure / perimeter (e.g., 0.00004 means 1:25,000)",
         ge=0,
     )

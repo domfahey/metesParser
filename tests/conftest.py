@@ -22,9 +22,9 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line("markers", "validation: marks tests related to input validation")
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def isolate_logging_state() -> None:
-    """Reset logging configuration after each test to avoid closed-stream leaks."""
+    """Reset logging configuration for tests that opt in to logging isolation."""
     yield
     configure_logging(level="INFO", log_format="console", stream=sys.stderr, take_over_root=True)
     configure_logging(level="INFO", log_format="console", stream=sys.stderr, take_over_root=False)

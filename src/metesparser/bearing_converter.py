@@ -516,8 +516,6 @@ class BearingConverter:
         if call.bearing_quadrant and call.bearing_azimuth_deg_from_north is None:
             azimuth = cls.bearing_to_azimuth(call.bearing_quadrant)
             if azimuth is not None:
-                return DeedCall.model_validate(
-                    {**call.model_dump(), "bearing_azimuth_deg_from_north": azimuth}
-                )
+                return call.model_copy(update={"bearing_azimuth_deg_from_north": azimuth})
 
         return call
