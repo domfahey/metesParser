@@ -44,7 +44,9 @@ class TestDeedCallPhase4Fields:
         assert call.is_indefinite is False
 
     def test_is_indefinite_set_true(self) -> None:
-        call = DeedCall(course=1, direction_text="southwesterly", distance_ft=100.0, is_indefinite=True)
+        call = DeedCall(
+            course=1, direction_text="southwesterly", distance_ft=100.0, is_indefinite=True
+        )
         assert call.is_indefinite is True
 
     def test_curve_type_default_none(self) -> None:
@@ -53,30 +55,50 @@ class TestDeedCallPhase4Fields:
 
     def test_curve_type_simple(self) -> None:
         call = DeedCall(
-            course=1, direction_text="N 45° E", distance_ft=100.0,
-            curve_dir="left", radius_ft=200.0, delta_deg=30.0, curve_type="simple",
+            course=1,
+            direction_text="N 45° E",
+            distance_ft=100.0,
+            curve_dir="left",
+            radius_ft=200.0,
+            delta_deg=30.0,
+            curve_type="simple",
         )
         assert call.curve_type == "simple"
 
     def test_curve_type_compound(self) -> None:
         call = DeedCall(
-            course=1, direction_text="N 45° E", distance_ft=100.0,
-            curve_dir="left", radius_ft=200.0, delta_deg=30.0, curve_type="compound",
+            course=1,
+            direction_text="N 45° E",
+            distance_ft=100.0,
+            curve_dir="left",
+            radius_ft=200.0,
+            delta_deg=30.0,
+            curve_type="compound",
         )
         assert call.curve_type == "compound"
 
     def test_curve_type_reverse(self) -> None:
         call = DeedCall(
-            course=1, direction_text="N 45° E", distance_ft=100.0,
-            curve_dir="right", radius_ft=200.0, delta_deg=30.0, curve_type="reverse",
+            course=1,
+            direction_text="N 45° E",
+            distance_ft=100.0,
+            curve_dir="right",
+            radius_ft=200.0,
+            delta_deg=30.0,
+            curve_type="reverse",
         )
         assert call.curve_type == "reverse"
 
     def test_curve_type_invalid_rejected(self) -> None:
         with pytest.raises(ValueError):
             DeedCall(
-                course=1, direction_text="N 45° E", distance_ft=100.0,
-                curve_dir="left", radius_ft=200.0, delta_deg=30.0, curve_type="spiral",
+                course=1,
+                direction_text="N 45° E",
+                distance_ft=100.0,
+                curve_dir="left",
+                radius_ft=200.0,
+                delta_deg=30.0,
+                curve_type="spiral",
             )
 
 
@@ -202,19 +224,28 @@ class TestMeanderClosureWarning:
     def test_meander_warning_present(self) -> None:
         calls = [
             DeedCall(
-                course=1, direction_text="N 45° E", distance_ft=100.0,
-                bearing_azimuth_deg_from_north=45.0, is_meander=True,
+                course=1,
+                direction_text="N 45° E",
+                distance_ft=100.0,
+                bearing_azimuth_deg_from_north=45.0,
+                is_meander=True,
             ),
             DeedCall(
-                course=2, direction_text="S 45° E", distance_ft=100.0,
+                course=2,
+                direction_text="S 45° E",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=135.0,
             ),
             DeedCall(
-                course=3, direction_text="S 45° W", distance_ft=100.0,
+                course=3,
+                direction_text="S 45° W",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=225.0,
             ),
             DeedCall(
-                course=4, direction_text="N 45° W", distance_ft=100.0,
+                course=4,
+                direction_text="N 45° W",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=315.0,
             ),
         ]
@@ -224,19 +255,27 @@ class TestMeanderClosureWarning:
     def test_no_meander_no_warning(self) -> None:
         calls = [
             DeedCall(
-                course=1, direction_text="N 45° E", distance_ft=100.0,
+                course=1,
+                direction_text="N 45° E",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=45.0,
             ),
             DeedCall(
-                course=2, direction_text="S 45° E", distance_ft=100.0,
+                course=2,
+                direction_text="S 45° E",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=135.0,
             ),
             DeedCall(
-                course=3, direction_text="S 45° W", distance_ft=100.0,
+                course=3,
+                direction_text="S 45° W",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=225.0,
             ),
             DeedCall(
-                course=4, direction_text="N 45° W", distance_ft=100.0,
+                course=4,
+                direction_text="N 45° W",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=315.0,
             ),
         ]
@@ -299,7 +338,8 @@ class TestCalculateMissingCurveElements:
 
     def test_radius_and_arc_gives_delta_and_chord(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
-            radius_ft=200.0, arc_length_ft=104.72,
+            radius_ft=200.0,
+            arc_length_ft=104.72,
         )
         assert result["delta_deg"] == pytest.approx(30.0, abs=0.1)
         assert result["chord_length_ft"] is not None
@@ -307,35 +347,42 @@ class TestCalculateMissingCurveElements:
 
     def test_radius_and_delta_gives_arc_and_chord(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
-            radius_ft=200.0, delta_deg=30.0,
+            radius_ft=200.0,
+            delta_deg=30.0,
         )
         assert result["arc_length_ft"] == pytest.approx(104.72, abs=0.1)
         assert result["chord_length_ft"] is not None
 
     def test_radius_and_chord_gives_delta_and_arc(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
-            radius_ft=200.0, chord_length_ft=103.53,
+            radius_ft=200.0,
+            chord_length_ft=103.53,
         )
         assert result["delta_deg"] == pytest.approx(30.0, abs=0.5)
         assert result["arc_length_ft"] is not None
 
     def test_arc_and_delta_gives_radius_and_chord(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
-            arc_length_ft=104.72, delta_deg=30.0,
+            arc_length_ft=104.72,
+            delta_deg=30.0,
         )
         assert result["radius_ft"] == pytest.approx(200.0, abs=0.1)
         assert result["chord_length_ft"] is not None
 
     def test_chord_and_delta_gives_radius_and_arc(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
-            chord_length_ft=103.53, delta_deg=30.0,
+            chord_length_ft=103.53,
+            delta_deg=30.0,
         )
         assert result["radius_ft"] == pytest.approx(200.0, abs=0.5)
         assert result["arc_length_ft"] is not None
 
     def test_all_provided_returns_all(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
-            radius_ft=200.0, delta_deg=30.0, arc_length_ft=104.72, chord_length_ft=103.53,
+            radius_ft=200.0,
+            delta_deg=30.0,
+            arc_length_ft=104.72,
+            chord_length_ft=103.53,
         )
         assert result["radius_ft"] == pytest.approx(200.0)
         assert result["delta_deg"] == pytest.approx(30.0)
@@ -350,7 +397,8 @@ class TestCalculateMissingCurveElements:
 
     def test_tangent_length_calculated(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
-            radius_ft=200.0, delta_deg=30.0,
+            radius_ft=200.0,
+            delta_deg=30.0,
         )
         assert "tangent_length_ft" in result
         assert result["tangent_length_ft"] == pytest.approx(53.59, abs=0.1)
@@ -373,14 +421,17 @@ class TestMarkTieInCalls:
     def test_poc_with_pob_terminus(self) -> None:
         calls = [
             DeedCall(
-                course=1, direction_text="N 45° E", distance_ft=100.0,
+                course=1,
+                direction_text="N 45° E",
+                distance_ft=100.0,
                 to="the point of beginning",
             ),
             DeedCall(course=2, direction_text="S 45° E", distance_ft=100.0),
             DeedCall(course=3, direction_text="S 45° W", distance_ft=100.0),
         ]
         result = CallExtractor.mark_tie_in_calls(
-            calls, poc_description="NW corner of Section 12",
+            calls,
+            poc_description="NW corner of Section 12",
         )
         assert result[0].is_tie_in is True
         assert result[1].is_tie_in is False
@@ -390,13 +441,16 @@ class TestMarkTieInCalls:
         calls = [
             DeedCall(course=1, direction_text="N 45° E", distance_ft=100.0, to="a point"),
             DeedCall(
-                course=2, direction_text="S 45° E", distance_ft=200.0,
+                course=2,
+                direction_text="S 45° E",
+                distance_ft=200.0,
                 to="the POB",
             ),
             DeedCall(course=3, direction_text="S 45° W", distance_ft=100.0),
         ]
         result = CallExtractor.mark_tie_in_calls(
-            calls, poc_description="intersection of Main and Oak",
+            calls,
+            poc_description="intersection of Main and Oak",
         )
         assert result[0].is_tie_in is True
         assert result[1].is_tie_in is True
@@ -424,23 +478,34 @@ class TestTieInClosureFiltering:
     def test_tie_in_calls_excluded_from_closure(self) -> None:
         calls = [
             DeedCall(
-                course=1, direction_text="N 45° E", distance_ft=500.0,
-                bearing_azimuth_deg_from_north=45.0, is_tie_in=True,
+                course=1,
+                direction_text="N 45° E",
+                distance_ft=500.0,
+                bearing_azimuth_deg_from_north=45.0,
+                is_tie_in=True,
             ),
             DeedCall(
-                course=2, direction_text="N 45° E", distance_ft=100.0,
+                course=2,
+                direction_text="N 45° E",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=45.0,
             ),
             DeedCall(
-                course=3, direction_text="S 45° E", distance_ft=100.0,
+                course=3,
+                direction_text="S 45° E",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=135.0,
             ),
             DeedCall(
-                course=4, direction_text="S 45° W", distance_ft=100.0,
+                course=4,
+                direction_text="S 45° W",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=225.0,
             ),
             DeedCall(
-                course=5, direction_text="N 45° W", distance_ft=100.0,
+                course=5,
+                direction_text="N 45° W",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=315.0,
             ),
         ]
@@ -461,32 +526,52 @@ class TestIsIndefiniteCall:
         assert TextParser.is_indefinite_call("southwesterly", has_bearing=False) is True
 
     def test_along_road_as_it_runs(self) -> None:
-        assert TextParser.is_indefinite_call(
-            "along the road as it now runs", has_bearing=False,
-        ) is True
+        assert (
+            TextParser.is_indefinite_call(
+                "along the road as it now runs",
+                has_bearing=False,
+            )
+            is True
+        )
 
     def test_to_top_of_mountain(self) -> None:
-        assert TextParser.is_indefinite_call(
-            "to the top of the mountain", has_bearing=False,
-        ) is True
+        assert (
+            TextParser.is_indefinite_call(
+                "to the top of the mountain",
+                has_bearing=False,
+            )
+            is True
+        )
 
     def test_down_the_creek(self) -> None:
-        assert TextParser.is_indefinite_call(
-            "down the creek to the old ford", has_bearing=False,
-        ) is True
+        assert (
+            TextParser.is_indefinite_call(
+                "down the creek to the old ford",
+                has_bearing=False,
+            )
+            is True
+        )
 
     def test_precise_bearing_not_indefinite(self) -> None:
-        assert TextParser.is_indefinite_call(
-            "N 45° E 100 feet", has_bearing=True,
-        ) is False
+        assert (
+            TextParser.is_indefinite_call(
+                "N 45° E 100 feet",
+                has_bearing=True,
+            )
+            is False
+        )
 
     def test_empty_text(self) -> None:
         assert TextParser.is_indefinite_call("", has_bearing=False) is False
 
     def test_cardinal_with_bearing_not_indefinite(self) -> None:
-        assert TextParser.is_indefinite_call(
-            "northerly", has_bearing=True,
-        ) is False
+        assert (
+            TextParser.is_indefinite_call(
+                "northerly",
+                has_bearing=True,
+            )
+            is False
+        )
 
 
 class TestIndefiniteClosureWarning:
@@ -495,15 +580,21 @@ class TestIndefiniteClosureWarning:
     def test_indefinite_warning_present(self) -> None:
         calls = [
             DeedCall(
-                course=1, direction_text="northerly", distance_ft=100.0,
+                course=1,
+                direction_text="northerly",
+                distance_ft=100.0,
                 is_indefinite=True,
             ),
             DeedCall(
-                course=2, direction_text="S 45° E", distance_ft=100.0,
+                course=2,
+                direction_text="S 45° E",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=135.0,
             ),
             DeedCall(
-                course=3, direction_text="S 45° W", distance_ft=100.0,
+                course=3,
+                direction_text="S 45° W",
+                distance_ft=100.0,
                 bearing_azimuth_deg_from_north=225.0,
             ),
         ]

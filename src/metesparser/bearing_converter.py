@@ -331,6 +331,74 @@ class BearingConverter:
         return Point(x=start_point.x + dx, y=start_point.y + dy)
 
     @classmethod
+    def calculate_missing_curve_elements(
+        cls,
+        radius_ft: float | None = None,
+        delta_deg: float | None = None,
+        arc_length_ft: float | None = None,
+        chord_length_ft: float | None = None,
+    ) -> dict[str, float]:
+        """Calculate missing curve elements from provided values.
+
+        Given at least 2 of: radius, delta, arc length, chord length,
+        compute the missing elements.
+
+        Args:
+            radius_ft: Curve radius in feet
+            delta_deg: Central angle in degrees
+            arc_length_ft: Arc length in feet
+            chord_length_ft: Chord length in feet
+
+        Returns:
+            Dict with all curve elements: radius_ft, delta_deg,
+            arc_length_ft, chord_length_ft, tangent_length_ft
+
+        Raises:
+            ValueError: If fewer than 2 elements provided
+        """
+        provided = sum(
+            1 for v in [radius_ft, delta_deg, arc_length_ft, chord_length_ft] if v is not None
+        )
+        if provided < 2:
+            raise ValueError(f"Need at least two curve elements, got {provided}")
+
+        if radius_ft is not None and delta_deg is not None:
+            pass
+        elif radius_ft is not None and arc_length_ft is not None:
+            delta_deg = math.degrees(arc_length_ft / radius_ft)
+        elif radius_ft is not None and chord_length_ft is not None:
+            half_delta = math.asin(chord_length_ft / (2 * radius_ft))
+            delta_deg = math.degrees(2 * half_delta)
+        elif arc_length_ft is not None and delta_deg is not None:
+            delta_rad = math.radians(delta_deg)
+            radius_ft = arc_length_ft / delta_rad
+        elif chord_length_ft is not None and delta_deg is not None:
+            delta_rad = math.radians(delta_deg)
+            radius_ft = chord_length_ft / (2 * math.sin(delta_rad / 2))
+        elif arc_length_ft is not None and chord_length_ft is not None:
+            # Approximate delta from arc/chord ratio
+            # For small angles: L/C ≈ delta / (2*sin(delta/2))
+            delta_rad = 2 * math.sqrt(6 * (1 - chord_length_ft / arc_length_ft))
+            delta_deg = math.degrees(delta_rad)
+            radius_ft = arc_length_ft / delta_rad
+
+        # Compute all elements from radius and delta
+        delta_rad = math.radians(delta_deg)  # type: ignore[arg-type]
+        if arc_length_ft is None:
+            arc_length_ft = radius_ft * delta_rad  # type: ignore[operator]
+        if chord_length_ft is None:
+            chord_length_ft = 2 * radius_ft * math.sin(delta_rad / 2)  # type: ignore[operator]
+        tangent_length_ft = radius_ft * math.tan(delta_rad / 2)  # type: ignore[operator]
+
+        return {
+            "radius_ft": radius_ft,  # type: ignore[dict-item]
+            "delta_deg": delta_deg,  # type: ignore[dict-item]
+            "arc_length_ft": arc_length_ft,
+            "chord_length_ft": chord_length_ft,
+            "tangent_length_ft": tangent_length_ft,
+        }
+
+    @classmethod
     def enrich_call_with_azimuth(cls, call: DeedCall) -> DeedCall:
         """Add azimuth to a DeedCall if bearing_quadrant is present.
 

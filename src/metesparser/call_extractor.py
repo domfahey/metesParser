@@ -223,7 +223,7 @@ class CallExtractor:
         cardinal_only = False
         if raw_direction and not parsed_bearing:
             if re.fullmatch(
-                r"(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly)?",
+                r"(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly|wardly)?",
                 raw_direction.strip(),
                 flags=re.IGNORECASE,
             ):
@@ -242,6 +242,7 @@ class CallExtractor:
             raw_direction
             or parsed_bearing
             or has_curve
+            or along
             or re.search(r"\bmeander", call_text, re.IGNORECASE)
             or re.search(r"\b[NS]\s+\d+°", call_text)
         )
@@ -333,8 +334,8 @@ class CallExtractor:
             return quadrant_match.group(0)
 
         cardinal_pattern = (
-            r"\b(north(?:erly)?|south(?:erly)?|east(?:erly)?|west(?:erly)?|"
-            r"northeast(?:erly)?|northwest(?:erly)?|southeast(?:erly)?|southwest(?:erly)?)\b"
+            r"\b(north(?:erly|wardly)?|south(?:erly|wardly)?|east(?:erly|wardly)?|west(?:erly|wardly)?|"
+            r"northeast(?:erly|wardly)?|northwest(?:erly|wardly)?|southeast(?:erly|wardly)?|southwest(?:erly|wardly)?)\b"
         )
 
         cardinal_match = re.search(cardinal_pattern, text, re.IGNORECASE)
@@ -523,7 +524,7 @@ class CallExtractor:
 
         pob_index = None
         for i, call in enumerate(calls):
-            if call.to and TextParser.is_closure_to_pob(call.to):
+            if call.to and TextParser.is_closure_to_pob("to " + call.to):
                 pob_index = i
                 break
 
@@ -533,9 +534,7 @@ class CallExtractor:
         result = []
         for i, call in enumerate(calls):
             if i <= pob_index:
-                result.append(
-                    DeedCall.model_validate({**call.model_dump(), "is_tie_in": True})
-                )
+                result.append(DeedCall.model_validate({**call.model_dump(), "is_tie_in": True}))
             else:
                 result.append(call)
         return result
