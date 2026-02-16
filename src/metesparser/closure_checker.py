@@ -21,7 +21,15 @@ import math
 import statistics
 
 from .bearing_converter import BearingConverter
-from .models import PERMANENT_MONUMENTS, ClosureResult, DeedCall, Point
+from .models import (
+    PERMANENT_MONUMENTS,
+    AuditContext,
+    CheckResult,
+    ClosureResult,
+    DeedCall,
+    Point,
+    VerificationAudit,
+)
 
 
 class ClosureChecker:
@@ -36,6 +44,7 @@ class ClosureChecker:
         stated_area_sq_ft: float = 0.0,
         closure_tolerance_ft: float | None = None,
         double_entry_calls: list[DeedCall] | None = None,
+        audit_context: AuditContext | None = None,
     ) -> ClosureResult:
         """Verify traverse closure and perform all validation checks.
 
@@ -157,7 +166,86 @@ class ClosureChecker:
         )
 
         confidence = cls.calculate_confidence_score(closure_result, calls)
-        return closure_result.model_copy(update={"confidence_score": confidence})
+        closure_result = closure_result.model_copy(update={"confidence_score": confidence})
+
+        if audit_context is not None:
+            check_results = [
+                CheckResult(
+                    name="traverse_closure",
+                    passed=closure_passed,
+                    detail=(
+                        f"misclosure: {misclosure:.4f} ft "
+                        f"{'<' if closure_passed else '>='} {tolerance} ft tolerance"
+                    ),
+                    inputs={
+                        "misclosure_x_ft": misclosure_x,
+                        "misclosure_y_ft": misclosure_y,
+                        "misclosure_total_ft": misclosure,
+                        "tolerance_ft": tolerance,
+                    },
+                ),
+                CheckResult(
+                    name="interior_angles",
+                    passed=angle_check_passed,
+                    detail=(
+                        "all-straight polygon angles sum correctly"
+                        if angle_check_passed
+                        else "skipped (curves present or incomplete bearings)"
+                    ),
+                    inputs={},
+                ),
+                CheckResult(
+                    name="curve_consistency",
+                    passed=curve_consistency_passed,
+                    detail=(
+                        "all curves L ≈ R*Δ within tolerance"
+                        if curve_consistency_passed
+                        else "curve math inconsistency detected"
+                    ),
+                    inputs={},
+                ),
+                CheckResult(
+                    name="bearing_reversals",
+                    passed=(len(reversal_warnings) == 0),
+                    detail=(
+                        f"{len(reversal_warnings)} reversal(s) detected"
+                        if reversal_warnings
+                        else "no bearing reversals"
+                    ),
+                    inputs={},
+                ),
+                CheckResult(
+                    name="distance_reasonableness",
+                    passed=(len(distance_warnings) == 0),
+                    detail=(
+                        f"{len(distance_warnings)} issue(s) detected"
+                        if distance_warnings
+                        else "all distances reasonable"
+                    ),
+                    inputs={},
+                ),
+            ]
+
+            precision_ratio_str: str
+            if perimeter and (misclosure / perimeter) > 1e-10:
+                precision_ratio_str = f"1:{round(1.0 / (misclosure / perimeter))}"
+            else:
+                precision_ratio_str = "N/A"
+
+            audit_context.verification_audit = VerificationAudit(
+                checks=check_results,
+                closure_summary={
+                    "misclosure_ft": misclosure,
+                    "precision_ratio": precision_ratio_str,
+                    "area_sq_ft": area_sq_ft,
+                    "area_acres": area_acres,
+                    "perimeter_ft": perimeter,
+                    "confidence_score": confidence,
+                    "status": closure_result.get_closure_status(),
+                },
+            )
+
+        return closure_result
 
     @classmethod
     def compute_traverse(
