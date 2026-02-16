@@ -18,7 +18,6 @@ from .models import ClosureResult, DeedCall, Point
 class ClosureChecker:
     """Verify traverse closure and perform validation checks."""
 
-    # Closure tolerance (feet)
     CLOSURE_TOLERANCE_FT = 0.01
 
     @classmethod
@@ -40,30 +39,23 @@ class ClosureChecker:
         Returns:
             ClosureResult with all checks and computed values
         """
-        # Use provided tolerance or default
         tolerance = (
             closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
         )
 
-        # Separate main tract from exception tracts
         main_calls = [c for c in calls if not c.is_exception]
         exception_calls = [c for c in calls if c.is_exception]
 
-        # Compute traverse for main tract
         points = cls.compute_traverse(main_calls)
 
-        # Calculate misclosure (difference between end and start points)
-        # Should be zero for perfectly closed traverse
         misclosure_x = points[-1].x - points[0].x
         misclosure_y = points[-1].y - points[0].y
         misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
 
-        # Calculate area (shoelace formula)
         warnings = []
         try:
             main_area_sq_ft = cls.calculate_area(points)
 
-            # Calculate exception areas if present
             exception_area_sq_ft = 0.0
             if exception_calls:
                 warnings.append(
@@ -75,35 +67,28 @@ class ClosureChecker:
                 except ValueError as e:
                     warnings.append(f"Cannot calculate exception area: {e}")
 
-            # Net area = main area - exception area
             area_sq_ft = main_area_sq_ft - exception_area_sq_ft
             area_acres = area_sq_ft / 43560.0
         except ValueError as e:
-            # Not enough points for area calculation
             area_sq_ft = 0.0
             area_acres = 0.0
             warnings.append(f"Cannot calculate area: {e}")
 
-        # Calculate perimeter (main tract only)
         perimeter = cls.calculate_perimeter(main_calls)
 
-        # Perform verification checks (main tract only)
         closure_passed = misclosure < tolerance
         angle_check_passed = cls.check_interior_angles(main_calls)
         curve_consistency_passed = cls.check_curve_consistency(main_calls)
 
-        # Check parallelism
         parallel_warnings = cls.check_parallelism(calls)
         warnings.extend(parallel_warnings)
 
-        # Guardrail F: optional double-entry comparison
         if double_entry_calls is not None:
             discrepancies = cls.compare_double_entry(calls, double_entry_calls)
             warnings.extend(
                 f"Double-entry discrepancy: {discrepancy}" for discrepancy in discrepancies
             )
 
-        # Check area reasonableness
         if stated_area_sq_ft > 0:
             area_diff_pct = abs(area_sq_ft - stated_area_sq_ft) / stated_area_sq_ft * 100
             if area_diff_pct > 5.0:
@@ -112,14 +97,12 @@ class ClosureChecker:
                     f"(computed: {area_sq_ft:.1f} sq ft, stated: {stated_area_sq_ft:.1f} sq ft)"
                 )
 
-        # Check for incomplete bearings (main tract)
         incomplete = [c for c in main_calls if not c.is_complete_bearing()]
         if incomplete:
             warnings.append(
                 f"{len(incomplete)} call(s) have incomplete bearings (cardinal-only or meanders)"
             )
 
-        # Warn about exception tracts
         if exception_calls:
             exception_incomplete = [c for c in exception_calls if not c.is_complete_bearing()]
             if exception_incomplete:
@@ -162,7 +145,6 @@ class ClosureChecker:
 
         for call in calls:
             if call.bearing_azimuth_deg_from_north is None:
-                # Skip incomplete bearings (meanders)
                 continue
 
             if call.is_curve():
@@ -193,7 +175,6 @@ class ClosureChecker:
                     )
                     next_point = Point(x=current.x + dx, y=current.y + dy)
             else:
-                # Straight line
                 dx, dy = BearingConverter.calculate_deltas(
                     call.bearing_azimuth_deg_from_north,
                     call.distance_ft,
@@ -219,11 +200,8 @@ class ClosureChecker:
             ValueError: If fewer than 3 points provided
         """
         if len(points) < 3:
-            # Cannot calculate area with fewer than three vertices
             raise ValueError(f"Cannot calculate area with {len(points)} points (need at least 3)")
 
-        # Shoelace formula (Gauss's area formula)
-        # Sum of (x[i] * y[i+1] - x[i+1] * y[i]) / 2
         area = 0.0
         n = len(points)
 
@@ -269,17 +247,13 @@ class ClosureChecker:
         Returns:
             True if angles sum correctly (within tolerance)
         """
-        # Only check if all calls have bearings and no curves
         if any(not call.is_complete_bearing() or call.is_curve() for call in calls):
-            # Can't check - curves or incomplete bearings
             return True
 
         n = len(calls)
         if n < 3:
             return True
 
-        # Calculate deflection (exterior) angles
-        # For a closed polygon, sum of exterior angles = 360°
         deflection_angles = []
         for i in range(n):
             current = calls[i]
@@ -288,10 +262,8 @@ class ClosureChecker:
             az1 = current.bearing_azimuth_deg_from_north or 0
             az2 = next_call.bearing_azimuth_deg_from_north or 0
 
-            # Deflection angle (exterior angle)
             deflection = az2 - az1
 
-            # Normalize to [0, 360)
             while deflection < 0:
                 deflection += 360
             while deflection >= 360:
@@ -299,11 +271,8 @@ class ClosureChecker:
 
             deflection_angles.append(deflection)
 
-        # Sum of exterior angles should equal 360° for a closed polygon
-        # This is mathematically equivalent to interior angles = (n-2)*180°
         actual_sum = sum(deflection_angles)
 
-        # Allow 5 degree tolerance (relaxed due to measurement precision)
         return abs(actual_sum - 360.0) < 5.0
 
     @classmethod
@@ -318,13 +287,11 @@ class ClosureChecker:
         """
         warnings = []
 
-        # Look for "continuing along the same line" or "parallel to"
         for i, call in enumerate(calls):
             if not call.along:
                 continue
 
             if "continuing" in call.along.lower() or "same line" in call.along.lower():
-                # Should match previous bearing
                 if (
                     i > 0
                     and calls[i - 1].bearing_azimuth_deg_from_north is not None
@@ -333,7 +300,6 @@ class ClosureChecker:
                     prev_az = calls[i - 1].bearing_azimuth_deg_from_north or 0
                     curr_az = call.bearing_azimuth_deg_from_north or 0
 
-                    # Should be same or 180° apart
                     diff = abs(curr_az - prev_az) % 360.0
                     diff = min(diff, 360.0 - diff)
                     if not (diff < 1.0 or abs(diff - 180.0) < 1.0):
@@ -359,24 +325,22 @@ class ClosureChecker:
                 continue
 
             if call.radius_ft is None or call.delta_deg is None:
-                # Incomplete curve info
                 continue
 
-            # Check L ≈ R * Δ (radians)
             delta_rad = math.radians(call.delta_deg)
             expected_arc = call.radius_ft * delta_rad
+            tolerance_ft = 0.1
 
             if call.arc_length_ft is not None:
                 arc_diff = abs(call.arc_length_ft - expected_arc)
-                if arc_diff > 0.1:  # 0.1 ft tolerance
+                if arc_diff > tolerance_ft:
                     return False
 
-            # Check chord ≈ 2R * sin(Δ/2)
             expected_chord = 2 * call.radius_ft * math.sin(delta_rad / 2)
 
             if call.chord_length_ft is not None:
                 chord_diff = abs(call.chord_length_ft - expected_chord)
-                if chord_diff > 0.1:  # 0.1 ft tolerance
+                if chord_diff > tolerance_ft:
                     return False
 
         return True

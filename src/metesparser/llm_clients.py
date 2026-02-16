@@ -156,8 +156,7 @@ class GeminiClient:
     def generate_text_with_pdf(
         self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
     ) -> str:
-        filename, pdf_bytes = _read_pdf(pdf_path)
-        del filename  # Gemini does not currently use filenames for PDF parts
+        _, pdf_bytes = _read_pdf(pdf_path)
         content = self._types.Content(
             role="user",
             parts=[
@@ -201,7 +200,6 @@ class GeminiClient:
         return ""
 
     def _collect_response_text(self, response: object) -> str:
-        # google-genai responses expose either .text or candidates/parts.
         text = getattr(response, "text", None)
         if isinstance(text, str) and text:
             return text

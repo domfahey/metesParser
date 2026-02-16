@@ -24,6 +24,7 @@ MonumentType = Literal[
     "txdot_monument",
     "other",
 ]
+MonumentStatus = Literal["found", "set"]
 DistanceUnit = Literal[
     "feet",
     "us_survey_feet",
@@ -81,7 +82,6 @@ class DeedCall(_Model):
         gt=0,
     )
 
-    # Curve fields (optional)
     curve_dir: CurveDirection | None = Field(None, description="Curve direction (left/right)")
     radius_ft: FiniteFloat | None = Field(
         None,
@@ -105,7 +105,6 @@ class DeedCall(_Model):
         ge=0,
     )
 
-    # Descriptive fields
     along: str | None = Field(
         None,
         description="What the line runs along (e.g., 'Southerly line of Pennbrook Drive')",
@@ -113,6 +112,10 @@ class DeedCall(_Model):
     to: str | None = Field(
         None,
         description="Ending point description (e.g., 'iron pin', 'corner to Lot 50')",
+    )
+    monument_status: MonumentStatus | None = Field(
+        None,
+        description="Whether monument text indicates found or set",
     )
     monument_type: MonumentType | None = Field(
         None,
@@ -142,6 +145,25 @@ class DeedCall(_Model):
             raise ValueError("Curve/monument values must be strings")
         normalized = value.strip().lower()
         return normalized or None
+
+    @field_validator("monument_status", mode="before")
+    @classmethod
+    def _normalize_monument_status(cls, value: str | None) -> MonumentStatus | None:
+        if value is None:
+            return None
+
+        if not isinstance(value, str):
+            raise ValueError("monument_status must be a string")
+
+        normalized = value.strip().lower()
+        if normalized in {"", "none"}:
+            return None
+        if normalized == "found":
+            return "found"
+        if normalized == "set":
+            return "set"
+
+        raise ValueError("monument_status must be one of: found, set")
 
     @field_validator("is_exception", mode="before")
     @classmethod
@@ -244,7 +266,6 @@ class Point(_Model):
 class LegalDescription(_Model):
     """Represents a complete legal description from a deed."""
 
-    # Point of Commencement (starting reference) vs Point of Beginning (parcel start)
     poc_description: str | None = Field(
         None,
         description="Point of Commencement - survey reference point (distinct from POB)",
@@ -253,12 +274,10 @@ class LegalDescription(_Model):
         None, description="Point of Beginning - where parcel boundary starts"
     )
 
-    # List of calls/courses
     calls: list[DeedCall] = Field(
         default_factory=list, description="List of metes and bounds calls"
     )
 
-    # Metadata
     source_doc: str | None = Field(None, description="Source document (book/page, etc.)")
     exhibit: str | None = Field(None, description="Exhibit identifier (e.g., 'Exhibit A')")
     page: int | None = Field(None, ge=1, strict=True, description="Page number in document")
@@ -268,7 +287,6 @@ class LegalDescription(_Model):
     )
     datum: str | None = Field(None, description="Datum/ellipsoid if specified")
 
-    # PLSS (Public Land Survey System) metadata
     section: str | None = Field(None, description="Section number (e.g., '12')")
     township: str | None = Field(None, description="Township designation (e.g., '15 N' or 'T15N')")
     range: str | None = Field(None, description="Range designation (e.g., '3 E' or 'R3E')")
@@ -277,13 +295,20 @@ class LegalDescription(_Model):
     )
     aliquot: str | None = Field(None, description="Aliquot subdivision (e.g., 'SW 1/4 of NE 1/4')")
 
-    # Surveyor and conveyance
     surveyor_certification: str | None = Field(None, description="Surveyor certification text")
     prior_conveyance: str | None = Field(
         None, description="Prior conveyance reference (e.g., Deed Book 1234, Page 567)"
     )
 
-    # Units
+    stated_area_sq_ft: FiniteFloat | None = Field(
+        None,
+        description="Stated area from the legal description (square feet)",
+    )
+    stated_area_approximate: bool = Field(
+        False,
+        description="Whether the stated area is approximate",
+    )
+
     distance_unit: DistanceUnit = Field("feet", description="Primary distance unit in the deed")
 
     def num_calls(self) -> int:
@@ -298,12 +323,10 @@ class LegalDescription(_Model):
 class ClosureResult(_Model):
     """Results of traverse closure verification."""
 
-    # Closure errors
     misclosure_x_ft: FiniteFloat = Field(..., description="Misclosure in X direction (feet)")
     misclosure_y_ft: FiniteFloat = Field(..., description="Misclosure in Y direction (feet)")
     misclosure_ft: FiniteFloat = Field(..., description="Total misclosure distance (feet)")
 
-    # Computed values
     area_sq_ft: FiniteFloat = Field(
         ...,
         description="Area in square feet (shoelace formula)",
@@ -311,7 +334,6 @@ class ClosureResult(_Model):
     area_acres: FiniteFloat = Field(..., description="Area in acres")
     perimeter_ft: FiniteFloat = Field(..., description="Total perimeter in feet")
 
-    # Validation flags
     closure_passed: bool = Field(
         ...,
         description="True if misclosure is within tolerance (< 0.01 ft)",
@@ -325,17 +347,14 @@ class ClosureResult(_Model):
         description="True if curve math is consistent",
     )
 
-    # Precision
     precision_ratio: FiniteFloat | None = Field(
         None,
         description="Misclosure / perimeter (e.g., 0.00004 means 1:25,000)",
         ge=0,
     )
 
-    # Warnings/issues
     warnings: list[str] = Field(default_factory=list, description="List of warnings or issues")
 
-    # Computed points (for plotting)
     points: list[Point] = Field(
         default_factory=list, description="Computed vertex points (x, y in feet)"
     )
@@ -366,16 +385,16 @@ class ConversionFactors:
     """Unit conversion factors."""
 
     POLE_TO_FEET: float = 16.5
-    ROD_TO_FEET: float = 16.5  # Same as pole
-    PERCH_TO_FEET: float = 16.5  # Same as pole/rod
+    ROD_TO_FEET: float = 16.5
+    PERCH_TO_FEET: float = 16.5
     CHAIN_TO_FEET: float = 66.0
     LINK_TO_FEET: float = 0.66
-    VARA_TO_FEET: float = 2.778  # Texas standard vara
-    ARPENT_TO_FEET: float = 191.8  # French colonial
-    TOISE_TO_FEET: float = 6.395  # French
+    VARA_TO_FEET: float = 2.778
+    ARPENT_TO_FEET: float = 191.8
+    TOISE_TO_FEET: float = 6.395
     FURLONG_TO_FEET: float = 660.0
     MILE_TO_FEET: float = 5280.0
-    METER_TO_FEET: float = 3.28084  # International foot
+    METER_TO_FEET: float = 3.28084
     ENGINEER_CHAIN_TO_FEET: float = 100.0
     ENGINEER_LINK_TO_FEET: float = 1.0
     ACRE_TO_SQ_FEET: float = 43560.0
@@ -388,8 +407,6 @@ class ConversionFactors:
         """Convert a distance value to feet."""
         conversions = {
             "feet": 1.0,
-            # Keep US survey foot as an intentional compatibility alias to feet.
-            # Precise conversion: 1 US survey foot = 1.000002001312336 international feet.
             "us_survey_feet": cls.US_SURVEY_FOOT_TO_FEET,
             "poles": cls.POLE_TO_FEET,
             "rods": cls.ROD_TO_FEET,

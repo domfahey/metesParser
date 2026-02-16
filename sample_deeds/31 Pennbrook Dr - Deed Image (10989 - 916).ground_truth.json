@@ -5,44 +5,135 @@
     "state": "NJ",
     "book": "10989",
     "page": "916",
-    "parcel_shape": "Polygon",
-    "dimensions": "Chain of title deed"
+    "parcel_shape": "Irregular polygon (5-sided)",
+    "dimensions": "Chain of title deed (2018)"
   },
-  "raw_ocr_text": "Certainly! Here is the complete, exact text extracted from the provided images, including all formatting, line breaks, capitalization, numbers, and symbols.\n\n---\n\n**Page 1 of 2**\n\nCamden County  \nDocument Summary Sheet\n\nCAMDEN COUNTY CLERK\n\n520 MARKET ST  \nCamden, NJ 08102\n\n| -------------------------------------------------------------------------------------------------------------------------- |\n| Transaction Identification Number:      |      3587236                                                                               |\n| Submission Date/Time:                   |      06/28/2018 14:13                                                                     |\n| No. of Pages (excluding Summary Sheet): |      5                                                                                     |\n| Convenience Charge ($3.00)?:            |      $0.00                                                                                 |\n| Document Type:                          |      DE...",
-  "expected_legal_description": "ALL that certain tract or parcel of land, lying and being in Haddonfield Borough, County of Camden, and State of New Jersey, more particularly bounded and described as follows:\n\nAMENDED  \nBEGINNING AT A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, 50’w, said point being distant 204.50’ southwesterly from a point in the southeasterly line of Greenmount Road, 50’w, bounded and described as follows:\n\nTHENCE (1) SOUTH 17 DEGREES 36 MINUTES 25 SECONDS EAST ALONG THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 23.07 FEET TO AN ANGLE POINT:\n\nTHENCE (2) SOUTH 35 DEGREES 10 MINUTES 30 SECONDS EAST ALONG THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 132.65 FEET ALONG THE NORTHEASTERLY LINE OF PENNBROOK DRIVE TO A POINT:\n\nTHENCE (3) SOUTH 48 DEGREES 06 MINUTES 38 SECONDS EAST ALONG THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 36.37 FEET TO A POINT FOR A CORNER:\n\nTHENCE (4) NORTH 41 DEGREES 42 MINUTES 40 SECONDS EAST ALONG LOT 12, A DISTANCE OF 142.02 FEET TO A POINT FOR A CORNER:\n\nTHENCE (5) NORTH 47 DEGREES 37 MINUTES 20 SECONDS WEST ALONG LOT 10, A DISTANCE OF 177.44 FEET TO A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, THE PLACE AND POINT OF BEGINNING.\n\nBEING KNOWN AS: 31 PENNBROOK DRIVE, HADDONFIELD, NJ 08033.",
-  "expected_normalized_text": "ALL that certain tract or parcel of land, lying and being in Haddonfield Borough, County of Camden, and State of New Jersey, more particularly bounded and described as follows:\n\nAMENDED  \nBEGINNING AT A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, 50’w, said point being distant 204.50’ southwesterly from a point in the southeasterly line of Greenmount Road, 50’w, bounded and described as follows:\n\n1. S 17°36'25\" E along the northeasterly line of Pennbrook Drive, a distance of 23.07 feet to an angle point:\n\n2. S 35°10'30\" E along the northeasterly line of Pennbrook Drive, a distance of 132.65 feet along the northeasterly line of Pennbrook Drive to a point:\n\n3. S 48°06'38\" E along the northeasterly line of Pennbrook Drive, a distance of 36.37 feet to a point for a corner:\n\n4. N 41°42'40\" E along Lot 12, a distance of 142.02 feet to a point for a corner:\n\n5. N 47°37'20\" W along Lot 10, a distance of 177.44 feet to a point in the northeasterly line of Pennbrook Drive, the place and point of beginning.\n\nBEING KNOWN AS: 31 PENNBROOK DRIVE, HADDONFIELD, NJ 08033.",
+  "raw_ocr_text": "All that certain tract or parcel of land, situated, lying and being in Haddonfield Borough, County of Camden, and State of New Jersey, more particularly described as follows:\n\nAMENDED\n\nBEGINNING AT A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, 50' WIDE, A DISTANCE OF 310.00 FEET SOUTHEASTWARDLY FROM A POINT IN THE SOUTHEASTERLY LINE OF GREENMOUNT ROAD, 50' WIDE, BOUNDED AND DESCRIBED AS FOLLOWS:\n\nTHENCE (1) SOUTH 71 DEGREES 53 MINUTES 10 SECONDS EAST ALONG THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 23.67 FEET TO AN ANGLE POINT;\n\nTHENCE (2) NORTH 87 DEGREES 07 MINUTES 30 SECONDS EAST ALONG THE NORTHERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 125.26 FEET TO AN ANGLE POINT;\n\nTHENCE (3) NORTH 56 DEGREES 40 MINUTES 00 SECONDS EAST ALONG THE NORTHERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 36.39 FEET TO A POINT AND CORNER/IRON PIPE;\n\nTHENCE (4) NORTH 33 DEGREES 20 MINUTES 00 SECONDS WEST ALONG THE DIVISION LINE BETWEEN LOT 11 AND LOT NOS. 10, 8 AND 7, BLOCK 64.21 ON THE OFFICIAL TAX MAP, A DISTANCE OF 208.80 FEET TO A POINT AND CORNER/CONCRETE MARKER;\n\nTHENCE (5) SOUTH 18 DEGREES 06 MINUTES 50 SECONDS WEST ALONG THE DIVISION LINE BETWEEN LOT 11 AND LOT 12, SAID BLOCK, A DISTANCE OF 203.45 FEET TO THE POINT AND PLACE OF BEGINNING.",
+  "expected_legal_description": "All that certain tract or parcel of land, situated, lying and being in Haddonfield Borough, County of Camden, and State of New Jersey, more particularly described as follows:\n\nAMENDED\n\nBEGINNING AT A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, 50' WIDE, A DISTANCE OF 310.00 FEET SOUTHEASTWARDLY FROM A POINT IN THE SOUTHEASTERLY LINE OF GREENMOUNT ROAD, 50' WIDE, BOUNDED AND DESCRIBED AS FOLLOWS:\n\nTHENCE (1) SOUTH 71 DEGREES 53 MINUTES 10 SECONDS EAST ALONG THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 23.67 FEET TO AN ANGLE POINT;\n\nTHENCE (2) NORTH 87 DEGREES 07 MINUTES 30 SECONDS EAST ALONG THE NORTHERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 125.26 FEET TO AN ANGLE POINT;\n\nTHENCE (3) NORTH 56 DEGREES 40 MINUTES 00 SECONDS EAST ALONG THE NORTHERLY LINE OF PENNBROOK DRIVE, A DISTANCE OF 36.39 FEET TO A POINT AND CORNER/IRON PIPE;\n\nTHENCE (4) NORTH 33 DEGREES 20 MINUTES 00 SECONDS WEST ALONG THE DIVISION LINE BETWEEN LOT 11 AND LOT NOS. 10, 8 AND 7, BLOCK 64.21 ON THE OFFICIAL TAX MAP, A DISTANCE OF 208.80 FEET TO A POINT AND CORNER/CONCRETE MARKER;\n\nTHENCE (5) SOUTH 18 DEGREES 06 MINUTES 50 SECONDS WEST ALONG THE DIVISION LINE BETWEEN LOT 11 AND LOT 12, SAID BLOCK, A DISTANCE OF 203.45 FEET TO THE POINT AND PLACE OF BEGINNING.",
+  "expected_normalized_text": "All that certain tract or parcel of land, situated, lying and being in Haddonfield Borough, County of Camden, and State of New Jersey, more particularly described as follows:\n\nAMENDED\n\nBEGINNING at a point in the northeasterly line of Pennbrook Drive, 50' wide, a distance of 310.00 feet southeastwardly from a point in the southeasterly line of Greenmount Road, 50' wide, bounded and described as follows:\n\n1. S 71\u00b053'10\" E along the northeasterly line of Pennbrook Drive, a distance of 23.67 feet to an angle point;\n\n2. N 87\u00b007'30\" E along the northerly line of Pennbrook Drive, a distance of 125.26 feet to an angle point;\n\n3. N 56\u00b040'00\" E along the northerly line of Pennbrook Drive, a distance of 36.39 feet to a point and corner/iron pipe;\n\n4. N 33\u00b020'00\" W along the division line between Lot 11 and Lot Nos. 10, 8 and 7, Block 64.21 on the official tax map, a distance of 208.80 feet to a point and corner/concrete marker;\n\n5. S 18\u00b006'50\" W along the division line between Lot 11 and Lot 12, said block, a distance of 203.45 feet to the point and place of beginning.",
   "expected_poc": null,
-  "expected_pob": "A POINT IN THE NORTHEASTERLY LINE OF PENNBROOK DRIVE, 50’w, said point being distant 204",
+  "expected_pob": "a point in the northeasterly line of Pennbrook Drive, 50' wide, a distance of 310.00 feet southeastwardly from a point in the southeasterly line of Greenmount Road, 50' wide",
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "S 17°36'25\" E",
-      "bearing_quadrant": "S 17°36' E",
-      "bearing_azimuth_deg_from_north": 162.39305555555555,
-      "distance_ft": 23.07,
+      "direction_text": "S 71\u00b053'10\" E",
+      "bearing_quadrant": "S 71\u00b053' E",
+      "bearing_azimuth_deg_from_north": 108.113889,
+      "distance_ft": 23.67,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the northeasterly line of Pennbrook Drive, a distance of 23.07 feet to an angle point: 2. S 35°10'30\" E along the northeasterly line of Pennbrook Drive, a distance of 132.65 feet along the northeasterly line of Pennbrook Drive to a point: 3. S 48°06'38\" E along the northeasterly line of Pennbrook Drive, a distance of 36.37 feet to a point for a corner: 4. N 41°42'40\" E along Lot 12, a distance of 142.02 feet to a point for a corner: 5. N 47°37'20\" W along Lot 10, a distance of 177.44 feet",
-      "to": "a point in the northeasterly line of Pennbrook Drive, the place and point of beginning",
+      "along": "the northeasterly line of Pennbrook Drive",
+      "to": "an angle point",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "N 87\u00b007'30\" E",
+      "bearing_quadrant": "N 87\u00b008' E",
+      "bearing_azimuth_deg_from_north": 87.125,
+      "distance_ft": 125.26,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the northerly line of Pennbrook Drive",
+      "to": "an angle point",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "N 56\u00b040'00\" E",
+      "bearing_quadrant": "N 56\u00b040' E",
+      "bearing_azimuth_deg_from_north": 56.666667,
+      "distance_ft": 36.39,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the northerly line of Pennbrook Drive",
+      "to": "a point and corner/iron pipe",
+      "monument_type": "iron_pipe",
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "N 33\u00b020'00\" W",
+      "bearing_quadrant": "N 33\u00b020' W",
+      "bearing_azimuth_deg_from_north": 326.666667,
+      "distance_ft": 208.80,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the division line between Lot 11 and Lot Nos. 10, 8 and 7, Block 64.21 on the official tax map",
+      "to": "a point and corner/concrete marker",
+      "monument_type": "concrete",
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "S 18\u00b006'50\" W",
+      "bearing_quadrant": "S 18\u00b007' W",
+      "bearing_azimuth_deg_from_north": 198.113889,
+      "distance_ft": 203.45,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the division line between Lot 11 and Lot 12, said block",
+      "to": "the point and place of beginning",
       "monument_type": null,
       "notes": null
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 23.07,
-    "area_sq_ft": 0.0,
-    "area_acres": 0.0,
-    "perimeter_ft": 23.07,
-    "closure_passed": false
+    "misclosure_ft": 0.0116,
+    "misclosure_tolerance_ft": 0.05,
+    "area_sq_ft": 18633.81,
+    "area_acres": 0.4278,
+    "perimeter_ft": 597.57,
+    "closure_passed": true
   },
   "critical_assertions": {
     "num_calls": {
-      "expected": 1,
+      "expected": 5,
       "operator": "==",
-      "description": "MUST extract exactly 1 calls"
+      "description": "MUST extract exactly 5 calls from AMENDED legal description"
+    },
+    "all_bearings_complete": {
+      "expected": true,
+      "description": "All 5 calls have precise degree-minute-second bearings (unlike the older 4618 deed)"
+    },
+    "traverse_closes": {
+      "expected": true,
+      "tolerance_ft": 0.05,
+      "description": "Traverse MUST close to < 0.05 ft"
+    },
+    "monuments_detected": {
+      "expected": ["iron_pipe", "concrete"],
+      "description": "Calls 3 and 4 reference iron pipe and concrete marker monuments"
     }
   },
-  "notes": "Ground truth generated from GPT-4.1 extraction on 1760497144.3267987"
+  "common_failure_modes": [
+    {
+      "symptom": "Only 1 call extracted with all text merged into 'along' field",
+      "cause": "GPT-4.1 failed to preserve call boundaries; all 5 calls merged into call 1",
+      "fix": "Use GPT-5.2 or Gemini 3 Flash with temperature=0"
+    },
+    {
+      "symptom": "Wrong bearings (S 17\u00b036'25\" E instead of S 71\u00b053'10\" E)",
+      "cause": "Previous GPT-4.1 ground truth had completely hallucinated bearings",
+      "fix": "Regenerated ground truth from actual Exhibit A text (this file)"
+    },
+    {
+      "symptom": "6 calls extracted instead of 5 (phantom call 1 with cardinal-only bearing)",
+      "cause": "POB text '310.00 FEET SOUTHEASTWARDLY' or '50' WIDE' parsed as a call",
+      "fix": "Filter distances that appear in POB preamble before first 'thence'"
+    }
+  ],
+  "notes": "Ground truth regenerated from GPT-5.2 extraction (2026-02-15). Previous GPT-4.1 ground truth had completely wrong bearings (hallucinated S 17\u00b036'25\" E, S 35\u00b010'30\" E, etc.) and merged all calls into 1. The legal description comes from the AMENDED ALTA Commitment legal description based on survey by Albert N. Floyd & Son dated June 23, 2018. Same property as book 4618/pg 717 and book 11191/pg 01716. A/K/A Lot 57 on Map of Wedgewood in Haddonfield (Block 64.21, Lot 11 on tax map)."
 }
