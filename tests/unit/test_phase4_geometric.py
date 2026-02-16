@@ -377,6 +377,20 @@ class TestCalculateMissingCurveElements:
         assert result["radius_ft"] == pytest.approx(200.0, abs=0.5)
         assert result["arc_length_ft"] is not None
 
+    def test_arc_and_zero_delta_raises(self) -> None:
+        with pytest.raises(ValueError, match="Delta angle must be non-zero"):
+            BearingConverter.calculate_missing_curve_elements(
+                arc_length_ft=0.0,
+                delta_deg=0.0,
+            )
+
+    def test_chord_and_zero_delta_raises(self) -> None:
+        with pytest.raises(ValueError, match="Delta angle must be non-zero"):
+            BearingConverter.calculate_missing_curve_elements(
+                chord_length_ft=10.0,
+                delta_deg=0.0,
+            )
+
     def test_all_provided_returns_all(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
             radius_ft=200.0,
@@ -394,6 +408,13 @@ class TestCalculateMissingCurveElements:
     def test_no_data_raises(self) -> None:
         with pytest.raises(ValueError, match="at least two"):
             BearingConverter.calculate_missing_curve_elements()
+
+    def test_chord_exceeds_diameter_raises(self) -> None:
+        with pytest.raises(ValueError, match="exceeds diameter"):
+            BearingConverter.calculate_missing_curve_elements(
+                radius_ft=50.0,
+                chord_length_ft=150.0,
+            )
 
     def test_tangent_length_calculated(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
@@ -563,6 +584,9 @@ class TestIsIndefiniteCall:
 
     def test_empty_text(self) -> None:
         assert TextParser.is_indefinite_call("", has_bearing=False) is False
+
+    def test_wardly_suffix_is_indefinite(self) -> None:
+        assert TextParser.is_indefinite_call("southwestwardly", has_bearing=False) is True
 
     def test_cardinal_with_bearing_not_indefinite(self) -> None:
         assert (

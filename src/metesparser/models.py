@@ -151,7 +151,6 @@ class DeedCall(_Model):
     )
     non_tangent: bool = Field(
         False,
-        strict=True,
         description="True if this curve is non-tangent (radial bearing provided)",
     )
     radial_bearing: str | None = Field(

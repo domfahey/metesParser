@@ -362,12 +362,20 @@ class BearingConverter:
         if provided < 2:
             raise ValueError(f"Need at least two curve elements, got {provided}")
 
+        if delta_deg is not None and delta_deg == 0:
+            raise ValueError("Delta angle must be non-zero for curve element calculation")
+
         if radius_ft is not None and delta_deg is not None:
             pass
         elif radius_ft is not None and arc_length_ft is not None:
             delta_deg = math.degrees(arc_length_ft / radius_ft)
         elif radius_ft is not None and chord_length_ft is not None:
-            half_delta = math.asin(chord_length_ft / (2 * radius_ft))
+            ratio = chord_length_ft / (2 * radius_ft)
+            if abs(ratio) > 1:
+                raise ValueError(
+                    f"Chord ({chord_length_ft} ft) exceeds diameter ({2 * radius_ft} ft)"
+                )
+            half_delta = math.asin(ratio)
             delta_deg = math.degrees(2 * half_delta)
         elif arc_length_ft is not None and delta_deg is not None:
             delta_rad = math.radians(delta_deg)

@@ -500,7 +500,7 @@ class TextParser:
     )
 
     CARDINAL_ONLY_PATTERN = re.compile(
-        r"^(?:north|south|east|west|northeast|northwest|southeast|southwest)(?:erly)?$",
+        r"^(?:north|south|east|west|northeast|northwest|southeast|southwest)(?:erly|wardly)?$",
         re.IGNORECASE,
     )
 

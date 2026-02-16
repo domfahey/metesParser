@@ -287,7 +287,16 @@ class TestPOBPreambleFiltering:
 
         assert call is not None
         assert call.distance_ft == 75.0
+        assert call.is_indefinite is True
         assert call.notes == "incomplete bearing - cardinal only"
+
+    def test_water_boundary_meander_without_literal_word_still_accepted(self):
+        """Water-boundary meanders should pass direction-intent without literal 'meander'."""
+        call = CallExtractor.extract_single_call("with the creek 100 feet", course=1)
+
+        assert call is not None
+        assert call.distance_ft == 100.0
+        assert call.is_meander is True
 
     def test_curve_without_bearing_still_accepted(self):
         """Curves without quadrant bearings should still produce calls."""

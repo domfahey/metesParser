@@ -218,6 +218,7 @@ class CallExtractor:
 
         monument_type = MonumentClassifier.classify_monument(to) if to else None
         monument_status = MonumentClassifier.classify_monument_status(to or call_text)
+        is_meander = TextParser.detect_meander(call_text)
 
         notes = ""
         cardinal_only = False
@@ -282,7 +283,7 @@ class CallExtractor:
 
         is_meander = TextParser.detect_meander(call_text)
         is_indefinite = TextParser.is_indefinite_call(
-            call_text, has_bearing=parsed_bearing is not None
+            raw_direction or call_text, has_bearing=parsed_bearing is not None
         )
 
         curve_type_value = curve_info.get("curve_type")
