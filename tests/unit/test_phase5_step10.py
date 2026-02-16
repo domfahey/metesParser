@@ -19,7 +19,9 @@ class TestPipelineWiring:
             ],
             distance_unit="feet",
             clauses=[DeedClause(clause_type="reservation", text="RESERVING mineral rights")],
-            subdivision_ref=SubdivisionReference(lot="15", block="3", subdivision_name="PENNBROOK ESTATES"),
+            subdivision_ref=SubdivisionReference(
+                lot="15", block="3", subdivision_name="PENNBROOK ESTATES"
+            ),
             witness_trees=["a white oak, 14 in dia, bears N 35° W"],
             coordinate_system="State Plane, Texas South Central Zone",
             fips_code="4204",

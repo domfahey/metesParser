@@ -96,7 +96,7 @@ def _make_processor_with_mock_client() -> tuple[PDFProcessor, MagicMock]:
     mock_client = MagicMock()
     mock_client.generate_text_with_pdf.return_value = TEXT_WITH_BRACES
     mock_client.generate_text.return_value = TEXT_WITH_BRACES
-    processor = PDFProcessor(client=mock_client)
+    processor = PDFProcessor(client=mock_client, cache=False)
     return processor, mock_client
 
 
@@ -124,7 +124,7 @@ def test_normalize_legal_description_does_not_crash_on_braces() -> None:
 def test_extract_calls_ai_does_not_crash_on_braces() -> None:
     mock_client = MagicMock()
     mock_client.generate_text.return_value = json.dumps({"calls": []})
-    processor = PDFProcessor(client=mock_client)
+    processor = PDFProcessor(client=mock_client, cache=False)
 
     result = processor.extract_calls_ai(TEXT_WITH_BRACES)
 

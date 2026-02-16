@@ -57,7 +57,6 @@ class TestPDFProcessorCacheIntegration:
         assert processor.client._client is fake
 
 
-
 class TestCLICacheFlag:
     def test_extract_parser_has_no_cache_flag(self) -> None:
         """The extract subcommand parser accepts --no-cache."""

@@ -69,7 +69,9 @@ def test_generate_ground_truth_notes_uses_runtime_timestamp(tmp_path: Path) -> N
     datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
 
 
-def test_extract_sample_deeds_report_shows_zero_azimuth_and_runtime_timestamp(tmp_path: Path) -> None:
+def test_extract_sample_deeds_report_shows_zero_azimuth_and_runtime_timestamp(
+    tmp_path: Path,
+) -> None:
     module = _load_script_module("extract_sample_deeds.py")
     legal_desc = LegalDescription(
         source_doc="example.pdf",

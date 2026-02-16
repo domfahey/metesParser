@@ -124,15 +124,11 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "metesparser.text_parser.TextParser.extract_prior_conveyance", lambda _: None
     )
-    monkeypatch.setattr(
-        "metesparser.text_parser.TextParser.extract_deed_clauses", lambda _: []
-    )
+    monkeypatch.setattr("metesparser.text_parser.TextParser.extract_deed_clauses", lambda _: [])
     monkeypatch.setattr(
         "metesparser.text_parser.TextParser.extract_subdivision_reference", lambda _: None
     )
-    monkeypatch.setattr(
-        "metesparser.text_parser.TextParser.extract_witness_trees", lambda _: []
-    )
+    monkeypatch.setattr("metesparser.text_parser.TextParser.extract_witness_trees", lambda _: [])
     monkeypatch.setattr(
         "metesparser.text_parser.TextParser.extract_coordinate_system", lambda _: (None, None)
     )
