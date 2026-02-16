@@ -291,11 +291,11 @@ dy = distance × cos(radians(azimuth))
 - `export_verified_csv()` - Export only if verified
 - `legal_description_to_csv()` - Export with metadata
 
-**CSV Schema** (18 fields):
+**CSV Schema** (19 fields):
 ```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
-along,to,monument_type,is_exception,non_tangent,radial_bearing,notes
+along,to,monument_type,monument_status,is_exception,non_tangent,radial_bearing,notes
 ```
 
 #### pdf_processor.py
@@ -350,6 +350,7 @@ class DeedCall:
     along: str | None                              # "along the division line"
     to: str | None                                 # "to an iron pin"
     monument_type: str | None                      # Survey marker type
+    monument_status: str | None                    # Endpoint monument status (found/set)
     notes: str | None                              # Warnings/flags
 
     def is_complete_bearing(self) -> bool:

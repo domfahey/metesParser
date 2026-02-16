@@ -7,9 +7,14 @@ C) Parallelism checks
 D) Curve consistency
 E) Area reasonableness
 F) Double-entry validation
+
+Plus supplementary validation checks:
+G) Bearing reversal detection
+H) Distance reasonableness
 """
 
 import math
+import statistics
 
 from .bearing_converter import BearingConverter
 from .models import ClosureResult, DeedCall, Point
@@ -80,8 +85,14 @@ class ClosureChecker:
         angle_check_passed = cls.check_interior_angles(main_calls)
         curve_consistency_passed = cls.check_curve_consistency(main_calls)
 
-        parallel_warnings = cls.check_parallelism(calls)
+        parallel_warnings = cls.check_parallelism(main_calls)
         warnings.extend(parallel_warnings)
+
+        reversal_warnings = cls.check_bearing_reversals(main_calls)
+        warnings.extend(reversal_warnings)
+
+        distance_warnings = cls.check_distance_reasonableness(main_calls)
+        warnings.extend(distance_warnings)
 
         if double_entry_calls is not None:
             discrepancies = cls.compare_double_entry(calls, double_entry_calls)
@@ -344,6 +355,85 @@ class ClosureChecker:
                     return False
 
         return True
+
+    @classmethod
+    def check_bearing_reversals(cls, calls: list[DeedCall]) -> list[str]:
+        """Check for adjacent courses with bearings ~180 degrees apart.
+
+        This pattern often indicates a quadrant transcription error.
+
+        Args:
+            calls: List of DeedCall objects
+
+        Returns:
+            List of warning messages
+        """
+        warnings: list[str] = []
+
+        for i in range(len(calls) - 1):
+            c1, c2 = calls[i], calls[i + 1]
+            az1 = c1.bearing_azimuth_deg_from_north
+            az2 = c2.bearing_azimuth_deg_from_north
+            if az1 is None or az2 is None:
+                continue
+
+            course1, course2 = c1.course, c2.course
+
+            diff = abs(az2 - az1) % 360.0
+            diff = min(diff, 360.0 - diff)
+
+            if abs(diff - 180.0) < 5.0:
+                warnings.append(
+                    f"Courses {course1}-{course2}: possible bearing reversal "
+                    f"({diff:.1f}° apart, near 180°)"
+                )
+
+        return warnings
+
+    @classmethod
+    def check_distance_reasonableness(cls, calls: list[DeedCall]) -> list[str]:
+        """Check for suspiciously short, long, or dominant distances.
+
+        Flags:
+        - Distances < 0.5 ft (suspiciously short)
+        - Distances > 10x the median (unusually long)
+        - Single course > 90% of total perimeter
+
+        Args:
+            calls: List of DeedCall objects
+
+        Returns:
+            List of warning messages
+        """
+        if len(calls) < 2:
+            return []
+
+        warnings: list[str] = []
+        distances = [c.distance_ft for c in calls]
+        median_dist = statistics.median(distances)
+        total_perimeter = sum(distances)
+
+        for call in calls:
+            dist = call.distance_ft
+
+            if dist < 0.5:
+                warnings.append(
+                    f"Course {call.course}: suspiciously short distance ({dist:.2f} ft)"
+                )
+
+            if median_dist > 0 and dist > 10 * median_dist:
+                warnings.append(
+                    f"Course {call.course}: unusually long distance "
+                    f"({dist:.1f} ft, >10x median of {median_dist:.1f} ft)"
+                )
+
+            if total_perimeter > 0 and dist / total_perimeter > 0.90:
+                warnings.append(
+                    f"Course {call.course}: dominates perimeter "
+                    f"({dist / total_perimeter * 100:.0f}% of {total_perimeter:.1f} ft, >90%)"
+                )
+
+        return warnings
 
     @classmethod
     def compare_double_entry(cls, calls1: list[DeedCall], calls2: list[DeedCall]) -> list[str]:
