@@ -24,7 +24,11 @@ def _emit_closure_summary(summary: str, command_logger: structlog.stdlib.BoundLo
 
 
 def extract_command(
-    pdf_path: str, output: str | None = None, llm_provider: str | None = None
+    pdf_path: str,
+    output: str | None = None,
+    llm_provider: str | None = None,
+    *,
+    no_cache: bool = False,
 ) -> None:
     """Extract legal description from PDF and save to CSV.
 
@@ -49,7 +53,7 @@ def extract_command(
     command_logger.info("Processing deed PDF")
 
     try:
-        processor = PDFProcessor(provider=llm_provider)
+        processor = PDFProcessor(provider=llm_provider, cache=not no_cache)
         legal_desc = processor.process_deed_pdf(pdf_path)
 
         command_logger.info("Verifying closure")
@@ -161,6 +165,12 @@ def main() -> None:
         choices=["openai", "gemini"],
         help="LLM provider to use (overrides METESPARSER_LLM_PROVIDER env var)",
     )
+    extract_parser.add_argument(
+        "--no-cache",
+        action="store_true",
+        default=False,
+        help="Disable LLM response caching (re-query the LLM for every call)",
+    )
 
     verify_parser = subparsers.add_parser("verify", help="Verify a CSV file of calls")
     verify_parser.add_argument("csv", help="Path to CSV file")
@@ -192,7 +202,7 @@ def main() -> None:
         sys.exit(0)
 
     if args.command == "extract":
-        extract_command(args.pdf, args.output, args.llm_provider)
+        extract_command(args.pdf, args.output, args.llm_provider, no_cache=args.no_cache)
     elif args.command == "verify":
         verify_command(args.csv, args.area)
     else:

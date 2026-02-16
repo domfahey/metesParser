@@ -73,7 +73,7 @@ def test_main_dispatches_extract(monkeypatch, tmp_path):
     called: list[tuple[str, str | None, str | None]] = []
     monkeypatch.setattr(
         "metesparser.cli.extract_command",
-        lambda pdf_path, output=None, llm_provider=None: called.append(
+        lambda pdf_path, output=None, llm_provider=None, **kwargs: called.append(
             (pdf_path, output, llm_provider)
         ),
     )
@@ -142,7 +142,7 @@ def test_extract_command_exports_verified_csv(monkeypatch, tmp_path):
 
     monkeypatch.setattr(
         "metesparser.pdf_processor.PDFProcessor",
-        lambda provider=None: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
+        lambda provider=None, **kwargs: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: verified
@@ -181,7 +181,7 @@ def test_extract_command_defaults_output_path_to_csv(monkeypatch, tmp_path):
 
     monkeypatch.setattr(
         "metesparser.pdf_processor.PDFProcessor",
-        lambda provider=None: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
+        lambda provider=None, **kwargs: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: verified
@@ -204,7 +204,7 @@ def test_extract_command_errors_on_processing_failure(monkeypatch, tmp_path):
     pdf.write_text("pdf")
     monkeypatch.setattr(
         "metesparser.pdf_processor.PDFProcessor",
-        lambda provider=None: SimpleNamespace(
+        lambda provider=None, **kwargs: SimpleNamespace(
             process_deed_pdf=lambda _: (_ for _ in ()).throw(RuntimeError("boom"))
         ),
     )
@@ -235,7 +235,7 @@ def test_extract_command_exports_unverified_csv(monkeypatch, tmp_path):
 
     monkeypatch.setattr(
         "metesparser.pdf_processor.PDFProcessor",
-        lambda provider=None: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
+        lambda provider=None, **kwargs: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: unverified
@@ -364,7 +364,7 @@ def test_extract_command_json_mode_logs_summary_without_stdout(monkeypatch, tmp_
 
     monkeypatch.setattr(
         "metesparser.pdf_processor.PDFProcessor",
-        lambda provider=None: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
+        lambda provider=None, **kwargs: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
@@ -442,7 +442,7 @@ def test_main_configures_logging_from_cli_flags(monkeypatch, tmp_path):
     monkeypatch.setattr("metesparser.cli.configure_logging", _configure_logging)
     monkeypatch.setattr(
         "metesparser.cli.extract_command",
-        lambda pdf_path, output=None, llm_provider=None: None,
+        lambda pdf_path, output=None, llm_provider=None, **kwargs: None,
     )
 
     monkeypatch.setattr(

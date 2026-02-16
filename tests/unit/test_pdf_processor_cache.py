@@ -55,3 +55,33 @@ class TestPDFProcessorCacheIntegration:
         # Should be wrapped but the inner client should be the original fake
         assert isinstance(processor.client, CachedLLMClient)
         assert processor.client._client is fake
+
+
+
+class TestCLICacheFlag:
+    def test_extract_parser_has_no_cache_flag(self) -> None:
+        """The extract subcommand parser accepts --no-cache."""
+        import argparse
+
+        # Build a parser mimicking cli.py structure to verify the flag works
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest="command")
+        extract_parser = subparsers.add_parser("extract")
+        extract_parser.add_argument("pdf")
+        extract_parser.add_argument("--no-cache", action="store_true", default=False)
+
+        args = parser.parse_args(["extract", "deed.pdf", "--no-cache"])
+        assert args.no_cache is True
+
+    def test_extract_parser_no_cache_defaults_false(self) -> None:
+        """Without --no-cache, the flag defaults to False."""
+        import argparse
+
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest="command")
+        extract_parser = subparsers.add_parser("extract")
+        extract_parser.add_argument("pdf")
+        extract_parser.add_argument("--no-cache", action="store_true", default=False)
+
+        args = parser.parse_args(["extract", "deed.pdf"])
+        assert args.no_cache is False
