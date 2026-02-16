@@ -1123,3 +1123,98 @@ class TestIsFullyVerified:
 
         assert result.warnings
         assert result.is_fully_verified() is False
+
+
+class TestDegenerateTraverseClosure:
+    """Closure semantics for empty and cardinal-only traverses."""
+
+    def test_empty_calls_closure_fails(self):
+        """Empty calls list should NOT pass closure — no traverse to verify."""
+        result = ClosureChecker.verify_closure([])
+
+        assert result.closure_passed is False
+        assert "no computable traverse" in " ".join(result.warnings).lower()
+
+    def test_all_cardinal_only_closure_fails(self):
+        """All-cardinal calls (no azimuths) should NOT pass closure."""
+        calls = [
+            DeedCall(
+                course=1,
+                direction_text="Northwardly",
+                bearing_azimuth_deg_from_north=None,
+                distance_ft=90.0,
+            ),
+            DeedCall(
+                course=2,
+                direction_text="Westerly",
+                bearing_azimuth_deg_from_north=None,
+                distance_ft=112.74,
+            ),
+            DeedCall(
+                course=3,
+                direction_text="Southwardly",
+                bearing_azimuth_deg_from_north=None,
+                distance_ft=90.0,
+            ),
+            DeedCall(
+                course=4,
+                direction_text="Easterly",
+                bearing_azimuth_deg_from_north=None,
+                distance_ft=112.52,
+            ),
+        ]
+
+        result = ClosureChecker.verify_closure(calls)
+
+        assert result.closure_passed is False
+        assert "no computable traverse" in " ".join(result.warnings).lower()
+
+    def test_mixed_cardinal_and_bearing_uses_partial_traverse(self):
+        """Calls with some azimuths should compute a partial traverse (not degenerate)."""
+        calls = [
+            DeedCall(
+                course=1,
+                direction_text="N 45° E",
+                bearing_azimuth_deg_from_north=45.0,
+                distance_ft=100.0,
+            ),
+            DeedCall(
+                course=2,
+                direction_text="Southerly",
+                bearing_azimuth_deg_from_north=None,
+                distance_ft=50.0,
+            ),
+        ]
+
+        result = ClosureChecker.verify_closure(calls)
+
+        # Has at least one computable call, so closure IS computed (though it won't close)
+        assert result.misclosure_ft > 0
+        # closure_passed depends on the actual misclosure, not the degenerate check
+
+    def test_empty_calls_confidence_zero(self):
+        """Empty traverse should have 0.0 confidence."""
+        result = ClosureChecker.verify_closure([])
+
+        assert result.confidence_score == 0.0
+
+    def test_all_cardinal_not_fully_verified(self):
+        """All-cardinal traverse should never be fully verified."""
+        calls = [
+            DeedCall(
+                course=1,
+                direction_text="Northerly",
+                bearing_azimuth_deg_from_north=None,
+                distance_ft=100.0,
+            ),
+            DeedCall(
+                course=2,
+                direction_text="Easterly",
+                bearing_azimuth_deg_from_north=None,
+                distance_ft=100.0,
+            ),
+        ]
+
+        result = ClosureChecker.verify_closure(calls)
+
+        assert result.is_fully_verified() is False
