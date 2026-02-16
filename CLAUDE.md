@@ -192,7 +192,7 @@ non_tangent,radial_bearing,notes
 - `monument_status`: "found", "set", or null
 - `is_exception`/`is_meander`/`is_tie_in`/`non_tangent`: Boolean flags (CSV: "true"/"false")
 - `radial_bearing`: String for non-tangent curves, empty string if N/A
-- `is_indefinite`, `curve_type`: Model-only fields (not exported to CSV)
+- `is_indefinite`, `curve_type`, `quality`: Model-only fields (not exported to CSV)
 - `precision_ratio`: On `ClosureResult`, not `DeedCall`
 
 ## Feature Reference

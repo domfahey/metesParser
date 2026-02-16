@@ -1,4 +1,4 @@
-"""Closure verification and traverse calculations.
+"""Closure verification, traverse calculations, and quality scoring.
 
 Implements the 6 verification guardrails from the playbook:
 A) Traverse closure
@@ -11,13 +11,17 @@ F) Double-entry validation
 Plus supplementary validation checks:
 G) Bearing reversal detection
 H) Distance reasonableness
+
+Quality and confidence scoring:
+- Per-call quality rating (high/medium/low)
+- Overall confidence score (0.0–1.0)
 """
 
 import math
 import statistics
 
 from .bearing_converter import BearingConverter
-from .models import ClosureResult, DeedCall, Point
+from .models import PERMANENT_MONUMENTS, ClosureResult, DeedCall, Point
 
 
 class ClosureChecker:
@@ -42,7 +46,7 @@ class ClosureChecker:
             double_entry_calls: Optional independently-entered call set for guardrail F
 
         Returns:
-            ClosureResult with all checks and computed values
+            ClosureResult with all checks, computed values, and confidence_score
         """
         tolerance = (
             closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
@@ -472,36 +476,6 @@ class ClosureChecker:
 
         return warnings
 
-    PERMANENT_MONUMENTS = frozenset(
-        {
-            "iron_rod",
-            "iron_pin",
-            "iron_pipe",
-            "concrete",
-            "brass_cap",
-            "rebar",
-            "capped_pin",
-            "capped_rod",
-            "railroad_spike",
-        }
-    )
-
-    NON_PERMANENT_MONUMENTS = frozenset(
-        {
-            "stone",
-            "wooden_post",
-            "nail",
-            "pk_nail",
-            "hub_and_tack",
-            "monitoring_well",
-            "txdot_monument",
-            "tree",
-            "rock",
-            "natural_feature",
-            "other",
-        }
-    )
-
     @classmethod
     def score_call_quality(cls, call: DeedCall) -> str:
         """Rate individual call quality as high/medium/low.
@@ -523,7 +497,7 @@ class ClosureChecker:
         if call.is_meander:
             return "medium"
 
-        if call.monument_type and call.monument_type not in cls.PERMANENT_MONUMENTS:
+        if call.monument_type and call.monument_type not in PERMANENT_MONUMENTS:
             return "medium"
 
         return "high"
@@ -684,7 +658,7 @@ class ClosureChecker:
         summary.append(f"  X: {result.misclosure_x_ft:.4f} ft")
         summary.append(f"  Y: {result.misclosure_y_ft:.4f} ft")
 
-        if result.precision_ratio is not None and result.precision_ratio > 0:
+        if result.precision_ratio is not None and result.precision_ratio > 1e-10:
             ratio_inv = round(1.0 / result.precision_ratio)
             summary.append(f"  Precision: 1:{ratio_inv:,}")
 
