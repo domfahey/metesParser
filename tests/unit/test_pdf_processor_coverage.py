@@ -102,6 +102,7 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "metesparser.text_parser.TextParser.extract_poc_and_pob", lambda _: ("POC", "POB")
     )
+    monkeypatch.setattr("metesparser.text_parser.TextParser.extract_area_statement", lambda _: None)
     monkeypatch.setattr("metesparser.call_extractor.CallExtractor.extract_calls", lambda _: [])
     monkeypatch.setattr(
         "metesparser.call_extractor.CallExtractor.enrich_calls_with_azimuths",
