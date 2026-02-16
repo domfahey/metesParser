@@ -341,6 +341,10 @@ class ClosureChecker:
     def check_curve_consistency(cls, calls: list[DeedCall]) -> bool:
         """Check curve math consistency: L ≈ R*Δ, chord ≈ 2R*sin(Δ/2).
 
+        When delta_deg is not provided but both radius_ft and arc_length_ft
+        are present, the implied delta is derived from arc/radius and used
+        for consistency checks (including chord validation).
+
         Args:
             calls: List of DeedCall objects
 
@@ -351,12 +355,26 @@ class ClosureChecker:
             if not call.is_curve():
                 continue
 
-            if call.radius_ft is None or call.delta_deg is None:
+            if call.radius_ft is None:
                 continue
 
-            delta_rad = math.radians(call.delta_deg)
-            expected_arc = call.radius_ft * delta_rad
+            delta_deg = call.delta_deg
             tolerance_ft = 0.1
+
+            # Derive delta from radius + arc when delta_deg is not explicit
+            if delta_deg is None:
+                if call.arc_length_ft is not None and call.radius_ft > 0.0:
+                    implied_delta_rad = call.arc_length_ft / call.radius_ft
+                    # Arc cannot exceed full circle (2*pi*radius)
+                    if implied_delta_rad > 2 * math.pi:
+                        return False
+                    delta_deg = math.degrees(implied_delta_rad)
+                else:
+                    # No delta and insufficient data to derive one — skip
+                    continue
+
+            delta_rad = math.radians(delta_deg)
+            expected_arc = call.radius_ft * delta_rad
 
             if call.arc_length_ft is not None:
                 arc_diff = abs(call.arc_length_ft - expected_arc)
