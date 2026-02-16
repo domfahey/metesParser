@@ -85,6 +85,177 @@ def test_extract_calls_ai_raises_for_non_list_calls():
         processor.extract_calls_ai("text")
 
 
+class TestPriorConveyanceWarning:
+    """Warn when extracted text contains prior conveyance language."""
+
+    @pytest.mark.parametrize(
+        "text,expected_pattern",
+        [
+            ("BEING the same premises conveyed to Grantor", "BEING the same premises"),
+            ("This land was previously conveyed by Deed Book 100", "previously conveyed"),
+            ("This parcel is derived from Lot 5", "derived from"),
+            ("See deed recorded in Book 200, Page 50", "recorded in Book"),
+            ("As conveyed by deed dated January 1, 2020", "by deed dated"),
+        ],
+    )
+    def test_warns_on_prior_conveyance_patterns(self, text, expected_pattern, monkeypatch, tmp_path):
+        """Should emit structlog warning when extracted text has prior conveyance language."""
+
+        class DummyClient:
+            pass
+
+        processor = PDFProcessor(client=DummyClient())
+        pdf_path = tmp_path / "deed.pdf"
+        pdf_path.write_text("pdf")
+
+        monkeypatch.setattr(processor, "extract_legal_description", lambda _: text)
+        monkeypatch.setattr(processor, "normalize_legal_description", lambda _: text)
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_plss_metadata", lambda _: {}
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_poc_and_pob", lambda _: (None, None)
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_area_statement", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.infer_distance_unit", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.call_extractor.CallExtractor.extract_calls",
+            lambda _, distance_unit="feet": [],
+        )
+        monkeypatch.setattr(
+            "metesparser.call_extractor.CallExtractor.enrich_calls_with_azimuths",
+            lambda calls: calls,
+        )
+        monkeypatch.setattr(
+            "metesparser.call_extractor.CallExtractor.mark_tie_in_calls",
+            lambda calls, poc_description: calls,
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_basis_of_bearing", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_surveyor_certification", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_prior_conveyance", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_deed_clauses", lambda _: []
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_subdivision_reference", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_witness_trees", lambda _: []
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_coordinate_system",
+            lambda _: (None, None),
+        )
+
+        warnings: list[tuple[str, dict[str, object]]] = []
+
+        class RecordingLogger:
+            def bind(self, **kwargs: object) -> RecordingLogger:
+                return self
+
+            def info(self, event: str, **kwargs: object) -> None:
+                pass
+
+            def warning(self, event: str, **kwargs: object) -> None:
+                warnings.append((event, kwargs))
+
+        monkeypatch.setattr("metesparser.pdf_processor.logger", RecordingLogger())
+
+        processor.process_deed_pdf(str(pdf_path))
+
+        assert len(warnings) == 1
+        assert "prior conveyance" in warnings[0][0].lower()
+        assert expected_pattern in str(warnings[0][1].get("matched_patterns", []))
+
+    def test_no_warning_for_clean_description(self, monkeypatch, tmp_path):
+        """Should not warn when extracted text has no prior conveyance language."""
+
+        class DummyClient:
+            pass
+
+        processor = PDFProcessor(client=DummyClient())
+        pdf_path = tmp_path / "deed.pdf"
+        pdf_path.write_text("pdf")
+
+        clean_text = "BEGINNING at a point; THENCE N 45 E 100 feet to the POINT OF BEGINNING."
+        monkeypatch.setattr(processor, "extract_legal_description", lambda _: clean_text)
+        monkeypatch.setattr(processor, "normalize_legal_description", lambda _: clean_text)
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_plss_metadata", lambda _: {}
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_poc_and_pob", lambda _: (None, None)
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_area_statement", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.infer_distance_unit", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.call_extractor.CallExtractor.extract_calls",
+            lambda _, distance_unit="feet": [],
+        )
+        monkeypatch.setattr(
+            "metesparser.call_extractor.CallExtractor.enrich_calls_with_azimuths",
+            lambda calls: calls,
+        )
+        monkeypatch.setattr(
+            "metesparser.call_extractor.CallExtractor.mark_tie_in_calls",
+            lambda calls, poc_description: calls,
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_basis_of_bearing", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_surveyor_certification", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_prior_conveyance", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_deed_clauses", lambda _: []
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_subdivision_reference", lambda _: None
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_witness_trees", lambda _: []
+        )
+        monkeypatch.setattr(
+            "metesparser.text_parser.TextParser.extract_coordinate_system",
+            lambda _: (None, None),
+        )
+
+        warnings: list[tuple[str, dict[str, object]]] = []
+
+        class RecordingLogger:
+            def bind(self, **kwargs: object) -> RecordingLogger:
+                return self
+
+            def info(self, event: str, **kwargs: object) -> None:
+                pass
+
+            def warning(self, event: str, **kwargs: object) -> None:
+                warnings.append((event, kwargs))
+
+        monkeypatch.setattr("metesparser.pdf_processor.logger", RecordingLogger())
+
+        processor.process_deed_pdf(str(pdf_path))
+
+        assert len(warnings) == 0
+
+
 def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
     class DummyClient:
         pass

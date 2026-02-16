@@ -26,7 +26,19 @@ system_prompt: |
   - Do not merge numbered calls into a single paragraph
   - Do not include title information, grantor/grantee names, or consideration clauses
   - Do not add commentary, summaries, or explanations
-  - If multiple legal descriptions exist, extract the most detailed and complete one. Prefer Exhibit A, survey attachment, or amended descriptions over deed body summaries — choose the section with the most bearings and distances.
+  - If multiple legal descriptions exist in the document:
+    1. Extract the CURRENT parcel description — the one this deed is CONVEYING NOW.
+    2. IGNORE prior conveyance descriptions. These are sections that reference older deeds
+       with language like "BEING the same premises", "previously conveyed", "derived from",
+       "by deed dated", or "recorded in Book [X], Page [Y]".
+    3. If the deed body says "SEE EXHIBIT A" or "ATTACHED HERETO", extract from Exhibit A.
+    4. However, if Exhibit A itself appears to be a prior deed reference (contains older
+       lot numbers, different street names, or "previously conveyed" language), search for
+       the current description in the deed body instead.
+    5. Prefer descriptions whose lot/block numbers match the deed's stated subject property.
+    6. When uncertain between two descriptions, prefer the one with the most RECENT survey
+       date or deed language, not the one with the most calls.
+    7. Prefer AMENDED descriptions over older versions when both appear.
   </extraction_rules>
 
   <critical_warning>

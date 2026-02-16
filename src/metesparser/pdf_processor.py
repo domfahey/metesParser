@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from importlib import resources
 from pathlib import Path
 from typing import Any, cast
@@ -15,6 +16,14 @@ from .llm_clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClie
 from .models import ConversionFactors, DistanceUnit, LegalDescription
 
 logger = structlog.get_logger(__name__)
+
+_PRIOR_CONVEYANCE_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"BEING the same premises", re.IGNORECASE),
+    re.compile(r"previously conveyed", re.IGNORECASE),
+    re.compile(r"derived from", re.IGNORECASE),
+    re.compile(r"by deed dated", re.IGNORECASE),
+    re.compile(r"recorded in Book", re.IGNORECASE),
+]
 
 
 class PDFProcessor:
@@ -165,6 +174,13 @@ class PDFProcessor:
 
         processing_logger.info("Extracting legal description from PDF")
         legal_desc_text = self.extract_legal_description(pdf_path)
+
+        matched = [p.pattern for p in _PRIOR_CONVEYANCE_PATTERNS if p.search(legal_desc_text)]
+        if matched:
+            processing_logger.warning(
+                "Extracted text may contain prior conveyance language",
+                matched_patterns=matched,
+            )
 
         processing_logger.info("Normalizing text")
         normalized_text = self.normalize_legal_description(legal_desc_text)

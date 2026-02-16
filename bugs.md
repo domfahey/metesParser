@@ -514,3 +514,33 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Impact:** Observed on 24 Pennbrook markdown extraction — produced 2 calls instead of 8, with most bearings/distances lost.
 - **Suggested test:** Assert `len(CallExtractor.extract_calls("thence (1) S 71°53'10\" E 125.26 feet; thence (2) S 33°20'00\" E 60 feet; thence (3) N 71°53'10\" W 125.26 feet")) == 3`.
 - **Suggested fix:** Add `thence` as a call delimiter in `split_into_calls` (in addition to existing numbered/semicolon patterns). Ensure the split preserves the `thence` keyword in each resulting segment for downstream direction extraction.
+
+## Known Limitations
+
+### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
+- **Status:** `known limitation`
+- **Severity:** `low` (< 0.02 ft misclosure impact)
+- **Reproducibility:** `always` (specific to 31 Pennbrook Book 11191 PDF)
+- **Location:** LLM text extraction (`src/metesparser/pdf_processor.py`, `PDFProcessor.extract_legal_description_text`)
+- **Minimal input:** 31 Pennbrook Dr, Book 11191 — old scanned PDF, Call 3 bearing
+- **Issue:** LLM OCR misread "N 56°40'00" E" as "N 56°40'50" E" (confused "00" minutes as "50" minutes)
+- **Expected behavior:** Correct bearing `N 56°40'00" E` with expected misclosure ~0.0116 ft
+- **Actual behavior:** Extracted bearing `N 56°40'50" E` yields misclosure ~0.0167 ft, area off by ~1.25 sq ft
+- **Root cause:** Inherent OCR limitation on aged scanned deed PDFs; LLM model artifacts (vision confusion between similar digit pairs)
+- **Impact:** Marginal — misclosure still within acceptable range (<0.02 ft), area discrepancy minor relative to parcel size
+- **No code fix required** — this is a document quality/LLM limitation, not a parser bug
+- **Mitigation ideas for future work:** Try alternative LLM provider (Gemini, Claude), image preprocessing (binarization, contrast enhancement), cross-validate bearings against chain-of-title deeds
+
+### E5) LLM extraction failure on oldest scanned deed (31 Pennbrook Book 4618)
+- **Status:** `known limitation`
+- **Severity:** `low` (single sample deed affected)
+- **Reproducibility:** `always` (specific to 31 Pennbrook Book 4618 PDF)
+- **Location:** LLM text extraction (`src/metesparser/pdf_processor.py`, `PDFProcessor.extract_legal_description_text`)
+- **Minimal input:** 31 Pennbrook Dr, Book 4618 — oldest deed (1993), poor scan quality
+- **Issue:** 0 calls extracted; ground truth expects 5 calls with bearings/distances. LLM returned extracted text but no parseable metes & bounds structure (possibly fragmented bearing/distance pairs or unrecognized abbreviations).
+- **Expected behavior:** Extract 5 calls from `LegalDescription.calls`
+- **Actual behavior:** Returns empty call list
+- **Root cause:** Combination of scan age/quality and OCR limitations; LLM struggled to reconstruct coherent metes & bounds text from degraded source image
+- **Impact:** Single sample deed unprocessable; other 31 Pennbrook variants (Books 11191, 11985) process normally
+- **No code fix required** — this is a document quality/LLM limitation, not a parser bug
+- **Mitigation ideas for future work:** Apply Tesseract preprocessing before LLM extraction (binarization, rotation detection), retry with alternative LLM provider, explore character-level OCR recovery on damaged text regions

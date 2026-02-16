@@ -261,6 +261,117 @@ class TestSplitIntoCalls:
         assert len(calls) == 2
 
 
+class TestSplitIntoCallsMetadataTruncation:
+    """Test that split_into_calls truncates trailing metadata from the last call."""
+
+    def test_truncate_the_above_described(self):
+        """Truncate at 'THE ABOVE DESCRIBED' metadata boundary."""
+        text = (
+            "THENCE N 45° E 100 feet along the north line "
+            "THENCE S 45° W 125 feet to the point and place of beginning. "
+            "THE ABOVE DESCRIBED tract or parcel of land and premises "
+            "being described according to a Survey"
+        )
+        calls = TextParser.split_into_calls(text)
+        assert len(calls) == 2
+        assert calls[1].endswith("beginning")
+        assert "THE ABOVE DESCRIBED" not in calls[1]
+
+    def test_truncate_being_the_same(self):
+        """Truncate at 'BEING the same premises' metadata boundary."""
+        text = (
+            "THENCE N 45° E 100 feet "
+            "THENCE S 89°45' E 60 feet to the POINT OF BEGINNING. "
+            "BEING the same premises conveyed by deed dated"
+        )
+        calls = TextParser.split_into_calls(text)
+        assert len(calls) == 2
+        assert "BEING the same" not in calls[1]
+        assert calls[1].endswith("BEGINNING")
+
+    def test_truncate_containing(self):
+        """Truncate at 'CONTAINING' area statement metadata boundary."""
+        text = (
+            "THENCE N 45° E 100 feet "
+            "THENCE S 45° W 125 feet to the POINT OF BEGINNING. "
+            "CONTAINING 7500 square feet more or less"
+        )
+        calls = TextParser.split_into_calls(text)
+        assert len(calls) == 2
+        assert "CONTAINING" not in calls[1]
+        assert calls[1].endswith("BEGINNING")
+
+    def test_no_false_positive_subject_to_within_call(self):
+        """Do NOT truncate 'SUBJECT TO' that appears within a call (no sentence boundary)."""
+        text = (
+            "THENCE N 45° E 100 feet "
+            "THENCE S 45° W 125 feet along a line subject to easement rights"
+        )
+        calls = TextParser.split_into_calls(text)
+        assert len(calls) == 2
+        assert "subject to easement rights" in calls[1]
+
+    def test_no_metadata_leaves_call_unchanged(self):
+        """Call without trailing metadata is returned unchanged."""
+        text = (
+            "THENCE N 45° E 100 feet along the north line "
+            "THENCE S 45° W 125 feet to an iron pin"
+        )
+        calls = TextParser.split_into_calls(text)
+        assert len(calls) == 2
+        assert "iron pin" in calls[1]
+
+    def test_truncate_subject_to_at_sentence_boundary(self):
+        """Truncate 'SUBJECT TO' only when at a sentence boundary."""
+        text = (
+            "THENCE N 45° E 100 feet "
+            "THENCE S 45° W 125 feet to the place of beginning. "
+            "SUBJECT TO all existing easements and restrictions"
+        )
+        calls = TextParser.split_into_calls(text)
+        assert len(calls) == 2
+        assert "SUBJECT TO" not in calls[1]
+        assert calls[1].endswith("beginning")
+
+    def test_truncate_together_with(self):
+        """Truncate at 'TOGETHER WITH' metadata boundary."""
+        text = (
+            "THENCE N 45° E 100 feet "
+            "THENCE S 45° W 125 feet to the point of beginning. "
+            "TOGETHER WITH a right of way over the adjacent parcel"
+        )
+        calls = TextParser.split_into_calls(text)
+        assert len(calls) == 2
+        assert "TOGETHER WITH" not in calls[1]
+        assert calls[1].endswith("beginning")
+
+    def test_truncate_surveyor_certification(self):
+        """Truncate at 'I hereby certify' metadata boundary."""
+        text = (
+            "THENCE N 45° E 100 feet "
+            "THENCE S 45° W 125 feet to the POB. "
+            "I hereby certify this plat is correct"
+        )
+        calls = TextParser.split_into_calls(text)
+        assert len(calls) == 2
+        assert "I hereby certify" not in calls[1]
+        assert calls[1].endswith("POB")
+
+    def test_only_last_call_is_truncated(self):
+        """Earlier calls are not affected by metadata truncation."""
+        text = (
+            "THENCE N 45° E 100 feet along the boundary "
+            "THENCE S 45° E 60 feet to a point "
+            "THENCE S 45° W 100 feet to the point of beginning. "
+            "THE ABOVE DESCRIBED tract being described according"
+        )
+        calls = TextParser.split_into_calls(text)
+        assert len(calls) == 3
+        assert "along the boundary" in calls[0]
+        assert "to a point" in calls[1]
+        assert calls[2].endswith("beginning")
+
+
 class TestExtractDistance:
     """Test distance extraction with unit conversion."""
 

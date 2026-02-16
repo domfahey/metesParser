@@ -309,6 +309,47 @@ class TestPOBPreambleFiltering:
         assert call is not None
         assert math.isclose(call.distance_ft, 78.54, abs_tol=0.01)
 
+    def test_pennbrook_18_ground_truth_no_phantom_calls(self):
+        """18 Pennbrook ground truth: '(50 feet wide)' in POB must not produce phantom calls.
+
+        The POB text contains 'Southwesterly corner of Concord Drive (50 feet wide)'
+        which has both a cardinal direction word and a distance. With numbered call
+        format (1., 2., ...), the POB fragment must be stripped before call extraction.
+        """
+        calls = CallExtractor.extract_calls(sample_deeds.PENNBROOK_18_GROUND_TRUTH)
+
+        assert len(calls) == 4
+        assert calls[0].course == 1
+        assert calls[0].bearing_azimuth_deg_from_north is not None
+        assert math.isclose(calls[0].distance_ft, 60.0, abs_tol=0.01)
+
+    def test_pennbrook_31_10989_ground_truth_no_phantom_calls(self):
+        """31 Pennbrook (10989) ground truth: '310.00 FEET SOUTHEASTWARDLY' in POB must not produce phantom calls.
+
+        The POB text contains '50' WIDE' and '310.00 FEET SOUTHEASTWARDLY' which
+        would create a phantom call with cardinal direction + distance if the
+        preamble is not stripped before extraction.
+        """
+        calls = CallExtractor.extract_calls(sample_deeds.PENNBROOK_31_10989_GROUND_TRUTH)
+
+        assert len(calls) == 5
+        assert calls[0].course == 1
+        assert calls[0].bearing_azimuth_deg_from_north is not None
+        assert math.isclose(calls[0].distance_ft, 23.67, abs_tol=0.01)
+
+    def test_pennbrook_31_11191_ground_truth_no_phantom_calls(self):
+        """31 Pennbrook (11191) ground truth: '50 FEET WIDE' in POB must not produce phantom calls.
+
+        The POB text contains '50 FEET WIDE' and '310.00 FEET SOUTHEASTWARDLY'
+        which would create phantom calls if the preamble is not stripped.
+        """
+        calls = CallExtractor.extract_calls(sample_deeds.PENNBROOK_31_11191_GROUND_TRUTH)
+
+        assert len(calls) == 5
+        assert calls[0].course == 1
+        assert calls[0].bearing_azimuth_deg_from_north is not None
+        assert math.isclose(calls[0].distance_ft, 23.67, abs_tol=0.01)
+
 
 class TestCardinalWardlySuffix:
     """Bug #48: Cardinal directions with -wardly suffix must be recognized."""

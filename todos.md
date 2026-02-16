@@ -141,3 +141,63 @@ Phased rollout based on gap analysis between `docs/METES_AND_BOUNDS_REFERENCE.md
   - Incorporates: closure quality (30%), verification checks (20%), bearing completeness (25%), call quality (15%), warning penalty (10%).
 - [x] Medium: Add `confidence_score` (float | None) and `quality` (str | None) fields to `ClosureResult` and `DeedCall` in `models.py`.
 - [x] Low: Update `get_closure_summary()` with confidence score, precision ratio, per-call quality breakdown.
+
+## Extraction Error Fixes (2026-02-16)
+
+Found by running all 6 sample deeds and comparing extraction output against ground truth JSON files.
+
+### Bug E1: Phantom Calls from POB Preamble (P0 — High)
+
+**Affects**: 18 Pennbrook, 31 Pennbrook (10989), 31 Pennbrook (11191) — 3 of 6 deeds
+**Symptom**: Distances in BEGINNING AT text parsed as extra calls (e.g., "50 feet wide" → phantom 50 ft call, "310.00 FEET SOUTHEASTWARDLY" → phantom 310 ft call)
+**Root cause**: `split_into_calls()` in `text_parser.py:359` receives full legal description including POB preamble. Cardinal direction words ("southwesterly", "northeasterly") + distances in POB text pass through all three defense layers.
+**Fix location**: `call_extractor.py:extract_calls()` (~line 196) — strip everything before the first `THENCE` keyword before calling `split_into_calls()`.
+
+- [x] High: Strip POB preamble before first THENCE in `call_extractor.py:extract_calls()`.
+  - Find first `\bTHENCE\b` in normalized text and discard everything before it.
+  - POB is already captured separately by `extract_poc_and_pob()`, so no data is lost.
+  - Add regression tests for all three affected deeds' POB text patterns.
+
+### Bug E2: Wrong Legal Description Extracted by LLM (P1 — High)
+
+**Affects**: 24 Pennbrook — completely wrong parcel extracted (Lot 22 "Pembrook" instead of Lot 12 "Pennbrook")
+**Symptom**: LLM extracted an older prior conveyance from Exhibit A instead of the current deed description. 8 calls with wrong bearings, 365 sq ft instead of 17,750 sq ft.
+**Root cause**: Prompt in `prompts/extract_legal_description.yaml:29` says "Prefer Exhibit A" and "choose the section with the most bearings and distances" — the older description had MORE calls, so the LLM picked it.
+**Fix location**: `prompts/extract_legal_description.yaml` — rewrite multi-description guidance to prioritize current conveyance over "most detailed".
+
+- [x] High: Rewrite multi-description selection guidance in `prompts/extract_legal_description.yaml`.
+  - Replace "prefer Exhibit A / most detailed" with "prefer current conveyance" logic.
+  - Add instructions to IGNORE prior conveyance sections ("BEING the same premises", "previously conveyed", older deed book references).
+  - Add lot/block consistency guidance (extracted description should match deed's subject property).
+- [x] Medium: Add post-extraction prior conveyance detection in `pdf_processor.py`.
+  - Log warning if extracted text contains prior conveyance language.
+
+### Bug E3: Along/To Field Bleeding into Metadata (P2 — Medium)
+
+**Affects**: 18 Pennbrook last call — `along` captures "THE ABOVE DESCRIBED tract...", `to` captures "a Survey of Premises made by Walter H"
+**Symptom**: Last call's `along` and `to` fields include text from survey certification that follows the legal description.
+**Root cause**: `split_into_calls()` in `text_parser.py:359` has no termination logic for the last call — all text after the final delimiter becomes part of that call. `extract_along_to_fields()` then captures the contaminated text.
+**Fix location**: `text_parser.py:split_into_calls()` — truncate last call at known metadata boundaries.
+
+- [x] Medium: Truncate last call text at metadata section boundaries in `text_parser.py:split_into_calls()`.
+  - Detect patterns like `. THE ABOVE DESCRIBED`, `. BEING the same premises`, `. CONTAINING`, `. SUBJECT TO`, `. TOGETHER WITH`, `. Surveyed by`.
+  - Alternatively, detect POB closure phrase ("to the point and place of beginning") and truncate after it.
+  - Add regression test with 18 Pennbrook's trailing survey certification text.
+
+### Bug E4: OCR Bearing Error (P3 — Low, no code fix)
+
+**Affects**: 31 Pennbrook (11191) call 3 — N 56°40'00" E read as N 56°40'50" E
+**Symptom**: Misclosure 0.0167 ft instead of 0.0116 ft, area off by 1.25 sq ft.
+**Root cause**: LLM misread "00" as "50" from scanned PDF. Inherent OCR limitation.
+**Mitigation**: Try different LLM provider; add image preprocessing; cross-validate bearings across chain-of-title deeds.
+
+- [x] Low: Document OCR bearing error as known limitation; consider cross-validation heuristic for chain-of-title deeds.
+
+### Bug E5: LLM Extraction Failure on Old Scanned PDF (P3 — Low, no code fix)
+
+**Affects**: 31 Pennbrook (4618) — 0 calls extracted, GT expects 5
+**Symptom**: Oldest deed (1993), poor scan quality. LLM returned text but call extractor found nothing parseable.
+**Root cause**: Scanned PDF quality too poor for LLM OCR.
+**Mitigation**: Pre-process with dedicated OCR (Tesseract, Adobe PDF Services); retry with different LLM provider.
+
+- [x] Low: Document old-scan extraction failure as known limitation; consider Tesseract preprocessing fallback.
