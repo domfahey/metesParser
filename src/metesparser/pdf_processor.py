@@ -223,8 +223,21 @@ class PDFProcessor:
                 )
         processing_logger.info("Distance unit resolved", distance_unit=distance_unit)
 
+        # -- Build audit context early so it can be threaded through pipeline --
+        ctx: AuditContext | None = None
+        if audit:
+            ctx = self._build_audit_context(
+                pdf_path=pdf_path,
+                legal_desc_text=legal_desc_text,
+                normalized_text=normalized_text,
+                distance_unit=distance_unit,
+            )
+
         processing_logger.info("Extracting calls")
-        calls = CallExtractor.extract_calls(normalized_text, distance_unit=distance_unit)
+        extract_kwargs: dict[str, object] = {"distance_unit": distance_unit}
+        if ctx is not None:
+            extract_kwargs["audit_context"] = ctx
+        calls = CallExtractor.extract_calls(normalized_text, **extract_kwargs)  # type: ignore[arg-type]
 
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
 
@@ -275,13 +288,6 @@ class PDFProcessor:
         if not audit:
             return legal_desc
 
-        # -- Build audit context --------------------------------------------------
-        ctx = self._build_audit_context(
-            pdf_path=pdf_path,
-            legal_desc_text=legal_desc_text,
-            normalized_text=normalized_text,
-            distance_unit=distance_unit,
-        )
         return legal_desc, ctx
 
     # -- Audit helpers ----------------------------------------------------------
@@ -322,7 +328,7 @@ class PDFProcessor:
             prompt_hash=prompt_hash,
             timestamp_utc=datetime.now(UTC),
             source_pdf=Path(pdf_path).name,
-            cache_hit=isinstance(self.client, CachedLLMClient),
+            cache_enabled=isinstance(self.client, CachedLLMClient),
             config={
                 "closure_tolerance_ft": 0.01,
                 "distance_unit": distance_unit,
@@ -379,9 +385,7 @@ class PDFProcessor:
         """
         has_pob = bool(re.search(r"(?:POINT\s+OF\s+)?BEGINNING|POB", text, re.IGNORECASE))
 
-        bearing_matches = re.findall(
-            r"(?:North|South|[NS])\s+\d+\s+degrees?", text, re.IGNORECASE
-        )
+        bearing_matches = re.findall(r"(?:North|South|[NS])\s+\d+\s+degrees?", text, re.IGNORECASE)
         has_bearing_calls = len(bearing_matches) >= 3
 
         has_closure_language = bool(

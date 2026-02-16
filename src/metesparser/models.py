@@ -645,7 +645,7 @@ class RunMetadata(_Model):
     prompt_hash: str = Field(..., description="SHA256 hash of prompt template")
     timestamp_utc: datetime = Field(..., description="Run timestamp (UTC)")
     source_pdf: str = Field(..., description="Source PDF filename")
-    cache_hit: bool = Field(..., description="Whether LLM response was from cache")
+    cache_enabled: bool = Field(..., description="Whether LLM response caching is enabled")
     config: dict[str, float | str | bool] = Field(
         default_factory=dict, description="Configuration snapshot"
     )

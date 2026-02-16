@@ -143,7 +143,7 @@ class TestRunMetadata:
             prompt_hash="abc123",
             timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
             source_pdf="deed.pdf",
-            cache_hit=False,
+            cache_enabled=False,
         )
         assert rm.parser_version == "0.2.0"
         assert rm.config == {}
@@ -176,7 +176,7 @@ class TestAuditContext:
                 prompt_hash="abc",
                 timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
                 source_pdf="test.pdf",
-                cache_hit=False,
+                cache_enabled=False,
             ),
         )
         assert ctx.schema_version == "1.0.0"
@@ -193,7 +193,7 @@ class TestAuditContext:
                 prompt_hash="abc",
                 timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
                 source_pdf="test.pdf",
-                cache_hit=False,
+                cache_enabled=False,
             ),
             call_audits=[
                 CallAudit(course=1, source_excerpt="thence North 100 feet"),
@@ -214,7 +214,7 @@ class TestAuditContext:
                 prompt_hash="test",
                 timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
                 source_pdf="test.pdf",
-                cache_hit=False,
+                cache_enabled=False,
             ),
         )
         ctx.call_audits.append(CallAudit(course=1, source_excerpt="test"))
@@ -230,7 +230,7 @@ class TestAuditContext:
                 prompt_hash="test",
                 timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
                 source_pdf="test.pdf",
-                cache_hit=False,
+                cache_enabled=False,
             ),
         )
         ctx.extraction_record = ExtractionRecord(
@@ -255,7 +255,7 @@ def _make_audit_context() -> AuditContext:
             prompt_hash="test",
             timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
             source_pdf="test.pdf",
-            cache_hit=False,
+            cache_enabled=False,
         ),
     )
 
@@ -456,7 +456,7 @@ class TestAuditJsonSerialization:
                 prompt_hash="abc123",
                 timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
                 source_pdf="test.pdf",
-                cache_hit=False,
+                cache_enabled=False,
             ),
             extraction_record=ExtractionRecord(
                 raw_llm_response="raw text",
@@ -540,7 +540,7 @@ class TestAuditReporter:
                 prompt_hash="abc123",
                 timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
                 source_pdf="test_deed.pdf",
-                cache_hit=False,
+                cache_enabled=False,
             ),
             extraction_record=ExtractionRecord(
                 raw_llm_response="BEGINNING at an iron pin...",
@@ -612,7 +612,7 @@ class TestAuditReporter:
                 prompt_hash="test",
                 timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
                 source_pdf="test.pdf",
-                cache_hit=False,
+                cache_enabled=False,
             ),
             call_audits=[
                 CallAudit(
@@ -636,7 +636,7 @@ class TestAuditReporter:
                 prompt_hash="test",
                 timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
                 source_pdf="test.pdf",
-                cache_hit=False,
+                cache_enabled=False,
             ),
         )
         calls = [
@@ -794,6 +794,21 @@ class TestPDFProcessorAudit:
         assert ctx.run_metadata.config["closure_tolerance_ft"] == 0.01
         assert ctx.run_metadata.config["distance_unit"] == "feet"
         assert "log_level" in ctx.run_metadata.config
+
+    def test_audit_call_audits_populated_via_pipeline(self):
+        """Critical: call_audits must be populated when audit=True (pipeline threading)."""
+        mock_client = _make_mock_client()
+        processor = PDFProcessor(client=mock_client, cache=False)
+        legal_desc, ctx = processor.process_deed_pdf("/fake/deed.pdf", audit=True)
+
+        # The sample text has 4 bearing calls — all should have CallAudit entries
+        assert len(ctx.call_audits) == len(legal_desc.calls)
+        assert len(ctx.call_audits) >= 4
+
+        # Each call audit should have source_excerpt and at least one transformation
+        for ca in ctx.call_audits:
+            assert ca.source_excerpt != ""
+            assert len(ca.transformations) > 0
 
 
 class TestLLMConfidenceScoring:
