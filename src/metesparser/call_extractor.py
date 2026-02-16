@@ -9,7 +9,7 @@ import structlog
 from pydantic import ValidationError
 
 from .bearing_converter import BearingConverter
-from .models import ConversionFactors, CurveDirection, DeedCall, MonumentType
+from .models import ConversionFactors, CurveDirection, DeedCall, MonumentStatus, MonumentType
 from .text_parser import TextParser
 
 logger = structlog.get_logger(__name__)
@@ -18,7 +18,6 @@ logger = structlog.get_logger(__name__)
 class MonumentClassifier:
     """Classify survey monument types from text descriptions."""
 
-    # Specificity is intentional: narrower patterns should be checked before generic matches.
     MONUMENT_PATTERNS: list[tuple[str, MonumentType]] = [
         (r"\btxdot\b.*\bmonument\b", "txdot_monument"),
         (r"\bcapped\s+(?:iron\s+)?rod\b", "capped_rod"),
@@ -69,6 +68,27 @@ class MonumentClassifier:
 
         if re.search(r"\bmonument\b", text_lower):
             return "other"
+
+        return None
+
+    MONUMENT_STATUS_PATTERNS: list[tuple[str, MonumentStatus]] = [
+        (r"\bfd\b", "found"),
+        (r"\bfnd\b", "found"),
+        (r"\bfound\b", "found"),
+        (r"\bset\b", "set"),
+        (r"\bplaced\b", "set"),
+    ]
+
+    @classmethod
+    def classify_monument_status(cls, text: str | None) -> MonumentStatus | None:
+        """Classify whether monument status indicates found or set."""
+        if not text:
+            return None
+
+        text_lower = text.lower()
+        for pattern, status in cls.MONUMENT_STATUS_PATTERNS:
+            if re.search(pattern, text_lower):
+                return status
 
         return None
 
@@ -197,6 +217,7 @@ class CallExtractor:
         along, to = TextParser.extract_along_to_fields(call_text)
 
         monument_type = MonumentClassifier.classify_monument(to) if to else None
+        monument_status = MonumentClassifier.classify_monument_status(to or call_text)
 
         notes = ""
         cardinal_only = False
@@ -257,6 +278,7 @@ class CallExtractor:
             along=along if along else None,
             to=to if to else None,
             monument_type=monument_type,
+            monument_status=monument_status,
             is_exception=False,
             non_tangent=bool(curve_info.get("non_tangent", False)),
             radial_bearing=(

@@ -88,6 +88,66 @@ def test_extract_calls_ai_raises_for_non_list_calls():
         processor.extract_calls_ai("text")
 
 
+def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
+    class DummyClient:
+        pass
+
+    processor = PDFProcessor(client=DummyClient())
+    pdf_path = tmp_path / "deed.pdf"
+    pdf_path.write_text("pdf")
+
+    monkeypatch.setattr(processor, "extract_legal_description", lambda _: "LEGAL")
+    monkeypatch.setattr(processor, "normalize_legal_description", lambda _: "NORMALIZED")
+    monkeypatch.setattr("metesparser.text_parser.TextParser.extract_plss_metadata", lambda _: {})
+    monkeypatch.setattr(
+        "metesparser.text_parser.TextParser.extract_poc_and_pob", lambda _: ("POC", "POB")
+    )
+    monkeypatch.setattr("metesparser.call_extractor.CallExtractor.extract_calls", lambda _: [])
+    monkeypatch.setattr(
+        "metesparser.call_extractor.CallExtractor.enrich_calls_with_azimuths",
+        lambda calls: calls,
+    )
+    monkeypatch.setattr(
+        "metesparser.text_parser.TextParser.extract_basis_of_bearing", lambda _: None
+    )
+    monkeypatch.setattr(
+        "metesparser.text_parser.TextParser.extract_surveyor_certification", lambda _: None
+    )
+    monkeypatch.setattr(
+        "metesparser.text_parser.TextParser.extract_prior_conveyance", lambda _: None
+    )
+
+    captured_events: list[tuple[str, dict[str, object]]] = []
+
+    class RecordingLogger:
+        def bind(self, **kwargs: object) -> RecordingLogger:
+            return self
+
+        def info(self, event: str, **kwargs: object) -> None:
+            captured_events.append((event, kwargs))
+
+    monkeypatch.setattr("metesparser.pdf_processor.logger", RecordingLogger())
+
+    def _unexpected_print(*args: object, **kwargs: object) -> None:
+        raise AssertionError("process_deed_pdf should not call print")
+
+    monkeypatch.setattr("builtins.print", _unexpected_print)
+
+    legal_desc = processor.process_deed_pdf(str(pdf_path))
+
+    assert legal_desc.num_calls() == 0
+    assert [event for event, _ in captured_events] == [
+        "Extracting legal description from PDF",
+        "Normalizing text",
+        "Extracting PLSS metadata",
+        "Extracting Point of Commencement and Point of Beginning",
+        "Extracting area statement",
+        "Extracting calls",
+        "Extracted calls",
+    ]
+    assert captured_events[-1][1]["count"] == 0
+
+
 def test_wheel_build_config_force_includes_packaged_prompts() -> None:
     pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
     pyproject = tomllib.loads(pyproject_path.read_text())

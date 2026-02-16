@@ -48,6 +48,45 @@ def test_configure_logging_debug_adds_callsite_metadata() -> None:
     assert "lineno" in line
 
 
+def test_configure_logging_json_emits_structured_tracebacks() -> None:
+    stream = io.StringIO()
+    configure_logging(level="INFO", log_format="json", stream=stream)
+
+    try:
+        raise RuntimeError("boom")
+    except RuntimeError:
+        structlog.get_logger("metesparser.test").exception("operation failed")
+
+    line = _json_lines(stream)[0]
+
+    assert line["event"] == "operation failed"
+    assert isinstance(line["exception"], list)
+    assert line["exception"][0]["exc_type"] == "RuntimeError"
+
+
+def test_configure_logging_closes_previous_root_handlers() -> None:
+    class TrackingHandler(logging.Handler):
+        def __init__(self) -> None:
+            super().__init__()
+            self.closed_called = False
+
+        def emit(self, record: logging.LogRecord) -> None:  # pragma: no cover - noop
+            return
+
+        def close(self) -> None:
+            self.closed_called = True
+            super().close()
+
+    root_logger = logging.getLogger()
+    previous = TrackingHandler()
+    root_logger.handlers[:] = [previous]
+
+    configure_logging(level="INFO", log_format="json", stream=io.StringIO())
+
+    assert previous.closed_called is True
+    assert previous not in root_logger.handlers
+
+
 def test_configure_logging_rejects_invalid_settings() -> None:
     with pytest.raises(ValueError, match="Invalid log level"):
         configure_logging(level="VERBOSE", stream=io.StringIO())
