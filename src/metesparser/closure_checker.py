@@ -469,6 +469,43 @@ class ClosureChecker:
 
         return warnings
 
+    PERMANENT_MONUMENTS = frozenset({
+        "iron_rod", "iron_pin", "iron_pipe", "concrete", "brass_cap",
+        "rebar", "capped_pin", "capped_rod", "railroad_spike",
+    })
+
+    NON_PERMANENT_MONUMENTS = frozenset({
+        "stone", "wooden_post", "nail", "pk_nail", "hub_and_tack",
+        "monitoring_well", "txdot_monument", "tree", "rock",
+        "natural_feature", "other",
+    })
+
+    @classmethod
+    def score_call_quality(cls, call: DeedCall) -> str:
+        """Rate individual call quality as high/medium/low.
+
+        Scoring logic:
+        - low: incomplete bearing (no azimuth) OR indefinite call
+        - medium: complete bearing but has meander flag or non-permanent monument
+        - high: complete bearing with permanent or no monument, no flags
+
+        Args:
+            call: DeedCall to score
+
+        Returns:
+            "high", "medium", or "low"
+        """
+        if not call.is_complete_bearing() or call.is_indefinite:
+            return "low"
+
+        if call.is_meander:
+            return "medium"
+
+        if call.monument_type and call.monument_type not in cls.PERMANENT_MONUMENTS:
+            return "medium"
+
+        return "high"
+
     @classmethod
     def compare_double_entry(cls, calls1: list[DeedCall], calls2: list[DeedCall]) -> list[str]:
         """Compare two entry sets for discrepancies (double-entry validation).
