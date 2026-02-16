@@ -5,12 +5,12 @@
 - Merged duplicate `along` substring reports (old #9 and #13).
 - Added a triage metadata checklist to make each bug easier to verify and close.
 
-## Status Update (2026-02-15)
+## Status Update (2026-02-16)
 - Baseline audit tickets `#1-24` are marked `fixed`.
 - Recent tickets `#25-34` were re-audited on 2026-02-15.
 - Open tickets: none remaining.
-- Tickets #35-#48 fixed on 2026-02-16 (commit `902898a`). #37, #46, #48 were already fixed but unmarked.
-- Verification gates passed after baseline and recent fixes (latest run: 2026-02-15): `make check` and full test suite.
+- Tickets `#35-#48` are fixed as of 2026-02-16. Parser fixes for `#35-#47` landed in commit `902898a`; ticket `#48` was already fixed and then marked in `bugs.md` in commit `743bf33`.
+- Verification gates passed after baseline and recent fixes (latest run: 2026-02-16): `make check` and full test suite.
 
 ## Error Analysis (2026-02-15)
 - Ran full pipeline on 6 sample deeds (18, 24, 31 Pennbrook variants) using GPT-5.2 and Gemini 3 Flash Preview.
@@ -417,18 +417,6 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested test:** Assert non-empty `to` for `N 45° E 100 feet to the right of intersection`.
 - **Suggested fix:** Expand the guard to only filter true curve-direction tokens (e.g., followed by end-of-phrase/comma/period), not general spatial descriptors like `to the right of`.
 
-### 42) Curve parser only matches "arc length", not "arc distance"
-- **Status:** `fixed` (verified 2026-02-15)
-- **Severity:** `high`
-- **Reproducibility:** `always`
-- **Location:** `src/metesparser/call_extractor.py` (`extract_curve_info`, lines 387 and 431)
-- **Minimal input:** `ALONG THE SOUTHEASTERLY LINE OF GREENMOUNT ROAD, ON A CURVE TO THE RIGHT HAVING A RADIUS OF 50.00 FEET, AN ARC DISTANCE OF 36.35 FEET TO A POINT OF TANGENCY`
-- **Expected behavior:** Curve call is extracted with `arc_length_ft=36.35`, `radius_ft=50.0`, `curve_dir="right"`.
-- **Actual behavior:** Arc length regex only matched `"arc length of"`, not `"arc distance of"`. The curve call failed Pydantic validation (`Curve geometry requires radius_ft and either delta_deg or arc_length_ft`) and was silently dropped.
-- **Impact:** Entire curve calls were lost from the traverse, producing incorrect call counts, inflated misclosure, and wrong area calculations. Affected 31 Pennbrook Dr (Book 11191) ground truth extraction.
-- **Fix:** Updated both arc length regex patterns to `arc\s+(?:length|distance)\s+(?:of\s+)?(\d+(?:\.\d+)?)`.
-- **Commit:** `d99a592`
-
 ### 41) Numeric principal meridian ordinals are not parsed
 - **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `medium`
@@ -440,6 +428,18 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Actual behavior:** Such inputs return `None` despite valid format.
 - **Suggested test:** Add regression case to assert `TextParser.extract_plss_metadata("IN 6th Principal Meridian")["principal_meridian"] == "6th Principal Meridian"`.
 - **Suggested fix:** Extend principal-meridian token pattern to allow ordinal digits/suffixes (e.g., `\d+(?:st|nd|rd|th)?`) alongside alphabetic words before `Principal Meridian`/`P.M.`.
+
+### 42) Curve parser only matches "arc length", not "arc distance"
+- **Status:** `fixed` (verified 2026-02-16)
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `src/metesparser/call_extractor.py` (`extract_curve_info`, lines 387 and 431)
+- **Minimal input:** `ALONG THE SOUTHEASTERLY LINE OF GREENMOUNT ROAD, ON A CURVE TO THE RIGHT HAVING A RADIUS OF 50.00 FEET, AN ARC DISTANCE OF 36.35 FEET TO A POINT OF TANGENCY`
+- **Expected behavior:** Curve call is extracted with `arc_length_ft=36.35`, `radius_ft=50.0`, `curve_dir="right"`.
+- **Actual behavior:** Arc length regex only matched `"arc length of"`, not `"arc distance of"`. The curve call failed Pydantic validation (`Curve geometry requires radius_ft and either delta_deg or arc_length_ft`) and was silently dropped.
+- **Impact:** Entire curve calls were lost from the traverse, producing incorrect call counts, inflated misclosure, and wrong area calculations. Affected 31 Pennbrook Dr (Book 11191) ground truth extraction.
+- **Fix:** Updated both arc length regex patterns to `arc\s+(?:length|distance)\s+(?:of\s+)?(\d+(?:\.\d+)?)`.
+- **Commit:** `d99a592`
 
 ### 43) Packed-DMS bearings are never parsed from call text
 - **Status:** `fixed` (verified 2026-02-16)
@@ -477,7 +477,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Introduce a shared numeric normalization helper that strips commas before conversion and reuse it for straight/alternate/cuve distance and radius/arc extraction.
 
 ### 46) POB description distances leak into call extraction as phantom courses
-- **Status:** `fixed`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/call_extractor.py` (`CallExtractor.extract_calls`), `src/metesparser/text_parser.py` (`TextParser.split_into_calls`)
@@ -503,7 +503,7 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested fix:** Update `extract_legal_description.yaml` prompt to explicitly instruct the LLM to prefer Exhibit A, survey attachments, or the most detailed metes-and-bounds section when multiple descriptions exist.
 
 ### 48) Markdown-based extraction fails to split inline-numbered `thence (N)` calls
-- **Status:** `fixed`
+- **Status:** `fixed` (verified 2026-02-16)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `src/metesparser/text_parser.py` (`TextParser.split_into_calls`), `src/metesparser/call_extractor.py` (`CallExtractor.extract_calls`)
