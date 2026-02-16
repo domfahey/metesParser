@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
@@ -13,6 +14,8 @@ import structlog.contextvars
 from .logging_config import configure_logging, get_log_format
 
 logger = structlog.get_logger(__name__)
+
+RUNS_DIR = Path("runs")
 
 
 def _emit_closure_summary(summary: str, command_logger: structlog.stdlib.BoundLogger) -> None:
@@ -75,6 +78,42 @@ def extract_command(
             CSVBuilder.legal_description_to_csv(legal_desc, output)
             command_logger.info("Exported unverified CSV")
 
+        # Write run manifest (never fails the main extract flow)
+        try:
+            import metesparser
+
+            from .run_registry import (
+                RunManifest,
+                RunResults,
+                get_prompt_versions,
+                write_run_manifest,
+            )
+
+            prompt_versions = get_prompt_versions(processor.prompts_dir)
+            manifest = RunManifest(
+                run_id=run_id,
+                timestamp_utc=datetime.now(UTC),
+                source_pdf=pdf_file.name,
+                llm_provider=llm_provider
+                if llm_provider is not None
+                else os.getenv("METESPARSER_LLM_PROVIDER", "openai"),
+                llm_model=getattr(getattr(processor, "client", None), "model", "unknown"),
+                cache_enabled=not no_cache,
+                prompt_versions=prompt_versions,
+                results=RunResults(
+                    call_count=len(legal_desc.calls),
+                    closure_passed=closure_result.closure_passed,
+                    misclosure_ft=closure_result.misclosure_ft,
+                    area_sq_ft=closure_result.area_sq_ft,
+                    confidence_score=closure_result.confidence_score or 0.0,
+                    warnings=closure_result.warnings,
+                ),
+                parser_version=metesparser.__version__,
+            )
+            write_run_manifest(manifest, RUNS_DIR)
+        except Exception:
+            command_logger.warning("Failed to write run manifest", exc_info=True)
+
     except Exception:
         command_logger.exception("Failed to process PDF")
         sys.exit(1)
@@ -132,6 +171,24 @@ def export_command(csv_path: str, format: str = "geojson", output: str | None = 
     sys.exit(1)
 
 
+def compare_runs_command(runs_dir: str | None = None, pdf_filter: str | None = None) -> None:
+    """Compare extraction runs across prompt versions."""
+    from .run_registry import format_comparison_table, load_run_manifests
+
+    resolved_dir = Path(runs_dir) if runs_dir else RUNS_DIR
+    command_logger = logger.bind(command="compare-runs", runs_dir=str(resolved_dir))
+    command_logger.info("Comparing runs")
+
+    try:
+        manifests = load_run_manifests(resolved_dir)
+        command_logger.info("Loaded run manifests", count=len(manifests))
+        output = format_comparison_table(manifests, pdf_filter=pdf_filter)
+        print(output)
+    except Exception:
+        command_logger.exception("Failed to compare runs")
+        sys.exit(1)
+
+
 def main() -> None:
     """Main CLI entry point."""
     import argparse
@@ -185,6 +242,12 @@ def main() -> None:
         "-a", "--area", type=float, help="Stated area in square feet (for comparison)"
     )
 
+    compare_parser = subparsers.add_parser("compare-runs", help="Compare extraction runs")
+    compare_parser.add_argument(
+        "--runs-dir", help="Directory containing run manifests (default: runs/)"
+    )
+    compare_parser.add_argument("--pdf", help="Filter by PDF name (substring match)")
+
     args = parser.parse_args()
 
     try:
@@ -212,6 +275,8 @@ def main() -> None:
         extract_command(args.pdf, args.output, args.llm_provider, no_cache=args.no_cache)
     elif args.command == "verify":
         verify_command(args.csv, args.area)
+    elif args.command == "compare-runs":
+        compare_runs_command(args.runs_dir, args.pdf)
     else:
         parser.print_help()
         sys.exit(1)
