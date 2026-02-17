@@ -31,7 +31,7 @@ BEGINNING_PATTERN = re.compile(r"\bBEGINNING\s+(?:at|in)\b", re.IGNORECASE)
 
 # Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from call_extractor.py
 CARDINAL_ONLY_PATTERN = re.compile(
-    r"\b(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly|wardly)?\b",
+    r"\b(north|south|east|west|northeast|northwest|southeast|southwest|NE|NW|SE|SW)(?:erly|wardly)?\b",
     re.IGNORECASE,
 )
 

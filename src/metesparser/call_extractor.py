@@ -648,9 +648,9 @@ class CallExtractor:
             return cardinal_match.group(0).lower()
 
         # Abbreviated cardinal directions (NW, SW, NE, SE) from LLM normalization
-        abbrev_match = re.search(r"\b(NE|NW|SE|SW)\b", text)
+        abbrev_match = re.search(r"\b(NE|NW|SE|SW)\b", text, re.IGNORECASE)
         if abbrev_match:
-            return abbrev_match.group(0)
+            return abbrev_match.group(0).lower()
 
         return ""
 

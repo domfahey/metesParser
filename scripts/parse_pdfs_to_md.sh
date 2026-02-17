@@ -25,7 +25,7 @@ PARSE_CACHE="$HOME/.parse"
 
 # Max quality config for LlamaParse
 CONFIG_FILE=$(mktemp)
-trap 'rm -f "$CONFIG_FILE"' EXIT
+trap 'trash "$CONFIG_FILE" 2>/dev/null || true' EXIT
 
 cat > "$CONFIG_FILE" <<'CONF'
 {
