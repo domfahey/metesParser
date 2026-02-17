@@ -53,3 +53,37 @@ class TestTract:
     def test_tract_forbids_extra(self):
         with pytest.raises(Exception):
             Tract(label="X", tract_type=TractType.MAIN, calls=[], foo="bar")  # type: ignore[call-arg]
+
+
+from mp_models import LegalDescription
+
+
+class TestLegalDescriptionTracts:
+    def test_tracts_default_empty(self):
+        ld = LegalDescription()
+        assert ld.tracts == []
+
+    def test_all_calls_returns_flat_calls_when_no_tracts(self):
+        call = DeedCall(course=1, direction_text="N 45\u00b000' E", distance_ft=100.0)
+        ld = LegalDescription(calls=[call])
+        assert ld.all_calls == [call]
+
+    def test_all_calls_merges_tract_calls(self):
+        c1 = DeedCall(course=1, direction_text="N 45\u00b000' E", distance_ft=100.0)
+        c2 = DeedCall(course=2, direction_text="S 45\u00b000' E", distance_ft=200.0)
+        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=[c1])
+        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=[c2])
+        ld = LegalDescription(tracts=[t1, t2])
+        assert ld.all_calls == [c1, c2]
+
+    def test_all_calls_prefers_tracts_over_calls(self):
+        c1 = DeedCall(course=1, direction_text="N 45\u00b000' E", distance_ft=100.0)
+        c2 = DeedCall(course=2, direction_text="S 45\u00b000' E", distance_ft=200.0)
+        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=[c2])
+        ld = LegalDescription(calls=[c1], tracts=[t1])
+        assert ld.all_calls == [c2]
+
+    def test_num_calls_still_uses_calls_field(self):
+        c1 = DeedCall(course=1, direction_text="N 45\u00b000' E", distance_ft=100.0)
+        ld = LegalDescription(calls=[c1])
+        assert ld.num_calls() == 1
