@@ -12,7 +12,7 @@ from .pdf_processor import PDFProcessor
 from .pipeline import Pipeline
 from .text_parser import TextParser
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     "__version__",
