@@ -7,33 +7,37 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 
 ## Features
 
-- 📄 **PDF Extraction** - Extract legal descriptions using OpenAI or Gemini APIs
-- 🧭 **Bearing Conversion** - Quadrant bearings to azimuth (degrees from North)
-- 📐 **Curve Support** - Full radius, delta, arc length, chord calculations; compound/reverse curves
-- ✅ **8 Verification Checks** - Traverse closure, angles, curves, area, parallelism, double-entry, bearing reversals, distance reasonableness
-- 📊 **CSV Export** - Standard 21-field schema for GIS plotting
-- 🏛️ **Monument Classification** - Automatically identifies survey marker types (iron rod, stone, brass cap, etc.)
-- 🗺️ **PLSS Support** - Extracts Section, Township, Range, Principal Meridian metadata
-- ⚠️ **Exception Handling** - Parses EXCEPT/LESS AND EXCEPT clauses with proper area calculations
-- 🔁 **POB Closure Detection** - Identifies calls that close back to Point of Beginning
-- 📍 **POC vs POB Distinction** - Separates Point of Commencement (survey reference) from Point of Beginning (parcel boundary)
-- 🚫 **Never Fabricates Data** - Flags incomplete bearings, never invents numbers
-- 🔄 **Unit Conversion** - Supports feet, poles, rods, chains, varas, arpents, toises, furlongs, meters, miles, engineer chains/links
-- 📊 **Quality Scoring** - Per-call quality (high/medium/low) and overall confidence score (0.0-1.0)
-- 🔍 **Audit Sidecar** - Optional `.audit.json` + `.audit.html` alongside verified CSV for full transparency
-- 💾 **LLM Caching** - File-based response caching for deterministic, cost-effective re-extraction
-- 🔬 **Run Registry** - Track prompt versions and extraction results for A/B comparison across runs
+- **PDF Extraction** - Extract legal descriptions using OpenAI or Gemini APIs
+- **Bearing Conversion** - Quadrant bearings to azimuth (degrees from North)
+- **Curve Support** - Full radius, delta, arc length, chord calculations; compound/reverse curves
+- **8 Verification Checks** - Traverse closure, angles, curves, area, parallelism, double-entry, bearing reversals, distance reasonableness
+- **CSV Export** - Standard 21-field schema for GIS plotting
+- **Monument Classification** - Automatically identifies survey marker types (iron rod, stone, brass cap, etc.)
+- **PLSS Support** - Extracts Section, Township, Range, Principal Meridian metadata
+- **Exception Handling** - Parses EXCEPT/LESS AND EXCEPT clauses with proper area calculations
+- **POB Closure Detection** - Identifies calls that close back to Point of Beginning
+- **POC vs POB Distinction** - Separates Point of Commencement (survey reference) from Point of Beginning (parcel boundary)
+- **Never Fabricates Data** - Flags incomplete bearings, never invents numbers
+- **Unit Conversion** - Supports feet, poles, rods, chains, varas, arpents, toises, furlongs, meters, miles, engineer chains/links
+- **Quality Scoring** - Per-call quality (high/medium/low) and overall confidence score (0.0-1.0)
+- **Audit Sidecar** - Optional `.audit.json` + `.audit.html` alongside verified CSV for full transparency
+- **LLM Caching** - File-based response caching for deterministic, cost-effective re-extraction
+- **Run Registry** - Track prompt versions and extraction results for A/B comparison across runs
+- **Composable Packages** - 7 independently installable packages in a uv workspace monorepo
 
 ## Recent Updates (v0.4.0)
 
-- **Phase 6: Audit Sidecar** - Full transparency with `.audit.json` + `.audit.html` alongside verified CSV. Tracks LLM extraction confidence, per-call source excerpts, field-level transformations, and verification results.
+- **Composable Package Architecture** - Refactored into 7 independently installable packages in a uv workspace monorepo (mp-models, mp-bearing, mp-ocr, mp-parse, mp-verify, mp-export, metesparser). Each package does one thing well; the monolith is preserved for backward compatibility.
+- **Pipeline Orchestrator** - `Pipeline` class chains mp-ocr -> mp-parse -> mp-verify -> mp-export in a single call.
+- **Audit Sidecar** - Full transparency with `.audit.json` + `.audit.html` alongside verified CSV. Tracks LLM extraction confidence, per-call source excerpts, field-level transformations, and verification results.
 - **Quality Scoring** - Per-call quality (high/medium/low) and weighted confidence score (0.0-1.0) on `ClosureResult`.
 - **Run Registry** - Track prompt versions (git SHA + content hash) and extraction metrics per run. Compare results with `metesparser compare-runs`.
-- **35 features** across 6 phases: foundation units, enhanced parsing, verification checks, geometric completeness, production features, and audit transparency.
-- **888 tests, ~93% coverage** with unit, integration, regression, and e2e categories.
+- **Ground Truth Review Packets** - Self-contained HTML review pages per deed with traverse plots, call tables, and text comparison.
+- **38 features** across 6 phases: foundation units, enhanced parsing, verification checks, geometric completeness, production features, and audit transparency.
+- **~991 tests, ~93% coverage** with unit, integration, regression, and e2e categories.
+- 63 sample deeds with ground truth JSON + LlamaParse markdown conversions.
 - Gemini LLM provider support alongside OpenAI (`--llm-provider gemini`).
 - File-based LLM response caching via `CachedLLMClient`.
-- Ground truth JSON files stored alongside each sample PDF in `sample_deeds/` for replayable extraction checks.
 
 ## Ground Truth Workflow
 
@@ -129,60 +133,78 @@ export METESPARSER_LOG_FORMAT=json   # console or json
 ### Python API
 
 ```python
+# Using the Pipeline orchestrator (recommended)
+from pathlib import Path
+from metesparser import Pipeline
+
+pipe = Pipeline(provider="openai", cache=True, audit=True)
+result, audit_ctx = pipe.run(Path("deed.pdf"))
+
+# Or using individual components
 from metesparser import PDFProcessor, ClosureChecker
 
-# Extract and parse
 processor = PDFProcessor()
 legal_desc = processor.process_deed_pdf("deed.pdf")
 
-# Verify closure
-checker = ClosureChecker()
-result = checker.verify_closure(legal_desc.calls)
+result = ClosureChecker.verify_closure(legal_desc.calls)
 
 print(f"Misclosure: {result.misclosure_ft:.4f} ft")
 print(f"Area: {result.area_acres:.4f} acres")
-print(f"Status: {'✓ VERIFIED' if result.is_fully_verified() else '⚠ NEEDS REVIEW'}")
+print(f"Status: {'VERIFIED' if result.is_fully_verified() else 'NEEDS REVIEW'}")
 ```
 
 ## Architecture
 
+### Composable Packages
+
+The codebase is a **uv workspace monorepo** with 7 independently installable packages following Unix philosophy (each does one thing well):
+
+| Package | Purpose | Dependencies |
+|---------|---------|--------------|
+| `mp-models` | Pydantic schemas, JSONL envelope, units | None |
+| `mp-bearing` | Pure math: azimuth, curves, deltas | mp-models |
+| `mp-ocr` | LLM boundary: PDF -> text (OpenAI/Gemini) | mp-models |
+| `mp-parse` | Rule-based parsing: text -> calls | mp-models, mp-bearing |
+| `mp-verify` | Geometric verification: 8 checks | mp-models, mp-bearing |
+| `mp-export` | CSV/JSON/audit HTML output | mp-models, mp-verify |
+| `metesparser` | Pipeline orchestrator + CLI | All packages |
+
+Only `mp-ocr` calls LLMs; everything downstream is deterministic.
+
 ### Data Flow
 
 ```
-PDF → Extract → Normalize → Parse Calls → Verify → CSV
-       LLM      TextParser  CallExtractor  Closure  _verified.csv
-                                          Checker   (if passed)
+PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
+       LLM       Rules       8 checks    _verified.csv
+       extract    extract     closure     .audit.json
+                  calls       area        .audit.html
 ```
 
-### Core Modules
+### Monolith Modules (Backward Compatibility)
 
-| Module | Purpose |
-|--------|---------|
-| `models.py` | Pydantic schemas (DeedCall, LegalDescription, ClosureResult, AuditContext) |
-| `bearing_converter.py` | Quadrant ↔ azimuth, curve calculations |
-| `text_parser.py` | Text normalization, OCR error fixes |
-| `call_extractor.py` | Regex-based call parsing (rule-based, not AI) |
-| `closure_checker.py` | 8 verification checks + quality/confidence scoring |
-| `csv_builder.py` | CSV export/import with standard 21-field schema |
-| `pdf_processor.py` | LLM integration for PDF extraction (OpenAI/Gemini) |
-| `llm_clients.py` | BaseLLMClient ABC, OpenAIClient, GeminiClient providers |
-| `llm_cache.py` | File-based LLM response caching (CachedLLMClient) |
-| `audit_reporter.py` | Self-contained HTML audit report generation |
-| `run_registry.py` | Run manifest tracking, prompt versioning, A/B comparison |
-| `logging_config.py` | structlog configuration (console + JSON modes) |
-| `cli.py` | Command-line interface |
+The original monolith in `src/metesparser/` is preserved for backward compatibility:
+
+| Module | Package Equivalent |
+|--------|-------------------|
+| `models.py` | `mp-models` |
+| `bearing_converter.py` | `mp-bearing` |
+| `text_parser.py`, `call_extractor.py` | `mp-parse` |
+| `pdf_processor.py`, `llm_clients.py`, `llm_cache.py` | `mp-ocr` |
+| `closure_checker.py` | `mp-verify` |
+| `csv_builder.py`, `audit_reporter.py` | `mp-export` |
+| `pipeline.py`, `cli.py`, `run_registry.py` | `metesparser` |
 
 ### Verification Checks
 
 The system implements 8 checks before exporting verified CSV:
 
 1. **Traverse Closure** - Misclosure < 0.01 ft
-2. **Interior Angles** - Sum matches (n-2)×180°
+2. **Interior Angles** - Sum matches (n-2)x180 degrees
 3. **Parallelism** - Continuing lines have matching bearings
-4. **Curve Consistency** - L ≈ R×Δ, chord ≈ 2R×sin(Δ/2)
+4. **Curve Consistency** - L ~ R*delta, chord ~ 2R*sin(delta/2)
 5. **Area Reasonableness** - Computed vs stated area
 6. **Double-Entry Validation** - Compare duplicate entries
-7. **Bearing Reversal Detection** - Adjacent courses ~180° apart (5° threshold)
+7. **Bearing Reversal Detection** - Adjacent courses ~180 degrees apart (5 degree threshold)
 8. **Distance Reasonableness** - Flags <0.5 ft, >10x median, >90% perimeter
 
 ## Development
@@ -218,7 +240,7 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite runs ~888 tests organized by type:
+The test suite runs ~991 tests organized by type:
 
 ```bash
 # Run all tests (unit + integration + e2e + regression)
@@ -245,6 +267,10 @@ uv run pytest tests/unit/test_bearing_converter.py -v
 
 # Run tests matching pattern
 uv run pytest -k "closure" --pdb
+
+# Run per-package tests (requires --no-cov)
+uv run pytest packages/mp-models/tests/ -v --no-cov
+for pkg in packages/mp-*/tests/; do uv run pytest "$pkg" -v --no-cov; done
 
 # Generate coverage report
 make test-cov
@@ -288,8 +314,8 @@ non_tangent,radial_bearing,notes
 
 **Example:**
 ```csv
-1,"S 33°20' E","S 33°20' E",146.666667,60.00,,,,,,"SW line of Concord Dr","a point in the division line","iron_pin",,false,false,"",""
-2,"S 56°40' W","S 56°40' W",236.666667,125.00,,,,,,"Div. line L46/47 to L50","point corner to Lot 50","stone",,false,false,"",""
+1,"S 33 20' E","S 33 20' E",146.666667,60.00,,,,,,"SW line of Concord Dr","a point in the division line","iron_pin",,false,false,"",""
+2,"S 56 40' W","S 56 40' W",236.666667,125.00,,,,,,"Div. line L46/47 to L50","point corner to Lot 50","stone",,false,false,"",""
 ```
 
 **Key Fields:**
@@ -303,14 +329,14 @@ non_tangent,radial_bearing,notes
 
 ## Bearing Convention
 
-Azimuth = degrees clockwise from North (0-360°):
+Azimuth = degrees clockwise from North (0-360):
 
 | Quadrant | Example | Azimuth Formula | Result |
 |----------|---------|-----------------|--------|
-| N θ E | N 45° E | θ | 45° |
-| S θ E | S 45° E | 180 - θ | 135° |
-| S θ W | S 45° W | 180 + θ | 225° |
-| N θ W | N 45° W | 360 - θ | 315° |
+| N x E | N 45 E | x | 45 |
+| S x E | S 45 E | 180 - x | 135 |
+| S x W | S 45 W | 180 + x | 225 |
+| N x W | N 45 W | 360 - x | 315 |
 
 ## Unit Conversions
 
@@ -341,41 +367,30 @@ Azimuth = degrees clockwise from North (0-360°):
 ```
 metesParser/
 ├── Makefile                     # Development commands
-├── pyproject.toml               # UV configuration + tool settings
-├── src/metesparser/             # Main package (14 modules)
-│   ├── models.py
-│   ├── bearing_converter.py
-│   ├── text_parser.py
-│   ├── call_extractor.py
-│   ├── closure_checker.py
-│   ├── csv_builder.py
-│   ├── pdf_processor.py
-│   ├── llm_clients.py
-│   ├── llm_cache.py
-│   ├── run_registry.py
-│   ├── audit_reporter.py
-│   ├── logging_config.py
-│   └── cli.py
+├── pyproject.toml               # UV workspace root + tool settings
+├── packages/                    # Composable packages (uv workspace)
+│   ├── mp-models/               # Pydantic schemas, JSONL envelope, units
+│   ├── mp-bearing/              # Pure math: azimuth, curves, deltas
+│   ├── mp-ocr/                  # LLM boundary: PDF -> text
+│   ├── mp-parse/                # Rule-based parsing: text -> calls
+│   ├── mp-verify/               # Geometric verification: 8 checks
+│   └── mp-export/               # CSV/JSON/audit HTML output
+├── src/metesparser/             # Orchestrator + backward-compat monolith
+│   ├── pipeline.py              # Pipeline orchestrator
+│   ├── cli.py                   # Command-line interface
+│   ├── run_registry.py          # Prompt A/B testing
+│   ├── review_packet.py         # Ground truth review packets
+│   └── ...                      # Monolith modules (kept in sync with packages)
 ├── prompts/                     # Prompt YAML files
-├── tests/                       # Pytest test suite (~888 tests, ~93% coverage)
-│   ├── conftest.py              # Shared fixtures
-│   ├── helpers.py               # Test utilities
-│   ├── fixtures/                # Sample legal descriptions
-│   ├── unit/                    # Unit tests (32 files, 793 tests)
-│   ├── integration/             # Integration tests (31 tests)
-│   ├── e2e/                     # End-to-end CLI tests (2 tests)
-│   └── regression/              # Bug fix tests (40 tests)
-├── scripts/                     # Standalone utility scripts
-├── sample_deeds/                # Sample PDFs + ground truth JSON
+├── tests/                       # Pytest test suite (~991 tests, ~93% coverage)
+│   ├── unit/                    # Unit tests
+│   ├── integration/             # Integration tests
+│   ├── e2e/                     # End-to-end CLI tests
+│   └── regression/              # Bug fix tests
+├── scripts/                     # Utility scripts
+├── sample_deeds/                # 63 sample PDFs + ground truth JSON + LlamaParse markdown
 ├── docs/                        # Documentation
-│   ├── reference/               # Reference PDFs (BLM manual, etc.)
-│   ├── METES_AND_BOUNDS_REFERENCE.md  # Surveying reference
-│   ├── TESTING.md               # Test suite guide
-│   ├── ARCHITECTURE.md          # System design
-│   ├── API.md                   # Python API reference
-│   └── CONTRIBUTING.md          # Development guidelines
 ├── CLAUDE.md                    # AI assistant guidance
-├── AGENTS.md                    # Agent workflow documentation
 └── bugs.md                      # Known issues tracker
 ```
 
@@ -405,7 +420,7 @@ LOG_LEVEL=INFO          # Optional (default: INFO)
 - Run `make dev-setup` to create `.env` from template
 
 **Traverse doesn't close**
-- Check for OCR errors in bearings (0 vs °, 1 vs l/I, 5 vs S)
+- Check for OCR errors in bearings (0 vs degree symbol, 1 vs l/I, 5 vs S)
 - Verify distance units (feet vs poles)
 - Review misclosure report for specific issues
 

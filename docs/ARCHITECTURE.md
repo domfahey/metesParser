@@ -6,12 +6,14 @@ System design and data flow for metesParser.
 
 - [System Overview](#system-overview)
 - [Core Principles](#core-principles)
+- [Composable Package Architecture](#composable-package-architecture)
 - [Data Flow](#data-flow)
-- [Module Architecture](#module-architecture)
+- [Package Details](#package-details)
 - [Data Models](#data-models)
 - [Verification Pipeline](#verification-pipeline)
 - [Error Handling](#error-handling)
 - [Performance Considerations](#performance-considerations)
+- [Design Decisions](#design-decisions)
 - [Concrete Sample Workflow](#concrete-sample-workflow)
 
 ## System Overview
@@ -20,18 +22,19 @@ metesParser is a deterministic metes & bounds parser that converts legal descrip
 
 ### Key Characteristics
 
-- **Rule-based parsing** - No AI/ML in core logic (only PDF extraction)
+- **Rule-based parsing** - No AI/ML in core logic (only PDF extraction via mp-ocr)
 - **Deterministic output** - Same input always produces same result
 - **Verification-first** - Won't output `_verified.csv` unless all checks pass
 - **Never fabricates** - Flags incomplete data rather than guessing
+- **Composable** - 7 independently installable packages, each does one thing well
 
 ### Technology Stack
 
 - **Python 3.11+** - Modern Python with type hints (`|` unions)
 - **Pydantic v2** - Data validation and schema enforcement
 - **OpenAI + optional Gemini** - Configurable LLM providers for PDF extraction
-- **UV** - Dependency management (no pip/conda/poetry)
-- **pytest** - Test framework with 866 tests (~93% coverage)
+- **UV workspace monorepo** - 7 composable packages (no pip/conda/poetry)
+- **pytest** - Test framework with ~991 tests (~93% coverage)
 
 ## Core Principles
 
@@ -40,11 +43,11 @@ metesParser is a deterministic metes & bounds parser that converts legal descrip
 ```python
 # NEVER do this:
 if bearing is None:
-    bearing = "estimate based on adjacent calls"  # ❌ WRONG
+    bearing = "estimate based on adjacent calls"  # WRONG
 
 # ALWAYS do this:
 if bearing is None:
-    call.notes = "incomplete bearing - manual review required"  # ✅ CORRECT
+    call.notes = "incomplete bearing - manual review required"  # CORRECT
 ```
 
 ### 2. Verification Before Export
@@ -53,7 +56,6 @@ if bearing is None:
 result = ClosureChecker.verify_closure(calls)
 
 if result.is_fully_verified():
-    # Pass legal_desc for metadata-rich verified output
     CSVBuilder.export_verified_csv(calls, result, output_path, legal_desc=legal_desc)
 else:
     print(f"Cannot export verified CSV: {result.misclosure_ft:.4f} ft misclosure")
@@ -64,7 +66,7 @@ else:
 ```python
 # Keep deed language verbatim in descriptive fields
 call = DeedCall(
-    bearing_quadrant="S 56°40' W",
+    bearing_quadrant="S 56 40' W",
     distance_ft=125.0,
     along="the division line between Lots 46 and 47",  # Preserve exact wording
     to="the corner to Lot 50",  # Preserve exact wording
@@ -74,244 +76,231 @@ call = DeedCall(
 ### 4. Deterministic Processing
 
 ```python
-# LLM extraction for deterministic behavior
-from metesparser.llm_clients import OpenAIClient, GeminiClient
+# LLM extraction uses temperature=0 for deterministic behavior
+from mp_ocr import OpenAIClient, GeminiClient
 
-response_client = OpenAIClient()
+client = OpenAIClient()
 # or
-response_client = GeminiClient()
-
-response = response_client.generate_text(combined_prompt)
+client = GeminiClient()
 ```
+
+## Composable Package Architecture
+
+The codebase is a **uv workspace monorepo** with 7 independently installable packages following Unix philosophy:
+
+```
+packages/
+  mp-models/    -> Pydantic schemas, JSONL envelope, units (zero deps)
+  mp-bearing/   -> Pure math: azimuth, curves, deltas (depends: mp-models)
+  mp-ocr/       -> LLM boundary: PDF -> text (depends: mp-models)
+  mp-parse/     -> Rule-based parsing: text -> calls (depends: mp-models, mp-bearing)
+  mp-verify/    -> Geometric verification: 8 checks (depends: mp-models, mp-bearing)
+  mp-export/    -> CSV/JSON/audit HTML output (depends: mp-models, mp-verify)
+src/metesparser/ -> Orchestrator + backward-compat monolith
+```
+
+### Dependency Graph
+
+```
+                    mp-models (zero deps)
+                   /    |    \
+                  /     |     \
+           mp-bearing   |    mp-ocr
+              / \       |
+             /   \      |
+        mp-parse  mp-verify
+             \      /
+              \    /
+            mp-export
+                |
+           metesparser (orchestrator + CLI)
+```
+
+### Package-to-Monolith Mapping
+
+The original monolith in `src/metesparser/` is preserved for backward compatibility. Both must stay in sync:
+
+| Package | Monolith Module(s) |
+|---------|-------------------|
+| `mp-models` | `models.py` |
+| `mp-bearing` | `bearing_converter.py` |
+| `mp-ocr` | `pdf_processor.py`, `llm_clients.py`, `llm_cache.py` |
+| `mp-parse` | `call_extractor.py`, `text_parser.py` |
+| `mp-verify` | `closure_checker.py` |
+| `mp-export` | `csv_builder.py`, `audit_reporter.py` |
+| `metesparser` | `pipeline.py`, `cli.py`, `run_registry.py`, `review_packet.py` |
+
+### Pipeline Orchestrator
+
+The `Pipeline` class chains all stages in a single call:
+
+```python
+from metesparser import Pipeline
+
+pipe = Pipeline(provider="openai", cache=True, audit=True)
+result, audit_ctx = pipe.run(Path("deed.pdf"))
+```
+
+Currently wraps the monolith `PDFProcessor` for backward compatibility.
 
 ## Data Flow
 
 ### High-Level Pipeline
 
 ```
-┌──────┐     ┌─────────┐     ┌───────────┐     ┌────────┐     ┌──────────┐     ┌────────┐
-│ PDF  │────>│ LLM    │────>│   Text    │────>│  Call  │────>│ Closure  │────>│  CSV   │
-│ File │     │ Extract │     │  Parser   │     │Extract │     │ Checker  │     │ Export │
-└──────┘     └─────────┘     └───────────┘     └────────┘     └──────────┘     └────────┘
-             (API call)      (Normalize)       (Regex)        (Verify)         (if passed)
+PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
+       LLM       Rules       8 checks    _verified.csv
+       extract    extract     closure     .audit.json
+                  calls       area        .audit.html
 ```
 
 ### Detailed Flow
 
 ```
-1. PDF Extraction (pdf_processor.py)
-   ├─> Configured LLM provider (OpenAI or Gemini)
-   ├─> Temperature=0 for determinism
-   └─> Returns: Raw legal description text
+1. PDF Extraction [mp-ocr]
+   |-> Configured LLM provider (OpenAI or Gemini)
+   |-> Temperature=0 for determinism
+   |-> File-based response caching (CachedLLMClient)
+   |-> LLM confidence scoring (7 heuristic signals)
+   '-> Returns: Raw legal description text
 
-2. Text Normalization (text_parser.py)
-   ├─> Fix OCR errors via `clean_ocr_errors` (5outh → South, Ea5t → East, 56 0 40' → 56°40')
-   ├─> Merge wrapped lines (div-\nision → division)
-   ├─> Standardize cardinal directions (South → S)
-   └─> Returns: Normalized text
+2. Text Normalization [mp-parse]
+   |-> Fix OCR errors (5outh -> South, Ea5t -> East)
+   |-> Merge wrapped lines (div-\nision -> division)
+   |-> Standardize cardinal directions (South -> S)
+   '-> Returns: Normalized text
 
-3. POB Extraction (text_parser.py)
-   ├─> Extract BEGINNING clause
-   └─> Returns: Point of Beginning description
+3. Metadata Extraction [mp-parse]
+   |-> POC/POB (Point of Commencement / Point of Beginning)
+   |-> PLSS metadata (Section/Township/Range/PM/aliquot)
+   |-> Area statement, basis of bearing, surveyor certification
+   |-> Prior conveyance, subdivision reference, witness trees
+   |-> Coordinate system + FIPS code
+   '-> Returns: Populated LegalDescription fields
 
-4. Call Extraction (call_extractor.py)
-   ├─> Split calls by numbered markers, THENCE, or semicolons
-   ├─> Parse bearing (quadrant format)
-   ├─> Parse distance + unit
-   ├─> Parse curve parameters (R, Δ, L)
-   ├─> Extract along/to descriptive fields
-   └─> Returns: List[DeedCall]
+4. Call Extraction [mp-parse]
+   |-> Split calls by numbered markers, THENCE, or semicolons
+   |-> Parse bearing (quadrant format)
+   |-> Parse distance + unit (feet, chains, varas, etc.)
+   |-> Parse curve parameters (R, delta, L)
+   |-> Extract along/to descriptive fields
+   |-> Classify monuments and monument status
+   '-> Returns: List[DeedCall]
 
-5. Bearing Enrichment (bearing_converter.py)
-   ├─> Convert quadrant → azimuth
-   ├─> Calculate curve properties
-   └─> Returns: Enriched DeedCall objects
+5. Bearing Enrichment [mp-parse + mp-bearing]
+   |-> Convert quadrant -> azimuth
+   |-> Calculate curve properties
+   |-> Mark tie-in calls (POC-to-POB)
+   '-> Returns: Enriched DeedCall objects
 
-6. Closure Verification (closure_checker.py)
-   ├─> Compute traverse (calculate all points)
-   ├─> Check mandatory guardrails plus optional double-entry validation
-   ├─> Calculate area, perimeter, misclosure
-   └─> Returns: ClosureResult
+6. Closure Verification [mp-verify]
+   |-> Compute traverse (calculate all points)
+   |-> Run 8 verification checks
+   |-> Calculate area, perimeter, misclosure
+   |-> Score per-call quality and overall confidence
+   '-> Returns: ClosureResult
 
-7. CSV Export (csv_builder.py)
-   ├─> If fully verified: export _verified.csv
-   ├─> Else: export regular .csv with warnings
-   ├─> Export metadata; verification summary is written only for verified outputs
-   └─> If audit_context provided: write .audit.json + .audit.html sidecars
+7. CSV Export [mp-export]
+   |-> If fully verified: export _verified.csv
+   |-> Else: export regular .csv with warnings
+   '-> If audit_context provided: write .audit.json + .audit.html sidecars
 
-8. Audit Sidecar (optional — audit_reporter.py)
-   ├─> AuditContext threads through pipeline (created before extraction)
-   ├─> Captures: LLM confidence, source excerpts, transformations, decisions
-   ├─> .audit.json: canonical audit data store
-   └─> .audit.html: self-contained report with collapsible sections, confidence colors
+8. Audit Sidecar (optional) [mp-export]
+   |-> AuditContext threads through pipeline (created before extraction)
+   |-> Captures: LLM confidence, source excerpts, transformations, decisions
+   |-> .audit.json: canonical audit data store
+   '-> .audit.html: self-contained report with collapsible sections, confidence colors
 ```
 
-## Module Architecture
+## Package Details
 
-### Dependency Graph
+### mp-models
 
-```
-┌─────────────┐
-│   cli.py    │  (Entry point)
-└─────┬───────┘
-      │
-      v
-┌─────────────────┐
-│ pdf_processor.py│  (OpenAI/Gemini provider)
-└─────┬───────────┘
-      │
-      v
-┌──────────────┐       ┌─────────────────┐
-│text_parser.py│<──────│call_extractor.py│
-└──────────────┘       └────────┬────────┘
-                                │
-                                v
-                       ┌──────────────────┐
-                       │bearing_converter.│
-                       │       py         │
-                       └────────┬─────────┘
-                                │
-                                v
-                       ┌──────────────────┐
-                       │closure_checker.py│
-                       └────────┬─────────┘
-                                │
-                                v
-                       ┌─────────────┐
-                       │csv_builder.│
-                       │     py      │
-                       └─────────────┘
+**Purpose**: Data schemas and validation (zero external dependencies beyond Pydantic)
 
-         ┌─────────────┐
-         │  models.py  │ (Used by all modules)
-         └─────────────┘
-
-┌──────────────────┐       ┌──────────────────┐
-│ audit_reporter.py│       │  llm_cache.py    │
-│  (HTML reports)  │       │ (response cache) │
-└──────────────────┘       └──────────────────┘
-
-         ┌──────────────────┐
-         │logging_config.py │ (structlog setup)
-         └──────────────────┘
-```
-
-### Module Responsibilities
-
-#### models.py
-**Purpose**: Data schemas and validation
-
-```python
-class DeedCall(BaseModel):
-    """Single deed call with bearing, distance, and metadata."""
-    course: int  # Sequential number
-    bearing_quadrant: str | None  # "N 45°30' E"
-    bearing_azimuth_deg_from_north: float | None  # 45.5
-    distance_ft: float = Field(gt=0)  # Must be > 0
-    # ... curve fields, descriptive fields, notes
-```
-
-**Key Models**:
-- `DeedCall` - Individual call
-- `Point` - X/Y coordinate
-- `LegalDescription` - Full parcel description
-- `ClosureResult` - Verification results with confidence scoring
-- `AuditContext` - Mutable accumulator for audit trail (not frozen)
+**Key Types**:
+- `DeedCall` - Single course with bearing, distance, curve data, and metadata
+- `LegalDescription` - Complete deed with calls list + metadata fields
+- `ClosureResult` - Verification results with misclosure, area, confidence scoring
+- `AuditContext` - Mutable accumulator for audit trail (NOT frozen)
 - `CallAudit`, `Transformation`, `Decision` - Per-call audit details
+- `RawTextMessage`, `LegalDescriptionMessage`, `ClosureResultMessage` - JSONL envelope types
+- `ConversionFactors`, `DistanceUnit` - Unit conversion constants
 
-#### bearing_converter.py
-**Purpose**: Bearing/azimuth conversions and curve math
+### mp-bearing
 
-**Key Methods**:
-- `parse_quadrant_bearing()` - Parse "S 56°40' W" → (S, 56.667, W)
+**Purpose**: Pure coordinate math with no I/O
+
+**Key Functions**:
+- `parse_quadrant_bearing()` - Parse "S 56 40' W" -> (S, 56.667, W)
 - `quadrant_to_azimuth()` - Convert to degrees from North
-- `azimuth_to_quadrant()` - Convert back to quadrant format
-- `calculate_curve_properties()` - Compute L, chord from R, Δ
+- `calculate_curve_properties()` - Compute L, chord from R, delta
 - `calculate_deltas()` - Compute dx, dy from azimuth, distance
+- `parse_packed_dms()` - Parse packed DMS (46.1631 -> 46.2753 degrees)
+- `calculate_missing_curve_elements()` - Any 2+ elements -> all 5
 
 **Formulas**:
-```python
-# Quadrant to Azimuth
-N θ E → az = θ
-S θ E → az = 180 - θ
-S θ W → az = 180 + θ
-N θ W → az = 360 - θ
+```
+Quadrant to Azimuth:
+  N x E -> az = x
+  S x E -> az = 180 - x
+  S x W -> az = 180 + x
+  N x W -> az = 360 - x
 
-# Curve Properties
-L = R × Δ (radians)
-chord = 2R × sin(Δ/2)
-
-# Deltas
-# azimuth is in degrees from North and converted to radians
-dx = distance × sin(radians(azimuth))
-dy = distance × cos(radians(azimuth))
+Curve: L = R * delta (radians), chord = 2R * sin(delta/2)
+Deltas: dx = dist * sin(az), dy = dist * cos(az)
 ```
 
-#### text_parser.py
-**Purpose**: Text normalization and OCR error correction
+### mp-ocr
 
-**Key Methods**:
-- `normalize_legal_description()` - Full normalization pipeline
-- `clean_ocr_errors()` - Correct common OCR mistakes
-- `merge_line_wrapped_calls()` - Fix line breaks mid-word
-- `standardize_cardinal_directions()` - North → N
-- `extract_pob()` - Extract point of beginning
-- `split_into_calls()` - Split on numbered calls, THENCE, or semicolons
+**Purpose**: LLM boundary - the ONLY package that calls AI
 
-**OCR Corrections**:
-```python
-"5outh" → "South"
-"NOrth" → "North"
-"56 0 40'" → "56 degrees 40 minutes"
-"div-\nision" → "division"
-```
+**Key Classes**:
+- `PDFProcessor` - Extracts text from deed PDFs via LLM
+- `BaseLLMClient` ABC, `OpenAIClient`, `GeminiClient` - Provider implementations
+- `CachedLLMClient` - Disk-cached wrapper for LLM responses
+- `compute_llm_confidence()` - 7 weighted heuristic signals, 0.0-1.0
 
-#### call_extractor.py
-**Purpose**: Parse normalized text into structured DeedCall objects
+### mp-parse
 
-**Key Methods**:
-- `extract_calls()` - Parse full description → List[DeedCall]
+**Purpose**: Rule-based parsing (regex, NOT AI)
+
+**Key Functions**:
+- `extract_calls()` - Parse full description -> List[DeedCall]
 - `extract_single_call()` - Parse one call
-- `extract_direction()` - Extract bearing from text
-- `extract_curve_info()` - Extract R, Δ, L from curve text
 - `enrich_calls_with_azimuths()` - Add missing azimuths
+- `mark_tie_in_calls()` - Flag POC-to-POB calls
+- `classify_monument()`, `classify_monument_status()` - Monument classification
+- Metadata: `extract_plss_metadata()`, `extract_poc_and_pob()`, `extract_area_statement()`, `extract_basis_of_bearing()`, etc.
 
-**Parsing Strategy**:
-- **Regex-based** (not AI) for reliability
-- **Defensive** - handle incomplete data gracefully
-- **Flag uncertainties** - never fabricate
+### mp-verify
 
-#### closure_checker.py
-**Purpose**: Verify traverse with 8 checks
+**Purpose**: Geometric verification with 8 checks
 
-**Key Methods**:
-- `verify_closure()` - Main verification entry point
-- `compute_traverse()` - Calculate all (x,y) points
-- `calculate_area()` - Shoelace formula
-- `check_interior_angles()` - Verify (n-2)×180°
-- `check_curve_consistency()` - Verify L ≈ R×Δ
-- `compare_double_entry()` - Compare two independently entered call sets
-- `check_bearing_reversals()` - Detect adjacent courses ~180° apart
-- `check_distance_reasonableness()` - Flag short, long, or dominant distances
-
-**Verification Checks** (8 total):
+**Verification Checks**:
 1. **Traverse Closure** - Misclosure < 0.01 ft by default
-2. **Interior Angles** - Sum = (n-2)×180° (straight-line polygons only)
+2. **Interior Angles** - Sum = (n-2)*180 degrees
 3. **Parallelism** - "continuing" lines match
-4. **Curve Math** - L ≈ R×Δ, chord ≈ 2R×sin(Δ/2)
-5. **Area Check** - When a stated area is provided, flags if computed area differs by more than 5%
-6. **Double Entry** - Optional comparison if a second call set is supplied
-7. **Bearing Reversal** - Adjacent courses ~180° apart suggest transcription error
-8. **Distance Reasonableness** - Flags < 0.5 ft (short), > 10x median (long), > 90% perimeter (dominant)
+4. **Curve Math** - L ~ R*delta, chord ~ 2R*sin(delta/2)
+5. **Area Check** - Flags if computed area differs >5% from stated
+6. **Double Entry** - Optional comparison if second call set supplied
+7. **Bearing Reversal** - Adjacent courses ~180 degrees apart
+8. **Distance Reasonableness** - Flags <0.5 ft, >10x median, >90% perimeter
 
-#### csv_builder.py
-**Purpose**: CSV import/export with verification
+**Key Functions**:
+- `verify_closure()` - Main verification entry point
+- `calculate_confidence_score()` - 0.0-1.0 weighted score
+- `score_call_quality()` - Per-call high/medium/low
+- `get_closure_summary()` - Human-readable summary
 
-**Key Methods**:
-- `calls_to_csv()` - Export List[DeedCall] → CSV
-- `csv_to_calls()` - Import CSV → List[DeedCall]
-- `export_verified_csv()` - Export only if verified
-- `legal_description_to_csv()` - Export with metadata
+### mp-export
+
+**Purpose**: Output formats
+
+**Key Functions**:
+- `export_verified_csv()` - Export only if all checks pass
+- `calls_to_csv()`, `csv_to_calls()` - CSV I/O
+- `generate_html()`, `write_report()` - Audit HTML report
 
 **CSV Schema** (21 fields):
 ```csv
@@ -320,60 +309,6 @@ curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
 along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,
 non_tangent,radial_bearing,notes
 ```
-
-#### pdf_processor.py
-**Purpose**: Extract legal description from PDF using configured LLM provider
-
-**Key Methods**:
-- `process_deed_pdf()` - Main extraction
-- `extract_text_from_pdf()` - PDF → text
-- `generate_text_with_pdf()` - Provider extraction
-
-**Strategy**:
-- Zero-shot prompt with examples
-- Temperature=0 for determinism
-- Structured output format
-  - Retry logic for transient failures
-
-#### cli.py
-**Purpose**: Command-line interface
-
-**Commands**:
-```bash
-metesparser extract <pdf_file>  # Extract from PDF
-metesparser verify <csv_file>   # Verify closure
-```
-
-#### audit_reporter.py
-**Purpose**: Generate self-contained HTML audit reports
-
-**Key Methods**:
-- `AuditReporter.generate_html()` - Generate HTML from `AuditContext`
-
-**Design**:
-- Self-contained HTML with embedded CSS (no external dependencies)
-- Collapsible `<details>` sections for each pipeline stage
-- Confidence color coding: green (>=0.8), yellow (0.5-0.8), red (<0.5)
-- XSS prevention via `html.escape()` on all user content
-
-#### llm_cache.py
-**Purpose**: File-based LLM response caching
-
-**Key Classes**:
-- `CachedLLMClient` - Wraps any `BaseLLMClient` with disk caching
-- Cache key = hash of prompt + model + provider
-
-**Design**:
-- Enabled by default for cost-effective re-extraction
-- Deterministic: same prompt always returns cached response
-- Cache files stored alongside project (gitignored)
-
-#### logging_config.py
-**Purpose**: structlog configuration for console and JSON output modes
-
-**Key Methods**:
-- `configure_logging()` - Set up structlog with console or JSON renderer
-- Supports `run_id` correlation via `structlog.contextvars`
 
 ## Data Models
 
@@ -385,7 +320,7 @@ Core data structure representing one deed call:
 class DeedCall:
     course: int                                    # Sequential number (1, 2, 3...)
     direction_text: str                            # Raw direction text
-    bearing_quadrant: str | None                   # "S 56°40' W"
+    bearing_quadrant: str | None                   # "S 56 40' W"
     bearing_azimuth_deg_from_north: float | None   # 236.667 (degrees from N)
     distance_ft: float                             # Distance in feet (must be > 0)
 
@@ -410,14 +345,6 @@ class DeedCall:
     is_indefinite: bool                            # Vague direction without precise bearing
     curve_type: str | None                         # simple, compound, or reverse
     notes: str | None                              # Warnings/flags
-
-    def is_complete_bearing(self) -> bool:
-        """Check if bearing is complete (not cardinal-only)."""
-        return self.bearing_azimuth_deg_from_north is not None
-
-    def is_curve(self) -> bool:
-        """Check if this is a curve call."""
-        return self.curve_dir is not None or self.radius_ft is not None
 ```
 
 ### ClosureResult
@@ -433,6 +360,7 @@ class ClosureResult:
     area_acres: float                          # Area in acres
     perimeter_ft: float                        # Total perimeter
     precision_ratio: float | None              # Misclosure / perimeter ratio
+    confidence_score: float                    # 0.0-1.0 weighted confidence
 
     closure_passed: bool                       # Misclosure < tolerance?
     angle_check_passed: bool                   # Angles sum correctly?
@@ -443,12 +371,6 @@ class ClosureResult:
 
     def is_fully_verified(self) -> bool:
         """Check if all verification checks passed."""
-        return (
-            self.closure_passed
-            and self.angle_check_passed
-            and self.curve_consistency_passed
-            and len(self.warnings) == 0
-        )
 ```
 
 ## Verification Pipeline
@@ -466,10 +388,8 @@ def compute_traverse(calls, start_point=Point(0, 0)):
             continue  # Skip incomplete bearings
 
         if call.is_curve():
-            # Approximate with chord
             next_point = compute_curve_endpoint(...)
         else:
-            # Straight line
             dx, dy = calculate_deltas(call.bearing_azimuth_deg_from_north, call.distance_ft)
             next_point = Point(current.x + dx, current.y + dy)
 
@@ -479,23 +399,12 @@ def compute_traverse(calls, start_point=Point(0, 0)):
     return points
 ```
 
-### Closure Check
-
-```python
-# Misclosure = distance from last point to first point
-misclosure_x = points[-1].x - points[0].x
-misclosure_y = points[-1].y - points[0].y
-misclosure = sqrt(misclosure_x² + misclosure_y²)
-
-# Pass if misclosure < 0.01 ft
-closure_passed = misclosure < 0.01
-```
-
 ### Area Calculation
+
+Uses the Shoelace formula (Gauss's area formula):
 
 ```python
 def calculate_area(points):
-    """Shoelace formula (Gauss's area formula)."""
     area = 0.0
     n = len(points)
 
@@ -517,8 +426,8 @@ class DeedCall(BaseModel):
     distance_ft: float = Field(gt=0)  # Must be > 0
 
 # This raises ValidationError:
-DeedCall(distance_ft=0.0)  # ❌
-DeedCall(distance_ft=-10.0)  # ❌
+DeedCall(distance_ft=0.0)
+DeedCall(distance_ft=-10.0)
 ```
 
 ### Graceful Degradation
@@ -526,7 +435,6 @@ DeedCall(distance_ft=-10.0)  # ❌
 Handle incomplete data without crashing:
 
 ```python
-# If bearing can't be parsed, flag it
 if parsed_bearing is None:
     call.bearing_azimuth_deg_from_north = None
     call.notes = "incomplete bearing - manual review required"
@@ -539,13 +447,8 @@ Collect warnings rather than failing:
 
 ```python
 warnings = []
-
 if misclosure > tolerance:
     warnings.append(f"Misclosure {misclosure:.4f} ft exceeds tolerance")
-
-if len(incomplete_bearings) > 0:
-    warnings.append(f"{len(incomplete_bearings)} calls have incomplete bearings")
-
 return ClosureResult(..., warnings=warnings)
 ```
 
@@ -565,18 +468,23 @@ return ClosureResult(..., warnings=warnings)
 
 ### Optimization Strategies
 
-1. **Cache extraction calls** - Avoid re-extracting the same PDF
-2. **Batch processing** - Process multiple PDFs in parallel
+1. **LLM response caching** - `CachedLLMClient` avoids re-extracting the same PDF
+2. **Batch processing** - Process multiple PDFs in sequence (all 63 samples in ~22s with cache)
 3. **Skip verification** - For quick viewing, don't run all checks
 
-### Memory Usage
-
-Minimal memory footprint:
-- Each DeedCall: ~500 bytes
-- 100 calls: ~50 KB
-- Traverse points: 16 bytes/point
-
 ## Design Decisions
+
+### Why Composable Packages?
+
+**Decision**: Refactor monolith into 7 independently installable packages.
+
+**Rationale**:
+- **Unix philosophy** - Each package does one thing well
+- **Independent installation** - Use only what you need (e.g., `pip install mp-bearing` for math only)
+- **Clear boundaries** - Only `mp-ocr` calls LLMs; everything else is deterministic
+- **Testable in isolation** - Per-package test suites
+
+**Trade-off**: Dual maintenance (packages + monolith for backward compat), but cross-package import tests prevent drift.
 
 ### Why Rule-Based Parsing?
 
@@ -586,7 +494,6 @@ Minimal memory footprint:
 - **Deterministic** - Same input always produces same output
 - **Debuggable** - Easy to see why parsing succeeded/failed
 - **Fast** - No model loading or inference time
-- **Reliable** - Well-understood regex patterns
 - **Testable** - Easy to write unit tests
 
 **Trade-off**: More brittle to format variations, but acceptable given standardized legal descriptions.
@@ -608,7 +515,7 @@ Minimal memory footprint:
 **Rationale**:
 - **Fast** - Orders of magnitude faster than pip
 - **Deterministic** - Lock file ensures reproducibility
-- **Simple** - Single tool for venv + install + run
+- **Workspace support** - Native monorepo support for composable packages
 - **Modern** - Built with Rust, actively maintained
 
 ### Why Separate Verification Step?
