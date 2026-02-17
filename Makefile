@@ -266,7 +266,6 @@ distclean: clean ## Remove environments and extra local artifacts.
 	@echo "Cleaning extra development artifacts..."
 	rm -rf .uv-cache
 	rm -rf output/
-	rm -rf extraction_output/
 	@echo "✓ Dist-clean complete"
 
 run-extract: ## Run extraction on a deed PDF (requires PDF_FILE).

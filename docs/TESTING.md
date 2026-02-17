@@ -1,6 +1,6 @@
 # Testing Guide
 
-Comprehensive guide to the metesParser test suite (866 tests).
+Comprehensive guide to the metesParser test suite (~996 tests).
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ Comprehensive guide to the metesParser test suite (866 tests).
 ## Overview
 
 The test suite ensures correctness of metes & bounds parsing with:
-- **866 function-level tests** across unit, integration, regression, and e2e categories (as of 2026-02-15)
+- **~996 function-level tests** across unit, integration, regression, and e2e categories (as of 2026-02-17)
 - **Shared fixtures** for common test scenarios (squares, rectangles, curves)
 - **Parametrized tests** to reduce duplication
 - **Custom markers** for selective test execution
@@ -27,11 +27,11 @@ The test suite ensures correctness of metes & bounds parsing with:
 
 | Category | Tests | Files | Purpose |
 |----------|-------|-------|---------|
-| Unit | 793 | 32 | Individual module testing |
-| Integration | 31 | 3 | End-to-end text/PDF/pipeline integration |
+| Unit | 923 | 37 | Individual module testing |
+| Integration | 31 | 4 | End-to-end text/PDF/pipeline integration |
 | Regression | 40 | 1 | Bug fix validation |
 | E2E | 2 | 1 | End-to-end CLI workflows |
-| **Total** | **866** | **37** | Full coverage (~93%) |
+| **Total** | **~996** | **43** | Full coverage (~94%) |
 
 ## Test Organization
 
@@ -44,7 +44,7 @@ tests/
 ├── fixtures/
 │   ├── __init__.py
 │   └── sample_deeds.py      # Legal description samples
-├── unit/                    # Fast, isolated tests (793 tests, 32 files)
+├── unit/                    # Fast, isolated tests (923 tests, 37 files)
 │   ├── test_bearing_converter.py      # 38 tests
 │   ├── test_bugs_closure_tdd.py       # 14 tests
 │   ├── test_bugs_integration_tdd.py   # 13 tests
@@ -75,12 +75,18 @@ tests/
 │   ├── test_phase5_step10.py         # 11 tests
 │   ├── test_phase5b_quality.py       # 35 tests
 │   ├── test_phase6_audit.py          # 67 tests
+│   ├── test_pipeline.py              # Pipeline orchestrator tests
 │   ├── test_pydantic_guardrails.py   # 37 tests
+│   ├── test_review_packet.py         # Review packet generation tests
+│   ├── test_run_registry.py          # Run registry tests
+│   ├── test_scripts.py               # Utility script tests
+│   ├── test_cross_package_imports.py # Cross-package import verification
 │   └── test_text_parser.py           # 71 tests
 ├── integration/             # End-to-end tests (31 tests)
 │   ├── test_integration.py           # Text-based pipeline
 │   ├── test_pdf_processing.py        # PDF pipeline (mocked)
-│   └── test_pipeline_contracts.py    # Pipeline contracts
+│   ├── test_pipeline_contracts.py    # Pipeline contracts
+│   └── test_script_and_packaging_contracts.py  # Script and packaging contracts
 ├── e2e/                     # End-to-end CLI tests (2 tests)
 │   └── test_cli_end_to_end.py        # CLI contract workflow
 └── regression/              # Bug fix tests (40 tests)
@@ -129,6 +135,21 @@ uv run pytest tests/unit/test_bearing_converter.py::TestQuadrantParsing::test_pa
 # Run tests matching pattern
 uv run pytest -k "curve" -v
 uv run pytest -k "bearing and not curve" -v
+```
+
+### Per-Package Tests
+
+The composable packages each have their own test suites. Use `--no-cov` because the root `pyproject.toml` coverage config targets `src/metesparser/`, which causes 0% coverage for package code.
+
+```bash
+# Run a single package's tests
+uv run pytest packages/mp-models/tests/ -v --no-cov
+
+# Run all per-package tests
+for pkg in packages/mp-*/tests/; do uv run pytest "$pkg" -v --no-cov; done
+
+# Verify cross-package imports
+uv run pytest tests/unit/test_cross_package_imports.py -v
 ```
 
 ### Using Test Markers
@@ -185,7 +206,7 @@ The `test_pdf_processing.py` module contains 2 integration tests that validate t
 
 ### Sample Deeds
 
-Six sample deed PDFs are included for testing:
+Six sample deed PDFs are used in mocked integration tests (87 deeds with ground truth are available in `sample_deeds/`):
 - `18 Pennbrook Dr - Deed Image (11985 - 00829).pdf`
 - `24 Pennbrook Dr - Deed Image (11793 - 00217).pdf`
 - `31 Pennbrook Dr - Deed Image (4618 - 717).pdf`
@@ -574,14 +595,23 @@ uv run pytest --cov=src/metesparser --cov-report=term-missing
 
 ### Coverage Goals
 
-- **Overall target**: > 90% line coverage (current: ~93%)
-- **Critical modules stretch target**: > 95% coverage
+- **Overall target**: > 90% line coverage (current: ~94%)
+- **Per-module coverage** (as of 2026-02-17):
   - `bearing_converter.py` 87%
   - `closure_checker.py` 97%
   - `call_extractor.py` 84%
   - `csv_builder.py` 100%
   - `models.py` 96%
   - `audit_reporter.py` 93%
+  - `pdf_processor.py` 94%
+  - `text_parser.py` 95%
+  - `cli.py` 96%
+  - `llm_clients.py` 91%
+  - `llm_cache.py` 95%
+  - `pipeline.py` 100%
+  - `run_registry.py` 96%
+  - `review_packet.py` 100%
+  - `logging_config.py` 100%
 
 ### Excluding from Coverage
 
@@ -767,8 +797,8 @@ Check that:
 
 ### Planned Enhancements
 
-- [ ] Add CSV builder unit tests
-- [ ] Add models validation tests
+- [x] Add CSV builder unit tests
+- [x] Add models validation tests (`test_pydantic_guardrails.py`)
 - [ ] Split large closure_checker test file
 - [ ] Add more parametrization to bearing_converter tests
 - [ ] Add property-based testing with Hypothesis

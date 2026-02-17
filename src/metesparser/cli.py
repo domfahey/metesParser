@@ -15,7 +15,7 @@ from .logging_config import configure_logging, get_log_format
 
 logger = structlog.get_logger(__name__)
 
-RUNS_DIR = Path("runs")
+RUNS_DIR = Path("output/runs")
 
 
 def _emit_closure_summary(summary: str, command_logger: structlog.stdlib.BoundLogger) -> None:
@@ -244,7 +244,7 @@ def main() -> None:
 
     compare_parser = subparsers.add_parser("compare-runs", help="Compare extraction runs")
     compare_parser.add_argument(
-        "--runs-dir", help="Directory containing run manifests (default: runs/)"
+        "--runs-dir", help="Directory containing run manifests (default: output/runs/)"
     )
     compare_parser.add_argument("--pdf", help="Filter by PDF name (substring match)")
 
