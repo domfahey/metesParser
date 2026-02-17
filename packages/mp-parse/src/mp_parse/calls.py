@@ -11,8 +11,6 @@ import logging
 import re
 
 import structlog
-from pydantic import ValidationError
-
 from mp_bearing import (
     COMPASS_POINTS,
     QUADRANT_PATTERN,
@@ -31,10 +29,9 @@ from mp_models import (
     CurveType,
     Decision,
     DeedCall,
-    MonumentStatus,
-    MonumentType,
     Transformation,
 )
+from pydantic import ValidationError
 
 from .metadata import (
     detect_meander,
@@ -314,9 +311,7 @@ def extract_single_call(
             "call_hash": _call_hash(call_text),
         }
         if _is_debug_logging_enabled():
-            logger.warning(
-                "Rejecting bearingless non-curve call", **payload, call_text=call_text
-            )
+            logger.warning("Rejecting bearingless non-curve call", **payload, call_text=call_text)
         else:
             logger.warning("Rejecting bearingless non-curve call", **payload)
         return None
@@ -347,9 +342,7 @@ def extract_single_call(
 
     radial_bearing_value = curve_info.get("radial_bearing")
 
-    is_indefinite = is_indefinite_call(
-        direction_text, has_bearing=parsed_bearing is not None
-    )
+    is_indefinite = is_indefinite_call(direction_text, has_bearing=parsed_bearing is not None)
 
     curve_type_value = curve_info.get("curve_type")
     curve_type: CurveType | None = None
@@ -384,9 +377,7 @@ def extract_single_call(
         monument_status=monument_status,
         is_exception=False,
         non_tangent=bool(curve_info.get("non_tangent", False)),
-        radial_bearing=(
-            radial_bearing_value if isinstance(radial_bearing_value, str) else None
-        ),
+        radial_bearing=(radial_bearing_value if isinstance(radial_bearing_value, str) else None),
         is_meander=is_meander,
         is_tie_in=False,
         is_indefinite=is_indefinite,
@@ -780,9 +771,7 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
     return curve_info
 
 
-def mark_tie_in_calls(
-    calls: list[DeedCall], poc_description: str | None
-) -> list[DeedCall]:
+def mark_tie_in_calls(calls: list[DeedCall], poc_description: str | None) -> list[DeedCall]:
     """Mark calls between POC and POB as tie-in calls.
 
     When a POC exists, calls before (and including) the first call whose
@@ -830,9 +819,7 @@ def enrich_calls_with_azimuths(calls: list[DeedCall]) -> list[DeedCall]:
         if call.bearing_quadrant and call.bearing_azimuth_deg_from_north is None:
             azimuth = bearing_to_azimuth(call.bearing_quadrant)
             if azimuth is not None:
-                enriched.append(
-                    call.model_copy(update={"bearing_azimuth_deg_from_north": azimuth})
-                )
+                enriched.append(call.model_copy(update={"bearing_azimuth_deg_from_north": azimuth}))
             else:
                 enriched.append(call)
         else:

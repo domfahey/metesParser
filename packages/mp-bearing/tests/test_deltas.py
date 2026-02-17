@@ -1,7 +1,5 @@
 """Verify delta (dx, dy) calculation functions."""
 
-import math
-
 
 def test_calculate_deltas():
     from mp_bearing import calculate_deltas

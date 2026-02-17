@@ -129,9 +129,7 @@ def extract_plss_metadata(text: str) -> dict[str, str | None]:
         direction = "N" if direction_token.startswith("N") else "S"
         plss_data["township"] = f"{township_num} {direction}"
 
-    range_match = re.search(
-        r"\b(?:RANGE|R\.?)\s*(\d+)\s*(EAST|E\.?|WEST|W\.?)\b", text_upper
-    )
+    range_match = re.search(r"\b(?:RANGE|R\.?)\s*(\d+)\s*(EAST|E\.?|WEST|W\.?)\b", text_upper)
     if range_match:
         range_num = range_match.group(1)
         direction_token = range_match.group(2)
@@ -604,9 +602,7 @@ def extract_subdivision_reference(text: str) -> SubdivisionReference | None:
     if name_match:
         subdivision_name = name_match.group(1).strip()
 
-    plat_match = re.search(
-        r"Plat\s+Book\s+(\d+),?\s*Page\s+(\d+)", text, re.IGNORECASE
-    )
+    plat_match = re.search(r"Plat\s+Book\s+(\d+),?\s*Page\s+(\d+)", text, re.IGNORECASE)
     if plat_match:
         plat_book = plat_match.group(1)
         plat_page = plat_match.group(2)
@@ -623,9 +619,7 @@ def extract_subdivision_reference(text: str) -> SubdivisionReference | None:
     return None
 
 
-def infer_distance_unit(
-    text: str, state: str | None = None, year: int | None = None
-) -> str | None:
+def infer_distance_unit(text: str, state: str | None = None, year: int | None = None) -> str | None:
     """Infer the primary distance unit from context.
 
     Advisory only -- returns a suggestion, caller decides whether to apply it.

@@ -66,7 +66,7 @@ class TestNormalizeDmsSymbols:
     def test_double_quote_variants(self) -> None:
         from mp_parse.normalizer import normalize_dms_symbols
 
-        result = normalize_dms_symbols('30\u201c')
+        result = normalize_dms_symbols("30\u201c")
         assert '"' in result  # left double quote -> straight quote
 
 

@@ -21,7 +21,6 @@ from .deed_call import (
     MonumentType,
     SubdivisionReference,
 )
-from .legal_description import LegalDescription
 from .envelope import (
     ClosureResultMessage,
     LegalDescriptionMessage,
@@ -31,6 +30,7 @@ from .envelope import (
     read_jsonl,
     write_jsonl,
 )
+from .legal_description import LegalDescription
 from .logging import configure_logging, get_log_format
 from .units import ConversionFactors, DistanceUnit
 
