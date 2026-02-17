@@ -122,14 +122,9 @@ temp_*
 *.orig
 *.rej
 
-# Generated output
-extraction_output/
+# Generated output (consolidated under output/)
 output/
-!output/*.csv
-!output/*.metadata.txt
-!output/*.md
 results/
-runs/
 tmp/
 
 # Git worktrees

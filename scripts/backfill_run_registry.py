@@ -3,11 +3,11 @@
 
 Reads each .ground_truth.json in sample_deeds/, builds DeedCalls from
 expected_calls, runs ClosureChecker.verify_closure(), and writes a
-RunManifest to runs/.
+RunManifest to output/runs/.
 
 Usage:
     uv run python scripts/backfill_run_registry.py
-    uv run python scripts/backfill_run_registry.py --runs-dir runs
+    uv run python scripts/backfill_run_registry.py --runs-dir output/runs
     uv run python scripts/backfill_run_registry.py --dry-run
 """
 
@@ -34,7 +34,7 @@ from metesparser.run_registry import (
 
 SAMPLE_DEEDS_DIR = Path(__file__).parent.parent / "sample_deeds"
 PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
-DEFAULT_RUNS_DIR = Path(__file__).parent.parent / "runs"
+DEFAULT_RUNS_DIR = Path(__file__).parent.parent / "output" / "runs"
 
 
 def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
@@ -151,7 +151,7 @@ def main() -> None:
         "--runs-dir",
         type=Path,
         default=DEFAULT_RUNS_DIR,
-        help="Directory to write manifests (default: runs/)",
+        help="Directory to write manifests (default: output/runs/)",
     )
     parser.add_argument(
         "--dry-run",
