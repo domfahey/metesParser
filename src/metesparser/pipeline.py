@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
-from mp_models import ClosureResult, LegalDescription
+from mp_models import AuditContext, ClosureResult, LegalDescription
 from mp_verify import verify_closure
 
 from .pdf_processor import PDFProcessor
@@ -24,23 +25,31 @@ class Pipeline:
         self.cache = cache
         self.audit = audit
 
-    def run(self, pdf_path: Path) -> ClosureResult:
+    def run(self, pdf_path: Path) -> ClosureResult | tuple[ClosureResult, AuditContext]:
         """Run the full pipeline on a PDF.
 
         Args:
             pdf_path: Path to the deed PDF file.
 
         Returns:
-            ClosureResult with verification status, misclosure, and area.
+            ClosureResult when audit=False, or
+            (ClosureResult, AuditContext) tuple when audit=True.
         """
         processor = PDFProcessor(provider=self.provider, cache=self.cache)
         result = processor.process_deed_pdf(str(pdf_path), audit=self.audit)
 
+        audit_ctx: AuditContext | None = None
         if self.audit:
-            legal_desc, _audit_ctx = result
+            assert isinstance(result, tuple)
+            legal_desc = cast(LegalDescription, result[0])
+            audit_ctx = cast(AuditContext, result[1])
         else:
-            legal_desc = result  # type: ignore[assignment]
+            assert not isinstance(result, tuple)
+            legal_desc = cast(LegalDescription, result)
 
-        assert isinstance(legal_desc, LegalDescription)
-        closure_result = verify_closure(legal_desc.calls)
+        closure_result = verify_closure(legal_desc.calls, audit_context=audit_ctx)
+
+        if self.audit:
+            assert audit_ctx is not None
+            return closure_result, audit_ctx
         return closure_result
