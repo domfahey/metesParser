@@ -15,71 +15,21 @@
     "consideration": "$370,000.00"
   },
   "raw_ocr_text": "SEE Schedule C attached.\n\n[Schedule C is NOT present in the scanned PDF pages. The legal description page was not included in this deed image. The Schedule C for Lot 12.04 (File No. ITA7807) physically appears in the PDF for deed 7535-929 instead.]",
-  "expected_legal_description": "ALL that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden and State of New Jersey being more particularly described as follows: Beginning at a point in the Southwesterly right of way line of Washington Avenue (40 feet wide) where intersected by the Northerly line of Lot 12.04; thence (1) through (4) to the point and place of beginning.",
-  "expected_normalized_text": "Beginning at a point in the Southwesterly right of way line of Washington Avenue (40 feet wide) where intersected by the Northerly line of Lot 12.04, said point being South 25 degrees 06 minutes 00 seconds East, 116.51 feet from the intersection of said right of way line of Washington avenue with the Southeasterly line of Lot 12.12, Block 76",
-  "expected_pob": "a point in the Southwesterly right of way line of Washington Avenue (40 feet wide) where intersected by the Northerly line of Lot 12.04",
-  "expected_calls": [
-    {
-      "course": 1,
-      "direction_text": "S 25 degrees 06 minutes 00 seconds E",
-      "bearing_quadrant": "S 25\u00b006'00\" E",
-      "bearing_azimuth_deg_from_north": 154.9,
-      "distance_ft": 20.09,
-      "along": "Southwesterly right of way line of Washington Avenue",
-      "to": "a point in same",
-      "notes": null
-    },
-    {
-      "course": 2,
-      "direction_text": "S 61 degrees 23 minutes 09 seconds W",
-      "bearing_quadrant": "S 61\u00b023'09\" W",
-      "bearing_azimuth_deg_from_north": 241.3858,
-      "distance_ft": 72.34,
-      "along": "common line of Lots 12.04 and 12.05, Block 76",
-      "to": "a point in the Northeasterly line of Lot 12.10, Block 76",
-      "notes": null
-    },
-    {
-      "course": 3,
-      "direction_text": "N 28 degrees 36 minutes 51 seconds W",
-      "bearing_quadrant": "N 28\u00b036'51\" W",
-      "bearing_azimuth_deg_from_north": 331.3858,
-      "distance_ft": 20.05,
-      "along": "Northeasterly line of Lot 12.10, and Lot 12.09",
-      "to": "a point in same",
-      "notes": null
-    },
-    {
-      "course": 4,
-      "direction_text": "N 61 degrees 23 minutes 09 seconds E",
-      "bearing_quadrant": "N 61\u00b023'09\" E",
-      "bearing_azimuth_deg_from_north": 61.3858,
-      "distance_ft": 73.57,
-      "along": "common line of Lots 12.03 and 12.04, Block 76",
-      "to": "the point and place of beginning",
-      "notes": null
-    }
-  ],
-  "expected_closure": {
-    "misclosure_ft": 0.0026,
-    "misclosure_tolerance_ft": 0.01,
-    "area_sq_ft": 1462.84,
-    "area_acres": 0.0336,
-    "perimeter_ft": 186.05,
-    "closure_passed": true
-  },
+  "expected_legal_description": "",
+  "expected_pob": null,
+  "expected_calls": [],
+  "expected_closure": null,
   "critical_assertions": {
-    "total_calls": 4,
+    "total_calls": 0,
     "is_willits_court_lot": true,
     "lot_number": "12.04",
     "schedule_c_missing_from_scan": true,
-    "parser_extracted_zero_calls": true,
-    "note": "The Schedule C legal description page was not included in this deed's PDF scan. It appears in the 7535-929 PDF instead. Parser correctly extracted 0 calls. The expected_calls here are derived from the Schedule C found in the 7535-929 scan."
+    "note": "The Schedule C legal description page was not included in this deed's PDF scan. The county clerk's office recorded a 'Missing Page Certificate' / 'This Page Intentionally Left Blank' in its place. The actual legal description for Lot 12.04 was physically bundled with the 7535-929 deed PDF. Parser correctly reports 0 calls."
   },
   "common_failure_modes": [
     "Schedule C not present in scan - parser cannot extract any calls",
     "The Missing Page Certificate in the scan confirms the omission",
     "Ground truth calls come from the Schedule C in deed 7535-929's PDF"
   ],
-  "notes": "Lot 12.04 deed is missing its Schedule C legal description page from the scanned document. The county clerk's office recorded a 'Missing Page Certificate' / 'This Page Intentionally Left Blank' in its place. The actual legal description for Lot 12.04 (File No. ITA7807) was physically bundled with the 7535-929 deed PDF. Parser correctly reports 0 calls and 0.0000 ft misclosure."
+  "notes": "Lot 12.04 deed is missing its Schedule C legal description page from the scanned document. GT correctly expects 0 calls since the legal description is not in this PDF."
 }
