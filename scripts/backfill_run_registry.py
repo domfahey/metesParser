@@ -74,57 +74,74 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
 
     prompt_versions = get_prompt_versions(PROMPTS_DIR)
     written = 0
-    skipped = 0
     # Stagger timestamps by 1 second each to avoid filename collisions
     base_time = datetime.now(UTC)
 
     for idx, gt_file in enumerate(gt_files):
         data = json.loads(gt_file.read_text())
         expected_calls = data.get("expected_calls", [])
-        if not expected_calls:
-            print(f"  SKIP (no calls): {gt_file.name}")
-            skipped += 1
-            continue
 
         # Derive PDF filename from ground truth filename
         pdf_name = gt_file.name.replace(".ground_truth.json", ".pdf")
 
-        calls = _build_calls(expected_calls)
-        closure_result = ClosureChecker.verify_closure(calls)
+        if not expected_calls:
+            # 0-call deeds (e.g., missing Schedule C) still get a manifest
+            # so comparisons don't produce false regressions
+            manifest = RunManifest(
+                run_id=str(uuid.uuid4()),
+                timestamp_utc=base_time + timedelta(seconds=idx),
+                source_pdf=pdf_name,
+                llm_provider="ground_truth",
+                llm_model="human_verified",
+                cache_enabled=False,
+                prompt_versions=prompt_versions,
+                results=RunResults(
+                    call_count=0,
+                    closure_passed=False,
+                    misclosure_ft=0.0,
+                    area_sq_ft=0.0,
+                    confidence_score=0.0,
+                    warnings=["No expected calls in ground truth"],
+                ),
+                parser_version=metesparser.__version__,
+            )
+        else:
+            calls = _build_calls(expected_calls)
+            closure_result = ClosureChecker.verify_closure(calls)
 
-        manifest = RunManifest(
-            run_id=str(uuid.uuid4()),
-            timestamp_utc=base_time + timedelta(seconds=idx),
-            source_pdf=pdf_name,
-            llm_provider="ground_truth",
-            llm_model="human_verified",
-            cache_enabled=False,
-            prompt_versions=prompt_versions,
-            results=RunResults(
-                call_count=len(calls),
-                closure_passed=closure_result.closure_passed,
-                misclosure_ft=closure_result.misclosure_ft,
-                area_sq_ft=closure_result.area_sq_ft,
-                confidence_score=closure_result.confidence_score or 0.0,
-                warnings=closure_result.warnings,
-            ),
-            parser_version=metesparser.__version__,
-        )
+            manifest = RunManifest(
+                run_id=str(uuid.uuid4()),
+                timestamp_utc=base_time + timedelta(seconds=idx),
+                source_pdf=pdf_name,
+                llm_provider="ground_truth",
+                llm_model="human_verified",
+                cache_enabled=False,
+                prompt_versions=prompt_versions,
+                results=RunResults(
+                    call_count=len(calls),
+                    closure_passed=closure_result.closure_passed,
+                    misclosure_ft=closure_result.misclosure_ft,
+                    area_sq_ft=closure_result.area_sq_ft,
+                    confidence_score=closure_result.confidence_score or 0.0,
+                    warnings=closure_result.warnings,
+                ),
+                parser_version=metesparser.__version__,
+            )
 
         if dry_run:
-            status = "PASS" if closure_result.closure_passed else "FAIL"
+            status = "PASS" if manifest.results.closure_passed else "FAIL"
             print(
-                f"  DRY RUN: {pdf_name} — {len(calls)} calls, "
-                f"misclosure={closure_result.misclosure_ft:.4f} ft, {status}"
+                f"  DRY RUN: {pdf_name} — {manifest.results.call_count} calls, "
+                f"misclosure={manifest.results.misclosure_ft:.4f} ft, {status}"
             )
         else:
             path = write_run_manifest(manifest, runs_dir)
-            status = "PASS" if closure_result.closure_passed else "FAIL"
-            print(f"  WROTE: {path.name} — {len(calls)} calls, {status}")
+            status = "PASS" if manifest.results.closure_passed else "FAIL"
+            print(f"  WROTE: {path.name} — {manifest.results.call_count} calls, {status}")
 
         written += 1
 
-    print(f"\nDone: {written} manifests {'(dry run)' if dry_run else 'written'}, {skipped} skipped")
+    print(f"\nDone: {written} manifests {'(dry run)' if dry_run else 'written'}")
     return written
 
 
