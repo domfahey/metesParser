@@ -16,6 +16,11 @@ dependencies = [
     "structlog>=24.4.0",
     "openai>=2.3.0",
     "pypdf>=6.1.1",
+    "mp-ocr>=1.0.0",
+    "mp-bearing>=1.0.0",
+    "mp-parse>=1.0.0",
+    "mp-verify>=1.0.0",
+    "mp-export>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -80,3 +85,14 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.uv.sources]
+mp-models = { workspace = true }
+mp-bearing = { workspace = true }
+mp-ocr = { workspace = true }
+mp-parse = { workspace = true }
+mp-verify = { workspace = true }
+mp-export = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/*"]
