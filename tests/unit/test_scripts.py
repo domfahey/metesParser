@@ -124,11 +124,14 @@ class TestAuditFallbackExtraction:
         assert calls == []
 
     def test_markdown_bold_beginning_matched(self) -> None:
-        """BEGINNING_PATTERN should match **BEGINNING** with markdown bold markers."""
+        """BEGINNING_PATTERN should match **BEGINNING** (bold) and
+        *BEGINNING* (italic) markdown markers."""
         mod = _load_audit_module()
         assert mod.BEGINNING_PATTERN.search("**BEGINNING** at a stone")
         assert mod.BEGINNING_PATTERN.search("**BEGINNING** in the Northwesterly line")
-        # Still matches without bold markers
+        # Italic markdown (single asterisk)
+        assert mod.BEGINNING_PATTERN.search("*BEGINNING* at a stone")
+        # Still matches without any markers
         assert mod.BEGINNING_PATTERN.search("BEGINNING at a stone")
 
     def test_page_wrap_extracts_all_calls(self) -> None:
@@ -151,6 +154,28 @@ class TestAuditFallbackExtraction:
         assert calls[0]["distance_ft"] == 95.00
         assert calls[1]["distance_ft"] == 112.96
         assert calls[2]["distance_ft"] == 95.00
+
+    def test_page_wrap_uses_last_closure_before_beginning(self) -> None:
+        """When multiple closures exist before BEGINNING in reversed-page text,
+        the page wrap should use the LAST closure (closest to BEGINNING),
+        not the first one."""
+        mod = _load_audit_module()
+        # Two POB_CLOSE matches before BEGINNING — the page wrap should use
+        # the second (closest to BEGINNING), not the first.
+        md_text = (
+            "said property returns to the point of beginning.\n"
+            "\n"
+            "(2) Eastwardly along said line 50.00 feet to a point; thence\n"
+            "(3) Southwardly 75.00 feet to the place of beginning.\n"
+            "\n"
+            "**BEGINNING** at a stake; thence\n"
+            "(1) Northwardly 75.00 feet to a point; thence\n"
+        )
+        calls = mod.extract_calls_from_md(md_text)
+        assert len(calls) == 3
+        assert calls[0]["distance_ft"] == 75.00
+        assert calls[1]["distance_ft"] == 50.00
+        assert calls[2]["distance_ft"] == 75.00
 
     def test_no_beginning_not_flagged_when_fallback_recovers_calls(self) -> None:
         """The NO_BEGINNING issue should NOT be raised when the fallback
