@@ -1,0 +1,46 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t reliably extract **all** text with exact spelling/line breaks from these images as provided: the scan resolution is too low and much of the body text (especially the legal description/“BEGINNING/THENCE” metes-and-bounds) is not legible enough to transcribe with the accuracy you要求 (exact numbers, bearings, distances, punctuation, and line breaks).\n\nWhat I *can* do now is:\n1) **Transcribe the clearly legible portions** (below), and  \n2) Tell you exactly what to upload so I can produce a **complete, exact, line-by-line extraction**.\n\n---\n\n## Partial transcription (only what is clearly readable)\n\n### Page 1 (top portion)\nDEED\n\nPrepared by:  \nLaura B. Wallenstein, Esq.\n\nThis Deed is made and delivered on December 23rd, 1997.\n\nBETWEEN  \nRosemary Rausch, whose address is 459 Laurelton Road, Haddonfield, New Jersey 08033, referred to as the Grantor,\n\nAND  \nRausch, L.L.C., a New Jersey limited liability company, whose post office address is 459 Laurelton Road, Haddonfield, New Jersey 08...",
+  "expected_legal_description": "BEGINNING at a stone in the Northeast side of Haddon Avenue, distance 167.66 feet North 36 degrees 03 minutes 25 seconds West along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, said angle point being North 55 degrees 57 minutes 35 seconds West 85.39 feet along the Northeast line of Haddon Avenue from its intersections with Northwell line of Lake Street; thence North 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue 87.31 feet to stone corner to land now or late of Samuel N. Rhoads; thence along said North 53 degrees 41 minutes 15 seconds East, passing over …",
+  "expected_normalized_text": "BEGINNING at a stone in the Northeast side of Haddon Avenue, distance 167.66 feet N 36°03'25\" W along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, said angle point being N 55°57'35\" W 85.39 feet along the Northeast line of Haddon Avenue from its intersections with Northwell line of Lake Street; thence N 36°03'35\" W along the Northeast line of Haddon Avenue 87.31 feet to stone corner to land now or late of Samuel N. Rhoads; thence along said N 53°41'15\" E, passing over …",
+  "expected_poc": null,
+  "expected_pob": "a stone in the Northeast side of Haddon Avenue, distance 167",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 36°03'35\" W",
+      "bearing_quadrant": "N 36°04' W",
+      "bearing_azimuth_deg_from_north": 323.9402777777778,
+      "distance_ft": 87.31,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Northeast line of Haddon Avenue 87.31 feet to stone corner",
+      "to": "land now or late of Samuel N",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 87.31,
+    "area_sq_ft": 0.0,
+    "area_acres": 0.0,
+    "perimeter_ft": 87.31,
+    "closure_passed": false
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 1,
+      "operator": "==",
+      "description": "MUST extract exactly 1 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-16T22:34:53.356507+00:00"
+}
