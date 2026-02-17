@@ -174,9 +174,7 @@ def test_extract_direction_abbreviated_ne() -> None:
 
 def test_extract_direction_abbreviated_nw() -> None:
     """extract_direction() must match abbreviated cardinal 'NW'."""
-    result = CallExtractor.extract_direction(
-        "NW ALONG THE SW LINE OF HADDON AVENUE 129 FEET"
-    )
+    result = CallExtractor.extract_direction("NW ALONG THE SW LINE OF HADDON AVENUE 129 FEET")
     assert result != ""
     assert "nw" in result.lower()
 
