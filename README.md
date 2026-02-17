@@ -1,9 +1,24 @@
  # Metes Parser
 
+> **Note:** This is a work-in-progress prototype exploring AI's ability to extract, parse, and verify metes and bounds legal descriptions from deed PDFs.
+
 Parse metes and bounds legal descriptions from deed PDFs into structured, verified CSV format.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+
+## Why This Exists
+
+Legal descriptions define the property being transferred in a deed. Today, title company employees (e.g., at FNF) manually retype these descriptions from deed documents, then use GIS software like ArcGIS to plot the boundary and confirm the traverse closes. Legal descriptions frequently contain typos — a wrong degree, a flipped quadrant, a transposed distance — and catching these errors is critical to ensuring the correct parcel is identified.
+
+This repository is a **prototype** exploring whether AI can assist with that workflow. Currently, the system takes publicly recorded deed scanned PDFs, extracts the legal descriptions, parses the surveying notation into structured data, and runs geometric verification checks — all automatically. Since all sample deeds are sourced from publicly recorded documents, the repository contains no NPI or PII. That said, the system itself has no inherent restriction to publicly recorded documents — it can process any deed PDF containing a metes and bounds legal description.
+
+### Design Pillars
+
+- **Composable architecture** — The system is built as independent, reusable components. AI may not reliably handle the end-to-end task today, but it can perform subtasks reliably. Each package (OCR, parsing, verification, export) can be used standalone or composed into a pipeline.
+- **Transparency by design** — Every LLM-generated output is traceable and auditable. Audit sidecars (`.audit.json` + `.audit.html`) accompany verified results so an attorney or surveyor reviewing the output can see exactly what the AI extracted vs. what the system derived deterministically.
+- **AI only where necessary** — AI is used solely for OCR/extraction from deed PDFs (the one step where deterministic programming falls short). Everything downstream — parsing, bearing math, verification, export — is deterministic code. The system carefully manages AI context and validates AI output with deterministic functions to minimize hallucinations.
+- **AI as assistant, not replacement** — The tool is designed to augment human judgment, not replace it. Final decisions on property boundaries remain with the professional reviewing the output.
 
 ## Features
 
