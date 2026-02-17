@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
-**Version**: 0.4.0 | **Tests**: ~991 | **Coverage**: ~93%
+**Version**: 0.4.0 | **Tests**: ~994 | **Coverage**: ~93%
 
 ## Critical Architecture Principles
 
@@ -63,16 +63,23 @@ result, audit_ctx = pipe.run(Path("deed.pdf"))
 ```bash
 make help          # Show all commands
 make dev-setup     # Initial setup (creates .env from .env.example)
+make install       # Install full dependency set (all extras + dev)
 make lint          # Run ruff (excludes text_parser.py)
-make format        # Run ruff formatter
 make lint-fix      # Auto-fix linting issues
+make format        # Run ruff formatter
+make format-check  # Check formatter compliance (no changes)
+make type          # Run mypy type checks
 make test          # Run pytest
 make test-fast     # Run pytest with fail-fast (stop on first failure)
 make test-cov      # Tests with HTML coverage report
-make pre-commit    # Full check before git commit
-make check         # Run all checks (lint + format-check + type + test)
+make quality       # Run lint + format checks only
+make pre-commit    # Run lint-fix, format, and tests (no type checks)
+make check         # Run all checks (lint + format + type + test)
+make ci            # Run CI-style full check workflow
 make clean         # Remove generated artifacts and caches
 make doctor        # Verify project dependencies and environment
+make run-extract   # Quick local PDF extraction
+make run-verify    # Quick local CSV verification
 ```
 
 ### Direct CLI Usage
@@ -218,9 +225,9 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 ## Key Directories
 - `packages/` — 6 composable packages (mp-models, mp-bearing, mp-ocr, mp-parse, mp-verify, mp-export)
 - `src/metesparser/` — orchestrator (`pipeline.py`) + backward-compat monolith modules
-- `scripts/` — standalone utility scripts (extract_sample_deeds.py, generate_ground_truth.py, generate_review_packet.py, backfill_run_registry.py, audit_gt_vs_md.py, parse_pdfs_to_md.sh)
+- `scripts/` — standalone utility scripts (extract_sample_deeds.py, generate_ground_truth.py, generate_review_packet.py, backfill_run_registry.py, audit_gt_vs_md.py, parse_pdfs_to_md.sh, test_31_pennbrook_text.py)
 - `docs/reference/` — reference PDFs (BLM manual, etc.) — tracked via `!docs/reference/*.pdf`
-- `sample_deeds/` — 63 sample PDFs + ground truth JSON files + LlamaParse markdown conversions (co-located)
+- `sample_deeds/` — 87 sample PDFs + ground truth JSON files + LlamaParse markdown conversions (co-located)
 
 ## Testing Strategy
 
@@ -253,7 +260,7 @@ uv run pytest packages/mp-parse/tests/ -v --no-cov  # Per-package (needs --no-co
 
 ### Expected Test Output
 ```
-~991 passed
+~994 passed
 ```
 All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`, investigate before committing.
 
