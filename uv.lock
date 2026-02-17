@@ -13,6 +13,7 @@ members = [
     "mp-models",
     "mp-ocr",
     "mp-parse",
+    "mp-verify",
 ]
 
 [[package]]
@@ -422,7 +423,10 @@ version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "mp-bearing" },
     { name = "mp-ocr" },
+    { name = "mp-parse" },
+    { name = "mp-verify" },
     { name = "openai" },
     { name = "pandas" },
     { name = "pydantic" },
@@ -449,7 +453,10 @@ gemini = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.40.0" },
     { name = "google-genai", marker = "extra == 'gemini'", specifier = ">=0.3.0" },
+    { name = "mp-bearing", editable = "packages/mp-bearing" },
     { name = "mp-ocr", editable = "packages/mp-ocr" },
+    { name = "mp-parse", editable = "packages/mp-parse" },
+    { name = "mp-verify", editable = "packages/mp-verify" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13.0" },
     { name = "openai", specifier = ">=2.3.0" },
     { name = "pandas", specifier = ">=2.2.0" },
@@ -554,6 +561,32 @@ provides-extras = ["gemini", "dev"]
 name = "mp-parse"
 version = "1.0.0"
 source = { editable = "packages/mp-parse" }
+dependencies = [
+    { name = "mp-bearing" },
+    { name = "mp-models" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mp-bearing", editable = "packages/mp-bearing" },
+    { name = "mp-models", editable = "packages/mp-models" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+    { name = "structlog", specifier = ">=24.4.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "mp-verify"
+version = "1.0.0"
+source = { editable = "packages/mp-verify" }
 dependencies = [
     { name = "mp-bearing" },
     { name = "mp-models" },

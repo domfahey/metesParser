@@ -17,6 +17,9 @@ dependencies = [
     "openai>=2.3.0",
     "pypdf>=6.1.1",
     "mp-ocr>=1.0.0",
+    "mp-bearing>=1.0.0",
+    "mp-parse>=1.0.0",
+    "mp-verify>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -87,6 +90,7 @@ mp-models = { workspace = true }
 mp-bearing = { workspace = true }
 mp-ocr = { workspace = true }
 mp-parse = { workspace = true }
+mp-verify = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
