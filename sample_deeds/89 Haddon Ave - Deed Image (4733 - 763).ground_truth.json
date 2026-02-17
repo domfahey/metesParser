@@ -1,0 +1,24 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t reliably extract **all** text with exact spelling/line breaks from these images as provided. The pages are low-resolution, skewed, and contain faint/overlapped text (plus a large diagonal watermark), so a “complete text” transcription would be error-prone—especially for the legal description/“BEGINNING/THENCE” portions you emphasized.\n\nWhat I *can* do next (choose one):\n\n1) **Upload the original PDF** (not screenshots), or  \n2) Upload **higher-resolution page images** (300+ DPI; straightened; each page separately; no downscaling), and I will return a full, line-preserved transcription, or  \n3) Tell me the **recording reference** (book/page or instrument #) and I can help you target the exact sections to re-scan.\n\n### What I can partially read right now (incomplete; not guaranteed exact)\nBecause you requested *complete* extraction, I’m not going to fabricate missing/uncertain text. However, I can confirm the document appears to include:\n\n- A **DEED** dated **11/29/1994** (date a...",
+  "expected_legal_description": "",
+  "expected_normalized_text": "",
+  "expected_poc": null,
+  "expected_pob": "",
+  "expected_calls": [],
+  "expected_closure": {},
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 0,
+      "operator": "==",
+      "description": "MUST extract exactly 0 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-16T22:38:03.257448+00:00"
+}

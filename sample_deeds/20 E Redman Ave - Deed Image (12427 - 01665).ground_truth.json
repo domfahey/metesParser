@@ -1,0 +1,91 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t extract **all** text from this document with the level of completeness/format fidelity you’re requesting from the single composite image you provided (it’s a multi-page PDF shown as several downscaled page images, and multiple areas are too low-resolution/blurred/obscured by the green diagonal watermark and black redactions to read *exactly*). That means I would risk introducing transcription errors—especially in the **BEGINNING / THENCE** metes-and-bounds section where exact bearings, minutes/seconds, and distances must be perfect.\n\nIf you upload the **original PDF** (or clear, full-resolution images of each page), I can then return a full verbatim extraction with exact line breaks.\n\nBelow is the **maximum accurate transcription I can produce from what is legible** in the provided image, preserving line breaks where readable. Illegible portions are marked **[ILLEGIBLE]** and redacted/covered portions as **[REDACTED]**.\n\n---\n\n## Page 1 of 2 — Camden County Document Summary Shee...",
+  "expected_legal_description": "ALL THAT certain tract or parcel of land and premises lying, being and situate in Haddonfield  \nBorough, Camden County, and State of New Jersey being more particularly described as follows:\n\nBEGINNING at the intersection of the Southeasterly line of Redman Avenue (60.00 feet wide) with  \nthe Southwesterly line of Turley Avenue (20.00 feet wide, also known as Veterans Lane); thence\n\n1) Along the Southwesterly line of Turley Avenue, South 44 degrees 49 minutes 50 seconds East, a  \ndistance of 140.00 feet to a point in the division line between Lots 2 and 3, Block 129, Tax Map;  \nthence\n\n2) Along said division line, South 45 degrees 00 minutes 00 seconds West, a distance of 100.00 feet  \nto an angle point; thence\n\n3) Continuing along said division line, North 44 degrees 49 minutes 50 seconds West, a distance of  \n140.00 feet to a point in the Southeasterly line of Redman Avenue; thence\n\n4) Along the Southwesterly line of Redman Avenue, North 45 degrees 00 minutes 00 seconds East, a  \ndistance of 100.00 feet to the point and place of beginning.\n\nThe foregoing description has been drawn in accordance with a survey made by Walter H.  \nMacnamara Assoc., Inc. Professional Land Surveyors, dated July 31, 2023.\n\nFOR INFORMATIONAL PURPOSES ONLY:  \nBEING premises No. 20 E. Redman Ave.\n\nBEING Tax Block: 129, Tax Lot: 2",
+  "expected_normalized_text": "ALL THAT certain tract or parcel of land and premises lying, being and situate in Haddonfield Borough, Camden County, and State of New Jersey being more particularly described as follows:\n\nBEGINNING at the intersection of the Southeasterly line of Redman Avenue (60.00 feet wide) with the Southwesterly line of Turley Avenue (20.00 feet wide, also known as Veterans Lane); thence\n\n1) Along the Southwesterly line of Turley Avenue, S 44°49'50\" E, a distance of 140.00 feet to a point in the division line between Lots 2 and 3, Block 129, Tax Map; thence\n\n2) Along said division line, S 45°00'00\" W, a distance of 100.00 feet to an angle point; thence\n\n3) Continuing along said division line, N 44°49'50\" W, a distance of 140.00 feet to a point in the Southeasterly line of Redman Avenue; thence\n\n4) Along the Southwesterly line of Redman Avenue, N 45°00'00\" E, a distance of 100.00 feet to the point and place of beginning.\n\nThe foregoing description has been drawn in accordance with a survey made by Walter H. Macnamara Assoc., Inc. Professional Land Surveyors, dated July 31, 2023.\n\nFOR INFORMATIONAL PURPOSES ONLY:\nBEING premises No. 20 E. Redman Ave.\n\nBEING Tax Block: 129, Tax Lot: 2",
+  "expected_poc": null,
+  "expected_pob": "the intersection of the Southeasterly line of Redman Avenue (60",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 44°49'50\" E",
+      "bearing_quadrant": "S 44°50' E",
+      "bearing_azimuth_deg_from_north": 135.16944444444445,
+      "distance_ft": 140.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Southwesterly line of Turley Avenue, S 44°49'50\" E, a distance of 140.00 feet",
+      "to": "a point in the division line between Lots 2 and 3, Block 129, Tax Map",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "S 45°00'00\" W",
+      "bearing_quadrant": "S 45°00' W",
+      "bearing_azimuth_deg_from_north": 225.0,
+      "distance_ft": 100.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said division line, S 45°00'00\" W, a distance of 100.00 feet",
+      "to": "an angle point",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "N 44°49'50\" W",
+      "bearing_quadrant": "N 44°50' W",
+      "bearing_azimuth_deg_from_north": 315.1694444444444,
+      "distance_ft": 140.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said division line, N 44°49'50\" W, a distance of 140.00 feet",
+      "to": "a point in the Southeasterly line of Redman Avenue",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "N 45°00'00\" E",
+      "bearing_quadrant": "N 45°00' E",
+      "bearing_azimuth_deg_from_north": 45.0,
+      "distance_ft": 100.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Southwesterly line of Redman Avenue, N 45°00'00\" E, a distance of 100.00 feet",
+      "to": "the point and place of beginning",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0,
+    "area_sq_ft": 13999.94,
+    "area_acres": 0.3214,
+    "perimeter_ft": 480.0,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-16T22:30:28.329728+00:00"
+}

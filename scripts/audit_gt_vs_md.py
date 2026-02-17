@@ -27,11 +27,11 @@ DISTANCE_PATTERN = re.compile(
 )
 
 THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
-BEGINNING_PATTERN = re.compile(r"\bBEGINNING\s+at\b", re.IGNORECASE)
+BEGINNING_PATTERN = re.compile(r"\bBEGINNING\s+(?:at|in)\b", re.IGNORECASE)
 
 # Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from call_extractor.py
 CARDINAL_ONLY_PATTERN = re.compile(
-    r"\b(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly|wardly)?\b",
+    r"\b(north|south|east|west|northeast|northwest|southeast|southwest|NE|NW|SE|SW)(?:erly|wardly)?\b",
     re.IGNORECASE,
 )
 
@@ -62,15 +62,20 @@ EXHIBIT_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-# "place of BEGINNING" closure marker
+# "place of BEGINNING" or "point of beginning" closure marker
 POB_CLOSE_PATTERN = re.compile(
-    r"(?:point\s+and\s+)?place\s+of\s+BEGINNING",
+    r"(?:point|place)\s+(?:and\s+place\s+)?of\s+BEGINNING",
     re.IGNORECASE,
 )
 
-# Numbered call starters: "1. " or "(1) " at start of line
+# Numbered call starters: "1. " or "(1) " at start of line OR inline
 CALL_NUM_PATTERN = re.compile(
     r"(?:^|\n)\s*(?:\d+\.\s|\(\d+\)\s)",
+)
+
+# Inline numbered calls in dense paragraphs: "(1) " anywhere in text
+INLINE_NUM_PATTERN = re.compile(
+    r"\(\d+\)\s",
 )
 
 
@@ -82,17 +87,31 @@ def find_preferred_text(md_text):
     return md_text
 
 
-def extract_first_legal_block(text):
-    """Extract first BEGINNING...place of BEGINNING block from text."""
-    begin_match = BEGINNING_PATTERN.search(text)
-    if not begin_match:
-        return None
+def extract_all_legal_blocks(text):
+    """Extract all BEGINNING...point/place of BEGINNING blocks from text."""
+    blocks = []
+    search_start = 0
 
-    start = begin_match.start()
-    close_match = POB_CLOSE_PATTERN.search(text, start + 10)
-    if close_match:
-        return text[start : close_match.end()]
-    return text[start:]
+    while True:
+        begin_match = BEGINNING_PATTERN.search(text, search_start)
+        if not begin_match:
+            break
+
+        start = begin_match.start()
+        close_match = POB_CLOSE_PATTERN.search(text, start + 10)
+        if close_match:
+            blocks.append(text[start : close_match.end()])
+            search_start = close_match.end()
+        else:
+            # No closure found — take to next TRACT marker or end
+            next_tract = re.search(r"\bTRACT\s*#?\d+", text[start + 10:], re.IGNORECASE)
+            if next_tract:
+                blocks.append(text[start : start + 10 + next_tract.start()])
+            else:
+                blocks.append(text[start:])
+            break
+
+    return blocks
 
 
 def extract_calls_from_block(block_text):
@@ -102,8 +121,21 @@ def extract_calls_from_block(block_text):
     # Try numbered call detection first (handles semicolons between calls)
     num_matches = list(CALL_NUM_PATTERN.finditer(block_text))
 
+    # Also check for inline numbered calls like "(1) " in dense paragraphs
+    if len(num_matches) < 2:
+        inline_matches = list(INLINE_NUM_PATTERN.finditer(block_text))
+        if len(inline_matches) >= 2:
+            num_matches = inline_matches
+
     if len(num_matches) >= 2:
         segments = []
+
+        # Include pre-numbered text as thence-split segments
+        pre_text = block_text[: num_matches[0].start()]
+        if THENCE_PATTERN.search(pre_text):
+            pre_segments = re.split(r"\bthence\b", pre_text, flags=re.IGNORECASE)[1:]
+            segments.extend(pre_segments)
+
         for j, m in enumerate(num_matches):
             seg_start = m.start()
             seg_end = (
@@ -145,28 +177,67 @@ def extract_calls_from_block(block_text):
     return calls
 
 
-def extract_calls_from_md(md_text):
+def extract_calls_from_md(md_text, n_gt=None, n_gt_calls=None):
     """Extract bearing/distance pairs from markdown text.
 
     Prefers Exhibit A / Schedule C sections over deed body text.
-    Extracts the first complete BEGINNING...place of BEGINNING block.
+    Extracts all complete BEGINNING...point/place of BEGINNING blocks.
     Uses numbered call patterns, falling back to thence splitting.
+
+    When n_gt is provided and the total across all blocks doesn't match,
+    tries to find a single block whose count matches the GT (handles PDFs
+    that physically contain schedules from multiple deeds).
     """
     # Step 1: Prefer Exhibit A / Schedule C section
     search_text = find_preferred_text(md_text)
 
-    # Step 2: Find the first complete legal description block
-    block = extract_first_legal_block(search_text)
+    # Step 2: Find all legal description blocks (multi-tract support)
+    blocks = extract_all_legal_blocks(search_text)
 
-    if not block and search_text != md_text:
+    if not blocks and search_text != md_text:
         # No block in exhibit section — try full text
-        block = extract_first_legal_block(md_text)
+        blocks = extract_all_legal_blocks(md_text)
 
-    if not block:
+    if not blocks:
         return []
 
-    # Step 3: Extract calls from the block
-    return extract_calls_from_block(block)
+    # Step 3: Extract calls from all blocks
+    block_calls = [extract_calls_from_block(block) for block in blocks]
+
+    # Step 4: If some blocks have DMS bearings and others are cardinal-only,
+    # drop the cardinal-only blocks (duplicate descriptions of the same parcel).
+    dms_blocks = [
+        calls for calls in block_calls
+        if any(c.get("azimuth") is not None for c in calls)
+    ]
+    if dms_blocks and len(dms_blocks) < len(block_calls):
+        block_calls = dms_blocks
+
+    all_calls = []
+    for calls in block_calls:
+        all_calls.extend(calls)
+
+    # Step 5: If total doesn't match GT but individual blocks do, use the
+    # best-matching block. Handles PDFs containing schedules from multiple deeds.
+    if n_gt is not None and len(all_calls) != n_gt and len(block_calls) > 1:
+        matching = [calls for calls in block_calls if len(calls) == n_gt]
+        if len(matching) == 1:
+            return matching[0]
+        if len(matching) > 1 and n_gt_calls is not None:
+            # Multiple blocks match count — pick best by distance agreement
+            best, best_score = matching[0], -1
+            for candidate in matching:
+                score = sum(
+                    1 for i in range(n_gt)
+                    if (candidate[i].get("distance_ft") is not None
+                        and n_gt_calls[i].get("distance_ft") is not None
+                        and abs(candidate[i]["distance_ft"] - n_gt_calls[i]["distance_ft"]) < 0.1)
+                )
+                if score > best_score:
+                    best, best_score = candidate, score
+            return best
+
+    return all_calls
 
 
 def audit_deed(pdf_base):
@@ -184,8 +255,8 @@ def audit_deed(pdf_base):
     gt_calls = gt.get("expected_calls", [])
     issues = []
 
-    # Extract calls from markdown
-    md_calls = extract_calls_from_md(md_text)
+    # Extract calls from markdown (pass GT for best-block selection)
+    md_calls = extract_calls_from_md(md_text, n_gt=len(gt_calls), n_gt_calls=gt_calls)
 
     # 1. Call count comparison
     n_gt = len(gt_calls)

@@ -1,0 +1,24 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t reliably extract the *complete* text with exact formatting from these images as provided. The pages are low-resolution and several areas (especially the legal description “BEGINNING/THENCE” bearings/distances, recorder stamps, and some form fields) are not fully legible, so any “complete text” I return would risk errors—particularly in the boundary calls you flagged as critical.\n\nIf you upload either:\n- the original PDF file, or\n- higher-resolution page images (ideally 300+ DPI, or images at least ~2500–3500 px tall per page, not a collage),\n\nthen I can perform a full, line-accurate transcription and preserve line breaks/paragraphs.\n\n### What I can do right now\nI can transcribe the portions that are clearly readable, and I can also attempt a best-effort OCR of the rest—but it will not meet your “exactly as shown” requirement.\n\n### Minimum needed to proceed accurately\nPlease provide one of the following:\n1) The PDF itself (preferred), or  \n2) Individual page images (one file per...",
+  "expected_legal_description": "",
+  "expected_normalized_text": "",
+  "expected_poc": null,
+  "expected_pob": "",
+  "expected_calls": [],
+  "expected_closure": {},
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 0,
+      "operator": "==",
+      "description": "MUST extract exactly 0 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-16T22:38:50.803355+00:00"
+}

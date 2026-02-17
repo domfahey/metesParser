@@ -1,0 +1,24 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t extract the *complete* text with exact formatting from these images as provided. The pages are too low-resolution/blurred in multiple areas (especially the legal description “BEGINNING/THENCE” metes-and-bounds block), so any “full text” I return would risk errors in distances, bearings, and punctuation—exactly the parts you emphasized.\n\nIf you upload either:\n- the original PDF (not screenshots), or  \n- higher-resolution page images (ideally 300–600 DPI; or at least ~2500–3500 px wide per page),\n\nI can then return a full, line-by-line transcription preserving line breaks and the BEGINNING/THENCE formatting.\n\n### What I *can* reliably read from the current images (partial, not complete)\n\n**Page 1 (top portion, partial):**\n```\nDEED\n\nThis Deed is made on November 29, 1994\n\nBETWEEN UM HOLDINGS, LTD.\na corporation of the state of New Jersey\nhaving its principal office at 56 Haddon Avenue, Haddonfield, NJ 08033\nreferred to as the Grantor.\n\nAND EUCLID AVENUE ASSOCIATES, L.L.C., a limit...",
+  "expected_legal_description": "",
+  "expected_normalized_text": "",
+  "expected_poc": null,
+  "expected_pob": "",
+  "expected_calls": [],
+  "expected_closure": {},
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 0,
+      "operator": "==",
+      "description": "MUST extract exactly 0 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-16T22:35:52.641456+00:00"
+}
