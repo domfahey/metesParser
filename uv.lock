@@ -10,6 +10,7 @@ resolution-markers = [
 members = [
     "metesparser",
     "mp-bearing",
+    "mp-export",
     "mp-models",
     "mp-ocr",
     "mp-parse",
@@ -424,6 +425,7 @@ source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
     { name = "mp-bearing" },
+    { name = "mp-export" },
     { name = "mp-ocr" },
     { name = "mp-parse" },
     { name = "mp-verify" },
@@ -454,6 +456,7 @@ requires-dist = [
     { name = "anthropic", specifier = ">=0.40.0" },
     { name = "google-genai", marker = "extra == 'gemini'", specifier = ">=0.3.0" },
     { name = "mp-bearing", editable = "packages/mp-bearing" },
+    { name = "mp-export", editable = "packages/mp-export" },
     { name = "mp-ocr", editable = "packages/mp-ocr" },
     { name = "mp-parse", editable = "packages/mp-parse" },
     { name = "mp-verify", editable = "packages/mp-verify" },
@@ -492,6 +495,32 @@ requires-dist = [
     { name = "mp-models", editable = "packages/mp-models" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "mp-export"
+version = "1.0.0"
+source = { editable = "packages/mp-export" }
+dependencies = [
+    { name = "mp-models" },
+    { name = "mp-verify" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mp-models", editable = "packages/mp-models" },
+    { name = "mp-verify", editable = "packages/mp-verify" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+    { name = "structlog", specifier = ">=24.4.0" },
 ]
 provides-extras = ["dev"]
 
