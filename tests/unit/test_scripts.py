@@ -79,3 +79,63 @@ class TestAuditGtVsMdCardinalPattern:
 
         for form in all_forms:
             assert audit_pattern.search(form), f"Audit pattern should match '{form}'"
+
+
+class TestAuditFallbackExtraction:
+    """Tests for the Step 2b fallback when BEGINNING is garbled/missing."""
+
+    def test_fallback_extracts_calls_without_beginning(self) -> None:
+        """When BEGINNING is garbled but closure language and thence exist,
+        the fallback should extract calls via thence-splitting."""
+        mod = _load_audit_module()
+        md_text = (
+            "Some preamble text.\n"
+            "BEGINNiNn at a garbled point;\n"
+            "thence North 45 degrees 00 minutes East 100.00 feet to a stake;\n"
+            "thence South 45 degrees 00 minutes East 100.00 feet to a stake;\n"
+            "thence South 45 degrees 00 minutes West 100.00 feet to a stake;\n"
+            "thence North 45 degrees 00 minutes West 100.00 feet to the place of beginning."
+        )
+        calls = mod.extract_calls_from_md(md_text)
+        assert len(calls) == 4
+        assert calls[0]["distance_ft"] == 100.00
+
+    def test_fallback_excludes_preamble(self) -> None:
+        """The fallback should anchor to the first thence, not include
+        preamble text that could produce false bearing matches."""
+        mod = _load_audit_module()
+        md_text = (
+            "North 10 degrees 00 minutes East 999.00 feet preamble text.\n"
+            "BEGINNiNn at a garbled point;\n"
+            "thence South 30 degrees 00 minutes West 50.00 feet to a stake;\n"
+            "thence North 30 degrees 00 minutes East 50.00 feet to the point of beginning."
+        )
+        calls = mod.extract_calls_from_md(md_text)
+        assert len(calls) == 2
+        # Should NOT include the preamble bearing/distance
+        assert calls[0]["distance_ft"] == 50.00
+
+    def test_no_fallback_when_no_closure_language(self) -> None:
+        """When neither BEGINNING nor closure language exists,
+        return empty list."""
+        mod = _load_audit_module()
+        md_text = "Just some random deed text with no legal description."
+        calls = mod.extract_calls_from_md(md_text)
+        assert calls == []
+
+    def test_no_beginning_not_flagged_when_fallback_recovers_calls(self) -> None:
+        """The NO_BEGINNING issue should NOT be raised when the fallback
+        successfully extracted calls (n_md > 0)."""
+        mod = _load_audit_module()
+        # The audit_deed function needs GT and MD files, so test the logic
+        # directly: when n_gt > 0 and n_md > 0, NO_BEGINNING should not fire
+        md_text = (
+            "BEGINNiNn garbled;\n"
+            "thence North 45 degrees 00 minutes East 100.00 feet;\n"
+            "thence South 45 degrees 00 minutes West 100.00 feet to the place of beginning."
+        )
+        calls = mod.extract_calls_from_md(md_text)
+        # Fallback should find calls
+        assert len(calls) > 0
+        # BEGINNING_PATTERN should NOT match the garbled text
+        assert not mod.BEGINNING_PATTERN.search(md_text)

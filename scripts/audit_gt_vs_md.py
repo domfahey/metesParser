@@ -199,15 +199,22 @@ def extract_calls_from_md(md_text, n_gt=None, n_gt_calls=None):
         blocks = extract_all_legal_blocks(md_text)
 
     if not blocks:
-        # Fallback: if no BEGINNING found but closure language exists
-        # (e.g., garbled OCR of BEGINNING), try thence-splitting up to closure
-        close_match = POB_CLOSE_PATTERN.search(search_text)
-        if not close_match and search_text != md_text:
-            close_match = POB_CLOSE_PATTERN.search(md_text)
-            if close_match:
-                search_text = md_text
+        # Step 2b (fallback): If no BEGINNING block found but closure language
+        # exists (e.g., garbled OCR of BEGINNING like "BEGINNiNn"), anchor to
+        # the first "thence" keyword and extract up to the closure marker.
+        # This avoids including preamble text that could produce false matches.
+        source = search_text
+        close_match = POB_CLOSE_PATTERN.search(source)
+        if not close_match and source != md_text:
+            source = md_text
+            close_match = POB_CLOSE_PATTERN.search(source)
         if close_match:
-            block_text = search_text[: close_match.end()]
+            first_thence = THENCE_PATTERN.search(source)
+            if first_thence:
+                block_start = first_thence.start()
+            else:
+                block_start = 0
+            block_text = source[block_start : close_match.end()]
             return extract_calls_from_block(block_text)
         return []
 
@@ -314,7 +321,9 @@ def audit_deed(pdf_base):
         elif gt_dist is not None and md_dist is None:
             issues.append(f"DISTANCE_MISSING_C{i+1}: GT={gt_dist:.2f}ft, not found in MD")
 
-    # 3. Check if BEGINNING is present in markdown
+    # 3. Check if BEGINNING is present in markdown.
+    # Only flag when no calls were extracted (n_md == 0) — the Step 2b
+    # fallback may recover calls via thence-splitting even without BEGINNING.
     if not BEGINNING_PATTERN.search(md_text):
         if n_gt > 0 and n_md == 0:
             issues.append("NO_BEGINNING: MD has no BEGINNING keyword but GT expects calls")
