@@ -1,0 +1,7 @@
+DEED METADATA
+============================================================
+
+pob_description: a point in the Southwesterly line of Washington Avenue (40
+source_doc: 8 Kings Highway W - Deed Image (9787 - 1784).pdf
+distance_unit: feet
+subdivision_ref: Lot 11, Block 76, ?

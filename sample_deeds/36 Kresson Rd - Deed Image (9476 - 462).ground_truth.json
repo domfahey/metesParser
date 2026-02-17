@@ -1,0 +1,24 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t reliably extract **all** text with **exact spelling, capitalization, symbols, and line breaks** from these images because the resolution/clarity is insufficient in multiple areas (notably the header stamp/barcode block, several signatures/notary lines, and parts of the legal description). Any “complete text” I provide would risk errors—especially in the **BEGINNING/THENCE** metes-and-bounds calls you emphasized.\n\nIf you upload either:\n- the **original PDF** (not screenshots), or  \n- higher-resolution page images (ideally 300+ DPI, straightened, no watermark overlay),\n\nI can then return a full, line-preserved transcription.\n\n### What I *can* do right now\nI can transcribe the portions that are clearly legible, and mark unclear parts as **[ILLEGIBLE]**. If you want that partial/annotated transcription, tell me and I’ll proceed.\n\n### Minimum needed for exact legal-description accuracy\nFor the “EXHIBIT A Legal Description” page, I need a clearer image so I can capture:\n- degree symb...",
+  "expected_legal_description": "",
+  "expected_normalized_text": "",
+  "expected_poc": null,
+  "expected_pob": "",
+  "expected_calls": [],
+  "expected_closure": {},
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 0,
+      "operator": "==",
+      "description": "MUST extract exactly 0 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-17T03:07:09.830534+00:00"
+}

@@ -1,0 +1,7 @@
+DEED METADATA
+============================================================
+
+source_doc: 89 Haddon Ave - Deed Image (4733 - 763).pdf
+distance_unit: feet
+clauses: [subject_to] subject to the provisions of, and to, the Condominium Act of the State of New Jersey, N.J.S.A. 46:8B-1 et seq., its amendments and supplements and to the provisions of the Master Deed establishing and creating “The 89 Haddon Avenue Condominium”, said Deed November 29, 1994, and to be subsequently recorded
+subdivision_ref: Lot 2, Block 11, ?

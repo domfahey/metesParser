@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+pob_description: a stone in the Northeast line of Haddon Avenue, distant 167
+source_doc: 75 Haddon Ave - Deed Image (10604 - 1433).pdf
+distance_unit: feet
