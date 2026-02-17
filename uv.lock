@@ -6,6 +6,17 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 
+[manifest]
+members = [
+    "metesparser",
+    "mp-bearing",
+    "mp-export",
+    "mp-models",
+    "mp-ocr",
+    "mp-parse",
+    "mp-verify",
+]
+
 [[package]]
 name = "annotated-types"
 version = "0.7.0"
@@ -413,6 +424,11 @@ version = "0.4.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
+    { name = "mp-bearing" },
+    { name = "mp-export" },
+    { name = "mp-ocr" },
+    { name = "mp-parse" },
+    { name = "mp-verify" },
     { name = "openai" },
     { name = "pandas" },
     { name = "pydantic" },
@@ -439,6 +455,11 @@ gemini = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.40.0" },
     { name = "google-genai", marker = "extra == 'gemini'", specifier = ">=0.3.0" },
+    { name = "mp-bearing", editable = "packages/mp-bearing" },
+    { name = "mp-export", editable = "packages/mp-export" },
+    { name = "mp-ocr", editable = "packages/mp-ocr" },
+    { name = "mp-parse", editable = "packages/mp-parse" },
+    { name = "mp-verify", editable = "packages/mp-verify" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13.0" },
     { name = "openai", specifier = ">=2.3.0" },
     { name = "pandas", specifier = ">=2.2.0" },
@@ -454,6 +475,168 @@ requires-dist = [
     { name = "structlog", specifier = ">=24.4.0" },
 ]
 provides-extras = ["dev", "gemini"]
+
+[[package]]
+name = "mp-bearing"
+version = "1.0.0"
+source = { editable = "packages/mp-bearing" }
+dependencies = [
+    { name = "mp-models" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mp-models", editable = "packages/mp-models" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "mp-export"
+version = "1.0.0"
+source = { editable = "packages/mp-export" }
+dependencies = [
+    { name = "mp-models" },
+    { name = "mp-verify" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mp-models", editable = "packages/mp-models" },
+    { name = "mp-verify", editable = "packages/mp-verify" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+    { name = "structlog", specifier = ">=24.4.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "mp-models"
+version = "1.0.0"
+source = { editable = "packages/mp-models" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13.0" },
+    { name = "pydantic", specifier = ">=2.10.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+    { name = "structlog", specifier = ">=24.4.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "mp-ocr"
+version = "1.0.0"
+source = { editable = "packages/mp-ocr" }
+dependencies = [
+    { name = "mp-models" },
+    { name = "openai" },
+    { name = "pypdf" },
+    { name = "pyyaml" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+gemini = [
+    { name = "google-genai" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "google-genai", marker = "extra == 'gemini'", specifier = ">=0.3.0" },
+    { name = "mp-models", editable = "packages/mp-models" },
+    { name = "openai", specifier = ">=2.3.0" },
+    { name = "pypdf", specifier = ">=6.1.1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+    { name = "structlog", specifier = ">=24.4.0" },
+]
+provides-extras = ["gemini", "dev"]
+
+[[package]]
+name = "mp-parse"
+version = "1.0.0"
+source = { editable = "packages/mp-parse" }
+dependencies = [
+    { name = "mp-bearing" },
+    { name = "mp-models" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mp-bearing", editable = "packages/mp-bearing" },
+    { name = "mp-models", editable = "packages/mp-models" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+    { name = "structlog", specifier = ">=24.4.0" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "mp-verify"
+version = "1.0.0"
+source = { editable = "packages/mp-verify" }
+dependencies = [
+    { name = "mp-bearing" },
+    { name = "mp-models" },
+    { name = "structlog" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mp-bearing", editable = "packages/mp-bearing" },
+    { name = "mp-models", editable = "packages/mp-models" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
+    { name = "structlog", specifier = ">=24.4.0" },
+]
+provides-extras = ["dev"]
 
 [[package]]
 name = "mypy"
