@@ -28,6 +28,7 @@ from .models import (
     ClosureResult,
     DeedCall,
     Point,
+    Tract,
     VerificationAudit,
 )
 
@@ -38,6 +39,87 @@ class ClosureChecker:
     CLOSURE_TOLERANCE_FT = 0.01
 
     @classmethod
+    def verify_tract(
+        cls,
+        calls: list[DeedCall],
+        *,
+        stated_area_sq_ft: float = 0.0,
+        closure_tolerance_ft: float | None = None,
+        audit_context: AuditContext | None = None,
+    ) -> ClosureResult:
+        """Verify one tract's closure independently.
+
+        Unlike verify_closure(), this does NOT split by is_exception.
+        All calls are treated as a single traverse.
+        """
+        tolerance = (
+            closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
+        )
+
+        active_calls = [c for c in calls if not c.is_tie_in]
+        points = cls.compute_traverse(active_calls)
+
+        computable = sum(
+            1 for c in active_calls if c.bearing_azimuth_deg_from_north is not None
+        )
+        has_computable = computable > 0
+
+        misclosure_x = points[-1].x - points[0].x
+        misclosure_y = points[-1].y - points[0].y
+        misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
+
+        warnings: list[str] = []
+        if not has_computable:
+            warnings.append("No computable traverse \u2014 all calls lack bearings")
+
+        try:
+            area_sq_ft = cls.calculate_area(points)
+            area_acres = area_sq_ft / 43560.0
+        except ValueError as e:
+            area_sq_ft = 0.0
+            area_acres = 0.0
+            warnings.append(f"Cannot calculate area: {e}")
+
+        perimeter = cls.calculate_perimeter(active_calls)
+        closure_passed = has_computable and misclosure < tolerance
+        angle_check_passed = cls.check_interior_angles(active_calls)
+        curve_consistency_passed = cls.check_curve_consistency(active_calls)
+        warnings.extend(cls.check_parallelism(active_calls))
+        warnings.extend(cls.check_bearing_reversals(active_calls))
+        warnings.extend(cls.check_distance_reasonableness(active_calls))
+
+        if stated_area_sq_ft > 0:
+            diff_pct = abs(area_sq_ft - stated_area_sq_ft) / stated_area_sq_ft * 100
+            if diff_pct > 5.0:
+                warnings.append(
+                    f"Computed area differs from stated by {diff_pct:.1f}% "
+                    f"(computed: {area_sq_ft:.1f} sq ft, stated: {stated_area_sq_ft:.1f} sq ft)"
+                )
+
+        incomplete = [c for c in active_calls if not c.is_complete_bearing()]
+        if incomplete:
+            warnings.append(
+                f"{len(incomplete)} call(s) have incomplete bearings (cardinal-only or meanders)"
+            )
+
+        result = ClosureResult(
+            misclosure_x_ft=misclosure_x,
+            misclosure_y_ft=misclosure_y,
+            misclosure_ft=misclosure,
+            area_sq_ft=area_sq_ft,
+            area_acres=area_acres,
+            perimeter_ft=perimeter,
+            closure_passed=closure_passed,
+            angle_check_passed=angle_check_passed,
+            curve_consistency_passed=curve_consistency_passed,
+            warnings=warnings,
+            points=points,
+            precision_ratio=misclosure / perimeter if perimeter else None,
+        )
+        confidence = cls.calculate_confidence_score(result, active_calls)
+        return result.model_copy(update={"confidence_score": confidence})
+
+    @classmethod
     def verify_closure(
         cls,
         calls: list[DeedCall],
@@ -45,7 +127,9 @@ class ClosureChecker:
         closure_tolerance_ft: float | None = None,
         double_entry_calls: list[DeedCall] | None = None,
         audit_context: AuditContext | None = None,
-    ) -> ClosureResult:
+        *,
+        tracts: list[Tract] | None = None,
+    ) -> ClosureResult | list[ClosureResult]:
         """Verify traverse closure and perform all validation checks.
 
         Args:
@@ -55,8 +139,21 @@ class ClosureChecker:
             double_entry_calls: Optional independently-entered call set for guardrail F
 
         Returns:
-            ClosureResult with all checks, computed values, and confidence_score
+            ClosureResult with all checks, computed values, and confidence_score.
+            If tracts provided, returns list[ClosureResult] with one per tract.
         """
+        if tracts:
+            results: list[ClosureResult] = []
+            for tract in tracts:
+                result = cls.verify_tract(
+                    tract.calls,
+                    stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
+                    closure_tolerance_ft=closure_tolerance_ft,
+                    audit_context=audit_context,
+                )
+                results.append(result)
+            return results
+
         tolerance = (
             closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
         )
