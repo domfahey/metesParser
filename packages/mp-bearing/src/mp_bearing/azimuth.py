@@ -7,7 +7,7 @@ Converts between quadrant bearings (e.g., N 56°40' E) and azimuths
 import re
 
 QUADRANT_PATTERN = re.compile(
-    r"(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)",
+    r"(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?,?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)",
     re.IGNORECASE,
 )
 
