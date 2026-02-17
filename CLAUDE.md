@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
-**Version**: 0.4.0 | **Tests**: ~956 | **Coverage**: ~93%
+**Version**: 0.4.0 | **Tests**: ~961 | **Coverage**: ~93%
 
 ## Critical Architecture Principles
 
@@ -174,9 +174,9 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 - 1 acre = 43,560 sq ft
 
 ## Key Directories
-- `scripts/` — standalone utility scripts (extract_sample_deeds.py, generate_ground_truth.py, generate_review_packet.py, backfill_run_registry.py, audit_gt_vs_md.py)
+- `scripts/` — standalone utility scripts (extract_sample_deeds.py, generate_ground_truth.py, generate_review_packet.py, backfill_run_registry.py, audit_gt_vs_md.py, parse_pdfs_to_md.sh)
 - `docs/reference/` — reference PDFs (BLM manual, etc.) — tracked via `!docs/reference/*.pdf`
-- `sample_deeds/` — 40 sample PDFs + ground truth JSON files + LlamaParse markdown conversions (co-located)
+- `sample_deeds/` — 63 sample PDFs + ground truth JSON files + LlamaParse markdown conversions (co-located)
 
 ## Testing Strategy
 
@@ -205,7 +205,7 @@ uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
 
 ### Expected Test Output
 ```
-~956 passed
+~961 passed
 ```
 All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`, investigate before committing.
 
@@ -221,9 +221,9 @@ All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`
 **Reason**: Contradicts the `_coerce_bool_field` validator that coerces strings ("true"/"false") to bools
 
 ### Cardinal Direction Patterns
-**Rule**: Cardinal-only patterns must include both `(?:erly|wardly)?` suffixes
-**Locations**: `call_extractor.py` (~lines 226, 337) AND `text_parser.py` (`CARDINAL_ONLY_PATTERN`)
-**Bug history**: Missing `wardly` suffix caused false negatives in indefinite call detection (fixed in `d25fcc9`)
+**Rule**: Cardinal-only patterns must include `(?:erly|wardly)?` suffixes AND abbreviated forms (`NE|NW|SE|SW`)
+**Locations**: `call_extractor.py` (`_CARDINAL_ONLY_PATTERN`), `text_parser.py` (`CARDINAL_ONLY_PATTERN`), `scripts/audit_gt_vs_md.py` (`CARDINAL_ONLY_PATTERN`) — all three must stay in sync
+**Bug history**: Missing `wardly` suffix caused false negatives (fixed in `d25fcc9`); missing abbreviated cardinals caused call rejection when LLM normalization abbreviated "NORTHWEST" → "NW" (fixed in PR #21)
 
 ### LLM Configuration
 **Location**: `prompts/*.yaml` files
