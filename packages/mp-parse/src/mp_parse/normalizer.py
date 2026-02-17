@@ -7,8 +7,8 @@ and expanding survey abbreviations.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from re import Match
-from typing import Callable
 
 # ----- Survey abbreviation table -----
 

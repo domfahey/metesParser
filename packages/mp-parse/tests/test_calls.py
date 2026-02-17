@@ -173,10 +173,7 @@ class TestExtractCurveInfo:
     def test_non_tangent_detection(self) -> None:
         from mp_parse.calls import extract_curve_info
 
-        text = (
-            "non-tangent curve to the right, radius of 300.00 feet, "
-            "delta angle of 15 degrees"
-        )
+        text = "non-tangent curve to the right, radius of 300.00 feet, delta angle of 15 degrees"
         info = extract_curve_info(text)
         assert info.get("non_tangent") is True
 
@@ -250,7 +247,9 @@ class TestMarkTieInCalls:
 
         calls = [
             DeedCall(
-                course=1, direction_text="N 45°00' E", distance_ft=100.0,
+                course=1,
+                direction_text="N 45°00' E",
+                distance_ft=100.0,
                 to="the point of beginning",
             ),
             DeedCall(course=2, direction_text="S 45°00' E", distance_ft=100.0),

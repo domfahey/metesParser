@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
-from typing import Annotated, Iterator, Literal, TextIO, Union
+from collections.abc import Iterator
+from typing import Annotated, Literal, TextIO
 
 from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, TypeAdapter
 
@@ -22,9 +22,7 @@ class RawTextMessage(_Message):
     text: str = Field(..., description="Extracted legal text")
     llm_provider: str = Field(..., description="LLM provider name")
     llm_model: str = Field(..., description="LLM model identifier")
-    extracted_at: str | None = Field(
-        default=None, description="ISO timestamp of extraction"
-    )
+    extracted_at: str | None = Field(default=None, description="ISO timestamp of extraction")
     confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     cache_hit: bool | None = Field(default=None)
 
@@ -60,11 +58,9 @@ class ClosureResultMessage(_Message):
 
 
 MessageType = Annotated[
-    Union[
-        Annotated[RawTextMessage, Tag("raw_text")],
-        Annotated[LegalDescriptionMessage, Tag("legal_description")],
-        Annotated[ClosureResultMessage, Tag("closure_result")],
-    ],
+    Annotated[RawTextMessage, Tag("raw_text")]
+    | Annotated[LegalDescriptionMessage, Tag("legal_description")]
+    | Annotated[ClosureResultMessage, Tag("closure_result")],
     Discriminator("type"),
 ]
 

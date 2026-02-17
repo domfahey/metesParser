@@ -210,9 +210,7 @@ def calculate_missing_curve_elements(
     elif radius_ft is not None and chord_length_ft is not None:
         ratio = chord_length_ft / (2 * radius_ft)
         if abs(ratio) > 1:
-            raise ValueError(
-                f"Chord ({chord_length_ft} ft) exceeds diameter ({2 * radius_ft} ft)"
-            )
+            raise ValueError(f"Chord ({chord_length_ft} ft) exceeds diameter ({2 * radius_ft} ft)")
         half_delta = math.asin(ratio)
         delta_deg = math.degrees(2 * half_delta)
     elif arc_length_ft is not None and delta_deg is not None:

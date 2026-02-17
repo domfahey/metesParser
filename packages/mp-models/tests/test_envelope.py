@@ -1,4 +1,5 @@
 """Verify JSONL envelope read/write."""
+
 import io
 import json
 

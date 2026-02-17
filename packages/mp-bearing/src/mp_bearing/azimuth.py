@@ -4,7 +4,6 @@ Converts between quadrant bearings (e.g., N 56°40' E) and azimuths
 (degrees from North, clockwise). Also handles packed DMS and compass points.
 """
 
-import math
 import re
 
 QUADRANT_PATTERN = re.compile(
@@ -239,4 +238,4 @@ def azimuth_to_quadrant(azimuth: float) -> str:
     if seconds < 0.5:
         return f"{cardinal1} {degrees}\u00b0{minutes:02d}' {cardinal2}"
     else:
-        return f'{cardinal1} {degrees}\u00b0{minutes:02d}\'{seconds:04.1f}" {cardinal2}'
+        return f"{cardinal1} {degrees}\u00b0{minutes:02d}'{seconds:04.1f}\" {cardinal2}"
