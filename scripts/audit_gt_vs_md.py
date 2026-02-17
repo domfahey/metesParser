@@ -177,12 +177,16 @@ def extract_calls_from_block(block_text):
     return calls
 
 
-def extract_calls_from_md(md_text):
+def extract_calls_from_md(md_text, n_gt=None, n_gt_calls=None):
     """Extract bearing/distance pairs from markdown text.
 
     Prefers Exhibit A / Schedule C sections over deed body text.
     Extracts all complete BEGINNING...point/place of BEGINNING blocks.
     Uses numbered call patterns, falling back to thence splitting.
+
+    When n_gt is provided and the total across all blocks doesn't match,
+    tries to find a single block whose count matches the GT (handles PDFs
+    that physically contain schedules from multiple deeds).
     """
     # Step 1: Prefer Exhibit A / Schedule C section
     search_text = find_preferred_text(md_text)
@@ -213,6 +217,26 @@ def extract_calls_from_md(md_text):
     for calls in block_calls:
         all_calls.extend(calls)
 
+    # Step 5: If total doesn't match GT but individual blocks do, use the
+    # best-matching block. Handles PDFs containing schedules from multiple deeds.
+    if n_gt is not None and len(all_calls) != n_gt and len(block_calls) > 1:
+        matching = [calls for calls in block_calls if len(calls) == n_gt]
+        if len(matching) == 1:
+            return matching[0]
+        if len(matching) > 1 and n_gt_calls is not None:
+            # Multiple blocks match count — pick best by distance agreement
+            best, best_score = matching[0], -1
+            for candidate in matching:
+                score = sum(
+                    1 for i in range(n_gt)
+                    if (candidate[i].get("distance_ft") is not None
+                        and n_gt_calls[i].get("distance_ft") is not None
+                        and abs(candidate[i]["distance_ft"] - n_gt_calls[i]["distance_ft"]) < 0.1)
+                )
+                if score > best_score:
+                    best, best_score = candidate, score
+            return best
+
     return all_calls
 
 
@@ -231,8 +255,8 @@ def audit_deed(pdf_base):
     gt_calls = gt.get("expected_calls", [])
     issues = []
 
-    # Extract calls from markdown
-    md_calls = extract_calls_from_md(md_text)
+    # Extract calls from markdown (pass GT for best-block selection)
+    md_calls = extract_calls_from_md(md_text, n_gt=len(gt_calls), n_gt_calls=gt_calls)
 
     # 1. Call count comparison
     n_gt = len(gt_calls)
