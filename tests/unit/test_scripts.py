@@ -123,6 +123,35 @@ class TestAuditFallbackExtraction:
         calls = mod.extract_calls_from_md(md_text)
         assert calls == []
 
+    def test_markdown_bold_beginning_matched(self) -> None:
+        """BEGINNING_PATTERN should match **BEGINNING** with markdown bold markers."""
+        mod = _load_audit_module()
+        assert mod.BEGINNING_PATTERN.search("**BEGINNING** at a stone")
+        assert mod.BEGINNING_PATTERN.search("**BEGINNING** in the Northwesterly line")
+        # Still matches without bold markers
+        assert mod.BEGINNING_PATTERN.search("BEGINNING at a stone")
+
+    def test_page_wrap_extracts_all_calls(self) -> None:
+        """When BEGINNING is after closure in the file (reversed page order),
+        the extraction should wrap around and find all calls."""
+        mod = _load_audit_module()
+        # Simulate reversed-page MD: calls 2-3 + closure at top, BEGINNING + call 1 at bottom
+        md_text = (
+            "(2) Westwardly along said line 112.96 feet to a point; thence\n"
+            "(3) Southwardly along said boundary 95.00 feet to the place of beginning.\n"
+            "\n"
+            "Some deed boilerplate text in the middle.\n"
+            "\n"
+            "**BEGINNING** at a point in the Westerly line; thence\n"
+            "(1) Northwardly along the line 95.00 feet to a point; thence\n"
+        )
+        calls = mod.extract_calls_from_md(md_text)
+        assert len(calls) == 3
+        # Verify correct order: call 1 first (from BEGINNING section), then 2, then 3
+        assert calls[0]["distance_ft"] == 95.00
+        assert calls[1]["distance_ft"] == 112.96
+        assert calls[2]["distance_ft"] == 95.00
+
     def test_no_beginning_not_flagged_when_fallback_recovers_calls(self) -> None:
         """The NO_BEGINNING issue should NOT be raised when the fallback
         successfully extracted calls (n_md > 0)."""

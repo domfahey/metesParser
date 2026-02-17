@@ -7,7 +7,6 @@ the markdown text, and flags discrepancies with the GT expected_calls.
 
 import json
 import re
-import sys
 from pathlib import Path
 
 SAMPLE_DIR = Path(__file__).resolve().parent.parent / "sample_deeds"
@@ -27,7 +26,9 @@ DISTANCE_PATTERN = re.compile(
 )
 
 THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
-BEGINNING_PATTERN = re.compile(r"\bBEGINNING\s+(?:at|in)\b", re.IGNORECASE)
+BEGINNING_PATTERN = re.compile(
+    r"\*{0,2}\bBEGINNING\b\*{0,2}\s+(?:at|in)\b", re.IGNORECASE
+)
 
 # Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from call_extractor.py
 CARDINAL_ONLY_PATTERN = re.compile(
@@ -103,12 +104,22 @@ def extract_all_legal_blocks(text):
             blocks.append(text[start : close_match.end()])
             search_start = close_match.end()
         else:
-            # No closure found — take to next TRACT marker or end
-            next_tract = re.search(r"\bTRACT\s*#?\d+", text[start + 10:], re.IGNORECASE)
-            if next_tract:
-                blocks.append(text[start : start + 10 + next_tract.start()])
+            # No closure after BEGINNING — check for closure BEFORE it
+            # (handles MD files where PDF pages appear in reversed order).
+            close_before = POB_CLOSE_PATTERN.search(text[:start])
+            if close_before:
+                # Page wrap: concatenate [BEGINNING→end] + [start→closure]
+                wrapped = text[start:] + "\n" + text[: close_before.end()]
+                blocks.append(wrapped)
             else:
-                blocks.append(text[start:])
+                # No closure found anywhere — take to next TRACT marker or end
+                next_tract = re.search(
+                    r"\bTRACT\s*#?\d+", text[start + 10 :], re.IGNORECASE
+                )
+                if next_tract:
+                    blocks.append(text[start : start + 10 + next_tract.start()])
+                else:
+                    blocks.append(text[start:])
             break
 
     return blocks
@@ -335,7 +346,6 @@ def audit_deed(pdf_base):
         # Extract first bearing from GT OCR
         gt_bearing_match = BEARING_PATTERN.search(gt_ocr)
         if gt_bearing_match:
-            bearing_str = gt_bearing_match.group(0)
             # Check if similar bearing exists in MD
             if not BEARING_PATTERN.search(md_text):
                 issues.append("OCR_BEARING_ABSENT: GT OCR has bearings but MD has none")
