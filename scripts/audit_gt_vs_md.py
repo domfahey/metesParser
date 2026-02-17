@@ -199,6 +199,16 @@ def extract_calls_from_md(md_text, n_gt=None, n_gt_calls=None):
         blocks = extract_all_legal_blocks(md_text)
 
     if not blocks:
+        # Fallback: if no BEGINNING found but closure language exists
+        # (e.g., garbled OCR of BEGINNING), try thence-splitting up to closure
+        close_match = POB_CLOSE_PATTERN.search(search_text)
+        if not close_match and search_text != md_text:
+            close_match = POB_CLOSE_PATTERN.search(md_text)
+            if close_match:
+                search_text = md_text
+        if close_match:
+            block_text = search_text[: close_match.end()]
+            return extract_calls_from_block(block_text)
         return []
 
     # Step 3: Extract calls from all blocks
@@ -306,7 +316,7 @@ def audit_deed(pdf_base):
 
     # 3. Check if BEGINNING is present in markdown
     if not BEGINNING_PATTERN.search(md_text):
-        if n_gt > 0:
+        if n_gt > 0 and n_md == 0:
             issues.append("NO_BEGINNING: MD has no BEGINNING keyword but GT expects calls")
 
     # 4. Check GT raw_ocr_text vs MD content (rough similarity)
