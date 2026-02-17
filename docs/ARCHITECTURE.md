@@ -34,7 +34,7 @@ metesParser is a deterministic metes & bounds parser that converts legal descrip
 - **Pydantic v2** - Data validation and schema enforcement
 - **OpenAI + optional Gemini** - Configurable LLM providers for PDF extraction
 - **UV workspace monorepo** - 7 composable packages (no pip/conda/poetry)
-- **pytest** - Test framework with ~991 tests (~93% coverage)
+- **pytest** - Test framework with ~994 tests (~93% coverage)
 
 ## Core Principles
 
