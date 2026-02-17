@@ -53,7 +53,7 @@ from .numbers import COMMA_NUMBER, parse_comma_number
 logger = structlog.get_logger(__name__)
 
 _CARDINAL_ONLY_PATTERN = re.compile(
-    r"(north|south|east|west|northeast|northwest|southeast|southwest)(?:erly|wardly)?",
+    r"(north|south|east|west|northeast|northwest|southeast|southwest|NE|NW|SE|SW)(?:erly|wardly)?",
     re.IGNORECASE,
 )
 
@@ -565,6 +565,11 @@ def extract_direction(text: str) -> str:
     cardinal_match = re.search(cardinal_pattern, text, re.IGNORECASE)
     if cardinal_match:
         return cardinal_match.group(0).lower()
+
+    # Abbreviated cardinal directions (NW, SW, NE, SE) from LLM normalization
+    abbrev_match = re.search(r"\b(NE|NW|SE|SW)\b", text, re.IGNORECASE)
+    if abbrev_match:
+        return abbrev_match.group(0).lower()
 
     return ""
 

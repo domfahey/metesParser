@@ -89,7 +89,7 @@ class TestPipelineRun:
 
         mock_processor_cls.assert_called_once_with(provider="openai", cache=False)
         mock_processor.process_deed_pdf.assert_called_once_with("test.pdf", audit=False)
-        mock_verify.assert_called_once_with(mock_legal_desc.calls)
+        mock_verify.assert_called_once_with(mock_legal_desc.calls, audit_context=None)
         assert result is mock_closure
 
     @patch("metesparser.pipeline.verify_closure")
@@ -99,7 +99,7 @@ class TestPipelineRun:
         mock_processor_cls: MagicMock,
         mock_verify: MagicMock,
     ) -> None:
-        """run() with audit=True should unpack (LegalDescription, AuditContext) tuple."""
+        """run() with audit=True should pass AuditContext through and return it."""
         from mp_models import AuditContext, ClosureResult, DeedCall, LegalDescription
 
         mock_processor = MagicMock()
@@ -117,5 +117,7 @@ class TestPipelineRun:
         result = pipe.run(Path("test.pdf"))
 
         mock_processor.process_deed_pdf.assert_called_once_with("test.pdf", audit=True)
-        mock_verify.assert_called_once_with(mock_legal_desc.calls)
-        assert result is mock_closure
+        mock_verify.assert_called_once_with(mock_legal_desc.calls, audit_context=mock_audit_ctx)
+        assert isinstance(result, tuple)
+        assert result[0] is mock_closure
+        assert result[1] is mock_audit_ctx
