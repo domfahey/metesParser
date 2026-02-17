@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+pob_description: a point in the Westerly line of Birchall Drive distant **486
+source_doc: 32 Birchall Dr - Deed Image (5070 - 937).pdf
+distance_unit: feet

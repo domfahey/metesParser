@@ -1,0 +1,21 @@
+============================================================
+CLOSURE VERIFICATION SUMMARY
+============================================================
+Misclosure: 0.0023 ft (EXCELLENT)
+  X: 0.0009 ft
+  Y: -0.0021 ft
+  Precision: 1:79,760
+
+Area: 1,412.02 sq ft (0.0324 acres)
+Perimeter: 181.09 ft
+Confidence: 0.97
+
+Verification Checks:
+  Closure: PASS
+  Angles: PASS
+  Curves: PASS
+
+No warnings.
+
+Status: FULLY VERIFIED ✓
+============================================================

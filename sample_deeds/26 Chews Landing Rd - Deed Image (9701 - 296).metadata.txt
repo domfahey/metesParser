@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+pob_description: a point in the Southeasterly line of Kings Highway West, distant 80
+source_doc: 26 Chews Landing Rd - Deed Image (9701 - 296).pdf
+distance_unit: feet

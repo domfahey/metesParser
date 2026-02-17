@@ -1,0 +1,8 @@
+DEED METADATA
+============================================================
+
+pob_description: a point in the Northeasterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12
+source_doc: 8 Kings Highway W - Deed Image (7489 - 772).pdf
+distance_unit: feet
+clauses: [subject_to] Subject to all right of ways, easements and restrictions of record
+subdivision_ref: Lot 10, Block 76, N

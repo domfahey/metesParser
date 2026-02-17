@@ -1,0 +1,7 @@
+DEED METADATA
+============================================================
+
+pob_description: a point in the Northwesterly line of Euclid Avenue (80 feet wide) distant 383
+source_doc: One Centennial Square - Deed Image (9528 - 156).pdf
+distance_unit: feet
+subdivision_ref: Lot 3, Block 129, ?

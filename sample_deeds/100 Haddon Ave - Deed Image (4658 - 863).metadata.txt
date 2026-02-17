@@ -1,0 +1,7 @@
+DEED METADATA
+============================================================
+
+pob_description: THE WEST CORNER OF HADDON AND EUCLID (FORMERLY REDMAN STREET) AVENUES
+source_doc: 100 Haddon Ave - Deed Image (4658 - 863).pdf
+distance_unit: feet
+subdivision_ref: Lot ?, Block 130, ?

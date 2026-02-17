@@ -1,0 +1,5 @@
+DEED METADATA
+============================================================
+
+source_doc: 15 E Redman Ave - Deed Image (04462 - 00144).pdf
+distance_unit: feet

@@ -1,0 +1,24 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t reliably extract **all** text with **exact spelling, capitalization, symbols, and line breaks** from these images as provided. Several pages (especially the **LEGAL DESCRIPTION** pages with the **BEGINNING / THENCE** boundary calls) are too low-resolution/blurred for accurate character-by-character transcription, and attempting a “complete” extraction would risk introducing errors—exactly what you said to avoid.\n\nIf you upload either:\n1) the **original PDF file** (not screenshots), or  \n2) higher-resolution page images (ideally 300–600 DPI scans; or images where the legal description text is crisp when zoomed),\n\nthen I can return a full, line-preserved transcription.\n\nWhat I *can* do now is accurately transcribe the portions that are clearly legible. Below is the text I can read with confidence from the provided pages, preserving line breaks as shown.\n\n---\n\n## Page: Camden County Document Summary Sheet (cover)\n\nCamden County  \nDocument Summary Sheet\n\nCAMDEN COUNTY CLERK  \n520 M...",
+  "expected_legal_description": "BEING Lot 1.01, Block 21 on the tax map of the Borough of Haddonfield.\n\nBEING commonly known as 101-111 Kings Highway East, Haddonfield, New Jersey 08033.",
+  "expected_normalized_text": "BEING Lot 1.01, Block 21 on the tax map of the Borough of Haddonfield.\n\nBEING commonly known as 101-111 Kings Highway East, Haddonfield, New Jersey 08033.",
+  "expected_poc": null,
+  "expected_pob": "",
+  "expected_calls": [],
+  "expected_closure": {},
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 0,
+      "operator": "==",
+      "description": "MUST extract exactly 0 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-17T02:52:22.640081+00:00"
+}

@@ -1,0 +1,46 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t reliably extract **all** text with **exact spelling, capitalization, and line breaks** from these images as provided. The pages are low-resolution and several critical areas (especially the **BEGINNING / THENCE** metes-and-bounds section, stamps, and small header text) are not legible enough to guarantee an exact transcription.\n\nIf you upload either:\n- the **original PDF** (not screenshots), or  \n- **higher-resolution scans** (ideally 300–600 DPI, or images at least ~2500–3500 px tall per page),\n\nthen I can return a full, line-preserved transcription.\n\n### What I *can* do right now (partial, best-effort from legible portions)\nBelow is a **partial** transcription of the text that is clearly readable. I am **not** claiming completeness or exactness where the image is unclear.\n\n---\n\n## Page (Book9166/Page536)\n\nDEED\n\nTHIS DEED is made on January 4, 2010,\n\nBETWEEN 116 KINGS HIGHWAY ASSOCIATES, L.L.C., a New Jersey limited liability company, having an address at 89 Haddon Avenue Nort...",
+  "expected_legal_description": "EXHIBIT “A”  \nLEGAL DESCRIPTION\n\nFile No.: 1032SP-01\n\nALL THAT CERTAIN tract or parcel of land and premises lying, being and situate in Haddonfield Borough, Camden County, and State of New Jersey being more particularly described as follows:\n\nBEGINNING at a point in the Southeasterly line of Kings Highway East, as approved December 15, 1931 and adopted by Ordinance February 16, 1932 by Borough Commissioners, 171.76 feet Northeasterly from the Easterly corner of Kings Highway East and Chestnut Street, said beginning point being corner to remaining lands of George W. Westcoatt and Dorothy F. Westcoatt;\n\nBEING premises No.  Kings Highway East.\n\nBEING Block: 34, Lot: 6",
+  "expected_normalized_text": "EXHIBIT “A”  \nLEGAL DESCRIPTION\n\nFile No.: 1032SP-01\n\nALL THAT CERTAIN tract or parcel of land and premises lying, being and situate in Haddonfield Borough, Camden County, and State of New Jersey being more particularly described as follows:\n\nBEGINNING at a point in the Southeasterly line of Kings Highway East, as approved December 15, 1931 and adopted by Ordinance February 16, 1932 by Borough Commissioners, 171.76 feet Northeasterly from the Easterly corner of Kings Highway East and Chestnut Street, said beginning point being corner to remaining lands of George W. Westcoatt and Dorothy F. Westcoatt;\n\nBEING premises No. Kings Highway East.\n\nBEING Block: 34, Lot: 6",
+  "expected_poc": null,
+  "expected_pob": "a point in the Southeasterly line of Kings Highway East, as approved December 15, 1931 and adopted by Ordinance February 16, 1932 by Borough Commissioners, 171",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "southeasterly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 171.76,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "remaining lands of George W",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0,
+    "area_sq_ft": 0.0,
+    "area_acres": 0.0,
+    "perimeter_ft": 171.76,
+    "closure_passed": false
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 1,
+      "operator": "==",
+      "description": "MUST extract exactly 1 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-17T02:58:13.401745+00:00"
+}

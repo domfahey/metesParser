@@ -1,0 +1,136 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "CAMDEN COUNTY, NJ  \nJAMES BEACH, COUNTY CLERK  \nDEED-OR BOOK 07426 PG 1333  \nRECORDED 04/16/2004 11:06:09  \nFILE NUMBER 2004053302  \nRCPT#: 105478; RECD BY: annal  \nRECORDING FEES 80.00  \nMARGINAL NOTATION 0.00  \n\nDEED  \n\nDated:  March  , 2004  \n\nPrepared by:  \nPeter M. Rhodes, Esquire  \nCAHILL, WILINSKI & RHODES  \n89 Haddon Avenue  \nHaddonfield, New Jersey 08033  \n\nRecord and Return to:  \n\nTOMMAR, LLC, a New Jersey Limited  \nLiability Company and J. DEL DUCA,  \nLLC, a New Jersey Limited Liability  \nCompany  \nGrantor,  \n\nand  \n\nTOMMAR, LLC, a New Jersey Limited  \nLiability Company  \nGrantee  \n\nThis is not an official document  \n\nBook7426/Page1333  \n\n\nDEED - BARGAIN AND SALE  \n(Covenants as to grantor’s Acts)  \n(IND. TO IND. OR CORP--Plain Language  \n\nDeed  \n\nPrepared by:  \nPeter M. Rhodes, Esquire  \n\nDate  \nThis Deed is made on March 31, 2004, between  \n\nParties  \nGrantor  \nJ. DEL DUCA, LLC, a New Jersey Limited Liability Company, and  \nTOMMAR, LLC, a New Jersey Limited Liability Compa...",
+  "expected_legal_description": "All that certain lot, piece or parcel of land, with the buildings and improvements thereon erected,  \nsituated, lying and being in the Borough of Haddonfield, County of Camden, State of New Jersey:  \n\nBEGINNING at the intersection of the Northeasterly line of Tanner Street (60 feet wide) with the  \nNorthwesterly line of Clement Street (20 feet wide) with the Northwesterly line of Clement Street (20  \nfeet wide); thence  \n\n(1) North 67 degrees 00 minutes 20 seconds East along the Northwesterly line of Clement Street, 140  \nfeet to a spike; thence  \n\n(2) North 22 degrees 09 minutes 00 seconds West, 29.33 feet to a pipe; thence  \n\n(3) North 29 degrees 19 minutes 10 seconds East, 130.02 feet to the Southwesterly line of Haddon  \nAvenue (66 feet wide); thence  \n\n(4) North 61 degrees 15 minutes 00 seconds West along the Southwesterly line of Haddon Avenue,  \n224 feet to lands of the Borough of Haddonfield; thence  \n\n(5) South 28 degrees 45 minutes 00 seconds West along said lands, 33.01 feet to a pipe; thence  \n\n(6) South 56 degrees 58 minutes 00 seconds West still along said lands, 89.44 feet to the  \nNortheasterly line of Tanner Street; thence  \n\n(7) South 25 degrees 09 minutes 00 seconds East along the Northeasterly line of Tanner Street, 248.86  \nfeet to the Northwesterly line of Clement Street and place of beginning.  \n\nBeing Lot 1.01 Block 22 on the Tax Map.",
+  "expected_normalized_text": "All that certain lot, piece or parcel of land, with the buildings and improvements thereon erected,  \nsituated, lying and being in the Borough of Haddonfield, County of Camden, State of New Jersey:  \n\nBEGINNING at the intersection of the Northeasterly line of Tanner Street (60 feet wide) with the  \nNorthwesterly line of Clement Street (20 feet wide) with the Northwesterly line of Clement Street (20  \nfeet wide); thence  \n\n(1) N 67°00'20\" E along the Northwesterly line of Clement Street, 140 feet to a spike; thence  \n\n(2) N 22°09'00\" W, 29.33 feet to a pipe; thence  \n\n(3) N 29°19'10\" E, 130.02 feet to the Southwesterly line of Haddon Avenue (66 feet wide); thence  \n\n(4) N 61°15'00\" W along the Southwesterly line of Haddon Avenue, 224 feet to lands of the Borough of Haddonfield; thence  \n\n(5) S 28°45'00\" W along said lands, 33.01 feet to a pipe; thence  \n\n(6) S 56°58'00\" W still along said lands, 89.44 feet to the Northeasterly line of Tanner Street; thence  \n\n(7) S 25°09'00\" E along the Northeasterly line of Tanner Street, 248.86 feet to the Northwesterly line of Clement Street and place of beginning.  \n\nBeing Lot 1.01 Block 22 on the Tax Map.",
+  "expected_poc": null,
+  "expected_pob": "the intersection of the Northeasterly line of Tanner Street (60 feet wide) with the  \nNorthwesterly line of Clement Street (20 feet wide) with the Northwesterly line of Clement Street (20  \nfeet wide)",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 67°00'20\" E",
+      "bearing_quadrant": "N 67°00' E",
+      "bearing_azimuth_deg_from_north": 67.00555555555556,
+      "distance_ft": 140.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Northwesterly line of Clement Street, 140 feet",
+      "to": "a spike",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "N 22°09'00\" W",
+      "bearing_quadrant": "N 22°09' W",
+      "bearing_azimuth_deg_from_north": 337.85,
+      "distance_ft": 29.33,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "a pipe",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "N 29°19'10\" E",
+      "bearing_quadrant": "N 29°19' E",
+      "bearing_azimuth_deg_from_north": 29.319444444444443,
+      "distance_ft": 130.02,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "the Southwesterly line of Haddon Avenue (66 feet wide)",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "N 61°15'00\" W",
+      "bearing_quadrant": "N 61°15' W",
+      "bearing_azimuth_deg_from_north": 298.75,
+      "distance_ft": 224.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Southwesterly line of Haddon Avenue, 224 feet",
+      "to": "lands of the Borough of Haddonfield",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "S 28°45'00\" W",
+      "bearing_quadrant": "S 28°45' W",
+      "bearing_azimuth_deg_from_north": 208.75,
+      "distance_ft": 33.01,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said lands, 33.01 feet",
+      "to": "a pipe",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 6,
+      "direction_text": "S 56°58'00\" W",
+      "bearing_quadrant": "S 56°58' W",
+      "bearing_azimuth_deg_from_north": 236.96666666666667,
+      "distance_ft": 89.44,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said lands, 89.44 feet",
+      "to": "the Northeasterly line of Tanner Street",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 7,
+      "direction_text": "S 25°09'00\" E",
+      "bearing_quadrant": "S 25°09' E",
+      "bearing_azimuth_deg_from_north": 154.85,
+      "distance_ft": 248.86,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Northeasterly line of Tanner Street, 248.86 feet",
+      "to": "the Northwesterly line of Clement Street and place of beginning",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0035,
+    "area_sq_ft": 48715.76,
+    "area_acres": 1.1184,
+    "perimeter_ft": 894.66,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 7,
+      "operator": "==",
+      "description": "MUST extract exactly 7 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-17T03:09:25.348155+00:00"
+}

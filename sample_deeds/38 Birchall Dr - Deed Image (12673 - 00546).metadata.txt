@@ -1,0 +1,7 @@
+DEED METADATA
+============================================================
+
+pob_description: a point in the Westerly line of Birchall Drive distant 576
+source_doc: 38 Birchall Dr - Deed Image (12673 - 00546).pdf
+distance_unit: feet
+subdivision_ref: Lot 7, Block ?, ?

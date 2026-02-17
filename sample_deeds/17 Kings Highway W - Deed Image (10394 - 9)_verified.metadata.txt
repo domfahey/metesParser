@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+pob_description: the Northerly corner of Kings Highway and Linden Avenue (50 feet wide)
+source_doc: 17 Kings Highway W - Deed Image (10394 - 9).pdf
+distance_unit: feet

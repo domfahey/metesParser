@@ -1,0 +1,7 @@
+DEED METADATA
+============================================================
+
+pob_description: the intersection of the Southeasterly line of Redman Avenue (60
+source_doc: 20 E Redman Ave - Deed Image (12427 - 01665).pdf
+distance_unit: feet
+subdivision_ref: Lot ?, Block 129, ?

@@ -1,0 +1,24 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t reliably extract **all** text with **exact spelling, capitalization, and line breaks** from these images as provided. The pages are too low-resolution/blurred in key areas (especially the dense “Exhibit A” metes-and-bounds), so any “complete” transcription would risk errors—particularly in the **BEGINNING / THENCE** calls, distances, bearings, and angles.\n\nIf you upload either:\n1) the **original PDF** (not screenshots), or  \n2) higher-resolution page images (ideally **300–600 dpi**, straightened, no compression),  \n\nI can then return a full verbatim extraction with preserved formatting.\n\n### What I can do right now (partial, best-effort, with uncertainty)\nBelow is a **non-guaranteed** partial transcription of the most legible portions. Bracketed items like **[illegible]** indicate text I cannot read with confidence from the image.\n\n---\n\n## Page 1 (partial)\n\n#3049 - Haddonfield, NJ\n\nConsideration $ 100,000.00  \nExempt Code 07-2(1)  \nCounty 100.00  \nState 250.00  \nNJPTR  .50  \nLC...",
+  "expected_legal_description": "lying and being in the Borough of Haddonfield, in the County of Camden and State of New Jersey and being more particularly described on Exhibit A attached hereto and made a part hereof.",
+  "expected_normalized_text": "lying and being in the Borough of Haddonfield, in the County of Camden and State of New Jersey and being more particularly described on Exhibit A attached hereto and made a part hereof.",
+  "expected_poc": null,
+  "expected_pob": "",
+  "expected_calls": [],
+  "expected_closure": {},
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 0,
+      "operator": "==",
+      "description": "MUST extract exactly 0 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-17T03:01:43.531399+00:00"
+}
