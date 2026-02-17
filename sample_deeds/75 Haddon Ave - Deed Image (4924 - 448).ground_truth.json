@@ -7,8 +7,8 @@
     "page": "Unknown"
   },
   "raw_ocr_text": "I can’t reliably extract **all** text with exact spelling/line breaks from these images because the scan resolution is too low and many characters (especially in the legal description/“BEGINNING/THENCE” metes-and-bounds) are not legible enough to transcribe with the required accuracy. If you upload the original PDF (or higher‑resolution page images, ideally 300–600 DPI), I can produce a complete, line‑for‑line extraction.\n\nBelow is the **best-effort partial transcription of the legible text** from the images you provided, preserving line breaks where readable. **Illegible/uncertain portions are marked** as `[illegible]` or `[unclear]` to avoid inventing text.\n\n---\n\nDEED\n\nPrepared by  \nLaura B. Wallenstein, Esq.\n\nThis Deed is made and delivered on December 23rd, 1997,\n\nBETWEEN  \nROSEMARY RAUSCH, as [ADMINISTRATRIX/EXECUTRIX] [unclear]  \nof NICHOLAS J. RAUSCH, whose address is 459 Locust Road, Haddonfield,  \nNew Jersey 08033 (referred to as the Grantor),\n\nAND  \n[ROSEMARY RAUSCH],  \nNew J...",
-  "expected_legal_description": "BEGINNING at a stone in the Northeast line of Haddon Avenue, distance 167.66  \nfeet North 36 degrees 03 minutes 35 seconds West along the Northeast line of  \nHaddon Avenue from angle point in Haddon Avenue, set angle point being North  \n55 degrees 57 minutes 35 seconds West 85.39 feet along the Northeast line of  \nHaddon Avenue from its intersection with Northwest line of Lake Street; thence  \nNorth 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon  \nAvenue 187.31 feet to stone corner to land now or late of Samuel N. Rhodes;  \nthence [unclear] along said North 53 degrees 41 minutes 15 seconds East, passing over  \nstone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhodes and  \ncontinuing said course a total distance of 707.52 feet to stake in line of land now  \nor late of Margaret N. Rhodes; thence along said land South 34 degrees 42  \nminutes 30 seconds East 2.86 feet to stake corner to same; thence still along said  \nland of Margaret N. Rhodes South 54 degrees 55 minutes 50 seconds East 89.13  \nfeet to stake; thence South 53 degrees 41 minutes 15 seconds West, passing over  \nstone 15.81 feet from beginning of this course total distance of 136.25 feet to place  \nof beginning.",
-  "expected_normalized_text": "BEGINNING at a stone in the Northeast line of Haddon Avenue, distance 167.66 feet N 36°03'35\" W along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, set angle point being N 55°57'35\" W 85.39 feet along the Northeast line of Haddon Avenue from its intersection with Northwest line of Lake Street; thence\n\nN 36°03'35\" W along the Northeast line of Haddon Avenue 187.31 feet to stone corner to land now or late of Samuel N. Rhodes; thence\n\n[unclear] along said N 53°41'15\" E, passing over stone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhodes and continuing said course a total distance of 707.52 feet to stake in line of land now or late of Margaret N. Rhodes; thence\n\nalong said land S 34°42'30\" E 2.86 feet to stake corner to same; thence\n\nstill along said land of Margaret N. Rhodes S 54°55'50\" E 89.13 feet to stake; thence\n\nS 53°41'15\" W, passing over stone 15.81 feet from beginning of this course total distance of 136.25 feet to place of beginning.",
+  "expected_legal_description": "BEGINNING at a stone in the Northeast line of Haddon Avenue, distance 167.66  \nfeet North 36 degrees 03 minutes 35 seconds West along the Northeast line of  \nHaddon Avenue from angle point in Haddon Avenue, set angle point being North  \n55 degrees 57 minutes 35 seconds West 85.39 feet along the Northeast line of  \nHaddon Avenue from its intersection with Northwest line of Lake Street; thence  \nNorth 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon  \nAvenue 87.31 feet to stone corner to land now or late of Samuel N. Rhodes;  \nthence [unclear] along said North 53 degrees 41 minutes 15 seconds East, passing over  \nstone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhodes and  \ncontinuing said course a total distance of 307.52 feet to stake in line of land now  \nor late of Margaret N. Rhodes; thence along said land South 34 degrees 42  \nminutes 30 seconds East 2.86 feet to stake corner to same; thence still along said  \nland of Margaret N. Rhodes South 54 degrees 55 minutes 50 seconds East 89.13  \nfeet to stake; thence South 53 degrees 41 minutes 15 seconds West, passing over  \nstone 15.83 feet from beginning of this course total distance of 336.25 feet to place  \nof beginning.",
+  "expected_normalized_text": "BEGINNING at a stone in the Northeast line of Haddon Avenue, distance 167.66 feet N 36°03'35\" W along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, set angle point being N 55°57'35\" W 85.39 feet along the Northeast line of Haddon Avenue from its intersection with Northwest line of Lake Street; thence\n\nN 36°03'35\" W along the Northeast line of Haddon Avenue 87.31 feet to stone corner to land now or late of Samuel N. Rhodes; thence\n\n[unclear] along said N 53°41'15\" E, passing over stone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhodes and continuing said course a total distance of 307.52 feet to stake in line of land now or late of Margaret N. Rhodes; thence\n\nalong said land S 34°42'30\" E 2.86 feet to stake corner to same; thence\n\nstill along said land of Margaret N. Rhodes S 54°55'50\" E 89.13 feet to stake; thence\n\nS 53°41'15\" W, passing over stone 15.83 feet from beginning of this course total distance of 336.25 feet to place of beginning.",
   "expected_poc": null,
   "expected_pob": "a stone in the Northeast line of Haddon Avenue, distance 167",
   "expected_calls": [
@@ -17,12 +17,12 @@
       "direction_text": "N 36°03'35\" W",
       "bearing_quadrant": "N 36°04' W",
       "bearing_azimuth_deg_from_north": 323.9402777777778,
-      "distance_ft": 187.31,
+      "distance_ft": 87.31,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the Northeast line of Haddon Avenue 187.31 feet to stone corner",
+      "along": "the Northeast line of Haddon Avenue 87.31 feet to stone corner",
       "to": "land now or late of Samuel N",
       "monument_type": null,
       "notes": null
@@ -37,7 +37,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said N 53°41'15\" E, passing over stone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhodes and continuing said course a total distance of 707.52 feet",
+      "along": "said N 53°41'15\" E, passing over stone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhodes and continuing said course a total distance of 307.52 feet",
       "to": "stake in line of land now or late of Margaret N",
       "monument_type": null,
       "notes": null
@@ -77,7 +77,7 @@
       "direction_text": "S 53°41'15\" W",
       "bearing_quadrant": "S 53°41' W",
       "bearing_azimuth_deg_from_north": 233.6875,
-      "distance_ft": 15.81,
+      "distance_ft": 15.83,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
