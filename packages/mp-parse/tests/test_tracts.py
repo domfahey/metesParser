@@ -128,3 +128,70 @@ class TestSingleTract:
         assert isinstance(text_val, str)
         assert isinstance(label, str)
         assert isinstance(tract_type, TractType)
+
+
+from mp_parse.calls import extract_calls
+
+
+class TestExtractCallsMultiTract:
+    """extract_calls returns Tract objects when multi-tract patterns detected."""
+
+    def test_returns_tracts_for_tract_markers(self):
+        text = (
+            "TRACT #1: BEGINNING at a point THENCE North 45 degrees 00 minutes 00 seconds East, "
+            "a distance of 100.00 feet to a point; THENCE South 45 degrees 00 minutes 00 seconds East, "
+            "a distance of 100.00 feet to a point; THENCE South 45 degrees 00 minutes 00 seconds West, "
+            "a distance of 100.00 feet to a point; THENCE North 45 degrees 00 minutes 00 seconds West, "
+            "a distance of 100.00 feet to the POINT OF BEGINNING. "
+            "TRACT #2: BEGINNING at a point THENCE South 45 degrees 00 minutes 00 seconds East, "
+            "a distance of 50.00 feet to a point; THENCE South 45 degrees 00 minutes 00 seconds West, "
+            "a distance of 50.00 feet to a point; THENCE North 45 degrees 00 minutes 00 seconds West, "
+            "a distance of 50.00 feet to a point; THENCE North 45 degrees 00 minutes 00 seconds East, "
+            "a distance of 50.00 feet to the POINT OF BEGINNING."
+        )
+        calls, tracts = extract_calls(text)
+        assert len(tracts) == 2
+        assert tracts[0].label == "Tract 1"
+        assert tracts[1].label == "Tract 2"
+        # Course numbering resets per tract
+        assert tracts[0].calls[0].course == 1
+        assert tracts[1].calls[0].course == 1
+
+    def test_single_tract_returns_empty_tracts(self):
+        text = (
+            "THENCE North 45 degrees 00 minutes 00 seconds East, "
+            "a distance of 100.00 feet to a point; THENCE South 45 degrees 00 minutes 00 seconds East, "
+            "a distance of 100.00 feet to the POINT OF BEGINNING."
+        )
+        calls, tracts = extract_calls(text)
+        assert tracts == []
+        assert len(calls) == 2
+
+    def test_except_clause_returns_tracts(self):
+        text = (
+            "THENCE North 45 degrees 00 minutes 00 seconds East, a distance of 100.00 feet; "
+            "THENCE South 45 degrees 00 minutes 00 seconds East, a distance of 100.00 feet; "
+            "THENCE South 45 degrees 00 minutes 00 seconds West, a distance of 100.00 feet; "
+            "THENCE North 45 degrees 00 minutes 00 seconds West, a distance of 100.00 feet "
+            "EXCEPT THENCE South 10 degrees 00 minutes 00 seconds East, a distance of 50.00 feet; "
+            "THENCE South 10 degrees 00 minutes 00 seconds West, a distance of 50.00 feet"
+        )
+        calls, tracts = extract_calls(text)
+        assert len(tracts) >= 2
+        types = [t.tract_type for t in tracts]
+        assert TractType.MAIN in types
+        assert TractType.EXCEPTION in types
+
+    def test_exception_calls_marked(self):
+        """Exception tract calls should have is_exception=True."""
+        text = (
+            "THENCE North 45 degrees 00 minutes 00 seconds East, a distance of 100.00 feet; "
+            "THENCE South 45 degrees 00 minutes 00 seconds East, a distance of 100.00 feet "
+            "EXCEPT THENCE South 10 degrees 00 minutes 00 seconds East, a distance of 50.00 feet"
+        )
+        calls, tracts = extract_calls(text)
+        exception_tracts = [t for t in tracts if t.tract_type == TractType.EXCEPTION]
+        assert len(exception_tracts) >= 1
+        for exc_tract in exception_tracts:
+            for call in exc_tract.calls:
+                assert call.is_exception is True
