@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-02-16
+
 ### Added
 - **Composable Package Architecture** — Refactored monolith into 7 independently installable packages in a uv workspace monorepo (PR #23)
   - `mp-models`: Pydantic schemas, JSONL envelope, units (zero deps)
@@ -298,7 +300,8 @@ Update any code that reads CSV files to handle the new fields.
 **Testing**:
 Session-scoped fixtures may affect test timing. Use `pytest --cache-clear` if you encounter caching issues.
 
-[Unreleased]: https://github.com/domfahey/metesParser/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/domfahey/metesParser/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/domfahey/metesParser/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/domfahey/metesParser/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/domfahey/metesParser/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/domfahey/metesParser/compare/v0.2.0...v0.3.0
