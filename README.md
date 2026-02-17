@@ -476,7 +476,8 @@ Based on comprehensive metes & bounds extraction best practices from professiona
 - **[CLAUDE.md](CLAUDE.md)** - AI assistant context and guidance
 - **[AGENTS.md](AGENTS.md)** - Agent workflow documentation
 - **[docs/METES_AND_BOUNDS_REFERENCE.md](docs/METES_AND_BOUNDS_REFERENCE.md)** - Surveying reference guide
-- **[bugs.md](bugs.md)** - Known issues tracker
+- **[docs/bugs.md](docs/bugs.md)** - Known issues tracker
+- **[docs/todos.md](docs/todos.md)** - Task tracker
 
 ## Support
 
