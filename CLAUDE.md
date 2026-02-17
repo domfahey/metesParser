@@ -223,7 +223,7 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 - 1 acre = 43,560 sq ft
 
 ## Key Directories
-- `packages/` — 7 composable packages (mp-models, mp-bearing, mp-ocr, mp-parse, mp-verify, mp-export, metesparser)
+- `packages/` — 6 composable packages (mp-models, mp-bearing, mp-ocr, mp-parse, mp-verify, mp-export)
 - `src/metesparser/` — orchestrator (`pipeline.py`) + backward-compat monolith modules
 - `scripts/` — standalone utility scripts (extract_sample_deeds.py, generate_ground_truth.py, generate_review_packet.py, backfill_run_registry.py, audit_gt_vs_md.py, parse_pdfs_to_md.sh, test_31_pennbrook_text.py)
 - `docs/reference/` — reference PDFs (BLM manual, etc.) — tracked via `!docs/reference/*.pdf`
