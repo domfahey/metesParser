@@ -47,6 +47,17 @@ class Pipeline:
             assert not isinstance(result, tuple)
             legal_desc = cast(LegalDescription, result)
 
+        if legal_desc.tracts:
+            results = verify_closure(
+                legal_desc.all_calls,
+                tracts=legal_desc.tracts,
+                audit_context=audit_ctx,
+            )
+            if self.audit:
+                assert audit_ctx is not None
+                return results, audit_ctx
+            return results
+
         closure_result = verify_closure(legal_desc.calls, audit_context=audit_ctx)
 
         if self.audit:
