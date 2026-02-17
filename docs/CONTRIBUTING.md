@@ -306,6 +306,8 @@ class TestBugXYZ:
 ### Before Submitting
 
 - [ ] All tests pass (`make test`)
+- [ ] Per-package tests pass (`for pkg in packages/mp-*/tests/; do uv run pytest "$pkg" -v --no-cov; done`)
+- [ ] Cross-package imports verified (`uv run pytest tests/unit/test_cross_package_imports.py -v`)
 - [ ] Code is formatted (`make format`)
 - [ ] Linting passes (`make lint`)
 - [ ] Coverage meets requirements

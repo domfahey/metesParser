@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
-**Version**: 0.5.0 | **Tests**: ~994 | **Coverage**: ~93%
+**Version**: 0.5.0 | **Tests**: ~996 | **Coverage**: ~94%
 
 ## Critical Architecture Principles
 
@@ -260,7 +260,7 @@ uv run pytest packages/mp-parse/tests/ -v --no-cov  # Per-package (needs --no-co
 
 ### Expected Test Output
 ```
-~994 passed
+~996 passed
 ```
 All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`, investigate before committing.
 
