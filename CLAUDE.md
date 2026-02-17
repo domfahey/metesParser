@@ -40,10 +40,10 @@ src/metesparser/ → Orchestrator + backward-compat monolith
 ### Package → Monolith Module Mapping
 | Package | Module(s) | Monolith Equivalent |
 |---------|-----------|---------------------|
-| `mp-models` | `mp_models.deed_call`, `mp_models.closure`, `mp_models.audit`, `mp_models.envelope`, `mp_models.units` | `models.py` |
+| `mp-models` | `mp_models.deed_call`, `mp_models.legal_description`, `mp_models.closure`, `mp_models.audit`, `mp_models.envelope`, `mp_models.units`, `mp_models.constants`, `mp_models.base`, `mp_models.logging` | `models.py` |
 | `mp-bearing` | `mp_bearing.azimuth`, `mp_bearing.curves`, `mp_bearing.deltas` | `bearing_converter.py` |
 | `mp-ocr` | `mp_ocr.extract`, `mp_ocr.clients`, `mp_ocr.cache` | `pdf_processor.py`, `llm_clients.py` |
-| `mp-parse` | `mp_parse.calls`, `mp_parse.metadata`, `mp_parse.monuments`, `mp_parse.normalizer` | `call_extractor.py`, `text_parser.py` |
+| `mp-parse` | `mp_parse.calls`, `mp_parse.metadata`, `mp_parse.monuments`, `mp_parse.normalizer`, `mp_parse.numbers` | `call_extractor.py`, `text_parser.py` |
 | `mp-verify` | `mp_verify.closure`, `mp_verify.checks`, `mp_verify.confidence` | `closure_checker.py` |
 | `mp-export` | `mp_export.csv_writer`, `mp_export.audit_html` | `csv_builder.py`, `audit_reporter.py` |
 | `metesparser` | `metesparser.pipeline` | Orchestrator (new) |
