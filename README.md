@@ -49,7 +49,7 @@ This repository is a **prototype** exploring whether AI can assist with that wor
 - **Run Registry** - Track prompt versions (git SHA + content hash) and extraction metrics per run. Compare results with `metesparser compare-runs`.
 - **Ground Truth Review Packets** - Self-contained HTML review pages per deed with traverse plots, call tables, and text comparison.
 - **38 features** across 6 phases: foundation units, enhanced parsing, verification checks, geometric completeness, production features, and audit transparency.
-- **~994 tests, ~93% coverage** with unit, integration, regression, and e2e categories.
+- **~996 tests, ~94% coverage** with unit, integration, regression, and e2e categories.
 - 87 sample deeds with ground truth JSON + LlamaParse markdown conversions.
 - Gemini LLM provider support alongside OpenAI (`--llm-provider gemini`).
 - File-based LLM response caching via `CachedLLMClient`.
@@ -255,7 +255,7 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite runs ~994 tests organized by type:
+The test suite runs ~996 tests organized by type:
 
 ```bash
 # Run all tests (unit + integration + e2e + regression)
@@ -397,7 +397,7 @@ metesParser/
 │   ├── review_packet.py         # Ground truth review packets
 │   └── ...                      # Monolith modules (kept in sync with packages)
 ├── prompts/                     # Prompt YAML files
-├── tests/                       # Pytest test suite (~994 tests, ~93% coverage)
+├── tests/                       # Pytest test suite (~996 tests, ~94% coverage)
 │   ├── unit/                    # Unit tests
 │   ├── integration/             # Integration tests
 │   ├── e2e/                     # End-to-end CLI tests
