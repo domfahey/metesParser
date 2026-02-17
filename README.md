@@ -25,7 +25,7 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 - **Run Registry** - Track prompt versions and extraction results for A/B comparison across runs
 - **Composable Packages** - 7 independently installable packages in a uv workspace monorepo
 
-## Recent Updates (v0.4.0)
+## Recent Updates (v0.5.0)
 
 - **Composable Package Architecture** - Refactored into 7 independently installable packages in a uv workspace monorepo (mp-models, mp-bearing, mp-ocr, mp-parse, mp-verify, mp-export, metesparser). Each package does one thing well; the monolith is preserved for backward compatibility.
 - **Pipeline Orchestrator** - `Pipeline` class chains mp-ocr -> mp-parse -> mp-verify -> mp-export in a single call.
