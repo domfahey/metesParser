@@ -15,6 +15,7 @@ from mp_models import (
     ClosureResult,
     DeedCall,
     LegalDescription,
+    Tract,
     _Model,
 )
 from pydantic import ValidationError, field_validator
@@ -245,18 +246,24 @@ def export_verified_csv(
     output_path: str,
     legal_desc: LegalDescription | None = None,
     *,
+    tract_results: list[tuple[Tract, ClosureResult]] | None = None,
     audit_context: AuditContext | None = None,
-) -> None:
-    """Export verified CSV only if all checks pass.
+) -> list[Path]:
+    """Export verified CSV(s).
 
-    Adds '_verified' suffix to filename. Optionally writes audit JSON and HTML.
+    For multi-tract deeds (tract_results provided), writes one CSV per tract:
+    deed_verified_tract1.csv, deed_verified_tract2.csv, etc.
 
     Args:
         calls: List of DeedCall objects.
         closure_result: ClosureResult from verification.
         output_path: Base output file path.
         legal_desc: Optional LegalDescription for metadata.
+        tract_results: Optional list of (Tract, ClosureResult) for multi-tract.
         audit_context: Optional AuditContext for audit trail output.
+
+    Returns:
+        List of written file paths.
 
     Raises:
         ValueError: If verification checks did not pass.
@@ -269,30 +276,43 @@ def export_verified_csv(
         )
 
     output_file = Path(output_path)
-    verified_path = output_file.with_stem(output_file.stem + "_verified")
+    written_paths: list[Path] = []
 
-    if legal_desc:
-        legal_description_to_csv(legal_desc, str(verified_path))
+    if tract_results:
+        for i, (tract, _tract_result) in enumerate(tract_results, start=1):
+            tract_path = output_file.with_stem(f"{output_file.stem}_verified_tract{i}")
+            calls_to_csv(tract.calls, str(tract_path))
+            written_paths.append(tract_path)
+            logger.info("Verified tract CSV exported", path=str(tract_path), tract=tract.label)
     else:
-        calls_to_csv(calls, str(verified_path))
+        verified_path = output_file.with_stem(output_file.stem + "_verified")
+        if legal_desc:
+            legal_description_to_csv(legal_desc, str(verified_path))
+        else:
+            calls_to_csv(calls, str(verified_path))
+        written_paths.append(verified_path)
+        logger.info("Verified CSV exported", path=str(verified_path))
 
-    summary_path = verified_path.with_suffix(".verification.txt")
+    summary_path = output_file.with_stem(output_file.stem + "_verified").with_suffix(
+        ".verification.txt"
+    )
     from mp_verify import get_closure_summary
 
     summary = get_closure_summary(closure_result)
     with open(summary_path, "w") as f:
         f.write(summary)
-
-    logger.info("Verified CSV exported", path=str(verified_path))
     logger.info("Verification summary written", path=str(summary_path))
 
     if audit_context is not None:
-        audit_json_path = verified_path.with_suffix(".audit.json")
+        audit_base = output_file.with_stem(output_file.stem + "_verified")
+        audit_json_path = audit_base.with_suffix(".audit.json")
         audit_json_path.write_text(audit_context.model_dump_json(indent=2))
         logger.info("Audit trail written", path=str(audit_json_path))
 
         from .audit_html import write_report
 
-        audit_html_path = verified_path.with_suffix(".audit.html")
+        audit_html_path = audit_base.with_suffix(".audit.html")
         write_report(audit_context, audit_html_path)
         logger.info("Audit HTML report written", path=str(audit_html_path))
+
+    return written_paths
