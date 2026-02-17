@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+pob_description: a point forming the intersection of the Northerly line of Haddon Avenue (56 feet wide), with the Southeasterly line of Euclid Avenue, (60 feet wide), said beginning point also being measured in a general Southeasterly direction along the Northeasterly line of Haddon Avenue, a distance of 60
+source_doc: 89 Haddon Ave - Deed Image (4732 - 544).pdf
+distance_unit: feet

@@ -1,0 +1,91 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t extract **all** text from this document with the level of completeness/precision you’re requiring from the images provided here. Several areas (especially the recorder stamp at the top, some typed lines, and parts of the notary/affidavit sections) are too low‑resolution/blurred to read reliably, and guessing would risk introducing errors into a legal description.\n\nWhat I *can* do right now is:\n1) Provide a **best-effort transcription** of the portions that are clearly legible (not guaranteed complete), **or**\n2) If you upload the **original PDF** (or higher-resolution page images, ideally 300+ DPI, straightened), I can then extract the **complete text** with preserved line breaks and much higher accuracy.\n\nBelow is the text I can read clearly enough to transcribe from the provided pages (with original line breaks preserved as best as possible). Illegible/uncertain parts are marked **[illegible]**.\n\n---\n\n## Page: Book7892/Page124\n\nDILWORTH PAXSON LLP\n\nPrepared by: FRANK V. TEDES...",
+  "expected_legal_description": "ALL THAT CERTAIN tract or parcel of land and premises situate, lying\nand being in the Borough of HADDONFIELD, County of CAMDEN and State of\nNew Jersey more particularly described as follows:\n\nBEGINNING at a point in the Southeasterly line of Kings Highway East,\nas approved December 15, 1931 and adopted by Ordinance February 16, 1932\nby Borough Commissioners, 171.76 feet Northeasterly from the Easterly\ncorner of Kings Highway East and Chestnut Street, said beginning point\nbeing corner to remaining lands of George W. Westcoatt and Dorothy F.\nWestcoatt;\n\nTHENCE:  Northeastwardly along Southeasterly line of Kings Highway East,\n84 feet to point corner to lands of Trustees of Baptist Church of\nHaddonfield (formerly John Clement) and said point also being 97.23 feet\nSouthwesterly from foundation wall of 128 Kings Highway East (Hunt’s\ncellar wall);\n\nTHENCE:  Southeastwardly forming interior angles of 89 degrees 46 minutes\n45 seconds with Kings Highway East and running along lands of said\nTrustees of Baptist Church of Haddonfield 231.84 feet to point in line of\nsaid Trustees of Baptist Church and corner to lands of the Borough of\nHaddonfield;\n\nTHENCE:  Southwestwardly along lands of Borough of Haddonfield and forming\nan interior angle of 89 degrees 44 minutes 10 seconds with the last\ncourse 83.05 feet to point corner of remaining lands of Estate of Charles\nH. Ellis;\n\nTHENCE:  Northwestwardly along line of remaining land of Estate of Charles\nH. Ellis and also along line of remaining lands of George W. Westcoatt\nand Dorothy F. Westcoatt aforesaid and forming an interior angle of 90\ndegrees 30 minutes with last course and also forming an interior angle of\n89 degrees 59 minutes 5 seconds with Kings Highway East 231.15 feet to\nSoutheasterly line of Kings Highway East and place of Beginning.\n\nBEING KNOWN as Lot 6, Block 34, as shown on the tax map of the\nBorough of Haddonfield.  (For information only).",
+  "expected_normalized_text": "ALL THAT CERTAIN tract or parcel of land and premises situate, lying and being in the Borough of HADDONFIELD, County of CAMDEN and State of New Jersey more particularly described as follows:\n\nBEGINNING at a point in the Southeasterly line of Kings Highway East, as approved December 15, 1931 and adopted by Ordinance February 16, 1932 by Borough Commissioners, 171.76 feet Northeasterly from the Easterly corner of Kings Highway East and Chestnut Street, said beginning point being corner to remaining lands of George W. Westcoatt and Dorothy F. Westcoatt;\n\nTHENCE: Northeastwardly along Southeasterly line of Kings Highway East, 84 feet to point corner to lands of Trustees of Baptist Church of Haddonfield (formerly John Clement) and said point also being 97.23 feet Southwesterly from foundation wall of 128 Kings Highway East (Hunt’s cellar wall);\n\nTHENCE: Southeastwardly forming interior angles of 89°46'45\" with Kings Highway East and running along lands of said Trustees of Baptist Church of Haddonfield 231.84 feet to point in line of said Trustees of Baptist Church and corner to lands of the Borough of Haddonfield;\n\nTHENCE: Southwestwardly along lands of Borough of Haddonfield and forming an interior angle of 89°44'10\" with the last course 83.05 feet to point corner of remaining lands of Estate of Charles H. Ellis;\n\nTHENCE: Northwestwardly along line of remaining land of Estate of Charles H. Ellis and also along line of remaining lands of George W. Westcoatt and Dorothy F. Westcoatt aforesaid and forming an interior angle of 90°30' with last course and also forming an interior angle of 89°59'5\" with Kings Highway East 231.15 feet to Southeasterly line of Kings Highway East and place of Beginning.\n\nBEING KNOWN as Lot 6, Block 34, as shown on the tax map of the Borough of Haddonfield. (For information only).",
+  "expected_poc": null,
+  "expected_pob": "a point in the Southeasterly line of Kings Highway East, as approved December 15, 1931 and adopted by Ordinance February 16, 1932 by Borough Commissioners, 171",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "northeastwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 84.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "Southeasterly line of Kings Highway East, 84 feet to point corner",
+      "to": "lands of Trustees of Baptist Church of Haddonfield (formerly John Clement) and said point also being 97",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 2,
+      "direction_text": "southeastwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 231.84,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "lands of said Trustees of Baptist Church of Haddonfield 231.84 feet to point in line of said Trustees of Baptist Church and corner",
+      "to": "lands of the Borough of Haddonfield",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 3,
+      "direction_text": "southwestwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 83.05,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "lands of Borough of Haddonfield and forming an interior angle of 89°44'10\" with the last course 83.05 feet",
+      "to": "point corner of remaining lands of Estate of Charles H",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 4,
+      "direction_text": "northwestwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 231.15,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "line of remaining land of Estate of Charles H. Ellis and also along line of remaining lands of George W. Westcoatt and Dorothy F. Westcoatt aforesaid and forming an interior angle of 90°30' with last course and also forming an interior angle of 89°59'5\" with Kings Highway East 231.15 feet",
+      "to": "Southeasterly line of Kings Highway East and place of Beginning",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0,
+    "area_sq_ft": 0.0,
+    "area_acres": 0.0,
+    "perimeter_ft": 630.04,
+    "closure_passed": false
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-17T02:56:45.618990+00:00"
+}

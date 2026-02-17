@@ -1,0 +1,24 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t reliably extract **all** text with **exact spelling, capitalization, and line breaks** from these images as provided. Several pages are too low-resolution/blurred for precise OCR—especially the dense legal description (“BEGINNING / THENCE” metes-and-bounds calls) and some stamped/handwritten fields. Returning a “complete” transcription would risk introducing errors, which is particularly problematic for legal descriptions.\n\nIf you upload either (a) the **original PDF** (not screenshots) or (b) **higher-resolution page images** (300+ DPI; or at least ~2500–3500 px on the long edge per page), I can then produce a full, line-preserved extraction.\n\nWhat I *can* do now is:\n1) Extract the text that is clearly legible from the images, and  \n2) Mark unclear portions as **[ILLEGIBLE]** rather than guessing.\n\nIf you want that partial/flagged extraction, tell me and I’ll proceed.\n\n---\n\n## Text that is clearly legible right now (partial; with omissions where unreadable)\n\n### Camden County ...",
+  "expected_legal_description": "See Schedule A attached hereto",
+  "expected_normalized_text": "See Schedule A attached hereto",
+  "expected_poc": null,
+  "expected_pob": "",
+  "expected_calls": [],
+  "expected_closure": {},
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 0,
+      "operator": "==",
+      "description": "MUST extract exactly 0 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-17T03:06:16.100350+00:00"
+}

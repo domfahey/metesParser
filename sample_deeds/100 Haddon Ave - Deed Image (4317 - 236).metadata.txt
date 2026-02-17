@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+pob_description: a steel pin located at the Northwest corner of Haddon and Euclid (formerly Redman Street) Avenues
+source_doc: 100 Haddon Ave - Deed Image (4317 - 236).pdf
+distance_unit: feet

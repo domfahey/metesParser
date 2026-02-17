@@ -1,0 +1,7 @@
+DEED METADATA
+============================================================
+
+pob_description: a point in the Southwesterly right of way line of Washington avenue (40 feet wide) where intersected by Northerly line of Lot 12
+source_doc: 8 Kings Highway W - Deed Image (7526 - 298).pdf
+distance_unit: feet
+subdivision_ref: Lot 12, Block 76, S

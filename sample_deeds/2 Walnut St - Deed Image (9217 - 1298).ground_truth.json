@@ -1,0 +1,24 @@
+{
+  "deed_info": {
+    "address": "Unknown",
+    "city": "Unknown",
+    "state": "NJ",
+    "book": "Unknown",
+    "page": "Unknown"
+  },
+  "raw_ocr_text": "I can’t reliably extract **all** text with **exact spelling, capitalization, and line breaks** from these images as provided. The pages are low-resolution/blurred in several areas (especially the long **metes-and-bounds “BEGINNING / THENCE”** legal descriptions), so any “complete text” I return would risk errors—exactly where you asked for maximum precision.\n\nIf you upload either:\n1) the **original PDF** (not screenshots), or  \n2) **higher-resolution page images** (ideally 300+ DPI; each page as a separate, straightened image),\n\nI can then return a full verbatim transcription with preserved line breaks and formatting.\n\n### What I *can* do right now\nI can transcribe the clearly legible portions, but it will **not** be “complete text from the document.” If you want that partial extraction anyway, tell me and I’ll proceed page-by-page and mark any unreadable segments as **[ILLEGIBLE]**.\n\n### Quick checklist for a re-upload that will work\n- Provide the **PDF file** directly, or\n- Images wh...",
+  "expected_legal_description": "",
+  "expected_normalized_text": "",
+  "expected_poc": null,
+  "expected_pob": "",
+  "expected_calls": [],
+  "expected_closure": {},
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 0,
+      "operator": "==",
+      "description": "MUST extract exactly 0 calls"
+    }
+  },
+  "notes": "Ground truth generated at 2026-02-17T03:01:51.397838+00:00"
+}

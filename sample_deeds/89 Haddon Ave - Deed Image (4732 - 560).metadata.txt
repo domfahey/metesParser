@@ -1,0 +1,9 @@
+DEED METADATA
+============================================================
+
+source_doc: 89 Haddon Ave - Deed Image (4732 - 560).pdf
+distance_unit: feet
+clauses: [together_with] together with an undivided 20.46% interest in the general and limited common elements of the 89 Haddon …
+
+… Haddon Avenue Condominium, as more fully described in the Master Deed heretofore mentioned
+subdivision_ref: Lot 2, Block 11, ?

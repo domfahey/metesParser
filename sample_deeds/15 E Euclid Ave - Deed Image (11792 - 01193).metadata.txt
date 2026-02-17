@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+source_doc: 15 E Euclid Ave - Deed Image (11792 - 01193).pdf
+distance_unit: feet
+subdivision_ref: Lot 3, Block 129, ?

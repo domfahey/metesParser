@@ -1,0 +1,7 @@
+DEED METADATA
+============================================================
+
+pob_description: a point in the Southeasterly line of Kings Highway West, also known as Main Street (66
+source_doc: 8 Kings Highway W - Deed Image (7103 - 254).pdf
+distance_unit: feet
+subdivision_ref: Lot 10, Block 76, ?

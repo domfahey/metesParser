@@ -1,0 +1,7 @@
+DEED METADATA
+============================================================
+
+pob_description: THE NORTHERLY CORNER OF KINGS HIGHWAY AND LINDEN AVENUE, 50 FEET WIDE
+source_doc: 17 Kings Highway W - Deed Image (8673 - 1087).pdf
+distance_unit: feet
+subdivision_ref: Lot OF, Block ?, ?
