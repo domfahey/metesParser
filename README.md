@@ -35,7 +35,7 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 - **Ground Truth Review Packets** - Self-contained HTML review pages per deed with traverse plots, call tables, and text comparison.
 - **38 features** across 6 phases: foundation units, enhanced parsing, verification checks, geometric completeness, production features, and audit transparency.
 - **~994 tests, ~93% coverage** with unit, integration, regression, and e2e categories.
-- 63 sample deeds with ground truth JSON + LlamaParse markdown conversions.
+- 87 sample deeds with ground truth JSON + LlamaParse markdown conversions.
 - Gemini LLM provider support alongside OpenAI (`--llm-provider gemini`).
 - File-based LLM response caching via `CachedLLMClient`.
 
@@ -382,13 +382,13 @@ metesParser/
 │   ├── review_packet.py         # Ground truth review packets
 │   └── ...                      # Monolith modules (kept in sync with packages)
 ├── prompts/                     # Prompt YAML files
-├── tests/                       # Pytest test suite (~991 tests, ~93% coverage)
+├── tests/                       # Pytest test suite (~994 tests, ~93% coverage)
 │   ├── unit/                    # Unit tests
 │   ├── integration/             # Integration tests
 │   ├── e2e/                     # End-to-end CLI tests
 │   └── regression/              # Bug fix tests
 ├── scripts/                     # Utility scripts
-├── sample_deeds/                # 63 sample PDFs + ground truth JSON + LlamaParse markdown
+├── sample_deeds/                # 87 sample PDFs + ground truth JSON + LlamaParse markdown
 ├── docs/                        # Documentation
 ├── CLAUDE.md                    # AI assistant guidance
 └── bugs.md                      # Known issues tracker
