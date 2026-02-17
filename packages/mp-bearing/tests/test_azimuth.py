@@ -49,3 +49,39 @@ def test_compass_point_to_azimuth():
 
     assert compass_point_to_azimuth("northeast") == 45.0
     assert compass_point_to_azimuth("south") == 180.0
+
+
+class TestCommaInDMS:
+    """GPT-5 sometimes inserts a comma between minutes and seconds."""
+
+    def test_parse_bearing_with_comma_between_min_sec(self):
+        from mp_bearing import parse_quadrant_bearing
+
+        result = parse_quadrant_bearing("S 56\u00b040', 00\" W")
+        assert result is not None
+        assert result[0] == "S"
+        assert abs(result[1] - 56.6667) < 0.001
+        assert result[2] == "W"
+
+    def test_parse_bearing_with_comma_no_space(self):
+        from mp_bearing import parse_quadrant_bearing
+
+        result = parse_quadrant_bearing("N 33\u00b020',00\" W")
+        assert result is not None
+        assert result[0] == "N"
+        assert abs(result[1] - 33.3333) < 0.001
+        assert result[2] == "W"
+
+    def test_azimuth_with_comma_in_dms(self):
+        from mp_bearing import bearing_to_azimuth
+
+        az = bearing_to_azimuth("S 56\u00b040', 00\" W")
+        assert az is not None
+        assert abs(az - 236.6667) < 0.001
+
+    def test_azimuth_with_comma_n_w(self):
+        from mp_bearing import bearing_to_azimuth
+
+        az = bearing_to_azimuth("N 33\u00b020', 00\" W")
+        assert az is not None
+        assert abs(az - 326.6667) < 0.001

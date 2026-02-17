@@ -48,6 +48,22 @@ class TestQuadrantParsing:
         assert BearingConverter.parse_quadrant_bearing("southwesterly") is None
         assert BearingConverter.parse_quadrant_bearing("") is None
 
+    def test_parse_comma_between_minutes_and_seconds(self):
+        """GPT-5 sometimes inserts comma between minutes and seconds."""
+        result = BearingConverter.parse_quadrant_bearing("S 56°40', 00\" W")
+        assert result is not None
+        assert result[0] == "S"
+        assert math.isclose(result[1], 56.6667, abs_tol=0.001)
+        assert result[2] == "W"
+
+    def test_parse_comma_no_space_between_minutes_and_seconds(self):
+        """Comma without space between minutes and seconds."""
+        result = BearingConverter.parse_quadrant_bearing("N 33°20',00\" W")
+        assert result is not None
+        assert result[0] == "N"
+        assert math.isclose(result[1], 33.3333, abs_tol=0.001)
+        assert result[2] == "W"
+
 
 class TestQuadrantToAzimuth:
     """Test quadrant bearing to azimuth conversion."""
