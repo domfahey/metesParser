@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Composable Package Architecture** — Refactored monolith into 7 independently installable packages in a uv workspace monorepo (PR #23)
+  - `mp-models`: Pydantic schemas, JSONL envelope, units (zero deps)
+  - `mp-bearing`: Pure math — azimuth, curves, deltas
+  - `mp-ocr`: LLM boundary — PDF → text (OpenAI/Gemini)
+  - `mp-parse`: Rule-based parsing — text → calls
+  - `mp-verify`: Geometric verification — 8 checks
+  - `mp-export`: CSV/JSON/audit HTML output
+  - `metesparser`: Pipeline orchestrator + CLI
+- `Pipeline` orchestrator class chains mp-ocr → mp-parse → mp-verify → mp-export in a single call
+- Cross-package import verification tests (`test_cross_package_imports.py`)
+- 24 new sample deeds for 9 properties with ground truth JSON + LlamaParse markdown (PR #30): 1 Walnut St, 101-111 Kings Hwy E, 104 Kings Hwy E, 116 Kings Hwy E, 1350 Brace Rd, 2 Walnut St, 219 Berlin Rd, 36 Kresson Rd, 56 Haddon Ave
+- 34 additional sample deeds with ground truth for 4 properties (8 Kings Hwy W, 17 Kings Hwy W, 32/38 Birchall Dr, 26 Chews Landing Rd)
+- Total sample deeds: 87 (up from 63) with ground truth JSON + LlamaParse markdown conversions
 - Run registry for prompt A/B testing (`run_registry.py`) (PR #14)
 - `RunManifest`, `PromptVersion`, `RunResults` Pydantic models for run tracking
 - `get_prompt_versions()` — resolves git SHA + content hash per prompt file
@@ -19,13 +32,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `generate_review_html()` — self-contained HTML with metadata, call table, closure summary, text comparison, and SVG traverse plot
 - `generate_all_packets()` — batch generation across a sample_deeds directory
 - `scripts/generate_review_packet.py` and `scripts/audit_gt_vs_md.py` utility scripts
-- 34 additional sample deeds with ground truth for 4 properties (8 Kings Hwy W, 17 Kings Hwy W, 32/38 Birchall Dr, 236 Chews Landing Rd)
-- LlamaParse markdown conversions for all 40 sample deeds
+- LlamaParse markdown conversions for all sample deeds (GPT-5, max quality settings)
 - Unix composable modules design document (`docs/plans/`)
 
+### Changed
+- Monolith modules in `src/metesparser/` preserved for backward compatibility alongside new packages
+- Updated README, ARCHITECTURE, and CLAUDE.md for composable package architecture (PRs #25, #26, #27, #28)
+
 ### Fixed
+- Resolve remaining 3 audit failures — 63/63 pass (PR #24)
+- Correct ground truth for missing Schedule C and garbled OCR deeds (PR #22)
+- Audit script improvements and abbreviated cardinal matching (PR #21)
 - Reparsed 4 problem deeds with GPT-5, fixed audit extraction bugs (PR #17)
 - Closure semantics for cardinal-only and empty traverses
+- Code review findings from composable modules PR (PR #23)
 
 ## [0.4.0] - 2026-02-16
 
