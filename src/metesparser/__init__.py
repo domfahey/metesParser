@@ -9,6 +9,7 @@ from .closure_checker import ClosureChecker
 from .csv_builder import CSVBuilder
 from .models import AuditContext, LegalDescription
 from .pdf_processor import PDFProcessor
+from .pipeline import Pipeline
 from .text_parser import TextParser
 
 __version__ = "0.4.0"
@@ -22,5 +23,6 @@ __all__ = [
     "CSVBuilder",
     "LegalDescription",
     "PDFProcessor",
+    "Pipeline",
     "TextParser",
 ]
