@@ -5,9 +5,10 @@ Reads each .md and .ground_truth.json pair, extracts bearings/distances from
 the markdown text, and flags discrepancies with the GT expected_calls.
 """
 
+from __future__ import annotations
+
 import json
 import re
-import sys
 from pathlib import Path
 
 SAMPLE_DIR = Path(__file__).resolve().parent.parent / "sample_deeds"
@@ -27,7 +28,9 @@ DISTANCE_PATTERN = re.compile(
 )
 
 THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
-BEGINNING_PATTERN = re.compile(r"\bBEGINNING\s+(?:at|in)\b", re.IGNORECASE)
+BEGINNING_PATTERN = re.compile(
+    r"\*{0,2}\bBEGINNING\b\*{0,2}\s+(?:at|in)\b", re.IGNORECASE
+)
 
 # Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from call_extractor.py
 CARDINAL_ONLY_PATTERN = re.compile(
@@ -36,12 +39,12 @@ CARDINAL_ONLY_PATTERN = re.compile(
 )
 
 
-def dms_to_decimal(deg, minutes, seconds=0):
+def dms_to_decimal(deg: str | int, minutes: str | int, seconds: str | int | None = 0) -> float:
     """Convert DMS to decimal degrees."""
     return float(deg) + float(minutes) / 60.0 + float(seconds or 0) / 3600.0
 
 
-def bearing_to_azimuth(quadrant1, angle_decimal, quadrant2):
+def bearing_to_azimuth(quadrant1: str, angle_decimal: float, quadrant2: str) -> float | None:
     """Convert quadrant bearing to azimuth."""
     q1 = quadrant1.upper()
     q2 = quadrant2.upper()
@@ -79,7 +82,7 @@ INLINE_NUM_PATTERN = re.compile(
 )
 
 
-def find_preferred_text(md_text):
+def find_preferred_text(md_text: str) -> str:
     """Return text from Exhibit A / Schedule C section, or full text if none."""
     matches = list(EXHIBIT_PATTERN.finditer(md_text))
     if matches:
@@ -87,7 +90,7 @@ def find_preferred_text(md_text):
     return md_text
 
 
-def extract_all_legal_blocks(text):
+def extract_all_legal_blocks(text: str) -> list[str]:
     """Extract all BEGINNING...point/place of BEGINNING blocks from text."""
     blocks = []
     search_start = 0
@@ -103,18 +106,31 @@ def extract_all_legal_blocks(text):
             blocks.append(text[start : close_match.end()])
             search_start = close_match.end()
         else:
-            # No closure found — take to next TRACT marker or end
-            next_tract = re.search(r"\bTRACT\s*#?\d+", text[start + 10:], re.IGNORECASE)
-            if next_tract:
-                blocks.append(text[start : start + 10 + next_tract.start()])
+            # No closure after BEGINNING — check for closure BEFORE it
+            # (handles MD files where PDF pages appear in reversed order).
+            # Find the LAST closure before BEGINNING (closest to it),
+            # not the first — there may be earlier false-positive matches.
+            all_closes = list(POB_CLOSE_PATTERN.finditer(text[:start]))
+            close_before = all_closes[-1] if all_closes else None
+            if close_before:
+                # Page wrap: [BEGINNING→end of file] + [start of file→closure]
+                wrapped = text[start:] + "\n" + text[: close_before.end()]
+                blocks.append(wrapped)
             else:
-                blocks.append(text[start:])
+                # No closure found anywhere — take to next TRACT marker or end
+                next_tract = re.search(
+                    r"\bTRACT\s*#?\d+", text[start + 10 :], re.IGNORECASE
+                )
+                if next_tract:
+                    blocks.append(text[start : start + 10 + next_tract.start()])
+                else:
+                    blocks.append(text[start:])
             break
 
     return blocks
 
 
-def extract_calls_from_block(block_text):
+def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
     """Extract bearing/distance pairs from a single legal description block."""
     calls = []
 
@@ -177,7 +193,7 @@ def extract_calls_from_block(block_text):
     return calls
 
 
-def extract_calls_from_md(md_text, n_gt=None, n_gt_calls=None):
+def extract_calls_from_md(md_text: str, n_gt: int | None = None, n_gt_calls: list[dict[str, object]] | None = None) -> list[dict[str, object]]:
     """Extract bearing/distance pairs from markdown text.
 
     Prefers Exhibit A / Schedule C sections over deed body text.
@@ -257,7 +273,7 @@ def extract_calls_from_md(md_text, n_gt=None, n_gt_calls=None):
     return all_calls
 
 
-def audit_deed(pdf_base):
+def audit_deed(pdf_base: str) -> dict[str, object]:
     """Audit a single deed's GT against its markdown."""
     md_path = SAMPLE_DIR / f"{pdf_base}.md"
     gt_path = SAMPLE_DIR / f"{pdf_base}.ground_truth.json"
@@ -335,7 +351,6 @@ def audit_deed(pdf_base):
         # Extract first bearing from GT OCR
         gt_bearing_match = BEARING_PATTERN.search(gt_ocr)
         if gt_bearing_match:
-            bearing_str = gt_bearing_match.group(0)
             # Check if similar bearing exists in MD
             if not BEARING_PATTERN.search(md_text):
                 issues.append("OCR_BEARING_ABSENT: GT OCR has bearings but MD has none")
@@ -356,7 +371,7 @@ def audit_deed(pdf_base):
     return {"name": pdf_base, "status": status, "issues": issues, "n_gt": n_gt, "n_md": n_md}
 
 
-def main():
+def main() -> None:
     pdf_files = sorted(SAMPLE_DIR.glob("*.pdf"))
     print(f"Auditing {len(pdf_files)} deeds: GT vs Markdown\n")
 
