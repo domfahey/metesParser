@@ -1,0 +1,246 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50306",
+    "Recording_Page_Number": "349",
+    "Recording_File_Number": "2012462328",
+    "Recording_Date_And_Time": "19-November-2012",
+    "Title_Company_Name": "Chirco Title Company",
+    "Document_Title": "DISCHARGE OF ASSIGNMENT OF LEASE AND RENTS",
+    "Dated_Date": "6-November-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Discharge of Assignment of Lease and Rents",
+    "Recording_Date_Normalized": "2012-11-19",
+    "Dated_Date_Normalized": "2012-11-06",
+    "Recording_Book_Normalized": "50306",
+    "Recording_Page_Normalized": "349"
+  },
+  "Parties": [
+    {
+      "Name": "D.S.S.W., LLC",
+      "Relationship_Status": "NA",
+      "Role": "Mortgagor",
+      "Mailing_Address": "3853-3859 W Jefferson, Ecorse, MI 48229",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Talmer Bank and Trust, a Michigan state chartered bank, as successor in interest to Peoples State Bank",
+      "Relationship_Status": "NA",
+      "Role": "Mortgagee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "D.S.S.W., LLC"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Talmer Bank and Trust, a Michigan state chartered bank, as successor in interest to Peoples State Bank"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "3853, 3855, 3857 and 3859 West Jefferson, Ecorse, MI 48229",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "34-005-07-0011-306"
+        },
+        {
+          "isATCustom": "True",
+          "APN": "34-005-07-0012-307"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "D.S.S.W., LLC",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Parcel 1: Lot 12, except the South 43.65 feet of said Lot in even width and parallel with the South line thereof, and all of Lot 13, ASSESSORS ECORSE PLAT NO. 1, as recorded in Liber 290, Pages 73 and 77 of Deeds, also Lots 108, 109 and 110 of SALLIOTTE HOMESTEAD SUBDIVISION, as recorded in Liber 66, Page 90 of Plats, Wayne County Records. Together with parts of Lots 11 and 12 of said ASSESSORS ECORSE PLAT NO. 1, as recorded in Liber 66, Page 90 of Plats, Wayne County Records, described as beginning at a point distant North 12 degrees, 14 minutes, 20 seconds East 43.65 and South 73 degrees, 11 minutes, 00 seconds East 210.92 feet from the Northwest corner of Lot 11 and proceeding thence South 73 degrees, 11 minutes, 00 seconds East 153.00 feet; thence South 32 degrees, 09 minutes, 58 seconds West 82.96 feet; thence North 73 degrees, 11 minutes, 00 seconds West 131.04 feet; thence North 16 degrees, 49 minutes, 00 seconds East 80.00 feet to the point of beginning. EXCEPT the following: Parts of Lots 12 and 13 of ASSESSORS PLAT NO. 1, as recorded in Liber 66 of Plats, Page 90, City of Ecorse, Wayne County, Michigan and further described as beginning at a point South 78 degrees, 15 minutes, 40 seconds East along the Northerly line of said Lot 13, 445.93 feet and South 32 degrees, 01 minute, 15 seconds West, along the Easterly line of said Lot 13, 144.24 feet; and North 73 degrees, 05 minutes, 24 seconds West, 49.61 feet from the Northwesterly corner of said Lot 13; thence from said point of beginning South 16 degrees, 54 minutes, 36 seconds West, 85.33 feet; thence North 73 degrees, 05 minutes, 24 seconds West, 128.0 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 18.67 feet; thence North 28 degrees, 05 minutes, 24 seconds West, 2.83 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 18.67 feet; thence South 73 degrees, 05 minutes, 24 seconds East, 2.00 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 39.33 feet; thence North 73 degrees, 05 minutes, 24 seconds West, 2.00 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 1.33 feet; thence North 61 degrees, 54 minutes 36 seconds East, 7.54 feet; thence South 73 degrees, 05 minutes 24 seconds East, 124.67 feet to the point of beginning. Parcel 2: Part of Lots 12 and 13 of ASSESSORS ECORSE PLAT NO. 1, as recorded in Liber 66, Page 90 of Plats, City of Ecorse, Wayne County, Michigan and further described as beginning at a point South 78 degrees, 15 minutes, 40 seconds East, along the Northerly line of said Lot 13, 445.93 feet and South 32 degrees, 01 minutes, 15 seconds West, along the Easterly line of said Lot 13, 144.24 feet; and North 73 degrees, 05 minutes, 24 seconds West 49.61 feet from the Northwesterly corner of said Lot 13; thence from said point of beginning South 16 degrees, 54 minutes, 36 seconds West, 85.33 feet, North 73 degrees, 05 minutes, 24 seconds West, 128.00 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 18.67 feet; thence North 28 degrees, 05 minutes, 24 seconds West, 2.83 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 18.67 feet; thence South 73 degrees, 05 minutes, 24 seconds East, 2.00 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 39.33 feet; thence North 73 degrees, 05 minutes, 24 seconds West, 2.00 feet; thence North 16 degrees, 54 minutes, 36 seconds east, 1.33 feet; thence North 61 degrees, 54 minutes, 36 seconds East, 7.54 feet; thence South 73 degrees, 05 minutes, 24 seconds East, 124.67 feet to the point of beginning.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Parcel 1: Lot 12, except the South 43.65 feet of said Lot in even width and parallel with the South line thereof, and all of Lot 13, ASSESSOR'S ECORSE PLAT NO. 1, as recorded in Liber 290, Pages 73 and 77 of Deeds, also Lots 108, 109 and 110 of SALLIOTTE HOMESTEAD SUBDIVISION, as recorded in Liber 66, Page 90 of Plats, Wayne County Records. Together with parts of Lots 11 and 12 of said ASSESSOR'S ECORSE PLAT NO. 1, as recorded in Liber 66, Page 90 of Plats, Wayne County Records, described as beginning at a point distant North 12 degrees, 14 minutes, 20 seconds East 43.65 and South 73 degrees, 11 minutes, 00 seconds East 210.92 feet from the Northwest corner of Lot 11 and proceeding thence South 73 degrees, 11 minutes, 00 seconds East 153.00 feet; thence South 32 degrees, 09 minutes, 58 seconds West 82.96 feet; thence North 73 degrees, 11 minutes, 00 seconds West 131.04 feet; thence North 16 degrees, 49 minutes, 00 seconds East 80.00 feet to the point of beginning. EXCEPT the following: Parts of Lots 12 and 13 of ASSESSOR'S PLAT NO. 1, as recorded in Liber 66 of Plats, Page 90, City of Ecorse, Wayne County, Michigan and further described as beginning at a point South 78 degrees, 15 minutes, 40 seconds East along the Northerly line of said Lot 13, 445.93 feet and South 32 degrees, 01 minute, 15 seconds West, along the Easterly line of said Lot 13, 144.24 feet; and North 73 degrees, 05 minutes, 24 seconds West, 49.61 feet from the Northwesterly corner of said Lot 13; thence from said point of beginning South 16 degrees, 54 minutes, 36 seconds West, 85.33 feet; thence North 73 degrees, 05 minutes, 24 seconds West, 128.0 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 18.67 feet; thence North 28 degrees, 05 minutes, 24 seconds West, 2.83 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 18.67 feet; thence South 73 degrees, 05 minutes, 24 seconds East, 2.00 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 39.33 feet; thence North 73 degrees, 05 minutes, 24 seconds West, 2.00 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 1.33 feet; thence North 61 degrees, 54 minutes 36 seconds East, 7.54 feet; thence South 73 degrees, 05 minutes 24 seconds East, 124.67 feet to the point of beginning.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "12, except the South 43.65 feet &  13",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "SALLIOTTE HOMESTEAD SUBDIVISION",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "290",
+          "Map_Page_Or_Condo_Page": "73-77",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "1",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "Ecorse",
+          "Rack": "NA",
+          "City": "Ecorse",
+          "Municipal": "Wayne County",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "290",
+          "Map_Page_Normalized": "73"
+        },
+        {
+          "isATCustom": "True",
+          "Unit": "",
+          "Lot": "Lots 108, 109 and 110",
+          "Block": "",
+          "Building": "",
+          "Phase": "",
+          "Map_Name": "SALLIOTTE HOMESTEAD SUBDIVISION",
+          "Map_Date": "",
+          "Map_Book_Or_Condo_Book": "66",
+          "Map_Page_Or_Condo_Page": "90",
+          "Map_Number": "",
+          "Common_Lot_Or_Condo_Lot": "",
+          "Plat_Number": "",
+          "Parking_Space": "",
+          "Garage": "",
+          "Boat_Slip": "",
+          "Storage_Space": "",
+          "Parcel": "",
+          "Tract_Number": "",
+          "Section": "",
+          "Township": "Ecorse",
+          "Rack": "",
+          "City": "Ecorse",
+          "Municipal": "Wayne County",
+          "Range": "",
+          "Quarters": "",
+          "Share": "",
+          "Govt_Tract_Number": "",
+          "Govt_Lot_Number": "",
+          "Sub_Division_Filing": "",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "66",
+          "Map_Page_Normalized": "90"
+        }
+      ]
+    },
+    {
+      "Legal_Description": " Parcel 2: Part of Lots 12 and 13 of ASSESSORS ECORSE PLAT NO. 1, as recorded in Liber 66, Page 90 of Plats, City of Ecorse, Wayne County, Michigan and further described as beginning at a point South 78 degrees, 15 minutes, 40 seconds East, along the Northerly line of said Lot 13, 445.93 feet and South 32 degrees, 01 minutes, 15 seconds West, along the Easterly line of said Lot 13, 144.24 feet; and North 73 degrees, 05 minutes, 24 seconds West 49.61 feet from the Northwesterly corner of said Lot 13; thence from said point of beginning South 16 degrees, 54 minutes, 36 seconds West, 85.33 feet, North 73 degrees, 05 minutes, 24 seconds West, 128.00 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 18.67 feet; thence North 28 degrees, 05 minutes, 24 seconds West, 2.83 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 18.67 feet; thence South 73 degrees, 05 minutes, 24 seconds East, 2.00 feet; thence North 16 degrees, 54 minutes, 36 seconds East, 39.33 feet; thence North 73 degrees, 05 minutes, 24 seconds West, 2.00 feet; thence North 16 degrees, 54 minutes, 36 seconds east, 1.33 feet; thence North 61 degrees, 54 minutes, 36 seconds East, 7.54 feet; thence South 73 degrees, 05 minutes, 24 seconds East, 124.67 feet to the point of beginning.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "",
+          "Lot": "12 and 13",
+          "Block": "",
+          "Building": "",
+          "Phase": "",
+          "Map_Name": "",
+          "Map_Date": "",
+          "Map_Book_Or_Condo_Book": "66",
+          "Map_Page_Or_Condo_Page": "90",
+          "Map_Number": "",
+          "Common_Lot_Or_Condo_Lot": "",
+          "Plat_Number": "",
+          "Parking_Space": "",
+          "Garage": "",
+          "Boat_Slip": "",
+          "Storage_Space": "",
+          "Parcel": "",
+          "Tract_Number": "",
+          "Section": "",
+          "Township": "",
+          "Rack": "",
+          "City": "",
+          "Municipal": "",
+          "Range": "",
+          "Quarters": "",
+          "Share": "",
+          "Govt_Tract_Number": "",
+          "Govt_Lot_Number": "",
+          "Sub_Division_Filing": "",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "66",
+          "Map_Page_Normalized": "90"
+        }
+      ],
+      "isATCustom": "True"
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Assignment of Lease and Rents",
+      "Primary_Or_Prior_Document_Date": "28-August-2008",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "47439",
+      "Primary_Or_Prior_Page_Number": "1464",
+      "Primary_Or_Prior_Document_Date_Normalized": "2008-08-28",
+      "Prior_Book_Normalized": "47439",
+      "Prior_Page_Normalized": "1464"
+    }
+  ]
+}

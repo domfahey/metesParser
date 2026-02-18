@@ -1,0 +1,173 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50837",
+    "Recording_Page_Number": "216",
+    "Recording_File_Number": "2013301799",
+    "Recording_Date_And_Time": "12-June-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "DISCHARGE OF MORTGAGE",
+    "Dated_Date": "30-May-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Discharge of Mortgage",
+    "Recording_Date_Normalized": "2013-06-12",
+    "Dated_Date_Normalized": "2013-05-30",
+    "Recording_Book_Normalized": "50837",
+    "Recording_Page_Normalized": "216"
+  },
+  "Parties": [
+    {
+      "Name": "FV-98 Limited Partnership",
+      "Relationship_Status": "NA",
+      "Role": "Mortgagor",
+      "Mailing_Address": "20250 Harper Avenue, Detroit, MI 48225",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Pillar Capital Finance LLC",
+      "Relationship_Status": "NA",
+      "Role": "Mortgagee",
+      "Mailing_Address": "33 Bloomfield Hills Parkway, Suite 125, Bloomfield Hills, MI 48304",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Nancy A. Ludwick",
+      "Relationship_Status": "NA",
+      "Role": "Senior Vice President",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "FV-98 Limited Partnership"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Pillar Capital Finance LLC"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "3568 Fairview Street, Detroit, MI",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "21-042128 & 21-001146-8"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "FV-98 Limited Partnership",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Parts of Lots 15 and 16, OFlynns Subdivision of Private Claim No. 688, City of Detroit, Wayne County, Michigan, recorded in Liber 1 of Plats, Page 119, Wayne County Records, described as: Commencing at the Northwest corner of Lot 15, OFlynns Subdivision, also being the Southerly right of way of Mack Avenue (66 feet wide) and the Easterly right of way of Fairview Avenue (66 feet wide); Thence South 26 deg. 00 41 East, 120.00 feet (recorded as South 26 deg. 03 00 East) along the Easterly right of way of Fairview Avenue (66 feet wide) for the point of beginning; Thence North 58 deg. 14 00 East 232.17 feet (recorded as North 58 deg. 12 10 East 233.33 feet); Thence North 27 deg. 01 40 West 120.00 feet (recorded as North 25 deg. 59 21 West) to the Southerly right of way of Mack Avenue (66 feet wide); Thence North 58 deg. 14 00 East 32.17 feet (recorded as North 58 deg. 12 10 East) along the Southerly right of way of Mack Avenue (66 feet wide); Thence South 27 deg. 01 40 East 120.00 feet (recorded as South 25 deg. 59 21 East); Thence North 58 deg. 14 00 East 120.10 feet (recorded as North 58 deg. 12 10 East 120.00 feet) to the Easterly line of Lot 16, OFlynns Subdivision; Thence South 26 deg. 00 16 East 761.44 feet (recorded as South 25 deg. 59 21 East) along the Easterly line of Lot 16, OFlynns Subdivision; Thence South 63 deg. 53 02 West 382.41 feet (recorded as South 63 deg. 57 42 West 382.75 feet) along the Westerly line of Lot 15, OFlynns Subdivision to the Easterly right of way of Fairview Avenue (66 feet wide); Thence North 26 deg. 00 41 West 723.58 feet (recorded as North 26 deg. 03 00 West) along the Westerly line of Lot 15, OFlynns Subdivision and the Easterly right of way of Fairview Avenue (66 feet wide) to the point of beginning.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Parts of Lots 15 and 16, OFlynns Subdivision of Private Claim No. 688, City of Detroit, Wayne County, Michigan, recorded in Liber 1 of Plats, Page 119, Wayne County Records, described as: Commencing at the Northwest corner of Lot 15, OFlynns Subdivision, also being the Southerly right of way of Mack Avenue (66 feet wide) and the Easterly right of way of Fairview Avenue (66 feet wide); Thence South 26 deg. 00 41 East, 120.00 feet (recorded as South 26 deg. 03 00 East) along the Easterly right of way of Fairview Avenue (66 feet wide) for the point of beginning; Thence North 58 deg. 14 00 East 232.17 feet (recorded as North 58 deg. 12 10 East 233.33 feet); Thence North 27 deg. 01 40 West 120.00 feet (recorded as North 25 deg. 59 21 West) to the Southerly right of way of Mack Avenue (66 feet wide); Thence North 58 deg. 14 00 East 32.17 feet (recorded as North 58 deg. 12 10 East) along the Southerly right of way of Mack Avenue (66 feet wide); Thence South 27 deg. 01 40 East 120.00 feet (recorded as South 25 deg. 59 21 East); Thence North 58 deg. 14 00 East 120.10 feet (recorded as North 58 deg. 12 10 East 120.00 feet) to the Easterly line of Lot 16, OFlynns Subdivision; Thence South 26 deg. 00 16 East 761.44 feet (recorded as South 25 deg. 59 21 East) along the Easterly line of Lot 16, OFlynns Subdivision; Thence South 63 deg. 53 02 West 382.41 feet (recorded as South 63 deg. 57 42 West 382.75 feet) along the Westerly line of Lot 15, OFlynns Subdivision to the Easterly right of way of Fairview Avenue (66 feet wide); Thence North 26 deg. 00 41 West 723.58 feet (recorded as North 26 deg. 03 00 West) along the Westerly line of Lot 15, OFlynns Subdivision and the Easterly right of way of Fairview Avenue (66 feet wide) to the point of beginning.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "Parts of Lots 15 and 16",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "OFlynns Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "1",
+          "Map_Page_Or_Condo_Page": "119",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Detroit",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "1",
+          "Map_Page_Normalized": "119"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "31-March-2010",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "48441",
+      "Primary_Or_Prior_Page_Number": "1371",
+      "Primary_Or_Prior_Document_Date_Normalized": "2010-03-31",
+      "Prior_Book_Normalized": "48441",
+      "Prior_Page_Normalized": "1371"
+    }
+  ]
+}

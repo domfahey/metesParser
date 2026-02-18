@@ -1,0 +1,187 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50510",
+    "Recording_Page_Number": "79",
+    "Recording_File_Number": "2013064911",
+    "Recording_Date_And_Time": "20-February-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CERTIFICATE OF DEATH",
+    "Dated_Date": "3-November-2011",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Certificate of Death",
+    "Recording_Date_Normalized": "2013-02-20",
+    "Dated_Date_Normalized": "2011-11-03",
+    "Recording_Book_Normalized": "50510",
+    "Recording_Page_Normalized": "79"
+  },
+  "Parties": [
+    {
+      "Name": "Arnold Frank Nelson",
+      "Relationship_Status": "Decedent",
+      "Role": "NA",
+      "Mailing_Address": "13120 Beck Road, Plymouth, Michigan 48170",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Lois I. Kenner",
+      "Relationship_Status": "Wife",
+      "Role": "NA",
+      "Mailing_Address": "13120 Beck Road, Plymouth, Michigan 48170",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Vernon Wilbur Nelson",
+      "Relationship_Status": "Father",
+      "Role": "NA",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Lucille Florence Wolfe",
+      "Relationship_Status": "Mother",
+      "Role": "NA",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Lois Nelson",
+      "Relationship_Status": "Wife",
+      "Role": "Informant",
+      "Mailing_Address": "13120 Beck Road, Plymouth, Michigan 48170",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "NA",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "78-034-99-0018-001"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Arnold Frank Nelson",
+          "Relationship_Status": "Decedent",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Part of the Northwest 1/4 of Section 28, Town 1 South, Range 8 East, described as: Beginning North 02 degrees 10 minutes 30 seconds East, 924.11 feet and South 84 degrees 41 minutes 30 seconds East, 60.09 feet from the West 1/4 corner of Section 28; thence North 02 degrees 10 minutes 30 seconds East, 160.73 feet; thence South 89 degrees 41 minutes 46 seconds East, 359.97 feet; thence South 02 degrees 10 minutes 30 seconds West, 192.18 feet; thence North 84 degrees 41 minutes 30 seconds West, 360.31 feet to the point of beginning.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Part of the Northwest 1/4 of Section 28, Town 1 South, Range 8 East, described as: Beginning North 02 degrees 10 minutes 30 seconds East, 924.11 feet and South 84 degrees 41 minutes 30 seconds East, 60.09 feet from the West 1/4 corner of Section 28; thence North 02 degrees 10 minutes 30 seconds East, 160.73 feet; thence South 89 degrees 41 minutes 46 seconds East, 359.97 feet; thence South 02 degrees 10 minutes 30 seconds West, 192.18 feet; thence North 84 degrees 41 minutes 30 seconds West, 360.31 feet to the point of beginning.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "NA",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "NA",
+          "Map_Page_Or_Condo_Page": "NA",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "78-034-99-0018-001",
+          "Tract_Number": "NA",
+          "Section": "28",
+          "Township": "Plymouth",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "8 East",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "NA",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Record of Death",
+      "Primary_Or_Prior_Document_Date": "1-November-2011",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "50510",
+      "Primary_Or_Prior_Page_Number": "79",
+      "Primary_Or_Prior_Document_Date_Normalized": "2011-11-01",
+      "Prior_Book_Normalized": "50510",
+      "Prior_Page_Normalized": "79"
+    }
+  ]
+}
