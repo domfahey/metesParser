@@ -7,8 +7,7 @@ import warnings
 
 import pytest
 import structlog
-
-from metesparser.logging_config import configure_logging, get_log_format
+from mp_models import configure_logging, get_log_format
 
 pytestmark = pytest.mark.usefixtures("isolate_logging_state")
 

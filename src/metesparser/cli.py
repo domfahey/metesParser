@@ -10,8 +10,7 @@ from pathlib import Path
 
 import structlog
 import structlog.contextvars
-
-from .logging_config import configure_logging, get_log_format
+from mp_models import configure_logging, get_log_format
 
 logger = structlog.get_logger(__name__)
 
