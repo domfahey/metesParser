@@ -45,43 +45,43 @@ tests/
 │   ├── __init__.py
 │   └── sample_deeds.py      # Legal description samples
 ├── unit/                    # Fast, isolated tests (923 tests, 37 files)
-│   ├── test_bearing_converter.py      # 38 tests
-│   ├── test_bugs_closure_tdd.py       # 14 tests
-│   ├── test_bugs_integration_tdd.py   # 13 tests
-│   ├── test_bugs_parser_tdd.py        # 19 tests
-│   ├── test_bugs_remaining_tdd.py     # 20 tests
-│   ├── test_call_extractor.py         # 47 tests
-│   ├── test_cli.py                    # 29 tests
-│   ├── test_closure_checker.py        # 45 tests
-│   ├── test_llm_cache.py             # 20 tests
-│   ├── test_llm_clients.py           # 17 tests
-│   ├── test_logging_config.py        # 17 tests
-│   ├── test_open_bugs_tdd.py         # 17 tests
-│   ├── test_pdf_processor_cache.py   # 16 tests
-│   ├── test_pdf_processor_coverage.py # 21 tests
-│   ├── test_pdf_processor_llm.py     # 16 tests
-│   ├── test_phase1_foundation.py     # 60 tests
-│   ├── test_phase2_enhanced_parsing.py # 92 tests
-│   ├── test_phase3_verification.py   # 70 tests
-│   ├── test_phase4_geometric.py      # 86 tests
-│   ├── test_phase5_production.py     # 39 tests
-│   ├── test_phase5_step3.py          # 18 tests
-│   ├── test_phase5_step4.py          # 27 tests
-│   ├── test_phase5_step5.py          # 22 tests
-│   ├── test_phase5_step6.py          # 15 tests
-│   ├── test_phase5_step7.py          # 21 tests
-│   ├── test_phase5_step8.py          # 13 tests
-│   ├── test_phase5_step9.py          # 16 tests
-│   ├── test_phase5_step10.py         # 11 tests
-│   ├── test_phase5b_quality.py       # 35 tests
-│   ├── test_phase6_audit.py          # 67 tests
-│   ├── test_pipeline.py              # Pipeline orchestrator tests
-│   ├── test_pydantic_guardrails.py   # 37 tests
-│   ├── test_review_packet.py         # Review packet generation tests
-│   ├── test_run_registry.py          # Run registry tests
-│   ├── test_scripts.py               # Utility script tests
-│   ├── test_cross_package_imports.py # Cross-package import verification
-│   └── test_text_parser.py           # 71 tests
+│   ├── test_bearing_converter.py      # 32 tests
+│   ├── test_bugs_closure_tdd.py       # 6 tests
+│   ├── test_bugs_integration_tdd.py   # 5 tests
+│   ├── test_bugs_parser_tdd.py        # 11 tests
+│   ├── test_bugs_remaining_tdd.py     # 17 tests
+│   ├── test_call_extractor.py         # 39 tests
+│   ├── test_cli.py                    # 25 tests
+│   ├── test_closure_checker.py        # 42 tests
+│   ├── test_cross_package_imports.py  # 15 tests
+│   ├── test_llm_cache.py             # 12 tests
+│   ├── test_llm_clients.py           # 9 tests
+│   ├── test_logging_config.py        # 9 tests
+│   ├── test_open_bugs_tdd.py         # 9 tests
+│   ├── test_pdf_processor_cache.py   # 8 tests
+│   ├── test_pdf_processor_coverage.py # 13 tests
+│   ├── test_pdf_processor_llm.py     # 8 tests
+│   ├── test_phase1_foundation.py     # 52 tests
+│   ├── test_phase2_enhanced_parsing.py # 84 tests
+│   ├── test_phase3_verification.py   # 62 tests
+│   ├── test_phase4_geometric.py      # 78 tests
+│   ├── test_phase5_production.py     # 31 tests
+│   ├── test_phase5_step3.py          # 10 tests
+│   ├── test_phase5_step4.py          # 19 tests
+│   ├── test_phase5_step5.py          # 14 tests
+│   ├── test_phase5_step6.py          # 7 tests
+│   ├── test_phase5_step7.py          # 13 tests
+│   ├── test_phase5_step8.py          # 5 tests
+│   ├── test_phase5_step9.py          # 8 tests
+│   ├── test_phase5_step10.py         # 3 tests
+│   ├── test_phase5b_quality.py       # 27 tests
+│   ├── test_phase6_audit.py          # 59 tests
+│   ├── test_pipeline.py              # 11 tests
+│   ├── test_pydantic_guardrails.py   # 29 tests
+│   ├── test_review_packet.py         # 60 tests
+│   ├── test_run_registry.py          # 18 tests
+│   ├── test_scripts.py               # 10 tests
+│   └── test_text_parser.py           # 63 tests
 ├── integration/             # End-to-end tests (31 tests)
 │   ├── test_integration.py           # Text-based pipeline
 │   ├── test_pdf_processing.py        # PDF pipeline (mocked)
