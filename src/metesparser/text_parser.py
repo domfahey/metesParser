@@ -9,7 +9,9 @@ import re
 from re import Match
 from typing import TYPE_CHECKING, Callable, Literal, TypedDict
 
-from mp_parse import CARDINAL_ONLY_PATTERN, COMMA_NUMBER as _COMMA_NUMBER
+from mp_parse import CARDINAL_ONLY_PATTERN
+from mp_parse import COMMA_NUMBER as _COMMA_NUMBER
+from mp_parse import parse_comma_number
 
 from .models import ConversionFactors
 
@@ -36,14 +38,6 @@ _METADATA_BOUNDARY = re.compile(
     r")",
     re.IGNORECASE,
 )
-
-
-def parse_comma_number(s: str) -> float:
-    """Convert a numeric string with optional comma grouping to float.
-
-    Examples: "1,200" -> 1200.0, "3,500.00" -> 3500.0, "42" -> 42.0
-    """
-    return float(s.replace(",", ""))
 
 
 class TextParser:
