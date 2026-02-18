@@ -3,21 +3,37 @@
 Splits a legal description containing multiple parcels (e.g., "Parcel A",
 "Parcel B", "Combined Legal Description") into individual parcel texts
 so each can be parsed and verified independently.
-
-This module provides the splitting logic only.  Integration into the
-pipeline (calling split_into_parcels before extract_calls, then verifying
-each parcel independently) will happen in a follow-up task.
 """
 
 from __future__ import annotations
 
 import re
+from typing import TypedDict
+
+import structlog
+
+logger = structlog.get_logger(__name__)
+
+
+class ParcelInfo(TypedDict):
+    """Structured result from parcel splitting."""
+
+    label: str
+    text: str
+    parcel_type: str
+
+
+class ParcelMarker(TypedDict):
+    """Detected parcel delimiter in text."""
+
+    label: str
+    position: int
+    marker_type: str
+
 
 # ---------------------------------------------------------------------------
-# Marker patterns
+# Marker patterns — standalone compiled regexes
 # ---------------------------------------------------------------------------
-# Each entry: (compiled regex, marker_type, label_group_index)
-# The label_group_index indicates which capture group holds the label text.
 
 # Lettered parcels: "Parcel A:", "Parcel A (Northern Tract):", "Parcel A -"
 _LETTERED_PARCEL = re.compile(
@@ -51,7 +67,7 @@ _TOGETHER_WITH_MARKER = re.compile(
 )
 
 
-def detect_parcel_markers(text: str) -> list[dict]:
+def detect_parcel_markers(text: str) -> list[ParcelMarker]:
     """Detect parcel delimiter positions in text.
 
     Returns a list of dicts sorted by position:
@@ -62,7 +78,7 @@ def detect_parcel_markers(text: str) -> list[dict]:
 
     If no parcel markers are found, returns an empty list.
     """
-    markers: list[dict] = []
+    markers: list[ParcelMarker] = []
 
     # Lettered parcels
     for match in _LETTERED_PARCEL.finditer(text):
@@ -128,10 +144,10 @@ def _marker_type_to_parcel_type(marker_type: str) -> str:
     return mapping.get(marker_type, "primary")
 
 
-def split_into_parcels(text: str) -> list[dict]:
+def split_into_parcels(text: str) -> list[ParcelInfo]:
     """Split a legal description into separate parcels.
 
-    Returns a list of dicts:
+    Returns a list of ParcelInfo dicts:
     [
         {"label": "Parcel A", "text": "...", "parcel_type": "primary"},
         {"label": "Parcel B", "text": "...", "parcel_type": "primary"},
@@ -144,9 +160,12 @@ def split_into_parcels(text: str) -> list[dict]:
     markers = detect_parcel_markers(text)
 
     if not markers:
-        return [{"label": "Parcel 1", "text": text, "parcel_type": "primary"}]
+        return [ParcelInfo(label="Parcel 1", text=text, parcel_type="primary")]
 
-    parcels: list[dict] = []
+    logger.debug("parcel_markers_detected", count=len(markers),
+                 labels=[m["label"] for m in markers])
+
+    parcels: list[ParcelInfo] = []
 
     # If the first marker is not at the very beginning and the text before it
     # contains substantive content (not just a header), create a preamble parcel.
@@ -207,6 +226,9 @@ def _find_marker_end(text: str, start_pos: int) -> int:
         if match and match.start() == start_pos:
             return match.end()
 
-    # Fallback: skip to next whitespace after the position
-    # This shouldn't normally happen if detect_parcel_markers found the marker
+    # This indicates a bug: detect_parcel_markers found a marker but
+    # _find_marker_end cannot re-match it at this position.
+    logger.warning("parcel_marker_rematch_failed",
+                   start_pos=start_pos,
+                   text_preview=text[start_pos:start_pos + 50])
     return start_pos

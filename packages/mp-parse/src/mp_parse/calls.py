@@ -836,6 +836,8 @@ def enrich_calls_with_azimuths(calls: list[DeedCall]) -> list[DeedCall]:
     """Add azimuths to calls that have quadrant bearings but missing azimuths.
 
     Also resolves 'due {cardinal}' directions that were not yet converted.
+    When a due-cardinal azimuth is resolved, any "incomplete bearing" notes
+    are cleared since the bearing is now complete.
 
     Args:
         calls: List of DeedCall objects

@@ -717,7 +717,9 @@ class TextParser:
         # --- 9. `&` / `and` as call separators -> thence --------------------
         # Between bearings: "113.41 feet & N 69° 53' 23\" E" or
         # "49.18 feet and N 48° 03' 44\" E".  Replace `&` or `and` with
-        # `thence` when followed by a bearing pattern ([NS] <digits>°).
+        # `thence` when followed by a quadrant bearing pattern ([NS] <digits>°).
+        # Note: Only [NS] because standard quadrant bearings always start with
+        # North or South.  E/W-initial bearings need different handling.
         text = re.sub(
             r"(?<=\S)\s+(?:&|and)\s+(?=[NS]\s*\d{1,3}\s*°)",
             " thence ",
@@ -748,7 +750,7 @@ class TextParser:
 
         def _bare_cardinal_replace(m: Match[str]) -> str:
             after_pos = m.end()
-            after_text = m.string[after_pos : after_pos + 20]
+            after_text = m.string[after_pos : after_pos + 50]
             if _DEGREE_AFTER_NUMBER.match(after_text):
                 return m.group(0)  # no change -- quadrant bearing
             prefix = m.group(1)
@@ -812,7 +814,7 @@ class TextParser:
         after = text[match.end():]
         lot_qualifier_pattern = re.compile(
             r"^\s+the\s+"
-            r"(?:North|South|East|West|Northerly|Southerly|Easterly|Westerly)"
+            r"(?:North|South|East|West)"
             r"(?:erly|wardly)?"
             r"\s+\d+(?:\.\d+)?"
             r"\s+(?:feet|foot|ft|poles?|rods?|chains?|links?|varas?|meters?)"

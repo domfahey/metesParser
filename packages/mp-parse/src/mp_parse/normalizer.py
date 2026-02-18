@@ -283,8 +283,9 @@ def expand_assessor_abbreviations(text: str) -> str:
     # --- 9. `&` / `and` as call separators → thence --------------------------
     # Between bearings: "113.41 feet & N 69° 53' 23\" E" or
     # "49.18 feet and N 48° 03' 44\" E".  Replace `&` or `and` with `thence`
-    # when followed by a bearing pattern ([NS] <digits>° or [NSEW] as bare
-    # cardinal + distance).
+    # when followed by a quadrant bearing pattern ([NS] <digits>°).
+    # Note: Only [NS] because standard quadrant bearings always start with
+    # North or South.  E/W-initial bearings need different handling.
     text = re.sub(
         r"(?<=\S)\s+(?:&|and)\s+(?=[NS]\s*\d{1,3}\s*°)",
         " thence ",
@@ -328,7 +329,7 @@ def expand_assessor_abbreviations(text: str) -> str:
         # Check what follows the captured number in the original string.
         # If degree notation follows, this is a quadrant bearing — leave it alone.
         after_pos = m.end()
-        after_text = m.string[after_pos : after_pos + 20]
+        after_text = m.string[after_pos : after_pos + 50]
         if _DEGREE_AFTER_NUMBER.match(after_text):
             return m.group(0)  # no change
 
