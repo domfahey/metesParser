@@ -83,7 +83,7 @@ uv run python scripts/extract_sample_deeds.py
 # Clone and setup
 git clone <repo-url>
 cd metesParser
-make dev-setup    # creates .env from .env.example
+make dev-setup    # installs dependencies and creates .env from .env.example
 
 # Edit .env with your API key and preferred provider
 # METESPARSER_LLM_PROVIDER=openai   (or gemini)

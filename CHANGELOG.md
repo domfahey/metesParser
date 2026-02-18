@@ -7,8 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-- Added project motivation, design pillars, and WIP notice to README (PR #35)
+### Added
+- Project motivation, design pillars, and WIP notice to README (PR #35)
 
 ### Fixed
 - Backfill registry handles 0-call deeds, removed stale 7535-933 manifest (PR #34)

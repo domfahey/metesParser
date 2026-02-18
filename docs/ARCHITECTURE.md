@@ -469,7 +469,7 @@ return ClosureResult(..., warnings=warnings)
 ### Optimization Strategies
 
 1. **LLM response caching** - `CachedLLMClient` avoids re-extracting the same PDF
-2. **Batch processing** - Process multiple PDFs in sequence (all 87 samples in ~22s with cache)
+2. **Batch processing** - Process multiple PDFs in sequence (significantly faster with LLM response cache)
 3. **Skip verification** - For quick viewing, don't run all checks
 
 ## Design Decisions
