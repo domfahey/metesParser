@@ -101,6 +101,7 @@ nohup.out
 *.pdf
 # Explicitly allow sample deeds from county recorder (public records)
 !sample_deeds/*.pdf
+!sample_deeds/**/*.pdf
 # Allow reference PDFs in docs
 !docs/reference/*.pdf
 
