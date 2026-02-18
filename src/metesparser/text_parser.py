@@ -38,6 +38,51 @@ _METADATA_BOUNDARY = re.compile(
     re.IGNORECASE,
 )
 
+# Performance optimization: Compile area pattern at module level
+_AREA_PATTERN = re.compile(
+    r"(?:(?:(?:approximately|approx\.?|~)\s+)?)"
+    r"(?P<value>\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)"
+    r"\s*(?P<unit>sq\.?\s*ft\.?|square\s+feet?|acres?)",
+    re.IGNORECASE,
+)
+
+# Performance optimization: Compile cardinal direction standardization patterns
+_CARDINAL_PATTERNS: list[tuple[re.Pattern[str], str | Callable[[Match[str]], str]]] = [
+    (
+        re.compile(
+            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
+            re.IGNORECASE,
+        ),
+        lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0]}",
+    ),
+    (
+        re.compile(
+            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(North|South|East|West)\b",
+            re.IGNORECASE,
+        ),
+        lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}' {m.group(4)[0]}",
+    ),
+    (
+        re.compile(
+            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(North|South|East|West)\b",
+            re.IGNORECASE,
+        ),
+        lambda m: f"{m.group(1)[0]} {m.group(2)}° {m.group(3)[0]}",
+    ),
+    (
+        re.compile(r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])"),
+        "\\1 \\2°\\3'\\4\" \\5",
+    ),
+    (
+        re.compile(r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*([EW])"),
+        r"\1 \2°\3' \4",
+    ),
+    (
+        re.compile(r"([NS])\s*(\d{1,3})\s*°\s*([EW])"),
+        r"\1 \2° \3",
+    ),
+]
+
 
 def parse_comma_number(s: str) -> float:
     """Convert a numeric string with optional comma grouping to float.
@@ -73,14 +118,7 @@ class TextParser:
         if not normalized_text:
             return None
 
-        area_pattern = re.compile(
-            r"(?:(?:(?:approximately|approx\.?|~)\s+)?)"
-            r"(?P<value>\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)"
-            r"\s*(?P<unit>sq\.?\s*ft\.?|square\s+feet?|acres?)",
-            re.IGNORECASE,
-        )
-
-        for match in area_pattern.finditer(normalized_text):
+        for match in _AREA_PATTERN.finditer(normalized_text):
             unit = match.group("unit").replace(" ", "")
             value = float(match.group("value").replace(",", ""))
 
@@ -239,29 +277,8 @@ class TextParser:
         Returns:
             Text with standardized cardinal directions
         """
-        patterns: list[tuple[str, str | Callable[[Match[str]], str]]] = [
-            (
-                r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
-                lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0]}",
-            ),
-            (
-                r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(North|South|East|West)\b",
-                lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}' {m.group(4)[0]}",
-            ),
-            (
-                r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(North|South|East|West)\b",
-                lambda m: f"{m.group(1)[0]} {m.group(2)}° {m.group(3)[0]}",
-            ),
-            (
-                r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])",
-                "\\1 \\2°\\3'\\4\" \\5",
-            ),
-            (r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4"),
-            (r"([NS])\s*(\d{1,3})\s*°\s*([EW])", r"\1 \2° \3"),
-        ]
-
-        for pattern, replacement in patterns:
-            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+        for pattern, replacement in _CARDINAL_PATTERNS:
+            text = pattern.sub(replacement, text)
 
         return text
 
@@ -799,17 +816,28 @@ class TextParser:
         clauses: list[DeedClause] = []
         ClauseType = Literal["reservation", "subject_to", "together_with"]
 
-        patterns: list[tuple[str, ClauseType]] = [
-            (r"(RESERVING\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "reservation"),
-            (r"(SUBJECT\s+TO\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "subject_to"),
-            (r"(TOGETHER\s+WITH\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "together_with"),
-        ]
+        # Optimize: Single combined regex with named groups instead of nested loops
+        combined_pattern = re.compile(
+            r"(?P<reservation>RESERVING\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)|"
+            r"(?P<subject_to>SUBJECT\s+TO\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)|"
+            r"(?P<together_with>TOGETHER\s+WITH\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)",
+            re.IGNORECASE | re.DOTALL,
+        )
 
-        for pattern, clause_type in patterns:
-            for match in re.finditer(pattern, text, re.IGNORECASE | re.DOTALL):
-                clause_text = match.group(1).strip().rstrip(".")
-                if clause_text:
-                    clauses.append(DeedClause(clause_type=clause_type, text=clause_text))
+        for match in combined_pattern.finditer(text):
+            # Determine which clause type matched
+            if match.group("reservation"):
+                clause_text = match.group("reservation").strip().rstrip(".")
+                clause_type: ClauseType = "reservation"
+            elif match.group("subject_to"):
+                clause_text = match.group("subject_to").strip().rstrip(".")
+                clause_type = "subject_to"
+            else:  # together_with
+                clause_text = match.group("together_with").strip().rstrip(".")
+                clause_type = "together_with"
+
+            if clause_text:
+                clauses.append(DeedClause(clause_type=clause_type, text=clause_text))
 
         return clauses
 
