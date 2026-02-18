@@ -8,6 +8,7 @@ import logging
 import re
 
 import structlog
+from mp_parse import CARDINAL_ONLY_PATTERN as _CARDINAL_ONLY_PATTERN
 from pydantic import ValidationError
 
 from .bearing_converter import BearingConverter
@@ -26,11 +27,6 @@ from .models import (
 from .text_parser import _COMMA_NUMBER, TextParser, parse_comma_number
 
 logger = structlog.get_logger(__name__)
-
-_CARDINAL_ONLY_PATTERN = re.compile(
-    r"(north|south|east|west|northeast|northwest|southeast|southwest|NE|NW|SE|SW)(?:erly|wardly)?",
-    re.IGNORECASE,
-)
 
 _UNIT_TOKEN = (
     r"(?:feet|foot|ft|poles?|rods?|perches?|chains?|links?"

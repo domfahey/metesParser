@@ -9,6 +9,8 @@ import re
 from re import Match
 from typing import TYPE_CHECKING, Callable, Literal, TypedDict
 
+from mp_parse import CARDINAL_ONLY_PATTERN
+
 from .models import ConversionFactors
 
 if TYPE_CHECKING:
@@ -551,11 +553,6 @@ class TextParser:
         re.IGNORECASE,
     )
 
-    CARDINAL_ONLY_PATTERN = re.compile(
-        r"^(?:north|south|east|west|northeast|northwest|southeast|southwest|NE|NW|SE|SW)(?:erly|wardly)?$",
-        re.IGNORECASE,
-    )
-
     @classmethod
     def is_indefinite_call(cls, direction_text: str, has_bearing: bool) -> bool:
         """Detect if a call has vague/indefinite direction.
@@ -570,7 +567,7 @@ class TextParser:
         if not direction_text or has_bearing:
             return False
 
-        if cls.CARDINAL_ONLY_PATTERN.match(direction_text.strip()):
+        if CARDINAL_ONLY_PATTERN.match(direction_text.strip()):
             return True
 
         if cls.INDEFINITE_PATTERNS.search(direction_text):

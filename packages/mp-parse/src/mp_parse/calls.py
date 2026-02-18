@@ -49,18 +49,10 @@ from .monuments import (
 )
 from .normalizer import normalize_legal_description, standardize_cardinal_directions
 from .numbers import COMMA_NUMBER, parse_comma_number
+from .patterns import CARDINAL_ONLY_PATTERN as _CARDINAL_ONLY_PATTERN
+from .patterns import UNIT_TOKEN as _UNIT_TOKEN
 
 logger = structlog.get_logger(__name__)
-
-_CARDINAL_ONLY_PATTERN = re.compile(
-    r"(north|south|east|west|northeast|northwest|southeast|southwest|NE|NW|SE|SW)(?:erly|wardly)?",
-    re.IGNORECASE,
-)
-
-_UNIT_TOKEN = (
-    r"(?:feet|foot|ft|poles?|rods?|perches?|chains?|links?"
-    r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
-)
 
 PACKED_DMS_PATTERN = re.compile(
     r"(N|S)\s+(\d{1,3}\.\d+)\u00b0\s*(E|W)",

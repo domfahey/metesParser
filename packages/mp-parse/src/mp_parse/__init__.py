@@ -16,13 +16,16 @@ from .monuments import (
     classify_monument_status,
 )
 from .numbers import COMMA_NUMBER, parse_comma_number
+from .patterns import CARDINAL_ONLY_PATTERN, UNIT_TOKEN
 
 __version__ = "1.0.0"
 
 __all__ = [
+    "CARDINAL_ONLY_PATTERN",
     "COMMA_NUMBER",
     "MONUMENT_PATTERNS",
     "MONUMENT_STATUS_PATTERNS",
+    "UNIT_TOKEN",
     "classify_monument",
     "classify_monument_status",
     "enrich_calls_with_azimuths",
