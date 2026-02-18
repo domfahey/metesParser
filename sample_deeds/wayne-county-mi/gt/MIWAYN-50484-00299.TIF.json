@@ -1,0 +1,228 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50484",
+    "Recording_Page_Number": "299",
+    "Recording_File_Number": "2013051580",
+    "Recording_Date_And_Time": "31-January-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "AFFIDAVIT AND CERTIFICATE OF TRUST EXISTENCE AND AUTHORITY",
+    "Dated_Date": "24-July-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Affidavit and Certificate of Trust Existence and Authority",
+    "Recording_Date_Normalized": "2013-01-31",
+    "Dated_Date_Normalized": "2012-07-24",
+    "Recording_Book_Normalized": "50484",
+    "Recording_Page_Normalized": "299"
+  },
+  "Parties": [
+    {
+      "Name": "Earle E. Endelman",
+      "Relationship_Status": "NA",
+      "Role": "Attorney for the sole successor Trustee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "David R. Kratze",
+      "Relationship_Status": "Deceased",
+      "Role": "Grantor and initial Trustee",
+      "Mailing_Address": "c/o Cheryl Kratze, 748 Orchard Lake Road, Pontiac, Michigan 48341",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Cheryl Kratze",
+      "Relationship_Status": "NA",
+      "Role": "Sole successor Trustee",
+      "Mailing_Address": "748 Orchard Lake Road, Pontiac, Michigan 48341",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Cheryl L. Kratze, a single woman"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "David R. Kratze Family Trust UAD October 25, 1995, as amended"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "Vacant property on Block in Garden City, Michigan",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "35-004-99-0013-703"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Cheryl Kratze",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    },
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "Vacant property on Merriman in Garden City, Michigan",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "35-004-99-0020-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Cheryl Kratze",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "10L6B3A1A PART OF SE 1/4 SEC 10 T2S R9E BEG N89DEG 06M W 60FT AND N00DEG 07M E 1561.58FT FROM SE COR OF SEC 10 TH N89DEG 05M 23S W 317.77FT TH NOODEG 07M E 61.39FT TH S89DEG 33M 30S E 201.89FT TH S74DEG 45M E 147.99FT TH N00DEG 07M E 30FT TH S74DEG 45M E 34.18FT TH S0DEG 07M W 47.92FT TH N89DEG 05M 23S W 60FT POB EXC E 60FT THEREOF 0.41AC; 10M6B1A1 THAT PART OF THE SE 1/4 OF SEC 10 DESCRIBED AS BEGINNING AT A POINT ON THE W LINE OF MERRIMAN ROAD DISTANT N 89D 06M W 60.0 FT AND N 0D 07M E 1423.21 FT FROM THE SE CORNER OF SEC 10 AND PROCEEDING TH N 0D 07M E ALONG SAID W LINE 136.93 FT TH N 89D 05M 3SEC W 318.12 FT TH S 0D 07M W 137.57 FT TH S 89D 07M 40SEC E 318.12 FT TO THE POB 1.00 ACRE.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "10L6B3A1A PART OF SE 1/4 SEC 10 T2S R9E BEG N89DEG 06M W 60FT AND N00DEG 07M E 1561.58FT FROM SE COR OF SEC 10 TH N89DEG 05M 23S W 317.77FT TH NOODEG 07M E 61.39FT TH S89DEG 33M 30S E 201.89FT TH S74DEG 45M E 147.99FT TH N00DEG 07M E 30FT TH S74DEG 45M E 34.18FT TH S0DEG 07M W 47.92FT TH N89DEG 05M 23S W 60FT POB EXC E 60FT THEREOF 0.41AC;",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "NA",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "NA",
+          "Map_Page_Or_Condo_Page": "NA",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "10",
+          "Township": "2 S",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "9E",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "NA",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    },
+    {
+      "Legal_Description": "THAT PART OF THE SE 1/4 OF SEC 10 DESCRIBED AS BEGINNING AT A POINT ON THE W LINE OF MERRIMAN ROAD DISTANT N 89D 06M W 60.0 FT AND N 0D 07M E 1423.21 FT FROM THE SE CORNER OF SEC 10 AND PROCEEDING TH N 0D 07M E ALONG SAID W LINE 136.93 FT TH N 89D 05M 3SEC W 318.12 FT TH S 0D 07M W 137.57 FT TH S 89D 07M 40SEC E 318.12 FT TO THE POB 1.00 ACRE",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "NA",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "NA",
+          "Map_Page_Or_Condo_Page": "NA",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "10",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "NA",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Trust Agreement",
+      "Primary_Or_Prior_Document_Date": "25-October-1995",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "1995-10-25",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

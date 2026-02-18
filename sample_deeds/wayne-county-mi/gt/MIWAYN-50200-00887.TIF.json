@@ -1,0 +1,176 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50200",
+    "Recording_Page_Number": "887",
+    "Recording_File_Number": "2012407750",
+    "Recording_Date_And_Time": "12-October-2012 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SUBORDINATION of MORTGAGE",
+    "Dated_Date": "23-April-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "000687943324",
+      "Loan_Amount": "$115,400",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Annotation_Tool_Custom_Entity_Loan Amount:": "$24,600.00",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Subordination of Mortgage",
+    "Recording_Date_Normalized": "2012-10-12",
+    "Dated_Date_Normalized": "2012-04-23",
+    "Recording_Book_Normalized": "50200",
+    "Recording_Page_Normalized": "887"
+  },
+  "Parties": [
+    {
+      "Name": "MERS, Inc., as nominee for Flagstar Bank, FSB, a Federally Chartered Savings Bank",
+      "Relationship_Status": "NA",
+      "Role": "Old Lender",
+      "Mailing_Address": "5151 Corporate Drive, Troy, MI 48098",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Ally Bank",
+      "Relationship_Status": "",
+      "Role": "NEW LENDER",
+      "Mailing_Address": "1100 Virginia Drive, Fort Washington, PA 19034",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Yvonne R. Alexander",
+      "Relationship_Status": "",
+      "Role": "OWNER ",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Yvonne R. Alexander"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "MERS, Inc., as nominee for Flagstar Bank, FSB, a Federally Chartered Savings Bank"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "NA",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "59-077-01-0034-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Yvonne R. Alexander",
+          "Relationship_Status": "Owner",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Situated in the City of Woodhaven, County of Wayne, and the State of Michigan:\nLot 34, of Assessors Woodhaven Plat No. 1 of part of village of Woodhaven, according to the Plat thereof recorded in Liber 87 of Plats, Page 61 of Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Situated in the City of Woodhaven, County of Wayne, and the State of Michigan:\nLot 34, of Assessor's Woodhaven Plat No. 1 of part of village of Woodhaven, according to\nthe Plat thereof recorded in Liber 87 of Plats, Page 61 of Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "34",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Assessors Woodhaven Plat No. 1",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "87",
+          "Map_Page_Or_Condo_Page": "61",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Woodhaven",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "87",
+          "Map_Page_Normalized": "61"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "23-May-2008",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "47252",
+      "Primary_Or_Prior_Page_Number": "860",
+      "Primary_Or_Prior_Document_Date_Normalized": "2008-05-23",
+      "Prior_Book_Normalized": "47252",
+      "Prior_Page_Normalized": "860"
+    }
+  ]
+}

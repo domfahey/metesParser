@@ -1,0 +1,173 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50922",
+    "Recording_Page_Number": "1195",
+    "Recording_File_Number": "2013339790",
+    "Recording_Date_And_Time": "11-July-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "COVENANT DEED",
+    "Dated_Date": "27-June-2013",
+    "Sale_Amount": "$13,900.00",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Covenant Deed",
+    "Recording_Date_Normalized": "2013-07-11",
+    "Dated_Date_Normalized": "2013-06-27",
+    "Recording_Book_Normalized": "50922",
+    "Recording_Page_Normalized": "1195"
+  },
+  "Parties": [
+    {
+      "Name": "Federal Home Loan Mortgage Corporation",
+      "Relationship_Status": "NA",
+      "Role": "Grantor",
+      "Mailing_Address": "8200 Jones Branch Drive, McLean, VA 22102",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Kevin Booker",
+      "Relationship_Status": "Single",
+      "Role": "Grantee",
+      "Mailing_Address": "14947 Appoline, Detroit, MI 48227",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Marionara M. Ellsworth",
+      "Relationship_Status": "NA",
+      "Role": "Attorney-in-Fact",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Kevin Booker, a single man"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Federal Home Loan Mortgage Corporation"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "18647 Ilene, Detroit, MI 48221",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "16040575"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Kevin Booker",
+          "Relationship_Status": "Single",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot(s) 230, of Palmyra Woods Subdivision, as recorded in Liber 45 of Plats, page(s) 85, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot(s) 230, of Palmyra Woods Subdivision, as recorded in Liber 45 of Plats, page(s) 85, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "230",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Palmyra Woods Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "45",
+          "Map_Page_Or_Condo_Page": "85",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "45",
+          "Map_Page_Normalized": "85"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

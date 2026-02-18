@@ -1,0 +1,180 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50377",
+    "Recording_Page_Number": "842",
+    "Recording_File_Number": "2013000898",
+    "Recording_Date_And_Time": "20-December-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "NOTICE OF DISCHARGE OF JUDGMENT LIEN PURSUANT TO MCL 600.2809 (6) (a)",
+    "Dated_Date": "6th December 2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "03127971GC",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "Judgment",
+        "Judgement_Entered_Date": "07-February-2004",
+        "Judgement_Amount_In_Total": "$1,406.08",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "2004-02-07"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "Judgment Lien",
+        "Lien_Entered_Date": "23-February-2007",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "2007-02-23"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "NOTICE OF DISCHARGE OF JUDGMENT LIEN PURSUANT TO MCL 600.2809 (6) (a)",
+    "Recording_Date_Normalized": "2012-12-20",
+    "Dated_Date_Normalized": "2012-12-06",
+    "Recording_Book_Normalized": "50377",
+    "Recording_Page_Normalized": "842"
+  },
+  "Parties": [
+    {
+      "Name": "CFC FINANCIAL, LLC",
+      "Relationship_Status": "NA",
+      "Role": "Plaintiff",
+      "Mailing_Address": "PO BOX 2123, WARREN MI 48090-2123",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "FELICIA L WILSON",
+      "Relationship_Status": "NA",
+      "Role": "Defendant",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "ANDREW PERRY",
+      "Relationship_Status": "NA",
+      "Role": "Attorney for Plaintiff",
+      "Mailing_Address": "PO BOX 2123, WARREN MI 48090-2123",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "FULTON, FRIEDMAN & GULLACE, LLP",
+      "Relationship_Status": "NA",
+      "Role": "Attorney for Plaintiff",
+      "Mailing_Address": "PO BOX 2123, WARREN MI 48090-2123",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "NA",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "NA",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "NA",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "",
+          "Lot": "",
+          "Block": "",
+          "Building": "",
+          "Phase": "",
+          "Map_Name": "",
+          "Map_Date": "",
+          "Map_Book_Or_Condo_Book": "",
+          "Map_Page_Or_Condo_Page": "",
+          "Map_Number": "",
+          "Common_Lot_Or_Condo_Lot": "",
+          "Plat_Number": "",
+          "Parking_Space": "",
+          "Garage": "",
+          "Boat_Slip": "",
+          "Storage_Space": "",
+          "Parcel": "",
+          "Tract_Number": "",
+          "Section": "",
+          "Township": "",
+          "Rack": "",
+          "City": "",
+          "Municipal": "",
+          "Range": "",
+          "Quarters": "",
+          "Share": "",
+          "Govt_Tract_Number": "",
+          "Govt_Lot_Number": "",
+          "Sub_Division_Filing": "",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "NA",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "",
+      "Primary_Or_Prior_Document_Date": "",
+      "Primary_Or_Prior_Document_Number": "",
+      "Primary_Or_Prior_Book_Number": "",
+      "Primary_Or_Prior_Page_Number": "",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

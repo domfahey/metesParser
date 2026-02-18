@@ -1,0 +1,180 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50642",
+    "Recording_Page_Number": "549",
+    "Recording_File_Number": "2013199138",
+    "Recording_Date_And_Time": "22-March-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "WARRANTY DEED",
+    "Dated_Date": "11th March 2013",
+    "Sale_Amount": "$1.00",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Warranty Deed",
+    "Recording_Date_Normalized": "2013-03-22",
+    "Dated_Date_Normalized": "2013-03-11",
+    "Recording_Book_Normalized": "50642",
+    "Recording_Page_Normalized": "549"
+  },
+  "Parties": [
+    {
+      "Name": "PNC Bank, National Association",
+      "Relationship_Status": "NA",
+      "Role": "Grantor",
+      "Mailing_Address": "3232 Newmark Drive, Miamisburg, OH 45342",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Secretary of Housing and Urban Development",
+      "Relationship_Status": "NA",
+      "Role": "Grantee",
+      "Mailing_Address": "c/o MCB - Michaelson, Connor & Boul, Attn: Pam Pounds, 4400 Will Rogers Parkway, Suite 300, Oklahoma City, OK. 73108",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Sharon Lynch",
+      "Relationship_Status": "NA",
+      "Role": "Authorized Signer",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Luann Jones",
+      "Relationship_Status": "NA",
+      "Role": "Authorized Signer",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "PNC Bank, National Association, successor in interest to National City Real Estate Services, LLC, successor by merger to National City Mortgage, Inc."
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Secretary of Housing and Urban Development"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "NA",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "082-03-0175-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "PNC Bank, National Association",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 175, Annapolis Park Subdivision Number 3, according to the Plat thereof as recorded in Liber 77 on Page(s) 13 of Plats, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 175, Annapolis Park Subdivision Number 3, according to the Plat thereof as recorded in Liber 77 on Page(s) 13 of Plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "175",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Annapolis Park Subdivision Number 3",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "77",
+          "Map_Page_Or_Condo_Page": "13",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "77",
+          "Map_Page_Normalized": "13"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

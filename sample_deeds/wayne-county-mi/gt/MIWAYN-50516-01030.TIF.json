@@ -1,0 +1,192 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50516",
+    "Recording_Page_Number": "1030",
+    "Recording_File_Number": "2013067613",
+    "Recording_Date_And_Time": "21-February-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "Discharge of Mortgage",
+    "Dated_Date": "19-February-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "261-9230602",
+      "Loan_Amount": "$80,500.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Discharge of Mortgage",
+    "Recording_Date_Normalized": "2013-02-21",
+    "Dated_Date_Normalized": "2013-02-19",
+    "Recording_Book_Normalized": "50516",
+    "Recording_Page_Normalized": "1030"
+  },
+  "Parties": [
+    {
+      "Name": "DEVAL LLC",
+      "Relationship_Status": "NA",
+      "Role": "Attorney-in-Fact",
+      "Mailing_Address": "1255 CORPORATE DRIVE, SUITE 300, IRVING, TX 75038",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "SHAUN DONOVAN",
+      "Relationship_Status": "NA",
+      "Role": "Secretary of Housing and Urban Development",
+      "Mailing_Address": "451 SEVENTH ST SW WASHINGTON, DC, 20410",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "BEULAH L ELLISON",
+      "Relationship_Status": "Single Woman",
+      "Role": "Grantor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Secretary of Housing and Urban Development",
+      "Relationship_Status": "NA",
+      "Role": "Grantee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "BEULAH L ELLISON A SINGLE WOMAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "DEVAL LLC BY ATTORNEY-IN-FACT FOR SHAUN DONOVAN, SECRETARY OF HOUSING AND URBAN DEVELOPMENT"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "5056 BEWICK ST, DETROIT, MI 48213",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "BEULAH L ELLISON",
+          "Relationship_Status": "Single Woman",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT 170 BEWICK SUBDIVISION ACCORDING TO THE PLAT THEREOF AS RECORDED IN LIBER 30 PAGE 29 WAYNE COUNTY RECORDS",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 170 BEWICK SUBDIVISION ACCORDING TO THE PLAT THEREOF AS RECORDED IN LIBER 30 PAGE 29 WAYNE COUNTY RECORDS",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "LOT 170",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "BEWICK SUBDIVISION",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "30",
+          "Map_Page_Or_Condo_Page": "29",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "30",
+          "Map_Page_Normalized": "29"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Power of Attorney",
+      "Primary_Or_Prior_Document_Date": "07-May-2012",
+      "Primary_Or_Prior_Document_Number": "2012238362",
+      "Primary_Or_Prior_Book_Number": "49851",
+      "Primary_Or_Prior_Page_Number": "1000",
+      "Primary_Or_Prior_Document_Date_Normalized": "2012-05-07",
+      "Prior_Book_Normalized": "49851",
+      "Prior_Page_Normalized": "1000"
+    },
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage ",
+      "Primary_Or_Prior_Document_Date": "26 July 2007",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "46586",
+      "Primary_Or_Prior_Page_Number": "11-19",
+      "isATCustom": true,
+      "Primary_Or_Prior_Document_Date_Normalized": "2007-07-26",
+      "Prior_Book_Normalized": "46586",
+      "Prior_Page_Normalized": "11"
+    }
+  ]
+}

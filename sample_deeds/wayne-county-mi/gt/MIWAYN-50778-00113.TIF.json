@@ -1,0 +1,167 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50778",
+    "Recording_Page_Number": "113",
+    "Recording_File_Number": "2013277022",
+    "Recording_Date_And_Time": "07-May-2013 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "RELEASE JUDGMENT LIEN",
+    "Dated_Date": "2-May-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "08108479GC",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "Judgment Lien",
+        "Lien_Entered_Date": "31-July-2009",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "FIRST RESOLUTION INVESTMENT CO CORPORATION,\n",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "2009-07-31"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Judgment Release",
+    "Recording_Date_Normalized": "2013-05-07",
+    "Dated_Date_Normalized": "2013-05-02",
+    "Recording_Book_Normalized": "50778",
+    "Recording_Page_Normalized": "113"
+  },
+  "Parties": [
+    {
+      "Name": "FIRST RESOLUTION INVESTMENT CO CORPORATION",
+      "Relationship_Status": "NA",
+      "Role": "Plaintiff",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "TERRANCE WILDER",
+      "Relationship_Status": "NA",
+      "Role": "Defendant",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "NA",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "NA",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "NA",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "",
+          "Lot": "",
+          "Block": "",
+          "Building": "",
+          "Phase": "",
+          "Map_Name": "",
+          "Map_Date": "",
+          "Map_Book_Or_Condo_Book": "",
+          "Map_Page_Or_Condo_Page": "",
+          "Map_Number": "",
+          "Common_Lot_Or_Condo_Lot": "",
+          "Plat_Number": "",
+          "Parking_Space": "",
+          "Garage": "",
+          "Boat_Slip": "",
+          "Storage_Space": "",
+          "Parcel": "",
+          "Tract_Number": "",
+          "Section": "",
+          "Township": "",
+          "Rack": "",
+          "City": "",
+          "Municipal": "",
+          "Range": "",
+          "Quarters": "",
+          "Share": "",
+          "Govt_Tract_Number": "",
+          "Govt_Lot_Number": "",
+          "Sub_Division_Filing": "",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "NA",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Judgment Lien",
+      "Primary_Or_Prior_Document_Date": "31-JULY-2009",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "48054",
+      "Primary_Or_Prior_Page_Number": "483",
+      "Primary_Or_Prior_Document_Date_Normalized": "2009-07-31",
+      "Prior_Book_Normalized": "48054",
+      "Prior_Page_Normalized": "483"
+    }
+  ]
+}

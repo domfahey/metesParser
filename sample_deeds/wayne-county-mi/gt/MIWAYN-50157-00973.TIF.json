@@ -1,0 +1,182 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50157",
+    "Recording_Page_Number": "973",
+    "Recording_File_Number": "2012387827",
+    "Recording_Date_And_Time": "28-September-2012",
+    "Title_Company_Name": "Title One, Inc.",
+    "Document_Title": "Mortgage",
+    "Dated_Date": "17-September-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "$220,800.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "01-October-2042",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "2042-10-01"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2012-09-28",
+    "Dated_Date_Normalized": "2012-09-17",
+    "Recording_Book_Normalized": "50157",
+    "Recording_Page_Normalized": "973"
+  },
+  "Parties": [
+    {
+      "Name": "Jennifer L Cullum",
+      "Relationship_Status": "Wife",
+      "Role": "Borrower",
+      "Mailing_Address": "1108 N Milwaukee ST, # 150, MILWAUKEE, WI 53202-3153",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Matthew A Cullum",
+      "Relationship_Status": "Husband",
+      "Role": "Borrower",
+      "Mailing_Address": "1108 N Milwaukee ST, # 150, MILWAUKEE, WI 53202-3153",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Wells Fargo Bank, N.A.",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "101 North Phillips Avenue, Sioux Falls, SD 57104",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Jennifer L Cullum and Matthew A Cullum, wife and husband; joint tenants"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Wells Fargo Bank, N.A."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Single Family Residential",
+      "Property_Address": "50452 Coolidge ST, CANTON, MI 48188",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "71-073-04-0342.000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Jennifer L Cullum",
+          "Relationship_Status": "Wife",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "isATCustom": "True",
+          "Name": "Matthew A Cullum",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Unit 34, Cherry Hill Village Condominium, according to the Master Deed recorded in Liber 33020, Pages 1 through 94, and as amended, Wayne County Records, and designated as Wayne County Condominium Subdivision Plan No. 590, together with rights in general common elements and limited common elements as set forth in the above described Master Deed and as described in Act 59 of the Public Acts of 1978, as amended.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Unit 34, Cherry Hill Village Condominium, according to the Master Deed recorded in Liber 33020, Pages 1 through 94, and as amended, Wayne County Records, and designated as Wayne County Condominium Subdivision Plan No. 590, together with rights in general common elements and limited common elements as set forth in the above described Master Deed and as described in Act 59 of the Public Acts of 1978, as amended.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "34",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Cherry Hill Village Condominium",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "33020",
+          "Map_Page_Or_Condo_Page": "1-94",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "Canton",
+          "Rack": "NA",
+          "City": "Canton",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Annotation_Tool_Custom_Entity_Plan No.": "590",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "33020",
+          "Map_Page_Normalized": "1"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

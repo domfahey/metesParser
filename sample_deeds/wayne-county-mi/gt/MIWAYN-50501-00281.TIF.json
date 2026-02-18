@@ -1,0 +1,178 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50501",
+    "Recording_Page_Number": "281",
+    "Recording_File_Number": "2013058038",
+    "Recording_Date_And_Time": "13-February-2013",
+    "Title_Company_Name": "A.S.K. SERVICES, INC.",
+    "Document_Title": "MORTGAGE",
+    "Dated_Date": "30-January-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "8000310107",
+      "Loan_Amount": "$193,472.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "",
+      "Loan_Term_End_Date": "01-March-2043",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "2043-03-01"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2013-02-13",
+    "Dated_Date_Normalized": "2013-01-30",
+    "Recording_Book_Normalized": "50501",
+    "Recording_Page_Normalized": "281"
+  },
+  "Parties": [
+    {
+      "Name": "Shane Wiedyke",
+      "Relationship_Status": "Husband",
+      "Role": "Borrower",
+      "Mailing_Address": "21470 Knudsen, Grosse Ile, MI 48138",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Amy Wiedyke",
+      "Relationship_Status": "Wife",
+      "Role": "Borrower",
+      "Mailing_Address": "21470 Knudsen, Grosse Ile, MI 48138",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "PNC Mortgage, a division of PNC Bank, National Association",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "3232 Newmark Drive, Miamisburg, OH 45342",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Shane Wiedyke and Amy Wiedyke, Husband And Wife"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "PNC Mortgage, a division of PNC Bank, National Association"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Single Family Residential",
+      "Property_Address": "21470 Knudsen Dr, Grosse Ile, Michigan 48138-1178",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "73013010078000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Shane Wiedyke",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "Amy Wiedyke",
+          "Relationship_Status": "Wife",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT 78, POTAWATOMIE WOODS SUBDIVISION, according to the plat thereof as recorded in Liber 78 of Plats, Pages 34 and 35, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 78, POTAWATOMIE WOODS SUBDIVISION, according to the plat thereof as recorded in Liber 78 of Plats, Pages 34 and 35, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "78",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "POTAWATOMIE WOODS SUBDIVISION",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "78",
+          "Map_Page_Or_Condo_Page": "34-35",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "Grosse Ile",
+          "Rack": "NA",
+          "City": "Grosse Ile",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "78",
+          "Map_Page_Normalized": "34"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

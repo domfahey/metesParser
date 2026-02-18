@@ -1,0 +1,183 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50378",
+    "Recording_Page_Number": "471",
+    "Recording_File_Number": "2013001175",
+    "Recording_Date_And_Time": "24-December-2012",
+    "Title_Company_Name": "",
+    "Document_Title": "MORTGAGE",
+    "Dated_Date": "13-December-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "0085602001",
+      "Loan_Amount": "$90,259.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "",
+      "Loan_Term_End_Date": "01-January-2043",
+      "Loan_Type": "",
+      "Loan_Term_End_Date_Normalized": "2043-01-01"
+    },
+    "Type_Of_Financing": "",
+    "Case_Number": "",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "1000730-0085602001-1",
+    "MERS_Phone_Number": "",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2012-12-24",
+    "Dated_Date_Normalized": "2012-12-13",
+    "Recording_Book_Normalized": "50378",
+    "Recording_Page_Normalized": "471"
+  },
+  "Parties": [
+    {
+      "Name": "Marie Smart",
+      "Relationship_Status": "Unmarried",
+      "Role": "Borrower",
+      "Mailing_Address": "16260 Lesure St, Detroit, MI 48235",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Joseph M. Smart",
+      "Relationship_Status": "Unmarried",
+      "Role": "Borrower",
+      "Mailing_Address": "16260 Lesure St, Detroit, MI 48235",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Freedom Mortgage Corporation",
+      "Relationship_Status": "",
+      "Role": "Lender",
+      "Mailing_Address": "907 Pleasant Valley Av Ste 3, Mount Laurel, NJ 08054",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc.",
+      "Relationship_Status": "",
+      "Role": "Nominee ",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Marie Smart and Joseph M. Smart, as joint tenants"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Freedom Mortgage Corporation"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "16260 Lesure St, Detroit, MI 48235",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "22032717"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Marie Smart and Joseph M. Smart",
+          "Relationship_Status": "Unmarried",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 72, College Grove Subdivision, as recorded in Liber 53, page 17 of Plats, Wayne County records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 72, College Grove Subdivision, as recorded in Liber 53, page 17 of Plats, Wayne County records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "72",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "College Grove Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "53",
+          "Map_Page_Or_Condo_Page": "17",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Detroit",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "53",
+          "Map_Page_Normalized": "17"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "",
+      "Primary_Or_Prior_Document_Date": "",
+      "Primary_Or_Prior_Document_Number": "",
+      "Primary_Or_Prior_Book_Number": "",
+      "Primary_Or_Prior_Page_Number": "",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

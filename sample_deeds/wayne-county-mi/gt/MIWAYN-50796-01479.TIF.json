@@ -1,0 +1,178 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50796",
+    "Recording_Page_Number": "1479",
+    "Recording_File_Number": "2013284783",
+    "Recording_Date_And_Time": "15-May-2013 ",
+    "Title_Company_Name": "TITLE PARTNERS",
+    "Document_Title": "Mortgage",
+    "Dated_Date": "23-April-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "$100,022.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "01-May-2043",
+      "Loan_Type": "FHA",
+      "Loan_Term_End_Date_Normalized": "2043-05-01"
+    },
+    "Type_Of_Financing": "FHA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2013-05-15",
+    "Dated_Date_Normalized": "2013-04-23",
+    "Recording_Book_Normalized": "50796",
+    "Recording_Page_Normalized": "1479"
+  },
+  "Parties": [
+    {
+      "Name": "Bernadette E Szukatis",
+      "Relationship_Status": "Wife",
+      "Role": "Borrower",
+      "Mailing_Address": "3114 Pardee AVE, Dearborn, MI 48124",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Charles V Szukatis, II",
+      "Relationship_Status": "Husband",
+      "Role": "Borrower",
+      "Mailing_Address": "3114 Pardee AVE, Dearborn, MI 48124",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Wells Fargo Bank, N.A.",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "101 North Phillips Avenue, Sioux Falls, SD 57104",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Bernadette E Szukatis and Charles V Szukatis, II, wife and husband"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Wells Fargo Bank, N.A."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "3114 Pardee AVE, Dearborn, MI 48124",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "82-09-284-11-026"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Bernadette E Szukatis",
+          "Relationship_Status": "Wife",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "Charles V Szukatis, II",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "This exhibit is attached to, and becomes a part of, the Mortgage, dated April 23, 2013. Land in the City of Dearborn, County of Wayne, and State of Michigan, described as:\nLot 118, including 1/2 of vacated alley adjacent thereto, Carol Manor Subdivision, according to the plat thereof, as recorded in Liber 56, Page(s) 18 of Plats, Wayne County Records.\nMore commonly known as: 3114 Pardee Avenue, Dearborn, MI, 48124\nTax Item No. 82-09-284-11-026",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 118, including 1/2 of vacated alley adjacent thereto, Carol Manor Subdivision, according to the plat thereof, as recorded in Liber 56, Page(s) 18 of Plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "118",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Carol Manor Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "56",
+          "Map_Page_Or_Condo_Page": "18",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Dearborn",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "56",
+          "Map_Page_Normalized": "18"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

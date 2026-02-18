@@ -1,0 +1,189 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50196",
+    "Recording_Page_Number": "1473",
+    "Recording_File_Number": "2012405743",
+    "Recording_Date_And_Time": "11-October-2012 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "DISCHARGE OF MORTGAGE",
+    "Dated_Date": "11-October-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "19990321",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "1-888-679-6377",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "DISCHARGE OF MORTGAGE",
+    "Recording_Date_Normalized": "2012-10-11",
+    "Dated_Date_Normalized": "2012-10-11",
+    "Recording_Book_Normalized": "50196",
+    "Recording_Page_Normalized": "1473"
+  },
+  "Parties": [
+    {
+      "Name": "JPMORGAN CHASE BANK, N.A.",
+      "Relationship_Status": "NA",
+      "Role": "LENDER",
+      "Mailing_Address": "3415 VISION DR COLUMBUS, OH, 43219",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "MICHAEL S OLSZEWSKI ",
+      "Relationship_Status": " UNMARRIED",
+      "Role": "Borrower ",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "TRACEY C BARON",
+      "Relationship_Status": " UNMARRIED ",
+      "Role": "Borrower ",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "GOLD STAR MORTGAGE BANKING GROUP\nCORPORATION",
+      "Relationship_Status": "NA",
+      "Role": "ORIGINAL Mortgagee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "MICHAEL S OLSZEWSKI AN UNMARRIED MAN AND TRACEY C BARON AN UNMARRIED WOMAN, AS JOINT TENANTS WITH FULL RIGHTS OF SURVIVORSHIP"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "JPMORGAN CHASE BANK, N.A."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "230 CARSON DR, WESTLAND, MI 48185",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "56-051-02-0126-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Michael S Olszewski",
+          "Relationship_Status": "Unmarried Man ",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "isATCustom": "True",
+          "Name": "TRACEY C BARON ",
+          "Relationship_Status": "Unmarried Woman ",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LAND IN THE CITY OF WESTLAND, WAYNE COUNTY, MICHIGAN, DESCRIBED AS:\nUNIT 126, BROOKFIELD VILLAGE CONDOMINIUM, ACCORDING TO THE MASTER DEED RECORDED IN LIBER 37260, PAGES 1 THROUGH 73, BOTH INCLUSIVE AND AMENDED BY FIRST AMENDMENT TO THE MASTER DEED RECORDED IN LIBER 37662, PAGE 1183 THROUGH 1185, BOTH INCLUSIVE, WAYNE COUNTY RECORDS, AND DESIGNATED AS WAYNE COUNTY CONDOMINIUM SUBDIVISION PLAN NO. 685 TOGETHER WITH RIGHTS IN GENERAL COMMON ELEMENTS AND LIMITED COMMON ELEMENTS, AS SET FORTH IN THE ABOVE DESCRIBED MASTER DEED AND AS DESCRIBED IN ACT 59 OF THE PUBLIC ACTS OF 1978, AS AMENDED, COMMONLY KNOWN AS: 230 CARSON DR., WESTLAND, MI 48185\nTAX: 56-051-02-0126-000",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LAND IN THE CITY OF WESTLAND, WAYNE COUNTY, MICHIGAN, DESCRIBED AS:UNIT 126, BROOKFIELD VILLAGE CONDOMINIUM, ACCORDING TO THE MASTER DEED RECORDED IN LIBER 37260, PAGES 1 THROUGH 73, BOTH INCLUSIVE AND AMENDED BY FIRST AMENDMENT TO THE MASTER DEED RECORDED IN LIBER 37662, PAGE 1183 THROUGH 1185, BOTH INCLUSIVE, WAYNE COUNTY RECORDS, AND DESIGNATED AS WAYNE COUNTY CONDOMINIUM SUBDIVISION PLAN NO. 685 TOGETHER WITH RIGHTS IN GENERAL COMMON ELEMENTS AND LIMITED COMMON ELEMENTS, AS SET FORTH IN THE ABOVE  DESCRIBED MASTER DEED AND AS DESCRIBED IN ACT 59 OF THE PUBLIC ACTS OF 1978, AS AMENDED,\n",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "126",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "BROOKFIELD VILLAGE CONDOMINIUM",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "37260",
+          "Map_Page_Or_Condo_Page": "1 THROUGH 73",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Westland",
+          "Municipal": "Wayne County",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "37260",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "09-March-2007",
+      "Primary_Or_Prior_Document_Number": "207115834",
+      "Primary_Or_Prior_Book_Number": "46124",
+      "Primary_Or_Prior_Page_Number": "214",
+      "Primary_Or_Prior_Document_Date_Normalized": "2007-03-09",
+      "Prior_Book_Normalized": "46124",
+      "Prior_Page_Normalized": "214"
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50412",
+    "Recording_Page_Number": "978",
+    "Recording_File_Number": "2013015372",
+    "Recording_Date_And_Time": "15-January-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CERTIFICATE OF REDEMPTION",
+    "Dated_Date": "15-January-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "$2,170.41",
+        "Tax_Payer_Name": "DAVID E WATSON, ROBIN M WATSON",
+        "Tax_Type": "Delinquent Taxes"
+      }
+    ],
+    "Document_Type": "Certificate of Redemption",
+    "Recording_Date_Normalized": "2013-01-15",
+    "Dated_Date_Normalized": "2013-01-15",
+    "Recording_Book_Normalized": "50412",
+    "Recording_Page_Normalized": "978"
+  },
+  "Parties": [
+    {
+      "Name": "DAVID E WATSON",
+      "Relationship_Status": "NA",
+      "Role": "Taxpayer",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "ROBIN M WATSON",
+      "Relationship_Status": "",
+      "Role": "Taxpayer",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": true
+    },
+    {
+      "Name": "Raymond J. Wojtowicz, WAYNE COUNTY TREASURER",
+      "Relationship_Status": "",
+      "Role": "Tax Collector",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "DAVID E WATSON and ROBIN M WATSON"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "8041 PREST, CITY OF DETROIT, MI",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "22049464"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "DAVID E WATSON and ROBIN M WATSON",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "W PREST LOT 621 FRISCHKORNS WEST CHICAGO BOULEVARD SUB L46 P11-2 PLATS, W C R 22/540 35 X 100",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "W PREST LOT 621 FRISCHKORNS WEST CHICAGO BOULEVARD SUB L46 P11-2 PLATS, W C R 22/540 35 X 100",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "W PREST LOT 621",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "FRISCHKORNS WEST CHICAGO BOULEVARD",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "L46",
+          "Map_Page_Or_Condo_Page": "11-2",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Detroit",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "46",
+          "Map_Page_Normalized": "11"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Certificate of Forfeiture",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "2011153778",
+      "Primary_Or_Prior_Book_Number": "49102",
+      "Primary_Or_Prior_Page_Number": "1055",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "49102",
+      "Prior_Page_Normalized": "1055"
+    }
+  ]
+}

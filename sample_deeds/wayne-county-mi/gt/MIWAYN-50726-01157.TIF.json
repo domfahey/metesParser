@@ -1,0 +1,167 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50726",
+    "Recording_Page_Number": "1157",
+    "Recording_File_Number": "2013250494",
+    "Recording_Date_And_Time": "15-April-2013",
+    "Title_Company_Name": "CHIRCO TITLE AGENCY, INC.",
+    "Document_Title": "SPECIAL WARRANTY DEED",
+    "Dated_Date": "12-March-2013",
+    "Sale_Amount": "$44,000.00",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "$378.40",
+        "Tax_Payer_Name": "Musa Azzouz",
+        "Tax_Type": "County Tr Tax, State Tr Tax"
+      }
+    ],
+    "Document_Type": "Special Warranty Deed",
+    "Recording_Date_Normalized": "2013-04-15",
+    "Dated_Date_Normalized": "2013-03-12",
+    "Recording_Book_Normalized": "50726",
+    "Recording_Page_Normalized": "1157"
+  },
+  "Parties": [
+    {
+      "Name": "Telcom Credit Union",
+      "Relationship_Status": "NA",
+      "Role": "Grantor",
+      "Mailing_Address": "21100 Northwestern Hwy., Southfield, MI 48075",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Musa Azzouz",
+      "Relationship_Status": "",
+      "Role": "Grantee",
+      "Mailing_Address": "17628 Maple Hill Dr., Northville, MI 48168",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Musa Azzouz"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Telcom Credit Union"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "6051 N Vernon St, Dearborn Heights, MI 48127",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "33-018-03-0137-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Musa Azzouz",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 137 and 1/2 of vacated alley, MURPHY BROTHERS-MARTIN PARK SUBDIVISION, as recorded in Liber 53, Page 16, of Plats, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 137 and 1/2 of vacated alley, MURPHY BROTHERS-MARTIN PARK SUBDIVISION, as recorded in Liber 53, Page 16, of Plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "137",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "MURPHY BROTHERS-MARTIN PARK SUBDIVISION",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "53",
+          "Map_Page_Or_Condo_Page": "16",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Dearborn Heights",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "53",
+          "Map_Page_Normalized": "16"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

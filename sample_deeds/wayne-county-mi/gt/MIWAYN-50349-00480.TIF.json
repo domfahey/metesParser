@@ -1,0 +1,175 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50349",
+    "Recording_Page_Number": "480",
+    "Recording_File_Number": "2012479965",
+    "Recording_Date_And_Time": "11-December-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "Real Estate Subordination Agreement",
+    "Dated_Date": "4th October 2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "1199745260",
+      "Loan_Amount": "$89,000.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Real Estate Subordination Agreement",
+    "Recording_Date_Normalized": "2012-12-11",
+    "Dated_Date_Normalized": "2012-10-04",
+    "Recording_Book_Normalized": "50349",
+    "Recording_Page_Normalized": "480"
+  },
+  "Parties": [
+    {
+      "Name": "Bank of America, N.A.",
+      "Relationship_Status": "NA",
+      "Role": "Subordinator",
+      "Mailing_Address": "4161 Piedmont Parkway, Greensboro, NC 27410",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "CHRISTOPHER A. MULLIGAN AND MONICA M. MULLIGAN AKA MONICA MULLIGAN",
+      "Relationship_Status": "",
+      "Role": "Borrower",
+      "Mailing_Address": "19615 Coachwood Rd, Riverview, MI 48193",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "JP Morgan Chase Bank, N.A.",
+      "Relationship_Status": "",
+      "Role": "lender",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "CHRISTOPHER A. MULLIGAN AND MONICA M. MULLIGAN AKA MONICA MULLIGAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "JP Morgan Chase Bank, N.A."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "19615 COACHWOOD RD, RIVERVIEW, MI 48193",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "51-016-02-0443-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "CHRISTOPHER A. MULLIGAN AND MONICA M. MULLIGAN AKA MONICA MULLIGAN",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Situated in the City of Riverview, County of Wayne and the State of Michigan, to-wit: Lot 443, Riverview Forest Subdivision No.2, as recorded in Liber 89, Page(s) 30 through 32 of Plats, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Situated in the City of Riverview, County of Wayne and the State of Michigan, to-wit: Lot 443, Riverview Forest Subdivision No.2, as recorded in Liber 89, Page(s) 30 through 32 of Plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "443",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Riverview Forest Subdivision No.2",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "89",
+          "Map_Page_Or_Condo_Page": "30-32",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Riverview",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "89",
+          "Map_Page_Normalized": "30"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "15th June 2004",
+      "Primary_Or_Prior_Document_Number": "204349305",
+      "Primary_Or_Prior_Book_Number": "40809",
+      "Primary_Or_Prior_Page_Number": "41",
+      "Primary_Or_Prior_Document_Date_Normalized": "2004-06-15",
+      "Prior_Book_Normalized": "40809",
+      "Prior_Page_Normalized": "41"
+    }
+  ]
+}

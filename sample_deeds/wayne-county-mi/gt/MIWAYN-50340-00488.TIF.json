@@ -1,0 +1,189 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50340",
+    "Recording_Page_Number": "488",
+    "Recording_File_Number": "2012476312",
+    "Recording_Date_And_Time": "05-December-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "MORTGAGE",
+    "Dated_Date": "20-November-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "88235602",
+      "Loan_Amount": "$164,800.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "01-December-2027",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "2027-12-01"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100511600001135612",
+    "MERS_Phone_Number": "1-888-679-6377",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2012-12-05",
+    "Dated_Date_Normalized": "2012-11-20",
+    "Recording_Book_Normalized": "50340",
+    "Recording_Page_Normalized": "488"
+  },
+  "Parties": [
+    {
+      "Name": "Jim J Bilko",
+      "Relationship_Status": "Husband",
+      "Role": "Borrower",
+      "Mailing_Address": "4702 Shoreview, Canton, MI 48188",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Kimberly A Bilko",
+      "Relationship_Status": "Wife",
+      "Role": "Borrower",
+      "Mailing_Address": "4702 Shoreview, Canton, MI 48188",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Interbank Mortgage Company",
+      "Relationship_Status": "",
+      "Role": "Lender",
+      "Mailing_Address": "333 KNIGHTSBRIDGE PARKWAY SUITE\n210, LINCOLNSHIRE, IL 60069",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc.",
+      "Relationship_Status": "",
+      "Role": "nominee",
+      "Mailing_Address": "P.O. Box 2026 Flint, MI48501-2026",
+      "Social_Security_Number": "",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Jim J Bilko and Kimberly A Bilko, Husband and Wife"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Interbank Mortgage Company, a Corporation"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "4702 Shoreview Drive, Canton, MI 48188",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "130-02-0196-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Jim J Bilko",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "isATCustom": "True",
+          "Name": "Kimberly A Bilko",
+          "Relationship_Status": "Wife",
+          "Social_Security_Number": ""
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 196, Meadow Villages of Canton No. 2, according to the plat thereof recorded in Liber 113, Pages 41, 42, 43, 44, 45, 46, 47, 48, 49, 50 and 51, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 196, Meadow Villages of Canton No. 2, according to the plat thereof recorded in Liber 113, Pages 41, 42, 43, 44, 45, 46, 47, 48, 49, 50 and 51, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "196",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Meadow Villages of Canton No. 2",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "113",
+          "Map_Page_Or_Condo_Page": "41-51",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "Canton",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "113",
+          "Map_Page_Normalized": "41"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "",
+      "Primary_Or_Prior_Document_Date": "",
+      "Primary_Or_Prior_Document_Number": "",
+      "Primary_Or_Prior_Book_Number": "",
+      "Primary_Or_Prior_Page_Number": "",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

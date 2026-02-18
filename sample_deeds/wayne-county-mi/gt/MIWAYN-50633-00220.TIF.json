@@ -1,0 +1,167 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50633",
+    "Recording_Page_Number": "220",
+    "Recording_File_Number": "2013188643",
+    "Recording_Date_And_Time": "21-March-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CERTIFICATE OF FORFEITURE OF REAL PROPERTY",
+    "Dated_Date": "19-March-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "Kiryakoza-Tella Foods II",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Certificate of Forfeiture",
+    "Recording_Date_Normalized": "2013-03-21",
+    "Dated_Date_Normalized": "2013-03-19",
+    "Recording_Book_Normalized": "50633",
+    "Recording_Page_Normalized": "220"
+  },
+  "Parties": [
+    {
+      "Name": "Kiryakoza-Tella Foods II",
+      "Relationship_Status": "NA",
+      "Role": "Taxpayer",
+      "Mailing_Address": "21005 Middlebelt, New Boston, MI 48164",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Raymond J. Wojtowicz",
+      "Relationship_Status": "NA",
+      "Role": "Wayne County Treasurer",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Kiryakoza-Tella Foods II"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Wayne County Treasurer"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "21005 Middlebelt RD,TOWNSHIP OF HURON , WAYNE COUNTY, MI 48164",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "75050990006000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Kiryakoza-Tella Foods II",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "13H2C D PART OF NW 1/4 SEC 13 T4S R9E BEG AT NW COR SEC 13 TH S88DEG 23M 20S E 371FT TH S0DEG 02M 20S W 165FT TH N88DEG 23M 20S W 371FT TH NODEG 02M 20S E 165FT POB 1.40 AC",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "13H2C D PART OF NW 1/4 SEC 13 T4S R9E BEG AT NW COR SEC 13 TH S88DEG 23M 20S E 371FT TH S0DEG 02M 20S W 165FT TH N88DEG 23M 20S W 371FT TH NODEG 02M 20S E 165FT POB 1.40 AC",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "NA",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "NA",
+          "Map_Page_Or_Condo_Page": "NA",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "13",
+          "Township": "Huron",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "Wayne County",
+          "Range": "9E",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "NA",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

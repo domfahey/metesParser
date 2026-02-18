@@ -1,0 +1,163 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50004",
+    "Recording_Page_Number": "1415",
+    "Recording_File_Number": "2012309997",
+    "Recording_Date_And_Time": "25-July-2012 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "QUIT CLAIM DEED",
+    "Dated_Date": "18-June-2012",
+    "Sale_Amount": "$1.00",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Quit Claim Deed",
+    "Recording_Date_Normalized": "2012-07-25",
+    "Dated_Date_Normalized": "2012-06-18",
+    "Recording_Book_Normalized": "50004",
+    "Recording_Page_Normalized": "1415"
+  },
+  "Parties": [
+    {
+      "Name": "Phillip G. Dion",
+      "Relationship_Status": "Single",
+      "Role": "Grantor",
+      "Mailing_Address": "441 McKinley Ave., Grosse Pointe Farms, MI 48236",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Phillip G. Dion",
+      "Relationship_Status": "Single",
+      "Role": "Grantee",
+      "Mailing_Address": "441 McKinley Ave., Grosse Pointe Farms, MI 48236",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Phillip G. Dion, a single man"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Phillip G. Dion, a single man"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "441 McKinley Ave., Grosse Pointe Farms, MI 48236",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "38-009-02-0063-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Phillip G. Dion",
+          "Relationship_Status": "Single",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT 63, MACK-GROSSE POINTE SUBDIVISION, according to the recorded Plat thereof, as recorded in Liber 51 of Plats, page 22, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 63, MACK-GROSSE POINTE SUBDIVISION, according to the recorded Plat thereof, as recorded in Liber 51 of Plats, page 22, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": {
+        "Unit": "NA",
+        "Lot": "63",
+        "Block": "NA",
+        "Building": "NA",
+        "Phase": "NA",
+        "Plat_Number": "NA",
+        "Map_Name": "MACK-GROSSE POINTE",
+        "Map_Number": "NA",
+        "Map_Date": "NA",
+        "Map_Book_Or_Condo_Book": "51",
+        "Map_Page_Or_Condo_Page": "22",
+        "Common_Lot_Or_Condo_Lot": "NA",
+        "Parking_Space": "NA",
+        "Garage": "NA",
+        "Boat_Slip": "NA",
+        "Storage_Space": "NA",
+        "Parcel": "NA",
+        "Tract_Number": "NA",
+        "Section": "NA",
+        "Township": "NA",
+        "Rack": "NA",
+        "City": "Grosse Pointe Farms",
+        "Municipal": "NA",
+        "Range": "NA",
+        "Quarters": "NA",
+        "Share": "NA",
+        "Govt_Tract_Number": "NA",
+        "Govt_Lot_Number": "NA",
+        "Sub_Division": "MACK-GROSSE POINTE",
+        "Sub_Division_Filing": "NA"
+      }
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

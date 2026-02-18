@@ -1,0 +1,175 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50395",
+    "Recording_Page_Number": "1292",
+    "Recording_File_Number": "2013007718",
+    "Recording_Date_And_Time": "04-January-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "ASSIGNMENT OF MORTGAGE",
+    "Dated_Date": "24-December-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "1076878343",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100697510040145371",
+    "MERS_Phone_Number": "1-888-679-6377",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Assignment of Mortgage",
+    "Recording_Date_Normalized": "2013-01-04",
+    "Dated_Date_Normalized": "2012-12-24",
+    "Recording_Book_Normalized": "50395",
+    "Recording_Page_Normalized": "1292"
+  },
+  "Parties": [
+    {
+      "Name": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC. AS NOMINEE FOR SUCCESS MORTGAGE PARTNERS, INC.",
+      "Relationship_Status": "NA",
+      "Role": "Assignor",
+      "Mailing_Address": "PO BOX 2026, FLINT, MI, 48501",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "JPMORGAN CHASE BANK, NATIONAL ASSOCIATION",
+      "Relationship_Status": "",
+      "Role": "ASSIGNEE",
+      "Mailing_Address": "WHOSE ADDRESS is 700 KANSAS LANE, MC 8000, MONROE, LA 71203 ",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "SHAWN R. HENSLEY",
+      "Relationship_Status": "MARRIED MAN",
+      "Role": "Borrower",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "SHAWN R. HENSLEY MARRIED MAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC. AS NOMINEE FOR SUCCESS MORTGAGE PARTNERS, INC."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "\n",
+      "Property_Address": "32253 MARQUETTE STREET, GARDEN CITY, MI 48135",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "SHAWN R. HENSLEY",
+          "Relationship_Status": "Married",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "THE NORTH 144 FEET OF LOT 107, JOSEPH DROGORUBS VENOY ROAD ACRES SUBDIVISION, AS RECORDED IN LIBER 66, PAGE 18 OF PLATS, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "THE NORTH 144 FEET OF LOT 107, JOSEPH DROGORUBS VENOY ROAD ACRES SUBDIVISION, AS RECORDED IN LIBER 66, PAGE 18 OF PLATS, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "THE NORTH 144 FEET OF LOT 107",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "JOSEPH DROGORUBS VENOY ROAD ACRES SUBDIVISION",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "66",
+          "Map_Page_Or_Condo_Page": "18",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Garden City",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "66",
+          "Map_Page_Normalized": "18"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "06/24/2010",
+      "Primary_Or_Prior_Document_Number": "2010368916",
+      "Primary_Or_Prior_Book_Number": "48817",
+      "Primary_Or_Prior_Page_Number": "1465",
+      "Primary_Or_Prior_Document_Date_Normalized": "2010-06-24",
+      "Prior_Book_Normalized": "48817",
+      "Prior_Page_Normalized": "1465"
+    }
+  ]
+}

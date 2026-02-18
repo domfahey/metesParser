@@ -1,0 +1,185 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50808",
+    "Recording_Page_Number": "1116",
+    "Recording_File_Number": "2013290014",
+    "Recording_Date_And_Time": "30-May-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "MORTGAGE",
+    "Dated_Date": "24-May-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "6746171",
+      "Loan_Amount": "$82,500.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "01-June-2028",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "2028-06-01"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100995500067461719",
+    "MERS_Phone_Number": "888-679-MERS",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2013-05-30",
+    "Dated_Date_Normalized": "2013-05-24",
+    "Recording_Book_Normalized": "50808",
+    "Recording_Page_Normalized": "1116"
+  },
+  "Parties": [
+    {
+      "Name": "Anit Walia",
+      "Relationship_Status": "Husband",
+      "Role": "Borrower",
+      "Mailing_Address": "1036 Hillcrest Blvd, Canton, MI 48187",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Aarti Walia",
+      "Relationship_Status": "Wife",
+      "Role": "Borrower",
+      "Mailing_Address": "1036 Hillcrest Blvd, Canton, MI 48187",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "NYCB Mortgage Company, LLC",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "1801 East Ninth Street Suite 200, Cleveland, OH 44114",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc.",
+      "Relationship_Status": "NA",
+      "Role": "NOMINEE",
+      "Mailing_Address": "P.O. Box 2026, Flint, MI 48501-2026",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Anit Walia and Aarti Walia, Husband and Wife"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NYCB Mortgage Company, LLC"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "276 Cherry Stone Dr #33, Canton, MI 48188",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Anit Walia",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "Aarti Walia",
+          "Relationship_Status": "Wife",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Land in the Township of Canton, County of Wayne, State of Michigan, to wit:\nUnit 33, The Hamptons, according to the Master Deed thereof, as recorded in Liber 41978, Page 214 through 284, inclusive, and First Amendment to Master Deed recorded in Liber 43353, Page 48, Wayne County Records, and any amendments thereto and designated as Wayne County Condominium Subdivision Plan No. 819, together with rights in general common elements and limited common elements as set forth in said Master Deed and as described in Act 59 of the Public Acts of 1978, as amended.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Unit 33, The Hamptons, according to the Master Deed thereof, as recorded in Liber 41978, Page 214 through 284, inclusive, and First Amendment to Master Deed recorded in Liber 43353, Page 48, Wayne County Records, and any amendments thereto and designated as Wayne County Condominium Subdivision Plan No. 819.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "33",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "The Hamptons",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "41978",
+          "Map_Page_Or_Condo_Page": "214-284",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "Canton",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "41978",
+          "Map_Page_Normalized": "214"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

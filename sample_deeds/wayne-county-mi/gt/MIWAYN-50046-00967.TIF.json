@@ -1,0 +1,179 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50046",
+    "Recording_Page_Number": "967",
+    "Recording_File_Number": "2012325938",
+    "Recording_Date_And_Time": "03-August-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SHERIFF'S DEED ON MORTGAGE SALE",
+    "Dated_Date": "26-July-2012",
+    "Sale_Amount": "$55,000.00",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "$100,353.64",
+      "Interest_Rate": "2.875%",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "$60.50",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "County Tax"
+      }
+    ],
+    "Document_Type": "SHERIFF'S DEED ON MORTGAGE SALE",
+    "Recording_Date_Normalized": "2012-08-03",
+    "Dated_Date_Normalized": "2012-07-26",
+    "Recording_Book_Normalized": "50046",
+    "Recording_Page_Normalized": "967"
+  },
+  "Parties": [
+    {
+      "Name": "Felicia Mack, a Deputy Sheriff in and for Wayne, Michigan",
+      "Relationship_Status": "NA",
+      "Role": "Deputy Sheriff (First Part)",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "U.S. BANK NATIONAL ASSOCIATION",
+      "Relationship_Status": "NA",
+      "Role": "Grantee (Second Part)",
+      "Mailing_Address": "4801 Frederica Street, Owensboro, KY 42301",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "KAREN MAYHER, A SINGLE WOMAN",
+      "Relationship_Status": "INDIVIDUAL",
+      "Role": "Original Mortgagor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "PARK PLACE MORTGAGE CORP. ",
+      "Relationship_Status": "NA",
+      "Role": "Mortgagee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "U.S. BANK NATIONAL ASSOCIATION"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Felicia Mack, a Deputy Sheriff in and for Wayne, Michigan"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "17236 PHILOMENE BOULEVARD, ALLEN PARK, MI 48101",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "30 023 06 0010 000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "KAREN MAYHER",
+          "Relationship_Status": "SINGLE",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT(S) 10, AND THE SOUTH 1/2 OF THE VACATED ALLEY ADJACENT THERETO, \"HARRAH'S THREE MILE SUBDIVISION\", AS RECORDED IN LIBER 52, PAGE 62 OF PLATS, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT(S) 10, AND THE SOUTH 1/2 OF THE VACATED ALLEY ADJACENT THERETO, \"HARRAH'S THREE MILE SUBDIVISION\", AS RECORDED IN LIBER 52, PAGE 62 OF PLATS, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": {
+        "Unit": "NA",
+        "Lot": "10",
+        "Block": "NA",
+        "Building": "NA",
+        "Phase": "NA",
+        "Plat_Number": "NA",
+        "Map_Name": "HARRAH'S THREE MILE",
+        "Map_Number": "NA",
+        "Map_Date": "NA",
+        "Map_Book_Or_Condo_Book": "52",
+        "Map_Page_Or_Condo_Page": "62",
+        "Common_Lot_Or_Condo_Lot": "NA",
+        "Parking_Space": "NA",
+        "Garage": "NA",
+        "Boat_Slip": "NA",
+        "Storage_Space": "NA",
+        "Parcel": "NA",
+        "Tract_Number": "NA",
+        "Section": "NA",
+        "Township": "NA",
+        "Rack": "NA",
+        "City": "ALLEN PARK",
+        "Municipal": "NA",
+        "Range": "NA",
+        "Quarters": "NA",
+        "Share": "NA",
+        "Govt_Tract_Number": "NA",
+        "Govt_Lot_Number": "NA",
+        "Sub_Division": "HARRAH'S THREE MILE",
+        "Sub_Division_Filing": "NA"
+      }
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "204426483",
+      "Primary_Or_Prior_Book_Number": "41073",
+      "Primary_Or_Prior_Page_Number": "1704",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "41073",
+      "Prior_Page_Normalized": "1704"
+    }
+  ]
+}

@@ -1,0 +1,185 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50888",
+    "Recording_Page_Number": "837",
+    "Recording_File_Number": "2013324626",
+    "Recording_Date_And_Time": "01-July-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "MORTGAGE",
+    "Dated_Date": "24-June-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "503913878",
+      "Loan_Amount": "$155,578.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "01-July-2038",
+      "Loan_Type": "FHA",
+      "Loan_Term_End_Date_Normalized": "2038-07-01"
+    },
+    "Type_Of_Financing": "FHA",
+    "Case_Number": "264-1490408-703",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100052550391387882",
+    "MERS_Phone_Number": "(888) 679-MERS",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2013-07-01",
+    "Dated_Date_Normalized": "2013-06-24",
+    "Recording_Book_Normalized": "50888",
+    "Recording_Page_Normalized": "837"
+  },
+  "Parties": [
+    {
+      "Name": "CAROL LIS",
+      "Relationship_Status": "Married",
+      "Role": "Borrower",
+      "Mailing_Address": "32783 GROAT BLVD, ROCKWOOD, MI 48173-8636",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Richard Lis",
+      "Relationship_Status": "Husband",
+      "Role": "Borrower",
+      "Mailing_Address": "32783 GROAT BLVD, ROCKWOOD, MI 48173-8636",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc. (MERS)",
+      "Relationship_Status": "NA",
+      "Role": "Nominee",
+      "Mailing_Address": "P.O. Box 2026, Flint, MI 48501-2026",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "FLAGSTAR BANK, FSB, A FEDERALLY CHARTERED SAVINGS BANK",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "5151 CORPORATE DR, TROY, MI 48098-2639",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "CAROL LIS, A MARRIED WOMAN and Richard Lis, her husband"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "FLAGSTAR BANK, FSB, A FEDERALLY CHARTERED SAVINGS BANK"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "32783 GROAT BLVD, ROCKWOOD, MI 48173-8636",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "70-152-01-0058-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "CAROL LIS",
+          "Relationship_Status": "Married",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "Richard Lis",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "THE FOLLOWING DESCRIBED PREMISES SITUATED IN THE TOWNSHIP OF BROWNSTOWN, COUNTY OF WAYNE; AND STATE OF MICHIGAN, TO-WIT:\n\nUNIT 58, RIVER VALLEY CONDOMINIUM, ACCORDING TO THE MASTER DEED RECORDED IN LIBER 29824, PAGES 2909 THROUGH 2977, BOTH INCLUSIVE, AS AMENDED BY FIRST AMENDMENT TO THE MASTER DEED RECORDED IN LIBER 34910, PAGES 464 AND 465, WAYNE COUNTY RECORDS, AND DESIGNATED AS WAYNE COUNTY CONDOMINIUM SUBDIVISION PLAN NO. 474 TOGETHER WITH RIGHTS IN GENERAL COMMON ELEMENTS AND LIMITED COMMON ELEMENTS AS SET FORTH IN THE ABOVE MASTER DEED AND AS DESCRIBED ACT 59 OF THE PUBLIC ACTS OF 1978, AS AMENDED.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "THE FOLLOWING DESCRIBED PREMISES SITUATED IN THE TOWNSHIP OF BROWNSTOWN, COUNTY OF WAYNE; AND STATE OF MICHIGAN, TO-WIT:\n\nUNIT 58, RIVER VALLEY CONDOMINIUM, ACCORDING TO THE MASTER DEED RECORDED IN LIBER 29824, PAGES 2909 THROUGH 2977, BOTH INCLUSIVE, AS AMENDED BY FIRST AMENDMENT TO THE MASTER DEED RECORDED IN LIBER 34910, PAGES 464 AND 465, WAYNE COUNTY RECORDS, AND DESIGNATED AS WAYNE COUNTY CONDOMINIUM SUBDIVISION PLAN NO. 474 TOGETHER WITH RIGHTS IN GENERAL COMMON ELEMENTS AND LIMITED COMMON ELEMENTS AS SET FORTH IN THE ABOVE MASTER DEED AND AS DESCRIBED ACT 59 OF THE PUBLIC ACTS OF 1978, AS AMENDED.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "58",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "RIVER VALLEY CONDOMINIUM",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "29824",
+          "Map_Page_Or_Condo_Page": "2909 THROUGH 2977",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "474",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "Brownstown",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "29824",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "FIRST AMENDMENT TO MASTER DEED",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "34910",
+      "Primary_Or_Prior_Page_Number": "464",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "34910",
+      "Prior_Page_Normalized": "464"
+    }
+  ]
+}

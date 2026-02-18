@@ -1,0 +1,183 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50410",
+    "Recording_Page_Number": "315",
+    "Recording_File_Number": "2013012653",
+    "Recording_Date_And_Time": "04-January-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "ASSIGNMENT OF MORTGAGE",
+    "Dated_Date": "13-December-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Assignment of Mortgage",
+    "Recording_Date_Normalized": "2013-01-04",
+    "Dated_Date_Normalized": "2012-12-13",
+    "Recording_Book_Normalized": "50410",
+    "Recording_Page_Normalized": "315"
+  },
+  "Parties": [
+    {
+      "Name": "FEDERAL HOME LOAN MORTGAGE CORPORATION",
+      "Relationship_Status": "NA",
+      "Role": "Assignor",
+      "Mailing_Address": "8250 JONES BRANCH DRIVE, MCLEAN, VA 22102",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "DYCK-O'NEAL, INC., ITS SUCCESSORS OR ASSIGNS,",
+      "Relationship_Status": "",
+      "Role": "ASSIGNEE",
+      "Mailing_Address": "3214 W. PARK ROW DRIVE, ARLINGTON, TX 76013,",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "LEJEWEL HOYE",
+      "Relationship_Status": "A SINGLE PERSON",
+      "Role": "BORROWER",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "ABN AMRO MORTGAGE GROUP INC",
+      "Relationship_Status": "",
+      "Role": "LENDER",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "LEJEWEL HOYE, A SINGLE PERSON"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "ABN AMRO MORTGAGE GROUP INC"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "20008 STOTTER, DETROIT, MI 48234",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "LEJEWEL HOYE",
+          "Relationship_Status": "Single",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT 142, BASELINE SUBDIVISION, AS RECORDED IN LIBER 45, ON PAGE 82 OF PLATS, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 142, BASELINE SUBDIVISION, AS RECORDED IN LIBER 45, ON PAGE 82 OF PLATS, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "142",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Baseline Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "45",
+          "Map_Page_Or_Condo_Page": "82",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Detroit",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "45",
+          "Map_Page_Normalized": "82"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "21-November-2003",
+      "Primary_Or_Prior_Document_Number": "204072300",
+      "Primary_Or_Prior_Book_Number": "39912",
+      "Primary_Or_Prior_Page_Number": "997",
+      "Primary_Or_Prior_Document_Date_Normalized": "2003-11-21",
+      "Prior_Book_Normalized": "39912",
+      "Prior_Page_Normalized": "997"
+    }
+  ]
+}

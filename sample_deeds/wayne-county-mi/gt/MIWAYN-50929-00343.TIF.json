@@ -1,0 +1,184 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50929",
+    "Recording_Page_Number": "343",
+    "Recording_File_Number": "2013342611",
+    "Recording_Date_And_Time": "18-July-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SATISFACTION / DISCHARGE OF MORTGAGE",
+    "Dated_Date": "12-July-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "0135294221",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Satisfaction/Discharge of Mortgage",
+    "Recording_Date_Normalized": "2013-07-18",
+    "Dated_Date_Normalized": "2013-07-12",
+    "Recording_Book_Normalized": "50929",
+    "Recording_Page_Normalized": "343"
+  },
+  "Parties": [
+    {
+      "Name": "WELLS FARGO BANK, N.A.",
+      "Relationship_Status": "NA",
+      "Role": "Mortgagee",
+      "Mailing_Address": "2701 Wells Fargo Way, MAC X9901-LIR Minneapolis, MN 55467",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Susan Caroline Took McDuff",
+      "Relationship_Status": "NA",
+      "Role": "Vice President Loan Documentation",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "JOAN A LEE",
+      "Relationship_Status": "Unmarried",
+      "Role": "Mortgagor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "JOAN A LEE, AN UNMARRIED WOMAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "WELLS FARGO BANK, N.A."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "356 MARIGOLD CIRCLE UNIT 90, WESTLAND, MI 48185",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "JOAN A LEE",
+          "Relationship_Status": "Unmarried",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Unit 90, Cherry Hill Place Condominiums, according to the Master Deed recorded in liber 36909, pages 84 through 145, both inclusive, Wayne County Records, and designated as Wayne County Condominium Subdivision Plan No. 676, together with rights in general common elements and limited common elements, as set forth in the above described Master Deed and as described in Act 59 of the Public Acts of 1978, as amended.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Unit 90, Cherry Hill Place Condominiums, according to the Master Deed recorded in liber 36909, pages 84 through 145, both inclusive, Wayne County Records, and designated as Wayne County Condominium Subdivision Plan No. 676.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "90",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Cherry Hill Place Condominiums",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "",
+          "Map_Page_Or_Condo_Page": "",
+          "Map_Number": "676",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "NA",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "17-June-2004",
+      "Primary_Or_Prior_Document_Number": "204448484",
+      "Primary_Or_Prior_Book_Number": "41167",
+      "Primary_Or_Prior_Page_Number": "228",
+      "Primary_Or_Prior_Document_Date_Normalized": "2004-06-17",
+      "Prior_Book_Normalized": "41167",
+      "Prior_Page_Normalized": "228"
+    },
+    {
+      "Primary_Or_Prior_Document_Name": "MASTER DEED",
+      "Primary_Or_Prior_Document_Date": "",
+      "Primary_Or_Prior_Document_Number": "",
+      "Primary_Or_Prior_Book_Number": "36909",
+      "Primary_Or_Prior_Page_Number": "84-145",
+      "isATCustom": true,
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "36909",
+      "Prior_Page_Normalized": "84"
+    }
+  ]
+}

@@ -1,0 +1,166 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50592",
+    "Recording_Page_Number": "1251",
+    "Recording_File_Number": "2013137033",
+    "Recording_Date_And_Time": "15-March-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CERTIFICATE OF FORFEITURE OF REAL PROPERTY",
+    "Dated_Date": "14-March-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "FEISAL A NAVARRA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Certificate of Forfeiture",
+    "Recording_Date_Normalized": "2013-03-15",
+    "Dated_Date_Normalized": "2013-03-14",
+    "Recording_Book_Normalized": "50592",
+    "Recording_Page_Normalized": "1251"
+  },
+  "Parties": [
+    {
+      "Name": "FEISAL A NAVARRA",
+      "Relationship_Status": "NA",
+      "Role": "Taxpayer",
+      "Mailing_Address": "0 P O BOX 36821, GROSSE POINTE, MI 48236",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Raymond J. Wojtowicz",
+      "Relationship_Status": "NA",
+      "Role": "Wayne County Treasurer",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "15523 MACK AVE, DETROIT, MI 48224",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "21001422"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "FEISAL A NAVARRA",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "N MACK E 0.14 FT ON S LINE BG E 0.10 FT ON N LINE OF LOT 7 LYG N & ADJ MACK AVE 120 FT WD ALSO LOTS 8 THRU 10 EXC MACK AVE AS WD TO 120 FT NOTTINGHAM SUB L38 P26 PLATS W C R 21/465 AND LOTS 4 AND 5 EXC MACK AVE AS WD TO 120 FT MEININGER SUB L46 P47 PLATS W C R 21/270 100.14 X 72.64A",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "N MACK E 0.14 FT ON S LINE BG E 0.10 FT ON N LINE OF LOT 7 LYG N & ADJ MACK AVE 120 FT WD ALSO LOTS 8 THRU 10 EXC MACK AVE AS WD TO 120 FT NOTTINGHAM SUB L38 P26 PLATS W C R 21/465 AND LOTS 4 AND 5 EXC MACK AVE AS WD TO 120 FT MEININGER SUB L46 P47 PLATS W C R 21/270 100.14 X 72.64A",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "LOT 7",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "NOTTINGHAM SUB",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "38",
+          "Map_Page_Or_Condo_Page": "26",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Detroit",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "38",
+          "Map_Page_Normalized": "26"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

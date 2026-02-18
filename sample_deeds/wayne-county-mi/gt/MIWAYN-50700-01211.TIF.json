@@ -1,0 +1,185 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50700",
+    "Recording_Page_Number": "1211",
+    "Recording_File_Number": "2013236027",
+    "Recording_Date_And_Time": "02-April-2013 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "MORTGAGE",
+    "Dated_Date": "1-March-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "503830168",
+      "Loan_Amount": "$222,772.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "",
+      "Loan_Term_End_Date": "01-April-2028",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "2028-04-01"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100526120130130007",
+    "MERS_Phone_Number": "888-679-MERS",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2013-04-02",
+    "Dated_Date_Normalized": "2013-03-01",
+    "Recording_Book_Normalized": "50700",
+    "Recording_Page_Normalized": "1211"
+  },
+  "Parties": [
+    {
+      "Name": "Jason T Connelly",
+      "Relationship_Status": "Husband",
+      "Role": "Borrower",
+      "Mailing_Address": "50189 JEFFERSON ST, CANTON, MI 48188-3433",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Amy M Connelly",
+      "Relationship_Status": "Wife",
+      "Role": "Borrower",
+      "Mailing_Address": "50189 JEFFERSON ST, CANTON, MI 48188-3433",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "UNION BANK",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "933 FOURTH STREET, LAKE ODESSA, MI 48849",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc.",
+      "Relationship_Status": "NA",
+      "Role": "Nominee",
+      "Mailing_Address": "P.O. Box 2026, Flint, MI 48501-2026",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Jason T Connelly and Amy M Connelly, Husband & Wife"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "UNION BANK, A STATE SAVINGS BANK"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Single Family Residential",
+      "Property_Address": "50189 JEFFERSON ST, CANTON, MI 48188-3433",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "71-073-04-0410-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Jason T Connelly",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "Amy M Connelly",
+          "Relationship_Status": "Wife",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Land Situated in the Township of Canton, Wayne County, Michigan:\nUnit 410 of Cherry Hill Village, a Condominium according to the Master Deed thereof recorded in Liber 33020, page 1, and designated as Wayne County Condominium Subdivision Plan No. 590 and any amendments thereto, First Amendment to Master Deed recorded in Liber 33044, page 1303, Second Amendment to Master Deed recorded in Liber 35353, page 444, Third Amendment to Master Deed recorded in Liber 36234, page 17, Fourth Amendment to Master Deed recorded in Liber 39390, page 732, Fifth Amendment to Master Deed recorded in Liber 41997, page 310 and Sixth Amendment to Master Deed recorded in Liber 44337, page 62, and in the Seventh Amendment to Master Deed recorded in Liber 48695 on Page 895, and in Eighth Amendment to the Master Deed recorded in Liber 49517 on Page 272, together with an undivided interest in the common elements of said condominium as set forth in said Master Deed and any amendments thereto, as described in Act 59 of the Public Acts of Michigan of 1978, as amended.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Unit 410 of Cherry Hill Village, a Condominium according to the Master Deed thereof recorded in Liber 33020, page 1, and designated as Wayne County Condominium Subdivision Plan No. 590 and any amendments thereto, First Amendment to Master Deed recorded in Liber 33044, page 1303, Second Amendment to Master Deed recorded in Liber 35353, page 444, Third Amendment to Master Deed recorded in Liber 36234, page 17, Fourth Amendment to Master Deed recorded in Liber 39390, page 732, Fifth Amendment to Master Deed recorded in Liber 41997, page 310 and Sixth Amendment to Master Deed recorded in Liber 44337, page 62, and in the Seventh Amendment to Master Deed recorded in Liber 48695 on Page 895, and in Eighth Amendment to the Master Deed recorded in Liber 49517 on Page 272, together with an undivided interest in the common elements of said condominium as set forth in said Master Deed and any amendments thereto, as described in Act 59 of the Public Acts of Michigan of 1978, as amended.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "410",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Cherry Hill Village",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "",
+          "Map_Page_Or_Condo_Page": "",
+          "Map_Number": "",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "Canton",
+          "Rack": "NA",
+          "City": "",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "NA",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "",
+      "Primary_Or_Prior_Page_Number": "",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

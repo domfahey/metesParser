@@ -1,0 +1,183 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50192",
+    "Recording_Page_Number": "1164",
+    "Recording_File_Number": "2012403948",
+    "Recording_Date_And_Time": "09-October-2012 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SHERIFF'S DEED ON MORTGAGE SALE",
+    "Dated_Date": "27-September-2012",
+    "Sale_Amount": "$122,571.84",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "$119,966.79",
+      "Interest_Rate": "7.250%",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "SHERIFF'S DEED ON MORTGAGE SALE",
+    "Recording_Date_Normalized": "2012-10-09",
+    "Dated_Date_Normalized": "2012-09-27",
+    "Recording_Book_Normalized": "50192",
+    "Recording_Page_Normalized": "1164"
+  },
+  "Parties": [
+    {
+      "Name": "Felicia Mack",
+      "Relationship_Status": "NA",
+      "Role": "Deputy Sheriff",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "ERIN GENTRY",
+      "Relationship_Status": "MARRIED ",
+      "Role": "Mortgagor",
+      "Mailing_Address": "14541 AGNES STREET SOUTHGATE, MI 48195",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc. (\"MERS\"),",
+      "Relationship_Status": "NA",
+      "Role": "MORTGAGE",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "FEDERAL NATIONAL MORTGAGE ASSOCIATION.",
+      "Relationship_Status": "NA",
+      "Role": "GRANTEE",
+      "Mailing_Address": "c/o 1100 Virginia Drive, Fort Washington, PA 19034.\n",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "ERIN GENTRY, A MARRIED WOMAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "FEDERAL NATIONAL MORTGAGE ASSOCIATION"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "14541 AGNES STREET, SOUTHGATE, MI 48195",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "53-012-02-0048-002"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "ERIN GENTRY",
+          "Relationship_Status": "Married Woman",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "THE NORTH 29 FEET OF LOT 48 AND THE SOUTH 9 FEET OF LOT 49, ALSO THE WEST 1/2 OF ADJACENT VACATED ALLEY AT THE REAR THEREOF TARABUSI EUREKA GARDENS SUBDIVISION, AS RECORDED IN LIBER 53, ON PAGE 76 OF PLATS, WAYNE COUNTY RECORDS.\nTax/Parcel I.D. No. 53-012-02-0048-002\nA/K/A 14541 AGNES STREET, SOUTHGATE, MI 48195",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "THE NORTH 29 FEET OF LOT 48 AND THE SOUTH 9 FEET OF LOT 49, ALSO THE WEST 1/2 OF ADJACENT VACATED ALLEY AT THE REAR THEREOF TARABUSI EUREKA GARDENS SUBDIVISION, AS RECORDED IN LIBER 53, ON PAGE 76 OF PLATS, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "48 and 49",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "TARABUSI EUREKA GARDENS SUBDIVISION",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "53",
+          "Map_Page_Or_Condo_Page": "76",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Southgate",
+          "Municipal": "Wayne County",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "53",
+          "Map_Page_Normalized": "76"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "03-December-2007",
+      "Primary_Or_Prior_Document_Number": "208005089",
+      "Primary_Or_Prior_Book_Number": "46898",
+      "Primary_Or_Prior_Page_Number": "559",
+      "Primary_Or_Prior_Document_Date_Normalized": "2007-12-03",
+      "Prior_Book_Normalized": "46898",
+      "Prior_Page_Normalized": "559"
+    }
+  ]
+}

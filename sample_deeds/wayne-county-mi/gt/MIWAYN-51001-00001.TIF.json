@@ -1,0 +1,187 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "51001",
+    "Recording_Page_Number": "1",
+    "Recording_File_Number": "2013369796",
+    "Recording_Date_And_Time": "28-August-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SATISFACTION / DISCHARGE OF MORTGAGE",
+    "Dated_Date": "27-August-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "0208451054",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100010402084510548",
+    "MERS_Phone_Number": "1-888-679-6377",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Satisfaction / Discharge of Mortgage",
+    "Recording_Date_Normalized": "2013-08-28",
+    "Dated_Date_Normalized": "2013-08-27",
+    "Recording_Book_Normalized": "51001",
+    "Recording_Page_Normalized": "1"
+  },
+  "Parties": [
+    {
+      "Name": "Danielle Burns",
+      "Relationship_Status": "NA",
+      "Role": "ASST. SECRETARY",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC., AS NOMINEE FOR SUNTRUST MORTGAGE, INC.",
+      "Relationship_Status": "NA",
+      "Role": "New Mortgagee",
+      "Mailing_Address": "PO BOX 2026, FLINT, MI 48501",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "MARK MEYER, JR. AND ASHLEIGH LINDON, SINGLE PERSON",
+      "Relationship_Status": "NA",
+      "Role": "Mortgagor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    },
+    {
+      "Name": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC.",
+      "Relationship_Status": "NA",
+      "Role": "Old Mortgagee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "MARK MEYER, JR. AND ASHLEIGH LINDON, SINGLE PERSON"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "29840 CHESTER STREET, GARDEN CITY, MI 48135",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "MARK MEYER, JR.",
+          "Relationship_Status": "Single",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "ASHLEIGH LINDON",
+          "Relationship_Status": "Single",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LAND SITUATED IN THE CITY OF GARDEN CITY, COUNTY OF WAYNE, STATE OF MI. WEST 49 FEET OF THE EAST 51 FEET OF LOT 2659-FOLKERS GARDEN CITY ACRES NO. 17, ACCORDING TO THE PLAT THEREOF AS RECORDED IN LIBER 54, PAGE (S) 38 OF PLATS, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LAND SITUATED IN THE CITY OF GARDEN CITY, COUNTY OF WAYNE, STATE OF MI. WEST 49 FEET OF THE EAST 51 FEET OF LOT 2659-FOLKERS GARDEN CITY ACRES NO. 17, ACCORDING TO THE PLAT THEREOF AS RECORDED IN LIBER 54, PAGE (S) 38 OF PLATS, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "WEST 49 FEET OF THE EAST 51 FEET OF LOT 2659",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "FOLKERS GARDEN CITY ACRES NO. 17",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "54",
+          "Map_Page_Or_Condo_Page": "38",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Garden City",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "54",
+          "Map_Page_Normalized": "38"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "14-March-2008",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "47127",
+      "Primary_Or_Prior_Page_Number": "1004",
+      "Primary_Or_Prior_Document_Date_Normalized": "2008-03-14",
+      "Prior_Book_Normalized": "47127",
+      "Prior_Page_Normalized": "1004"
+    }
+  ]
+}

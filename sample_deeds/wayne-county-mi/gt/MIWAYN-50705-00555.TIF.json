@@ -1,0 +1,181 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50705",
+    "Recording_Page_Number": "555",
+    "Recording_File_Number": "2013238127",
+    "Recording_Date_And_Time": "08-April-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "WARRANTY DEED",
+    "Dated_Date": "21-September-2012",
+    "Sale_Amount": "$15,900.00",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "$17.60",
+        "Tax_Payer_Name": "Crystal M. Swain",
+        "Tax_Type": "County Tax"
+      },
+      {
+        "Tax_Amount": "$120.00",
+        "Tax_Payer_Name": "Crystal M. Swain",
+        "Tax_Type": "State Tax"
+      }
+    ],
+    "Document_Type": "Warranty Deed",
+    "Recording_Date_Normalized": "2013-04-08",
+    "Dated_Date_Normalized": "2012-09-21",
+    "Recording_Book_Normalized": "50705",
+    "Recording_Page_Normalized": "555"
+  },
+  "Parties": [
+    {
+      "Name": "Tyrone C. Mitchell, Jr.",
+      "Relationship_Status": "Unmarried man",
+      "Role": "Grantor",
+      "Mailing_Address": "17213 Anne Avenue, Allen Park, MI 48101",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Crystal M. Swain",
+      "Relationship_Status": "Single/married/unmarried woman",
+      "Role": "Grantee",
+      "Mailing_Address": "4387 South Proctor Road, Canton, MI 48188",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Crystal M. Swain, a single/married/unmarried woman"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Tyrone C. Mitchell, Jr., an unmarried man"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "26611 Sunningdale Drive, Inkster, MI 48141",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "44-018-02-0824-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Tyrone C. Mitchell, Jr.",
+          "Relationship_Status": "Unmarried",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT(S) 824 AND SOUTHEAST ONE-HALF OF LOT 825; WESTWOOD HILLS SUBDIVISION NO. 2, RECORDED IN LIBER 55, PAGE 38 OF PLATS, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT(S) 824 AND SOUTHEAST ONE-HALF OF LOT 825; WESTWOOD HILLS SUBDIVISION NO. 2, RECORDED IN LIBER 55, PAGE 38 OF PLATS, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "824 AND SOUTHEAST ONE-HALF OF LOT 825",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "WESTWOOD HILLS SUBDIVISION NO. 2",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "55",
+          "Map_Page_Or_Condo_Page": "38",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "55",
+          "Map_Page_Normalized": "38"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "COVENANT DEED",
+      "Primary_Or_Prior_Document_Date": "05-December-2007",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "46848",
+      "Primary_Or_Prior_Page_Number": "1187",
+      "Primary_Or_Prior_Document_Date_Normalized": "2007-12-05",
+      "Prior_Book_Normalized": "46848",
+      "Prior_Page_Normalized": "1187"
+    },
+    {
+      "Primary_Or_Prior_Document_Name": "QUITCLAIM DEED",
+      "Primary_Or_Prior_Document_Date": "28-November-2012",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "50324",
+      "Primary_Or_Prior_Page_Number": "734",
+      "Primary_Or_Prior_Document_Date_Normalized": "2012-11-28",
+      "Prior_Book_Normalized": "50324",
+      "Prior_Page_Normalized": "734"
+    }
+  ]
+}

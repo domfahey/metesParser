@@ -1,0 +1,175 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50445",
+    "Recording_Page_Number": "1499",
+    "Recording_File_Number": "2013030327",
+    "Recording_Date_And_Time": "17-January-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "MORTGAGE",
+    "Dated_Date": "8-January-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "503767709",
+      "Loan_Amount": "$5,900.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "10-January-2023",
+      "Loan_Type": "Home Equity Line of Credit",
+      "Loan_Term_End_Date_Normalized": "2023-01-10"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100052550376770920",
+    "MERS_Phone_Number": "(888) 679-MERS",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2013-01-17",
+    "Dated_Date_Normalized": "2013-01-08",
+    "Recording_Book_Normalized": "50445",
+    "Recording_Page_Normalized": "1499"
+  },
+  "Parties": [
+    {
+      "Name": "Stacy McFarlen",
+      "Relationship_Status": "Unmarried",
+      "Role": "Mortgagor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "FLAGSTAR BANK, FSB",
+      "Relationship_Status": "",
+      "Role": "Lender",
+      "Mailing_Address": "5151 CORPORATE DR, TROY, MI 48098-2639",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc.",
+      "Relationship_Status": "",
+      "Role": "Nominee",
+      "Mailing_Address": "P.O. Box 2026, Flint, MI 48501-2026",
+      "Social_Security_Number": "",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Stacy McFarlen, an unmarried woman"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "FLAGSTAR BANK, FSB, A FEDERALLY CHARTERED SAVINGS BANK"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "7618 Wheaton Dr, Canton, Michigan 48187-1823",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "71-011-01-0084-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Stacy McFarlen",
+          "Relationship_Status": "Unmarried",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "THE FOLLOWING DESCRIBED PREMISES SITUATED IN THE TOWNSHIP OF\nCANTON, COUNTY OF WAYNE, STATE OF MICHIGAN, TO WIT:\nLOT(S) 84 OF HAMPTON COURT SUBDIVISION, ACCORDING TO THE PLAT THEREOF RECORDED IN LIBER 96 OF PLATS, PAGE 80 OF WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT(S) 84 OF HAMPTON COURT SUBDIVISION, ACCORDING TO THE PLAT THEREOF RECORDED IN LIBER 96 OF PLATS, PAGE 80 OF WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "84",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "HAMPTON COURT SUBDIVISION",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "96",
+          "Map_Page_Or_Condo_Page": "80",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "Canton",
+          "Rack": "NA",
+          "City": "",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "96",
+          "Map_Page_Normalized": "80"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "",
+      "Primary_Or_Prior_Document_Date": "",
+      "Primary_Or_Prior_Document_Number": "",
+      "Primary_Or_Prior_Book_Number": "",
+      "Primary_Or_Prior_Page_Number": "",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

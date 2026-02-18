@@ -1,0 +1,175 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50166",
+    "Recording_Page_Number": "972",
+    "Recording_File_Number": "2012391597",
+    "Recording_Date_And_Time": "27-September-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SHERIFFS DEED ON MORTGAGE SALE",
+    "Dated_Date": "13-September-2012",
+    "Sale_Amount": "$83,110.96",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "Real Estate Transfer Tax"
+      }
+    ],
+    "Document_Type": "Sheriffs Deed",
+    "Recording_Date_Normalized": "2012-09-27",
+    "Dated_Date_Normalized": "2012-09-13",
+    "Recording_Book_Normalized": "50166",
+    "Recording_Page_Normalized": "972"
+  },
+  "Parties": [
+    {
+      "Name": "Felicia Mack",
+      "Relationship_Status": "NA",
+      "Role": "Deputy Sheriff",
+      "Mailing_Address": "4747 Woodward Ave Detroit, Michigan 48201-1307",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Bank of America, N.A.,",
+      "Relationship_Status": "",
+      "Role": "Mortgagee",
+      "Mailing_Address": "2375 N Glenville Dr, Richardson, TX 75082-4315",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Janice L. Stewart",
+      "Relationship_Status": "unmarried",
+      "Role": "Original mortgagor(s)",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Janice L. Stewart, unmarried"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Bank of America, N.A., successor by merger to BAC Home Loans Servicing, L.P. fka Countrywide Home Loans Servicing, L.P."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "29119 York St, Inkster, Michigan",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "44-015-01-0016-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Janice L. Stewart",
+          "Relationship_Status": "Unmarried",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 16, Salem Park Subdivision as recorded in Liber 79, Page 11 of Plats, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 16, Salem Park Subdivision as recorded in Liber 79, Page 11 of Plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "16",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Salem Park Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "79",
+          "Map_Page_Or_Condo_Page": "11",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "79",
+          "Map_Page_Normalized": "11"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "18-October-2007",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "46776",
+      "Primary_Or_Prior_Page_Number": "338",
+      "Primary_Or_Prior_Document_Date_Normalized": "2007-10-18",
+      "Prior_Book_Normalized": "46776",
+      "Prior_Page_Normalized": "338"
+    }
+  ]
+}

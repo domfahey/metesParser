@@ -1,0 +1,178 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50870",
+    "Recording_Page_Number": "700",
+    "Recording_File_Number": "2013315460",
+    "Recording_Date_And_Time": "24-June-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "QUIT CLAIM DEED",
+    "Dated_Date": "20-June-2013",
+    "Sale_Amount": "$1.00",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Quit Claim Deed",
+    "Recording_Date_Normalized": "2013-06-24",
+    "Dated_Date_Normalized": "2013-06-20",
+    "Recording_Book_Normalized": "50870",
+    "Recording_Page_Normalized": "700"
+  },
+  "Parties": [
+    {
+      "Name": "Virginia Lukas",
+      "Relationship_Status": "Survivor of her deceased husband, Edward Lukas",
+      "Role": "Grantor",
+      "Mailing_Address": "2029 Belmont Avenue, Hamtramck, MI 48212",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Dennis Lukas",
+      "Relationship_Status": "NA",
+      "Role": "Grantee",
+      "Mailing_Address": "2029 Belmont Avenue, Hamtramck, MI 48212",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Edward Lukas",
+      "Relationship_Status": "Deceased",
+      "Role": "Grantor",
+      "Mailing_Address": "2029 Belmont Avenue, Hamtramck, MI 48212",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Dennis Lukas"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Virginia Lukas, survivor of herself and her deceased husband, Edward Lukas"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "2029 Belmont, Hamtramck, MI",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "82 41 003 05 0078 000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Dennis Lukas",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "NA",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 78 of ADOLPH SLOMAN'S MILWAUKEE JUNCTION SUBDIVISION of Westerly 20 acres of Lot 12, One-Quarter Section 39, Ten Thousand Acre Tract, City of Hamtramck, Wayne County, Michigan, according to the plat there of recorded in Liber 21 of Plats, Page 100, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 78 of ADOLPH SLOMAN'S MILWAUKEE JUNCTION SUBDIVISION of Westerly 20 acres of Lot 12, One-Quarter Section 39, Ten Thousand Acre Tract, City of Hamtramck, Wayne County, Michigan, according to the plat there of recorded in Liber 21 of Plats, Page 100, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "78",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "ADOLPH SLOMAN'S MILWAUKEE JUNCTION SUBDIVISION",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "21",
+          "Map_Page_Or_Condo_Page": "100",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "One-Quarter Section 39",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "21",
+          "Map_Page_Normalized": "100"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Death Certificate",
+      "Primary_Or_Prior_Document_Date": "26-March-1993",
+      "Primary_Or_Prior_Document_Number": "0691367",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "1993-03-26",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

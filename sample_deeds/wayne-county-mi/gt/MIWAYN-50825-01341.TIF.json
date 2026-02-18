@@ -1,0 +1,166 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50825",
+    "Recording_Page_Number": "1341",
+    "Recording_File_Number": "2013296787",
+    "Recording_Date_And_Time": "05-June-2013 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CERTIFICATE OF REDEMPTION",
+    "Dated_Date": "6th June 2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "WAYNE COUNTY TREASURER",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "$912.74",
+        "Tax_Payer_Name": "GENO DAVIS",
+        "Tax_Type": "DELINQUENT TAXES"
+      }
+    ],
+    "Document_Type": "Certificate of Redemption",
+    "Recording_Date_Normalized": "2013-06-05",
+    "Dated_Date_Normalized": "2013-06-06",
+    "Recording_Book_Normalized": "50825",
+    "Recording_Page_Normalized": "1341"
+  },
+  "Parties": [
+    {
+      "Name": "GENO DAVIS",
+      "Relationship_Status": "NA",
+      "Role": "Taxpayer",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Wayne County Treasurer",
+      "Relationship_Status": "NA",
+      "Role": "TAX COLLECTOR",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "3466 EASTERN PL, DETROIT",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "12009924"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "GENO DAVIS",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "N EASTERN PLACE LOT 35 HAMLIN & FORDYCES GRAND RIVER AVENUE SUB L18 P90 PLATS, WCR 12/105 30 X 140",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "N EASTERN PLACE LOT 35 HAMLIN & FORDYCES GRAND RIVER AVENUE SUB L18 P90 PLATS, WCR 12/105 30 X 140",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": " 35",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "HAMLIN & FORDYCES GRAND RIVER AVENUE SUB",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "18",
+          "Map_Page_Or_Condo_Page": "90",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "18",
+          "Map_Page_Normalized": "90"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Certificate of Forfeiture",
+      "Primary_Or_Prior_Document_Date": "April-3-2013",
+      "Primary_Or_Prior_Document_Number": "2013096815",
+      "Primary_Or_Prior_Book_Number": "50561",
+      "Primary_Or_Prior_Page_Number": "851",
+      "Primary_Or_Prior_Document_Date_Normalized": "2013-04-03",
+      "Prior_Book_Normalized": "50561",
+      "Prior_Page_Normalized": "851"
+    }
+  ]
+}

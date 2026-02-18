@@ -1,0 +1,192 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50895",
+    "Recording_Page_Number": "248",
+    "Recording_File_Number": "2013327172",
+    "Recording_Date_And_Time": "01-July-2013 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "DISCHARGE OF MORTGAGE",
+    "Dated_Date": "6/18/2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "$320,250.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "25821280",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100854030000361066",
+    "MERS_Phone_Number": "888-679-6377",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Discharge of Mortgage",
+    "Recording_Date_Normalized": "2013-07-01",
+    "Dated_Date_Normalized": "2013-06-18",
+    "Recording_Book_Normalized": "50895",
+    "Recording_Page_Normalized": "248"
+  },
+  "Parties": [
+    {
+      "Name": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC. (MERS), AS NOMINEE FOR FINANCIAL FREEDOM ACQUISITION LLC",
+      "Relationship_Status": "NA",
+      "Role": "Mortgagee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "FINANCIAL FREEDOM SENIOR FUNDING CORPORATION",
+      "Relationship_Status": "NA",
+      "Role": "Original Lender",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "JOSEPH A. GROAT",
+      "Relationship_Status": "Husband",
+      "Role": "Borrower",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "SANDRA L. GROAT",
+      "Relationship_Status": "Wife",
+      "Role": "Borrower",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Darcy Peters",
+      "Relationship_Status": "NA",
+      "Role": "Assistant Secretary",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "JOSEPH A. GROAT AND SANDRA L. GROAT, HUSBAND AND WIFE"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC. (\"MERS\"), AS NOMINEE FOR FINANCIAL\nFREEDOM ACQUISITION LLC A DELAWARE CORPORATION"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "9336 Continental Dr., Taylor, MI 48180",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "60045020145000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "JOSEPH A. GROAT",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "SANDRA L. GROAT",
+          "Relationship_Status": "Wife",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "SITUATED IN THE CITY OR TAYLOR, COUNTY OF WAYNE, AND STATE OF MICHIGAN, TO-WIT:\nLOT 145, FOXCROFT SUBDIVISION NO. 2, AS RECORDED IN LIBER 95, PAGES 14 TO 17, INCLUSIVE\nOF PLATS, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 145, FOXCROFT SUBDIVISION NO. 2, AS RECORDED IN LIBER 95, PAGES 14 TO 17, INCLUSIVE OF PLATS, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "145",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "FOXCROFT SUBDIVISION NO. 2",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "95",
+          "Map_Page_Or_Condo_Page": "14-17",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "60045020145000",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Taylor",
+          "Municipal": "Wayne County",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "95",
+          "Map_Page_Normalized": "14"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "07-June-2006",
+      "Primary_Or_Prior_Document_Number": "206341721",
+      "Primary_Or_Prior_Book_Number": "44918",
+      "Primary_Or_Prior_Page_Number": "804",
+      "Primary_Or_Prior_Document_Date_Normalized": "2006-06-07",
+      "Prior_Book_Normalized": "44918",
+      "Prior_Page_Normalized": "804"
+    }
+  ]
+}

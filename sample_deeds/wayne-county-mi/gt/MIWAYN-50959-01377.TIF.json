@@ -1,0 +1,178 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50959",
+    "Recording_Page_Number": "1377",
+    "Recording_File_Number": "2013354375",
+    "Recording_Date_And_Time": "01-August-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "DISCHARGE OF MORTGAGE",
+    "Dated_Date": "19-July-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Discharge of Mortgage",
+    "Recording_Date_Normalized": "2013-08-01",
+    "Dated_Date_Normalized": "2013-07-19",
+    "Recording_Book_Normalized": "50959",
+    "Recording_Page_Normalized": "1377"
+  },
+  "Parties": [
+    {
+      "Name": "Adam Rezich",
+      "Relationship_Status": "a Single man",
+      "Role": "Mortgagor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Shannon Gumro",
+      "Relationship_Status": "a Single woman",
+      "Role": "Mortgagor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "H. Peter Karsten",
+      "Relationship_Status": "NA",
+      "Role": "Manager - Audit, Single Family and Multifamily Mortgage Servicing",
+      "Mailing_Address": "735 East Michigan Avenue, Lansing, MI 48913",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Adam Rezich, a single man and Shannon Gumro, a single woman"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Michigan State Housing Development Authority"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "7951 KATHERINE STREET, TAYLOR, MICHIGAN 48180",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "60-025-01-0112-001"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Adam Rezich",
+          "Relationship_Status": "a Single man",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "Shannon Gumro",
+          "Relationship_Status": "a Single woman",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOCATED IN THE CITY OF TAYLOR, COUNTY OF WAYNE, STATE OF MICHIGAN: WEST 129 FEET OF CROWLEY AVENUE NOW VACATED BETWEEN THE EAST LINE OF KATHERINE AVENUE, FORMERLY KNAPP, 60 FEET WIDE AND THE WEST LINE OF DUDLEY AVENUE, FORMERLY TAYLOR, 60 FEET WIDE AS ORIGINALLY DEDICATED FOR PUBLIC USE, ADJACENT TO LOTS 112 AND 113, WESTWARD MANOR SUBDIVISION, ACCORDING TO THE PLAT THEREOF AS RECORDED IN LIBER 61 OF PLATS, PAGE 33, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "WEST 129 FEET OF CROWLEY AVENUE NOW VACATED BETWEEN THE EAST LINE OF KATHERINE AVENUE, FORMERLY KNAPP, 60 FEET WIDE AND THE WEST LINE OF DUDLEY AVENUE, FORMERLY TAYLOR, 60 FEET WIDE AS ORIGINALLY DEDICATED FOR PUBLIC USE, ADJACENT TO LOTS 112 AND 113, WESTWARD MANOR SUBDIVISION, ACCORDING TO THE PLAT THEREOF AS RECORDED IN LIBER 61 OF PLATS, PAGE 33, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "112 AND 113",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "WESTWARD MANOR SUBDIVISION",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "61",
+          "Map_Page_Or_Condo_Page": "33",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Taylor",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "61",
+          "Map_Page_Normalized": "33"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "16-September-2010",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "48783",
+      "Primary_Or_Prior_Page_Number": "115",
+      "Primary_Or_Prior_Document_Date_Normalized": "2010-09-16",
+      "Prior_Book_Normalized": "48783",
+      "Prior_Page_Normalized": "115"
+    }
+  ]
+}

@@ -1,0 +1,186 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50543",
+    "Recording_Page_Number": "756",
+    "Recording_File_Number": "2013078091",
+    "Recording_Date_And_Time": "05-March-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SUBORDINATION AGREEMENT (MORTGAGE)",
+    "Dated_Date": "30-January-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "$263,000.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Annotation_Tool_Custom_Entity_2ND LOAN AMOUNT": "$31,600.00",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100475269015600237",
+    "MERS_Phone_Number": "1-888-679-6377",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Subordination Agreement (Mortgage)",
+    "Recording_Date_Normalized": "2013-03-05",
+    "Dated_Date_Normalized": "2013-01-30",
+    "Recording_Book_Normalized": "50543",
+    "Recording_Page_Normalized": "756"
+  },
+  "Parties": [
+    {
+      "Name": "Matthew Reynolds",
+      "Relationship_Status": "Husband",
+      "Role": "Borrower",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Jodie Reynolds",
+      "Relationship_Status": "Wife",
+      "Role": "Borrower",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc.",
+      "Relationship_Status": "NA",
+      "Role": "Nominee for Ameriprise Bank, FSB",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Ameriprise Bank, FSB",
+      "Relationship_Status": "NA",
+      "Role": "Beneficiary",
+      "Mailing_Address": "301 W. Bay Street, Jacksonville, FL 32202",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Matthew Reynolds and Jodie Reynolds, husband and wife"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Mortgage Electronic Registration Systems, Inc. (MERS) as nominee for Ameriprise Bank, FSB"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "679 Rivard, Grosse Pointe, MI 48230",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "37-003-07-0103-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Matthew Reynolds",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "Jodie Reynolds",
+          "Relationship_Status": "Wife",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "THE FOLLOWING DESCRIBED PREMISES SITUATED IN THE CITY OF GROSSE POINTE, COUNTY OF WAYNE, STATE OF MI: \n\nLOT(S) 103, GROSSE POINTE COLONY, ACCORDING TO THE RECORDED PLAT THEREOF, AS RECORDED IN LIBER 31 OF PLATS, PAGE 95.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "THE FOLLOWING DESCRIBED PREMISES SITUATED IN THE CITY OF GROSSE POINTE, COUNTY OF WAYNE, STATE OF MI: \n\nLOT(S) 103, GROSSE POINTE COLONY, ACCORDING TO THE RECORDED PLAT THEREOF, AS RECORDED IN LIBER 31 OF PLATS, PAGE 95.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "103",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "GROSSE POINTE COLONY",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "31",
+          "Map_Page_Or_Condo_Page": "95",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Grosse Pointe",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "31",
+          "Map_Page_Normalized": "95"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "26-July-2010",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "48769",
+      "Primary_Or_Prior_Page_Number": "849",
+      "Primary_Or_Prior_Document_Date_Normalized": "2010-07-26",
+      "Prior_Book_Normalized": "48769",
+      "Prior_Page_Normalized": "849"
+    }
+  ]
+}

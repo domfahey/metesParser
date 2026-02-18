@@ -1,0 +1,167 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50284",
+    "Recording_Page_Number": "1487",
+    "Recording_File_Number": "2012447166",
+    "Recording_Date_And_Time": "13-November-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SATISFACTION / DISCHARGE OF MORTGAGE",
+    "Dated_Date": "5-November-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "0503467220",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100052550346722035",
+    "MERS_Phone_Number": "1-888-679-6377",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Satisfaction / Discharge of Mortgage",
+    "Recording_Date_Normalized": "2012-11-13",
+    "Dated_Date_Normalized": "2012-11-05",
+    "Recording_Book_Normalized": "50284",
+    "Recording_Page_Normalized": "1487"
+  },
+  "Parties": [
+    {
+      "Name": "CHAD ABRAHAM ZHANG AND SARAH WU, ",
+      "Relationship_Status": "Husband and Wife",
+      "Role": "Mortgagor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC., AS NOMINEE FOR FLAGSTAR BANK, FSB, ITS SUCCESSORS AND ASSIGNS",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "CHAD ABRAHAM ZHANG AND SARAH WU, HUSBAND AND WIFE"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC., AS NOMINEE FOR FLAGSTAR BANK, FSB"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "49763 COOKE AVE, PLYMOUTH, MI 48170-2888",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "CHAD ABRAHAM ZHANG AND SARAH WU",
+          "Relationship_Status": "HUSBAND AND WIFE",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 14, of Plymouth Commons Subdivision No. 1, Township of Plymouth, Wayne County, Michigan, according to the Plat thereof, as recorded in Liber 103, Page(s) 56 through 61, inclusive of plats, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 14, of Plymouth Commons Subdivision No. 1, Township of Plymouth, Wayne County, Michigan, according to the Plat thereof, as recorded in Liber 103, Page(s) 56 through 61, inclusive of plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "14",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Plymouth Commons Subdivision No. 1",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "103",
+          "Map_Page_Or_Condo_Page": "56-61",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "Plymouth",
+          "Rack": "NA",
+          "City": "Plymouth",
+          "Municipal": "Wayne NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "103",
+          "Map_Page_Normalized": "56"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "20-March-2012",
+      "Primary_Or_Prior_Document_Number": "2012215523",
+      "Primary_Or_Prior_Book_Number": "49797",
+      "Primary_Or_Prior_Page_Number": "971",
+      "Primary_Or_Prior_Document_Date_Normalized": "2012-03-20",
+      "Prior_Book_Normalized": "49797",
+      "Prior_Page_Normalized": "971"
+    }
+  ]
+}

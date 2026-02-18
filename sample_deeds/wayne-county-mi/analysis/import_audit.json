@@ -1,0 +1,72 @@
+{
+  "summary": {
+    "total_documents": 492,
+    "documents_ok": 492,
+    "documents_with_issues": 0,
+    "missing_in_db": 0
+  },
+  "field_coverage": {
+    "recording_date": {
+      "total": 492,
+      "present_gt": 492,
+      "present_db": 492,
+      "match": 492
+    },
+    "instrument_number": {
+      "total": 492,
+      "present_gt": 492,
+      "present_db": 492,
+      "match": 492
+    },
+    "book_page": {
+      "total": 492,
+      "present_gt": 492,
+      "present_db": 492,
+      "match": 492
+    },
+    "county": {
+      "total": 492,
+      "present_gt": 492,
+      "present_db": 492,
+      "match": 492
+    },
+    "state": {
+      "total": 492,
+      "present_gt": 492,
+      "present_db": 492,
+      "match": 492
+    },
+    "consideration_amount": {
+      "total": 492,
+      "present_gt": 93,
+      "present_db": 93,
+      "match": 492
+    },
+    "grantors": {
+      "total": 492,
+      "present_gt": 78,
+      "present_db": 78,
+      "match": 492
+    },
+    "grantees": {
+      "total": 492,
+      "present_gt": 95,
+      "present_db": 95,
+      "match": 492
+    },
+    "property_address": {
+      "total": 492,
+      "present_gt": 417,
+      "present_db": 417,
+      "match": 492
+    },
+    "legal_description": {
+      "total": 492,
+      "present_gt": 437,
+      "present_db": 437,
+      "match": 492
+    }
+  },
+  "issues_by_type": {},
+  "sample_issues": []
+}

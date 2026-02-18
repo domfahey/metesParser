@@ -1,0 +1,194 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50253",
+    "Recording_Page_Number": "149",
+    "Recording_File_Number": "2012428587",
+    "Recording_Date_And_Time": "05-November-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SUBORDINATION OF MORTGAGE",
+    "Dated_Date": "12-October-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "$74,500.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Subordination of Mortgage",
+    "Recording_Date_Normalized": "2012-11-05",
+    "Dated_Date_Normalized": "2012-10-12",
+    "Recording_Book_Normalized": "50253",
+    "Recording_Page_Normalized": "149"
+  },
+  "Parties": [
+    {
+      "Name": "RBS Citizens, N.A. f/k/a Citizen's bank N A s/b/m to Charter one bank NA",
+      "Relationship_Status": "NA",
+      "Role": "Original Lender",
+      "Mailing_Address": "One Citizens Drive, Riverside, RI 02915",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc. as nominee for Quicken Loans Inc.",
+      "Relationship_Status": "NA",
+      "Role": "New Lender",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "JESSE LEE WILSON ",
+      "Relationship_Status": "NA",
+      "Role": "BORROWER",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    },
+    {
+      "Name": "Kimberly Wilson A/K/A Kimberly C Wilson\n",
+      "Relationship_Status": "NA",
+      "Role": "BORROWER",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Jesse Lee Wilson and Kimberly Wilson A/K/A Kimberly C Wilson"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Mortgage Electronic Registration Systems, Inc. as nominee for Quicken Loans Inc."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "6605 Bailey St, Taylor, Michigan",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "60 012 01 0233 000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Jesse Lee Wilson and Kimberly Wilson A/K/A Kimberly C\nWilson",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Tax Id Number(s): 60 012 01 0233 000\nLand Situated in the City of Taylor in the County of Wayne in the State of MI\nLOT 233, TAYLOR HEIGHTS, ACCORDING TO THE PLAT THEREOF, AS RECORDED IN LIBER 54, PAGE 2, WAYNE COUNTY RECORDS.\nCommonly known as: 6605 Bailey St, Taylor, MI 48180\n",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 233, TAYLOR HEIGHTS, ACCORDING TO THE PLAT THEREOF, AS RECORDED IN LIBER 54, PAGE 2,\nWAYNE COUNTY RECORDS.\n",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": " 233",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Taylor Heights",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "54",
+          "Map_Page_Or_Condo_Page": "2",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Taylor",
+          "Municipal": "Wayne County",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "54",
+          "Map_Page_Normalized": "2"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": " July 12, 2003",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "38805",
+      "Primary_Or_Prior_Page_Number": "1480",
+      "Primary_Or_Prior_Document_Date_Normalized": "2003-07-12",
+      "Prior_Book_Normalized": "38805",
+      "Prior_Page_Normalized": "1480"
+    },
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "29-October-2012",
+      "Primary_Or_Prior_Document_Number": "2012421129",
+      "Primary_Or_Prior_Book_Number": "50234 ",
+      "Primary_Or_Prior_Page_Number": "1346",
+      "isATCustom": "True",
+      "Primary_Or_Prior_Document_Date_Normalized": "2012-10-29",
+      "Prior_Book_Normalized": "50234",
+      "Prior_Page_Normalized": "1346"
+    }
+  ]
+}

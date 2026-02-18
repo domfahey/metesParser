@@ -1,0 +1,167 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50013",
+    "Recording_Page_Number": "1061",
+    "Recording_File_Number": "2012313307",
+    "Recording_Date_And_Time": "19-July-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "DISCHARGE OF MORTGAGE FOR CORPORATION",
+    "Dated_Date": "13-July-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Discharge of Mortgage",
+    "Recording_Date_Normalized": "2012-07-19",
+    "Dated_Date_Normalized": "2012-07-13",
+    "Recording_Book_Normalized": "50013",
+    "Recording_Page_Normalized": "1061"
+  },
+  "Parties": [
+    {
+      "Name": "THOMAS DOCKERY",
+      "Relationship_Status": "Single",
+      "Role": "Mortgagor",
+      "Mailing_Address": "15207 Regina Avenue, Allen Park, MI 48101",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": " Bank of America, N.A.",
+      "Relationship_Status": "NA",
+      "Role": "Mortgagee",
+      "Mailing_Address": "2575 W. Chandler Blvd. Chandler, AZ 85224",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "THOMAS DOCKERY, SINGLE MAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Bank of America, N.A."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "NA",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "THOMAS DOCKERY",
+          "Relationship_Status": "Single",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "NA",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "NA",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "NA",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "NA",
+          "Map_Page_Or_Condo_Page": "NA",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "NA",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Indenture of Mortgage",
+      "Primary_Or_Prior_Document_Date": "02/27/2007",
+      "Primary_Or_Prior_Document_Number": "207092250",
+      "Primary_Or_Prior_Book_Number": "46057",
+      "Primary_Or_Prior_Page_Number": "1332",
+      "Primary_Or_Prior_Document_Date_Normalized": "2007-02-27",
+      "Prior_Book_Normalized": "46057",
+      "Prior_Page_Normalized": "1332"
+    }
+  ]
+}

@@ -1,0 +1,173 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50832",
+    "Recording_Page_Number": "248",
+    "Recording_File_Number": "2013299749",
+    "Recording_Date_And_Time": "03-June-2013",
+    "Title_Company_Name": "FIRST AMERICAN TITLE",
+    "Document_Title": "Mortgage",
+    "Dated_Date": "17-May-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "264-1447439-703",
+      "Loan_Amount": "$57,931.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "",
+      "Loan_Term_End_Date": "01-June-2043",
+      "Loan_Type": "FHA",
+      "Loan_Term_End_Date_Normalized": "2043-06-01"
+    },
+    "Type_Of_Financing": "FHA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100032413513200142",
+    "MERS_Phone_Number": "",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2013-06-03",
+    "Dated_Date_Normalized": "2013-05-17",
+    "Recording_Book_Normalized": "50832",
+    "Recording_Page_Normalized": "248"
+  },
+  "Parties": [
+    {
+      "Name": "Ali Elromh",
+      "Relationship_Status": "Married",
+      "Role": "Mortgagor",
+      "Mailing_Address": "6619 Manor Str, Dearborn, MI 48126",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc.",
+      "Relationship_Status": "NA",
+      "Role": "Mortgagee",
+      "Mailing_Address": "P.O. Box 2026, Flint, MI 48501-2026",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "United Wholesale Mortgage, a division of United Shore Financial Services, LLC",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "1414 East Maple Rd, Troy, MI 48083",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Ali Elromh, A Married Man"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "United Wholesale Mortgage, a division of United Shore Financial Services, LLC"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "6243 Williamson Street, Dearborn, Michigan 48126",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "32-82-10-074-04-020"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Ali Elromh",
+          "Relationship_Status": "Married",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT 686 OF FORD-CHASE SUBDIVISION NO. 2 ACCORDING TO THE PLAT THEREOF RECORDED IN LIBER 52 OF PLATS, PAGE 26 OF WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 686 OF FORD-CHASE SUBDIVISION NO. 2 ACCORDING TO THE PLAT THEREOF RECORDED IN LIBER 52 OF PLATS, PAGE 26 OF WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "686",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "FORD-CHASE SUBDIVISION NO. 2",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "52",
+          "Map_Page_Or_Condo_Page": "26",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Dearborn",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "52",
+          "Map_Page_Normalized": "26"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "",
+      "Primary_Or_Prior_Document_Date": "",
+      "Primary_Or_Prior_Document_Number": "",
+      "Primary_Or_Prior_Book_Number": "",
+      "Primary_Or_Prior_Page_Number": "",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

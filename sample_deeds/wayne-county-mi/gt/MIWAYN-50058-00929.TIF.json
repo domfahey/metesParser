@@ -1,0 +1,163 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50058",
+    "Recording_Page_Number": "929",
+    "Recording_File_Number": "2012330477",
+    "Recording_Date_And_Time": "27-August-2012",
+    "Title_Company_Name": "",
+    "Document_Title": "CERTIFICATE OF REDEMPTION",
+    "Dated_Date": "27-August-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "Forfeiture Lien",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "WAYNE COUNTY TREASURER",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Certificate of Redemption",
+    "Recording_Date_Normalized": "2012-08-27",
+    "Dated_Date_Normalized": "2012-08-27",
+    "Recording_Book_Normalized": "50058",
+    "Recording_Page_Normalized": "929"
+  },
+  "Parties": [
+    {
+      "Name": "CHURCH OF OUR LORD",
+      "Relationship_Status": "NA",
+      "Role": "Taxpayer",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "SOLOMON'S TEMPLE",
+      "Relationship_Status": "NA",
+      "Role": "NA",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "CHURCH OF OUR LORD"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "WAYNE COUNTY TREASURER"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "2412 E SEVEN MILE, CITY OF DETROIT",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "09007415"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "CHURCH OF OUR LORD",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "S SEVEN MILE ROAD E LOT 11 NORTHMOUNT PARK SUB L34 P63 PLATS, W CR 9/160 20 X 100",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "S SEVEN MILE ROAD E LOT 11 NORTHMOUNT PARK SUB L34 P63 PLATS, W CR 9/160 20 X 100",
+      "Legal_Description_Attributes": {
+        "Unit": "NA",
+        "Lot": "11",
+        "Block": "NA",
+        "Building": "NA",
+        "Phase": "NA",
+        "Plat_Number": "NA",
+        "Map_Name": "NORTHMOUNT PARK",
+        "Map_Number": "NA",
+        "Map_Date": "NA",
+        "Map_Book_Or_Condo_Book": "34",
+        "Map_Page_Or_Condo_Page": "63",
+        "Common_Lot_Or_Condo_Lot": "NA",
+        "Parking_Space": "NA",
+        "Garage": "NA",
+        "Boat_Slip": "NA",
+        "Storage_Space": "NA",
+        "Parcel": "NA",
+        "Tract_Number": "NA",
+        "Section": "NA",
+        "Township": "NA",
+        "Rack": "NA",
+        "City": "NA",
+        "Municipal": "NA",
+        "Range": "NA",
+        "Quarters": "NA",
+        "Share": "NA",
+        "Govt_Tract_Number": "NA",
+        "Govt_Lot_Number": "NA",
+        "Sub_Division": "NORTHMOUNT PARK",
+        "Sub_Division_Filing": "NA"
+      }
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "2010079200",
+      "Primary_Or_Prior_Book_Number": "48411",
+      "Primary_Or_Prior_Page_Number": "13",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "48411",
+      "Prior_Page_Normalized": "13"
+    }
+  ]
+}

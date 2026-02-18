@@ -1,0 +1,206 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50942",
+    "Recording_Page_Number": "369",
+    "Recording_File_Number": "2013347953",
+    "Recording_Date_And_Time": "25-July-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "BREAK-IN-CHAIN ASSIGNMENT OF MORTGAGE",
+    "Dated_Date": "12-July-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "203625139",
+      "Loan_Amount": "$123,830.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Assignment of Mortgage",
+    "Recording_Date_Normalized": "2013-07-25",
+    "Dated_Date_Normalized": "2013-07-12",
+    "Recording_Book_Normalized": "50942",
+    "Recording_Page_Normalized": "369"
+  },
+  "Parties": [
+    {
+      "Name": "WELLS FARGO BANK, N.A.",
+      "Relationship_Status": "NA",
+      "Role": "Assignor",
+      "Mailing_Address": "1 HOME CAMPUS, DES MOINES, IA 50328",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "TOWNE MORTGAGE COMPANY",
+      "Relationship_Status": "NA",
+      "Role": "Assignee",
+      "Mailing_Address": "13325 EAST 14 MILE ROAD, STERLING HEIGHTS, MI 48312",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "JAMES PAVAL",
+      "Relationship_Status": "Married",
+      "Role": "Executor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "DEBORAH L. PAVAL",
+      "Relationship_Status": "Wife",
+      "Role": "Executor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "JOHN VINCENT PAVAL",
+      "Relationship_Status": "Married",
+      "Role": "Executor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "JANE 1 PAVAL",
+      "Relationship_Status": "Wife",
+      "Role": "Executor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "April Emily Jones",
+      "Relationship_Status": "NA",
+      "Role": "Vice President Loan Documentation",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "JAMES PAVAL, A MARRIED MAN, AND DEBORAH L. PAVAL, HIS WIFE"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "WELLS FARGO BANK, N.A."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "29714 CURTIS RD., LIVONIA, MI 48152",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "JAMES PAVAL",
+          "Relationship_Status": "Married",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "DEBORAH L. PAVAL",
+          "Relationship_Status": "Wife",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot(s) 26, Sunset hills Subdivision, as recorded in Liber 80 on Page(s) 68 and 69 of Plats, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot(s) 26, Sunset hills Subdivision, as recorded in Liber 80 on Page(s) 68 and 69 of Plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "26",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Sunset hills Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "80",
+          "Map_Page_Or_Condo_Page": "68-69",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "80",
+          "Map_Page_Normalized": "68"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "04-September-2003",
+      "Primary_Or_Prior_Document_Number": "203625139",
+      "Primary_Or_Prior_Book_Number": "39213",
+      "Primary_Or_Prior_Page_Number": "1815",
+      "Primary_Or_Prior_Document_Date_Normalized": "2003-09-04",
+      "Prior_Book_Normalized": "39213",
+      "Prior_Page_Normalized": "1815"
+    }
+  ]
+}

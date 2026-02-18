@@ -1,0 +1,167 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50764",
+    "Recording_Page_Number": "237",
+    "Recording_File_Number": "2013267704",
+    "Recording_Date_And_Time": "08-May-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CERTIFICATE OF REDEMPTION",
+    "Dated_Date": "08-May-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "WAYNE COUNTY TREASURER",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "$2,498.15",
+        "Tax_Payer_Name": "MARK A ALLAF",
+        "Tax_Type": "Delinquent Taxes"
+      }
+    ],
+    "Document_Type": "Certificate of Redemption",
+    "Recording_Date_Normalized": "2013-05-08",
+    "Dated_Date_Normalized": "2013-05-08",
+    "Recording_Book_Normalized": "50764",
+    "Recording_Page_Normalized": "237"
+  },
+  "Parties": [
+    {
+      "Name": "MARK A ALLAF",
+      "Relationship_Status": "NA",
+      "Role": "Taxpayer",
+      "Mailing_Address": "CITY OF DETROIT, WAYNE COUNTY, MI",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "WAYNE COUNTY TREASURER",
+      "Relationship_Status": "NA",
+      "Role": "TAX COLLECTOR",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "6303 WOODMONT, DETROIT, MI",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "22063154-64"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "MARK A ALLAF",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "W WOODMONT LOT 441 GARDNER PARK SUB L48 P81 PLATS, WCR 22/257 37.25 IRREG",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "W WOODMONT LOT 441 GARDNER PARK SUB L48 P81 PLATS, WCR 22/257 37.25 IRREG\nCommonly known as: 6303 WOODMONT, DETROIT",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "441",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "GARDNER PARK SUB",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "48",
+          "Map_Page_Or_Condo_Page": "81",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "48",
+          "Map_Page_Normalized": "81"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Certificate of Forfeiture",
+      "Primary_Or_Prior_Document_Date": "31-JANUARY-2013",
+      "Primary_Or_Prior_Document_Number": "2012160233",
+      "Primary_Or_Prior_Book_Number": "49731",
+      "Primary_Or_Prior_Page_Number": "780",
+      "Primary_Or_Prior_Document_Date_Normalized": "2013-01-31",
+      "Prior_Book_Normalized": "49731",
+      "Prior_Page_Normalized": "780"
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50027",
+    "Recording_Page_Number": "894",
+    "Recording_File_Number": "2012318814",
+    "Recording_Date_And_Time": "25-July-2012",
+    "Title_Company_Name": "",
+    "Document_Title": "SATISFACTION OF MORTGAGE",
+    "Dated_Date": "23-July-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Satisfaction of Mortgage",
+    "Recording_Date_Normalized": "2012-07-25",
+    "Dated_Date_Normalized": "2012-07-23",
+    "Recording_Book_Normalized": "50027",
+    "Recording_Page_Normalized": "894"
+  },
+  "Parties": [
+    {
+      "Name": "MELISSA L WASTELL",
+      "Relationship_Status": "Single",
+      "Role": "Mortgagor ",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "PNC MORTGAGE, A DIVISION OF PNC BANK, NATIONAL ASSOCIATION ",
+      "Relationship_Status": "NA",
+      "Role": "Current Holder",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "NATIONAL CITY MORTGAGE A DIVISION OF NATIONAL CITY BANK",
+      "Relationship_Status": "NA",
+      "Role": "Original Mortgage",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "MELISSA L WASTELL A SINGLE WOMAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "PNC MORTGAGE, A DIVISION OF PNC BANK, NATIONAL ASSOCIATION FKA NATIONAL CITY MORTGAGE A\nDIVISION OF NATIONAL CITY BANK"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "22196 WEST VILLAGE SQ DR, DEARBORN, MI 48124",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "MELISSA L WASTELL",
+          "Relationship_Status": "Single",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "ALSO RELEASES A LOAN MODIFICATION THAT WAS RECORDED ON 8-27-2010 AS LIBER 48712 PAGE 1166 DOC NO. 2010306851**\n ADDRESS NOW KNOWN AS : 22196 ABBEY LANE #10 DEARBORN, MI 48124 LEGAL: LAND SITUATED IN THE CITY OF DEARBORN, COUNTY OF WAYNE, STATE OF MICHIGAN, IS DESCRIBED AS FOLLOWS: UNIT 10 OF WEST VILLAGE SQUARE CONDOMINIUM, A CONDOMINIUM ACCORDING TO THE MASTER DEED THEREOF IN LIBER 43462, PAGE 81 OF WAYNE COUNTY RECORDS, AND DESIGNATED AS WAYNE COUNTY CONDOMINIUM SUBDIVISION PLAN NO. 869, AND ANY AMENDMENTS THERETO, TOGETHER WITH AN UNDIVIDED INTEREST IN THE COMMON ELEMENTS OF SAID CONDOMINIUM AS SET FORTH IN SAID MASTER DEED, AND ANY AMENDMENTS THERETO, AND AS DESCRIBED IN ACT 59, OF THE PUBLIC ACTS OF MI OF 1978, AS AMENDED.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LAND SITUATED IN THE CITY OF DEARBORN, COUNTY\nOF WAYNE, STATE OF MICHIGAN, IS DESCRIBED AS FOLLOWS: UNIT 10 OF WEST VILLAGE SQUARE CONDOMINIUM, A CONDOMINIUM ACCORDING TO THE MASTER DEED THEREOF IN LIBER 43462, PAGE 81 OF WAYNE COUNTY RECORDS, AND DESIGNATED AS WAYNE COUNTY CONDOMINIUM SUBDIVISION PLAN NO. 869.AND ANY AMENDMENTS THERETO, TOGETHER WITH AN UNDIVIDED INTEREST IN THE COMMON ELEMENTS OF SAID CONDOMINIUM AS SET FORTH IN SAID MASTER DEED, AND ANY AMENDMENTS THERETO, AND AS DESCRIBED IN ACT 59, OF THE PUBLIC ACTS OF MI OF 1978, AS AMENDED.",
+      "Legal_Description_Attributes": {
+        "Unit": "10",
+        "Lot": "NA",
+        "Block": "NA",
+        "Building": "NA",
+        "Phase": "NA",
+        "Plat_Number": "869",
+        "Map_Name": "WEST VILLAGE SQUARE CONDOMINIUM",
+        "Map_Number": "NA",
+        "Map_Date": "NA",
+        "Map_Book_Or_Condo_Book": "43462",
+        "Map_Page_Or_Condo_Page": "81",
+        "Common_Lot_Or_Condo_Lot": "NA",
+        "Parking_Space": "NA",
+        "Garage": "NA",
+        "Boat_Slip": "NA",
+        "Storage_Space": "NA",
+        "Parcel": "NA",
+        "Tract_Number": "NA",
+        "Section": "NA",
+        "Township": "NA",
+        "Rack": "NA",
+        "City": "Dearborn",
+        "Municipal": "Wayne County",
+        "Range": "NA",
+        "Quarters": "NA",
+        "Share": "NA",
+        "Govt_Tract_Number": "NA",
+        "Govt_Lot_Number": "NA",
+        "Sub_Division": "NA",
+        "Sub_Division_Filing": "NA"
+      }
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "31-August-2006",
+      "Primary_Or_Prior_Document_Number": "206454464",
+      "Primary_Or_Prior_Book_Number": "45316",
+      "Primary_Or_Prior_Page_Number": "585",
+      "Primary_Or_Prior_Document_Date_Normalized": "2006-08-31",
+      "Prior_Book_Normalized": "45316",
+      "Prior_Page_Normalized": "585"
+    }
+  ]
+}

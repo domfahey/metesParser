@@ -1,0 +1,167 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50388",
+    "Recording_Page_Number": "1181",
+    "Recording_File_Number": "2013005606",
+    "Recording_Date_And_Time": "08-January-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "DEFAULT JUDGMENT TO QUIET TITLE AND ADJUDICATE INTEREST IN REAL PROPERTY",
+    "Dated_Date": "3rd December 2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "12-007637-CH",
+    "Case_Type": "Quiet Title",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "Default Judgment",
+        "Judgement_Entered_Date": "3rd December 2012",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "2012-12-03"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Judgment",
+    "Recording_Date_Normalized": "2013-01-08",
+    "Dated_Date_Normalized": "2012-12-03",
+    "Recording_Book_Normalized": "50388",
+    "Recording_Page_Normalized": "1181"
+  },
+  "Parties": [
+    {
+      "Name": "Deutsche Bank National Trust Company, as trustee for Ameriquest Mortgage Securities Inc. Asset-Backed Pass-Through Certificates Series 2003-10, under the Pooling and\nServicing Agreement dated October 1, 2003",
+      "Relationship_Status": "NA",
+      "Role": "Plaintiff",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "C.C.B. ASSOCIATES, INC.",
+      "Relationship_Status": "",
+      "Role": "Defendant",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "1544 Mill St., Lincoln Park, MI 48146",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "45-009-12-0104-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "C.C.B. ASSOCIATES, INC.",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 104, Stormfeltz Lovely Cos Fort Park Manor Subdivision, as recorded in Liber 45, Page 73 of Plats, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 104, Stormfeltz Lovely Cos Fort Park Manor Subdivision, as recorded in Liber 45, Page 73 of Plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "104",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Stormfeltz Lovely Cos Fort Park Manor Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "45",
+          "Map_Page_Or_Condo_Page": "73",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Lincoln Park",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "45",
+          "Map_Page_Normalized": "73"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "18-September-1986",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "23220",
+      "Primary_Or_Prior_Page_Number": "679",
+      "Primary_Or_Prior_Document_Date_Normalized": "1986-09-18",
+      "Prior_Book_Normalized": "23220",
+      "Prior_Page_Normalized": "679"
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50483",
+    "Recording_Page_Number": "1363",
+    "Recording_File_Number": "2013051410",
+    "Recording_Date_And_Time": "04-February-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "Notice of Unemployment Insurance Agency Tax Lien",
+    "Dated_Date": "25-January-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": " NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "Tax Lien",
+        "Lien_Entered_Date": "25-January-2013",
+        "Lien_Amount_In_Total": "$845.15",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "$845.15",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "Unemployment Insurance Agency",
+            "Lien_Claimant_Address": "3024 W Grand Blvd, Suite 11-500, Detroit, MI 48202"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "2013-01-25"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Notice of Unemployment Insurance Agency Tax Lien",
+    "Recording_Date_Normalized": "2013-02-04",
+    "Dated_Date_Normalized": "2013-01-25",
+    "Recording_Book_Normalized": "50483",
+    "Recording_Page_Normalized": "1363"
+  },
+  "Parties": [
+    {
+      "Name": "THE RECYCLE GREEN COMPANY",
+      "Relationship_Status": "NA",
+      "Role": "Employer",
+      "Mailing_Address": "1331 HOLDEN ST, DETROIT MI 48202-3325",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "STEVE ARWOOD",
+      "Relationship_Status": "NA",
+      "Role": "DIRECTOR",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    },
+    {
+      "Name": "ROGER M. PALM",
+      "Relationship_Status": "NA",
+      "Role": "AUTHORIZED AGENT",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "NA",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "NA",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "NA",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "",
+          "Lot": "",
+          "Block": "",
+          "Building": "",
+          "Phase": "",
+          "Map_Name": "",
+          "Map_Date": "",
+          "Map_Book_Or_Condo_Book": "",
+          "Map_Page_Or_Condo_Page": "",
+          "Map_Number": "",
+          "Common_Lot_Or_Condo_Lot": "",
+          "Plat_Number": "",
+          "Parking_Space": "",
+          "Garage": "",
+          "Boat_Slip": "",
+          "Storage_Space": "",
+          "Parcel": "",
+          "Tract_Number": "",
+          "Section": "",
+          "Township": "",
+          "Rack": "",
+          "City": "",
+          "Municipal": "",
+          "Range": "",
+          "Quarters": "",
+          "Share": "",
+          "Govt_Tract_Number": "",
+          "Govt_Lot_Number": "",
+          "Sub_Division_Filing": "",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "NA",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "",
+      "Primary_Or_Prior_Document_Date": "",
+      "Primary_Or_Prior_Document_Number": "",
+      "Primary_Or_Prior_Book_Number": "",
+      "Primary_Or_Prior_Page_Number": "",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

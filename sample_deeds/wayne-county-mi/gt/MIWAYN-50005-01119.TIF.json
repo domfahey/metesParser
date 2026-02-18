@@ -1,0 +1,204 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50005",
+    "Recording_Page_Number": "1119",
+    "Recording_File_Number": "2012310329",
+    "Recording_Date_And_Time": "03-August-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "REDEMPTION CERTIFICATE",
+    "Dated_Date": "1-August-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Redemption Certificate",
+    "Recording_Date_Normalized": "2012-08-03",
+    "Dated_Date_Normalized": "2012-08-01",
+    "Recording_Book_Normalized": "50005",
+    "Recording_Page_Normalized": "1119"
+  },
+  "Parties": [
+    {
+      "Name": "Roxanne Simmons",
+      "Relationship_Status": "Wife",
+      "Role": "Borrower",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Rickey Simmons",
+      "Relationship_Status": "Husband",
+      "Role": "Borrower",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Wells Fargo Bank, NA",
+      "Relationship_Status": "NA",
+      "Role": "Original Mortgagee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Fannie Mae A/K/A Federal National Mortgage Association",
+      "Relationship_Status": "NA",
+      "Role": "Attorney",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc.",
+      "Relationship_Status": "NA",
+      "Role": "Nominee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Roxanne Simmons, A Married Woman and Rickey Simmons, Her Husband"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Wells Fargo Bank, NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "14405 Vassar Ave, Detroit, MI 48235-1924",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Roxanne Simmons",
+          "Relationship_Status": "Wife",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "isATCustom": "True",
+          "Name": "Rickey Simmons",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 145, San Bernardo Park Subdivision, according to the Recorded Plat thereof, as Recorded in Liber 48 of Plats, Page 61, Wayne County Records",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 145, San Bernardo Park Subdivision, according to the Recorded Plat thereof, as Recorded in Liber 48 of Plats, Page 61, Wayne County Records",
+      "Legal_Description_Attributes": {
+        "Unit": "NA",
+        "Lot": "145",
+        "Block": "NA",
+        "Building": "NA",
+        "Phase": "NA",
+        "Plat_Number": "NA",
+        "Map_Name": "San Bernardo Park",
+        "Map_Number": "NA",
+        "Map_Date": "NA",
+        "Map_Book_Or_Condo_Book": "48",
+        "Map_Page_Or_Condo_Page": "61",
+        "Common_Lot_Or_Condo_Lot": "NA",
+        "Parking_Space": "NA",
+        "Garage": "NA",
+        "Boat_Slip": "NA",
+        "Storage_Space": "NA",
+        "Parcel": "NA",
+        "Tract_Number": "NA",
+        "Section": "NA",
+        "Township": "NA",
+        "Rack": "NA",
+        "City": "Detroit",
+        "Municipal": "NA",
+        "Range": "NA",
+        "Quarters": "NA",
+        "Share": "NA",
+        "Govt_Tract_Number": "NA",
+        "Govt_Lot_Number": "NA",
+        "Sub_Division": "San Bernardo Park",
+        "Sub_Division_Filing": "NA"
+      }
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Sheriffs Deed on Mortgage Sale",
+      "Primary_Or_Prior_Document_Date": "7-March-2012",
+      "Primary_Or_Prior_Document_Number": "2012065768",
+      "Primary_Or_Prior_Book_Number": "49649",
+      "Primary_Or_Prior_Page_Number": "271",
+      "Primary_Or_Prior_Document_Date_Normalized": "2012-03-07",
+      "Prior_Book_Normalized": "49649",
+      "Prior_Page_Normalized": "271"
+    },
+    {
+      "Primary_Or_Prior_Document_Name": "Quit claim Deed",
+      "Primary_Or_Prior_Document_Date": "04-April-2012",
+      "Primary_Or_Prior_Document_Number": "2012121902",
+      "Primary_Or_Prior_Book_Number": "49701",
+      "Primary_Or_Prior_Page_Number": "1110",
+      "isATCustom": "True",
+      "Primary_Or_Prior_Document_Date_Normalized": "2012-04-04",
+      "Prior_Book_Normalized": "49701",
+      "Prior_Page_Normalized": "1110"
+    }
+  ]
+}

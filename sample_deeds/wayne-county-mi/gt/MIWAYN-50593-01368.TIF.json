@@ -1,0 +1,167 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50593",
+    "Recording_Page_Number": "1368",
+    "Recording_File_Number": "2013138650",
+    "Recording_Date_And_Time": "16-March-2013 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CERTIFICATE OF FORFEITURE OF REAL PROPERTY",
+    "Dated_Date": "14-March-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "FORFEITURE ",
+        "Judgement_Entered_Date": "03/14/2013",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "2013-03-14"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Certificate of Forfeiture",
+    "Recording_Date_Normalized": "2013-03-16",
+    "Dated_Date_Normalized": "2013-03-14",
+    "Recording_Book_Normalized": "50593",
+    "Recording_Page_Normalized": "1368"
+  },
+  "Parties": [
+    {
+      "Name": "T C INVESTMENT HOLDING INC",
+      "Relationship_Status": "NA",
+      "Role": "Taxpayer",
+      "Mailing_Address": "PO BOX 701516, PLYMOUTH, MI 48170",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Wayne County Treasurer",
+      "Relationship_Status": "",
+      "Role": "Tax collector",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "14951 WILSHIRE, DETROIT, MI 48213",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "21008700"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "T C INVESTMENT HOLDING INC",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "N WILSHIRE LOT 515 AND S 9 FT OF VAC ALLEY ADJ PARK DRIVE SUB NO 1 L51 P47 PLATS, WCR 21/761 35 X 116.22A",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "N WILSHIRE LOT 515 AND S 9 FT OF VAC ALLEY ADJ PARK DRIVE SUB NO 1 L51 P47 PLATS, WCR 21/761 35 X 116.22A",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "515",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "PARK DRIVE SUB NO 1",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "51",
+          "Map_Page_Or_Condo_Page": "47",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "51",
+          "Map_Page_Normalized": "47"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

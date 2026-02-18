@@ -1,0 +1,175 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50115",
+    "Recording_Page_Number": "858",
+    "Recording_File_Number": "2012366158",
+    "Recording_Date_And_Time": "04-September-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CORPORATE ASSIGNMENT OF MORTGAGE",
+    "Dated_Date": "14-August-2003",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "$22,400.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Corporate Assignment of Mortgage",
+    "Recording_Date_Normalized": "2012-09-04",
+    "Dated_Date_Normalized": "2003-08-14",
+    "Recording_Book_Normalized": "50115",
+    "Recording_Page_Normalized": "858"
+  },
+  "Parties": [
+    {
+      "Name": "FIRST FRANKLIN FINANCIAL CORPORATION",
+      "Relationship_Status": "NA",
+      "Role": "Assignor",
+      "Mailing_Address": "2150 N. 1ST FIRST STREET, SUITE 670, SAN JOSE, CA 95131",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "WELLS FARGO BANK, N.A., SUCCESSORY BY MERGER TO WELLS FARGO HOME MORTGAGE, INC.",
+      "Relationship_Status": "NA",
+      "Role": "ASSIGNEE",
+      "Mailing_Address": "1 HOME CAMPUS MAC X2505-02D, DES MOINES, LOWA 50328",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "RYAN LAZARSKI",
+      "Relationship_Status": "a single man",
+      "Role": "Borrower",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "RYAN LAZARSKI, A SINGLE MAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "WELLS FARGO BANK, N.A., SUCCESSORY BY MERGER TO WELLS FARGO HOME MORTGAGE, INC."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "4928 WESTPOINT, DEARBORN HEIGHTS, MICHIGAN, 48125",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "33-047-01-0354-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "RYAN LAZARSKI",
+          "Relationship_Status": "Single",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT 354, DEARBORN TELEGRAPH TOWNLINE SUBDIVISION NO. 1, ACCORDING TO THE PLAT THEREOF, AS RECORDED IN LIBER 48, PAGE 64, OF PLATS, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 354, DEARBORN TELEGRAPH TOWNLINE SUBDIVISION NO. 1, ACCORDING TO THE PLAT THEREOF, AS RECORDED IN LIBER 48, PAGE 64, OF PLATS, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "354",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "DEARBORN TELEGRAPH TOWNLINE SUBDIVISION NO. 1",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "48",
+          "Map_Page_Or_Condo_Page": "64",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Dearborn Heights",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "48",
+          "Map_Page_Normalized": "64"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "07-August-2003",
+      "Primary_Or_Prior_Document_Number": "203615255",
+      "Primary_Or_Prior_Book_Number": "39174",
+      "Primary_Or_Prior_Page_Number": "436",
+      "Primary_Or_Prior_Document_Date_Normalized": "2003-08-07",
+      "Prior_Book_Normalized": "39174",
+      "Prior_Page_Normalized": "436"
+    }
+  ]
+}

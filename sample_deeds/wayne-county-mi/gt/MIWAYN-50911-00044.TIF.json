@@ -1,0 +1,173 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50911",
+    "Recording_Page_Number": "44",
+    "Recording_File_Number": "2013336054",
+    "Recording_Date_And_Time": "08-July-2013 ",
+    "Title_Company_Name": "Custom Closing Services, Inc.",
+    "Document_Title": "DEED FOR MICHIGAN",
+    "Dated_Date": "21-June-2013",
+    "Sale_Amount": "$30,100.00",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Deed",
+    "Recording_Date_Normalized": "2013-07-08",
+    "Dated_Date_Normalized": "2013-06-21",
+    "Recording_Book_Normalized": "50911",
+    "Recording_Page_Normalized": "44"
+  },
+  "Parties": [
+    {
+      "Name": "SHAUN DONOVAN",
+      "Relationship_Status": "NA",
+      "Role": "Secretary of Housing and Urban Development",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "CORDIA MICHIGAN, LLC",
+      "Relationship_Status": "NA",
+      "Role": "Grantee",
+      "Mailing_Address": "28091 DEQUINDRE UNIT 202, MADISON HTS, MI 48071",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Melissa Schuch",
+      "Relationship_Status": "NA",
+      "Role": "Authorized Agent",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "CORDIA MICHIGAN, LLC"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "SHAUN DONOVAN, Secretary of Housing and Urban Development"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "25628 POWERS AVE, DEARBORN HEIGHTS, MI 48125",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "33-043-01-0821-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "CORDIA MICHIGAN, LLC",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT 821, ROUGELVANIA SUBDIVISION NO. 2, ACCORDING TO THE PLAT THEREOF AS RECORDED IN LIBER 55 OF PLATS, PAGE 33, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 821, ROUGELVANIA SUBDIVISION NO. 2, ACCORDING TO THE PLAT THEREOF AS RECORDED IN LIBER 55 OF PLATS, PAGE 33, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": " 821",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "ROUGELVANIA SUBDIVISION NO. 2",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "55",
+          "Map_Page_Or_Condo_Page": "33",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Dearborn Heights",
+          "Municipal": "Wayne County",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "55",
+          "Map_Page_Normalized": "33"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

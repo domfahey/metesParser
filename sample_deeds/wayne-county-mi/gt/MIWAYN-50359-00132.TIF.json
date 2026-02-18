@@ -1,0 +1,167 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50359",
+    "Recording_Page_Number": "132",
+    "Recording_File_Number": "2012483181",
+    "Recording_Date_And_Time": "17-December-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "FIDUCIARY DEED",
+    "Dated_Date": "16-November-2012",
+    "Sale_Amount": "$1.00",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Fiduciary Deed",
+    "Recording_Date_Normalized": "2012-12-17",
+    "Dated_Date_Normalized": "2012-11-16",
+    "Recording_Book_Normalized": "50359",
+    "Recording_Page_Normalized": "132"
+  },
+  "Parties": [
+    {
+      "Name": "Rosemary Przesmycki, Trustee of the Rosemary Przesmycki Revocable Trust Agreement",
+      "Relationship_Status": "NA",
+      "Role": "Trustee",
+      "Mailing_Address": "7046 Lathers, Garden City, Michigan 48135",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Rosemary Przesmycki",
+      "Relationship_Status": "single women",
+      "Role": "",
+      "Mailing_Address": "7046 Lathers, Garden City, Michigan 48135",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Rosemary Przesmycki, a single woman"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Rosemary Przesmycki, Trustee of the Rosemary Przesmycki Revocable Trust Agreement"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "7046 Lathers, Garden City, Michigan 48185",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "008-03-0471-002"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Rosemary Przesmycki",
+          "Relationship_Status": "Single",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "South 30 feet of Lot 471 and North 25 feet of Lot 472, Hawthorne Drive Subdivision of West 1/2 of Northeast 1/4 of Section 12, Town 2 South, Range 9 East, Nankin Township, Wayne County Michigan, according to the plat thereof as recorded in Liber 55 of Plats on Page 78, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "South 30 feet of Lot 471 and North 25 feet of Lot 472, Hawthorne Drive Subdivision of West 1/2 of Northeast 1/4 of Section 12, Town 2 South, Range 9 East, Nankin Township, Wayne County Michigan, according to the plat thereof as recorded in Liber 55 of Plats on Page 78, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "471  & 472",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Hawthorne Drive Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "55",
+          "Map_Page_Or_Condo_Page": "78",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "12",
+          "Township": "Nankin Township",
+          "Rack": "NA",
+          "City": "Garden City",
+          "Municipal": "",
+          "Range": "9 East",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "55",
+          "Map_Page_Normalized": "78"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "",
+      "Primary_Or_Prior_Document_Date": "",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

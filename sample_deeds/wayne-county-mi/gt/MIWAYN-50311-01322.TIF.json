@@ -1,0 +1,188 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50311",
+    "Recording_Page_Number": "1322",
+    "Recording_File_Number": "2012464672",
+    "Recording_Date_And_Time": "27-November-2012 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "ASSIGNMENT OF MORTGAGE",
+    "Dated_Date": "8-November-2006",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "$82,500.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100139220044029383",
+    "MERS_Phone_Number": "888-679-6377",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Assignment of Mortgage",
+    "Annotation_Tool_Custom_Entity_Sub Document Type": "Mortgage",
+    "Recording_Date_Normalized": "2012-11-27",
+    "Dated_Date_Normalized": "2006-11-08",
+    "Recording_Book_Normalized": "50311",
+    "Recording_Page_Normalized": "1322"
+  },
+  "Parties": [
+    {
+      "Name": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC. (MERS)",
+      "Relationship_Status": "NA",
+      "Role": "Assignor",
+      "Mailing_Address": "1901 E Voorhees Street, Suite C, Danville, IL 61834",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "OLLIE HUGHES",
+      "Relationship_Status": "UNMARRIED",
+      "Role": "Borrower(s)",
+      "Mailing_Address": "1901 E Voorhees Street, Suite C, Danville, IL 61834",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "GINA BELINDA HUGHES",
+      "Relationship_Status": "",
+      "Role": "",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "SEATTLE MORTGAGE COMPANY",
+      "Relationship_Status": "",
+      "Role": "Original Lender",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "OLLIE HUGHES, AN UNMARRIED WOMAN BY GINA BELINDA HUGHES, HER ATTORNEY IN FACT"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC. (MERS)"
+      },
+      {
+        "isATCustom": "True",
+        "Vesting_Details": "REGISTRATION SYSTEMS, INC"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "5269 Ivanhoe St, Detroit, MI 48204-3631",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "OLLIE HUGHES",
+          "Relationship_Status": "Unmarried",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LAND IN THE CITY OF DETROIT, COUNTY OF WAYNE, AND STATE OF MICHIGAN, DESCRIBED AS: LOT 239, JOSEPH TIREMANS SUBDIVISION OF BLOCKS 1, 2, 3, 7, 8, 9 AND 10 OF THE SUBDIVISION OF OUT LOT 2 OF THE JOSEPH TIREMAN EAST & OUT LOT C OF THE JOHN TIREMAN EAST. ON 1/4 SECTIONS 49, 50, 51 AND 52 OF THE 10000 ACRE TRACT, TOWNS 1 AND 2 SOUTH, RANGE 11 EAST AND THE EAST PART OF FRACTIONAL SECTION 3 IN TOWN 2 SOUTH, RANGE 11 EAST, GREENFIELD, WAYNE COUNTY, MICHIGAN, AND PARTS OF LOTS 22, 24 AND ALL OF LOT 23, BLOCK 5 AND PARTS OF LOTS 25, 27, 45, 47 AND ALL OF LOTS 26 AND 46, BLOCK 6, OF JOSEPH TIREMANS SUBDIVISION OF OUT LOTS 4, 5 AND 6 OF JOSEPH TIREMANS SUBDIVISION OF OUT LOT 2 OF THE JOSEPH TIREMAN EST. AND OUT LOT C OF THE JOHN TIREMAN EST. ON 1/4 SECTION 49, 50, 51 AND 52 OF THE 10000 ACRE TRACT IN TOWNS 1 AND 2 SOUTH, RANGE 11 EAST, AND THE EAST PART OF FRACTIONAL SECTION 3 IN TOWN 2 SOUTH, RANGE 11 EAST GREENFIELD, WAYNE COUNTY, MICHIGAN, RECORDED IN LIBER 28, PAGE 22, OF PLATS, WAYNE COUNTY RECORDS.\nRECORDED IN LIBER 2999, PAGE 22, OF PLATS, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 239, JOSEPH TIREMANS SUBDIVISION OF BLOCKS 1, 2, 3, 7, 8, 9 AND 10 OF THE SUBDIVISION OF OUT LOT 2 OF THE JOSEPH TIREMAN EAST & OUT LOT C OF THE JOHN TIREMAN EAST. ON 1/4 SECTIONS 49, 50, 51 AND 52 OF THE 10000 ACRE TRACT, TOWNS 1 AND 2 SOUTH, RANGE 11 EAST AND THE EAST PART OF FRACTIONAL SECTION 3 IN TOWN 2 SOUTH, RANGE 11 EAST, GREENFIELD, WAYNE COUNTY, MICHIGAN, AND PARTS OF LOTS 22, 24 AND ALL OF LOT 23, BLOCK 5 AND PARTS OF LOTS 25, 27, 45, 47 AND ALL OF LOTS 26 AND 46, BLOCK 6, OF JOSEPH TIREMANS SUBDIVISION OF OUT LOTS 4, 5 AND 6 OF JOSEPH TIREMANS SUBDIVISION OF OUT LOT 2 OF THE JOSEPH TIREMAN EST. AND OUT LOT C OF THE JOHN TIREMAN EST. ON 1/4 SECTION 49, 50, 51 AND 52 OF THE 10000 ACRE TRACT IN TOWNS 1 AND 2 SOUTH, RANGE 11 EAST, AND THE EAST PART OF FRACTIONAL SECTION 3 IN TOWN 2 SOUTH, RANGE 11 EAST GREENFIELD, WAYNE COUNTY, MICHIGAN, RECORDED IN LIBER 28, PAGE 22, OF PLATS, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "239",
+          "Block": "1,2,3,7,8,9 and 10",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "JOSEPH TIREMANS SUBDIVISION",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "28",
+          "Map_Page_Or_Condo_Page": "22",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Detroit",
+          "Municipal": "Wayne County",
+          "Range": "11 East",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "28",
+          "Map_Page_Normalized": "22"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "30-November-2006",
+      "Primary_Or_Prior_Document_Number": "206556689",
+      "Primary_Or_Prior_Book_Number": "45657",
+      "Primary_Or_Prior_Page_Number": "1049",
+      "Primary_Or_Prior_Document_Date_Normalized": "2006-11-30",
+      "Prior_Book_Normalized": "45657",
+      "Prior_Page_Normalized": "1049"
+    }
+  ]
+}

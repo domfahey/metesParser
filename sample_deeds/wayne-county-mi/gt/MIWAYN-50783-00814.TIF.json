@@ -1,0 +1,189 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50783",
+    "Recording_Page_Number": "814",
+    "Recording_File_Number": "2013279109",
+    "Recording_Date_And_Time": "15-May-2013 ",
+    "Title_Company_Name": "COMPLETE TITLE SERVICES OF SOUTHEAST MICHIGAN, LLC ",
+    "Document_Title": "Mortgage",
+    "Dated_Date": "25-April-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "$176,496.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "01-May-2043",
+      "Loan_Type": "FHA",
+      "Loan_Term_End_Date_Normalized": "2043-05-01"
+    },
+    "Type_Of_Financing": "FHA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100032416134504875",
+    "MERS_Phone_Number": "(888) 679-MERS",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2013-05-15",
+    "Dated_Date_Normalized": "2013-04-25",
+    "Recording_Book_Normalized": "50783",
+    "Recording_Page_Normalized": "814"
+  },
+  "Parties": [
+    {
+      "Name": "MATTHEW FIELDER",
+      "Relationship_Status": "Husband",
+      "Role": "Mortgagor",
+      "Mailing_Address": "8937 HARVEY ST, LIVONIA, MI 48150",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "JAIMIE GIBBONS",
+      "Relationship_Status": "WIFE",
+      "Role": "Mortgagor",
+      "Mailing_Address": "8937 HARVEY ST, LIVONIA, MI 48150",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Capital Mortgage Funding, a division of United Shore Financial Services, LLC\n",
+      "Relationship_Status": "NA",
+      "Role": "LENDER",
+      "Mailing_Address": "17170 West 12 Mile Road Southfield, MI 48076",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "MORTGAGE ELECTRONIC REGISTRATION SYSTEM INC",
+      "Relationship_Status": "NA",
+      "Role": "NOMINEE",
+      "Mailing_Address": "PO BOX 2026, FLINT, MI 48501-2026",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "MATTHEW FIELDER and JAIMIE GIBBONS, HUSBAND and WIFE"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Capital Mortgage Funding, a division of United Shore Financial Services, LLC"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "8937 HARVEY ST, LIVONIA, MI 48150",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "46-128-02-0022-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "MATTHEW FIELDER",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "isATCustom": "True",
+          "Name": "JAIMIE GIBBONS",
+          "Relationship_Status": "WIFE",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot (s) 22 of Joy-Ann Subdivision according to the plat thereof recorded in Liber 82 of Plats, Page 86 of Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot (s) 22 of Joy-Ann Subdivision according to the plat thereof recorded in Liber 82 of Plats, Page 86 of Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "22",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Joy-Ann Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "82",
+          "Map_Page_Or_Condo_Page": "86",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Livonia",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "82",
+          "Map_Page_Normalized": "86"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

@@ -1,0 +1,181 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50372",
+    "Recording_Page_Number": "1383",
+    "Recording_File_Number": "2012489111",
+    "Recording_Date_And_Time": "17-December-2012 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CERTIFICATE OF DISCHARGE",
+    "Dated_Date": "7-December 2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Certificate of Discharge",
+    "Recording_Date_Normalized": "2012-12-17",
+    "Dated_Date_Normalized": "2012-12-07",
+    "Recording_Book_Normalized": "50372",
+    "Recording_Page_Normalized": "1383"
+  },
+  "Parties": [
+    {
+      "Name": "BENEFICIAL MICHIGAN INC.",
+      "Relationship_Status": "NA",
+      "Role": "Current Holder",
+      "Mailing_Address": "636 GRAND REGENCY BLVD, BRANDON, FL 33510",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "JEANNETTE WATSON",
+      "Relationship_Status": "Single Woman",
+      "Role": " Original Grantor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Tina Busler",
+      "Relationship_Status": "NA",
+      "Role": "VP & Asst Secy, Administrative Services Division",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "BENEFICIAL MICHIGAN INC.",
+      "Relationship_Status": "NA",
+      "Role": "Original Grantee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "JEANNETTE WATSON, A SINGLE WOMAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "BENEFICIAL MICHIGAN INC."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "20131 CONCORD, Wayne, Michigan",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "JEANNETTE WATSON",
+          "Relationship_Status": "Single Woman",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT 103 CUMMISKEYS OUTER BLVD AS RECORDED IN LIBER 46 PAGE 44 OF PLATS WAYNE COUNTY RECORDED",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 103 CUMMISKEYS OUTER BLVD AS RECORDED IN LIBER 46 PAGE 44 OF PLATS WAYNE COUNTY RECORDED",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": " 103",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "CUMMISKEYS OUTER BLVD",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "46",
+          "Map_Page_Or_Condo_Page": "44",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "46",
+          "Map_Page_Normalized": "44"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "26-February-2001",
+      "Primary_Or_Prior_Document_Number": "201084535",
+      "Primary_Or_Prior_Book_Number": "33273",
+      "Primary_Or_Prior_Page_Number": "1032",
+      "Primary_Or_Prior_Document_Date_Normalized": "2001-02-26",
+      "Prior_Book_Normalized": "33273",
+      "Prior_Page_Normalized": "1032"
+    }
+  ]
+}

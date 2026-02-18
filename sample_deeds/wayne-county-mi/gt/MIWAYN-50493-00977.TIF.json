@@ -1,0 +1,185 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50493",
+    "Recording_Page_Number": "977",
+    "Recording_File_Number": "2013055055",
+    "Recording_Date_And_Time": "08-February-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CERTIFICATE OF DISCHARGE",
+    "Dated_Date": "15-February-2005",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100037605769273056",
+    "MERS_Phone_Number": "1-888-679-6377",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Certificate of Discharge",
+    "Recording_Date_Normalized": "2013-02-08",
+    "Dated_Date_Normalized": "2005-02-15",
+    "Recording_Book_Normalized": "50493",
+    "Recording_Page_Normalized": "977"
+  },
+  "Parties": [
+    {
+      "Name": "EDWARD J ZELMANSKI JR",
+      "Relationship_Status": "NA",
+      "Role": "Grantor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "KAREN BRACKETT",
+      "Relationship_Status": "NA",
+      "Role": "Grantor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC. (MERS)",
+      "Relationship_Status": "NA",
+      "Role": "Grantee",
+      "Mailing_Address": "POBOX 2026 FLINT MI 48501, 1901 E VOORHEES ST. STE C, DANVILLE, IL 61834",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Linda Anders",
+      "Relationship_Status": "NA",
+      "Role": "Assistant Secretary",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "EDWARD J ZELMANSKI JR and KAREN BRACKETT"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC. (MERS)"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "NA",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "EDWARD J ZELMANSKI JR",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "Name": "KAREN BRACKETT",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT 93 EMBASSY SQUARE SUBDIVISION, ACCORDING TO THE PLAT THEREOF AS RECORDED IN LIBER 99 PAGES 69 THROUGH 73 OF PLATS, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 93 EMBASSY SQUARE SUBDIVISION, ACCORDING TO THE PLAT THEREOF AS RECORDED IN LIBER 99 PAGES 69 THROUGH 73 OF PLATS, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "93",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "EMBASSY SQUARE SUBDIVISION",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "99",
+          "Map_Page_Or_Condo_Page": "69-73",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "99",
+          "Map_Page_Normalized": "69"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "15-February-2005",
+      "Primary_Or_Prior_Document_Number": "205109819",
+      "Primary_Or_Prior_Book_Number": "42269",
+      "Primary_Or_Prior_Page_Number": "1361",
+      "Primary_Or_Prior_Document_Date_Normalized": "2005-02-15",
+      "Prior_Book_Normalized": "42269",
+      "Prior_Page_Normalized": "1361"
+    }
+  ]
+}

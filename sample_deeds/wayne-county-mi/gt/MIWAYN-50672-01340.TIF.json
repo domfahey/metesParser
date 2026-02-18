@@ -1,0 +1,181 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50672",
+    "Recording_Page_Number": "1340",
+    "Recording_File_Number": "2013211070",
+    "Recording_Date_And_Time": "25-March-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SHERIFFS DEED ON MORTGAGE SALE",
+    "Dated_Date": "14-March-2013",
+    "Sale_Amount": "$57,786.18",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "6.625",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "$63.80",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "Real Estate Transfer Tax"
+      }
+    ],
+    "Document_Type": "SHERIFFS DEED ON MORTGAGE SALE",
+    "Recording_Date_Normalized": "2013-03-25",
+    "Dated_Date_Normalized": "2013-03-14",
+    "Recording_Book_Normalized": "50672",
+    "Recording_Page_Normalized": "1340"
+  },
+  "Parties": [
+    {
+      "Name": "La Shana Cooper",
+      "Relationship_Status": "NA",
+      "Role": "Deputy Sheriff",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Green Tree Servicing LLC",
+      "Relationship_Status": "NA",
+      "Role": "grantee",
+      "Mailing_Address": "1400 Turbine Dr., Rapid City, SD 57701",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Amelia Mata",
+      "Relationship_Status": "A Single Woman",
+      "Role": "Mortgagor",
+      "Mailing_Address": "4348 51ST ST, DETROIT, MI 48210",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Electronic Registration Systems, Inc (MERS) as nominee for Countrywide Bank FSB ",
+      "Relationship_Status": "NA",
+      "Role": "mortgagee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Amelia Mata, a single woman"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Green Tree Servicing LLC"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "4348 51ST STREET, DETROIT, MI 48210",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "WARD 18 ITEM 011735"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Amelia Mata",
+          "Relationship_Status": "A Single Woman",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 202, Conrad Clipperts Subdivision, according to the plat thereof as recorded in Liber 28, Page 33, of plats, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 202, Conrad Clipperts Subdivision, according to the plat thereof as recorded in Liber 28, Page 33, of plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "202",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Conrad Clipperts Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "28",
+          "Map_Page_Or_Condo_Page": "33",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "28",
+          "Map_Page_Normalized": "33"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "6-February-2008",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "47097",
+      "Primary_Or_Prior_Page_Number": "1261",
+      "Primary_Or_Prior_Document_Date_Normalized": "2008-02-06",
+      "Prior_Book_Normalized": "47097",
+      "Prior_Page_Normalized": "1261"
+    }
+  ]
+}

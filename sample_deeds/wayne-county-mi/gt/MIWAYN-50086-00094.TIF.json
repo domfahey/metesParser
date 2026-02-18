@@ -1,0 +1,171 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50086",
+    "Recording_Page_Number": "94",
+    "Recording_File_Number": "2012344619",
+    "Recording_Date_And_Time": "24-August-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "MORTGAGE HOME EQUITY LINE OF CREDT",
+    "Dated_Date": "16-August-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "503634070",
+      "Loan_Amount": "$25,000.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "10-September-2022",
+      "Loan_Type": "Home Equity Line of Credit",
+      "Loan_Term_End_Date_Normalized": "2022-09-10"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100052550363407007",
+    "MERS_Phone_Number": "(888)-679-MERS",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "MORTGAGE HOME EQUITY LINE OF CREDT",
+    "Recording_Date_Normalized": "2012-08-24",
+    "Dated_Date_Normalized": "2012-08-16",
+    "Recording_Book_Normalized": "50086",
+    "Recording_Page_Normalized": "94"
+  },
+  "Parties": [
+    {
+      "Name": "ATHENA T TROSHER",
+      "Relationship_Status": "Single",
+      "Role": "Mortgagor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "FLAGSTAR BANK, FSB, A FEDERALLY CHARTERED SAVINGS BANK",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "5151 Corporate Dr. Troy, MI 48098-2639",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc.",
+      "Relationship_Status": "NA",
+      "Role": "Nominee",
+      "Mailing_Address": "P.O. Box 2026, Flint, MI 48501-2026",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "ATHENA T TROSHER, A SINGLE WOMAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "FLAGSTAR BANK, FSB, A FEDERALLY CHARTERED SAVINGS BANK"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "12137 HINES CT, PLYMOUTH, Michigan 48170-6132",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "78-030-03-0032-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "ATHENA T TROSHER",
+          "Relationship_Status": "Single",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "THE FOLLOWING DESCRIBED PREMISES SITUATED IN THE CITY OF PLYMOUTH, COUNTY OF WAYNE, STATE OF MICHIGAN:\n\nLOT(S) 32, PARK ENTRANCE ESTATES SUBDIVISION NO. 2, ACCORDING TO THE PLAT THEREOF IN LIBER 85, PAGE(S) 81 OF PLATS, WAYNE COUNTY RECORDS. ",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "THE FOLLOWING DESCRIBED PREMISES SITUATED IN THE CITY OF PLYMOUTH, COUNTY OF WAYNE, STATE OF MICHIGAN:\n\nLOT(S) 32, PARK ENTRANCE ESTATES SUBDIVISION NO. 2, ACCORDING TO THE PLAT THEREOF IN LIBER 85, PAGE(S) 81 OF PLATS, WAYNE COUNTY RECORDS. ",
+      "Legal_Description_Attributes": {
+        "Unit": "NA",
+        "Lot": "32",
+        "Block": "NA",
+        "Building": "NA",
+        "Phase": "NA",
+        "Plat_Number": "NA",
+        "Map_Name": "PARK ENTRANCE ESTATES SUBDIVISION NO. 2",
+        "Map_Number": "NA",
+        "Map_Date": "NA",
+        "Map_Book_Or_Condo_Book": "85",
+        "Map_Page_Or_Condo_Page": "81",
+        "Common_Lot_Or_Condo_Lot": "NA",
+        "Parking_Space": "NA",
+        "Garage": "NA",
+        "Boat_Slip": "NA",
+        "Storage_Space": "NA",
+        "Parcel": "NA",
+        "Tract_Number": "NA",
+        "Section": "NA",
+        "Township": "NA",
+        "Rack": "NA",
+        "City": "PLYMOUTH",
+        "Municipal": "NA",
+        "Range": "NA",
+        "Quarters": "NA",
+        "Share": "NA",
+        "Govt_Tract_Number": "NA",
+        "Govt_Lot_Number": "NA",
+        "Sub_Division": "PARK ENTRANCE ESTATES SUBDIVISION NO. 2",
+        "Sub_Division_Filing": "NA"
+      }
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Warranty Deed",
+      "Primary_Or_Prior_Document_Date": "7-February-2012",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "49770",
+      "Primary_Or_Prior_Page_Number": "64",
+      "Primary_Or_Prior_Document_Date_Normalized": "2012-02-07",
+      "Prior_Book_Normalized": "49770",
+      "Prior_Page_Normalized": "64"
+    }
+  ]
+}

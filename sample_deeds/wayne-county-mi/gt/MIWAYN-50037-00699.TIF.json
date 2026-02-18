@@ -1,0 +1,201 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50037",
+    "Recording_Page_Number": "699",
+    "Recording_File_Number": "2012322066",
+    "Recording_Date_And_Time": "16-August-2012",
+    "Title_Company_Name": "",
+    "Document_Title": "ASSIGNMENT OF MORTGAGE",
+    "Dated_Date": "7-August-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "100389550000027964",
+    "MERS_Phone_Number": "888-679-6377",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Assignment of Mortgage",
+    "Recording_Date_Normalized": "2012-08-16",
+    "Dated_Date_Normalized": "2012-08-07",
+    "Recording_Book_Normalized": "50037",
+    "Recording_Page_Normalized": "699"
+  },
+  "Parties": [
+    {
+      "Name": "Kari Venegoni",
+      "Relationship_Status": "Married",
+      "Role": "Mortgagor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Jonothan Veregoni",
+      "Relationship_Status": "Husband",
+      "Role": "Mortgagor",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": " MBS Mortgage Company, LLC, its successors and assigns",
+      "Relationship_Status": "",
+      "Role": "Assignor",
+      "Mailing_Address": "1901 E Voorhees St, Suite C, Danville, IL 61834",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Branch Banking and Trust Company",
+      "Relationship_Status": "",
+      "Role": "Assignee",
+      "Mailing_Address": "301 College St F1 6, Greenville, SC 29601-2014",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "MBS Mortgage Company, LLC, its successors and assigns",
+      "Relationship_Status": "",
+      "Role": "Mortgagee",
+      "Mailing_Address": "1901 E Voorhees St, Suite C, Danville, IL 61834",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Mortgage Electronic Registration Systems, Inc.",
+      "Relationship_Status": "",
+      "Role": "Nominee",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Kari Venegoni, a married woman and Jonothan Veregoni, her\nhusband"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "MBS Mortgage Company, LLC, its successors and assigns"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "650 Susan Ct, Garden City, MI 48135-2647",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "35-019-05-0197-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Kari Venegoni",
+          "Relationship_Status": "Married",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "isATCustom": "True",
+          "Name": "Jonothan Veregon",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": ""
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 197, Snider Park Subn., according to the Plat thereof as recorded in Liber 75 of Plats, Pages 53 and 54, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 197, Snider Park Sub'n., according to the Plat thereof as recorded in Liber 75 of Plats, Pages 53 and 54, Wayne County Records.",
+      "Legal_Description_Attributes": {
+        "Unit": "NA",
+        "Lot": "197",
+        "Block": "NA",
+        "Building": "NA",
+        "Phase": "NA",
+        "Plat_Number": "",
+        "Map_Name": "Snider Park Sub'n",
+        "Map_Number": "NA",
+        "Map_Date": "NA",
+        "Map_Book_Or_Condo_Book": "75",
+        "Map_Page_Or_Condo_Page": "53, 54",
+        "Common_Lot_Or_Condo_Lot": "NA",
+        "Parking_Space": "NA",
+        "Garage": "NA",
+        "Boat_Slip": "NA",
+        "Storage_Space": "NA",
+        "Parcel": "NA",
+        "Tract_Number": "NA",
+        "Section": "NA",
+        "Township": "NA",
+        "Rack": "NA",
+        "City": "",
+        "Municipal": "",
+        "Range": "NA",
+        "Quarters": "NA",
+        "Share": "NA",
+        "Govt_Tract_Number": "NA",
+        "Govt_Lot_Number": "NA",
+        "Sub_Division": "NA",
+        "Sub_Division_Filing": "NA"
+      }
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "23-October-2007",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "46805",
+      "Primary_Or_Prior_Page_Number": "1050",
+      "Primary_Or_Prior_Document_Date_Normalized": "2007-10-23",
+      "Prior_Book_Normalized": "46805",
+      "Prior_Page_Normalized": "1050"
+    }
+  ]
+}

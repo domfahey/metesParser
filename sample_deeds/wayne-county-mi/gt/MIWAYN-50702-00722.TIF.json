@@ -1,0 +1,173 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50702",
+    "Recording_Page_Number": "722",
+    "Recording_File_Number": "2013236669",
+    "Recording_Date_And_Time": "03-April-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "PARTIAL RELEASE OF ASSIGNMENT OF LEASES AND RENTS",
+    "Dated_Date": "28-February-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Partial Release",
+    "Recording_Date_Normalized": "2013-04-03",
+    "Dated_Date_Normalized": "2013-02-28",
+    "Recording_Book_Normalized": "50702",
+    "Recording_Page_Normalized": "722"
+  },
+  "Parties": [
+    {
+      "Name": "City of Detroit, a Michigan municipal corporation, acting by and through its Planning & Development Department",
+      "Relationship_Status": "NA",
+      "Role": "Releasor",
+      "Mailing_Address": "65 Cadillac Square, Suite 1900, Detroit, Michigan 48226",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Marja M. Winters",
+      "Relationship_Status": "NA",
+      "Role": "Deputy Director",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "American Residential Equities, LLC",
+      "Relationship_Status": "NA",
+      "Role": "Trustee",
+      "Mailing_Address": "848 Brickell Ave, Penthouse 3, Miami, FL 33131",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "American Residential Equities, LLC, as Trustee Pursuant to that Certain American Residential Equities, LLC Master Trust Agreement Dated August 8, 2005"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "City of Detroit, a Michigan municipal corporation, acting by and through its Planning & Development Department"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "6380 Rutherford, Detroit, Michigan",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "Ward 22 Item 055629"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "American Residential Equities, LLC",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "North 28 feet of Lot 12 and the South 12 feet of Lot 13, including 1/2 of vacated alley lying in the rear thereof, Laurel Park Subdivision, as recorded in Liber 46 Page 69 of Plats, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "North 28 feet of Lot 12 and the South 12 feet of Lot 13, including 1/2 of vacated alley lying in the rear thereof, Laurel Park Subdivision, as recorded in Liber 46 Page 69 of Plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "North 28 feet of Lot 12 and the South 12 feet of Lot 13",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Laurel Park Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "46",
+          "Map_Page_Or_Condo_Page": "69",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "46",
+          "Map_Page_Normalized": "69"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Assignment of Leases and Rents",
+      "Primary_Or_Prior_Document_Date": "27-May-2011",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "49229",
+      "Primary_Or_Prior_Page_Number": "257-265",
+      "Primary_Or_Prior_Document_Date_Normalized": "2011-05-27",
+      "Prior_Book_Normalized": "49229",
+      "Prior_Page_Normalized": "257"
+    }
+  ]
+}

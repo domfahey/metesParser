@@ -1,0 +1,171 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50931",
+    "Recording_Page_Number": "63",
+    "Recording_File_Number": "2013343491",
+    "Recording_Date_And_Time": "16-July-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "QUIT CLAIM DEED",
+    "Dated_Date": "30-June-2010",
+    "Sale_Amount": "$100.00",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "$0.55",
+        "Tax_Payer_Name": "ollie Grant",
+        "Tax_Type": "County Tax"
+      },
+      {
+        "Tax_Amount": "$3.75",
+        "Tax_Payer_Name": "ollie Grant",
+        "Tax_Type": "State Tax"
+      }
+    ],
+    "Document_Type": "Quit Claim Deed",
+    "Recording_Date_Normalized": "2013-07-16",
+    "Dated_Date_Normalized": "2010-06-30",
+    "Recording_Book_Normalized": "50931",
+    "Recording_Page_Normalized": "63"
+  },
+  "Parties": [
+    {
+      "Name": "Motown Museum Historical Foundation, Inc.",
+      "Relationship_Status": "NA",
+      "Role": "Grantor",
+      "Mailing_Address": "2648 W. Grand Blvd., Detroit, MI 48208-1237",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "ollie Grant",
+      "Relationship_Status": "Married",
+      "Role": "Grantee",
+      "Mailing_Address": "14242 Cherrylawn, Detroit, MI 48238",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "ollie Grant, a married man"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Motown Museum Historical Foundation, Inc."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "414 Melbourne, Detroit, MI",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "01002431"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "ollie Grant",
+          "Relationship_Status": "Married",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 99, McLaughlin Bros. Subdivision of Lot 8 and the Nly 33 feet of Lot 7 of the Subdivision of 1/4 Section 57, 10,000 Acre Tract, Detroit, Wayne Co., Michigan. Recd L. 17, P. 73 Plats, W.C.R.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 99, McLaughlin Bros. Subdivision of Lot 8 and the Nly 33 feet of Lot 7 of the Subdivision of 1/4 Section 57, 10,000 Acre Tract, Detroit, Wayne Co., Michigan. Recd L. 17, P. 73 Plats, W.C.R.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "Lot 99 AND Lot 8 and the Nly 33 feet of Lot 7 of the Subdivision of 1/4",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "McLaughlin Bros. Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "17",
+          "Map_Page_Or_Condo_Page": "73",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "57",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "17",
+          "Map_Page_Normalized": "73"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

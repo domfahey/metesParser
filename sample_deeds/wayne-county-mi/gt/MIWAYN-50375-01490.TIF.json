@@ -1,0 +1,166 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50375",
+    "Recording_Page_Number": "1490",
+    "Recording_File_Number": "2013000119",
+    "Recording_Date_And_Time": "02-January-2013 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "MORTGAGE",
+    "Dated_Date": "17-December-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "0010006997",
+      "Loan_Amount": "$55,967.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "01-January-2043",
+      "Loan_Type": "FHA",
+      "Loan_Term_End_Date_Normalized": "2043-01-01"
+    },
+    "Type_Of_Financing": "FHA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2013-01-02",
+    "Dated_Date_Normalized": "2012-12-17",
+    "Recording_Book_Normalized": "50375",
+    "Recording_Page_Normalized": "1490"
+  },
+  "Parties": [
+    {
+      "Name": "MICHAEL J. ANIOL JR",
+      "Relationship_Status": "Unmarried MAN",
+      "Role": "MORTGAGOR",
+      "Mailing_Address": "4127 WINIFRED ST., WAYNE, MICHIGAN 48184",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "MEMBER FIRST MORTGAGE, LLC.",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "616 44TH STREET SE, GRAND RAPIDS, MICHIGAN 49548",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "MICHAEL J. ANIOL JR, an unmarried man"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "MEMBER FIRST MORTGAGE, LLC."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "4127 WINIFRED ST., WAYNE, MICHIGAN 48184",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "55021020802000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "MICHAEL J. ANIOL JR",
+          "Relationship_Status": "Unmarried MAN",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "LOT 802, AVONALE SUBDIVISION NO. 4, AS RECORDED IN LIBER 59, PAGE 59 OF PLATS, WAYNE COUNTY RECORDS.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "LOT 802, AVONALE SUBDIVISION NO. 4, AS RECORDED IN LIBER 59, PAGE 59 OF PLATS, WAYNE COUNTY RECORDS.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": " 802",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "AVONALE SUBDIVISION NO. 4",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "59",
+          "Map_Page_Or_Condo_Page": "59",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "59",
+          "Map_Page_Normalized": "59"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

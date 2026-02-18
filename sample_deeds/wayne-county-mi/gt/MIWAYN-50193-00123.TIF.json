@@ -1,0 +1,175 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50193",
+    "Recording_Page_Number": "123",
+    "Recording_File_Number": "2012404047",
+    "Recording_Date_And_Time": "09-October-2012 ",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CERTIFICATE OF DISCHARGE",
+    "Dated_Date": "03-October-2012 ",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Certificate of Discharge",
+    "Recording_Date_Normalized": "2012-10-09",
+    "Dated_Date_Normalized": "2012-10-03",
+    "Recording_Book_Normalized": "50193",
+    "Recording_Page_Normalized": "123"
+  },
+  "Parties": [
+    {
+      "Name": "GMAC MORTGAGE LLC",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "3451 HAMMOND AVE, WATERLOO, IA 50702",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "KAREN M. BREHM",
+      "Relationship_Status": "SINGLE WOMAN ",
+      "Role": "ORIGINAL GRANTOR",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "MORTGAGE ELECTRONIC REGISTRATION SYSTEMS, INC (MERS)",
+      "Relationship_Status": "NA",
+      "Role": "Original Grantee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "KAREN M. BREHM, A SINGLE WOMAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "GMAC MORTGAGE LLC "
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "NA",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "2235451032"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "KAREN M. BREHM",
+          "Relationship_Status": "Single Woman ",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "UNIT NO. 382, BUILDING 77, OF COUNTY PLACE CONDOMINIUM, ACCORDING TO THE CONSOLIDATED MASTER DEED RECORDED IN LIBER 8115, PAGES 92 THROUGH 298, INCLUSIVE, WAYNE COUNTY RECORDS, AND AMENDED BY: FIRST AMENDMENT RECORDED IN LIBER 11771, PAGES 83 THROUGH, 96, INCLUSIVE, AND SECOND AMENDMENT RECORDED IN LIBER 18184, PAGE 155, WAYNE COUNTY RECORDS, AND DESIGNATED AS WAYNE COUNTY CONDOMINIUM SUBDIVISION PLAN NO. 342, TOGETHER WITH RIGHTS IN GENERAL COMMON ELEMENTS AND LIMITED COMMON ELEMENTS AS SET FORTH IN THE ABOVE DESCRIBED CONSOLIDATED MASTER DEED, AMENDMENTS, AND AS DESCRIBED IN ACT 59 OF THE PUBLIC ACTS OF 1978, AS AMENDED.\nAssessor's/Tax ID No. 2235451032",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "UNIT NO. 382, BUILDING 77, OF COUNTY PLACE CONDOMINIUM, ACCORDING TO THE CONSOLIDATED MASTER DEED RECORDED IN LIBER 8115, PAGES 92 THROUGH 298, INCLUSIVE, WAYNE COUNTY RECORDS, AND AMENDED BY: FIRST AMENDMENT RECORDED IN LIBER 11771, PAGES 83 THROUGH, 96, INCLUSIVE, AND SECOND AMENDMENT RECORDED IN LIBER 18184, PAGE 155, WAYNE COUNTY RECORDS, AND DESIGNATED AS WAYNE COUNTY CONDOMINIUM SUBDIVISION PLAN NO. 342, TOGETHER WITH RIGHTS IN GENERAL COMMON ELEMENTS AND LIMITED COMMON ELEMENTS AS SET FORTH IN THE ABOVE-DESCRIBED CONSOLIDATED MASTER DEED, AMENDMENTS, AND AS DESCRIBED IN ACT 59 OF THE PUBLIC ACTS OF 1978, AS AMENDED. ",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "382",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "77",
+          "Phase": "NA",
+          "Map_Name": "COUNTY PLACE CONDOMINIUM",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "8115",
+          "Map_Page_Or_Condo_Page": "92 through 298",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "342",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "WAYNE COUNTY ",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "8115",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "18-JULY-2002",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "36677",
+      "Primary_Or_Prior_Page_Number": "1599",
+      "Primary_Or_Prior_Document_Date_Normalized": "2002-07-18",
+      "Prior_Book_Normalized": "36677",
+      "Prior_Page_Normalized": "1599"
+    }
+  ]
+}

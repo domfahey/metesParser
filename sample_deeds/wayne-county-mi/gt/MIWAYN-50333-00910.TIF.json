@@ -1,0 +1,189 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50333",
+    "Recording_Page_Number": "910",
+    "Recording_File_Number": "2012473595",
+    "Recording_Date_And_Time": "06-December-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "ASSIGNMENT OF MORTGAGE",
+    "Dated_Date": "30-November-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Assignment of Mortgage",
+    "Recording_Date_Normalized": "2012-12-06",
+    "Dated_Date_Normalized": "2012-11-30",
+    "Recording_Book_Normalized": "50333",
+    "Recording_Page_Normalized": "910"
+  },
+  "Parties": [
+    {
+      "Name": "Felix Huerta",
+      "Relationship_Status": "Husband",
+      "Role": "Mortgagor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": " Socorro M. Huerta aka Socorro Huerta",
+      "Relationship_Status": "Wife",
+      "Role": "Mortgagor",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "MSR TRUST, AS SUCCESSOR IN INTEREST TO NATIXIS REAL ESTATE CAPITAL INC., FKA IXIS REAL ESTATE CAPITAL INC., BY HOMEWARD RESIDENTIAL, INC. F/K/A/ AMERICAN HOME MORTGAGE SERVICING, INC., AS ATTORNEY IN FACT",
+      "Relationship_Status": "",
+      "Role": "ASSIGNOR",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "HOMEWARD RESIDENTIAL INC.",
+      "Relationship_Status": "",
+      "Role": "ASSIGNEE",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Felix Huerta and Socorro M. Huerta aka Socorro Huerta, Husband and Wife"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "MSR TRUST, AS SUCCESSOR IN INTEREST TO NATIXIS REAL ESTATE CAPITAL INC., FKA IXIS REAL ESTATE CAPITAL INC., BY HOMEWARD RESIDENTIAL, INC. F/K/A/ AMERICAN HOME MORTGAGE SERVICING, INC., AS ATTORNEY IN FACT"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "8430 Homer St, Detroit MI 48209",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "Ward 20 Item No. 002842 & Ward 20 Item No. 2843"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Felix Huerta",
+          "Relationship_Status": "Husband",
+          "Social_Security_Number": "NA"
+        },
+        {
+          "isATCustom": "True",
+          "Name": " Socorro M. Huerta aka Socorro Huerta",
+          "Relationship_Status": "Wife",
+          "Social_Security_Number": ""
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lots 11, 12 and 13, M.B. Moore's Subdivision, as recorded in Liber 17, Page 92 of Plats, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lots 11, 12 and 13, M.B. Moore's Subdivision, as recorded in Liber 17, Page 92 of Plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "11, 12 and 13",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "M.B. Moores Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "17",
+          "Map_Page_Or_Condo_Page": "92",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "17",
+          "Map_Page_Normalized": "92"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "17-December-2002",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "37832",
+      "Primary_Or_Prior_Page_Number": "1057",
+      "Primary_Or_Prior_Document_Date_Normalized": "2002-12-17",
+      "Prior_Book_Normalized": "37832",
+      "Prior_Page_Normalized": "1057"
+    }
+  ]
+}

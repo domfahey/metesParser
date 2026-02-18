@@ -1,0 +1,160 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50110",
+    "Recording_Page_Number": "326",
+    "Recording_File_Number": "2012361279",
+    "Recording_Date_And_Time": "13-September-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "WAYNE COUNTY TREASURER NOTICE OF JUDGMENT OF FORECLOSURE",
+    "Dated_Date": "12-September-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "11-007010-CH",
+    "Case_Type": "Foreclosure",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "Foreclosure",
+        "Judgement_Entered_Date": "30-March-2012",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "2012-03-30"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "WAYNE COUNTY TREASURER NOTICE OF JUDGMENT OF FORECLOSURE",
+    "Recording_Date_Normalized": "2012-09-13",
+    "Dated_Date_Normalized": "2012-09-12",
+    "Recording_Book_Normalized": "50110",
+    "Recording_Page_Normalized": "326"
+  },
+  "Parties": [
+    {
+      "Name": "Raymond J. Wojtowicz",
+      "Relationship_Status": "NA",
+      "Role": "Wayne County Treasurer",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "13860 LINNHURST, DETROIT",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "21018468"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "NA",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "S LINNHURST LOT 164 PULCHER ESTATE SUB L44 P76 PLATS, W C R 21/656 35 X 115",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "S LINNHURST LOT 164 PULCHER ESTATE SUB L44 P76 PLATS, W C R 21/656 35 X 115",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "164",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "PULCHER ESTATE",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "44",
+          "Map_Page_Or_Condo_Page": "76",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Annotation_Tool_Custom_Entity_Sub Division": "PULCHER ESTATE",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "44",
+          "Map_Page_Normalized": "76"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Certificate of Forfeiture",
+      "Primary_Or_Prior_Document_Date": "1-March-2011",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "49079",
+      "Primary_Or_Prior_Page_Number": "835",
+      "Primary_Or_Prior_Document_Date_Normalized": "2011-03-01",
+      "Prior_Book_Normalized": "49079",
+      "Prior_Page_Normalized": "835"
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50455",
+    "Recording_Page_Number": "809",
+    "Recording_File_Number": "2013034274",
+    "Recording_Date_And_Time": "31-January-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SATISFACTION / DISCHARGE OF MORTGAGE",
+    "Dated_Date": "30-January-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "0215906820",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Satisfaction / Discharge of Mortgage",
+    "Recording_Date_Normalized": "2013-01-31",
+    "Dated_Date_Normalized": "2013-01-30",
+    "Recording_Book_Normalized": "50455",
+    "Recording_Page_Normalized": "809"
+  },
+  "Parties": [
+    {
+      "Name": "CITIMORTGAGE, INC. SUCCESSOR IN INTEREST BY MERGER TO ABN AMRO MORTGAGE GROUP, INC.",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "1000 Technology Drive, OFallon, MO 63368",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "GLEN M. COKER",
+      "Relationship_Status": "MARRIED MAN",
+      "Role": "Borrower",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "ABN AMRO MORTGAGE GROUP, INC.",
+      "Relationship_Status": "",
+      "Role": "Original Lender",
+      "Mailing_Address": "",
+      "Social_Security_Number": "",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "GLEN M. COKER, A MARRIED MAN"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "ABN AMRO Mortgage Group, Inc."
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "",
+      "Property_Address": "42775 Lilley Pointe, Canton, MI 48187",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "NA"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "GLEN M. COKER",
+          "Relationship_Status": "Married",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "UNIT 150, LILLEY POINT CONDOMINIUM A CONDOMINIUM ACCORDING TO THE AMENDED AND RESTATED MASTER DEED RECORDE IN LIBER 36688, PAGES 14 THROUGH 60, INCLUSIVE, WAYNE COUNTY RECORDS, AND DESIGNATED AS WAYNE COUNTY CONDOMINIUM SUBDIVISION PLAN NUMBER 266, TOGETHER WITH RIGHTS IN COMMON ELEMENTS AND LIMITED COMMON ELEMENTS AS SET FORTH IN THE ABOVE AMENDED AND RESTATED MASTER DEED AND AS DESCRIBED IN ACT 59 OF THE PUBLIC ACTS OF 1978, AS AMENDED.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "UNIT 150, LILLEY POINT CONDOMINIUM A CONDOMINIUM ACCORDING TO THE AMENDED AND RESTATED MASTER DEED RECORDE IN LIBER 36688, PAGES 14 THROUGH 60, INCLUSIVE, WAYNE COUNTY RECORDS, AND DESIGNATED AS WAYNE COUNTY CONDOMINIUM SUBDIVISION PLAN NUMBER 266, TOGETHER WITH RIGHTS IN COMMON ELEMENTS AND LIMITED COMMON ELEMENTS AS SET FORTH IN THE ABOVE AMENDED AND RESTATED MASTER DEED AND AS DESCRIBED IN ACT 59 OF THE PUBLIC ACTS OF 1978, AS AMENDED.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "150",
+          "Lot": "NA",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Lilley Point Condominium",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "",
+          "Map_Page_Or_Condo_Page": "",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "",
+          "Municipal": "",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "NA",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "11-February-2005",
+      "Primary_Or_Prior_Document_Number": "205111162",
+      "Primary_Or_Prior_Book_Number": "42279",
+      "Primary_Or_Prior_Page_Number": "652",
+      "Primary_Or_Prior_Document_Date_Normalized": "2005-02-11",
+      "Prior_Book_Normalized": "42279",
+      "Prior_Page_Normalized": "652"
+    }
+  ]
+}

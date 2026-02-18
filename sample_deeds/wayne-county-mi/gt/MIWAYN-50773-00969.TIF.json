@@ -1,0 +1,183 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50773",
+    "Recording_Page_Number": "969",
+    "Recording_File_Number": "2013275445",
+    "Recording_Date_And_Time": "10-May-2013",
+    "Title_Company_Name": "NA",
+    "Document_Title": "STIPULATED ORDER FOR CONDITIONAL DISMISSAL OF DEFENDANT UNITED STATES OF AMERICA (ONLY)",
+    "Dated_Date": "27-March-2013",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "13-001212-CH",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "WELLS FARGO BANK, N.A. TRUSTEE FOR THE CERTIFICATEHOLDERS OF THE MLMI TRUST, MORTGAGE LOAN\nASSET-BACKED CERTIFICATES, SERIES 2005-FM1, BY ITS SERVICER BANK OF AMERICA, NA\n",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "STIPULATED ORDER FOR CONDITIONAL DISMISSAL OF DEFENDANT UNITED STATES OF AMERICA (ONLY)",
+    "Recording_Date_Normalized": "2013-05-10",
+    "Dated_Date_Normalized": "2013-03-27",
+    "Recording_Book_Normalized": "50773",
+    "Recording_Page_Normalized": "969"
+  },
+  "Parties": [
+    {
+      "Name": "WELLS FARGO BANK, N.A. TRUSTEE FOR THE CERTIFICATEHOLDERS OF THE MLMI TRUST, MORTGAGE LOAN ASSET-BACKED CERTIFICATES, SERIES 2005-FM1, BY ITS SERVICER BANK OF AMERICA, NA\n",
+      "Relationship_Status": "NA",
+      "Role": "Plaintiff",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "JENEEN COATS F/K/A JENEEN STEVENS",
+      "Relationship_Status": "NA",
+      "Role": "Defendants",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "GLENN A. STEVENS",
+      "Relationship_Status": "NA",
+      "Role": "Defendants",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "UNITED STATES OF AMERICA",
+      "Relationship_Status": "NA",
+      "Role": "Defendants",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "NA"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "8854 Sussex St,",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "Ward 22 Item 045915"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "NA",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 408 Frischkorns West Chicago Boulevard Subdivision, as recorded in Liber 46, Page 11 and 12 of Plats, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 408 Frischkorn's West Chicago Boulevard Subdivision, as recorded in Liber 46, Page 11 and 12 of Plats, Wayne County Records. Ward 22 Item 045915\nMore commonly known as: 8854 Sussex St",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": " 408",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Frischkorns West Chicago Boulevard Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "46",
+          "Map_Page_Or_Condo_Page": "11-12",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Detroit",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "46",
+          "Map_Page_Normalized": "11"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Notice of Federal Tax Lien",
+      "Primary_Or_Prior_Document_Date": "22-October-2007",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "46752",
+      "Primary_Or_Prior_Page_Number": "1495",
+      "Primary_Or_Prior_Document_Date_Normalized": "2007-10-22",
+      "Prior_Book_Normalized": "46752",
+      "Prior_Page_Normalized": "1495"
+    }
+  ]
+}

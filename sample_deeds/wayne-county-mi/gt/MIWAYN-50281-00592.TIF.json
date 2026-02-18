@@ -1,0 +1,167 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50281",
+    "Recording_Page_Number": "592",
+    "Recording_File_Number": "2012444861",
+    "Recording_Date_And_Time": "15-November-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "CERTIFICATE OF REDEMPTION",
+    "Dated_Date": "15-November-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "NA",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "NA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "CERTIFICATE OF REDEMPTION",
+        "Lien_Entered_Date": "27-September-2012",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "ANGELA MORRIS",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "2012-09-27"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "$3,611.32",
+        "Tax_Payer_Name": "ANGELA MORRIS",
+        "Tax_Type": "Delinquent Taxes"
+      }
+    ],
+    "Document_Type": "Certificate of Redemption",
+    "Recording_Date_Normalized": "2012-11-15",
+    "Dated_Date_Normalized": "2012-11-15",
+    "Recording_Book_Normalized": "50281",
+    "Recording_Page_Normalized": "592"
+  },
+  "Parties": [
+    {
+      "Name": "ANGELA MORRIS",
+      "Relationship_Status": "NA",
+      "Role": "Taxpayer",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Raymond J. Wojtowicz, Wayne County Treasurer",
+      "Relationship_Status": "NA",
+      "Role": "Treasurer",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "ANGELA MORRIS"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Raymond J. Wojtowicz, Wayne County Treasurer"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "15802 MANSFIELD, CITY OF DETROIT",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "22057274"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "ANGELA MORRIS",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "E MANSFIELD LOT 166 ELYSIA PARK SUB L40 P76 PLATS, WCR 22/10 40 X 121",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "E MANSFIELD LOT 166 ELYSIA PARK SUB L40 P76 PLATS, WCR 22/10 40 X 121",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "166",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "ELYISIA PARK",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "40",
+          "Map_Page_Or_Condo_Page": "76",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "NA",
+          "Rack": "NA",
+          "City": "Detroit",
+          "Municipal": "Wayne County",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "40",
+          "Map_Page_Normalized": "76"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Certificate of Forfeiture",
+      "Primary_Or_Prior_Document_Date": "27-September-2012",
+      "Primary_Or_Prior_Document_Number": "2011155538",
+      "Primary_Or_Prior_Book_Number": "49103",
+      "Primary_Or_Prior_Page_Number": "1315",
+      "Primary_Or_Prior_Document_Date_Normalized": "2012-09-27",
+      "Prior_Book_Normalized": "49103",
+      "Prior_Page_Normalized": "1315"
+    }
+  ]
+}

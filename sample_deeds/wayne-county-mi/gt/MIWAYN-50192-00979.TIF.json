@@ -1,0 +1,167 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50192",
+    "Recording_Page_Number": "979",
+    "Recording_File_Number": "2012403916",
+    "Recording_Date_And_Time": "10-October-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "MORTGAGE",
+    "Dated_Date": "1-October-2012",
+    "Sale_Amount": "NA",
+    "Loan_Details": {
+      "Loan_Number": "415997220",
+      "Loan_Amount": "$289,800.00",
+      "Interest_Rate": "NA",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "01-November-2042",
+      "Loan_Type": "Fannie Mae/Freddie Mac",
+      "Loan_Term_End_Date_Normalized": "2042-11-01"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "Mortgage",
+    "Recording_Date_Normalized": "2012-10-10",
+    "Dated_Date_Normalized": "2012-10-01",
+    "Recording_Book_Normalized": "50192",
+    "Recording_Page_Normalized": "979"
+  },
+  "Parties": [
+    {
+      "Name": "Leigh Anne Flore and Thomas R Lincoln",
+      "Relationship_Status": "Wife and husband",
+      "Role": "Borrower",
+      "Mailing_Address": "2150 Sherwood Road, Williamston, MI 48895",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "Fifth Third Mortgage - MI, LLC, Limited Liability Company",
+      "Relationship_Status": "NA",
+      "Role": "Lender",
+      "Mailing_Address": "1850 East Paris, MD ROPS17, Grand Rapids, MI 49546",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "Leigh Anne Flore and Thomas R Lincoln, wife and husband"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "Fifth Third Mortgage - MI, LLC, Limited Liability Company"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "NA",
+      "Property_Address": "43015 Ambridge Ct, Northville, Michigan 48168",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "77-055-02-0011-000"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "Leigh Anne Flore and Thomas R Lincoln",
+          "Relationship_Status": "wife and husband",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "The land is situated in the Township of Northville, County of Oakland, State of Michigan, as follows: Lot 11, Whisperwood Subdivision, recorded in Liber 97, Pages 59, 60 and 61 of Plats, Wayne County Records. Commonly Known As: 43015 Ambridge Ct, Northville Twp, MI 48168 Parcel ID No. 77-055-02-0011-000 BANKERS TITLE SETTLEMENT SERVICES 31440 Northwestern Hwy, Suite 100 Farmington Hills, MI 48334 Ph:248-341-7735 ax:248-341-5052",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "The land is situated in the Township of Northville, County of Oakland, State of Michigan, as follows: Lot 11, Whisperwood Subdivision, recorded in Liber 97, Pages 59, 60 and 61 of Plats, Wayne County Records.",
+      "Legal_Description_Attributes": [
+        {
+          "Unit": "NA",
+          "Lot": "11",
+          "Block": "NA",
+          "Building": "NA",
+          "Phase": "NA",
+          "Map_Name": "Whisperwood Subdivision",
+          "Map_Date": "NA",
+          "Map_Book_Or_Condo_Book": "97",
+          "Map_Page_Or_Condo_Page": "59,60 and 61",
+          "Map_Number": "NA",
+          "Common_Lot_Or_Condo_Lot": "NA",
+          "Plat_Number": "NA",
+          "Parking_Space": "NA",
+          "Garage": "NA",
+          "Boat_Slip": "NA",
+          "Storage_Space": "NA",
+          "Parcel": "NA",
+          "Tract_Number": "NA",
+          "Section": "NA",
+          "Township": "Northville",
+          "Rack": "NA",
+          "City": "NA",
+          "Municipal": "NA",
+          "Range": "NA",
+          "Quarters": "NA",
+          "Share": "NA",
+          "Govt_Tract_Number": "NA",
+          "Govt_Lot_Number": "NA",
+          "Sub_Division_Filing": "NA",
+          "Map_Date_Normalized": "NA",
+          "Map_Book_Normalized": "97",
+          "Map_Page_Normalized": "NA"
+        }
+      ]
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "NA",
+      "Primary_Or_Prior_Document_Date": "NA",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "NA",
+      "Primary_Or_Prior_Page_Number": "NA",
+      "Primary_Or_Prior_Document_Date_Normalized": "NA",
+      "Prior_Book_Normalized": "NA",
+      "Prior_Page_Normalized": "NA"
+    }
+  ]
+}

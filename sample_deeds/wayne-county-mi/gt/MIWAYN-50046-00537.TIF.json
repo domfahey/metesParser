@@ -1,0 +1,190 @@
+{
+  "Header": {
+    "Recording_State": "MICHIGAN",
+    "Recording_County": "WAYNE",
+    "Recording_Book_Number": "50046",
+    "Recording_Page_Number": "537",
+    "Recording_File_Number": "2012325839",
+    "Recording_Date_And_Time": "03-August-2012",
+    "Title_Company_Name": "NA",
+    "Document_Title": "SHERIFFS DEED ON MORTGAGE SALE",
+    "Dated_Date": "19-July-2012",
+    "Sale_Amount": "$10,000.00",
+    "Loan_Details": {
+      "Loan_Number": "NA",
+      "Loan_Amount": "$162,176.93",
+      "Interest_Rate": "5.5%",
+      "Loan_Term": "NA",
+      "Loan_Term_End_Date": "NA",
+      "Loan_Type": "FHA",
+      "Loan_Term_End_Date_Normalized": "NA"
+    },
+    "Type_Of_Financing": "NA",
+    "Case_Number": "NA",
+    "Case_Type": "NA",
+    "Judgement_Details": [
+      {
+        "Judgement_Type": "NA",
+        "Judgement_Entered_Date": "NA",
+        "Judgement_Amount_In_Total": "NA",
+        "Judgement_Amount_Paid": "NA",
+        "Judgement_Amount_Due": "NA",
+        "Judgement_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "Lien_Details": [
+      {
+        "Lien_Type": "NA",
+        "Lien_Entered_Date": "NA",
+        "Lien_Amount_In_Total": "NA",
+        "Lien_Amount_Paid": "NA",
+        "Lien_Amount_Due": "NA",
+        "Lien_Claimant_Details": [
+          {
+            "Lien_Claimant_Name": "NA",
+            "Lien_Claimant_Address": "NA"
+          }
+        ],
+        "Lien_Entered_Date_Normalized": "NA"
+      }
+    ],
+    "MERS_MIN_Number": "NA",
+    "MERS_Phone_Number": "NA",
+    "Tax_Details": [
+      {
+        "Tax_Amount": "NA",
+        "Tax_Payer_Name": "NA",
+        "Tax_Type": "NA"
+      }
+    ],
+    "Document_Type": "SHERIFFS DEED ON MORTGAGE SALE",
+    "Recording_Date_Normalized": "2012-08-03",
+    "Dated_Date_Normalized": "2012-07-19",
+    "Recording_Book_Normalized": "50046",
+    "Recording_Page_Normalized": "537"
+  },
+  "Parties": [
+    {
+      "Name": "La Shana Cooper, a Deputy Sheriff in and for Wayne County, Michigan",
+      "Relationship_Status": "NA",
+      "Role": "Deputy Sheriff",
+      "Mailing_Address": "4747 Woodward Ave, Detroit, Michigan 48201-1307",
+      "Social_Security_Number": "NA"
+    },
+    {
+      "Name": "JPMorgan Chase Bank, National Association",
+      "Relationship_Status": "NA",
+      "Role": "Grantee",
+      "Mailing_Address": "1111 Polaris Pkwy, Columbus, OH 43240-2031",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Frances H. Harris",
+      "Relationship_Status": "Single",
+      "Role": "Original Mortgagor",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": "True"
+    },
+    {
+      "Name": "Mortgage Electronic Registrations Systems, Inc., as nominee for Freedom Mortgage Corporation.",
+      "Relationship_Status": "NA",
+      "Role": "Mortgagee",
+      "Mailing_Address": "NA",
+      "Social_Security_Number": "NA",
+      "isATCustom": true
+    }
+  ],
+  "Vesting": {
+    "Buyer_Or_Borrower_Vesting_Details": [
+      {
+        "Vesting_Details": "JPMorgan Chase Bank, National Association"
+      }
+    ],
+    "Seller_Or_Lender_Vesting_Details": [
+      {
+        "Vesting_Details": "La Shana Cooper, a Deputy Sheriff in and for Wayne County, Michigan"
+      }
+    ]
+  },
+  "Properties": [
+    {
+      "Property_Type": "Residential",
+      "Property_Address": "16506 Bentler St, Detroit, MI 48219-3864",
+      "Assessors_Parcel_Numbers_Or_Parcel_Ids": [
+        {
+          "APN": "Ward 22, Item No. 110623"
+        }
+      ],
+      "Property_Owners": [
+        {
+          "Name": "La Shana Cooper, a Deputy Sheriff in and for Wayne County, Michigan",
+          "Relationship_Status": "NA",
+          "Social_Security_Number": "NA"
+        }
+      ]
+    }
+  ],
+  "Full_Legal_Description": "Lot 13, including 1/2 of the vacated public alley at the rear thereof, Grand River Suburban Subdivision, according to the recorded plat thereof, as recorded in Liber 35 of Plats, Page 16, Wayne County Records.",
+  "Legal_Descriptions": [
+    {
+      "Legal_Description": "Lot 13, including 1/2 of the vacated public alley at the rear thereof, Grand River Suburban Subdivision, according to the recorded plat thereof, as recorded in Liber 35 of Plats, Page 16, Wayne County Records.",
+      "Legal_Description_Attributes": {
+        "Unit": "NA",
+        "Lot": "13",
+        "Block": "NA",
+        "Building": "NA",
+        "Phase": "NA",
+        "Plat_Number": "NA",
+        "Map_Name": "Grand River Suburban",
+        "Map_Number": "NA",
+        "Map_Date": "NA",
+        "Map_Book_Or_Condo_Book": "35",
+        "Map_Page_Or_Condo_Page": "16",
+        "Common_Lot_Or_Condo_Lot": "NA",
+        "Parking_Space": "NA",
+        "Garage": "NA",
+        "Boat_Slip": "NA",
+        "Storage_Space": "NA",
+        "Parcel": "NA",
+        "Tract_Number": "NA",
+        "Section": "NA",
+        "Township": "NA",
+        "Rack": "NA",
+        "City": "NA",
+        "Municipal": "NA",
+        "Range": "NA",
+        "Quarters": "NA",
+        "Share": "NA",
+        "Govt_Tract_Number": "NA",
+        "Govt_Lot_Number": "NA",
+        "Sub_Division": "Grand River Suburban",
+        "Sub_Division_Filing": "NA"
+      }
+    }
+  ],
+  "Primary_Or_Prior_Document_Details": [
+    {
+      "Primary_Or_Prior_Document_Name": "Mortgage",
+      "Primary_Or_Prior_Document_Date": "6-February-2009",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "47718",
+      "Primary_Or_Prior_Page_Number": "515",
+      "Primary_Or_Prior_Document_Date_Normalized": "2009-02-06",
+      "Prior_Book_Normalized": "47718",
+      "Prior_Page_Normalized": "515"
+    },
+    {
+      "Primary_Or_Prior_Document_Name": "Assignment of Mortgage",
+      "Primary_Or_Prior_Document_Date": "20-December-2011",
+      "Primary_Or_Prior_Document_Number": "NA",
+      "Primary_Or_Prior_Book_Number": "49522",
+      "Primary_Or_Prior_Page_Number": "1401",
+      "isATCustom": true,
+      "Primary_Or_Prior_Document_Date_Normalized": "2011-12-20",
+      "Prior_Book_Normalized": "49522",
+      "Prior_Page_Normalized": "1401"
+    }
+  ]
+}
