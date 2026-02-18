@@ -188,6 +188,40 @@ class BearingConverter:
 
         return azimuth % 360.0
 
+    _DUE_CARDINAL_RE = re.compile(
+        r"^\s*due\s+(north|south|east|west|n|s|e|w)\s*$",
+        re.IGNORECASE,
+    )
+
+    _DUE_CARDINAL_MAP: dict[str, float] = {
+        "north": 0.0,
+        "n": 0.0,
+        "south": 180.0,
+        "s": 180.0,
+        "east": 90.0,
+        "e": 90.0,
+        "west": 270.0,
+        "w": 270.0,
+    }
+
+    @classmethod
+    def due_cardinal_to_azimuth(cls, direction: str) -> float | None:
+        """Convert a 'due {cardinal}' direction to azimuth.
+
+        Recognises 'due North', 'due S', 'Due EAST', etc. (case-insensitive).
+        Returns ``None`` when *direction* is not a valid due-cardinal string.
+
+        Args:
+            direction: Direction string, e.g. "due North" or "due W"
+
+        Returns:
+            Azimuth in degrees (0.0, 90.0, 180.0, or 270.0) or None
+        """
+        m = cls._DUE_CARDINAL_RE.match(direction)
+        if m is None:
+            return None
+        return cls._DUE_CARDINAL_MAP[m.group(1).lower()]
+
     @classmethod
     def bearing_to_azimuth(cls, bearing_text: str) -> float | None:
         """Convert a bearing string to azimuth.
@@ -507,6 +541,8 @@ class BearingConverter:
     def enrich_call_with_azimuth(cls, call: DeedCall) -> DeedCall:
         """Add azimuth to a DeedCall if bearing_quadrant is present.
 
+        Also handles 'due {cardinal}' directions.
+
         Args:
             call: DeedCall object
 
@@ -517,5 +553,14 @@ class BearingConverter:
             azimuth = cls.bearing_to_azimuth(call.bearing_quadrant)
             if azimuth is not None:
                 return call.model_copy(update={"bearing_azimuth_deg_from_north": azimuth})
+        elif call.bearing_azimuth_deg_from_north is None and call.direction_text:
+            due_az = cls.due_cardinal_to_azimuth(call.direction_text)
+            if due_az is not None:
+                updates: dict[str, object] = {
+                    "bearing_azimuth_deg_from_north": due_az,
+                }
+                if call.notes and "incomplete" in call.notes:
+                    updates["notes"] = None
+                return call.model_copy(update=updates)
 
         return call

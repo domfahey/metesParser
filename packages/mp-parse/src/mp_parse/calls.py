@@ -17,6 +17,7 @@ from mp_bearing import (
     bearing_to_azimuth,
     calculate_curve_properties,
     degree_of_curvature_to_radius,
+    due_cardinal_to_azimuth,
     parse_packed_dms,
     parse_quadrant_bearing,
     quadrant_to_azimuth,
@@ -230,6 +231,7 @@ def extract_single_call(
     bearing_quadrant = None
     azimuth = None
 
+    is_due_cardinal = False
     parsed_bearing = parse_quadrant_bearing(raw_direction) if raw_direction else None
     if parsed_bearing:
         cardinal1, degrees, cardinal2 = parsed_bearing
@@ -244,8 +246,15 @@ def extract_single_call(
         bearing_quadrant = f"{cardinal1} {deg_int}\u00b0{rounded_minutes:02d}' {cardinal2}"
         azimuth = quadrant_to_azimuth(cardinal1, degrees, cardinal2)
     else:
-        bearing_quadrant = None
-        azimuth = None
+        # Try "due {cardinal}" before giving up
+        due_az = due_cardinal_to_azimuth(raw_direction) if raw_direction else None
+        if due_az is not None:
+            azimuth = due_az
+            is_due_cardinal = True
+            bearing_quadrant = None  # no quadrant form for due-cardinal
+        else:
+            bearing_quadrant = None
+            azimuth = None
 
     distance, unit = extract_distance(call_text)
     if distance == 0:
@@ -282,13 +291,13 @@ def extract_single_call(
 
     notes = ""
     cardinal_only = False
-    if raw_direction and not parsed_bearing:
+    if raw_direction and not parsed_bearing and not is_due_cardinal:
         if _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip()):
             cardinal_only = True
 
     if is_meander or "approximate" in call_text.lower():
         notes = "meander / approximate"
-    elif not parsed_bearing:
+    elif not parsed_bearing and not is_due_cardinal:
         notes = "incomplete bearing - cardinal only" if cardinal_only else "incomplete bearing"
 
     if distance_ft <= 0.0:
@@ -342,7 +351,9 @@ def extract_single_call(
 
     radial_bearing_value = curve_info.get("radial_bearing")
 
-    is_indefinite = is_indefinite_call(direction_text, has_bearing=parsed_bearing is not None)
+    is_indefinite = is_indefinite_call(
+        direction_text, has_bearing=parsed_bearing is not None or is_due_cardinal
+    )
 
     curve_type_value = curve_info.get("curve_type")
     curve_type: CurveType | None = None
@@ -499,12 +510,13 @@ def _audit_single_call(
         )
 
     # --- Flags ---
+    is_due = due_cardinal_to_azimuth(raw_direction) is not None if raw_direction else False
     cardinal_only = False
-    if raw_direction and not call.bearing_quadrant:
+    if raw_direction and not call.bearing_quadrant and not is_due:
         if _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip()):
             cardinal_only = True
 
-    if cardinal_only or (raw_direction and not call.bearing_quadrant):
+    if not is_due and (cardinal_only or (raw_direction and not call.bearing_quadrant)):
         flags.append("incomplete_bearing")
 
     if call.is_indefinite:
@@ -542,6 +554,16 @@ def extract_direction(text: str) -> str:
             rounded_minutes = 0
             deg += 1
         return f"{cardinal1} {deg}\u00b0{rounded_minutes:02d}' {cardinal2}"
+
+    # "due {cardinal}" check -- must come before simple cardinal so "due North"
+    # is captured as the full phrase, not truncated to "north".
+    due_cardinal_match = re.search(
+        r"\bdue\s+(north|south|east|west|N|S|E|W)\b",
+        text,
+        re.IGNORECASE,
+    )
+    if due_cardinal_match:
+        return due_cardinal_match.group(0).lower()
 
     # Compound compass point check (32-point system) -- must come before
     # simple cardinal check so "North by East" is not truncated to "North"
@@ -813,6 +835,8 @@ def mark_tie_in_calls(calls: list[DeedCall], poc_description: str | None) -> lis
 def enrich_calls_with_azimuths(calls: list[DeedCall]) -> list[DeedCall]:
     """Add azimuths to calls that have quadrant bearings but missing azimuths.
 
+    Also resolves 'due {cardinal}' directions that were not yet converted.
+
     Args:
         calls: List of DeedCall objects
 
@@ -825,6 +849,19 @@ def enrich_calls_with_azimuths(calls: list[DeedCall]) -> list[DeedCall]:
             azimuth = bearing_to_azimuth(call.bearing_quadrant)
             if azimuth is not None:
                 enriched.append(call.model_copy(update={"bearing_azimuth_deg_from_north": azimuth}))
+            else:
+                enriched.append(call)
+        elif call.bearing_azimuth_deg_from_north is None and call.direction_text:
+            # Try due-cardinal enrichment for calls missed during initial extraction
+            due_az = due_cardinal_to_azimuth(call.direction_text)
+            if due_az is not None:
+                updates: dict[str, object] = {
+                    "bearing_azimuth_deg_from_north": due_az,
+                }
+                # Clear incomplete-bearing notes if present
+                if call.notes and "incomplete" in call.notes:
+                    updates["notes"] = None
+                enriched.append(call.model_copy(update=updates))
             else:
                 enriched.append(call)
         else:
