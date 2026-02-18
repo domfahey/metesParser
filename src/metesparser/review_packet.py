@@ -141,8 +141,8 @@ def build_call_table(gt: GroundTruth) -> str:
     for call in calls:
         parts.append("<tr>")
         for _, key in _CALL_COLUMNS:
-            val = call.get(key)
-            parts.append(f"<td>{_esc(val)}</td>")
+            call_value = call.get(key)
+            parts.append(f"<td>{_esc(call_value)}</td>")
         parts.append("<td></td>")  # Correct? — blank for reviewer
         parts.append("<td></td>")  # Reviewer Notes — blank for reviewer
         parts.append("</tr>")
@@ -311,15 +311,15 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
     width = max_x - min_x or 1.0
     height = max_y - min_y or 1.0
     pad = max(width, height) * 0.15
-    vb_x = min_x - pad
-    vb_y = min_y - pad
-    vb_w = width + 2 * pad
-    vb_h = height + 2 * pad
+    viewbox_x = min_x - pad
+    viewbox_y = min_y - pad
+    viewbox_width = width + 2 * pad
+    viewbox_height = height + 2 * pad
 
     parts: list[str] = []
     parts.append(
         f"<svg xmlns='http://www.w3.org/2000/svg' "
-        f"viewBox='{vb_x:.2f} {vb_y:.2f} {vb_w:.2f} {vb_h:.2f}' "
+        f"viewBox='{viewbox_x:.2f} {viewbox_y:.2f} {viewbox_width:.2f} {viewbox_height:.2f}' "
         f"width='600' height='500' "
         f"style='background:#fafafa;border:1px solid #dee2e6;border-radius:8px'>"
     )
@@ -331,11 +331,11 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
     path_d += " Z"
     parts.append(
         f"<path d='{path_d}' fill='#e8f4f8' stroke='#2c3e50' "
-        f"stroke-width='{max(vb_w, vb_h) * 0.005:.2f}'/>"
+        f"stroke-width='{max(viewbox_width, viewbox_height) * 0.005:.2f}'/>"
     )
 
     # Course labels at midpoints
-    font_size = max(vb_w, vb_h) * 0.035
+    font_size = max(viewbox_width, viewbox_height) * 0.035
     for i, call in enumerate(plottable):
         mid_x = (points[i][0] + points[i + 1][0]) / 2
         mid_y = (points[i][1] + points[i + 1][1]) / 2
@@ -349,9 +349,9 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
         )
 
     # Point markers
-    r = max(vb_w, vb_h) * 0.008
+    circle_radius = max(viewbox_width, viewbox_height) * 0.008
     for p in points:
-        parts.append(f"<circle cx='{p[0]:.2f}' cy='{p[1]:.2f}' r='{r:.2f}' fill='#e74c3c'/>")
+        parts.append(f"<circle cx='{p[0]:.2f}' cy='{p[1]:.2f}' r='{circle_radius:.2f}' fill='#e74c3c'/>")
 
     # POB label
     parts.append(
@@ -361,17 +361,17 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
     )
 
     # North arrow (top-right corner)
-    na_x = max_x + pad * 0.5
-    na_y = min_y - pad * 0.3
-    arrow_len = max(vb_w, vb_h) * 0.08
+    north_arrow_x = max_x + pad * 0.5
+    north_arrow_y = min_y - pad * 0.3
+    arrow_len = max(viewbox_width, viewbox_height) * 0.08
     parts.append(
-        f"<line x1='{na_x:.2f}' y1='{na_y + arrow_len:.2f}' "
-        f"x2='{na_x:.2f}' y2='{na_y:.2f}' "
-        f"stroke='#333' stroke-width='{max(vb_w, vb_h) * 0.004:.2f}' "
+        f"<line x1='{north_arrow_x:.2f}' y1='{north_arrow_y + arrow_len:.2f}' "
+        f"x2='{north_arrow_x:.2f}' y2='{north_arrow_y:.2f}' "
+        f"stroke='#333' stroke-width='{max(viewbox_width, viewbox_height) * 0.004:.2f}' "
         f"marker-end='url(#arrowhead)'/>"
     )
     parts.append(
-        f"<text x='{na_x:.2f}' y='{na_y - font_size * 0.3:.2f}' "
+        f"<text x='{north_arrow_x:.2f}' y='{north_arrow_y - font_size * 0.3:.2f}' "
         f"font-size='{font_size * 1.2:.1f}' text-anchor='middle' "
         f"fill='#333' font-weight='bold' font-family='sans-serif'>N</text>"
     )
