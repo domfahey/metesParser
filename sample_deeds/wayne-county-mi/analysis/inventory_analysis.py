@@ -18,7 +18,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-GT_DIR = Path("/Users/dfahey/projects/metesParser/sample_deeds/wayne-county-mi/gt")
+GT_DIR = Path(__file__).resolve().parent.parent / "gt"
 OUTPUT_CSV = GT_DIR.parent / "analysis" / "legal_description_inventory.csv"
 
 # --- Detection patterns ---
@@ -285,7 +285,8 @@ def main():
     print("KEY FINDING")
     print("=" * 70)
     mb_count = cat_counts.get("metes_and_bounds", 0)
-    print(f"  {mb_count} of {total} documents ({mb_count/total*100:.1f}%) contain metes & bounds")
+    pct = (mb_count / total * 100) if total > 0 else 0
+    print(f"  {mb_count} of {total} documents ({pct:.1f}%) contain metes & bounds")
     print(f"  legal descriptions with bearings and distances that could be parsed")
     print(f"  by the metesParser pipeline.")
     print()
