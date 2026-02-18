@@ -139,8 +139,8 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 		set -a; . ./.env; set +a; \
 	else \
 		echo "INFO: continuing with current shell environment only"; \
-	fi
-	@provider="$${METESPARSER_LLM_PROVIDER:-openai}"; \
+	fi; \
+	provider="$${METESPARSER_LLM_PROVIDER:-openai}"; \
 	if [ -z "$$provider" ]; then \
 		provider="openai"; \
 	fi; \

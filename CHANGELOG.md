@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Project motivation, design pillars, and WIP notice to README (PR #35)
+
+### Fixed
+- Backfill registry handles 0-call deeds, removed stale 7535-933 manifest (PR #34)
+- Fixed stale test counts, coverage metrics, and outdated references in docs (PR #36)
+- Doctor target now correctly reads `.env` values for API key validation (PR #38)
+
 ## [0.5.0] - 2026-02-16
 
 ### Added
