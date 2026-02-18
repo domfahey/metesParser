@@ -469,7 +469,7 @@ return ClosureResult(..., warnings=warnings)
 ### Optimization Strategies
 
 1. **LLM response caching** - `CachedLLMClient` avoids re-extracting the same PDF
-2. **Batch processing** - Process multiple PDFs in sequence (all 63 samples in ~22s with cache)
+2. **Batch processing** - Process multiple PDFs in sequence (significantly faster with LLM response cache)
 3. **Skip verification** - For quick viewing, don't run all checks
 
 ## Design Decisions
@@ -531,7 +531,7 @@ return ClosureResult(..., warnings=warnings)
 
 For a concrete, request-by-request walkthrough with actual object snapshots from a real sample PDF, see:
 
-- [pennbrook_sample_workflow_diagrams.md](pennbrook_sample_workflow_diagrams.md)
+- [pennbrook_sample_workflow_diagrams.md](archive/pennbrook_sample_workflow_diagrams.md)
 
 ---
 

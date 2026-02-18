@@ -62,11 +62,11 @@ make pre-commit
 ```
 
 This runs:
-- Linting (ruff)
+- Lint auto-fix (ruff)
 - Formatting (ruff)
-- Type checking (mypy)
 - Full test suite
-- (Equivalent to `make check`.)
+
+Use `make check` for the full quality gate (adds type checking with mypy).
 
 ### 4. Commit Changes
 
