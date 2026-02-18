@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+pob_description: A POINT DISTANT N 29°01'15" E 492
+source_doc: MIWAYN-50536-00053.pdf
+distance_unit: feet
