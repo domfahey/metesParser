@@ -83,17 +83,12 @@ uv run python scripts/extract_sample_deeds.py
 # Clone and setup
 git clone <repo-url>
 cd metesParser
-make dev-setup
+make dev-setup    # creates .env from .env.example
 
-# Copy environment template
-cp .env.example .env
-
-# Configure your preferred LLM provider in .env
-echo "METESPARSER_LLM_PROVIDER=openai" >> .env
-echo "OPENAI_API_KEY=sk-..." >> .env
-# or for Gemini:
-# echo "METESPARSER_LLM_PROVIDER=gemini" >> .env
-# echo "GEMINI_API_KEY=..." >> .env
+# Edit .env with your API key and preferred provider
+# METESPARSER_LLM_PROVIDER=openai   (or gemini)
+# OPENAI_API_KEY=sk-...             (required for openai)
+# GEMINI_API_KEY=...                (required for gemini)
 ```
 
 ### Usage
@@ -474,7 +469,6 @@ Based on comprehensive metes & bounds extraction best practices from professiona
 - **[docs/API.md](docs/API.md)** - Python API reference
 - **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Development guidelines
 - **[CLAUDE.md](CLAUDE.md)** - AI assistant context and guidance
-- **[AGENTS.md](AGENTS.md)** - Agent workflow documentation
 - **[docs/METES_AND_BOUNDS_REFERENCE.md](docs/METES_AND_BOUNDS_REFERENCE.md)** - Surveying reference guide
 - **[docs/bugs.md](docs/bugs.md)** - Known issues tracker
 - **[docs/todos.md](docs/todos.md)** - Task tracker
