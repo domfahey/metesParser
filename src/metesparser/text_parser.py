@@ -9,15 +9,12 @@ import re
 from re import Match
 from typing import TYPE_CHECKING, Callable, Literal, TypedDict
 
-from mp_parse import CARDINAL_ONLY_PATTERN
+from mp_parse import CARDINAL_ONLY_PATTERN, COMMA_NUMBER as _COMMA_NUMBER
 
 from .models import ConversionFactors
 
 if TYPE_CHECKING:
     from .models import DeedClause, SubdivisionReference
-
-# Regex fragment for numbers with optional comma grouping (e.g., "1,200" or "3,500.00")
-_COMMA_NUMBER = r"\d[\d,]*(?:\.\d+)?"
 
 # Sentence-boundary markers where the legal description ends and post-description
 # metadata begins.  The pattern requires ". " before the keyword so that phrases
