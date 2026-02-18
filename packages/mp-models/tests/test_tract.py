@@ -1,7 +1,8 @@
 """Tests for Tract model."""
 
 import pytest
-from mp_models import DeedCall, TractType, Tract
+from mp_models import DeedCall, LegalDescription, Tract, TractType
+from pydantic import ValidationError
 
 
 class TestTractType:
@@ -47,15 +48,12 @@ class TestTract:
 
     def test_tract_is_frozen(self):
         tract = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=[])
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             tract.label = "changed"  # type: ignore[misc]
 
     def test_tract_forbids_extra(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             Tract(label="X", tract_type=TractType.MAIN, calls=[], foo="bar")  # type: ignore[call-arg]
-
-
-from mp_models import LegalDescription
 
 
 class TestLegalDescriptionTracts:

@@ -300,9 +300,7 @@ class CSVBuilder:
                 tract_path = output_file.with_stem(f"{output_file.stem}_verified_tract{i}")
                 cls.calls_to_csv(tract.calls, str(tract_path))
                 written_paths.append(tract_path)
-                logger.info(
-                    "Verified tract CSV exported", path=str(tract_path), tract=tract.label
-                )
+                logger.info("Verified tract CSV exported", path=str(tract_path), tract=tract.label)
         else:
             verified_path = output_file.with_stem(output_file.stem + "_verified")
             if legal_desc:

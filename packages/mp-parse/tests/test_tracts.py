@@ -1,7 +1,7 @@
 """Tests for tract splitting logic."""
 
-import pytest
 from mp_models import TractType
+from mp_parse.calls import extract_calls
 from mp_parse.tracts import split_into_tracts
 
 
@@ -75,10 +75,7 @@ class TestMultipleBeginningBlocks:
         assert len(result) == 2
 
     def test_single_beginning_block_no_split(self):
-        text = (
-            "BEGINNING at a point THENCE N 45\u00b000' E 100 feet "
-            "to the POINT OF BEGINNING."
-        )
+        text = "BEGINNING at a point THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
         result = split_into_tracts(text)
         assert len(result) == 1
 
@@ -128,9 +125,6 @@ class TestSingleTract:
         assert isinstance(text_val, str)
         assert isinstance(label, str)
         assert isinstance(tract_type, TractType)
-
-
-from mp_parse.calls import extract_calls
 
 
 class TestExtractCallsMultiTract:

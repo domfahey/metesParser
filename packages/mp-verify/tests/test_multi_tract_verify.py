@@ -67,9 +67,7 @@ class TestVerifyTract:
 class TestVerifyClosureMultiTract:
     def test_multi_tract_returns_list(self):
         t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
-        t2 = Tract(
-            label="Exception 1", tract_type=TractType.EXCEPTION, calls=_square_calls(50.0)
-        )
+        t2 = Tract(label="Exception 1", tract_type=TractType.EXCEPTION, calls=_square_calls(50.0))
         result = verify_closure(_square_calls(100.0), tracts=[t1, t2])
         assert isinstance(result, list)
         assert len(result) == 2

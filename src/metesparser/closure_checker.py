@@ -59,9 +59,7 @@ class ClosureChecker:
         active_calls = [c for c in calls if not c.is_tie_in]
         points = cls.compute_traverse(active_calls)
 
-        computable = sum(
-            1 for c in active_calls if c.bearing_azimuth_deg_from_north is not None
-        )
+        computable = sum(1 for c in active_calls if c.bearing_azimuth_deg_from_north is not None)
         has_computable = computable > 0
 
         misclosure_x = points[-1].x - points[0].x

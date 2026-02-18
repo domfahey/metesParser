@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from mp_models import ClosureResult, DeedCall, Tract, TractType
 from mp_export.csv_writer import export_verified_csv
+from mp_models import ClosureResult, DeedCall, Tract, TractType
 
 
 def _square_calls(size: float = 100.0) -> list[DeedCall]:
@@ -67,9 +67,7 @@ class TestMultiTractExport:
 
     def test_multi_tract_returns_multiple_paths(self, tmp_path: Path):
         t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
-        t2 = Tract(
-            label="Exception 1", tract_type=TractType.EXCEPTION, calls=_square_calls(50.0)
-        )
+        t2 = Tract(label="Exception 1", tract_type=TractType.EXCEPTION, calls=_square_calls(50.0))
         result = export_verified_csv(
             _square_calls(),
             _good_closure(),

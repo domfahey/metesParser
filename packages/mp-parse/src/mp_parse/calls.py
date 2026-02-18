@@ -29,6 +29,7 @@ from mp_models import (
     CurveType,
     Decision,
     DeedCall,
+    Tract,
     Transformation,
 )
 from pydantic import ValidationError
@@ -39,7 +40,6 @@ from .metadata import (
     extract_distance,
     is_closure_to_pob,
     is_indefinite_call,
-    split_exception_clauses,
     split_into_calls,
 )
 from .monuments import (
@@ -146,9 +146,7 @@ def _extract_calls_from_text(
 
     for call_text in call_texts:
         try:
-            call = extract_single_call(
-                call_text, course=course_num, distance_unit=distance_unit
-            )
+            call = extract_single_call(call_text, course=course_num, distance_unit=distance_unit)
         except (ValidationError, ValueError, TypeError) as exc:
             payload = {
                 "course": course_num,
@@ -195,7 +193,7 @@ def extract_calls(
     distance_unit: str = "feet",
     *,
     audit_context: AuditContext | None = None,
-) -> tuple[list[DeedCall], list["Tract"]]:
+) -> tuple[list[DeedCall], list[Tract]]:
     """Extract all calls from normalized legal description text.
 
     Handles multi-tract deeds (TRACT markers, multiple BEGINNINGs,
@@ -213,6 +211,7 @@ def extract_calls(
           per-tract Tract objects with independent call lists.
     """
     from mp_models import Tract, TractType
+
     from .tracts import split_into_tracts
 
     normalized = normalize_legal_description(text)
