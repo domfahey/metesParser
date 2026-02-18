@@ -593,6 +593,175 @@ class TextParser:
     ]
 
     @classmethod
+    def expand_assessor_abbreviations(cls, text: str) -> str:
+        """Expand compressed assessor notation (Wayne County MI and similar).
+
+        Handles patterns like:
+          S0DEG 32M 50S W 401.55FT
+          N 88D 25M 31S E 330.00 FT
+          TH SLY 90 FT ALG ELY LINE
+          89D 05M 3SEC W
+
+        Must run BEFORE standardize_cardinal_directions() so the word-form
+        output ("degrees", "minutes", "seconds") can be converted to DMS
+        symbols by the standard pipeline.
+
+        CRITICAL: 'S' is ambiguous (South vs seconds).  We only treat 'S' as
+        seconds when it appears as a numeric suffix inside a DMS pattern.
+
+        Args:
+            text: Raw legal description text with possible assessor notation
+
+        Returns:
+            Text with assessor abbreviations expanded
+        """
+        if not text:
+            return text
+
+        # --- 1. Fix common OCR typos: NODEG -> N0DEG, NOODEG -> N00DEG -----
+        text = re.sub(
+            r"\b([NS])O(\d*(?:DEG|D))",
+            lambda m: f"{m.group(1)}0{m.group(2)}",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\b([NS])OO(\d*(?:DEG|D))",
+            lambda m: f"{m.group(1)}00{m.group(2)}",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\b([NS])OO(DEG|D)\b",
+            lambda m: f"{m.group(1)}00{m.group(2)}",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            r"\b([NS])O(DEG|D)\b",
+            lambda m: f"{m.group(1)}0{m.group(2)}",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # --- 2. Expand DMS bearing notation (DEG/D, M, S/SEC) --------------
+        # Full DMS with seconds (S or SEC)
+        text = re.sub(
+            r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\s+(\d{1,2}(?:\.\d+)?)\s*(?:SEC|S)\b",
+            r"\1 degrees \2 minutes \3 seconds",
+            text,
+            flags=re.IGNORECASE,
+        )
+        # DM only (no seconds)
+        text = re.sub(
+            r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\b",
+            r"\1 degrees \2 minutes",
+            text,
+            flags=re.IGNORECASE,
+        )
+        # Degrees only (DEG/D without M following)
+        text = re.sub(
+            r"(\d{1,3})\s*(?:DEG|D)\b",
+            r"\1 degrees",
+            text,
+            flags=re.IGNORECASE,
+        )
+        # "deg." -> "degrees"
+        text = re.sub(
+            r"(\d{1,3})\s+deg\.\s",
+            r"\1 degrees ",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # --- 3. Expand number+SEC that wasn't already caught ----------------
+        text = re.sub(
+            r"(\d{1,2}(?:\.\d+)?)\s*SEC\b",
+            r"\1 seconds",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # --- 4. TH / TH. -> thence -----------------------------------------
+        text = re.sub(
+            r"\bTH\.?\s(?!E\b|A\b|I\b|ERE|EN|ROU|AT\b|US\b)",
+            "thence ",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # --- 5. FT suffix -> feet -------------------------------------------
+        text = re.sub(
+            r"(\d+(?:\.\d+)?)\s*FT\b",
+            r"\1 feet",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # --- 6. Directional abbreviations -----------------------------------
+        text = re.sub(r"\bSLY\b", "southerly", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bNLY\b", "northerly", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bELY\b", "easterly", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bWLY\b", "westerly", text, flags=re.IGNORECASE)
+
+        # --- 7. POB variants -> point of beginning --------------------------
+        text = re.sub(r"\bP\.O\.B\.", "point of beginning", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bP\s+OB\b", "point of beginning", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bPOB\b", "point of beginning", text, flags=re.IGNORECASE)
+
+        # --- 8. Misc abbreviations ------------------------------------------
+        text = re.sub(r"\bALG\b", "along", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bCOR\b", "corner", text, flags=re.IGNORECASE)
+        text = re.sub(r"\bBEG\b", "beginning", text, flags=re.IGNORECASE)
+
+        # --- 9. `&` / `and` as call separators -> thence --------------------
+        # Between bearings: "113.41 feet & N 69° 53' 23\" E" or
+        # "49.18 feet and N 48° 03' 44\" E".  Replace `&` or `and` with
+        # `thence` when followed by a bearing pattern ([NS] <digits>°).
+        text = re.sub(
+            r"(?<=\S)\s+(?:&|and)\s+(?=[NS]\s*\d{1,3}\s*°)",
+            " thence ",
+            text,
+            flags=re.IGNORECASE,
+        )
+
+        # --- 10. Bare cardinal + distance -> due Cardinal + distance --------
+        # "thence S 289.81 feet" -> "thence due South 289.81 feet"
+        # Only match single cardinal letters (N/S/E/W) or full words
+        # (North/South/East/West) followed by a number, NOT followed by
+        # degree notation (°, degrees, DEG).
+        _CARDINAL_MAP = {"n": "North", "s": "South", "e": "East", "w": "West",
+                         "north": "North", "south": "South", "east": "East", "west": "West"}
+
+        _BARE_CARDINAL_RE = re.compile(
+            r"(\b(?:thence|proceeding)\s+)"           # group 1: anchor
+            r"(N|S|E|W|North|South|East|West)"         # group 2: bare cardinal
+            r"(\s+)"                                   # group 3: whitespace
+            r"(\d+\.?\d*)",                            # group 4: distance number
+            re.IGNORECASE,
+        )
+
+        _DEGREE_AFTER_NUMBER = re.compile(
+            r"\s*(?:°|degrees?|DEG\b)",
+            re.IGNORECASE,
+        )
+
+        def _bare_cardinal_replace(m: Match[str]) -> str:
+            after_pos = m.end()
+            after_text = m.string[after_pos : after_pos + 20]
+            if _DEGREE_AFTER_NUMBER.match(after_text):
+                return m.group(0)  # no change -- quadrant bearing
+            prefix = m.group(1)
+            cardinal = m.group(2)
+            number = m.group(4)
+            full_name = _CARDINAL_MAP[cardinal.lower()]
+            return f"{prefix}due {full_name} {number}"
+
+        text = _BARE_CARDINAL_RE.sub(_bare_cardinal_replace, text)
+
+        return text
+
+    @classmethod
     def expand_abbreviations(cls, text: str) -> str:
         """Expand common survey abbreviations.
 
@@ -618,11 +787,39 @@ class TextParser:
         """
         text = cls.clean_ocr_errors(text)
         text = cls.normalize_dms_symbols(text)
+        text = cls.expand_assessor_abbreviations(text)
         text = cls.merge_line_wrapped_calls(text)
         text = cls.standardize_cardinal_directions(text)
         text = cls.expand_abbreviations(text)
 
         return text
+
+    @staticmethod
+    def _is_lot_qualifier_except(text: str, match: re.Match[str]) -> bool:
+        """Check if an EXCEPT match is a lot-qualifier rather than structural.
+
+        Lot qualifiers describe a portion of a lot being excluded from the lot
+        reference itself (e.g. "except the South 43.65 feet of said Lot").
+        They are NOT structural exception clauses that introduce a separately
+        described parcel.
+        """
+        matched_text = match.group(0)
+        if re.search(r"LESS\s+AND", matched_text, re.IGNORECASE):
+            return False
+        if re.search(r"ING$", matched_text, re.IGNORECASE):
+            return False
+
+        after = text[match.end():]
+        lot_qualifier_pattern = re.compile(
+            r"^\s+the\s+"
+            r"(?:North|South|East|West|Northerly|Southerly|Easterly|Westerly)"
+            r"(?:erly|wardly)?"
+            r"\s+\d+(?:\.\d+)?"
+            r"\s+(?:feet|foot|ft|poles?|rods?|chains?|links?|varas?|meters?)"
+            r"\s+(?:of\b|in\b|thereof\b)",
+            re.IGNORECASE,
+        )
+        return bool(lot_qualifier_pattern.match(after))
 
     @classmethod
     def split_exception_clauses(cls, text: str) -> list[tuple[str, bool]]:
@@ -638,6 +835,8 @@ class TextParser:
         splits: list[tuple[int, int, bool]] = []
 
         for match in re.finditer(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", text, re.IGNORECASE):
+            if cls._is_lot_qualifier_except(text, match):
+                continue
             splits.append((match.start(), match.end(), True))
 
         for match in re.finditer(r"(?:^|[;\n.])\s*(ALSO|INCLUDING)\b", text, re.IGNORECASE):
