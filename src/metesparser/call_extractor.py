@@ -90,6 +90,7 @@ def _is_debug_logging_enabled() -> bool:
 class MonumentClassifier:
     """Classify survey monument types from text descriptions."""
 
+    # Keep original list for backward compatibility and external consumers
     MONUMENT_PATTERNS: list[tuple[str, MonumentType]] = [
         (r"\btxdot\b.*\bmonument\b", "txdot_monument"),
         (r"\bcapped\s+(?:iron\s+)?rod\b", "capped_rod"),
@@ -133,9 +134,105 @@ class MonumentClassifier:
         (r"\b(?:ridge|bluff|cliff|shoreline|lakeshore|shore)\b", "natural_feature"),
     ]
 
+    MONUMENT_STATUS_PATTERNS: list[tuple[str, MonumentStatus]] = [
+        (r"\bfd\b", "found"),
+        (r"\bfnd\b", "found"),
+        (r"\bfound\b", "found"),
+        (r"\bset\b", "set"),
+        (r"\bplaced\b", "set"),
+    ]
+
+    # Performance optimization: Compile monument patterns into single regex
+    _MONUMENT_TYPE_MAP: dict[str, MonumentType] = {
+        "txdot": "txdot_monument",
+        "capped_rod": "capped_rod",
+        "capped_pin": "capped_pin",
+        "capped_rebar": "capped_rod",
+        "iron_rod": "iron_rod",
+        "iron_pin": "iron_pin",
+        "iron_pipe": "iron_pipe",
+        "iron_stake": "iron_rod",
+        "iron_monument": "iron_rod",
+        "rebar": "rebar",
+        "pk_nail": "pk_nail",
+        "mag_nail": "nail",
+        "nail": "nail",
+        "hub_tack": "hub_and_tack",
+        "monitoring_well": "monitoring_well",
+        "railroad_spike": "railroad_spike",
+        "gin_spike": "railroad_spike",
+        "stone_monument": "stone",
+        "stone": "stone",
+        "concrete_monument": "concrete",
+        "concrete": "concrete",
+        "brass_cap": "brass_cap",
+        "wooden_post": "wooden_post",
+        "hedge_post": "wooden_post",
+        "wood_stake": "wooden_post",
+        "landscaping": "iron_rod",
+        "tree_species": "tree",
+        "tree": "tree",
+        "boulder": "rock",
+        "rock_outcrop": "rock",
+        "standing_rock": "rock",
+        "large_rock": "rock",
+        "water_feature": "natural_feature",
+        "terrain_feature": "natural_feature",
+    }
+
+    # Build combined regex with named groups (order matters for specificity)
+    _COMBINED_MONUMENT_PATTERN = re.compile(
+        r"(?:"
+        r"(?P<txdot>\btxdot\b.*\bmonument\b)|"
+        r"(?P<capped_rod>\bcapped\s+(?:iron\s+)?rod\b)|"
+        r"(?P<capped_pin>\bcapped\s+(?:iron\s+)?pin\b)|"
+        r"(?P<capped_rebar>\bcapped\s+rebar\b)|"
+        r"(?P<iron_rod>\biron\s+rod\b)|"
+        r"(?P<iron_pin>\biron\s+pin\b)|"
+        r"(?P<iron_pipe>\biron\s+pipe\b)|"
+        r"(?P<iron_stake>\biron\s+stake\b)|"
+        r"(?P<iron_monument>\biron\s+monument\b)|"
+        r"(?P<rebar>\brebar\b)|"
+        r"(?P<pk_nail>\bpk\s+nail\b)|"
+        r"(?P<mag_nail>\b(?:mag|magnetic)\s+nail\b)|"
+        r"(?P<nail>\bnail\b)|"
+        r"(?P<hub_tack>\bhub\s+(?:and|&)\s+tack\b)|"
+        r"(?P<monitoring_well>\bmonitoring\s+well\b)|"
+        r"(?P<railroad_spike>\brailroad\s+(?:spike|tie)\b)|"
+        r"(?P<gin_spike>\bgin\s+(?:spike|pole)\b)|"
+        r"(?P<stone_monument>\bstone\s+monument\b)|"
+        r"(?P<stone>\bstone\b)|"
+        r"(?P<concrete_monument>\bconcrete\s+monument\b)|"
+        r"(?P<concrete>\bconcrete\b)|"
+        r"(?P<brass_cap>\bbrass\s+(?:cap|marker|monument)\b)|"
+        r"(?P<wooden_post>\bwooden\s+(?:post|stake)\b)|"
+        r"(?P<hedge_post>\bhedge\s+post\b)|"
+        r"(?P<wood_stake>\bwood\s+stake\b)|"
+        r"(?P<landscaping>\blandscap(?:e|ing)\s+(?:rod|pin)\b)|"
+        r"(?P<tree_species>\b(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)\b)|"
+        r"(?P<tree>\btree\b)|"
+        r"(?P<boulder>\bboulder\b)|"
+        r"(?P<rock_outcrop>\brock\s+outcrop\b)|"
+        r"(?P<standing_rock>\bstanding\s+rock\b)|"
+        r"(?P<large_rock>\blarge\s+rock\b)|"
+        r"(?P<water_feature>\b(?:stream|creek|river|brook|branch|run)\b)|"
+        r"(?P<terrain_feature>\b(?:ridge|bluff|cliff|shoreline|lakeshore|shore)\b)"
+        r")",
+        re.IGNORECASE,
+    )
+
+    _FALLBACK_MONUMENT_PATTERN = re.compile(r"\bmonument\b", re.IGNORECASE)
+
+    _COMBINED_STATUS_PATTERN = re.compile(
+        r"(?:\b(?:fd|fnd|found)\b)|(?:\b(?:set|placed)\b)", re.IGNORECASE
+    )
+
     @classmethod
     def classify_monument(cls, text: str) -> MonumentType | None:
         """Classify monument type from text description.
+
+        Optimized with single compiled regex for all patterns.
+        Patterns are specificity-ordered via named groups.
 
         Args:
             text: Text description (typically from 'to' field)
@@ -148,33 +245,41 @@ class MonumentClassifier:
 
         text_lower = text.lower()
 
-        for pattern, monument_type in cls.MONUMENT_PATTERNS:
-            if re.search(pattern, text_lower):
-                return monument_type
+        # Single regex match for all monument patterns
+        match = cls._COMBINED_MONUMENT_PATTERN.search(text_lower)
+        if match:
+            # Find which named group matched (first one wins due to alternation order)
+            for group_name, group_value in match.groupdict().items():
+                if group_value is not None:
+                    return cls._MONUMENT_TYPE_MAP[group_name]
 
-        if re.search(r"\bmonument\b", text_lower):
+        # Fallback for generic "monument"
+        if cls._FALLBACK_MONUMENT_PATTERN.search(text_lower):
             return "other"
 
         return None
 
-    MONUMENT_STATUS_PATTERNS: list[tuple[str, MonumentStatus]] = [
-        (r"\bfd\b", "found"),
-        (r"\bfnd\b", "found"),
-        (r"\bfound\b", "found"),
-        (r"\bset\b", "set"),
-        (r"\bplaced\b", "set"),
-    ]
-
     @classmethod
     def classify_monument_status(cls, text: str | None) -> MonumentStatus | None:
-        """Classify whether monument status indicates found or set."""
+        """Classify whether monument status indicates found or set.
+
+        Optimized with single compiled regex pattern.
+        """
         if not text:
             return None
 
         text_lower = text.lower()
-        for pattern, status in cls.MONUMENT_STATUS_PATTERNS:
-            if re.search(pattern, text_lower):
-                return status
+        match = cls._COMBINED_STATUS_PATTERN.search(text_lower)
+        if not match:
+            return None
+
+        matched_text = match.group(0).lower()
+        # Check for "found" keywords first
+        if matched_text in ("fd", "fnd", "found"):
+            return "found"
+        # Check for "set" keywords
+        if matched_text in ("set", "placed"):
+            return "set"
 
         return None
 
