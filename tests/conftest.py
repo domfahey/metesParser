@@ -5,8 +5,8 @@ from __future__ import annotations
 import sys
 
 import pytest
+from mp_models import configure_logging
 
-from metesparser.logging_config import configure_logging
 from metesparser.models import DeedCall
 
 
