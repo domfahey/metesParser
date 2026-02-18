@@ -233,6 +233,14 @@ def extract_calls(
             segment_text, distance_unit, audit_context=audit_context, course_start=1
         )
 
+        if not tract_calls:
+            logger.warning(
+                "Empty tract after extraction",
+                tract_label=label,
+                tract_type=tract_type.value,
+                segment_length=len(segment_text),
+            )
+
         if tract_type == TractType.EXCEPTION:
             tract_calls = [c.model_copy(update={"is_exception": True}) for c in tract_calls]
 

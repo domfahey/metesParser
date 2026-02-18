@@ -279,7 +279,15 @@ def export_verified_csv(
     written_paths: list[Path] = []
 
     if tract_results:
-        for i, (tract, _tract_result) in enumerate(tract_results, start=1):
+        for i, (tract, tract_result) in enumerate(tract_results, start=1):
+            if not tract_result.is_fully_verified():
+                logger.warning(
+                    "Skipping unverified tract",
+                    tract=tract.label,
+                    misclosure_ft=tract_result.misclosure_ft,
+                    warnings_count=len(tract_result.warnings),
+                )
+                continue
             tract_path = output_file.with_stem(f"{output_file.stem}_verified_tract{i}")
             calls_to_csv(tract.calls, str(tract_path))
             written_paths.append(tract_path)

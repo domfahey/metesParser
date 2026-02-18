@@ -460,12 +460,12 @@ class LegalDescription(_Model):
         return self
 
     def num_calls(self) -> int:
-        """Return number of calls."""
-        return len(self.calls)
+        """Return number of calls (uses all_calls for multi-tract deeds)."""
+        return len(self.all_calls)
 
     def has_incomplete_calls(self) -> bool:
-        """Check if any calls have incomplete bearings."""
-        return any(not call.is_complete_bearing() for call in self.calls)
+        """Check if any calls have incomplete bearings (uses all_calls for multi-tract)."""
+        return any(not call.is_complete_bearing() for call in self.all_calls)
 
     @property
     def all_calls(self) -> list[DeedCall]:
@@ -565,7 +565,9 @@ class TractType(str, Enum):
 class Tract(_Model):
     """A single tract in a multi-tract deed."""
 
-    label: str = Field(..., description="Tract label (e.g., 'Tract 1', 'Exception 1')")
+    label: str = Field(
+        ..., min_length=1, description="Tract label (e.g., 'Tract 1', 'Exception 1')"
+    )
     tract_type: TractType = Field(..., description="Type of tract")
     calls: list[DeedCall] = Field(default_factory=list, description="Calls for this tract")
     pob_description: str | None = Field(default=None, description="POB for this tract")

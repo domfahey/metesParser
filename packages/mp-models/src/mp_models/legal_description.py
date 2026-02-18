@@ -130,12 +130,12 @@ class LegalDescription(_Model):
         return self
 
     def num_calls(self) -> int:
-        """Return number of calls."""
-        return len(self.calls)
+        """Return number of calls (uses all_calls for multi-tract deeds)."""
+        return len(self.all_calls)
 
     def has_incomplete_calls(self) -> bool:
-        """Check if any calls have incomplete bearings."""
-        return any(not call.is_complete_bearing() for call in self.calls)
+        """Check if any calls have incomplete bearings (uses all_calls for multi-tract)."""
+        return any(not call.is_complete_bearing() for call in self.all_calls)
 
     @property
     def all_calls(self) -> list[DeedCall]:

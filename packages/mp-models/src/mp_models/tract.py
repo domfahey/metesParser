@@ -21,7 +21,7 @@ class TractType(str, Enum):
 class Tract(_Model):
     """A single tract within a multi-tract deed."""
 
-    label: str = Field(..., description="Tract label (e.g., 'Tract 1', 'Exception 1')")
+    label: str = Field(..., min_length=1, description="Tract label (e.g., 'Tract 1', 'Exception 1')")
     tract_type: TractType = Field(..., description="Type of tract")
     calls: list[DeedCall] = Field(default_factory=list, description="Calls for this tract")
     pob_description: str | None = Field(default=None, description="POB for this tract")

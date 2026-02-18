@@ -63,6 +63,18 @@ class TestVerifyTract:
         assert result.confidence_score is not None
         assert result.confidence_score > 0.0
 
+    def test_verify_tract_zero_calls_fails(self):
+        result = verify_tract([])
+        assert not result.closure_passed
+        assert result.area_sq_ft == 0.0
+        assert any("minimum 3" in w for w in result.warnings)
+
+    def test_verify_tract_two_calls_fails(self):
+        calls = _square_calls()[:2]
+        result = verify_tract(calls)
+        assert not result.closure_passed
+        assert any("minimum 3" in w for w in result.warnings)
+
 
 class TestVerifyClosureMultiTract:
     def test_multi_tract_returns_list(self):

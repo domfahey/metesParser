@@ -101,3 +101,28 @@ class TestMultiTractExport:
         # Just verify no exception - callers that don't capture return are fine
         verified = tmp_path / "deed_verified.csv"
         assert verified.exists()
+
+    def test_failed_tract_skipped(self, tmp_path: Path):
+        """Tracts that fail verification are NOT exported."""
+        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
+        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square_calls(50.0))
+        bad_closure = ClosureResult(
+            misclosure_x_ft=5.0,
+            misclosure_y_ft=5.0,
+            misclosure_ft=7.07,
+            area_sq_ft=2500.0,
+            area_acres=2500.0 / 43560.0,
+            perimeter_ft=200.0,
+            closure_passed=False,
+            angle_check_passed=True,
+            curve_consistency_passed=True,
+            warnings=["Closure failed"],
+        )
+        result = export_verified_csv(
+            _square_calls(),
+            _good_closure(),
+            str(tmp_path / "deed.csv"),
+            tract_results=[(t1, _good_closure(10000)), (t2, bad_closure)],
+        )
+        assert len(result) == 1
+        assert "tract1" in result[0].stem

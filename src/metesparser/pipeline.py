@@ -25,15 +25,26 @@ class Pipeline:
         self.cache = cache
         self.audit = audit
 
-    def run(self, pdf_path: Path) -> ClosureResult | tuple[ClosureResult, AuditContext]:
+    def run(
+        self, pdf_path: Path
+    ) -> (
+        ClosureResult
+        | list[ClosureResult]
+        | tuple[ClosureResult, AuditContext]
+        | tuple[list[ClosureResult], AuditContext]
+    ):
         """Run the full pipeline on a PDF.
 
         Args:
             pdf_path: Path to the deed PDF file.
 
         Returns:
-            ClosureResult when audit=False, or
-            (ClosureResult, AuditContext) tuple when audit=True.
+            For single-tract deeds:
+                ClosureResult when audit=False
+                (ClosureResult, AuditContext) when audit=True
+            For multi-tract deeds:
+                list[ClosureResult] when audit=False
+                (list[ClosureResult], AuditContext) when audit=True
         """
         processor = PDFProcessor(provider=self.provider, cache=self.cache)
         result = processor.process_deed_pdf(str(pdf_path), audit=self.audit)

@@ -81,7 +81,15 @@ class TestLegalDescriptionTracts:
         ld = LegalDescription(calls=[c1], tracts=[t1])
         assert ld.all_calls == [c2]
 
-    def test_num_calls_still_uses_calls_field(self):
+    def test_num_calls_with_flat_calls(self):
         c1 = DeedCall(course=1, direction_text="N 45\u00b000' E", distance_ft=100.0)
         ld = LegalDescription(calls=[c1])
         assert ld.num_calls() == 1
+
+    def test_num_calls_with_tracts(self):
+        c1 = DeedCall(course=1, direction_text="N 45\u00b000' E", distance_ft=100.0)
+        c2 = DeedCall(course=2, direction_text="S 45\u00b000' E", distance_ft=200.0)
+        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=[c1])
+        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=[c2])
+        ld = LegalDescription(tracts=[t1, t2])
+        assert ld.num_calls() == 2

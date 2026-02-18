@@ -126,6 +126,42 @@ class TestSingleTract:
         assert isinstance(label, str)
         assert isinstance(tract_type, TractType)
 
+    def test_tract_or_parcel_of_land_no_false_split(self):
+        """Common preamble 'TRACT OR PARCEL OF LAND' must NOT trigger splitting."""
+        text = (
+            "ALL THAT CERTAIN TRACT OR PARCEL OF LAND SITUATE IN THE TOWNSHIP "
+            "BEGINNING at an iron pin THENCE N 45\u00b000' E 100 feet; "
+            "THENCE S 45\u00b000' E 100 feet; "
+            "THENCE S 45\u00b000' W 100 feet; "
+            "THENCE N 45\u00b000' W 100 feet to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 1
+
+    def test_being_all_that_tract_no_false_split(self):
+        """Preamble 'BEING ALL THAT TRACT' must NOT trigger splitting."""
+        text = (
+            "BEING ALL THAT TRACT IN THE TOWNSHIP "
+            "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 1
+
+
+class TestSplitOnMarkersExceptDetection:
+    """split_on_markers assigns correct TractType from preceding text."""
+
+    def test_except_preceding_marker_gets_exception_type(self):
+        text = (
+            "TRACT 1: BEGINNING at a point... THENCE N 45\u00b000' E 100 feet "
+            "to the POINT OF BEGINNING. "
+            "EXCEPT TRACT 2: BEGINNING at a point... THENCE S 45\u00b000' E 200 feet "
+            "to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 2
+        assert result[1][2] == TractType.EXCEPTION
+
 
 class TestExtractCallsMultiTract:
     """extract_calls returns Tract objects when multi-tract patterns detected."""

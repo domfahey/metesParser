@@ -10,19 +10,29 @@ from __future__ import annotations
 
 import re
 
+import structlog
+
 from mp_models import TractType
 
 from .metadata import split_exception_clauses
 
-# TRACT #1, TRACT 1, TRACT A, TRACT ONE (with optional colon/dash)
+logger = structlog.get_logger(__name__)
+
+# Common words that follow TRACT/PARCEL in deed preambles — NOT tract identifiers
+_COMMON_WORDS = r"(?!OF\b|OR\b|AND\b|IN\b|ON\b|AT\b|TO\b|THE\b|BEING\b|LAND\b)"
+
+# TRACT #1, TRACT 1, TRACT A (numbers, single letters, Roman numerals)
+# Negative lookahead prevents matching "TRACT OR PARCEL OF LAND" etc.
 _TRACT_MARKER = re.compile(
-    r"\bTRACT\s+(?:#\s*)?([A-Z0-9]+)\s*[:.\-\u2014]?\s*",
+    r"\bTRACT\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[A-Z]|[IVX]+)"
+    r"\s*[:.\-\u2014]?\s*",
     re.IGNORECASE,
 )
 
-# PARCEL 1, PARCEL A (with optional colon/dash)
+# PARCEL 1, PARCEL A (same constraints as TRACT)
 _PARCEL_MARKER = re.compile(
-    r"\bPARCEL\s+(?:#\s*)?([A-Z0-9]+)\s*[:.\-\u2014]?\s*",
+    r"\bPARCEL\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[A-Z]|[IVX]+)"
+    r"\s*[:.\-\u2014]?\s*",
     re.IGNORECASE,
 )
 
@@ -59,12 +69,26 @@ def split_on_markers(
     text: str,
     markers: list[tuple[int, str, str]],
 ) -> list[tuple[str, str, TractType]]:
-    """Split text on explicit markers."""
+    """Split text on explicit markers.
+
+    Inspects text preceding each marker to detect EXCEPT/ALSO keywords
+    and assign the correct TractType.
+    """
     result: list[tuple[str, str, TractType]] = []
     for i, (pos, label, _kind) in enumerate(markers):
         end = markers[i + 1][0] if i + 1 < len(markers) else len(text)
         segment = text[pos:end].strip()
-        result.append((segment, label, TractType.MAIN))
+
+        # Check preceding text for EXCEPT/ALSO to assign correct TractType
+        preceding = text[max(0, pos - 80) : pos]
+        if re.search(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", preceding, re.IGNORECASE):
+            tract_type = TractType.EXCEPTION
+        elif re.search(r"\b(?:ALSO|INCLUDING)\b", preceding, re.IGNORECASE):
+            tract_type = TractType.ADDITION
+        else:
+            tract_type = TractType.MAIN
+
+        result.append((segment, label, tract_type))
     return result
 
 
@@ -77,11 +101,34 @@ def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
     for m in _BEGINNING_PATTERN.finditer(text):
         # Look for matching POB closure after this BEGINNING
         close = _POB_CLOSE_PATTERN.search(text, m.end())
-        if close:
-            # Verify this block has at least one THENCE
-            block_text = text[m.start() : close.end()]
-            if re.search(r"\bTHENCE\b", block_text, re.IGNORECASE):
-                blocks.append((m.start(), close.end()))
+        if not close:
+            logger.debug(
+                "BEGINNING block without matching POB closure",
+                position=m.start(),
+                preview=text[m.start() : m.start() + 80],
+            )
+            continue
+
+        # Ensure no intervening BEGINNING between this one and its POB
+        intervening = _BEGINNING_PATTERN.search(text[m.end() : close.start()])
+        if intervening:
+            logger.debug(
+                "BEGINNING block has intervening BEGINNING before POB",
+                position=m.start(),
+            )
+            continue
+
+        # Verify this block has at least one THENCE
+        block_text = text[m.start() : close.end()]
+        if not re.search(r"\bTHENCE\b", block_text, re.IGNORECASE):
+            logger.debug(
+                "BEGINNING block without THENCE calls",
+                position=m.start(),
+                preview=block_text[:80],
+            )
+            continue
+
+        blocks.append((m.start(), close.end()))
     return blocks
 
 
@@ -158,5 +205,12 @@ def split_into_tracts(text: str) -> list[tuple[str, str, TractType]]:
                 result.append((clause_text, f"Tract {main_idx}", TractType.MAIN))
         return result
 
-    # Single tract — pass through
+    # Single tract — pass through (log if multiple BEGINNINGs detected but unmatched)
+    beginning_count = len(re.findall(r"\bBEGINNING\b", text, re.IGNORECASE))
+    if beginning_count > 1:
+        logger.warning(
+            "Single-tract fallback with multiple BEGINNING keywords",
+            beginning_count=beginning_count,
+            text_length=len(text),
+        )
     return [(text, "Tract 1", TractType.MAIN)]
