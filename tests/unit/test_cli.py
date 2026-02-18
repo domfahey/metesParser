@@ -7,9 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 import structlog
+from mp_models import configure_logging
 
 from metesparser import cli
-from metesparser.logging_config import configure_logging
 from metesparser.models import ClosureResult, DeedCall, LegalDescription, Point
 
 pytestmark = pytest.mark.usefixtures("isolate_logging_state")
