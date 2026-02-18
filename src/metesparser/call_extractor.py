@@ -297,6 +297,7 @@ class CallExtractor:
         bearing_quadrant = None
         azimuth = None
 
+        is_due_cardinal = False
         parsed_bearing = (
             BearingConverter.parse_quadrant_bearing(raw_direction) if raw_direction else None
         )
@@ -313,8 +314,17 @@ class CallExtractor:
             bearing_quadrant = f"{cardinal1} {deg_int}°{rounded_minutes:02d}' {cardinal2}"
             azimuth = BearingConverter.quadrant_to_azimuth(cardinal1, degrees, cardinal2)
         else:
-            bearing_quadrant = None
-            azimuth = None
+            # Try "due {cardinal}" before giving up
+            due_az = (
+                BearingConverter.due_cardinal_to_azimuth(raw_direction) if raw_direction else None
+            )
+            if due_az is not None:
+                azimuth = due_az
+                is_due_cardinal = True
+                bearing_quadrant = None
+            else:
+                bearing_quadrant = None
+                azimuth = None
 
         distance, unit = TextParser.extract_distance(call_text)
         if distance == 0:
@@ -351,13 +361,13 @@ class CallExtractor:
 
         notes = ""
         cardinal_only = False
-        if raw_direction and not parsed_bearing:
+        if raw_direction and not parsed_bearing and not is_due_cardinal:
             if _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip()):
                 cardinal_only = True
 
         if is_meander or "approximate" in call_text.lower():
             notes = "meander / approximate"
-        elif not parsed_bearing:
+        elif not parsed_bearing and not is_due_cardinal:
             notes = "incomplete bearing - cardinal only" if cardinal_only else "incomplete bearing"
 
         if distance_ft <= 0.0:
@@ -414,7 +424,7 @@ class CallExtractor:
         radial_bearing_value = curve_info.get("radial_bearing")
 
         is_indefinite = TextParser.is_indefinite_call(
-            direction_text, has_bearing=parsed_bearing is not None
+            direction_text, has_bearing=parsed_bearing is not None or is_due_cardinal
         )
 
         curve_type_value = curve_info.get("curve_type")
@@ -575,12 +585,17 @@ class CallExtractor:
             )
 
         # --- Flags ---
+        is_due = (
+            BearingConverter.due_cardinal_to_azimuth(raw_direction) is not None
+            if raw_direction
+            else False
+        )
         cardinal_only = False
-        if raw_direction and not call.bearing_quadrant:
+        if raw_direction and not call.bearing_quadrant and not is_due:
             if _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip()):
                 cardinal_only = True
 
-        if cardinal_only or (raw_direction and not call.bearing_quadrant):
+        if not is_due and (cardinal_only or (raw_direction and not call.bearing_quadrant)):
             flags.append("incomplete_bearing")
 
         if call.is_indefinite:
@@ -623,6 +638,16 @@ class CallExtractor:
                 rounded_minutes = 0
                 deg += 1
             return f"{cardinal1} {deg}°{rounded_minutes:02d}' {cardinal2}"
+
+        # "due {cardinal}" check -- must come before simple cardinal so "due North"
+        # is captured as the full phrase, not truncated to "north".
+        due_cardinal_match = re.search(
+            r"\bdue\s+(north|south|east|west|N|S|E|W)\b",
+            text,
+            re.IGNORECASE,
+        )
+        if due_cardinal_match:
+            return due_cardinal_match.group(0).lower()
 
         # Compound compass point check (32-point system) — must come before
         # simple cardinal check so "North by East" is not truncated to "North"

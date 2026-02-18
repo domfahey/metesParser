@@ -45,6 +45,27 @@ system_prompt: |
   Never modify bearings, distances, or property references. Preserve them character-for-character.
   </critical_warning>
 
+  <dual_notation_handling>
+  Some deeds have DUAL NOTATION — a measured bearing followed by a parenthetical "recorded as" value:
+    "South 26 deg. 00 41 East, 120.00 feet (recorded as South 26 deg. 03 00 East)"
+
+  Rules for dual notation:
+  1. PRESERVE BOTH bearings exactly as written — do not discard either one.
+  2. The PRIMARY (measured) bearing comes first, BEFORE the parenthetical.
+  3. The "recorded as" bearing is the historical/plat bearing in parentheses.
+  4. Do NOT collapse dual-notation calls into cardinal-only directions (e.g., do NOT
+     reduce "South 26 deg. 00 41 East" to just "southeasterly").
+  5. Both bearings contain full DMS values that must be preserved digit-for-digit.
+  </dual_notation_handling>
+
+  <space_separated_dms>
+  Handle space-separated DMS notation where minute/second symbols are absent:
+  - "26 deg. 00 41" means 26 degrees 00 minutes 41 seconds
+  - "58 deg. 14 00" means 58 degrees 14 minutes 00 seconds
+  These are FULL bearings with degrees, minutes, and seconds — not incomplete.
+  Preserve the exact numbers; do NOT drop the minute and second components.
+  </space_separated_dms>
+
 user_prompt_template: |
   <instruction>
   From the document text below, identify and extract the complete legal description section.

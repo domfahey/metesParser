@@ -212,6 +212,18 @@ def verify_closure(
     perimeter = calculate_perimeter(main_calls)
 
     closure_passed = has_computable_traverse and misclosure < tolerance
+
+    # Warn when closure only passes because of a relaxed tolerance
+    if (
+        closure_passed
+        and tolerance > CLOSURE_TOLERANCE_FT
+        and misclosure >= CLOSURE_TOLERANCE_FT
+    ):
+        warnings.append(
+            f"Closure passes with relaxed tolerance "
+            f"({misclosure:.4f} ft misclosure vs {tolerance:.4f} ft threshold)"
+        )
+
     angle_check_passed = check_interior_angles(main_calls, points)
     curve_consistency_passed_val, curve_warnings = check_curve_consistency(main_calls)
     warnings.extend(curve_warnings)
