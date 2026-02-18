@@ -9,6 +9,9 @@ import re
 
 import structlog
 from mp_parse import CARDINAL_ONLY_PATTERN as _CARDINAL_ONLY_PATTERN
+from mp_parse import COMMA_NUMBER as _COMMA_NUMBER
+from mp_parse import UNIT_TOKEN as _UNIT_TOKEN
+from mp_parse import parse_comma_number
 from pydantic import ValidationError
 
 from .bearing_converter import BearingConverter
@@ -24,14 +27,9 @@ from .models import (
     MonumentType,
     Transformation,
 )
-from .text_parser import _COMMA_NUMBER, TextParser, parse_comma_number
+from .text_parser import TextParser
 
 logger = structlog.get_logger(__name__)
-
-_UNIT_TOKEN = (
-    r"(?:feet|foot|ft|poles?|rods?|perches?|chains?|links?"
-    r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
-)
 
 
 def _normalize_unit_token(token: str | None) -> str:
