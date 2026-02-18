@@ -94,7 +94,7 @@ class CSVBuilder:
 
             writer.writeheader()
             for call in calls:
-                row = cls._call_to_row(call)
+                row = cls._deed_call_to_csv_row(call)
                 writer.writerow(row)
 
         if metadata:
@@ -102,7 +102,7 @@ class CSVBuilder:
             cls._write_metadata(metadata, metadata_path)
 
     @classmethod
-    def _call_to_row(cls, call: DeedCall) -> dict[str, str]:
+    def _deed_call_to_csv_row(cls, call: DeedCall) -> dict[str, str]:
         """Convert a DeedCall to a CSV row dict.
 
         Args:

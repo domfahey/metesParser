@@ -77,7 +77,7 @@ class _CSVDeedCallRow(_Model):
         return cls._coerce_bool_field(value)
 
 
-def _call_to_row(call: DeedCall) -> dict[str, str]:
+def _deed_call_to_csv_row(call: DeedCall) -> dict[str, str]:
     """Convert a DeedCall to a CSV row dict matching FIELDNAMES schema."""
     return {
         "course": str(call.course),
@@ -139,7 +139,7 @@ def calls_to_csv(
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         writer.writeheader()
         for call in calls:
-            row = _call_to_row(call)
+            row = _deed_call_to_csv_row(call)
             writer.writerow(row)
 
     if metadata:

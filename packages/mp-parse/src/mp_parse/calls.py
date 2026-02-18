@@ -78,30 +78,30 @@ def _normalize_unit_token(token: str | None) -> str:
     """Normalize a captured unit token to a ConversionFactors-compatible key."""
     if token is None:
         return "feet"
-    t = token.strip().lower()
-    if t in ("ft", "feet", "foot", ""):
+    normalized_token = token.strip().lower()
+    if normalized_token in ("ft", "feet", "foot", ""):
         return "feet"
-    if t in ("pole", "poles"):
+    if normalized_token in ("pole", "poles"):
         return "poles"
-    if t in ("rod", "rods"):
+    if normalized_token in ("rod", "rods"):
         return "rods"
-    if t in ("perch", "perches"):
+    if normalized_token in ("perch", "perches"):
         return "perches"
-    if t in ("chain", "chains"):
+    if normalized_token in ("chain", "chains"):
         return "chains"
-    if t in ("link", "links"):
+    if normalized_token in ("link", "links"):
         return "links"
-    if t in ("vara", "varas"):
+    if normalized_token in ("vara", "varas"):
         return "varas"
-    if t in ("arpent", "arpents"):
+    if normalized_token in ("arpent", "arpents"):
         return "arpents"
-    if t in ("toise", "toises"):
+    if normalized_token in ("toise", "toises"):
         return "toises"
-    if t in ("furlong", "furlongs"):
+    if normalized_token in ("furlong", "furlongs"):
         return "furlongs"
-    if t in ("meter", "meters"):
+    if normalized_token in ("meter", "meters"):
         return "meters"
-    if t in ("mile", "miles"):
+    if normalized_token in ("mile", "miles"):
         return "miles"
     return "feet"
 
@@ -114,7 +114,7 @@ def _call_preview(call_text: str, max_len: int = 120) -> str:
     return f"{compact[: max_len - 3]}..."
 
 
-def _call_hash(call_text: str) -> str:
+def _compute_call_text_hash(call_text: str) -> str:
     """Stable short hash for correlating call text without logging full content."""
     return hashlib.sha256(call_text.encode("utf-8")).hexdigest()[:12]
 
@@ -169,7 +169,7 @@ def extract_calls(
                 payload = {
                     "course": course_num,
                     "call_preview": _call_preview(call_text),
-                    "call_hash": _call_hash(call_text),
+                    "call_hash": _compute_call_text_hash(call_text),
                     "error": str(exc),
                     "error_type": type(exc).__name__,
                 }
@@ -308,7 +308,7 @@ def extract_single_call(
             "course": course,
             "distance_ft": distance_ft,
             "call_preview": _call_preview(call_text),
-            "call_hash": _call_hash(call_text),
+            "call_hash": _compute_call_text_hash(call_text),
         }
         if _is_debug_logging_enabled():
             logger.warning("Rejecting bearingless non-curve call", **payload, call_text=call_text)

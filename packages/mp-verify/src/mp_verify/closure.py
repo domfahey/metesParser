@@ -413,8 +413,8 @@ def get_closure_summary(
     if calls:
         quality_counts = {"high": 0, "medium": 0, "low": 0}
         for call in calls:
-            q = call.quality or score_call_quality(call)
-            quality_counts[q] += 1
+            call_quality = call.quality or score_call_quality(call)
+            quality_counts[call_quality] += 1
         summary.append("")
         summary.append("Quality Breakdown:")
         for level in ("high", "medium", "low"):
