@@ -400,7 +400,7 @@ def _is_lot_qualifier_except(text: str, match: re.Match[str]) -> bool:
     #   "except the Westerly 10.5 feet in even width"
     lot_qualifier_pattern = re.compile(
         r"^\s+the\s+"
-        r"(?:North|South|East|West|Northerly|Southerly|Easterly|Westerly)"
+        r"(?:North|South|East|West)"
         r"(?:erly|wardly)?"
         r"\s+\d+(?:\.\d+)?"
         r"\s+(?:feet|foot|ft|poles?|rods?|chains?|links?|varas?|meters?)"
@@ -995,12 +995,10 @@ def detect_strip_exceptions(text: str) -> list[_StripException]:
             direction_raw = match.group("dir")
             width = float(match.group("width"))
 
-            # Extract purpose -- the named group varies by pattern
+            # Extract purpose -- not all patterns define this named group
             purpose_raw = None
-            try:
+            if "purpose" in pattern.groupindex:
                 purpose_raw = match.group("purpose")
-            except IndexError:
-                pass
 
             results.append(
                 _StripException(
@@ -1047,7 +1045,7 @@ def remove_strip_exceptions(text: str) -> str:
             r"[,;\s]*" + escaped + r"[.\s]*",
             re.IGNORECASE,
         )
-        result = removal_pattern.sub("", result, count=1)
+        result = removal_pattern.sub(" ", result, count=1)
 
     # Clean up any trailing/leading whitespace artifacts
     result = re.sub(r"\s{2,}", " ", result).strip()
