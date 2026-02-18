@@ -31,6 +31,20 @@ logger = structlog.get_logger(__name__)
 # Module-level confidence scorer (was PDFProcessor._compute_llm_confidence)
 # ---------------------------------------------------------------------------
 
+# Performance optimization: Compile confidence patterns at module level
+_POB_PATTERN = re.compile(
+    r"(?:POINT\s+OF\s+BEGINNING|BEGINNING\s+at|POB)\b", re.IGNORECASE
+)
+_BEARING_PATTERN = re.compile(
+    r"(?:North|South|[NS])\s+\d+\s+degrees?", re.IGNORECASE
+)
+_CLOSURE_LANGUAGE_PATTERN = re.compile(
+    r"(?:POINT\s+OF\s+BEGINNING|place\s+of\s+beginning)\s*(?:[.;]|\s*$)",
+    re.IGNORECASE,
+)
+_DISTANCES_PATTERN = re.compile(r"\d+\.\d+\s+(?:feet|ft)", re.IGNORECASE)
+_PLSS_PATTERN = re.compile(r"(?:Section|Township|Range)", re.IGNORECASE)
+
 
 def compute_llm_confidence(text: str) -> tuple[float, dict[str, bool]]:
     """Score the quality of extracted legal description text.
@@ -47,26 +61,18 @@ def compute_llm_confidence(text: str) -> tuple[float, dict[str, bool]]:
     - has_plss (+0.10)
     - no_garbled_chars (+0.10)
     """
-    has_pob = bool(
-        re.search(r"(?:POINT\s+OF\s+BEGINNING|BEGINNING\s+at|POB)\b", text, re.IGNORECASE)
-    )
+    has_pob = bool(_POB_PATTERN.search(text))
 
-    bearing_matches = re.findall(r"(?:North|South|[NS])\s+\d+\s+degrees?", text, re.IGNORECASE)
+    bearing_matches = _BEARING_PATTERN.findall(text)
     has_bearing_calls = len(bearing_matches) >= 3
 
-    has_closure_language = bool(
-        re.search(
-            r"(?:POINT\s+OF\s+BEGINNING|place\s+of\s+beginning)\s*(?:[.;]|\s*$)",
-            text,
-            re.IGNORECASE,
-        )
-    )
+    has_closure_language = bool(_CLOSURE_LANGUAGE_PATTERN.search(text))
 
-    has_distances = bool(re.search(r"\d+\.\d+\s+(?:feet|ft)", text, re.IGNORECASE))
+    has_distances = bool(_DISTANCES_PATTERN.search(text))
 
     text_length_reasonable = 50 < len(text) < 50_000
 
-    has_plss = bool(re.search(r"(?:Section|Township|Range)", text, re.IGNORECASE))
+    has_plss = bool(_PLSS_PATTERN.search(text))
 
     # Non-ASCII ratio excluding common surveying symbols
     allowed_non_ascii = set("\u00b0\u2032\u2033\u2018\u2019\u201c\u201d\u2013\u2014")

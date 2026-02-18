@@ -39,6 +39,14 @@ _METADATA_BOUNDARY = re.compile(
     re.IGNORECASE,
 )
 
+# Performance optimization: Compile area pattern at module level
+_AREA_PATTERN = re.compile(
+    r"(?:(?:(?:approximately|approx\.?|~)\s+)?)"
+    r"(?P<value>\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)"
+    r"\s*(?P<unit>sq\.?\s*ft\.?|square\s+feet?|acres?)",
+    re.IGNORECASE,
+)
+
 
 class _AreaStatement(TypedDict):
     value_sq_ft: float
@@ -63,14 +71,7 @@ def extract_area_statement(text: str) -> _AreaStatement | None:
     if not normalized_text:
         return None
 
-    area_pattern = re.compile(
-        r"(?:(?:(?:approximately|approx\.?|~)\s+)?)"
-        r"(?P<value>\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)"
-        r"\s*(?P<unit>sq\.?\s*ft\.?|square\s+feet?|acres?)",
-        re.IGNORECASE,
-    )
-
-    for match in area_pattern.finditer(normalized_text):
+    for match in _AREA_PATTERN.finditer(normalized_text):
         unit = match.group("unit").replace(" ", "")
         value = float(match.group("value").replace(",", ""))
 
@@ -554,17 +555,28 @@ def extract_deed_clauses(text: str) -> list[DeedClause]:
     clauses: list[DeedClause] = []
     ClauseType = Literal["reservation", "subject_to", "together_with"]
 
-    patterns: list[tuple[str, ClauseType]] = [
-        (r"(RESERVING\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "reservation"),
-        (r"(SUBJECT\s+TO\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "subject_to"),
-        (r"(TOGETHER\s+WITH\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "together_with"),
-    ]
+    # Optimize: Single combined regex with named groups instead of nested loops
+    combined_pattern = re.compile(
+        r"(?P<reservation>RESERVING\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)|"
+        r"(?P<subject_to>SUBJECT\s+TO\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)|"
+        r"(?P<together_with>TOGETHER\s+WITH\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)",
+        re.IGNORECASE | re.DOTALL,
+    )
 
-    for pattern, clause_type in patterns:
-        for match in re.finditer(pattern, text, re.IGNORECASE | re.DOTALL):
-            clause_text = match.group(1).strip().rstrip(".")
-            if clause_text:
-                clauses.append(DeedClause(clause_type=clause_type, text=clause_text))
+    for match in combined_pattern.finditer(text):
+        # Determine which clause type matched
+        if match.group("reservation"):
+            clause_text = match.group("reservation").strip().rstrip(".")
+            clause_type: ClauseType = "reservation"
+        elif match.group("subject_to"):
+            clause_text = match.group("subject_to").strip().rstrip(".")
+            clause_type = "subject_to"
+        else:  # together_with
+            clause_text = match.group("together_with").strip().rstrip(".")
+            clause_type = "together_with"
+
+        if clause_text:
+            clauses.append(DeedClause(clause_type=clause_type, text=clause_text))
 
     return clauses
 
