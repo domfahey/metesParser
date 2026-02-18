@@ -735,10 +735,8 @@ INDEFINITE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-CARDINAL_ONLY_PATTERN = re.compile(
-    r"^(?:north|south|east|west|northeast|northwest|southeast|southwest|NE|NW|SE|SW)(?:erly|wardly)?$",
-    re.IGNORECASE,
-)
+# Import shared pattern from patterns module
+from .patterns import CARDINAL_ONLY_PATTERN
 
 
 def detect_meander(text: str) -> bool:
