@@ -30,6 +30,7 @@ from mp_models import (
     CurveType,
     Decision,
     DeedCall,
+    Tract,
     Transformation,
 )
 from pydantic import ValidationError
@@ -40,7 +41,6 @@ from .metadata import (
     extract_distance,
     is_closure_to_pob,
     is_indefinite_call,
-    split_exception_clauses,
     split_into_calls,
 )
 from .monuments import (
@@ -124,16 +124,81 @@ def _is_debug_logging_enabled() -> bool:
     return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
 
 
+def _extract_calls_from_text(
+    text: str,
+    distance_unit: str = "feet",
+    *,
+    audit_context: AuditContext | None = None,
+    course_start: int = 1,
+) -> list[DeedCall]:
+    """Extract calls from a single text segment (one tract).
+
+    This is the inner extraction loop, factored out for reuse by
+    both single-tract and multi-tract paths.
+    """
+    # Strip POB preamble -- everything before first THENCE is not a call.
+    thence_match = re.search(r"\bTHENCE\b", text, re.IGNORECASE)
+    if thence_match:
+        text = text[thence_match.start() :]
+
+    call_texts = split_into_calls(text)
+    calls: list[DeedCall] = []
+    course_num = course_start
+
+    for call_text in call_texts:
+        try:
+            call = extract_single_call(call_text, course=course_num, distance_unit=distance_unit)
+        except (ValidationError, ValueError, TypeError) as exc:
+            payload = {
+                "course": course_num,
+                "call_preview": _call_preview(call_text),
+                "call_hash": _call_hash(call_text),
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+            }
+            if _is_debug_logging_enabled():
+                logger.warning(
+                    "Skipping malformed call",
+                    **payload,
+                    call_text=call_text,
+                    exc_info=exc,
+                )
+            else:
+                logger.warning("Skipping malformed call", **payload)
+            continue
+
+        if call is None:
+            continue
+
+        calls.append(call)
+
+        if audit_context is not None:
+            transformations, decisions, flags = _audit_single_call(call_text, call)
+            audit_context.call_audits.append(
+                CallAudit(
+                    course=course_num,
+                    source_excerpt=call_text,
+                    transformations=transformations,
+                    decisions=decisions,
+                    flags=flags,
+                )
+            )
+
+        course_num += 1
+
+    return calls
+
+
 def extract_calls(
     text: str,
     distance_unit: str = "feet",
     *,
     audit_context: AuditContext | None = None,
-) -> list[DeedCall]:
+) -> tuple[list[DeedCall], list[Tract]]:
     """Extract all calls from normalized legal description text.
 
-    Handles exception clauses (EXCEPT, LESS AND EXCEPT, ALSO, INCLUDING)
-    and marks calls accordingly.
+    Handles multi-tract deeds (TRACT markers, multiple BEGINNINGs,
+    EXCEPT/ALSO clauses) and marks calls accordingly.
 
     Args:
         text: Normalized legal description text (should already be normalized)
@@ -141,72 +206,56 @@ def extract_calls(
         audit_context: Optional audit context for recording parsing decisions
 
     Returns:
-        List of DeedCall objects
+        Tuple of (flat_calls, tracts).
+        - For single-tract deeds: flat_calls populated, tracts is empty list.
+        - For multi-tract deeds: flat_calls is the merged list, tracts has
+          per-tract Tract objects with independent call lists.
     """
+    from mp_models import Tract, TractType
+
+    from .tracts import split_into_tracts
+
     normalized = normalize_legal_description(text)
+    segments = split_into_tracts(normalized)
 
-    tracts = split_exception_clauses(normalized)
+    # Single-tract fast path: preserve backward-compatible behavior
+    if len(segments) == 1 and segments[0][2] == TractType.MAIN:
+        flat_calls = _extract_calls_from_text(
+            normalized, distance_unit, audit_context=audit_context, course_start=1
+        )
+        return flat_calls, []
 
-    calls: list[DeedCall] = []
-    course_num = 1
+    # Multi-tract path
+    all_calls: list[DeedCall] = []
+    tract_objects: list[Tract] = []
 
-    for tract_text, is_exception_tract in tracts:
-        # Strip POB preamble -- everything before first THENCE is not a call.
-        # Without this, distances in the BEGINNING text (e.g. "50 feet wide",
-        # "310.00 FEET SOUTHEASTWARDLY") leak through as phantom calls when
-        # the text includes pre-BEGINNING content that shifts the split.
-        thence_match = re.search(r"\bTHENCE\b", tract_text, re.IGNORECASE)
-        if thence_match:
-            tract_text = tract_text[thence_match.start() :]
+    for segment_text, label, tract_type in segments:
+        tract_calls = _extract_calls_from_text(
+            segment_text, distance_unit, audit_context=audit_context, course_start=1
+        )
 
-        call_texts = split_into_calls(tract_text)
+        if not tract_calls:
+            logger.warning(
+                "Empty tract after extraction — segment dropped",
+                tract_label=label,
+                tract_type=tract_type.value,
+                segment_length=len(segment_text),
+                segment_preview=segment_text[:120],
+            )
+            continue
 
-        for call_text in call_texts:
-            try:
-                call = extract_single_call(
-                    call_text, course=course_num, distance_unit=distance_unit
-                )
-            except (ValidationError, ValueError, TypeError) as exc:
-                payload = {
-                    "course": course_num,
-                    "call_preview": _call_preview(call_text),
-                    "call_hash": _call_hash(call_text),
-                    "error": str(exc),
-                    "error_type": type(exc).__name__,
-                }
-                if _is_debug_logging_enabled():
-                    logger.warning(
-                        "Skipping malformed call",
-                        **payload,
-                        call_text=call_text,
-                        exc_info=exc,
-                    )
-                else:
-                    logger.warning("Skipping malformed call", **payload)
-                continue
+        if tract_type == TractType.EXCEPTION:
+            tract_calls = [c.model_copy(update={"is_exception": True}) for c in tract_calls]
 
-            if call is None:
-                continue
+        tract = Tract(
+            label=label,
+            tract_type=tract_type,
+            calls=tract_calls,
+        )
+        tract_objects.append(tract)
+        all_calls.extend(tract_calls)
 
-            if is_exception_tract:
-                call = call.model_copy(update={"is_exception": True})
-            calls.append(call)
-
-            if audit_context is not None:
-                transformations, decisions, flags = _audit_single_call(call_text, call)
-                audit_context.call_audits.append(
-                    CallAudit(
-                        course=course_num,
-                        source_excerpt=call_text,
-                        transformations=transformations,
-                        decisions=decisions,
-                        flags=flags,
-                    )
-                )
-
-            course_num += 1
-
-    return calls
+    return all_calls, tract_objects
 
 
 def extract_single_call(

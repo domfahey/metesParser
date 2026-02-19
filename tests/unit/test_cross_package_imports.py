@@ -29,6 +29,12 @@ class TestMpModelsImports:
         assert ConversionFactors is not None
         assert DistanceUnit is not None
 
+    def test_tract_types(self) -> None:
+        from mp_models import Tract, TractType
+
+        assert TractType.MAIN == "main"
+        assert Tract is not None
+
     def test_logging(self) -> None:
         from mp_models import configure_logging, get_log_format
 
@@ -104,6 +110,11 @@ class TestMpParseImports:
         assert detect_parcel_markers is not None
         assert split_into_parcels is not None
 
+    def test_split_into_tracts(self) -> None:
+        from mp_parse import split_into_tracts
+
+        assert callable(split_into_tracts)
+
 
 class TestMpVerifyImports:
     """mp-verify package should export verification functions."""
@@ -119,6 +130,11 @@ class TestMpVerifyImports:
 
         assert calculate_confidence_score is not None
         assert score_call_quality is not None
+
+    def test_verify_tract(self) -> None:
+        from mp_verify import verify_tract
+
+        assert callable(verify_tract)
 
 
 class TestMpExportImports:
