@@ -1,0 +1,8 @@
+DEED METADATA
+============================================================
+
+pob_description: a point distant N 12°14'20" E 43
+source_doc: MIWAYN-50306-00349.pdf
+distance_unit: feet
+clauses: [together_with] Together with parts of Lots 11 and 12 of said ASSESSOR'S ECORSE PLAT NO. 1, as recorded in Liber 66, Page 90 of Plats, Wayne County Records, described as beginning at a point distant N 12°14'20" E 43.65 and S 73°11'00" E 210.92 feet from the Northwest corner of Lot 11 and proceeding thence S 73°11'00" E 153.00 feet; thence S 32°09'58" W 82.96 feet; thence N 73°11'00" W 131.04 feet; thence N 16°49'00" E 80.00 feet to the point of beginning
+subdivision_ref: Lot 12, Block ?, ASSESSOR

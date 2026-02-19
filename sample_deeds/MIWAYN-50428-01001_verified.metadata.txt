@@ -1,0 +1,6 @@
+DEED METADATA
+============================================================
+
+source_doc: MIWAYN-50428-01001.pdf
+distance_unit: feet
+subdivision_ref: Lot 48, Block ?, ?

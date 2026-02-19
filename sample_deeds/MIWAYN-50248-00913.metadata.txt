@@ -1,0 +1,7 @@
+DEED METADATA
+============================================================
+
+pob_description: a point distant S 00°44'00" W 180
+source_doc: MIWAYN-50248-00913.pdf
+distance_unit: feet
+subdivision_ref: Lot 202, Block ?, ?

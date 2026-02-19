@@ -1,0 +1,7 @@
+DEED METADATA
+============================================================
+
+source_doc: MIWAYN-50510-00079.pdf
+distance_unit: feet
+section: 28
+range: 8 E
