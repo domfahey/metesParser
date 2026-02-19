@@ -46,6 +46,18 @@ class TestExplicitTractMarkers:
         assert result[0][1] == "Parcel 1"
         assert result[1][1] == "Parcel 2"
 
+    def test_tract_roman_numerals(self):
+        text = (
+            "TRACT III: BEGINNING at a point... THENCE N 45\u00b000' E 100 feet "
+            "to the POINT OF BEGINNING. "
+            "TRACT IV: BEGINNING at a point... THENCE S 45\u00b000' E 200 feet "
+            "to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 2
+        assert result[0][1] == "Tract III"
+        assert result[1][1] == "Tract IV"
+
     def test_tract_without_hash(self):
         text = (
             "TRACT 1 BEGINNING at a point... THENCE N 45\u00b000' E 100 feet "
@@ -142,6 +154,43 @@ class TestSingleTract:
         """Preamble 'BEING ALL THAT TRACT' must NOT trigger splitting."""
         text = (
             "BEING ALL THAT TRACT IN THE TOWNSHIP "
+            "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 1
+
+    def test_tract_situate_no_false_split(self):
+        """'TRACT SITUATE IN THE TOWNSHIP' must NOT trigger splitting."""
+        text = (
+            "ALL THAT CERTAIN TRACT SITUATE IN THE TOWNSHIP OF HADDONFIELD "
+            "BEGINNING at an iron pin THENCE N 45\u00b000' E 100 feet; "
+            "THENCE S 45\u00b000' E 100 feet to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 1
+
+    def test_tract_is_described_no_false_split(self):
+        """'TRACT IS DESCRIBED AS' must NOT trigger splitting."""
+        text = (
+            "SAID TRACT IS DESCRIBED AS FOLLOWS "
+            "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 1
+
+    def test_parcel_of_land_no_false_split(self):
+        """'PARCEL OF LAND SITUATE' must NOT trigger splitting."""
+        text = (
+            "ALL THAT CERTAIN PARCEL OF LAND SITUATE IN THE COUNTY "
+            "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 1
+
+    def test_tract_conveyed_no_false_split(self):
+        """'TRACT CONVEYED BY' must NOT trigger splitting."""
+        text = (
+            "THE TRACT CONVEYED BY DEED BOOK 1234 PAGE 567 "
             "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
         )
         result = split_into_tracts(text)

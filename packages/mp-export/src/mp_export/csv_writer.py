@@ -266,9 +266,11 @@ def export_verified_csv(
         List of written file paths.
 
     Raises:
-        ValueError: If verification checks did not pass.
+        ValueError: If verification checks did not pass (single-tract only).
+            For multi-tract, individual unverified tracts are skipped with warnings.
     """
-    if not closure_result.is_fully_verified():
+    # In multi-tract mode, skip global gate — each tract checked independently
+    if not tract_results and not closure_result.is_fully_verified():
         raise ValueError(
             "Cannot export verified CSV: verification checks failed. "
             f"Misclosure: {closure_result.misclosure_ft:.4f} ft, "
@@ -306,9 +308,18 @@ def export_verified_csv(
     )
     from mp_verify import get_closure_summary
 
-    summary = get_closure_summary(closure_result)
-    with open(summary_path, "w") as f:
-        f.write(summary)
+    if tract_results:
+        summaries: list[str] = []
+        for tract, tract_result in tract_results:
+            summaries.append(f"--- {tract.label} ---")
+            summaries.append(get_closure_summary(tract_result))
+            summaries.append("")
+        with open(summary_path, "w") as f:
+            f.write("\n".join(summaries))
+    else:
+        summary = get_closure_summary(closure_result)
+        with open(summary_path, "w") as f:
+            f.write(summary)
     logger.info("Verification summary written", path=str(summary_path))
 
     if audit_context is not None:

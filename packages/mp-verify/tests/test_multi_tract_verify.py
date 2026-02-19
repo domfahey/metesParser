@@ -100,6 +100,12 @@ class TestVerifyClosureMultiTract:
         # Areas should differ (100^2 vs 50^2 = 10000 vs 2500)
         assert results[0].area_sq_ft > results[1].area_sq_ft
 
+    def test_empty_tracts_list_returns_empty_list(self):
+        """tracts=[] should return an empty list, not fall through to single-tract."""
+        result = verify_closure(_square_calls(), tracts=[])
+        assert isinstance(result, list)
+        assert result == []
+
     def test_backward_compat_kwargs(self):
         """Existing keyword args still work when tracts not provided."""
         result = verify_closure(

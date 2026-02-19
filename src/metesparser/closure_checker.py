@@ -188,7 +188,7 @@ class ClosureChecker:
             ClosureResult with all checks, computed values, and confidence_score.
             If tracts provided, returns list[ClosureResult] with one per tract.
         """
-        if tracts:
+        if tracts is not None:
             results: list[ClosureResult] = []
             for tract in tracts:
                 result = cls.verify_tract(

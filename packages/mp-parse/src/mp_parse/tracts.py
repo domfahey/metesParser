@@ -2,7 +2,7 @@
 
 Detects multi-tract patterns in priority order:
 1. Explicit markers: TRACT #N, TRACT A, PARCEL N
-2. Multiple BEGINNING blocks with independent closures
+2. Multiple BEGINNING...POB blocks (text-pattern based)
 3. EXCEPT/ALSO clauses (reuses split_exception_clauses)
 """
 
@@ -11,27 +11,31 @@ from __future__ import annotations
 import re
 
 import structlog
-
 from mp_models import TractType
 
 from .metadata import split_exception_clauses
 
 logger = structlog.get_logger(__name__)
 
-# Common words that follow TRACT/PARCEL in deed preambles — NOT tract identifiers
-_COMMON_WORDS = r"(?!OF\b|OR\b|AND\b|IN\b|ON\b|AT\b|TO\b|THE\b|BEING\b|LAND\b)"
+# Negative lookahead for common words that follow TRACT/PARCEL in deed preambles
+# (e.g., "TRACT OF LAND", "PARCEL SITUATE IN") to prevent false positives.
+_COMMON_WORDS = (
+    r"(?!OF\b|OR\b|AND\b|IN\b|ON\b|AT\b|TO\b|THE\b|BEING\b|LAND\b"
+    r"|SITUATE\b|IS\b|DESCRIBED\b|CONVEYED\b|KNOWN\b|LYING\b"
+    r"|HEREIN\b|SAID\b|WHICH\b|THAT\b|CONTAINING\b|BOUNDED\b)"
+)
 
-# TRACT #1, TRACT 1, TRACT A (numbers, single letters, Roman numerals)
-# Negative lookahead prevents matching "TRACT OR PARCEL OF LAND" etc.
+# TRACT #1, TRACT 1, TRACT III, TRACT A (numbers, Roman numerals, single letters)
+# [IVX]+ must precede [A-Z] so "TRACT III" matches "III" not "I".
 _TRACT_MARKER = re.compile(
-    r"\bTRACT\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[A-Z]|[IVX]+)"
+    r"\bTRACT\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[IVX]+|[A-Z])"
     r"\s*[:.\-\u2014]?\s*",
     re.IGNORECASE,
 )
 
 # PARCEL 1, PARCEL A (same constraints as TRACT)
 _PARCEL_MARKER = re.compile(
-    r"\bPARCEL\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[A-Z]|[IVX]+)"
+    r"\bPARCEL\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[IVX]+|[A-Z])"
     r"\s*[:.\-\u2014]?\s*",
     re.IGNORECASE,
 )
@@ -75,6 +79,17 @@ def split_on_markers(
     and assign the correct TractType.
     """
     result: list[tuple[str, str, TractType]] = []
+
+    # Warn if text before first marker contains THENCE calls (would be lost)
+    if markers and markers[0][0] > 0:
+        pre_text = text[: markers[0][0]].strip()
+        if re.search(r"\bTHENCE\b", pre_text, re.IGNORECASE):
+            logger.warning(
+                "Text with THENCE calls found before first tract marker",
+                preview=pre_text[:120],
+                characters=len(pre_text),
+            )
+
     for i, (pos, label, _kind) in enumerate(markers):
         end = markers[i + 1][0] if i + 1 < len(markers) else len(text)
         segment = text[pos:end].strip()
@@ -102,7 +117,7 @@ def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
         # Look for matching POB closure after this BEGINNING
         close = _POB_CLOSE_PATTERN.search(text, m.end())
         if not close:
-            logger.debug(
+            logger.warning(
                 "BEGINNING block without matching POB closure",
                 position=m.start(),
                 preview=text[m.start() : m.start() + 80],
@@ -112,16 +127,17 @@ def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
         # Ensure no intervening BEGINNING between this one and its POB
         intervening = _BEGINNING_PATTERN.search(text[m.end() : close.start()])
         if intervening:
-            logger.debug(
-                "BEGINNING block has intervening BEGINNING before POB",
+            logger.warning(
+                "Dropping BEGINNING block due to intervening BEGINNING before POB",
                 position=m.start(),
+                preview=text[m.start() : m.start() + 120],
             )
             continue
 
         # Verify this block has at least one THENCE
         block_text = text[m.start() : close.end()]
         if not re.search(r"\bTHENCE\b", block_text, re.IGNORECASE):
-            logger.debug(
+            logger.warning(
                 "BEGINNING block without THENCE calls",
                 position=m.start(),
                 preview=block_text[:80],

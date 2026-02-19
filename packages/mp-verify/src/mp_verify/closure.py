@@ -20,6 +20,7 @@ from __future__ import annotations
 import math
 from typing import overload
 
+import structlog
 from mp_bearing import calculate_deltas, compute_curve_endpoint
 from mp_models import (
     AuditContext,
@@ -40,6 +41,8 @@ from .checks import (
     compare_double_entry,
 )
 from .confidence import calculate_confidence_score, score_call_quality
+
+logger = structlog.get_logger(__name__)
 
 CLOSURE_TOLERANCE_FT = 0.01
 
@@ -293,14 +296,15 @@ def verify_closure(
         ClosureResult when tracts is None (single-tract).
         list[ClosureResult] when tracts is provided (one per tract).
     """
-    if tracts:
+    if tracts is not None:
+        if audit_context is not None:
+            logger.warning("Audit trail recording not yet implemented for per-tract verification")
         results: list[ClosureResult] = []
         for tract in tracts:
             result = verify_tract(
                 tract.calls,
                 stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
                 closure_tolerance_ft=closure_tolerance_ft,
-                audit_context=audit_context,
             )
             results.append(result)
         return results
