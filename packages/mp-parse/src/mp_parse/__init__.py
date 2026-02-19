@@ -16,6 +16,7 @@ from .monuments import (
     classify_monument_status,
 )
 from .numbers import COMMA_NUMBER, parse_comma_number
+from .tracts import split_into_tracts
 
 __version__ = "1.0.0"
 
@@ -33,4 +34,5 @@ __all__ = [
     "extract_single_call",
     "mark_tie_in_calls",
     "parse_comma_number",
+    "split_into_tracts",
 ]

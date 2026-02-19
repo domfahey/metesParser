@@ -32,6 +32,7 @@ from .envelope import (
 )
 from .legal_description import LegalDescription
 from .logging import configure_logging, get_log_format
+from .tract import Tract, TractType
 from .units import ConversionFactors, DistanceUnit
 
 __version__ = "1.0.0"
@@ -61,6 +62,8 @@ __all__ = [
     "RawTextMessage",
     "RunMetadata",
     "SubdivisionReference",
+    "Tract",
+    "TractType",
     "Transformation",
     "VerificationAudit",
     "_Model",
