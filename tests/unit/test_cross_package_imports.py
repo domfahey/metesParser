@@ -40,11 +40,17 @@ class TestMpBearingImports:
     """mp-bearing package should export azimuth and curve functions."""
 
     def test_azimuth_functions(self) -> None:
-        from mp_bearing import bearing_to_azimuth, parse_quadrant_bearing, quadrant_to_azimuth
+        from mp_bearing import (
+            bearing_to_azimuth,
+            due_cardinal_to_azimuth,
+            parse_quadrant_bearing,
+            quadrant_to_azimuth,
+        )
 
         assert quadrant_to_azimuth is not None
         assert parse_quadrant_bearing is not None
         assert bearing_to_azimuth is not None
+        assert due_cardinal_to_azimuth is not None
 
     def test_curve_functions(self) -> None:
         from mp_bearing import calculate_curve_properties, calculate_missing_curve_elements
@@ -73,6 +79,30 @@ class TestMpParseImports:
 
         assert classify_monument is not None
         assert classify_monument_status is not None
+
+    def test_normalizer_functions(self) -> None:
+        from mp_parse import expand_assessor_abbreviations
+
+        assert expand_assessor_abbreviations is not None
+
+    def test_strip_exception_functions(self) -> None:
+        from mp_parse import detect_strip_exceptions, remove_strip_exceptions
+
+        assert detect_strip_exceptions is not None
+        assert remove_strip_exceptions is not None
+
+    def test_parcel_functions(self) -> None:
+        from mp_parse import (
+            ParcelInfo,
+            ParcelMarker,
+            detect_parcel_markers,
+            split_into_parcels,
+        )
+
+        assert ParcelInfo is not None
+        assert ParcelMarker is not None
+        assert detect_parcel_markers is not None
+        assert split_into_parcels is not None
 
 
 class TestMpVerifyImports:

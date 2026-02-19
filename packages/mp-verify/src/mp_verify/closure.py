@@ -214,11 +214,7 @@ def verify_closure(
     closure_passed = has_computable_traverse and misclosure < tolerance
 
     # Warn when closure only passes because of a relaxed tolerance
-    if (
-        closure_passed
-        and tolerance > CLOSURE_TOLERANCE_FT
-        and misclosure >= CLOSURE_TOLERANCE_FT
-    ):
+    if closure_passed and tolerance > CLOSURE_TOLERANCE_FT and misclosure >= CLOSURE_TOLERANCE_FT:
         warnings.append(
             f"Closure passes with relaxed tolerance "
             f"({misclosure:.4f} ft misclosure vs {tolerance:.4f} ft threshold)"
