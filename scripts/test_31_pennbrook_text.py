@@ -2,8 +2,8 @@
 """Test extraction from the actual 31 Pennbrook legal description text."""
 
 from metesparser.call_extractor import CallExtractor
-from metesparser.text_parser import TextParser
 from metesparser.closure_checker import ClosureChecker
+from metesparser.text_parser import TextParser
 
 # Actual legal description from 31 Pennbrook
 LEGAL_DESC_TEXT = """
@@ -18,6 +18,7 @@ thence (6) still continuing along said line of Lot Number 30, 99.37 feet to a po
 said plan; thence (7) Northwestwardly partly along rear line of Lot Number 46 and all along rear line of Lot
 Number 47, 120 feet to a point in the Southerly line of Pennbrook Drive and place of BEGINNING.
 """
+
 
 def main():
     print("=" * 80)
@@ -48,7 +49,9 @@ def main():
         print(f"CALL {i}:")
         print(f"  Direction:  {call.direction_text}")
         print(f"  Bearing:    {call.bearing_quadrant or '(incomplete)'}")
-        print(f"  Azimuth:    {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north is not None else '(none)'}")
+        print(
+            f"  Azimuth:    {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north is not None else '(none)'}"
+        )
         print(f"  Distance:   {call.distance_ft:.2f} ft")
         print(f"  Along:      {call.along[:60] if call.along else '(none)'}...")
         print(f"  Notes:      {call.notes or '(none)'}")

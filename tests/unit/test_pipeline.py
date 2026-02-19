@@ -79,6 +79,7 @@ class TestPipelineRun:
 
         mock_legal_desc = MagicMock(spec=LegalDescription)
         mock_legal_desc.calls = [MagicMock(spec=DeedCall)]
+        mock_legal_desc.tracts = []
         mock_processor.process_deed_pdf.return_value = mock_legal_desc
 
         mock_closure = MagicMock(spec=ClosureResult)
@@ -107,6 +108,7 @@ class TestPipelineRun:
 
         mock_legal_desc = MagicMock(spec=LegalDescription)
         mock_legal_desc.calls = [MagicMock(spec=DeedCall)]
+        mock_legal_desc.tracts = []
         mock_audit_ctx = MagicMock(spec=AuditContext)
         mock_processor.process_deed_pdf.return_value = (mock_legal_desc, mock_audit_ctx)
 
@@ -121,3 +123,53 @@ class TestPipelineRun:
         assert isinstance(result, tuple)
         assert result[0] is mock_closure
         assert result[1] is mock_audit_ctx
+
+
+class TestPipelineMultiTract:
+    """Pipeline passes tracts to verify_closure for multi-tract deeds."""
+
+    @patch("metesparser.pipeline.verify_closure")
+    @patch("metesparser.pipeline.PDFProcessor")
+    def test_multi_tract_passes_tracts_to_verify(
+        self,
+        mock_processor_cls: MagicMock,
+        mock_verify: MagicMock,
+    ) -> None:
+        from mp_models import ClosureResult, DeedCall, LegalDescription, Tract, TractType
+
+        fake_calls = [
+            DeedCall(
+                course=1,
+                direction_text="N 45\u00b000' E",
+                bearing_quadrant="N 45\u00b000' E",
+                bearing_azimuth_deg_from_north=45.0,
+                distance_ft=100.0,
+            ),
+        ]
+        fake_tracts = [
+            Tract(label="Tract 1", tract_type=TractType.MAIN, calls=fake_calls),
+            Tract(label="Tract 2", tract_type=TractType.MAIN, calls=fake_calls),
+        ]
+
+        mock_processor = MagicMock()
+        mock_processor_cls.return_value = mock_processor
+
+        mock_legal_desc = MagicMock(spec=LegalDescription)
+        mock_legal_desc.calls = fake_calls
+        mock_legal_desc.tracts = fake_tracts
+        mock_legal_desc.all_calls = fake_calls + fake_calls
+        mock_processor.process_deed_pdf.return_value = mock_legal_desc
+
+        mock_results = [MagicMock(spec=ClosureResult), MagicMock(spec=ClosureResult)]
+        mock_verify.return_value = mock_results
+
+        pipe = Pipeline(provider="openai", cache=False)
+        result = pipe.run(Path("test.pdf"))
+
+        mock_verify.assert_called_once_with(
+            mock_legal_desc.all_calls,
+            tracts=fake_tracts,
+            audit_context=None,
+        )
+        assert isinstance(result, list)
+        assert len(result) == 2

@@ -18,7 +18,9 @@ Quality and confidence scoring:
 from __future__ import annotations
 
 import math
+from typing import overload
 
+import structlog
 from mp_bearing import calculate_deltas, compute_curve_endpoint
 from mp_models import (
     AuditContext,
@@ -26,6 +28,7 @@ from mp_models import (
     ClosureResult,
     DeedCall,
     Point,
+    Tract,
     VerificationAudit,
 )
 
@@ -38,6 +41,8 @@ from .checks import (
     compare_double_entry,
 )
 from .confidence import calculate_confidence_score, score_call_quality
+
+logger = structlog.get_logger(__name__)
 
 CLOSURE_TOLERANCE_FT = 0.01
 
@@ -145,26 +150,165 @@ def calculate_perimeter(calls: list[DeedCall]) -> float:
     return perimeter
 
 
-def verify_closure(
+def verify_tract(
     calls: list[DeedCall],
     *,
     stated_area_sq_ft: float = 0.0,
     closure_tolerance_ft: float | None = None,
-    double_entry_calls: list[DeedCall] | None = None,
     audit_context: AuditContext | None = None,
 ) -> ClosureResult:
+    """Verify one tract's closure independently.
+
+    Unlike verify_closure(), this does NOT split by is_exception.
+    All calls are treated as a single traverse.
+    """
+    tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
+
+    active_calls = [c for c in calls if not c.is_tie_in]
+
+    # A closed polygon requires at least 3 calls
+    if len(active_calls) < 3:
+        warnings = [
+            f"Tract has only {len(active_calls)} active call(s) "
+            f"(minimum 3 required to form a closed polygon)"
+        ]
+        return ClosureResult(
+            misclosure_x_ft=0.0,
+            misclosure_y_ft=0.0,
+            misclosure_ft=0.0,
+            area_sq_ft=0.0,
+            area_acres=0.0,
+            perimeter_ft=0.0,
+            closure_passed=False,
+            angle_check_passed=False,
+            curve_consistency_passed=True,
+            warnings=warnings,
+            precision_ratio=None,
+            confidence_score=0.0,
+        )
+
+    points = compute_traverse(active_calls)
+
+    computable = sum(1 for c in active_calls if c.bearing_azimuth_deg_from_north is not None)
+    has_computable = computable > 0
+
+    misclosure_x = points[-1].x - points[0].x
+    misclosure_y = points[-1].y - points[0].y
+    misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
+
+    warnings: list[str] = []
+    if not has_computable:
+        warnings.append("No computable traverse \u2014 all calls lack bearings")
+
+    try:
+        area_sq_ft = calculate_area(points)
+        area_acres = area_sq_ft / 43560.0
+    except ValueError as e:
+        area_sq_ft = 0.0
+        area_acres = 0.0
+        warnings.append(f"Cannot calculate area: {e}")
+
+    perimeter = calculate_perimeter(active_calls)
+    closure_passed = has_computable and misclosure < tolerance
+    angle_check_passed = check_interior_angles(active_calls, points)
+    curve_ok, curve_warnings = check_curve_consistency(active_calls)
+    warnings.extend(curve_warnings)
+    warnings.extend(check_parallelism(active_calls))
+    warnings.extend(check_bearing_reversals(active_calls))
+    warnings.extend(check_distance_reasonableness(active_calls))
+
+    if stated_area_sq_ft > 0:
+        diff_pct = abs(area_sq_ft - stated_area_sq_ft) / stated_area_sq_ft * 100
+        if diff_pct > 5.0:
+            warnings.append(
+                f"Computed area differs from stated by {diff_pct:.1f}% "
+                f"(computed: {area_sq_ft:.1f} sq ft, stated: {stated_area_sq_ft:.1f} sq ft)"
+            )
+
+    incomplete = [c for c in active_calls if not c.is_complete_bearing()]
+    if incomplete:
+        warnings.append(
+            f"{len(incomplete)} call(s) have incomplete bearings (cardinal-only or meanders)"
+        )
+
+    result = ClosureResult(
+        misclosure_x_ft=misclosure_x,
+        misclosure_y_ft=misclosure_y,
+        misclosure_ft=misclosure,
+        area_sq_ft=area_sq_ft,
+        area_acres=area_acres,
+        perimeter_ft=perimeter,
+        closure_passed=closure_passed,
+        angle_check_passed=angle_check_passed,
+        curve_consistency_passed=curve_ok,
+        warnings=warnings,
+        points=points,
+        precision_ratio=misclosure / perimeter if perimeter else None,
+    )
+    confidence = calculate_confidence_score(result, active_calls)
+    return result.model_copy(update={"confidence_score": confidence})
+
+
+@overload
+def verify_closure(
+    calls: list[DeedCall],
+    *,
+    tracts: None = None,
+    stated_area_sq_ft: float = ...,
+    closure_tolerance_ft: float | None = ...,
+    double_entry_calls: list[DeedCall] | None = ...,
+    audit_context: AuditContext | None = ...,
+) -> ClosureResult: ...
+
+
+@overload
+def verify_closure(
+    calls: list[DeedCall],
+    *,
+    tracts: list[Tract],
+    stated_area_sq_ft: float = ...,
+    closure_tolerance_ft: float | None = ...,
+    double_entry_calls: list[DeedCall] | None = ...,
+    audit_context: AuditContext | None = ...,
+) -> list[ClosureResult]: ...
+
+
+def verify_closure(
+    calls: list[DeedCall],
+    *,
+    tracts: list[Tract] | None = None,
+    stated_area_sq_ft: float = 0.0,
+    closure_tolerance_ft: float | None = None,
+    double_entry_calls: list[DeedCall] | None = None,
+    audit_context: AuditContext | None = None,
+) -> ClosureResult | list[ClosureResult]:
     """Verify traverse closure and perform all validation checks.
 
     Args:
         calls: List of DeedCall objects.
+        tracts: Optional list of Tract objects for multi-tract verification.
         stated_area_sq_ft: Stated area from deed (optional, for comparison).
         closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft).
         double_entry_calls: Optional independently-entered call set for guardrail F.
         audit_context: Optional audit context for recording check results.
 
     Returns:
-        ClosureResult with all checks, computed values, and confidence_score.
+        ClosureResult when tracts is None (single-tract).
+        list[ClosureResult] when tracts is provided (one per tract).
     """
+    if tracts is not None:
+        if audit_context is not None:
+            logger.warning("Audit trail recording not yet implemented for per-tract verification")
+        results: list[ClosureResult] = []
+        for tract in tracts:
+            result = verify_tract(
+                tract.calls,
+                stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
+                closure_tolerance_ft=closure_tolerance_ft,
+            )
+            results.append(result)
+        return results
+
     tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
 
     main_calls = [c for c in calls if not c.is_exception and not c.is_tie_in]
