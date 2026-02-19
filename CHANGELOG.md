@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Project motivation, design pillars, and WIP notice to README (PR #35)
+- **Recorded-deed parser fixes** — 10 parser improvements from error analysis of 22 recorded deeds (PR #42):
+  - Due cardinal bearing support (`due North` → 0.0° azimuth) in `mp-bearing` and monolith
+  - Compressed assessor notation normalizer (DEG/D/M/S/SEC, TH, FT, SLY/NLY/ELY/WLY) in `mp-parse` and monolith
+  - Strip exception detection and removal (`except the East 20 feet deeded for roadway`)
+  - Multi-parcel deed separation (Parcel A/B, ALSO, TOGETHER WITH markers)
+  - Lot-qualifier EXCEPT clause filtering (not treated as structural splits)
+  - Configurable closure tolerance with relaxed-tolerance warning
+  - Bare cardinal + distance normalization (`thence S 289.81 feet` → `thence due South`)
+  - LLM anti-hallucination prompts, dual-notation handling, space-separated DMS support
+  - 249 new tests across 8 test files
 
 ### Fixed
 - Backfill registry handles 0-call deeds, removed stale 7535-933 manifest (PR #34)

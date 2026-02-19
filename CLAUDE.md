@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
 
-**Version**: 0.5.0 | **Tests**: ~996 | **Coverage**: ~94%
+**Version**: 0.5.0 | **Tests**: ~1,000 | **Coverage**: ~93%
 
 ## Critical Architecture Principles
 
@@ -43,7 +43,7 @@ src/metesparser/ → Orchestrator + backward-compat monolith
 | `mp-models` | `mp_models.deed_call`, `mp_models.legal_description`, `mp_models.closure`, `mp_models.audit`, `mp_models.envelope`, `mp_models.units`, `mp_models.constants`, `mp_models.base`, `mp_models.logging` | `models.py` |
 | `mp-bearing` | `mp_bearing.azimuth`, `mp_bearing.curves`, `mp_bearing.deltas` | `bearing_converter.py` |
 | `mp-ocr` | `mp_ocr.extract`, `mp_ocr.clients`, `mp_ocr.cache` | `pdf_processor.py`, `llm_clients.py` |
-| `mp-parse` | `mp_parse.calls`, `mp_parse.metadata`, `mp_parse.monuments`, `mp_parse.normalizer`, `mp_parse.numbers` | `call_extractor.py`, `text_parser.py` |
+| `mp-parse` | `mp_parse.calls`, `mp_parse.metadata`, `mp_parse.monuments`, `mp_parse.normalizer`, `mp_parse.numbers`, `mp_parse.parcels` | `call_extractor.py`, `text_parser.py` |
 | `mp-verify` | `mp_verify.closure`, `mp_verify.checks`, `mp_verify.confidence` | `closure_checker.py` |
 | `mp-export` | `mp_export.csv_writer`, `mp_export.audit_html` | `csv_builder.py`, `audit_reporter.py` |
 | `metesparser` | `metesparser.pipeline` | Orchestrator (new) |
@@ -164,6 +164,7 @@ When `PDFProcessor.process_deed_pdf(audit=True)`, an `AuditContext` threads thro
 
 **mp-bearing** (`packages/mp-bearing/`) - Coordinate math
 - Quadrant bearing ↔ azimuth: `parse_quadrant_bearing()`, `quadrant_to_azimuth()`
+- Due cardinal bearings: `due_cardinal_to_azimuth("due North")` → 0.0°
 - Packed DMS conversion: `parse_packed_dms(46.1631)` → 46.2753° decimal
 - Delta calculations: `calculate_deltas(azimuth, distance) → (dx, dy)`
 - Curve math: `calculate_curve_properties(radius, delta) → {arc, chord, ...}`
@@ -175,7 +176,10 @@ When `PDFProcessor.process_deed_pdf(audit=True)`, an `AuditContext` threads thro
 
 **mp-parse** (`packages/mp-parse/`) - Rule-based parsing (NOT AI)
 - `extract_calls()`: Regex-based call extraction from normalized text
-- `enrich_calls_with_azimuths()`: Converts quadrant bearings to azimuths
+- `enrich_calls_with_azimuths()`: Converts quadrant bearings + due cardinals to azimuths
+- `expand_assessor_abbreviations()`: Normalizes compressed notation (DEG/D/M/S, TH, FT, SLY)
+- `detect_strip_exceptions()`, `remove_strip_exceptions()`: Strip exception detection
+- `detect_parcel_markers()`, `split_into_parcels()`: Multi-parcel deed separation
 - `classify_monument()`, `classify_monument_status()`: Monument classification
 - Metadata extraction: PLSS, POC/POB, area, basis of bearing, surveyor cert, etc.
 
@@ -227,7 +231,7 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 - `src/metesparser/` — orchestrator (`pipeline.py`) + backward-compat monolith modules
 - `scripts/` — standalone utility scripts (extract_sample_deeds.py, generate_ground_truth.py, generate_review_packet.py, backfill_run_registry.py, audit_gt_vs_md.py, parse_pdfs_to_md.sh, test_31_pennbrook_text.py)
 - `docs/reference/` — reference PDFs (BLM manual, etc.) — tracked via `!docs/reference/*.pdf`
-- `sample_deeds/` — 87 sample PDFs + ground truth JSON files + LlamaParse markdown conversions (co-located)
+- `sample_deeds/` — 109 sample PDFs + ground truth JSON files + LlamaParse markdown conversions (co-located)
 
 ## Testing Strategy
 
@@ -260,7 +264,7 @@ uv run pytest packages/mp-parse/tests/ -v --no-cov  # Per-package (needs --no-co
 
 ### Expected Test Output
 ```
-~996 passed
+~999 passed
 ```
 All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`, investigate before committing.
 
@@ -355,6 +359,14 @@ non_tangent,radial_bearing,notes
 | 36 | Ground truth review packets | `metesparser` | `generate_review_html()`, `generate_all_packets()` | Self-contained HTML with traverse plot, call table, closure summary |
 | 37 | Pipeline orchestrator | `metesparser` | `Pipeline.run()` | Chains mp-ocr → mp-parse → mp-verify → mp-export |
 | 38 | Cross-package imports | `metesparser` | `test_cross_package_imports.py` | Verifies all package public APIs |
+| 39 | Due cardinal bearings | `mp-bearing` | `due_cardinal_to_azimuth()` | "due North" → 0.0°, "due West" → 270.0° |
+| 40 | Assessor notation normalizer | `mp-parse` | `expand_assessor_abbreviations()` | County assessor shorthand: DEG/D/M/S/SEC, TH, FT, SLY/NLY/ELY/WLY |
+| 41 | Strip exception detection | `mp-parse` | `detect_strip_exceptions()`, `remove_strip_exceptions()` | "except the East 20 feet deeded for roadway" — detection only, not yet in pipeline |
+| 42 | Multi-parcel separation | `mp-parse` | `detect_parcel_markers()`, `split_into_parcels()` | Parcel A/B, ALSO, TOGETHER WITH — detection only, not yet in pipeline |
+| 43 | Lot-qualifier EXCEPT filtering | `mp-parse` | `_is_lot_qualifier_except()` | "except the South 43.65 feet of said Lot" NOT a structural split |
+| 44 | Configurable closure tolerance | `mp-verify` | `verify_closure(closure_tolerance_ft=)` | Relaxed tolerance with warning when misclosure > 0.01 ft |
+| 45 | Bare cardinal normalization | `mp-parse` | `expand_assessor_abbreviations()` | "thence S 289.81 feet" → "thence due South 289.81 feet" |
+| 46 | LLM anti-hallucination prompts | `mp-ocr` | `prompts/*.yaml` | Dual-notation, space-separated DMS, anti-hallucination warnings |
 
 ## Environment Setup
 

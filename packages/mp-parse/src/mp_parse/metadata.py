@@ -371,6 +371,45 @@ def extract_distance(text: str) -> tuple[float, str]:
     return (0.0, "feet")
 
 
+def _is_lot_qualifier_except(text: str, match: re.Match[str]) -> bool:
+    """Check if an EXCEPT match is a lot-qualifier rather than a structural exception.
+
+    Lot qualifiers describe a portion of a lot being excluded from the lot
+    reference itself (e.g. "except the South 43.65 feet of said Lot").
+    They are NOT structural exception clauses that introduce a separately
+    described parcel.
+
+    Returns True if the EXCEPT is a lot qualifier and should be ignored
+    as a split point.
+    """
+    # "LESS AND EXCEPT" and "EXCEPTING" are always structural
+    matched_text = match.group(0)
+    if re.search(r"LESS\s+AND", matched_text, re.IGNORECASE):
+        return False
+    if re.search(r"ING$", matched_text, re.IGNORECASE):
+        return False
+
+    # Look at the text following the EXCEPT keyword
+    after = text[match.end() :]
+
+    # Lot qualifier pattern: "except the [direction] [number] [unit] (of|in|thereof)"
+    # Examples:
+    #   "except the South 43.65 feet of said Lot"
+    #   "except the North 50 feet of the Lot"
+    #   "except the Easterly 25 feet thereof"
+    #   "except the Westerly 10.5 feet in even width"
+    lot_qualifier_pattern = re.compile(
+        r"^\s+the\s+"
+        r"(?:North|South|East|West)"
+        r"(?:erly|wardly)?"
+        r"\s+\d+(?:\.\d+)?"
+        r"\s+(?:feet|foot|ft|poles?|rods?|chains?|links?|varas?|meters?)"
+        r"\s+(?:of\b|in\b|thereof\b)",
+        re.IGNORECASE,
+    )
+    return bool(lot_qualifier_pattern.match(after))
+
+
 def split_exception_clauses(text: str) -> list[tuple[str, bool]]:
     """Split text into main tract and exception/inclusion tracts.
 
@@ -384,6 +423,8 @@ def split_exception_clauses(text: str) -> list[tuple[str, bool]]:
     splits: list[tuple[int, int, bool]] = []
 
     for match in re.finditer(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", text, re.IGNORECASE):
+        if _is_lot_qualifier_except(text, match):
+            continue
         splits.append((match.start(), match.end(), True))
 
     for match in re.finditer(r"(?:^|[;\n.])\s*(ALSO|INCLUDING)\b", text, re.IGNORECASE):
@@ -782,3 +823,230 @@ def is_indefinite_call(direction_text: str, has_bearing: bool) -> bool:
         return True
 
     return False
+
+
+# ----- Strip exception detection and removal -----
+
+# Canonical direction abbreviation → full name mapping.
+_DIRECTION_ABBREV: dict[str, str] = {
+    "N": "North",
+    "S": "South",
+    "E": "East",
+    "W": "West",
+}
+
+# Full direction names (case-insensitive group).
+_DIRECTION_GROUP = r"(?P<dir>North|South|East|West|N|S|E|W)"
+
+# Width: integer or decimal number.
+_WIDTH_GROUP = r"(?P<width>\d+(?:\.\d+)?)"
+
+# Unit: feet or ft.
+_UNIT_GROUP = r"(?:feet|ft)"
+
+
+class _StripException(TypedDict):
+    direction: str
+    width_ft: float
+    purpose: str | None
+    original_text: str
+
+
+# Each pattern is a compiled regex that captures: direction, width, and an
+# optional trailing purpose clause.  The patterns are tried in order; each
+# match produces one _StripException dict.
+_STRIP_PATTERNS: list[re.Pattern[str]] = [
+    # "except the East 20 feet [deeded for roadway]"
+    # "except the South 30 feet thereof"
+    # Also covers "and except the ..."
+    re.compile(
+        r"(?:and\s+)?except(?:ing)?\s+(?:the\s+)"
+        + _DIRECTION_GROUP
+        + r"\s+"
+        + _WIDTH_GROUP
+        + r"\s+"
+        + _UNIT_GROUP
+        + r"(?:\s+(?P<purpose>deeded\s+for\s+\S+|thereof))?"
+        + r"[.\s]*",
+        re.IGNORECASE,
+    ),
+    # "LESS AND EXCEPT the North 15 feet thereof"
+    re.compile(
+        r"less\s+and\s+except(?:ing)?\s+(?:the\s+)"
+        + _DIRECTION_GROUP
+        + r"\s+"
+        + _WIDTH_GROUP
+        + r"\s+"
+        + _UNIT_GROUP
+        + r"(?:\s+(?P<purpose>thereof))?"
+        + r"[.\s]*",
+        re.IGNORECASE,
+    ),
+    # "excepting therefrom the West 25 feet"
+    re.compile(
+        r"excepting\s+therefrom\s+(?:the\s+)"
+        + _DIRECTION_GROUP
+        + r"\s+"
+        + _WIDTH_GROUP
+        + r"\s+"
+        + _UNIT_GROUP
+        + r"[.\s]*",
+        re.IGNORECASE,
+    ),
+    # "Subject to an Easement for Private Road Purposes over the West 30 Feet thereof"
+    re.compile(
+        r"subject\s+to\s+(?:an?\s+)?(?P<purpose>[^.]*?)"
+        + r"\s+over\s+(?:the\s+)"
+        + _DIRECTION_GROUP
+        + r"\s+"
+        + _WIDTH_GROUP
+        + r"\s+"
+        + _UNIT_GROUP
+        + r"(?:\s+thereof)?"
+        + r"[.\s]*",
+        re.IGNORECASE,
+    ),
+]
+
+# Pattern to detect a metes-and-bounds traverse inside an exception clause.
+# If an EXCEPT clause contains "THENCE" or a quadrant bearing like "S 45 degrees",
+# it is a geometric exception (not a simple strip), and should NOT be removed.
+_METES_INDICATOR = re.compile(
+    r"\bthence\b|"
+    r"\b[NS]\s+\d+\s+degree",
+    re.IGNORECASE,
+)
+
+
+def _normalize_direction(raw: str) -> str:
+    """Normalize a direction token to its full canonical name (title case).
+
+    >>> _normalize_direction("E")
+    'East'
+    >>> _normalize_direction("south")
+    'South'
+    """
+    upper = raw.upper().strip()
+    if upper in _DIRECTION_ABBREV:
+        return _DIRECTION_ABBREV[upper]
+    return raw.strip().capitalize()
+
+
+def _clean_purpose(raw: str | None) -> str | None:
+    """Clean and normalize the purpose string, or return None."""
+    if raw is None:
+        return None
+    cleaned = raw.strip().rstrip(".")
+    if not cleaned or cleaned.lower() == "thereof":
+        return None
+    # Collapse "deeded for roadway" → "roadway"
+    deeded_match = re.match(r"deeded\s+for\s+(\S+)", cleaned, re.IGNORECASE)
+    if deeded_match:
+        return deeded_match.group(1).lower()
+    return cleaned
+
+
+def detect_strip_exceptions(text: str) -> list[_StripException]:
+    """Detect uniform-width strip exceptions in legal description text.
+
+    Strip exceptions are area deductions like "except the East 20 feet
+    deeded for roadway" that describe a uniform strip removed from one side
+    of a parcel.  They are NOT traverse calls and should not produce DeedCall
+    objects.
+
+    Args:
+        text: Legal description text (may be full or partial)
+
+    Returns:
+        List of dicts, each with:
+            direction:     Canonical direction name (e.g., "East")
+            width_ft:      Width in feet
+            purpose:       Purpose string or None
+            original_text: Verbatim matched text from the input
+    """
+    if not text:
+        return []
+
+    results: list[_StripException] = []
+    seen_spans: set[tuple[int, int]] = set()
+
+    for pattern in _STRIP_PATTERNS:
+        for match in pattern.finditer(text):
+            span = (match.start(), match.end())
+            # Avoid duplicate matches from overlapping patterns
+            if any(s[0] <= span[0] < s[1] or s[0] < span[1] <= s[1] for s in seen_spans):
+                continue
+
+            original = match.group(0).strip().rstrip(".")
+
+            # Guard: if the matched text (or nearby context) contains metes
+            # indicators, this is a geometric exception, not a simple strip.
+            # Look at the broader exception clause context.
+            context_start = max(0, match.start() - 10)
+            context_end = min(len(text), match.end() + 200)
+            context = text[context_start:context_end]
+            if _METES_INDICATOR.search(context):
+                # Check that the THENCE/bearing is actually AFTER the
+                # exception keyword, not before it in the main description.
+                post_match_text = text[match.start() : context_end]
+                if _METES_INDICATOR.search(post_match_text):
+                    continue
+
+            direction_raw = match.group("dir")
+            width = float(match.group("width"))
+
+            # Extract purpose -- not all patterns define this named group
+            purpose_raw = None
+            if "purpose" in pattern.groupindex:
+                purpose_raw = match.group("purpose")
+
+            results.append(
+                _StripException(
+                    direction=_normalize_direction(direction_raw),
+                    width_ft=width,
+                    purpose=_clean_purpose(purpose_raw),
+                    original_text=original,
+                )
+            )
+            seen_spans.add(span)
+
+    return results
+
+
+def remove_strip_exceptions(text: str) -> str:
+    """Remove strip exception text from a legal description.
+
+    Strips detected by ``detect_strip_exceptions()`` are removed from the
+    input text.  Exception clauses that contain metes-and-bounds calls
+    (geometric exceptions) are preserved.
+
+    Args:
+        text: Legal description text
+
+    Returns:
+        Cleaned text with strip exception phrases removed
+    """
+    if not text:
+        return ""
+
+    strips = detect_strip_exceptions(text)
+    if not strips:
+        return text
+
+    result = text
+    for strip in strips:
+        original = strip["original_text"]
+        # Remove the matched text.  Also remove leading punctuation/whitespace
+        # (comma, semicolon, period) that attached to the strip.
+        # Build a pattern that matches optional leading punct + the literal text.
+        escaped = re.escape(original)
+        # Allow for trailing period or whitespace that wasn't captured
+        removal_pattern = re.compile(
+            r"[,;\s]*" + escaped + r"[.\s]*",
+            re.IGNORECASE,
+        )
+        result = removal_pattern.sub(" ", result, count=1)
+
+    # Clean up any trailing/leading whitespace artifacts
+    result = re.sub(r"\s{2,}", " ", result).strip()
+    return result

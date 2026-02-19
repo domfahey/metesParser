@@ -182,6 +182,41 @@ def quadrant_to_azimuth(cardinal1: str, degrees: float, cardinal2: str) -> float
     return azimuth % 360.0
 
 
+_DUE_CARDINAL_RE = re.compile(
+    r"^\s*due\s+(north|south|east|west|n|s|e|w)\s*$",
+    re.IGNORECASE,
+)
+
+_DUE_CARDINAL_MAP: dict[str, float] = {
+    "north": 0.0,
+    "n": 0.0,
+    "south": 180.0,
+    "s": 180.0,
+    "east": 90.0,
+    "e": 90.0,
+    "west": 270.0,
+    "w": 270.0,
+}
+
+
+def due_cardinal_to_azimuth(direction: str) -> float | None:
+    """Convert a 'due {cardinal}' direction to azimuth.
+
+    Recognises 'due North', 'due S', 'Due EAST', etc. (case-insensitive).
+    Returns ``None`` when *direction* is not a valid due-cardinal string.
+
+    Args:
+        direction: Direction string, e.g. "due North" or "due W"
+
+    Returns:
+        Azimuth in degrees (0.0, 90.0, 180.0, or 270.0) or None
+    """
+    m = _DUE_CARDINAL_RE.match(direction)
+    if m is None:
+        return None
+    return _DUE_CARDINAL_MAP[m.group(1).lower()]
+
+
 def bearing_to_azimuth(bearing_text: str) -> float | None:
     """Convert a bearing string to azimuth.
 
