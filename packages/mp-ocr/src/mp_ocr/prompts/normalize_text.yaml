@@ -14,24 +14,45 @@ system_prompt: |
      - Replace "degrees" with °
      - Replace "minutes" with '
      - Replace "seconds" with "
+     - Replace "deg." with ° (common abbreviation in Michigan deeds)
+     - Replace "DEGREES" / "MINUTES" / "SECONDS" with °, ', " respectively
+     - Replace "DECREES" with ° (common OCR error for "DEGREES")
      - Example: "56 degrees 40 minutes" → "56°40'"
+     - Example: "26 deg. 00 41" → "26°00'41\""
 
-  2. Cardinal Direction Standardization:
+  2. Space-Separated DMS Handling:
+     When a bearing uses "deg." (or °) followed by space-separated numbers WITHOUT
+     explicit minute (') or second (") symbols, treat the numbers as minutes and seconds:
+     - "26 deg. 00 41" → "26°00'41\""  (26 degrees, 00 minutes, 41 seconds)
+     - "58 deg. 14 00" → "58°14'00\""  (58 degrees, 14 minutes, 00 seconds)
+     - "63 deg. 53 02" → "63°53'02\""  (63 degrees, 53 minutes, 02 seconds)
+     The pattern is: [degrees] deg. [minutes] [seconds] → [degrees]°[minutes]'[seconds]"
+     Do NOT discard the minute and second values — they are critical for accuracy.
+
+  3. Cardinal Direction Standardization:
      - "North" → "N", "South" → "S", "East" → "E", "West" → "W"
      - "North 56 degrees 40 minutes West" → "N 56°40' W"
      - "South 87 degrees 7 minutes 30 seconds West" → "S 87°7'30\" W"
 
-  3. OCR Error Correction:
+  4. OCR Error Correction:
      - "5outh" → "South", "NOrth" → "North"
      - "0" mistaken for degree symbol → correct context
      - "1" vs "l" in context
+     - "DECREES" → "DEGREES" (common OCR misread)
 
-  4. Line Structure:
+  5. Line Structure:
      - Merge hyphenated line breaks
      - Ensure each THENCE/course is on a single line
      - Preserve paragraph breaks between courses
      - **CRITICAL**: Preserve numbered call formatting (1., 2., 3., 4., etc.) - NEVER merge numbered calls into one line
      - **CRITICAL**: Keep each numbered call on its own line/paragraph
+
+  6. Dual-Notation Preservation:
+     When a call has dual notation like:
+       "South 26 deg. 00 41 East, 120.00 feet (recorded as South 26 deg. 03 00 East)"
+     Preserve BOTH bearings. Normalize both to standard DMS format:
+       "S 26°00'41\" E, 120.00 feet (recorded as S 26°03'00\" E)"
+     Do NOT drop either bearing. Do NOT collapse to cardinal-only direction.
   </normalization_rules>
 
   <critical_preservation_requirements>
@@ -49,6 +70,15 @@ system_prompt: |
   When in doubt, preserve the original text exactly.
   </warning>
 
+  <anti_hallucination_warning>
+  Do NOT "correct" bearing values to make geometry look cleaner:
+  - If one course says "S 20°38'45\" E" and another says "N 20°35'40\" W", those are
+    INTENTIONALLY DIFFERENT bearings. Do NOT change 35'40" to 38'45" or vice versa.
+  - Real surveys have non-reciprocal bearings due to measurement conditions, magnetic
+    declination changes, and different survey dates.
+  - Your job is to NORMALIZE FORMAT ONLY (symbols, abbreviations) — never change any number.
+  </anti_hallucination_warning>
+
 user_prompt_template: |
   <instruction>
   Normalize the legal description text below. Apply standardization rules carefully while preserving all measurements exactly.
@@ -61,10 +91,15 @@ user_prompt_template: |
 
   <normalization_steps>
   1. Identify and standardize DMS notation (degrees → °, minutes → ', seconds → ")
-  2. Convert spelled-out cardinal directions to abbreviated form (North → N, etc.)
-  3. Fix obvious OCR errors in cardinal directions
-  4. Merge line-wrapped sentences so each course is continuous
-  5. Verify all numbers remain unchanged
+     - Also normalize "deg." → ° (common abbreviation)
+     - Also normalize "DEGREES"/"MINUTES"/"SECONDS" → °, ', "
+  2. Handle space-separated DMS: "26 deg. 00 41" → "26°00'41\""
+     - When numbers follow "deg." without explicit ' or " symbols, treat them as minutes and seconds
+  3. Convert spelled-out cardinal directions to abbreviated form (North → N, etc.)
+  4. Fix obvious OCR errors in cardinal directions (e.g., "DECREES" → degrees)
+  5. Merge line-wrapped sentences so each course is continuous
+  6. Preserve dual-notation parentheticals: "(recorded as S 26°03'00\" E)" stays intact
+  7. Verify all numbers remain unchanged — do NOT "correct" any bearing values
   </normalization_steps>
 
   <examples>
@@ -90,6 +125,32 @@ user_prompt_template: |
 
   NOTE: Each numbered call (1., 2., 3., 4.) remains on its own line with proper formatting.
   </example_2_numbered_calls>
+
+  <example_3_space_separated_dms>
+  Before: "Thence South 26 deg. 00 41 East, 120.00 feet"
+
+  After: "Thence S 26°00'41" E, 120.00 feet"
+
+  NOTE: "26 deg. 00 41" has NO minute/second symbols — the "00" and "41" are minutes
+  and seconds respectively. They must NOT be dropped.
+  </example_3_space_separated_dms>
+
+  <example_4_dual_notation>
+  Before: "Thence South 26 deg. 00 41 East, 120.00 feet (recorded as South 26 deg. 03 00 East) along the Easterly right of way of Fairview Avenue"
+
+  After: "Thence S 26°00'41" E, 120.00 feet (recorded as S 26°03'00" E) along the Easterly right of way of Fairview Avenue"
+
+  NOTE: BOTH bearings are preserved and normalized. The parenthetical "(recorded as ...)"
+  is kept intact. Neither bearing is discarded or merged.
+  </example_4_dual_notation>
+
+  <example_5_all_caps_dms>
+  Before: "THENCE SOUTH 20 DEGREES 38 MINUTES 45 SECONDS EAST 100.00 FEET"
+
+  After: "THENCE S 20°38'45" E 100.00 FEET"
+
+  NOTE: "DEGREES", "MINUTES", "SECONDS" are normalized to symbols. All numbers preserved exactly.
+  </example_5_all_caps_dms>
   </examples>
 
   <output_requirements>

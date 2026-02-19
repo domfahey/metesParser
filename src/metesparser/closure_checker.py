@@ -250,6 +250,18 @@ class ClosureChecker:
         perimeter = cls.calculate_perimeter(main_calls)
 
         closure_passed = has_computable_traverse and misclosure < tolerance
+
+        # Warn when closure only passes because of a relaxed tolerance
+        if (
+            closure_passed
+            and tolerance > cls.CLOSURE_TOLERANCE_FT
+            and misclosure >= cls.CLOSURE_TOLERANCE_FT
+        ):
+            warnings.append(
+                f"Closure passes with relaxed tolerance "
+                f"({misclosure:.4f} ft misclosure vs {tolerance:.4f} ft threshold)"
+            )
+
         angle_check_passed = cls.check_interior_angles(main_calls)
         curve_consistency_passed = cls.check_curve_consistency(main_calls)
 
