@@ -150,7 +150,7 @@ def test_csv_to_calls_skips_invalid_rows(tmp_path):
         # Write a row with missing required fields
         writer.writerow(dict.fromkeys(FIELDNAMES, ""))
 
-    loaded = csv_to_calls(str(out))
+    loaded = csv_to_calls(str(out), strict=False)
     assert len(loaded) == 0
 
 

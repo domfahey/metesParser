@@ -14,6 +14,12 @@ from .models import AuditContext, ClosureResult, DeedCall, LegalDescription, _Mo
 logger = structlog.get_logger(__name__)
 
 
+def _format_float(value: float, decimal_places: int) -> str:
+    """Keep familiar formatting when exact, otherwise retain roundtrip precision."""
+    formatted = f"{value:.{decimal_places}f}"
+    return formatted if float(formatted) == value else repr(value)
+
+
 class _CSVDeedCallRow(_Model):
     """Validated CSV row shape before building a strict DeedCall."""
 
@@ -116,18 +122,20 @@ class CSVBuilder:
             "direction_text": call.direction_text,
             "bearing_quadrant": call.bearing_quadrant or "",
             "bearing_azimuth_deg_from_north": (
-                f"{call.bearing_azimuth_deg_from_north:.6f}"
+                _format_float(call.bearing_azimuth_deg_from_north, 6)
                 if call.bearing_azimuth_deg_from_north is not None
                 else ""
             ),
-            "distance_ft": f"{call.distance_ft:.2f}",
+            "distance_ft": _format_float(call.distance_ft, 2),
             "curve_dir": call.curve_dir or "",
-            "radius_ft": f"{call.radius_ft:.2f}" if call.radius_ft is not None else "",
-            "delta_deg": f"{call.delta_deg:.6f}" if call.delta_deg is not None else "",
-            "arc_length_ft": f"{call.arc_length_ft:.2f}" if call.arc_length_ft is not None else "",
+            "radius_ft": _format_float(call.radius_ft, 2) if call.radius_ft is not None else "",
+            "delta_deg": _format_float(call.delta_deg, 6) if call.delta_deg is not None else "",
+            "arc_length_ft": _format_float(call.arc_length_ft, 2)
+            if call.arc_length_ft is not None
+            else "",
             "chord_bearing": call.chord_bearing or "",
             "chord_length_ft": (
-                f"{call.chord_length_ft:.2f}" if call.chord_length_ft is not None else ""
+                _format_float(call.chord_length_ft, 2) if call.chord_length_ft is not None else ""
             ),
             "along": call.along or "",
             "to": call.to or "",
@@ -206,11 +214,12 @@ class CSVBuilder:
                     f.write(f"{key}: {value}\n")
 
     @classmethod
-    def csv_to_calls(cls, input_path: str) -> list[DeedCall]:
+    def csv_to_calls(cls, input_path: str, *, strict: bool = True) -> list[DeedCall]:
         """Load calls from a CSV file.
 
         Args:
             input_path: Input CSV file path
+            strict: Reject invalid rows; False explicitly permits partial recovery
 
         Returns:
             List of DeedCall objects
@@ -224,6 +233,8 @@ class CSVBuilder:
                 call = cls._row_to_call(row, row_number=row_number)
                 if call:
                     calls.append(call)
+                elif strict:
+                    raise ValueError(f"Cannot import complete parcel: invalid CSV row {row_number}")
 
         return calls
 

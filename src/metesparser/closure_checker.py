@@ -308,13 +308,25 @@ class ClosureChecker:
                         delta_deg = math.degrees(call.arc_length_ft / call.radius_ft)
 
                     if delta_deg is not None and abs(delta_deg) > 1e-9:
-                        next_point = BearingConverter.compute_curve_endpoint(
-                            current,
-                            call.bearing_azimuth_deg_from_north,
-                            call.radius_ft,
-                            delta_deg,
-                            call.curve_dir,
-                        )
+                        if call.chord_bearing is not None:
+                            chord_azimuth = BearingConverter.bearing_to_azimuth(call.chord_bearing)
+                            if chord_azimuth is None:
+                                raise ValueError(f"Course {call.course}: invalid chord bearing")
+                            # A chord bearing already describes the endpoint vector.
+                            # Only tangent bearings need rotation by half the delta.
+                            chord_length = (
+                                2 * call.radius_ft * math.sin(math.radians(delta_deg) / 2)
+                            )
+                            dx, dy = BearingConverter.calculate_deltas(chord_azimuth, chord_length)
+                            next_point = Point(x=current.x + dx, y=current.y + dy)
+                        else:
+                            next_point = BearingConverter.compute_curve_endpoint(
+                                current,
+                                call.bearing_azimuth_deg_from_north,
+                                call.radius_ft,
+                                delta_deg,
+                                call.curve_dir,
+                            )
 
                 if next_point is None:
                     dx, dy = BearingConverter.calculate_deltas(
