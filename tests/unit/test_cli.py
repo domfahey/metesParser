@@ -148,7 +148,8 @@ def test_extract_command_exports_verified_csv(monkeypatch, tmp_path):
         lambda provider=None, **kwargs: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
     )
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: verified
+        "metesparser.closure_checker.ClosureChecker.verify_closure",
+        lambda calls, area=0.0: verified,
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
@@ -187,7 +188,8 @@ def test_extract_command_defaults_output_path_to_csv(monkeypatch, tmp_path):
         lambda provider=None, **kwargs: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
     )
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: verified
+        "metesparser.closure_checker.ClosureChecker.verify_closure",
+        lambda calls, area=0.0: verified,
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
@@ -241,7 +243,8 @@ def test_extract_command_exports_unverified_csv(monkeypatch, tmp_path):
         lambda provider=None, **kwargs: SimpleNamespace(process_deed_pdf=lambda _: legal_desc),
     )
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.verify_closure", lambda calls: unverified
+        "metesparser.closure_checker.ClosureChecker.verify_closure",
+        lambda calls, area=0.0: unverified,
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.get_closure_summary",
@@ -371,7 +374,7 @@ def test_extract_command_json_mode_logs_summary_without_stdout(monkeypatch, tmp_
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls: _verified_result(),
+        lambda calls, area=0.0: _verified_result(),
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
@@ -418,7 +421,7 @@ def test_extract_command_console_mode_logs_summary_and_stdout(monkeypatch, tmp_p
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls: _verified_result(),
+        lambda calls, area=0.0: _verified_result(),
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
@@ -467,7 +470,7 @@ def test_extract_command_propagates_contextvars_and_clears_after_completion(monk
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls: _verified_result(),
+        lambda calls, area=0.0: _verified_result(),
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
@@ -672,7 +675,7 @@ class TestExtractRunManifest:
         )
         monkeypatch.setattr(
             "metesparser.closure_checker.ClosureChecker.verify_closure",
-            lambda calls: verified,
+            lambda calls, area=0.0: verified,
         )
         monkeypatch.setattr(
             "metesparser.closure_checker.ClosureChecker.get_closure_summary",

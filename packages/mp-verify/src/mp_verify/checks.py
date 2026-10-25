@@ -16,8 +16,8 @@ def check_interior_angles(calls: list[DeedCall], coordinates: list[Point]) -> bo
 
     This check only applies to all-straight polygons (no curves).
 
-    Note: This is a simplified check that verifies the sum of exterior
-    angles equals 360 degrees, which is mathematically equivalent to checking
+    Note: This is a simplified check that verifies the sum of signed exterior
+    angles equals +/-360 degrees, which is mathematically equivalent to checking
     interior angles sum to (n-2)*180 degrees.
 
     Args:
@@ -42,18 +42,14 @@ def check_interior_angles(calls: list[DeedCall], coordinates: list[Point]) -> bo
         az1 = current.bearing_azimuth_deg_from_north or 0
         az2 = next_call.bearing_azimuth_deg_from_north or 0
 
-        deflection = az2 - az1
-
-        while deflection < 0:
-            deflection += 360
-        while deflection >= 360:
-            deflection -= 360
+        # Signed turns retain concave corners and either traversal orientation.
+        deflection = (az2 - az1 + 180.0) % 360.0 - 180.0
 
         deflection_angles.append(deflection)
 
     actual_sum = sum(deflection_angles)
 
-    return abs(actual_sum - 360.0) < 5.0
+    return abs(abs(actual_sum) - 360.0) < 5.0
 
 
 def check_parallelism(calls: list[DeedCall]) -> list[str]:
@@ -312,6 +308,14 @@ def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list
             discrepancies.append(
                 f"Course {i}: Bearing mismatch - '{c1.bearing_quadrant}' vs '{c2.bearing_quadrant}'"
             )
+
+        az1 = c1.bearing_azimuth_deg_from_north
+        az2 = c2.bearing_azimuth_deg_from_north
+        if az1 is None or az2 is None:
+            if az1 != az2:
+                discrepancies.append(f"Course {i}: Azimuth presence mismatch")
+        elif abs((az1 - az2 + 180.0) % 360.0 - 180.0) > 0.0001:
+            discrepancies.append(f"Course {i}: Azimuth mismatch - {az1:.6f} vs {az2:.6f}")
 
         if abs(c1.distance_ft - c2.distance_ft) > 0.01:
             discrepancies.append(
