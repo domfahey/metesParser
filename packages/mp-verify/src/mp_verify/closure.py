@@ -100,19 +100,20 @@ def compute_traverse(
     return points
 
 
-def calculate_area(points: list[Point]) -> float:
-    """Calculate area using shoelace formula.
+def calculate_area(points: list[Point], *, calls: list[DeedCall] | None = None) -> float:
+    """Calculate polygon area, including circular segments when calls are supplied.
 
     Args:
         points: List of Point objects forming a polygon.
+        calls: Optional traverse calls for signed circular-segment corrections.
 
     Returns:
         Area in square feet.
 
     Raises:
-        ValueError: If fewer than 3 points provided.
+        ValueError: If fewer than 3 points provided without a curved boundary.
     """
-    if len(points) < 3:
+    if len(points) < 2:
         raise ValueError(f"Cannot calculate area with {len(points)} points (need at least 3)")
 
     area = 0.0
@@ -123,8 +124,25 @@ def calculate_area(points: list[Point]) -> float:
         area += points[i].x * points[j].y
         area -= points[j].x * points[i].y
 
-    area = abs(area) / 2.0
-    return area
+    area /= 2.0
+    curved_area = 0.0
+    for call in calls or []:
+        if call.bearing_azimuth_deg_from_north is None or not call.is_curve():
+            continue
+        if call.radius_ft is None or call.curve_dir is None:
+            continue
+        delta = call.delta_deg
+        if delta is None and call.arc_length_ft is not None and call.radius_ft > 0:
+            delta = math.degrees(call.arc_length_ft / call.radius_ft)
+        if delta is None or abs(delta) <= 1e-9:
+            continue
+        theta = math.radians(delta)
+        segment = call.radius_ft**2 * (theta - math.sin(theta)) / 2.0
+        # Shoelace uses positive counterclockwise area; left arcs add area.
+        curved_area += segment if call.curve_dir == "left" else -segment
+    if len(points) < 3 and curved_area == 0.0:
+        raise ValueError(f"Cannot calculate area with {len(points)} points (need at least 3)")
+    return abs(area + curved_area)
 
 
 def calculate_perimeter(calls: list[DeedCall]) -> float:
@@ -188,7 +206,7 @@ def verify_closure(
         )
 
     try:
-        main_area_sq_ft = calculate_area(points)
+        main_area_sq_ft = calculate_area(points, calls=main_calls)
 
         exception_area_sq_ft = 0.0
         if exception_calls:
@@ -198,7 +216,7 @@ def verify_closure(
             )
             try:
                 exception_points = compute_traverse(exception_calls)
-                exception_area_sq_ft = calculate_area(exception_points)
+                exception_area_sq_ft = calculate_area(exception_points, calls=exception_calls)
             except ValueError as e:
                 warnings.append(f"Cannot calculate exception area: {e}")
 
@@ -214,11 +232,7 @@ def verify_closure(
     closure_passed = has_computable_traverse and misclosure < tolerance
 
     # Warn when closure only passes because of a relaxed tolerance
-    if (
-        closure_passed
-        and tolerance > CLOSURE_TOLERANCE_FT
-        and misclosure >= CLOSURE_TOLERANCE_FT
-    ):
+    if closure_passed and tolerance > CLOSURE_TOLERANCE_FT and misclosure >= CLOSURE_TOLERANCE_FT:
         warnings.append(
             f"Closure passes with relaxed tolerance "
             f"({misclosure:.4f} ft misclosure vs {tolerance:.4f} ft threshold)"

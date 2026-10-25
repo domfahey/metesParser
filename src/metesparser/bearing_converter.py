@@ -502,13 +502,23 @@ class BearingConverter:
         elif arc_length_ft is not None and chord_length_ft is not None:
             if arc_length_ft <= 0:
                 raise ValueError(f"Arc length must be positive, got {arc_length_ft}")
+            if chord_length_ft < 0:
+                raise ValueError(f"Chord must be non-negative, got {chord_length_ft}")
             if chord_length_ft >= arc_length_ft:
                 raise ValueError(
                     f"Chord ({chord_length_ft} ft) must be less than arc ({arc_length_ft} ft)"
                 )
-            # Approximate delta from arc/chord ratio
-            # For small angles: L/C ≈ delta / (2*sin(delta/2))
-            delta_rad = 2 * math.sqrt(6 * (1 - chord_length_ft / arc_length_ft))
+            # C/L = sin(theta/2)/(theta/2), monotone over one full circle.
+            # Bisection also handles major arcs where a small-angle estimate fails.
+            lower, upper = 0.0, math.pi
+            ratio = chord_length_ft / arc_length_ft
+            for _ in range(80):
+                half_delta = (lower + upper) / 2.0
+                if math.sin(half_delta) / half_delta > ratio:
+                    lower = half_delta
+                else:
+                    upper = half_delta
+            delta_rad = lower + upper
             delta_deg = math.degrees(delta_rad)
             radius_ft = arc_length_ft / delta_rad
 

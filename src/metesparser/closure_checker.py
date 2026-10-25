@@ -84,7 +84,7 @@ class ClosureChecker:
             )
 
         try:
-            main_area_sq_ft = cls.calculate_area(points)
+            main_area_sq_ft = cls.calculate_area(points, calls=main_calls)
 
             exception_area_sq_ft = 0.0
             if exception_calls:
@@ -93,7 +93,9 @@ class ClosureChecker:
                 )
                 try:
                     exception_points = cls.compute_traverse(exception_calls)
-                    exception_area_sq_ft = cls.calculate_area(exception_points)
+                    exception_area_sq_ft = cls.calculate_area(
+                        exception_points, calls=exception_calls
+                    )
                 except ValueError as e:
                     warnings.append(f"Cannot calculate exception area: {e}")
 
@@ -333,19 +335,20 @@ class ClosureChecker:
         return points
 
     @classmethod
-    def calculate_area(cls, points: list[Point]) -> float:
-        """Calculate area using shoelace formula.
+    def calculate_area(cls, points: list[Point], *, calls: list[DeedCall] | None = None) -> float:
+        """Calculate polygon area, including circular segments when calls are supplied.
 
         Args:
             points: List of Point objects forming a polygon
+            calls: Optional traverse calls for signed circular-segment corrections
 
         Returns:
             Area in square feet
 
         Raises:
-            ValueError: If fewer than 3 points provided
+            ValueError: If fewer than 3 points provided without a curved boundary
         """
-        if len(points) < 3:
+        if len(points) < 2:
             raise ValueError(f"Cannot calculate area with {len(points)} points (need at least 3)")
 
         area = 0.0
@@ -356,8 +359,25 @@ class ClosureChecker:
             area += points[i].x * points[j].y
             area -= points[j].x * points[i].y
 
-        area = abs(area) / 2.0
-        return area
+        area /= 2.0
+        curved_area = 0.0
+        for call in calls or []:
+            if call.bearing_azimuth_deg_from_north is None or not call.is_curve():
+                continue
+            if call.radius_ft is None or call.curve_dir is None:
+                continue
+            delta = call.delta_deg
+            if delta is None and call.arc_length_ft is not None and call.radius_ft > 0:
+                delta = math.degrees(call.arc_length_ft / call.radius_ft)
+            if delta is None or abs(delta) <= 1e-9:
+                continue
+            theta = math.radians(delta)
+            segment = call.radius_ft**2 * (theta - math.sin(theta)) / 2.0
+            # Shoelace uses positive counterclockwise area; left arcs add area.
+            curved_area += segment if call.curve_dir == "left" else -segment
+        if len(points) < 3 and curved_area == 0.0:
+            raise ValueError(f"Cannot calculate area with {len(points)} points (need at least 3)")
+        return abs(area + curved_area)
 
     @classmethod
     def calculate_perimeter(cls, calls: list[DeedCall]) -> float:
@@ -383,8 +403,8 @@ class ClosureChecker:
 
         This check only applies to all-straight polygons (no curves).
 
-        Note: This is a simplified check that verifies the sum of exterior
-        angles equals 360°, which is mathematically equivalent to checking
+        Note: This is a simplified check that verifies the sum of signed exterior
+        angles equals +/-360°, which is mathematically equivalent to checking
         interior angles sum to (n-2)*180°.
 
         Args:
@@ -408,18 +428,14 @@ class ClosureChecker:
             az1 = current.bearing_azimuth_deg_from_north or 0
             az2 = next_call.bearing_azimuth_deg_from_north or 0
 
-            deflection = az2 - az1
-
-            while deflection < 0:
-                deflection += 360
-            while deflection >= 360:
-                deflection -= 360
+            # Signed turns retain concave corners and either traversal orientation.
+            deflection = (az2 - az1 + 180.0) % 360.0 - 180.0
 
             deflection_angles.append(deflection)
 
         actual_sum = sum(deflection_angles)
 
-        return abs(actual_sum - 360.0) < 5.0
+        return abs(abs(actual_sum) - 360.0) < 5.0
 
     @classmethod
     def check_parallelism(cls, calls: list[DeedCall]) -> list[str]:
@@ -718,6 +734,14 @@ class ClosureChecker:
                 discrepancies.append(
                     f"Course {i}: Bearing mismatch - '{c1.bearing_quadrant}' vs '{c2.bearing_quadrant}'"
                 )
+
+            az1 = c1.bearing_azimuth_deg_from_north
+            az2 = c2.bearing_azimuth_deg_from_north
+            if az1 is None or az2 is None:
+                if az1 != az2:
+                    discrepancies.append(f"Course {i}: Azimuth presence mismatch")
+            elif abs((az1 - az2 + 180.0) % 360.0 - 180.0) > 0.0001:
+                discrepancies.append(f"Course {i}: Azimuth mismatch - {az1:.6f} vs {az2:.6f}")
 
             if abs(c1.distance_ft - c2.distance_ft) > 0.01:
                 discrepancies.append(

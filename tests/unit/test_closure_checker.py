@@ -558,7 +558,7 @@ class TestInteriorAngleCheck:
         assert result.angle_check_passed is True
 
     def test_interior_angle_normalization_wraps_over_360(self):
-        """Large deflection angles wrap to 0-360 during normalization."""
+        """Out-of-range input azimuths normalize to a rotated square."""
         calls = [
             DeedCall(
                 course=1,
@@ -571,14 +571,20 @@ class TestInteriorAngleCheck:
                 course=2,
                 direction_text="East",
                 bearing_quadrant="S 10° E",
-                bearing_azimuth_deg_from_north=800.0,
+                bearing_azimuth_deg_from_north=550.0,
                 distance_ft=100.0,
             ),
             DeedCall(
                 course=3,
                 direction_text="South",
                 bearing_quadrant="S 10° W",
-                bearing_azimuth_deg_from_north=100.0,
+                bearing_azimuth_deg_from_north=280.0,
+                distance_ft=100.0,
+            ),
+            DeedCall(
+                course=4,
+                direction_text="West",
+                bearing_azimuth_deg_from_north=730.0,
                 distance_ft=100.0,
             ),
         ]

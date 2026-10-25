@@ -39,6 +39,23 @@ _METADATA_BOUNDARY = re.compile(
     re.IGNORECASE,
 )
 
+_CLAUSE_ABBREVIATIONS = {"ave", "blvd", "dr", "ft", "in", "no", "rd", "st"}
+
+
+def _before_clause_delimiter(text: str) -> str:
+    """Trim a call at sentence punctuation without splitting decimals or abbreviations."""
+    acronym_periods = [match.span() for match in re.finditer(r"\b[A-Za-z](?:\.[A-Za-z])+\.", text)]
+    for match in re.finditer(r";|\.(?!\d)", text):
+        if match.group() == ".":
+            prefix = text[: match.start()]
+            word = re.search(r"([A-Za-z]+)$", prefix)
+            if word and word.group(1).lower() in _CLAUSE_ABBREVIATIONS:
+                continue
+            if any(start <= match.start() < end for start, end in acronym_periods):
+                continue
+        return text[: match.start()]
+    return text
+
 
 class _AreaStatement(TypedDict):
     value_sq_ft: float
@@ -481,9 +498,9 @@ def extract_along_to_fields(call_text: str) -> tuple[str, str]:
             last_to = to_tokens[-1]
             along = segment[: last_to.start()].strip(" ,;.")
             to_section = segment[last_to.end() :].strip()
-            to = re.split(r"[.;]", to_section, maxsplit=1)[0].strip(" ,")
+            to = _before_clause_delimiter(to_section).strip(" ,")
         else:
-            along = re.split(r"[.;]", segment, maxsplit=1)[0].strip(" ,")
+            along = _before_clause_delimiter(segment).strip(" ,")
 
     if not to:
         to_tokens = [
@@ -494,7 +511,7 @@ def extract_along_to_fields(call_text: str) -> tuple[str, str]:
         if to_tokens:
             last = to_tokens[-1]
             to_candidate = call_text[last.end() :].strip()
-            to = re.split(r"[.;]", to_candidate, maxsplit=1)[0].strip(" ,")
+            to = _before_clause_delimiter(to_candidate).strip(" ,")
 
     return (along, to)
 
