@@ -22,6 +22,7 @@ from .models import (
     DistanceUnit,
     ExtractionRecord,
     LegalDescription,
+    LLMStageRecord,
     RunMetadata,
 )
 
@@ -54,6 +55,7 @@ class PDFProcessor:
             cache_dir: Directory for cached responses (env: METESPARSER_CACHE_DIR)
         """
         self._configured_api_key = api_key
+        self._audit_stage_records: list[LLMStageRecord] | None = None
         self.client = client or self._create_client(provider)
         self.prompts_dir = Path(__file__).parent.parent.parent / "prompts"
 
@@ -118,9 +120,11 @@ class PDFProcessor:
         prompt_config = self._load_prompt("extract_text_from_pdf")
         prompt_text = prompt_config["user_prompt_template"]
         response_mime_type = prompt_config.get("response_mime_type")
-        return self.client.generate_text_with_pdf(
+        response = self.client.generate_text_with_pdf(
             prompt_text, pdf_path, response_mime_type=response_mime_type
         )
+        self._record_llm_stage("extract_text_from_pdf", prompt_text, response)
+        return response
 
     def extract_legal_description(self, pdf_path: str) -> str:
         """Extract legal description from a deed PDF."""
@@ -131,7 +135,9 @@ class PDFProcessor:
             "{document_text}", document_text
         )
         combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
-        return self.client.generate_text(combined_prompt)
+        response = self.client.generate_text(combined_prompt)
+        self._record_llm_stage("extract_legal_description", combined_prompt, response)
+        return response
 
     def normalize_legal_description(self, legal_desc_text: str) -> str:
         """Normalize and clean up legal description text."""
@@ -142,7 +148,33 @@ class PDFProcessor:
         )
         combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
 
-        return self.client.generate_text(combined_prompt)
+        response = self.client.generate_text(combined_prompt)
+        self._record_llm_stage("normalize_text", combined_prompt, response)
+        return response
+
+    def _record_llm_stage(self, stage: str, prompt: str, response: str) -> None:
+        """Capture rendered LLM evidence only during an audited pipeline run."""
+        if self._audit_stage_records is None:
+            return
+        inner = self._unwrap_client(self.client)
+        if isinstance(inner, OpenAIClient):
+            provider = "openai"
+        elif isinstance(inner, GeminiClient):
+            provider = "gemini"
+        else:
+            provider = "unknown"
+        model = getattr(inner, "model", None)
+        self._audit_stage_records.append(
+            LLMStageRecord(
+                stage=stage,
+                prompt=prompt,
+                prompt_sha256=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+                response=response,
+                response_sha256=hashlib.sha256(response.encode("utf-8")).hexdigest(),
+                provider=provider,
+                model=model if isinstance(model, str) else "unknown",
+            )
+        )
 
     def extract_calls_ai(self, legal_desc_text: str) -> list[dict[str, Any]]:
         """Extract calls using the configured LLM (experimental)."""
@@ -187,18 +219,23 @@ class PDFProcessor:
 
         processing_logger = logger.bind(pdf_path=pdf_path)
 
-        processing_logger.info("Extracting legal description from PDF")
-        legal_desc_text = self.extract_legal_description(pdf_path)
+        self._audit_stage_records = [] if audit else None
+        try:
+            processing_logger.info("Extracting legal description from PDF")
+            legal_desc_text = self.extract_legal_description(pdf_path)
 
-        matched = [p.pattern for p in _PRIOR_CONVEYANCE_PATTERNS if p.search(legal_desc_text)]
-        if matched:
-            processing_logger.warning(
-                "Extracted text may contain prior conveyance language",
-                matched_patterns=matched,
-            )
+            matched = [p.pattern for p in _PRIOR_CONVEYANCE_PATTERNS if p.search(legal_desc_text)]
+            if matched:
+                processing_logger.warning(
+                    "Extracted text may contain prior conveyance language",
+                    matched_patterns=matched,
+                )
 
-        processing_logger.info("Normalizing text")
-        normalized_text = self.normalize_legal_description(legal_desc_text)
+            processing_logger.info("Normalizing text")
+            normalized_text = self.normalize_legal_description(legal_desc_text)
+            llm_stage_records = list(self._audit_stage_records or [])
+        finally:
+            self._audit_stage_records = None
 
         processing_logger.info("Extracting PLSS metadata")
         plss_data = TextParser.extract_plss_metadata(normalized_text)
@@ -231,6 +268,7 @@ class PDFProcessor:
                 legal_desc_text=legal_desc_text,
                 normalized_text=normalized_text,
                 distance_unit=distance_unit,
+                llm_stages=llm_stage_records,
             )
 
         processing_logger.info("Extracting calls")
@@ -299,6 +337,7 @@ class PDFProcessor:
         legal_desc_text: str,
         normalized_text: str,
         distance_unit: DistanceUnit,
+        llm_stages: list[LLMStageRecord] | None = None,
     ) -> AuditContext:
         """Build an ``AuditContext`` populated with run metadata and extraction record."""
         import metesparser  # noqa: PLW0406 – local import to read __version__
@@ -346,6 +385,7 @@ class PDFProcessor:
             normalized_text=normalized_text,
             llm_confidence=llm_confidence,
             confidence_signals=confidence_signals,
+            llm_stages=llm_stages or [],
         )
 
         return ctx

@@ -280,7 +280,7 @@ def test_csv_row_to_call_skips_invalid_curve_row(tmp_path: Path):
             }
         )
 
-    calls = CSVBuilder.csv_to_calls(str(csv_path))
+    calls = CSVBuilder.csv_to_calls(str(csv_path), strict=False)
 
     assert len(calls) == 1
     assert calls[0].course == 1
@@ -346,7 +346,7 @@ def test_csv_row_to_call_skips_invalid_rows(tmp_path: Path, overrides: dict[str,
         writer.writeheader()
         writer.writerow(_base_csv_row(overrides))
 
-    calls = CSVBuilder.csv_to_calls(str(csv_path))
+    calls = CSVBuilder.csv_to_calls(str(csv_path), strict=False)
 
     assert calls == []
 

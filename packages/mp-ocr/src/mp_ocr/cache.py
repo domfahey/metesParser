@@ -57,10 +57,14 @@ class CachedLLMClient:
             return None
         try:
             data = json.loads(path.read_text())
+            if not isinstance(data, dict):
+                return None
+            response: object = data.get("response")
+            if not isinstance(response, str):
+                return None
             logger.debug("Cache hit", cache_key=key[:12])
-            response: str = data["response"]
             return response
-        except (json.JSONDecodeError, KeyError):
+        except (json.JSONDecodeError, KeyError, TypeError, UnicodeDecodeError):
             return None
 
     def _write_cache(

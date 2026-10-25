@@ -496,6 +496,14 @@ class TextParser:
 
             return (value, unit)
 
+        apostrophe_feet = re.search(
+            rf"(?<!°)({_COMMA_NUMBER})\s*'(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
+            text,
+            re.IGNORECASE,
+        )
+        if apostrophe_feet:
+            return (parse_comma_number(apostrophe_feet.group(1)), "feet")
+
         return (0.0, "feet")
 
     @classmethod
@@ -843,7 +851,7 @@ class TextParser:
             r"^\s+the\s+"
             r"(?:North|South|East|West)"
             r"(?:erly|wardly)?"
-            r"\s+\d+(?:\.\d+)?"
+            rf"\s+{_COMMA_NUMBER}"
             r"\s+(?:feet|foot|ft|poles?|rods?|chains?|links?|varas?|meters?)"
             r"\s+(?:of\b|in\b|thereof\b)",
             re.IGNORECASE,

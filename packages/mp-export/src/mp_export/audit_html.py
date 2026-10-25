@@ -103,6 +103,19 @@ def _build_extraction_section(ctx: AuditContext) -> str:
     parts.append("</div>")
     parts.append("</div>")
 
+    if er.llm_stages:
+        parts.append("<h4>LLM Stage Provenance</h4>")
+        for stage in er.llm_stages:
+            parts.append(f"<details><summary>{html.escape(stage.stage)}</summary>")
+            parts.append(
+                f"<p>Provider: {html.escape(stage.provider)}; Model: {html.escape(stage.model)}</p>"
+            )
+            parts.append(f"<p>Prompt SHA-256: {html.escape(stage.prompt_sha256)}</p>")
+            parts.append(f"<h4>Rendered Prompt</h4><pre>{html.escape(stage.prompt)}</pre>")
+            parts.append(f"<p>Response SHA-256: {html.escape(stage.response_sha256)}</p>")
+            parts.append(f"<h4>Response</h4><pre>{html.escape(stage.response)}</pre>")
+            parts.append("</details>")
+
     if er.confidence_signals:
         parts.append("<h4>Confidence Signals</h4>")
         parts.append("<table>")

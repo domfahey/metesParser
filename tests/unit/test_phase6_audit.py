@@ -349,13 +349,21 @@ class TestTransformationRecording:
         assert len(bearing_decisions) == 1
         assert bearing_decisions[0].confidence == 0.95
 
-    def test_failed_parse_not_in_audits(self):
-        """Calls that fail to parse should not appear in call_audits."""
+    def test_malformed_call_fails_closed_and_recovery_is_explicit(self):
+        """Mixed input raises by default; explicit recovery audits only accepted calls."""
+        text = "THENCE North 45 degrees East 100.00 feet; THENCE N 12.5960° E 75.00 feet"
+
+        with pytest.raises(ValueError, match=r"course 2"):
+            CallExtractor.extract_calls(text, audit_context=_make_audit_context())
+
         ctx = _make_audit_context()
-        text = "BEGINNING at a point; THENCE North 45 degrees East 100.00 feet to a point."
-        calls = CallExtractor.extract_calls(text, audit_context=ctx)
-        # call_audits count should match successful calls count
-        assert len(ctx.call_audits) == len(calls)
+        calls = CallExtractor.extract_calls(text, audit_context=ctx, strict=False)
+        assert len(calls) == 1
+        assert calls[0].course == 1
+        assert calls[0].bearing_azimuth_deg_from_north == pytest.approx(45.0)
+        assert len(ctx.call_audits) == 1
+        assert ctx.call_audits[0].course == 1
+        assert ctx.call_audits[0].source_excerpt == "N 45° E 100.00 feet"
 
 
 # ---------------------------------------------------------------------------
@@ -889,14 +897,20 @@ class TestLLMConfidenceScoring:
         assert confidence < 0.5
 
     def test_missing_closure_reduces_confidence(self):
-        text = (
+        open_text = (
             "BEGINNING at a point; "
             "THENCE North 45 degrees East 100.00 feet; "
             "THENCE South 45 degrees East 100.00 feet; "
             "THENCE South 45 degrees West 100.00 feet."
         )
-        confidence, signals = PDFProcessor._compute_llm_confidence(text)
-        assert signals["has_closure_language"] is False
+        closed_text = open_text.removesuffix(".") + " to the POINT OF BEGINNING."
+
+        open_confidence, open_signals = PDFProcessor._compute_llm_confidence(open_text)
+        closed_confidence, closed_signals = PDFProcessor._compute_llm_confidence(closed_text)
+
+        assert open_signals["has_closure_language"] is False
+        assert closed_signals["has_closure_language"] is True
+        assert closed_confidence - open_confidence == pytest.approx(0.15)
 
     def test_empty_text(self):
         confidence, signals = PDFProcessor._compute_llm_confidence("")
@@ -917,12 +931,17 @@ class TestLLMConfidenceScoring:
         assert all(signals.values())
 
     def test_only_pob_signal(self):
-        """Text with only POB should score exactly 0.20."""
-        text = "BEGINNING at an iron pin found in a field of unknown location."
+        """Only the POB deed signal is present; length and text sanity still contribute."""
+        text = "POB " + "legal description text " * 3
         confidence, signals = PDFProcessor._compute_llm_confidence(text)
         assert signals["has_pob"] is True
         assert signals["has_bearing_calls"] is False
         assert signals["has_distances"] is False
+        assert signals["has_closure_language"] is False
+        assert signals["has_plss"] is False
+        assert signals["text_length_reasonable"] is True
+        assert signals["no_garbled_chars"] is True
+        assert confidence == pytest.approx(0.40)
 
     def test_garbled_non_ascii_fails_signal(self):
         """Text with >5% non-ASCII (excluding DMS symbols) fails no_garbled_chars."""
