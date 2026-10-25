@@ -59,7 +59,8 @@ _CARDINAL_ONLY_PATTERN = re.compile(
 )
 
 _UNIT_TOKEN = (
-    r"(?:feet|foot|ft|poles?|rods?|perches?|chains?|links?"
+    r"(?:engineer\s+chains?|engineer\s+links?"
+    r"|feet|foot|ft|poles?|rods?|perches?|chains?|links?"
     r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
 )
 
@@ -92,6 +93,10 @@ def _normalize_unit_token(token: str | None) -> str:
         return "chains"
     if t in ("link", "links"):
         return "links"
+    if t in ("engineer chain", "engineer chains"):
+        return "engineer_chains"
+    if t in ("engineer link", "engineer links"):
+        return "engineer_links"
     if t in ("vara", "varas"):
         return "varas"
     if t in ("arpent", "arpents"):
@@ -124,11 +129,30 @@ def _is_debug_logging_enabled() -> bool:
     return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
 
 
+def _is_initial_course_prefix(prefix: str) -> bool:
+    """Return whether text before THENCE starts with a supported bearing."""
+    candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\d+[.)])\s*)?", "", prefix)
+    if PACKED_DMS_PATTERN.match(candidate):
+        return True
+
+    try:
+        direction = extract_direction(candidate)
+    except ValueError:
+        return False
+    if not direction or not candidate.lstrip().lower().startswith(direction.lower()):
+        return False
+    if _CARDINAL_ONLY_PATTERN.fullmatch(direction):
+        remainder = candidate.lstrip()[len(direction) :]
+        return bool(re.match(rf"\s+{COMMA_NUMBER}(?:\s|$)", remainder))
+    return bool(parse_quadrant_bearing(direction) or due_cardinal_to_azimuth(direction) is not None)
+
+
 def extract_calls(
     text: str,
     distance_unit: str = "feet",
     *,
     audit_context: AuditContext | None = None,
+    strict: bool = True,
 ) -> list[DeedCall]:
     """Extract all calls from normalized legal description text.
 
@@ -139,6 +163,7 @@ def extract_calls(
         text: Normalized legal description text (should already be normalized)
         distance_unit: Primary distance unit (feet, poles, etc.)
         audit_context: Optional audit context for recording parsing decisions
+        strict: Raise with course context when a geometric course is malformed.
 
     Returns:
         List of DeedCall objects
@@ -151,22 +176,35 @@ def extract_calls(
     course_num = 1
 
     for tract_text, is_exception_tract in tracts:
-        # Strip POB preamble -- everything before first THENCE is not a call.
-        # Without this, distances in the BEGINNING text (e.g. "50 feet wide",
-        # "310.00 FEET SOUTHEASTWARDLY") leak through as phantom calls when
-        # the text includes pre-BEGINNING content that shifts the split.
+        # Remove a recognized commencement/POB preamble. A description may
+        # legitimately begin with its first course and introduce THENCE later.
         thence_match = re.search(r"\bTHENCE\b", tract_text, re.IGNORECASE)
-        if thence_match:
+        has_thence_marker = thence_match is not None
+        prefix = tract_text[: thence_match.start()] if thence_match else ""
+        has_beginning_preamble = re.match(
+            r"\s*(?:BEGINNING|COMMENCING|POINT\s+OF\s+BEGINNING|POB|TPOB|RPOB)\b",
+            prefix,
+            re.IGNORECASE,
+        )
+        has_initial_course = bool(thence_match and _is_initial_course_prefix(prefix))
+        if thence_match and (has_beginning_preamble or not has_initial_course):
             tract_text = tract_text[thence_match.start() :]
 
+        has_numbered_course_markers = bool(
+            re.search(r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+", tract_text, re.MULTILINE)
+        )
         call_texts = split_into_calls(tract_text)
 
-        for call_text in call_texts:
+        for source_course, call_text in enumerate(call_texts, start=1):
             try:
                 call = extract_single_call(
                     call_text, course=course_num, distance_unit=distance_unit
                 )
             except (ValidationError, ValueError, TypeError) as exc:
+                if strict:
+                    raise ValueError(
+                        f"Malformed course {source_course}: {call_text.strip()!r}: {exc}"
+                    ) from exc
                 payload = {
                     "course": course_num,
                     "call_preview": _call_preview(call_text),
@@ -186,6 +224,17 @@ def extract_calls(
                 continue
 
             if call is None:
+                standalone_thence = re.fullmatch(r"\s*THENCE\s*", call_text, re.I)
+                explicit_course = not standalone_thence and (
+                    has_thence_marker or has_numbered_course_markers
+                )
+                if strict and (
+                    explicit_course
+                    or extract_direction(call_text)
+                    or re.search(r"\b(?:[NSEW])\s+\d", call_text, re.I)
+                    or re.search(r"\b(?:curve|spiral|transition)\b", call_text, re.I)
+                ):
+                    raise ValueError(f"Malformed course {source_course}: {call_text.strip()!r}")
                 continue
 
             if is_exception_tract:

@@ -61,6 +61,11 @@ props = BearingConverter.calculate_curve_properties(
 
 Parse legal descriptions into structured DeedCall objects.
 
+`extract_calls()` raises `ValueError` when a course cannot be parsed, so an
+incomplete parcel cannot silently pass verification. Use `strict=False` only
+when deliberately recovering partial data for manual review. The same default
+and recovery option apply to `mp_parse.extract_calls()`.
+
 ```python
 from metesparser.call_extractor import CallExtractor
 
@@ -111,6 +116,11 @@ print(summary)
 ### CSVBuilder
 
 Export/import CSV files.
+
+`csv_to_calls()` rejects invalid rows by default. Use `strict=False` for explicit
+partial recovery. CSV numeric fields retain the precision used in verification,
+including values requiring more than two decimal places. These rules also apply
+to `mp_export`.
 
 ```python
 from metesparser.csv_builder import CSVBuilder
@@ -263,6 +273,11 @@ else:
 ## Audit Sidecar
 
 Generate transparency reports alongside verified CSV output.
+
+Audited extraction records include `llm_stages`: the rendered prompt, response,
+SHA-256 fingerprints, and configured provider/model for each OCR, legal-description,
+and normalization exchange. JSON sidecars and HTML reports include this evidence;
+the existing extraction fields remain available.
 
 ```python
 from metesparser import PDFProcessor, ClosureChecker, CSVBuilder

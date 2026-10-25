@@ -385,6 +385,14 @@ def extract_distance(text: str) -> tuple[float, str]:
 
         return (value, unit)
 
+    apostrophe_feet = re.search(
+        rf"(?<!\u00b0)({COMMA_NUMBER})\s*'(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
+        text,
+        re.IGNORECASE,
+    )
+    if apostrophe_feet:
+        return (parse_comma_number(apostrophe_feet.group(1)), "feet")
+
     return (0.0, "feet")
 
 
@@ -419,7 +427,7 @@ def _is_lot_qualifier_except(text: str, match: re.Match[str]) -> bool:
         r"^\s+the\s+"
         r"(?:North|South|East|West)"
         r"(?:erly|wardly)?"
-        r"\s+\d+(?:\.\d+)?"
+        rf"\s+{COMMA_NUMBER}"
         r"\s+(?:feet|foot|ft|poles?|rods?|chains?|links?|varas?|meters?)"
         r"\s+(?:of\b|in\b|thereof\b)",
         re.IGNORECASE,
