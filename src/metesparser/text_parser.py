@@ -38,6 +38,23 @@ _METADATA_BOUNDARY = re.compile(
     re.IGNORECASE,
 )
 
+_CLAUSE_ABBREVIATIONS = {"ave", "blvd", "dr", "ft", "in", "no", "rd", "st"}
+
+
+def _before_clause_delimiter(text: str) -> str:
+    """Trim a call at sentence punctuation without splitting decimals or abbreviations."""
+    acronym_periods = [match.span() for match in re.finditer(r"\b[A-Za-z](?:\.[A-Za-z])+\.", text)]
+    for match in re.finditer(r";|\.(?!\d)", text):
+        if match.group() == ".":
+            prefix = text[: match.start()]
+            word = re.search(r"([A-Za-z]+)$", prefix)
+            if word and word.group(1).lower() in _CLAUSE_ABBREVIATIONS:
+                continue
+            if any(start <= match.start() < end for start, end in acronym_periods):
+                continue
+        return text[: match.start()]
+    return text
+
 
 def parse_comma_number(s: str) -> float:
     """Convert a numeric string with optional comma grouping to float.
@@ -139,9 +156,7 @@ class TextParser:
             direction = "N" if direction_token.startswith("N") else "S"
             plss_data["township"] = f"{township_num} {direction}"
 
-        range_match = re.search(
-            r"\b(?:RANGE|R\.?)\s*(\d+)\s*(EAST|E\.?|WEST|W\.?)\b", text_upper
-        )
+        range_match = re.search(r"\b(?:RANGE|R\.?)\s*(\d+)\s*(EAST|E\.?|WEST|W\.?)\b", text_upper)
         if range_match:
             range_num = range_match.group(1)
             direction_token = range_match.group(2)
@@ -212,7 +227,11 @@ class TextParser:
             if not stripped:
                 continue
 
-            if re.match(r"^(THENCE|BEGINNING|FROM|POB|POINT)", stripped, re.IGNORECASE):
+            if re.match(
+                r"^(?:(?:THENCE|BEGINNING|FROM|POB|POINT)\b|\(\d+\)|\d+[.)])(?:\s+|$)",
+                stripped,
+                re.IGNORECASE,
+            ):
                 if current:
                     merged.append(current)
                 current = stripped
@@ -732,14 +751,22 @@ class TextParser:
         # Only match single cardinal letters (N/S/E/W) or full words
         # (North/South/East/West) followed by a number, NOT followed by
         # degree notation (°, degrees, DEG).
-        _CARDINAL_MAP = {"n": "North", "s": "South", "e": "East", "w": "West",
-                         "north": "North", "south": "South", "east": "East", "west": "West"}
+        _CARDINAL_MAP = {
+            "n": "North",
+            "s": "South",
+            "e": "East",
+            "w": "West",
+            "north": "North",
+            "south": "South",
+            "east": "East",
+            "west": "West",
+        }
 
         _BARE_CARDINAL_RE = re.compile(
-            r"(\b(?:thence|proceeding)\s+)"           # group 1: anchor
-            r"(N|S|E|W|North|South|East|West)"         # group 2: bare cardinal
-            r"(\s+)"                                   # group 3: whitespace
-            r"(\d+\.?\d*)",                            # group 4: distance number
+            r"(\b(?:thence|proceeding)\s+)"  # group 1: anchor
+            r"(N|S|E|W|North|South|East|West)"  # group 2: bare cardinal
+            r"(\s+)"  # group 3: whitespace
+            r"(\d+\.?\d*)",  # group 4: distance number
             re.IGNORECASE,
         )
 
@@ -811,7 +838,7 @@ class TextParser:
         if re.search(r"ING$", matched_text, re.IGNORECASE):
             return False
 
-        after = text[match.end():]
+        after = text[match.end() :]
         lot_qualifier_pattern = re.compile(
             r"^\s+the\s+"
             r"(?:North|South|East|West)"
@@ -895,9 +922,9 @@ class TextParser:
                 last_to = to_tokens[-1]
                 along = segment[: last_to.start()].strip(" ,;.")
                 to_section = segment[last_to.end() :].strip()
-                to = re.split(r"[.;]", to_section, maxsplit=1)[0].strip(" ,")
+                to = _before_clause_delimiter(to_section).strip(" ,")
             else:
-                along = re.split(r"[.;]", segment, maxsplit=1)[0].strip(" ,")
+                along = _before_clause_delimiter(segment).strip(" ,")
 
         if not to:
             to_tokens = [
@@ -908,7 +935,7 @@ class TextParser:
             if to_tokens:
                 last = to_tokens[-1]
                 to_candidate = call_text[last.end() :].strip()
-                to = re.split(r"[.;]", to_candidate, maxsplit=1)[0].strip(" ,")
+                to = _before_clause_delimiter(to_candidate).strip(" ,")
 
         return (along, to)
 
@@ -926,7 +953,10 @@ class TextParser:
             (r"basis\s+of\s+bearings?\s*:\s*(.+?)(?:\.|$)", re.IGNORECASE),
             (r"bearings?\s+(?:are\s+)?based\s+on\s+(.+?)(?:\.|$)", re.IGNORECASE),
             (r"bearings?\s+referenced\s+to\s+(.+?)(?:\.|$)", re.IGNORECASE),
-            (r"bearings?\s+(?:herein\s+)?are\s+(magnetic|assumed|true\s+north|grid\s+north)(?:\b.*?)(?:\.|$)", re.IGNORECASE),
+            (
+                r"bearings?\s+(?:herein\s+)?are\s+(magnetic|assumed|true\s+north|grid\s+north)(?:\b.*?)(?:\.|$)",
+                re.IGNORECASE,
+            ),
         ]
 
         for pattern, flags in patterns:
@@ -947,7 +977,10 @@ class TextParser:
             Surveyor certification string or None if not found
         """
         patterns = [
-            (r"(?:That\s+I,\s+)(.+?)(?:,\s+(?:a\s+)?(?:Licensed|Registered|Professional))", re.IGNORECASE | re.DOTALL),
+            (
+                r"(?:That\s+I,\s+)(.+?)(?:,\s+(?:a\s+)?(?:Licensed|Registered|Professional))",
+                re.IGNORECASE | re.DOTALL,
+            ),
             (r"(?:Certified\s+by:\s*)(.+?)(?:\.|$)", re.IGNORECASE),
             (r"(?:Surveyed\s+by\s+)(.+?)(?:\.|$)", re.IGNORECASE),
             (r"(I\s+hereby\s+certify\s+.+?)(?:\.|$)", re.IGNORECASE),
@@ -972,7 +1005,10 @@ class TextParser:
         """
         patterns = [
             (r"(BEING\s+the\s+same\s+premises\s+.+?)(?:\.|$)", re.IGNORECASE),
-            (r"((?:Deed|Official\s+Records)\s+Book\s+\d+.*?(?:Page\s+\d+)?)(?:\b.*?)(?:\.|$)", re.IGNORECASE),
+            (
+                r"((?:Deed|Official\s+Records)\s+Book\s+\d+.*?(?:Page\s+\d+)?)(?:\b.*?)(?:\.|$)",
+                re.IGNORECASE,
+            ),
             (r"(Instrument\s+Number\s+\d+.+?)(?:\.|$)", re.IGNORECASE),
         ]
 
@@ -1048,9 +1084,7 @@ class TextParser:
         if name_match:
             subdivision_name = name_match.group(1).strip()
 
-        plat_match = re.search(
-            r"Plat\s+Book\s+(\d+),?\s*Page\s+(\d+)", text, re.IGNORECASE
-        )
+        plat_match = re.search(r"Plat\s+Book\s+(\d+),?\s*Page\s+(\d+)", text, re.IGNORECASE)
         if plat_match:
             plat_book = plat_match.group(1)
             plat_page = plat_match.group(2)

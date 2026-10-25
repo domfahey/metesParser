@@ -537,23 +537,23 @@ def extract_direction(text: str) -> str:
     Returns:
         Direction string (e.g., "S 56 deg 40' W" or "southwesterly")
     """
+    packed_match = PACKED_DMS_PATTERN.search(text)
     quadrant_match = QUADRANT_PATTERN.search(text)
-    if quadrant_match:
+    if quadrant_match and not packed_match:
         return quadrant_match.group(0)
 
-    packed_match = PACKED_DMS_PATTERN.search(text)
     if packed_match:
         cardinal1 = packed_match.group(1).upper()
         packed_value = float(packed_match.group(2))
         cardinal2 = packed_match.group(3).upper()
         decimal_degrees = parse_packed_dms(packed_value)
-        deg = int(decimal_degrees)
-        minutes = (decimal_degrees - deg) * 60
-        rounded_minutes = round(minutes)
-        if rounded_minutes >= 60:
-            rounded_minutes = 0
-            deg += 1
-        return f"{cardinal1} {deg}\u00b0{rounded_minutes:02d}' {cardinal2}"
+        total_seconds = round(decimal_degrees * 3600, 4)
+        degree, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        seconds_text = f"{seconds:.4f}".rstrip("0").rstrip(".")
+        if seconds < 10:
+            seconds_text = f"0{seconds_text}"
+        return f"{cardinal1} {int(degree)}\u00b0{int(minutes):02d}'{seconds_text}\" {cardinal2}"
 
     # "due {cardinal}" check -- must come before simple cardinal so "due North"
     # is captured as the full phrase, not truncated to "north".
