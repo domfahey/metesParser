@@ -1,6 +1,6 @@
 # Claude plugin and deterministic review
 
-The `mp-review` workspace package reviews supplied UTF-8 TXT/Markdown, CSV, or JSON without OCR, provider keys, or LLM calls. The Claude plugin adds two skills: `review-deed` and `verify-traverse`. All parsing, numeric checks, and verified export decisions run in Python.
+The `mp-review` workspace package reviews supplied UTF-8 TXT/Markdown, CSV, or JSON without OCR, provider keys, or LLM calls. The Claude plugin adds `review-deed` and `verify-traverse`, plus the reusable `plugin-structure`, `plugin-settings`, and `skill-development` guides. All parsing, numeric checks, and verified export decisions run in Python.
 
 ```sh
 uv sync --extra dev --extra gemini
@@ -11,6 +11,8 @@ make plugin-build
 ```
 
 Output directories must not exist. `--area SQFT` supplies a stated area for comparison; never substitute an inferred area. JSON input accepts a list of `DeedCall` objects or a `LegalDescription` object with `calls`. CSV input requires the complete ordered 21-column schema. Multiple named parcels are rejected for separate review.
+
+The plugin launcher reads optional `.claude/metesparser.local.md` settings from the caller's project directory on each run. Supported fields are `enabled` (default true) and `output_dir` (a project-relative base for fresh review folders). Explicit CLI output takes precedence. Plain engine CLI calls opt in with `--settings PATH`. See [settings reference](../plugins/metesparser/references/plugin-settings.md) for validation and lifecycle details.
 
 The CLI writes one JSON result to stdout and diagnostic logs to stderr. Review exits are 0 (`checks_passed`), 1 (`needs_review`), and 2 (`error`). Corpus exits are 0 (`passed`), 1 (`failed`), and 2 for invalid configuration. A review folder contains the original source, parsed calls, verification results, field-level audit, and escaped HTML report. Verified CSV is issued only when the existing verification and export gates pass. Source SHA-256 and deterministic execution metadata are recorded; no LLM extraction is implied.
 

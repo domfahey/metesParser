@@ -46,6 +46,8 @@ env/
 
 # Claude Code
 .claude/settings.local.json
+.claude/*.local.md
+.claude/*.local.json
 
 # IDE
 .vscode/
