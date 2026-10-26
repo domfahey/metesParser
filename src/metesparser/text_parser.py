@@ -877,6 +877,7 @@ class TextParser:
             r"(N|S|E|W|North|South|East|West)"  # group 2: bare cardinal
             r"(\s+)"  # group 3: whitespace
             r"(\d+\.?\d*)",  # group 4: distance number
+
             re.IGNORECASE,
         )
 
@@ -949,11 +950,13 @@ class TextParser:
             return False
 
         after = text[match.end() :]
+
         lot_qualifier_pattern = re.compile(
             r"^\s+the\s+"
             r"(?:North|South|East|West)"
             r"(?:erly|wardly)?"
             rf"\s+{_COMMA_NUMBER}"
+
             r"\s+(?:feet|foot|ft|poles?|rods?|chains?|links?|varas?|meters?)"
             r"\s+(?:of\b|in\b|thereof\b)",
             re.IGNORECASE,

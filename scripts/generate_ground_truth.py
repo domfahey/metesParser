@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Generate ground truth JSON files for all sample PDFs."""
+
 import json
-from datetime import datetime, timezone
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from metesparser.pdf_processor import PDFProcessor
 from metesparser.call_extractor import CallExtractor
-from metesparser.text_parser import TextParser
 from metesparser.closure_checker import ClosureChecker
+from metesparser.pdf_processor import PDFProcessor
+from metesparser.text_parser import TextParser
 
 # Deed metadata (from test files and visual inspection)
 DEED_METADATA = {
@@ -73,18 +74,21 @@ DEED_METADATA = {
 
 def generate_ground_truth(pdf_path: Path, processor: PDFProcessor) -> dict:
     """Generate ground truth data for a PDF."""
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"Processing: {pdf_path.name}")
-    print('='*80)
+    print("=" * 80)
 
     # Get metadata
-    metadata = DEED_METADATA.get(pdf_path.name, {
-        "address": "Unknown",
-        "city": "Unknown",
-        "state": "NJ",
-        "book": "Unknown",
-        "page": "Unknown",
-    })
+    metadata = DEED_METADATA.get(
+        pdf_path.name,
+        {
+            "address": "Unknown",
+            "city": "Unknown",
+            "state": "NJ",
+            "book": "Unknown",
+            "page": "Unknown",
+        },
+    )
 
     # Extract text
     print("Step 1/5: Extracting raw text from PDF...")
@@ -126,26 +130,30 @@ def generate_ground_truth(pdf_path: Path, processor: PDFProcessor) -> dict:
     # Convert calls to dict
     expected_calls = []
     for call in calls:
-        expected_calls.append({
-            "course": call.course,
-            "direction_text": call.direction_text,
-            "bearing_quadrant": call.bearing_quadrant,
-            "bearing_azimuth_deg_from_north": call.bearing_azimuth_deg_from_north,
-            "distance_ft": call.distance_ft,
-            "curve_dir": call.curve_dir,
-            "radius_ft": call.radius_ft,
-            "delta_deg": call.delta_deg,
-            "arc_length_ft": call.arc_length_ft,
-            "along": call.along,
-            "to": call.to,
-            "monument_type": call.monument_type,
-            "notes": call.notes,
-        })
+        expected_calls.append(
+            {
+                "course": call.course,
+                "direction_text": call.direction_text,
+                "bearing_quadrant": call.bearing_quadrant,
+                "bearing_azimuth_deg_from_north": call.bearing_azimuth_deg_from_north,
+                "distance_ft": call.distance_ft,
+                "curve_dir": call.curve_dir,
+                "radius_ft": call.radius_ft,
+                "delta_deg": call.delta_deg,
+                "arc_length_ft": call.arc_length_ft,
+                "along": call.along,
+                "to": call.to,
+                "monument_type": call.monument_type,
+                "notes": call.notes,
+            }
+        )
 
     # Build ground truth
     ground_truth = {
         "deed_info": metadata,
-        "raw_ocr_text": raw_text[:1000] + "..." if len(raw_text) > 1000 else raw_text,  # Truncate for size
+        "raw_ocr_text": raw_text[:1000] + "..."
+        if len(raw_text) > 1000
+        else raw_text,  # Truncate for size
         "expected_legal_description": legal_desc_text,
         "expected_normalized_text": normalized_text,
         "expected_poc": poc if poc else None,
@@ -156,10 +164,10 @@ def generate_ground_truth(pdf_path: Path, processor: PDFProcessor) -> dict:
             "num_calls": {
                 "expected": len(calls),
                 "operator": "==",
-                "description": f"MUST extract exactly {len(calls)} calls"
+                "description": f"MUST extract exactly {len(calls)} calls",
             },
         },
-        "notes": f"Ground truth generated at {datetime.now(timezone.utc).isoformat()}",
+        "notes": f"Ground truth generated at {datetime.now(UTC).isoformat()}",
     }
 
     return ground_truth
@@ -186,7 +194,7 @@ def main():
             ground_truth = generate_ground_truth(pdf_path, processor)
 
             # Write JSON
-            with open(output_path, 'w') as f:
+            with open(output_path, "w") as f:
                 json.dump(ground_truth, f, indent=2, ensure_ascii=False)
 
             print(f"  ✅ Saved to: {output_path.name}")
@@ -194,11 +202,12 @@ def main():
         except Exception as e:
             print(f"  ❌ Error: {e}")
             import traceback
+
             traceback.print_exc()
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("Ground truth generation complete!")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
     # Summary
     ground_truth_files = list(sample_deeds_dir.glob("*.ground_truth.json"))

@@ -9,7 +9,7 @@ from pathlib import Path
 import structlog
 from pydantic import ValidationError, field_validator
 
-from .models import AuditContext, ClosureResult, DeedCall, LegalDescription, _Model
+from .models import AuditContext, ClosureResult, DeedCall, LegalDescription, Tract, _Model
 
 logger = structlog.get_logger(__name__)
 
@@ -95,7 +95,11 @@ class CSVBuilder:
 
     @staticmethod
     def _validate_export_geometry(
-        calls: list[DeedCall], closure_result: ClosureResult, legal_desc: LegalDescription | None
+        calls: list[DeedCall],
+        closure_result: ClosureResult,
+        legal_desc: LegalDescription | None,
+        *,
+        independent_tract: bool = False,
     ) -> list[DeedCall]:
         """Require the supplied verification to describe the calls actually exported."""
         selected_calls = legal_desc.calls if legal_desc is not None else calls
@@ -111,7 +115,10 @@ class CSVBuilder:
             stated_area = legal_desc.stated_area_sq_ft
         from .closure_checker import ClosureChecker
 
-        fresh_result = ClosureChecker.verify_closure(selected_calls, stated_area_sq_ft=stated_area)
+        verifier = (
+            ClosureChecker.verify_tract if independent_tract else ClosureChecker.verify_closure
+        )
+        fresh_result = verifier(selected_calls, stated_area_sq_ft=stated_area)
         if not fresh_result.is_fully_verified():
             raise ValueError(
                 "Cannot export verified CSV: selected calls failed fresh verification. "
@@ -322,23 +329,29 @@ class CSVBuilder:
         output_path: str,
         legal_desc: LegalDescription | None = None,
         *,
+        tract_results: list[tuple[Tract, ClosureResult]] | None = None,
         audit_context: AuditContext | None = None,
-    ) -> None:
-        """Export verified CSV only if all checks pass.
+    ) -> list[Path]:
+        """Export verified CSV(s).
 
-        Adds '_verified' suffix to filename.
+        For multi-tract deeds (tract_results provided), writes one CSV per tract.
 
         Args:
             calls: List of DeedCall objects
             closure_result: ClosureResult from verification
             output_path: Base output file path
             legal_desc: Optional LegalDescription for metadata
+            tract_results: Optional list of (Tract, ClosureResult) for multi-tract
             audit_context: Optional AuditContext for audit trail output
+
+        Returns:
+            List of written file paths.
 
         Raises:
             ValueError: If verification checks did not pass
         """
-        if not closure_result.is_fully_verified():
+        # In multi-tract mode, skip global gate — each tract checked independently
+        if not tract_results and not closure_result.is_fully_verified():
             raise ValueError(
                 "Cannot export verified CSV: verification checks failed. "
                 f"Misclosure: {closure_result.misclosure_ft:.4f} ft, "
@@ -346,33 +359,76 @@ class CSVBuilder:
             )
 
         output_file = Path(output_path)
-        verified_path = output_file.with_stem(output_file.stem + "_verified")
+        written_paths: list[Path] = []
 
-        cls._validate_export_geometry(calls, closure_result, legal_desc)
-
-        audit_json_path = verified_path.with_suffix(".audit.json")
-        audit_html_path = verified_path.with_suffix(".audit.html")
-
-        if legal_desc:
-            cls.legal_description_to_csv(legal_desc, str(verified_path))
+        # Validate every selected successful result before writing any output.
+        if tract_results:
+            for tract, result in tract_results:
+                if result.is_fully_verified():
+                    selected = LegalDescription(
+                        calls=tract.calls, stated_area_sq_ft=tract.stated_area_sq_ft
+                    )
+                    cls._validate_export_geometry(
+                        tract.calls, result, selected, independent_tract=True
+                    )
         else:
-            cls.calls_to_csv(calls, str(verified_path))
+            cls._validate_export_geometry(calls, closure_result, legal_desc)
 
-        summary_path = verified_path.with_suffix(".verification.txt")
+        if tract_results:
+            for i, (tract, tract_result) in enumerate(tract_results, start=1):
+                if not tract_result.is_fully_verified():
+                    logger.warning(
+                        "Skipping unverified tract",
+                        tract=tract.label,
+                        misclosure_ft=tract_result.misclosure_ft,
+                        warnings_count=len(tract_result.warnings),
+                    )
+                    continue
+                tract_path = output_file.with_stem(f"{output_file.stem}_verified_tract{i}")
+                cls.calls_to_csv(tract.calls, str(tract_path))
+                written_paths.append(tract_path)
+                logger.info("Verified tract CSV exported", path=str(tract_path), tract=tract.label)
+
+        else:
+            verified_path = output_file.with_stem(output_file.stem + "_verified")
+            if legal_desc:
+                cls.legal_description_to_csv(legal_desc, str(verified_path))
+            else:
+                cls.calls_to_csv(calls, str(verified_path))
+            written_paths.append(verified_path)
+            logger.info("Verified CSV exported", path=str(verified_path))
+
+        summary_path = output_file.with_stem(output_file.stem + "_verified").with_suffix(
+            ".verification.txt"
+        )
         from .closure_checker import ClosureChecker
 
-        summary = ClosureChecker.get_closure_summary(closure_result)
-        with open(summary_path, "w") as f:
-            f.write(summary)
-
-        logger.info("Verified CSV exported", path=str(verified_path))
+        if tract_results:
+            summaries: list[str] = []
+            for tract, tract_result in tract_results:
+                summaries.append(f"--- {tract.label} ---")
+                summaries.append(ClosureChecker.get_closure_summary(tract_result))
+                summaries.append("")
+            with open(summary_path, "w") as f:
+                f.write("\n".join(summaries))
+        else:
+            summary = ClosureChecker.get_closure_summary(closure_result)
+            with open(summary_path, "w") as f:
+                f.write(summary)
         logger.info("Verification summary written", path=str(summary_path))
 
         if audit_context is not None:
+            audit_base = output_file.with_stem(output_file.stem + "_verified")
+            audit_json_path = audit_base.with_suffix(".audit.json")
+
             audit_json_path.write_text(audit_context.model_dump_json(indent=2))
             logger.info("Audit trail written", path=str(audit_json_path))
 
             from .audit_reporter import AuditReporter
 
+            audit_html_path = audit_base.with_suffix(".audit.html")
+
             AuditReporter.write_report(audit_context, audit_html_path)
             logger.info("Audit HTML report written", path=str(audit_html_path))
+
+        return written_paths

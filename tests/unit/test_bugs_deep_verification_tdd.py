@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 from mp_export import calls_to_csv, csv_to_calls, export_verified_csv
 from mp_models import DeedCall as PackageCall
-from mp_parse import extract_calls
 from mp_verify import verify_closure
 
 from metesparser.call_extractor import CallExtractor
@@ -15,6 +14,7 @@ from metesparser.csv_builder import CSVBuilder
 from metesparser.models import DeedCall as MonolithCall
 from metesparser.pdf_processor import PDFProcessor
 from metesparser.pipeline import Pipeline
+from tests.fixtures.package_parser import extract_calls
 
 
 @pytest.fixture(params=["package", "monolith"])

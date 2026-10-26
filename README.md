@@ -1,5 +1,7 @@
  # Metes Parser
 
+**Disclaimer:** Metes Parser is an experimental prototype developed with substantial AI-assisted coding to evaluate LLM-assisted extraction and parsing of metes-and-bounds legal descriptions from deed PDFs. It has not undergone peer review, security review, or formal audit. Outputs may contain errors and must be independently verified by qualified professionals before use in any legal, surveying, title, lending, or business decision. This repository must contain only publicly available data - no NPI, PII, or other non-public sensitive information.
+
 > **Note:** This is a work-in-progress prototype exploring AI's ability to extract, parse, and verify metes and bounds legal descriptions from deed PDFs.
 
 Parse metes and bounds legal descriptions from deed PDFs into structured, verified CSV format.

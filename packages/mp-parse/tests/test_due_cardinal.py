@@ -81,6 +81,7 @@ class TestExtractSingleCallDueCardinal:
     def test_due_south_with_feet(self) -> None:
         """Uppercase cardinal with abbreviated unit remains a complete due course."""
         call = extract_single_call("DUE SOUTH 599.89 FT", course=1)
+
         assert call is not None
         assert call.distance_ft == pytest.approx(599.89)
         assert call.bearing_azimuth_deg_from_north == pytest.approx(180.0)
@@ -107,7 +108,7 @@ class TestExtractCallsDueCardinal:
             "thence South 89 degrees 20 minutes 37 seconds West 600.00 feet; "
             "thence due North 599.89 feet to the point of beginning"
         )
-        calls = extract_calls(text)
+        calls, _tracts = extract_calls(text)
         assert len(calls) == 4, (
             f"Expected 4 calls, got {len(calls)}: {[c.direction_text for c in calls]}"
         )
@@ -133,7 +134,7 @@ class TestExtractCallsDueCardinal:
             "thence North 29 degrees 12 minutes 00 seconds West 243.98 feet; "
             "thence due East 256.40 feet to the point of beginning"
         )
-        calls = extract_calls(text)
+        calls, _tracts = extract_calls(text)
         assert len(calls) == 4, (
             f"Expected 4 calls, got {len(calls)}: {[c.direction_text for c in calls]}"
         )
@@ -158,7 +159,7 @@ class TestExtractCallsDueCardinal:
             "thence along the center line of said Hubbell Ave., due North 120.59 feet "
             "to the Point of Beginning"
         )
-        calls = extract_calls(text)
+        calls, _tracts = extract_calls(text)
         assert len(calls) == 4, (
             f"Expected 4 calls, got {len(calls)}: {[c.direction_text for c in calls]}"
         )

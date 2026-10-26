@@ -15,6 +15,7 @@ from mp_verify.closure import CLOSURE_TOLERANCE_FT
 # Helpers: reusable call fixtures
 # ---------------------------------------------------------------------------
 
+
 def _perfect_square_calls() -> list[DeedCall]:
     """A perfect 100 ft square that closes exactly."""
     return [
@@ -128,6 +129,7 @@ def _miwayn_50020_calls() -> list[DeedCall]:
 # Test: default tolerance constant
 # ---------------------------------------------------------------------------
 
+
 class TestDefaultToleranceConstant:
     """Verify the module-level constant is 0.01 ft."""
 
@@ -138,6 +140,7 @@ class TestDefaultToleranceConstant:
 # ---------------------------------------------------------------------------
 # Test: default tolerance preserves existing behavior
 # ---------------------------------------------------------------------------
+
 
 class TestDefaultTolerancePreservesExistingBehavior:
     """When no tolerance is specified, behavior must be identical to before."""
@@ -177,6 +180,7 @@ class TestDefaultTolerancePreservesExistingBehavior:
 # ---------------------------------------------------------------------------
 # Test: relaxed tolerance allows near-closing traverses
 # ---------------------------------------------------------------------------
+
 
 class TestRelaxedTolerance:
     """A relaxed tolerance_ft should allow traverses that barely miss 0.01."""
@@ -223,6 +227,7 @@ class TestRelaxedTolerance:
 # Test: strict tolerance (0.0)
 # ---------------------------------------------------------------------------
 
+
 class TestStrictTolerance:
     """tolerance=0.0 should require mathematically exact closure."""
 
@@ -252,6 +257,7 @@ class TestStrictTolerance:
 # ---------------------------------------------------------------------------
 # Test: MIWAYN-50020-01181 real-world deed
 # ---------------------------------------------------------------------------
+
 
 class TestMIWAYN50020Deed:
     """Real-world test using calls from MIWAYN-50020-01181 (Wayne County, MI).

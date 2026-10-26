@@ -14,7 +14,7 @@ class TestExtractCalls:
             "150.00 feet to an iron pin; thence South 33 degrees 20 minutes East, "
             "125.00 feet to the POINT OF BEGINNING."
         )
-        calls = extract_calls(text)
+        calls, _ = extract_calls(text)
         assert len(calls) >= 4
         assert calls[0].course == 1
 
@@ -28,7 +28,7 @@ class TestExtractCalls:
             "150.00 feet to an iron pin; thence South 33 degrees 20 minutes East, "
             "125.00 feet to the POINT OF BEGINNING."
         )
-        calls = extract_calls(text)
+        calls, _ = extract_calls(text)
         for i, call in enumerate(calls):
             assert call.course == i + 1
 
@@ -40,7 +40,7 @@ class TestExtractCalls:
             "150.00 feet to an iron pin; thence North 33 degrees 20 minutes West, "
             "125.00 feet to the POINT OF BEGINNING."
         )
-        calls = extract_calls(text)
+        calls, _ = extract_calls(text)
         assert calls[0].bearing_quadrant is not None
         assert "S" in calls[0].bearing_quadrant
         assert "W" in calls[0].bearing_quadrant
@@ -53,7 +53,7 @@ class TestExtractCalls:
             "150.00 feet to an iron pin; thence North 33 degrees 20 minutes West, "
             "125.00 feet to the POINT OF BEGINNING."
         )
-        calls = extract_calls(text)
+        calls, _ = extract_calls(text)
         assert calls[0].distance_ft == 150.00
         assert calls[1].distance_ft == 125.00
 
@@ -65,7 +65,7 @@ class TestExtractCalls:
             "150.00 feet to an iron pin; thence North 33 degrees 20 minutes West, "
             "125.00 feet to the POINT OF BEGINNING."
         )
-        calls = extract_calls(text)
+        calls, _ = extract_calls(text)
         # S 56 deg 40' W -> 180 + 56.667 = 236.667
         assert calls[0].bearing_azimuth_deg_from_north is not None
         assert 236.0 < calls[0].bearing_azimuth_deg_from_north < 237.0
@@ -78,7 +78,7 @@ class TestExtractCalls:
             "150.00 feet to an iron pin; thence North 33 degrees 20 minutes West, "
             "125.00 feet to the POINT OF BEGINNING."
         )
-        calls = extract_calls(text)
+        calls, _ = extract_calls(text)
         assert calls[0].monument_type == "iron_pin"
 
     def test_skips_beginning_text(self) -> None:
@@ -90,7 +90,7 @@ class TestExtractCalls:
             "100.00 feet to a point; thence South 45 degrees East, "
             "100.00 feet to the POINT OF BEGINNING."
         )
-        calls = extract_calls(text)
+        calls, _ = extract_calls(text)
         # Should not start with a "BEGINNING" call
         for call in calls:
             assert not call.direction_text.upper().startswith("BEGINNING")
@@ -98,7 +98,7 @@ class TestExtractCalls:
     def test_empty_text_returns_empty(self) -> None:
         from mp_parse.calls import extract_calls
 
-        calls = extract_calls("")
+        calls, _ = extract_calls("")
         assert calls == []
 
 

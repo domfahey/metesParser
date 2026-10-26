@@ -83,48 +83,58 @@ def detect_parcel_markers(text: str) -> list[ParcelMarker]:
     # Lettered parcels
     for match in _LETTERED_PARCEL.finditer(text):
         letter = match.group(1).upper()
-        markers.append({
-            "label": f"Parcel {letter}",
-            "position": match.start(),
-            "marker_type": "lettered",
-        })
+        markers.append(
+            {
+                "label": f"Parcel {letter}",
+                "position": match.start(),
+                "marker_type": "lettered",
+            }
+        )
 
     # Numbered parcels
     for match in _NUMBERED_PARCEL.finditer(text):
         number = match.group(1)
-        markers.append({
-            "label": f"Parcel {number}",
-            "position": match.start(),
-            "marker_type": "numbered",
-        })
+        markers.append(
+            {
+                "label": f"Parcel {number}",
+                "position": match.start(),
+                "marker_type": "numbered",
+            }
+        )
 
     # Combined / aggregate description
     for match in _COMBINED_DESCRIPTION.finditer(text):
         # Preserve the exact label from the text (Combine vs Combined)
         raw = match.group(0).rstrip(":;-\u2013\u2014 ")
-        markers.append({
-            "label": raw.strip(),
-            "position": match.start(),
-            "marker_type": "combined",
-        })
+        markers.append(
+            {
+                "label": raw.strip(),
+                "position": match.start(),
+                "marker_type": "combined",
+            }
+        )
 
     # "ALSO:" / "ALSO DESCRIBED AS:"
     for match in _ALSO_MARKER.finditer(text):
         raw = match.group(0).rstrip(": ")
-        markers.append({
-            "label": raw.strip(),
-            "position": match.start(),
-            "marker_type": "additional",
-        })
+        markers.append(
+            {
+                "label": raw.strip(),
+                "position": match.start(),
+                "marker_type": "additional",
+            }
+        )
 
     # "TOGETHER WITH:"
     for match in _TOGETHER_WITH_MARKER.finditer(text):
         raw = match.group(0).rstrip(": ")
-        markers.append({
-            "label": raw.strip(),
-            "position": match.start(),
-            "marker_type": "appurtenant",
-        })
+        markers.append(
+            {
+                "label": raw.strip(),
+                "position": match.start(),
+                "marker_type": "appurtenant",
+            }
+        )
 
     # Sort by position so they appear in document order
     markers.sort(key=lambda m: m["position"])
@@ -162,8 +172,9 @@ def split_into_parcels(text: str) -> list[ParcelInfo]:
     if not markers:
         return [ParcelInfo(label="Parcel 1", text=text, parcel_type="primary")]
 
-    logger.debug("parcel_markers_detected", count=len(markers),
-                 labels=[m["label"] for m in markers])
+    logger.debug(
+        "parcel_markers_detected", count=len(markers), labels=[m["label"] for m in markers]
+    )
 
     parcels: list[ParcelInfo] = []
 
@@ -175,11 +186,13 @@ def split_into_parcels(text: str) -> list[ParcelInfo]:
         preamble = text[: first_marker["position"]].strip()
         if preamble and first_marker["marker_type"] in ("additional", "appurtenant"):
             # Text before ALSO/TOGETHER WITH is the main parcel
-            parcels.append({
-                "label": "Parcel 1",
-                "text": preamble,
-                "parcel_type": "primary",
-            })
+            parcels.append(
+                {
+                    "label": "Parcel 1",
+                    "text": preamble,
+                    "parcel_type": "primary",
+                }
+            )
 
     for i, marker in enumerate(markers):
         # Start of this parcel's text is after the marker delimiter
@@ -198,11 +211,13 @@ def split_into_parcels(text: str) -> list[ParcelInfo]:
 
         parcel_text = text[text_start:text_end].strip()
 
-        parcels.append({
-            "label": marker["label"],
-            "text": parcel_text,
-            "parcel_type": _marker_type_to_parcel_type(marker["marker_type"]),
-        })
+        parcels.append(
+            {
+                "label": marker["label"],
+                "text": parcel_text,
+                "parcel_type": _marker_type_to_parcel_type(marker["marker_type"]),
+            }
+        )
 
     return parcels
 
@@ -228,7 +243,10 @@ def _find_marker_end(text: str, start_pos: int) -> int:
 
     # This indicates a bug: detect_parcel_markers found a marker but
     # _find_marker_end cannot re-match it at this position.
-    logger.warning("parcel_marker_rematch_failed",
-                   start_pos=start_pos,
-                   text_preview=text[start_pos:start_pos + 50])
+    logger.warning(
+        "parcel_marker_rematch_failed",
+        start_pos=start_pos,
+        text_preview=text[start_pos : start_pos + 50],
+    )
+
     return start_pos

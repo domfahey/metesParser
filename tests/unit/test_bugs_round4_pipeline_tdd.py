@@ -6,7 +6,6 @@ import pytest
 from mp_export import csv_to_calls, export_verified_csv
 from mp_models import DeedCall as PackageCall
 from mp_models import LegalDescription as PackageLegalDescription
-from mp_parse import extract_calls
 from mp_parse.metadata import extract_area_statement
 from mp_verify import verify_closure
 
@@ -16,6 +15,7 @@ from metesparser.csv_builder import CSVBuilder
 from metesparser.models import DeedCall as MonolithCall
 from metesparser.models import LegalDescription as MonolithLegalDescription
 from metesparser.text_parser import TextParser
+from tests.fixtures.package_parser import extract_calls
 
 
 @pytest.fixture(params=["package", "monolith"])
