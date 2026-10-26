@@ -35,6 +35,7 @@ from .checks import (
     check_distance_reasonableness,
     check_interior_angles,
     check_parallelism,
+    check_straight_boundary_intersections,
     compare_double_entry,
 )
 from .confidence import calculate_confidence_score, score_call_quality
@@ -173,6 +174,48 @@ def calculate_perimeter(calls: list[DeedCall]) -> float:
     return perimeter
 
 
+def _calculate_exception_area(calls: list[DeedCall]) -> float:
+    """Sum independently closed exception loops without mixing their winding.
+
+    The flat call API has no tract identifiers. A return to the local origin
+    ends one loop; an incomplete final loop cannot supply a net parcel area.
+    """
+    areas: list[float] = []
+    pending: list[DeedCall] = []
+    points = [Point(x=0, y=0)]
+    for call in calls:
+        if call.is_tie_in:
+            continue
+        if call.bearing_azimuth_deg_from_north is None:
+            raise ValueError(
+                f"Exception course {call.course} has an incomplete bearing; net area unavailable"
+            )
+        points.extend(compute_traverse([call], start_point=points[-1])[1:])
+        pending.append(call)
+        misclosure = math.hypot(points[-1].x, points[-1].y)
+        if misclosure < CLOSURE_TOLERANCE_FT:
+            intersections = check_straight_boundary_intersections(pending, points)
+            if intersections:
+                raise ValueError(
+                    f"Exception tract self-intersection; net area unavailable: {intersections[0]}"
+                )
+            curves_passed, _ = check_curve_consistency(pending)
+            if not curves_passed:
+                raise ValueError(
+                    f"Exception tract ending at course {call.course} has inconsistent curves; net area unavailable"
+                )
+            areas.append(calculate_area(points, calls=pending))
+            pending = []
+            points = [Point(x=0, y=0)]
+    if pending:
+        misclosure = math.hypot(points[-1].x, points[-1].y)
+        raise ValueError(
+            f"Exception tract ending at course {pending[-1].course} does not close "
+            f"({misclosure:.4f} ft misclosure); net area unavailable"
+        )
+    return math.fsum(areas)
+
+
 def verify_closure(
     calls: list[DeedCall],
     *,
@@ -219,18 +262,19 @@ def verify_closure(
         main_area_sq_ft = calculate_area(points, calls=main_calls)
 
         exception_area_sq_ft = 0.0
+        exception_area_available = True
         if exception_calls:
             warnings.append(
                 f"Found {len(exception_calls)} exception calls - "
                 "calculating exception area to subtract"
             )
             try:
-                exception_points = compute_traverse(exception_calls)
-                exception_area_sq_ft = calculate_area(exception_points, calls=exception_calls)
+                exception_area_sq_ft = _calculate_exception_area(exception_calls)
             except ValueError as e:
                 warnings.append(f"Cannot calculate exception area: {e}")
+                exception_area_available = False
 
-        area_sq_ft = main_area_sq_ft - exception_area_sq_ft
+        area_sq_ft = main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
         area_acres = area_sq_ft / 43560.0
     except ValueError as e:
         area_sq_ft = 0.0
@@ -254,6 +298,9 @@ def verify_closure(
 
     parallel_warnings = check_parallelism(main_calls)
     warnings.extend(parallel_warnings)
+
+    intersection_warnings = check_straight_boundary_intersections(main_calls, points)
+    warnings.extend(intersection_warnings)
 
     reversal_warnings = check_bearing_reversals(main_calls)
     warnings.extend(reversal_warnings)
@@ -353,6 +400,15 @@ def verify_closure(
                     "all curves L \u2248 R*\u0394 within tolerance"
                     if curve_consistency_passed_val
                     else "curve math inconsistency detected"
+                ),
+                inputs={},
+            ),
+            CheckResult(
+                name="straight_boundary_intersections",
+                passed=not intersection_warnings,
+                detail=(
+                    f"{len(intersection_warnings)} straight-edge intersection(s); "
+                    "arc intersections not evaluated"
                 ),
                 inputs={},
             ),

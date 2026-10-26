@@ -52,6 +52,59 @@ def check_interior_angles(calls: list[DeedCall], coordinates: list[Point]) -> bo
     return abs(abs(actual_sum) - 360.0) < 5.0
 
 
+def check_straight_boundary_intersections(
+    calls: list[DeedCall], coordinates: list[Point]
+) -> list[str]:
+    """Detect crossings, overlaps, and nonadjacent touches between straight edges.
+
+    Arc intersections are not evaluated: curve endpoint chords are not arc
+    geometry. Incomplete traverses cannot reliably map calls to coordinates.
+    The 1e-7 ft tolerance absorbs floating-point noise, not survey misclosure.
+    """
+    if len(coordinates) != len(calls) + 1:
+        return []
+
+    tolerance_ft = 1e-7
+
+    def side(a: Point, b: Point, p: Point) -> int:
+        cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+        tolerance = tolerance_ft * math.hypot(b.x - a.x, b.y - a.y)
+        return 1 if cross > tolerance else -1 if cross < -tolerance else 0
+
+    def on_segment(a: Point, b: Point, p: Point) -> bool:
+        return (
+            side(a, b, p) == 0
+            and min(a.x, b.x) - tolerance_ft <= p.x <= max(a.x, b.x) + tolerance_ft
+            and min(a.y, b.y) - tolerance_ft <= p.y <= max(a.y, b.y) + tolerance_ft
+        )
+
+    warnings: list[str] = []
+    closed = (
+        math.hypot(coordinates[-1].x - coordinates[0].x, coordinates[-1].y - coordinates[0].y)
+        < 0.01
+    )
+    for i, first in enumerate(calls):
+        if first.is_curve():
+            continue
+        a, b = coordinates[i], coordinates[i + 1]
+        for j in range(i + 1, len(calls)):
+            second = calls[j]
+            if second.is_curve() or j == i + 1 or (closed and i == 0 and j == len(calls) - 1):
+                continue
+            c, d = coordinates[j], coordinates[j + 1]
+            proper_crossing = (
+                side(a, b, c) * side(a, b, d) < 0 and side(c, d, a) * side(c, d, b) < 0
+            )
+            if proper_crossing or any(
+                (on_segment(a, b, c), on_segment(a, b, d), on_segment(c, d, a), on_segment(c, d, b))
+            ):
+                warnings.append(
+                    f"Courses {first.course}-{second.course}: straight boundary self-intersection "
+                    "(crossing, overlap, or nonadjacent touch)"
+                )
+    return warnings
+
+
 def check_parallelism(calls: list[DeedCall]) -> list[str]:
     """Check for parallel lines that should have matching bearings.
 
@@ -154,7 +207,9 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
 def check_bearing_reversals(calls: list[DeedCall]) -> list[str]:
     """Check for adjacent courses with bearings ~180 degrees apart.
 
-    This pattern often indicates a quadrant transcription error.
+    This pattern often indicates a quadrant transcription error in straight
+    courses. Curve bearings may describe tangents or chords; comparing them
+    directly does not establish a reversal, so pairs involving arcs are skipped.
 
     Args:
         calls: List of DeedCall objects.
@@ -166,6 +221,8 @@ def check_bearing_reversals(calls: list[DeedCall]) -> list[str]:
 
     for i in range(len(calls) - 1):
         c1, c2 = calls[i], calls[i + 1]
+        if c1.is_curve() or c2.is_curve():
+            continue
         az1 = c1.bearing_azimuth_deg_from_north
         az2 = c2.bearing_azimuth_deg_from_north
         if az1 is None or az2 is None:

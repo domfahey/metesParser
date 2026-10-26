@@ -14,6 +14,21 @@ from .models import AuditContext, ClosureResult, DeedCall, LegalDescription, _Mo
 logger = structlog.get_logger(__name__)
 
 
+def _cleanup_stale_sidecars(output_file: Path, *, metadata_written: bool) -> None:
+    """Remove exact sidecars a successful raw CSV rewrite can no longer support."""
+    sidecars = []
+    if not metadata_written:
+        sidecars.append(output_file.with_suffix(".metadata.txt"))
+    if output_file.stem.endswith("_verified"):
+        sidecars.extend(
+            output_file.with_suffix(suffix)
+            for suffix in (".verification.txt", ".audit.json", ".audit.html")
+        )
+    for sidecar in sidecars:
+        if sidecar.exists():
+            sidecar.unlink()
+
+
 def _format_float(value: float, decimal_places: int) -> str:
     """Keep familiar formatting when exact, otherwise retain roundtrip precision."""
     formatted = f"{value:.{decimal_places}f}"
@@ -78,6 +93,37 @@ class CSVBuilder:
         "notes",
     ]
 
+    @staticmethod
+    def _validate_export_geometry(
+        calls: list[DeedCall], closure_result: ClosureResult, legal_desc: LegalDescription | None
+    ) -> list[DeedCall]:
+        """Require the supplied verification to describe the calls actually exported."""
+        selected_calls = legal_desc.calls if legal_desc is not None else calls
+        if legal_desc is not None and [c.model_dump() for c in calls] != [
+            c.model_dump() for c in selected_calls
+        ]:
+            raise ValueError(
+                "Cannot export verified CSV: calls do not match LegalDescription.calls"
+            )
+
+        stated_area = 0.0
+        if legal_desc is not None and legal_desc.stated_area_sq_ft is not None:
+            stated_area = legal_desc.stated_area_sq_ft
+        from .closure_checker import ClosureChecker
+
+        fresh_result = ClosureChecker.verify_closure(selected_calls, stated_area_sq_ft=stated_area)
+        if not fresh_result.is_fully_verified():
+            raise ValueError(
+                "Cannot export verified CSV: selected calls failed fresh verification. "
+                f"Misclosure: {fresh_result.misclosure_ft:.4f} ft, "
+                f"Warnings: {len(fresh_result.warnings)}"
+            )
+        if closure_result.model_dump() != fresh_result.model_dump():
+            raise ValueError(
+                "Cannot export verified CSV: closure result does not match selected calls"
+            )
+        return selected_calls
+
     @classmethod
     def calls_to_csv(
         cls,
@@ -106,6 +152,7 @@ class CSVBuilder:
         if metadata:
             metadata_path = output_file.with_suffix(".metadata.txt")
             cls._write_metadata(metadata, metadata_path)
+        _cleanup_stale_sidecars(output_file, metadata_written=bool(metadata))
 
     @classmethod
     def _call_to_row(cls, call: DeedCall) -> dict[str, str]:
@@ -301,6 +348,11 @@ class CSVBuilder:
         output_file = Path(output_path)
         verified_path = output_file.with_stem(output_file.stem + "_verified")
 
+        cls._validate_export_geometry(calls, closure_result, legal_desc)
+
+        audit_json_path = verified_path.with_suffix(".audit.json")
+        audit_html_path = verified_path.with_suffix(".audit.html")
+
         if legal_desc:
             cls.legal_description_to_csv(legal_desc, str(verified_path))
         else:
@@ -317,12 +369,10 @@ class CSVBuilder:
         logger.info("Verification summary written", path=str(summary_path))
 
         if audit_context is not None:
-            audit_json_path = verified_path.with_suffix(".audit.json")
             audit_json_path.write_text(audit_context.model_dump_json(indent=2))
             logger.info("Audit trail written", path=str(audit_json_path))
 
             from .audit_reporter import AuditReporter
 
-            audit_html_path = verified_path.with_suffix(".audit.html")
             AuditReporter.write_report(audit_context, audit_html_path)
             logger.info("Audit HTML report written", path=str(audit_html_path))

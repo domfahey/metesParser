@@ -122,6 +122,10 @@ partial recovery. CSV numeric fields retain the precision used in verification,
 including values requiring more than two decimal places. These rules also apply
 to `mp_export`.
 
+`export_verified_csv()` verifies the actual calls again before writing and rejects
+a stale result or a `LegalDescription` containing different calls. Rewriting a
+CSV also clears its old generated sidecars when replacement inputs are omitted.
+
 ```python
 from metesparser.csv_builder import CSVBuilder
 

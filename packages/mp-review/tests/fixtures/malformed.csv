@@ -1,0 +1,3 @@
+course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft
+1,N 0 E,N 0 E,0,100
+two,broken,,,,

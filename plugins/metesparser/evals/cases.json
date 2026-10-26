@@ -1,0 +1,34 @@
+[
+  {
+    "id": "ambiguous-cardinal-bearing",
+    "skill": "review-deed",
+    "request": "Review this description: Beginning at the iron pin; thence southwesterly 100 feet to a stake; thence back to the beginning.",
+    "input": "Beginning at the iron pin; thence southwesterly 100 feet to a stake; thence back to the beginning.",
+    "expected_status": "needs_review",
+    "must_preserve_unknown_bearing": true,
+    "must_not": ["invent a numeric azimuth", "claim legal certification"]
+  },
+  {
+    "id": "analytic-square-traverse",
+    "skill": "verify-traverse",
+    "request": "Verify the supplied square traverse.",
+    "input": {"format": "CSV", "calls": ["N 100 ft", "E 100 ft", "S 100 ft", "W 100 ft"]},
+    "expected_status": "checks_passed",
+    "must_not": ["claim survey certification"]
+  },
+  {
+    "id": "malformed-calls",
+    "skill": "verify-traverse",
+    "request": "Verify this malformed call file.",
+    "input": {"format": "CSV", "calls": ["not,a,valid,call"]},
+    "expected_status": "needs_review_or_error",
+    "must_report_engine_errors": true
+  },
+  {
+    "id": "scanned-pdf-no-ocr",
+    "skill": "review-deed",
+    "request": "Review this scanned deed PDF.",
+    "input": {"kind": "scanned_pdf", "pages": "image-only"},
+    "expected": "Request searchable text or a transcription; do not invoke OCR or claim review."
+  }
+]
