@@ -133,7 +133,7 @@ def test_straight_near_reversals_remain_flagged(geometry, second_azimuth):
     assert len(reversals(calls)) == 1
 
 
-def test_intersection_check_is_recorded_with_straight_edge_scope(geometry):
+def test_intersection_check_records_straight_and_circular_scope(geometry):
     call_type, verify, _, _, audit_type = geometry
     ctx = audit_type(
         run_metadata={
@@ -149,12 +149,10 @@ def test_intersection_check_is_recorded_with_straight_edge_scope(geometry):
     calls = _polygon(call_type, [(0, 0), (100, 0), (0, 100), (100, 100), (50, -50)])
     verify(calls, audit_context=ctx)
     check = next(
-        check
-        for check in ctx.verification_audit.checks
-        if check.name == "straight_boundary_intersections"
+        check for check in ctx.verification_audit.checks if check.name == "boundary_intersections"
     )
     assert not check.passed
-    assert "arc intersections not evaluated" in check.detail
+    assert "circular-arc checks" in check.detail
 
 
 def test_self_intersecting_exception_cannot_supply_net_area(geometry):

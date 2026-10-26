@@ -49,7 +49,7 @@ These commands accept prepared descriptions or identified call sets; they do not
 
 `checks_passed` (exit 0) means implemented deterministic checks passed; `needs_review` (exit 1) identifies unresolved checks; `error` (exit 2) reports a processing or configuration failure. The selected source and any uncertainty remain part of the result, even when geometry closes.
 
-Missing exhibits, material illegibility, or unresolved tract selection must be resolved before issuing a verified result. Never infer a missing bearing or omit an exception to make a traverse close. Curved-boundary intersection coverage is limited; see [review scope](review-limits.md).
+Missing exhibits, material illegibility, or unresolved tract selection must be resolved before issuing a verified result. Never infer a missing bearing or omit an exception to make a traverse close. Intersection checks cover straight segments and circular arcs; unsupported or incomplete curve geometry requires review. See [review scope](review-limits.md).
 
 ## Documentation and changes
 
