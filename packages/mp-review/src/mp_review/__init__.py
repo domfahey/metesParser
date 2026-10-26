@@ -1,7 +1,15 @@
 """Deterministic text-first deed review."""
 
 from .api import ENGINE_VERSION, review_file, review_text, verify_file
+from .dashboard import dashboard_file, prepare_dashboard
 from .relative import review_relative_file
 
 __version__ = ENGINE_VERSION
-__all__ = ["review_text", "review_file", "verify_file", "review_relative_file"]
+__all__ = [
+    "dashboard_file",
+    "prepare_dashboard",
+    "review_text",
+    "review_file",
+    "verify_file",
+    "review_relative_file",
+]

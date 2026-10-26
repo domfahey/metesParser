@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import math
 import statistics
+from typing import Literal
 
-from mp_models import DeedCall, Point
+from mp_models import CheckResult, DeedCall, Point
 
 from .topology import check_curved_boundary_intersections
 
@@ -18,6 +19,247 @@ def check_boundary_intersections(calls: list[DeedCall], coordinates: list[Point]
     return check_straight_boundary_intersections(
         calls, coordinates
     ) + check_curved_boundary_intersections(calls, coordinates)
+
+
+def evaluate_interior_angles(calls: list[DeedCall]) -> CheckResult:
+    """Report whether the straight-polygon angle test actually ran."""
+    missing = [str(call.course) for call in calls if not call.is_complete_bearing()]
+    if missing:
+        return CheckResult(
+            name="interior_angles",
+            status="blocked",
+            reason="missing_bearings",
+            detail=f"Required bearings missing for courses {', '.join(missing)}",
+        )
+    if any(call.is_curve() for call in calls):
+        return CheckResult(
+            name="interior_angles",
+            status="not_applicable",
+            reason="curved_boundary",
+            detail="Straight-polygon angle sum does not apply to curved boundaries",
+        )
+    if len(calls) < 3:
+        return CheckResult(
+            name="interior_angles",
+            status="blocked",
+            reason="insufficient_courses",
+            detail="At least three straight courses are required for an angle sum",
+        )
+    actual_sum = sum(
+        (
+            (calls[(i + 1) % len(calls)].bearing_azimuth_deg_from_north or 0)
+            - (call.bearing_azimuth_deg_from_north or 0)
+            + 180
+        )
+        % 360
+        - 180
+        for i, call in enumerate(calls)
+    )
+    passed = abs(abs(actual_sum) - 360) < 5
+    return CheckResult(
+        name="interior_angles",
+        status="passed" if passed else "failed",
+        reason="angle_sum_within_tolerance" if passed else "angle_sum_mismatch",
+        detail=f"Signed exterior angle sum: {actual_sum:.4f} degrees; expected +/-360 within 5 degrees",
+        inputs={"signed_angle_sum_deg": actual_sum, "tolerance_deg": 5.0},
+    )
+
+
+def build_verification_checks(
+    calls: list[DeedCall],
+    *,
+    closure_passed: bool,
+    misclosure: float,
+    tolerance: float,
+    curve_consistency_passed: bool,
+    parallel_warnings: list[str],
+    intersection_warnings: list[str],
+    reversal_warnings: list[str],
+    distance_warnings: list[str],
+    stated_area_sq_ft: float,
+    area_sq_ft: float,
+    area_available: bool,
+    double_entry_performed: bool,
+    discrepancies: list[str],
+) -> list[CheckResult]:
+    """Build auditable engine outcomes without turning unavailable checks into passes."""
+    incomplete = any(not call.is_complete_bearing() for call in calls)
+    missing = incomplete or not calls
+    curves = [call for call in calls if call.is_curve()]
+
+    def outcome(
+        name: str,
+        issues: list[str],
+        *,
+        applicable: bool = True,
+        blocked: bool = False,
+        detail: str,
+        inputs: dict[str, float | str | bool] | None = None,
+    ) -> CheckResult:
+        status: Literal["passed", "failed", "not_applicable", "blocked"] = (
+            "failed"
+            if issues
+            else "blocked"
+            if blocked
+            else "passed"
+            if applicable
+            else "not_applicable"
+        )
+        return CheckResult(
+            name=name,
+            status=status,
+            reason=(
+                "issues_detected"
+                if issues
+                else "missing_required_inputs"
+                if blocked
+                else "check_passed"
+                if applicable
+                else "no_applicable_inputs"
+            ),
+            detail="; ".join(issues) if issues else detail,
+            inputs=inputs or {},
+        )
+
+    curve_incomplete = any(
+        call.curve_dir is None
+        or call.radius_ft is None
+        or call.radius_ft <= 0
+        or not ((call.delta_deg or 0) > 0 or (call.arc_length_ft or 0) > 0)
+        for call in curves
+    )
+    redundant_curves = [
+        call
+        for call in curves
+        if (call.delta_deg is not None and call.arc_length_ft is not None)
+        or call.chord_length_ft is not None
+    ]
+    insufficient_topology = not curves and len(calls) < 3
+    continuing = [
+        i
+        for i, call in enumerate(calls)
+        if call.along and ("continuing" in call.along.lower() or "same line" in call.along.lower())
+    ]
+    parallel_blocked = any(
+        i == 0 or not calls[i].is_complete_bearing() or not calls[i - 1].is_complete_bearing()
+        for i in continuing
+    )
+    straight_pairs = [
+        (first, second)
+        for first, second in zip(calls, calls[1:], strict=False)
+        if not first.is_curve() and not second.is_curve()
+    ]
+    reversals_blocked = any(
+        not first.is_complete_bearing() or not second.is_complete_bearing()
+        for first, second in straight_pairs
+    )
+    area_issues = []
+    if stated_area_sq_ft > 0 and area_available and not missing:
+        if abs(area_sq_ft - stated_area_sq_ft) / stated_area_sq_ft > 0.05:
+            area_issues.append(
+                f"Computed area differs from stated area by more than 5% ({area_sq_ft:.2f} vs {stated_area_sq_ft:.2f} sq ft)"
+            )
+    unavailable_intersections = any("unavailable" in issue for issue in intersection_warnings)
+    intersection_failures = [issue for issue in intersection_warnings if "unavailable" not in issue]
+    return [
+        CheckResult(
+            name="traverse_closure",
+            status="blocked" if missing else "passed" if closure_passed else "failed",
+            reason="missing_bearings"
+            if missing
+            else "within_tolerance"
+            if closure_passed
+            else "misclosure_exceeds_tolerance",
+            detail=(
+                "Traverse closure requires a bearing for every boundary course"
+                if missing
+                else f"misclosure: {misclosure:.4f} ft; tolerance: {tolerance} ft"
+            ),
+            inputs={"misclosure_total_ft": misclosure, "tolerance_ft": tolerance},
+        ),
+        evaluate_interior_angles(calls),
+        outcome(
+            "curve_consistency",
+            [] if curve_consistency_passed else ["Curve math inconsistency detected"],
+            applicable=bool(curves) and len(redundant_curves) == len(curves),
+            blocked=curve_incomplete,
+            detail=(
+                "Curve geometry requires direction, positive radius, and positive delta or arc length"
+                if curve_incomplete
+                else "No curved courses"
+                if not curves
+                else "Some curves lack a redundant measure for an independent consistency check"
+                if len(redundant_curves) != len(curves)
+                else "All supplied redundant curve elements are consistent"
+            ),
+        ),
+        outcome(
+            "parallelism",
+            parallel_warnings,
+            applicable=bool(continuing),
+            blocked=parallel_blocked,
+            detail=(
+                "Continuing-line check requires both adjacent bearings"
+                if parallel_blocked
+                else "Continuing lines checked"
+                if continuing
+                else "No continuing-line constraints"
+            ),
+        ),
+        outcome(
+            "boundary_intersections",
+            ["Straight-segment and circular-arc checks: " + "; ".join(intersection_failures)]
+            if intersection_failures
+            else [],
+            blocked=missing or unavailable_intersections or insufficient_topology,
+            detail=(
+                "Boundary topology requires complete bearings"
+                if missing
+                else "At least three straight courses are required for boundary topology"
+                if insufficient_topology
+                else "; ".join(intersection_warnings)
+                if unavailable_intersections
+                else "Straight-segment and circular-arc checks found no intersections"
+            ),
+        ),
+        outcome(
+            "area_reasonableness",
+            area_issues,
+            applicable=stated_area_sq_ft > 0,
+            blocked=stated_area_sq_ft > 0 and (missing or not area_available),
+            detail="Area comparison requires complete boundary and exception geometry"
+            if stated_area_sq_ft > 0 and (missing or not area_available)
+            else "Computed area within 5% of stated area"
+            if stated_area_sq_ft > 0
+            else "No stated area to compare",
+            inputs={"area_available": area_available},
+        ),
+        outcome(
+            "double_entry",
+            discrepancies,
+            applicable=double_entry_performed,
+            detail="Independent entries match"
+            if double_entry_performed
+            else "No independent second entry supplied",
+        ),
+        outcome(
+            "bearing_reversals",
+            reversal_warnings,
+            applicable=bool(straight_pairs),
+            blocked=reversals_blocked,
+            detail="Reversal check requires complete adjacent bearings"
+            if reversals_blocked
+            else "Adjacent straight courses checked"
+            if straight_pairs
+            else "No adjacent straight-course pairs",
+        ),
+        outcome(
+            "distance_reasonableness",
+            distance_warnings,
+            blocked=not calls,
+            detail="Boundary distances checked",
+        ),
+    ]
 
 
 def check_interior_angles(calls: list[DeedCall], coordinates: list[Point]) -> bool:

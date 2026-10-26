@@ -13,6 +13,7 @@ from .audit import (
 from .base import _Model
 from .closure import CheckResult, ClosureResult, Point
 from .constants import PERMANENT_MONUMENTS, PRIOR_CONVEYANCE_SIGNALS
+from .dashboard import DashboardBundle, DashboardManifest, DashboardResult, PreparedDashboard
 from .deed_call import (
     CurveDirection,
     CurveType,
@@ -57,6 +58,9 @@ __all__ = [
     "ConversionFactors",
     "CurveDirection",
     "CurveType",
+    "DashboardBundle",
+    "DashboardManifest",
+    "DashboardResult",
     "Decision",
     "DeedCall",
     "DeedClause",
@@ -72,6 +76,7 @@ __all__ = [
     "PERMANENT_MONUMENTS",
     "PRIOR_CONVEYANCE_SIGNALS",
     "Point",
+    "PreparedDashboard",
     "RawTextMessage",
     "RelativeAnalysisResult",
     "RelativeConstraint",

@@ -4,6 +4,15 @@ Shipped user documentation lives in the [plugin README](../plugins/metesparser/R
 
 For the source-grounded, editable closure review dashboard workflow, see the [Deed Closure Dashboard skill](../plugins/metesparser/skills/deed-closure-dashboard/README.md).
 
+The dashboard accepts a validated version 1.0 JSON bundle and renders a local offline HTML page:
+
+```sh
+uv run metes-review dashboard bundle.json --output-dir output/dashboard-new --cache-dir output/dashboard-cache
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard bundle.json --output-dir output/dashboard-new --cache-dir output/dashboard-cache
+```
+
+Use one command at a time and a fresh output directory. Valid bundles return top-level `needs_review` (exit 1); inspect the generated dashboard and JSON artifacts. `geometry_status` (`analyzed`, `unresolved`, `inconsistent`, `blocked`), canonical engine status, and source-review completeness are separate. The dashboard is not a PDF reader or source-review log: native reading, description selection, and the correctness of supplied review attestations remain outside the renderer. Relative calculations and all interactive scenario edits are advisory; no dashboard command writes verified CSV. The [bundle reference](../plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-bundle.md) documents the schema, legacy check-boolean compatibility, and cache invalidation. Shared parcel alignment/comparison and browser edits to curves are not implemented; the canonical baseline can calculate supported curves.
+
 The plugin checks metes-and-bounds descriptions from any supplied source. `review-metes-and-bounds` first locates the intended description. `convert-document-to-text` uses Claude's native image/document capabilities for native PDFs, scans, and images; `extract-metes-and-bounds` then selects the complete description verbatim. `review-deed` remains a deed-specific entrypoint, and `verify-traverse` handles identified structured call sets.
 
 The `mp-review` workspace package reviews the selected UTF-8 TXT/Markdown, CSV, or JSON without OCR, provider keys, or LLM calls. No new OCR service or conversion dependency is added. All parsing, numeric checks, and verified export decisions run in Python. Acquisition and section selection records remain separate from deterministic engine audits; see [source preparation](../plugins/metesparser/references/source-preparation.md).

@@ -28,6 +28,14 @@ def main() -> None:
     relative.add_argument("input", type=Path)
     relative.add_argument("--output-dir", type=Path)
     relative.add_argument("--settings", type=Path)
+    dashboard = commands.add_parser(
+        "dashboard",
+        help="Render a validated source bundle as an offline, non-verifying dashboard.",
+    )
+    dashboard.add_argument("input", type=Path)
+    dashboard.add_argument("--output-dir", type=Path)
+    dashboard.add_argument("--cache-dir", type=Path)
+    dashboard.add_argument("--settings", type=Path)
     corpus = commands.add_parser("corpus")
     corpus.add_argument("manifest", type=Path)
     corpus.add_argument("--output", type=Path)
@@ -77,6 +85,14 @@ def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, An
             }
     elif args.command == "analyze-relative":
         result = review_relative_file(args.input, output_dir=output_path(settings, args.output_dir))
+    elif args.command == "dashboard":
+        from .dashboard import dashboard_file
+
+        result = dashboard_file(
+            args.input,
+            output_dir=output_path(settings, args.output_dir),
+            cache_dir=args.cache_dir,
+        )
     else:
         operation = review_file if args.command == "review" else verify_file
         result = operation(
