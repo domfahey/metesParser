@@ -624,6 +624,7 @@ dependencies = [
     { name = "mp-models" },
     { name = "mp-parse" },
     { name = "mp-verify" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
@@ -632,6 +633,7 @@ requires-dist = [
     { name = "mp-models", editable = "packages/mp-models" },
     { name = "mp-parse", editable = "packages/mp-parse" },
     { name = "mp-verify", editable = "packages/mp-verify" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
 ]
 
 [[package]]
