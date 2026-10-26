@@ -15,11 +15,13 @@ import json
 import os
 import re
 from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, cast
 
 import structlog
 import yaml  # type: ignore[import-untyped]
+from mp_models import LLMStageRecord
 
 from .cache import CachedLLMClient
 from .clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
@@ -144,6 +146,7 @@ class PDFProcessor:
             cache_dir: Directory for cached responses (env: METESPARSER_CACHE_DIR)
         """
         self._configured_api_key = api_key
+        self._audit_stage_records: list[LLMStageRecord] | None = None
         self.client = client or self._create_client(provider)
         # Default prompts directory: package-embedded prompts
         self.prompts_dir = Path(__file__).parent / "prompts"
@@ -203,36 +206,92 @@ class PDFProcessor:
 
         return cast(dict[str, Any], prompt_config)
 
-    def extract_text_from_pdf(self, pdf_path: str) -> str:
+    def extract_text_from_pdf(self, pdf_path: str, *, audit: bool = False) -> str:
         """Extract all text from a PDF using the configured LLM provider."""
-        prompt_config = self._load_prompt("extract_text_from_pdf")
-        prompt_text = prompt_config["user_prompt_template"]
-        response_mime_type = prompt_config.get("response_mime_type")
-        return self.client.generate_text_with_pdf(
-            prompt_text, pdf_path, response_mime_type=response_mime_type
-        )
+        if not audit:
+            self._audit_stage_records = None
+        if audit and self._audit_stage_records is None:
+            self._audit_stage_records = []
+        try:
+            prompt_config = self._load_prompt("extract_text_from_pdf")
+            prompt_text = prompt_config["user_prompt_template"]
+            response_mime_type = prompt_config.get("response_mime_type")
+            response = self.client.generate_text_with_pdf(
+                prompt_text, pdf_path, response_mime_type=response_mime_type
+            )
+        except Exception:
+            if audit:
+                self._audit_stage_records = None
+            raise
+        self._record_llm_stage("extract_text_from_pdf", prompt_text, response)
+        return response
 
-    def extract_legal_description(self, pdf_path: str) -> str:
+    def extract_legal_description(self, pdf_path: str, *, audit: bool = False) -> str:
         """Extract legal description from a deed PDF."""
-        document_text = self.extract_text_from_pdf(pdf_path)
-        prompt_config = self._load_prompt("extract_legal_description")
+        try:
+            self._audit_stage_records = [] if audit else None
+            document_text = (
+                self.extract_text_from_pdf(pdf_path, audit=True)
+                if audit
+                else self.extract_text_from_pdf(pdf_path)
+            )
+            prompt_config = self._load_prompt("extract_legal_description")
+            user_prompt = prompt_config["user_prompt_template"].replace(
+                "{document_text}", document_text
+            )
+            combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
+            response = self.client.generate_text(combined_prompt)
+        except Exception:
+            self._audit_stage_records = None
+            raise
+        self._record_llm_stage("extract_legal_description", combined_prompt, response)
+        return response
 
-        user_prompt = prompt_config["user_prompt_template"].replace(
-            "{document_text}", document_text
-        )
-        combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
-        return self.client.generate_text(combined_prompt)
-
-    def normalize_legal_description(self, legal_desc_text: str) -> str:
+    def normalize_legal_description(self, legal_desc_text: str, *, audit: bool = False) -> str:
         """Normalize and clean up legal description text."""
-        prompt_config = self._load_prompt("normalize_text")
+        if not audit:
+            self._audit_stage_records = None
+        elif self._audit_stage_records is None:
+            self._audit_stage_records = []
 
-        user_prompt = prompt_config["user_prompt_template"].replace(
-            "{legal_description_text}", legal_desc_text
+        try:
+            prompt_config = self._load_prompt("normalize_text")
+            user_prompt = prompt_config["user_prompt_template"].replace(
+                "{legal_description_text}", legal_desc_text
+            )
+            combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
+            response = self.client.generate_text(combined_prompt)
+        except Exception:
+            if audit:
+                self._audit_stage_records = None
+            raise
+        self._record_llm_stage("normalize_text", combined_prompt, response)
+        return response
+
+    def _record_llm_stage(self, stage: str, prompt: str, response: str) -> None:
+        """Capture provenance only while an audited caller has enabled collection."""
+        if self._audit_stage_records is None:
+            return
+        inner = self._unwrap_client(self.client)
+        provider = (
+            "openai"
+            if isinstance(inner, OpenAIClient)
+            else "gemini"
+            if isinstance(inner, GeminiClient)
+            else "unknown"
         )
-        combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
-
-        return self.client.generate_text(combined_prompt)
+        model = getattr(inner, "model", None)
+        self._audit_stage_records.append(
+            LLMStageRecord(
+                stage=stage,
+                prompt=prompt,
+                prompt_sha256=sha256(prompt.encode("utf-8")).hexdigest(),
+                response=response,
+                response_sha256=sha256(response.encode("utf-8")).hexdigest(),
+                provider=provider,
+                model=model if isinstance(model, str) else "unknown",
+            )
+        )
 
     def extract_calls_ai(self, legal_desc_text: str) -> list[dict[str, Any]]:
         """Extract calls using the configured LLM (experimental)."""
@@ -319,7 +378,9 @@ class PDFProcessor:
             normalized_text=normalized_text,
             llm_confidence=llm_confidence,
             confidence_signals=confidence_signals,
+            llm_stages=list(self._audit_stage_records or []),
         )
+        self._audit_stage_records = None
 
         return ctx
 

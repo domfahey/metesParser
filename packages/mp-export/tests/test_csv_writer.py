@@ -150,7 +150,7 @@ def test_csv_to_calls_skips_invalid_rows(tmp_path):
         # Write a row with missing required fields
         writer.writerow(dict.fromkeys(FIELDNAMES, ""))
 
-    loaded = csv_to_calls(str(out))
+    loaded = csv_to_calls(str(out), strict=False)
     assert len(loaded) == 0
 
 
@@ -255,7 +255,9 @@ def test_export_verified_csv_creates_verified_file(tmp_path):
             distance_ft=100.0,
         ),
     ]
-    result = _make_closure_result()
+    from mp_verify import verify_closure
+
+    result = verify_closure(calls)
     out = tmp_path / "deed.csv"
     export_verified_csv(calls, result, str(out))
     verified_path = tmp_path / "deed_verified.csv"
@@ -301,7 +303,9 @@ def test_export_verified_csv_with_audit_context(tmp_path):
             distance_ft=100.0,
         ),
     ]
-    result = _make_closure_result()
+    from mp_verify import verify_closure
+
+    result = verify_closure(calls)
     rm = RunMetadata(
         parser_version="1.0.0",
         llm_provider="openai",

@@ -61,6 +61,11 @@ props = BearingConverter.calculate_curve_properties(
 
 Parse legal descriptions into structured DeedCall objects.
 
+`extract_calls()` raises `ValueError` when a course cannot be parsed, so an
+incomplete parcel cannot silently pass verification. Use `strict=False` only
+when deliberately recovering partial data for manual review. The same default
+and recovery option apply to `mp_parse.extract_calls()`.
+
 ```python
 from metesparser.call_extractor import CallExtractor
 
@@ -78,6 +83,12 @@ enriched = CallExtractor.enrich_calls_with_azimuths(calls)
 ```
 
 ### ClosureChecker
+
+The composable package API `mp_parse.extract_calls(text, strict=True)` returns
+`(flat_calls, tracts)`. Unpack the calls before passing them to enrichment or
+verification. The legacy `CallExtractor.extract_calls()` retains its list return
+value. For independent tracts, use `mp_verify.verify_closure(calls, tracts=tracts)`;
+each tract runs the same geometric guardrails as a single description.
 
 Verify traverse closure and perform validation checks.
 
@@ -111,6 +122,17 @@ print(summary)
 ### CSVBuilder
 
 Export/import CSV files.
+
+`csv_to_calls()` rejects invalid rows by default. Use `strict=False` for explicit
+partial recovery. CSV numeric fields retain the precision used in verification,
+including values requiring more than two decimal places. These rules also apply
+to `mp_export`.
+
+`export_verified_csv()` verifies the actual calls again before writing and rejects
+a stale result or a `LegalDescription` containing different calls. Rewriting a
+CSV also clears its old generated sidecars when replacement inputs are omitted.
+In multi-tract exports, every tract reported as verified is checked against its
+actual calls before any output is written; unsuccessful tracts are skipped.
 
 ```python
 from metesparser.csv_builder import CSVBuilder
@@ -263,6 +285,11 @@ else:
 ## Audit Sidecar
 
 Generate transparency reports alongside verified CSV output.
+
+Audited extraction records include `llm_stages`: the rendered prompt, response,
+SHA-256 fingerprints, and configured provider/model for each OCR, legal-description,
+and normalization exchange. JSON sidecars and HTML reports include this evidence;
+the existing extraction fields remain available.
 
 ```python
 from metesparser import PDFProcessor, ClosureChecker, CSVBuilder

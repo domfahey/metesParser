@@ -65,7 +65,9 @@ def extract_command(
         legal_desc = result
 
         command_logger.info("Verifying closure")
-        closure_result = ClosureChecker.verify_closure(legal_desc.calls)
+        closure_result = ClosureChecker.verify_closure(
+            legal_desc.calls, legal_desc.stated_area_sq_ft or 0.0
+        )
 
         summary = ClosureChecker.get_closure_summary(closure_result)
         _emit_closure_summary(summary, command_logger)

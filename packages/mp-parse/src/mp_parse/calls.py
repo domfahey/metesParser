@@ -39,8 +39,10 @@ from .metadata import (
     detect_meander,
     extract_along_to_fields,
     extract_distance,
+    extract_witness_trees,
     is_closure_to_pob,
     is_indefinite_call,
+    split_exception_clauses,
     split_into_calls,
 )
 from .monuments import (
@@ -59,7 +61,8 @@ _CARDINAL_ONLY_PATTERN = re.compile(
 )
 
 _UNIT_TOKEN = (
-    r"(?:feet|foot|ft|poles?|rods?|perches?|chains?|links?"
+    r"(?:US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?"
+    r"|feet|foot|ft|poles?|rods?|perches?|chains?|links?"
     r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
 )
 
@@ -79,7 +82,7 @@ def _normalize_unit_token(token: str | None) -> str:
     """Normalize a captured unit token to a ConversionFactors-compatible key."""
     if token is None:
         return "feet"
-    t = token.strip().lower()
+    t = " ".join(token.strip().lower().split())
     if t in ("ft", "feet", "foot", ""):
         return "feet"
     if t in ("pole", "poles"):
@@ -92,6 +95,12 @@ def _normalize_unit_token(token: str | None) -> str:
         return "chains"
     if t in ("link", "links"):
         return "links"
+    if t in ("engineer chain", "engineer chains"):
+        return "engineer_chains"
+    if t in ("engineer link", "engineer links"):
+        return "engineer_links"
+    if t in ("us survey foot", "us survey feet"):
+        return "us_survey_feet"
     if t in ("vara", "varas"):
         return "varas"
     if t in ("arpent", "arpents"):
@@ -124,67 +133,153 @@ def _is_debug_logging_enabled() -> bool:
     return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
 
 
+def _boundary_course_text(call_text: str) -> str:
+    """Remove bearing references that describe a corner instead of the course."""
+    starts = [
+        match.start()
+        for match in re.finditer(
+            r"\b(?:from\s+which|witness(?:\s+(?:tree|mark|corner))?|"
+            r"reference\s+(?:tree|mark))\b",
+            call_text,
+            re.IGNORECASE,
+        )
+    ]
+    lowered = call_text.lower()
+    for witness in extract_witness_trees(call_text):
+        position = lowered.find(witness.lower())
+        if position >= 0:
+            starts.append(position)
+    if not starts:
+        return call_text
+    return call_text[: min(starts)]
+
+
+def _is_initial_course_prefix(prefix: str) -> bool:
+    """Return whether text before THENCE starts with a supported bearing."""
+    candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\d+[.)])\s*)?", "", prefix)
+    if PACKED_DMS_PATTERN.match(candidate):
+        return True
+
+    try:
+        direction = extract_direction(candidate)
+    except ValueError:
+        return False
+    if not direction or not candidate.lstrip().lower().startswith(direction.lower()):
+        return False
+    if _CARDINAL_ONLY_PATTERN.fullmatch(direction):
+        remainder = candidate.lstrip()[len(direction) :]
+        return bool(re.match(rf"\s+{COMMA_NUMBER}(?:\s|$)", remainder))
+    return bool(parse_quadrant_bearing(direction) or due_cardinal_to_azimuth(direction) is not None)
+
+
 def _extract_calls_from_text(
     text: str,
     distance_unit: str = "feet",
     *,
     audit_context: AuditContext | None = None,
+    strict: bool = True,
     course_start: int = 1,
 ) -> list[DeedCall]:
-    """Extract calls from a single text segment (one tract).
+    """Extract all calls from normalized legal description text.
 
-    This is the inner extraction loop, factored out for reuse by
-    both single-tract and multi-tract paths.
+    Handles exception clauses (EXCEPT, LESS AND EXCEPT, ALSO, INCLUDING)
+    and marks calls accordingly.
+
+    Args:
+        text: Normalized legal description text (should already be normalized)
+        distance_unit: Primary distance unit (feet, poles, etc.)
+        audit_context: Optional audit context for recording parsing decisions
+        strict: Raise with course context when a geometric course is malformed.
+
+    Returns:
+        List of DeedCall objects
     """
-    # Strip POB preamble -- everything before first THENCE is not a call.
-    thence_match = re.search(r"\bTHENCE\b", text, re.IGNORECASE)
-    if thence_match:
-        text = text[thence_match.start() :]
+    normalized = normalize_legal_description(text)
 
-    call_texts = split_into_calls(text)
+    tracts = split_exception_clauses(normalized)
+
     calls: list[DeedCall] = []
     course_num = course_start
 
-    for call_text in call_texts:
-        try:
-            call = extract_single_call(call_text, course=course_num, distance_unit=distance_unit)
-        except (ValidationError, ValueError, TypeError) as exc:
-            payload = {
-                "course": course_num,
-                "call_preview": _call_preview(call_text),
-                "call_hash": _call_hash(call_text),
-                "error": str(exc),
-                "error_type": type(exc).__name__,
-            }
-            if _is_debug_logging_enabled():
-                logger.warning(
-                    "Skipping malformed call",
-                    **payload,
-                    call_text=call_text,
-                    exc_info=exc,
+    for tract_text, is_exception_tract in tracts:
+        # Remove a recognized commencement/POB preamble. A description may
+        # legitimately begin with its first course and introduce THENCE later.
+        thence_match = re.search(r"\bTHENCE\b", tract_text, re.IGNORECASE)
+        has_thence_marker = thence_match is not None
+        prefix = tract_text[: thence_match.start()] if thence_match else ""
+        has_beginning_preamble = re.match(
+            r"\s*(?:BEGINNING|COMMENCING|POINT\s+OF\s+BEGINNING|POB|TPOB|RPOB)\b",
+            prefix,
+            re.IGNORECASE,
+        )
+        has_initial_course = bool(thence_match and _is_initial_course_prefix(prefix))
+        if thence_match and (has_beginning_preamble or not has_initial_course):
+            tract_text = tract_text[thence_match.start() :]
+
+        has_numbered_course_markers = bool(
+            re.search(r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+", tract_text, re.MULTILINE)
+        )
+        call_texts = split_into_calls(tract_text)
+
+        for source_course, call_text in enumerate(call_texts, start=1):
+            try:
+                call = extract_single_call(
+                    call_text, course=course_num, distance_unit=distance_unit
                 )
-            else:
-                logger.warning("Skipping malformed call", **payload)
-            continue
+            except (ValidationError, ValueError, TypeError) as exc:
+                if strict:
+                    raise ValueError(
+                        f"Malformed course {source_course}: {call_text.strip()!r}: {exc}"
+                    ) from exc
+                payload = {
+                    "course": course_num,
+                    "call_preview": _call_preview(call_text),
+                    "call_hash": _call_hash(call_text),
+                    "error": str(exc),
+                    "error_type": type(exc).__name__,
+                }
+                if _is_debug_logging_enabled():
+                    logger.warning(
+                        "Skipping malformed call",
+                        **payload,
+                        call_text=call_text,
+                        exc_info=exc,
+                    )
+                else:
+                    logger.warning("Skipping malformed call", **payload)
+                continue
 
-        if call is None:
-            continue
-
-        calls.append(call)
-
-        if audit_context is not None:
-            transformations, decisions, flags = _audit_single_call(call_text, call)
-            audit_context.call_audits.append(
-                CallAudit(
-                    course=course_num,
-                    source_excerpt=call_text,
-                    transformations=transformations,
-                    decisions=decisions,
-                    flags=flags,
+            if call is None:
+                standalone_thence = re.fullmatch(r"\s*THENCE\s*", call_text, re.I)
+                explicit_course = not standalone_thence and (
+                    has_thence_marker or has_numbered_course_markers
                 )
-            )
+                if strict and (
+                    explicit_course
+                    or extract_direction(call_text)
+                    or re.search(r"\b(?:[NSEW])\s+\d", call_text, re.I)
+                    or re.search(r"\b(?:curve|spiral|transition)\b", call_text, re.I)
+                ):
+                    raise ValueError(f"Malformed course {source_course}: {call_text.strip()!r}")
+                continue
 
-        course_num += 1
+            if is_exception_tract:
+                call = call.model_copy(update={"is_exception": True})
+            calls.append(call)
+
+            if audit_context is not None:
+                transformations, decisions, flags = _audit_single_call(call_text, call)
+                audit_context.call_audits.append(
+                    CallAudit(
+                        course=course_num,
+                        source_excerpt=call_text,
+                        transformations=transformations,
+                        decisions=decisions,
+                        flags=flags,
+                    )
+                )
+
+            course_num += 1
 
     return calls
 
@@ -194,6 +289,7 @@ def extract_calls(
     distance_unit: str = "feet",
     *,
     audit_context: AuditContext | None = None,
+    strict: bool = True,
 ) -> tuple[list[DeedCall], list[Tract]]:
     """Extract all calls from normalized legal description text.
 
@@ -204,6 +300,7 @@ def extract_calls(
         text: Normalized legal description text (should already be normalized)
         distance_unit: Primary distance unit (feet, poles, etc.)
         audit_context: Optional audit context for recording parsing decisions
+        strict: Raise with course context when a geometric course is malformed.
 
     Returns:
         Tuple of (flat_calls, tracts).
@@ -221,7 +318,7 @@ def extract_calls(
     # Single-tract fast path: preserve backward-compatible behavior
     if len(segments) == 1 and segments[0][2] == TractType.MAIN:
         flat_calls = _extract_calls_from_text(
-            normalized, distance_unit, audit_context=audit_context, course_start=1
+            normalized, distance_unit, audit_context=audit_context, course_start=1, strict=strict
         )
         return flat_calls, []
 
@@ -231,9 +328,11 @@ def extract_calls(
 
     for segment_text, label, tract_type in segments:
         tract_calls = _extract_calls_from_text(
-            segment_text, distance_unit, audit_context=audit_context, course_start=1
+            segment_text, distance_unit, audit_context=audit_context, course_start=1, strict=strict
         )
 
+        if not tract_calls and strict:
+            raise ValueError(f"Tract {label!r} has no computable calls")
         if not tract_calls:
             logger.warning(
                 "Empty tract after extraction — segment dropped",
@@ -274,7 +373,7 @@ def extract_single_call(
     if re.match(r"^\s*(BEGINNING|COMMENCING|POB)\b", call_text, re.IGNORECASE):
         return None
 
-    raw_direction = extract_direction(call_text)
+    raw_direction = extract_direction(_boundary_course_text(call_text))
     direction_text = raw_direction if raw_direction else call_text.strip()
 
     bearing_quadrant = None
@@ -305,14 +404,44 @@ def extract_single_call(
             bearing_quadrant = None
             azimuth = None
 
-    distance, unit = extract_distance(call_text)
+    course_text = _boundary_course_text(call_text)
+    distance, unit = extract_distance(course_text)
     if distance == 0:
-        distance = extract_distance_alternate(call_text)
+        if re.search(
+            rf"{COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
+            course_text,
+            re.IGNORECASE,
+        ):
+            raise ValueError("Unsupported component in compound course distance")
+        distance = extract_distance_alternate(course_text)
         unit = distance_unit
 
     distance_ft = ConversionFactors.convert_to_feet(distance, unit)
 
     curve_info = extract_curve_info(call_text)
+
+    has_abbreviated_cardinal = bool(
+        re.match(r"^\s*(?:N|S|E|W|NE|NW|SE|SW)\b", call_text, re.IGNORECASE)
+    )
+    has_curve_geometry = any(
+        curve_info.get(key) is not None
+        for key in ("radius_ft", "delta_deg", "arc_length_ft", "chord_length_ft")
+    )
+    has_boundary_endpoint = bool(
+        re.search(
+            r"\bto\s+(?:(?:a|an|the)\s+)?(?:point|corner|pin|rod|monument|stone|stake)\b",
+            call_text,
+            re.IGNORECASE,
+        )
+    )
+    if (
+        not raw_direction
+        and not has_abbreviated_cardinal
+        and not has_curve_geometry
+        and not has_boundary_endpoint
+        and not detect_meander(call_text)
+    ):
+        return None
 
     arc_length_ft = curve_info.get("arc_length_ft")
     if isinstance(arc_length_ft, float) and arc_length_ft > 0.0:
@@ -331,6 +460,9 @@ def extract_single_call(
             distance_ft = arc_length_ft
         curve_info.setdefault("arc_length_ft", props["arc_length_ft"])
         curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
+
+    if distance_ft <= 0.0:
+        raise ValueError("Missing boundary course distance")
 
     along, to = extract_along_to_fields(call_text)
 
@@ -469,7 +601,7 @@ def _audit_single_call(
     flags: list[str] = []
 
     # --- Bearing transformation ---
-    raw_direction = extract_direction(call_text)
+    raw_direction = extract_direction(_boundary_course_text(call_text))
     if raw_direction:
         transformations.append(
             Transformation(
@@ -586,23 +718,33 @@ def extract_direction(text: str) -> str:
     Returns:
         Direction string (e.g., "S 56 deg 40' W" or "southwesterly")
     """
+    packed_match = PACKED_DMS_PATTERN.search(text)
     quadrant_match = QUADRANT_PATTERN.search(text)
-    if quadrant_match:
+    if quadrant_match and not packed_match:
         return quadrant_match.group(0)
 
-    packed_match = PACKED_DMS_PATTERN.search(text)
     if packed_match:
         cardinal1 = packed_match.group(1).upper()
         packed_value = float(packed_match.group(2))
         cardinal2 = packed_match.group(3).upper()
         decimal_degrees = parse_packed_dms(packed_value)
-        deg = int(decimal_degrees)
-        minutes = (decimal_degrees - deg) * 60
-        rounded_minutes = round(minutes)
-        if rounded_minutes >= 60:
-            rounded_minutes = 0
-            deg += 1
-        return f"{cardinal1} {deg}\u00b0{rounded_minutes:02d}' {cardinal2}"
+        total_seconds = round(decimal_degrees * 3600, 4)
+        degree, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        seconds_text = f"{seconds:.4f}".rstrip("0").rstrip(".")
+        if seconds < 10:
+            seconds_text = f"0{seconds_text}"
+        return f"{cardinal1} {int(degree)}\u00b0{int(minutes):02d}'{seconds_text}\" {cardinal2}"
+
+    # "due {cardinal}" check -- must come before simple cardinal so "due North"
+    # is captured as the full phrase, not truncated to "north".
+    due_cardinal_match = re.search(
+        r"\bdue\s+(north|south|east|west|N|S|E|W)\b",
+        text,
+        re.IGNORECASE,
+    )
+    if due_cardinal_match:
+        return due_cardinal_match.group(0).lower()
 
     # "due {cardinal}" check -- must come before simple cardinal so "due North"
     # is captured as the full phrase, not truncated to "north".

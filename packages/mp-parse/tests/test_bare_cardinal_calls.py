@@ -161,7 +161,7 @@ class TestMIWAYN50058FullText:
 
     def test_extract_calls_yields_7(self) -> None:
         """extract_calls() should produce 7 calls from the full deed text."""
-        calls = extract_calls(self.FULL_TEXT)
+        calls, _tracts = extract_calls(self.FULL_TEXT)
         assert len(calls) == 7, (
             f"Expected 7 calls, got {len(calls)}: "
             f"{[(c.course, c.direction_text, c.distance_ft) for c in calls]}"
@@ -169,7 +169,7 @@ class TestMIWAYN50058FullText:
 
     def test_bare_south_call_has_azimuth_180(self) -> None:
         """The bare 'S 289.81 ft' call should have azimuth 180.0 (due South)."""
-        calls = extract_calls(self.FULL_TEXT)
+        calls, _tracts = extract_calls(self.FULL_TEXT)
         south_calls = [
             c
             for c in calls
@@ -183,7 +183,7 @@ class TestMIWAYN50058FullText:
 
     def test_bare_west_call_has_azimuth_270(self) -> None:
         """The bare 'W 199.44 ft' call should have azimuth 270.0 (due West)."""
-        calls = extract_calls(self.FULL_TEXT)
+        calls, _tracts = extract_calls(self.FULL_TEXT)
         west_calls = [
             c
             for c in calls
@@ -197,7 +197,7 @@ class TestMIWAYN50058FullText:
 
     def test_last_call_closes_to_pob(self) -> None:
         """The final call should reference 'point of beginning'."""
-        calls = extract_calls(self.FULL_TEXT)
+        calls, _tracts = extract_calls(self.FULL_TEXT)
         assert len(calls) >= 1
         last = calls[-1]
         assert last.to is not None

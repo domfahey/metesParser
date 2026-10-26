@@ -1,0 +1,6 @@
+{"calls":[
+ {"course":1,"direction_text":"N 45 E","bearing_quadrant":"N 45 E","bearing_azimuth_deg_from_north":45,"distance_ft":141.4213562373},
+ {"course":2,"direction_text":"S 45 E","bearing_quadrant":"S 45 E","bearing_azimuth_deg_from_north":135,"distance_ft":141.4213562373},
+ {"course":3,"direction_text":"N 45 E","bearing_quadrant":"N 45 E","bearing_azimuth_deg_from_north":45,"distance_ft":141.4213562373},
+ {"course":4,"direction_text":"S 45 E","bearing_quadrant":"S 45 E","bearing_azimuth_deg_from_north":135,"distance_ft":141.4213562373}
+]}
