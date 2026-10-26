@@ -2,6 +2,8 @@
 
 Shipped user documentation lives in the [plugin README](../plugins/metesparser/README.md), [usage guide](../plugins/metesparser/references/usage.md), and [plugin changelog](../plugins/metesparser/CHANGELOG.md). This document covers source-checkout development and packaging.
 
+For the source-grounded, editable closure review dashboard workflow, see the [Deed Closure Dashboard skill](../plugins/metesparser/skills/deed-closure-dashboard/README.md).
+
 The plugin checks metes-and-bounds descriptions from any supplied source. `review-metes-and-bounds` first locates the intended description. `convert-document-to-text` uses Claude's native image/document capabilities for native PDFs, scans, and images; `extract-metes-and-bounds` then selects the complete description verbatim. `review-deed` remains a deed-specific entrypoint, and `verify-traverse` handles identified structured call sets.
 
 The `mp-review` workspace package reviews the selected UTF-8 TXT/Markdown, CSV, or JSON without OCR, provider keys, or LLM calls. No new OCR service or conversion dependency is added. All parsing, numeric checks, and verified export decisions run in Python. Acquisition and section selection records remain separate from deterministic engine audits; see [source preparation](../plugins/metesparser/references/source-preparation.md).

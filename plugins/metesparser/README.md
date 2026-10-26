@@ -11,6 +11,7 @@ See the [usage guide](references/usage.md) for input routing, examples, artifact
 - `extract-metes-and-bounds`: locate and preserve the complete description with its source references.
 - `review-deed`: route deed-specific requests through the shared review workflow.
 - `verify-traverse`: check an existing CSV or JSON traverse.
+- `deed-closure-dashboard`: prepare a source-grounded, interactive closure review dashboard from a deed packet.
 
 The review and verification skills use `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py"`; the launcher starts the locked runtime using `uv` and prints the engine's JSON result. Runtime environments and package cache are stored under the user's cache directory, keyed by the bundled engine fingerprint, so the plugin directory can remain read-only. Using the `python3` prefix avoids depending on executable mode preservation when the plugin is packaged.
 
