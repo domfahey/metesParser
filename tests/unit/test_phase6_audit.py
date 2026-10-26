@@ -25,6 +25,19 @@ from metesparser.models import (
 from metesparser.pdf_processor import PDFProcessor
 
 
+def _verified_square_calls() -> tuple[list[DeedCall], ClosureResult]:
+    calls = [
+        DeedCall(
+            course=i + 1,
+            direction_text="boundary",
+            bearing_azimuth_deg_from_north=azimuth,
+            distance_ft=100.0,
+        )
+        for i, azimuth in enumerate((0.0, 90.0, 180.0, 270.0))
+    ]
+    return calls, ClosureChecker.verify_closure(calls)
+
+
 class TestTransformation:
     def test_create_basic(self):
         t = Transformation(step="extract_bearing", input="South 56 degrees", output="S 56°00' W")
@@ -475,26 +488,7 @@ class TestAuditJsonSerialization:
             ],
         )
 
-        calls = [
-            DeedCall(
-                course=1,
-                direction_text="N 45\u00b000' E",
-                bearing_quadrant="N 45\u00b000' E",
-                bearing_azimuth_deg_from_north=45.0,
-                distance_ft=100.0,
-            ),
-        ]
-        closure = ClosureResult(
-            misclosure_x_ft=0.0,
-            misclosure_y_ft=0.0,
-            misclosure_ft=0.0,
-            area_sq_ft=5000.0,
-            area_acres=0.1148,
-            perimeter_ft=400.0,
-            closure_passed=True,
-            angle_check_passed=True,
-            curve_consistency_passed=True,
-        )
+        calls, closure = _verified_square_calls()
 
         output_path = str(tmp_path / "test.csv")
         CSVBuilder.export_verified_csv(calls, closure, output_path, audit_context=ctx)
@@ -509,26 +503,7 @@ class TestAuditJsonSerialization:
     def test_no_audit_json_without_context(self, tmp_path):
         from metesparser.csv_builder import CSVBuilder
 
-        calls = [
-            DeedCall(
-                course=1,
-                direction_text="N 45\u00b000' E",
-                bearing_quadrant="N 45\u00b000' E",
-                bearing_azimuth_deg_from_north=45.0,
-                distance_ft=100.0,
-            ),
-        ]
-        closure = ClosureResult(
-            misclosure_x_ft=0.0,
-            misclosure_y_ft=0.0,
-            misclosure_ft=0.0,
-            area_sq_ft=5000.0,
-            area_acres=0.1148,
-            perimeter_ft=400.0,
-            closure_passed=True,
-            angle_check_passed=True,
-            curve_consistency_passed=True,
-        )
+        calls, closure = _verified_square_calls()
 
         output_path = str(tmp_path / "test.csv")
         CSVBuilder.export_verified_csv(calls, closure, output_path)
@@ -687,26 +662,7 @@ class TestAuditReporter:
                 cache_enabled=False,
             ),
         )
-        calls = [
-            DeedCall(
-                course=1,
-                direction_text="N 45\u00b000' E",
-                bearing_quadrant="N 45\u00b000' E",
-                bearing_azimuth_deg_from_north=45.0,
-                distance_ft=100.0,
-            ),
-        ]
-        closure = ClosureResult(
-            misclosure_x_ft=0.0,
-            misclosure_y_ft=0.0,
-            misclosure_ft=0.0,
-            area_sq_ft=5000.0,
-            area_acres=0.1148,
-            perimeter_ft=400.0,
-            closure_passed=True,
-            angle_check_passed=True,
-            curve_consistency_passed=True,
-        )
+        calls, closure = _verified_square_calls()
         output_path = str(tmp_path / "test.csv")
         CSVBuilder.export_verified_csv(calls, closure, output_path, audit_context=ctx)
         assert (tmp_path / "test_verified.audit.json").exists()

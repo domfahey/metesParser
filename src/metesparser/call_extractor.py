@@ -33,7 +33,7 @@ _CARDINAL_ONLY_PATTERN = re.compile(
 )
 
 _UNIT_TOKEN = (
-    r"(?:feet|foot|ft|poles?|rods?|perches?|chains?|links?"
+    r"(?:US\s+survey\s+(?:feet|foot)|feet|foot|ft|poles?|rods?|perches?|chains?|links?"
     r"|engineer\s+chains?|engineer\s+links?"
     r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
 )
@@ -43,7 +43,7 @@ def _normalize_unit_token(token: str | None) -> str:
     """Normalize a captured unit token to a ConversionFactors-compatible key."""
     if token is None:
         return "feet"
-    t = token.strip().lower()
+    t = " ".join(token.strip().lower().split())
     if t in ("ft", "feet", "foot", ""):
         return "feet"
     if t in ("pole", "poles"):
@@ -60,6 +60,8 @@ def _normalize_unit_token(token: str | None) -> str:
         return "engineer_chains"
     if t in ("engineer link", "engineer links"):
         return "engineer_links"
+    if t in ("us survey foot", "us survey feet"):
+        return "us_survey_feet"
     if t in ("vara", "varas"):
         return "varas"
     if t in ("arpent", "arpents"):
@@ -90,6 +92,27 @@ def _call_hash(call_text: str) -> str:
 
 def _is_debug_logging_enabled() -> bool:
     return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
+
+
+def _boundary_course_text(call_text: str) -> str:
+    """Remove bearing references that describe a corner instead of the course."""
+    starts = [
+        match.start()
+        for match in re.finditer(
+            r"\b(?:from\s+which|witness(?:\s+(?:tree|mark|corner))?|"
+            r"reference\s+(?:tree|mark))\b",
+            call_text,
+            re.IGNORECASE,
+        )
+    ]
+    lowered = call_text.lower()
+    for witness in TextParser.extract_witness_trees(call_text):
+        position = lowered.find(witness.lower())
+        if position >= 0:
+            starts.append(position)
+    if not starts:
+        return call_text
+    return call_text[: min(starts)]
 
 
 class MonumentClassifier:
@@ -347,7 +370,7 @@ class CallExtractor:
         if re.match(r"^\s*(BEGINNING|COMMENCING|POB)\b", call_text, re.IGNORECASE):
             return None
 
-        raw_direction = cls.extract_direction(call_text)
+        raw_direction = cls.extract_direction(_boundary_course_text(call_text))
         direction_text = raw_direction if raw_direction else call_text.strip()
 
         bearing_quadrant = None
@@ -382,14 +405,44 @@ class CallExtractor:
                 bearing_quadrant = None
                 azimuth = None
 
-        distance, unit = TextParser.extract_distance(call_text)
+        course_text = _boundary_course_text(call_text)
+        distance, unit = TextParser.extract_distance(course_text)
         if distance == 0:
-            distance = cls.extract_distance_alternate(call_text)
+            if re.search(
+                rf"{_COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{_COMMA_NUMBER}\s+[A-Za-z]+",
+                course_text,
+                re.IGNORECASE,
+            ):
+                raise ValueError("Unsupported component in compound course distance")
+            distance = cls.extract_distance_alternate(course_text)
             unit = distance_unit
 
         distance_ft = ConversionFactors.convert_to_feet(distance, unit)
 
         curve_info = cls.extract_curve_info(call_text)
+
+        has_abbreviated_cardinal = bool(
+            re.match(r"^\s*(?:N|S|E|W|NE|NW|SE|SW)\b", call_text, re.IGNORECASE)
+        )
+        has_curve_geometry = any(
+            curve_info.get(key) is not None
+            for key in ("radius_ft", "delta_deg", "arc_length_ft", "chord_length_ft")
+        )
+        has_boundary_endpoint = bool(
+            re.search(
+                r"\bto\s+(?:(?:a|an|the)\s+)?(?:point|corner|pin|rod|monument|stone|stake)\b",
+                call_text,
+                re.IGNORECASE,
+            )
+        )
+        if (
+            not raw_direction
+            and not has_abbreviated_cardinal
+            and not has_curve_geometry
+            and not has_boundary_endpoint
+            and not TextParser.detect_meander(call_text)
+        ):
+            return None
 
         arc_length_ft = curve_info.get("arc_length_ft")
         if isinstance(arc_length_ft, float) and arc_length_ft > 0.0:
@@ -408,6 +461,9 @@ class CallExtractor:
                 distance_ft = arc_length_ft
             curve_info.setdefault("arc_length_ft", props["arc_length_ft"])
             curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
+
+        if distance_ft <= 0.0:
+            raise ValueError("Missing boundary course distance")
 
         along, to = TextParser.extract_along_to_fields(call_text)
 
@@ -551,7 +607,7 @@ class CallExtractor:
         flags: list[str] = []
 
         # --- Bearing transformation ---
-        raw_direction = cls.extract_direction(call_text)
+        raw_direction = cls.extract_direction(_boundary_course_text(call_text))
         if raw_direction:
             transformations.append(
                 Transformation(

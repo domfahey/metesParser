@@ -84,6 +84,7 @@ nohup.out
 
 # Output files
 *.csv
+!packages/mp-review/tests/fixtures/*.csv
 *.geojson
 *.kml
 *_verified.csv

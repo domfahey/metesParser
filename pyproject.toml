@@ -21,6 +21,7 @@ dependencies = [
     "mp-parse>=1.0.0",
     "mp-verify>=1.0.0",
     "mp-export>=1.0.0",
+    "mp-review>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -93,6 +94,7 @@ mp-ocr = { workspace = true }
 mp-parse = { workspace = true }
 mp-verify = { workspace = true }
 mp-export = { workspace = true }
+mp-review = { workspace = true }
 
 [tool.uv.workspace]
 members = ["packages/*"]
