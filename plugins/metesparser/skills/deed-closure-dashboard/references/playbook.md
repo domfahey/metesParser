@@ -62,68 +62,17 @@ Full recorded bearings allow direct deterministic verification. Direction-only r
 
 Carry local headings forward from the first course using explicit source angles. If the initial compass bearing is absent, choose an arbitrary local axis for computation and label it as such. Do not represent it as a numeric bearing recorded in the document. Declare traversal orientation and every inferred/reflex turn. If the wording cannot resolve a turn, analyze labeled alternatives or leave the record finding indeterminate.
 
-Use this reference calculation for straight angle-based legs. Retain each interpretation's inputs and outputs so calculations can be rerun. Use the existing engine for circular geometry; do not feed chord approximations into this straight-leg helper as if they were recorded boundary lines.
+Use the tested `mp_verify.analyze_relative()` module through the plugin's dedicated command. Prepare a source-linked JSON description using the [relative-angle input contract](relative-analysis.md). The [synthetic rectangle](relative-rectangle.json) is a runnable schema example, not property evidence.
 
-```python
-import math
-
-def dms(d, m=0, s=0):
-    if not all(math.isfinite(v) for v in (d, m, s)) or d < 0 or not 0 <= m < 60 or not 0 <= s < 60:
-        raise ValueError("Expected nonnegative DMS with minutes/seconds below 60")
-    return d + m / 60 + s / 3600
-
-def traverse(legs, az0=0, orient="ccw", start=(0, 0), closing_angle=None):
-    """Return local-frame analysis, never an engine verification result.
-
-    legs: [(None, first_distance), (interior_angle, distance), ...].
-    closing_angle: separately recorded interior angle at the POB, or None.
-    orient: ccw means the land lies left of travel; cw means right.
-    """
-    if orient not in ("cw", "ccw") or len(legs) < 3 or legs[0][0] is not None:
-        raise ValueError("Use 3+ straight legs, first angle None, and cw/ccw orientation")
-    if not all(math.isfinite(v) for v in (az0, *start)):
-        raise ValueError("Frame values must be finite")
-    if closing_angle is not None and (not math.isfinite(closing_angle) or not 0 < closing_angle < 360):
-        raise ValueError("Closing interior angle must be between 0 and 360 degrees")
-    x, y = start
-    az = az0 % 360
-    points = [(x, y)]
-    courses = []
-    perimeter = 0.0
-    angles = []
-    for i, (angle, distance) in enumerate(legs):
-        if not math.isfinite(distance) or distance <= 0:
-            raise ValueError("Distances must be positive finite values in feet")
-        if i:
-            if angle is None or not math.isfinite(angle) or not 0 < angle < 360:
-                raise ValueError("Every later course needs an explicit/interpreted interior angle")
-            turn = 180 - angle
-            az = (az - turn if orient == "ccw" else az + turn) % 360
-            angles.append(angle)
-        dx = distance * math.sin(math.radians(az))
-        dy = distance * math.cos(math.radians(az))
-        x, y = x + dx, y + dy
-        points.append((x, y))
-        courses.append(dict(local_azimuth_deg=az, dE=dx, dN=dy))
-        perimeter += distance
-    dE, dN = x - start[0], y - start[1]
-    misclosure = math.hypot(dE, dN)
-    # Translate before shoelace; include the implicit last-to-first edge.
-    local = [(px - start[0], py - start[1]) for px, py in points]
-    area = abs(math.fsum(a[0] * b[1] - b[0] * a[1]
-                         for a, b in zip(local, local[1:] + local[:1]))) / 2
-    turn_at_pob = ((az - az0 if orient == "ccw" else az0 - az) + 180) % 360 - 180
-    ratio = perimeter / misclosure if misclosure else None
-    return dict(method="local_angle_analysis", engine_verified=False,
-                misclosure=misclosure, dE=dE, dN=dN, perimeter=perimeter,
-                precision=ratio if ratio is not None and math.isfinite(ratio) else None,
-                area=area, area_basis="implicit_closing_segment", points=points, courses=courses,
-                stated_angle_sum=math.fsum(angles + [closing_angle]) if closing_angle is not None else None,
-                expected_angle_sum=(len(legs) - 2) * 180,
-                computed_closing_angle=(180 - turn_at_pob) % 360)
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" analyze-relative lot_X_angles.json --output-dir rev_lot_X_angles
 ```
 
-Display null precision as infinite only when misclosure is actually zero; otherwise label unavailable/overflow explicitly. An open traverse's area includes an implicit closing segment and is provisional. Computed local headings and the heading-based closing angle are derived quantities, not source facts. Preserve all inputs at full precision.
+Retain the original canonical review separately. This command always returns top-level `needs_review` (exit 1) for valid input, even when `analysis.status` is `analyzed`. Inspect the nested analysis for `unresolved` or `inconsistent` constraints. It never writes CSV or makes a verified-export decision. Its immutable input and JSON results preserve source references, quotes, and explicit interpretations.
+
+Supply straight legs only. Use the existing canonical engine for circular geometry; do not substitute chords or silently omit curves. The solver propagates relative headings from the declared first-course local axis and checks every resolved constraint, including any closing-angle constraint. It never selects a turn or repairs a distance to improve closure.
+
+Display `precision_denominator` as the denominator in `1:N` when available. Null precision means unavailable or mathematically unbounded; do not label it infinite for a nonzero gap. An open traverse's area includes an implicit closing segment and is provisional. Local headings, gap components, and the heading-based closing angle are derived quantities, not source facts. Preserve full precision and use the same local frame for headings, coordinates, and exports.
 
 Interpret the wording before supplying numeric interior angles:
 

@@ -41,9 +41,12 @@ The Python launcher requires Python 3.11+ and `uv`. First use provisions the loc
 ```sh
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" review description-parcel-a.txt --output-dir reviews/parcel-a-new
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" verify calls.csv --output-dir reviews/calls-new
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" analyze-relative angles.json --output-dir reviews/angles-new
 ```
 
 These commands accept prepared descriptions or identified call sets; they do not locate a description inside a PDF or arbitrary whole document. Output directories must be new. A configured output base can supply a fresh child when `--output-dir` is omitted. See [project settings](plugin-settings.md) for `.claude/metesparser.local.md`, CLI precedence, and per-run reload behavior.
+
+For straight descriptions defined by relative angles, `analyze-relative` accepts a [source-linked JSON constraint description](../skills/deed-closure-dashboard/references/relative-analysis.md). It calculates local geometry separately from canonical verification and always retains `needs_review` (exit 1) for valid inputs, including successful analysis. It preserves unknown recorded bearings and produces no verified CSV. Check `analysis.status` for `analyzed`, `unresolved`, or `inconsistent`.
 
 ## Interpret the result
 
