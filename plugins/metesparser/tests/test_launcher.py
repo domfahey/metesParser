@@ -99,3 +99,23 @@ def test_rejects_runtime_hash_map_path_escape(monkeypatch, tmp_path, capsys):
     assert launcher.main(["review", "deed.txt"]) == 2
     response = json.loads(capsys.readouterr().out)
     assert "escapes runtime directory" in response["errors"][0]["message"]
+
+
+def test_settings_come_from_calling_project_not_plugin_install(monkeypatch, tmp_path, capsys):
+    runtime = make_runtime(tmp_path)
+    setup_launcher(monkeypatch, runtime)
+    project = tmp_path / "project with spaces"
+    project.mkdir()
+    monkeypatch.chdir(project)
+    commands = []
+
+    def run(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=0, stdout='{"status":"checks_passed"}\n', stderr="")
+
+    monkeypatch.setattr(launcher.subprocess, "run", run)
+    assert launcher.main(["review", "deed.txt"]) == 0
+    assert commands[0][-2:] == ["--settings", str(project / ".claude/metesparser.local.md")]
+    commands.clear()
+    assert launcher.main(["review", "deed.txt", "--settings=alternate.md"]) == 0
+    assert commands[0][-1] == "--settings=alternate.md"
