@@ -282,15 +282,39 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
     """
     calls = gt.get("expected_calls", [])
 
-    # Filter to calls with both azimuth and distance
-    plottable = [
-        c
-        for c in calls
-        if c.get("bearing_azimuth_deg_from_north") is not None and c.get("distance_ft") is not None
-    ]
-
-    if not plottable:
+    if not calls:
         return "<p class='na'>No plottable calls (cannot generate traverse plot).</p>"
+
+    # A boundary call without usable geometry breaks the traverse. Dropping it
+    # would falsely connect the calls on either side of the gap.
+    invalid_courses: list[str] = []
+    for index, call in enumerate(calls, start=1):
+        azimuth = call.get("bearing_azimuth_deg_from_north")
+        distance = call.get("distance_ft")
+        valid_azimuth = (
+            isinstance(azimuth, (int, float))
+            and not isinstance(azimuth, bool)
+            and math.isfinite(azimuth)
+            and 0 <= azimuth <= 360
+        )
+        valid_distance = (
+            isinstance(distance, (int, float))
+            and not isinstance(distance, bool)
+            and math.isfinite(distance)
+            and distance >= 0
+        )
+        if not (valid_azimuth and valid_distance):
+            invalid_courses.append(str(call.get("course", index)))
+
+    if invalid_courses:
+        courses = ", ".join(_esc(course) for course in invalid_courses)
+        return (
+            "<p class='na'>Incomplete traverse plot (cannot generate plot): "
+            "missing or invalid geometry "
+            f"for course(s) {courses}.</p>"
+        )
+
+    plottable = calls
 
     # Compute traverse points (azimuth is clockwise from north)
     # SVG: x = east, y = south (so we negate y for north-up)
@@ -328,9 +352,12 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
     path_d = f"M {points[0][0]:.2f},{points[0][1]:.2f}"
     for p in points[1:]:
         path_d += f" L {p[0]:.2f},{p[1]:.2f}"
-    path_d += " Z"
+    closed = math.hypot(points[-1][0] - points[0][0], points[-1][1] - points[0][1]) < 0.01
+    if closed:
+        path_d += " Z"
+    fill = "#e8f4f8" if closed else "none"
     parts.append(
-        f"<path d='{path_d}' fill='#e8f4f8' stroke='#2c3e50' "
+        f"<path d='{path_d}' fill='{fill}' stroke='#2c3e50' "
         f"stroke-width='{max(vb_w, vb_h) * 0.005:.2f}'/>"
     )
 

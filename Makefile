@@ -1,8 +1,16 @@
 SHELL := /bin/bash
+.DEFAULT_GOAL := all
 
 # Tooling and path defaults.
 UV ?= uv
 UV_RUN := $(UV) run
+
+.PHONY: review-corpus plugin-build
+review-corpus: ## Run reviewed deterministic pipeline fixtures without OCR.
+	$(UV_RUN) python -m mp_review corpus packages/mp-review/tests/fixtures/corpus.json
+
+plugin-build: ## Build the Claude plugin ZIP with a locked deterministic runtime.
+	$(UV_RUN) python scripts/build_claude_plugin.py
 PY_SRC := src/metesparser
 PY_TESTS := tests
 

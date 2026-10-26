@@ -70,7 +70,11 @@ def merge_line_wrapped_calls(text: str) -> str:
         if not stripped:
             continue
 
-        if re.match(r"^(THENCE|BEGINNING|FROM|POB|POINT)", stripped, re.IGNORECASE):
+        if re.match(
+            r"^(?:(?:THENCE|BEGINNING|FROM|POB|POINT)\b|\(\d+\)|\d+[.)])(?:\s+|$)",
+            stripped,
+            re.IGNORECASE,
+        ):
             if current:
                 merged.append(current)
             current = stripped

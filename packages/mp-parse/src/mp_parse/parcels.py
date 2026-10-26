@@ -248,4 +248,5 @@ def _find_marker_end(text: str, start_pos: int) -> int:
         start_pos=start_pos,
         text_preview=text[start_pos : start_pos + 50],
     )
+
     return start_pos

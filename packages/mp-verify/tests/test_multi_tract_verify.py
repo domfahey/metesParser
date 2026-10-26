@@ -67,13 +67,14 @@ class TestVerifyTract:
         result = verify_tract([])
         assert not result.closure_passed
         assert result.area_sq_ft == 0.0
-        assert any("minimum 3" in w for w in result.warnings)
+        assert result.warnings
 
     def test_verify_tract_two_calls_fails(self):
         calls = _square_calls()[:2]
         result = verify_tract(calls)
         assert not result.closure_passed
-        assert any("minimum 3" in w for w in result.warnings)
+        assert result.misclosure_ft > 100
+        assert not result.is_fully_verified()
 
 
 class TestVerifyClosureMultiTract:

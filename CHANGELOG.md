@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Claude plugin workflow for any source document: native text conversion, explicit metes-and-bounds description selection before closure, and deterministic review of the selected boundary.
+- Plugin usage/source-preparation references, per-skill READMEs, and a plugin-specific changelog.
 - Project motivation, design pillars, and WIP notice to README (PR #35)
 - **Recorded-deed parser fixes** — 10 parser improvements from error analysis of 22 recorded deeds (PR #42):
   - Due cardinal bearing support (`due North` → 0.0° azimuth) in `mp-bearing` and monolith
@@ -20,7 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - LLM anti-hallucination prompts, dual-notation handling, space-separated DMS support
   - 249 new tests across 8 test files
 
+### Removed
+- Plugin/skill-development guides accidentally shipped as product skills; retain metes-and-bounds workflows and project settings support.
+
 ### Fixed
+- Preserve strict parsing, intersection checks, and fresh CSV export verification when integrating multi-tract support; adapt text review to the composable parser's `(calls, tracts)` result.
 - Backfill registry handles 0-call deeds, removed stale 7535-933 manifest (PR #34)
 - Fixed stale test counts, coverage metrics, and outdated references in docs (PR #36)
 - Doctor target now correctly reads `.env` values for API key validation (PR #38)

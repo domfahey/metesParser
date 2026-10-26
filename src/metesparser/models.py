@@ -689,6 +689,22 @@ class RunMetadata(_Model):
     )
 
 
+class LLMStageRecord(_Model):
+    """Rendered prompt and response evidence for one audited LLM call."""
+
+    model_config = ConfigDict(
+        extra="forbid", frozen=True, str_strip_whitespace=False, validate_assignment=True
+    )
+
+    stage: str = Field(..., description="Pipeline prompt stage name")
+    prompt: str = Field(..., description="Fully rendered prompt sent to the provider")
+    prompt_sha256: str = Field(..., description="SHA-256 of the rendered prompt")
+    response: str = Field(..., description="Verbatim provider response")
+    response_sha256: str = Field(..., description="SHA-256 of the provider response")
+    provider: str = Field(..., description="Provider name, or unknown")
+    model: str = Field(..., description="Model name, or unknown")
+
+
 class ExtractionRecord(_Model):
     """Record of the LLM extraction step."""
 
@@ -699,6 +715,9 @@ class ExtractionRecord(_Model):
     )
     confidence_signals: dict[str, bool] = Field(
         default_factory=dict, description="Individual confidence signal results"
+    )
+    llm_stages: list[LLMStageRecord] = Field(
+        default_factory=list, description="Audited rendered prompts and responses by stage"
     )
 
 

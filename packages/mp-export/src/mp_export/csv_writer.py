@@ -22,6 +22,13 @@ from pydantic import ValidationError, field_validator
 
 logger = structlog.get_logger(__name__)
 
+
+def _format_float(value: float, decimal_places: int) -> str:
+    """Keep familiar formatting when exact, otherwise retain roundtrip precision."""
+    formatted = f"{value:.{decimal_places}f}"
+    return formatted if float(formatted) == value else repr(value)
+
+
 FIELDNAMES: list[str] = [
     "course",
     "direction_text",
@@ -85,18 +92,20 @@ def _call_to_row(call: DeedCall) -> dict[str, str]:
         "direction_text": call.direction_text,
         "bearing_quadrant": call.bearing_quadrant or "",
         "bearing_azimuth_deg_from_north": (
-            f"{call.bearing_azimuth_deg_from_north:.6f}"
+            _format_float(call.bearing_azimuth_deg_from_north, 6)
             if call.bearing_azimuth_deg_from_north is not None
             else ""
         ),
-        "distance_ft": f"{call.distance_ft:.2f}",
+        "distance_ft": _format_float(call.distance_ft, 2),
         "curve_dir": call.curve_dir or "",
-        "radius_ft": f"{call.radius_ft:.2f}" if call.radius_ft is not None else "",
-        "delta_deg": f"{call.delta_deg:.6f}" if call.delta_deg is not None else "",
-        "arc_length_ft": f"{call.arc_length_ft:.2f}" if call.arc_length_ft is not None else "",
+        "radius_ft": _format_float(call.radius_ft, 2) if call.radius_ft is not None else "",
+        "delta_deg": _format_float(call.delta_deg, 6) if call.delta_deg is not None else "",
+        "arc_length_ft": _format_float(call.arc_length_ft, 2)
+        if call.arc_length_ft is not None
+        else "",
         "chord_bearing": call.chord_bearing or "",
         "chord_length_ft": (
-            f"{call.chord_length_ft:.2f}" if call.chord_length_ft is not None else ""
+            _format_float(call.chord_length_ft, 2) if call.chord_length_ft is not None else ""
         ),
         "along": call.along or "",
         "to": call.to or "",
@@ -119,6 +128,53 @@ def _write_metadata(metadata: dict[str, str | int | float | None], output_path: 
         for key, value in metadata.items():
             if value:
                 f.write(f"{key}: {value}\n")
+
+
+def _cleanup_stale_sidecars(output_file: Path, *, metadata_written: bool) -> None:
+    """Remove exact sidecars a successful raw CSV rewrite can no longer support."""
+    sidecars = []
+    if not metadata_written:
+        sidecars.append(output_file.with_suffix(".metadata.txt"))
+    if output_file.stem.endswith("_verified"):
+        sidecars.extend(
+            output_file.with_suffix(suffix)
+            for suffix in (".verification.txt", ".audit.json", ".audit.html")
+        )
+    for sidecar in sidecars:
+        if sidecar.exists():
+            sidecar.unlink()
+
+
+def _validate_export_geometry(
+    calls: list[DeedCall],
+    closure_result: ClosureResult,
+    legal_desc: LegalDescription | None,
+    *,
+    independent_tract: bool = False,
+) -> list[DeedCall]:
+    """Require the supplied verification to describe the calls actually exported."""
+    selected_calls = legal_desc.calls if legal_desc is not None else calls
+    if legal_desc is not None and [c.model_dump() for c in calls] != [
+        c.model_dump() for c in selected_calls
+    ]:
+        raise ValueError("Cannot export verified CSV: calls do not match LegalDescription.calls")
+
+    stated_area = 0.0
+    if legal_desc is not None and legal_desc.stated_area_sq_ft is not None:
+        stated_area = legal_desc.stated_area_sq_ft
+    from mp_verify import verify_closure, verify_tract
+
+    verifier = verify_tract if independent_tract else verify_closure
+    fresh_result = verifier(selected_calls, stated_area_sq_ft=stated_area)
+    if not fresh_result.is_fully_verified():
+        raise ValueError(
+            "Cannot export verified CSV: selected calls failed fresh verification. "
+            f"Misclosure: {fresh_result.misclosure_ft:.4f} ft, "
+            f"Warnings: {len(fresh_result.warnings)}"
+        )
+    if closure_result.model_dump() != fresh_result.model_dump():
+        raise ValueError("Cannot export verified CSV: closure result does not match selected calls")
+    return selected_calls
 
 
 def calls_to_csv(
@@ -146,6 +202,7 @@ def calls_to_csv(
     if metadata:
         metadata_path = output_file.with_suffix(".metadata.txt")
         _write_metadata(metadata, metadata_path)
+    _cleanup_stale_sidecars(output_file, metadata_written=bool(metadata))
 
 
 def _row_to_call(row: dict[str, str | None], row_number: int | None = None) -> DeedCall | None:
@@ -171,11 +228,12 @@ def _row_to_call(row: dict[str, str | None], row_number: int | None = None) -> D
         return None
 
 
-def csv_to_calls(input_path: str) -> list[DeedCall]:
+def csv_to_calls(input_path: str, *, strict: bool = True) -> list[DeedCall]:
     """Load calls from a CSV file.
 
     Args:
         input_path: Input CSV file path.
+        strict: Reject invalid rows; False explicitly permits partial recovery.
 
     Returns:
         List of DeedCall objects.
@@ -188,6 +246,8 @@ def csv_to_calls(input_path: str) -> list[DeedCall]:
             call = _row_to_call(row, row_number=row_number)
             if call:
                 calls.append(call)
+            elif strict:
+                raise ValueError(f"Cannot import complete parcel: invalid CSV row {row_number}")
 
     return calls
 
@@ -280,6 +340,17 @@ def export_verified_csv(
     output_file = Path(output_path)
     written_paths: list[Path] = []
 
+    # Validate every selected successful result before writing any output.
+    if tract_results:
+        for tract, result in tract_results:
+            if result.is_fully_verified():
+                selected = LegalDescription(
+                    calls=tract.calls, stated_area_sq_ft=tract.stated_area_sq_ft
+                )
+                _validate_export_geometry(tract.calls, result, selected, independent_tract=True)
+    else:
+        _validate_export_geometry(calls, closure_result, legal_desc)
+
     if tract_results:
         for i, (tract, tract_result) in enumerate(tract_results, start=1):
             if not tract_result.is_fully_verified():
@@ -294,6 +365,7 @@ def export_verified_csv(
             calls_to_csv(tract.calls, str(tract_path))
             written_paths.append(tract_path)
             logger.info("Verified tract CSV exported", path=str(tract_path), tract=tract.label)
+
     else:
         verified_path = output_file.with_stem(output_file.stem + "_verified")
         if legal_desc:
@@ -325,12 +397,14 @@ def export_verified_csv(
     if audit_context is not None:
         audit_base = output_file.with_stem(output_file.stem + "_verified")
         audit_json_path = audit_base.with_suffix(".audit.json")
+
         audit_json_path.write_text(audit_context.model_dump_json(indent=2))
         logger.info("Audit trail written", path=str(audit_json_path))
 
         from .audit_html import write_report
 
         audit_html_path = audit_base.with_suffix(".audit.html")
+
         write_report(audit_context, audit_html_path)
         logger.info("Audit HTML report written", path=str(audit_html_path))
 

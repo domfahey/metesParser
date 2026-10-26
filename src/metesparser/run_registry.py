@@ -121,7 +121,8 @@ def write_run_manifest(manifest: RunManifest, runs_dir: Path) -> Path:
     runs_dir.mkdir(parents=True, exist_ok=True)
     ts = manifest.timestamp_utc.strftime("%Y-%m-%dT%H%M%S")
     slug = _slugify_pdf_name(manifest.source_pdf)
-    filename = f"{ts}-{slug}.json"
+    run_id_digest = hashlib.sha256(manifest.run_id.encode("utf-8")).hexdigest()
+    filename = f"{ts}-{slug}-{run_id_digest}.json"
     path = runs_dir / filename
     path.write_text(manifest.model_dump_json(indent=2))
     logger.debug("Run manifest written", path=str(path))

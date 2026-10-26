@@ -40,18 +40,9 @@ def _square_calls(size: float = 100.0) -> list[DeedCall]:
 
 
 def _good_closure(area: float = 10000.0) -> ClosureResult:
-    return ClosureResult(
-        misclosure_x_ft=0.0,
-        misclosure_y_ft=0.0,
-        misclosure_ft=0.0,
-        area_sq_ft=area,
-        area_acres=area / 43560.0,
-        perimeter_ft=400.0,
-        closure_passed=True,
-        angle_check_passed=True,
-        curve_consistency_passed=True,
-        warnings=[],
-    )
+    from mp_verify import verify_tract
+
+    return verify_tract(_square_calls(area**0.5))
 
 
 class TestMultiTractExport:

@@ -21,7 +21,7 @@ import math
 from typing import overload
 
 import structlog
-from mp_bearing import calculate_deltas, compute_curve_endpoint
+from mp_bearing import bearing_to_azimuth, calculate_deltas, compute_curve_endpoint
 from mp_models import (
     AuditContext,
     CheckResult,
@@ -38,6 +38,7 @@ from .checks import (
     check_distance_reasonableness,
     check_interior_angles,
     check_parallelism,
+    check_straight_boundary_intersections,
     compare_double_entry,
 )
 from .confidence import calculate_confidence_score, score_call_quality
@@ -78,13 +79,23 @@ def compute_traverse(
                     delta_deg = math.degrees(call.arc_length_ft / call.radius_ft)
 
                 if delta_deg is not None and abs(delta_deg) > 1e-9:
-                    next_point = compute_curve_endpoint(
-                        current,
-                        call.bearing_azimuth_deg_from_north,
-                        call.radius_ft,
-                        delta_deg,
-                        call.curve_dir,
-                    )
+                    if call.chord_bearing is not None:
+                        chord_azimuth = bearing_to_azimuth(call.chord_bearing)
+                        if chord_azimuth is None:
+                            raise ValueError(f"Course {call.course}: invalid chord bearing")
+                        # A chord bearing already describes the endpoint vector.
+                        # Only tangent bearings need rotation by half the delta.
+                        chord_length = 2 * call.radius_ft * math.sin(math.radians(delta_deg) / 2)
+                        dx, dy = calculate_deltas(chord_azimuth, chord_length)
+                        next_point = Point(x=current.x + dx, y=current.y + dy)
+                    else:
+                        next_point = compute_curve_endpoint(
+                            current,
+                            call.bearing_azimuth_deg_from_north,
+                            call.radius_ft,
+                            delta_deg,
+                            call.curve_dir,
+                        )
 
             if next_point is None:
                 dx, dy = calculate_deltas(
@@ -105,19 +116,20 @@ def compute_traverse(
     return points
 
 
-def calculate_area(points: list[Point]) -> float:
-    """Calculate area using shoelace formula.
+def calculate_area(points: list[Point], *, calls: list[DeedCall] | None = None) -> float:
+    """Calculate polygon area, including circular segments when calls are supplied.
 
     Args:
         points: List of Point objects forming a polygon.
+        calls: Optional traverse calls for signed circular-segment corrections.
 
     Returns:
         Area in square feet.
 
     Raises:
-        ValueError: If fewer than 3 points provided.
+        ValueError: If fewer than 3 points provided without a curved boundary.
     """
-    if len(points) < 3:
+    if len(points) < 2:
         raise ValueError(f"Cannot calculate area with {len(points)} points (need at least 3)")
 
     area = 0.0
@@ -128,8 +140,25 @@ def calculate_area(points: list[Point]) -> float:
         area += points[i].x * points[j].y
         area -= points[j].x * points[i].y
 
-    area = abs(area) / 2.0
-    return area
+    area /= 2.0
+    curved_area = 0.0
+    for call in calls or []:
+        if call.bearing_azimuth_deg_from_north is None or not call.is_curve():
+            continue
+        if call.radius_ft is None or call.curve_dir is None:
+            continue
+        delta = call.delta_deg
+        if delta is None and call.arc_length_ft is not None and call.radius_ft > 0:
+            delta = math.degrees(call.arc_length_ft / call.radius_ft)
+        if delta is None or abs(delta) <= 1e-9:
+            continue
+        theta = math.radians(delta)
+        segment = call.radius_ft**2 * (theta - math.sin(theta)) / 2.0
+        # Shoelace uses positive counterclockwise area; left arcs add area.
+        curved_area += segment if call.curve_dir == "left" else -segment
+    if len(points) < 3 and curved_area == 0.0:
+        raise ValueError(f"Cannot calculate area with {len(points)} points (need at least 3)")
+    return abs(area + curved_area)
 
 
 def calculate_perimeter(calls: list[DeedCall]) -> float:
@@ -150,6 +179,48 @@ def calculate_perimeter(calls: list[DeedCall]) -> float:
     return perimeter
 
 
+def _calculate_exception_area(calls: list[DeedCall]) -> float:
+    """Sum independently closed exception loops without mixing their winding.
+
+    The flat call API has no tract identifiers. A return to the local origin
+    ends one loop; an incomplete final loop cannot supply a net parcel area.
+    """
+    areas: list[float] = []
+    pending: list[DeedCall] = []
+    points = [Point(x=0, y=0)]
+    for call in calls:
+        if call.is_tie_in:
+            continue
+        if call.bearing_azimuth_deg_from_north is None:
+            raise ValueError(
+                f"Exception course {call.course} has an incomplete bearing; net area unavailable"
+            )
+        points.extend(compute_traverse([call], start_point=points[-1])[1:])
+        pending.append(call)
+        misclosure = math.hypot(points[-1].x, points[-1].y)
+        if misclosure < CLOSURE_TOLERANCE_FT:
+            intersections = check_straight_boundary_intersections(pending, points)
+            if intersections:
+                raise ValueError(
+                    f"Exception tract self-intersection; net area unavailable: {intersections[0]}"
+                )
+            curves_passed, _ = check_curve_consistency(pending)
+            if not curves_passed:
+                raise ValueError(
+                    f"Exception tract ending at course {call.course} has inconsistent curves; net area unavailable"
+                )
+            areas.append(calculate_area(points, calls=pending))
+            pending = []
+            points = [Point(x=0, y=0)]
+    if pending:
+        misclosure = math.hypot(points[-1].x, points[-1].y)
+        raise ValueError(
+            f"Exception tract ending at course {pending[-1].course} does not close "
+            f"({misclosure:.4f} ft misclosure); net area unavailable"
+        )
+    return math.fsum(areas)
+
+
 def verify_tract(
     calls: list[DeedCall],
     *,
@@ -157,96 +228,14 @@ def verify_tract(
     closure_tolerance_ft: float | None = None,
     audit_context: AuditContext | None = None,
 ) -> ClosureResult:
-    """Verify one tract's closure independently.
-
-    Unlike verify_closure(), this does NOT split by is_exception.
-    All calls are treated as a single traverse.
-    """
-    tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
-
-    active_calls = [c for c in calls if not c.is_tie_in]
-
-    # A closed polygon requires at least 3 calls
-    if len(active_calls) < 3:
-        warnings = [
-            f"Tract has only {len(active_calls)} active call(s) "
-            f"(minimum 3 required to form a closed polygon)"
-        ]
-        return ClosureResult(
-            misclosure_x_ft=0.0,
-            misclosure_y_ft=0.0,
-            misclosure_ft=0.0,
-            area_sq_ft=0.0,
-            area_acres=0.0,
-            perimeter_ft=0.0,
-            closure_passed=False,
-            angle_check_passed=False,
-            curve_consistency_passed=True,
-            warnings=warnings,
-            precision_ratio=None,
-            confidence_score=0.0,
-        )
-
-    points = compute_traverse(active_calls)
-
-    computable = sum(1 for c in active_calls if c.bearing_azimuth_deg_from_north is not None)
-    has_computable = computable > 0
-
-    misclosure_x = points[-1].x - points[0].x
-    misclosure_y = points[-1].y - points[0].y
-    misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
-
-    warnings: list[str] = []
-    if not has_computable:
-        warnings.append("No computable traverse \u2014 all calls lack bearings")
-
-    try:
-        area_sq_ft = calculate_area(points)
-        area_acres = area_sq_ft / 43560.0
-    except ValueError as e:
-        area_sq_ft = 0.0
-        area_acres = 0.0
-        warnings.append(f"Cannot calculate area: {e}")
-
-    perimeter = calculate_perimeter(active_calls)
-    closure_passed = has_computable and misclosure < tolerance
-    angle_check_passed = check_interior_angles(active_calls, points)
-    curve_ok, curve_warnings = check_curve_consistency(active_calls)
-    warnings.extend(curve_warnings)
-    warnings.extend(check_parallelism(active_calls))
-    warnings.extend(check_bearing_reversals(active_calls))
-    warnings.extend(check_distance_reasonableness(active_calls))
-
-    if stated_area_sq_ft > 0:
-        diff_pct = abs(area_sq_ft - stated_area_sq_ft) / stated_area_sq_ft * 100
-        if diff_pct > 5.0:
-            warnings.append(
-                f"Computed area differs from stated by {diff_pct:.1f}% "
-                f"(computed: {area_sq_ft:.1f} sq ft, stated: {stated_area_sq_ft:.1f} sq ft)"
-            )
-
-    incomplete = [c for c in active_calls if not c.is_complete_bearing()]
-    if incomplete:
-        warnings.append(
-            f"{len(incomplete)} call(s) have incomplete bearings (cardinal-only or meanders)"
-        )
-
-    result = ClosureResult(
-        misclosure_x_ft=misclosure_x,
-        misclosure_y_ft=misclosure_y,
-        misclosure_ft=misclosure,
-        area_sq_ft=area_sq_ft,
-        area_acres=area_acres,
-        perimeter_ft=perimeter,
-        closure_passed=closure_passed,
-        angle_check_passed=angle_check_passed,
-        curve_consistency_passed=curve_ok,
-        warnings=warnings,
-        points=points,
-        precision_ratio=misclosure / perimeter if perimeter else None,
+    """Check one independent tract using every standard verification guardrail."""
+    boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
+    return verify_closure(
+        boundary,
+        stated_area_sq_ft=stated_area_sq_ft,
+        closure_tolerance_ft=closure_tolerance_ft,
+        audit_context=audit_context,
     )
-    confidence = calculate_confidence_score(result, active_calls)
-    return result.model_copy(update={"confidence_score": confidence})
 
 
 @overload
@@ -332,21 +321,22 @@ def verify_closure(
         )
 
     try:
-        main_area_sq_ft = calculate_area(points)
+        main_area_sq_ft = calculate_area(points, calls=main_calls)
 
         exception_area_sq_ft = 0.0
+        exception_area_available = True
         if exception_calls:
             warnings.append(
                 f"Found {len(exception_calls)} exception calls - "
                 "calculating exception area to subtract"
             )
             try:
-                exception_points = compute_traverse(exception_calls)
-                exception_area_sq_ft = calculate_area(exception_points)
+                exception_area_sq_ft = _calculate_exception_area(exception_calls)
             except ValueError as e:
                 warnings.append(f"Cannot calculate exception area: {e}")
+                exception_area_available = False
 
-        area_sq_ft = main_area_sq_ft - exception_area_sq_ft
+        area_sq_ft = main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
         area_acres = area_sq_ft / 43560.0
     except ValueError as e:
         area_sq_ft = 0.0
@@ -370,6 +360,9 @@ def verify_closure(
 
     parallel_warnings = check_parallelism(main_calls)
     warnings.extend(parallel_warnings)
+
+    intersection_warnings = check_straight_boundary_intersections(main_calls, points)
+    warnings.extend(intersection_warnings)
 
     reversal_warnings = check_bearing_reversals(main_calls)
     warnings.extend(reversal_warnings)
@@ -469,6 +462,15 @@ def verify_closure(
                     "all curves L \u2248 R*\u0394 within tolerance"
                     if curve_consistency_passed_val
                     else "curve math inconsistency detected"
+                ),
+                inputs={},
+            ),
+            CheckResult(
+                name="straight_boundary_intersections",
+                passed=not intersection_warnings,
+                detail=(
+                    f"{len(intersection_warnings)} straight-edge intersection(s); "
+                    "arc intersections not evaluated"
                 ),
                 inputs={},
             ),
