@@ -18,6 +18,10 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 - Closure requests now locate the intended description before calculation. Native conversion, Claude's section selection, and deterministic verification remain distinct evidence stages.
 - Scanned documents use Claude's native reading when available instead of always requiring a user-provided transcription. No separate OCR provider or conversion dependency is added.
 
+### Removed
+
+- Plugin/skill-authoring guides mistakenly bundled as runtime skills. Keep only document conversion, description selection, and boundary review skills; project settings remain supported.
+
 ## [1.0.0]
 
 Initial local plugin baseline, recorded for the existing manifest version; not a public marketplace release.
@@ -27,7 +31,6 @@ Initial local plugin baseline, recorded for the existing manifest version; not a
 - Deterministic text/CSV/JSON review engine, guarded verified export, field-level audits, and an analytic regression corpus.
 - `review-deed` and `verify-traverse` skills with a locked, fingerprinted runtime and portable launcher.
 - Project-local `enabled` and `output_dir` settings, with safe YAML validation and per-run reloads.
-- `plugin-structure`, `plugin-settings`, and `skill-development` authoring guides.
 
 ## Validation limits
 

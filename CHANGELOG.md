@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plugin usage/source-preparation references, per-skill READMEs, and a plugin-specific changelog.
 - Project motivation, design pillars, and WIP notice to README (PR #35)
 
+### Removed
+- Plugin/skill-development guides accidentally shipped as product skills; retain metes-and-bounds workflows and project settings support.
+
 ### Fixed
 - Backfill registry handles 0-call deeds, removed stale 7535-933 manifest (PR #34)
 - Fixed stale test counts, coverage metrics, and outdated references in docs (PR #36)
