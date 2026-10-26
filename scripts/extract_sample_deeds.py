@@ -5,8 +5,7 @@ This script processes each sample deed PDF and creates output files
 showing the extraction results for human review.
 """
 
-import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from metesparser.closure_checker import ClosureChecker
@@ -35,14 +34,14 @@ def create_extraction_report(legal_desc, closure_result, output_file):
         closure_result: ClosureResult object
         output_file: Path to output text file
     """
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         f.write("=" * 80 + "\n")
         f.write("DEED EXTRACTION REPORT\n")
         f.write("=" * 80 + "\n\n")
 
         # Source info
         f.write(f"Source PDF: {legal_desc.source_doc}\n")
-        f.write(f"Date Extracted: {datetime.now(timezone.utc).isoformat()}\n\n")
+        f.write(f"Date Extracted: {datetime.now(UTC).isoformat()}\n\n")
 
         # Point of Commencement
         f.write("-" * 80 + "\n")
@@ -82,15 +81,23 @@ def create_extraction_report(legal_desc, closure_result, output_file):
             f.write("-" * 80 + "\n")
             f.write(f"Direction Text:  {call.direction_text}\n")
             f.write(f"Bearing:         {call.bearing_quadrant or '(incomplete)'}\n")
-            f.write(f"Azimuth:         {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north is not None else '(none)'}\n")
+            f.write(
+                f"Azimuth:         {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north is not None else '(none)'}\n"
+            )
             f.write(f"Distance:        {call.distance_ft:.2f} feet\n")
 
             # Curve info if present
             if call.curve_dir:
                 f.write(f"Curve Direction: {call.curve_dir}\n")
-                f.write(f"Radius:          {f'{call.radius_ft:.2f} ft' if call.radius_ft is not None else '(none)'}\n")
-                f.write(f"Delta:           {f'{call.delta_deg:.4f}°' if call.delta_deg is not None else '(none)'}\n")
-                f.write(f"Arc Length:      {f'{call.arc_length_ft:.2f} ft' if call.arc_length_ft is not None else '(none)'}\n")
+                f.write(
+                    f"Radius:          {f'{call.radius_ft:.2f} ft' if call.radius_ft is not None else '(none)'}\n"
+                )
+                f.write(
+                    f"Delta:           {f'{call.delta_deg:.4f}°' if call.delta_deg is not None else '(none)'}\n"
+                )
+                f.write(
+                    f"Arc Length:      {f'{call.arc_length_ft:.2f} ft' if call.arc_length_ft is not None else '(none)'}\n"
+                )
 
             f.write(f"Along:           {call.along or '(none)'}\n")
             f.write(f"To:              {call.to or '(none)'}\n")
@@ -107,14 +114,20 @@ def create_extraction_report(legal_desc, closure_result, output_file):
         f.write(f"Misclosure (X):     {closure_result.misclosure_x_ft:10.4f} ft\n")
         f.write(f"Misclosure (Y):     {closure_result.misclosure_y_ft:10.4f} ft\n")
         f.write(f"Total Misclosure:   {closure_result.misclosure_ft:10.4f} ft\n")
-        f.write(f"Closure Status:     {'✓ CLOSED' if closure_result.closure_passed else '✗ OPEN'}\n\n")
+        f.write(
+            f"Closure Status:     {'✓ CLOSED' if closure_result.closure_passed else '✗ OPEN'}\n\n"
+        )
 
         f.write(f"Calculated Area:    {closure_result.area_sq_ft:10.2f} sq ft\n")
         f.write(f"                    {closure_result.area_acres:10.4f} acres\n")
         f.write(f"Perimeter:          {closure_result.perimeter_ft:10.2f} ft\n\n")
 
-        f.write(f"Angle Check:        {'✓ PASSED' if closure_result.angle_check_passed else '✗ FAILED'}\n")
-        f.write(f"Curve Consistency:  {'✓ PASSED' if closure_result.curve_consistency_passed else '✗ FAILED'}\n\n")
+        f.write(
+            f"Angle Check:        {'✓ PASSED' if closure_result.angle_check_passed else '✗ FAILED'}\n"
+        )
+        f.write(
+            f"Curve Consistency:  {'✓ PASSED' if closure_result.curve_consistency_passed else '✗ FAILED'}\n\n"
+        )
 
         # Warnings
         if closure_result.warnings:
@@ -153,11 +166,11 @@ def main():
 
         try:
             # Extract legal description
-            print(f"  - Extracting from PDF...")
+            print("  - Extracting from PDF...")
             legal_desc = processor.process_deed_pdf(str(pdf_path))
 
             # Verify closure
-            print(f"  - Verifying closure...")
+            print("  - Verifying closure...")
             closure_result = ClosureChecker.verify_closure(legal_desc.calls)
 
             # Create text report
@@ -181,23 +194,27 @@ def main():
                     legal_desc=legal_desc,
                 )
 
-            results.append({
-                'pdf': pdf_filename,
-                'calls': len(legal_desc.calls),
-                'closes': closure_result.closure_passed,
-                'verified': closure_result.is_fully_verified(),
-                'area_sq_ft': closure_result.area_sq_ft,
-                'misclosure_ft': closure_result.misclosure_ft,
-            })
+            results.append(
+                {
+                    "pdf": pdf_filename,
+                    "calls": len(legal_desc.calls),
+                    "closes": closure_result.closure_passed,
+                    "verified": closure_result.is_fully_verified(),
+                    "area_sq_ft": closure_result.area_sq_ft,
+                    "misclosure_ft": closure_result.misclosure_ft,
+                }
+            )
 
             print(f"  ✓ Complete: {len(legal_desc.calls)} calls extracted\n")
 
         except Exception as e:
             print(f"  ✗ ERROR: {str(e)}\n")
-            results.append({
-                'pdf': pdf_filename,
-                'error': str(e),
-            })
+            results.append(
+                {
+                    "pdf": pdf_filename,
+                    "error": str(e),
+                }
+            )
 
     # Summary
     print("\n" + "=" * 80)
@@ -205,13 +222,15 @@ def main():
     print("=" * 80 + "\n")
 
     for r in results:
-        if 'error' in r:
+        if "error" in r:
             print(f"✗ {r['pdf']}")
             print(f"   ERROR: {r['error']}\n")
         else:
-            status = "✓ VERIFIED" if r['verified'] else ("✓ CLOSES" if r['closes'] else "⚠ OPEN")
+            status = "✓ VERIFIED" if r["verified"] else ("✓ CLOSES" if r["closes"] else "⚠ OPEN")
             print(f"{status} {r['pdf']}")
-            print(f"   Calls: {r['calls']}, Area: {r['area_sq_ft']:.2f} sq ft, Misclosure: {r['misclosure_ft']:.4f} ft\n")
+            print(
+                f"   Calls: {r['calls']}, Area: {r['area_sq_ft']:.2f} sq ft, Misclosure: {r['misclosure_ft']:.4f} ft\n"
+            )
 
     print(f"\nAll reports saved to: {OUTPUT_DIR}/")
     print("\nReview the *_extraction_report.txt files for detailed results.")

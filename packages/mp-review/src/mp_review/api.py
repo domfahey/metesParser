@@ -93,9 +93,8 @@ def _run(
                 raise ValueError("Multiple parcel descriptions require separate reviews.")
             normalized = normalize_legal_description(text)
             poc, pob = extract_poc_and_pob(normalized)
-            calls = mark_tie_in_calls(
-                enrich_calls_with_azimuths(extract_calls(normalized, audit_context=audit)), poc
-            )
+            extracted_calls, _tracts = extract_calls(normalized, audit_context=audit)
+            calls = mark_tie_in_calls(enrich_calls_with_azimuths(extracted_calls), poc)
             area = extract_area_statement(normalized)
             legal = LegalDescription(
                 calls=calls,

@@ -30,6 +30,7 @@ from mp_models import (
     CurveType,
     Decision,
     DeedCall,
+    Tract,
     Transformation,
 )
 from pydantic import ValidationError
@@ -171,12 +172,13 @@ def _is_initial_course_prefix(prefix: str) -> bool:
     return bool(parse_quadrant_bearing(direction) or due_cardinal_to_azimuth(direction) is not None)
 
 
-def extract_calls(
+def _extract_calls_from_text(
     text: str,
     distance_unit: str = "feet",
     *,
     audit_context: AuditContext | None = None,
     strict: bool = True,
+    course_start: int = 1,
 ) -> list[DeedCall]:
     """Extract all calls from normalized legal description text.
 
@@ -197,7 +199,7 @@ def extract_calls(
     tracts = split_exception_clauses(normalized)
 
     calls: list[DeedCall] = []
-    course_num = 1
+    course_num = course_start
 
     for tract_text, is_exception_tract in tracts:
         # Remove a recognized commencement/POB preamble. A description may
@@ -280,6 +282,79 @@ def extract_calls(
             course_num += 1
 
     return calls
+
+
+def extract_calls(
+    text: str,
+    distance_unit: str = "feet",
+    *,
+    audit_context: AuditContext | None = None,
+    strict: bool = True,
+) -> tuple[list[DeedCall], list[Tract]]:
+    """Extract all calls from normalized legal description text.
+
+    Handles multi-tract deeds (TRACT markers, multiple BEGINNINGs,
+    EXCEPT/ALSO clauses) and marks calls accordingly.
+
+    Args:
+        text: Normalized legal description text (should already be normalized)
+        distance_unit: Primary distance unit (feet, poles, etc.)
+        audit_context: Optional audit context for recording parsing decisions
+        strict: Raise with course context when a geometric course is malformed.
+
+    Returns:
+        Tuple of (flat_calls, tracts).
+        - For single-tract deeds: flat_calls populated, tracts is empty list.
+        - For multi-tract deeds: flat_calls is the merged list, tracts has
+          per-tract Tract objects with independent call lists.
+    """
+    from mp_models import Tract, TractType
+
+    from .tracts import split_into_tracts
+
+    normalized = normalize_legal_description(text)
+    segments = split_into_tracts(normalized)
+
+    # Single-tract fast path: preserve backward-compatible behavior
+    if len(segments) == 1 and segments[0][2] == TractType.MAIN:
+        flat_calls = _extract_calls_from_text(
+            normalized, distance_unit, audit_context=audit_context, course_start=1, strict=strict
+        )
+        return flat_calls, []
+
+    # Multi-tract path
+    all_calls: list[DeedCall] = []
+    tract_objects: list[Tract] = []
+
+    for segment_text, label, tract_type in segments:
+        tract_calls = _extract_calls_from_text(
+            segment_text, distance_unit, audit_context=audit_context, course_start=1, strict=strict
+        )
+
+        if not tract_calls and strict:
+            raise ValueError(f"Tract {label!r} has no computable calls")
+        if not tract_calls:
+            logger.warning(
+                "Empty tract after extraction — segment dropped",
+                tract_label=label,
+                tract_type=tract_type.value,
+                segment_length=len(segment_text),
+                segment_preview=segment_text[:120],
+            )
+            continue
+
+        if tract_type == TractType.EXCEPTION:
+            tract_calls = [c.model_copy(update={"is_exception": True}) for c in tract_calls]
+
+        tract = Tract(
+            label=label,
+            tract_type=tract_type,
+            calls=tract_calls,
+        )
+        tract_objects.append(tract)
+        all_calls.extend(tract_calls)
+
+    return all_calls, tract_objects
 
 
 def extract_single_call(
@@ -660,6 +735,16 @@ def extract_direction(text: str) -> str:
         if seconds < 10:
             seconds_text = f"0{seconds_text}"
         return f"{cardinal1} {int(degree)}\u00b0{int(minutes):02d}'{seconds_text}\" {cardinal2}"
+
+    # "due {cardinal}" check -- must come before simple cardinal so "due North"
+    # is captured as the full phrase, not truncated to "north".
+    due_cardinal_match = re.search(
+        r"\bdue\s+(north|south|east|west|N|S|E|W)\b",
+        text,
+        re.IGNORECASE,
+    )
+    if due_cardinal_match:
+        return due_cardinal_match.group(0).lower()
 
     # "due {cardinal}" check -- must come before simple cardinal so "due North"
     # is captured as the full phrase, not truncated to "north".

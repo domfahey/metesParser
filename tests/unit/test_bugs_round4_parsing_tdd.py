@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import pytest
-from mp_parse.calls import extract_calls as package_extract_calls
 from mp_parse.metadata import extract_area_statement as package_extract_area_statement
 
 from metesparser.call_extractor import CallExtractor
 from metesparser.text_parser import TextParser
+from tests.fixtures.package_parser import extract_calls as package_extract_calls
 
 PARSERS = (package_extract_calls, CallExtractor.extract_calls)
 AREA_PARSERS = (package_extract_area_statement, TextParser.extract_area_statement)
