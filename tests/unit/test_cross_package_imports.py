@@ -136,6 +136,15 @@ class TestMpVerifyImports:
 
         assert callable(verify_tract)
 
+    def test_relative_analysis_facade(self) -> None:
+        from mp_models import RelativeDescription as PackageDescription
+        from mp_verify import analyze_relative as package_analyze
+
+        from metesparser.relative import RelativeDescription, analyze_relative
+
+        assert RelativeDescription is PackageDescription
+        assert analyze_relative is package_analyze
+
 
 class TestMpExportImports:
     """mp-export package should export CSV and audit HTML functions."""
