@@ -34,11 +34,11 @@ from mp_models import (
 
 from .checks import (
     check_bearing_reversals,
+    check_boundary_intersections,
     check_curve_consistency,
     check_distance_reasonableness,
     check_interior_angles,
     check_parallelism,
-    check_straight_boundary_intersections,
     compare_double_entry,
 )
 from .confidence import calculate_confidence_score, score_call_quality
@@ -199,10 +199,10 @@ def _calculate_exception_area(calls: list[DeedCall]) -> float:
         pending.append(call)
         misclosure = math.hypot(points[-1].x, points[-1].y)
         if misclosure < CLOSURE_TOLERANCE_FT:
-            intersections = check_straight_boundary_intersections(pending, points)
+            intersections = check_boundary_intersections(pending, points)
             if intersections:
                 raise ValueError(
-                    f"Exception tract self-intersection; net area unavailable: {intersections[0]}"
+                    f"Exception tract topology failed; net area unavailable: {intersections[0]}"
                 )
             curves_passed, _ = check_curve_consistency(pending)
             if not curves_passed:
@@ -361,7 +361,7 @@ def verify_closure(
     parallel_warnings = check_parallelism(main_calls)
     warnings.extend(parallel_warnings)
 
-    intersection_warnings = check_straight_boundary_intersections(main_calls, points)
+    intersection_warnings = check_boundary_intersections(main_calls, points)
     warnings.extend(intersection_warnings)
 
     reversal_warnings = check_bearing_reversals(main_calls)
@@ -466,11 +466,11 @@ def verify_closure(
                 inputs={},
             ),
             CheckResult(
-                name="straight_boundary_intersections",
+                name="boundary_intersections",
                 passed=not intersection_warnings,
                 detail=(
-                    f"{len(intersection_warnings)} straight-edge intersection(s); "
-                    "arc intersections not evaluated"
+                    f"{len(intersection_warnings)} boundary warning(s); "
+                    "straight and circular-arc checks; unavailable geometry is flagged"
                 ),
                 inputs={},
             ),
