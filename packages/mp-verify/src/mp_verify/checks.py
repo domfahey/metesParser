@@ -10,6 +10,15 @@ import statistics
 
 from mp_models import DeedCall, Point
 
+from .topology import check_curved_boundary_intersections
+
+
+def check_boundary_intersections(calls: list[DeedCall], coordinates: list[Point]) -> list[str]:
+    """Check straight and circular boundaries without substituting chords for arcs."""
+    return check_straight_boundary_intersections(
+        calls, coordinates
+    ) + check_curved_boundary_intersections(calls, coordinates)
+
 
 def check_interior_angles(calls: list[DeedCall], coordinates: list[Point]) -> bool:
     """Check if interior angles sum correctly: (n-2) * 180 degrees.

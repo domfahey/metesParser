@@ -90,6 +90,11 @@ verification. The legacy `CallExtractor.extract_calls()` retains its list return
 value. For independent tracts, use `mp_verify.verify_closure(calls, tracts=tracts)`;
 each tract runs the same geometric guardrails as a single description.
 
+Boundary topology checks include straight segments and circular arcs. The audit
+entry `boundary_intersections` replaces `straight_boundary_intersections` and
+reports crossings, overlaps, nonadjacent contacts, and unavailable geometry.
+The old straight-only checker remains available for callers requesting that scope.
+
 Verify traverse closure and perform validation checks.
 
 ```python

@@ -40,9 +40,9 @@ _PARCEL_MARKER = re.compile(
     re.IGNORECASE,
 )
 
-# BEGINNING at/in (start of a metes block)
+# Include the full POB opening so extracted tracts retain their original wording.
 _BEGINNING_PATTERN = re.compile(
-    r"\bBEGINNING\s+(?:at|in)\b",
+    r"\b(?:(?:POINT(?:\s+AND\s+PLACE)?|PLACE)\s+OF\s+)?BEGINNING\s+(?:at|in)\b",
     re.IGNORECASE,
 )
 
@@ -107,13 +107,26 @@ def split_on_markers(
     return result
 
 
+def _beginning_starts(text: str) -> list[re.Match[str]]:
+    """Keep POB openings; exclude references reached 'to' or 'being' the POB."""
+    return [
+        match
+        for match in _BEGINNING_PATTERN.finditer(text)
+        if not re.search(
+            r"\b(?:to|being)\s+(?:(?:a|the|said|aforesaid|original|true|initial)\s+)*$",
+            text[: match.start()],
+            re.IGNORECASE,
+        )
+    ]
+
+
 def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
     """Find BEGINNING...POB blocks.
 
     Returns: list of (start, end) positions
     """
     blocks: list[tuple[int, int]] = []
-    for m in _BEGINNING_PATTERN.finditer(text):
+    for m in _beginning_starts(text):
         # Look for matching POB closure after this BEGINNING
         close = _POB_CLOSE_PATTERN.search(text, m.end())
         if not close:
@@ -125,7 +138,7 @@ def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
             continue
 
         # Ensure no intervening BEGINNING between this one and its POB
-        intervening = _BEGINNING_PATTERN.search(text[m.end() : close.start()])
+        intervening = _beginning_starts(text[m.end() : close.start()])
         if intervening:
             logger.warning(
                 "Dropping BEGINNING block due to intervening BEGINNING before POB",
@@ -222,7 +235,7 @@ def split_into_tracts(text: str) -> list[tuple[str, str, TractType]]:
         return result
 
     # Single tract — pass through (log if multiple BEGINNINGs detected but unmatched)
-    beginning_count = len(re.findall(r"\bBEGINNING\b", text, re.IGNORECASE))
+    beginning_count = len(_beginning_starts(text))
     if beginning_count > 1:
         logger.warning(
             "Single-tract fallback with multiple BEGINNING keywords",
