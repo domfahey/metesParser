@@ -206,18 +206,24 @@ Found by running all 6 sample deeds and comparing extraction output against grou
 
 Recommended sequence: first complete item 1, the data-schema portion of item 2, and a small fixture suite from item 6. Then build the reusable renderer and angle-analysis module against those contracts. Add diagnostics and cross-description comparison afterward. Keep package and backward-compatible monolith behavior in sync, and preserve the existing verified-export gate.
 
-- [ ] High — 1. Distinguish successful checks from checks that were not performed. **Effort: Medium.**
+- [x] High — 1. Distinguish successful checks from checks that were not performed. **Effort: Medium.** Completed 2026-10-26.
   - Add structured `passed`, `failed`, `not_applicable`, and `blocked` outcomes with reasons; display geometric results separately from source-review completeness.
   - Correct the current angle-check reporting: `packages/mp-verify/src/mp_verify/checks.py:check_interior_angles()` returns `True` for curves or incomplete bearings, while `closure.py:verify_closure()` can describe that as "all-straight polygon angles sum correctly."
   - Update `packages/mp-models/src/mp_models/closure.py:CheckResult`, audit rendering, and confidence scoring with compatibility handling for existing consumers.
   - Acceptance: a valid curved boundary reports the straight-angle check as `not_applicable`; missing required bearings report `blocked`; an actual failed angle check is not described as skipped. Test structured results and audit wording through package and monolith APIs.
+  - Implemented four-state outcomes with reasons/inputs on `ClosureResult`, separate source-review status, truthful audit HTML/text, and confidence scoring that gives no pass credit to skipped checks. Kept package/monolith behavior aligned and preserved fresh geometry verification before export, including old serialized results.
+  - Verification: 56 new package/monolith outcome regressions cover curved boundaries, missing bearings, actual failures, legacy export compatibility, unavailable exception areas, and unchanged export safeguards. `make check` passes 1,493 root tests with 93.49% coverage.
 
-- [ ] High — 2. Add a validated dashboard data bundle and reusable renderer. **Effort: Large.**
+- [x] High — 2. Add a validated dashboard data bundle and reusable renderer. **Effort: Large.** Completed 2026-10-26.
   - Turn the contract in `plugins/metesparser/skills/deed-closure-dashboard/references/playbook.md` into a versioned schema connecting documents, pages, description occurrences, calls, evidence crops, calculations, and scenarios.
   - Validate stable IDs, source references, units, coordinate frames, reading uncertainty, and source-versus-derived fields. Preserve unknown values and separate immutable records from editable scenarios.
   - Package tested HTML/CSS/JS components for the six core dashboard sections, with optional host features detected at runtime. Use the Walnut HTML only as a design example; do not bundle its property data or injected runtime.
   - Save stage outputs and input hashes so layout-only changes reuse completed document review; invalidate dependent results when source readings or assumptions change.
   - Acceptance: the same validated bundle renders reproducibly; dangling source references fail validation; scenario edits leave original record hashes, findings, and engine status unchanged; reset and offline copy/viewer controls work.
+  - Implemented immutable versioned source bundles, canonical/relative calculation stages, validated stage reuse, and a self-contained six-section renderer. Added `metes-review dashboard`, plugin launcher support, a `metesparser.dashboard` facade, and schema/example guidance in the skill. Outputs preserve exact input bytes plus source/calculation/presentation hashes and a renderer fingerprint; rendering never writes verified CSV.
+  - Verification: 708 deterministic package/plugin tests pass, including 33 bundle tests, 45 renderer tests, and 5 dashboard CLI tests. Fixtures cover source-reference rejection, unknown readings, input validation, scenario isolation, Python/JavaScript numerical agreement, cache tampering, and reproducible cold/warm rendering.
+  - Browser/package verification: Chromium checks passed for offline absolute/relative edits, presets, reset, immutable records, invalid bearing rejection, clipboard fallback, occurrence switching, and two-page viewer keyboard/focus behavior. Light/dark mobile layouts fit a 400 px viewport. The rebuilt plugin passed an isolated wheel/runtime smoke test, producing six dashboard artifacts with preserved source bytes and no verified CSV.
+  - Delegation: GPT-6.1-sol handled implementation and independent integration reviews; GPT-6-luna handled documentation. Parent integration ran the full checks. Native document-reading accuracy and Claude/Cowork host acceptance remain for item 6. Shared-boundary comparison is item 5; interactive curve editing is unsupported, and relative angular alternatives require explicit sourced scenario presets.
 
 - [x] High — 3. Support deterministic analysis of relative-angle descriptions. **Effort: Large.** Completed 2026-10-26.
   - Move the playbook's reference calculation into a tested module supporting stated interior/exterior angles, perpendicular lines, and parallel-line constraints.
