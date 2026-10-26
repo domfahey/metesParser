@@ -12,7 +12,7 @@ Start a closure request by locating the intended metes-and-bounds description. A
 | Selected CSV/JSON calls | "Verify the closure of this call set." | Identify the intended boundary, then `verify-traverse` |
 | Several descriptions, no tract selected | "Does this property close?" | Locate candidates separately and clarify which boundary to check |
 
-`review-deed` remains an entrypoint for deed-specific requests and follows the same shared workflow. The plugin-development skills handle authoring and configuration rather than geometry.
+`review-deed` remains an entrypoint for deed-specific requests and follows the same shared workflow.
 
 ## Use in Claude
 
