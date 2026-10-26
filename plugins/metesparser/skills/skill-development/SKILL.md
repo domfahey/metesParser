@@ -26,6 +26,8 @@ Create `skills/<name>/SKILL.md` directly inside the plugin. Use [Plugin Structur
 
 Write reusable resources first, then the entrypoint. Keep information in one maintained location. Avoid empty scaffolding, invented tool dependencies, copied manuals, and redundant scripts.
 
+Maintain a human-facing `README.md` inside each skill directory with its purpose, a realistic request, inputs/outputs, and links to shared documentation. Keep execution rules in `SKILL.md`; avoid copying the same procedures into both. Record user-visible changes under Unreleased in the plugin's shared `CHANGELOG.md` rather than duplicating history per skill.
+
 ## Write the entrypoint
 
 Use YAML frontmatter containing `name` and `description`, followed by actionable Markdown. Store optional version information under `metadata.version` for compatibility with this repository's validators. Use verb-first instructions: `Inspect the source`, `Run the verifier`, and `Report unresolved calls`, rather than second-person phrasing.

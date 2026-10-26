@@ -25,10 +25,38 @@
     "must_report_engine_errors": true
   },
   {
-    "id": "scanned-pdf-no-ocr",
-    "skill": "review-deed",
+    "id": "scanned-pdf-native-conversion",
+    "skill": "review-metes-and-bounds",
     "request": "Review this scanned deed PDF.",
     "input": {"kind": "scanned_pdf", "pages": "image-only"},
-    "expected": "Request searchable text or a transcription; do not invoke OCR or claim review."
+    "expected": "Use Claude native document/image reading, preserve transcription and uncertainties, locate the complete intended description, then calculate only when source gaps are resolved. Do not call an external OCR service or claim unread pages were reviewed."
+  },
+  {
+    "id": "survey-image-illegible-bearing",
+    "skill": "review-metes-and-bounds",
+    "request": "Check the closure of the boundary in this survey image.",
+    "input": {"kind": "image", "issue": "One boundary bearing cannot be read."},
+    "expected": "Use native reading, locate the description, preserve illegibility and source location, and request a clearer source before a verified result. Never infer the bearing from closure."
+  },
+  {
+    "id": "report-operative-description",
+    "skill": "extract-metes-and-bounds",
+    "request": "Find the new tract description in this report for a closure check.",
+    "input": {"kind": "native_pdf", "sections": ["old description quoted as background", "new boundary continued in an exhibit with an exception after POB"]},
+    "expected": "Read natively, distinguish the requested new description, preserve its continuation and exception verbatim, record source locations, and pass only that selected description to deterministic review."
+  },
+  {
+    "id": "correspondence-ambiguous-tracts",
+    "skill": "extract-metes-and-bounds",
+    "request": "Does this boundary close?",
+    "input": {"kind": "email_text", "descriptions": ["Tract A", "Tract B"], "selected_tract": null},
+    "expected": "Locate both descriptions separately and clarify the intended tract; do not merge calls or silently calculate the first tract."
+  },
+  {
+    "id": "missing-exhibit",
+    "skill": "extract-metes-and-bounds",
+    "request": "Check closure of the property described in this title document.",
+    "input": "The boundary is described in attached Exhibit A. [Exhibit A not supplied.]",
+    "expected": "Report that the description cannot be located in the supplied source and request the referenced exhibit before closure calculation."
   }
 ]

@@ -1,6 +1,6 @@
 # Review scope and output
 
-MetesParser is text-first. The bundled review engine accepts supplied text and structured data; it does not inspect PDF page images or perform OCR. A scanned deed therefore needs a user-provided transcription before review.
+The bundled review engine accepts selected text and structured data; it does not inspect PDF page images or perform OCR. The plugin uses Claude's native document/image reading to prepare text from images and PDFs, then locates the intended metes-and-bounds description before deterministic review. No separate OCR provider or conversion dependency is added. If native reading cannot access a source, disclose that limitation and request an accessible source.
 
 The engine parses and checks only the conditions implemented by its deterministic rules. A `checks_passed` status is not a legal opinion, title determination, survey, boundary certification, or guarantee that source wording was interpreted correctly. Human review remains necessary for ambiguous or incomplete descriptions and for topology or monument questions not represented in the input.
 

@@ -1,6 +1,10 @@
 # Claude plugin and deterministic review
 
-The `mp-review` workspace package reviews supplied UTF-8 TXT/Markdown, CSV, or JSON without OCR, provider keys, or LLM calls. The Claude plugin adds `review-deed` and `verify-traverse`, plus the reusable `plugin-structure`, `plugin-settings`, and `skill-development` guides. All parsing, numeric checks, and verified export decisions run in Python.
+Shipped user documentation lives in the [plugin README](../plugins/metesparser/README.md), [usage guide](../plugins/metesparser/references/usage.md), and [plugin changelog](../plugins/metesparser/CHANGELOG.md). This document covers source-checkout development and packaging.
+
+The plugin checks metes-and-bounds descriptions from any supplied source. `review-metes-and-bounds` first locates the intended description. `convert-document-to-text` uses Claude's native image/document capabilities for native PDFs, scans, and images; `extract-metes-and-bounds` then selects the complete description verbatim. `review-deed` remains a deed-specific entrypoint, and `verify-traverse` handles identified structured call sets. The reusable `plugin-structure`, `plugin-settings`, and `skill-development` guides support plugin development.
+
+The `mp-review` workspace package reviews the selected UTF-8 TXT/Markdown, CSV, or JSON without OCR, provider keys, or LLM calls. No new OCR service or conversion dependency is added. All parsing, numeric checks, and verified export decisions run in Python. Acquisition and section selection records remain separate from deterministic engine audits; see [source preparation](../plugins/metesparser/references/source-preparation.md).
 
 ```sh
 uv sync --extra dev --extra gemini
@@ -18,7 +22,7 @@ The CLI writes one JSON result to stdout and diagnostic logs to stderr. Review e
 
 The reviewed corpus lives in `packages/mp-review/tests/fixtures/corpus.json`. Expectations are explicit analytic values and behaviors; the runner compares them with tolerances and reports individual failures. Existing generated sample-deed ground truth is not treated as authoritative. Add reviewed cases with source provenance rather than copying actual output into expected values.
 
-`scripts/build_claude_plugin.py` builds six engine wheels from the current working tree, pins external runtime dependencies to root `uv.lock` versions, and creates `dist/metesparser-plugin.zip` plus a SHA-256 sidecar. The ZIP contains the manifest at its root, two skills, a launcher, wheel hashes, and a separate runtime lock. Build artifacts include current uncommitted engine changes. Rebuild after changing engine or plugin files.
+`scripts/build_claude_plugin.py` builds six engine wheels from the current working tree, pins external runtime dependencies to root `uv.lock` versions, and creates `dist/metesparser-plugin.zip` plus a SHA-256 sidecar. The ZIP contains the manifest at its root, skills, references, a launcher, wheel hashes, and a separate runtime lock. Build artifacts include current uncommitted engine changes. Rebuild after changing engine or plugin files.
 
 Extract the ZIP to a fresh directory. In Claude Code, use `claude --plugin-dir /absolute/path/to/extracted-plugin` for a local session. For Cowork, use its plugin upload interface with the built ZIP. No account installation or publication is performed by the build. The launcher requires Python 3.11+ and `uv`; first use downloads the pinned third-party runtime dependencies and creates a fingerprint-specific environment in the user's cache. The source plugin directory has no built runtime: use the extracted distribution for execution. The release is portable Python packaging, but OS-specific client acceptance must still be tested on each target.
 
