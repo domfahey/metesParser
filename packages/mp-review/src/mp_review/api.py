@@ -23,7 +23,7 @@ from mp_verify import verify_closure
 ENGINE_VERSION = "1.0.0"
 LIMITATIONS = [
     "Deterministic parsing requires source comparison; passing checks does not establish legal validity.",
-    "Arc intersections are outside the intersection-check scope; curved boundaries require manual review.",
+    "Topology checks cover straight segments and circular arcs; unsupported or incomplete curve geometry requires review.",
     "No independent double entry is supplied; source completeness is not established by closure.",
 ]
 

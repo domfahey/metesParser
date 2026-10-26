@@ -22,6 +22,11 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 - Plugin/skill-authoring guides mistakenly bundled as runtime skills. Keep only document conversion, description selection, and boundary review skills; project settings remain supported.
 
+### Fixed
+
+- Circular boundaries now check line–arc and arc–arc contacts, overlaps, and unsupported geometry before verified export, while allowing legitimate shared endpoints. Unequal-radius intersections are independent of argument order.
+- Closing point/place-of-beginning wording no longer causes the spurious multiple-BEGINNING warning, without merging or dropping valid POINT/PLACE OF BEGINNING tract openings.
+
 ## [1.0.0]
 
 Initial local plugin baseline, recorded for the existing manifest version; not a public marketplace release.

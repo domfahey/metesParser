@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Plugin/skill-development guides accidentally shipped as product skills; retain metes-and-bounds workflows and project settings support.
 
 ### Fixed
+- Check line–arc and arc–arc boundary intersections using finite circular sweeps, including tangencies, overlaps, and unequal radii in either argument order; apply the same guardrails to independent and exception tracts and verified CSV export.
+- Count actual BEGINNING clauses rather than closing point/place-of-beginning references, while preserving tracts that open with POINT/PLACE OF BEGINNING.
 - Preserve strict parsing, intersection checks, and fresh CSV export verification when integrating multi-tract support; adapt text review to the composable parser's `(calls, tracts)` result.
 - Backfill registry handles 0-call deeds, removed stale 7535-933 manifest (PR #34)
 - Fixed stale test counts, coverage metrics, and outdated references in docs (PR #36)
