@@ -2,7 +2,7 @@
 name: deed-closure-dashboard
 description: This skill should be used when the user asks to "build a deed closure dashboard", "compare descriptions across the chain of title", "make an interactive closure workbench", or follow the "deed-closure-dashboard playbook". Builds an evidence-backed dashboard for deeds or other documents; use review-metes-and-bounds for a closure check without a dashboard.
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Deed closure dashboard
@@ -26,7 +26,7 @@ Keep final source interpretation and integration with the coordinating agent. Pa
 
 Locate every description before calculating. Use [native text preparation](../convert-document-to-text/SKILL.md) and [description selection](../extract-metes-and-bounds/SKILL.md); inspect every supplied page and repeated description. Render/crop pages for visual evidence with available host tools without substituting an external OCR service for Claude's native reading. Preserve an untouched transcript; store any line-joining or dehyphenation as a separate, traceable display copy.
 
-Run [deterministic review](../review-metes-and-bounds/SKILL.md) on each selected description. Keep engine status and artifacts. For angle-only records, preserve unknown recorded bearings and the engine's `needs_review` result. Follow the playbook's separate, reproducible local-angle analysis; label inferred angles, turn choices, alignment, and direction checks as assumptions. Never copy arbitrary local headings into recorded bearing fields or issue an engine-verified CSV from dashboard calculations.
+Run [deterministic review](../review-metes-and-bounds/SKILL.md) on each selected description. Keep engine status and artifacts. For angle-only records, preserve unknown recorded bearings and the engine's `needs_review` result. Use the [relative-angle JSON contract and `analyze-relative` command](references/relative-analysis.md) for reproducible local geometry; label inferred angles, turn choices, alignment, and direction checks as assumptions. Preserve unresolved/conflicting constraints without selecting a reading because it closes. Never copy arbitrary local headings into recorded bearing fields or issue an engine-verified CSV from dashboard calculations.
 
 Treat matching angle sums as a consistency check, not proof that every angle is correct or that only distances can be wrong. Treat older versions, survey evidence, alternate digits, and closing versions as comparisons rather than automatic corrections or declarations of authority. Keep each description occurrence identifiable, including repeated copies within one instrument.
 

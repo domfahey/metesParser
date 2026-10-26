@@ -16,6 +16,7 @@ Prepare a source-grounded review dashboard for a deed's boundary description. Th
 
 - [Skill instructions](SKILL.md)
 - [Detailed playbook](references/playbook.md)
+- [Deterministic relative-angle analysis and runnable example](references/relative-analysis.md)
 - [Optional patterns from the supplied HTML example](references/example-patterns.md)
 - [Shared plugin usage](../../references/usage.md)
 - [Plugin changelog](../../CHANGELOG.md)

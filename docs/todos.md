@@ -201,3 +201,48 @@ Found by running all 6 sample deeds and comparing extraction output against grou
 **Mitigation**: Pre-process with dedicated OCR (Tesseract, Adobe PDF Services); retry with different LLM provider.
 
 - [x] Low: Document old-scan extraction failure as known limitation; consider Tesseract preprocessing fallback.
+
+## Dashboard Skill and Metes & Bounds Checking Improvements (2026-10-26)
+
+Recommended sequence: first complete item 1, the data-schema portion of item 2, and a small fixture suite from item 6. Then build the reusable renderer and angle-analysis module against those contracts. Add diagnostics and cross-description comparison afterward. Keep package and backward-compatible monolith behavior in sync, and preserve the existing verified-export gate.
+
+- [ ] High — 1. Distinguish successful checks from checks that were not performed. **Effort: Medium.**
+  - Add structured `passed`, `failed`, `not_applicable`, and `blocked` outcomes with reasons; display geometric results separately from source-review completeness.
+  - Correct the current angle-check reporting: `packages/mp-verify/src/mp_verify/checks.py:check_interior_angles()` returns `True` for curves or incomplete bearings, while `closure.py:verify_closure()` can describe that as "all-straight polygon angles sum correctly."
+  - Update `packages/mp-models/src/mp_models/closure.py:CheckResult`, audit rendering, and confidence scoring with compatibility handling for existing consumers.
+  - Acceptance: a valid curved boundary reports the straight-angle check as `not_applicable`; missing required bearings report `blocked`; an actual failed angle check is not described as skipped. Test structured results and audit wording through package and monolith APIs.
+
+- [ ] High — 2. Add a validated dashboard data bundle and reusable renderer. **Effort: Large.**
+  - Turn the contract in `plugins/metesparser/skills/deed-closure-dashboard/references/playbook.md` into a versioned schema connecting documents, pages, description occurrences, calls, evidence crops, calculations, and scenarios.
+  - Validate stable IDs, source references, units, coordinate frames, reading uncertainty, and source-versus-derived fields. Preserve unknown values and separate immutable records from editable scenarios.
+  - Package tested HTML/CSS/JS components for the six core dashboard sections, with optional host features detected at runtime. Use the Walnut HTML only as a design example; do not bundle its property data or injected runtime.
+  - Save stage outputs and input hashes so layout-only changes reuse completed document review; invalidate dependent results when source readings or assumptions change.
+  - Acceptance: the same validated bundle renders reproducibly; dangling source references fail validation; scenario edits leave original record hashes, findings, and engine status unchanged; reset and offline copy/viewer controls work.
+
+- [x] High — 3. Support deterministic analysis of relative-angle descriptions. **Effort: Large.** Completed 2026-10-26.
+  - Move the playbook's reference calculation into a tested module supporting stated interior/exterior angles, perpendicular lines, and parallel-line constraints.
+  - Calculate sufficiently determined relative geometry in a declared local frame. Keep numeric recorded bearings unknown when absent; local-angle results must not promote the canonical engine status or authorize verified export.
+  - Preserve source wording and references for every constraint. Report ambiguous turns as labeled alternatives or unresolved results, and reject contradictory or insufficient constraints.
+  - Acceptance: an angle-defined rectangle has reproducible closure and area while its recorded azimuths remain `None`; tests cover reflex corners, reverse traversal, arbitrary rotation/translation, and unresolved constraints.
+  - Implemented source-linked immutable models in `mp_models.relative`, the constraint-graph solver in `mp_verify.relative`, the `metesparser.relative` compatibility facade, and `metes-review analyze-relative`. The dashboard skill now uses the module/command instead of an inline algorithm; see its `references/relative-analysis.md` and synthetic rectangle fixture.
+  - Verified with two implementation subagents and an independent review subagent: 56 new model/solver tests, 20 API/CLI tests, and 5 launcher/facade/export/import regressions. `make check` passed 1,436 root tests; the deterministic package/launcher suite passed 624 tests. Built plugin smoke test: 100 × 50 ft rectangle gives 5,000 sq ft and negligible floating-point gap, retains `needs_review`/unknown bearings, and produces no verified CSV.
+  - Scope: explicit straight-course JSON constraints; native document reading, automatic prose-to-constraint extraction, circular constraints, and target-host dashboard UI testing are outside this item. Independent review regressions reject unrepresentable translated coordinates and complete angle rings with contradictory winding sums.
+
+- [ ] Medium — 4. Explain which calls deserve source reinspection. **Effort: Medium.**
+  - Add course-level displacement and sensitivity diagnostics showing how small distance or angle changes affect the endpoint; link each review candidate to its source excerpt/crop.
+  - Evaluate proposed digit readings as explicit scenarios without selecting corrections merely because they improve closure. Report competing explanations.
+  - Introduce rounding bounds only when source precision supports them, and keep those bounds distinct from the heuristic score in `packages/mp-verify/src/mp_verify/confidence.py`.
+  - Acceptance: a 0.5-ft eastward residual identifies both opposing east/west distances as review candidates; diagnostics neither choose the erroneous source value nor change export eligibility.
+
+- [ ] Medium — 5. Compare descriptions structurally across versions and adjoining parcels. **Effort: Large.**
+  - Extend beyond word redlines and positional double-entry comparison to identify changed distances, bearings, monuments, omitted calls, and one course split into several.
+  - Start shared-boundary comparison with explicitly selected line pairs, opposite traversal directions, and declared alignment/bearing-basis prerequisites. Keep tentative matches distinct from established relationships.
+  - Reuse `packages/mp-verify/src/mp_verify/checks.py:compare_double_entry()` where appropriate; preserve its existing same-traverse behavior while adding a separate comparison capability.
+  - Acceptance: reversed descriptions of the same line agree geometrically, length differences are quantified, and an unresolved bearing basis returns `not_comparable` instead of silently aligning parcels.
+
+- [ ] High — 6. Evaluate the full document-to-dashboard workflow. **Effort: Medium to Large.**
+  - Add reviewed document fixtures for obscured digits, repeated exhibits, missing pages, angle-only descriptions, exceptions, and conflicting versions; extend `plugins/metesparser/evals/cases.json` with dashboard scenarios.
+  - Evaluate source selection/transcription separately from deterministic calculation and browser behavior. Build on `packages/mp-review/src/mp_review/corpus.py` for fixture-backed numerical assertions.
+  - For disputed figures, have a second reader inspect the source without seeing the first reading or closure result; record and reconcile disagreements explicitly.
+  - Acceptance: every expected page and description occurrence is accounted for; unresolved digits stay conditional; source links open the correct occurrence; Python/JavaScript results agree within 0.001 ft; scenario/reset isolation, strict input validation, and responsive viewer/copy controls pass browser checks.
+  - Record actual subagent/model use and stage completion, including any native-reading or target-host checks that remain untested.

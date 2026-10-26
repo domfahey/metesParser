@@ -86,6 +86,27 @@ def test_preserves_engine_json_and_status(monkeypatch, tmp_path, capsys):
     assert capsys.readouterr().out == engine_output
 
 
+def test_relative_analysis_reaches_engine_without_promoting_status(monkeypatch, tmp_path, capsys):
+    runtime = make_runtime(tmp_path)
+    setup_launcher(monkeypatch, runtime)
+    commands = []
+    engine_output = (
+        json.dumps(
+            {"status": "needs_review", "analysis": {"status": "analyzed", "engine_verified": False}}
+        )
+        + "\n"
+    )
+
+    def run(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=1, stdout=engine_output, stderr="")
+
+    monkeypatch.setattr(launcher.subprocess, "run", run)
+    assert launcher.main(["analyze-relative", "angles.json"]) == 1
+    assert commands[0][-4:-2] == ["analyze-relative", "angles.json"]
+    assert capsys.readouterr().out == engine_output
+
+
 def test_rejects_runtime_hash_map_path_escape(monkeypatch, tmp_path, capsys):
     runtime = make_runtime(tmp_path)
     metadata = json.loads((runtime / "engine.json").read_text())

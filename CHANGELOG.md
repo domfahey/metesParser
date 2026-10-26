@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Deterministic relative-angle models and analysis API, legacy facade, and `metes-review analyze-relative` command. Source-linked local geometry stays separate from canonical verification and verified CSV export.
 - Claude plugin `deed-closure-dashboard` skill documentation for source-grounded closure review dashboards with separate scenario edits.
 - Claude plugin workflow for any source document: native text conversion, explicit metes-and-bounds description selection before closure, and deterministic review of the selected boundary.
 - Plugin usage/source-preparation references, per-skill READMEs, and a plugin-specific changelog.

@@ -10,6 +10,7 @@ from .csv_builder import CSVBuilder
 from .models import AuditContext, LegalDescription
 from .pdf_processor import PDFProcessor
 from .pipeline import Pipeline
+from .relative import analyze_relative
 from .text_parser import TextParser
 
 __version__ = "0.5.0"
@@ -25,4 +26,5 @@ __all__ = [
     "PDFProcessor",
     "Pipeline",
     "TextParser",
+    "analyze_relative",
 ]
