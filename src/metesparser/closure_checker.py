@@ -187,7 +187,7 @@ class ClosureChecker:
         parallel_warnings = cls.check_parallelism(main_calls)
         warnings.extend(parallel_warnings)
 
-        intersection_warnings = cls.check_straight_boundary_intersections(main_calls, points)
+        intersection_warnings = cls.check_boundary_intersections(main_calls, points)
         warnings.extend(intersection_warnings)
 
         reversal_warnings = cls.check_bearing_reversals(main_calls)
@@ -294,11 +294,11 @@ class ClosureChecker:
                     inputs={},
                 ),
                 CheckResult(
-                    name="straight_boundary_intersections",
+                    name="boundary_intersections",
                     passed=not intersection_warnings,
                     detail=(
-                        f"{len(intersection_warnings)} straight-edge intersection(s); "
-                        "arc intersections not evaluated"
+                        f"{len(intersection_warnings)} boundary warning(s); "
+                        "straight and circular-arc checks; unavailable geometry is flagged"
                     ),
                     inputs={},
                 ),
@@ -484,10 +484,10 @@ class ClosureChecker:
             pending.append(call)
             misclosure = math.hypot(points[-1].x, points[-1].y)
             if misclosure < cls.CLOSURE_TOLERANCE_FT:
-                intersections = cls.check_straight_boundary_intersections(pending, points)
+                intersections = cls.check_boundary_intersections(pending, points)
                 if intersections:
                     raise ValueError(
-                        f"Exception tract self-intersection; net area unavailable: {intersections[0]}"
+                        f"Exception tract topology failed; net area unavailable: {intersections[0]}"
                     )
                 if not cls.check_curve_consistency(pending):
                     raise ValueError(
@@ -561,6 +561,22 @@ class ClosureChecker:
         actual_sum = sum(deflection_angles)
 
         return abs(abs(actual_sum) - 360.0) < 5.0
+
+    @classmethod
+    def check_boundary_intersections(
+        cls, calls: list[DeedCall], coordinates: list[Point]
+    ) -> list[str]:
+        """Use the shared straight/circular checker for the legacy model API."""
+        from mp_models import DeedCall as PackageCall
+        from mp_models import Point as PackagePoint
+        from mp_verify.checks import check_boundary_intersections
+
+        # Preserve incomplete model-copy inputs so the checker can report gaps.
+        package_calls = [
+            PackageCall.model_construct(**call.model_dump(mode="json")) for call in calls
+        ]
+        points = [PackagePoint(x=point.x, y=point.y) for point in coordinates]
+        return check_boundary_intersections(package_calls, points)
 
     @classmethod
     def check_straight_boundary_intersections(
