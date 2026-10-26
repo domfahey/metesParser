@@ -5,12 +5,12 @@ from __future__ import annotations
 import math
 
 import pytest
-from mp_parse import extract_calls as package_extract_calls
 from mp_parse import extract_direction as package_extract_direction
 from mp_parse.metadata import extract_along_to_fields as package_extract_along_to_fields
 
 from metesparser.call_extractor import CallExtractor as MonolithCallExtractor
 from metesparser.text_parser import TextParser as MonolithTextParser
+from tests.fixtures.package_parser import extract_calls as package_extract_calls
 
 NUMBERED_CALLS = (
     "1. N 45° E 100 feet to an iron pin;\n"

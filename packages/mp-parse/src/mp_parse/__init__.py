@@ -19,6 +19,7 @@ from .monuments import (
 from .normalizer import expand_assessor_abbreviations
 from .numbers import COMMA_NUMBER, parse_comma_number
 from .parcels import ParcelInfo, ParcelMarker, detect_parcel_markers, split_into_parcels
+from .tracts import split_into_tracts
 
 __version__ = "1.0.0"
 
@@ -43,4 +44,5 @@ __all__ = [
     "parse_comma_number",
     "remove_strip_exceptions",
     "split_into_parcels",
+    "split_into_tracts",
 ]

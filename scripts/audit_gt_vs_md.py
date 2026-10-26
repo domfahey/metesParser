@@ -28,9 +28,7 @@ DISTANCE_PATTERN = re.compile(
 )
 
 THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
-BEGINNING_PATTERN = re.compile(
-    r"\*{0,2}\bBEGINNING\b\*{0,2}\s+(?:at|in)\b", re.IGNORECASE
-)
+BEGINNING_PATTERN = re.compile(r"\*{0,2}\bBEGINNING\b\*{0,2}\s+(?:at|in)\b", re.IGNORECASE)
 
 # Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from call_extractor.py
 CARDINAL_ONLY_PATTERN = re.compile(
@@ -86,7 +84,7 @@ def find_preferred_text(md_text: str) -> str:
     """Return text from Exhibit A / Schedule C section, or full text if none."""
     matches = list(EXHIBIT_PATTERN.finditer(md_text))
     if matches:
-        return md_text[matches[0].start():]
+        return md_text[matches[0].start() :]
     return md_text
 
 
@@ -118,9 +116,7 @@ def extract_all_legal_blocks(text: str) -> list[str]:
                 blocks.append(wrapped)
             else:
                 # No closure found anywhere — take to next TRACT marker or end
-                next_tract = re.search(
-                    r"\bTRACT\s*#?\d+", text[start + 10 :], re.IGNORECASE
-                )
+                next_tract = re.search(r"\bTRACT\s*#?\d+", text[start + 10 :], re.IGNORECASE)
                 if next_tract:
                     blocks.append(text[start : start + 10 + next_tract.start()])
                 else:
@@ -154,11 +150,7 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
 
         for j, m in enumerate(num_matches):
             seg_start = m.start()
-            seg_end = (
-                num_matches[j + 1].start()
-                if j + 1 < len(num_matches)
-                else len(block_text)
-            )
+            seg_end = num_matches[j + 1].start() if j + 1 < len(num_matches) else len(block_text)
             segments.append(block_text[seg_start:seg_end])
     else:
         # Fall back to thence splitting
@@ -174,9 +166,7 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
             q1, deg, mins, secs, q2 = bearing_match.groups()
             angle = dms_to_decimal(deg, mins, secs)
             azimuth = bearing_to_azimuth(q1, angle, q2)
-            call_data["bearing"] = (
-                f"{q1.upper()} {deg}°{mins}'{secs or '00'}\" {q2.upper()}"
-            )
+            call_data["bearing"] = f"{q1.upper()} {deg}°{mins}'{secs or '00'}\" {q2.upper()}"
             call_data["azimuth"] = azimuth
         else:
             cardinal_match = CARDINAL_ONLY_PATTERN.search(segment[:100])
@@ -193,7 +183,9 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
     return calls
 
 
-def extract_calls_from_md(md_text: str, n_gt: int | None = None, n_gt_calls: list[dict[str, object]] | None = None) -> list[dict[str, object]]:
+def extract_calls_from_md(
+    md_text: str, n_gt: int | None = None, n_gt_calls: list[dict[str, object]] | None = None
+) -> list[dict[str, object]]:
     """Extract bearing/distance pairs from markdown text.
 
     Prefers Exhibit A / Schedule C sections over deed body text.
@@ -240,8 +232,7 @@ def extract_calls_from_md(md_text: str, n_gt: int | None = None, n_gt_calls: lis
     # Step 4: If some blocks have DMS bearings and others are cardinal-only,
     # drop the cardinal-only blocks (duplicate descriptions of the same parcel).
     dms_blocks = [
-        calls for calls in block_calls
-        if any(c.get("azimuth") is not None for c in calls)
+        calls for calls in block_calls if any(c.get("azimuth") is not None for c in calls)
     ]
     if dms_blocks and len(dms_blocks) < len(block_calls):
         block_calls = dms_blocks
@@ -261,10 +252,13 @@ def extract_calls_from_md(md_text: str, n_gt: int | None = None, n_gt_calls: lis
             best, best_score = matching[0], -1
             for candidate in matching:
                 score = sum(
-                    1 for i in range(n_gt)
-                    if (candidate[i].get("distance_ft") is not None
+                    1
+                    for i in range(n_gt)
+                    if (
+                        candidate[i].get("distance_ft") is not None
                         and n_gt_calls[i].get("distance_ft") is not None
-                        and abs(candidate[i]["distance_ft"] - n_gt_calls[i]["distance_ft"]) < 0.1)
+                        and abs(candidate[i]["distance_ft"] - n_gt_calls[i]["distance_ft"]) < 0.1
+                    )
                 )
                 if score > best_score:
                     best, best_score = candidate, score
@@ -314,13 +308,13 @@ def audit_deed(pdf_base: str) -> dict[str, object]:
             diff = abs(gt_az - md_az)
             if diff > 0.05:
                 issues.append(
-                    f"BEARING_C{i+1}: GT={gt_az:.4f}°, MD={md_az:.4f}° "
+                    f"BEARING_C{i + 1}: GT={gt_az:.4f}°, MD={md_az:.4f}° "
                     f"(diff={diff:.4f}°) | MD text: {mc.get('bearing', '?')}"
                 )
         elif gt_az is not None and md_az is None:
             # GT has azimuth but MD shows cardinal-only — check if MD text actually has bearing
             issues.append(
-                f"BEARING_C{i+1}: GT has azimuth {gt_az:.4f}° but MD shows cardinal-only | "
+                f"BEARING_C{i + 1}: GT has azimuth {gt_az:.4f}° but MD shows cardinal-only | "
                 f"MD: {mc.get('bearing', 'none')}"
             )
 
@@ -332,10 +326,10 @@ def audit_deed(pdf_base: str) -> dict[str, object]:
             diff = abs(gt_dist - md_dist)
             if diff > 0.05:
                 issues.append(
-                    f"DISTANCE_C{i+1}: GT={gt_dist:.2f}ft, MD={md_dist:.2f}ft (diff={diff:.2f}ft)"
+                    f"DISTANCE_C{i + 1}: GT={gt_dist:.2f}ft, MD={md_dist:.2f}ft (diff={diff:.2f}ft)"
                 )
         elif gt_dist is not None and md_dist is None:
-            issues.append(f"DISTANCE_MISSING_C{i+1}: GT={gt_dist:.2f}ft, not found in MD")
+            issues.append(f"DISTANCE_MISSING_C{i + 1}: GT={gt_dist:.2f}ft, not found in MD")
 
     # 3. Check if BEGINNING is present in markdown.
     # Only flag when no calls were extracted (n_md == 0) — the Step 2b
@@ -363,9 +357,7 @@ def audit_deed(pdf_base: str) -> dict[str, object]:
         md_lower = md_text.lower()
         missing_kw = [kw for kw in pob_keywords if kw.lower() not in md_lower]
         if len(missing_kw) > len(pob_keywords) // 2:
-            issues.append(
-                f"POB_MISMATCH: GT POB keywords not found in MD: {missing_kw}"
-            )
+            issues.append(f"POB_MISMATCH: GT POB keywords not found in MD: {missing_kw}")
 
     status = "PASS" if not issues else "FAIL"
     return {"name": pdf_base, "status": status, "issues": issues, "n_gt": n_gt, "n_md": n_md}
@@ -387,7 +379,9 @@ def main() -> None:
     skip_count = sum(1 for r in results if r["status"] == "SKIP")
 
     print("=" * 90)
-    print(f"GT AUDIT: {pass_count} PASS / {fail_count} FAIL / {skip_count} SKIP out of {len(results)}")
+    print(
+        f"GT AUDIT: {pass_count} PASS / {fail_count} FAIL / {skip_count} SKIP out of {len(results)}"
+    )
     print("=" * 90)
 
     # Error type summary

@@ -18,7 +18,9 @@ Quality and confidence scoring:
 from __future__ import annotations
 
 import math
+from typing import overload
 
+import structlog
 from mp_bearing import bearing_to_azimuth, calculate_deltas, compute_curve_endpoint
 from mp_models import (
     AuditContext,
@@ -26,6 +28,7 @@ from mp_models import (
     ClosureResult,
     DeedCall,
     Point,
+    Tract,
     VerificationAudit,
 )
 
@@ -39,6 +42,8 @@ from .checks import (
     compare_double_entry,
 )
 from .confidence import calculate_confidence_score, score_call_quality
+
+logger = structlog.get_logger(__name__)
 
 CLOSURE_TOLERANCE_FT = 0.01
 
@@ -216,26 +221,83 @@ def _calculate_exception_area(calls: list[DeedCall]) -> float:
     return math.fsum(areas)
 
 
-def verify_closure(
+def verify_tract(
     calls: list[DeedCall],
     *,
     stated_area_sq_ft: float = 0.0,
     closure_tolerance_ft: float | None = None,
-    double_entry_calls: list[DeedCall] | None = None,
     audit_context: AuditContext | None = None,
 ) -> ClosureResult:
+    """Check one independent tract using every standard verification guardrail."""
+    boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
+    return verify_closure(
+        boundary,
+        stated_area_sq_ft=stated_area_sq_ft,
+        closure_tolerance_ft=closure_tolerance_ft,
+        audit_context=audit_context,
+    )
+
+
+@overload
+def verify_closure(
+    calls: list[DeedCall],
+    *,
+    tracts: None = None,
+    stated_area_sq_ft: float = ...,
+    closure_tolerance_ft: float | None = ...,
+    double_entry_calls: list[DeedCall] | None = ...,
+    audit_context: AuditContext | None = ...,
+) -> ClosureResult: ...
+
+
+@overload
+def verify_closure(
+    calls: list[DeedCall],
+    *,
+    tracts: list[Tract],
+    stated_area_sq_ft: float = ...,
+    closure_tolerance_ft: float | None = ...,
+    double_entry_calls: list[DeedCall] | None = ...,
+    audit_context: AuditContext | None = ...,
+) -> list[ClosureResult]: ...
+
+
+def verify_closure(
+    calls: list[DeedCall],
+    *,
+    tracts: list[Tract] | None = None,
+    stated_area_sq_ft: float = 0.0,
+    closure_tolerance_ft: float | None = None,
+    double_entry_calls: list[DeedCall] | None = None,
+    audit_context: AuditContext | None = None,
+) -> ClosureResult | list[ClosureResult]:
     """Verify traverse closure and perform all validation checks.
 
     Args:
         calls: List of DeedCall objects.
+        tracts: Optional list of Tract objects for multi-tract verification.
         stated_area_sq_ft: Stated area from deed (optional, for comparison).
         closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft).
         double_entry_calls: Optional independently-entered call set for guardrail F.
         audit_context: Optional audit context for recording check results.
 
     Returns:
-        ClosureResult with all checks, computed values, and confidence_score.
+        ClosureResult when tracts is None (single-tract).
+        list[ClosureResult] when tracts is provided (one per tract).
     """
+    if tracts is not None:
+        if audit_context is not None:
+            logger.warning("Audit trail recording not yet implemented for per-tract verification")
+        results: list[ClosureResult] = []
+        for tract in tracts:
+            result = verify_tract(
+                tract.calls,
+                stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
+                closure_tolerance_ft=closure_tolerance_ft,
+            )
+            results.append(result)
+        return results
+
     tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
 
     main_calls = [c for c in calls if not c.is_exception and not c.is_tie_in]

@@ -761,6 +761,16 @@ class CallExtractor:
         if due_cardinal_match:
             return due_cardinal_match.group(0).lower()
 
+        # "due {cardinal}" check -- must come before simple cardinal so "due North"
+        # is captured as the full phrase, not truncated to "north".
+        due_cardinal_match = re.search(
+            r"\bdue\s+(north|south|east|west|N|S|E|W)\b",
+            text,
+            re.IGNORECASE,
+        )
+        if due_cardinal_match:
+            return due_cardinal_match.group(0).lower()
+
         # Compound compass point check (32-point system) — must come before
         # simple cardinal check so "North by East" is not truncated to "North"
         compound_compass_names = sorted(

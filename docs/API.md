@@ -84,6 +84,12 @@ enriched = CallExtractor.enrich_calls_with_azimuths(calls)
 
 ### ClosureChecker
 
+The composable package API `mp_parse.extract_calls(text, strict=True)` returns
+`(flat_calls, tracts)`. Unpack the calls before passing them to enrichment or
+verification. The legacy `CallExtractor.extract_calls()` retains its list return
+value. For independent tracts, use `mp_verify.verify_closure(calls, tracts=tracts)`;
+each tract runs the same geometric guardrails as a single description.
+
 Verify traverse closure and perform validation checks.
 
 ```python
@@ -125,6 +131,8 @@ to `mp_export`.
 `export_verified_csv()` verifies the actual calls again before writing and rejects
 a stale result or a `LegalDescription` containing different calls. Rewriting a
 CSV also clears its old generated sidecars when replacement inputs are omitted.
+In multi-tract exports, every tract reported as verified is checked against its
+actual calls before any output is written; unsuccessful tracts are skipped.
 
 ```python
 from metesparser.csv_builder import CSVBuilder

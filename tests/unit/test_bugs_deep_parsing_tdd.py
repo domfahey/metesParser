@@ -1,9 +1,9 @@
 """Deep parser regressions where silent data loss can produce false closure."""
 
 import pytest
-from mp_parse.calls import extract_calls
 
 from metesparser.call_extractor import CallExtractor
+from tests.fixtures.package_parser import extract_calls
 
 APIS = [extract_calls, CallExtractor.extract_calls]
 

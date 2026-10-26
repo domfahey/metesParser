@@ -19,6 +19,7 @@ Quality and confidence scoring:
 
 import math
 import statistics
+from typing import overload
 
 from .bearing_converter import BearingConverter
 from .models import (
@@ -28,6 +29,7 @@ from .models import (
     ClosureResult,
     DeedCall,
     Point,
+    Tract,
     VerificationAudit,
 )
 
@@ -38,6 +40,50 @@ class ClosureChecker:
     CLOSURE_TOLERANCE_FT = 0.01
 
     @classmethod
+    def verify_tract(
+        cls,
+        calls: list[DeedCall],
+        *,
+        stated_area_sq_ft: float = 0.0,
+        closure_tolerance_ft: float | None = None,
+        audit_context: AuditContext | None = None,
+    ) -> ClosureResult:
+        """Check one independent tract using every standard verification guardrail."""
+        boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
+        return cls.verify_closure(
+            boundary,
+            stated_area_sq_ft=stated_area_sq_ft,
+            closure_tolerance_ft=closure_tolerance_ft,
+            audit_context=audit_context,
+        )
+
+    @overload
+    @classmethod
+    def verify_closure(
+        cls,
+        calls: list[DeedCall],
+        stated_area_sq_ft: float = ...,
+        closure_tolerance_ft: float | None = ...,
+        double_entry_calls: list[DeedCall] | None = ...,
+        audit_context: AuditContext | None = ...,
+        *,
+        tracts: None = None,
+    ) -> ClosureResult: ...
+
+    @overload
+    @classmethod
+    def verify_closure(
+        cls,
+        calls: list[DeedCall],
+        stated_area_sq_ft: float = ...,
+        closure_tolerance_ft: float | None = ...,
+        double_entry_calls: list[DeedCall] | None = ...,
+        audit_context: AuditContext | None = ...,
+        *,
+        tracts: list[Tract],
+    ) -> list[ClosureResult]: ...
+
+    @classmethod
     def verify_closure(
         cls,
         calls: list[DeedCall],
@@ -45,7 +91,9 @@ class ClosureChecker:
         closure_tolerance_ft: float | None = None,
         double_entry_calls: list[DeedCall] | None = None,
         audit_context: AuditContext | None = None,
-    ) -> ClosureResult:
+        *,
+        tracts: list[Tract] | None = None,
+    ) -> ClosureResult | list[ClosureResult]:
         """Verify traverse closure and perform all validation checks.
 
         Args:
@@ -55,8 +103,21 @@ class ClosureChecker:
             double_entry_calls: Optional independently-entered call set for guardrail F
 
         Returns:
-            ClosureResult with all checks, computed values, and confidence_score
+            ClosureResult with all checks, computed values, and confidence_score.
+            If tracts provided, returns list[ClosureResult] with one per tract.
         """
+        if tracts is not None:
+            results: list[ClosureResult] = []
+            for tract in tracts:
+                result = cls.verify_tract(
+                    tract.calls,
+                    stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
+                    closure_tolerance_ft=closure_tolerance_ft,
+                    audit_context=audit_context,
+                )
+                results.append(result)
+            return results
+
         tolerance = (
             closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
         )

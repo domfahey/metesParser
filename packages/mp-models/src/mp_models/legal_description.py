@@ -12,6 +12,7 @@ from pydantic import (
 
 from .base import _Model
 from .deed_call import DeedCall, DeedClause, SubdivisionReference
+from .tract import Tract
 from .units import DistanceUnit
 
 
@@ -29,6 +30,10 @@ class LegalDescription(_Model):
 
     calls: list[DeedCall] = Field(
         default_factory=list, description="List of metes and bounds calls"
+    )
+    tracts: list[Tract] = Field(
+        default_factory=list,
+        description="Tracts in a multi-tract deed (empty for single-tract)",
     )
 
     source_doc: str | None = Field(default=None, description="Source document (book/page, etc.)")
@@ -125,9 +130,19 @@ class LegalDescription(_Model):
         return self
 
     def num_calls(self) -> int:
-        """Return number of calls."""
-        return len(self.calls)
+        """Return number of calls (uses all_calls for multi-tract deeds)."""
+        return len(self.all_calls)
 
     def has_incomplete_calls(self) -> bool:
-        """Check if any calls have incomplete bearings."""
-        return any(not call.is_complete_bearing() for call in self.calls)
+        """Check if any calls have incomplete bearings (uses all_calls for multi-tract)."""
+        return any(not call.is_complete_bearing() for call in self.all_calls)
+
+    @property
+    def all_calls(self) -> list[DeedCall]:
+        """Flat list of all calls across all tracts.
+
+        Returns tract calls when tracts exist, otherwise falls back to self.calls.
+        """
+        if self.tracts:
+            return [c for t in self.tracts for c in t.calls]
+        return list(self.calls)

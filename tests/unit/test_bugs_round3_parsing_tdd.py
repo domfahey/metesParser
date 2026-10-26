@@ -4,13 +4,14 @@ import json
 from pathlib import Path
 
 import pytest
-from mp_parse.calls import extract_calls, extract_curve_info
+from mp_parse.calls import extract_curve_info
 from mp_parse.metadata import extract_plss_metadata
 from mp_verify import verify_closure
 
 from metesparser.call_extractor import CallExtractor
 from metesparser.closure_checker import ClosureChecker
 from metesparser.text_parser import TextParser
+from tests.fixtures.package_parser import extract_calls
 
 
 def _apis():
