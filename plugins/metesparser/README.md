@@ -13,6 +13,14 @@ See the [usage guide](references/usage.md) for input routing, examples, artifact
 - `verify-traverse`: check an existing CSV or JSON traverse.
 - `deed-closure-dashboard`: prepare a source-grounded, interactive closure review dashboard from a deed packet.
 
+The dashboard workflow keeps Claude's native page reading and description selection separate from deterministic rendering. After preparing a reviewed version 1.0 JSON bundle, run:
+
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard bundle.json --output-dir dashboard-new --cache-dir dashboard-cache
+```
+
+The `metes-review dashboard` package command accepts the same options. Valid input returns `needs_review` (exit 1) and writes `source.json`, `dashboard.html`, `source-review.json`, `calculations.json`, `stage-manifest.json`, and `render-manifest.json`. It does not read PDFs, create a host review log, publish/share output, or write verified CSV. See the [dashboard bundle reference](skills/deed-closure-dashboard/references/dashboard-bundle.md) for status and cache semantics; shared parcel alignment and comparison remain outside the current renderer.
+
 The review and verification skills use `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py"`; the launcher starts the locked runtime using `uv` and prints the engine's JSON result. Runtime environments and package cache are stored under the user's cache directory, keyed by the bundled engine fingerprint, so the plugin directory can remain read-only. Using the `python3` prefix avoids depending on executable mode preservation when the plugin is packaged.
 
 ## Locate before checking closure

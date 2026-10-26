@@ -19,6 +19,8 @@ Upload the source PDFs or images to a Claude/Cowork session with native document
 
 Use the [skill's subagent workflow](../SKILL.md) to divide evidence, calculation, interface, and QA work. Prefer smaller capable models for bounded tasks; escalate source ambiguity and mathematical interpretation. Keep file ownership separate and reconcile all outputs against a common record ledger.
 
+The bundled `dashboard` command renders a validated version 1.0 JSON bundle as an offline HTML page. Use it as the standard renderer after source review and calculation; do not rebuild its HTML/JS or treat rendering as another document-reading stage. It includes per-occurrence findings, evidence crops, transcripts/course tables, page viewing, and method notes. It does not yet implement shared parcel alignment, corner correspondence, or inter-parcel comparison. Preserve those questions in the review notes as deferred rather than implying they were analyzed. See [dashboard-bundle.md](dashboard-bundle.md) for schema, statuses, cache behavior, and exact artifacts.
+
 ## 2. Inputs and data contract
 
 | Input | Notes |
@@ -111,9 +113,17 @@ The Walnut example reported a 0.44 ft offset using 35.37 and a 0.24 ft offset us
 
 ### Step 7: Build and deliver
 
-Build one HTML page with inline CSS and JavaScript and no third-party libraries. Use SVG for the plot. Keep source-derived record data immutable; edits operate on a working copy with Reset to record. The record findings must not change when calls, versions, rotation, or scenarios are edited in the workbench. A deliberate record-version selection may display that version's own frozen findings.
+Render the reviewed bundle using the validated command and a fresh output directory:
 
-Use available host Artifact tools to publish only within the requested sharing scope, passing page images as supporting files. Update the same URL only if the host supports it. Otherwise deliver the HTML and `pages/` folder locally and report that publication/update was unavailable. Do not invent a public URL, declare an untested page published, or assume privacy.
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard bundle.json --output-dir dashboard-new --cache-dir dashboard-cache
+```
+
+In the development workspace, `uv run metes-review dashboard bundle.json --output-dir dashboard-new --cache-dir dashboard-cache` is equivalent. A valid bundle returns top-level `needs_review` (exit 1); inspect the artifact paths and calculation statuses in its JSON output. Deliver `dashboard.html` with `source.json`, `source-review.json`, `calculations.json`, `stage-manifest.json`, and `render-manifest.json` so the input, review-data stage, calculations, and rendered output remain inspectable. The command does not publish or write the engine's verified CSV.
+
+Record values and findings remain fixed while the browser edits a separate advisory scenario. Use Reset to restore that working copy. Do not describe scenario closure as a record finding. The browser scenario calculator currently edits straight-course values only; the canonical baseline supports implemented curves, while curve editing is not available. Shared parcel alignment/comparison is deferred.
+
+Keep delivery local unless the user requested sharing and the host's actual access controls support it. Do not invent a public URL, declare an untested page published, or assume privacy. Identify tax-ID pages and verify the requested destination's privacy before sharing. Do not claim host-side read attestations; the bundle renderer has no review log.
 
 ## 4. Page specification
 

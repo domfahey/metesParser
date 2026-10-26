@@ -144,6 +144,7 @@ class ClosureChecker:
                 "No computable traverse — all calls lack bearings (cardinal-only or empty)"
             )
 
+        area_available = bool(main_calls) and all(call.is_complete_bearing() for call in main_calls)
         try:
             main_area_sq_ft = cls.calculate_area(points, calls=main_calls)
 
@@ -158,10 +159,12 @@ class ClosureChecker:
                 except ValueError as e:
                     warnings.append(f"Cannot calculate exception area: {e}")
                     exception_area_available = False
+                    area_available = False
 
             area_sq_ft = main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
             area_acres = area_sq_ft / 43560.0
         except ValueError as e:
+            area_available = False
             area_sq_ft = 0.0
             area_acres = 0.0
             warnings.append(f"Cannot calculate area: {e}")
@@ -212,13 +215,14 @@ class ClosureChecker:
                 f"(courses {course_nums}) have vague direction without precise bearing"
             )
 
+        discrepancies: list[str] = []
         if double_entry_calls is not None:
             discrepancies = cls.compare_double_entry(calls, double_entry_calls)
             warnings.extend(
                 f"Double-entry discrepancy: {discrepancy}" for discrepancy in discrepancies
             )
 
-        if stated_area_sq_ft > 0:
+        if stated_area_sq_ft > 0 and area_available:
             area_diff_pct = abs(area_sq_ft - stated_area_sq_ft) / stated_area_sq_ft * 100
             if area_diff_pct > 5.0:
                 warnings.append(
@@ -239,6 +243,30 @@ class ClosureChecker:
                     f"Exception tract has {len(exception_incomplete)} incomplete bearing(s)"
                 )
 
+        from mp_models import DeedCall as PackageCall
+        from mp_verify.checks import build_verification_checks
+
+        package_calls = [PackageCall.model_construct(**call.model_dump()) for call in main_calls]
+        package_check_results = build_verification_checks(
+            package_calls,
+            closure_passed=closure_passed,
+            misclosure=misclosure,
+            tolerance=tolerance,
+            curve_consistency_passed=curve_consistency_passed,
+            parallel_warnings=parallel_warnings,
+            intersection_warnings=intersection_warnings,
+            reversal_warnings=reversal_warnings,
+            distance_warnings=distance_warnings,
+            stated_area_sq_ft=stated_area_sq_ft,
+            area_sq_ft=area_sq_ft,
+            area_available=area_available,
+            double_entry_performed=double_entry_calls is not None,
+            discrepancies=discrepancies,
+        )
+        check_results = [
+            CheckResult.model_validate(check.model_dump()) for check in package_check_results
+        ]
+
         closure_result = ClosureResult(
             misclosure_x_ft=misclosure_x,
             misclosure_y_ft=misclosure_y,
@@ -249,6 +277,7 @@ class ClosureChecker:
             closure_passed=closure_passed,
             angle_check_passed=angle_check_passed,
             curve_consistency_passed=curve_consistency_passed,
+            checks=check_results,
             warnings=warnings,
             points=points,
             precision_ratio=misclosure / perimeter if perimeter else None,
@@ -258,72 +287,6 @@ class ClosureChecker:
         closure_result = closure_result.model_copy(update={"confidence_score": confidence})
 
         if audit_context is not None:
-            check_results = [
-                CheckResult(
-                    name="traverse_closure",
-                    passed=closure_passed,
-                    detail=(
-                        f"misclosure: {misclosure:.4f} ft "
-                        f"{'<' if closure_passed else '>='} {tolerance} ft tolerance"
-                    ),
-                    inputs={
-                        "misclosure_x_ft": misclosure_x,
-                        "misclosure_y_ft": misclosure_y,
-                        "misclosure_total_ft": misclosure,
-                        "tolerance_ft": tolerance,
-                    },
-                ),
-                CheckResult(
-                    name="interior_angles",
-                    passed=angle_check_passed,
-                    detail=(
-                        "all-straight polygon angles sum correctly"
-                        if angle_check_passed
-                        else "skipped (curves present or incomplete bearings)"
-                    ),
-                    inputs={},
-                ),
-                CheckResult(
-                    name="curve_consistency",
-                    passed=curve_consistency_passed,
-                    detail=(
-                        "all curves L ≈ R*Δ within tolerance"
-                        if curve_consistency_passed
-                        else "curve math inconsistency detected"
-                    ),
-                    inputs={},
-                ),
-                CheckResult(
-                    name="boundary_intersections",
-                    passed=not intersection_warnings,
-                    detail=(
-                        f"{len(intersection_warnings)} boundary warning(s); "
-                        "straight and circular-arc checks; unavailable geometry is flagged"
-                    ),
-                    inputs={},
-                ),
-                CheckResult(
-                    name="bearing_reversals",
-                    passed=(len(reversal_warnings) == 0),
-                    detail=(
-                        f"{len(reversal_warnings)} reversal(s) detected"
-                        if reversal_warnings
-                        else "no bearing reversals"
-                    ),
-                    inputs={},
-                ),
-                CheckResult(
-                    name="distance_reasonableness",
-                    passed=(len(distance_warnings) == 0),
-                    detail=(
-                        f"{len(distance_warnings)} issue(s) detected"
-                        if distance_warnings
-                        else "all distances reasonable"
-                    ),
-                    inputs={},
-                ),
-            ]
-
             precision_ratio_str: str
             if perimeter and (misclosure / perimeter) > 1e-10:
                 precision_ratio_str = f"1:{round(1.0 / (misclosure / perimeter))}"
@@ -340,6 +303,8 @@ class ClosureChecker:
                     "perimeter_ft": perimeter,
                     "confidence_score": confidence,
                     "status": closure_result.get_closure_status(),
+                    "geometry_verified": closure_result.geometry_verified,
+                    "source_review_status": closure_result.source_review_status,
                 },
             )
 
@@ -868,12 +833,14 @@ class ClosureChecker:
             closure_score = max(0.0, 0.3 - result.misclosure_ft * 0.02)
 
         # Verification checks (20%)
-        checks_passed = sum(
-            [
-                result.angle_check_passed,
-                result.curve_consistency_passed,
-            ]
-        )
+        if result.checks:
+            checks_passed = sum(
+                check.status == "passed"
+                for check in result.checks
+                if check.name in {"interior_angles", "curve_consistency"}
+            )
+        else:
+            checks_passed = sum([result.angle_check_passed, result.curve_consistency_passed])
         checks_score = checks_passed / 2.0
 
         # Bearing completeness (25%)
@@ -1010,9 +977,29 @@ class ClosureChecker:
 
         summary.append("")
         summary.append("Verification Checks:")
-        summary.append(f"  Closure: {'PASS' if result.closure_passed else 'FAIL'}")
-        summary.append(f"  Angles: {'PASS' if result.angle_check_passed else 'FAIL'}")
-        summary.append(f"  Curves: {'PASS' if result.curve_consistency_passed else 'FAIL'}")
+        if result.checks:
+            labels = {
+                "traverse_closure": "Closure",
+                "interior_angles": "Angles",
+                "curve_consistency": "Curves",
+            }
+            statuses = {
+                "passed": "PASS",
+                "failed": "FAIL",
+                "not_applicable": "NOT APPLICABLE",
+                "blocked": "BLOCKED",
+            }
+            for check in result.checks:
+                summary.append(
+                    f"  {labels.get(check.name, check.name)}: {statuses[check.status]} — {check.detail}"
+                )
+        else:
+            summary.append(f"  Closure: {'PASS' if result.closure_passed else 'FAIL'}")
+            summary.append(f"  Angles: {'PASS' if result.angle_check_passed else 'FAIL'}")
+            summary.append(f"  Curves: {'PASS' if result.curve_consistency_passed else 'FAIL'}")
+        summary.append(
+            f"Source review: {result.source_review_status} (independent of geometry checks)"
+        )
         summary.append("")
 
         if result.warnings:
