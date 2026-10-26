@@ -48,96 +48,14 @@ class ClosureChecker:
         closure_tolerance_ft: float | None = None,
         audit_context: AuditContext | None = None,
     ) -> ClosureResult:
-        """Verify one tract's closure independently.
-
-        Unlike verify_closure(), this does NOT split by is_exception.
-        All calls are treated as a single traverse.
-        """
-        tolerance = (
-            closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
+        """Check one independent tract using every standard verification guardrail."""
+        boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
+        return cls.verify_closure(
+            boundary,
+            stated_area_sq_ft=stated_area_sq_ft,
+            closure_tolerance_ft=closure_tolerance_ft,
+            audit_context=audit_context,
         )
-
-        active_calls = [c for c in calls if not c.is_tie_in]
-
-        if len(active_calls) < 3:
-            warnings = [
-                f"Tract has only {len(active_calls)} active call(s) "
-                f"(minimum 3 required to form a closed polygon)"
-            ]
-            return ClosureResult(
-                misclosure_x_ft=0.0,
-                misclosure_y_ft=0.0,
-                misclosure_ft=0.0,
-                area_sq_ft=0.0,
-                area_acres=0.0,
-                perimeter_ft=0.0,
-                closure_passed=False,
-                angle_check_passed=False,
-                curve_consistency_passed=True,
-                warnings=warnings,
-                precision_ratio=None,
-                confidence_score=0.0,
-            )
-
-        points = cls.compute_traverse(active_calls)
-
-        computable = sum(1 for c in active_calls if c.bearing_azimuth_deg_from_north is not None)
-        has_computable = computable > 0
-
-        misclosure_x = points[-1].x - points[0].x
-        misclosure_y = points[-1].y - points[0].y
-        misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
-
-        warnings: list[str] = []
-        if not has_computable:
-            warnings.append("No computable traverse \u2014 all calls lack bearings")
-
-        try:
-            area_sq_ft = cls.calculate_area(points)
-            area_acres = area_sq_ft / 43560.0
-        except ValueError as e:
-            area_sq_ft = 0.0
-            area_acres = 0.0
-            warnings.append(f"Cannot calculate area: {e}")
-
-        perimeter = cls.calculate_perimeter(active_calls)
-        closure_passed = has_computable and misclosure < tolerance
-        angle_check_passed = cls.check_interior_angles(active_calls)
-        curve_consistency_passed = cls.check_curve_consistency(active_calls)
-        warnings.extend(cls.check_parallelism(active_calls))
-        warnings.extend(cls.check_bearing_reversals(active_calls))
-        warnings.extend(cls.check_distance_reasonableness(active_calls))
-
-        if stated_area_sq_ft > 0:
-            diff_pct = abs(area_sq_ft - stated_area_sq_ft) / stated_area_sq_ft * 100
-            if diff_pct > 5.0:
-                warnings.append(
-                    f"Computed area differs from stated by {diff_pct:.1f}% "
-                    f"(computed: {area_sq_ft:.1f} sq ft, stated: {stated_area_sq_ft:.1f} sq ft)"
-                )
-
-        incomplete = [c for c in active_calls if not c.is_complete_bearing()]
-        if incomplete:
-            warnings.append(
-                f"{len(incomplete)} call(s) have incomplete bearings (cardinal-only or meanders)"
-            )
-
-        result = ClosureResult(
-            misclosure_x_ft=misclosure_x,
-            misclosure_y_ft=misclosure_y,
-            misclosure_ft=misclosure,
-            area_sq_ft=area_sq_ft,
-            area_acres=area_acres,
-            perimeter_ft=perimeter,
-            closure_passed=closure_passed,
-            angle_check_passed=angle_check_passed,
-            curve_consistency_passed=curve_consistency_passed,
-            warnings=warnings,
-            points=points,
-            precision_ratio=misclosure / perimeter if perimeter else None,
-        )
-        confidence = cls.calculate_confidence_score(result, active_calls)
-        return result.model_copy(update={"confidence_score": confidence})
 
     @overload
     @classmethod
@@ -227,20 +145,21 @@ class ClosureChecker:
             )
 
         try:
-            main_area_sq_ft = cls.calculate_area(points)
+            main_area_sq_ft = cls.calculate_area(points, calls=main_calls)
 
             exception_area_sq_ft = 0.0
+            exception_area_available = True
             if exception_calls:
                 warnings.append(
                     f"Found {len(exception_calls)} exception calls - calculating exception area to subtract"
                 )
                 try:
-                    exception_points = cls.compute_traverse(exception_calls)
-                    exception_area_sq_ft = cls.calculate_area(exception_points)
+                    exception_area_sq_ft = cls._calculate_exception_area(exception_calls)
                 except ValueError as e:
                     warnings.append(f"Cannot calculate exception area: {e}")
+                    exception_area_available = False
 
-            area_sq_ft = main_area_sq_ft - exception_area_sq_ft
+            area_sq_ft = main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
             area_acres = area_sq_ft / 43560.0
         except ValueError as e:
             area_sq_ft = 0.0
@@ -267,6 +186,9 @@ class ClosureChecker:
 
         parallel_warnings = cls.check_parallelism(main_calls)
         warnings.extend(parallel_warnings)
+
+        intersection_warnings = cls.check_straight_boundary_intersections(main_calls, points)
+        warnings.extend(intersection_warnings)
 
         reversal_warnings = cls.check_bearing_reversals(main_calls)
         warnings.extend(reversal_warnings)
@@ -372,6 +294,15 @@ class ClosureChecker:
                     inputs={},
                 ),
                 CheckResult(
+                    name="straight_boundary_intersections",
+                    passed=not intersection_warnings,
+                    detail=(
+                        f"{len(intersection_warnings)} straight-edge intersection(s); "
+                        "arc intersections not evaluated"
+                    ),
+                    inputs={},
+                ),
+                CheckResult(
                     name="bearing_reversals",
                     passed=(len(reversal_warnings) == 0),
                     detail=(
@@ -449,13 +380,25 @@ class ClosureChecker:
                         delta_deg = math.degrees(call.arc_length_ft / call.radius_ft)
 
                     if delta_deg is not None and abs(delta_deg) > 1e-9:
-                        next_point = BearingConverter.compute_curve_endpoint(
-                            current,
-                            call.bearing_azimuth_deg_from_north,
-                            call.radius_ft,
-                            delta_deg,
-                            call.curve_dir,
-                        )
+                        if call.chord_bearing is not None:
+                            chord_azimuth = BearingConverter.bearing_to_azimuth(call.chord_bearing)
+                            if chord_azimuth is None:
+                                raise ValueError(f"Course {call.course}: invalid chord bearing")
+                            # A chord bearing already describes the endpoint vector.
+                            # Only tangent bearings need rotation by half the delta.
+                            chord_length = (
+                                2 * call.radius_ft * math.sin(math.radians(delta_deg) / 2)
+                            )
+                            dx, dy = BearingConverter.calculate_deltas(chord_azimuth, chord_length)
+                            next_point = Point(x=current.x + dx, y=current.y + dy)
+                        else:
+                            next_point = BearingConverter.compute_curve_endpoint(
+                                current,
+                                call.bearing_azimuth_deg_from_north,
+                                call.radius_ft,
+                                delta_deg,
+                                call.curve_dir,
+                            )
 
                 if next_point is None:
                     dx, dy = BearingConverter.calculate_deltas(
@@ -476,19 +419,20 @@ class ClosureChecker:
         return points
 
     @classmethod
-    def calculate_area(cls, points: list[Point]) -> float:
-        """Calculate area using shoelace formula.
+    def calculate_area(cls, points: list[Point], *, calls: list[DeedCall] | None = None) -> float:
+        """Calculate polygon area, including circular segments when calls are supplied.
 
         Args:
             points: List of Point objects forming a polygon
+            calls: Optional traverse calls for signed circular-segment corrections
 
         Returns:
             Area in square feet
 
         Raises:
-            ValueError: If fewer than 3 points provided
+            ValueError: If fewer than 3 points provided without a curved boundary
         """
-        if len(points) < 3:
+        if len(points) < 2:
             raise ValueError(f"Cannot calculate area with {len(points)} points (need at least 3)")
 
         area = 0.0
@@ -499,8 +443,66 @@ class ClosureChecker:
             area += points[i].x * points[j].y
             area -= points[j].x * points[i].y
 
-        area = abs(area) / 2.0
-        return area
+        area /= 2.0
+        curved_area = 0.0
+        for call in calls or []:
+            if call.bearing_azimuth_deg_from_north is None or not call.is_curve():
+                continue
+            if call.radius_ft is None or call.curve_dir is None:
+                continue
+            delta = call.delta_deg
+            if delta is None and call.arc_length_ft is not None and call.radius_ft > 0:
+                delta = math.degrees(call.arc_length_ft / call.radius_ft)
+            if delta is None or abs(delta) <= 1e-9:
+                continue
+            theta = math.radians(delta)
+            segment = call.radius_ft**2 * (theta - math.sin(theta)) / 2.0
+            # Shoelace uses positive counterclockwise area; left arcs add area.
+            curved_area += segment if call.curve_dir == "left" else -segment
+        if len(points) < 3 and curved_area == 0.0:
+            raise ValueError(f"Cannot calculate area with {len(points)} points (need at least 3)")
+        return abs(area + curved_area)
+
+    @classmethod
+    def _calculate_exception_area(cls, calls: list[DeedCall]) -> float:
+        """Sum closed exception loops independently of their winding.
+
+        The flat call API has no tract identifiers. A return to the local
+        origin ends a loop; an incomplete final loop makes net area unavailable.
+        """
+        areas: list[float] = []
+        pending: list[DeedCall] = []
+        points = [Point(x=0, y=0)]
+        for call in calls:
+            if call.is_tie_in:
+                continue
+            if call.bearing_azimuth_deg_from_north is None:
+                raise ValueError(
+                    f"Exception course {call.course} has an incomplete bearing; net area unavailable"
+                )
+            points.extend(cls.compute_traverse([call], start_point=points[-1])[1:])
+            pending.append(call)
+            misclosure = math.hypot(points[-1].x, points[-1].y)
+            if misclosure < cls.CLOSURE_TOLERANCE_FT:
+                intersections = cls.check_straight_boundary_intersections(pending, points)
+                if intersections:
+                    raise ValueError(
+                        f"Exception tract self-intersection; net area unavailable: {intersections[0]}"
+                    )
+                if not cls.check_curve_consistency(pending):
+                    raise ValueError(
+                        f"Exception tract ending at course {call.course} has inconsistent curves; net area unavailable"
+                    )
+                areas.append(cls.calculate_area(points, calls=pending))
+                pending = []
+                points = [Point(x=0, y=0)]
+        if pending:
+            misclosure = math.hypot(points[-1].x, points[-1].y)
+            raise ValueError(
+                f"Exception tract ending at course {pending[-1].course} does not close "
+                f"({misclosure:.4f} ft misclosure); net area unavailable"
+            )
+        return math.fsum(areas)
 
     @classmethod
     def calculate_perimeter(cls, calls: list[DeedCall]) -> float:
@@ -526,8 +528,8 @@ class ClosureChecker:
 
         This check only applies to all-straight polygons (no curves).
 
-        Note: This is a simplified check that verifies the sum of exterior
-        angles equals 360°, which is mathematically equivalent to checking
+        Note: This is a simplified check that verifies the sum of signed exterior
+        angles equals +/-360°, which is mathematically equivalent to checking
         interior angles sum to (n-2)*180°.
 
         Args:
@@ -551,18 +553,72 @@ class ClosureChecker:
             az1 = current.bearing_azimuth_deg_from_north or 0
             az2 = next_call.bearing_azimuth_deg_from_north or 0
 
-            deflection = az2 - az1
-
-            while deflection < 0:
-                deflection += 360
-            while deflection >= 360:
-                deflection -= 360
+            # Signed turns retain concave corners and either traversal orientation.
+            deflection = (az2 - az1 + 180.0) % 360.0 - 180.0
 
             deflection_angles.append(deflection)
 
         actual_sum = sum(deflection_angles)
 
-        return abs(actual_sum - 360.0) < 5.0
+        return abs(abs(actual_sum) - 360.0) < 5.0
+
+    @classmethod
+    def check_straight_boundary_intersections(
+        cls, calls: list[DeedCall], coordinates: list[Point]
+    ) -> list[str]:
+        """Detect crossings, overlaps, and nonadjacent touches between straight edges.
+
+        Arc intersections are not evaluated: curve endpoint chords are not arc
+        geometry. Incomplete traverses cannot reliably map calls to coordinates.
+        The 1e-7 ft tolerance absorbs floating-point noise, not survey misclosure.
+        """
+        if len(coordinates) != len(calls) + 1:
+            return []
+
+        tolerance_ft = 1e-7
+
+        def side(a: Point, b: Point, p: Point) -> int:
+            cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+            tolerance = tolerance_ft * math.hypot(b.x - a.x, b.y - a.y)
+            return 1 if cross > tolerance else -1 if cross < -tolerance else 0
+
+        def on_segment(a: Point, b: Point, p: Point) -> bool:
+            return (
+                side(a, b, p) == 0
+                and min(a.x, b.x) - tolerance_ft <= p.x <= max(a.x, b.x) + tolerance_ft
+                and min(a.y, b.y) - tolerance_ft <= p.y <= max(a.y, b.y) + tolerance_ft
+            )
+
+        warnings: list[str] = []
+        closed = (
+            math.hypot(coordinates[-1].x - coordinates[0].x, coordinates[-1].y - coordinates[0].y)
+            < 0.01
+        )
+        for i, first in enumerate(calls):
+            if first.is_curve():
+                continue
+            a, b = coordinates[i], coordinates[i + 1]
+            for j in range(i + 1, len(calls)):
+                second = calls[j]
+                if second.is_curve() or j == i + 1 or (closed and i == 0 and j == len(calls) - 1):
+                    continue
+                c, d = coordinates[j], coordinates[j + 1]
+                proper_crossing = (
+                    side(a, b, c) * side(a, b, d) < 0 and side(c, d, a) * side(c, d, b) < 0
+                )
+                if proper_crossing or any(
+                    (
+                        on_segment(a, b, c),
+                        on_segment(a, b, d),
+                        on_segment(c, d, a),
+                        on_segment(c, d, b),
+                    )
+                ):
+                    warnings.append(
+                        f"Courses {first.course}-{second.course}: straight boundary self-intersection "
+                        "(crossing, overlap, or nonadjacent touch)"
+                    )
+        return warnings
 
     @classmethod
     def check_parallelism(cls, calls: list[DeedCall]) -> list[str]:
@@ -656,7 +712,9 @@ class ClosureChecker:
     def check_bearing_reversals(cls, calls: list[DeedCall]) -> list[str]:
         """Check for adjacent courses with bearings ~180 degrees apart.
 
-        This pattern often indicates a quadrant transcription error.
+        This pattern often indicates a quadrant transcription error in straight
+        courses. Curve bearings may describe tangents or chords; comparing them
+        directly does not establish a reversal, so pairs involving arcs are skipped.
 
         Args:
             calls: List of DeedCall objects
@@ -668,6 +726,8 @@ class ClosureChecker:
 
         for i in range(len(calls) - 1):
             c1, c2 = calls[i], calls[i + 1]
+            if c1.is_curve() or c2.is_curve():
+                continue
             az1 = c1.bearing_azimuth_deg_from_north
             az2 = c2.bearing_azimuth_deg_from_north
             if az1 is None or az2 is None:
@@ -861,6 +921,14 @@ class ClosureChecker:
                 discrepancies.append(
                     f"Course {i}: Bearing mismatch - '{c1.bearing_quadrant}' vs '{c2.bearing_quadrant}'"
                 )
+
+            az1 = c1.bearing_azimuth_deg_from_north
+            az2 = c2.bearing_azimuth_deg_from_north
+            if az1 is None or az2 is None:
+                if az1 != az2:
+                    discrepancies.append(f"Course {i}: Azimuth presence mismatch")
+            elif abs((az1 - az2 + 180.0) % 360.0 - 180.0) > 0.0001:
+                discrepancies.append(f"Course {i}: Azimuth mismatch - {az1:.6f} vs {az2:.6f}")
 
             if abs(c1.distance_ft - c2.distance_ft) > 0.01:
                 discrepancies.append(

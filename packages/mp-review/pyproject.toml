@@ -1,0 +1,16 @@
+[project]
+name = "mp-review"
+version = "1.0.0"
+requires-python = ">=3.11"
+description = "Deterministic text-first deed review"
+dependencies = ["mp-models>=1.0.0", "mp-parse>=1.0.0", "mp-verify>=1.0.0", "mp-export>=1.0.0", "pyyaml>=6.0.2"]
+
+[project.scripts]
+metes-review = "mp_review.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mp_review"]

@@ -79,7 +79,9 @@ class TestPipelineRun:
 
         mock_legal_desc = MagicMock(spec=LegalDescription)
         mock_legal_desc.calls = [MagicMock(spec=DeedCall)]
+        mock_legal_desc.stated_area_sq_ft = None
         mock_legal_desc.tracts = []
+
         mock_processor.process_deed_pdf.return_value = mock_legal_desc
 
         mock_closure = MagicMock(spec=ClosureResult)
@@ -90,7 +92,9 @@ class TestPipelineRun:
 
         mock_processor_cls.assert_called_once_with(provider="openai", cache=False)
         mock_processor.process_deed_pdf.assert_called_once_with("test.pdf", audit=False)
-        mock_verify.assert_called_once_with(mock_legal_desc.calls, audit_context=None)
+        mock_verify.assert_called_once_with(
+            mock_legal_desc.calls, stated_area_sq_ft=0.0, audit_context=None
+        )
         assert result is mock_closure
 
     @patch("metesparser.pipeline.verify_closure")
@@ -108,7 +112,9 @@ class TestPipelineRun:
 
         mock_legal_desc = MagicMock(spec=LegalDescription)
         mock_legal_desc.calls = [MagicMock(spec=DeedCall)]
+        mock_legal_desc.stated_area_sq_ft = None
         mock_legal_desc.tracts = []
+
         mock_audit_ctx = MagicMock(spec=AuditContext)
         mock_processor.process_deed_pdf.return_value = (mock_legal_desc, mock_audit_ctx)
 
@@ -119,7 +125,11 @@ class TestPipelineRun:
         result = pipe.run(Path("test.pdf"))
 
         mock_processor.process_deed_pdf.assert_called_once_with("test.pdf", audit=True)
-        mock_verify.assert_called_once_with(mock_legal_desc.calls, audit_context=mock_audit_ctx)
+        mock_verify.assert_called_once_with(
+            mock_legal_desc.calls,
+            stated_area_sq_ft=0.0,
+            audit_context=mock_audit_ctx,
+        )
         assert isinstance(result, tuple)
         assert result[0] is mock_closure
         assert result[1] is mock_audit_ctx

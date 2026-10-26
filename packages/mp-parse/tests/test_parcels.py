@@ -318,6 +318,7 @@ class TestSplitIntoParcels:
     def test_together_with_creates_appurtenant_parcel(self) -> None:
         """'TOGETHER WITH:' creates an appurtenant parcel."""
         text = "Main parcel description here.\nTOGETHER WITH: an easement for ingress and egress."
+
         parcels = split_into_parcels(text)
         assert len(parcels) == 2
         tw_parcel = [p for p in parcels if "together" in p["label"].lower()]

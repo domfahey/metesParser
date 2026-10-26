@@ -154,7 +154,7 @@ class TestMiwaynClauseClassification:
 
     def test_miwayn_extract_calls_main_tract_count(self) -> None:
         """MIWAYN should produce 4 main tract calls (is_exception=False)."""
-        calls = extract_calls(MIWAYN_TEXT)
+        calls, _tracts = extract_calls(MIWAYN_TEXT)
         main_calls = [c for c in calls if not c.is_exception]
         assert len(main_calls) == 4, (
             f"Expected 4 main tract calls, got {len(main_calls)}: "
@@ -163,7 +163,7 @@ class TestMiwaynClauseClassification:
 
     def test_miwayn_extract_calls_exception_count(self) -> None:
         """MIWAYN should produce 11 exception calls (is_exception=True)."""
-        calls = extract_calls(MIWAYN_TEXT)
+        calls, _tracts = extract_calls(MIWAYN_TEXT)
         exception_calls = [c for c in calls if c.is_exception]
         assert len(exception_calls) == 11, (
             f"Expected 11 exception calls, got {len(exception_calls)}: "
@@ -172,7 +172,7 @@ class TestMiwaynClauseClassification:
 
     def test_miwayn_main_tract_first_call_distance(self) -> None:
         """First main tract call should have distance 153.00 ft."""
-        calls = extract_calls(MIWAYN_TEXT)
+        calls, _tracts = extract_calls(MIWAYN_TEXT)
         main_calls = [c for c in calls if not c.is_exception]
         assert len(main_calls) >= 1
         first = main_calls[0]
@@ -180,7 +180,7 @@ class TestMiwaynClauseClassification:
 
     def test_miwayn_main_tract_last_call_closes(self) -> None:
         """Last main tract call should close to POB."""
-        calls = extract_calls(MIWAYN_TEXT)
+        calls, _tracts = extract_calls(MIWAYN_TEXT)
         main_calls = [c for c in calls if not c.is_exception]
         assert len(main_calls) >= 1
         last = main_calls[-1]
@@ -189,7 +189,7 @@ class TestMiwaynClauseClassification:
 
     def test_miwayn_exception_first_call_distance(self) -> None:
         """First exception call should have distance 85.33 ft."""
-        calls = extract_calls(MIWAYN_TEXT)
+        calls, _tracts = extract_calls(MIWAYN_TEXT)
         exception_calls = [c for c in calls if c.is_exception]
         assert len(exception_calls) >= 1
         first = exception_calls[0]
@@ -197,7 +197,7 @@ class TestMiwaynClauseClassification:
 
     def test_miwayn_total_call_count(self) -> None:
         """MIWAYN should produce exactly 15 total calls (4 main + 11 exception)."""
-        calls = extract_calls(MIWAYN_TEXT)
+        calls, _tracts = extract_calls(MIWAYN_TEXT)
         assert len(calls) == 15, f"Expected 15 total calls, got {len(calls)}"
 
 
@@ -212,7 +212,7 @@ class TestSingleClauseDeedUnchanged:
             "thence South 45 degrees West 100.00 feet; "
             "thence North 45 degrees West 100.00 feet to the point of beginning."
         )
-        calls = extract_calls(text)
+        calls, _tracts = extract_calls(text)
         assert len(calls) == 4
         assert all(not c.is_exception for c in calls)
 

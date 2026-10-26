@@ -39,6 +39,23 @@ _METADATA_BOUNDARY = re.compile(
     re.IGNORECASE,
 )
 
+_CLAUSE_ABBREVIATIONS = {"ave", "blvd", "dr", "ft", "in", "no", "rd", "st"}
+
+
+def _before_clause_delimiter(text: str) -> str:
+    """Trim a call at sentence punctuation without splitting decimals or abbreviations."""
+    acronym_periods = [match.span() for match in re.finditer(r"\b[A-Za-z](?:\.[A-Za-z])+\.", text)]
+    for match in re.finditer(r";|\.(?!\d)", text):
+        if match.group() == ".":
+            prefix = text[: match.start()]
+            word = re.search(r"([A-Za-z]+)$", prefix)
+            if word and word.group(1).lower() in _CLAUSE_ABBREVIATIONS:
+                continue
+            if any(start <= match.start() < end for start, end in acronym_periods):
+                continue
+        return text[: match.start()]
+    return text
+
 
 class _AreaStatement(TypedDict):
     value_sq_ft: float
@@ -70,7 +87,46 @@ def extract_area_statement(text: str) -> _AreaStatement | None:
         re.IGNORECASE,
     )
 
-    for match in area_pattern.finditer(normalized_text):
+    matches = list(area_pattern.finditer(normalized_text))
+    if not matches:
+        return None
+
+    def is_parent_area_context(match: re.Match[str]) -> bool:
+        preceding_text = normalized_text[: match.start()]
+        clause_start = max(
+            preceding_text.rfind(";"), preceding_text.rfind("."), preceding_text.rfind("\n")
+        )
+        clause_prefix = preceding_text[clause_start + 1 :]
+        return bool(
+            re.search(r"\b(?:parent|larger|original)\s+(?:tract|parcel|lot)\b", clause_prefix)
+        )
+
+    # A bare area remains a supported API input, but an area embedded in a
+    # legal description must be tied to the described parcel, not its parent.
+    standalone = re.fullmatch(
+        r"\s*(?:(?:approximately|approx\.?|~)\s+)?"
+        r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s*(?:sq\.?\s*ft\.?|square\s+feet?|acres?)"
+        r"(?:\s+more\s+or\s+less)?\s*[.]?\s*",
+        normalized_text,
+        re.IGNORECASE,
+    )
+    parcel_matches = [
+        match
+        for match in matches
+        if re.search(
+            r"\b(?:containing|contains|comprising|consisting\s+of)\b|\barea\s*:\s*$",
+            normalized_text[max(0, match.start() - 55) : match.start()],
+        )
+        and not re.search(
+            r"\b(?:parent|larger|original)\s+tract\b",
+            normalized_text[match.start() : match.end() + 45],
+        )
+        and not is_parent_area_context(match)
+    ]
+    if not parcel_matches and not standalone:
+        return None
+
+    for match in parcel_matches or matches[:1]:
         unit = match.group("unit").replace(" ", "")
         value = float(match.group("value").replace(",", ""))
 
@@ -121,7 +177,7 @@ def extract_plss_metadata(text: str) -> dict[str, str | None]:
         plss_data["section"] = section_match.group(1)
 
     township_match = re.search(
-        r"\b(?:TOWNSHIP|T\.?)\s*(\d+)\s*(NORTH|N\.?|SOUTH|S\.?)\b", text_upper
+        r"\b(?:TOWNSHIP|TOWN|T\.?)\s*(\d+)\s*(NORTH|N\.?|SOUTH|S\.?)\b", text_upper
     )
     if township_match:
         township_num = township_match.group(1)
@@ -332,16 +388,108 @@ def extract_distance(text: str) -> tuple[float, str]:
     """
     pattern = (
         rf"({COMMA_NUMBER})\s*"
-        r"(foot|feet|ft|poles?|rods?|perches?|chains?|links?"
+        r"(US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?"
+        r"|foot|feet|ft|poles?|rods?|perches?|chains?|links?"
         r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
     )
 
-    match = re.search(pattern, text, re.IGNORECASE)
+    total_match = re.search(
+        rf"\b(?:for\s+)?a\s+total\s+distance\s+(?:of\s+)?({COMMA_NUMBER})\s*"
+        r"(US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?|foot|feet|ft|poles?|rods?|perches?|chains?|links?|varas?|arpents?|toises?|furlongs?|meters?|miles?)",
+        text,
+        re.IGNORECASE,
+    )
+    total_has_additional_component = bool(
+        total_match
+        and re.match(
+            rf"\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
+            text[total_match.end() :],
+            re.IGNORECASE,
+        )
+    )
+    match: re.Match[str] | None = None
+    if total_match and not total_has_additional_component:
+        match = total_match
+    else:
+        compound_unit = (
+            r"US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?|"
+            r"foot|feet|ft|poles?|rods?|perches?|chains?|links?|varas?|arpents?|"
+            r"toises?|furlongs?|meters?|miles?"
+        )
+        component_pattern = rf"({COMMA_NUMBER})\s*({compound_unit})"
+        compound = re.search(
+            rf"{component_pattern}(?:\s+and\s+{component_pattern})+",
+            text,
+            re.IGNORECASE,
+        )
+        if compound:
+            trailing_component = re.match(
+                rf"\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+", text[compound.end() :], re.IGNORECASE
+            )
+            if trailing_component:
+                return 0.0, "feet"
+            values = [
+                (component.group(1), component.group(2))
+                for component in re.finditer(component_pattern, compound.group(0), re.IGNORECASE)
+            ]
+            unit_keys = {
+                "ft": "feet",
+                "foot": "feet",
+                "feet": "feet",
+                "poles": "poles",
+                "pole": "poles",
+                "rods": "rods",
+                "rod": "rods",
+                "perch": "perches",
+                "perches": "perches",
+                "chain": "chains",
+                "chains": "chains",
+                "link": "links",
+                "links": "links",
+                "engineer chain": "engineer_chains",
+                "engineer chains": "engineer_chains",
+                "engineer link": "engineer_links",
+                "engineer links": "engineer_links",
+                "us survey foot": "us_survey_feet",
+                "us survey feet": "us_survey_feet",
+                "vara": "varas",
+                "varas": "varas",
+                "arpent": "arpents",
+                "arpents": "arpents",
+                "toise": "toises",
+                "toises": "toises",
+                "furlong": "furlongs",
+                "furlongs": "furlongs",
+                "meter": "meters",
+                "meters": "meters",
+                "mile": "miles",
+                "miles": "miles",
+            }
+            total_ft = sum(
+                ConversionFactors.convert_to_feet(
+                    parse_comma_number(value), unit_keys[" ".join(unit.lower().split())]
+                )
+                for value, unit in values
+            )
+            return total_ft, "feet"
+        if re.search(
+            rf"{COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
+            text,
+            re.IGNORECASE,
+        ):
+            return 0.0, "feet"
+        match = re.search(pattern, text, re.IGNORECASE)
     if match:
         value = parse_comma_number(match.group(1))
-        unit = match.group(2).lower()
+        unit = " ".join(match.group(2).lower().split())
 
-        if unit in ("ft", "feet", "foot"):
+        if unit in ("us survey feet", "us survey foot"):
+            unit = "us_survey_feet"
+        elif unit in ("engineer chain", "engineer chains"):
+            unit = "engineer_chains"
+        elif unit in ("engineer link", "engineer links"):
+            unit = "engineer_links"
+        elif unit in ("ft", "feet", "foot"):
             unit = "feet"
         elif unit in ("pole", "poles"):
             unit = "poles"
@@ -367,6 +515,14 @@ def extract_distance(text: str) -> tuple[float, str]:
             unit = "miles"
 
         return (value, unit)
+
+    apostrophe_feet = re.search(
+        rf"(?<!\u00b0)({COMMA_NUMBER})\s*'(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
+        text,
+        re.IGNORECASE,
+    )
+    if apostrophe_feet:
+        return (parse_comma_number(apostrophe_feet.group(1)), "feet")
 
     return (0.0, "feet")
 
@@ -402,7 +558,7 @@ def _is_lot_qualifier_except(text: str, match: re.Match[str]) -> bool:
         r"^\s+the\s+"
         r"(?:North|South|East|West)"
         r"(?:erly|wardly)?"
-        r"\s+\d+(?:\.\d+)?"
+        rf"\s+{COMMA_NUMBER}"
         r"\s+(?:feet|foot|ft|poles?|rods?|chains?|links?|varas?|meters?)"
         r"\s+(?:of\b|in\b|thereof\b)",
         re.IGNORECASE,
@@ -481,9 +637,9 @@ def extract_along_to_fields(call_text: str) -> tuple[str, str]:
             last_to = to_tokens[-1]
             along = segment[: last_to.start()].strip(" ,;.")
             to_section = segment[last_to.end() :].strip()
-            to = re.split(r"[.;]", to_section, maxsplit=1)[0].strip(" ,")
+            to = _before_clause_delimiter(to_section).strip(" ,")
         else:
-            along = re.split(r"[.;]", segment, maxsplit=1)[0].strip(" ,")
+            along = _before_clause_delimiter(segment).strip(" ,")
 
     if not to:
         to_tokens = [
@@ -494,7 +650,7 @@ def extract_along_to_fields(call_text: str) -> tuple[str, str]:
         if to_tokens:
             last = to_tokens[-1]
             to_candidate = call_text[last.end() :].strip()
-            to = re.split(r"[.;]", to_candidate, maxsplit=1)[0].strip(" ,")
+            to = _before_clause_delimiter(to_candidate).strip(" ,")
 
     return (along, to)
 
