@@ -6,6 +6,7 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Added
 
+- `deed-closure-dashboard` skill for preparing an interactive, source-grounded deed closure review dashboard.
 - `convert-document-to-text` uses Claude's native document/image reading for PDFs, scans, images, and other supported sources, with source coverage and uncertainty records.
 - `extract-metes-and-bounds` locates complete descriptions in any document, preserves source wording and locations, and separates candidate tracts.
 - `review-metes-and-bounds` coordinates description identification before deterministic closure checks.
