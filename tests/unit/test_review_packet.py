@@ -485,6 +485,64 @@ class TestGenerateTraversePlot:
         result = generate_traverse_plot(CARDINAL_ONLY_GT)
         assert "cannot" in result.lower() or "no plottable" in result.lower()
 
+    def test_incomplete_middle_course_does_not_join_across_gap(self) -> None:
+        """An unknown boundary call makes the traverse plot incomplete."""
+        gt = {
+            **SIMPLE_GT,
+            "expected_calls": [
+                {"course": 1, "bearing_azimuth_deg_from_north": 0, "distance_ft": 10},
+                {"course": 2, "bearing_azimuth_deg_from_north": None, "distance_ft": 20},
+                {"course": 3, "bearing_azimuth_deg_from_north": 90, "distance_ft": 10},
+            ],
+        }
+
+        result = generate_traverse_plot(gt)
+
+        assert "incomplete" in result.lower()
+        assert "2" in result
+        assert "<svg" not in result
+
+    @pytest.mark.parametrize("distance", [None, -1, float("inf")])
+    def test_invalid_distance_is_reported_as_incomplete(self, distance: float | None) -> None:
+        """Missing, negative, and non-finite distances cannot produce geometry."""
+        gt = {
+            **SIMPLE_GT,
+            "expected_calls": [
+                {"course": 7, "bearing_azimuth_deg_from_north": 45, "distance_ft": distance}
+            ],
+        }
+
+        result = generate_traverse_plot(gt)
+
+        assert "incomplete" in result.lower()
+        assert "7" in result
+        assert "<svg" not in result
+
+    def test_open_traverse_path_is_not_implicitly_closed(self) -> None:
+        """A fully specified open traverse remains an open, unfilled path."""
+        gt = {
+            **SIMPLE_GT,
+            "expected_calls": [
+                {"course": 1, "bearing_azimuth_deg_from_north": 0, "distance_ft": 10},
+                {"course": 2, "bearing_azimuth_deg_from_north": 90, "distance_ft": 10},
+            ],
+        }
+
+        svg = generate_traverse_plot(gt)
+
+        path = next(line for line in svg.splitlines() if "<path " in line)
+        assert " Z'" not in path
+        assert "fill='none'" in path
+        assert "M 0.00,0.00 L 0.00,-10.00 L 10.00,-10.00" in path
+
+    def test_closed_traverse_path_is_closed(self) -> None:
+        """A traverse that returns to its start can use a filled closed path."""
+        svg = generate_traverse_plot(RECTANGLE_GT)
+
+        path = next(line for line in svg.splitlines() if "<path " in line)
+        assert " Z'" in path
+        assert "fill='#e8f4f8'" in path
+
     def test_handles_empty_calls(self) -> None:
         """Returns graceful message for empty call list."""
         gt_empty = {**SIMPLE_GT, "expected_calls": []}
