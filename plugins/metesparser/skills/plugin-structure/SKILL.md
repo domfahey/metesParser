@@ -16,3 +16,5 @@ Each skill belongs in `skills/<kebab-case-name>/SKILL.md` with frontmatter `name
 Use `${CLAUDE_PLUGIN_ROOT}` for paths in components, quote paths in shell commands, and resolve helpers relative to their script location where that variable is unavailable. Never depend on the caller's working directory to locate plugin resources. Per-project user settings are a separate concern: see [Plugin Settings](../plugin-settings/SKILL.md).
 
 Document prerequisites and actual install methods in the root README. Validate the plugin with `claude plugin validate PATH --strict --json`, then exercise its scripts from an unrelated working directory and a path containing spaces. Distinguish manifest validation from actual client installation and end-to-end acceptance. Do not invent a marketplace installation target or create unused hooks, agents, or MCP servers.
+
+Keep a README in each skill directory for human usage examples and link shared references rather than duplicating them. Maintain user-visible changes in one root `CHANGELOG.md`, with pending changes under Unreleased and release identifiers only for actual release history.
