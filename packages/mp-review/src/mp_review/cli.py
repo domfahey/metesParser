@@ -36,6 +36,33 @@ def main() -> None:
     dashboard.add_argument("--output-dir", type=Path)
     dashboard.add_argument("--cache-dir", type=Path)
     dashboard.add_argument("--settings", type=Path)
+    overlay = commands.add_parser(
+        "import-overlay", help="Import supplied polygons into an explicit projected scene."
+    )
+    overlay.add_argument("input", type=Path)
+    overlay.add_argument("--format", choices=("geojson", "projected-layer"), required=True)
+    overlay.add_argument("--target-crs", required=True)
+    overlay.add_argument("--source-crs")
+    overlay.add_argument("--output", type=Path, required=True)
+    overlay.add_argument("--settings", type=Path)
+    raster = commands.add_parser(
+        "register-raster", help="Calibrate a supplied scan with explicit affine controls."
+    )
+    raster.add_argument("input", type=Path)
+    raster.add_argument("--controls", type=Path, required=True)
+    raster.add_argument("--output", type=Path, required=True)
+    raster.add_argument("--settings", type=Path)
+    parcel = commands.add_parser(
+        "fetch-parcel", help="Snapshot exact official NJGIN parcel identifiers."
+    )
+    parcel.add_argument("--municipality", required=True)
+    parcel.add_argument("--block", required=True)
+    parcel.add_argument("--lot", required=True)
+    parcel.add_argument("--qualifier")
+    parcel.add_argument("--feature-id")
+    parcel.add_argument("--target-crs", required=True)
+    parcel.add_argument("--output", type=Path, required=True)
+    parcel.add_argument("--settings", type=Path)
     corpus = commands.add_parser("corpus")
     corpus.add_argument("manifest", type=Path)
     corpus.add_argument("--output", type=Path)
@@ -72,6 +99,8 @@ def main() -> None:
 
 
 def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    if args.command in ("import-overlay", "register-raster", "fetch-parcel"):
+        return _overlay_artifact(args)
     if args.command == "corpus":
         from .corpus import run_corpus
 
@@ -101,3 +130,71 @@ def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, An
             stated_area_sq_ft=args.area,
         )
     return result
+
+
+def _overlay_artifact(args: argparse.Namespace) -> dict[str, Any]:
+    from .overlays import import_overlay, write_new_artifact
+
+    try:
+        if args.output.exists():
+            raise ValueError("Output must be a new path; existing files are never overwritten")
+        if args.command == "import-overlay":
+            value = import_overlay(
+                args.input.read_bytes(),
+                input_format=args.format,
+                target_crs=args.target_crs,
+                source_crs=args.source_crs,
+                filename=args.input.name,
+            ).to_dict()
+        elif args.command == "register-raster":
+            from mp_models.plot import PlotScene
+            from mp_models.raster import RasterControl
+
+            from .raster_registration import fit_affine, image_layer, supplied_affine
+
+            config = json.loads(args.controls.read_bytes())
+            scene = PlotScene.model_validate(config["scene"])
+            controls = tuple(RasterControl.model_validate(c) for c in config.get("controls", []))
+            registration = (
+                supplied_affine(config["matrix"], controls)
+                if "matrix" in config
+                else fit_affine(controls)
+            )
+            layer, source = image_layer(
+                args.input.read_bytes(),
+                scene=scene,
+                registration=registration,
+                filename=args.input.name,
+            )
+            value = {
+                "schema_version": "1.1",
+                "scenes": [scene.model_dump(mode="json")],
+                "map_sources": [source.model_dump(mode="json")],
+                "raster_layers": [layer.model_dump(mode="json")],
+            }
+        else:
+            from .parcel_provider import fetch_njgin
+
+            value = fetch_njgin(
+                municipality=args.municipality,
+                block=args.block,
+                lot=args.lot,
+                qualifier=args.qualifier,
+                feature_id=args.feature_id,
+                target_crs=args.target_crs,
+            )
+        write_new_artifact(args.output, value)
+        return {
+            "schema_version": "1.1",
+            "status": "passed",
+            "artifacts": {"map_artifact": str(args.output)},
+            "errors": [],
+            "acquisition_status": value.get("status"),
+        }
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return {
+            "schema_version": "1.1",
+            "status": "error",
+            "artifacts": {},
+            "errors": [{"code": "invalid_overlay", "message": str(exc)}],
+        }
