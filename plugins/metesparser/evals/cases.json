@@ -104,5 +104,61 @@
     },
     "expected": "Record the affine registration, controls, scene units, fit/checkpoint roles and residuals; integer pixel coordinates are centers, so outer edges map from (-0.5,-0.5) through (width-0.5,height-0.5). Keep scan alignment approximate and preserve its provenance in the bundle.",
     "must_not": ["treat three fit controls as independent accuracy validation", "warp deed geometry", "claim tax map is a legal boundary"]
+  },
+  {
+    "id": "transcribe-only-stops-after-acquisition",
+    "skill": "convert-document-to-text",
+    "request": "Transcribe this scanned survey and give me the text file.",
+    "input": {"kind": "scanned_pdf", "pages": "complete_and_readable"},
+    "expected": "Use Claude native reading for all supplied pages and return the transcription, page map, and acquisition record. Stop without selecting a legal description or running geometry checks.",
+    "must_not": ["call external OCR", "automatically extract a description", "automatically verify closure"]
+  },
+  {
+    "id": "extract-only-stops-after-selection",
+    "skill": "extract-metes-and-bounds",
+    "request": "Find and extract the operative description from this prepared transcript; do not review it yet.",
+    "input": {"source_text": "prepared transcript with page map", "acquisition_record": "valid for unchanged source"},
+    "expected": "Reuse the existing transcription and return the verbatim selected description with source ranges and selection record. Stop before deterministic review.",
+    "must_not": ["reread or re-transcribe the PDF", "run verification", "omit exceptions"]
+  },
+  {
+    "id": "plot-existing-csv-without-reread-or-dashboard",
+    "skill": "plot-metes-and-bounds",
+    "request": "Plot this existing selected boundary CSV as-is.",
+    "input": {"format": "strict_csv", "source_identity": "unchanged", "selection_record": "available"},
+    "expected": "Use the CSV directly and create standalone plot artifacts. Do not read source documents, repeat selection, run review, or build a dashboard.",
+    "must_not": ["claim document reading", "create a dashboard", "issue a verified CSV"]
+  },
+  {
+    "id": "plot-keeps-missing-bearing-unresolved",
+    "skill": "plot-metes-and-bounds",
+    "request": "Plot this call set, including the southwesterly course.",
+    "input": {"format": "calls", "calls": ["N 100 feet", "southwesterly 50 feet", "E 100 feet"]},
+    "expected": "Preserve the cardinal-only bearing as unknown and show only geometry supported by the supplied values. Return plot artifacts with top-level needs_review and stop.",
+    "must_not": ["infer a numeric bearing", "bridge the gap as a deed course", "claim verified status"]
+  },
+  {
+    "id": "overlay-only-stops-before-deed-placement",
+    "skill": "prepare-parcel-overlay",
+    "request": "Import this supplied GeoJSON parcel layer and retain its provenance for later.",
+    "input": {"format": "geojson", "target_crs": "declared_projected_crs", "source_date": null},
+    "expected": "Prepare the vector layer, preserve source provenance and the unknown source date, then stop. Do not plot or align deed geometry or create a dashboard.",
+    "must_not": ["infer deed alignment", "fetch a different parcel", "claim survey accuracy"]
+  },
+  {
+    "id": "reuse-unchanged-call-artifacts",
+    "skill": "deed-closure-dashboard",
+    "request": "Build the requested dashboard from these existing source-selection and geometry artifacts.",
+    "input": {"source_identity": "unchanged", "selection_record": "valid", "plot_geometry": "valid", "map_layer": "prepared"},
+    "expected": "Reuse the matching artifacts without rereading the source or recomputing unchanged geometry; render only the requested dashboard and retain separate stage statuses.",
+    "must_not": ["repeat native reading", "change source calls", "equate dashboard status with checks_passed"]
+  },
+  {
+    "id": "changed-call-invalidates-dependent-artifacts",
+    "skill": "deed-closure-dashboard",
+    "request": "Use the prior placement and dashboard after I changed one source call.",
+    "input": {"source_identity": "unchanged", "call_set": "changed", "old_geometry_hash": "present", "old_placement": "bound_to_old_hash"},
+    "expected": "Treat the prior geometry and geometry-hash-bound placement as invalid, resume from the changed call set, and recompute/revalidate dependent outputs before rendering.",
+    "must_not": ["reuse stale geometry", "retain a placement without hash validation", "refit the deed to improve closure"]
   }
 ]

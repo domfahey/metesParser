@@ -17,7 +17,7 @@ Upload the source PDFs or images to a Claude/Cowork session with native document
 
 > Check the metes and bounds in these deeds for [property address, block/lot, municipality]. Compare the descriptions across the chain. Then build an interactive dashboard like the 2 Walnut Street one: findings, crops of the disputed figures, a workbench with a plot and editable call sheet, transcripts of each description with extracted courses, and copies of every deed page. Follow the deed-closure-dashboard playbook.
 
-Use the [skill's subagent workflow](../SKILL.md) to divide evidence, calculation, interface, and QA work. Prefer smaller capable models for bounded tasks; escalate source ambiguity and mathematical interpretation. Keep file ownership separate and reconcile all outputs against a common record ledger.
+When delegating evidence, calculation, interface, or QA work, keep ownership separate and reconcile outputs against a common record ledger. Report only delegation that actually occurred.
 
 The bundled `dashboard` command renders a validated version 1.0 deed-only bundle or version 1.1 bundle with explicit plot/map data as an offline HTML page. Use it as the standard renderer after source review and calculation; do not rebuild its HTML/JS or treat rendering as another document-reading stage. It includes per-occurrence findings, evidence crops, transcripts/course tables, page viewing, method notes, and source-linked deed plotting. Version 1.1 supports explicit scenes, placements, supplied map layers, and named point comparisons. Read [plot-and-overlays.md](plot-and-overlays.md) before preparing those fields. See [dashboard-bundle.md](dashboard-bundle.md) for schema, statuses, cache behavior, and exact artifacts.
 
@@ -35,6 +35,8 @@ Give every source, page, description occurrence, parcel, record version, and sce
 Keep three distinct objects: immutable record values, derived results with method/basis, and editable scenarios. Link every substituted or disputed figure back to its own source. A figure borrowed from another instrument is a comparison reading, not a silently repaired value in an obscured record.
 
 ## 3. Workflow
+
+Enter at the earliest missing or invalid stage. Reuse matching source acquisition, transcription, selection, and map-preparation artifacts for unchanged inputs; steps below do not require repeating completed native reading. Recompute deterministic geometry for a new dashboard identity using the [artifact composition sequence](dashboard-bundle.md#compose-existing-plot-and-map-artifacts).
 
 ### Step 1: Read every supplied page
 
@@ -121,7 +123,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard bundle.json --ou
 
 In the development workspace, `uv run metes-review dashboard bundle.json --output-dir dashboard-new --cache-dir dashboard-cache` is equivalent. A valid bundle returns top-level `needs_review` (exit 1); inspect the artifact paths and calculation statuses in its JSON output. Deliver `dashboard.html` with `source.json`, `source-review.json`, `calculations.json`, `stage-manifest.json`, and `render-manifest.json` so the input, review-data stage, calculations, and rendered output remain inspectable. The command does not publish or write the engine's verified CSV.
 
-Record values and findings remain fixed while the browser edits a separate advisory scenario. Use Reset to restore that working copy. Do not describe scenario closure as a record finding. The browser scenario calculator currently edits straight-course values only; the canonical baseline supports implemented curves, while curve editing is not available. Shared parcel alignment/comparison is deferred.
+Record values and findings remain fixed while the browser edits a separate advisory scenario. Use Reset to restore that working copy. Do not describe scenario closure as a record finding. The browser scenario calculator currently edits straight-course values only; the canonical baseline supports implemented curves, while curve editing is not available. The renderer supports explicitly supplied rigid placements and named point comparisons, but does not automatically match corners or infer parcel alignment.
 
 Keep delivery local unless the user requested sharing and the host's actual access controls support it. Do not invent a public URL, declare an untested page published, or assume privacy. Identify tax-ID pages and verify the requested destination's privacy before sharing. Do not claim host-side read attestations; the bundle renderer has no review log.
 

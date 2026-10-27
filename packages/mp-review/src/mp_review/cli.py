@@ -28,6 +28,15 @@ def main() -> None:
     relative.add_argument("input", type=Path)
     relative.add_argument("--output-dir", type=Path)
     relative.add_argument("--settings", type=Path)
+    plot = commands.add_parser(
+        "plot", help="Plot existing structured calls or explicit relative constraints offline."
+    )
+    plot.add_argument("input", type=Path)
+    plot.add_argument(
+        "--input-format", choices=("auto", "calls", "relative", "plot"), default="auto"
+    )
+    plot.add_argument("--output-dir", type=Path)
+    plot.add_argument("--settings", type=Path)
     dashboard = commands.add_parser(
         "dashboard",
         help="Render a validated source bundle as an offline, non-verifying dashboard.",
@@ -121,6 +130,14 @@ def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, An
             args.input,
             output_dir=output_path(settings, args.output_dir),
             cache_dir=args.cache_dir,
+        )
+    elif args.command == "plot":
+        from .plot import plot_file
+
+        result = plot_file(
+            args.input,
+            output_dir=output_path(settings, args.output_dir),
+            input_format=args.input_format,
         )
     else:
         operation = review_file if args.command == "review" else verify_file

@@ -6,6 +6,9 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Added
 
+- `plot-metes-and-bounds` creates a standalone plot from structured calls, RelativeDescription JSON, or PlotRequest JSON and stops after plot artifacts.
+- `prepare-parcel-overlay` prepares supplied vector/raster evidence and provenance without placing deed geometry or building a dashboard.
+- Shared artifact handoff guidance defines accepted inputs, outputs, status boundaries, source identity, invalidation, and resume behavior.
 - `analyze-relative` command for source-linked straight-course interior/exterior, perpendicular, and parallel constraints in a declared local frame. Reports unresolved/contradictory constraints separately, preserves unknown recorded bearings, and never authorizes verified CSV export. Includes a runnable synthetic rectangle and replaces the dashboard playbook's inline calculation.
 - `deed-closure-dashboard` skill now builds from a validated version 1.0 source bundle and the offline renderer, with separate source-review status and advisory scenarios. Includes a synthetic runnable bundle example.
 - `convert-document-to-text` uses Claude's native document/image reading for PDFs, scans, images, and other supported sources, with source coverage and uncertainty records.
@@ -17,9 +20,11 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 ### Changed
 
 - `review-deed` delegates to the document-agnostic workflow; `verify-traverse` accepts an identified structured boundary and routes unselected documents to description selection.
+- Capability skills stop at their requested artifacts; review/dashboard workflows reuse valid handoffs and continue only when requested. `verify-traverse` clearly separates canonical verification from explicitly requested relative analysis.
+- Dashboard discovery is limited to explicit dashboard/workbench requests. Renderer guidance now describes supported explicit placements and named-point comparisons while retaining the boundary against automatic matching.
 - Closure requests now locate the intended description before calculation. Native conversion, Claude's section selection, and deterministic verification remain distinct evidence stages.
 - Scanned documents use Claude's native reading when available instead of always requiring a user-provided transcription. No separate OCR provider or conversion dependency is added.
-- Dashboard guidance now reflects the renderer's available per-occurrence views and statuses. Shared parcel alignment/comparison is deferred; canonical baseline calculations support curves, while browser edits are limited to straight-course scenarios.
+- Dashboard guidance now reflects explicit placement and named-point comparison support. Automatic corner matching remains unsupported; canonical baseline calculations support curves, while browser edits are limited to straight-course scenarios.
 
 ### Removed
 
