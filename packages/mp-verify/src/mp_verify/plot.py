@@ -24,6 +24,7 @@ from mp_models.plot import (
     PlotUnresolved,
     PointCorrespondence,
 )
+from mp_models.plot_request import PlotCall, PlotRequest, PreparedPlot
 
 if TYPE_CHECKING:
     from mp_models.dashboard import DashboardBundle, DashboardCalculation, DashboardResult
@@ -34,8 +35,8 @@ PLOT_BUILDER_VERSION = "plot-1.0.1"
 
 class _Source(TypedDict):
     call_id: str
-    occurrence_id: str
-    page_id: str
+    occurrence_id: str | None
+    page_id: str | None
 
 
 def _hash(value: object) -> str:
@@ -98,21 +99,25 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
     )
 
 
-def _geometry(
-    bundle: DashboardBundle, spec: DashboardCalculation, result: DashboardResult | None
+def _build_geometry(
+    records: tuple[PlotCall, ...],
+    *,
+    calculation_id: str,
+    occurrence_id: str | None,
+    calculation_data: object,
+    record_data: list[object],
+    origin: XY = (0.0, 0.0),
+    relative: dict[str, float] | None = None,
+    area_sq_ft: float | None = None,
+    analytic_area: bool = False,
+    require_representable: bool = False,
 ) -> PlotGeometry:
-    records = tuple(c for c in bundle.calls if c.occurrence_id == spec.occurrence_id)
+    """Shared source-linked line/arc prefix builder for dashboards and standalone plots."""
     primitives = []
     unresolved = []
     reasons = []
-    origin = spec.relative.frame.origin if spec.relative is not None else (0.0, 0.0)
     current = origin
     stopped = False
-    relative = (
-        {c.call_id: c for c in result.courses}
-        if result and spec.method == "relative" and result.geometry_status == "analyzed"
-        else {}
-    )
     for record in records:
         call = record.call
         if call is not None and call.is_tie_in:
@@ -127,7 +132,7 @@ def _geometry(
             reason = "spiral geometry unsupported; no line or circular arc assumed"
         elif call.is_exception or call.is_meander:
             reason = "exception/meander connectivity unsupported"
-        elif spec.method == "relative" and record.id not in relative:
+        elif relative is not None and record.id not in relative:
             reason = "relative constraints unresolved or inconsistent"
         source: _Source = {
             "call_id": record.id,
@@ -140,8 +145,8 @@ def _geometry(
                     primitive = _arc(call, current, source)
                 else:
                     bearing = (
-                        relative[record.id].local_azimuth_deg
-                        if record.id in relative
+                        relative[record.id]
+                        if relative is not None and record.id in relative
                         else call.bearing_azimuth_deg_from_north
                     )
                     if bearing is None or call.is_indefinite:
@@ -153,6 +158,20 @@ def _geometry(
                     primitive = PlotPrimitive(
                         kind="line", **source, start=current, end=end, length_ft=call.distance_ft
                     )
+                if require_representable:
+                    expected = primitive.length_ft
+                    if primitive.kind == "arc":
+                        assert primitive.radius_ft is not None and primitive.sweep_deg is not None
+                        expected = (
+                            2
+                            * primitive.radius_ft
+                            * abs(math.sin(math.radians(primitive.sweep_deg) / 2))
+                        )
+                    actual = math.hypot(
+                        primitive.end[0] - current[0], primitive.end[1] - current[1]
+                    )
+                    if abs(actual - expected) > min(1e-6, primitive.length_ft * 1e-6):
+                        raise ValueError("plot coordinates lose displacement precision")
                 primitives.append(primitive)
                 current = primitive.end
             except (ValueError, OverflowError) as exc:
@@ -163,16 +182,16 @@ def _geometry(
     complete = bool(primitives) and not unresolved
     content = {
         "builder_version": PLOT_BUILDER_VERSION,
-        "calculation": spec.model_dump(mode="json"),
-        "calls": [r.model_dump(mode="json") for r in records],
+        "calculation": calculation_data,
+        "calls": record_data,
         "primitives": [p.model_dump(mode="json") for p in primitives],
         "unresolved": [u.model_dump(mode="json") for u in unresolved],
     }
     return PlotGeometry(
-        id=spec.id,
-        calculation_id=spec.id,
-        occurrence_id=spec.occurrence_id,
-        frame_id=f"{spec.id}:native",
+        id=calculation_id,
+        calculation_id=calculation_id,
+        occurrence_id=occurrence_id,
+        frame_id=f"{calculation_id}:native",
         geometry_hash=_hash(content),
         primitives=tuple(primitives),
         unresolved=tuple(unresolved),
@@ -182,9 +201,92 @@ def _geometry(
         misclosure_ft=math.hypot(current[0] - origin[0], current[1] - origin[1])
         if complete
         else None,
-        area_sq_ft=result.area_sq_ft if complete and result else None,
+        area_sq_ft=(_analytic_area(tuple(primitives), origin) if analytic_area else area_sq_ft)
+        if complete
+        else None,
         perimeter_ft=sum(p.length_ft for p in primitives) if complete else None,
     )
+
+
+def _analytic_area(primitives: tuple[PlotPrimitive, ...], origin: XY) -> float:
+    # Translate before products; include the implicit final-to-origin segment.
+    signed = 0.0
+    for primitive in primitives:
+        ax, ay = primitive.start[0] - origin[0], primitive.start[1] - origin[1]
+        bx, by = primitive.end[0] - origin[0], primitive.end[1] - origin[1]
+        signed += (ax * by - ay * bx) / 2
+        if primitive.kind == "arc":
+            assert primitive.radius_ft is not None and primitive.sweep_deg is not None
+            theta = math.radians(primitive.sweep_deg)
+            sign = 1 if primitive.curve_dir == "left" else -1
+            signed += sign * primitive.radius_ft**2 * (theta - math.sin(theta)) / 2
+    if not math.isfinite(signed):
+        raise ValueError("nonfinite plot area arithmetic")
+    return abs(signed)
+
+
+def _geometry(
+    bundle: DashboardBundle, spec: DashboardCalculation, result: DashboardResult | None
+) -> PlotGeometry:
+    records = tuple(c for c in bundle.calls if c.occurrence_id == spec.occurrence_id)
+    return _build_geometry(
+        tuple(
+            PlotCall(id=r.id, call=r.call, occurrence_id=r.occurrence_id, page_id=r.page_id)
+            for r in records
+        ),
+        calculation_id=spec.id,
+        occurrence_id=spec.occurrence_id,
+        calculation_data=spec.model_dump(mode="json"),
+        record_data=[r.model_dump(mode="json") for r in records],
+        origin=spec.relative.frame.origin if spec.relative is not None else (0.0, 0.0),
+        relative=(
+            {c.call_id: c.local_azimuth_deg for c in result.courses}
+            if result and result.geometry_status == "analyzed"
+            else {}
+        )
+        if spec.method == "relative"
+        else None,
+        area_sq_ft=result.area_sq_ft if result else None,
+    )
+
+
+def prepare_plot(request: PlotRequest) -> PreparedPlot:
+    """Revalidate supplied calls and derive advisory local geometry, with no source claims."""
+    from .relative import analyze_relative
+
+    request = PlotRequest.model_validate(request.model_dump(mode="json"))
+    relative = None
+    if request.relative is not None:
+        result = analyze_relative(request.relative)
+        headings = {c.course_id: c.local_azimuth_deg for c in result.courses}
+        relative = {
+            record.id: headings[course.course_id]
+            for record, course in zip(request.calls, request.relative.courses, strict=True)
+            if result.status == "analyzed" and course.course_id in headings
+        }
+    geometry = _build_geometry(
+        request.calls,
+        calculation_id=request.calculation_id,
+        occurrence_id=None,
+        calculation_data=request.model_dump(mode="json", exclude={"calls", "title"}),
+        record_data=[r.model_dump(mode="json") for r in request.calls],
+        origin=request.relative.frame.origin if request.relative is not None else (0.0, 0.0),
+        relative=relative,
+        analytic_area=True,
+        require_representable=True,
+    )
+    return PreparedPlot(
+        request=request, geometry=geometry, input_hash=_hash(request.model_dump(mode="json"))
+    )
+
+
+def validate_prepared_plot(prepared: PreparedPlot) -> PreparedPlot:
+    """Reject stale or forged cached geometry before rendering or sharing it."""
+    validated = PreparedPlot.model_validate(prepared.model_dump(mode="json"))
+    fresh = prepare_plot(validated.request)
+    if validated != fresh:
+        raise ValueError("Prepared plot does not match freshly calculated input geometry")
+    return fresh
 
 
 def build_dashboard_plots(

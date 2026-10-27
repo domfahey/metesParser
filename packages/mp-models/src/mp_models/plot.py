@@ -224,8 +224,8 @@ class PlotView(_Model):
 class PlotPrimitive(_Model):
     kind: Literal["line", "arc"]
     call_id: Identifier
-    occurrence_id: Identifier
-    page_id: Identifier
+    occurrence_id: Identifier | None = None
+    page_id: Identifier | None = None
     start: XY
     end: XY
     length_ft: Annotated[FiniteFloat, Field(gt=0)]
@@ -259,7 +259,7 @@ class PlotUnresolved(_Model):
 class PlotGeometry(_Model):
     id: Identifier
     calculation_id: Identifier
-    occurrence_id: Identifier
+    occurrence_id: Identifier | None = None
     frame_id: Identifier
     geometry_hash: Digest
     primitives: tuple[PlotPrimitive, ...] = ()

@@ -29,6 +29,8 @@ from mp_models.plot import (
 from mp_models.raster import RasterLayer
 from mp_verify.dashboard import validate_prepared_dashboard
 
+from .plot_svg import fitted_viewbox, primitive_svg_path
+
 _ASSETS = Path(__file__).with_name("dashboard_assets")
 
 
@@ -41,6 +43,7 @@ def renderer_fingerprint() -> str:
     digest = hashlib.sha256()
     for name, path in (
         ("dashboard_html.py", Path(__file__)),
+        ("plot_svg.py", Path(__file__).with_name("plot_svg.py")),
         ("dashboard.css", _ASSETS / "dashboard.css"),
         ("dashboard.js", _ASSETS / "dashboard.js"),
     ):
@@ -297,7 +300,7 @@ def _raster_svg(layer: RasterLayer) -> str:
 
 def _plot_views(prepared: PreparedDashboard) -> str:
     """Render analytic source primitives before browser enhancement."""
-    from mp_verify.plot import arc_point, transform_point
+    from mp_verify.plot import transform_point
 
     bundle = prepared.bundle
     plots = prepared.plots
@@ -356,26 +359,8 @@ def _plot_views(prepared: PreparedDashboard) -> str:
         courses = []
         for primitive in geometry.primitives:
             start, end = point(primitive.start), point(primitive.end)
-            bounds.extend((start, end))
-            d = f"M {start[0]:.17g} {-start[1]:.17g} "
-            if primitive.kind == "arc":
-                assert primitive.center is not None and primitive.sweep_deg is not None
-                center = point(primitive.center)
-                radius = math.hypot(start[0] - center[0], start[1] - center[1])
-                bounds.extend(
-                    (
-                        (center[0] - radius, center[1] - radius),
-                        (center[0] + radius, center[1] + radius),
-                    )
-                )
-                if primitive.sweep_deg == 360:
-                    middle = point(arc_point(primitive, 0.5))
-                    d += f"A {radius:.17g} {radius:.17g} 0 0 {int(primitive.curve_dir == 'right')} {middle[0]:.17g} {-middle[1]:.17g} "
-                    d += f"A {radius:.17g} {radius:.17g} 0 0 {int(primitive.curve_dir == 'right')} {end[0]:.17g} {-end[1]:.17g}"
-                else:
-                    d += f"A {radius:.17g} {radius:.17g} 0 {int(primitive.sweep_deg > 180)} {int(primitive.curve_dir == 'right')} {end[0]:.17g} {-end[1]:.17g}"
-            else:
-                d += f"L {end[0]:.17g} {-end[1]:.17g}"
+            d, primitive_bounds = primitive_svg_path(primitive, point)
+            bounds.extend(primitive_bounds)
             item = next(c for c in bundle.calls if c.id == primitive.call_id)
             label = item.call.course if item.call else item.id
             details = (
@@ -409,15 +394,7 @@ def _plot_views(prepared: PreparedDashboard) -> str:
             layers.append(
                 f'<g style="opacity:{layer_opacity}" data-map-layer="{_escape(vector.id)}"><path d="{" ".join(layer_paths)}" fill-rule="evenodd" class="map-polygon"/></g>'
             )
-        if not bounds:
-            bounds = [(0, 0), (100, 100)]
-        min_x, max_x = min(p[0] for p in bounds), max(p[0] for p in bounds)
-        min_y, max_y = min(p[1] for p in bounds), max(p[1] for p in bounds)
-        width, height = max(max_x - min_x, 1), max(max_y - min_y, 1)
-        pad = max(width, height) * 0.14
-        box = (
-            f"{min_x - pad:.17g} {-max_y - pad:.17g} {width + 2 * pad:.17g} {height + 2 * pad:.17g}"
-        )
+        box, width, height = fitted_viewbox(bounds)
         fit_box = box
         if bundle.plot_view and bundle.plot_view.viewport:
             left, bottom, view_width, view_height = bundle.plot_view.viewport

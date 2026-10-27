@@ -204,6 +204,8 @@ Found by running all 6 sample deeds and comparing extraction output against grou
 
 ## Dashboard Skill and Metes & Bounds Checking Improvements (2026-10-26)
 
+Skill composability refactor implemented 2026-10-27: five focused capabilities (conversion, selection, verification, plotting, overlay preparation), two composing workflows (review, dashboard), and the deed-review compatibility alias. Standalone plotting reuses the shared geometry/SVG engine; explicit artifact contracts preserve source identity, unresolved values, and separate verification status. [Design and validation evidence](plans/2026-10-27-composable-skills-refactor.md). Native Claude/Cowork behavior remains part of item 6.
+
 Plot and optional tax-map overlays implemented 2026-10-27: source-linked line/arc/partial plotting, explicit rigid placement, supplied vector layers, GeoJSON import, scanned-map calibration and optional exact-identifier NJGIN retrieval. [Plan](plans/2026-10-26-deed-plot-and-tax-overlay-plan.md) · [red–green and release evidence](plans/2026-10-27-deed-plot-implementation.md). Validation: 1,495 root tests, 829 package/plugin tests, 10 actual browser cases, both locked plugin runtime variants and live retrieval/offline replay passed. This supplies alignment prerequisites for item 5; structural boundary matching and item 6's native-reading/Claude/Cowork acceptance remain open.
 
 Recommended sequence: first complete item 1, the data-schema portion of item 2, and a small fixture suite from item 6. Then build the reusable renderer and angle-analysis module against those contracts. Add diagnostics and cross-description comparison afterward. Keep package and backward-compatible monolith behavior in sync, and preserve the existing verified-export gate.
