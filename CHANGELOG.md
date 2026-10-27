@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Standalone `metes-review plot` with strict call/relative JSON and CSV inputs, preserved source bytes, reusable plot inputs, deterministic geometry, and offline HTML; plotting never grants verified-export status.
+- Composable plotting and parcel-overlay skills, shared artifact handoff/invalidation guidance, and focused review/dashboard workflows that reuse valid upstream work.
 - Source-linked dashboard plots with analytic arcs, honest partial boundaries, closure detail, zoom/pan and frozen advisory scenario placement; version 1.1 preserves v1.0 compatibility.
 - Optional projected vector overlays, explicit named-point residuals, GeoJSON reprojection and scanned-map affine calibration with retained source bytes and independent provenance/stage hashes.
 - `metes-review import-overlay`, `register-raster` and exact-identifier NJGIN `fetch-parcel`; optional geo runtime, offline plugin/browser verification and focused skill guidance.

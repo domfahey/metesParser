@@ -7,7 +7,9 @@ from .plot import (
     build_dashboard_plots,
     compare_points,
     derive_scenario_placement,
+    prepare_plot,
     transform_point,
+    validate_prepared_plot,
 )
 from .relative import analyze_relative
 
@@ -20,6 +22,8 @@ __all__ = [
     "compare_points",
     "derive_scenario_placement",
     "transform_point",
+    "prepare_plot",
+    "validate_prepared_plot",
     "calculate_confidence_score",
     "get_closure_summary",
     "score_call_quality",

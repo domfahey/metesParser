@@ -47,6 +47,7 @@ from .plot import (
     PointCorrespondence,
     VectorLayer,
 )
+from .plot_request import PlotCall, PlotRequest, PreparedPlot
 from .raster import RasterControl, RasterLayer, RasterRegistration, RasterResidual
 from .relative import (
     LocalFrame,
@@ -82,6 +83,9 @@ __all__ = [
     "PlotComparison",
     "PlotComparisonSpec",
     "PlotGeometry",
+    "PlotCall",
+    "PlotRequest",
+    "PreparedPlot",
     "PlotPlacement",
     "PlotPrimitive",
     "PlotScene",

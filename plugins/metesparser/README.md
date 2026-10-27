@@ -11,7 +11,11 @@ See the [usage guide](references/usage.md) for input routing, examples, artifact
 - `extract-metes-and-bounds`: locate and preserve the complete description with its source references.
 - `review-deed`: route deed-specific requests through the shared review workflow.
 - `verify-traverse`: check an existing CSV or JSON traverse.
-- `deed-closure-dashboard`: prepare a source-grounded, interactive closure review dashboard from a deed packet.
+- `plot-metes-and-bounds`: create a standalone plot from identified structured boundary calls.
+- `prepare-parcel-overlay`: prepare supplied vector or raster map evidence for later use.
+- `deed-closure-dashboard`: prepare a source-grounded, interactive closure review dashboard when explicitly requested.
+
+Capability skills stop at their requested deliverable. Transcription returns text and acquisition records; extraction returns the selected description and selection records; verification returns review artifacts; plotting returns plot artifacts; overlay preparation returns layer/provenance artifacts. They do not automatically continue into another stage. See [artifact handoffs](references/artifact-handoffs.md) for accepted inputs, status boundaries, artifact reuse, and invalidation.
 
 The dashboard workflow keeps Claude's native page reading and description selection separate from deterministic rendering. After preparing a reviewed version 1.0 JSON bundle, run:
 
@@ -19,7 +23,9 @@ The dashboard workflow keeps Claude's native page reading and description select
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard bundle.json --output-dir dashboard-new --cache-dir dashboard-cache
 ```
 
-The `metes-review dashboard` package command accepts the same options. Valid input returns `needs_review` (exit 1) and writes `source.json`, `dashboard.html`, `source-review.json`, `calculations.json`, `stage-manifest.json`, and `render-manifest.json`. It does not read PDFs, create a host review log, publish/share output, or write verified CSV. See the [dashboard bundle reference](skills/deed-closure-dashboard/references/dashboard-bundle.md) for status and cache semantics; shared parcel alignment and comparison remain outside the current renderer.
+The `metes-review dashboard` package command accepts the same options. Valid input returns `needs_review` (exit 1) and writes `source.json`, `dashboard.html`, `source-review.json`, `calculations.json`, `stage-manifest.json`, and `render-manifest.json`. It does not read PDFs, create a host review log, publish/share output, or write verified CSV. Explicit placements and named-point residual comparisons are supported; automatic matching and inferred alignment are not. See the [dashboard bundle reference](skills/deed-closure-dashboard/references/dashboard-bundle.md) for status and cache semantics.
+
+Standalone plots use `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" plot INPUT --output-dir NEW_DIR --input-format auto`. Accepted formats are `auto`, `calls`, `relative`, and `plot`; supported payloads include strict CSV, calls-list/LegalDescription JSON, RelativeDescription JSON, and PlotRequest JSON. Output includes an exact-byte source copy (`source.csv` or `source.json`), `plot-input.json`, `plot-geometry.json`, `plot.html`, and `plot-manifest.json`. Its top-level status is `needs_review`; plotting does not verify a traverse or create a verified CSV.
 
 The review and verification skills use `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py"`; the launcher starts the locked runtime using `uv` and prints the engine's JSON result. Runtime environments and package cache are stored under the user's cache directory, keyed by the bundled engine fingerprint, so the plugin directory can remain read-only. Using the `python3` prefix avoids depending on executable mode preservation when the plugin is packaged.
 
