@@ -247,6 +247,11 @@ test-fast: ## Run tests with fail-fast behavior.
 	$(UV_RUN) pytest -x --maxfail=1
 	@echo "✓ Fast tests complete"
 
+.PHONY: test-dashboard-browser
+test-dashboard-browser: ## Require Chromium/Node and run offline dashboard browser regressions.
+	$(UV_RUN) --extra browser-test python scripts/check_dashboard_browser.py
+	METESPARSER_BROWSER_TESTS=1 $(UV_RUN) --extra browser-test pytest tests/browser --no-cov --import-mode=importlib
+
 test-cov: ## Run tests with HTML and terminal coverage reports.
 	@echo "Running tests with coverage..."
 	$(UV_RUN) pytest --cov=$(PY_SRC) --cov-report=html --cov-report=term-missing

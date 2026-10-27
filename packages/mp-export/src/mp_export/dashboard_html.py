@@ -11,10 +11,22 @@ import hashlib
 import html
 import io
 import json
+import math
 from pathlib import Path
+from typing import cast
 
 from mp_models.closure import CheckResult
 from mp_models.dashboard import DashboardBundle, PreparedDashboard
+from mp_models.plot import (
+    XY,
+    LinearUnit,
+    MultiPolygon,
+    PlotPlacement,
+    PlotScene,
+    Polygon,
+    VectorLayer,
+)
+from mp_models.raster import RasterLayer
 from mp_verify.dashboard import validate_prepared_dashboard
 
 _ASSETS = Path(__file__).with_name("dashboard_assets")
@@ -216,7 +228,7 @@ def _records(bundle: DashboardBundle) -> str:
                 continue
             call = item.call
             parts.append(
-                f'<tr class="{"uncertain" if item.reading_status != "certain" else ""}"><td>{_escape(call.course if call else item.id)}</td><td>{_escape(call.direction_text if call else "Unknown")}<br>{_escape(item.quote)}</td><td>{_escape(item.stated_angle_text or "Not stated")}<br>{_escape(item.stated_angle_type or "Unknown")}</td><td>{_escape(item.distance_text or "Not transcribed separately")}<br>{_escape(_number(call.distance_ft if call else None))}</td><td>{_escape(call.along if call else "")}<br>{_escape(call.to if call else "")}</td><td>{_escape(item.reading_status)} · {_escape(item.reading_note)}<br>{_page_button(bundle, item.page_id)}</td></tr>'
+                f'<tr data-call-row="{_escape(item.id)}" class="{"uncertain" if item.reading_status != "certain" else ""}"><td><button type="button" data-source-call="{_escape(item.id)}">{_escape(call.course if call else item.id)}</button></td><td>{_escape(call.direction_text if call else "Unknown")}<br>{_escape(item.quote)}</td><td>{_escape(item.stated_angle_text or "Not stated")}<br>{_escape(item.stated_angle_type or "Unknown")}</td><td>{_escape(item.distance_text or "Not transcribed separately")}<br>{_escape(_number(call.distance_ft if call else None))}</td><td>{_escape(call.along if call else "")}<br>{_escape(call.to if call else "")}</td><td>{_escape(item.reading_status)} · {_escape(item.reading_note)}<br>{_page_button(bundle, item.page_id)}</td></tr>'
             )
         parts.append(
             f'</tbody></table></div><div><pre id="{csv_id}" hidden>{_escape(_courses_csv(bundle, occurrence.id))}</pre>{_copy_button(csv_id, "Copy review courses as CSV")}</div></details>'
@@ -250,6 +262,255 @@ def _sources(bundle: DashboardBundle) -> str:
                 f'<div class="card {"uncertain" if description_page else ""}">{image}<p>{_escape(page.label or page.id)} · page {page.number}</p><p>{_escape(page.reading_status)} · {_escape(page.notes)}</p>{_page_button(bundle, page.id)}</div>'
             )
         parts.append("</div></article>")
+    return "".join(parts)
+
+
+def _layer_polygons(layer: VectorLayer) -> MultiPolygon:
+    return (
+        (cast(Polygon, layer.coordinates),)
+        if layer.geometry_type == "Polygon"
+        else cast(MultiPolygon, layer.coordinates)
+    )
+
+
+def _raster_corners(layer: RasterLayer) -> list[XY]:
+    a, b, c, d, e, f = layer.registration.matrix
+    corners = [
+        (a * u + b * v + c, d * u + e * v + f)
+        for u, v in (
+            (-0.5, -0.5),
+            (layer.width - 0.5, -0.5),
+            (layer.width - 0.5, layer.height - 0.5),
+            (-0.5, layer.height - 0.5),
+        )
+    ]
+    if not all(math.isfinite(value) for point in corners for value in point):
+        raise ValueError("Raster registration exceeds finite scene range")
+    return corners
+
+
+def _raster_svg(layer: RasterLayer) -> str:
+    a, b, c, d, e, f = layer.registration.matrix
+    matrix = " ".join(f"{value:.17g}" for value in (a, d, b, e, c, f))
+    return f'<g transform="scale(1 -1)"><image data-raster-layer="{_escape(layer.id)}" x="-0.5" y="-0.5" width="{layer.width}" height="{layer.height}" transform="matrix({matrix})" href="data:{layer.mime_type};base64,{_escape(layer.data_base64)}" preserveAspectRatio="none"><title>{_escape(layer.label)}</title></image></g>'
+
+
+def _plot_views(prepared: PreparedDashboard) -> str:
+    """Render analytic source primitives before browser enhancement."""
+    from mp_verify.plot import arc_point, transform_point
+
+    bundle = prepared.bundle
+    plots = prepared.plots
+    if plots is None:
+        return '<p class="warning">Plot geometry is unavailable.</p>'
+    parts = [
+        '<p class="plot-legend">Solid teal: recorded boundary · dashed orange: advisory scenario · dashed red: closure gap · shaded blue: supplied map context.</p><div class="controls plot-toolbar" aria-label="Plot controls">'
+        '<button type="button" id="plot-zoom-in">Zoom in</button>'
+        '<button type="button" id="plot-zoom-out">Zoom out</button>'
+        '<button type="button" id="plot-fit">Fit</button>'
+        '<button type="button" id="plot-reset">Reset view</button>'
+        '<label><input id="plot-labels" type="checkbox" checked> Course labels</label>'
+        '<label><input id="plot-bearings" type="checkbox"> Bearings</label>'
+        '<label><input id="plot-distances" type="checkbox"> Distances</label>'
+        "</div>"
+    ]
+    if not bundle.vector_layers and not bundle.raster_layers:
+        parts.append(
+            '<p class="muted">No supplied map layers. Deed geometry uses its native local frame.</p>'
+        )
+    for index, geometry in enumerate(plots.geometries):
+        calculation = next(c for c in bundle.calculations if c.id == geometry.calculation_id)
+        placement = next(
+            (
+                p
+                for p in plots.placements
+                if p.calculation_id == geometry.calculation_id and p.status != "unplaced"
+            ),
+            None,
+        )
+        scene = next((s for s in bundle.scenes if placement and s.id == placement.scene_id), None)
+        units = scene.units if scene else "ft"
+        north_label = (
+            f"↑ {scene.basis.capitalize()} north · documented scene basis"
+            if scene and scene.basis in {"grid", "true", "magnetic"}
+            else "↑ Local +Y · Recorded bearings do not establish geographic north."
+        )
+        opacity = dict(bundle.plot_view.opacity) if bundle.plot_view else {}
+        native_units = calculation.frame.foot_definition
+
+        def point(
+            value: XY,
+            placement: PlotPlacement | None = placement,
+            native_units: LinearUnit = native_units,
+            scene: PlotScene | None = scene,
+        ) -> XY:
+            return (
+                transform_point(
+                    value, placement, native_units=native_units, scene_units=scene.units
+                )
+                if placement and scene
+                else value
+            )
+
+        bounds: list[XY] = []
+        courses = []
+        for primitive in geometry.primitives:
+            start, end = point(primitive.start), point(primitive.end)
+            bounds.extend((start, end))
+            d = f"M {start[0]:.17g} {-start[1]:.17g} "
+            if primitive.kind == "arc":
+                assert primitive.center is not None and primitive.sweep_deg is not None
+                center = point(primitive.center)
+                radius = math.hypot(start[0] - center[0], start[1] - center[1])
+                bounds.extend(
+                    (
+                        (center[0] - radius, center[1] - radius),
+                        (center[0] + radius, center[1] + radius),
+                    )
+                )
+                if primitive.sweep_deg == 360:
+                    middle = point(arc_point(primitive, 0.5))
+                    d += f"A {radius:.17g} {radius:.17g} 0 0 {int(primitive.curve_dir == 'right')} {middle[0]:.17g} {-middle[1]:.17g} "
+                    d += f"A {radius:.17g} {radius:.17g} 0 0 {int(primitive.curve_dir == 'right')} {end[0]:.17g} {-end[1]:.17g}"
+                else:
+                    d += f"A {radius:.17g} {radius:.17g} 0 {int(primitive.sweep_deg > 180)} {int(primitive.curve_dir == 'right')} {end[0]:.17g} {-end[1]:.17g}"
+            else:
+                d += f"L {end[0]:.17g} {-end[1]:.17g}"
+            item = next(c for c in bundle.calls if c.id == primitive.call_id)
+            label = item.call.course if item.call else item.id
+            details = (
+                f"{item.call.bearing_quadrant or (item.call.bearing_azimuth_deg_from_north if item.call.bearing_azimuth_deg_from_north is not None else 'unknown')}°"
+                if item.call
+                else "Unresolved"
+            )
+            courses.append(
+                f'<path data-plot-call="{_escape(item.id)}" d="{d}" class="record-course" marker-end="url(#course-arrow-{_escape(geometry.calculation_id)})" tabindex="0" role="button" aria-label="Course {_escape(label)}: {_escape(item.quote)}"><title>{_escape(item.quote)}</title></path><text class="course-label" x="{start[0]:.17g}" y="{-start[1]:.17g}" data-source-call="{_escape(item.id)}" role="button" tabindex="0">{_escape(label)}</text><text class="bearing-label" x="{(start[0] + end[0]) / 2:.17g}" y="{-(start[1] + end[1]) / 2:.17g}">{_escape(details)}</text><text class="distance-label" x="{(start[0] + end[0]) / 2:.17g}" y="{-(start[1] + end[1]) / 2:.17g}" dy="1.2em">{primitive.length_ft:.3f} ft</text>'
+            )
+        layers = []
+        for raster in bundle.raster_layers:
+            if not scene or raster.scene_id != scene.id:
+                continue
+            bounds.extend(_raster_corners(raster))
+            layers.append(
+                f'<g style="opacity:{opacity.get(raster.id, 0.45)}" data-map-layer="{_escape(raster.id)}">{_raster_svg(raster)}</g>'
+            )
+        for vector in bundle.vector_layers:
+            if not scene or vector.scene_id != scene.id:
+                continue
+            polygons = _layer_polygons(vector)
+            layer_paths = []
+            for polygon in polygons:
+                for ring in polygon:
+                    bounds.extend(ring)
+                    layer_paths.append(
+                        "M " + " L ".join(f"{p[0]:.17g} {-p[1]:.17g}" for p in ring) + " Z"
+                    )
+            layer_opacity = opacity.get(vector.id, 0.45)
+            layers.append(
+                f'<g style="opacity:{layer_opacity}" data-map-layer="{_escape(vector.id)}"><path d="{" ".join(layer_paths)}" fill-rule="evenodd" class="map-polygon"/></g>'
+            )
+        if not bounds:
+            bounds = [(0, 0), (100, 100)]
+        min_x, max_x = min(p[0] for p in bounds), max(p[0] for p in bounds)
+        min_y, max_y = min(p[1] for p in bounds), max(p[1] for p in bounds)
+        width, height = max(max_x - min_x, 1), max(max_y - min_y, 1)
+        pad = max(width, height) * 0.14
+        box = (
+            f"{min_x - pad:.17g} {-max_y - pad:.17g} {width + 2 * pad:.17g} {height + 2 * pad:.17g}"
+        )
+        fit_box = box
+        if bundle.plot_view and bundle.plot_view.viewport:
+            left, bottom, view_width, view_height = bundle.plot_view.viewport
+            box = f"{left:.17g} {-bottom - view_height:.17g} {view_width:.17g} {view_height:.17g}"
+        gap = ""
+        gap_detail = ""
+        if geometry.completeness == "complete" and geometry.primitives:
+            first, last = point(geometry.primitives[0].start), point(geometry.primitives[-1].end)
+            gap = f'<line class="plot-gap" x1="{last[0]:.17g}" y1="{-last[1]:.17g}" x2="{first[0]:.17g}" y2="{-first[1]:.17g}"/>'
+            margin = max(math.dist(first, last), 0.01)
+            gap_box = f"{min(first[0], last[0]) - margin} {-max(first[1], last[1]) - margin} {abs(first[0] - last[0]) + 2 * margin} {abs(first[1] - last[1]) + 2 * margin}"
+            gap_detail = f'<svg class="plot gap-magnifier" viewBox="{gap_box}" aria-label="Magnified endpoint to POB gap">{gap}<circle cx="{first[0]}" cy="{-first[1]}" r="{margin * 0.04}"/><circle cx="{last[0]}" cy="{-last[1]}" r="{margin * 0.04}"/></svg><p>Scene gap vector: ΔX {last[0] - first[0]:.6f}; ΔY {last[1] - first[1]:.6f} {_escape(units)}. Magnified view has its own scale.</p>'
+        pob = ""
+        if geometry.primitives:
+            origin = point(geometry.primitives[0].start)
+            pob = f'<circle class="pob-marker" cx="{origin[0]:.17g}" cy="{-origin[1]:.17g}" r="{max(width, height) * 0.006}"/><text class="pob-label" x="{origin[0]:.17g}" y="{-origin[1]:.17g}" dy="1.5em">POB</text>'
+        scenario_id = 'id="scenario-plot-layer"' if index == 0 else ""
+        parts.append(
+            f'<article class="record-plot-panel" data-plot-panel="{_escape(geometry.calculation_id)}"><h3>Recorded boundary · {_escape(geometry.occurrence_id)}</h3><p>{_escape(geometry.completeness)} · {_escape(placement.status if placement else "unplaced; native deed frame")}</p><svg class="plot record-plot" data-baseline-plot="{_escape(geometry.calculation_id)}" data-initial-viewbox="{box}" data-fit-viewbox="{fit_box}" data-units="{_escape(units)}" viewBox="{box}" role="group" aria-label="Recorded boundary; source-linked courses, separate closure gap"><defs><marker id="course-arrow-{_escape(geometry.calculation_id)}" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="{max(width, height) * 0.025}" markerHeight="{max(width, height) * 0.025}" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10" fill="none" stroke="currentColor"/></marker></defs><g class="map-layers">{"".join(layers)}</g><g data-baseline-layer="{_escape(geometry.calculation_id)}">{"".join(courses)}{gap}{pob}</g><g data-scenario-layer="{_escape(geometry.calculation_id)}" {scenario_id}></g></svg><p class="plot-axis">{_escape(north_label)}</p><p class="plot-scale" aria-live="polite"></p><details id="{"plot-gap-detail" if index == 0 else "plot-gap-" + str(index)}"><summary>Closure gap detail</summary><p>Record gap: {_number(geometry.misclosure_ft)} ft. Dashed annotation is endpoint to POB; it is not a recorded course. A partial boundary has no full-parcel gap or area.</p>{gap_detail}</details><ul class="plot-notices">'
+        )
+        if placement:
+            parts.append(
+                f"<li>Placement {_escape(placement.id)}: clockwise {placement.rotation_deg:g}°; translation {_escape(placement.translation)} {_escape(units)}. {_escape(placement.rationale)} Geometry SHA-256: {_escape(geometry.geometry_hash)}. Position evidence: {_escape(placement.position_evidence or 'unavailable')}; orientation evidence: {_escape(placement.orientation_evidence or 'unavailable')}.</li>"
+            )
+        parts.extend(
+            f'<li data-unresolved-call="{_escape(u.call_id)}">{_escape(u.call_id)}: {_escape(u.reason)}</li>'
+            for u in geometry.unresolved
+        )
+        parts.extend(f"<li>{_escape(reason)}</li>" for reason in geometry.reasons)
+        parts.append(
+            '</ul><p class="muted">Drag to pan. Arrow keys pan; + / − zoom. Scenario uses the unchanged baseline placement; view controls change only the viewport.</p></article>'
+        )
+    parts.append(
+        '<details class="map-provenance"><summary>Map layers and provenance</summary><p>Tax parcels are assessment/context evidence; visual fit does not establish a survey or legal boundary.</p>'
+    )
+    map_layers: tuple[VectorLayer | RasterLayer, ...] = (
+        *bundle.vector_layers,
+        *bundle.raster_layers,
+    )
+    for layer in map_layers:
+        source = next(s for s in bundle.map_sources if s.id == layer.source_id)
+        aligned = any(
+            p.status != "unplaced" and p.scene_id == layer.scene_id for p in plots.placements
+        )
+        source_scene = next(scene for scene in bundle.scenes if scene.id == layer.scene_id)
+        parts.append(
+            f"<p>Scene {_escape(source_scene.name)} · {_escape(source_scene.units)} · {_escape(source_scene.crs or 'local; no CRS')} · axes {_escape(source_scene.axis_order)}. Retrieved: {_escape(source.retrieved_at or 'unknown')}; source date: {_escape(source.source_date or 'unknown')}.</p>"
+        )
+        parts.append(
+            f'<div class="map-layer-control"><label><input type="checkbox" data-layer-toggle="{_escape(layer.id)}" checked> {_escape(layer.label)}</label><label>Opacity <input type="range" min="0" max="1" step="0.05" value="0.45" data-layer-opacity="{_escape(layer.id)}"></label><p>{"Placed in declared scene" if aligned else "Unplaced — separate map evidence; not overlaid with the deed"}</p><pre>{_escape(source.model_dump_json(indent=2))}</pre></div>'
+        )
+        if isinstance(layer, RasterLayer):
+            registration = layer.registration
+            parts.append(
+                f"<p>Raster registration: {_escape(registration.status)} · {_escape(registration.pixel_convention)}. Fit RMS {_number(registration.fit_rms)}; Checkpoint RMS {_number(registration.checkpoint_rms)} {_escape(source_scene.units)}. Fit residuals are not independent survey accuracy.</p><pre>{_escape(registration.model_dump_json(indent=2))}</pre>"
+            )
+        if not aligned:
+            vertices = (
+                _raster_corners(layer)
+                if isinstance(layer, RasterLayer)
+                else [
+                    point
+                    for polygon in _layer_polygons(layer)
+                    for ring in polygon
+                    for point in ring
+                ]
+            )
+            x, y = min(p[0] for p in vertices), max(p[1] for p in vertices)
+            w, h = max(p[0] for p in vertices) - x, y - min(p[1] for p in vertices)
+            pad = max(w, h) * 0.1
+            independent_content = (
+                _raster_svg(layer)
+                if isinstance(layer, RasterLayer)
+                else '<path class="map-polygon" fill-rule="evenodd" d="'
+                + " ".join(
+                    "M " + " L ".join(f"{p[0]} {-p[1]}" for p in ring) + " Z"
+                    for polygon in _layer_polygons(layer)
+                    for ring in polygon
+                )
+                + '"/>'
+            )
+            parts.append(
+                f'<p class="warning">No supported common placement: map comparison is unavailable. Independent map frame below.</p><svg class="plot independent-map" aria-label="Independent map evidence, no deed alignment" viewBox="{x - pad} {-y - pad} {w + 2 * pad} {h + 2 * pad}"><g style="opacity:{dict(bundle.plot_view.opacity).get(layer.id, 0.45) if bundle.plot_view else 0.45}" data-map-layer="{_escape(layer.id)}">{independent_content}</g></svg>'
+            )
+    for comparison in plots.comparisons:
+        comparison_placement = next(p for p in plots.placements if p.id == comparison.placement_id)
+        comparison_scene = next(
+            scene for scene in bundle.scenes if scene.id == comparison_placement.scene_id
+        )
+        parts.append(
+            f"<p>Named-point comparison {_escape(comparison.comparison_id or comparison.placement_id)}: {_escape(comparison.status)} · {_escape(comparison_placement.status)} placement. RMS {_number(comparison.rms)} {_escape(comparison_scene.units)}; maximum {_number(comparison.maximum)} {_escape(comparison_scene.units)}. Displacement vectors below use {_escape(comparison_scene.units)}. {_escape(comparison.reason)} Fit residuals are separate from deed closure and are not survey accuracy.</p><pre>{_escape(comparison.model_dump_json(indent=2))}</pre>"
+        )
+    parts.append("</details>")
     return "".join(parts)
 
 
@@ -302,10 +563,10 @@ def render_dashboard(prepared: PreparedDashboard) -> str:
 <main><noscript><p class="warning">JavaScript is disabled. Record findings, transcripts and page images remain visible. Workbench and full-size viewer require JavaScript.</p></noscript>
 <section id="findings"><h2>1. Record findings</h2><p>Each occurrence retains its own source values. Findings and canonical engine status stay fixed during workbench edits. Geometric closure does not resolve an uncertain reading.</p><div class="cards">{_findings(prepared)}</div></section>
 <section id="evidence"><h2>2. Record evidence</h2><div class="cards">{_evidence(bundle)}</div></section>
-<section id="workbench"><h2>3. Scenario workbench</h2><div class="panel"><div class="controls"><label>Parcel<select id="parcel-select"><option value="all">All parcels</option>{parcel_options}</select></label><label>Occurrence / calculation<select id="calculation-select"></select></label><label>Scenario<select id="scenario-select"></select></label><button type="button" id="reset-record">Reset to record</button></div><p id="scenario-rationale" class="muted"></p><p class="warning">Browser edits are hypothetical. They cannot verify a deed or authorize a verified export. Relative calculations permit distance edits; angular interpretations remain the explicit sourced constraints. Absolute bearings accept decimal azimuth or quadrant DMS. No bearings are inferred from direction words.</p><div class="work-grid"><svg id="plot" class="plot" viewBox="0 0 420 380" role="img" aria-label="Scenario traverse with numbered courses, POB and dashed closure gap"></svg><div><h3 id="scenario-status" role="status" aria-live="polite">Loading advisory scenario…</h3><div id="scenario-metrics" class="metrics"></div><p class="muted">Gap vector is endpoint minus POB in the declared frame. Area includes an implicit endpoint-to-start segment and is provisional for an open traverse.</p></div></div><div class="table-wrap" role="region" aria-label="Editable scenario call sheet" tabindex="0"><table><thead><tr><th>Course</th><th>Source quote / direction</th><th>Distance (ft)</th><th>Recorded azimuth (degrees) / basis</th><th>Stated angle</th><th>Derived heading</th><th>ΔX / ΔY (ft)</th></tr></thead><tbody id="call-body"></tbody></table></div><p class="muted">Amber fields differ from the selected record. Uncertain source readings retain their warning stripe. Direction-word agreement is not evaluated as a measured bearing.</p><details><summary>Closing angle and shared corners</summary><p>Stated closing angles remain in the sourced constraints and transcripts. The heading-based closing angle is derived; it is not a replacement reading. A missing closing angle leaves the stated angle sum unavailable.</p><div id="closing-angle-detail"></div><p>Shared-corner comparison is unavailable: this bundle does not declare a supported cross-parcel alignment. Independent arbitrary local frames are not overlaid or silently aligned.</p></details></div></section>
+<section id="workbench"><h2>3. Scenario workbench</h2><div class="panel"><div class="controls"><label>Parcel<select id="parcel-select"><option value="all">All parcels</option>{parcel_options}</select></label><label>Occurrence / calculation<select id="calculation-select"></select></label><label>Scenario<select id="scenario-select"></select></label><button type="button" id="reset-record">Reset to record</button></div><p id="scenario-rationale" class="muted"></p><p class="warning">Browser edits are hypothetical. They cannot verify a deed or authorize a verified export. Relative calculations permit distance edits; angular interpretations remain the explicit sourced constraints. Absolute bearings accept decimal azimuth or quadrant DMS. No bearings are inferred from direction words.</p>{_plot_views(prepared)}<div class="scenario-summary"><svg id="plot" hidden class="plot" viewBox="0 0 420 380" role="img" aria-label="Scenario traverse with numbered courses, POB and dashed closure gap"></svg><div><h3 id="scenario-status" role="status" aria-live="polite">Loading advisory scenario…</h3><div id="scenario-metrics" class="metrics"></div><p class="muted">Gap vector is endpoint minus POB in the declared frame. Area includes an implicit endpoint-to-start segment and is provisional for an open traverse.</p></div></div><div class="table-wrap" role="region" aria-label="Editable scenario call sheet" tabindex="0"><table><thead><tr><th>Course</th><th>Source quote / direction</th><th>Distance (ft)</th><th>Recorded azimuth (degrees) / basis</th><th>Stated angle</th><th>Derived heading</th><th>ΔX / ΔY (ft)</th></tr></thead><tbody id="call-body"></tbody></table></div><p class="muted">Amber fields differ from the selected record. Uncertain source readings retain their warning stripe. Direction-word agreement is not evaluated as a measured bearing.</p><details><summary>Closing angle and shared corners</summary><p>Stated closing angles remain in the sourced constraints and transcripts. The heading-based closing angle is derived; it is not a replacement reading. A missing closing angle leaves the stated angle sum unavailable.</p><div id="closing-angle-detail"></div><p>Explicit named-point overlay comparisons appear in map provenance when supplied with a compatible placement. Automated boundary matching and inferred cross-parcel alignment are unavailable. Independent arbitrary local frames are not overlaid or silently aligned.</p></details></div></section>
 <section id="records"><h2>4. Metes and bounds as recorded</h2><p>Untouched transcripts preserve the supplied wording and whitespace. Uncertain course readings are marked in the course tables; no alternate figure replaces the transcript.</p>{_records(bundle)}</section>
 <section id="sources"><h2>5. Source copies</h2><p>Every indexed page appears below, including unavailable images and unread pages. Description pages have an outlined edge. Missing expected pages are listed explicitly; completeness is a separate source-review claim.</p>{_sources(bundle)}</section>
-<section id="method"><h2>6. Method, limits, and sources</h2><div class="panel"><p>Bearings use degrees clockwise from North. Local-angle calculations use an explicitly declared arbitrary frame, interior/exterior angle convention, and orientation. Straight-course displacement is distance × sin(heading) in X and distance × cos(heading) in Y. The browser independently propagates explicit constraints, rejects unresolved or contradictory relations, and never adjusts values to close a boundary.</p><p>Browser support is limited to straight boundaries. Curves, exceptions, meanders, indefinite calls and non-tangent geometry require the canonical engine. Source uncertainty remains independent of geometric closure. Precision is perimeter divided by gap; an unavailable denominator is not proof of infinite precision for a nonzero gap. A matching angle sum does not prove the angles are correct.</p><p>Only the canonical verifier’s full checks and its &lt;0.01 ft threshold govern verified export. Browser scenarios have no verified-export control. This dashboard is not a survey, title opinion, or boundary certification. Image presence is not evidence that a person inspected the page. Review sensitive source pages before sharing.</p><ul>{methods}</ul><h3>Stage and source identities</h3><p>Source review: {"complete" if prepared.manifest.source_review_complete else "incomplete"} · calculator {_escape(prepared.manifest.calculator_version)} · schema {_escape(bundle.schema_version)}</p>{hashes}</div></section></main>
+<section id="method"><h2>6. Method, limits, and sources</h2><div class="panel"><p>Bearings use degrees clockwise from North. Local-angle calculations use an explicitly declared arbitrary frame, interior/exterior angle convention, and orientation. Straight-course displacement is distance × sin(heading) in X and distance × cos(heading) in Y. The browser independently propagates explicit constraints, rejects unresolved or contradictory relations, and never adjusts values to close a boundary.</p><p>The recorded baseline displays determined analytic lines and circular arcs, and preserves known prefixes before unresolved calls. Editable browser scenarios support complete straight boundaries only; curve editing is unavailable. Exceptions, meanders and indefinite connectivity remain explicit unresolved cases. Source uncertainty remains independent of geometric closure. Precision is perimeter divided by gap; an unavailable denominator is not proof of infinite precision for a nonzero gap. A matching angle sum does not prove the angles are correct.</p><p>Only the canonical verifier’s full checks and its &lt;0.01 ft threshold govern verified export. Browser scenarios have no verified-export control. This dashboard is not a survey, title opinion, or boundary certification. Image presence is not evidence that a person inspected the page. Review sensitive source pages before sharing.</p><ul>{methods}</ul><h3>Stage and source identities</h3><p>Source review: {"complete" if prepared.manifest.source_review_complete else "incomplete"} · calculator {_escape(prepared.manifest.calculator_version)} · schema {_escape(bundle.schema_version)}</p>{hashes}</div></section></main>
 <footer>Offline review artifact · self-contained assets · no external runtime or fonts</footer>
 <dialog id="source-viewer" aria-labelledby="viewer-label"><div class="viewer-toolbar"><strong id="viewer-label"></strong><button type="button" id="viewer-prev">Previous</button><button type="button" id="viewer-next">Next</button><a id="open-image" target="_blank" rel="noopener noreferrer">Open image</a><button type="button" id="viewer-close">Close</button></div><img id="viewer-image" alt=""><p id="viewer-missing" class="placeholder">This source page image is unavailable. Its ledger entry is preserved.</p><p class="muted">Use Left / Right arrow keys to change pages; Escape to close.</p></dialog>
 <script type="application/json" id="dashboard-data">{data}</script><script>{script}</script></body></html>"""

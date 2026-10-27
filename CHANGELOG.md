@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Source-linked dashboard plots with analytic arcs, honest partial boundaries, closure detail, zoom/pan and frozen advisory scenario placement; version 1.1 preserves v1.0 compatibility.
+- Optional projected vector overlays, explicit named-point residuals, GeoJSON reprojection and scanned-map affine calibration with retained source bytes and independent provenance/stage hashes.
+- `metes-review import-overlay`, `register-raster` and exact-identifier NJGIN `fetch-parcel`; optional geo runtime, offline plugin/browser verification and focused skill guidance.
 - Deterministic relative-angle models and analysis API, legacy facade, and `metes-review analyze-relative` command. Source-linked local geometry stays separate from canonical verification and verified CSV export.
 - Validated `mp_models.dashboard` source ledger, deterministic dashboard calculation stages, intact-stage cache reuse, and an offline `metes-review dashboard` renderer with isolated advisory scenarios.
 - Claude plugin `deed-closure-dashboard` bundle/playbook documentation and synthetic runnable example. Native reading remains separate; dashboards do not publish or write verified CSV.

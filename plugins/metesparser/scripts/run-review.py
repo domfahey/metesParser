@@ -68,10 +68,13 @@ def main(argv: list[str] | None = None) -> int:
         "verify",
         "analyze-relative",
         "dashboard",
+        "import-overlay",
+        "register-raster",
+        "fetch-parcel",
         "corpus",
     }:
         return emit_error(
-            "Usage: run-review.py {review|verify|analyze-relative|dashboard|corpus} INPUT [engine options]"
+            "Usage: run-review.py {review|verify|analyze-relative|dashboard|corpus|import-overlay|register-raster|fetch-parcel} [engine options]"
         )
     if not any(arg == "--settings" or arg.startswith("--settings=") for arg in args):
         args.extend(["--settings", str(Path.cwd() / ".claude" / "metesparser.local.md")])

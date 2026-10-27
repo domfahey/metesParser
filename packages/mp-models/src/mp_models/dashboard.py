@@ -4,13 +4,31 @@ import base64
 import binascii
 import hashlib
 import re
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self, cast
 
-from pydantic import ConfigDict, Field, FiniteFloat, field_validator, model_validator
+from pydantic import (
+    ConfigDict,
+    Field,
+    FiniteFloat,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from .base import _Model
 from .closure import CheckResult, Point
 from .deed_call import DeedCall
+from .plot import (
+    DashboardPlots,
+    MapSource,
+    PlotComparisonSpec,
+    PlotPlacement,
+    PlotScene,
+    PlotView,
+    VectorLayer,
+)
+from .raster import RasterLayer
 from .relative import RelativeDescription
 
 Identifier = Annotated[str, Field(pattern=r"^[A-Za-z][A-Za-z0-9_.:-]*$")]
@@ -152,6 +170,7 @@ class DashboardEvidence(_DashboardModel):
 
 
 class DashboardFrame(_DashboardModel):
+    foot_definition: Literal["international_ft", "us_survey_ft", "unknown_ft"] = "unknown_ft"
     units: Literal["ft"] = "ft"
     basis: Literal["recorded_bearings", "arbitrary_local"]
     name: str = Field(min_length=1)
@@ -215,7 +234,8 @@ class DashboardPresentation(_DashboardModel):
 
 
 class DashboardBundle(_DashboardModel):
-    schema_version: Literal["1.0"] = "1.0"
+    model_config = ConfigDict(revalidate_instances="never")
+    schema_version: Literal["1.0", "1.1"] = "1.0"
     title: str = Field(min_length=1)
     documents: tuple[DashboardDocument, ...] = Field(min_length=1)
     pages: tuple[DashboardPage, ...] = Field(min_length=1)
@@ -226,6 +246,46 @@ class DashboardBundle(_DashboardModel):
     calculations: tuple[DashboardCalculation, ...] = Field(min_length=1)
     scenarios: tuple[DashboardScenario, ...] = ()
     presentation: DashboardPresentation = Field(default_factory=DashboardPresentation)
+
+    scenes: tuple[PlotScene, ...] = ()
+    map_sources: tuple[MapSource, ...] = ()
+    vector_layers: tuple[VectorLayer, ...] = ()
+    raster_layers: tuple[RasterLayer, ...] = ()
+    placements: tuple[PlotPlacement, ...] = ()
+    comparison_specs: tuple[PlotComparisonSpec, ...] = ()
+    plot_view: PlotView | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _version_fields(cls, value: Any) -> Any:
+        if isinstance(value, dict) and value.get("schema_version", "1.0") == "1.0":
+            if set(value) & {
+                "scenes",
+                "map_sources",
+                "vector_layers",
+                "raster_layers",
+                "placements",
+                "comparison_specs",
+                "plot_view",
+            }:
+                raise ValueError("plot and overlay fields require schema_version 1.1")
+        return value
+
+    @model_serializer(mode="wrap")
+    def _legacy_serialization(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        data = cast(dict[str, Any], handler(self))
+        if self.schema_version == "1.0":
+            for key in (
+                "scenes",
+                "map_sources",
+                "vector_layers",
+                "raster_layers",
+                "placements",
+                "comparison_specs",
+                "plot_view",
+            ):
+                data.pop(key, None)
+        return data
 
     @model_validator(mode="after")
     def _references(self) -> Self:
@@ -238,6 +298,12 @@ class DashboardBundle(_DashboardModel):
             self.evidence,
             self.calculations,
             self.scenarios,
+            self.scenes,
+            self.map_sources,
+            self.vector_layers,
+            self.raster_layers,
+            self.placements,
+            self.comparison_specs,
         )
         ids = [item.id for group in groups for item in group]
         if len(ids) != len(set(ids)):
@@ -362,6 +428,59 @@ class DashboardBundle(_DashboardModel):
                     raise ValueError("scenario references unknown evidence")
                 if any(evidence[e].occurrence_id != occurrence_id for e in edit.evidence_ids):
                     raise ValueError("scenario references cross-occurrence evidence")
+        scenes = {s.id for s in self.scenes}
+        sources = {s.id: s for s in self.map_sources}
+        layers: tuple[VectorLayer | RasterLayer, ...] = (*self.vector_layers, *self.raster_layers)
+        for layer in layers:
+            if layer.scene_id not in scenes or layer.source_id not in sources:
+                raise ValueError("layer references unknown scene or map source")
+        for raster in self.raster_layers:
+            raster_source = sources[raster.source_id]
+            if raster_source.sha256 != raster.sha256 or (
+                raster_source.data_base64 is not None
+                and base64.b64decode(raster_source.data_base64, validate=True)
+                != base64.b64decode(raster.data_base64, validate=True)
+            ):
+                raise ValueError("Raster layer content must match its map source")
+        for placement in self.placements:
+            if placement.calculation_id not in calculations or placement.scene_id not in scenes:
+                raise ValueError("placement references unknown calculation or scene")
+            occurrence_id = calculations[placement.calculation_id].occurrence_id
+            if any(
+                e not in evidence or evidence[e].occurrence_id != occurrence_id
+                for e in placement.evidence_ids
+            ):
+                raise ValueError("placement references unknown or cross-occurrence evidence")
+            if placement.scenario_id is not None:
+                placement_scenario = next(
+                    (s for s in self.scenarios if s.id == placement.scenario_id), None
+                )
+                if (
+                    placement_scenario is None
+                    or placement_scenario.calculation_id != placement.calculation_id
+                ):
+                    raise ValueError("placement references unknown or cross-occurrence scenario")
+        placements = {p.id: p for p in self.placements}
+        for comparison in self.comparison_specs:
+            if comparison.placement_id not in placements:
+                raise ValueError("comparison references unknown placement")
+            placement = placements[comparison.placement_id]
+            occurrence_id = calculations[placement.calculation_id].occurrence_id
+            for point in comparison.correspondences:
+                if point.call_id is not None and (
+                    point.call_id not in calls
+                    or calls[point.call_id].occurrence_id != occurrence_id
+                ):
+                    raise ValueError("comparison references unknown or cross-occurrence call")
+        layer_ids = {layer.id for layer in layers}
+        if self.plot_view is not None and any(
+            i not in layer_ids for i in self.plot_view.visible_layer_ids
+        ):
+            raise ValueError("view references unknown layer")
+        if self.plot_view is not None and any(
+            i not in layer_ids for i, _ in self.plot_view.opacity
+        ):
+            raise ValueError("view opacity references unknown layer")
         return self
 
 
@@ -415,9 +534,16 @@ class DashboardManifest(_DashboardModel):
     presentation_hash: Digest
     source_review_complete: bool
     cache_reused: bool = False
+    plot_input_hash: Digest | None = None
+    plot_output_hash: Digest | None = None
+    map_input_hash: Digest | None = None
+    map_output_hash: Digest | None = None
+    placement_input_hash: Digest | None = None
+    placement_output_hash: Digest | None = None
 
 
 class PreparedDashboard(_DashboardModel):
     bundle: DashboardBundle
     calculations: tuple[DashboardResult, ...]
     manifest: DashboardManifest
+    plots: DashboardPlots = Field(default_factory=DashboardPlots)
