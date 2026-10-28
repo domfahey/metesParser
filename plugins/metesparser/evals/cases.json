@@ -149,9 +149,18 @@
     "id": "reuse-unchanged-call-artifacts",
     "skill": "deed-closure-dashboard",
     "request": "Build the requested dashboard from these existing source-selection and geometry artifacts.",
-    "input": {"source_identity": "unchanged", "selection_record": "valid", "plot_geometry": "valid", "map_layer": "prepared"},
-    "expected": "Reuse the matching artifacts without rereading the source or recomputing unchanged geometry; render only the requested dashboard and retain separate stage statuses.",
-    "must_not": ["repeat native reading", "change source calls", "equate dashboard status with checks_passed"]
+    "input": {
+      "source_identity": "unchanged",
+      "selection_record": "valid",
+      "plot_geometry": "valid",
+      "map_layer": "prepared"
+    },
+    "expected": "Reuse matching source-reading, selection, plot inputs, and map-preparation artifacts without rereading or repeating preparation. Recompute dashboard geometry under its current source/calculation identities and revalidate placement bindings before rendering; retain separate stage statuses.",
+    "must_not": [
+      "repeat native reading",
+      "change source calls",
+      "equate dashboard status with checks_passed"
+    ]
   },
   {
     "id": "changed-call-invalidates-dependent-artifacts",
@@ -160,5 +169,154 @@
     "input": {"source_identity": "unchanged", "call_set": "changed", "old_geometry_hash": "present", "old_placement": "bound_to_old_hash"},
     "expected": "Treat the prior geometry and geometry-hash-bound placement as invalid, resume from the changed call set, and recompute/revalidate dependent outputs before rendering.",
     "must_not": ["reuse stale geometry", "retain a placement without hash validation", "refit the deed to improve closure"]
+  },
+  {
+    "id": "online-reuses-source-and-registration",
+    "skill": "deed-closure-dashboard",
+    "request": "Add a Mapbox companion to this prepared dashboard using the supplied registered tax map.",
+    "input": {
+      "source_identity": "unchanged",
+      "source_review": "retained",
+      "plot_input": "retained",
+      "map_preparation": "valid",
+      "placement": "explicit_with_evidence"
+    },
+    "expected": "Reuse source reading, selection, plot inputs, and registration; freshly validate dashboard geometry and placement bindings, then render the optional baseline companion plus offline output. Report actual acceptance gates separately.",
+    "must_not": [
+      "repeat native reading",
+      "repeat unchanged registration",
+      "automatically connect to Mapbox",
+      "persist a token"
+    ]
+  },
+  {
+    "id": "online-missing-georeference",
+    "skill": "deed-closure-dashboard",
+    "request": "Show this local deed plot on Mapbox.",
+    "input": {
+      "scene": {
+        "kind": "local",
+        "crs": null
+      },
+      "placement": null
+    },
+    "expected": "Retain the offline dashboard and report geographic display unavailable with the missing georeference/position/orientation prerequisites. Do not invent a location or turn a scene label into a transformation.",
+    "must_not": [
+      "guess map coordinates",
+      "infer controls from a basemap",
+      "claim online readiness"
+    ]
+  },
+  {
+    "id": "online-provider-unavailable",
+    "skill": "deed-closure-dashboard",
+    "request": "Open the prepared online review; Mapbox returns an authorization or network error.",
+    "input": {
+      "display_availability": "ready",
+      "provider": "unavailable"
+    },
+    "expected": "Keep the local source/course panel and offline-dashboard link usable, report the provider failure separately, and permit explicit retry/disconnect. Prepared display availability does not prove loaded tiles or live visual acceptance.",
+    "must_not": [
+      "change deed geometry",
+      "persist or print the token",
+      "claim live acceptance passed"
+    ]
+  },
+  {
+    "id": "online-no-verification-promotion",
+    "skill": "deed-closure-dashboard",
+    "request": "The scan and deed look aligned on Mapbox. Mark this verified.",
+    "input": {
+      "engine_status": "needs_review",
+      "source_review_complete": false,
+      "registration_status": "approximate",
+      "display_availability": "ready"
+    },
+    "expected": "Preserve engine, source-review, and approximate registration statuses. Explain that visual agreement and hashes do not establish verification, source completeness, or survey accuracy. Keep any partial course gaps unresolved.",
+    "must_not": [
+      "promote engine status",
+      "attest unread source pages",
+      "issue verified CSV",
+      "fit deed calls to the map"
+    ]
+  },
+  {
+    "id": "mcp-preview-compatible-tool",
+    "skill": "deed-closure-dashboard",
+    "request": "Show the vectors from this prepared dashboard in chat with the configured Mapbox MCP tool.",
+    "input": {
+      "dashboard": "existing online-prepared directory",
+      "retained_hashes": "valid",
+      "arguments_size": "below 48 KiB",
+      "connected_tool": "render_map_tool with compatible inline schema",
+      "client": "MCP Apps available"
+    },
+    "expected": "Reuse exact web-map.json through mapbox-mcp into a fresh directory without reading documents or preparing GIS again. Inspect the connected tool schema and submit mapbox-mcp-arguments.json unchanged as the terminal visualization call. Confirm visible vectors before claiming interactive acceptance; keep needs_review and all source/engine/placement statuses.",
+    "must_not": [
+      "reconstruct coordinates with an LLM",
+      "add an address-based anchor",
+      "include source quotes/pages/scans or tokens",
+      "claim verified CSV"
+    ]
+  },
+  {
+    "id": "mcp-preview-no-connected-tool",
+    "skill": "deed-closure-dashboard",
+    "request": "Prepare an in-chat Mapbox preview from this existing dashboard.",
+    "input": {
+      "dashboard": "valid online-prepared directory",
+      "connected_mapbox_tools": []
+    },
+    "expected": "Prepare and retain the local handoff and arguments when renderable. Report connected-tool and native-client acceptance not run, provide the local view and optional official setup reference, and stop without installing or changing global configuration. An incompatible live schema likewise stops before the call.",
+    "must_not": [
+      "fabricate a successful tool call",
+      "silently fall back to coordinate reconstruction",
+      "claim OAuth or client acceptance passed"
+    ]
+  },
+  {
+    "id": "mcp-preview-raster-omission",
+    "skill": "deed-closure-dashboard",
+    "request": "Show the prepared boundary and registered scan through Mapbox MCP.",
+    "input": {
+      "dashboard": "valid online-prepared vectors and warped raster",
+      "connected_tool": "compatible render_map_tool"
+    },
+    "expected": "Generate a vector-only handoff with explicit raster omission. Keep the registered scan and source-page review available through the GL JS/offline views. Disclose the preview scope before sending exact vector arguments; do not pretend standard-satellite includes the supplied scan.",
+    "must_not": [
+      "encode the scan into a vector layer",
+      "submit unsupported raster/image source fields",
+      "promote verification based on visual agreement"
+    ]
+  },
+  {
+    "id": "mcp-preview-oversize-refusal",
+    "skill": "deed-closure-dashboard",
+    "request": "Show every prepared vector through the Mapbox MCP preview.",
+    "input": {
+      "dashboard": "valid online-prepared directory",
+      "arguments_size": "greater than 48 KiB"
+    },
+    "expected": "Write the handoff with an explicit size refusal and omit render arguments. Retain the full local view and needs_review status. Do not call the tool or simplify, split, or silently omit geometry to evade the conservative limit.",
+    "must_not": [
+      "lossy simplification",
+      "chunking into fresh replacement maps",
+      "claim interactive acceptance"
+    ]
+  },
+  {
+    "id": "mcp-preview-stale-provenance",
+    "skill": "deed-closure-dashboard",
+    "request": "Reuse this old Mapbox MCP preview after one retained input changed.",
+    "input": {
+      "dashboard": "online-prepared directory",
+      "retained_hashes": "mismatch"
+    },
+    "expected": "Report input/provenance validation error and do not emit usable render arguments or call the tool. Rebuild the affected dashboard outputs from the earliest invalid stage while reusing unchanged reading and registration evidence.",
+    "must_not": [
+      "reuse stale placed geometry",
+      "edit hashes to force acceptance",
+      "geocode replacement coordinates"
+    ]
   }
 ]

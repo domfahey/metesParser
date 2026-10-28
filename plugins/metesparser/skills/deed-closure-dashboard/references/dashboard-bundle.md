@@ -107,3 +107,53 @@ From the repository root, run it with fresh output/cache paths:
 ```sh
 uv run metes-review dashboard plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-example.json --output-dir /tmp/metesparser-dashboard-example --cache-dir /tmp/metesparser-dashboard-cache
 ```
+
+## Optional Mapbox companion
+
+Request this renderer step explicitly; the default command remains offline. Read the [online handoff](../../../references/artifact-handoffs.md#optional-online-map-handoff) for inputs, status, accuracy, and invalidation. The companion is a read-only, baseline-only 2D Mercator view; it does not support online scenario edits, terrain, or globe placement.
+
+Install the optional workspace dependencies with `uv sync --extra web-map`. For a packaged plugin, build with `uv run python scripts/build_claude_plugin.py --with-web-map --output dist/metesparser-plugin-web-map.zip`; this includes geo support and cannot be combined with `--without-geo`. Default and minimal distributions retain their offline purpose.
+
+Save this token-free `WebMapRequest` as `online-map-config.json`. Replace `scene-1` with an actual projected scene ID already present in the source bundle:
+
+```json
+{
+  "schema_version": "1.0",
+  "scene_id": "scene-1",
+  "display": {
+    "tolerance_m": 0.05,
+    "max_depth": 20,
+    "max_vertices": 100000,
+    "raster_pixel_size_m": 0.25,
+    "max_raster_dimension": 4096,
+    "max_raster_pixels": 16777216
+  },
+  "view": {
+    "provider": "mapbox",
+    "style": "standard",
+    "raster_opacity": 0.55
+  }
+}
+```
+
+Only `scene_id` is required; the other values shown are defaults. `style` also accepts `standard-satellite`. The display tolerance and raster resolution are approximation settings, not ground-accuracy claims. Never add a token to this file, the source bundle, or generated artifacts.
+
+```sh
+uv run metes-review dashboard bundle.json --output-dir dashboard-online-new --online-map-config online-map-config.json
+uv run metes-review serve-map dashboard-online-new --port 8765
+```
+
+The plugin launcher accepts the same arguments after `scripts/run-review.py`:
+
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard bundle.json --output-dir dashboard-online-new --online-map-config online-map-config.json
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" serve-map dashboard-online-new --port 8765
+```
+
+A valid dashboard still returns `needs_review` (exit 1). Inspect online availability and reasons separately. The preview prints `http://localhost:8765/online-map.html` immediately and binds only to `127.0.0.1`. Open the advertised `localhost` URL, not a file URL or a different host. It serves only declared display assets and the two HTML views, not the source JSON files. Keep the terminal running; Ctrl-C stops preview. An occupied port fails instead of silently selecting another. For another explicit port, pass it and restrict the token to that exact localhost origin in Mapbox. The viewer sends an origin-only referrer, so do not configure a path-specific restriction.
+
+Enter a public `pk.` Mapbox token only into the page's masked runtime input, then click **Connect**. Use a public token permitted for the advertised localhost URL with only required read scopes. Do not ask for tokens in chat or place them in URLs, configuration, logs, screenshots, or test captures. The page makes no external requests before Connect and does not persist the token; Disconnect clears the map/token references. Connection loads the pinned provider SDK and provider assets over the network.
+
+Layer order is basemap, warped registered scan, parcel context, recorded deed courses, then selection. Opacity/style changes and selecting a course are presentation operations. Use the keyboard-accessible course list and source panel to inspect original call/page evidence; absent page images remain labeled missing. Attribution must remain visible. SDK, authorization, style, tile/network, or WebGL errors leave the source/course panel and offline-dashboard link usable. A constructed map or loaded style alone does not prove complete tile readiness.
+
+Local model, adapter, browser, and ZIP checks do not establish a live three-layer Mapbox view or reachability from a native Claude/Cowork host. Record actual provider/WebGL and native-host outcomes separately as passed, failed, blocked, or not run. These live/native-host acceptance gates have not been established by this documentation or its evaluation cases.

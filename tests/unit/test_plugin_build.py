@@ -4,6 +4,8 @@ import importlib.util
 import tomllib
 from pathlib import Path
 
+import pytest
+
 
 def load_builder():
     path = Path(__file__).resolve().parents[2] / "scripts/build_claude_plugin.py"
@@ -43,3 +45,21 @@ def test_geo_runtime_pins_optional_import_dependencies():
     assert not any(d.startswith("playwright") for d in dependencies)
     basic = tomllib.loads(builder.runtime_project([], geo=False))
     assert not any(d.startswith("pyproj==") for d in basic["project"]["dependencies"])
+
+
+def test_web_map_runtime_is_opt_in_and_pins_warp_dependencies():
+    builder = load_builder()
+    ordinary = tomllib.loads(builder.runtime_project([]))["project"]["dependencies"]
+    assert not any(d.startswith("rasterio==") for d in ordinary)
+    mapped = tomllib.loads(builder.runtime_project([], web_map=True))["project"]["dependencies"]
+    for name in ("rasterio", "numpy", "pyproj", "pillow"):
+        assert any(d.startswith(name + "==") for d in mapped)
+    assert not any(d.startswith("playwright") for d in mapped)
+
+
+def test_web_map_build_rejects_without_geo_before_building(tmp_path, monkeypatch):
+    builder = load_builder()
+    monkeypatch.setattr(builder, "run", lambda *a, **k: pytest.fail("must reject before building"))
+    with pytest.raises(ValueError, match="requires geo"):
+        builder.build(tmp_path / "invalid.zip", geo=False, web_map=True)
+    assert not (tmp_path / "invalid.zip").exists()

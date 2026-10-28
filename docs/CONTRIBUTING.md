@@ -245,6 +245,12 @@ def calculate_area(points: list[Point]) -> float:
 
 ## Common Tasks
 
+### Updating Plugin Skills and Their Documentation
+
+Start with the [skill catalog](../plugins/metesparser/README.md#skills) and [handoff contract](../plugins/metesparser/references/artifact-handoffs.md). Keep capabilities independently usable, let workflows select the required stages, and reuse matching artifacts. Preserve `review-deed` as a delegate to the shared review workflow.
+
+Follow the [maintenance guide](CLAUDE_PLUGIN.md#maintain-the-skill-composition) for documentation ownership, shared implementation boundaries, and change validation. Keep substantial procedures in linked references, schemas in the Python models, and user examples in the existing READMEs/usage guide. For documentation-only edits, validate links and changed examples; behavior changes also need relevant engine tests and realistic skill evaluations. Native-host acceptance is a separate check from local tests.
+
 ### Adding a New Module
 
 1. Create `src/metesparser/new_module.py`
@@ -384,3 +390,87 @@ By contributing, you agree that your contributions will be licensed under the MI
 ---
 
 Thank you for contributing to metesParser! 🎉
+
+### Online Map Viewer Changes
+
+Keep the optional companion within existing dashboard composition and [online handoff contracts](../plugins/metesparser/references/artifact-handoffs.md#optional-online-map-handoff). Validate token-free configuration against `WebMapRequest` and actual CLI flags. Check package/plugin tests, offline zero-network behavior, adapter interactions, and extracted optional distribution separately. Pinned real-SDK, live provider/WebGL visual composition, and native-host loopback acceptance require their own recorded runs; mocks and authored eval cases cannot satisfy those gates. Never retain real tokens in test traces, logs, artifacts, or screenshots.
+
+#### Manual Mapbox smoke test
+
+Run these commands from the repository root. This developer example reuses the [browser fixture](../packages/mp-export/tests/browser/conftest.py): a four-course rectangle, a parcel context polygon, and an asymmetric 8 × 8 PNG representing a registered tax scan at a known land location. All evidence and placement are synthetic; this does not test a real property's boundary alignment. The fixture imports pytest, so retain the default development dependencies.
+
+```bash
+uv sync --extra browser-test --extra web-map
+uv run --no-sync python - <<'PY'
+import json
+import runpy
+from pathlib import Path
+
+root = Path("output/mapbox-manual")
+root.mkdir(parents=True, exist_ok=False)
+helper = runpy.run_path("packages/mp-export/tests/browser/conftest.py")
+prepared, _ = helper["synthetic_map"]()
+(root / "input.json").write_text(prepared.bundle.model_dump_json(indent=2))
+(root / "request.json").write_text(json.dumps({"scene_id": "grid"}))
+PY
+```
+
+Generate the local dashboard and the MCP handoff in separate commands:
+
+```bash
+uv run --no-sync metes-review dashboard output/mapbox-manual/input.json \
+  --output-dir output/mapbox-manual/dashboard \
+  --online-map-config output/mapbox-manual/request.json
+uv run --no-sync metes-review mapbox-mcp output/mapbox-manual/dashboard \
+  --output-dir output/mapbox-manual/mcp
+```
+
+Both commands return exit **1** with `status: "needs_review"` for valid review artifacts; exit **2** means invalid input. Do not chain them with `&&`. For this fixture, expect dashboard `online_map_availability: "ready"` and MCP `availability: "partial"`, because the scan is omitted from the MCP view. Confirm that `mapbox-mcp-arguments.json` exists and read `mapbox-mcp-handoff.json` for omissions. Each output directory must be new; choose another `output/mapbox-manual` name throughout the recipe when repeating it.
+
+**Test the interactive preview in Claude Code.** If the Mapbox MCP connection is not configured, follow Mapbox's [hosted setup guide](https://github.com/mapbox/mcp-server/blob/main/docs/hosted-mcp-guide.md):
+
+```bash
+claude mcp add --transport http mapbox-mcp-production https://mcp.mapbox.com/mcp
+claude
+```
+
+Inside Claude, run `/mcp` and authenticate the Mapbox connection through its browser OAuth flow. From a session opened in this repository, use this prompt:
+
+> Read `output/mapbox-manual/mcp/mapbox-mcp-arguments.json` and the adjacent handoff report. Inspect the connected `render_map_tool` schema. If compatible, pass the generated arguments unchanged as the final visualization tool call. Report any compatibility error instead of rewriting the payload, and disclose the omitted scan.
+
+Expect the deed's four course segments, its POB marker, and parcel context over the basemap. Confirm that an interactive panel is actually visible and pans/zooms; a successful tool response alone does not establish client rendering. If the tool is unavailable, retain the generated files and record MCP/client acceptance as not run. See the [MCP handoff reference](../plugins/metesparser/skills/deed-closure-dashboard/references/mapbox-mcp.md) for the payload contract and size limit.
+
+**Test the basemap, tax scan, and deed together locally.** Keep this server running in a terminal:
+
+```bash
+uv run --no-sync metes-review serve-map output/mapbox-manual/dashboard --port 8765
+```
+
+Open `http://localhost:8765/online-map.html`. Enter a public Mapbox `pk.` token in the masked runtime field and click **Connect**; keep the token out of chat, configuration files, and generated artifacts. Use a token permitted for that localhost origin. The page makes no provider requests before Connect. Stop the server with Ctrl+C when finished.
+
+Check the following in the viewer:
+
+- The basemap, orange synthetic scan with its green corner pixel, parcel polygon, and deed appear together with attribution.
+- Layer toggles, scan opacity, and standard/satellite style switching work; overlays survive a style change.
+- Selecting a course shows its details. Missing source-page images are identified explicitly; the synthetic scan is not a recorded deed page.
+- Disconnect clears the token and provider map while the offline dashboard remains available.
+
+For real evidence, replace the fixture with a bundle containing an evidenced projected placement and registered scan, and select its actual scene ID. Follow the [configuration and registration requirements](../plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-bundle.md#optional-mapbox-companion); a visually plausible fit does not establish a boundary.
+
+#### Automated browser checks
+
+Prepare Chromium and explicitly download the pinned SDK into the ignored cache before running the browser gate:
+
+```bash
+uv sync --extra browser-test --extra web-map
+uv run playwright install chromium
+mkdir -p .uv-cache/mapbox/v3.33.0
+curl --fail --location https://api.mapbox.com/mapbox-gl-js/v3.33.0/mapbox-gl.js --output .uv-cache/mapbox/v3.33.0/mapbox-gl.js
+curl --fail --location https://api.mapbox.com/mapbox-gl-js/v3.33.0/mapbox-gl.css --output .uv-cache/mapbox/v3.33.0/mapbox-gl.css
+make test-dashboard-browser
+make test-mapbox-browser
+```
+
+The preflight verifies SDK bytes against [the provider descriptor](../packages/mp-export/src/mp_export/dashboard_assets/mapbox-sdk.json); tests do not fetch missing assets. The deterministic Mapbox target runs adapter tests and the actual SDK with local data and `testMode`; it does not establish live basemap rendering.
+
+Run `make test-mapbox-live` separately with `MAPBOX_PUBLIC_TOKEN` (or `MAPBOX_ACCESS_TOKEN`) supplied through an existing secret environment facility. Restrict that public token to `http://localhost:8765`; `MAPBOX_PREVIEW_PORT` selects another explicit test port. The live gate uses synthetic evidence at a known land location and retains only map screenshots under ignored `output/playwright/mapbox-live/`. Missing credentials or browser prerequisites are failures, not skipped acceptance. Native plugin-host reachability still needs a separate host run.

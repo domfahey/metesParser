@@ -252,6 +252,15 @@ test-dashboard-browser: ## Require Chromium/Node and run offline dashboard brows
 	$(UV_RUN) --extra browser-test python scripts/check_dashboard_browser.py
 	METESPARSER_BROWSER_TESTS=1 $(UV_RUN) --extra browser-test pytest tests/browser --no-cov --import-mode=importlib
 
+.PHONY: test-mapbox-browser test-mapbox-live
+test-mapbox-browser: ## Test the map adapter and pinned SDK locally, without provider credentials.
+	$(UV_RUN) --extra browser-test --extra web-map python scripts/check_mapbox_browser.py
+	METESPARSER_MAPBOX_BROWSER_TESTS=1 $(UV_RUN) --extra browser-test --extra web-map pytest packages/mp-export/tests/browser/test_online_map_ui.py packages/mp-export/tests/browser/test_mapbox_sdk.py --no-cov --import-mode=importlib
+
+test-mapbox-live: ## Explicit provider acceptance; requires a runtime public token and network access.
+	$(UV_RUN) --extra browser-test --extra web-map python scripts/check_mapbox_browser.py --live
+	METESPARSER_MAPBOX_LIVE_TESTS=1 $(UV_RUN) --extra browser-test --extra web-map pytest packages/mp-export/tests/browser/test_mapbox_live.py --no-cov --import-mode=importlib
+
 test-cov: ## Run tests with HTML and terminal coverage reports.
 	@echo "Running tests with coverage..."
 	$(UV_RUN) pytest --cov=$(PY_SRC) --cov-report=html --cov-report=term-missing

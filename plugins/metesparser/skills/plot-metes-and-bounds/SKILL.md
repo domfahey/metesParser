@@ -20,3 +20,5 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" plot INPUT --output-dir NE
 Preserve every source value and verbatim call; leave cardinal-only or otherwise incomplete bearings unresolved. The plot command creates `source.csv` or `source.json` as an exact-byte source copy, `plot-input.json`, `plot-geometry.json`, `plot.html`, and `plot-manifest.json`. Its top-level status is `needs_review`: the plot is a display deliverable, not verification, and it does not create a verified CSV or claim document reading.
 
 Return the requested plot artifacts and stop. Do not run canonical verification, reread a PDF, select a description, prepare map layers, or build a dashboard unless the user requested those additional tasks. See [artifact handoffs](../../references/artifact-handoffs.md) for identity, status, and resume rules.
+
+A later requested online map uses the dashboard's [online handoff](../../references/artifact-handoffs.md#optional-online-map-handoff), reusing plot inputs and actual source records while freshly computing dashboard geometry. This standalone output remains an independent offline plot; it supplies neither geographic placement nor verified status.

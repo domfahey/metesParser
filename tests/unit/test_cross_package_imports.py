@@ -194,3 +194,25 @@ class TestPipelineImport:
         from metesparser.pipeline import Pipeline
 
         assert Pipeline is not None
+
+
+def test_online_map_facade_uses_package_implementations():
+    from mp_export import render_online_map as package_render
+    from mp_models import WebMapRequest as PackageRequest
+    from mp_review import prepare_web_map as package_prepare
+
+    from metesparser.dashboard import WebMapRequest, prepare_web_map, render_online_map
+
+    assert render_online_map is package_render
+    assert prepare_web_map is package_prepare
+    assert WebMapRequest is PackageRequest
+
+
+def test_mapbox_mcp_facade_uses_package_implementations():
+    from mp_export import build_mapbox_mcp_handoff as package_build
+    from mp_review import mapbox_mcp_file as package_file
+
+    from metesparser.dashboard import build_mapbox_mcp_handoff, mapbox_mcp_file
+
+    assert build_mapbox_mcp_handoff is package_build
+    assert mapbox_mcp_file is package_file

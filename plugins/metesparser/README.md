@@ -1,29 +1,41 @@
 # MetesParser Claude plugin
 
-This plugin locates metes-and-bounds descriptions in any supplied document before checking closure. Claude's native document/image reading prepares text from images and PDFs; the bundled deterministic `mp_review` engine parses the selected description and verifies geometry. No separate OCR service or conversion dependency is required.
+This plugin provides five focused capabilities and two workflows for reviewing metes-and-bounds material. Claude's native document/image reading prepares text from images and PDFs; the bundled deterministic `mp_review` engine parses selected descriptions and verifies geometry. No separate OCR service or conversion dependency is required.
 
 See the [usage guide](references/usage.md) for input routing, examples, artifact meanings, and troubleshooting, and the [changelog](CHANGELOG.md) for user-visible changes. Each skill directory contains a README with its own usage example.
 
 ## Skills
 
-- `review-metes-and-bounds`: locate the intended description first, then parse and check its closure.
-- `convert-document-to-text`: use Claude's native reading for images, scanned PDFs, native PDFs, and supported documents.
-- `extract-metes-and-bounds`: locate and preserve the complete description with its source references.
-- `review-deed`: route deed-specific requests through the shared review workflow.
-- `verify-traverse`: check an existing CSV or JSON traverse.
-- `plot-metes-and-bounds`: create a standalone plot from identified structured boundary calls.
-- `prepare-parcel-overlay`: prepare supplied vector or raster map evidence for later use.
-- `deed-closure-dashboard`: prepare a source-grounded, interactive closure review dashboard when explicitly requested.
+Eight skills share the same engine: five capabilities, two workflows, and one compatibility alias.
 
-Capability skills stop at their requested deliverable. Transcription returns text and acquisition records; extraction returns the selected description and selection records; verification returns review artifacts; plotting returns plot artifacts; overlay preparation returns layer/provenance artifacts. They do not automatically continue into another stage. See [artifact handoffs](references/artifact-handoffs.md) for accepted inputs, status boundaries, artifact reuse, and invalidation.
+| Type | Skill | Purpose | Main deliverable |
+| --- | --- | --- | --- |
+| Capability | [convert-document-to-text](skills/convert-document-to-text/SKILL.md) | Transcribe a supplied document using Claude's native reading. | Full text, page map, acquisition and uncertainty records |
+| Capability | [extract-metes-and-bounds](skills/extract-metes-and-bounds/SKILL.md) | Locate and preserve the intended description in prepared text. | Verbatim description and selection/source records |
+| Capability | [verify-traverse](skills/verify-traverse/SKILL.md) | Check an identified structured traverse or run explicitly requested relative analysis. | Deterministic review or separate relative-analysis artifacts |
+| Capability | [plot-metes-and-bounds](skills/plot-metes-and-bounds/SKILL.md) | Plot identified calls or an isolated description. | Plot inputs, geometry, HTML, and manifest |
+| Capability | [prepare-parcel-overlay](skills/prepare-parcel-overlay/SKILL.md) | Prepare supplied vector or raster map evidence. | Prepared layer and provenance |
+| Workflow | [review-metes-and-bounds](skills/review-metes-and-bounds/SKILL.md) | Locate the intended description, then parse and check closure. | Source-selection context and deterministic review artifacts |
+| Workflow | [deed-closure-dashboard](skills/deed-closure-dashboard/SKILL.md) | Build an explicitly requested, source-grounded interactive review dashboard. | Offline dashboard and source/calculation/render snapshots |
+| Alias | [review-deed](skills/review-deed/SKILL.md) | Route deed-specific review requests to the shared review workflow. | Same deliverable as `review-metes-and-bounds` |
 
-The dashboard workflow keeps Claude's native page reading and description selection separate from deterministic rendering. After preparing a reviewed version 1.0 JSON bundle, run:
+Choose a capability when the user requests one stage; it stops at that deliverable. Choose a workflow when the user requests an end-to-end closure review or an interactive dashboard. `review-deed` is an alternate entrypoint for deed-specific closure requests, not a separate implementation.
+
+The dashboard workflow also offers a [vector-only Mapbox MCP preview](skills/deed-closure-dashboard/references/mapbox-mcp.md) from existing online-prepared artifacts. It checks provenance and connected-tool compatibility, retains local raster/source review, and reports live client acceptance separately.
+
+## Route and compose
+
+Start at the stage matching the supplied input and requested deliverable. A document closure review coordinates conversion and selection; existing structured calls can go directly to verification or plotting. Reuse valid upstream artifacts for unchanged sources. The [usage guide](references/usage.md#choose-the-entrypoint) provides routing examples and stopping points, including isolated prose and map preparation.
+
+For a requested dashboard, plot and map-preparation artifacts need explicit composition into the dashboard bundle. The dashboard freshly computes its geometry; it does not automatically import those artifacts or align deed geometry. Verification status remains separate from plot/map status and advisory dashboard analysis. See [artifact handoffs](references/artifact-handoffs.md) for accepted inputs, status boundaries, reuse, and invalidation.
+
+The dashboard workflow keeps Claude's native page reading and description selection separate from deterministic rendering. After preparing a validated bundle (version 1.0 for deed-only input, or 1.1 for plot/map fields), run:
 
 ```sh
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard bundle.json --output-dir dashboard-new --cache-dir dashboard-cache
 ```
 
-The `metes-review dashboard` package command accepts the same options. Valid input returns `needs_review` (exit 1) and writes `source.json`, `dashboard.html`, `source-review.json`, `calculations.json`, `stage-manifest.json`, and `render-manifest.json`. It does not read PDFs, create a host review log, publish/share output, or write verified CSV. Explicit placements and named-point residual comparisons are supported; automatic matching and inferred alignment are not. See the [dashboard bundle reference](skills/deed-closure-dashboard/references/dashboard-bundle.md) for status and cache semantics.
+The `metes-review dashboard` package command accepts the same options. Valid input returns `needs_review` (exit 1) and writes an offline dashboard plus source, calculation, plot/map, placement, and manifest snapshots. It does not read PDFs, create a host review log, publish/share output, or write verified CSV. Explicit placements and named-point residual comparisons are supported; automatic matching and inferred alignment are not. See the [dashboard bundle reference](skills/deed-closure-dashboard/references/dashboard-bundle.md#output-cache-and-invalidation) for the exact output files, status, and cache semantics.
 
 Standalone plots use `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" plot INPUT --output-dir NEW_DIR --input-format auto`. Accepted formats are `auto`, `calls`, `relative`, and `plot`; supported payloads include strict CSV, calls-list/LegalDescription JSON, RelativeDescription JSON, and PlotRequest JSON. Output includes an exact-byte source copy (`source.csv` or `source.json`), `plot-input.json`, `plot-geometry.json`, `plot.html`, and `plot-manifest.json`. Its top-level status is `needs_review`; plotting does not verify a traverse or create a verified CSV.
 
@@ -51,3 +63,7 @@ output_dir: deed-reviews
 Then run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" review description.txt`; each review gets a fresh folder under `deed-reviews`. Explicit `--output-dir` wins. Set `enabled: false` to stop processing. Settings are read on each run, so no restart is needed. Add `.claude/*.local.md` and `.claude/*.local.json` to your project's `.gitignore`; these files are user-local.
 
 See [settings schema and validation](references/plugin-settings.md). Verification tolerances and parsing strictness are not configurable.
+
+## Optional Mapbox companion
+
+The dashboard workflow can add `online-map.html` when explicitly requested, reusing the same source, plot, and registered map evidence. This is a renderer step, not another skill. It keeps the offline dashboard and all verification statuses separate. The [online procedure](skills/deed-closure-dashboard/references/dashboard-bundle.md#optional-mapbox-companion) documents `--online-map-config`, the `web-map` extra, opt-in `--with-web-map` plugin build, and loopback `serve-map` preview. A public token is entered at runtime; Connect is required before any provider request. Live Mapbox and native-host acceptance remain separate gates.

@@ -18,3 +18,5 @@ Create a standalone display plot from an identified structured boundary input.
 - [Artifact handoffs and PlotRequest fields](../../references/artifact-handoffs.md)
 - [Usage and routing](../../references/usage.md)
 - [Plugin changelog](../../CHANGELOG.md)
+
+The plot remains offline. A later explicitly requested [Mapbox dashboard companion](../deed-closure-dashboard/references/dashboard-bundle.md#optional-mapbox-companion) composes these plot inputs with source evidence and prepared map layers; it does not turn this capability into a mapping or verification workflow.

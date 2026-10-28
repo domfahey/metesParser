@@ -61,10 +61,15 @@ from .relative import (
 )
 from .tract import Tract, TractType
 from .units import ConversionFactors, DistanceUnit
+from .webmap import MapboxViewOptions, WebMapArtifact, WebMapOptions, WebMapRequest
 
 __version__ = "1.0.0"
 
 __all__ = [
+    "MapboxViewOptions",
+    "WebMapArtifact",
+    "WebMapOptions",
+    "WebMapRequest",
     "RasterControl",
     "RasterLayer",
     "RasterRegistration",
