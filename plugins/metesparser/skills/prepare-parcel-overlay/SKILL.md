@@ -10,3 +10,5 @@ Use only map evidence and preparation operations requested by the user. This cap
 Read [overlay preparation](references/overlay-preparation.md) for the relevant vector import, raster registration, or supplied source operation. Preserve original bytes and source identity, record actual retrieval/source dates and unknowns, and retain CRS, units, axis order, controls, transformation, and residual details where applicable. Do not infer source status, coordinates, deed alignment, or accuracy. Assessment parcels and old scans are contextual evidence, not surveyed or legal boundaries.
 
 Return the prepared layer and provenance artifacts, then stop. The user can request a later deed placement or dashboard as a separate stage. See [artifact handoffs](../../references/artifact-handoffs.md) for input identity, invalidation, and status boundaries.
+
+For later Mapbox display, reuse this registration/import output through the [online handoff](../../references/artifact-handoffs.md#optional-online-map-handoff). Do not activate a provider, infer geographic controls, or promote registration/verification status during preparation.

@@ -25,8 +25,10 @@ def run(args: list[str], *, cwd: Path) -> None:
     subprocess.run(args, cwd=cwd, env=env, check=True)
 
 
-def runtime_project(wheels: list[Path], *, geo: bool = True) -> str:
+def runtime_project(wheels: list[Path], *, geo: bool = True, web_map: bool = False) -> str:
     """Pin external dependencies to the versions already reviewed in the root lock."""
+    if web_map and not geo:
+        raise ValueError("web-map requires geo support")
     lock = tomllib.loads((ROOT / "uv.lock").read_text())
     indexed: dict[str, list[dict[str, Any]]] = {}
     for package in lock["package"]:
@@ -47,9 +49,9 @@ def runtime_project(wheels: list[Path], *, geo: bool = True) -> str:
     for name in PACKAGES:
         if name in indexed:
             collect(name)
-    if geo:
+    for extra in (["geo"] if geo else []) + (["web-map"] if web_map else []):
         for package in indexed["mp-review"]:
-            for dependency in package.get("optional-dependencies", {}).get("geo", []):
+            for dependency in package.get("optional-dependencies", {}).get(extra, []):
                 collect(dependency["name"])
     dependencies = []
     for name in [*PACKAGES, *sorted(external)]:
@@ -75,7 +77,9 @@ def runtime_project(wheels: list[Path], *, geo: bool = True) -> str:
     )
 
 
-def build(output: Path, *, offline: bool = False, geo: bool = True) -> Path:
+def build(output: Path, *, offline: bool = False, geo: bool = True, web_map: bool = False) -> Path:
+    if web_map and not geo:
+        raise ValueError("web-map requires geo support")
     uv = shutil.which("uv")
     if uv is None:
         raise RuntimeError("uv is required to build the plugin")
@@ -98,7 +102,7 @@ def build(output: Path, *, offline: bool = False, geo: bool = True) -> Path:
                 cwd=ROOT,
             )
         wheels = list(wheel_dir.glob("*.whl"))
-        (runtime / "pyproject.toml").write_text(runtime_project(wheels, geo=geo))
+        (runtime / "pyproject.toml").write_text(runtime_project(wheels, geo=geo, web_map=web_map))
         run([uv, "lock", "--project", str(runtime), *flags], cwd=runtime)
         hashes = {
             str(path.relative_to(runtime)): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -130,8 +134,19 @@ def main() -> None:
     parser.add_argument(
         "--without-geo", action="store_true", help="Omit optional map import dependencies"
     )
+    parser.add_argument(
+        "--with-web-map",
+        action="store_true",
+        help="Include optional online map preparation dependencies",
+    )
     args = parser.parse_args()
-    print(build(args.output, offline=args.offline, geo=not args.without_geo))
+    if args.with_web_map and args.without_geo:
+        parser.error("--with-web-map requires geo; cannot combine with --without-geo")
+    print(
+        build(
+            args.output, offline=args.offline, geo=not args.without_geo, web_map=args.with_web_map
+        )
+    )
 
 
 if __name__ == "__main__":

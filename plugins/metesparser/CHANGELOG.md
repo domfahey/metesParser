@@ -6,6 +6,7 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Added
 
+- Optional `mapbox-mcp` handoff in the existing dashboard workflow: validates retained geographic artifacts, prepares vector-only render arguments, records omissions and digests, and keeps connected-tool/provider/client acceptance separate from local preparation and verification.
 - `plot-metes-and-bounds` creates a standalone plot from structured calls, RelativeDescription JSON, or PlotRequest JSON and stops after plot artifacts.
 - `prepare-parcel-overlay` prepares supplied vector/raster evidence and provenance without placing deed geometry or building a dashboard.
 - Shared artifact handoff guidance defines accepted inputs, outputs, status boundaries, source identity, invalidation, and resume behavior.
@@ -28,7 +29,7 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Removed
 
-- Plugin/skill-authoring guides mistakenly bundled as runtime skills. Keep only document conversion, description selection, and boundary review skills; project settings remain supported.
+- Plugin/skill-authoring guides mistakenly bundled as runtime skills; the runtime catalog now covers document conversion, description selection, traverse verification, plotting, overlay preparation, and the review/dashboard workflows. Project settings remain supported.
 
 ### Fixed
 
@@ -48,3 +49,9 @@ Initial local plugin baseline, recorded for the existing manifest version; not a
 ## Validation limits
 
 Local checks cover skill/frontmatter validation, reference links, deterministic engine behavior, runtime provisioning, and packaged launcher workflows. Native Claude document conversion and end-to-end Claude client behavior have not been exercised. Evaluation scenarios are specifications unless accompanied by recorded execution evidence.
+
+## Optional online map companion
+
+- Added explicit Mapbox renderer composition to the existing dashboard workflow, with shared handoff/invalidation rules, token-free configuration, loopback preview guidance, and offline fallback.
+- Documented `web-map` dependencies and opt-in `--with-web-map` distribution, baseline-only 2D display, warped registered rasters, independent accuracy/status measures, and runtime public-token connection.
+- Updated artifact-reuse evaluation to require fresh dashboard geometry/placement validation; added online reuse, missing-georeference, provider-failure, and status-separation cases. Authored evaluations do not establish native-host or live-provider acceptance.

@@ -122,7 +122,8 @@ def test_rejects_runtime_hash_map_path_escape(monkeypatch, tmp_path, capsys):
     assert "escapes runtime directory" in response["errors"][0]["message"]
 
 
-def test_dashboard_reaches_engine_without_promoting_status(monkeypatch, tmp_path, capsys):
+@pytest.mark.parametrize("command", ["dashboard", "mapbox-mcp"])
+def test_dashboard_reaches_engine_without_promoting_status(command, monkeypatch, tmp_path, capsys):
     setup_launcher(monkeypatch, make_runtime(tmp_path))
     commands = []
     engine_output = '{"status":"needs_review","artifacts":{"dashboard":"dashboard.html"}}\n'
@@ -132,8 +133,8 @@ def test_dashboard_reaches_engine_without_promoting_status(monkeypatch, tmp_path
         return SimpleNamespace(returncode=1, stdout=engine_output, stderr="")
 
     monkeypatch.setattr(launcher.subprocess, "run", run)
-    assert launcher.main(["dashboard", "bundle.json", "--cache-dir", "stages"]) == 1
-    assert commands[0][-6:-2] == ["dashboard", "bundle.json", "--cache-dir", "stages"]
+    assert launcher.main([command, "bundle.json", "--output-dir", "stages"]) == 1
+    assert commands[0][-6:-2] == [command, "bundle.json", "--output-dir", "stages"]
     assert capsys.readouterr().out == engine_output
 
 
@@ -188,3 +189,33 @@ def test_standalone_plot_reaches_engine_and_preserves_nonverification(
     assert launcher.main(arguments) == 1
     assert commands[0][-8:-2] == arguments
     assert capsys.readouterr().out == output
+
+
+def test_preview_executes_foreground_without_output_capture(monkeypatch, tmp_path):
+    setup_launcher(monkeypatch, make_runtime(tmp_path))
+    seen = []
+    monkeypatch.setattr(
+        launcher.os,
+        "execvpe",
+        lambda executable, command, env: seen.append((executable, command, env)),
+    )
+    monkeypatch.setattr(
+        launcher.subprocess,
+        "run",
+        lambda *args, **kwargs: pytest.fail("Preview must stream, not capture output"),
+    )
+    assert launcher.main(["serve-map", "map-output", "--port", "8766"]) == 0
+    assert seen[0][0] == "/fake/uv"
+    assert seen[0][1][-6:-2] == ["serve-map", "map-output", "--port", "8766"]
+    assert "UV_PROJECT_ENVIRONMENT" in seen[0][2]
+
+
+def test_preview_start_failure_is_structured(monkeypatch, tmp_path, capsys):
+    setup_launcher(monkeypatch, make_runtime(tmp_path))
+
+    def fail(*args):
+        raise OSError("unavailable")
+
+    monkeypatch.setattr(launcher.os, "execvpe", fail)
+    assert launcher.main(["serve-map", "map-output"]) == 2
+    assert json.loads(capsys.readouterr().out)["errors"][0]["code"] == "launcher_error"

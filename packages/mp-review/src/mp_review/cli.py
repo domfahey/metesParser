@@ -44,7 +44,19 @@ def main() -> None:
     dashboard.add_argument("input", type=Path)
     dashboard.add_argument("--output-dir", type=Path)
     dashboard.add_argument("--cache-dir", type=Path)
+    dashboard.add_argument("--online-map-config", type=Path)
     dashboard.add_argument("--settings", type=Path)
+    preview = commands.add_parser("serve-map", help="Serve generated map views on localhost.")
+    preview.add_argument("directory", type=Path)
+    preview.add_argument("--port", type=int, default=8765)
+    preview.add_argument("--settings", type=Path)
+    mcp = commands.add_parser(
+        "mapbox-mcp", help="Prepare vector tool arguments from an existing geographic dashboard."
+    )
+    mcp.add_argument("directory", type=Path)
+    mcp.add_argument("--output-dir", type=Path)
+    mcp.add_argument("--style", choices=("standard", "standard-satellite"))
+    mcp.add_argument("--settings", type=Path)
     overlay = commands.add_parser(
         "import-overlay", help="Import supplied polygons into an explicit projected scene."
     )
@@ -108,6 +120,25 @@ def main() -> None:
 
 
 def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    if args.command == "mapbox-mcp":
+        from .mapbox_mcp import mapbox_mcp_file
+
+        return mapbox_mcp_file(
+            args.directory, output_path(settings, args.output_dir), style=args.style
+        )
+    if args.command == "serve-map":
+        from .map_preview import serve_map_preview
+
+        try:
+            serve_map_preview(args.directory, port=args.port)
+            return {"schema_version": "1.0", "status": "passed", "errors": [], "artifacts": {}}
+        except (OSError, ValueError) as exc:
+            return {
+                "schema_version": "1.0",
+                "status": "error",
+                "artifacts": {},
+                "errors": [{"code": "map_preview_unavailable", "message": str(exc)}],
+            }
     if args.command in ("import-overlay", "register-raster", "fetch-parcel"):
         return _overlay_artifact(args)
     if args.command == "corpus":
@@ -124,12 +155,33 @@ def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, An
     elif args.command == "analyze-relative":
         result = review_relative_file(args.input, output_dir=output_path(settings, args.output_dir))
     elif args.command == "dashboard":
-        from .dashboard import dashboard_file
+        from mp_models.webmap import WebMapRequest
+
+        from .dashboard import _load, dashboard_file
+
+        request = None
+        if args.online_map_config is not None:
+            try:
+                request = WebMapRequest.model_validate(_load(args.online_map_config))
+            except (OSError, ValueError, TypeError):
+                # Validation errors can contain rejected values, including pasted credentials.
+                return {
+                    "schema_version": "1.0",
+                    "status": "error",
+                    "artifacts": {},
+                    "errors": [
+                        {
+                            "code": "invalid_online_map_config",
+                            "message": "Invalid online map configuration. Supply a scene ID and supported display/view options; credentials are entered only in the viewer.",
+                        }
+                    ],
+                }
 
         result = dashboard_file(
             args.input,
             output_dir=output_path(settings, args.output_dir),
             cache_dir=args.cache_dir,
+            online_map=request,
         )
     elif args.command == "plot":
         from .plot import plot_file

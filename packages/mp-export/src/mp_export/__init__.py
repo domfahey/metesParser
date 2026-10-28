@@ -9,18 +9,22 @@ from .csv_writer import (
     legal_description_to_csv,
 )
 from .dashboard_html import render_dashboard
+from .mapbox_mcp import build_mapbox_mcp_handoff
+from .online_map_html import render_online_map
 from .plot_html import render_plot
 
 __version__ = "1.0.0"
 
 __all__ = [
     "FIELDNAMES",
+    "build_mapbox_mcp_handoff",
     "calls_to_csv",
     "csv_to_calls",
     "export_verified_csv",
     "generate_html",
     "legal_description_to_csv",
     "render_dashboard",
+    "render_online_map",
     "render_plot",
     "write_report",
 ]
