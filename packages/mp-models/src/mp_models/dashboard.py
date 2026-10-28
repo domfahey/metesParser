@@ -18,7 +18,16 @@ from pydantic import (
 
 from .base import _Model
 from .closure import CheckResult, Point
+from .comparison import (
+    BearingBasis,
+    ComparisonPair,
+    ComparisonRequest,
+    ComparisonTolerance,
+    ComparisonTransform,
+    DescriptionComparison,
+)
 from .deed_call import DeedCall
+from .diagnostics import ClosureDiagnostics
 from .plot import (
     DashboardPlots,
     MapSource,
@@ -233,6 +242,22 @@ class DashboardPresentation(_DashboardModel):
     method_notes: tuple[str, ...] = ()
 
 
+class DashboardDescriptionComparisonSpec(_DashboardModel):
+    """Explicit source-owned baseline calculations; no caller-supplied call values."""
+
+    id: Identifier
+    left_calculation_id: Identifier
+    right_calculation_id: Identifier
+    left_bearing_basis: BearingBasis
+    right_bearing_basis: BearingBasis
+    pairs: tuple[ComparisonPair, ...] = ()
+    tolerances: ComparisonTolerance
+    right_to_left_transform: ComparisonTransform | None = None
+    scene_id: Identifier | None = None
+    left_placement_id: Identifier | None = None
+    right_placement_id: Identifier | None = None
+
+
 class DashboardBundle(_DashboardModel):
     model_config = ConfigDict(revalidate_instances="never")
     schema_version: Literal["1.0", "1.1"] = "1.0"
@@ -253,6 +278,7 @@ class DashboardBundle(_DashboardModel):
     raster_layers: tuple[RasterLayer, ...] = ()
     placements: tuple[PlotPlacement, ...] = ()
     comparison_specs: tuple[PlotComparisonSpec, ...] = ()
+    description_comparison_specs: tuple[DashboardDescriptionComparisonSpec, ...] = ()
     plot_view: PlotView | None = None
 
     @model_validator(mode="before")
@@ -266,6 +292,7 @@ class DashboardBundle(_DashboardModel):
                 "raster_layers",
                 "placements",
                 "comparison_specs",
+                "description_comparison_specs",
                 "plot_view",
             }:
                 raise ValueError("plot and overlay fields require schema_version 1.1")
@@ -282,6 +309,7 @@ class DashboardBundle(_DashboardModel):
                 "raster_layers",
                 "placements",
                 "comparison_specs",
+                "description_comparison_specs",
                 "plot_view",
             ):
                 data.pop(key, None)
@@ -304,6 +332,7 @@ class DashboardBundle(_DashboardModel):
             self.raster_layers,
             self.placements,
             self.comparison_specs,
+            self.description_comparison_specs,
         )
         ids = [item.id for group in groups for item in group]
         if len(ids) != len(set(ids)):
@@ -472,6 +501,55 @@ class DashboardBundle(_DashboardModel):
                     or calls[point.call_id].occurrence_id != occurrence_id
                 ):
                     raise ValueError("comparison references unknown or cross-occurrence call")
+        for description_comparison in self.description_comparison_specs:
+            if (
+                description_comparison.left_calculation_id
+                == description_comparison.right_calculation_id
+            ):
+                raise ValueError(
+                    "description description_comparison requires distinct calculations"
+                )
+            if (
+                description_comparison.scene_id is not None
+                and description_comparison.scene_id not in scenes
+            ):
+                raise ValueError("description description_comparison references unknown scene")
+            if len({p.id for p in description_comparison.pairs}) != len(
+                description_comparison.pairs
+            ):
+                raise ValueError("description description_comparison pair IDs must be unique")
+            for calculation_id, placement_id, side in (
+                (
+                    description_comparison.left_calculation_id,
+                    description_comparison.left_placement_id,
+                    "left",
+                ),
+                (
+                    description_comparison.right_calculation_id,
+                    description_comparison.right_placement_id,
+                    "right",
+                ),
+            ):
+                if calculation_id not in calculations:
+                    raise ValueError(
+                        "description description_comparison references unknown calculation"
+                    )
+                occurrence_id = calculations[calculation_id].occurrence_id
+                owned = {c.id for c in self.calls if c.occurrence_id == occurrence_id}
+                for pair in description_comparison.pairs:
+                    selection = pair.left if side == "left" else pair.right
+                    if not set(selection.call_ids) <= owned:
+                        raise ValueError(
+                            "description description_comparison has dangling or cross-occurrence calls"
+                        )
+                if placement_id is not None and (
+                    placement_id not in placements
+                    or placements[placement_id].calculation_id != calculation_id
+                    or placements[placement_id].scene_id != description_comparison.scene_id
+                ):
+                    raise ValueError(
+                        "description description_comparison has unknown or cross-calculation placement"
+                    )
         layer_ids = {layer.id for layer in layers}
         if self.plot_view is not None and any(
             i not in layer_ids for i in self.plot_view.visible_layer_ids
@@ -525,6 +603,40 @@ class DashboardResult(_DashboardModel):
         return self
 
 
+class DashboardDiagnosis(_DashboardModel):
+    """Fresh baseline diagnosis; independent from original engine findings."""
+
+    calculation_id: Identifier
+    occurrence_id: Identifier
+    calculation_input_hash: Digest
+    availability: Literal["supported", "unsupported", "incomplete"]
+    baseline: ClosureDiagnostics | None = None
+    limitations: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _availability(self) -> Self:
+        if self.baseline is not None and self.availability != self.baseline.availability:
+            raise ValueError("diagnosis availability differs from its baseline")
+        if self.baseline is None and not self.limitations:
+            raise ValueError("unavailable diagnosis requires explicit limitations")
+        return self
+
+
+class DashboardDescriptionComparison(_DashboardModel):
+    """Fresh standalone-equivalent comparison with its exact source binding."""
+
+    id: Identifier
+    left_calculation_id: Identifier
+    right_calculation_id: Identifier
+    left_occurrence_id: Identifier
+    right_occurrence_id: Identifier
+    calculation_input_hash: Digest
+    request: ComparisonRequest
+    comparison: DescriptionComparison
+    # Placement ID, original dashboard geometry hash, standalone equivalent geometry hash.
+    placement_bindings: tuple[tuple[Identifier, Digest, Digest], ...] = ()
+
+
 class DashboardManifest(_DashboardModel):
     schema_version: Literal["1.0"] = "1.0"
     calculator_version: str
@@ -540,6 +652,10 @@ class DashboardManifest(_DashboardModel):
     map_output_hash: Digest | None = None
     placement_input_hash: Digest | None = None
     placement_output_hash: Digest | None = None
+    diagnostics_input_hash: Digest | None = None
+    diagnostics_output_hash: Digest | None = None
+    description_comparisons_input_hash: Digest | None = None
+    description_comparisons_output_hash: Digest | None = None
 
 
 class PreparedDashboard(_DashboardModel):
@@ -547,3 +663,5 @@ class PreparedDashboard(_DashboardModel):
     calculations: tuple[DashboardResult, ...]
     manifest: DashboardManifest
     plots: DashboardPlots = Field(default_factory=DashboardPlots)
+    diagnostics: tuple[DashboardDiagnosis, ...] = ()
+    description_comparisons: tuple[DashboardDescriptionComparison, ...] = ()

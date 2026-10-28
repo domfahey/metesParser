@@ -22,6 +22,7 @@
     }
     getLayer(id) { return this.layers.find(layer => layer.id === id); }
     addLayer(layer) { if (this.getLayer(layer.id)) throw new Error('duplicate layer'); this.layers.push(layer); }
+    moveLayer(id, before) { const layer=this.getLayer(id); this.layers=this.layers.filter(item=>item.id!==id); const index=this.layers.findIndex(item=>item.id===before); this.layers.splice(index<0 ? this.layers.length : index,0,layer); }
     setLayoutProperty(id, key, value) { this.getLayer(id).layout[key] = value; }
     setPaintProperty(id, key, value) { this.getLayer(id).paint[key] = value; }
     fitBounds(...args) { this.fit.push(args); }

@@ -9,7 +9,9 @@
   const panel = $('[data-testid="map-source-panel"]');
   const dialog = $("#map-page-dialog");
   let map = null, generation = 0, selected = null, pageTrigger = null, timeout = null;
-  let opacity = baseline.view.raster_opacity, mapError = false, pendingToken = "";
+  let mapError = false, pendingToken = "";
+  const rasterOpacity = Object.fromEntries(artifact.rasters.map(r => [r.id, baseline.view.raster_opacity]));
+  const rasterOrder = artifact.rasters.map(r => r.id); // Bottom to top; vectors remain above every scan.
   const visibility = Object.fromEntries(Array.from(document.querySelectorAll("[data-map-layer]")).map(el => [el.dataset.mapLayer, true]));
   const styles = {standard: "mapbox://styles/mapbox/standard", "standard-satellite": "mapbox://styles/mapbox/standard-satellite"};
   const collection = features => ({type: "FeatureCollection", features});
@@ -54,10 +56,11 @@
     if ($('[data-testid="map-style"]').value === "standard") {
       map.setConfigProperty("basemap", "show3dObjects", false);
     }
-    for (const raster of artifact.rasters) {
+    for (const rasterKey of rasterOrder) {
+      const raster = artifact.rasters.find(r => r.id === rasterKey);
       const id = rasterId(raster.id);
       if (!map.getSource(id)) map.addSource(id, {type: "image", url: raster.path, coordinates: raster.corners});
-      if (!map.getLayer(id)) map.addLayer({id, type: "raster", source: id, paint: {"raster-opacity": opacity, "raster-fade-duration": 0}, layout: {visibility: visibility[`raster-${raster.id}`] ? "visible" : "none"}});
+      if (!map.getLayer(id)) map.addLayer({id, type: "raster", source: id, paint: {"raster-opacity": rasterOpacity[raster.id], "raster-fade-duration": 0}, layout: {visibility: visibility[`raster-${raster.id}`] ? "visible" : "none"}});
     }
     const specs = [
       ["parcel_context", "line", {"line-color": "#874eac", "line-width": 2}],
@@ -83,10 +86,29 @@
     if (map && map.getLayer(id)) map.setLayoutProperty(id, "visibility", el.checked ? "visible" : "none");
     if (el.dataset.mapLayer === "recorded_course" && map && map.getLayer("review-course-labels")) map.setLayoutProperty("review-course-labels", "visibility", el.checked ? "visible" : "none");
   }));
-  $("#map-opacity").addEventListener("input", event => {
-    opacity = Number(event.target.value);
-    for (const raster of artifact.rasters) if (map && map.getLayer(rasterId(raster.id))) map.setPaintProperty(rasterId(raster.id), "raster-opacity", opacity);
-  });
+  document.querySelectorAll("[data-raster-opacity]").forEach(control => control.addEventListener("input", () => {
+    const id = control.dataset.rasterOpacity;
+    rasterOpacity[id] = Number(control.value);
+    if (map && map.getLayer(rasterId(id))) map.setPaintProperty(rasterId(id), "raster-opacity", rasterOpacity[id]);
+  }));
+  function reorderRaster(id, direction) {
+    const index = rasterOrder.indexOf(id), next = index + direction;
+    if (index < 0 || next < 0 || next >= rasterOrder.length) return;
+    [rasterOrder[index], rasterOrder[next]] = [rasterOrder[next], rasterOrder[index]];
+    const container = $("#raster-controls");
+    const controls = Array.from(document.querySelectorAll("[data-raster-control]"));
+    rasterOrder.forEach((key, i) => {
+      const control = controls.find(node => node.dataset.rasterControl === key);
+      container.append(control);
+      control.querySelector("[data-raster-up]").disabled = i === rasterOrder.length - 1;
+      control.querySelector("[data-raster-down]").disabled = i === 0;
+    });
+    if (map && map.getLayer(layerId("parcel_context"))) {
+      for (const key of rasterOrder) if (map.getLayer(rasterId(key))) map.moveLayer(rasterId(key), layerId("parcel_context"));
+    }
+  }
+  document.querySelectorAll("[data-raster-up]").forEach(button => button.addEventListener("click", () => reorderRaster(button.dataset.rasterUp, 1)));
+  document.querySelectorAll("[data-raster-down]").forEach(button => button.addEventListener("click", () => reorderRaster(button.dataset.rasterDown, -1)));
   $('[data-testid="map-style"]').addEventListener("change", event => { if (map) { mapError = false; status("Loading basemap style."); map.setStyle(styles[event.target.value], {diff: false}); } });
   let sdkPromise = null;
   function loadSDK() {

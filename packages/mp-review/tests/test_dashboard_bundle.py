@@ -340,3 +340,20 @@ def test_unavailable_exception_area_is_unknown_in_dashboard(stated_area):
     assert area_check.inputs["area_available"] is False
     if stated_area is not None:
         assert area_check.status == "blocked"
+
+
+def test_diagnostic_cache_is_revalidated_and_old_manifests_safely_miss(tmp_path):
+    first = prepare_dashboard(bundle(), cache_dir=tmp_path)
+    assert prepare_dashboard(bundle(), cache_dir=tmp_path).manifest.cache_reused
+    stage = json.loads((tmp_path / "diagnostics.json").read_text())
+    stage[0]["baseline"]["residual"]["magnitude_ft"] = 123
+    (tmp_path / "diagnostics.json").write_text(json.dumps(stage))
+    repaired = prepare_dashboard(bundle(), cache_dir=tmp_path)
+    assert not repaired.manifest.cache_reused
+    assert repaired.diagnostics == first.diagnostics
+    manifest = json.loads((tmp_path / "stage-manifest.json").read_text())
+    manifest["calculator_version"] = "dashboard-1.0.2"
+    manifest.pop("diagnostics_input_hash")
+    manifest.pop("diagnostics_output_hash")
+    (tmp_path / "stage-manifest.json").write_text(json.dumps(manifest))
+    assert not prepare_dashboard(bundle(), cache_dir=tmp_path).manifest.cache_reused

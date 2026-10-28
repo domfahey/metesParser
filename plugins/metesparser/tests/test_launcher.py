@@ -122,7 +122,17 @@ def test_rejects_runtime_hash_map_path_escape(monkeypatch, tmp_path, capsys):
     assert "escapes runtime directory" in response["errors"][0]["message"]
 
 
-@pytest.mark.parametrize("command", ["dashboard", "mapbox-mcp"])
+@pytest.mark.parametrize(
+    "command",
+    [
+        "dashboard",
+        "mapbox-mcp",
+        "validate-source",
+        "inspect-artifacts",
+        "diagnose-closure",
+        "compare-descriptions",
+    ],
+)
 def test_dashboard_reaches_engine_without_promoting_status(command, monkeypatch, tmp_path, capsys):
     setup_launcher(monkeypatch, make_runtime(tmp_path))
     commands = []
@@ -133,8 +143,16 @@ def test_dashboard_reaches_engine_without_promoting_status(command, monkeypatch,
         return SimpleNamespace(returncode=1, stdout=engine_output, stderr="")
 
     monkeypatch.setattr(launcher.subprocess, "run", run)
-    assert launcher.main([command, "bundle.json", "--output-dir", "stages"]) == 1
-    assert commands[0][-6:-2] == [command, "bundle.json", "--output-dir", "stages"]
+    options = (
+        []
+        if command == "validate-source"
+        else ["--requested-stage", "review"]
+        if command == "inspect-artifacts"
+        else ["--output-dir", "stages"]
+    )
+    arguments = [command, "bundle.json", *options]
+    assert launcher.main(arguments) == 1
+    assert commands[0][-len(arguments) - 2 : -2] == arguments
     assert capsys.readouterr().out == engine_output
 
 
@@ -191,9 +209,7 @@ def test_standalone_plot_reaches_engine_and_preserves_nonverification(
     assert capsys.readouterr().out == output
 
 
-def test_standalone_online_map_reaches_engine_with_inputs_and_config(
-    monkeypatch, tmp_path, capsys
-):
+def test_standalone_online_map_reaches_engine_with_inputs_and_config(monkeypatch, tmp_path, capsys):
     setup_launcher(monkeypatch, make_runtime(tmp_path))
     commands = []
     output = '{"status":"needs_review","online_map_availability":"ready"}\n'

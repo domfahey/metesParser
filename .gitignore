@@ -112,6 +112,7 @@ nohup.out
 sample_deeds/review_packets/
 
 # Temporary files
+.firecrawl/
 debug_*
 temp_*
 *.tmp

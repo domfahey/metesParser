@@ -15,7 +15,7 @@ from typing import Any
 from mp_export.csv_writer import (  # type: ignore[import-untyped]
     FIELDNAMES,
     calls_to_csv,
-    csv_to_calls,
+    csv_text_to_calls,
     export_verified_csv,
 )
 from mp_models import AuditContext, DeedCall, LegalDescription, RunMetadata
@@ -24,6 +24,7 @@ from mp_verify import verify_closure
 from .text import prepare_text
 
 ENGINE_VERSION = "1.0.0"
+REPLAY_VERSION = "review-replay-1"
 LIMITATIONS = [
     "Deterministic parsing requires source comparison; passing checks does not establish legal validity.",
     "Topology checks cover straight segments and circular arcs; unsupported or incomplete curve geometry requires review.",
@@ -57,7 +58,8 @@ def _run(
     kind: str,
     output_dir: Path | None,
     stated_area_sq_ft: float | None,
-    path: Path | None = None,
+    *,
+    include_audit: bool = False,
 ) -> dict[str, Any]:
     result = _base(source, name, kind)
     directory = Path(output_dir) if output_dir is not None else None
@@ -122,7 +124,7 @@ def _run(
                 raise ValueError("CSV header must match the complete 21-field schema.")
             if any(len(row) != len(FIELDNAMES) for row in reader if row):
                 raise ValueError("CSV contains a row with incorrect field count.")
-            calls = csv_to_calls(str(path), strict=True)
+            calls = csv_text_to_calls(text, strict=True)
             legal = LegalDescription(calls=calls)
         else:
             raise ValueError(
@@ -148,6 +150,26 @@ def _run(
                 result["status"] = "checks_passed"
     except (ValueError, TypeError, OSError) as exc:
         _error(result, "invalid_input", str(exc))
+    audit_payload = {
+        "schema_version": "1.0",
+        "provider": None,
+        "model": None,
+        "method": "deterministic",
+        "input": result["input"],
+        "original_source": text,
+        "normalized_text": normalized,
+        "source_encoding": "utf-8" if text else "unavailable or empty",
+        "call_audits": [a.model_dump(mode="json") for a in audit.call_audits],
+        "verification_audit": audit.verification_audit.model_dump(mode="json")
+        if audit.verification_audit
+        else None,
+        "extraction_record": None,
+        "legal_description": legal.model_dump(mode="json") if legal else None,
+        "verification": result["verification"],
+        "errors": result["errors"],
+    }
+    if include_audit:
+        result["audit"] = audit_payload
     if directory is not None:
         try:
 
@@ -166,24 +188,7 @@ def _run(
             write(
                 "audit.json",
                 json.dumps(
-                    {
-                        "schema_version": "1.0",
-                        "provider": None,
-                        "model": None,
-                        "method": "deterministic",
-                        "input": result["input"],
-                        "original_source": text,
-                        "normalized_text": normalized,
-                        "source_encoding": "utf-8" if text else "unavailable or empty",
-                        "call_audits": [a.model_dump(mode="json") for a in audit.call_audits],
-                        "verification_audit": audit.verification_audit.model_dump(mode="json")
-                        if audit.verification_audit
-                        else None,
-                        "extraction_record": None,
-                        "legal_description": legal.model_dump(mode="json") if legal else None,
-                        "verification": result["verification"],
-                        "errors": result["errors"],
-                    },
+                    audit_payload,
                     indent=2,
                     allow_nan=False,
                 ),
@@ -201,9 +206,34 @@ def _run(
                 + body
                 + "</pre></html>",
             )
+            manifest = {
+                "schema_version": "1.0",
+                "kind": "review",
+                "engine_version": ENGINE_VERSION,
+                "replay_version": REPLAY_VERSION,
+                "input": {**result["input"], "path": "source.txt"},
+                "parameters": {"stated_area_sq_ft": stated_area_sq_ft},
+                "recorded_status": result["status"],
+                "artifacts": {
+                    artifact: hashlib.sha256(Path(location).read_bytes()).hexdigest()
+                    for artifact, location in result["artifacts"].items()
+                },
+            }
+            write("review-manifest.json", json.dumps(manifest, indent=2, allow_nan=False))
         except (ValueError, OSError) as exc:
             _error(result, "artifact_error", str(exc))
     return result
+
+
+def replay_review(
+    source: bytes,
+    *,
+    input_kind: str,
+    source_name: str = "source.txt",
+    stated_area_sq_ft: float | None = None,
+) -> dict[str, Any]:
+    """Recompute retained input bytes in memory without artifact or verified export writes."""
+    return _run(source, source_name, input_kind, None, stated_area_sq_ft, include_audit=True)
 
 
 def review_text(
@@ -229,7 +259,7 @@ def review_file(
         source = path.read_bytes()
     except OSError as exc:
         return _error(_base(b"", path.name, kind), "input_error", str(exc))
-    return _run(source, path.name, kind, output_dir, stated_area_sq_ft, path)
+    return _run(source, path.name, kind, output_dir, stated_area_sq_ft)
 
 
 def verify_file(

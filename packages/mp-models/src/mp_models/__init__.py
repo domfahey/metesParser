@@ -1,5 +1,11 @@
 """Pydantic schemas for metes and bounds deed parsing."""
 
+from .artifact_inspection import (
+    ArtifactInspection,
+    InspectedArtifact,
+    InspectedStage,
+    InspectionReason,
+)
 from .audit import (
     AuditContext,
     CallAudit,
@@ -12,8 +18,30 @@ from .audit import (
 )
 from .base import _Model
 from .closure import CheckResult, ClosureResult, Point
+from .comparison import (
+    BearingBasis,
+    ComparedPair,
+    ComparisonComponent,
+    ComparisonDescription,
+    ComparisonManifest,
+    ComparisonPair,
+    ComparisonRequest,
+    ComparisonSelection,
+    ComparisonTolerance,
+    ComparisonTransform,
+    DescriptionComparison,
+    StructuralDifference,
+)
 from .constants import PERMANENT_MONUMENTS, PRIOR_CONVEYANCE_SIGNALS
-from .dashboard import DashboardBundle, DashboardManifest, DashboardResult, PreparedDashboard
+from .dashboard import (
+    DashboardBundle,
+    DashboardDescriptionComparison,
+    DashboardDescriptionComparisonSpec,
+    DashboardDiagnosis,
+    DashboardManifest,
+    DashboardResult,
+    PreparedDashboard,
+)
 from .deed_call import (
     CurveDirection,
     CurveType,
@@ -22,6 +50,19 @@ from .deed_call import (
     MonumentStatus,
     MonumentType,
     SubdivisionReference,
+)
+from .diagnostics import (
+    CallSensitivity,
+    ClosureDiagnosticRequest,
+    ClosureDiagnostics,
+    DiagnosticCall,
+    DiagnosticFrame,
+    DiagnosticResidual,
+    DiagnosticSourceRef,
+    DiagnosticVector,
+    QuantizationAssumptions,
+    QuantizationBound,
+    diagnostic_input_hash,
 )
 from .envelope import (
     ClosureResultMessage,
@@ -59,6 +100,17 @@ from .relative import (
     RelativeIssue,
     RelativeSource,
 )
+from .source_handoff import (
+    DescriptionCandidate,
+    DescriptionSelectionRecord,
+    MissingSourcePage,
+    SelectionSpan,
+    SourceAcquisitionRecord,
+    SourcePage,
+    SourceReference,
+    SourceUncertainty,
+    TranscriptReference,
+)
 from .tract import Tract, TractType
 from .units import ConversionFactors, DistanceUnit
 from .webmap import (
@@ -72,6 +124,45 @@ from .webmap import (
 __version__ = "1.0.0"
 
 __all__ = [
+    "ArtifactInspection",
+    "InspectedArtifact",
+    "InspectedStage",
+    "InspectionReason",
+    "BearingBasis",
+    "ComparedPair",
+    "ComparisonComponent",
+    "ComparisonDescription",
+    "ComparisonManifest",
+    "ComparisonPair",
+    "ComparisonRequest",
+    "ComparisonSelection",
+    "ComparisonTolerance",
+    "ComparisonTransform",
+    "DescriptionComparison",
+    "StructuralDifference",
+    "DashboardDescriptionComparison",
+    "DashboardDescriptionComparisonSpec",
+    "CallSensitivity",
+    "ClosureDiagnosticRequest",
+    "ClosureDiagnostics",
+    "DiagnosticCall",
+    "DiagnosticFrame",
+    "DiagnosticResidual",
+    "DiagnosticSourceRef",
+    "DiagnosticVector",
+    "QuantizationAssumptions",
+    "QuantizationBound",
+    "diagnostic_input_hash",
+    "DescriptionCandidate",
+    "DescriptionSelectionRecord",
+    "MissingSourcePage",
+    "SelectionSpan",
+    "SourceAcquisitionRecord",
+    "SourcePage",
+    "SourceReference",
+    "SourceUncertainty",
+    "TranscriptReference",
+    "DashboardDiagnosis",
     "MapboxViewOptions",
     "StandaloneWebMapInput",
     "WebMapArtifact",

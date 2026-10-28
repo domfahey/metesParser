@@ -44,7 +44,7 @@ This repository is a **prototype** exploring whether AI can assist with that wor
 
 ## Claude Plugin Skills
 
-The [MetesParser plugin catalog](plugins/metesparser/README.md) documents nine skills: six standalone capabilities (document transcription, description extraction, traverse verification, plotting, overlay preparation, and online map rendering), two workflows (boundary review and the explicitly requested dashboard), and the `review-deed` alias for boundary review. Skills are an instruction and routing layer over the existing Python packages; they are not new parsing or verification engines.
+The [MetesParser plugin catalog](plugins/metesparser/README.md) documents ten skill entrypoints: seven capabilities (document transcription, description extraction, traverse verification, plotting, overlay preparation, online map rendering, and description comparison), two workflows (boundary review and the explicitly requested dashboard), and the `review-deed` alias for boundary review. Source validation, closure diagnosis, and artifact inspection are shared utilities used by these skills. Skills are an instruction and routing layer over the existing Python packages; they are not new parsing or verification engines. Local implementation evidence and remaining acceptance gates are tracked in the [evidence ledger](docs/implementation/2026-10-28-evidence-review-ledger.md).
 
 The plugin uses Claude's native document/image reading and description selection, then deterministic `mp-review` operations. The separate Python PDF pipeline uses OpenAI/Gemini through `mp-ocr`. Use the [shared artifact handoff contract](plugins/metesparser/references/artifact-handoffs.md) for inputs, stopping points, reuse, and status boundaries. Verification, plotting, and overlay preparation can be requested independently; a dashboard requires explicit `DashboardBundle` assembly. See the [composition architecture](docs/ARCHITECTURE.md#skill-composition) for how these paths fit together.
 
@@ -485,6 +485,8 @@ Based on comprehensive metes & bounds extraction best practices from professiona
 - **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Development guidelines
 - **[CLAUDE.md](CLAUDE.md)** - AI assistant context and guidance
 - **[docs/METES_AND_BOUNDS_REFERENCE.md](docs/METES_AND_BOUNDS_REFERENCE.md)** - Surveying reference guide
+- **third-party research** - Public UI observations, product claims, and ideas for the review and map skills
+- **[Skill improvement plan](docs/plans/2026-10-28-skill-evidence-and-review-improvements.md)** - Subagent workstreams, contracts, and red-green acceptance tests
 - **[docs/bugs.md](docs/bugs.md)** - Known issues tracker
 - **[docs/todos.md](docs/todos.md)** - Task tracker
 
