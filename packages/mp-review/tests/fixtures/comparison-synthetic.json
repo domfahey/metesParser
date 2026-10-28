@@ -1,0 +1,89 @@
+{
+  "left": {
+    "id": "old",
+    "plot": {
+      "title": "old",
+      "calculation_id": "old",
+      "foot_definition": "international_ft",
+      "calls": [
+        {
+          "id": "old-line",
+          "quote": "  original old-line  ",
+          "occurrence_id": "occ-old-line",
+          "source_reference": "synthetic deed old-line",
+          "call": {
+            "course": 1,
+            "direction_text": "verbatim direction",
+            "distance_ft": 100,
+            "bearing_azimuth_deg_from_north": 90,
+            "to": "original iron pipe"
+          }
+        }
+      ]
+    },
+    "bearing_basis": {
+      "label": "same label",
+      "identity": null,
+      "source_references": [
+        "survey"
+      ]
+    }
+  },
+  "right": {
+    "id": "new",
+    "plot": {
+      "title": "new",
+      "calculation_id": "new",
+      "foot_definition": "international_ft",
+      "calls": [
+        {
+          "id": "new-line",
+          "quote": "  original new-line  ",
+          "occurrence_id": "occ-new-line",
+          "source_reference": "synthetic deed new-line",
+          "call": {
+            "course": 1,
+            "direction_text": "verbatim direction",
+            "distance_ft": 100.45,
+            "bearing_azimuth_deg_from_north": 90,
+            "to": "replacement iron pin"
+          }
+        }
+      ]
+    },
+    "bearing_basis": {
+      "label": "same label",
+      "identity": null,
+      "source_references": [
+        "survey"
+      ]
+    }
+  },
+  "pairs": [
+    {
+      "id": "pair",
+      "left": {
+        "call_ids": [
+          "old-line"
+        ],
+        "direction": "forward"
+      },
+      "right": {
+        "call_ids": [
+          "new-line"
+        ],
+        "direction": "forward"
+      }
+    }
+  ],
+  "tolerances": {
+    "length": 0.1,
+    "displacement": 0.1,
+    "position": 0.1,
+    "linear_unit": "international_ft",
+    "bearing_deg": 0.01,
+    "source_references": [
+      "review criteria"
+    ]
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0",
+  "rubrics": {
+    "source-reading-obscured-digits": {
+      "criteria": [
+        "uncertainty_explicit",
+        "source_location_retained"
+      ],
+      "required_actions": [
+        "native_document_reading"
+      ]
+    },
+    "source-reading-missing-exhibit": {
+      "criteria": [
+        "missing_exhibit_reported",
+        "no_closure_claim"
+      ],
+      "required_actions": [
+        "native_document_reading"
+      ]
+    },
+    "source-reading-repeated-occurrences": {
+      "criteria": [
+        "occurrences_distinguished",
+        "source_location_retained"
+      ],
+      "required_actions": [
+        "native_document_reading"
+      ]
+    },
+    "selection-only": {
+      "criteria": [
+        "selected_span_verbatim",
+        "exclusions_retained",
+        "calculation_not_started"
+      ],
+      "required_actions": [
+        "source_selection"
+      ]
+    },
+    "reuse-restart": {
+      "criteria": [
+        "unchanged_artifact_reused",
+        "affected_stage_restarted"
+      ],
+      "required_actions": []
+    },
+    "closure-diagnosis": {
+      "criteria": [
+        "alternatives_preserved",
+        "no_source_correction_from_closure"
+      ],
+      "required_actions": []
+    },
+    "map-presentation-routing": {
+      "criteria": [
+        "map_stage_routed",
+        "no_interaction_claim",
+        "artifacts_unchanged"
+      ],
+      "required_actions": []
+    },
+    "map-interaction-optional": {
+      "criteria": [
+        "both_layers_toggled",
+        "layer_order_changed",
+        "evidence_preserved"
+      ],
+      "required_actions": [
+        "browser_layer_interaction"
+      ]
+    },
+    "map-evidence-checkpoints": {
+      "criteria": [
+        "checkpoint_limit_disclosed",
+        "fit_not_overstated"
+      ],
+      "required_actions": []
+    },
+    "comparison-reversed-lines": {
+      "criteria": [
+        "reversal_handled",
+        "tolerance_reported"
+      ],
+      "required_actions": []
+    },
+    "comparison-incompatible-basis": {
+      "criteria": [
+        "geometry_uncomparable",
+        "structural_findings_preserved"
+      ],
+      "required_actions": []
+    },
+    "comparison-structural-tentative": {
+      "criteria": [
+        "ambiguous_matches_tentative",
+        "no_boundary_assertion"
+      ],
+      "required_actions": []
+    },
+    "end-to-end-review": {
+      "criteria": [
+        "source_linkage_preserved",
+        "uncertainty_preserved",
+        "requested_stage_only"
+      ],
+      "required_actions": [
+        "native_document_reading"
+      ]
+    }
+  }
+}

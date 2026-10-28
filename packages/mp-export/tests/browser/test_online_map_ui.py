@@ -76,7 +76,7 @@ def test_layers_opacity_styles_selection_disconnect_and_retry(open_online):
     assert page.locator("#map-token").input_value() == ""
     assert page.evaluate("[localStorage.length, sessionStorage.length]") == [0, 0]
     for value in (0, 0.5, 1):
-        page.locator("#map-opacity").evaluate(
+        page.locator("[data-raster-opacity]").evaluate(
             "(node, value) => { node.value = value; node.dispatchEvent(new Event('input', {bubbles:true})); }",
             value,
         )
@@ -223,4 +223,97 @@ def test_style_load_does_not_claim_ready_while_visible_tiles_are_missing(open_on
     assert "Map connected" not in page.get_by_test_id("map-status").inner_text()
     page.evaluate("() => { const map=window.__maps[0]; map.tilesMissing=false; map.fire('idle'); }")
     assert "Map connected" in page.get_by_test_id("map-status").inner_text()
+    unchanged(page)
+
+
+def test_independent_scans_keep_opacity_order_and_visibility_across_styles(open_online):
+    page = open_online(two_rasters=True)
+    sliders = page.locator("[data-raster-opacity]")
+    assert sliders.count() == 2
+    labels = sliders.evaluate_all("nodes => nodes.map(n => n.getAttribute('aria-label'))")
+    assert len(set(labels)) == 2
+    connect(page)
+    raster_ids = page.evaluate("window.__maps[0].layers.filter(l=>l.type==='raster').map(l=>l.id)")
+    controls = page.locator("[data-raster-control]")
+    assert controls.first.locator("[data-raster-down]").is_disabled()
+    assert controls.first.locator("[data-raster-up]").is_enabled()
+    assert controls.last.locator("[data-raster-up]").is_disabled()
+    assert controls.last.locator("[data-raster-down]").is_enabled()
+    controls.first.locator("[data-raster-down]").evaluate("node => node.click()")
+    controls.last.locator("[data-raster-up]").evaluate("node => node.click()")
+    assert (
+        page.evaluate("window.__maps[0].layers.filter(l=>l.type==='raster').map(l=>l.id)")
+        == raster_ids
+    )
+    sliders.nth(0).focus()
+    sliders.nth(0).press("Home")
+    assert page.evaluate(
+        "window.__maps[0].layers.filter(l=>l.type==='raster').map(l=>l.paint['raster-opacity'])"
+    ) == [0, 0.55]
+    first_layer_id = page.locator('[data-map-layer^="raster-"]').first.get_attribute(
+        "data-map-layer"
+    )
+    page.locator(f'[data-map-layer="{first_layer_id}"]').uncheck()
+    page.locator("[data-raster-up]").first.focus()
+    page.locator("[data-raster-up]").first.press("Enter")
+    for style in ("standard-satellite", "standard"):
+        page.get_by_test_id("map-style").select_option(style)
+        layers = page.evaluate("window.__maps[0].layers")
+        assert [layer["id"] for layer in layers[:2]] == list(reversed(raster_ids))
+        assert layers[1]["paint"]["raster-opacity"] == 0
+        assert layers[1]["layout"]["visibility"] == "none"
+        assert all(layer["type"] != "raster" for layer in layers[2:])
+        assert controls.first.locator("[data-raster-down]").is_disabled()
+        assert controls.first.locator("[data-raster-up]").is_enabled()
+        assert controls.last.locator("[data-raster-up]").is_disabled()
+        assert controls.last.locator("[data-raster-down]").is_enabled()
+    unchanged(page)
+
+
+@pytest.mark.parametrize("width", [1200, 390])
+def test_active_scan_labels_are_literal_accessible_and_wrap_without_overflow(open_online, width):
+    malicious = '<img src=x onerror="window.scanLabelInjected=true"> & "quoted"'
+    long_label = "VeryLongSyntheticScanLabel" * 80
+    page = open_online(width=width, two_rasters=True, raster_labels=(malicious, long_label))
+    controls = page.locator("[data-raster-control]")
+    assert controls.count() == 2
+    for control, label in zip(controls.all(), (malicious, long_label), strict=True):
+        assert control.locator("legend").text_content() == label
+        assert control.locator("[data-raster-up]").get_attribute("aria-label") == "Raise " + label
+        assert control.locator("[data-raster-down]").get_attribute("aria-label") == "Lower " + label
+        assert label in control.locator("[data-raster-opacity]").get_attribute("aria-label")
+    assert page.locator("#raster-controls img, #raster-controls script").count() == 0
+    assert page.evaluate("window.scanLabelInjected === undefined")
+    assert page.locator("body").evaluate("node => node.scrollWidth <= innerWidth")
+    assert page._external == []
+    connect(page)
+    controls.first.locator("[data-raster-opacity]").focus()
+    controls.first.locator("[data-raster-opacity]").press("Home")
+    assert page.evaluate(
+        "window.__maps[0].layers.filter(l=>l.type==='raster').map(l=>l.paint['raster-opacity'])"
+    ) == [0, 0.55]
+    unchanged(page)
+
+
+def test_scan_evidence_distinguishes_registration_from_checkpoint_accuracy(open_online):
+    page = open_online(two_rasters=True)
+    summaries = page.locator("[data-raster-evidence]")
+    assert summaries.count() == 2
+    for summary in summaries.all():
+        text = summary.inner_text()
+        assert "0 fit controls" in text
+        assert "0 checkpoints" in text
+        assert "independent checkpoint accuracy is unknown" in text
+        assert "EPSG:3857" in text
+        assert "Source" in text and "SHA-256" in text
+    unchanged(page)
+
+
+def test_low_fit_residual_does_not_hide_poor_independent_checkpoint(open_online):
+    page = open_online(poor_checkpoint=True)
+    summary = page.locator("[data-raster-evidence]").inner_text()
+    assert "3 fit controls, fit RMS 0 m" in summary
+    assert "1 checkpoints, checkpoint RMS 10 m" in summary
+    assert "small fitting residual is not an accuracy estimate" in summary
+    assert "registration approximate" in summary
     unchanged(page)

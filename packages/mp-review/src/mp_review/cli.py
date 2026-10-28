@@ -15,6 +15,37 @@ from .settings import SettingsError, output_path, read_settings
 def main() -> None:
     parser = argparse.ArgumentParser(prog="metes-review")
     commands = parser.add_subparsers(dest="command", required=True)
+    for name in (
+        "validate-source",
+        "inspect-artifacts",
+        "diagnose-closure",
+        "compare-descriptions",
+    ):
+        advisory = commands.add_parser(
+            name, help="Advisory analysis; completed results retain needs_review (exit 1)."
+        )
+        advisory.add_argument("input", type=Path)
+        advisory.add_argument("--settings", type=Path)
+        if name == "validate-source":
+            advisory.add_argument("--acquisition", type=Path)
+            advisory.add_argument("--selection", type=Path)
+        elif name == "inspect-artifacts":
+            advisory.add_argument(
+                "--requested-stage",
+                required=True,
+                choices=(
+                    "convert",
+                    "extract",
+                    "verify",
+                    "review",
+                    "plot",
+                    "dashboard",
+                    "render-map",
+                    "compare-descriptions",
+                ),
+            )
+        else:
+            advisory.add_argument("--output-dir", type=Path)
     for name in ("review", "verify"):
         command = commands.add_parser(name)
         command.add_argument("input", type=Path)
@@ -135,6 +166,26 @@ def main() -> None:
 
 
 def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    if args.command == "validate-source":
+        from .source_handoff import validate_source_bundle
+
+        return validate_source_bundle(
+            args.input, acquisition=args.acquisition, selection=args.selection
+        )
+    if args.command == "inspect-artifacts":
+        from .artifact_inspect import inspect_artifacts
+
+        return inspect_artifacts(args.input, requested_stage=args.requested_stage)
+    if args.command == "diagnose-closure":
+        from .diagnostics import diagnose_closure_file
+
+        return diagnose_closure_file(args.input, output_dir=output_path(settings, args.output_dir))
+    if args.command == "compare-descriptions":
+        from .comparison import compare_descriptions_file
+
+        return compare_descriptions_file(
+            args.input, output_dir=output_path(settings, args.output_dir)
+        )
     if args.command in ("compose-map", "compose-dashboard"):
         from .compose import compose_dashboard_file, compose_map_file
 

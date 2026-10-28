@@ -1,0 +1,3 @@
+﻿N 45° E 100 ft  
+EXCLUDED historical text
+S 45° W 100 ft
