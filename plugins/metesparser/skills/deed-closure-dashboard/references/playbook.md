@@ -2,6 +2,8 @@
 
 Build an interactive closure check, like the 2 Walnut Street example, for a chain of title or any set of source documents. This playbook adapts the supplied Walnut Street workflow to the plugin's native-reading, source-preservation, and verification rules. Its historical figures are examples to verify against actual sources, never defaults for another property.
 
+Contents: [Quick start](#1-quick-start) · [Inputs and data contract](#2-inputs-and-data-contract) · [Workflow](#3-workflow) · [Page specification](#4-page-specification) · [Walnut Street lessons](#5-walnut-street-lessons) · [QA before delivery or publication](#6-qa-before-delivery-or-publication)
+
 The finished page has six parts:
 
 1. **Findings:** one card per description occurrence/version, showing closure, misclosure, precision, and uncertainty from record values only.

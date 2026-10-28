@@ -9,9 +9,16 @@ from mp_models.dashboard import (
     DashboardResult,
     PreparedDashboard,
 )
-from mp_models.webmap import MapboxViewOptions, WebMapArtifact, WebMapOptions, WebMapRequest
+from mp_models.webmap import (
+    MapboxViewOptions,
+    StandaloneWebMapInput,
+    WebMapArtifact,
+    WebMapOptions,
+    WebMapRequest,
+)
 from mp_review.dashboard import dashboard_file, prepare_dashboard  # type: ignore[import-untyped]
 from mp_review.mapbox_mcp import mapbox_mcp_file  # type: ignore[import-untyped]
+from mp_review.online_map import render_map_file  # type: ignore[import-untyped]
 from mp_review.webmap import PreparedWebMap, prepare_web_map  # type: ignore[import-untyped]
 
 __all__ = [
@@ -28,6 +35,8 @@ __all__ = [
     "WebMapArtifact",
     "WebMapOptions",
     "WebMapRequest",
+    "StandaloneWebMapInput",
+    "render_map_file",
     "PreparedWebMap",
     "prepare_web_map",
     "render_online_map",

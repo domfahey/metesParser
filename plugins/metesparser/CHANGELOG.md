@@ -6,7 +6,10 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Added
 
-- Optional `mapbox-mcp` handoff in the existing dashboard workflow: validates retained geographic artifacts, prepares vector-only render arguments, records omissions and digests, and keeps connected-tool/provider/client acceptance separate from local preparation and verification.
+- A paired skill-evaluation protocol reuses existing scenarios, hides grading rubrics from responding agents, and records model/client evidence separately from engine and provider checks. Claude model coverage remains unrun.
+- Standalone `render-map` composes prepared plot/map artifacts without a dashboard, revalidates shared geometry and placement identities, and retains an offline evidence fallback. `mapbox-mcp` accepts these intact stages or legacy dashboard stages.
+- `render-online-map` capability owns local Mapbox viewer and requested vector-only MCP preview, bringing the catalog to six capabilities, two workflows, and one alias.
+- Optional `mapbox-mcp` handoff in `render-online-map`: validates retained geographic artifacts, prepares vector-only render arguments, records omissions and digests, and keeps connected-tool/provider/client acceptance separate from local preparation and verification.
 - `plot-metes-and-bounds` creates a standalone plot from structured calls, RelativeDescription JSON, or PlotRequest JSON and stops after plot artifacts.
 - `prepare-parcel-overlay` prepares supplied vector/raster evidence and provenance without placing deed geometry or building a dashboard.
 - Shared artifact handoff guidance defines accepted inputs, outputs, status boundaries, source identity, invalidation, and resume behavior.
@@ -19,6 +22,9 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 - Evaluation cases for native conversion, illegible survey bearings, historical versus requested descriptions, ambiguous tracts, and missing exhibits.
 
 ### Changed
+
+- Skill entrypoints link runtime prerequisites and conditional procedures directly; long dashboard references include contents links. Mapbox MCP instructions require the exact discovered, fully qualified host tool identifier.
+- Dashboard source/bundle assembly delegates online rendering to `render-online-map`; plot and overlay capabilities route later map requests there without acquiring or verifying sources again. Detailed local-viewer and MCP procedures moved to the renderer skill; prior dashboard reference paths remain compatibility links.
 
 - `review-deed` delegates to the document-agnostic workflow; `verify-traverse` accepts an identified structured boundary and routes unselected documents to description selection.
 - Capability skills stop at their requested artifacts; review/dashboard workflows reuse valid handoffs and continue only when requested. `verify-traverse` clearly separates canonical verification from explicitly requested relative analysis.
@@ -33,6 +39,7 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Fixed
 
+- Online-map documentation and evaluation expectations now cover standalone composition, map layers without deed placement, and the explicit unavailable viewer with offline evidence when georeferencing is missing.
 - Circular boundaries now check line–arc and arc–arc contacts, overlaps, and unsupported geometry before verified export, while allowing legitimate shared endpoints. Unequal-radius intersections are independent of argument order.
 - Closing point/place-of-beginning wording no longer causes the spurious multiple-BEGINNING warning, without merging or dropping valid POINT/PLACE OF BEGINNING tract openings.
 

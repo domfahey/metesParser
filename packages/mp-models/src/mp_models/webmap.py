@@ -1,17 +1,87 @@
 """Provider-independent geographic display contracts; never verification inputs."""
 
+import base64
 from typing import Annotated, Literal, Self
 
 from pydantic import Field, FiniteFloat, model_validator
 
 from .base import _Model
-from .plot import Digest, Identifier
+from .plot import Digest, Identifier, MapSource, PlotPlacement, PlotScene, VectorLayer
+from .plot_request import PreparedPlot
+from .raster import RasterLayer
 
 MAX_LATITUDE = 85.0511287798066
 Longitude = Annotated[FiniteFloat, Field(ge=-180, le=180)]
 Latitude = Annotated[FiniteFloat, Field(ge=-MAX_LATITUDE, le=MAX_LATITUDE)]
 LngLat = tuple[Longitude, Latitude]
 Opacity = Annotated[FiniteFloat, Field(ge=0, le=1)]
+
+
+class StandaloneWebMapInput(_Model):
+    """Source-honest plots and overlay inputs without dashboard review attestations."""
+
+    schema_version: Literal["1.0"] = "1.0"
+    title: str = Field(min_length=1)
+    plots: tuple[PreparedPlot, ...] = ()
+    scenes: tuple[PlotScene, ...] = Field(min_length=1)
+    map_sources: tuple[MapSource, ...] = ()
+    vector_layers: tuple[VectorLayer, ...] = ()
+    raster_layers: tuple[RasterLayer, ...] = ()
+    placements: tuple[PlotPlacement, ...] = ()
+
+    @model_validator(mode="after")
+    def _references(self) -> Self:
+        ids = [
+            item.id
+            for group in (
+                self.scenes,
+                self.map_sources,
+                self.vector_layers,
+                self.raster_layers,
+                self.placements,
+            )
+            for item in group
+        ]
+        ids.extend(plot.request.calculation_id for plot in self.plots)
+        ids.extend(call.id for plot in self.plots for call in plot.request.calls)
+        if len(ids) != len(set(ids)):
+            raise ValueError("standalone map IDs must be globally unique")
+        scenes = {scene.id for scene in self.scenes}
+        sources = {source.id: source for source in self.map_sources}
+        calculations = {plot.request.calculation_id for plot in self.plots}
+        layers: tuple[VectorLayer | RasterLayer, ...] = (*self.vector_layers, *self.raster_layers)
+        for layer in layers:
+            if layer.scene_id not in scenes or layer.source_id not in sources:
+                raise ValueError("layer references unknown scene or map source")
+        for raster in self.raster_layers:
+            source = sources[raster.source_id]
+            if source.sha256 != raster.sha256 or (
+                source.data_base64 is not None
+                and base64.b64decode(source.data_base64, validate=True)
+                != base64.b64decode(raster.data_base64, validate=True)
+            ):
+                raise ValueError("Raster layer content must match its map source")
+        for placement in self.placements:
+            if placement.calculation_id not in calculations or placement.scene_id not in scenes:
+                raise ValueError("placement references unknown calculation or scene")
+            if any(
+                value is not None
+                for value in (
+                    placement.scenario_id,
+                    placement.baseline_geometry_hash,
+                    placement.baseline_placement_id,
+                )
+            ):
+                raise ValueError("standalone placements do not support scenario or baseline fields")
+            if placement.evidence_ids:
+                raise ValueError(
+                    "standalone placement evidence_ids require unsupported dashboard evidence"
+                )
+            if placement.status == "referenced":
+                raise ValueError(
+                    "standalone referenced placement requires an explicit orientation frame"
+                )
+        return self
 
 
 class WebMapOptions(_Model):

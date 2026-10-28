@@ -17,12 +17,12 @@
   const text = (tag, content, parent) => { const element = document.createElement(tag); element.textContent = content; parent.append(element); return element; };
   function showPage(pageId, trigger) {
     pageTrigger = trigger;
-    const page = bundle.pages.find(item => item.id === pageId);
+    const page = (bundle.pages || []).find(item => item.id === pageId);
     const content = $("#map-page-content"); content.replaceChildren();
     $("#map-page-title").textContent = page ? `Source page ${page.number}: ${page.label || page.id}` : "Source page unavailable";
     if (page && page.image) { const img = document.createElement("img"); img.src = page.image; img.alt = `Original source page ${page.number}`; content.append(img); }
     else text("p", "Source image unavailable; no image was supplied for this page.", content);
-    if (page) text("p", page.notes, content);
+    if (page && page.notes) text("p", page.notes, content);
     dialog.showModal(); $("#map-page-close").focus();
   }
   $("#map-page-close").addEventListener("click", () => dialog.close());
@@ -30,14 +30,18 @@
   function selectCall(callId) {
     const call = bundle.calls.find(item => item.id === callId); if (!call) return;
     selected = callId; panel.replaceChildren();
-    text("h3", call.id, panel); text("p", call.quote, panel).className = "source-quote";
-    text("p", `Reading: ${call.reading_status}. ${call.reading_note}`, panel);
+    text("h3", call.id, panel); text("p", call.quote || (call.call && call.call.direction_text) || "Source wording unavailable", panel).className = "source-quote";
+    text("p", call.reading_status ? `Reading: ${call.reading_status}. ${call.reading_note || ""}` : "Reading status unavailable; no source review was supplied.", panel);
+    if (call.source_reference) text("p", `Source reference: ${call.source_reference}`, panel);
+    if (call.page_id) text("p", `Source page reference: ${call.page_id}`, panel);
     const feature = artifact.features.find(item => item.properties.call_id === callId);
     text("p", feature ? `Placement: ${feature.properties.placement_status}; geometry: ${feature.properties.completeness || "not supplied"}` : "Geographic course unavailable; original record retained.", panel);
-    const page = bundle.pages.find(item => item.id === call.page_id);
+    const page = (bundle.pages || []).find(item => item.id === call.page_id);
     if (!page || !page.image) text("p", "Source image unavailable", panel);
-    const button = text("button", "Open original source page", panel); button.type = "button";
-    button.addEventListener("click", () => showPage(call.page_id, button));
+    if (page) {
+      const button = text("button", "Open original source page", panel); button.type = "button";
+      button.addEventListener("click", () => showPage(call.page_id, button));
+    }
     document.querySelectorAll("[data-map-call]").forEach(el => el.setAttribute("aria-pressed", String(el.dataset.mapCall === callId)));
     if (map && map.getSource("review-selection")) map.getSource("review-selection").setData(selectionData());
   }
@@ -107,7 +111,7 @@
   $("#map-connection").addEventListener("submit", async event => {
     event.preventDefault(); let token = $("#map-token").value.trim(); $("#map-token").value = "";
     if (!/^pk\.[A-Za-z0-9._-]+$/.test(token)) { token = ""; status("Enter a public Mapbox token beginning with pk. Secret tokens are rejected."); return; }
-    if (!artifact.bounds) { token = ""; status("Geographic display unavailable. Use the offline dashboard and source records."); return; }
+    if (!artifact.bounds) { token = ""; status("Geographic display unavailable. Use the offline evidence view and source records."); return; }
     pendingToken = token; token = ""; mapError = false; const current = ++generation; $('[data-testid="map-connect"]').disabled = true; $('[data-testid="map-disconnect"]').disabled = false;
     status("Loading Mapbox SDK.");
     timeout = setTimeout(() => { if (generation === current) disconnect("Map connection timed out. Check connectivity and retry; source records remain available."); }, 30000);
@@ -118,9 +122,9 @@
       map.on("style.load", () => { try { ensureReviewLayers(); } catch (_) { mapError = true; clearTimeout(timeout); status("Map style could not load review layers. Source records remain available."); } });
       map.on("load", fit);
       map.on("idle", () => { if (map && !mapError && map.areTilesLoaded()) { clearTimeout(timeout); status("Map connected; currently visible tiles loaded. Placement and registration remain as recorded."); } });
-      map.on("error", () => { mapError = true; clearTimeout(timeout); status("Map data unavailable: authorization, style, or network request failed. Check the public token and connection, or use the offline dashboard."); });
-      map.on("webglcontextlost", () => disconnect("WebGL context lost. Retry or use the offline dashboard."));
+      map.on("error", () => { mapError = true; clearTimeout(timeout); status("Map data unavailable: authorization, style, or network request failed. Check the public token and connection, or use the offline evidence view."); });
+      map.on("webglcontextlost", () => disconnect("WebGL context lost. Retry or use the offline evidence view."));
       map.on("click", event => { if (!map || !map.getLayer("review-recorded_course")) return; const features = map.queryRenderedFeatures(event.point, {layers: ["review-recorded_course"]}); if (features.length) selectCall(features[0].properties.call_id); });
-    } catch (_) { token = ""; disconnect("Map unavailable: SDK, WebGL, or connection failed. Retry or use the offline dashboard."); }
+    } catch (_) { token = ""; disconnect("Map unavailable: SDK, WebGL, or connection failed. Retry or use the offline evidence view."); }
   });
 })();

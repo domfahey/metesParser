@@ -2,6 +2,7 @@
 
 import importlib.util
 import tomllib
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -63,3 +64,28 @@ def test_web_map_build_rejects_without_geo_before_building(tmp_path, monkeypatch
     with pytest.raises(ValueError, match="requires geo"):
         builder.build(tmp_path / "invalid.zip", geo=False, web_map=True)
     assert not (tmp_path / "invalid.zip").exists()
+
+
+def test_plugin_archive_includes_standalone_online_map_capability(tmp_path, monkeypatch):
+    builder = load_builder()
+    monkeypatch.setattr(builder.shutil, "which", lambda name: "/fake/uv")
+
+    def fake_run(arguments, *, cwd):
+        if arguments[1] == "build":
+            output_dir = Path(arguments[arguments.index("--out-dir") + 1])
+            package = arguments[arguments.index("--package") + 1]
+            (output_dir / f"{package.replace('-', '_')}-1.0.0-py3-none-any.whl").write_bytes(
+                b"wheel"
+            )
+        elif arguments[1] == "lock":
+            (Path(arguments[arguments.index("--project") + 1]) / "uv.lock").write_text(
+                "version = 1\n", encoding="utf-8"
+            )
+
+    monkeypatch.setattr(builder, "run", fake_run)
+    archive_path = builder.build(tmp_path / "plugin.zip")
+
+    with zipfile.ZipFile(archive_path) as archive:
+        names = set(archive.namelist())
+    assert "skills/render-online-map/SKILL.md" in names
+    assert "skills/render-online-map/README.md" in names

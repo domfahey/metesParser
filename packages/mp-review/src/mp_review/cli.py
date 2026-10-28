@@ -46,12 +46,19 @@ def main() -> None:
     dashboard.add_argument("--cache-dir", type=Path)
     dashboard.add_argument("--online-map-config", type=Path)
     dashboard.add_argument("--settings", type=Path)
+    render_map = commands.add_parser(
+        "render-map", help="Render existing standalone plots and overlays as an online map."
+    )
+    render_map.add_argument("input", type=Path)
+    render_map.add_argument("--online-map-config", type=Path, required=True)
+    render_map.add_argument("--output-dir", type=Path, required=True)
+    render_map.add_argument("--settings", type=Path)
     preview = commands.add_parser("serve-map", help="Serve generated map views on localhost.")
     preview.add_argument("directory", type=Path)
     preview.add_argument("--port", type=int, default=8765)
     preview.add_argument("--settings", type=Path)
     mcp = commands.add_parser(
-        "mapbox-mcp", help="Prepare vector tool arguments from an existing geographic dashboard."
+        "mapbox-mcp", help="Prepare vector tool arguments from an existing geographic map."
     )
     mcp.add_argument("directory", type=Path)
     mcp.add_argument("--output-dir", type=Path)
@@ -154,7 +161,7 @@ def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, An
             }
     elif args.command == "analyze-relative":
         result = review_relative_file(args.input, output_dir=output_path(settings, args.output_dir))
-    elif args.command == "dashboard":
+    elif args.command in ("dashboard", "render-map"):
         from mp_models.webmap import WebMapRequest
 
         from .dashboard import _load, dashboard_file
@@ -177,12 +184,20 @@ def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, An
                     ],
                 }
 
-        result = dashboard_file(
-            args.input,
-            output_dir=output_path(settings, args.output_dir),
-            cache_dir=args.cache_dir,
-            online_map=request,
-        )
+        if args.command == "render-map":
+            from .online_map import render_map_file
+
+            assert request is not None
+            result = render_map_file(
+                args.input, output_path(settings, args.output_dir), online_map=request
+            )
+        else:
+            result = dashboard_file(
+                args.input,
+                output_dir=output_path(settings, args.output_dir),
+                cache_dir=args.cache_dir,
+                online_map=request,
+            )
     elif args.command == "plot":
         from .plot import plot_file
 

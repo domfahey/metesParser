@@ -29,16 +29,25 @@ def _display_files(directory: Path) -> dict[str, bytes]:
             parse_constant=_invalid_number,
         )
         files = manifest["files"]
+        source_kind = manifest.get("source_kind", "dashboard")
         if manifest["schema_version"] != "1.0" or not isinstance(files, dict):
             raise ValueError("Invalid preview manifest")
-        if not {"online-map.html", "dashboard.html"}.issubset(files) or len(files) > 1024:
+        if source_kind == "dashboard":
+            required_html = {"online-map.html", "dashboard.html"}
+            allowed_html = required_html
+        elif source_kind == "standalone":
+            required_html = {"online-map.html", "map-evidence.html"}
+            allowed_html = required_html
+        else:
+            raise ValueError("Invalid preview source kind")
+        if not required_html.issubset(files) or len(files) > 1024:
             raise ValueError("Incomplete preview allowlist")
     except (KeyError, TypeError, UnicodeError) as exc:
         raise ValueError("Invalid preview manifest") from exc
     result: dict[str, bytes] = {}
     total = 0
     for name, digest in files.items():
-        if name not in {"online-map.html", "dashboard.html"} and not _DISPLAY_PATH.fullmatch(name):
+        if name not in allowed_html and not _DISPLAY_PATH.fullmatch(name):
             raise ValueError("Unexpected file in preview allowlist")
         path = root / name
         if any(p.is_symlink() for p in (path, *path.parents) if p != root.parent):
