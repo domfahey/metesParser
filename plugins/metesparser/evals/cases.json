@@ -138,6 +138,55 @@
     "must_not": ["infer a numeric bearing", "bridge the gap as a deed course", "claim verified status"]
   },
   {
+    "id": "plot-isolated-prose-with-commencement-tie-in",
+    "skill": "plot-metes-and-bounds",
+    "request": "Create a standalone plot from this already-isolated description, including its commencement tie-in.",
+    "input": {
+      "fixture_recipe": "Materialize the following exact UTF-8 text as a new source.txt file before the trial. This is synthetic regression text, not property evidence: COMMENCING at a stone; THENCE N 0° E 50 feet to the POINT OF BEGINNING; THENCE N 0° E 100 feet; THENCE N 90° E 100 feet; THENCE S 0° E 100 feet; THENCE N 90° W 100 feet to the POINT OF BEGINNING.",
+      "source_file": "materialized source.txt",
+      "input_format": "text"
+    },
+    "expected": "Use the explicit text-input plot path on the already-isolated prose. Preserve and represent the 50-foot commencement tie-in as separate from the four-course boundary ring; plot the four 100-foot boundary courses without treating the tie-in as a boundary course. Return standalone plot artifacts with needs_review and no verification or dashboard side effects.",
+    "must_not": ["treat the commencement tie-in as part of the boundary ring", "claim checks_passed or verified export", "build a dashboard"]
+  },
+  {
+    "id": "compose-standalone-map-from-existing-plot-and-layer",
+    "skill": "render-online-map",
+    "request": "Package the existing plot with this prepared map layer as a standalone map, without building a dashboard.",
+    "input": {
+      "fixture_recipe": "Materialize a valid plot output directory from the synthetic isolated prose fixture in plot-isolated-prose-with-commencement-tie-in. Materialize a valid prepared layer by following the repository's existing import-overlay fixture in packages/mp-review/tests/test_overlay_cli.py (a synthetic GeoJSON polygon in EPSG:4326 imported to EPSG:3857); keep it labeled synthetic and do not treat it as property evidence. Invoke the supported launcher composition command on those actual output artifacts before the evaluation session.",
+      "plot_artifact": "materialized plot output directory",
+      "prepared_layer": "materialized import-overlay output"
+    },
+    "expected": "Use the supported standalone map composition path with the existing plot and prepared layer, retain their provenance, and produce a standalone map package without creating an offline dashboard. Keep an unplaced local plot separate from the projected map layer unless explicit placement evidence is supplied; report provider and visible-client acceptance as unrun unless actually performed.",
+    "must_not": ["reparse or replot unchanged input", "infer placement from coordinates or scene labels", "create a dashboard", "claim online provider or client acceptance without observing it"]
+  },
+  {
+    "id": "compose-dashboard-recomputes-geometry-hash",
+    "skill": "deed-closure-dashboard",
+    "request": "Package this source bundle and prepared map layer in a dashboard. Preserve the source artifacts and report the resulting dashboard geometry identity.",
+    "input": {
+      "fixture_recipe": "Materialize a valid standalone plot directory and prepared synthetic layer as described in compose-standalone-map-from-existing-plot-and-layer. Materialize the base source bundle by copying plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-example.json to a new file. Invoke the supported launcher dashboard composition command with the actual base bundle and layer; use new output paths. The example is explicitly synthetic and its placeholder page image is not evidence of native document review. Keep the standalone plot geometry hash only as a comparison value; compose-dashboard accepts the base bundle and layer, not plot geometry.",
+      "base_bundle": "materialized copy of dashboard-example.json",
+      "standalone_plot_hash_comparison": "geometry hash from the materialized plot output directory",
+      "prepared_layer": "materialized import-overlay output"
+    },
+    "expected": "Use the supported dashboard composition path to retain the prepared map inputs and produce a valid dashboard package. Recompute geometry from the dashboard's source/call/calculation inputs and report its fresh geometry hash; do not transplant the standalone plot hash. Preserve separate source-review and engine status fields, with engine_verified and verified_export_eligible false. If rendering is requested separately, report its needs_review status as a separate stage.",
+    "must_not": ["reuse a standalone plot geometry hash as dashboard geometry identity", "invent source-page review evidence", "infer or fabricate placement", "equate dashboard output with canonical verification"]
+  },
+  {
+    "id": "relative-only-analysis-routes-without-verification-or-dashboard",
+    "skill": "verify-traverse",
+    "request": "Analyze the relative angles and constraints in this supplied RelativeDescription. Give me the local geometry and stop.",
+    "input": {
+      "fixture_recipe": "Materialize an exact copy of plugins/metesparser/skills/deed-closure-dashboard/references/relative-rectangle.json as a new input file, then provide that file to the session. It is the repository's documented synthetic schema fixture, not property evidence.",
+      "format": "RelativeDescription JSON",
+      "input": "materialized copy of relative-rectangle.json"
+    },
+    "expected": "Discover and use verify-traverse for the explicit relative-angle/constraint request, reading its relative-analysis reference and running analyze-relative. Report top-level needs_review and the separate analysis.status, local geometry, and limitations. Stop after relative analysis without canonical verification, verified CSV, plot, or dashboard.",
+    "must_not": ["run canonical traverse verification", "claim engine_verified or verified_export_eligible", "create a plot or dashboard", "treat the arbitrary local frame as recorded north or geographic alignment"]
+  },
+  {
     "id": "overlay-only-stops-before-deed-placement",
     "skill": "prepare-parcel-overlay",
     "request": "Import this supplied GeoJSON parcel layer and retain its provenance for later.",

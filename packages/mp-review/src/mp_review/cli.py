@@ -29,14 +29,22 @@ def main() -> None:
     relative.add_argument("--output-dir", type=Path)
     relative.add_argument("--settings", type=Path)
     plot = commands.add_parser(
-        "plot", help="Plot existing structured calls or explicit relative constraints offline."
+        "plot", help="Plot structured calls, relative constraints, or explicitly selected text."
     )
     plot.add_argument("input", type=Path)
     plot.add_argument(
-        "--input-format", choices=("auto", "calls", "relative", "plot"), default="auto"
+        "--input-format", choices=("auto", "calls", "relative", "plot", "text"), default="auto"
     )
     plot.add_argument("--output-dir", type=Path)
     plot.add_argument("--settings", type=Path)
+    for name in ("compose-map", "compose-dashboard"):
+        composition = commands.add_parser(
+            name, help="Compose retained plot/map inputs without rendering or verification."
+        )
+        composition.add_argument("input", type=Path)
+        composition.add_argument("--layer", type=Path, action="append", default=[])
+        composition.add_argument("--output-dir", type=Path, required=True)
+        composition.add_argument("--settings", type=Path)
     dashboard = commands.add_parser(
         "dashboard",
         help="Render a validated source bundle as an offline, non-verifying dashboard.",
@@ -127,6 +135,11 @@ def main() -> None:
 
 
 def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    if args.command in ("compose-map", "compose-dashboard"):
+        from .compose import compose_dashboard_file, compose_map_file
+
+        compose = compose_map_file if args.command == "compose-map" else compose_dashboard_file
+        return compose(args.input, output_path(settings, args.output_dir), layers=args.layer)
     if args.command == "mapbox-mcp":
         from .mapbox_mcp import mapbox_mcp_file
 

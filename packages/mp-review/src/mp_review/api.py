@@ -12,13 +12,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mp_export.csv_writer import FIELDNAMES, calls_to_csv, csv_to_calls, export_verified_csv
+from mp_export.csv_writer import (  # type: ignore[import-untyped]
+    FIELDNAMES,
+    calls_to_csv,
+    csv_to_calls,
+    export_verified_csv,
+)
 from mp_models import AuditContext, DeedCall, LegalDescription, RunMetadata
-from mp_parse import enrich_calls_with_azimuths, extract_calls, mark_tie_in_calls
-from mp_parse.metadata import extract_area_statement, extract_poc_and_pob
-from mp_parse.normalizer import normalize_legal_description
-from mp_parse.parcels import detect_parcel_markers
 from mp_verify import verify_closure
+
+from .text import prepare_text
 
 ENGINE_VERSION = "1.0.0"
 LIMITATIONS = [
@@ -89,20 +92,11 @@ def _run(
         ):
             raise ValueError("Stated area must be finite and positive.")
         if kind == "text":
-            if len(detect_parcel_markers(text)) > 1:
-                raise ValueError("Multiple parcel descriptions require separate reviews.")
-            normalized = normalize_legal_description(text)
-            poc, pob = extract_poc_and_pob(normalized)
-            extracted_calls, _tracts = extract_calls(normalized, audit_context=audit)
-            calls = mark_tie_in_calls(enrich_calls_with_azimuths(extracted_calls), poc)
-            area = extract_area_statement(normalized)
-            legal = LegalDescription(
-                calls=calls,
-                poc_description=poc or None,
-                pob_description=pob or None,
-                stated_area_sq_ft=area["value_sq_ft"] if area else None,
-            )
-            if poc and not any(c.is_tie_in for c in calls):
+            prepared = prepare_text(text, audit_context=audit)
+            normalized = prepared.normalized_text
+            legal = prepared.legal_description
+            calls = legal.calls
+            if legal.poc_description and not any(c.is_tie_in for c in calls):
                 result["errors"].append(
                     {
                         "code": "unresolved_poc",

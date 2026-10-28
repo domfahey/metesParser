@@ -1,6 +1,6 @@
 # plot-metes-and-bounds
 
-Create a standalone display plot from an identified structured boundary input.
+Create a standalone display plot from identified calls or an already-isolated description.
 
 ## Example request
 
@@ -8,7 +8,7 @@ Create a standalone display plot from an identified structured boundary input.
 
 ## Inputs and outputs
 
-**Inputs:** Strict CSV, calls-list or `LegalDescription` JSON, `RelativeDescription` JSON, or `PlotRequest` JSON. For an already-isolated plain-text description, `mp_parse.extract_calls()` can prepare structured plot input without running canonical verification; ambiguous or unresolved calls remain unresolved.
+**Inputs:** Strict CSV, calls-list or `LegalDescription` JSON, `RelativeDescription` JSON, or `PlotRequest` JSON. For an already-isolated UTF-8 description, run `plot description.txt --input-format text` through the plugin launcher. The shared preparation retains commencement calls as tie-ins and excludes them from boundary geometry; unknown bearings stay unknown. Multiple tracts or an unresolved commencement require clarification. Automatic format detection remains limited to structured files.
 
 **Outputs:** Exact-byte source copy, normalized plot input, geometry, standalone HTML, and manifest. The command reports top-level `needs_review`; this is not canonical verification.
 

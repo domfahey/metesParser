@@ -88,6 +88,42 @@ def test_relative_plot_keeps_recorded_bearings_unknown(tmp_path):
     assert geometry["misclosure_ft"] < 1e-10
 
 
+def test_explicit_prose_plot_excludes_commencement_and_preserves_original(tmp_path):
+    source = tmp_path / "selected-description.txt"
+    original = (
+        "COMMENCING at a stone; THENCE N 0° E 50 feet to the POINT OF BEGINNING; "
+        "THENCE N 0° E 100 feet; THENCE N 90° E 100 feet; "
+        "THENCE S 0° E 100 feet; THENCE N 90° W 100 feet to the POINT OF BEGINNING.\n"
+    ).encode()
+    source.write_bytes(original)
+    output = tmp_path / "text-plot"
+    completed = run_plot(source, "--input-format", "text", "--output-dir", output)
+    assert completed.returncode == 1, completed.stderr
+    result = json.loads(completed.stdout)
+    assert result["status"] == "needs_review"
+    assert result["verified_export_eligible"] is False
+    assert result["errors"] == []
+    assert (output / "source.txt").read_bytes() == original
+    request = json.loads((output / "plot-input.json").read_text())
+    assert len(request["calls"]) == 5
+    assert request["calls"][0]["call"]["is_tie_in"] is True
+    geometry = json.loads((output / "plot-geometry.json").read_text())
+    assert len(geometry["primitives"]) == 4
+    assert geometry["perimeter_ft"] == pytest.approx(400)
+    assert geometry["misclosure_ft"] < 1e-10
+    assert (output / "plot.html").is_file()
+    assert not (output / "verification.json").exists()
+    assert not list(output.glob("*_verified.csv"))
+
+
+def test_auto_plot_does_not_interpret_unselected_prose(tmp_path):
+    source = tmp_path / "document.txt"
+    source.write_text("BEGINNING at a stone; THENCE N 0° E 100 feet.")
+    completed = run_plot(source, "--output-dir", tmp_path / "auto")
+    assert completed.returncode == 2
+    assert json.loads(completed.stdout)["status"] == "error"
+
+
 def test_plot_honors_disabled_settings_before_reading_input(tmp_path):
     settings = tmp_path / "settings.md"
     settings.write_text("---\nenabled: false\n---\n")
