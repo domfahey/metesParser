@@ -29,6 +29,38 @@ For each case and each model/client being evaluated:
 
 For Claude coverage, repeat the same case set separately with Haiku, Sonnet, and Opus, recording the exact model/version returned by the client. If a model or native Claude surface is unavailable, record `not run` and why. Fresh Codex checks should use the same paired protocol but remain a distinct client/model lane.
 
+## Focused artifact scenarios
+
+The four added cases below are specifications until run in paired fresh sessions. Materialize valid files and directories before presenting either trial with the same case inputs. Keep temporary artifacts outside the repository. All plot/map/dashboard examples in this group are explicitly synthetic; they are software fixtures, not property evidence.
+
+1. `plot-isolated-prose-with-commencement-tie-in`: write the exact UTF-8 prose included in the case input to a new `source.txt`. The first 50-foot course runs from the commencement point to the POB; the following four 100-foot courses form the selected boundary ring. Use the explicit text plot path, not a document-selection workflow:
+
+   ```sh
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" plot source.txt --input-format text --output-dir NEW_PLOT_DIR
+   ```
+2. `compose-standalone-map-from-existing-plot-and-layer`: materialize the text plot output from case 1. For a real prepared layer artifact, copy the synthetic GeoJSON construction in `packages/mp-review/tests/test_overlay_cli.py::test_import_command_creates_new_artifact_and_rejects_overwrite` into a temporary input file and import it through the documented `import-overlay` launcher command. Then compose the resulting plot directory and layer artifact:
+
+   ```sh
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" import-overlay GEOJSON --format geojson --target-crs EPSG:3857 --output PREPARED_LAYER.json
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" compose-map PLOT_DIR --layer PREPARED_LAYER.json --output-dir NEW_MAP_DIR
+   ```
+
+   The inputs are in different frames unless explicit placement evidence is added. A successful composition is not evidence of alignment, provider acceptance, or visible client rendering.
+3. `compose-dashboard-recomputes-geometry-hash`: copy `plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-example.json` to a new base input, and use the prepared layer above. Materialize a standalone plot as a comparison artifact, but pass only the base bundle and prepared layer to the dashboard composition command. Capture `geometry_hashes` from its result and compare against the standalone plot hash; do not add placement unless a real explicit transform and supporting evidence are supplied:
+
+   ```sh
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" compose-dashboard BASE_BUNDLE.json --layer PREPARED_LAYER.json --output-dir NEW_DASHBOARD_DIR
+   ```
+
+   The example's placeholder page image is only schema fixture data and does not establish that a document was read. Keep engine verification and verified-export eligibility false; if separately rendered, the dashboard's `needs_review` status belongs to that rendering stage. Do not infer a placement from different geometry hashes.
+4. `relative-only-analysis-routes-without-verification-or-dashboard`: copy `plugins/metesparser/skills/deed-closure-dashboard/references/relative-rectangle.json` to a new input file and supply it as the `RelativeDescription` JSON. This exercises the relative-analysis route directly and does not require any dashboard source bundle:
+
+   ```sh
+   python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" analyze-relative relative-rectangle.json --output-dir NEW_RELATIVE_DIR
+   ```
+
+If a command or required artifact cannot be materialized and validated, record that scenario as `not_run` with the missing prerequisite. Do not replace an absent artifact with a hand-written schema guess or claim a materialization succeeded.
+
 For native document-reading cases, attach or otherwise supply the same real source to both sessions and record which pages/files were actually available. For Mapbox cases, record discovered tool names and input-schema evidence; call a connected provider only when that external preview is requested. Record handoff validation, provider/tool result, and visible-client rendering separately. A hypothetical `connected_tool` field in a case is a fixture precondition, not proof that a live tool or rendered map exists.
 
 ## Suggested run record
@@ -60,4 +92,6 @@ One JSONL record per case, condition, and model run is sufficient. Keep full tra
 
 ## Current recorded status
 
-The entries in `cases.json` are authored routing/behavior specifications. This README adds a reproducible procedure only; it records no model runs. No Claude Haiku/Sonnet/Opus evaluation matrix or native Claude document/client acceptance is recorded here. Engine and repository tests remain their own verification lane. Keep matter files and full transcripts outside the repository unless sanitized and approved for inclusion; retain their hashes in the run record.
+The entries in `cases.json` are authored routing/behavior specifications. The [October 28 Codex smoke record](runs/2026-10-28-codex-smoke.json) records three fresh smaller-model checks: relative-analysis discovery, prose plotting with a commencement call, and packaged map composition. Each completed its requested task using the extracted plugin. These are unpaired forward checks with command/skill reports and artifact hashes, not full transcripts or baseline comparisons; no improvement score is claimed. A separate seven-command smoke checked the bundled runtime from a project outside the checkout.
+
+No paired evaluation, Claude Haiku/Sonnet/Opus matrix, native Claude document/client acceptance, or live Mapbox acceptance has been recorded. Engine and repository tests remain their own verification lane. Keep matter files and full transcripts outside the repository unless sanitized and approved for inclusion; retain their hashes in the run record.

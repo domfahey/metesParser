@@ -1,6 +1,6 @@
 ---
 name: verify-traverse
-description: This skill should be used when the user asks to verify a selected boundary's existing structured calls in CSV or JSON. Runs deterministic traverse checks; route documents, images, and unselected text to review-metes-and-bounds to locate the description first.
+description: Verifies selected CSV/JSON traverses and analyzes requested relative angles/constraints from RelativeDescription JSON; routes documents, images, and unselected text to review-metes-and-bounds.
 ---
 
 # Verify a traverse
