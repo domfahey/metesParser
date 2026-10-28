@@ -75,3 +75,36 @@ def test_direct_validator_revalidates_prepared_model():
     )
     with pytest.warns(UserWarning, match="serializer warnings"), pytest.raises(ValueError):
         validate_web_map_artifact(forged, artifact)
+
+
+def test_shared_context_preserves_dashboard_manifest_hashes():
+    from mp_verify.webmap import normalize_web_map_context
+
+    prepared, artifact = inputs()
+    context = normalize_web_map_context(prepared)
+    assert context.input_hashes == artifact.input_hashes
+    assert context.geometries == prepared.plots.geometries
+
+
+def test_standalone_validator_uses_no_dashboard_or_projection(monkeypatch):
+    from mp_models.webmap import StandaloneWebMapInput
+    from mp_verify import webmap
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("standalone validation must not use a dashboard")
+
+    monkeypatch.setattr(webmap, "validate_prepared_dashboard", forbidden)
+    prepared = StandaloneWebMapInput(
+        title="Local overlay input",
+        scenes=({"id": "local", "name": "Local", "kind": "local", "units": "unknown_ft"},),
+    )
+    context = webmap.normalize_web_map_context(prepared)
+    options = WebMapOptions()
+    artifact = WebMapArtifact(
+        scene_id="local",
+        options=options,
+        options_sha256=webmap._digest(options.model_dump(mode="json")),
+        input_hashes=context.input_hashes,
+        availability="unavailable",
+    )
+    assert validate_web_map_artifact(prepared, artifact) == artifact

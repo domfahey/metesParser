@@ -158,7 +158,7 @@ Currently wraps the monolith `PDFProcessor` for backward compatibility.
 
 ## Skill Composition
 
-The [plugin catalog](../plugins/metesparser/README.md) describes eight skills: five capabilities, two workflows, and the `review-deed` alias for the boundary-review workflow. These skills provide instructions and routing over existing Python packages. Their [shared artifact handoff contract](../plugins/metesparser/references/artifact-handoffs.md) defines accepted inputs, stage stopping points, source identity, invalidation, and status boundaries. For documentation ownership and update checks, see [maintain the skill composition](CLAUDE_PLUGIN.md#maintain-the-skill-composition).
+The [plugin catalog](../plugins/metesparser/README.md) describes nine skills: six capabilities, two workflows, and the `review-deed` alias for the boundary-review workflow. These skills provide instructions and routing over existing Python packages. Their [shared artifact handoff contract](../plugins/metesparser/references/artifact-handoffs.md) defines accepted inputs, stage stopping points, source identity, invalidation, and status boundaries. For documentation ownership and update checks, see [maintain the skill composition](CLAUDE_PLUGIN.md#maintain-the-skill-composition).
 
 ```mermaid
 flowchart TD
@@ -181,6 +181,14 @@ flowchart TD
     prepared -. supported layer arrays .-> assembly
     assembly --> dashboard[mp-review / mp-verify / mp-export: recompute and render]
     dashboard --> output[Offline dashboard + calculation and render snapshots]
+    assembly --> online[render-online-map: requested provider view]
+    output -. retained geographic stages .-> online
+    plotted -. prepared plots .-> standalone[Explicit StandaloneWebMapInput composition]
+    prepared -. supported layer arrays .-> standalone
+    placement[Supplied placement evidence] --> standalone
+    standalone --> online
+    config[WebMapRequest: explicit scene + display options] --> online
+    online --> viewer[Local Mapbox viewer or requested vector MCP preview]
     pdf[PDF for separate provider pipeline] --> ocr[mp-ocr: OpenAI or Gemini]
     ocr --> legacy[Python Pipeline: parse, verify, export]
 ```
@@ -188,6 +196,8 @@ flowchart TD
 Verification and plotting each accept identified structured calls independently. Plotting does not require a passing verification result and remains advisory (`needs_review`). Overlay preparation is independent of deed geometry and returns layer/provenance artifacts; it does not align a deed. Capability skills stop at their requested deliverable. The boundary-review workflow composes source preparation, selection, and deterministic review as needed; it does not automatically build a plot or dashboard.
 
 Dashboard creation is an explicit composition step: assemble source-linked calls and calculation records in a `DashboardBundle`, reuse plot inputs with their actual source records, and copy supported map-layer arrays into the corresponding bundle fields. The dashboard command does not automatically adapt standalone artifacts. It recomputes geometry under dashboard identities; a later requested placement must bind a supplied transform to the fresh dashboard geometry hash. It never infers alignment. See the [bundle composition mapping](../plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-bundle.md#compose-existing-plot-and-map-artifacts).
+
+A map-only request composes existing `PreparedPlot` objects, map layers, and explicit placements in `StandaloneWebMapInput`, then supplies a separate `WebMapRequest` to `render-map`. It revalidates shared geometry and placement bindings without requiring dashboard assembly. See the [standalone composition recipe](../plugins/metesparser/skills/render-online-map/references/local-viewer.md#compose-existing-artifacts).
 
 Claude's native reading and selection are source-preparation stages outside the Python provider pipeline. The plugin does not substitute `mp-ocr` or an external OCR service for native reading. In the separate Python PDF pipeline below, `mp-ocr` owns OpenAI/Gemini calls. In both paths, parsing, geometry, checks, and rendering use deterministic package code; geometric success does not establish source completeness.
 
@@ -602,8 +612,8 @@ For more information:
 
 ## Optional geographic display architecture
 
-`mp_models.webmap` defines display-only request/artifact contracts. `mp_review` derives geographic display geometry and warped raster assets from a freshly prepared dashboard; `mp_export` renders the optional online companion. The offline renderer remains independently usable. Original calls, calculations, registration, placements, and source-review statuses remain immutable inputs; no GIS math is duplicated in a skill or legacy facade.
+`mp_models.webmap` defines display-only request/artifact contracts, including `StandaloneWebMapInput` for prepared plots and map arrays/placements without a dashboard bundle. The `render-map` adapter revalidates prepared plots through shared geometry logic and rejects stale placements; it makes no source-review or verification claims. `mp_review` derives geographic display geometry and warped raster assets from this validated handoff or a freshly prepared dashboard; `mp_export` renders the optional online companion. The offline renderer remains independently usable. Original calls, calculations, registration, placements, and source-review statuses remain immutable inputs; no GIS math is duplicated in a skill or legacy facade.
 
-The opt-in 2D Mercator companion renders only baseline evidence. It retains identity/projection provenance and explicit partial/unavailable layers, serves declared display files through loopback, and activates Mapbox only after runtime Connect. See the [shared handoff and invalidation contract](../plugins/metesparser/references/artifact-handoffs.md#optional-online-map-handoff) and [runtime guide](../plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-bundle.md#optional-mapbox-companion). Projection accuracy, scan residuals, display tolerance, and deed closure remain independent measures.
+The opt-in 2D Mercator companion renders only baseline evidence. It retains identity/projection provenance and explicit partial/unavailable layers, serves declared display files through loopback, and activates Mapbox only after runtime Connect. See the [shared handoff and invalidation contract](../plugins/metesparser/references/artifact-handoffs.md#optional-online-map-handoff) and [runtime guide](../plugins/metesparser/skills/render-online-map/references/local-viewer.md). Projection accuracy, scan residuals, display tolerance, and deed closure remain independent measures.
 
-For a requested in-chat preview, `mp_review.mapbox_mcp` reads intact dashboard stages and `mp_export.mapbox_mcp` serializes their prepared vectors as Mapbox MCP tool arguments. Both online renderers share `mp_verify.webmap` provenance validation. The MCP adapter performs no reprojection, raster warp, or provider call; it retains a local omission report and refuses oversized payloads. The existing dashboard skill invokes a compatible connected tool only within the requested preview scope. See the [MCP handoff procedure](../plugins/metesparser/skills/deed-closure-dashboard/references/mapbox-mcp.md) for the separate external data path and host acceptance checks.
+For a requested in-chat preview, `mp_review.mapbox_mcp` reads intact standalone-map or legacy dashboard stages and `mp_export.mapbox_mcp` serializes their prepared vectors as Mapbox MCP tool arguments. Both online renderers share `mp_verify.webmap` provenance validation. The MCP adapter performs no reprojection, raster warp, or provider call; it retains a local omission report and refuses oversized payloads. The `render-online-map` skill invokes a compatible connected tool only within the requested preview scope. See the [MCP handoff procedure](../plugins/metesparser/skills/render-online-map/references/mapbox-mcp.md) for the separate external data path and host acceptance checks.

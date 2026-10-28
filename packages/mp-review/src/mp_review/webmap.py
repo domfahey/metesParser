@@ -7,7 +7,6 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Literal, cast
 
-from mp_models.dashboard import PreparedDashboard
 from mp_models.plot import XY, LinearUnit, PlotGeometry, PlotPlacement, PlotPrimitive, VectorLayer
 from mp_models.webmap import (
     WebMapArtifact,
@@ -22,25 +21,11 @@ from mp_models.webmap import (
     WebMapRaster,
     WebMapUnavailableItem,
 )
-from mp_verify.dashboard import _hash, validate_prepared_dashboard
+from mp_verify.dashboard import _hash
 from mp_verify.plot import arc_point, transform_point
+from mp_verify.webmap import WebMapInput, normalize_web_map_context
 
 from .webmap_projection import WebMapProjection, WebMapUnavailable, build_web_map_projection
-
-# Public tuple keys are the exact canonical manifest field names, for renderer/runtime
-# validation. No cache state or separately reconstructed stage hash enters this mapping.
-_INPUT_HASH_FIELDS = (
-    "source_review_hash",
-    "calculation_input_hash",
-    "calculation_output_hash",
-    "presentation_hash",
-    "plot_input_hash",
-    "plot_output_hash",
-    "map_input_hash",
-    "map_output_hash",
-    "placement_input_hash",
-    "placement_output_hash",
-)
 
 
 @dataclass(frozen=True)
@@ -165,12 +150,13 @@ def _deed_features(
         *,
         call_id: str | None = None,
         page_id: str | None = None,
+        occurrence_id: str | None = None,
         label: str = "",
     ) -> WebMapProperties:
         return WebMapProperties(
             kind=kind,
             calculation_id=geometry.calculation_id,
-            occurrence_id=geometry.occurrence_id,
+            occurrence_id=occurrence_id if kind == "recorded_course" else geometry.occurrence_id,
             geometry_hash=geometry.geometry_hash,
             placement_hash=placement_hash,
             placement_id=placement.id,
@@ -196,6 +182,7 @@ def _deed_features(
                     "recorded_course",
                     call_id=primitive.call_id,
                     page_id=primitive.page_id,
+                    occurrence_id=primitive.occurrence_id,
                     label=primitive.call_id,
                 ),
             )
@@ -281,31 +268,27 @@ def _coordinates(feature: WebMapFeature) -> Iterator[XY]:
 
 
 def prepare_web_map(
-    prepared: PreparedDashboard, *, scene_id: str, options: WebMapOptions
+    prepared: WebMapInput, *, scene_id: str, options: WebMapOptions
 ) -> PreparedWebMap:
     """Prepare bounded display evidence after fresh canonical and raster validation.
 
-    ``input_hashes`` maps exact manifest hash field names to their canonical values
-    in ``_INPUT_HASH_FIELDS`` order. It includes presentation identity but excludes
-    cache reuse. Assets are ordered ``(relative PNG path, exact PNG bytes)`` pairs.
+    ``input_hashes`` binds the normalized upstream evidence and geometry. Dashboard
+    manifest values retain their existing identity. Assets are ordered
+    ``(relative PNG path, exact PNG bytes)`` pairs.
     """
     options = WebMapOptions.model_validate(options.model_dump(mode="json"))
-    validate_prepared_dashboard(prepared)
-    scenes = {s.id: s for s in prepared.bundle.scenes}
+    context = normalize_web_map_context(prepared)
+    scenes = {s.id: s for s in context.scenes}
     if scene_id not in scenes:
         raise ValueError("Requested web-map scene does not exist")
     # Validate ALL original rasters before classifying any supported omissions,
     # including when a scene is local or the selected operation is unavailable.
-    if prepared.bundle.raster_layers:
+    if context.raster_layers:
         from .raster_registration import validate_raster_layer
 
-        for original_raster in prepared.bundle.raster_layers:
+        for original_raster in context.raster_layers:
             validate_raster_layer(original_raster, scenes[original_raster.scene_id])
-    hashes = tuple(
-        (name, value)
-        for name in _INPUT_HASH_FIELDS
-        if (value := getattr(prepared.manifest, name)) is not None
-    )
+    hashes = context.input_hashes
     features: list[WebMapFeature] = []
     rasters: list[WebMapRaster] = []
     assets: list[tuple[str, bytes]] = []
@@ -334,12 +317,12 @@ def prepare_web_map(
             versions=projection.versions,
         )
         budget = _Budget(options.max_vertices)
-        specs = {s.id: s for s in prepared.bundle.calculations}
-        for geometry in sorted(prepared.plots.geometries, key=lambda g: g.calculation_id):
+        foot_definitions = dict(context.foot_definitions)
+        for geometry in sorted(context.geometries, key=lambda g: g.calculation_id):
             placements = sorted(
                 (
                     p
-                    for p in prepared.plots.placements
+                    for p in context.placements
                     if p.calculation_id == geometry.calculation_id and p.scene_id == scene_id
                 ),
                 key=lambda p: p.id,
@@ -363,7 +346,7 @@ def prepare_web_map(
                         _deed_features(
                             geometry,
                             placement,
-                            specs[geometry.calculation_id].frame.foot_definition,
+                            foot_definitions[geometry.calculation_id],
                             scene.units,
                             projection,
                             options,
@@ -384,7 +367,7 @@ def prepare_web_map(
                             "Only positioned recorded courses are included; unresolved calls are omitted.",
                         ),
                     )
-        for layer in sorted(prepared.bundle.vector_layers, key=lambda item: item.id):
+        for layer in sorted(context.vector_layers, key=lambda item: item.id):
             if layer.scene_id != scene_id:
                 continue
             before = budget.remaining
@@ -396,7 +379,7 @@ def prepare_web_map(
             else:
                 features.append(feature)
         raster_pixels = 0
-        for raster in sorted(prepared.bundle.raster_layers, key=lambda item: item.id):
+        for raster in sorted(context.raster_layers, key=lambda item: item.id):
             if raster.scene_id != scene_id:
                 continue
             from .webmap_raster import prepare_web_map_raster

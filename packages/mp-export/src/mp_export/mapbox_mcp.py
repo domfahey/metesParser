@@ -7,7 +7,7 @@ import json
 from typing import Any
 
 from mp_models.dashboard import PreparedDashboard
-from mp_models.webmap import WebMapArtifact
+from mp_models.webmap import StandaloneWebMapInput, WebMapArtifact
 from mp_verify.webmap import validate_web_map_artifact
 
 ADAPTER_VERSION = "mapbox-mcp-1.0.0"
@@ -74,7 +74,10 @@ def _digest(value: Any) -> str:
 
 
 def build_mapbox_mcp_handoff(
-    prepared: PreparedDashboard, artifact: WebMapArtifact, *, style: str = "standard"
+    prepared: PreparedDashboard | StandaloneWebMapInput,
+    artifact: WebMapArtifact,
+    *,
+    style: str = "standard",
 ) -> dict[str, Any]:
     """Copy validated geographic vectors without projection or provider activation.
 

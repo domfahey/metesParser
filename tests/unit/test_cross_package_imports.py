@@ -216,3 +216,13 @@ def test_mapbox_mcp_facade_uses_package_implementations():
 
     assert build_mapbox_mcp_handoff is package_build
     assert mapbox_mcp_file is package_file
+
+
+def test_standalone_online_map_facade_uses_package_implementations():
+    from mp_models import StandaloneWebMapInput as PackageInput
+    from mp_review import render_map_file as package_file
+
+    from metesparser.dashboard import StandaloneWebMapInput, render_map_file
+
+    assert StandaloneWebMapInput is PackageInput
+    assert render_map_file is package_file

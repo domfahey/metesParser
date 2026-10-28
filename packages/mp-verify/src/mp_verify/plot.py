@@ -21,6 +21,7 @@ from mp_models.plot import (
     PlotPlacement,
     PlotPrimitive,
     PlotResidual,
+    PlotScene,
     PlotUnresolved,
     PointCorrespondence,
 )
@@ -289,6 +290,65 @@ def validate_prepared_plot(prepared: PreparedPlot) -> PreparedPlot:
     return fresh
 
 
+def validate_plot_placement(
+    geometry: PlotGeometry,
+    placement: PlotPlacement,
+    scene: PlotScene,
+    *,
+    native_units: LinearUnit,
+    orientation_supported: bool,
+    allow_unknown_units: bool = False,
+) -> None:
+    """Bind placement to fresh geometry and reject unsupported units or precision."""
+    if placement.scenario_id is not None:
+        raise ValueError("scenario placements are derived from frozen baselines, not source inputs")
+    if placement.geometry_hash != geometry.geometry_hash:
+        raise ValueError(
+            f"stale placement {placement.id}: geometry hash changed; revalidation required"
+        )
+    if placement.status != "unplaced" and not (
+        allow_unknown_units and native_units == "unknown_ft"
+    ):
+        factor = unit_factor(native_units, scene.units)
+        for primitive in geometry.primitives:
+            points = [primitive.start, primitive.end]
+            if primitive.kind == "arc":
+                points.extend(arc_point(primitive, t) for t in (0.25, 0.5, 0.75))
+                if primitive.center is not None:
+                    points.append(primitive.center)
+            transformed = [
+                transform_point(
+                    p,
+                    placement,
+                    native_units=native_units,
+                    scene_units=scene.units,
+                )
+                for p in points
+            ]
+            angle = math.radians(placement.rotation_deg % 360)
+            tolerance = min(1e-5, primitive.length_ft * factor * 1e-6)
+            a, ta = points[0], transformed[0]
+            for b, tb in zip(points[1:], transformed[1:], strict=True):
+                dx, dy = (b[0] - a[0]) * factor, (b[1] - a[1]) * factor
+                expected = (
+                    dx * math.cos(angle) + dy * math.sin(angle),
+                    -dx * math.sin(angle) + dy * math.cos(angle),
+                )
+                if (
+                    max(abs((tb[0] - ta[0]) - expected[0]), abs((tb[1] - ta[1]) - expected[1]))
+                    > tolerance
+                ):
+                    raise ValueError(
+                        "placement cannot represent primitive vectors without precision loss"
+                    )
+    if placement.status == "referenced" and (
+        scene.kind != "projected" or scene.basis == "local" or not orientation_supported
+    ):
+        raise ValueError(
+            "referenced placement requires supported projected position and documented orientation basis"
+        )
+
+
 def build_dashboard_plots(
     bundle: DashboardBundle, calculations: tuple[DashboardResult, ...]
 ) -> DashboardPlots:
@@ -300,57 +360,13 @@ def build_dashboard_plots(
     scenes = {s.id: s for s in bundle.scenes}
     for placement in bundle.placements:
         geometry = by_id[placement.calculation_id]
-        if placement.scenario_id is not None:
-            raise ValueError(
-                "scenario placements are derived from frozen baselines, not source inputs"
-            )
-        if placement.geometry_hash != geometry.geometry_hash:
-            raise ValueError(
-                f"stale placement {placement.id}: geometry hash changed; revalidation required"
-            )
-        scene = scenes[placement.scene_id]
-        spec = specs[placement.calculation_id]
-        if placement.status != "unplaced":
-            factor = unit_factor(spec.frame.foot_definition, scene.units)
-            for primitive in geometry.primitives:
-                points = [primitive.start, primitive.end]
-                if primitive.kind == "arc":
-                    points.extend(arc_point(primitive, t) for t in (0.25, 0.5, 0.75))
-                    if primitive.center is not None:
-                        points.append(primitive.center)
-                transformed = [
-                    transform_point(
-                        p,
-                        placement,
-                        native_units=spec.frame.foot_definition,
-                        scene_units=scene.units,
-                    )
-                    for p in points
-                ]
-                angle = math.radians(placement.rotation_deg % 360)
-                tolerance = min(1e-5, primitive.length_ft * factor * 1e-6)
-                a, ta = points[0], transformed[0]
-                for b, tb in zip(points[1:], transformed[1:], strict=True):
-                    dx, dy = (b[0] - a[0]) * factor, (b[1] - a[1]) * factor
-                    expected = (
-                        dx * math.cos(angle) + dy * math.sin(angle),
-                        -dx * math.sin(angle) + dy * math.cos(angle),
-                    )
-                    if (
-                        max(abs((tb[0] - ta[0]) - expected[0]), abs((tb[1] - ta[1]) - expected[1]))
-                        > tolerance
-                    ):
-                        raise ValueError(
-                            "placement cannot represent primitive vectors without precision loss"
-                        )
-        if placement.status == "referenced" and (
-            scene.kind != "projected"
-            or scene.basis == "local"
-            or spec.frame.basis == "arbitrary_local"
-        ):
-            raise ValueError(
-                "referenced placement requires supported projected position and documented orientation basis"
-            )
+        validate_plot_placement(
+            geometry,
+            placement,
+            scenes[placement.scene_id],
+            native_units=specs[placement.calculation_id].frame.foot_definition,
+            orientation_supported=specs[placement.calculation_id].frame.basis != "arbitrary_local",
+        )
     placements = {p.id: p for p in bundle.placements}
     comparisons = []
     for comparison in bundle.comparison_specs:

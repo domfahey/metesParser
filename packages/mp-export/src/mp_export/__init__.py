@@ -9,6 +9,7 @@ from .csv_writer import (
     legal_description_to_csv,
 )
 from .dashboard_html import render_dashboard
+from .map_evidence_html import render_map_evidence
 from .mapbox_mcp import build_mapbox_mcp_handoff
 from .online_map_html import render_online_map
 from .plot_html import render_plot
@@ -24,6 +25,7 @@ __all__ = [
     "generate_html",
     "legal_description_to_csv",
     "render_dashboard",
+    "render_map_evidence",
     "render_online_map",
     "render_plot",
     "write_report",
