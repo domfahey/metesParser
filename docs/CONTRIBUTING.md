@@ -21,12 +21,13 @@ cd metesParser
 # Setup development environment
 make dev-setup
 
-# Install dependencies
-make install
-
-# Verify setup with full quality checks
+# Verify the root package (also formats its source and tests)
 make check
 ```
+
+`make dev-setup` already installs dependencies. API keys are needed for live PDF
+extraction, not the mocked test suite. Run the additional package and browser
+checks described in [Testing](TESTING.md) when those components change.
 
 ## Development Workflow
 
@@ -41,17 +42,14 @@ git checkout -b fix/bug-description
 ### 2. Write Tests First (TDD)
 
 ```bash
-# Create test file
-touch tests/unit/test_new_feature.py
-
-# Write failing test
-uv run pytest tests/unit/test_new_feature.py -v
+# Write a failing test in the package that owns the behavior
+uv run pytest packages/mp-verify/tests/ -v --no-cov
 
 # Implement feature
 # ...
 
 # Verify test passes
-uv run pytest tests/unit/test_new_feature.py -v
+uv run pytest packages/mp-verify/tests/ -v --no-cov
 ```
 
 ### 3. Run Quality Checks
@@ -62,17 +60,24 @@ make pre-commit
 ```
 
 This runs:
+
 - Lint auto-fix (ruff)
 - Formatting (ruff)
-- Full test suite
+- Root test suite (`tests/`, with coverage)
 
-Use `make check` for the full quality gate (adds type checking with mypy).
+Use `make check` for the root quality gate, including mypy. Both targets modify
+formatting; inspect the diff afterward. Package and plugin tests, package linting,
+and explicit browser checks are separate; see [Testing](TESTING.md#running-tests).
+`make ci` removes `.venv` and `dist` before reinstalling and running quality/coverage
+checks; it does not run mypy or the separate package/browser lanes.
 
 ### 4. Commit Changes
 
 ```bash
-git add .
-git commit -m "feat: Add new feature description"
+git diff --check
+git add path/to/changed-file.py path/to/test_changed_behavior.py
+git diff --cached
+git commit -m "feat: add new feature description"
 ```
 
 **Commit Message Format**:
@@ -188,7 +193,7 @@ class TestFeature:
 ### Running Tests
 
 ```bash
-# Run all tests
+# Run root tests (package/plugin suites are separate)
 make test
 
 # Run specific category
@@ -211,18 +216,24 @@ if bearing is None:
 
 ✅ **Do**:
 ```python
-if bearing is None:
-    call.notes = "incomplete bearing - manual review required"
+from mp_models import DeedCall
+
+call = DeedCall(
+    course=1,
+    direction_text="southwesterly",
+    bearing_azimuth_deg_from_north=None,
+    distance_ft=100.0,
+    notes="incomplete bearing - cardinal only",
+)
 ```
 
 ### 2. Preserve Determinism
 
-All processing must be deterministic:
-```python
-# Temperature=0 for LLM calls
-# No random sampling
-# Same input → same output always
-```
+Parsing, verification, and rendering must be reproducible from retained inputs.
+LLM source extraction is not guaranteed to reproduce identical text, even at
+temperature zero. Retain extraction evidence, mock provider calls in tests, and
+keep numerical derivation in the deterministic packages. Native Claude document
+reading belongs to the plugin workflow; it is separate from Python `mp-ocr`.
 
 ### 3. Validate Early
 
@@ -253,12 +264,13 @@ Follow the [maintenance guide](CLAUDE_PLUGIN.md#maintain-the-skill-composition) 
 
 ### Adding a New Module
 
-1. Create `src/metesparser/new_module.py`
-2. Create `tests/unit/test_new_module.py`
-3. Write tests first
-4. Implement module
-5. Add to `__init__.py` if public API
-6. Update documentation
+1. Choose the owning package using [Architecture](ARCHITECTURE.md#composable-package-architecture).
+2. Add a failing behavior test in `packages/mp-<owner>/tests/`.
+3. Implement in that package without introducing a dependency cycle.
+4. For duplicated legacy APIs, keep `src/metesparser/` behavior in sync. For shared
+   review functionality, use a thin compatibility facade rather than copying logic.
+5. Test the public API and any affected cross-package/legacy entrypoints.
+6. Update the owning documentation and changelog.
 
 ### Adding a New Fixture
 
@@ -311,11 +323,11 @@ class TestBugXYZ:
 
 ### Before Submitting
 
-- [ ] All tests pass (`make test`)
-- [ ] Per-package tests pass (`for pkg in packages/mp-*/tests/; do uv run pytest "$pkg" -v --no-cov; done`)
+- [ ] Root checks pass (`make check`)
+- [ ] Affected package/plugin checks pass (see [Testing](TESTING.md#per-package-and-plugin-tests))
 - [ ] Cross-package imports verified (`uv run pytest tests/unit/test_cross_package_imports.py -v`)
-- [ ] Code is formatted (`make format`)
-- [ ] Linting passes (`make lint`)
+- [ ] Formatting changes reviewed; affected package code linted/formatted separately
+- [ ] Relevant browser checks passed; live/native acceptance reported separately
 - [ ] Coverage meets requirements
 - [ ] Documentation updated
 - [ ] Commit messages follow format
@@ -367,7 +379,7 @@ None
 - `__pycache__/` directories
 - `.pyc` files
 - Personal config files
-- Unverified CSV files (only `_verified.csv` acceptable)
+- Unverified generated deed CSV outputs; intentionally synthetic test inputs remain separate fixtures
 
 ✅ **Always commit**:
 - Source code
@@ -380,7 +392,7 @@ None
 
 - **GitHub Issues** - Bug reports, feature requests
 - **Discussions** - Questions, ideas
-- **CLAUDE.md** - AI assistant guidance
+- **[AGENTS.md](../AGENTS.md)** - AI assistant guidance (`CLAUDE.md` is its symlink)
 - **docs/** - Technical documentation
 
 ## License
