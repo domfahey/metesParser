@@ -1,6 +1,6 @@
 # prepare-parcel-overlay
 
-Prepare supplied vector or scanned-map evidence for a later plotting workflow.
+Prepare supplied vector or scanned-map evidence for a later dashboard or placement workflow.
 
 ## Example request
 
@@ -10,7 +10,7 @@ Prepare supplied vector or scanned-map evidence for a later plotting workflow.
 
 **Inputs:** Supplied vector/raster/map source and a requested import or registration operation.
 
-**Outputs:** Prepared layer data and provenance. This skill does not align a deed or create a dashboard.
+**Outputs:** Prepared layer data and provenance. This skill does not align a deed or create a dashboard. If a dashboard is later requested, its bundle requires an explicit field mapping and fresh geometry calculation; see [artifact handoffs](../../references/artifact-handoffs.md).
 
 ## Documentation
 
@@ -18,3 +18,5 @@ Prepare supplied vector or scanned-map evidence for a later plotting workflow.
 - [Overlay preparation reference](references/overlay-preparation.md)
 - [Artifact handoffs](../../references/artifact-handoffs.md)
 - [Plugin changelog](../../CHANGELOG.md)
+
+An optional later Mapbox companion consumes this same prepared evidence; it does not replace registration. See the [online handoff](../../references/artifact-handoffs.md#optional-online-map-handoff).

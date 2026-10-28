@@ -1,23 +1,35 @@
 # Using the metes-and-bounds skills
 
+Use a capability for one requested stage and stop at its deliverable. Use a workflow when the user requested the full review sequence or an interactive dashboard. The catalog in the [plugin README](../README.md#skills) links each skill and summarizes its purpose and output.
+
 Start a closure request by locating the intended metes-and-bounds description. Any supplied source can contain it: a survey, plat, report, exhibit, title document, deed, email, image, or PDF.
 
 ## Choose the entrypoint
 
-| Supplied input | Example request | Workflow |
+| Supplied input and request | Route | Stop point |
 | --- | --- | --- |
-| Image or PDF | "Check the closure of the boundary in this survey." | `review-metes-and-bounds` → native conversion → description selection → deterministic review |
-| Complete document text | "Find the boundary description in this report and check closure." | `review-metes-and-bounds` → description selection → deterministic review |
-| Already isolated description | "Does this metes-and-bounds description close?" | Identify the supplied passage as the selected boundary, then deterministic review |
-| Selected CSV/JSON calls | "Verify the closure of this call set." | Identify the intended boundary, then `verify-traverse` |
-| Selected CSV/JSON calls, plot requested | "Plot these selected calls." | `plot-metes-and-bounds`; returns plot artifacts only |
-| Supplied GeoJSON or scanned map, preparation requested | "Register/import this supplied map for later use." | `prepare-parcel-overlay`; returns prepared layer and provenance only |
-| Prepared description and an explicit dashboard request | "Show the selected deed and parcel in an interactive workbench." | `deed-closure-dashboard`; reuse valid source and geometry artifacts |
-| Several descriptions, no tract selected | "Does this property close?" | Locate candidates separately and clarify which boundary to check |
+| Image/PDF and “Check the closure of the boundary in this survey.” | `review-metes-and-bounds` coordinates native conversion → description selection → deterministic review. | Return review results and source records. |
+| Complete document text and “Find the boundary description and check closure.” | `review-metes-and-bounds` coordinates selection → deterministic review. | Reuse the supplied text; do not invent a conversion stage. |
+| Isolated description and “Does this close?” | `review-metes-and-bounds`, treating the supplied passage as selected. | Run the requested review. |
+| Selected CSV/JSON calls and “Verify closure.” | Identify the intended call set, then `verify-traverse`. | Return verification only. |
+| Selected calls and “Plot these.” | `plot-metes-and-bounds`. | Return plot artifacts only; no closure verification. |
+| Isolated prose and “Plot this description.” | Plot skill structures the isolated passage with the shared parser, then creates plot input. | Ambiguous or unresolved calls stay unresolved; no verification side effect. |
+| Supplied GeoJSON or scanned map and “Prepare this for later use.” | `prepare-parcel-overlay`. | Return prepared layer and provenance only. |
+| Source material and explicit interactive dashboard/workbench request | `deed-closure-dashboard`; reuse valid acquisition, selection, and calculation handoffs. | Return local dashboard and stage artifacts. |
+| Existing online-prepared dashboard and “Show these vectors in chat using Mapbox MCP.” | `deed-closure-dashboard` uses the [MCP handoff](../skills/deed-closure-dashboard/references/mapbox-mcp.md). | Prepare exact vector arguments, inspect the connected tool schema, and call only if compatible; retain local raster/source review and report acceptance separately. |
+| Several descriptions and “Does this property close?” without a tract selected | `review-metes-and-bounds` identifies candidates. | Ask which boundary to review before calculation. |
 
 `review-deed` remains an entrypoint for deed-specific requests and follows the same shared workflow.
 
-Transcription, description extraction, traverse verification, plotting, and overlay preparation are capabilities with separate deliverables. Stop after the requested capability; do not continue automatically to review, plotting, or dashboard creation. If a later stage is requested, reuse valid handoff artifacts for the unchanged source instead of rereading it. Dashboard discovery is limited to explicit interactive dashboard/workbench/source-comparison requests; a request for a plot alone uses the plot capability.
+Transcription, description extraction, traverse verification, plotting, and overlay preparation are capabilities with separate deliverables. Stop after the requested capability; do not continue automatically to another stage. If a later stage is requested, reuse valid handoff artifacts for the unchanged source instead of rereading it. Dashboard discovery is limited to explicit interactive dashboard/workbench/source-comparison requests; a request for a plot alone uses the plot capability. `review-deed` is an alias for deed-specific requests and routes to `review-metes-and-bounds`.
+
+## Examples of composition
+
+- **Document to closure review:** `review-metes-and-bounds` uses `convert-document-to-text` when needed, passes its full text and page map to `extract-metes-and-bounds`, then runs deterministic review. Carry acquisition and selection records forward; do not repeat valid stages.
+- **Selected boundary to plot:** pass identified structured calls to `plot-metes-and-bounds`. For isolated prose, the skill can structure plot input with the shared parser, while the CLI remains structured-file-only. A plot's `needs_review` status is not a verification result.
+- **Prepared evidence to dashboard:** if a dashboard is explicitly requested, compose the supported map arrays and source-linked plot inputs into a validated dashboard bundle. Preserve complete preparation artifacts separately. The dashboard explicitly maps inputs and recomputes geometry; it does not import the artifacts automatically or infer deed alignment. Keep canonical verification, plot/map preparation, and advisory dashboard statuses distinct.
+
+The full accepted handoffs, status meanings, and invalidation rules are in [artifact handoffs](artifact-handoffs.md); see the [dashboard bundle reference](../skills/deed-closure-dashboard/references/dashboard-bundle.md#compose-existing-plot-and-map-artifacts) for the checked composition procedure.
 
 ## Use in Claude
 
@@ -64,3 +76,9 @@ Missing exhibits, material illegibility, or unresolved tract selection must be r
 ## Documentation and changes
 
 Each skill directory has a human-facing `README.md` for examples and inputs/outputs, and `SKILL.md` for Claude's instructions. Keep detailed shared guidance in linked references. Record user-visible changes once in the [plugin changelog](../CHANGELOG.md); use the repository changelog for project-level announcements.
+
+## Requested Mapbox companion
+
+For a request to view an already prepared deed and registered tax map over Mapbox, use `deed-closure-dashboard` as the composing workflow. Reuse valid reading/selection/import/registration outputs; freshly validate geometry and placement bindings. Do not run native reading again or create another skill. Follow the [online handoff](artifact-handoffs.md#optional-online-map-handoff) and [configuration/preview commands](../skills/deed-closure-dashboard/references/dashboard-bundle.md#optional-mapbox-companion). The default dashboard remains offline. Online provider access starts only when the user clicks Connect; unavailable georeference/provider access never authorizes guessed placement or status promotion.
+
+For a requested in-chat MCP preview, follow the [MCP procedure](../skills/deed-closure-dashboard/references/mapbox-mcp.md). This vector-only option uses a configured Mapbox MCP connection and its authentication, rather than the local page's Connect field. It sends prepared geometry, opaque IDs, and provenance to that server. Raster overlays and source-page review stay in the existing local views. Missing tools, incompatible schemas, or oversized arguments leave a reviewable local handoff and must not be reported as a successful interactive preview.

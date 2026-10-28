@@ -1,6 +1,6 @@
 ---
 name: deed-closure-dashboard
-description: This skill should be used when the user explicitly asks for an offline deed or boundary review dashboard, interactive closure workbench, or source comparison dashboard. A standalone plot uses plot-metes-and-bounds; a closure check uses review-metes-and-bounds.
+description: This skill should be used when the user explicitly asks for a deed or boundary review dashboard, interactive closure workbench, source comparison dashboard, or optional Mapbox companion to such a dashboard. A standalone plot uses plot-metes-and-bounds; a closure check uses review-metes-and-bounds.
 ---
 
 # Deed closure dashboard
@@ -18,3 +18,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard BUNDLE.json --ou
 ```
 
 Keep source-review, canonical engine, scenario, placement, and map-comparison status separate. Unknown bearings and source uncertainty remain visible; do not adjust record values or map placement to force closure or fit. The renderer does not perform native document reading. Stop after delivering the requested local dashboard and its source/calculation/render artifacts; do not publish or share unless separately requested. See [artifact handoffs](../../references/artifact-handoffs.md).
+
+For an explicitly requested Mapbox companion, follow the [optional renderer procedure](references/dashboard-bundle.md#optional-mapbox-companion) after the same source/plot/overlay composition. Reuse existing source-reading and registration evidence; freshly validate dashboard geometry and placements. Preserve the offline view and report online availability separately. Provider activation requires the page's explicit Connect action with a runtime public token; never persist a token or promote verification because a map displays.
+
+For an explicitly requested in-chat Mapbox MCP preview, read the [MCP handoff procedure](references/mapbox-mcp.md). Reuse an existing online-prepared dashboard directory; the deterministic adapter validates its retained artifacts and prepares vector-only arguments. Inspect the connected `render_map_tool` schema before passing the generated JSON unchanged as the terminal visualization call. Report raster omissions and client/provider acceptance separately; an absent or incompatible tool leaves the local artifacts usable.
