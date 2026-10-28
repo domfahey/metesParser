@@ -19,4 +19,4 @@ Prepare supplied vector or scanned-map evidence for a later dashboard or placeme
 - [Artifact handoffs](../../references/artifact-handoffs.md)
 - [Plugin changelog](../../CHANGELOG.md)
 
-An optional later Mapbox companion consumes this same prepared evidence; it does not replace registration. See the [online handoff](../../references/artifact-handoffs.md#optional-online-map-handoff).
+A later requested [render-online-map](../render-online-map/README.md) view consumes this same prepared evidence; it does not replace registration. See the [online handoff](../../references/artifact-handoffs.md#optional-online-map-handoff).

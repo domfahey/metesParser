@@ -242,17 +242,18 @@
   },
   {
     "id": "mcp-preview-compatible-tool",
-    "skill": "deed-closure-dashboard",
+    "skill": "render-online-map",
     "request": "Show the vectors from this prepared dashboard in chat with the configured Mapbox MCP tool.",
     "input": {
       "dashboard": "existing online-prepared directory",
       "retained_hashes": "valid",
       "arguments_size": "below 48 KiB",
-      "connected_tool": "render_map_tool with compatible inline schema",
+      "connected_tool": "parcel_maps:render_map_tool with compatible inline schema",
       "client": "MCP Apps available"
     },
-    "expected": "Reuse exact web-map.json through mapbox-mcp into a fresh directory without reading documents or preparing GIS again. Inspect the connected tool schema and submit mapbox-mcp-arguments.json unchanged as the terminal visualization call. Confirm visible vectors before claiming interactive acceptance; keep needs_review and all source/engine/placement statuses.",
+    "expected": "Reuse exact web-map.json through mapbox-mcp into a fresh directory without reading documents or preparing GIS again. Discover the fully qualified parcel_maps:render_map_tool identifier, inspect its live schema, and submit mapbox-mcp-arguments.json unchanged as the terminal visualization call. Confirm visible vectors before claiming interactive acceptance; keep needs_review and all source/engine/placement statuses.",
     "must_not": [
+      "call an unqualified tool name or guess a different server prefix",
       "reconstruct coordinates with an LLM",
       "add an address-based anchor",
       "include source quotes/pages/scans or tokens",
@@ -261,7 +262,7 @@
   },
   {
     "id": "mcp-preview-no-connected-tool",
-    "skill": "deed-closure-dashboard",
+    "skill": "render-online-map",
     "request": "Prepare an in-chat Mapbox preview from this existing dashboard.",
     "input": {
       "dashboard": "valid online-prepared directory",
@@ -276,7 +277,7 @@
   },
   {
     "id": "mcp-preview-raster-omission",
-    "skill": "deed-closure-dashboard",
+    "skill": "render-online-map",
     "request": "Show the prepared boundary and registered scan through Mapbox MCP.",
     "input": {
       "dashboard": "valid online-prepared vectors and warped raster",
@@ -291,7 +292,7 @@
   },
   {
     "id": "mcp-preview-oversize-refusal",
-    "skill": "deed-closure-dashboard",
+    "skill": "render-online-map",
     "request": "Show every prepared vector through the Mapbox MCP preview.",
     "input": {
       "dashboard": "valid online-prepared directory",
@@ -306,7 +307,7 @@
   },
   {
     "id": "mcp-preview-stale-provenance",
-    "skill": "deed-closure-dashboard",
+    "skill": "render-online-map",
     "request": "Reuse this old Mapbox MCP preview after one retained input changed.",
     "input": {
       "dashboard": "online-prepared directory",
@@ -317,6 +318,132 @@
       "reuse stale placed geometry",
       "edit hashes to force acceptance",
       "geocode replacement coordinates"
+    ]
+  },
+  {
+    "id": "render-online-map-prepared-standalone",
+    "skill": "render-online-map",
+    "request": "Render these prepared, placed deed and parcel artifacts on a Mapbox basemap in a local viewer.",
+    "input": {
+      "type": "StandaloneWebMapInput",
+      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid-retained-hash"}],
+      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
+      "maps": [{"kind": "prepared_vector", "source_hash": "valid-retained-hash"}],
+      "placements": [{"plot_hash": "valid-retained-hash", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "web_map_request": {"scene_id": "scene-1", "provider": "mapbox"}
+    },
+    "expected": "Use the standalone prepared plots, scenes, map layers, and explicit placement; validate retained identities and produce the local online viewer without building an offline dashboard. State that provider access and visible map acceptance are separate from preparation and verification.",
+    "must_not": [
+      "reread source documents",
+      "repeat map registration",
+      "create an offline dashboard solely to render the map",
+      "infer georeference or placement",
+      "promote verification status"
+    ]
+  },
+  {
+    "id": "render-online-map-reuse-dashboard",
+    "skill": "render-online-map",
+    "request": "Open the online companion for this existing dashboard; all its inputs are unchanged.",
+    "input": {
+      "existing_dashboard": "valid, unchanged",
+      "type": "StandaloneWebMapInput",
+      "plots": [{"type": "PreparedPlot", "geometry_hash": "retained"}],
+      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
+      "maps": [{"kind": "registered_raster", "registration_hash": "retained"}],
+      "placements": [{"plot_hash": "retained", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "retained_hashes": "valid"
+    },
+    "expected": "Reuse matching plot, scene, map-registration, and placement artifacts after validating their hashes. Render or serve the online view without rebuilding upstream evidence; keep any existing offline dashboard available.",
+    "must_not": [
+      "reread source documents",
+      "repeat unchanged registration",
+      "refit placement"
+    ]
+  },
+  {
+    "id": "render-online-map-missing-georeference",
+    "skill": "render-online-map",
+    "request": "Show this local deed plot on an online basemap.",
+    "input": {
+      "fixture_recipe": "Materialize a StandaloneWebMapInput containing one supplied valid PreparedPlot with its complete request, geometry, and retained hashes; use the scene and empty map/placement arrays below. Keep this recipe separate from the model JSON.",
+      "scenes": [{"id": "scene-local", "name": "Unreferenced local frame", "kind": "local", "crs": null, "units": "unknown_ft"}],
+      "map_sources": [],
+      "vector_layers": [],
+      "raster_layers": [],
+      "placements": [],
+      "online_map_config": {"scene_id": "scene-local"}
+    },
+    "expected": "Report geographic availability as unavailable because no projected/georeferenced scene and explicit position/orientation evidence exist. A valid render-map run retains online-map.html with an explicit unavailable state and map-evidence.html for offline review, while blocking provider connection. Explain which evidence is missing and preserve the supplied local plot unchanged; do not claim a provider map rendered.",
+    "must_not": [
+      "guess map coordinates",
+      "infer controls from a basemap",
+      "claim online readiness",
+      "invent a displayed provider map or promote the unavailable page to a successful online preview"
+    ]
+  },
+  {
+    "id": "render-online-map-mcp-raster-omission-local-fallback",
+    "skill": "render-online-map",
+    "request": "Show these prepared boundary and registered scan artifacts through the connected Mapbox MCP preview.",
+    "input": {
+      "type": "StandaloneWebMapInput",
+      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid"}],
+      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
+      "maps": [{"kind": "prepared_vector", "source_hash": "valid"}, {"kind": "registered_raster", "registration_hash": "valid"}],
+      "placements": [{"plot_hash": "valid", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "connected_tool": "compatible vector-only render_map_tool",
+      "local_online_viewer": "available"
+    },
+    "expected": "Disclose before invoking the vector-only MCP preview that the registered raster scan is omitted. Keep the scan available in the local online viewer, use the prepared vector handoff unchanged, and report visible MCP acceptance separately.",
+    "must_not": [
+      "encode the scan into a vector layer",
+      "submit unsupported raster fields",
+      "imply the MCP preview includes the scan",
+      "promote verification based on visual agreement"
+    ]
+  },
+  {
+    "id": "render-online-map-preserves-verification-status",
+    "skill": "render-online-map",
+    "request": "This standalone online view looks aligned. Mark the deed verified.",
+    "input": {
+      "type": "StandaloneWebMapInput",
+      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid"}],
+      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
+      "maps": [{"kind": "registered_raster", "registration_status": "approximate"}],
+      "placements": [{"plot_hash": "valid", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "engine_status": "needs_review",
+      "source_review_complete": false,
+      "registration_status": "approximate",
+      "display_availability": "ready"
+    },
+    "expected": "Keep engine, source-review, and approximate registration statuses unchanged. Explain that visual agreement and standalone map rendering do not establish source completeness, traverse verification, or survey accuracy.",
+    "must_not": [
+      "promote engine status",
+      "attest unread source pages",
+      "issue verified CSV",
+      "fit deed calls to the map"
+    ]
+  },
+  {
+    "id": "render-online-map-no-connected-tool",
+    "skill": "render-online-map",
+    "request": "Show these prepared deed and parcel artifacts in chat using Mapbox MCP.",
+    "input": {
+      "type": "StandaloneWebMapInput",
+      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid"}],
+      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
+      "maps": [{"kind": "prepared_vector", "source_hash": "valid"}],
+      "placements": [{"plot_hash": "valid", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "connected_mapbox_tools": [],
+      "local_online_viewer": "available"
+    },
+    "expected": "Report that no compatible connected Mapbox rendering tool is available. Keep the local online viewer usable, and do not claim an in-chat preview or install/configure tools automatically.",
+    "must_not": [
+      "fabricate a successful tool call",
+      "silently reconstruct coordinates",
+      "claim interactive acceptance passed"
     ]
   }
 ]

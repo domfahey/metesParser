@@ -330,7 +330,7 @@ Include:
 5. **Breaking changes** (if any)
 
 Example:
-```markdown
+````markdown
 ## Description
 Add support for chains as distance unit.
 
@@ -349,7 +349,7 @@ uv run pytest tests/unit/test_text_parser.py::TestDistanceExtraction -v
 
 ## Breaking Changes
 None
-```
+````
 
 ### Review Process
 
@@ -393,7 +393,7 @@ Thank you for contributing to metesParser! 🎉
 
 ### Online Map Viewer Changes
 
-Keep the optional companion within existing dashboard composition and [online handoff contracts](../plugins/metesparser/references/artifact-handoffs.md#optional-online-map-handoff). Validate token-free configuration against `WebMapRequest` and actual CLI flags. Check package/plugin tests, offline zero-network behavior, adapter interactions, and extracted optional distribution separately. Pinned real-SDK, live provider/WebGL visual composition, and native-host loopback acceptance require their own recorded runs; mocks and authored eval cases cannot satisfy those gates. Never retain real tokens in test traces, logs, artifacts, or screenshots.
+Keep online rendering in the [render-online-map capability](../plugins/metesparser/skills/render-online-map/SKILL.md) and follow the [online handoff contracts](../plugins/metesparser/references/artifact-handoffs.md#optional-online-map-handoff). Both standalone prepared plots/maps and existing dashboards use the shared preparation and rendering code. Validate token-free configuration against `WebMapRequest` and actual CLI flags. Check package/plugin tests, offline zero-network behavior, adapter interactions, and extracted optional distribution separately. Pinned real-SDK, live provider/WebGL visual composition, and native-host loopback acceptance require their own recorded runs; mocks and authored eval cases cannot satisfy those gates. Never retain real tokens in test traces, logs, artifacts, or screenshots.
 
 #### Manual Mapbox smoke test
 
@@ -405,27 +405,48 @@ uv run --no-sync python - <<'PY'
 import json
 import runpy
 from pathlib import Path
+from mp_models.plot_request import PlotCall, PlotRequest
+from mp_models.webmap import StandaloneWebMapInput
+from mp_verify.plot import prepare_plot
 
 root = Path("output/mapbox-manual")
 root.mkdir(parents=True, exist_ok=False)
 helper = runpy.run_path("packages/mp-export/tests/browser/conftest.py")
 prepared, _ = helper["synthetic_map"]()
-(root / "input.json").write_text(prepared.bundle.model_dump_json(indent=2))
+bundle = prepared.bundle
+spec = bundle.calculations[0]
+plot = prepare_plot(PlotRequest(
+    title="Synthetic boundary", calculation_id=spec.id,
+    foot_definition=spec.frame.foot_definition,
+    calls=tuple(PlotCall(
+        id=c.id, call=c.call, quote=c.quote,
+        source_reference="Synthetic browser fixture",
+        page_id=c.page_id, occurrence_id=c.occurrence_id,
+    ) for c in bundle.calls),
+))
+standalone = StandaloneWebMapInput(
+    title="Synthetic standalone map", plots=(plot,), scenes=bundle.scenes,
+    map_sources=bundle.map_sources, vector_layers=bundle.vector_layers,
+    raster_layers=bundle.raster_layers,
+    placements=tuple(p.model_copy(update={"geometry_hash": plot.geometry.geometry_hash})
+                     for p in bundle.placements),
+)
+(root / "input.json").write_text(standalone.model_dump_json(indent=2))
 (root / "request.json").write_text(json.dumps({"scene_id": "grid"}))
 PY
 ```
 
-Generate the local dashboard and the MCP handoff in separate commands:
+Generate the standalone local map and the MCP handoff in separate commands:
 
 ```bash
-uv run --no-sync metes-review dashboard output/mapbox-manual/input.json \
-  --output-dir output/mapbox-manual/dashboard \
+uv run --no-sync metes-review render-map output/mapbox-manual/input.json \
+  --output-dir output/mapbox-manual/map \
   --online-map-config output/mapbox-manual/request.json
-uv run --no-sync metes-review mapbox-mcp output/mapbox-manual/dashboard \
+uv run --no-sync metes-review mapbox-mcp output/mapbox-manual/map \
   --output-dir output/mapbox-manual/mcp
 ```
 
-Both commands return exit **1** with `status: "needs_review"` for valid review artifacts; exit **2** means invalid input. Do not chain them with `&&`. For this fixture, expect dashboard `online_map_availability: "ready"` and MCP `availability: "partial"`, because the scan is omitted from the MCP view. Confirm that `mapbox-mcp-arguments.json` exists and read `mapbox-mcp-handoff.json` for omissions. Each output directory must be new; choose another `output/mapbox-manual` name throughout the recipe when repeating it.
+Both commands return exit **1** with `status: "needs_review"` for valid review artifacts; exit **2** means invalid input. Do not chain them with `&&`. For this fixture, expect local `online_map_availability: "ready"` and MCP `availability: "partial"`, because the scan is omitted from the MCP view. Confirm that `mapbox-mcp-arguments.json` exists and read `mapbox-mcp-handoff.json` for omissions. Each output directory must be new; choose another `output/mapbox-manual` name throughout the recipe when repeating it. The standalone output retains `map-evidence.html` with local plots and original scans; it creates no dashboard or source-review attestations. Existing dashboard bundles still support `dashboard --online-map-config` and the same MCP/preview commands.
 
 **Test the interactive preview in Claude Code.** If the Mapbox MCP connection is not configured, follow Mapbox's [hosted setup guide](https://github.com/mapbox/mcp-server/blob/main/docs/hosted-mcp-guide.md):
 
@@ -436,14 +457,14 @@ claude
 
 Inside Claude, run `/mcp` and authenticate the Mapbox connection through its browser OAuth flow. From a session opened in this repository, use this prompt:
 
-> Read `output/mapbox-manual/mcp/mapbox-mcp-arguments.json` and the adjacent handoff report. Inspect the connected `render_map_tool` schema. If compatible, pass the generated arguments unchanged as the final visualization tool call. Report any compatibility error instead of rewriting the payload, and disclose the omitted scan.
+> Read `output/mapbox-manual/mcp/mapbox-mcp-arguments.json` and the adjacent handoff report. Discover the connected Mapbox rendering tool's exact fully qualified host identifier and inspect its live schema; do not call the bare upstream `render_map_tool` name or guess a server prefix. If compatible, pass the generated arguments unchanged to that identifier as the final visualization tool call. Report any compatibility error instead of rewriting the payload, and disclose the omitted scan.
 
-Expect the deed's four course segments, its POB marker, and parcel context over the basemap. Confirm that an interactive panel is actually visible and pans/zooms; a successful tool response alone does not establish client rendering. If the tool is unavailable, retain the generated files and record MCP/client acceptance as not run. See the [MCP handoff reference](../plugins/metesparser/skills/deed-closure-dashboard/references/mapbox-mcp.md) for the payload contract and size limit.
+Expect the deed's four course segments, its POB marker, and parcel context over the basemap. Confirm that an interactive panel is actually visible and pans/zooms; a successful tool response alone does not establish client rendering. If the tool is unavailable, retain the generated files and record MCP/client acceptance as not run. See the [MCP handoff reference](../plugins/metesparser/skills/render-online-map/references/mapbox-mcp.md) for the payload contract and size limit.
 
 **Test the basemap, tax scan, and deed together locally.** Keep this server running in a terminal:
 
 ```bash
-uv run --no-sync metes-review serve-map output/mapbox-manual/dashboard --port 8765
+uv run --no-sync metes-review serve-map output/mapbox-manual/map --port 8765
 ```
 
 Open `http://localhost:8765/online-map.html`. Enter a public Mapbox `pk.` token in the masked runtime field and click **Connect**; keep the token out of chat, configuration files, and generated artifacts. Use a token permitted for that localhost origin. The page makes no provider requests before Connect. Stop the server with Ctrl+C when finished.
@@ -453,9 +474,9 @@ Check the following in the viewer:
 - The basemap, orange synthetic scan with its green corner pixel, parcel polygon, and deed appear together with attribution.
 - Layer toggles, scan opacity, and standard/satellite style switching work; overlays survive a style change.
 - Selecting a course shows its details. Missing source-page images are identified explicitly; the synthetic scan is not a recorded deed page.
-- Disconnect clears the token and provider map while the offline dashboard remains available.
+- Disconnect clears the token and provider map while the offline map evidence remains available.
 
-For real evidence, replace the fixture with a bundle containing an evidenced projected placement and registered scan, and select its actual scene ID. Follow the [configuration and registration requirements](../plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-bundle.md#optional-mapbox-companion); a visually plausible fit does not establish a boundary.
+For real evidence, compose existing plot and overlay artifacts with a supplied projected placement and registered scan, and select the actual scene ID. Follow the [composition, configuration and placement requirements](../plugins/metesparser/skills/render-online-map/references/local-viewer.md); a visually plausible fit does not establish a boundary.
 
 #### Automated browser checks
 

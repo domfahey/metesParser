@@ -19,4 +19,4 @@ Create a standalone display plot from an identified structured boundary input.
 - [Usage and routing](../../references/usage.md)
 - [Plugin changelog](../../CHANGELOG.md)
 
-The plot remains offline. A later explicitly requested [Mapbox dashboard companion](../deed-closure-dashboard/references/dashboard-bundle.md#optional-mapbox-companion) composes these plot inputs with source evidence and prepared map layers; it does not turn this capability into a mapping or verification workflow.
+The plot remains offline. A later explicitly requested online map routes to [render-online-map](../render-online-map/README.md), reusing valid inputs and source records with explicit geographic placement evidence. A dashboard is an additional requested deliverable.

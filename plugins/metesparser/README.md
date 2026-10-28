@@ -1,12 +1,12 @@
 # MetesParser Claude plugin
 
-This plugin provides five focused capabilities and two workflows for reviewing metes-and-bounds material. Claude's native document/image reading prepares text from images and PDFs; the bundled deterministic `mp_review` engine parses selected descriptions and verifies geometry. No separate OCR service or conversion dependency is required.
+This plugin provides six focused capabilities and two workflows for reviewing metes-and-bounds material. Claude's native document/image reading prepares text from images and PDFs; the bundled deterministic `mp_review` engine parses selected descriptions and verifies geometry. No separate OCR service or conversion dependency is required.
 
 See the [usage guide](references/usage.md) for input routing, examples, artifact meanings, and troubleshooting, and the [changelog](CHANGELOG.md) for user-visible changes. Each skill directory contains a README with its own usage example.
 
 ## Skills
 
-Eight skills share the same engine: five capabilities, two workflows, and one compatibility alias.
+Nine skills share the same engine: six capabilities, two workflows, and one compatibility alias.
 
 | Type | Skill | Purpose | Main deliverable |
 | --- | --- | --- | --- |
@@ -15,13 +15,14 @@ Eight skills share the same engine: five capabilities, two workflows, and one co
 | Capability | [verify-traverse](skills/verify-traverse/SKILL.md) | Check an identified structured traverse or run explicitly requested relative analysis. | Deterministic review or separate relative-analysis artifacts |
 | Capability | [plot-metes-and-bounds](skills/plot-metes-and-bounds/SKILL.md) | Plot identified calls or an isolated description. | Plot inputs, geometry, HTML, and manifest |
 | Capability | [prepare-parcel-overlay](skills/prepare-parcel-overlay/SKILL.md) | Prepare supplied vector or raster map evidence. | Prepared layer and provenance |
+| Capability | [render-online-map](skills/render-online-map/SKILL.md) | Render prepared geographic evidence with Mapbox as a local viewer or requested in-chat MCP preview. | Online display artifacts or vector MCP handoff and acceptance report |
 | Workflow | [review-metes-and-bounds](skills/review-metes-and-bounds/SKILL.md) | Locate the intended description, then parse and check closure. | Source-selection context and deterministic review artifacts |
 | Workflow | [deed-closure-dashboard](skills/deed-closure-dashboard/SKILL.md) | Build an explicitly requested, source-grounded interactive review dashboard. | Offline dashboard and source/calculation/render snapshots |
 | Alias | [review-deed](skills/review-deed/SKILL.md) | Route deed-specific review requests to the shared review workflow. | Same deliverable as `review-metes-and-bounds` |
 
 Choose a capability when the user requests one stage; it stops at that deliverable. Choose a workflow when the user requests an end-to-end closure review or an interactive dashboard. `review-deed` is an alternate entrypoint for deed-specific closure requests, not a separate implementation.
 
-The dashboard workflow also offers a [vector-only Mapbox MCP preview](skills/deed-closure-dashboard/references/mapbox-mcp.md) from existing online-prepared artifacts. It checks provenance and connected-tool compatibility, retains local raster/source review, and reports live client acceptance separately.
+[render-online-map](skills/render-online-map/README.md) owns both local Mapbox rendering and vector-only MCP preview. It reuses prepared evidence, checks provenance, preserves local raster/source review, and reports live client acceptance separately. Dashboard composition delegates requested provider rendering to it; an online map alone does not require a dashboard.
 
 ## Route and compose
 
@@ -66,4 +67,4 @@ See [settings schema and validation](references/plugin-settings.md). Verificatio
 
 ## Optional Mapbox companion
 
-The dashboard workflow can add `online-map.html` when explicitly requested, reusing the same source, plot, and registered map evidence. This is a renderer step, not another skill. It keeps the offline dashboard and all verification statuses separate. The [online procedure](skills/deed-closure-dashboard/references/dashboard-bundle.md#optional-mapbox-companion) documents `--online-map-config`, the `web-map` extra, opt-in `--with-web-map` plugin build, and loopback `serve-map` preview. A public token is entered at runtime; Connect is required before any provider request. Live Mapbox and native-host acceptance remain separate gates.
+Use [render-online-map](skills/render-online-map/SKILL.md) for an explicitly requested online map. The [local viewer procedure](skills/render-online-map/references/local-viewer.md) documents configuration, the `web-map` extra, opt-in `--with-web-map` build, and loopback `serve-map` preview. The [MCP procedure](skills/render-online-map/references/mapbox-mcp.md) covers an in-chat vector preview from retained geographic stages. A local public token is entered at runtime and Connect precedes provider requests; MCP uses the configured connection only within the requested external-preview scope. Neither mode changes verification. Live Mapbox and native-host acceptance remain separate gates.

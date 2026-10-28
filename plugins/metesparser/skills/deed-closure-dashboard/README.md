@@ -36,4 +36,4 @@ The equivalent package command is `uv run metes-review dashboard bundle.json --o
 
 ## Optional online view
 
-When requested, the same workflow adds a read-only Mapbox companion over a street/satellite basemap, registered scan, and recorded courses. See the [configuration and preview commands](references/dashboard-bundle.md#optional-mapbox-companion). The offline view remains available; missing georeference or provider access is reported separately from verification. Live provider and native-host acceptance require separate recorded runs.
+When requested alongside the dashboard, delegate the Mapbox view to [render-online-map](../render-online-map/README.md) after assembling source-linked geometry and explicit placement evidence. The dashboard owns source composition; the renderer owns the local viewer or requested in-chat MCP preview. Keep the offline dashboard and report geographic availability separately from source review and verification.

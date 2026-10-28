@@ -191,6 +191,33 @@ def test_standalone_plot_reaches_engine_and_preserves_nonverification(
     assert capsys.readouterr().out == output
 
 
+def test_standalone_online_map_reaches_engine_with_inputs_and_config(
+    monkeypatch, tmp_path, capsys
+):
+    setup_launcher(monkeypatch, make_runtime(tmp_path))
+    commands = []
+    output = '{"status":"needs_review","online_map_availability":"ready"}\n'
+
+    def run(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=1, stdout=output, stderr="")
+
+    monkeypatch.setattr(launcher.subprocess, "run", run)
+    arguments = [
+        "render-map",
+        "prepared-map.json",
+        "--online-map-config",
+        "online-config.json",
+        "--output-dir",
+        "viewer-new",
+        "--settings",
+        "settings.md",
+    ]
+    assert launcher.main(arguments) == 1
+    assert commands[0][-len(arguments) :] == arguments
+    assert capsys.readouterr().out == output
+
+
 def test_preview_executes_foreground_without_output_capture(monkeypatch, tmp_path):
     setup_launcher(monkeypatch, make_runtime(tmp_path))
     seen = []

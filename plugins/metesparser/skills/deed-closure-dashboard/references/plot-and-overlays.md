@@ -14,4 +14,4 @@ Compare only explicitly named point correspondences in the same supported linear
 
 ## Optional geographic display
 
-The [online handoff](../../../references/artifact-handoffs.md#optional-online-map-handoff) defines the Mapbox companion's evidence and invalidation boundary. Reuse the existing projected scene, registered scan, and supported explicit deed placement; a basemap cannot supply missing position/orientation evidence. The [configuration/preview procedure](dashboard-bundle.md#optional-mapbox-companion) covers optional dependencies, localhost serving, runtime tokens, and offline fallback.
+The [online handoff](../../../references/artifact-handoffs.md#optional-online-map-handoff) defines the Mapbox companion's evidence and invalidation boundary. Reuse the existing projected scene, registered scan, and supported explicit deed placement; a basemap cannot supply missing position/orientation evidence. The [render-online-map configuration/preview procedure](../../render-online-map/references/local-viewer.md) covers optional dependencies, localhost serving, runtime tokens, and offline fallback.
