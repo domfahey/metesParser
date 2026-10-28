@@ -1,0 +1,166 @@
+{
+  "schema_version": "1.0",
+  "date": "2026-10-28",
+  "lane": "unpaired Codex forward smoke",
+  "inputs": "Synthetic fixtures only; raw tasks and inputs supplied without expected outcomes or suspected bugs. Agents discovered skill metadata before reading instructions.",
+  "baseline": "not_run",
+  "comparison_conclusion": "No baseline-vs-skill improvement measured. Not a completed paired evaluation.",
+  "trace_coverage": "Reports contain command/skill summaries and observed outputs; full model transcripts are not included. Temporary local artifact paths are not permanent distribution files.",
+  "plugin_sha256": "16153d08a54c8a02e7f210600c494f01d9e1826ac613533935636908a353a639",
+  "engine_smoke": {
+    "commands": 7,
+    "result": "passed",
+    "runtime": "Fresh fingerprinted virtual environment installed from bundled wheels and cached pinned dependencies; outside developer checkout.",
+    "report_path": "/private/tmp/metesparser-skill-acceptance-cqcrtb5m/summary.json",
+    "report_sha256": "ad4c47882d53f9ec8a5367d6d69d6d8249785deec993557a8a632c3def57e58f"
+  },
+  "environment": "Initial sandboxed launches hit a macOS uv configuration panic. Approved retries outside sandbox succeeded with UV_OFFLINE=1. No provider calls.",
+  "claude_family_matrix": "not_run",
+  "native_client_acceptance": "not_run",
+  "live_mapbox_acceptance": "not_run",
+  "runs": [
+    {
+      "case_id": "relative-only-analysis-routes-without-verification-or-dashboard",
+      "fresh_session": true,
+      "configured_model": "gpt-6-luna",
+      "reasoning_effort": "high",
+      "immutable_model_version": "not_reported",
+      "client": "Codex subagent",
+      "condition": "with_skill_smoke",
+      "request": "Analyze the relative angles and constraints in supplied relative.json and save the results.",
+      "skills_and_references": [
+        {
+          "path": "skills/verify-traverse/SKILL.md",
+          "sha256": "13c766b9933ec3d0f188ca6d3c2cc6d1fc5c9dc3c2941bef92fe7a93e783aedd"
+        },
+        {
+          "path": "skills/deed-closure-dashboard/references/relative-analysis.md",
+          "sha256": "05528d0b7d9c353bd7c76ce162fc0214f2e1ba3eb806350e215cb638a238b9f6"
+        },
+        {
+          "path": "references/usage.md",
+          "sha256": "c2ed129ef20f48109817567b804d0ac31f2c4caa86bec8feb272923863df8a7f"
+        }
+      ],
+      "agent_report_path": "/private/tmp/metesparser-skill-acceptance-cqcrtb5m/relative-codex-results/report.json",
+      "agent_report_sha256": "8ec0debf7b3818fbe5b732d1c0ef0b4fd35eaddfa545d8efe9f69d80fb3995a7",
+      "output_path": "/private/tmp/metesparser-skill-acceptance-cqcrtb5m/relative-codex-results/run-1/analysis.json",
+      "output_sha256": "71105177fb7670d4f74bf2642e1798e9beb6d08bf737da1a669ccc1c7fa3e57f",
+      "observed_result": "passed",
+      "observations": {
+        "courses": 4,
+        "constraints": "four explicit 90 degree interior angles, including closing angle",
+        "local_headings_deg": [
+          0.0,
+          90.0,
+          180.0,
+          270.0
+        ],
+        "perimeter_ft": 300.0,
+        "provisional_area_sq_ft": 5000.000000000001,
+        "misclosure_ft": 1.3691967456605066e-14,
+        "stated_angle_sum_deg": 360.0,
+        "expected_angle_sum_deg": 360.0,
+        "limitations": [
+          "Headings are in the declared arbitrary local frame, not recorded compass bearings.",
+          "Relative analysis does not run canonical verification or authorize verified exports.",
+          "Area includes an implicit closing segment and is provisional when the traverse is open."
+        ]
+      }
+    },
+    {
+      "case_id": "plot-isolated-prose-with-commencement-tie-in",
+      "fresh_session": true,
+      "configured_model": "gpt-6-luna",
+      "reasoning_effort": "high",
+      "immutable_model_version": "not_reported",
+      "client": "Codex subagent",
+      "condition": "with_skill_smoke",
+      "request": "Plot the metes-and-bounds description in description.txt and return the plot.",
+      "skills_and_references": [
+        {
+          "path": "skills/plot-metes-and-bounds/SKILL.md",
+          "sha256": "1824adb1d0d0eeb62271ccde9507be0a7aa188bdff4f5dbad3b981cbf6a7f32f"
+        },
+        {
+          "path": "skills/plot-metes-and-bounds/README.md",
+          "sha256": "37c5d6a83721305331f9d806ec54fbbb3444f882dc387b49feae085224afb322"
+        },
+        {
+          "path": "references/usage.md",
+          "sha256": "c2ed129ef20f48109817567b804d0ac31f2c4caa86bec8feb272923863df8a7f"
+        },
+        {
+          "path": "references/artifact-handoffs.md",
+          "sha256": "11f791b3d88316df5ac082f0071080a0e4c3213f3723c49cd981335651cb7317"
+        }
+      ],
+      "agent_report_path": "/private/tmp/metesparser-skill-acceptance-cqcrtb5m/run-report.json",
+      "agent_report_sha256": "7e5cb794db569d5b309857a31bb143330e9f5790346c12c18b3e31ecadb12a72",
+      "output_path": "/private/tmp/metesparser-skill-acceptance-cqcrtb5m/output-plot-02/plot-geometry.json",
+      "output_sha256": "c1ce127e054a2300f53e2d62ba7d96b7e84b121bb95519205a3de0c2ee81c6bc",
+      "observed_result": "passed",
+      "observations": {
+        "boundary_calls": 4,
+        "tie_in_calls": 1,
+        "geometry": "four 100 ft legs; closed square",
+        "misclosure_ft": 2.3224864753868792e-14,
+        "area_sq_ft": 10000.000000000002,
+        "perimeter_ft": 400.0,
+        "unresolved_bearings": [],
+        "engine_verified": false,
+        "verified_export_eligible": false,
+        "source_review_complete": false,
+        "interpretation": "Display geometry is a 100 ft by 100 ft square based on the explicit calls. The plotted closure is geometry metadata only; this capability did not perform canonical traverse verification."
+      }
+    },
+    {
+      "case_id": "compose-standalone-map-from-existing-plot-and-layer",
+      "fresh_session": true,
+      "configured_model": "gpt-6-luna",
+      "reasoning_effort": "high",
+      "immutable_model_version": "not_reported",
+      "client": "Codex subagent",
+      "condition": "with_skill_smoke",
+      "request": "Prepare combined standalone online-map input from supplied plot/ and layer.json",
+      "skills_and_references": [
+        {
+          "path": "skills/plot-metes-and-bounds/SKILL.md",
+          "sha256": "1824adb1d0d0eeb62271ccde9507be0a7aa188bdff4f5dbad3b981cbf6a7f32f"
+        },
+        {
+          "path": "skills/render-online-map/SKILL.md",
+          "sha256": "48714f51a12143b5b200fd64ed3297a83b6db11d2a9ab462dd64344dee8cfc71"
+        },
+        {
+          "path": "skills/render-online-map/references/local-viewer.md",
+          "sha256": "ebb6686e20dcb2add8ab104b184cd8ab5469f8b6f1e450e6cca080e73ada3494"
+        },
+        {
+          "path": "references/usage.md",
+          "sha256": "c2ed129ef20f48109817567b804d0ac31f2c4caa86bec8feb272923863df8a7f"
+        },
+        {
+          "path": "references/artifact-handoffs.md",
+          "sha256": "11f791b3d88316df5ac082f0071080a0e4c3213f3723c49cd981335651cb7317"
+        }
+      ],
+      "agent_report_path": "/private/tmp/metesparser-skill-acceptance-cqcrtb5m/codex-report.json",
+      "agent_report_sha256": "99d4e70039b96237075f3d886ed6b2ac2dbfcb26c6a25c784b333fcb550892ef",
+      "output_path": "/private/tmp/metesparser-skill-acceptance-cqcrtb5m/codex-composed-map/composition-manifest.json",
+      "output_sha256": "ecd5d245eff254b95250636f1cdf171c6debe17e69d7e8688a2d910fd52399e8",
+      "observed_result": "passed",
+      "observations": {
+        "geometry_hashes": {
+          "plot": "02602b4d82ac2d612a097e1827380e1b2230924d34adf41bc9858c0da45eff5f"
+        },
+        "source_integrity": "composed manifest records hashes for plot input, geometry, manifest, source, and layer; source and preparation sidecars retained",
+        "display_geometry": "plot includes four boundary calls; commencement tie-in call-1 is retained in provenance and excluded from boundary geometry",
+        "map_evidence": "EPSG:3857 projected scene and parcel vector layer included",
+        "placements": [],
+        "provider_or_network": "none; no render command or provider call",
+        "interpretation": "assembled input is display preparation only and does not establish source review, canonical verification, geodetic accuracy, or deed-to-parcel placement"
+      }
+    }
+  ]
+}

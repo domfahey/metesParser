@@ -6,6 +6,9 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Added
 
+- Explicit `plot --input-format text` prepares an isolated description through shared parsing, preserves its source bytes, and separates commencement-to-POB tie-ins without running canonical verification.
+- Packaged-runtime `compose-map` and `compose-dashboard` commands assemble existing artifacts, preserve provenance, and expose fresh geometry hashes without ad hoc workspace Python setup.
+- Behavioral evaluation scenarios cover commencement plotting, packaged composition, and direct relative-analysis routing.
 - A paired skill-evaluation protocol reuses existing scenarios, hides grading rubrics from responding agents, and records model/client evidence separately from engine and provider checks. Claude model coverage remains unrun.
 - Standalone `render-map` composes prepared plot/map artifacts without a dashboard, revalidates shared geometry and placement identities, and retains an offline evidence fallback. `mapbox-mcp` accepts these intact stages or legacy dashboard stages.
 - `render-online-map` capability owns local Mapbox viewer and requested vector-only MCP preview, bringing the catalog to six capabilities, two workflows, and one alias.
@@ -23,6 +26,7 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Changed
 
+- `verify-traverse` discovery metadata includes explicitly requested relative-angle analysis as well as canonical verification of selected calls.
 - Skill entrypoints link runtime prerequisites and conditional procedures directly; long dashboard references include contents links. Mapbox MCP instructions require the exact discovered, fully qualified host tool identifier.
 - Dashboard source/bundle assembly delegates online rendering to `render-online-map`; plot and overlay capabilities route later map requests there without acquiring or verifying sources again. Detailed local-viewer and MCP procedures moved to the renderer skill; prior dashboard reference paths remain compatibility links.
 

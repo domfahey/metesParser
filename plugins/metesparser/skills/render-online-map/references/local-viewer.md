@@ -8,36 +8,20 @@ In a source checkout, install optional dependencies with `uv sync --extra web-ma
 
 The standalone command accepts `StandaloneWebMapInput` (`mp_models.webmap`), not a `DashboardBundle`: `schema_version: "1.0"`, `title`, `plots` (each a `PreparedPlot` containing `request`, `geometry`, `input_hash`), required nonempty `scenes`, and optional `map_sources`, `vector_layers`, `raster_layers`, and `placements`. It creates neither `dashboard.html` nor source-review/verification attestations. IDs must be globally unique across calls, calculations, scenes, map sources, layers, and placements.
 
-Reuse an existing plot's three artifacts and the supported arrays from a prepared overlay. This example assumes `plot-new/`, `prepared-layer.json`, and a separately supplied `placements.json` exist; the latter is an array of supported explicit placements, never an inferred fit:
+Compose an intact existing `plot-new/` stage with supported arrays from one or more prepared overlays. Use the bundled launcher in an extracted distribution; no developer workspace or arbitrary Python execution is required:
 
-```python
-import json
-from pathlib import Path
-from mp_models.webmap import StandaloneWebMapInput
-
-plot_dir = Path("plot-new")
-manifest = json.loads((plot_dir / "plot-manifest.json").read_text())
-prepared_plot = {
-    "request": json.loads((plot_dir / "plot-input.json").read_text()),
-    "geometry": json.loads((plot_dir / "plot-geometry.json").read_text()),
-    "input_hash": manifest["input_hash"],
-}
-layer = json.loads(Path("prepared-layer.json").read_text())
-source = {
-    "schema_version": "1.0",
-    "title": "Prepared boundary and map evidence",
-    "plots": [prepared_plot],
-    "placements": json.loads(Path("placements.json").read_text()),
-}
-for field in ("scenes", "map_sources", "vector_layers", "raster_layers"):
-    source[field] = layer.get(field, [])
-validated = StandaloneWebMapInput.model_validate(source)
-Path("map-input.json").write_text(validated.model_dump_json(indent=2) + "\n")
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" compose-map plot-new --layer prepared-layer.json --output-dir map-composed-new
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" render-map map-composed-new/map-input.json --online-map-config online-map-config.json --output-dir online-map-new
 ```
 
-Run the example with `uv run python` in the workspace runtime. Retain original plot source/manifest and complete map-preparation artifacts alongside the map input. Copy named arrays only: import operation metadata and wrapper fields are not standalone input fields. For several layer artifacts, combine their arrays while resolving actual IDs and scene references; do not drop provenance or rename bound identifiers casually.
+In a source checkout, the equivalent first command is `uv run metes-review compose-map plot-new --layer prepared-layer.json --output-dir map-composed-new`. Repeat `--layer` for additional prepared artifacts. Supply enough explicit map evidence to provide at least one scene; a plot alone cannot invent a geographic frame. `import-overlay`, `register-raster`, and `fetch-parcel` outputs provide supported map arrays. Only `scenes`, `map_sources`, `vector_layers`, and `raster_layers` are appended; wrapper metadata and original source bytes remain in the retained preparation sidecars.
 
-The renderer recomputes each plot with the shared `mp_verify.plot.prepare_plot` logic and rejects stale or altered geometry/input hashes and placements. Alternatively, call `prepare_plot(PlotRequest.model_validate(existing_plot_input))` and retain its complete `model_dump(mode="json")` as a `plots` entry. This is deterministic display preparation, not verification or document reading. If call/calculation IDs or the plot request change, recompute the plot and bind the supplied placement to its fresh `geometry_hash`; never substitute a dashboard hash. Preserve existing unknown bearings and verbatim source fields.
+Composition writes validated `map-input.json`, `composition-manifest.json`, byte-exact plot inputs/source/manifest under `inputs/plot/`, and complete preparation artifacts under `inputs/layer-N.json`. Its single JSON result and manifest expose `geometry_hashes` keyed by calculation ID. It returns `needs_review` (exit 1), with all three review/verification flags false. Invalid artifacts, ID collisions, stale geometry/hashes, and existing output paths return `error` (exit 2) without overwriting inputs. Composition does not render or contact a provider. Use a fresh output directory.
+
+The command recomputes each plot with shared deterministic geometry and rejects altered geometry or a mismatched plot manifest/source. It preserves requests, relative constraints, unknown bearings, verbatim text, source references, IDs, and provenance. Conflicting IDs require an explicit mapping followed by regeneration of the bound stages; they are never silently renamed. No dashboard source ledger or source-review evidence is created.
+
+The initial composed map has no inferred placements. If placement is requested, use the fresh `geometry_hashes` and actual supplied positioning evidence to add supported `placements` to `map-input.json`, then render it. Keep the composition manifest and original preparation sidecars. The renderer independently recomputes plots and rejects stale or altered geometry/input hashes and placements. If call/calculation IDs or the plot request change, regenerate the plot and compose again; never substitute a dashboard hash. This deterministic display preparation is not verification or document reading.
 
 Each requested placement names the plot's `calculation_id`, its exact `geometry_hash`, and a supplied `scene_id`, rotation/translation, status, and rationale. The standalone contract currently accepts `approximate` or `unplaced` placements; `referenced` requires an orientation-frame contract this input does not provide. Dashboard `evidence_ids`, scenario, and baseline fields are also unsupported here. Keep position/orientation support in the supplied rationale and evidence strings; require compatible units and an explicit foot definition. No automatic geocoding, matching, scale/shear/reflection, or image fitting is allowed. Unplaced or unresolved layers remain unavailable/partial rather than guessed.
 

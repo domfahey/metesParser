@@ -5,9 +5,9 @@ description: Creates a standalone plot from supplied structured calls or an alre
 
 # Plot metes and bounds
 
-Use a matching existing structured call artifact when the source is unchanged. If the user supplies an already-isolated plain-text description but no calls, use the rule-based `mp_parse.extract_calls()` API (and `enrich_calls_with_azimuths()` for supported bearing conversions) only to prepare structured plot input. This is parsing for display; do not run canonical verification as a side effect. Preserve the actual source text and available source references. Never infer bearings from closure or neighboring calls. If the parser returns multiple tracts, the intended tract is ambiguous, or a call cannot be interpreted safely, ask for tract selection/clarification or leave the affected geometry unresolved.
+Use a matching existing structured call artifact when the source is unchanged. If the user supplies an already-isolated UTF-8 plain-text description but no calls, use the `plot` command with `--input-format text`. Its shared deterministic preparation normalizes notation, extracts POC/POB, and marks commencement-to-POB calls as tie-ins before preparing display geometry. This is parsing for display; do not run canonical verification as a side effect. Preserve the actual source text and available source references. Never infer bearings from closure or neighboring calls. Multiple tracts or unresolved commencement are rejected and require selection/clarification; incomplete bearings remain unresolved in the plot.
 
-The standalone `plot` CLI accepts structured files only. This skill does not select a description from a whole document: use an existing selection handoff, or invoke description extraction only when locating the requested tract is part of the task.
+Text input must be requested explicitly; `auto` keeps its structured-file detection. This skill does not select a description from a whole document: use an existing selection handoff, or invoke description extraction only when locating the requested tract is part of the task.
 
 Check the [runtime prerequisites](../../references/usage.md#runtime-prerequisites), then run from the intended project root with a new output directory:
 
@@ -15,11 +15,11 @@ Check the [runtime prerequisites](../../references/usage.md#runtime-prerequisite
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" plot INPUT --output-dir NEW_DIR --input-format auto
 ```
 
-`--input-format` accepts `auto`, `calls`, `relative`, or `plot`. The package command is `uv run metes-review plot INPUT --output-dir NEW_DIR --input-format auto`. Accepted data are strict CSV, a calls-list or `LegalDescription` JSON object, `RelativeDescription` JSON, or `PlotRequest` JSON. For PlotRequest fields, see [artifact handoffs](../../references/artifact-handoffs.md) and the authoritative `mp_models`/`mp_review` APIs.
+`--input-format` accepts `auto`, `calls`, `relative`, `plot`, or explicit `text`. The package command is `uv run metes-review plot INPUT --output-dir NEW_DIR --input-format auto`; use `--input-format text` for an already-isolated description. The Python entry point is `mp_review.plot_file(INPUT, NEW_DIR, input_format="text")`. Accepted structured data are strict CSV, a calls-list or `LegalDescription` JSON object, `RelativeDescription` JSON, or `PlotRequest` JSON. For PlotRequest fields, see [artifact handoffs](../../references/artifact-handoffs.md) and the authoritative `mp_models`/`mp_review` APIs.
 
 For relative-angle inputs, read the [relative-analysis contract and example](../deed-closure-dashboard/references/relative-analysis.md). Keep computed local headings separate from recorded bearings.
 
-Preserve every source value and verbatim call; leave cardinal-only or otherwise incomplete bearings unresolved. The plot command creates `source.csv` or `source.json` as an exact-byte source copy, `plot-input.json`, `plot-geometry.json`, `plot.html`, and `plot-manifest.json`. Its top-level status is `needs_review`: the plot is a display deliverable, not verification, and it does not create a verified CSV or claim document reading.
+Preserve every source value and verbatim call; leave cardinal-only or otherwise incomplete bearings unresolved. The plot command creates `source.csv`, `source.json`, or `source.txt` as an exact-byte source copy, `plot-input.json`, `plot-geometry.json`, `plot.html`, and `plot-manifest.json`. Text plots retain all parsed calls, including tie-ins, and actual source quotations; geometry excludes tie-ins. If normalization prevents confident matching to an individual verbatim call, the quotation retains the full supplied description. Its top-level status is `needs_review`: the plot is a display deliverable, not verification, and it does not create a verified CSV or claim document reading.
 
 Return the requested plot artifacts and stop. Do not run canonical verification, reread a PDF, select a description, prepare map layers, or build a dashboard unless the user requested those additional tasks. See [artifact handoffs](../../references/artifact-handoffs.md) for identity, status, and resume rules.
 
