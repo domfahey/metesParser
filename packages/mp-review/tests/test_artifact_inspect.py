@@ -1244,3 +1244,11 @@ def test_non_object_dashboard_render_manifest_is_invalid(dashboard_bundle):
     result = inspect(dashboard_bundle, "dashboard")
     node = nodes(result, "dashboard")[0]
     assert node["status"] == "invalid"
+
+
+def test_deeply_nested_json_is_reported_invalid_json(chain):
+    path = chain / "review-a" / "calls.json"
+    depth = 100000
+    path.write_text("[" * depth + "]" * depth, encoding="utf-8")
+    result = inspect(chain, "review")
+    assert any("invalid_json" in codes(a) for a in result["artifacts"])

@@ -132,7 +132,7 @@ class _Inspector:
             )
             _finite_json(value)
             return value
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, UnicodeDecodeError, RecursionError):
             raise _Issue(
                 "invalid_json",
                 "Artifact must contain strict UTF-8 JSON without duplicate keys.",
