@@ -205,3 +205,40 @@ def test_monolith_unparseable_chord_bearing_blocks_instead_of_raising(bad_chord)
     assert any("chord bearing" in w.lower() for w in result.warnings)
     curve = next(c for c in result.checks if c.name == "curve_consistency")
     assert curve.status == "blocked"
+
+
+def test_monolith_multi_tract_does_not_overwrite_audit_context():
+    """#73: per-tract verification must not write one audit context per tract."""
+    from datetime import UTC, datetime
+
+    from metesparser.closure_checker import ClosureChecker
+    from metesparser.models import AuditContext, DeedCall, RunMetadata, Tract, TractType
+
+    def square(size):
+        return [
+            DeedCall(
+                course=i + 1,
+                direction_text=str(a),
+                bearing_azimuth_deg_from_north=a,
+                distance_ft=size,
+            )
+            for i, a in enumerate((0, 90, 180, 270))
+        ]
+
+    tracts = [
+        Tract(label="A", tract_type=TractType.MAIN, calls=square(100.0)),
+        Tract(label="B", tract_type=TractType.MAIN, calls=square(50.0)),
+    ]
+    ctx = AuditContext(
+        run_metadata=RunMetadata(
+            parser_version="t",
+            llm_provider="t",
+            llm_model="t",
+            prompt_hash="t",
+            timestamp_utc=datetime.now(UTC),
+            source_pdf="t.pdf",
+            cache_enabled=False,
+        )
+    )
+    ClosureChecker.verify_closure([], tracts=tracts, audit_context=ctx)
+    assert ctx.verification_audit is None
