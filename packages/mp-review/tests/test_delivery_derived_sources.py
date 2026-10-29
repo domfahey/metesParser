@@ -437,3 +437,184 @@ def test_corridor_placement_must_match_fresh_centerline_even_with_self_consisten
     )
     with pytest.raises(ValueError, match="stale"):
         prepare_delivery(bundle, revision, DeliveryRequest.model_validate(data))
+
+
+def _placed_corridor_request(tmp_path):
+    bundle, revision, req, corridor, _ = request(tmp_path, "corridor")
+    scene = PlotScene(
+        id="corridor-grid",
+        name="Supplied control grid",
+        kind="projected",
+        crs="EPSG:3857",
+        units="m",
+        basis="grid",
+    )
+    placement = PlotPlacement(
+        id="centerline-control",
+        calculation_id=corridor.centerline.request.calculation_id,
+        geometry_hash=corridor.centerline.geometry.geometry_hash,
+        scene_id=scene.id,
+        status="referenced",
+        rationale="Synthetic supplied origin and rotation",
+        position_evidence=("supplied origin",),
+        orientation_evidence=("supplied 90 degree clockwise rotation",),
+        rotation_deg=90,
+        translation=(1000, 2000),
+    )
+    data = req.model_dump(mode="json")
+    data.update(
+        coordinate_mode="placed",
+        scene_id=scene.id,
+        scenes=[scene.model_dump(mode="json")],
+        placements=[placement.model_dump(mode="json")],
+        units="m",
+        formats=["svg", "dxf", "geojson"],
+    )
+    data["layers"][0].update(
+        placement_id=placement.id, placement_sha256=_hash(placement.model_dump(mode="json"))
+    )
+    return bundle, revision, data
+
+
+def _with_failing_optional_layer(data):
+    data = json.loads(json.dumps(data))
+    bad = dict(data["source_bindings"][0], id="bad-binding", layer_id="bad-layer")
+    data["source_bindings"].append(bad)
+    data["layers"].append(
+        {"id": "bad-layer", "kind": "corridor", "visible": True, "opacity": 1.0, "required": False}
+    )
+    return DeliveryRequest.model_validate(data)
+
+
+def test_geojson_skips_optional_layer_that_failed_preparation(tmp_path):
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    req = _with_failing_optional_layer(data)
+    snapshot = prepare_delivery(bundle, revision, req)
+    assert any(o.layer_id == "bad-layer" for o in snapshot.omissions)
+    response = publish_delivery(bundle, revision, req, tmp_path / "exports")
+    assert response["status"] == "needs_review", response
+    features = json.loads((tmp_path / "exports/package/drawing.geojson").read_text())["features"]
+    assert features and all(f["properties"]["delivery_layer_id"] != "bad-layer" for f in features)
+
+
+def test_failed_publish_does_not_strand_request_id(tmp_path, monkeypatch):
+    import mp_review.delivery as delivery
+
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    req = DeliveryRequest.model_validate(data)
+
+    def boom(*_args, **_kwargs):
+        raise ValueError("simulated render failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(delivery, "_geojson", boom)
+        failed = publish_delivery(bundle, revision, req, tmp_path / "exports")
+    assert failed["status"] == "error"
+    assert not (tmp_path / "exports/package/pending.json").exists()
+    retry = publish_delivery(bundle, revision, req, tmp_path / "exports")
+    assert retry["status"] == "needs_review", retry
+
+
+@pytest.mark.parametrize("fmt", ["dxf", "geojson"])
+def test_rotation_without_labels_records_disclosed_omission_for_cad_gis(tmp_path, fmt):
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    data["presentation_rotation_deg"] = 30.0
+    data["formats"] = ["svg", fmt]
+    data["labels"] = []
+    req = DeliveryRequest.model_validate(data)
+    snapshot = prepare_delivery(bundle, revision, req)
+    omitted = [o for o in snapshot.omissions if o.format == fmt]
+    assert omitted and "rotation" in omitted[0].reason.lower()
+    assert not [o for o in snapshot.omissions if o.format == "svg"]
+    response = publish_delivery(bundle, revision, req, tmp_path / "exports")
+    assert response["status"] == "needs_review", response
+    assert any(o["format"] == fmt for o in response["omissions"])
+
+
+def test_geojson_coordinates_ignore_presentation_rotation(tmp_path):
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    data["formats"] = ["geojson"]
+    data["labels"] = []
+    rotated = DeliveryRequest.model_validate({**data, "presentation_rotation_deg": 30.0})
+    flat = DeliveryRequest.model_validate({**data, "id": "flat"})
+    publish_delivery(bundle, revision, rotated, tmp_path / "exports")
+    publish_delivery(bundle, revision, flat, tmp_path / "exports")
+
+    def geometries(name):
+        text = (tmp_path / "exports" / name / "drawing.geojson").read_text()
+        return [f["geometry"] for f in json.loads(text)["features"]]
+
+    assert geometries("package") == geometries("flat")
+
+
+def test_inspect_delivery_surfaces_rotation_omission(tmp_path, monkeypatch, capsys):
+    from mp_review.cli import main
+
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    data["presentation_rotation_deg"] = 30.0
+    data["labels"] = []
+    req = DeliveryRequest.model_validate(data)
+    assert publish_delivery(bundle, revision, req, tmp_path / "exports")["status"] == "needs_review"
+    bundle_path = tmp_path / "bundle.json"
+    bundle_path.write_text(bundle.model_dump_json())
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "metes-review",
+            "inspect-delivery",
+            str(bundle_path),
+            "--revision-dir",
+            str(revision),
+            "--package-dir",
+            str(tmp_path / "exports/package"),
+        ],
+    )
+    with pytest.raises(SystemExit):
+        main()
+    payload = json.loads(capsys.readouterr().out)
+    assert any("rotation" in o["reason"].lower() for o in payload["omissions"])
+
+
+def _signed_area(ring):
+    return sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(ring, ring[1:], strict=False)) / 2
+
+
+def _assert_rfc7946_orientation(features):
+    polygons = 0
+    for feature in features:
+        geometry = feature["geometry"]
+        if geometry["type"] == "Polygon":
+            parts = [geometry["coordinates"]]
+        elif geometry["type"] == "MultiPolygon":
+            parts = geometry["coordinates"]
+        else:
+            continue
+        for rings in parts:
+            polygons += 1
+            assert _signed_area(rings[0]) > 0, "exterior ring must be counterclockwise"
+            assert all(_signed_area(hole) < 0 for hole in rings[1:])
+    assert polygons
+
+
+def test_corridor_geojson_exterior_ring_is_counterclockwise_and_hashed_after(tmp_path):
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    req = DeliveryRequest.model_validate(data)
+    assert publish_delivery(bundle, revision, req, tmp_path / "exports")["status"] == "needs_review"
+    package = tmp_path / "exports/package"
+    _assert_rfc7946_orientation(json.loads((package / "drawing.geojson").read_text())["features"])
+    manifest = json.loads((package / "delivery-manifest.json").read_text())
+    digest = hashlib.sha256((package / "drawing.geojson").read_bytes()).hexdigest()
+    assert manifest["artifacts"]["drawing.geojson"] == digest
+    load_delivery(bundle, revision, package)
+
+
+def test_plss_geojson_exterior_ring_is_counterclockwise(tmp_path):
+    bundle, revision, req, _, _ = request(tmp_path, "plss_reference")
+    data = req.model_dump(mode="json")
+    data["formats"] = ["svg", "geojson"]
+    published = publish_delivery(
+        bundle, revision, DeliveryRequest.model_validate(data), tmp_path / "exports"
+    )
+    assert published["status"] == "needs_review", published
+    features = json.loads((tmp_path / "exports/package/drawing.geojson").read_text())["features"]
+    _assert_rfc7946_orientation(features)
