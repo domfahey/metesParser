@@ -28,6 +28,7 @@ from mp_models.plot import (
 )
 from mp_models.plot_request import PlotCall
 from mp_models.raster import RasterLayer
+from mp_models.revisions import revision_template
 from mp_verify.dashboard import validate_prepared_dashboard
 
 from .plot_svg import fitted_viewbox, primitive_svg_path
@@ -47,6 +48,8 @@ def renderer_fingerprint() -> str:
         ("plot_svg.py", Path(__file__).with_name("plot_svg.py")),
         ("dashboard.css", _ASSETS / "dashboard.css"),
         ("dashboard.js", _ASSETS / "dashboard.js"),
+        ("revisions.js", _ASSETS / "revisions.js"),
+        ("structured_editor.js", _ASSETS / "structured_editor.js"),
     ):
         digest.update(name.encode("utf-8") + b"\0" + path.read_bytes() + b"\0")
     return digest.hexdigest()
@@ -519,14 +522,23 @@ def _description_comparison_section(prepared: PreparedDashboard) -> str:
         pairs = []
         for pair in result.pairs:
             components = []
-            for label, component in (
+            values = [
                 ("Length", pair.length),
                 ("Bearing", pair.bearing),
                 ("Displacement", pair.displacement),
                 ("Position", pair.position),
-            ):
+            ]
+            if pair.curve is not None:
+                values.extend(
+                    (
+                        ("Radius", pair.curve.radius),
+                        ("Sweep", pair.curve.sweep),
+                        ("Turn", pair.curve.turn),
+                    )
+                )
+            for label, component in values:
                 difference = (
-                    "Unavailable"
+                    ("Categorical" if label == "Turn" else "Unavailable")
                     if component.difference is None
                     else f"{_number(component.difference)} {_escape(component.units or '')}"
                 )
@@ -566,8 +578,10 @@ def render_dashboard(prepared: PreparedDashboard) -> str:
     """
     prepared = validate_prepared_dashboard(prepared)
     bundle = prepared.bundle
+    payload = prepared.model_dump(mode="json", exclude={"manifest": {"cache_reused"}})
+    payload["revision_template"] = revision_template(bundle).model_dump(mode="json")
     data = json.dumps(
-        prepared.model_dump(mode="json", exclude={"manifest": {"cache_reused"}}),
+        payload,
         ensure_ascii=False,
         sort_keys=True,
         separators=(",", ":"),
@@ -582,7 +596,10 @@ def render_dashboard(prepared: PreparedDashboard) -> str:
     ):
         data = data.replace(character, replacement)
     css = (_ASSETS / "dashboard.css").read_text(encoding="utf-8")
-    script = (_ASSETS / "dashboard.js").read_text(encoding="utf-8")
+    script = "\n".join(
+        (_ASSETS / name).read_text(encoding="utf-8")
+        for name in ("revisions.js", "structured_editor.js", "dashboard.js")
+    )
     methods = "".join(f"<li>{_escape(note)}</li>" for note in bundle.presentation.method_notes)
     for calculation in bundle.calculations:
         methods += f"<li>{_escape(calculation.id)}: {_escape(calculation.method)}; {_escape(calculation.frame.name)}; {_escape(calculation.frame.basis)}. Assumptions: {_escape('; '.join(calculation.assumptions) or 'None supplied')}.</li>"
@@ -607,11 +624,13 @@ def render_dashboard(prepared: PreparedDashboard) -> str:
 <main><noscript><p class="warning">JavaScript is disabled. Record findings, transcripts and page images remain visible. Workbench and full-size viewer require JavaScript.</p></noscript>
 <section id="findings"><h2>1. Record findings</h2><p>Each occurrence retains its own source values. Findings and canonical engine status stay fixed during workbench edits. Geometric closure does not resolve an uncertain reading.</p><div class="cards">{_findings(prepared)}</div></section>
 <section id="evidence"><h2>2. Record evidence</h2><div class="cards">{_evidence(bundle)}</div></section>
+<section id="saved-alternatives"><h2>Saved alternatives</h2><div class="panel"><div class="controls"><label>Alternative name<input id="revision-label" type="text"></label><label>Reason for this alternative<textarea id="revision-rationale" rows="2"></textarea></label><button id="revision-download" type="button">Download draft</button><label>Load draft JSON<input id="revision-import" type="file" accept="application/json,.json"></label></div><p id="revision-status" role="status" aria-live="polite"></p><p class="muted">Draft recovery is stored in this browser when available and can contain source excerpts. Download a copy for another session. Give the draft and its original source bundle to Cowork to validate and publish a revision. A downloaded or recovered draft does not establish valid geometry or canonical verification.</p></div></section>
+<section><details id="structured-editor"><summary>Add, edit, remove or reorder courses</summary><p>Choose the occurrence in the workbench, then edit its exact draft below. Bearings and units are explicit; incomplete values remain recoverable. Circular arcs are computed by the shared geometry engine when Cowork publishes and renders the downloaded revision. Original source wording and record findings remain available.</p><div id="structured-editor-fields" class="panel"></div></details></section>
 <section id="workbench"><h2>3. Scenario workbench</h2><div class="panel"><div class="controls"><label>Parcel<select id="parcel-select"><option value="all">All parcels</option>{parcel_options}</select></label><label>Occurrence / calculation<select id="calculation-select"></select></label><label>Scenario<select id="scenario-select"></select></label><button type="button" id="reset-record">Reset to record</button></div><p id="scenario-rationale" class="muted"></p><p class="warning">Browser edits are hypothetical. They cannot verify a deed or authorize a verified export. Relative calculations permit distance edits; angular interpretations remain the explicit sourced constraints. Absolute bearings accept decimal azimuth or quadrant DMS. No bearings are inferred from direction words.</p>{_plot_views(prepared)}<details open class="diagnosis"><summary>Advisory closure diagnosis</summary><p>Unit sensitivity is not a correction or an error probability. Distance and bearing ranks use separate units. Opposing candidates remain tied; closure cannot choose a source reading.</p><div class="diagnosis-grid"><section aria-label="Recorded baseline diagnosis"><h3>Recorded baseline diagnosis</h3><div id="baseline-diagnostics"></div></section><section aria-label="Browser scenario diagnosis"><h3>Browser scenario diagnosis</h3><div id="scenario-diagnostics" aria-live="polite"></div></section></div></details><div class="scenario-summary"><svg id="plot" hidden class="plot" viewBox="0 0 420 380" role="img" aria-label="Scenario traverse with numbered courses, POB and dashed closure gap"></svg><div><h3 id="scenario-status" role="status" aria-live="polite">Loading advisory scenario…</h3><div id="scenario-metrics" class="metrics"></div><p class="muted">Gap vector is endpoint minus POB in the declared frame. Area includes an implicit endpoint-to-start segment and is provisional for an open traverse.</p></div></div><div class="table-wrap" role="region" aria-label="Editable scenario call sheet" tabindex="0"><table><thead><tr><th>Course</th><th>Source quote / direction</th><th>Distance (ft)</th><th>Recorded azimuth (degrees) / basis</th><th>Stated angle</th><th>Derived heading</th><th>ΔX / ΔY (ft)</th></tr></thead><tbody id="call-body"></tbody></table></div><p class="muted">Amber fields differ from the selected record. Uncertain source readings retain their warning stripe. Direction-word agreement is not evaluated as a measured bearing.</p><details><summary>Closing angle and shared corners</summary><p>Stated closing angles remain in the sourced constraints and transcripts. The heading-based closing angle is derived; it is not a replacement reading. A missing closing angle leaves the stated angle sum unavailable.</p><div id="closing-angle-detail"></div><p>Explicit named-point overlay comparisons appear in map provenance when supplied with a compatible placement. Automated boundary matching and inferred cross-parcel alignment are unavailable. Independent arbitrary local frames are not overlaid or silently aligned.</p></details></div></section>
 {_description_comparison_section(prepared)}
 <section id="records"><h2>4. Metes and bounds as recorded</h2><p>Untouched transcripts preserve the supplied wording and whitespace. Uncertain course readings are marked in the course tables; no alternate figure replaces the transcript.</p>{_records(bundle)}</section>
 <section id="sources"><h2>5. Source copies</h2><p>Every indexed page appears below, including unavailable images and unread pages. Description pages have an outlined edge. Missing expected pages are listed explicitly; completeness is a separate source-review claim.</p>{_sources(bundle)}</section>
-<section id="method"><h2>6. Method, limits, and sources</h2><div class="panel"><p>Bearings use degrees clockwise from North. Local-angle calculations use an explicitly declared arbitrary frame, interior/exterior angle convention, and orientation. Straight-course displacement is distance × sin(heading) in X and distance × cos(heading) in Y. The browser independently propagates explicit constraints, rejects unresolved or contradictory relations, and never adjusts values to close a boundary.</p><p>The recorded baseline displays determined analytic lines and circular arcs, and preserves known prefixes before unresolved calls. Editable browser scenarios support complete straight boundaries only; curve editing is unavailable. Exceptions, meanders and indefinite connectivity remain explicit unresolved cases. Source uncertainty remains independent of geometric closure. Precision is perimeter divided by gap; an unavailable denominator is not proof of infinite precision for a nonzero gap. A matching angle sum does not prove the angles are correct.</p><p>Only the canonical verifier’s full checks and its &lt;0.01 ft threshold govern verified export. Browser scenarios have no verified-export control. This dashboard is not a survey, title opinion, or boundary certification. Image presence is not evidence that a person inspected the page. Review sensitive source pages before sharing.</p><ul>{methods}</ul><h3>Stage and source identities</h3><p>Source review: {"complete" if prepared.manifest.source_review_complete else "incomplete"} · calculator {_escape(prepared.manifest.calculator_version)} · schema {_escape(bundle.schema_version)}</p>{hashes}</div></section></main>
+<section id="method"><h2>6. Method, limits, and sources</h2><div class="panel"><p>Bearings use degrees clockwise from North. Local-angle calculations use an explicitly declared arbitrary frame, interior/exterior angle convention, and orientation. Straight-course displacement is distance × sin(heading) in X and distance × cos(heading) in Y. The browser independently propagates explicit constraints, rejects unresolved or contradictory relations, and never adjusts values to close a boundary.</p><p>The recorded baseline displays determined analytic lines and circular arcs, and preserves known prefixes before unresolved calls. The immediate browser preview supports complete straight boundaries. Structured line and circular-arc drafts are saved here; Cowork computes their fresh revision views with the shared geometry engine. Exceptions, meanders and indefinite connectivity remain explicit unresolved cases. Source uncertainty remains independent of geometric closure. Precision is perimeter divided by gap; an unavailable denominator is not proof of infinite precision for a nonzero gap. A matching angle sum does not prove the angles are correct.</p><p>Only the canonical verifier’s full checks and its &lt;0.01 ft threshold govern verified export. Browser scenarios have no verified-export control. This dashboard is not a survey, title opinion, or boundary certification. Image presence is not evidence that a person inspected the page. Review sensitive source pages before sharing.</p><ul>{methods}</ul><h3>Stage and source identities</h3><p>Source review: {"complete" if prepared.manifest.source_review_complete else "incomplete"} · calculator {_escape(prepared.manifest.calculator_version)} · schema {_escape(bundle.schema_version)}</p>{hashes}</div></section></main>
 <footer>Offline review artifact · self-contained assets · no external runtime or fonts</footer>
 <dialog id="source-viewer" aria-labelledby="viewer-label"><div class="viewer-toolbar"><strong id="viewer-label"></strong><button type="button" id="viewer-prev">Previous</button><button type="button" id="viewer-next">Next</button><a id="open-image" target="_blank" rel="noopener noreferrer">Open image</a><button type="button" id="viewer-close">Close</button></div><img id="viewer-image" alt=""><p id="viewer-missing" class="placeholder">This source page image is unavailable. Its ledger entry is preserved.</p><p class="muted">Use Left / Right arrow keys to change pages; Escape to close.</p></dialog>
 <script type="application/json" id="dashboard-data">{data}</script><script>{script}</script></body></html>"""

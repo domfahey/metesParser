@@ -15,11 +15,40 @@ from .settings import SettingsError, output_path, read_settings
 def main() -> None:
     parser = argparse.ArgumentParser(prog="metes-review")
     commands = parser.add_subparsers(dest="command", required=True)
+    for name in ("render-revision", "export-review", "inspect-delivery"):
+        delivery = commands.add_parser(name, help="Revision-specific advisory views and delivery.")
+        delivery.add_argument("input", type=Path, help="Original dashboard source bundle")
+        delivery.add_argument("--revision-dir", type=Path, required=True)
+        delivery.add_argument("--settings", type=Path)
+        if name == "inspect-delivery":
+            delivery.add_argument("--package-dir", type=Path, required=True)
+        else:
+            delivery.add_argument("--output-dir", type=Path)
+        if name == "export-review":
+            delivery.add_argument("--request", type=Path, required=True)
+    for name in ("revision-template", "save-revision", "inspect-revision"):
+        revision = commands.add_parser(
+            name, help="Recoverable advisory revisions; no verification."
+        )
+        revision.add_argument("input", type=Path, help="Original dashboard source bundle")
+        revision.add_argument("--settings", type=Path)
+        if name == "revision-template":
+            revision.add_argument("--output", type=Path, required=True)
+            revision.add_argument("--revision-id", default="revision-1")
+        elif name == "save-revision":
+            revision.add_argument("--revision", type=Path, required=True)
+            revision.add_argument("--output-dir", type=Path)
+            revision.add_argument("--expected-revision-id")
+            revision.add_argument("--expected-generation", type=int)
+        else:
+            revision.add_argument("--revision-dir", type=Path, required=True)
     for name in (
         "validate-source",
         "inspect-artifacts",
         "diagnose-closure",
         "compare-descriptions",
+        "analyze-corridor",
+        "derive-plss",
     ):
         advisory = commands.add_parser(
             name, help="Advisory analysis; completed results retain needs_review (exit 1)."
@@ -119,6 +148,13 @@ def main() -> None:
     raster.add_argument("--controls", type=Path, required=True)
     raster.add_argument("--output", type=Path, required=True)
     raster.add_argument("--settings", type=Path)
+    picker = commands.add_parser(
+        "pick-raster", help="Prepare an offline control-point picker without registration."
+    )
+    picker.add_argument("input", type=Path)
+    picker.add_argument("--controls", type=Path, required=True)
+    picker.add_argument("--output-dir", type=Path)
+    picker.add_argument("--settings", type=Path)
     parcel = commands.add_parser(
         "fetch-parcel", help="Snapshot exact official NJGIN parcel identifiers."
     )
@@ -166,6 +202,24 @@ def main() -> None:
 
 
 def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    if args.command == "pick-raster":
+        from .raster_picker import prepare_raster_picker_file
+
+        return prepare_raster_picker_file(
+            args.input, args.controls, output_path(settings, args.output_dir)
+        )
+    if args.command in ("render-revision", "export-review", "inspect-delivery"):
+        return _execute_delivery(args, settings)
+    if args.command == "analyze-corridor":
+        from .corridor import analyze_corridor_file
+
+        return analyze_corridor_file(args.input, output_path(settings, args.output_dir))
+    if args.command == "derive-plss":
+        from .plss import prepare_plss_file
+
+        return prepare_plss_file(args.input, output_path(settings, args.output_dir))
+    if args.command in ("revision-template", "save-revision", "inspect-revision"):
+        return _execute_revision(args, settings)
     if args.command == "validate-source":
         from .source_handoff import validate_source_bundle
 
@@ -345,4 +399,85 @@ def _overlay_artifact(args: argparse.Namespace) -> dict[str, Any]:
             "status": "error",
             "artifacts": {},
             "errors": [{"code": "invalid_overlay", "message": str(exc)}],
+        }
+
+
+def _execute_revision(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    from mp_models.dashboard import DashboardBundle
+    from mp_models.revisions import revision_template
+
+    from .dashboard import _load
+    from .revisions import load_revision, publish_revision
+
+    try:
+        bundle = DashboardBundle.model_validate(_load(args.input))
+        if args.command == "save-revision":
+            return publish_revision(
+                bundle,
+                args.revision.read_bytes(),
+                output_path(settings, args.output_dir),
+                expected_revision_id=args.expected_revision_id,
+                expected_generation=args.expected_generation,
+            )
+        if args.command == "inspect-revision":
+            prepared = load_revision(bundle, args.revision_dir)
+            return {
+                "schema_version": "1.0",
+                "status": "needs_review",
+                "errors": [],
+                "artifacts": {},
+                "revision": prepared.model_dump(mode="json"),
+            }
+        payload = revision_template(bundle, revision_id=args.revision_id)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        with args.output.open("x", encoding="utf-8") as stream:
+            stream.write(payload.model_dump_json(indent=2) + "\n")
+        return {
+            "schema_version": "1.0",
+            "status": "needs_review",
+            "errors": [],
+            "artifacts": {"revision": str(args.output)},
+        }
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return {
+            "schema_version": "1.0",
+            "status": "error",
+            "artifacts": {},
+            "errors": [{"code": "invalid_revision", "message": str(exc)}],
+        }
+
+
+def _execute_delivery(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    from mp_models.dashboard import DashboardBundle
+    from mp_models.delivery import DeliveryRequest
+
+    from .dashboard import _load
+    from .delivery import load_delivery, publish_delivery
+    from .revision_view import render_revision_file
+
+    if args.command == "render-revision":
+        return render_revision_file(
+            args.input, args.revision_dir, output_path(settings, args.output_dir)
+        )
+    try:
+        bundle = DashboardBundle.model_validate(_load(args.input))
+        if args.command == "export-review":
+            request = DeliveryRequest.model_validate(_load(args.request))
+            return publish_delivery(
+                bundle, args.revision_dir, request, output_path(settings, args.output_dir)
+            )
+        snapshot = load_delivery(bundle, args.revision_dir, args.package_dir)
+        return {
+            "schema_version": "1.0",
+            "status": "needs_review",
+            "errors": [],
+            "artifacts": {},
+            "snapshot": snapshot.model_dump(mode="json"),
+        }
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return {
+            "schema_version": "1.0",
+            "status": "error",
+            "artifacts": {},
+            "errors": [{"code": "invalid_delivery", "message": str(exc)}],
         }

@@ -107,6 +107,132 @@
       "required_actions": [
         "native_document_reading"
       ]
+    },
+    "document-to-plot-requested-stop": {
+      "criteria": [
+        "operative_selection_verbatim",
+        "intake_and_plot_only",
+        "no_canonical_verification"
+      ],
+      "required_actions": []
+    },
+    "plottability-lot-block-comma-list": {
+      "criteria": [
+        "missing_plat_disclosed",
+        "no_comma_course_count",
+        "no_nominal_geometry"
+      ],
+      "required_actions": []
+    },
+    "closing-subset-unreadable-middle": {
+      "criteria": [
+        "unreadable_span_accounted",
+        "cancelling_subset_not_complete",
+        "no_fabricated_missing_bearing"
+      ],
+      "required_actions": []
+    },
+    "document-plot-exception-after-pob": {
+      "criteria": [
+        "post_pob_exception_retained",
+        "missing_exhibit_c_disclosed",
+        "source_completeness_not_claimed"
+      ],
+      "required_actions": []
+    },
+    "document-plot-missing-continuation": {
+      "criteria": [
+        "missing_page_two_distinguished",
+        "available_fragment_retained",
+        "no_automatic_closing_course"
+      ],
+      "required_actions": []
+    },
+    "document-plot-duplicate-course": {
+      "criteria": [
+        "duplicate_occurrence_retained",
+        "no_silent_deduplication",
+        "source_completeness_not_claimed"
+      ],
+      "required_actions": []
+    },
+    "document-plot-cardinal-only": {
+      "criteria": [
+        "cardinal_bearing_unknown",
+        "unsupported_geometry_disclosed",
+        "no_invented_azimuth"
+      ],
+      "required_actions": []
+    },
+    "multi-tract-independent-results-and-resume": {
+      "criteria": [
+        "operative_tracts_independent",
+        "historical_quote_excluded_with_location",
+        "unaffected_tract_preserved",
+        "changed_tract_only_restarted"
+      ],
+      "required_actions": [
+        "source_selection"
+      ]
+    },
+    "guided-raster-no-deed-placement": {
+      "criteria": [
+        "fit_checkpoint_separate",
+        "checkpoint_error_disclosed",
+        "deed_placement_unresolved",
+        "no_unrequested_dashboard"
+      ],
+      "required_actions": []
+    },
+    "document-plot-missing-numbered-course": {
+      "criteria": [
+        "missing_course_two_accounted",
+        "no_renumbered_omission",
+        "cancelling_subset_not_complete"
+      ],
+      "required_actions": []
+    },
+    "corridor-taper-and-cap": {
+      "criteria": [
+        "endpoint_widths_retained",
+        "curve_not_replaced_by_chord",
+        "error_budget_reported",
+        "corridor_advisory_only"
+      ],
+      "required_actions": []
+    },
+    "corridor-overlapping-widths": {
+      "criteria": [
+        "overlap_reported",
+        "no_precedence_invented",
+        "no_complete_polygon"
+      ],
+      "required_actions": []
+    },
+    "plss-supplied-reference": {
+      "criteria": [
+        "exact_section_dataset_retained",
+        "aliquot_order_preserved",
+        "computed_reference_only"
+      ],
+      "required_actions": []
+    },
+    "plss-no-reference-no-nominal-section": {
+      "criteria": [
+        "missing_reference_requested",
+        "no_nominal_section_rectangle",
+        "no_legal_boundary_claim"
+      ],
+      "required_actions": []
+    },
+    "export-published-revision-package": {
+      "criteria": [
+        "published_revision_replayed",
+        "selected_layers_and_formats_retained",
+        "format_omissions_disclosed",
+        "export_advisory_only"
+      ],
+      "required_actions": []
     }
   }
 }
