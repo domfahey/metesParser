@@ -15,6 +15,14 @@ from .settings import SettingsError, output_path, read_settings
 def main() -> None:
     parser = argparse.ArgumentParser(prog="metes-review")
     commands = parser.add_subparsers(dest="command", required=True)
+    source = commands.add_parser(
+        "validate-source",
+        help="Validate source identities and uncertainty records; completed results retain needs_review (exit 1).",
+    )
+    source.add_argument("input", type=Path)
+    source.add_argument("--acquisition", type=Path)
+    source.add_argument("--selection", type=Path)
+    source.add_argument("--settings", type=Path)
     for name in ("review", "verify"):
         command = commands.add_parser(name)
         command.add_argument("input", type=Path)
@@ -135,6 +143,12 @@ def main() -> None:
 
 
 def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    if args.command == "validate-source":
+        from .source_handoff import validate_source_bundle
+
+        return validate_source_bundle(
+            args.input, acquisition=args.acquisition, selection=args.selection
+        )
     if args.command in ("compose-map", "compose-dashboard"):
         from .compose import compose_dashboard_file, compose_map_file
 

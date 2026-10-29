@@ -6,6 +6,7 @@ from .mapbox_mcp import mapbox_mcp_file
 from .online_map import render_map_file
 from .plot import plot_file
 from .relative import review_relative_file
+from .source_handoff import validate_source_bundle
 from .webmap import PreparedWebMap, prepare_web_map
 
 __version__ = ENGINE_VERSION
@@ -21,4 +22,5 @@ __all__ = [
     "review_file",
     "verify_file",
     "review_relative_file",
+    "validate_source_bundle",
 ]
