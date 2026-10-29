@@ -2,3 +2,10 @@
 .metric{min-width:0;overflow-wrap:anywhere}
 .record-plot{height:440px;touch-action:none}.record-course{fill:none;stroke:var(--accent);stroke-width:2.5;vector-effect:non-scaling-stroke;cursor:pointer}.record-course:hover,.record-course.selected-call{stroke:#d16c20;stroke-width:5}.plot-gap{stroke:var(--bad);stroke-width:2;stroke-dasharray:5 4;vector-effect:non-scaling-stroke}.scenario-course{fill:none;stroke:#d16c20;stroke-width:2;stroke-dasharray:8 5;vector-effect:non-scaling-stroke;pointer-events:none}.map-polygon{fill:#7496b1;stroke:#526b82;stroke-width:1;vector-effect:non-scaling-stroke}.map-layers>g{opacity:.45}.plot .course-label{font-weight:700;cursor:pointer;paint-order:stroke;stroke:var(--bg);stroke-width:.3px}.plot .bearing-label,.plot .distance-label{display:none;paint-order:stroke;stroke:var(--bg);stroke-width:.2px;pointer-events:none}.plot-toolbar input[type=checkbox],.map-layer-control input[type=checkbox]{min-width:0;width:auto}.scale-bar{display:inline-block;border:solid currentColor;border-width:0 2px 2px;height:9px;margin-right:10px;max-width:80%}.plot-scale{font-size:.8rem;min-height:26px}.selected-call td{background:var(--soft)}.record-plot-panel{min-width:0}.map-layer-control{border-top:1px solid var(--line);padding:12px 0}.plot-axis{font-size:.85rem}@media(max-width:700px){.record-plot{height:340px}.plot-toolbar button{padding:8px 11px}}
 .selected-source-detail{flex-basis:100%;font-weight:400}.selected-source-crop{display:block;max-width:100%;max-height:160px;object-fit:contain}.gap-magnifier{height:180px}.plot-legend{font-size:.85rem}
+
+.diagnosis { margin-block: 1.2rem; }
+.diagnosis-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 25rem), 1fr)); gap: 1rem; }
+.diagnosis-grid section { min-width: 0; padding: .75rem; border: 1px solid var(--border, #899); border-radius: .4rem; }
+.diagnosis-grid td { vertical-align: top; }
+
+.comparison-versions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:1rem}.comparison-source{overflow-wrap:anywhere;min-width:0}.comparison-pair{margin:1rem 0}#description-comparisons td{min-width:12rem}
