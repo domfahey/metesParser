@@ -12,6 +12,61 @@ from mp_verify.dashboard import _hash, calculate_dashboard
 ROOT = Path(__file__).resolve().parents[3]
 
 
+def _features(geometry, prepared, placement):
+    """A complete, internally consistent synthetic feature set (not real projections)."""
+    calls = {c.id: c for c in prepared.bundle.calls}
+    common = {
+        "calculation_id": geometry.calculation_id,
+        "geometry_hash": geometry.geometry_hash,
+        "placement_id": placement.id,
+        "placement_hash": _hash(placement.model_dump(mode="json")),
+        "placement_status": placement.status,
+        "completeness": geometry.completeness,
+    }
+    features = []
+    for index, primitive in enumerate(geometry.primitives):
+        call = calls[primitive.call_id]
+        features.append(
+            {
+                "id": "course-one" if index == 0 else f"course-{index}",
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [[index, index], [index + 1, index + 1]],
+                },
+                "properties": {
+                    **common,
+                    "kind": "recorded_course",
+                    "call_id": call.id,
+                    "page_id": call.page_id,
+                    "occurrence_id": call.occurrence_id,
+                    "label": "SECRET SOURCE QUOTE",
+                },
+            }
+        )
+    marker = {**common, "occurrence_id": geometry.occurrence_id}
+    features.append(
+        {
+            "id": "pob",
+            "geometry": {"type": "Point", "coordinates": [0, 0]},
+            "properties": {**marker, "kind": "pob"},
+        }
+    )
+    first, last = geometry.primitives[0].start, geometry.primitives[-1].end
+    if (
+        geometry.completeness == "complete"
+        and abs(first[0] - last[0]) + abs(first[1] - last[1]) > 1e-8
+    ):
+        n = len(geometry.primitives)
+        features.append(
+            {
+                "id": "closure-gap",
+                "geometry": {"type": "LineString", "coordinates": [[n, n], [0, 0]]},
+                "properties": {**marker, "kind": "closure_gap"},
+            }
+        )
+    return features
+
+
 def evidence(edit=None):
     data = json.loads(
         (ROOT / "packages/mp-review/tests/fixtures/dashboard-absolute.json").read_text()
@@ -38,7 +93,6 @@ def evidence(edit=None):
     ]
     prepared = calculate_dashboard(DashboardBundle.model_validate(data))
     placement = prepared.plots.placements[0]
-    call = prepared.bundle.calls[0]
     options = WebMapOptions()
     artifact = WebMapArtifact.model_validate(
         {
@@ -52,26 +106,8 @@ def evidence(edit=None):
             "options_sha256": _hash(options.model_dump(mode="json")),
             "projection": {"source_crs_wkt": "synthetic", "pipeline": "synthetic"},
             "availability": "ready",
-            "bounds": [0, 0, 1, 1],
-            "features": [
-                {
-                    "id": "course-one",
-                    "geometry": {"type": "LineString", "coordinates": [[0, 0], [1, 1]]},
-                    "properties": {
-                        "kind": "recorded_course",
-                        "calculation_id": geometry.calculation_id,
-                        "call_id": call.id,
-                        "page_id": call.page_id,
-                        "occurrence_id": geometry.occurrence_id,
-                        "geometry_hash": geometry.geometry_hash,
-                        "placement_id": placement.id,
-                        "placement_hash": _hash(placement.model_dump(mode="json")),
-                        "placement_status": placement.status,
-                        "completeness": geometry.completeness,
-                        "label": "SECRET SOURCE QUOTE",
-                    },
-                }
-            ],
+            "bounds": [0, 0, len(geometry.primitives), len(geometry.primitives)],
+            "features": _features(geometry, prepared, placement),
         }
     )
     return prepared, artifact
@@ -137,13 +173,17 @@ def test_stale_and_style_rejected():
 def test_budget_refuses_all_without_simplification():
     prepared, artifact = evidence()
     data = artifact.model_dump(mode="json")
-    data["features"][0]["geometry"]["coordinates"] = [[index / 100000, 0] for index in range(10000)]
+    # Keep the exact chained endpoint so only the vertex count changes.
+    data["features"][0]["geometry"]["coordinates"] = [
+        *([index / 100000, 0] for index in range(10000)),
+        [1, 1],
+    ]
     large = WebMapArtifact.model_validate(data)
     result = build_mapbox_mcp_handoff(prepared, large)
     assert result["availability"] == "unavailable"
     assert result["arguments"] is None
     assert any(item["code"] == "payload_too_large" for item in result["omissions"])
-    assert len(large.features[0].geometry.coordinates) == 10000
+    assert len(large.features[0].geometry.coordinates) == 10001
 
 
 def test_partial_does_not_add_a_bridge_or_closure():
@@ -162,9 +202,10 @@ def test_partial_does_not_add_a_bridge_or_closure():
     )
     result = build_mapbox_mcp_handoff(prepared, WebMapArtifact.model_validate(data))
     assert result["availability"] == "partial"
-    assert len(result["arguments"]["layers"]) == 1
+    assert [layer["type"] for layer in result["arguments"]["layers"]] == ["line", "circle"]
     assert "partial" in result["arguments"]["summary"].lower()
-    assert len(result["arguments"]["layers"][0]["data"]["features"]) == 1
+    kinds = {f.properties.kind for f in artifact.features}
+    assert "closure_gap" not in kinds
 
 
 def test_context_holes_gap_and_pob_have_distinct_layer_types():
@@ -200,14 +241,6 @@ def test_context_holes_gap_and_pob_have_distinct_layer_types():
         },
         "properties": {"kind": "parcel_context", "source_id": "context", "layer_id": "outline"},
     }
-    course = value["features"][0]
-    for kind in ("closure_gap", "pob"):
-        marker = json.loads(json.dumps(course))
-        marker["id"] = kind
-        marker["properties"].update(kind=kind, call_id=None, page_id=None)
-        if kind == "pob":
-            marker["geometry"] = {"type": "Point", "coordinates": [0, 0]}
-        value["features"].append(marker)
     value["features"].append(context)
     result = build_mapbox_mcp_handoff(prepared, WebMapArtifact.model_validate(value))
     layers = result["arguments"]["layers"]
@@ -224,7 +257,7 @@ def test_context_holes_gap_and_pob_have_distinct_layer_types():
 
 @pytest.mark.parametrize("vectors", [False, True])
 def test_rasters_are_explicitly_omitted_without_byte_leakage(vectors):
-    from mp_models.webmap import WebMapRaster
+    from mp_models.webmap import WebMapRaster, WebMapUnavailableItem
 
     def change(data):
         image = data["pages"][0]
@@ -269,9 +302,21 @@ def test_rasters_are_explicitly_omitted_without_byte_leakage(vectors):
         corners=((0, 1), (1, 1), (1, 0), (0, 0)),
         residual_units="m",
     )
-    artifact = artifact.model_copy(
-        update={"rasters": (raster,), "features": artifact.features if vectors else ()}
-    )
+    update = {"rasters": (raster,), "features": artifact.features if vectors else ()}
+    if not vectors:
+        update.update(
+            availability="partial",
+            bounds=(0, 0, 1, 1),
+            unavailable=(
+                WebMapUnavailableItem(
+                    item_id="calc-one",
+                    kind="calculation",
+                    code="missing_placement",
+                    reason="Synthetic omission",
+                ),
+            ),
+        )
+    artifact = artifact.model_copy(update=update)
     result = build_mapbox_mcp_handoff(prepared, artifact)
     assert result["availability"] == ("partial" if vectors else "unavailable")
     assert any(item["code"] == "mcp_raster_omitted" for item in result["omissions"])
