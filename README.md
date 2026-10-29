@@ -1,571 +1,182 @@
-# Metes Parser
+# MetesParser
 
-**Disclaimer:** Metes Parser is an experimental prototype developed with substantial AI-assisted coding to evaluate LLM-assisted extraction and parsing of metes-and-bounds legal descriptions from deed PDFs. It has not undergone peer review, security review, or formal audit. Outputs may contain errors and must be independently verified by qualified professionals before use in any legal, surveying, title, lending, or business decision. This repository must contain only publicly available data - no NPI, PII, or other non-public sensitive information.
+A Claude plugin for reviewing metes-and-bounds descriptions, backed by deterministic parsing, geometry, verification and export tools.
 
-> **Note:** This is a work-in-progress prototype exploring AI's ability to extract, parse, and verify metes and bounds legal descriptions from deed PDFs.
+Use it to locate a boundary description in a deed, inspect its calls, check closure, create a plot, compare versions and prepare review deliverables. The same Python engine is available through a CLI and independently installable packages.
 
-Parse metes and bounds legal descriptions into structured calls, inspect source evidence, and run deterministic checks before exporting verified CSV.
+[Get the plugin](https://github.com/domfahey/metesParser/releases) · [Skill catalog](plugins/metesparser/README.md#skills) · [Usage guide](plugins/metesparser/references/usage.md) · [Changelog](CHANGELOG.md)
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+> **Proof of concept (POC).** MetesParser explores source-traceable boundary review with Claude and deterministic tools. Review source readings and results before relying on them.
 
-## Why This Exists
+## Deterministic code first
 
-Legal descriptions define the property being transferred in a deed. Today, title company employees (e.g., at FNF) manually retype these descriptions from deed documents, then use GIS software like ArcGIS to plot the boundary and confirm the traverse closes. Legal descriptions frequently contain typos — a wrong degree, a flipped quadrant, a transposed distance — and catching these errors is critical to ensuring the correct parcel is identified.
+Use deterministic code wherever possible, and AI only where needed. Claude assists with reading documents, identifying the requested description and coordinating the requested workflow. Shared Python code parses calls, computes geometry, checks evidence and validates exports.
 
-This repository is a **prototype** exploring whether AI can assist with that workflow. The provider-backed Python pipeline extracts legal descriptions from scanned deed PDFs, parses surveying notation into structured data, and runs geometric checks. The sample corpus uses publicly recorded sources. The extraction pipeline accepts deed PDFs containing metes-and-bounds descriptions; source-reading accuracy and selection of the intended description remain separate review tasks.
+AI-prepared text and selections retain their source pages, exact spans and unresolved readings. Deterministic checks then validate structure, identities, geometry and artifact consistency. They can expose inconsistencies; they cannot prove that an AI reading faithfully captured the document. Source review remains a separate step.
 
-### Design Pillars
-
-- **Composable architecture** — Independent components let source reading, parsing, verification, and export be evaluated separately and composed as needed.
-- **Transparency by design** — Optional audit sidecars (`.audit.json` + `.audit.html`) retain provider extraction and deterministic processing details. The plugin's acquisition and selection records separately preserve source pages, exact text spans, identities, and unresolved readings.
-- **AI only where necessary** — Model reading and description selection are source-preparation stages. Within the composable `mp-*` packages, provider calls stay in `mp-ocr`; the compatibility monolith retains its own provider clients. Numerical parsing, bearing math, verification, and export use deterministic code. The Claude plugin performs its native source reading separately.
-- **AI as assistant, not replacement** — The tool is designed to augment human judgment, not replace it. Final decisions on property boundaries remain with the professional reviewing the output.
-
-## Features
-
-- **PDF Extraction** - Extract legal descriptions using OpenAI or Gemini APIs
-- **Bearing Conversion** - Quadrant bearings to azimuth (degrees from North)
-- **Curve Support** - Full radius, delta, arc length, chord calculations; compound/reverse curves
-- **Geometric Verification** - Closure, angles, curves, boundary topology, area, parallelism, double-entry, bearing reversals, and distance reasonableness
-- **CSV Export** - Standard 21-field schema for GIS plotting
-- **Monument Classification** - Automatically identifies survey marker types (iron rod, stone, brass cap, etc.)
-- **PLSS Support** - Extracts Section, Township, Range, Principal Meridian metadata
-- **Exception Handling** - Parses EXCEPT/LESS AND EXCEPT clauses with proper area calculations
-- **POB Closure Detection** - Identifies calls that close back to Point of Beginning
-- **POC vs POB Distinction** - Separates Point of Commencement (survey reference) from Point of Beginning (parcel boundary)
-- **Never Fabricates Data** - Flags incomplete bearings, never invents numbers
-- **Unit Conversion** - Supports feet, poles, rods, chains, varas, arpents, toises, furlongs, meters, miles, engineer chains/links
-- **Quality Scoring** - Per-call quality (high/medium/low) and overall confidence score (0.0-1.0)
-- **Audit Sidecar** - Optional `.audit.json` + `.audit.html` alongside verified CSV for full transparency
-- **LLM Caching** - Retains a previous provider response to avoid repeating extraction calls
-- **Run Registry** - Track prompt versions and extraction results for A/B comparison across runs
-- **Composable Packages** - 8 independently installable packages in a uv workspace monorepo
-- **Source Evidence and Resume Guidance** - Read-only validation of acquisition/selection records and inspection of saved artifacts, dependencies, and restart points
-- **Closure Diagnostics** - Source-linked straight-course and supported circular-arc sensitivities, with separate hypothetical scenarios; no automatic correction
-- **Description Comparison** - Explicit straight/arc pairs and groups, tentative structural differences, declared units and bearing bases, and optional placement evidence
-- **Review Views** - Independent plots, explicit dashboards, and optional online maps with per-scan opacity/order and separate fit/checkpoint evidence
-- **Durable Revisions** - Save exact drafts and source-correction evidence under stable identities; publish immutable generations and regenerate shared views from the selected revision
-- **Structured Editing** - Edit line and circular-arc calls through the shared revision path; the immediate browser preview is straight-course only
-- **Review-Package Delivery** - Freeze published revisions as SVG, PDF, DXF, and GeoJSON with independent inspection and explicit coordinate/layer choices
-- **Corridor Geometry** - Preserve centerline width intervals, tapers, joins, caps, and approximation budgets through schema 1.2 revisions and delivery
-- **Supplied PLSS References** - Derive geometry only from an identified supplied reference dataset under the supported rectangular rule; PLSS text alone does not establish section geometry
-- **Raster Control-Point Picker** - Record pixel controls for raster registration; controls do not place deed geometry
-
-## Claude Plugin Skills
-
-The [MetesParser plugin catalog](plugins/metesparser/README.md) documents thirteen skill entrypoints: ten capabilities (document conversion, description extraction, traverse verification, plotting, overlay preparation, online maps, description comparison, corridors, supplied PLSS references, and review-package export), two workflows (boundary review and the explicitly requested dashboard), and the `review-deed` compatibility alias. Source validation, closure diagnosis, artifact inspection, revision management, and delivery inspection are shared utilities used by these skills. Skills route work through existing Python packages; they are not separate parsing or verification engines. See the [Cowork implementation ledger](docs/implementation/2026-10-28-cowork-workflow-ledger.md) for local evidence and remaining acceptance gates.
-
-The plugin is designed to use Claude's native document/image reading and description selection, followed by deterministic `mp-review` operations. Native Claude/Cowork sessions have not passed acceptance; local tests and extracted-plugin checks do not establish native reading quality or skill discovery. The separate Python PDF pipeline uses OpenAI/Gemini through `mp-ocr`. Use the [shared artifact handoff contract](plugins/metesparser/references/artifact-handoffs.md) for inputs, stopping points, reuse, and status boundaries. Verification, plotting, and overlay preparation can be requested independently; a dashboard requires explicit `DashboardBundle` assembly. See the [composition architecture](docs/ARCHITECTURE.md#skill-composition) for how these paths fit together.
-
-## v0.5.0 Foundation (Historical)
-
-These foundation notes describe the original release. The current package layout and review capabilities are documented below and in the plugin catalog.
-
-- **Composable Package Architecture** - Initially split into six `mp-*` packages plus the root package; `mp-review` was added later. The monolith is preserved for backward compatibility.
-- **Pipeline Orchestrator** - `Pipeline.run()` processes a PDF and returns verification results, with an audit context when requested. The CLI and export APIs write output files separately.
-- **Audit Sidecar** - Full transparency with `.audit.json` + `.audit.html` alongside verified CSV. Tracks LLM extraction confidence, per-call source excerpts, field-level transformations, and verification results.
-- **Quality Scoring** - Per-call quality (high/medium/low) and weighted confidence score (0.0-1.0) on `ClosureResult`.
-- **Run Registry** - Track prompt versions (git SHA + content hash) and extraction metrics per run. Compare results with `metesparser compare-runs`.
-- **Ground Truth Review Packets** - Self-contained HTML review pages per deed with traverse plots, call tables, and text comparison.
-- **38 features** across 6 phases: foundation units, enhanced parsing, verification checks, geometric completeness, production features, and audit transparency.
-- Unit, integration, regression, and e2e coverage; see the [testing guide](docs/TESTING.md) and dated implementation evidence for observed results.
-- Sample deeds with ground truth JSON and LlamaParse markdown conversions.
-- Gemini LLM provider support alongside OpenAI (`--llm-provider gemini`).
-- File-based LLM response caching via `CachedLLMClient`.
-
-## Ground Truth Workflow
-
-- Generate missing ground-truth JSON outputs:
-```bash
-uv run python scripts/generate_ground_truth.py
-```
-- Extract and verify a sample PDF:
-```bash
-uv run metesparser extract sample_deeds/"18 Pennbrook Dr - Deed Image (11985 - 00829).pdf"
-uv run metesparser verify sample_deeds/"18 Pennbrook Dr - Deed Image (11985 - 00829).csv"
-```
-- Run full sample extraction report generation:
-```bash
-uv run python scripts/extract_sample_deeds.py
+```text
+Document → AI reading/selection when needed → retained text and source evidence
+                                                    ↓
+Prepared text or calls ────────────────────→ deterministic parsing and checks
+                                                    ↓
+                                          review, plots and exports
 ```
 
-## Project Workflow Notes
+Missing bearings stay unknown. Original deed wording is preserved. Hypothetical edits remain separate from recorded calls, and no workflow changes a value simply to make a boundary close.
 
-- Use `make run-extract` and `make run-verify` for quick local checks.
-- Use `make check` for root lint, formatting, typing, and tests, and `make test-cov` for root coverage. Package, plugin, and opt-in browser checks are separate lanes; see [docs/TESTING.md](docs/TESTING.md).
+## What you can ask Claude to do
 
-## Quick Start
+| Request | Result |
+| --- | --- |
+| “Review the boundary description in this deed.” | Selected description, source coverage, structured calls, deterministic checks and an audit report |
+| “Plot these calls.” | An offline plot with source references and unresolved geometry identified |
+| “Compare these two descriptions.” | Explicit line/arc comparisons and tentative structural differences |
+| “Show a dashboard for these tracts.” | An explicitly assembled offline review dashboard with independent tract outcomes |
+| “Save this alternative and export the selected revision.” | An immutable revision and requested SVG, PDF, DXF or GeoJSON deliverables |
+| “Register this scan using these controls.” | Retained image/control evidence and separate fit/checkpoint residuals |
+| “Construct this corridor” or “derive this supplied PLSS reference.” | Advisory geometry from explicit construction inputs or an identified reference dataset |
 
-### Installation
+The plugin has ten capabilities, two workflows and the `review-deed` compatibility alias. Skills reuse valid artifacts and stop at the requested deliverable. A plot request does not automatically create a dashboard, verify a traverse or place it on a map. See the [catalog](plugins/metesparser/README.md#skills) for exact scope and examples.
 
-```bash
-# Clone and setup
-git clone <repo-url>
+### Skills, Cowork and Claude Code
+
+Skills can contain instructions, references and executable code. Our plugin packages those skills with one shared deterministic engine. Cowork adds convenient project-file access and task coordination; the calculations do not depend on Cowork. Claude Code is another host for the same plugin.
+
+Claude chat supports skill scripts in its code-execution environment. A self-contained chat Skill ZIP is planned for users without Cowork; it will reuse the same engine and return downloadable results. It is not built yet, and native chat testing is pending. Individual plugin skill folders are not standalone installations. See the [chat functionality gaps](docs/CLAUDE_PLUGIN.md#functional-gaps-for-claude-chat) and [two-distribution design](docs/CLAUDE_PLUGIN.md#two-distributions-one-engine).
+
+## Install the Claude plugin
+
+The launcher requires **Python 3.11+** and **[uv](https://docs.astral.sh/uv/)** in the environment where Claude runs commands. First use provisions pinned dependencies in the local cache and requires network access unless they are already cached.
+
+1. Download `metesparser-plugin.zip` and `metesparser-plugin.zip.sha256` from [GitHub Releases](https://github.com/domfahey/metesParser/releases).
+2. Verify the archive from the directory containing both files:
+
+   ```sh
+   shasum -a 256 -c metesparser-plugin.zip.sha256
+   ```
+
+3. Load it in your client:
+   - **Claude Code:** extract the archive, then run `claude --plugin-dir /absolute/path/to/extracted-plugin`.
+   - **Claude Cowork:** upload the ZIP through Customize → Plugins. End-to-end host testing is pending.
+4. Supply a document or prepared calls and ask for the specific result you need.
+
+Use the built distribution: `plugins/metesparser/` in a source checkout does not contain its bundled runtime. The standard ZIP includes geographic preparation and delivery dependencies. Online raster reprojection uses the optional web-map profile. See [installation and build profiles](docs/CLAUDE_PLUGIN.md#packaging-and-local-installation) and [project settings](plugins/metesparser/references/plugin-settings.md).
+
+For example:
+
+> Plot the requested tract in this deed. Preserve missing or uncertain readings and show any unresolved geometry.
+
+Native document reading must be available in the current Claude session. The plugin reports unavailable or unreadable sources rather than silently substituting a provider.
+
+## Outputs and verification
+
+Depending on the requested task, outputs include:
+
+- Source acquisition and selection records with page coverage, byte identities and uncertainty.
+- Structured calls, check outcomes and an escaped HTML review report.
+- Standalone plots, dashboards and their retained inputs and manifests.
+- Exact draft inputs, published revisions and explicit current/last-valid geometry.
+- Review packages with selected layers, transforms, units, provenance and format omissions.
+
+The deterministic `metes-review` commands report these top-level statuses:
+
+| Status | Exit code | Meaning |
+| --- | --- | --- |
+| `checks_passed` | `0` | Applicable implemented canonical checks passed; source accuracy is a separate assessment |
+| `needs_review` | `1` | Review is needed, or an advisory operation completed; successful plots and comparisons also use this status |
+| `error` | `2` | Invalid input, configuration or processing failure |
+
+Verified CSV uses the ordered 21-field schema. Its exporter freshly checks the selected calls, including closure below 0.01 ft, eligible canonical outcomes and no warnings. Closure alone is insufficient. Plots, comparisons, scenarios, corridors, PLSS references and map views cannot grant verified-export eligibility.
+
+Read the [artifact handoff contract](plugins/metesparser/references/artifact-handoffs.md) for file shapes, reuse and invalidation, and the [review limits](plugins/metesparser/references/review-limits.md) for supported checks.
+
+## Maps and derived geometry
+
+Map evidence requires explicit units, coordinate systems and placement evidence. Raster registration does not locate a deed, and a good fit residual does not establish independent accuracy. PLSS geometry requires an identified supplied reference; a recital alone cannot supply missing section corners.
+
+Optional Mapbox viewing supports a local viewer and a requested vector MCP preview. The local viewer accepts a token only in its runtime Connect field; tokens do not belong in configuration or generated artifacts. See the [online-map guide](plugins/metesparser/skills/render-online-map/README.md) for dependencies, geographic prerequisites and separate provider acceptance checks.
+
+## Use the Python engine or CLI
+
+The CLI is useful for automation, prepared inputs and testing without a Claude session. Deterministic review commands need no LLM API key. The separate PDF extraction pipeline can call OpenAI or Gemini.
+
+### Set up a source checkout
+
+Install Python 3.11+, uv, Git and Make, then:
+
+```sh
+git clone https://github.com/domfahey/metesParser.git
 cd metesParser
-make dev-setup    # installs dependencies and creates .env from .env.example
-
-# Edit .env with your API key and preferred provider
-# METESPARSER_LLM_PROVIDER=openai   (or gemini)
-# OPENAI_API_KEY=sk-...             (required for openai)
-# GEMINI_API_KEY=...                (required for gemini)
+make dev-setup
+make review-corpus
 ```
 
-### Usage
+`make dev-setup` installs dependencies and creates `.env` from the sample when absent. `make review-corpus` runs the reviewed deterministic fixtures without OCR or provider calls.
 
-```bash
-# Extract legal description from PDF
+### Review prepared input
+
+Use an already selected UTF-8 description or identified JSON/CSV calls. These are independent examples; supply the named inputs and use a new output directory each time:
+
+```sh
+uv run metes-review review description.txt --output-dir output/review-new
+uv run metes-review verify calls.json --output-dir output/verification-new
+uv run metes-review plot calls.json --output-dir output/plot-new
+```
+
+Inspect the JSON status and artifacts. Advisory success uses exit 1, so do not chain these commands with `&&`. Whole-document text needs description selection before parsing. The [usage guide](plugins/metesparser/references/usage.md) covers revision, delivery, comparison and resume commands.
+
+### Extract a PDF with a provider
+
+Set `METESPARSER_LLM_PROVIDER` and the corresponding `OPENAI_API_KEY` or `GEMINI_API_KEY` in your local `.env`, then:
+
+```sh
 uv run metesparser extract deed.pdf
-
-# Verify calls from CSV
-uv run metesparser verify calls.csv
-
-# Compare extraction runs across prompt versions
-uv run metesparser compare-runs
-uv run metesparser compare-runs --pdf pennbrook
-
-# Or use the Makefile
-make run-extract PDF_FILE=deed.pdf
-make run-verify CSV_FILE=calls.csv
-```
-
-### Deterministic Review and Advisory Tools
-
-These commands accept prepared text, structured calls, or explicit request files; they do not read PDFs or call an LLM:
-
-```bash
-uv run metes-review review description.txt --output-dir review-new
-uv run metes-review verify calls.json --output-dir verification-new
-uv run metes-review plot calls.json --output-dir plot-new
-
-# Read-only utilities: BUNDLE_DIR is an explicit existing directory
-uv run metes-review validate-source BUNDLE_DIR
-uv run metes-review inspect-artifacts BUNDLE_DIR --requested-stage review
-
-# Typed requests identify immutable calls, source references, and analysis criteria
-uv run metes-review diagnose-closure diagnosis-request.json --output-dir diagnostics-new
-uv run metes-review compare-descriptions comparison-request.json --output-dir comparison-new
-```
-
-Use a new output directory for each producing command. See the [source-record](plugins/metesparser/references/source-preparation.md), [diagnosis](plugins/metesparser/references/closure-diagnostics.md), and [comparison](plugins/metesparser/references/comparison-limits.md) references for complete request examples and limits. The plugin launcher exposes the same commands through `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py"`.
-
-Completed advisory operations intentionally return `needs_review` and exit **1**, including valid source records, usable artifacts, supported diagnosis, and matching comparison results. Invalid input returns `error` and exit **2**. Canonical review/verification can return `checks_passed` and exit **0**; this reports engine checks, not source accuracy or legal correctness. Plotting, diagnosis, comparison, and map/dashboard rendering do not grant verified-export eligibility.
-
-Local engine, browser, and extracted-plugin checks are recorded in the [implementation ledger](docs/implementation/2026-10-28-evidence-review-ledger.md) and the [Cowork workflow ledger](docs/implementation/2026-10-28-cowork-workflow-ledger.md). Native Claude/Cowork reading and workflow acceptance remains unrun; optional live Mapbox provider acceptance is also separate. Local checks do not establish either gate.
-
-### Durable Revisions and Derived Geometry
-
-The deterministic CLI also supports immutable revision publication, fresh revision views, corridor analysis, supplied-reference PLSS derivation, review-package export, delivery inspection, and the optional raster control-point picker:
-
-```bash
-uv run metes-review revision-template BUNDLE.json --output REVISION.json --revision-id ID
-uv run metes-review save-revision BUNDLE.json --revision REVISION.json --output-dir REVISIONS_DIR
-uv run metes-review inspect-revision BUNDLE.json --revision-dir REVISIONS_DIR/ID
-uv run metes-review render-revision BUNDLE.json --revision-dir REVISIONS_DIR/ID --output-dir NEW_DIR
-uv run metes-review analyze-corridor REQUEST.json --output-dir NEW_DIR
-uv run metes-review derive-plss REQUEST.json --output-dir NEW_DIR
-uv run metes-review export-review BUNDLE.json --revision-dir REVISIONS_DIR/ID --request REQUEST.json --output-dir NEW_DIR
-uv run metes-review inspect-delivery BUNDLE.json --revision-dir REVISIONS_DIR/ID --package-dir PACKAGE_DIR
-uv run metes-review pick-raster IMAGE --controls CONTROLS.json --output-dir NEW_DIR
-```
-
-Revision schema 1.2 preserves exact raw corridor definitions and replays their geometry from the saved revision. Structured line/arc publication and shared revision rendering support arcs; the immediate browser preview is straight-course only. SVG/PDF/DXF/GeoJSON delivery freezes a named published revision. Corridor output does not imply parcel closure; PLSS geometry requires an identified supplied reference and uses only the supported rectangular derivation. Pixel control points support raster registration, not deed placement. See the [plugin usage guide](plugins/metesparser/README.md) and [revision contract](plugins/metesparser/references/revisions.md) for request shapes and status boundaries.
-
-### Choosing an LLM Provider
-
-By default MetesParser uses OpenAI. To switch providers either set the environment variable
-`METESPARSER_LLM_PROVIDER` (`openai` or `gemini`) or pass the CLI flag:
-
-```bash
+# Or select Gemini explicitly, with GEMINI_API_KEY configured:
 uv run metesparser extract deed.pdf --llm-provider gemini
 ```
 
-### Logging
-
-MetesParser uses `structlog` for structured logs in both CLI and library modules.
-
-```bash
-# Human-readable console logs (default)
-uv run metesparser --log-level INFO extract deed.pdf
-
-# Debug mode (includes callsite metadata)
-uv run metesparser --debug extract deed.pdf
-
-# JSON logs for ingestion/automation
-uv run metesparser --log-format json verify calls.csv
-```
-
-You can also configure defaults via environment variables:
-
-```bash
-export METESPARSER_LOG_LEVEL=DEBUG
-export METESPARSER_LOG_FORMAT=json   # console or json
-```
-
-### Python API
-
-```python
-# Provider-backed extraction and verification; this does not write CSV files
-from pathlib import Path
-from metesparser import Pipeline
-
-pipe = Pipeline(provider="openai", cache=True, audit=True)
-result, audit_ctx = pipe.run(Path("deed.pdf"))
-# Multi-tract PDFs return a list of verification results instead of one result.
-
-# Or using individual components
-from metesparser import PDFProcessor, ClosureChecker
-
-processor = PDFProcessor()
-legal_desc = processor.process_deed_pdf("deed.pdf")
-
-result = ClosureChecker.verify_closure(legal_desc.calls)
-
-print(f"Misclosure: {result.misclosure_ft:.4f} ft")
-print(f"Area: {result.area_acres:.4f} acres")
-print(f"Engine status: {'CHECKS PASSED' if result.is_fully_verified() else 'NEEDS REVIEW'}")
-```
+Provider extraction remains subject to source review and deterministic checks. Never commit credentials. The [architecture guide](docs/ARCHITECTURE.md) documents the Python `Pipeline` API and its compatibility layer.
 
 ## Architecture
 
-### Composable Packages
+The plugin supplies instructions and workflow routing. Shared packages own the computations and artifact contracts:
 
-The codebase is a **uv workspace monorepo** with 8 independently installable packages: seven `mp-*` packages plus the root `metesparser` package. Each has a focused responsibility:
+| Location | Responsibility |
+| --- | --- |
+| `plugins/metesparser/` | Claude skills, shared procedures and the bundled-runtime launcher |
+| `packages/mp-models/` | Schemas, source identities, units and artifact contracts |
+| `packages/mp-bearing/`, `packages/mp-parse/` | Bearing math and rule-based parsing |
+| `packages/mp-verify/` | Canonical checks and advisory geometry/analysis |
+| `packages/mp-export/` | CSV, HTML, drawing and GIS/CAD serialization |
+| `packages/mp-review/` | File/CLI adapters, replay, revisions and workflow artifacts |
+| `packages/mp-ocr/` | Provider-backed PDF extraction; the only `mp-*` package that calls LLMs |
+| `src/metesparser/` | Python orchestrator, CLI and compatibility modules |
 
-| Package | Purpose | Workspace Dependencies |
-|---------|---------|--------------|
-| `mp-models` | Shared schemas, source/analysis contracts, JSONL envelope, units, logging | None |
-| `mp-bearing` | Pure math: azimuth, curves, deltas | mp-models |
-| `mp-ocr` | LLM boundary: PDF -> text (OpenAI/Gemini) | mp-models |
-| `mp-parse` | Rule-based parsing: text -> calls | mp-models, mp-bearing |
-| `mp-verify` | Canonical checks, relative/plot geometry, advisory diagnosis and comparison | mp-models, mp-bearing |
-| `mp-export` | CSV/audit output and plot/dashboard/online-map rendering | mp-models, mp-verify |
-| `mp-review` | File/CLI adapters, source validation, artifact inspection/replay, review, diagnosis/comparison, overlays and views | mp-models, mp-parse, mp-verify, mp-export |
-| `metesparser` | Pipeline orchestrator + CLI | All packages |
+The seven `mp-*` packages and root package form a uv workspace. The compatibility monolith also retains provider clients; native Claude reading is a separate source-preparation path. See [architecture and data flow](docs/ARCHITECTURE.md) for dependencies and module ownership.
 
-Within the composable `mp-*` packages, only `mp-ocr` makes LLM provider calls. The root package also retains compatibility provider clients in `src/metesparser/llm_clients.py`. Parsing, geometry, review, and rendering are deterministic. The Claude plugin performs native source reading outside that provider pipeline.
+## Develop and contribute
 
-### Data Flow
+Use uv for dependencies and Ruff for linting/formatting. Keep schema, math and rendering logic in their owning packages; keep compatibility implementations synchronized where they exist.
 
-The separate provider-backed PDF pipeline remains available:
-
-```
-PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
-       LLM       Rules       Checks      _verified.csv
-       extract    extract     closure     .audit.json
-                  calls       area        .audit.html
+```sh
+make check          # Root lint, formatting, mypy and tests
+make pre-commit     # Required before commits; runs lint-fix, formatting and root tests
+make plugin-build   # Build dist/metesparser-plugin.zip and its SHA-256 sidecar
 ```
 
-### Monolith Modules (Backward Compatibility)
+Package/plugin tests, browser checks and native/provider acceptance are separate lanes. Use the [testing guide](docs/TESTING.md) for commands and prerequisites, and the [contribution guide](docs/CONTRIBUTING.md) for changes and pull requests. Repository-specific agent instructions live in [AGENTS.md](AGENTS.md); `CLAUDE.md` is its symlink.
 
-The original monolith in `src/metesparser/` is preserved for backward compatibility:
-
-| Module | Package Equivalent |
-|--------|-------------------|
-| `models.py` | `mp-models` |
-| `bearing_converter.py` | `mp-bearing` |
-| `text_parser.py`, `call_extractor.py` | `mp-parse` |
-| `pdf_processor.py`, `llm_clients.py`, `llm_cache.py` | `mp-ocr` |
-| `closure_checker.py` | `mp-verify` |
-| `csv_builder.py`, `audit_reporter.py` | `mp-export` |
-| `plot.py`, `dashboard.py`, `source_handoff.py`, `artifact_inspect.py`, `diagnostics.py`, `comparison.py` | Thin facades to shared package APIs |
-| `pipeline.py`, `cli.py`, `run_registry.py` | `metesparser` |
-
-### Verification Checks
-
-The canonical verifier reports structured check outcomes, with explicit `passed`, `failed`, `not_applicable`, or `blocked` outcomes:
-
-1. **Traverse Closure** - Misclosure < 0.01 ft
-2. **Interior Angles** - Sum matches (n-2)x180 degrees
-3. **Parallelism** - Continuing lines have matching bearings
-4. **Curve Consistency** - L ~ R*delta, chord ~ 2R*sin(delta/2)
-5. **Area Reasonableness** - Computed vs stated area
-6. **Double-Entry Validation** - Compare duplicate entries
-7. **Bearing Reversal Detection** - Adjacent courses ~180 degrees apart (5 degree threshold)
-8. **Distance Reasonableness** - Flags <0.5 ft, >10x median, >90% perimeter
-9. **Boundary Topology** - Detects intersections in supported straight and circular-arc boundaries
-
-Closing within 0.01 ft alone is insufficient. Verified export rechecks the exact calls, requires eligible canonical outcomes and no warnings, and rejects stale or mismatched verification. Source review, relative analysis, diagnostic availability, comparison agreement, and map placement remain separate statuses.
-
-## Development
-
-### Prerequisites
-
-- Python 3.11+
-- [UV](https://github.com/astral-sh/uv) (required for dependency management)
-- OpenAI or Google Gemini API key only for live provider-backed PDF extraction
-
-### Setup
-
-```bash
-# Install dependencies
-make install
-
-# Or manually with UV
-uv venv
-uv sync --all-extras --dev
-```
-
-### Common Commands
-
-```bash
-make help          # Show all available commands
-make check         # Root lint + format + type + tests
-make lint          # Run ruff linter
-make format        # Format code with ruff
-make test          # Run pytest test suite
-make test-cov      # Run tests with coverage report
-make pre-commit    # Root lint-fix + format + tests; excludes mypy
-```
-
-### Running Tests
-
-Tests are organized into separate root, package/plugin, browser, and external-acceptance lanes. See [docs/TESTING.md](docs/TESTING.md) for their exact scope and prerequisites.
-
-```bash
-# Run root tests (unit + integration + e2e + regression)
-make test
-
-# Run only fast unit tests (skip PDF tests)
-uv run pytest tests/unit/ -v
-
-# Run integration tests
-uv run pytest tests/integration/ -v
-
-# Skip slow tests (excludes PDF processing tests)
-uv run pytest -m "not slow"
-
-# Run PDF processing tests
-uv run pytest tests/integration/test_pdf_processing.py -v
-
-# Run specific test markers
-uv run pytest -m curve           # Curve-related tests
-uv run pytest -m validation      # Input validation tests
-
-# Run specific test file
-uv run pytest tests/unit/test_bearing_converter.py -v
-
-# Run tests matching pattern
-uv run pytest -k "closure" --pdb
-
-# Run per-package tests (requires --no-cov)
-uv run pytest packages/mp-models/tests/ -v --no-cov
-for pkg in packages/mp-*/tests/; do uv run pytest "$pkg" -v --no-cov; done
-
-# Opt-in local browser checks; separate from live-provider acceptance
-make test-dashboard-browser
-make test-mapbox-browser
-
-# Generate coverage report
-make test-cov
-open htmlcov/index.html
-```
-
-**PDF Processing Tests**: The current integration PDF suite is mocked, so no live LLM calls are required by default.
-- Verifies extraction orchestration and geometry pipeline behavior with fixture inputs
-- Uses `sample_deeds/` fixture PDFs for realistic input coverage
-- Focuses on deterministic behavior and regression protection
-
-See [docs/TESTING.md](docs/TESTING.md) for comprehensive testing documentation including detailed PDF test guide.
-
-### Code Quality
-
-```bash
-# Check code quality
-make lint
-
-# Auto-fix issues
-make lint-fix
-
-# Format code
-make format
-
-# Run the root quality gate
-# Package/plugin/browser lanes are documented separately in docs/TESTING.md
-make check
-```
-
-## CSV Schema
-
-Standard 21-field output format:
-
-```csv
-course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,non_tangent,radial_bearing,notes
-```
-
-**Example:**
-```csv
-1,S 33 20' E,S 33 20' E,146.666667,60.00,,,,,,,SW line of Concord Dr,a point in the division line,iron_pin,,false,false,false,false,,
-2,S 56 40' W,S 56 40' W,236.666667,125.00,,,,,,,Div. line L46/47 to L50,point corner to Lot 50,stone,,false,false,false,false,,
-```
-
-**Key Fields:**
-- `monument_type`: Classified survey marker type (20 types including iron_rod, iron_pin, stone, brass_cap, etc.)
-- `monument_status`: Endpoint monument status (`found`, `set`, or empty)
-- `is_exception`: Boolean indicating if this call is part of an EXCEPT clause
-- `is_meander`: Boolean flag for water boundary / meander line
-- `is_tie_in`: Boolean flag for tie-in calls (POC-to-POB, excluded from closure)
-- `non_tangent`: Boolean flag for non-tangent curves
-- `radial_bearing`: Radial bearing for non-tangent curves
-
-## Bearing Convention
-
-Azimuth = degrees clockwise from North (0-360):
-
-| Quadrant | Example | Azimuth Formula | Result |
-|----------|---------|-----------------|--------|
-| N x E | N 45 E | x | 45 |
-| S x E | S 45 E | 180 - x | 135 |
-| S x W | S 45 W | 180 + x | 225 |
-| N x W | N 45 W | 360 - x | 315 |
-
-## Unit Conversions
-
-| Unit | Feet Equivalent |
-|------|-----------------|
-| 1 pole/rod/perch | 16.5 ft |
-| 1 chain | 66 ft |
-| 1 link | 0.66 ft |
-| 1 vara | 2.778 ft (Texas) |
-| 1 arpent | 191.8 ft (French colonial) |
-| 1 toise | 6.395 ft |
-| 1 furlong | 660 ft |
-| 1 meter | 3.28084 ft |
-| 1 mile | 5,280 ft |
-| 1 engineer chain | 100 ft |
-| 1 engineer link | 1.0 ft |
-| 1 acre | 43,560 sq ft |
-
-## Core Principles
-
-1. **Never Fabricate Data** - If bearing is incomplete (e.g., "southwesterly"), leave azimuth blank and flag in notes
-2. **Verification First** - Verified export requires fresh canonical checks, including closure <0.01 ft; advisory results cannot authorize it
-3. **Preserve Original Wording** - Keep deed language verbatim in `along` and `to` fields
-4. **Deterministic Analysis** - Parsing and numerical analysis are deterministic; model extraction remains source evidence that must be retained and reviewed
-
-## Project Structure
-
-```
-metesParser/
-├── Makefile                     # Development commands
-├── pyproject.toml               # UV workspace root + tool settings
-├── packages/                    # Composable packages (uv workspace)
-│   ├── mp-models/               # Shared data/evidence/analysis contracts
-│   ├── mp-bearing/              # Pure math: azimuth, curves, deltas
-│   ├── mp-ocr/                  # LLM boundary: PDF -> text
-│   ├── mp-parse/                # Rule-based parsing: text -> calls
-│   ├── mp-verify/               # Canonical checks + advisory geometry/analysis
-│   ├── mp-export/               # CSV, audit, plot/dashboard rendering
-│   └── mp-review/               # Deterministic review CLI + artifact orchestration
-├── plugins/metesparser/         # Claude skills, shared contracts, bundled launcher
-├── src/metesparser/             # Orchestrator + backward-compat monolith
-│   ├── pipeline.py              # Pipeline orchestrator
-│   ├── cli.py                   # Command-line interface
-│   ├── run_registry.py          # Prompt A/B testing
-│   ├── review_packet.py         # Ground truth review packets
-│   └── ...                      # Monolith modules (kept in sync with packages)
-├── prompts/                     # Prompt YAML files
-├── tests/                       # Root unit, integration, regression and e2e tests
-│   ├── unit/                    # Unit tests
-│   ├── integration/             # Integration tests
-│   ├── e2e/                     # End-to-end CLI tests
-│   └── regression/              # Bug fix tests
-├── scripts/                     # Utility scripts
-├── sample_deeds/                # Sample PDFs, ground truth and markdown
-├── docs/                        # Documentation
-├── AGENTS.md                    # Repository agent guidance
-└── CLAUDE.md                    # Symlink to AGENTS.md
-```
-
-## Requirements
-
-- Python 3.11+
-- OpenAI or Gemini API key for the provider-backed PDF pipeline (the Claude plugin uses native source reading)
-- UV package manager (no pip/conda/poetry)
-
-## Environment Variables
-
-Create a `.env` file:
-
-```bash
-METESPARSER_LLM_PROVIDER=openai
-OPENAI_API_KEY=sk-...  # Required when using OpenAI
-GEMINI_API_KEY=...      # Required when using Gemini
-METESPARSER_LOG_LEVEL=INFO  # Optional (default: INFO)
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**"LLM API key not found"**
-- Ensure `.env` file exists with `OPENAI_API_KEY` or `GEMINI_API_KEY` for your selected provider
-- Run `make dev-setup` to create `.env` from template
-
-**Traverse doesn't close**
-- Check for OCR errors in bearings (0 vs degree symbol, 1 vs l/I, 5 vs S)
-- Verify distance units (feet vs poles)
-- Review misclosure report for specific issues
-
-**Linting fails on text_parser.py**
-- This is expected - file contains Unicode symbols that break parsers
-- File is excluded in `pyproject.toml` and functionally correct
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Run quality checks (`make pre-commit`)
-5. Commit your changes (`git commit -m 'Add amazing feature'`)
-6. Push to branch (`git push origin feature/amazing-feature`)
-7. Open a Pull Request
-
-**Never commit:**
-- `.env` files or API keys
-- Unverified CSV files (only commit `_verified.csv`)
-- Code that fabricates bearings
-
-## License
-
-MIT
-
-## Credits
-
-Based on comprehensive metes & bounds extraction best practices from professional surveying standards.
+Keep only publicly available source data in the repository. Do not commit credentials, non-public sensitive information or newly generated unverified CSVs. Preserve source wording and uncertainty rather than inventing missing data.
 
 ## Documentation
 
-- **[README.md](README.md)** - This file, overview and quick start
-- **[docs/TESTING.md](docs/TESTING.md)** - Test suite guide and best practices
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System design and data flow
-- **[Plugin catalog](plugins/metesparser/README.md)** - Claude skills and runtime usage
-- **[Artifact handoffs](plugins/metesparser/references/artifact-handoffs.md)** - Shared composition and reuse contract
-- **[Implementation evidence](docs/implementation/2026-10-28-evidence-review-ledger.md)** - Dated local gates and outstanding native/provider acceptance
-- **[docs/API.md](docs/API.md)** - Python API reference
-- **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Development guidelines
-- **[CLAUDE.md](CLAUDE.md)** - AI assistant context and guidance
-- **[docs/METES_AND_BOUNDS_REFERENCE.md](docs/METES_AND_BOUNDS_REFERENCE.md)** - Surveying reference guide
-- **third-party research** - Public UI observations, product claims, and ideas for the review and map skills
-- **[Skill improvement plan](docs/plans/2026-10-28-skill-evidence-and-review-improvements.md)** - Subagent workstreams, contracts, and red-green acceptance tests
-- **[docs/bugs.md](docs/bugs.md)** - Known issues tracker
-- **[docs/todos.md](docs/todos.md)** - Task tracker
+- [Plugin catalog and usage](plugins/metesparser/README.md)
+- [Plugin development and installation](docs/CLAUDE_PLUGIN.md)
+- [Implementation plans](docs/plans/README.md) and [historical extraction outputs](docs/archive/extraction-output/README.md)
+- [Architecture](docs/ARCHITECTURE.md) and [testing](docs/TESTING.md)
+- [Project changelog](CHANGELOG.md) and [plugin changelog](plugins/metesparser/CHANGELOG.md)
+- [Local implementation evidence and outstanding acceptance gates](docs/implementation/2026-10-28-cowork-workflow-ledger.md)
 
-## Support
+## License
 
-For issues or questions:
-- Check relevant documentation above
-- Run `make help` for available commands
-- Open an issue on GitHub
-
----
-
-**Note**: This parser follows strict surveying principles. It will never fabricate missing data and requires traverse closure before marking results as verified.
-
-### Optional online map review
-
-The [render-online-map capability](plugins/metesparser/skills/render-online-map/README.md) renders prepared deed plots and registered map layers in a local Mapbox viewer or requested in-chat MCP preview. A dashboard can delegate an online companion to it after source assembly. See the [configuration, optional dependencies, and loopback preview guide](plugins/metesparser/skills/render-online-map/references/local-viewer.md). Connect requires a runtime public token; map display does not establish survey accuracy or verified-export eligibility. Live provider and native-host acceptance are separate from local checks.
-
-For a Mapbox preview inside Claude, the optional [`mapbox-mcp` handoff](plugins/metesparser/skills/render-online-map/references/mapbox-mcp.md) reuses prepared vectors from intact standalone-map or legacy dashboard stages. It generates exact tool arguments and a local provenance/omission report without contacting Mapbox. A compatible connected MCP tool supplies the interactive panel; registered scans and source review remain in the local evidence/dashboard views.
-
-To try both views, follow the [Mapbox testing guide](docs/CONTRIBUTING.md#manual-mapbox-smoke-test), including a reproducible synthetic fixture, Claude MCP setup, local overlay checks, and automated browser/live-provider commands.
+MIT.

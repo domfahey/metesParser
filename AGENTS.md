@@ -4,11 +4,11 @@ This file provides guidance to AI coding agents (Claude Code, Codex, etc.) worki
 
 ## Project: Metes & Bounds Deed Parser
 
-Extracts, parses, and verifies metes and bounds legal descriptions from deed PDFs into structured CSV format. Core function: convert unstructured surveying notation into validated geometric data for GIS plotting.
+MetesParser is a Claude plugin and shared Python engine for source-traceable metes-and-bounds review, plotting and exports. The CLI and composable packages also support automation without a Claude session.
 
-MetesParser transforms scanned deeds into structured metes-and-bounds data. Follow these guardrails so every contribution stays reliable, auditable, and easy to review.
+Use deterministic code wherever possible, AI only where needed, and deterministic validation of AI-prepared inputs wherever applicable. Keep source review distinct from computational checks. Follow these guardrails so every contribution stays reliable, auditable, and easy to review.
 
-Versions are declared in each package's `pyproject.toml` (root `metesparser`: 0.5.0; `mp-*`: 1.0.0). Test counts and coverage depend on the selected suite; use the latest [implementation evidence](docs/implementation/2026-10-28-cowork-workflow-ledger.md), not a fixed count in this guide.
+Versions are declared in each package's `pyproject.toml` (root `metesparser`: 0.6.0; `mp-*`: 1.0.0). Test counts and coverage depend on the selected suite; use the latest [implementation evidence](docs/implementation/2026-10-28-cowork-workflow-ledger.md), not a fixed count in this guide.
 
 ## Critical Architecture Principles
 
@@ -288,10 +288,13 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 - `src/metesparser/` — orchestrator (`pipeline.py`) + backward-compat monolith modules
 - `scripts/` — standalone utility scripts (extract_sample_deeds.py, generate_ground_truth.py, generate_review_packet.py, backfill_run_registry.py, audit_gt_vs_md.py, parse_pdfs_to_md.sh, test_31_pennbrook_text.py)
 - `docs/reference/` — reference PDFs (BLM manual, etc.) — tracked via `!docs/reference/*.pdf`
-- `sample_deeds/` — 109 sample PDFs + ground truth JSON files + LlamaParse markdown conversions (co-located)
+- `sample_deeds/` — sample PDFs, ground truth JSON files and LlamaParse markdown conversions (co-located)
 - `tests/` — tests; fixtures in `tests/fixtures/`
 - `prompts/` — LLM prompt YAMLs
 - `docs/` — documentation
+- `docs/plans/` — implementation plans and acceptance handoffs
+- `docs/archive/extraction-output/` — preserved historical extraction outputs; not current verified results
+- `output/` — ignored runtime outputs and local experiments; keep durable evidence under `docs/`
 
 ## Coding Style & Naming Conventions
 - Target Python 3.11+, four-space indentation, snake_case modules/functions/tests, CapWords classes, and typed public APIs.
