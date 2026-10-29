@@ -1,0 +1,60 @@
+{
+  "scene": {
+    "id": "scan-local",
+    "name": "Synthetic local metric scene",
+    "kind": "local",
+    "units": "m",
+    "axis_order": "xy",
+    "basis": "local"
+  },
+  "controls": [
+    {
+      "id": "fit-a",
+      "pixel": [
+        0,
+        0
+      ],
+      "scene": [
+        100,
+        200
+      ],
+      "role": "fit"
+    },
+    {
+      "id": "fit-b",
+      "pixel": [
+        10,
+        0
+      ],
+      "scene": [
+        120,
+        200
+      ],
+      "role": "fit"
+    },
+    {
+      "id": "fit-c",
+      "pixel": [
+        0,
+        10
+      ],
+      "scene": [
+        100,
+        180
+      ],
+      "role": "fit"
+    },
+    {
+      "id": "check-d",
+      "pixel": [
+        10,
+        10
+      ],
+      "scene": [
+        125,
+        180
+      ],
+      "role": "checkpoint"
+    }
+  ]
+}

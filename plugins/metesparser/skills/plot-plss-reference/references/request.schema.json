@@ -1,0 +1,461 @@
+{
+  "$defs": {
+    "MapSource": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "filename": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Filename"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "retrieved_at": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retrieved At"
+        },
+        "source_date": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Date"
+        },
+        "native_crs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Native Crs"
+        },
+        "native_units": {
+          "anyOf": [
+            {
+              "enum": [
+                "international_ft",
+                "us_survey_ft",
+                "m",
+                "unknown_ft"
+              ],
+              "type": "string"
+            },
+            {
+              "enum": [
+                "degree",
+                "pixel"
+              ],
+              "type": "string"
+            }
+          ],
+          "default": "unknown_ft",
+          "title": "Native Units"
+        },
+        "axis_order": {
+          "const": "xy",
+          "default": "xy",
+          "title": "Axis Order",
+          "type": "string"
+        },
+        "feature_ids": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Feature Ids",
+          "type": "array"
+        },
+        "processing_history": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Processing History",
+          "type": "array"
+        },
+        "data_base64": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Base64"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "sha256"
+      ],
+      "title": "MapSource",
+      "type": "object"
+    },
+    "PLSSCorner": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "SW",
+            "SE",
+            "NE",
+            "NW"
+          ],
+          "title": "Name",
+          "type": "string"
+        },
+        "xy": {
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Xy",
+          "type": "array"
+        },
+        "source_id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Source Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "xy",
+        "source_id"
+      ],
+      "title": "PLSSCorner",
+      "type": "object"
+    },
+    "PLSSReferenceDataset": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "minLength": 1,
+          "title": "Version",
+          "type": "string"
+        },
+        "authority_citation": {
+          "minLength": 1,
+          "title": "Authority Citation",
+          "type": "string"
+        },
+        "scene": {
+          "$ref": "#/$defs/PlotScene"
+        },
+        "source": {
+          "$ref": "#/$defs/MapSource"
+        },
+        "references": {
+          "items": {
+            "$ref": "#/$defs/PLSSSectionReference"
+          },
+          "minItems": 1,
+          "title": "References",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "authority_citation",
+        "scene",
+        "source",
+        "references"
+      ],
+      "title": "PLSSReferenceDataset",
+      "type": "object"
+    },
+    "PLSSSectionKey": {
+      "additionalProperties": false,
+      "properties": {
+        "principal_meridian": {
+          "minLength": 1,
+          "title": "Principal Meridian",
+          "type": "string"
+        },
+        "township": {
+          "exclusiveMinimum": 0,
+          "title": "Township",
+          "type": "integer"
+        },
+        "township_direction": {
+          "enum": [
+            "N",
+            "S"
+          ],
+          "title": "Township Direction",
+          "type": "string"
+        },
+        "range": {
+          "exclusiveMinimum": 0,
+          "title": "Range",
+          "type": "integer"
+        },
+        "range_direction": {
+          "enum": [
+            "E",
+            "W"
+          ],
+          "title": "Range Direction",
+          "type": "string"
+        },
+        "section": {
+          "maximum": 36,
+          "minimum": 1,
+          "title": "Section",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "principal_meridian",
+        "township",
+        "township_direction",
+        "range",
+        "range_direction",
+        "section"
+      ],
+      "title": "PLSSSectionKey",
+      "type": "object"
+    },
+    "PLSSSectionReference": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "section": {
+          "$ref": "#/$defs/PLSSSectionKey"
+        },
+        "subdivision_class": {
+          "enum": [
+            "rectangular",
+            "irregular",
+            "excess_deficiency",
+            "government_lot"
+          ],
+          "title": "Subdivision Class",
+          "type": "string"
+        },
+        "corners": {
+          "items": {
+            "$ref": "#/$defs/PLSSCorner"
+          },
+          "title": "Corners",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "section",
+        "subdivision_class",
+        "corners"
+      ],
+      "title": "PLSSSectionReference",
+      "type": "object"
+    },
+    "PlotScene": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "local",
+            "projected"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "crs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crs"
+        },
+        "units": {
+          "enum": [
+            "international_ft",
+            "us_survey_ft",
+            "m",
+            "unknown_ft"
+          ],
+          "title": "Units",
+          "type": "string"
+        },
+        "axis_order": {
+          "const": "xy",
+          "default": "xy",
+          "title": "Axis Order",
+          "type": "string"
+        },
+        "basis": {
+          "default": "local",
+          "title": "Basis",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "units"
+      ],
+      "title": "PlotScene",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "purpose": {
+      "const": "computed_reference_geometry",
+      "default": "computed_reference_geometry",
+      "title": "Purpose",
+      "type": "string"
+    },
+    "dataset": {
+      "$ref": "#/$defs/PLSSReferenceDataset"
+    },
+    "selected_dataset_id": {
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+      "title": "Selected Dataset Id",
+      "type": "string"
+    },
+    "selected_reference_id": {
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+      "title": "Selected Reference Id",
+      "type": "string"
+    },
+    "section": {
+      "$ref": "#/$defs/PLSSSectionKey"
+    },
+    "rule": {
+      "const": "rectangular_aliquot_v1",
+      "title": "Rule",
+      "type": "string"
+    },
+    "aliquot_steps": {
+      "items": {
+        "enum": [
+          "N2",
+          "S2",
+          "E2",
+          "W2",
+          "NE4",
+          "NW4",
+          "SE4",
+          "SW4"
+        ],
+        "type": "string"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Aliquot Steps",
+      "type": "array"
+    }
+  },
+  "required": [
+    "dataset",
+    "selected_dataset_id",
+    "selected_reference_id",
+    "section",
+    "rule",
+    "aliquot_steps"
+  ],
+  "title": "PLSSDerivationRequest",
+  "type": "object"
+}

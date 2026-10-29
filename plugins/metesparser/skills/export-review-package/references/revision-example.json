@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "id": "synthetic-published",
+  "generation": 0,
+  "parent_revision_id": null,
+  "baseline": {
+    "id": "baseline",
+    "bundle_sha256": "cd521bd935105a3c94477f304ee8cbadf78244a7ac628e82ec83417adceeb88c"
+  },
+  "kind": "scenario",
+  "label": "Working alternative",
+  "rationale": "",
+  "tracts": [
+    {
+      "id": "parcel-one",
+      "occurrence_id": "occ-one",
+      "document_ids": [
+        "doc-one"
+      ],
+      "label": "Synthetic parcel",
+      "call_order": [
+        "call-one",
+        "call-two",
+        "call-three",
+        "call-four"
+      ],
+      "action": "retain"
+    }
+  ],
+  "edits": []
+}
