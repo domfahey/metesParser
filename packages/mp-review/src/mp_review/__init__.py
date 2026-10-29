@@ -11,6 +11,7 @@ from .mapbox_mcp import mapbox_mcp_file
 from .online_map import render_map_file
 from .plot import plot_file
 from .plss import prepare_plss_file
+from .raster_picker import prepare_raster_picker_file
 from .relative import review_relative_file
 from .revision_view import render_revision_file
 from .revisions import import_revision, load_revision, publish_revision
@@ -19,17 +20,18 @@ from .webmap import PreparedWebMap, prepare_web_map
 
 __version__ = ENGINE_VERSION
 __all__ = [
+    "prepare_raster_picker_file",
     "load_delivery",
     "prepare_delivery",
     "publish_delivery",
+    "render_revision_file",
     "analyze_corridor_file",
     "replay_corridor",
     "prepare_plss_file",
-    "compare_descriptions_file",
-    "render_revision_file",
     "import_revision",
     "load_revision",
     "publish_revision",
+    "compare_descriptions_file",
     "inspect_artifacts",
     "diagnose_closure_file",
     "validate_source_bundle",

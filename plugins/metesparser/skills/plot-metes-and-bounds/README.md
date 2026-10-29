@@ -1,10 +1,12 @@
 # plot-metes-and-bounds
 
-Create a standalone display plot from identified calls or an already-isolated description.
+Create a standalone display plot from a requested boundary in a document, an isolated description, or identified calls.
 
 ## Example request
 
-> Plot the selected calls in this CSV and show the unresolved bearing as a gap.
+> Plot the boundary in this deed.
+
+The skill reuses native conversion when needed, selects the intended description, then plots it. It returns source coverage and unresolved passages without automatically checking closure or creating a dashboard. Already selected calls go directly to plotting.
 
 ## Inputs and outputs
 
