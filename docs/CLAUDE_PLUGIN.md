@@ -25,7 +25,7 @@ Plugin skills are available across chat, Cowork and Claude Code; hooks, subagent
 
 ### What this distribution needs
 
-The [builder](../scripts/build_claude_plugin.py) packages thirteen skills, shared references, the [launcher](../plugins/metesparser/scripts/run-review.py), six engine wheels and a locked runtime. Skill instructions call `${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py`; copying one skill directory leaves those shared resources behind.
+The [plugin builder](../scripts/build_claude_plugin.py) packages thirteen skills, shared references, the [launcher](../plugins/metesparser/scripts/run-review.py), six engine wheels and a locked runtime. Plugin instructions call `${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py`; copying one skill directory leaves those shared resources behind. The [chat builder](../scripts/build_claude_skill.py) adapts those same procedures and runtime into a standalone Skill with its own setup wrapper.
 
 Every target host needs:
 
@@ -37,13 +37,13 @@ Every target host needs:
 
 ### Functional gaps for Claude chat
 
-This is a comparison of the current MetesParser distribution and its target environments, not a claim that every Cowork integration has passed testing. The repository currently builds a plugin ZIP; it has no separate self-contained chat Skill ZIP. Native chat and Cowork acceptance are both pending.
+This is a comparison of MetesParser's distributions and target environments, not a claim that every host integration has passed testing. The repository builds both a plugin ZIP and a standalone chat Skill ZIP. Native chat and Cowork acceptance are both pending.
 
 | Function | Claude chat gap today | Cowork path | Work needed for chat |
 | --- | --- | --- | --- |
-| Install and run MetesParser | The existing ZIP can be uploaded as a plugin, but its launcher/runtime path is untested in chat; no dedicated Skill ZIP exists | Upload the existing plugin ZIP; provision its runtime in Cowork's execution environment | Test the plugin path and package a self-contained Skill option with verified dependency setup |
+| Install and run MetesParser | The standalone Skill packages paths and explicit dependency setup; actual chat installation/runtime acceptance is pending | Upload the existing plugin ZIP; provision its runtime in Cowork's execution environment | Test the built Skill in an actual chat session, including a cold dependency cache |
 | Read a deed, retain exact excerpts and select a tract | No intended feature reduction; end-to-end native reading/evidence capture is untested | Same source-reading and selection skills | Test uploaded PDFs/images and source records; retain uncertainty |
-| Parse calls, verify closure, compare, plot, construct corridors/PLSS and export | No missing mathematical implementation; execution depends on the chat runtime gap above | Same Python packages and input contracts | Run the existing engine and retain the same checks; do not replace it with model calculations |
+| Parse calls, verify closure, compare, plot, construct corridors/PLSS and export | The same mathematical implementation is bundled; execution still depends on host provisioning | Same Python packages and input contracts | Validate native execution with the same checks; do not replace it with model calculations |
 | Process a local folder or many deeds | Ordinary uploads/downloads do not provide direct access to the user's project folder | Desktop-mediated access to granted local files and task coordination | Accept uploaded inputs, return an explicit per-tract batch summary and a downloadable result bundle; test practical limits |
 | Save and reopen revisions across work sessions | No tested project persistence or automatic artifact round trip in chat | Use retained project files and revision commands; reopen behavior still needs native testing | Return the complete revision and source evidence together, then validate it when reuploaded; never depend on a surviving chat cache |
 | Edit a dashboard or pick raster controls | HTML can be generated, but scripts, downloads and embedded interaction are not proven in chat | Open the generated page in an accessible browser; host interaction still needs testing | Support an external-browser download/edit/reupload path and test it; in-chat interactive parity remains an open integration task |
@@ -54,11 +54,11 @@ The file-access and orchestration differences follow [Cowork's documented capabi
 
 ### Two distributions, one engine
 
-For users without Cowork, the proposed chat distribution is one self-contained Skill ZIP with a root dispatcher, the relevant workflow references and the same deterministic engine. It operates on uploaded documents or prepared inputs and returns downloadable reports, plots, revisions and delivery bundles. Reuse the authoritative capability instructions through a build adapter; avoid thirteen copies of the runtime. A custom Skill ZIP has a different layout from a plugin ZIP, so renaming the current archive is insufficient.
+For users without Cowork, the chat distribution is one self-contained Skill ZIP with a root dispatcher, the relevant workflow references and the same deterministic engine. It operates on uploaded documents or prepared inputs and instructs Claude to return downloadable reports, plots, revisions and delivery bundles. The build adapter reuses authoritative capability instructions and one runtime. A custom Skill ZIP has a different layout from a plugin ZIP, so renaming the plugin archive is insufficient.
 
-The existing plugin ZIP remains the shipped plugin distribution, with thirteen discoverable entrypoints and shared resources. Anthropic supports plugins in chat, Cowork and Claude Code; MetesParser's launcher/runtime flow has been exercised locally, while native-host tests remain pending. The separate Skill ZIP would offer a chat-focused installation option without requiring Cowork. Cowork executes in the cloud, so validate tools, writable storage and dependency access there. Neither distribution should silently use laptop credentials, rely on an inherited `.env`, or claim that a laptop installation provisions Cowork.
+The existing plugin ZIP retains thirteen discoverable entrypoints and shared resources. Anthropic supports plugins in chat, Cowork and Claude Code; MetesParser's launcher/runtime flow has been exercised locally, while native-host tests remain pending. The separate Skill ZIP offers a chat-focused installation option without requiring Cowork. Cowork executes in the cloud, so validate tools, writable storage and dependency access there. Neither distribution should silently use laptop credentials, rely on an inherited `.env`, or claim that a laptop installation provisions Cowork.
 
-These are distribution and host adaptations, not separate numerical implementations. Both retain deterministic-first behavior, exact source evidence, unknown bearings, revision identities and the same verified-export eligibility rules. The chat archive is planned, not yet built or released.
+These are distribution and host adaptations, not separate numerical implementations. Both retain deterministic-first behavior, exact source evidence, unknown bearings, revision identities and the same verified-export eligibility rules. The chat archive is built from source separately from the plugin release asset.
 
 Acceptance for each distribution must include a clean install in the actual host, skill discovery, dependency provisioning, a sample deed, a deterministic plot/report, revision save/reopen and retrievable deliverables. Test interactive HTML and online maps separately. Local extracted-runtime tests have passed; native-host acceptance is still pending in the [evidence ledger](implementation/2026-10-28-cowork-workflow-ledger.md).
 
@@ -158,6 +158,22 @@ The reviewed corpus lives in `packages/mp-review/tests/fixtures/corpus.json`. Ex
 Native Claude/Cowork document reading, paired model evaluations, and host acceptance need their own recorded runs. The current [Cowork workflow ledger](implementation/2026-10-28-cowork-workflow-ledger.md) records local implementation complete and native acceptance not run, including current access evidence. Local schema, engine, browser, and packaging checks do not establish those gates; use the [model evaluation protocol](../plugins/metesparser/evals/README.md) for future recorded paired sessions.
 
 ## Packaging and local installation
+
+### Standalone Claude chat Skill
+
+Run `make chat-skill-build` to produce `dist/metesparser-chat-skill.zip` and its SHA-256 sidecar. Verify with `shasum -a 256 -c metesparser-chat-skill.zip.sha256` from `dist/`, then upload the ZIP through Claude's Skills interface. The archive contains a `metesparser-review/` root with exactly one `SKILL.md`; thirteen embedded `WORKFLOW.md` procedures reuse the plugin's contracts and examples. It includes no plugin manifest, evaluator rubrics or repository checkout dependency.
+
+The [chat templates](../plugins/metesparser-chat/README.md) own host-specific instructions. The builder adapts procedure paths to an explicitly located skill root and `scripts/run-chat.py`, retaining the original review launcher and engine bytes. Source templates contain links to resources added during packaging; validate navigation in the extracted archive.
+
+The chat wrapper's `--setup` checks runtime hashes, uses host/cached `uv` when available, or fetches the pinned `uv` 0.9.6 wheel into the host's writable cache. Both wheel and executable hashes are pinned in [bootstrap metadata](../plugins/metesparser-chat/references/uv-bootstrap.json). Bootstrap downloads support Linux and macOS on x86_64/ARM64; other hosts need a compatible `uv` already on `PATH`. Setup then provisions the shared locked runtime. `--setup --offline` requires existing tools and cached dependencies. Ordinary invocations never install the bootstrap tool; the shared launcher can still provision locked engine dependencies on demand. Python 3.11+ is required before setup, and caches can be placed under a writable `XDG_CACHE_HOME`.
+
+Dependency profiles match the plugin: `uv run python scripts/build_claude_skill.py --without-geo --output dist/metesparser-chat-minimal.zip` omits geo dependencies, while `--with-web-map` adds raster reprojection. All profiles retain delivery support and the same procedures. The ZIP contains engine wheels, not all third-party wheels; a complete first-use offline installation is not promised.
+
+Run `uv run pytest tests/unit/test_chat_skill_build.py tests/unit/test_chat_runtime.py --no-cov` for packaging and setup regressions. Test the extracted distribution with an empty cache, no plugin-root variable and no `uv` on `PATH`, then run prepared-input review/plot and revision round trips. These local checks are separate from uploading and exercising the Skill in Claude chat.
+
+The [chat distribution validation record](implementation/2026-10-29-claude-chat-skill.md) records the built archive hash, cold-cache setup, offline operations and remaining native-host checks.
+
+### Claude plugin
 
 Run `make plugin-build` for the default distribution. To omit the optional geo dependencies, use `uv run python scripts/build_claude_plugin.py --without-geo --output dist/metesparser-plugin-minimal.zip`. The minimal runtime supports review and standalone plotting; operations requiring the geo extra report its absence. `--offline` uses cached build/runtime dependencies and fails if required dependencies are unavailable.
 

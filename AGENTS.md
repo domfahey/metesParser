@@ -56,6 +56,8 @@ These dependency notes list workspace edges; third-party dependencies and option
 
 ### Composable Skills
 
+`make chat-skill-build` adapts the plugin into one standalone Claude chat Skill with thirteen embedded procedures. Maintain shared capability instructions in `plugins/metesparser/`; keep the chat dispatcher, host setup and download guidance in `plugins/metesparser-chat/`. The builder reuses the same wheels, lock and engine fingerprint, adapts paths at build time, and leaves the plugin unchanged. Validate the extracted archive outside the checkout; distinguish local runtime checks from native Claude chat acceptance.
+
 The Claude plugin is an instruction layer over the shared packages. Its [catalog](plugins/metesparser/README.md#skills) lists thirteen skills: ten capabilities, two workflows, and the `review-deed` compatibility alias. Keep each capability scoped to its own output; workflows select stages and reuse valid artifacts. The plugin is designed to use native Claude document reading, but native Claude/Cowork acceptance remains unrun; `mp-ocr` remains the provider-backed extraction path for the separate Python pipeline.
 
 The review workflow saves exact raw drafts separately from parsed or last-valid geometry, preserves source/document/tract/call identities, and publishes immutable revisions. Structured line and arc edits use shared revision preparation and rendering; only the immediate browser preview is straight-course only. Source-correction records preserve supplied excerpts and fresh calls and must not be described as complete native source acquisition or selection.
@@ -285,6 +287,7 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 ## Key Directories
 - `packages/` — 7 composable packages (mp-models, mp-bearing, mp-ocr, mp-parse, mp-verify, mp-export, mp-review)
 - `plugins/metesparser/` — capability/workflow skills, shared handoffs, launcher, and plugin documentation
+- `plugins/metesparser-chat/` — standalone chat entrypoint templates, setup adapter and host guidance
 - `src/metesparser/` — orchestrator (`pipeline.py`) + backward-compat monolith modules
 - `scripts/` — standalone utility scripts (extract_sample_deeds.py, generate_ground_truth.py, generate_review_packet.py, backfill_run_registry.py, audit_gt_vs_md.py, parse_pdfs_to_md.sh, test_31_pennbrook_text.py)
 - `docs/reference/` — reference PDFs (BLM manual, etc.) — tracked via `!docs/reference/*.pdf`
