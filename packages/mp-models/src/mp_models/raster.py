@@ -136,8 +136,8 @@ class RasterLayer(_Model):
             raise ValueError("Raster dimensions exceed 40 million pixels")
         if image_header(data) != (self.mime_type, self.width, self.height):
             raise ValueError("Raster dimensions/MIME do not match its image header")
-        if image_orientation(data) not in (None, 1):
-            raise ValueError(RASTER_ORIENTATION_MESSAGE)
+        # EXIF orientation is rejected at import and at use (see mp_review.raster_registration
+        # and the dashboard renderer), not here, so artifacts saved earlier still load.
         return self
 
 
