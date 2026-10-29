@@ -48,6 +48,14 @@ def test_geo_runtime_pins_optional_import_dependencies():
     assert not any(d.startswith("pyproj==") for d in basic["project"]["dependencies"])
 
 
+def test_delivery_runtime_follows_transitive_extra_dependencies_without_geo():
+    builder = load_builder()
+    dependencies = tomllib.loads(builder.runtime_project([], geo=False))["project"]["dependencies"]
+    for name in ("reportlab", "ezdxf", "fonttools"):
+        assert any(item.startswith(name + "==") for item in dependencies)
+    assert not any(item.startswith("pyproj==") for item in dependencies)
+
+
 def test_web_map_runtime_is_opt_in_and_pins_warp_dependencies():
     builder = load_builder()
     ordinary = tomllib.loads(builder.runtime_project([]))["project"]["dependencies"]

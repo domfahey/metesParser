@@ -6,6 +6,9 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Added
 
+- Focused `plot-corridor`, `plot-plss-reference` and `export-review-package` capabilities, bringing the catalog to ten capabilities, two workflows and one compatibility alias. Generated request schemas and validated synthetic examples retain explicit construction/reference/revision identities.
+- Executable synthetic document-intake, multi-tract resume, guided scan/deed-placement, corridor, PLSS and published-delivery evaluation inputs. Candidate artifacts omit evaluator rubrics; multi-tract turn-two evidence stays withheld until that turn. Materialization/runtime checks are separate from model/native acceptance.
+
 - Read-only schema 1.1 source-handoff validation, bounded artifact freshness inspection with conditional resume recommendations, and standalone identity-bound closure diagnosis; each preserves advisory `needs_review`/exit 1 semantics.
 - Closure sensitivity panel in supported dashboard work, plus independent per-raster visibility, opacity, and layer-order controls with fit/checkpoint, basis, and placement evidence summaries. Controls remain presentation-only.
 - Added the focused `compare-descriptions` capability for explicit source-linked `ComparisonRequest` inputs, advisory geometric components, and tentative structural differences; the catalog now has seven capabilities, two workflows, and the retained `review-deed` alias.
@@ -28,6 +31,9 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 - Evaluation cases for native conversion, illegible survey bearings, historical versus requested descriptions, ambiguous tracts, and missing exhibits.
 
 ### Changed
+
+- Natural document-to-plot and plottability routing reuses native conversion and selection, returns concise source coverage, and stops at the requested scope. Explicit multi-tract requests retain independent results and resume points.
+- Guided raster controls and separate deed placement evidence reuse registration/composition APIs; current dashboard control and resume guides preserve source, geometry and map status distinctions. New routing scenarios remain specifications until paired native sessions run.
 
 - `verify-traverse` discovery metadata includes explicitly requested relative-angle analysis as well as canonical verification of selected calls.
 - Skill entrypoints link runtime prerequisites and conditional procedures directly; long dashboard references include contents links. Mapbox MCP instructions require the exact discovered, fully qualified host tool identifier.

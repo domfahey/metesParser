@@ -56,7 +56,7 @@ These dependency notes list workspace edges; third-party dependencies and option
 
 ### Composable Skills
 
-The Claude plugin is an instruction layer over the shared packages. Its [catalog](plugins/metesparser/README.md#skills) lists ten skills: seven capabilities, two workflows, and the `review-deed` compatibility alias. Keep each capability scoped to its own output; workflows select stages and reuse valid artifacts. The plugin uses native Claude document reading; `mp-ocr` remains the provider-backed extraction path for the separate Python pipeline.
+The Claude plugin is an instruction layer over the shared packages. Its [catalog](plugins/metesparser/README.md#skills) lists thirteen skills: ten capabilities, two workflows, and the `review-deed` compatibility alias. Keep each capability scoped to its own output; workflows select stages and reuse valid artifacts. The plugin uses native Claude document reading; `mp-ocr` remains the provider-backed extraction path for the separate Python pipeline.
 
 Use the [handoff contract](plugins/metesparser/references/artifact-handoffs.md) for accepted inputs, stopping points, status separation, and invalidation. Keep schemas in `mp_models`, adapters in `mp_review`, numerical logic in the shared parsing/bearing/verification packages, and rendering in `mp_export`. Plotting and overlay preparation must not grant canonical verification status. Dashboard assembly is explicit and placements bind to freshly computed dashboard geometry.
 
