@@ -88,9 +88,11 @@ def main(argv: list[str] | None = None) -> int:
         "render-revision",
         "analyze-corridor",
         "derive-plss",
+        "export-review",
+        "inspect-delivery",
     }:
         return emit_error(
-            "Usage: run-review.py {review|verify|analyze-relative|plot|compose-map|compose-dashboard|render-map|dashboard|serve-map|mapbox-mcp|corpus|import-overlay|register-raster|fetch-parcel|validate-source|inspect-artifacts|diagnose-closure|compare-descriptions|revision-template|save-revision|inspect-revision|render-revision|analyze-corridor|derive-plss} [engine options]"
+            "Usage: run-review.py {review|verify|analyze-relative|plot|compose-map|compose-dashboard|render-map|dashboard|serve-map|mapbox-mcp|corpus|import-overlay|register-raster|fetch-parcel|validate-source|inspect-artifacts|diagnose-closure|compare-descriptions|revision-template|save-revision|inspect-revision|render-revision|analyze-corridor|derive-plss|export-review|inspect-delivery} [engine options]"
         )
     if not any(arg == "--settings" or arg.startswith("--settings=") for arg in args):
         args.extend(["--settings", str(Path.cwd() / ".claude" / "metesparser.local.md")])

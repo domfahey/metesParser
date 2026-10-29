@@ -25,6 +25,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+delivery = ["mp-review[delivery]>=1.0.0"]
 geo = ["mp-review[geo]>=1.0.0"]
 web-map = ["mp-review[web-map]>=1.0.0"]
 browser-test = ["playwright>=1.49,<2"]

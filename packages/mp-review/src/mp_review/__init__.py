@@ -5,6 +5,7 @@ from .artifact_inspect import inspect_artifacts
 from .comparison import compare_descriptions_file
 from .corridor import analyze_corridor_file, replay_corridor
 from .dashboard import dashboard_file, prepare_dashboard
+from .delivery import load_delivery, prepare_delivery, publish_delivery
 from .diagnostics import diagnose_closure_file
 from .mapbox_mcp import mapbox_mcp_file
 from .online_map import render_map_file
@@ -18,6 +19,9 @@ from .webmap import PreparedWebMap, prepare_web_map
 
 __version__ = ENGINE_VERSION
 __all__ = [
+    "load_delivery",
+    "prepare_delivery",
+    "publish_delivery",
     "analyze_corridor_file",
     "replay_corridor",
     "prepare_plss_file",
