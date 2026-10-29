@@ -10,9 +10,14 @@ Start a closure request by locating the intended metes-and-bounds description. A
 | Complete document text | "Find the boundary description in this report and check closure." | `review-metes-and-bounds` → description selection → deterministic review |
 | Already isolated description | "Does this metes-and-bounds description close?" | Identify the supplied passage as the selected boundary, then deterministic review |
 | Selected CSV/JSON calls | "Verify the closure of this call set." | Identify the intended boundary, then `verify-traverse` |
+| Selected CSV/JSON calls, plot requested | "Plot these selected calls." | `plot-metes-and-bounds`; returns plot artifacts only |
+| Supplied GeoJSON or scanned map, preparation requested | "Register/import this supplied map for later use." | `prepare-parcel-overlay`; returns prepared layer and provenance only |
+| Prepared description and an explicit dashboard request | "Show the selected deed and parcel in an interactive workbench." | `deed-closure-dashboard`; reuse valid source and geometry artifacts |
 | Several descriptions, no tract selected | "Does this property close?" | Locate candidates separately and clarify which boundary to check |
 
 `review-deed` remains an entrypoint for deed-specific requests and follows the same shared workflow.
+
+Transcription, description extraction, traverse verification, plotting, and overlay preparation are capabilities with separate deliverables. Stop after the requested capability; do not continue automatically to review, plotting, or dashboard creation. If a later stage is requested, reuse valid handoff artifacts for the unchanged source instead of rereading it. Dashboard discovery is limited to explicit interactive dashboard/workbench/source-comparison requests; a request for a plot alone uses the plot capability.
 
 ## Use in Claude
 
@@ -33,6 +38,8 @@ Preserve the original document, its full prepared text, and the selected descrip
 | `review-<label>/` | New directory containing deterministic calls, verification results, audit, and report |
 
 For already supplied text or calls, identify those as the source without inventing a native-conversion stage. See [source preparation](source-preparation.md) for record fields and uncertainty handling.
+
+For stage-specific accepted inputs, output artifacts, status meanings, and invalidation rules, see [artifact handoffs](artifact-handoffs.md).
 
 ## Run the selected text directly
 

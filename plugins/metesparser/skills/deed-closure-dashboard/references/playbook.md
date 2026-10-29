@@ -17,9 +17,9 @@ Upload the source PDFs or images to a Claude/Cowork session with native document
 
 > Check the metes and bounds in these deeds for [property address, block/lot, municipality]. Compare the descriptions across the chain. Then build an interactive dashboard like the 2 Walnut Street one: findings, crops of the disputed figures, a workbench with a plot and editable call sheet, transcripts of each description with extracted courses, and copies of every deed page. Follow the deed-closure-dashboard playbook.
 
-Use the [skill's subagent workflow](../SKILL.md) to divide evidence, calculation, interface, and QA work. Prefer smaller capable models for bounded tasks; escalate source ambiguity and mathematical interpretation. Keep file ownership separate and reconcile all outputs against a common record ledger.
+When delegating evidence, calculation, interface, or QA work, keep ownership separate and reconcile outputs against a common record ledger. Report only delegation that actually occurred.
 
-The bundled `dashboard` command renders a validated version 1.0 JSON bundle as an offline HTML page. Use it as the standard renderer after source review and calculation; do not rebuild its HTML/JS or treat rendering as another document-reading stage. It includes per-occurrence findings, evidence crops, transcripts/course tables, page viewing, and method notes. It does not yet implement shared parcel alignment, corner correspondence, or inter-parcel comparison. Preserve those questions in the review notes as deferred rather than implying they were analyzed. See [dashboard-bundle.md](dashboard-bundle.md) for schema, statuses, cache behavior, and exact artifacts.
+The bundled `dashboard` command renders a validated version 1.0 deed-only bundle or version 1.1 bundle with explicit plot/map data as an offline HTML page. Use it as the standard renderer after source review and calculation; do not rebuild its HTML/JS or treat rendering as another document-reading stage. It includes per-occurrence findings, evidence crops, transcripts/course tables, page viewing, method notes, and source-linked deed plotting. Version 1.1 supports explicit scenes, placements, supplied map layers, and named point comparisons. Read [plot-and-overlays.md](plot-and-overlays.md) before preparing those fields. See [dashboard-bundle.md](dashboard-bundle.md) for schema, statuses, cache behavior, and exact artifacts.
 
 ## 2. Inputs and data contract
 
@@ -35,6 +35,8 @@ Give every source, page, description occurrence, parcel, record version, and sce
 Keep three distinct objects: immutable record values, derived results with method/basis, and editable scenarios. Link every substituted or disputed figure back to its own source. A figure borrowed from another instrument is a comparison reading, not a silently repaired value in an obscured record.
 
 ## 3. Workflow
+
+Enter at the earliest missing or invalid stage. Reuse matching source acquisition, transcription, selection, and map-preparation artifacts for unchanged inputs; steps below do not require repeating completed native reading. Recompute deterministic geometry for a new dashboard identity using the [artifact composition sequence](dashboard-bundle.md#compose-existing-plot-and-map-artifacts).
 
 ### Step 1: Read every supplied page
 
@@ -98,9 +100,9 @@ Use the supplied visual guidance as a rule of thumb, not a legal standard: absol
 
 ### Step 5: Compare neighboring parcels
 
-Place each parcel with its own documented tie call and declared local alignment. The Walnut example used “248.31 ft southwardly from the corner of Walnut and Ellis.” If the tie bearing/alignment is unresolved, show the comparison as conditional rather than inventing geographic placement.
+When a map comparison is requested, place each deed only from explicit evidence and a declared frame. Prepare and render the deed-only bundle first to obtain its geometry hash, then add a placement referencing that exact hash and rerender. A tie distance without supported orientation is insufficient for referenced placement; use an explicitly approximate placement or leave it unplaced. Do not imply that a tax parcel or its apparent visual fit determines the deed boundary.
 
-Identify shared lines through supported lengths, adjoiner names, corners, and angles. Measure offsets using the versions that close to avoid confusing a parcel's own gap with an inter-parcel offset, but label the selected versions and also report the record-value discrepancy. Do not pick a closing scenario silently or use closure as evidence that a reading is legally correct.
+Identify shared lines through supported lengths, adjoiner names, corners, and angles. Compare only explicitly named point correspondences in a common supported linear scene and report residual vectors, RMS, and maximum residual separately from deed misclosure. A residual fit is not survey accuracy. Do not pick a closing scenario silently or use closure as evidence that a reading is legally correct.
 
 The Walnut example reported a 0.44 ft offset using 35.37 and a 0.24 ft offset using 35.57. Those figures require their own source confirmation. Approximate strip area as offset × shared-side length and label the approximation. Record whether parcels are conveyed together or separately when supported; do not infer title consequences from geometry alone.
 
@@ -121,7 +123,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard bundle.json --ou
 
 In the development workspace, `uv run metes-review dashboard bundle.json --output-dir dashboard-new --cache-dir dashboard-cache` is equivalent. A valid bundle returns top-level `needs_review` (exit 1); inspect the artifact paths and calculation statuses in its JSON output. Deliver `dashboard.html` with `source.json`, `source-review.json`, `calculations.json`, `stage-manifest.json`, and `render-manifest.json` so the input, review-data stage, calculations, and rendered output remain inspectable. The command does not publish or write the engine's verified CSV.
 
-Record values and findings remain fixed while the browser edits a separate advisory scenario. Use Reset to restore that working copy. Do not describe scenario closure as a record finding. The browser scenario calculator currently edits straight-course values only; the canonical baseline supports implemented curves, while curve editing is not available. Shared parcel alignment/comparison is deferred.
+Record values and findings remain fixed while the browser edits a separate advisory scenario. Use Reset to restore that working copy. Do not describe scenario closure as a record finding. The browser scenario calculator currently edits straight-course values only; the canonical baseline supports implemented curves, while curve editing is not available. The renderer supports explicitly supplied rigid placements and named point comparisons, but does not automatically match corners or infer parcel alignment.
 
 Keep delivery local unless the user requested sharing and the host's actual access controls support it. Do not invent a public URL, declare an untested page published, or assume privacy. Identify tax-ID pages and verify the requested destination's privacy before sharing. Do not claim host-side read attestations; the bundle renderer has no review log.
 
@@ -143,7 +145,7 @@ Copy buttons must fall back to a visible selected textarea when clipboard APIs a
 
 ## 5. Walnut Street lessons
 
-The supplied HTML is an example only. See [example patterns](example-patterns.md) for optional extensions; build from the current source documents rather than copying its data, assets, or host runtime.
+The supplied HTML is an example only. See [example patterns](example-patterns.md) for optional extensions and [plot-and-overlays.md](plot-and-overlays.md) for map/plot evidence; build from the current source documents rather than copying its data, assets, or host runtime.
 
 - A corrective deed may introduce a new discrepancy. The supplied example says a 2010 corrective instrument changed 35.37 to 35.57 and 2015 instruments repeated it; confirm this from the provided chain before stating it as a finding.
 - Watermarks can obscure digits. The supplied example says a stamp covered the first digit of 81.52; show the crop and keep alternate readings visible.

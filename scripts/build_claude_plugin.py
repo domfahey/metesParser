@@ -12,6 +12,7 @@ import tempfile
 import tomllib
 import zipfile
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = ("mp-models", "mp-bearing", "mp-parse", "mp-verify", "mp-export", "mp-review")
@@ -24,26 +25,42 @@ def run(args: list[str], *, cwd: Path) -> None:
     subprocess.run(args, cwd=cwd, env=env, check=True)
 
 
-def runtime_project(wheels: list[Path]) -> str:
+def runtime_project(wheels: list[Path], *, geo: bool = True) -> str:
     """Pin external dependencies to the versions already reviewed in the root lock."""
     lock = tomllib.loads((ROOT / "uv.lock").read_text())
-    indexed = {p["name"]: p for p in lock["package"]}
+    indexed: dict[str, list[dict[str, Any]]] = {}
+    for package in lock["package"]:
+        indexed.setdefault(package["name"], []).append(package)
     external: set[str] = set()
+    visited: set[str] = set()
 
     def collect(name: str) -> None:
-        if name in external:
+        if name in visited:
             return
+        visited.add(name)
         if name not in PACKAGES:
             external.add(name)
-        for dependency in indexed[name].get("dependencies", []):
-            collect(dependency["name"])
+        for package in indexed[name]:
+            for dependency in package.get("dependencies", []):
+                collect(dependency["name"])
 
     for name in PACKAGES:
         if name in indexed:
             collect(name)
-    dependencies = [f"{name}=={indexed[name]['version']}" for name in PACKAGES] + [
-        f"{name}=={indexed[name]['version']}" for name in sorted(external)
-    ]
+    if geo:
+        for package in indexed["mp-review"]:
+            for dependency in package.get("optional-dependencies", {}).get("geo", []):
+                collect(dependency["name"])
+    dependencies = []
+    for name in [*PACKAGES, *sorted(external)]:
+        for package in indexed[name]:
+            requirement = f"{name}=={package['version']}"
+            if len(indexed[name]) > 1:
+                markers = package.get("resolution-markers", [])
+                if not markers:
+                    raise ValueError(f"Multiple locked {name} versions require resolution markers")
+                requirement += "; " + " or ".join(f"({m})" for m in markers)
+            dependencies.append(requirement)
     sources = []
     for wheel in sorted(wheels):
         name = wheel.name.split("-", 1)[0].replace("_", "-")
@@ -58,7 +75,7 @@ def runtime_project(wheels: list[Path]) -> str:
     )
 
 
-def build(output: Path, *, offline: bool = False) -> Path:
+def build(output: Path, *, offline: bool = False, geo: bool = True) -> Path:
     uv = shutil.which("uv")
     if uv is None:
         raise RuntimeError("uv is required to build the plugin")
@@ -81,7 +98,7 @@ def build(output: Path, *, offline: bool = False) -> Path:
                 cwd=ROOT,
             )
         wheels = list(wheel_dir.glob("*.whl"))
-        (runtime / "pyproject.toml").write_text(runtime_project(wheels))
+        (runtime / "pyproject.toml").write_text(runtime_project(wheels, geo=geo))
         run([uv, "lock", "--project", str(runtime), *flags], cwd=runtime)
         hashes = {
             str(path.relative_to(runtime)): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -110,8 +127,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "dist/metesparser-plugin.zip")
     parser.add_argument("--offline", action="store_true")
+    parser.add_argument(
+        "--without-geo", action="store_true", help="Omit optional map import dependencies"
+    )
     args = parser.parse_args()
-    print(build(args.output, offline=args.offline))
+    print(build(args.output, offline=args.offline, geo=not args.without_geo))
 
 
 if __name__ == "__main__":

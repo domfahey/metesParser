@@ -155,3 +155,36 @@ def test_settings_come_from_calling_project_not_plugin_install(monkeypatch, tmp_
     commands.clear()
     assert launcher.main(["review", "deed.txt", "--settings=alternate.md"]) == 0
     assert commands[0][-1] == "--settings=alternate.md"
+
+
+@pytest.mark.parametrize("command", ["import-overlay", "register-raster", "fetch-parcel"])
+def test_overlay_commands_reach_locked_engine(command, monkeypatch, tmp_path, capsys):
+    runtime = make_runtime(tmp_path)
+    setup_launcher(monkeypatch, runtime)
+    commands = []
+
+    def run(arguments, **kwargs):
+        commands.append(arguments)
+        return SimpleNamespace(returncode=0, stdout='{"status":"passed"}\n', stderr="")
+
+    monkeypatch.setattr(launcher.subprocess, "run", run)
+    assert launcher.main([command, "input.json", "--output", "new.json"]) == 0
+    assert command in commands[0]
+
+
+def test_standalone_plot_reaches_engine_and_preserves_nonverification(
+    monkeypatch, tmp_path, capsys
+):
+    setup_launcher(monkeypatch, make_runtime(tmp_path))
+    commands = []
+    output = '{"status":"needs_review","verified_export_eligible":false}\n'
+
+    def run(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=1, stdout=output, stderr="")
+
+    monkeypatch.setattr(launcher.subprocess, "run", run)
+    arguments = ["plot", "calls.csv", "--input-format", "calls", "--output-dir", "plot-new"]
+    assert launcher.main(arguments) == 1
+    assert commands[0][-8:-2] == arguments
+    assert capsys.readouterr().out == output

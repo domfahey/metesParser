@@ -1,6 +1,6 @@
 # verify-traverse
 
-Verify an identified boundary's selected CSV or JSON call set.
+Verify an identified boundary's selected CSV/JSON call set, or run an explicitly requested local relative-angle analysis.
 
 ## Example request
 
@@ -8,9 +8,9 @@ Verify an identified boundary's selected CSV or JSON call set.
 
 ## Inputs and outputs
 
-**Inputs:** A complete 21-column CSV, a JSON calls list, or a LegalDescription JSON object, plus a new output directory or configured output base.
+**Inputs:** For canonical verification, a strict CSV, JSON calls list, or LegalDescription JSON object. For relative analysis, a RelativeDescription JSON supplied for that requested purpose. Each mode uses a new output directory or configured output base.
 
-**Outputs:** Machine-readable status and review artifacts. A verified CSV is issued only when engine gates pass; unknown bearings remain unknown.
+**Outputs:** Canonical statuses `checks_passed`, `needs_review`, or `error`; a verified CSV only when engine gates pass. Relative analysis has separate `analysis.status` (`analyzed`, `unresolved`, or `inconsistent`) and top-level `needs_review`; it never creates verified CSV. Unknown bearings remain unknown.
 
 ## Documentation
 
