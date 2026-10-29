@@ -8,7 +8,7 @@ Extracts, parses, and verifies metes and bounds legal descriptions from deed PDF
 
 MetesParser transforms scanned deeds into structured metes-and-bounds data. Follow these guardrails so every contribution stays reliable, auditable, and easy to review.
 
-Versions are declared in each package's `pyproject.toml` (root `metesparser`: 0.5.0; `mp-*`: 1.0.0). Test counts and coverage depend on the selected suite; use the latest [implementation evidence](docs/implementation/2026-10-28-evidence-review-ledger.md#completion-audit-follow-up), not a fixed count in this guide.
+Versions are declared in each package's `pyproject.toml` (root `metesparser`: 0.5.0; `mp-*`: 1.0.0). Test counts and coverage depend on the selected suite; use the latest [implementation evidence](docs/implementation/2026-10-28-cowork-workflow-ledger.md), not a fixed count in this guide.
 
 ## Critical Architecture Principles
 
@@ -45,18 +45,22 @@ These dependency notes list workspace edges; third-party dependencies and option
 ### Package → Monolith Module Mapping
 | Package | Module(s) | Monolith Equivalent |
 |---------|-----------|---------------------|
-| `mp-models` | `mp_models.deed_call`, `mp_models.legal_description`, `mp_models.closure`, `mp_models.audit`, `mp_models.envelope`, `mp_models.units`, `mp_models.constants`, `mp_models.base`, `mp_models.logging` | `models.py` |
+| `mp-models` | `mp_models.deed_call`, `mp_models.legal_description`, `mp_models.closure`, `mp_models.audit`, `mp_models.envelope`, `mp_models.units`, `mp_models.constants`, `mp_models.base`, `mp_models.logging`, `mp_models.revisions`, `mp_models.corridor`, `mp_models.delivery`, `mp_models.plss` | `models.py` for legacy deed/audit schemas; review contracts stay in `mp_models` |
 | `mp-bearing` | `mp_bearing.azimuth`, `mp_bearing.curves`, `mp_bearing.deltas` | `bearing_converter.py` |
 | `mp-ocr` | `mp_ocr.extract`, `mp_ocr.clients`, `mp_ocr.cache` | `pdf_processor.py`, `llm_clients.py` |
 | `mp-parse` | `mp_parse.calls`, `mp_parse.metadata`, `mp_parse.monuments`, `mp_parse.normalizer`, `mp_parse.numbers` | `call_extractor.py`, `text_parser.py` |
 | `mp-verify` | `mp_verify.closure`, `mp_verify.checks`, `mp_verify.confidence` | `closure_checker.py` |
-| `mp-export` | `mp_export.csv_writer`, `mp_export.audit_html` | `csv_builder.py`, `audit_reporter.py` |
-| `mp-review` | `mp_review.api`, `mp_review.plot`, `mp_review.dashboard`, `mp_review.source_handoff`, `mp_review.artifact_inspect`, `mp_review.diagnostics`, `mp_review.comparison`, `mp_review.cli` | Review API/CLI and corresponding `metesparser` compatibility facades |
+| `mp-export` | `mp_export.csv_writer`, `mp_export.audit_html`, `mp_export.revision_html`, `mp_export.delivery`, `mp_export.raster_picker` | `csv_builder.py`, `audit_reporter.py` for legacy CSV/audit output; new renderers stay in `mp_export` |
+| `mp-review` | `mp_review.api`, `mp_review.plot`, `mp_review.dashboard`, `mp_review.source_handoff`, `mp_review.artifact_inspect`, `mp_review.diagnostics`, `mp_review.comparison`, `mp_review.revisions`, `mp_review.revision_view`, `mp_review.delivery`, `mp_review.corridor`, `mp_review.plss`, `mp_review.raster_picker`, `mp_review.cli` | Review API/CLI and corresponding `metesparser` compatibility facades |
 | `metesparser` | `metesparser.pipeline` | Orchestrator (new) |
 
 ### Composable Skills
 
-The Claude plugin is an instruction layer over the shared packages. Its [catalog](plugins/metesparser/README.md#skills) lists thirteen skills: ten capabilities, two workflows, and the `review-deed` compatibility alias. Keep each capability scoped to its own output; workflows select stages and reuse valid artifacts. The plugin uses native Claude document reading; `mp-ocr` remains the provider-backed extraction path for the separate Python pipeline.
+The Claude plugin is an instruction layer over the shared packages. Its [catalog](plugins/metesparser/README.md#skills) lists thirteen skills: ten capabilities, two workflows, and the `review-deed` compatibility alias. Keep each capability scoped to its own output; workflows select stages and reuse valid artifacts. The plugin is designed to use native Claude document reading, but native Claude/Cowork acceptance remains unrun; `mp-ocr` remains the provider-backed extraction path for the separate Python pipeline.
+
+The review workflow saves exact raw drafts separately from parsed or last-valid geometry, preserves source/document/tract/call identities, and publishes immutable revisions. Structured line and arc edits use shared revision preparation and rendering; only the immediate browser preview is straight-course only. Source-correction records preserve supplied excerpts and fresh calls and must not be described as complete native source acquisition or selection.
+
+Corridor revisions use schema 1.2 to retain the exact centerline and ordered endpoint width/taper/join/cap definitions for replay and delivery. Corridor geometry remains separate from parcel closure and must report unsupported topology or unmet error budgets. PLSS geometry is derived only from an identified supplied reference dataset under the documented supported rectangular rule; metadata extraction or a PLSS recital alone does not establish section corners. The optional raster picker records image pixel controls for raster registration only; it does not establish real-world controls or deed placement. The plugin provides immutable SVG/PDF/DXF/GeoJSON delivery and read-only delivery inspection. See the [revision](plugins/metesparser/references/revisions.md), [corridor](plugins/metesparser/skills/plot-corridor/SKILL.md), [PLSS](plugins/metesparser/skills/plot-plss-reference/SKILL.md), [delivery](plugins/metesparser/skills/export-review-package/SKILL.md), and [raster registration](plugins/metesparser/skills/prepare-parcel-overlay/references/overlay-preparation.md) contracts.
 
 Use the [handoff contract](plugins/metesparser/references/artifact-handoffs.md) for accepted inputs, stopping points, status separation, and invalidation. Keep schemas in `mp_models`, adapters in `mp_review`, numerical logic in the shared parsing/bearing/verification packages, and rendering in `mp_export`. Plotting and overlay preparation must not grant canonical verification status. Dashboard assembly is explicit and placements bind to freshly computed dashboard geometry.
 
@@ -106,6 +110,7 @@ make clean         # Remove .venv, build/dist artifacts and caches
 make test-dashboard-browser # Opt-in offline dashboard Chromium/Node checks
 make test-mapbox-browser    # Local map adapter/pinned SDK checks; no provider credentials
 make test-mapbox-live       # Separate explicit live-provider acceptance gate
+make plugin-build           # Build the default Claude plugin ZIP and SHA-256 sidecar
 make doctor        # Verify project dependencies and environment
 make run-extract   # Quick local PDF extraction
 make run-verify    # Quick local CSV verification
@@ -132,6 +137,15 @@ uv run metes-review validate-source BUNDLE_DIR
 uv run metes-review inspect-artifacts BUNDLE_DIR --requested-stage compare-descriptions
 uv run metes-review diagnose-closure REQUEST.json --output-dir NEW_DIR
 uv run metes-review compare-descriptions REQUEST.json --output-dir NEW_DIR
+uv run metes-review revision-template BUNDLE.json --output REVISION.json --revision-id ID
+uv run metes-review save-revision BUNDLE.json --revision REVISION.json --output-dir REVISIONS_DIR
+uv run metes-review inspect-revision BUNDLE.json --revision-dir REVISIONS_DIR/ID
+uv run metes-review render-revision BUNDLE.json --revision-dir REVISIONS_DIR/ID --output-dir NEW_DIR
+uv run metes-review analyze-corridor REQUEST.json --output-dir NEW_DIR
+uv run metes-review derive-plss REQUEST.json --output-dir NEW_DIR
+uv run metes-review export-review BUNDLE.json --revision-dir REVISIONS_DIR/ID --request REQUEST.json --output-dir NEW_DIR
+uv run metes-review inspect-delivery BUNDLE.json --revision-dir REVISIONS_DIR/ID --package-dir PACKAGE_DIR
+uv run metes-review pick-raster IMAGE --controls CONTROLS.json --output-dir NEW_DIR
 
 # Development
 uv run pytest tests/unit/test_bearing_converter.py -v
