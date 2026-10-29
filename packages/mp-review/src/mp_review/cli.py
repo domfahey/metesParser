@@ -15,6 +15,29 @@ from .settings import SettingsError, output_path, read_settings
 def main() -> None:
     parser = argparse.ArgumentParser(prog="metes-review")
     commands = parser.add_subparsers(dest="command", required=True)
+    for name in ("revision-template", "save-revision", "inspect-revision"):
+        revision = commands.add_parser(
+            name, help="Recoverable advisory revisions; no verification."
+        )
+        revision.add_argument("input", type=Path, help="Original dashboard source bundle")
+        revision.add_argument("--settings", type=Path)
+        if name == "revision-template":
+            revision.add_argument("--output", type=Path, required=True)
+            revision.add_argument("--revision-id", default="revision-1")
+        elif name == "save-revision":
+            revision.add_argument("--revision", type=Path, required=True)
+            revision.add_argument("--output-dir", type=Path)
+            revision.add_argument("--expected-revision-id")
+            revision.add_argument("--expected-generation", type=int)
+        else:
+            revision.add_argument("--revision-dir", type=Path, required=True)
+    render_revision = commands.add_parser(
+        "render-revision", help="Render a fresh offline view of a published revision."
+    )
+    render_revision.add_argument("input", type=Path, help="Original dashboard source bundle")
+    render_revision.add_argument("--revision-dir", type=Path, required=True)
+    render_revision.add_argument("--output-dir", type=Path)
+    render_revision.add_argument("--settings", type=Path)
     for name in (
         "validate-source",
         "inspect-artifacts",
@@ -166,6 +189,14 @@ def main() -> None:
 
 
 def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    if args.command == "render-revision":
+        from .revision_view import render_revision_file
+
+        return render_revision_file(
+            args.input, args.revision_dir, output_path(settings, args.output_dir)
+        )
+    if args.command in ("revision-template", "save-revision", "inspect-revision"):
+        return _execute_revision(args, settings)
     if args.command == "validate-source":
         from .source_handoff import validate_source_bundle
 
@@ -278,6 +309,51 @@ def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, An
             stated_area_sq_ft=args.area,
         )
     return result
+
+
+def _execute_revision(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    from mp_models.dashboard import DashboardBundle
+    from mp_models.revisions import revision_template
+
+    from .dashboard import _load
+    from .revisions import load_revision, publish_revision
+
+    try:
+        bundle = DashboardBundle.model_validate(_load(args.input))
+        if args.command == "save-revision":
+            return publish_revision(
+                bundle,
+                args.revision.read_bytes(),
+                output_path(settings, args.output_dir),
+                expected_revision_id=args.expected_revision_id,
+                expected_generation=args.expected_generation,
+            )
+        if args.command == "inspect-revision":
+            prepared = load_revision(bundle, args.revision_dir)
+            return {
+                "schema_version": "1.0",
+                "status": "needs_review",
+                "errors": [],
+                "artifacts": {},
+                "revision": prepared.model_dump(mode="json"),
+            }
+        payload = revision_template(bundle, revision_id=args.revision_id)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        with args.output.open("x", encoding="utf-8") as stream:
+            stream.write(payload.model_dump_json(indent=2) + "\n")
+        return {
+            "schema_version": "1.0",
+            "status": "needs_review",
+            "errors": [],
+            "artifacts": {"revision": str(args.output)},
+        }
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return {
+            "schema_version": "1.0",
+            "status": "error",
+            "artifacts": {},
+            "errors": [{"code": "invalid_revision", "message": str(exc)}],
+        }
 
 
 def _overlay_artifact(args: argparse.Namespace) -> dict[str, Any]:
