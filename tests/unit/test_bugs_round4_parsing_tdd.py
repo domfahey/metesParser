@@ -179,3 +179,19 @@ def test_unrelated_adjacent_units_are_not_summed_without_and(parse, course, expe
 def test_repeated_same_unit_measurements_are_not_summed_without_and(parse):
     call = parse("THENCE N 10° E 100 feet, 50 feet from the corner to an iron pin")[0]
     assert call.distance_ft == pytest.approx(100.0)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize("qualifier", ["approximately ", ""])
+def test_derived_tangent_note_survives_meander_or_approximate_note(parse, qualifier):
+    # PR #60 review: the derivation disclosure was replaced by the meander note.
+    call = parse(
+        f"THENCE a curve to the right, {qualifier}radius of 50 feet, delta angle of 90°, "
+        "chord bearing North 45° East 70.71 feet; THENCE due South 50 feet; "
+        "THENCE due West 50 feet to the point of beginning."
+    )[0]
+    assert call.bearing_azimuth_deg_from_north == pytest.approx(0.0, abs=1e-6)
+    assert call.bearing_quadrant is None
+    assert "tangent bearing derived from chord bearing and delta" in (call.notes or "")
+    if qualifier:
+        assert "meander / approximate" in call.notes
