@@ -128,3 +128,44 @@ def test_header_only_guard_rejects_oriented_raster_without_pillow():
     assert image_orientation(_oriented_image("JPEG", 1)) == 1
     assert image_orientation(_oriented_image("PNG", 6)) == 6
     assert image_orientation(_oriented_image("WEBP", 6)) == 6
+
+
+def _oriented_layer_payload(orientation=6):
+    data = _oriented_image("JPEG", orientation)
+    return {
+        "id": "raster-old",
+        "label": "old.jpg",
+        "source_id": "map-old",
+        "scene_id": "map",
+        "mime_type": "image/jpeg",
+        "width": 10,
+        "height": 20,
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "data_base64": base64.b64encode(data).decode(),
+        "registration": fit_affine(controls()),
+    }
+
+
+def test_oriented_raster_model_still_loads_for_saved_artifacts():
+    from mp_models.raster import RasterLayer
+
+    layer = RasterLayer.model_validate(_oriented_layer_payload())
+    assert (layer.width, layer.height) == (10, 20)
+
+
+def test_dashboard_renderer_refuses_to_draw_oriented_raster():
+    from mp_export.dashboard_html import _raster_svg
+    from mp_models.raster import RasterLayer
+
+    with pytest.raises(ValueError, match="orientation"):
+        _raster_svg(RasterLayer.model_validate(_oriented_layer_payload()))
+
+
+def test_oriented_saved_raster_is_reported_unsupported_when_validated_for_use():
+    from mp_models.raster import RasterLayer
+    from mp_review.raster_registration import validate_raster_layer
+
+    scene = PlotScene(id="map", name="map", kind="projected", crs="EPSG:3857", units="m")
+    layer = RasterLayer.model_validate(_oriented_layer_payload())
+    with pytest.raises(ValueError, match="orientation"):
+        validate_raster_layer(layer, scene)
