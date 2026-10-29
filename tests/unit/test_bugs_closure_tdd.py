@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from metesparser.closure_checker import ClosureChecker
 from metesparser.models import DeedCall, Point
 
@@ -171,3 +173,35 @@ def test_verify_closure_has_no_double_entry_warnings_for_matching_entries() -> N
     result = ClosureChecker.verify_closure(calls, double_entry_calls=calls)
 
     assert result.warnings == []
+
+
+@pytest.mark.parametrize("bad_chord", ["S 0 E", "S34-57E", "South"])
+def test_monolith_unparseable_chord_bearing_blocks_instead_of_raising(bad_chord):
+    """#72: unparseable chord bearing must block the curve check, not crash."""
+    from metesparser.closure_checker import ClosureChecker
+    from metesparser.models import DeedCall
+
+    calls = [
+        DeedCall(
+            course=1, direction_text="N", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0
+        ),
+        DeedCall(
+            course=2,
+            direction_text="curve",
+            bearing_azimuth_deg_from_north=90.0,
+            distance_ft=100.0,
+            curve_dir="right",
+            radius_ft=100.0,
+            delta_deg=60.0,
+            arc_length_ft=104.72,
+            chord_bearing=bad_chord,
+        ),
+        DeedCall(
+            course=3, direction_text="S", bearing_azimuth_deg_from_north=180.0, distance_ft=100.0
+        ),
+    ]
+    result = ClosureChecker.verify_closure(calls)
+    assert not result.geometry_verified
+    assert any("chord bearing" in w.lower() for w in result.warnings)
+    curve = next(c for c in result.checks if c.name == "curve_consistency")
+    assert curve.status == "blocked"
