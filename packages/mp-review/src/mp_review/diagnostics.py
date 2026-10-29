@@ -78,7 +78,7 @@ def diagnose_closure_file(input: Path | str, output_dir: Path | str) -> dict[str
             _atomic(directory / name, content)
             result["artifacts"][name] = str(directory / name)
         result.update(diagnostics=diagnostics.model_dump(mode="json"), manifest=manifest)
-    except (OSError, ValueError, TypeError, ArithmeticError):
+    except (OSError, ValueError, TypeError, ArithmeticError, RecursionError):
         result["status"] = "error"
         result["errors"] = [
             {
