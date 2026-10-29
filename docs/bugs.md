@@ -515,6 +515,262 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Suggested test:** Assert `len(CallExtractor.extract_calls("thence (1) S 71°53'10\" E 125.26 feet; thence (2) S 33°20'00\" E 60 feet; thence (3) N 71°53'10\" W 125.26 feet")) == 3`.
 - **Suggested fix:** Add `thence` as a call delimiter in `split_into_calls` (in addition to existing numbered/semicolon patterns). Ensure the split preserves the `thence` keyword in each resulting segment for downstream direction extraction.
 
+## Code Review (2026-10-29)
+
+Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/claude-chat-skill`), split by PR group across read-only reviewers. Each `always` ticket was reproduced by the reviewer with a throwaway test against existing fixtures; `unconfirmed` tickets come from code trace only. Reproductions for #49, #50, #52, #67, #69 and #70 were re-run independently on `main`. No ticket fabricates bearings, grants verified-export eligibility, or promotes advisory status.
+
+### 49) Parallelism check blocks verification when course 1 "continues" a line
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-verify/src/mp_verify/checks.py` (`parallel_blocked` in `build_verification_checks`); monolith `closure_checker.py` uses the same builder. Introduced in PR #46.
+- **Minimal input:** Closed 100 ft square (misclosure ~2e-14 ft, no warnings) with course 1 `along="continuing along Pennbrook Drive"`.
+- **Expected behavior:** `is_fully_verified()` is `True`, as it is with `along="Pennbrook Drive"`.
+- **Actual behavior:** `is_fully_verified()` is `False` with `[('parallelism', 'blocked')]`; verified CSV export is refused.
+- **Impact:** Common deeds whose first main course continues the tie-in line ("thence continuing along…") can never be geometry-verified. Regression: the legacy `check_parallelism` skipped `i == 0`.
+- **Suggested fix:** Skip (or mark `not_applicable`) the first course when there is no previous main course to compare.
+
+### 50) `export-review` crashes when an optional derived layer fails and GeoJSON is requested
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-review/src/mp_review/delivery.py:500` (`_geojson`), with `prepare_delivery` (lines 414–418) and `publish_delivery` (line 673). Introduced in PR #55.
+- **Minimal input:** PLSS delivery request with `formats=["svg","geojson"]` plus a second, non-required PLSS layer with an invalid id.
+- **Expected behavior:** The failed optional layer is recorded as an omission and the package publishes.
+- **Actual behavior:** A bare `next(...)` over `snapshot.derived_sources` raises `StopIteration`, which neither `publish_delivery` nor the CLI catches. `pending.json` is left behind, so a corrected retry under the same `id` fails with an immutable-artifact conflict.
+- **Suggested fix:** Use `next(..., None)` and skip omitted layers; clean up or reuse `pending.json` on failure.
+
+### 51) DXF and GeoJSON silently drop presentation rotation
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-review/src/mp_review/delivery.py:180-187`, `packages/mp-export/src/mp_export/delivery.py:342-435`. Introduced in PR #55.
+- **Minimal input:** Delivery request with `presentation_rotation_deg=90`, no labels, `formats=["svg","dxf"]`.
+- **Expected behavior:** All formats share the orientation, or the omission is disclosed.
+- **Actual behavior:** SVG/PDF are rotated via `_presentation`; DXF/GeoJSON are not. The rotation omission is only recorded when `request.labels` is non-empty, so `snapshot.omissions == ()` and `inspect-delivery` reports the package as consistent.
+- **Suggested fix:** Always record the omission when rotation is non-zero and a format ignores it (or apply rotation consistently where meaningful).
+
+### 52) Schema 1.2 revisions reject added calls and tombstones
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-review/src/mp_review/revisions.py:503`. Introduced in PR #53/#54.
+- **Minimal input:** The existing `added()` fixture in `test_revision_store.py` with only `schema_version` changed to `"1.2"`.
+- **Expected behavior:** Parses like schema 1.1 (line 467 already accepts 1.2 for structured edits).
+- **Actual behavior:** `ValueError: Added call/tombstone requires schema 1.1 and a distinct stable identity`.
+- **Impact:** Corridor revisions must be 1.2 and revisions are full-state, so inserted calls and corridors can never coexist; after a corridor revision no later revision can keep or add an inserted call.
+- **Suggested fix:** `revision.schema_version not in ("1.1", "1.2")`.
+
+### 53) Corridor GeoJSON exterior rings are wound clockwise
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-review/src/mp_review/delivery_sources.py:370-376`; PLSS `_vector_feature` uses the same unchecked path (not measured). Introduced in PR #55.
+- **Minimal input:** Existing rotated-placement corridor fixture.
+- **Expected behavior:** Exterior rings counterclockwise per RFC 7946 §3.1.6.
+- **Actual behavior:** `drawing.geojson` ring has signed area −3.7e-08 (clockwise; closed, 405 vertices).
+- **Impact:** Strict GeoJSON consumers may treat the polygon as a hole or reject it.
+- **Suggested fix:** Normalize ring orientation (exterior CCW, holes CW) before serialization.
+
+### 54) `inspect-artifacts` crashes on a tampered plot CSV
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-review/src/mp_review/artifact_inspect.py:585` (via `plot.py:107-111`); handler at lines 186–191. Introduced in PR #51.
+- **Minimal input:** Plot bundle with `1,"a"b,` appended to `plot/source.csv` (hash not updated); `inspect_artifacts(root, requested_stage="plot")`.
+- **Expected behavior:** Plot node reported stale/invalid; CLI exits 1 or 2.
+- **Actual behavior:** `_csv.Error: ',' expected after '"'` escapes (`csv.Error` is not a `ValueError`); CLI prints a traceback.
+- **Suggested fix:** Catch `csv.Error` in replay and map it to an invalid node.
+
+### 55) `inspect-artifacts` crashes on a non-object dashboard render manifest
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-review/src/mp_review/artifact_inspect.py:929-931`. Introduced in PR #51.
+- **Minimal input:** Valid dashboard bundle with `dashboard/render-manifest.json` replaced by `[]`.
+- **Expected behavior:** Dashboard node `invalid`.
+- **Actual behavior:** `AttributeError: 'list' object has no attribute 'get'` at line 931.
+- **Suggested fix:** Type-check the loaded manifest before `.get(...)`.
+
+### 56) Review and plot displays are not invalidated by their producers
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-review/src/mp_review/artifact_inspect.py:408` (`review_display`) and `:518` (`plot_display`). Introduced in PR #51.
+- **Minimal input:** Edit `review-a/calls.json` (distance +1) and rewrite its manifest hash.
+- **Expected behavior:** `review.html` is blocked/stale once the review node is invalid, as the dashboard display is (line 653).
+- **Actual behavior:** Review node is `invalid (replay_mismatch)` but `review.html` stays `present_valid` with no `dependency_ids`. Stage-level status is still invalid, so per-artifact output is what misleads. These displays also lack the renderer-fingerprint check used for dashboard (line 932) and online map (line 1048).
+- **Suggested fix:** Add the producing node to `dependency_ids` and a renderer-fingerprint check.
+
+### 57) `validate-source` rejects in-bundle overrides when the root path is a symlink
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-review/src/mp_review/source_handoff.py:104-116` (with `:536-542`). Introduced in PR #49.
+- **Minimal input:** Fixture bundle reached through a symlinked root (any `/tmp/...` path on macOS) with `acquisition=root/"source-acquisition.json"`.
+- **Expected behavior:** Same result as the default paths (`needs_review`).
+- **Actual behavior:** `error` (exit 2) with `unsafe_path: Reference is outside the explicit bundle root.` The root is resolved; the override is not.
+- **Suggested fix:** Resolve the override before the containment check.
+
+### 58) Unreadable source records are reported as `missing`
+- **Status:** `open`
+- **Severity:** `low`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-review/src/mp_review/source_handoff.py:242-262` (`_Validator.record`). Introduced in PR #49.
+- **Minimal input:** `validate_source_bundle(root, acquisition=Path("bad.json"))` where the file contains `{not json` (or invalid UTF-8).
+- **Expected behavior:** Section `invalid` with `path`/`sha256`.
+- **Actual behavior:** Overall `error`, but `acquisition == {"status": "missing"}`.
+- **Suggested fix:** Set `self.result[kind]` to `invalid` on decode/parse failure, like the other branches.
+
+### 59) Deeply nested JSON crashes `inspect-artifacts`
+- **Status:** `open`
+- **Severity:** `low`
+- **Reproducibility:** `always` (hostile input only)
+- **Location:** `packages/mp-review/src/mp_review/artifact_inspect.py:127` and `_finite_json` (line 132). Introduced in PR #51.
+- **Minimal input:** `plot-manifest.json` containing `"[" * 100000 + "]" * 100000`.
+- **Expected behavior:** `invalid_json`.
+- **Actual behavior:** Uncaught `RecursionError`.
+- **Suggested fix:** Catch `RecursionError` in `load` and report `invalid_json`.
+
+### 60) Non-UTF-8 transcript yields a misleading selection identity entry
+- **Status:** `open`
+- **Severity:** `low`
+- **Reproducibility:** `unconfirmed` (code trace)
+- **Location:** `packages/mp-review/src/mp_review/source_handoff.py:375-389` and `:608-614`. Introduced in PR #49.
+- **Issue:** `acquisition()` returns `None` for non-UTF-8 transcript bytes, so the selection `transcript_sha256` check records `identity_unavailable`/`unverifiable` with `actual_sha256: null` although the bytes were already hashed. Overall status is still error/needs_review.
+- **Suggested fix:** Pass the computed hash through independently of decoding.
+
+### 61) `run-chat.py --setup` cannot repair a corrupted cached uv
+- **Status:** `open`
+- **Severity:** `low`
+- **Reproducibility:** `unconfirmed` (code trace; needs a built chat archive)
+- **Location:** `plugins/metesparser-chat/scripts/run-chat.py:176-182` and `:100-108`. Introduced on `feat/claude-chat-skill`.
+- **Issue:** `verified_cached_uv()` raises on a hash mismatch before the `setup and not --offline` reinstall branch, so with no uv on PATH and a modified `~/.cache/metesparser/chat-tools/uv-0.9.6/<platform>/bin/uv`, `--setup` returns `chat_runtime_error` instead of reinstalling.
+- **Suggested fix:** On `--setup`, treat a hash mismatch as a cache miss and reinstall.
+
+### 62) "chord bearing" phrasing is stored as the tangent bearing
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-parse/src/mp_parse/calls.py` (curve call parsing). Predates the 2026-10-22 window; surfaced while reviewing PR #47.
+- **Minimal input:** `a curve to the right … radius 50 … central angle 90° … chord bearing North 45° East 70.71 feet` in an otherwise closing 4-call parcel.
+- **Expected behavior:** `chord_bearing="N 45° E"`, tangent bearing derived; parcel closes.
+- **Actual behavior:** N 45° E is stored as `bearing_quadrant`/`bearing_azimuth_deg_from_north` and `chord_bearing` is `None`; both the plot and `verify_closure` report a 54.12 ft misclosure.
+- **Impact:** Valid curved parcels fail closure. Feature #8 handles "chord of which bears…" but not "chord bearing …".
+- **Suggested fix:** Recognize `chord bearing` / `chord bears` phrasings in `extract_curve_info` and keep the monolith `call_extractor.py` in sync.
+
+### 63) Plot rejects curves whose tangent and chord bearings differ by rounding
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-verify/src/mp_verify/plot.py:77-80` (`_arc`); shared by plot and dashboard via `_build_geometry`. Introduced in PR #47.
+- **Minimal input:** N 0° E 50 ft, then a right curve R=100, Δ=45°15'15", tangent 0°, chord stated N 22°37'38" E (true Δ/2 = 22°37'37.5"), then a closing line.
+- **Expected behavior:** Complete plot; `verify_closure` closes the same calls at 0.00019 ft.
+- **Actual behavior:** Plot is `partial` with `inconsistent tangent and chord angular evidence`; every later call is `unpositioned`, with no area or closure gap.
+- **Impact:** The 1e-6° (~0.004") agreement tolerance is far tighter than whole-second deed precision, so ordinary curves render as truncated prefixes.
+- **Suggested fix:** Use a tolerance matched to stated precision (e.g. 1–2 arcseconds) or a linear endpoint tolerance.
+
+### 64) Raster overlays ignore EXIF orientation
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `unconfirmed` (code trace; no browser repro)
+- **Location:** `packages/mp-review/src/mp_review/raster_registration.py:116-128`, `packages/mp-export/src/mp_export/dashboard_html.py` (`_raster_svg`). Introduced in PR #47.
+- **Issue:** Width/height come from raw `image.size`/header parsing, but browsers apply EXIF orientation when drawing the SVG `<image preserveAspectRatio="none">`. A JPEG with Orientation=6 is drawn rotated into the raw W×H box, stretched, and no longer matches the affine-registered controls; nothing rejects or normalizes orientation.
+- **Suggested fix:** Reject non-default EXIF orientation, or normalize with `ImageOps.exif_transpose` before registration and embedding.
+
+### 65) Corridor arc pieces fail on a floating-point end fraction
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-verify/src/mp_verify/corridor.py:156` (`_pieces`, `f1 = (b - stations[i]) / lengths[i]`); raised by `arc_point` in `plot.py:396`. Introduced in PR #52.
+- **Minimal input:** Centerline of a 100 ft line at azimuth 0 followed by a tangent right arc (R=100, Δ=90°), one step width row (left 20, right 10).
+- **Expected behavior:** Corridor polygon computed (the arc alone, or a 50 ft line + the same arc, works).
+- **Actual behavior:** `f1 == 1.0000000000000002`; result `availability=unsupported` with `fraction must be in [0,1]`. On line pieces the same overshoot silently extrapolates.
+- **Suggested fix:** Clamp the fraction to `[0, 1]`, or set `f1 = 1.0` when `b == stations[i + 1]`.
+
+### 66) `diagnose-closure` exits 1 on deeply nested request JSON
+- **Status:** `open`
+- **Severity:** `low`
+- **Reproducibility:** `always` (malformed input only)
+- **Location:** `packages/mp-review/src/mp_review/diagnostics.py:49` and `:81`. Introduced in PR #50.
+- **Minimal input:** Request file of 100000 `[` followed by 100000 `]`.
+- **Expected behavior:** Status `error`, exit 2 (as `compare-descriptions` does for the same file).
+- **Actual behavior:** Uncaught `RecursionError` traceback with exit 1, indistinguishable from `needs_review`.
+- **Suggested fix:** Add `RecursionError` to the caught exceptions (see also #59).
+
+### 67) Web-map validator accepts artifacts with features removed and reports them `ready`
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-verify/src/mp_verify/webmap.py:123-215` (`_validate_bindings`, `validate_web_map_artifact`). Introduced in PR #48.
+- **Minimal input:** Prepared dashboard whose first call is 101 ft (non-zero misclosure; artifact holds 4 courses, 1 POB, 1 `closure_gap`), with the `closure_gap` and the `call-two` course deleted from `web-map.json`.
+- **Expected behavior:** Validation fails: one course per placed primitive, one POB per placement, and a closure gap whenever misclosure > 0 are required.
+- **Actual behavior:** Returns the artifact with `availability="ready"`; `build_mapbox_mcp_handoff` sends `availability: ready` with no partial-evidence warning. Feature coordinates and `availability`/`unavailable` claims are also never checked.
+- **Impact:** A misclosure and a recorded course can be silently hidden from a map that `mapbox-mcp` presents as complete; manifest hashes detect edits but not authenticity.
+- **Suggested fix:** Validate feature completeness and coordinates against the freshly derived geometry, not just identities of present features.
+
+### 68) Web-map CRS transform ignores the operation's area of use
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-review/src/mp_review/webmap_projection.py:110-125`; the raster path reuses it via `COORDINATE_OPERATION`. Introduced in PR #48.
+- **Minimal input:** EPSG:24376 (Kalianpur 1962 / India zone I) parcel at 74°E, 34°N; or EPSG:21419 (Beijing 1954 zone 19) at 111.5°E, 40°N.
+- **Expected behavior:** Select an operation whose area of use contains the geometry, or fail closed.
+- **Actual behavior:** `TransformerGroup(source, "EPSG:3857")` is built without `area_of_interest` and `transformers[0]` is used. For EPSG:24376 it picks an operation covering 68.27–71.14°E, 24.16–28.61°N recorded at `accuracy_m=3.0`; the only covering operation places the parcel 26.9 m away. For EPSG:21419 no operation covers the point, yet the map renders at a recorded 15 m.
+- **Impact:** Parcels placed tens of metres off with a false accuracy figure.
+- **Suggested fix:** Pass an `AreaOfInterest` from the placed geometry or raster extent and fail closed when the selected operation's `area_of_use` does not contain it.
+
+### 69) Neighbour references in calls split one parcel into bogus tracts
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-parse/src/mp_parse/tracts.py:30-41` and `calls.py` (~line 319). Introduced in PR #43/#44.
+- **Minimal input:** `BEGINNING at the northeast corner of Parcel 2; THENCE S 0° W 100 ft along the line of Parcel 3; THENCE W 100; THENCE N 100; THENCE E 100 to the POINT OF BEGINNING`.
+- **Expected behavior:** One tract of 4 calls that closes (flat verification closes at 0).
+- **Actual behavior:** Tracts `[("Parcel 2", 1), ("Parcel 3", 3)]`, both failing with 100 ft misclosure. Two or more `Lot x of Tract 4567` references raise `Tract has no computable calls` in strict mode.
+- **Impact:** Fails safe, but valid deeds that cite adjoining parcels are rejected.
+- **Suggested fix:** Only treat TRACT/PARCEL as a marker at a heading position (start of line/sentence, followed by a description), not after `of`/`corner of`/`line of`.
+
+### 70) Compound distances not joined by "and" silently keep only the first part
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-parse/src/mp_parse/metadata.py` (`extract_distance` compound block, ~lines 388–500); same logic in monolith `text_parser.py`. Introduced in PR #43/#44.
+- **Minimal input:** `N 10° E 2 chains 20 links`; `40 poles 5 feet`.
+- **Expected behavior:** 145.2 ft and 665 ft (as `2 chains and 20 links` correctly gives 145.2).
+- **Actual behavior:** `(2.0, "chains")` = 132 ft and `(40.0, "poles")` = 660 ft, with no note or flag. The trailing-component guard only checks `\s+and\s+`.
+- **Impact:** Silently wrong distances on colonial/rural deeds; violates the never-fabricate principle by recording a measured value the deed does not state.
+- **Suggested fix:** Accept space/comma-joined compound units, and flag any unconsumed trailing measurement instead of dropping it.
+
+### 71) Multi-tract verified export writes `_verified` sidecars when nothing verified
+- **Status:** `open`
+- **Severity:** `high`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-export/src/mp_export/csv_writer.py` (~lines 337–412, `export_verified_csv` with `tract_results`). Introduced in PR #43/#44.
+- **Minimal input:** One open 2-call tract passed as `tract_results`.
+- **Expected behavior:** Raise (as the single-tract gate does) and write no `_verified` artifacts.
+- **Actual behavior:** Returns `[]` and writes `deed_verified.verification.txt` containing `Misclosure: 141.4214 ft (POOR)`; with `audit_context` also `deed_verified.audit.json`/`.audit.html`. In mixed results the `_verified` summary includes failed tracts.
+- **Impact:** Files named `_verified` exist for geometry that failed the gate.
+- **Suggested fix:** Apply the global gate in multi-tract mode: raise when no tract verifies and restrict `_verified` sidecars to verified tracts.
+
+### 72) Unparseable `chord_bearing` crashes `verify_closure`
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-verify/src/mp_verify/closure.py` (~lines 83–85, `compute_traverse`); monolith `closure_checker.py` (~line 385). Introduced in PR #43/#44.
+- **Minimal input:** CSV/JSON call with `chord_bearing` of `S 0 E`, `S34-57E` or `South`.
+- **Expected behavior:** Warning or blocked check.
+- **Actual behavior:** `ValueError: Course 1: invalid chord bearing` escapes `verify_closure`; the pipeline and `metesparser verify` do not catch it (the `mp_review` API maps it to `invalid_input`). Parser-generated chord bearings parse fine, so exposure is mainly imported data.
+- **Suggested fix:** Convert the parse failure into a blocked curve check with a warning.
+
+### 73) Monolith multi-tract verification keeps only the last tract's audit
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `unconfirmed` (code trace)
+- **Location:** `src/metesparser/closure_checker.py` (~line 110; single write at line 333) vs `packages/mp-verify/src/mp_verify/closure.py` (~line 424). Introduced in PR #43/#44.
+- **Issue:** With tracts, the monolith passes one `audit_context` to every `verify_tract`, and each call overwrites `audit_context.verification_audit`, so earlier tracts' checks are lost. The package skips audit for tracts and logs a warning — monolith/package drift.
+- **Suggested fix:** Record per-tract verification audits (or match the package behavior) and keep both in sync.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
