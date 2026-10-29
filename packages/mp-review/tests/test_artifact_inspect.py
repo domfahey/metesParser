@@ -1209,3 +1209,31 @@ def test_causal_restart_ignores_unrelated_invalid_artifacts_and_is_stable(
     assert multiple["earliest_invalid_stage"] == "render-map"
     assert multiple == inspect(root, "dashboard")
     assert inspect(root, "compare-descriptions")["earliest_invalid_stage"] == "compare-descriptions"
+
+
+def test_tampered_plot_csv_source_is_reported_invalid_not_a_traceback(tmp_path):
+    from mp_export.csv_writer import calls_to_csv
+    from mp_review.plot import plot_file
+
+    calls = [
+        DeedCall(
+            course=1,
+            direction_text="East",
+            distance_ft=100,
+            bearing_azimuth_deg_from_north=90,
+        )
+    ]
+    source = tmp_path / "calls.csv"
+    calls_to_csv(calls, str(source))
+    output = tmp_path / "plot"
+    assert plot_file(source, output, input_format="auto")["status"] != "error"
+    retained = output / "source.csv"
+    retained.write_bytes(retained.read_bytes() + b'"a"b,c\n')
+    manifest_path = output / "plot-manifest.json"
+    manifest = json.loads(manifest_path.read_bytes())
+    manifest["source_sha256"] = sha(retained.read_bytes())
+    write_json(manifest_path, manifest)
+
+    result = inspect(tmp_path, "plot")
+    node = nodes(result, "plot")[0]
+    assert node["status"] in {"invalid", "stale"}
