@@ -38,6 +38,8 @@ def _json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 class _Validator:
     def __init__(self, root: Path) -> None:
         self.root = root
+        # Raw transcript bytes, kept independently of UTF-8 decoding for identity checks.
+        self.transcript_bytes: bytes | None = None
         self.result: dict[str, Any] = {
             "schema_version": SCHEMA_VERSION,
             "operation": "validate-source",
@@ -383,6 +385,7 @@ class _Validator:
                     attachment_id=source.attachment_id,
                 )
         raw = self.read(record.transcript.path, record.id)
+        self.transcript_bytes = raw
         self.check_hash(raw, record.transcript.sha256, record.id, record.transcript.path)
         if self.utf8(raw, record.id, record.transcript.path) is not None:
             assert raw is not None
@@ -618,7 +621,7 @@ def validate_source_bundle(
                     path=acquisition_record.transcript.path,
                 )
             validator.check_hash(
-                transcript,
+                validator.transcript_bytes,
                 selection_record.transcript_sha256,
                 selection_record.id,
                 acquisition_record.transcript.path,
