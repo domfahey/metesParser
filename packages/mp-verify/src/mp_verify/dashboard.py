@@ -36,7 +36,7 @@ from mp_verify.plot import build_dashboard_plots, prepare_plot
 from mp_verify.scene import validate_scene
 
 CALCULATOR_VERSION = "dashboard-1.1.0"
-DIAGNOSTICS_VERSION = "closure-diagnostics-1"
+DIAGNOSTICS_VERSION = "closure-diagnostics-2"
 
 
 def _json(value: Any) -> str:

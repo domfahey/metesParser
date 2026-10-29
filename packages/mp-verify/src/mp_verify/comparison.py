@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 from mp_models.comparison import (
+    CircularArcComparison,
     ComparedPair,
     ComparisonComponent,
     ComparisonDescription,
@@ -22,9 +23,10 @@ from mp_models.deed_call import DeedCall
 from mp_models.plot import XY, LinearUnit
 from mp_models.plot_request import PlotCall
 
+from .diagnostics import _curve_evidence, _supported_circular_arc
 from .plot import prepare_plot, transform_point, unit_factor, validate_plot_placement
 
-COMPARISON_VERSION = "comparison-1.0.0"
+COMPARISON_VERSION = "comparison-1.1.0"
 
 
 def comparison_input_hash(request: ComparisonRequest) -> str:
@@ -44,24 +46,6 @@ def _angle(a: float, b: float) -> float:
     return abs((a - b + 180) % 360 - 180)
 
 
-def _curve_evidence(call: DeedCall) -> bool:
-    return (
-        call.is_curve()
-        or call.non_tangent
-        or any(
-            value is not None
-            for value in (
-                call.curve_type,
-                call.radial_bearing,
-                call.chord_bearing,
-                call.chord_length_ft,
-                call.arc_length_ft,
-                call.delta_deg,
-            )
-        )
-    )
-
-
 def _excluded_boundary(call: DeedCall) -> bool:
     return call.is_tie_in or call.is_exception or call.is_meander or call.is_indefinite
 
@@ -71,6 +55,9 @@ class _Group:
     length: float
     vector: XY
     bearing: float
+    radius: float | None = None
+    sweep: float | None = None
+    turn: str | None = None
 
 
 def _group(
@@ -91,6 +78,28 @@ def _group(
     if description.plot.foot_definition == "unknown_ft":
         raise ValueError("unknown foot definition cannot establish unit compatibility")
     factor = unit_factor(description.plot.foot_definition, output_unit)
+    if any(
+        call is not None and _curve_evidence(call) for call in (records[i].call for i in positions)
+    ):
+        if len(positions) != 1:
+            raise ValueError(
+                "grouped arcs or mixed line/arc groups unsupported; select individual circular arcs"
+            )
+        record = records[positions[0]]
+        call = record.call
+        assert call is not None
+        if _excluded_boundary(call):
+            raise ValueError("tie-in, exception, meander or indefinite boundary unsupported")
+        arc = _supported_circular_arc(call, record.id)
+        assert arc.radius_ft is not None and arc.sweep_deg is not None
+        assert arc.start_tangent_deg is not None
+        sign = 1 if arc.curve_dir == "right" else -1
+        bearing = (arc.start_tangent_deg + (sign * arc.sweep_deg + 180 if step == -1 else 0)) % 360
+        vector = (step * arc.end[0] * factor, step * arc.end[1] * factor)
+        length, radius = arc.length_ft * factor, arc.radius_ft * factor
+        _finite(length, radius, *vector)
+        turn = arc.curve_dir if step == 1 else "left" if arc.curve_dir == "right" else "right"
+        return _Group(length, vector, bearing, radius, arc.sweep_deg, turn)
     vectors = []
     lengths = []
     bearings = []
@@ -193,14 +202,13 @@ def _position(
                 for r in description.plot.calls[:first_index]
                 if not (r.call and r.call.is_tie_in)
             }
-            if any(
-                r.call is not None
-                and not r.call.is_tie_in
-                and _curve_evidence(r.call)
-                and not r.call.is_curve()
-                for r in description.plot.calls[:first_index]
-            ):
-                raise ValueError("partial preceding curve evidence prevents position")
+            for record in description.plot.calls[:first_index]:
+                if (
+                    record.call is not None
+                    and not record.call.is_tie_in
+                    and _curve_evidence(record.call)
+                ):
+                    _supported_circular_arc(record.call, record.id)
             if not preceding <= set(primitives):
                 raise ValueError("unresolved preceding geometry prevents position")
             first, last = primitives[selection.call_ids[0]], primitives[selection.call_ids[-1]]
@@ -252,11 +260,43 @@ def _pair(request: ComparisonRequest, pair: ComparisonPair) -> ComparedPair:
             pair.right,
             request.tolerances.linear_unit,
         )
+        if (a.radius is None) != (b.radius is None):
+            raise ValueError(
+                "circular arc and straight boundary are not comparable; no chord substitution"
+            )
+        curve = None
+        if a.radius is not None and b.radius is not None:
+            assert a.sweep is not None and b.sweep is not None
+            curve = CircularArcComparison(
+                radius=_component(
+                    abs(b.radius - a.radius),
+                    request.tolerances.radius,
+                    request.tolerances.linear_unit,
+                    "absolute circular radius difference after declared unit conversion",
+                )
+                if request.tolerances.radius is not None
+                else _unavailable("explicit radius tolerance required"),
+                sweep=_component(
+                    abs(b.sweep - a.sweep),
+                    request.tolerances.sweep_deg,
+                    "degree",
+                    "absolute circular sweep difference; major arc branch retained",
+                )
+                if request.tolerances.sweep_deg is not None
+                else _unavailable("explicit sweep tolerance required"),
+                turn=ComparisonComponent(
+                    outcome="agree" if a.turn == b.turn else "differ",
+                    reason=f"traversal turn after explicit reversal: left={a.turn}, right={b.turn}",
+                ),
+            )
+        base["curve"] = curve
         length = _component(
             abs(b.length - a.length),
             request.tolerances.length,
             request.tolerances.linear_unit,
-            "absolute aggregate length difference after declared unit conversion",
+            "absolute analytic arc length difference after declared unit conversion"
+            if curve is not None
+            else "absolute aggregate length difference after declared unit conversion",
         )
         if not _basis(request):
             unavailable = _unavailable(
@@ -283,7 +323,9 @@ def _pair(request: ComparisonRequest, pair: ComparisonPair) -> ComparedPair:
             _angle(a.bearing, (b.bearing + rotation) % 360),
             request.tolerances.bearing_deg,
             "degree",
-            "shortest unsigned angular difference; explicit reversal and sourced rotation applied",
+            "shortest unsigned start-tangent difference; explicit reversal and sourced rotation applied"
+            if curve is not None
+            else "shortest unsigned angular difference; explicit reversal and sourced rotation applied",
         )
         displacement = _component(
             math.hypot(bv[0] - a.vector[0], bv[1] - a.vector[1]),
