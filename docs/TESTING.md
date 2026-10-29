@@ -67,6 +67,23 @@ make test-mapbox-browser
 
 These targets require the optional browser-test dependencies and a usable Chromium; dashboard checks also require Node. Dashboard preview and picker browser checks exercise offline page behavior, file downloads and local adapter flows; they do not establish native Claude/Cowork behavior, real deed placement, or provider acceptance. Mapbox browser checks additionally require the pinned SDK cache and Chromium WebGL2. `make test-mapbox-live` is a separate provider acceptance check requiring a public Mapbox token and network access. It is not part of `make check`.
 
+## Standalone chat distribution
+
+The standalone chat builder and wrapper tests live in the root suite. Run them explicitly during packaging or setup work, together with the shared launcher checks:
+
+```sh
+uv run python -m pytest tests/unit/test_chat_skill_build.py tests/unit/test_chat_runtime.py \
+  tests/unit/test_plugin_build.py tests/unit/test_packaged_skill_navigation.py \
+  plugins/metesparser/tests/test_launcher.py --no-cov --import-mode=importlib
+uv run ruff check scripts/build_claude_skill.py plugins/metesparser-chat/scripts/run-chat.py
+uv run mypy scripts/build_claude_skill.py plugins/metesparser-chat/scripts/run-chat.py
+make chat-skill-build
+```
+
+Check the extracted archive outside the checkout: one root `SKILL.md`, thirteen embedded procedures, closed local navigation, matching runtime hashes and no reliance on a plugin-root variable. For runtime changes, exercise explicit setup with no `uv` on `PATH` and an empty writable cache, warm-cache offline operation, retained unknown readings, output downloads and revision save/reopen after unpacking into a new directory. Cold setup requires network access; keep it separate from ordinary mocked unit tests.
+
+The [chat validation record](implementation/2026-10-29-claude-chat-skill.md) records the tested archive and local results. Uploading it in Claude chat, native document reading, usable downloads and interactive viewing still need their own host acceptance runs. The [packaging guide](CLAUDE_PLUGIN.md#standalone-claude-chat-skill) documents profiles and setup commands.
+
 ## PDF pipeline tests
 
 `tests/integration/test_pdf_processing.py` exercises the pipeline with mocked provider calls. Each test writes a minimal stub PDF under pytest's temporary directory and feeds deterministic text fixtures to the mocked client. It does not read PDFs from `sample_deeds/`, call an LLM provider, or require API keys.
@@ -91,4 +108,4 @@ For a behavior change, add a focused regression for the expected behavior, run i
 
 Plugin engine behavior is covered by `plugins/metesparser/tests/` and workspace package tests. Skill-evaluation cases are scenario specifications until run in fresh sessions. Native Claude/Cowork document/client acceptance, paired baseline-versus-skill evaluations, and live Mapbox rendering are separate gates; repository tests do not establish those results. The current [Cowork workflow ledger](implementation/2026-10-28-cowork-workflow-ledger.md) records local implementation complete and native acceptance not run. See the [evaluation protocol](../plugins/metesparser/evals/README.md) for recording model, client, tool availability, transcripts, and outcomes.
 
-For plugin build and distribution checks, use the [plugin maintenance guide](CLAUDE_PLUGIN.md). Do not treat passing engine tests or generated evaluation scenarios as native-host acceptance.
+For plugin and standalone chat build checks, use the [distribution maintenance guide](CLAUDE_PLUGIN.md). Do not treat passing engine tests or generated evaluation scenarios as native-host acceptance.
