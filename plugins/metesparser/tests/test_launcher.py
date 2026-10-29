@@ -156,6 +156,25 @@ def test_validate_source_reaches_engine_and_preserves_advisory_status(
     assert capsys.readouterr().out == engine_output
 
 
+@pytest.mark.parametrize("command", ["diagnose-closure", "compare-descriptions"])
+def test_advisory_commands_reach_engine_without_promoting_status(
+    command, monkeypatch, tmp_path, capsys
+):
+    setup_launcher(monkeypatch, make_runtime(tmp_path))
+    commands = []
+    engine_output = '{"status":"needs_review","artifacts":{"result":"result.json"}}\n'
+
+    def run(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=1, stdout=engine_output, stderr="")
+
+    monkeypatch.setattr(launcher.subprocess, "run", run)
+    arguments = [command, "request.json", "--output-dir", "result"]
+    assert launcher.main(arguments) == 1
+    assert commands[0][-len(arguments) - 2 : -2] == arguments
+    assert capsys.readouterr().out == engine_output
+
+
 def test_settings_come_from_calling_project_not_plugin_install(monkeypatch, tmp_path, capsys):
     runtime = make_runtime(tmp_path)
     setup_launcher(monkeypatch, runtime)

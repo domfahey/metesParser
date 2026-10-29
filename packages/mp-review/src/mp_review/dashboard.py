@@ -12,6 +12,8 @@ from typing import Any
 
 from mp_models.dashboard import (
     DashboardBundle,
+    DashboardDescriptionComparison,
+    DashboardDiagnosis,
     DashboardManifest,
     DashboardResult,
     PreparedDashboard,
@@ -88,8 +90,26 @@ def prepare_dashboard(
             manifest = DashboardManifest.model_validate(_load(directory / "stage-manifest.json"))
             saved_source = _load(directory / "source-review.json")
             saved = _load(directory / "calculations.json")
+            saved_diagnostics = _load(directory / "diagnostics.json")
+            saved_comparisons = _load(directory / "description-comparisons.json")
             reused = (
                 manifest.calculator_version == fresh.manifest.calculator_version
+                and manifest.description_comparisons_input_hash
+                == fresh.manifest.description_comparisons_input_hash
+                and manifest.description_comparisons_output_hash
+                == fresh.manifest.description_comparisons_output_hash
+                == _hash(saved_comparisons)
+                and tuple(
+                    DashboardDescriptionComparison.model_validate(item)
+                    for item in saved_comparisons
+                )
+                == fresh.description_comparisons
+                and manifest.diagnostics_input_hash == fresh.manifest.diagnostics_input_hash
+                and manifest.diagnostics_output_hash
+                == fresh.manifest.diagnostics_output_hash
+                == _hash(saved_diagnostics)
+                and tuple(DashboardDiagnosis.model_validate(item) for item in saved_diagnostics)
+                == fresh.diagnostics
                 and manifest.calculation_input_hash == fresh.manifest.calculation_input_hash
                 and manifest.source_review_hash
                 == fresh.manifest.source_review_hash
@@ -102,11 +122,20 @@ def prepare_dashboard(
             pass  # Incomplete/tampered/old stages are recomputed, never trusted.
     manifest = fresh.manifest.model_copy(update={"cache_reused": reused})
     prepared = PreparedDashboard(
-        bundle=bundle, calculations=fresh.calculations, manifest=manifest, plots=fresh.plots
+        bundle=bundle,
+        calculations=fresh.calculations,
+        manifest=manifest,
+        plots=fresh.plots,
+        diagnostics=fresh.diagnostics,
+        description_comparisons=fresh.description_comparisons,
     )
     if directory is not None:
         stages = {
             "source-review.json": source,
+            "diagnostics.json": [d.model_dump(mode="json") for d in prepared.diagnostics],
+            "description-comparisons.json": [
+                c.model_dump(mode="json") for c in prepared.description_comparisons
+            ],
             "calculations.json": [r.model_dump(mode="json") for r in prepared.calculations],
             "plot-geometry.json": [g.model_dump(mode="json") for g in prepared.plots.geometries],
             "map-layers.json": map_stage(bundle),
@@ -179,6 +208,10 @@ def dashboard_file(
         }
         artifacts: dict[str, str | bytes] = {
             "source.json": source,
+            "diagnostics.json": _json([d.model_dump(mode="json") for d in prepared.diagnostics]),
+            "description-comparisons.json": _json(
+                [c.model_dump(mode="json") for c in prepared.description_comparisons]
+            ),
             "dashboard.html": output,
             "source-review.json": _json(_source_data(bundle)),
             "calculations.json": _json([r.model_dump(mode="json") for r in prepared.calculations]),
