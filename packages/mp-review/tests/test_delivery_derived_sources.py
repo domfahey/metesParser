@@ -573,3 +573,48 @@ def test_inspect_delivery_surfaces_rotation_omission(tmp_path, monkeypatch, caps
         main()
     payload = json.loads(capsys.readouterr().out)
     assert any("rotation" in o["reason"].lower() for o in payload["omissions"])
+
+
+def _signed_area(ring):
+    return sum(x1 * y2 - x2 * y1 for (x1, y1), (x2, y2) in zip(ring, ring[1:], strict=False)) / 2
+
+
+def _assert_rfc7946_orientation(features):
+    polygons = 0
+    for feature in features:
+        geometry = feature["geometry"]
+        if geometry["type"] == "Polygon":
+            parts = [geometry["coordinates"]]
+        elif geometry["type"] == "MultiPolygon":
+            parts = geometry["coordinates"]
+        else:
+            continue
+        for rings in parts:
+            polygons += 1
+            assert _signed_area(rings[0]) > 0, "exterior ring must be counterclockwise"
+            assert all(_signed_area(hole) < 0 for hole in rings[1:])
+    assert polygons
+
+
+def test_corridor_geojson_exterior_ring_is_counterclockwise_and_hashed_after(tmp_path):
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    req = DeliveryRequest.model_validate(data)
+    assert publish_delivery(bundle, revision, req, tmp_path / "exports")["status"] == "needs_review"
+    package = tmp_path / "exports/package"
+    _assert_rfc7946_orientation(json.loads((package / "drawing.geojson").read_text())["features"])
+    manifest = json.loads((package / "delivery-manifest.json").read_text())
+    digest = hashlib.sha256((package / "drawing.geojson").read_bytes()).hexdigest()
+    assert manifest["artifacts"]["drawing.geojson"] == digest
+    load_delivery(bundle, revision, package)
+
+
+def test_plss_geojson_exterior_ring_is_counterclockwise(tmp_path):
+    bundle, revision, req, _, _ = request(tmp_path, "plss_reference")
+    data = req.model_dump(mode="json")
+    data["formats"] = ["svg", "geojson"]
+    published = publish_delivery(
+        bundle, revision, DeliveryRequest.model_validate(data), tmp_path / "exports"
+    )
+    assert published["status"] == "needs_review", published
+    features = json.loads((tmp_path / "exports/package/drawing.geojson").read_text())["features"]
+    _assert_rfc7946_orientation(features)
