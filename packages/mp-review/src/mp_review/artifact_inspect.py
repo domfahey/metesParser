@@ -6,6 +6,7 @@ replay establishes deterministic usability. Neither establishes source accuracy.
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import re
@@ -183,7 +184,7 @@ class _Inspector:
             operation()
         except _Issue as exc:
             self.issue(node, exc.code, exc.message, exc.status, exc.path)
-        except (ValueError, TypeError, KeyError, ArithmeticError):
+        except (ValueError, TypeError, KeyError, ArithmeticError, csv.Error):
             self.issue(
                 node,
                 "invalid_provenance",
