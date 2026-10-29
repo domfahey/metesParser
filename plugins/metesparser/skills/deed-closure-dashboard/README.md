@@ -8,7 +8,7 @@ Build an offline dashboard for source-grounded description review, record-only g
 
 ## Inputs and outputs
 
-**Inputs:** The original deed or survey packet, source-review/selection notes, and a JSON bundle containing source/page records, description occurrences, extracted calls, calculations, and optional scenarios.
+**Inputs:** A request for an interactive dashboard plus the source packet and/or valid source-review/selection records and JSON bundle. Reuse records that match the unchanged source.
 
 **Output:** A self-contained offline HTML dashboard plus JSON snapshots of the source review, deterministic calculations, and stage manifest. The dashboard presents indexed source pages and evidence crops when supplied. It is a review aid; it does not establish source completeness, legal authority, or a survey certification.
 
@@ -20,7 +20,7 @@ After completing native source review and preparing a bundle, run from the proje
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard bundle.json --output-dir dashboard-new --cache-dir dashboard-cache
 ```
 
-The equivalent package command is `uv run metes-review dashboard bundle.json --output-dir dashboard-new --cache-dir dashboard-cache`. A valid bundle is reported as `needs_review` (exit 1); inspect its JSON `artifacts`, `errors`, `source_review_complete`, and calculation statuses. Outputs are `source.json`, `dashboard.html`, `source-review.json`, `calculations.json`, `stage-manifest.json`, and `render-manifest.json`. The command does not perform native reading or write the engine's verified CSV.
+The equivalent package command is `uv run metes-review dashboard bundle.json --output-dir dashboard-new --cache-dir dashboard-cache`. A valid bundle is reported as `needs_review` (exit 1); inspect its JSON `artifacts`, `errors`, `source_review_complete`, and calculation statuses. Outputs are `source.json`, `dashboard.html`, `source-review.json`, `calculations.json`, `stage-manifest.json`, and `render-manifest.json`. The command does not perform native reading or write the engine's verified CSV. Explicit placements and named-point comparisons are supported; automatic matching is not.
 
 ## Documentation
 
@@ -28,5 +28,8 @@ The equivalent package command is `uv run metes-review dashboard bundle.json --o
 - [Source review and dashboard playbook](references/playbook.md)
 - [Bundle schema and stage semantics](references/dashboard-bundle.md)
 - [Relative-angle input reference](references/relative-analysis.md)
+- [Plot and placement reference](references/plot-and-overlays.md)
+- [Artifact handoffs](../../references/artifact-handoffs.md)
+- [Prepare parcel overlay](../prepare-parcel-overlay/SKILL.md)
 - [Shared plugin usage](../../references/usage.md)
 - [Plugin changelog](../../CHANGELOG.md)

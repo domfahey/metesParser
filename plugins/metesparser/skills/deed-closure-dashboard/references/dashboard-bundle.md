@@ -1,6 +1,6 @@
 # Dashboard bundle reference
 
-The offline dashboard accepts one JSON object with `schema_version: "1.0"`. Its Pydantic schema is `mp_models.dashboard.DashboardBundle`; the package is the authoritative, versioned contract. This page summarizes the fields and important validation rules without duplicating every model constraint.
+The offline dashboard accepts `schema_version: "1.0"` deed-only bundles and `"1.1"` bundles with plot/map fields. Its Pydantic schema is `mp_models.dashboard.DashboardBundle`; the package is the authoritative, versioned contract. This page summarizes the fields and important validation rules without duplicating every model constraint. Version 1.0 remains supported; version-specific validation rejects plot/overlay fields in a 1.0 input instead of silently dropping them.
 
 ## Top-level fields
 
@@ -16,10 +16,47 @@ The offline dashboard accepts one JSON object with `schema_version: "1.0"`. Its 
 | `calculations` | Canonical or relative method, frame, assumptions, and optional stated area. |
 | `scenarios` | Optional isolated sensitivity presets linked to a calculation and its calls. |
 | `presentation` | Subtitle and method notes rendered with the review. |
+| `scenes`, `map_sources`, `vector_layers`, `raster_layers`, `placements`, `comparison_specs`, `plot_view` (1.1 only) | Explicit coordinate frame, retained map provenance, projected polygon or registered raster data, rigid deed placement, named point pairs, and presentation settings. |
 
 All IDs are unique across record groups and references must resolve within the same occurrence. Embedded page and evidence images use PNG, JPEG, or WebP data URIs with matching SHA-256. Keep original source files and external acquisition/selection records separately; an embedded image and hash do not attest that it was reviewed.
 
+Version 1.1 plot and optional map behavior is detailed in [plot-and-overlays.md](plot-and-overlays.md). In brief, the renderer derives source-linked line/arc geometry and unresolved-call notices; it does not infer missing bearings. A deed-only version 1.0 bundle remains useful without maps. A scene name is not a coordinate transformation, and a supplied vector layer must already be represented in its declared scene coordinates. Use explicit foot definitions and a placement hash tied to the freshly prepared deed geometry before adding a placement. Overlay/source status is contextual evidence, never a deed geometry status or verification result.
+
 For `canonical`, use `frame.basis: "recorded_bearings"` and source bearings. For `relative`, provide `relative` constraints, use `frame.basis: "arbitrary_local"`, and match its frame name. See [relative-analysis.md](relative-analysis.md) for its structured contract. Relative calculations accept straight courses with source-linked known distances and preserve the record's bearing values; a local frame does not create a recorded bearing.
+
+## Compose existing plot and map artifacts
+
+Reuse original source/acquisition/selection records and `plot-input.json`; `plot-geometry.json` is a derived display artifact, not accepted authoritative dashboard input. Populate `calls` with the preserved `call`, actual quote, and real occurrence/page references, then construct `calculations` with the intended method and frame. Preserve relative constraints and unknown recorded bearings. A `PlotRequest.source_reference` has no direct dashboard field: retain it in the source ledger or a `reading_note` rather than adding an unsupported key. Required document/page/occurrence links and review fields must come from actual evidence; a CSV-only plot with no such evidence cannot supply them. Report missing prerequisites instead of inventing pages or marking records reviewed.
+
+Map preparation is reusable without repeating the command. Append its supported `scenes`, `map_sources`, `vector_layers`, and/or `raster_layers` arrays to those same bundle fields and set `schema_version` to `1.1`. Validate IDs and references; conflicting IDs require an explicit mapping, not silent overwriting. Retain the complete imported/registered artifact as a sidecar. In particular, vector import's top-level `operation` and `original_base64` are not `DashboardBundle` fields; source bytes and processing history are also retained inside `map_sources`. Do not merge the whole preparation object or any prepared calculation/geometry result into the bundle.
+
+This development-workspace example composes a valid source bundle (`BASE_BUNDLE.json`) with an existing map-preparation artifact (`PREPARED_LAYER.json`). It writes a new input file and prints freshly computed dashboard geometry hashes. It has been checked with supplied GeoJSON imported to EPSG:3857 and the synthetic absolute-bearing source bundle; it does not infer placement or source-review evidence.
+
+```sh
+uv run python - BASE_BUNDLE.json PREPARED_LAYER.json NEW_BUNDLE.json <<'PYTHON'
+import json
+import sys
+from pathlib import Path
+from mp_models.dashboard import DashboardBundle
+from mp_review.dashboard import prepare_dashboard
+
+base_path, layer_path, output_path = map(Path, sys.argv[1:])
+base = json.loads(base_path.read_text())
+layer = json.loads(layer_path.read_text())
+base["schema_version"] = "1.1"
+for key in ("scenes", "map_sources", "vector_layers", "raster_layers"):
+    base[key] = base.get(key, []) + layer.get(key, [])
+bundle = DashboardBundle.model_validate(base)
+prepared = prepare_dashboard(bundle)
+with output_path.open("x") as output:
+    output.write(bundle.model_dump_json(indent=2) + "\n")
+for geometry in prepared.plots.geometries:
+    print(geometry.calculation_id, geometry.geometry_hash)
+PYTHON
+uv run metes-review dashboard NEW_BUNDLE.json --output-dir NEW_DASHBOARD_DIR
+```
+
+An unplaced layer remains independent map context. If placement is requested, finalize the dashboard calls, calculation identity, frame, and explicit foot definition before computing its geometry. Use the freshly computed dashboard hash for the placement's `geometry_hash`, its calculation ID for `calculation_id`, and the imported scene ID for `scene_id`. Supply only the documented rotation/translation and evidence; see [placement and comparison](plot-and-overlays.md). Standalone and dashboard geometry hashes differ because their source/calculation identities differ even when XY coordinates match. Copying the standalone hash produces a stale-placement error; changing the hash alone does not revalidate an old transform. Revalidate the transform against the current geometry and evidence. Rendering recomputes geometry and rejects tampered or stale prepared results.
 
 ## Status fields
 
@@ -51,6 +88,9 @@ Valid bundles produce top-level `needs_review` (exit 1), not `checks_passed`. Th
 | `dashboard.html` | Self-contained offline dashboard. |
 | `source-review.json` | Source/page/occurrence/call/evidence stage used by calculations. |
 | `calculations.json` | Deterministically calculated record results. |
+| `plot-geometry.json` | Source-linked plot primitives, chains, and unresolved geometry. |
+| `map-layers.json` | Supplied vector/raster layers and retained map sources. |
+| `placements.json` | Validated placements and named-point comparisons/residuals. |
 | `stage-manifest.json` | Source, calculation, and presentation hashes plus calculator and cache metadata. |
 | `render-manifest.json` | Renderer fingerprint, HTML SHA-256, and presentation hash. |
 

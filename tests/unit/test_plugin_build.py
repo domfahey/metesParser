@@ -32,3 +32,14 @@ def test_build_cache_is_absolute_when_subprocess_changes_directory(monkeypatch, 
     builder.run(["uv", "lock"], cwd=tmp_path)
     assert Path(calls[0]["env"]["UV_CACHE_DIR"]).is_absolute()
     assert calls[0]["env"]["UV_CACHE_DIR"] != str(tmp_path / ".uv-cache")
+
+
+def test_geo_runtime_pins_optional_import_dependencies():
+    builder = load_builder()
+    project = tomllib.loads(builder.runtime_project([], geo=True))
+    dependencies = project["project"]["dependencies"]
+    assert any(d.startswith("pyproj==") for d in dependencies)
+    assert any(d.startswith("pillow==") for d in dependencies)
+    assert not any(d.startswith("playwright") for d in dependencies)
+    basic = tomllib.loads(builder.runtime_project([], geo=False))
+    assert not any(d.startswith("pyproj==") for d in basic["project"]["dependencies"])

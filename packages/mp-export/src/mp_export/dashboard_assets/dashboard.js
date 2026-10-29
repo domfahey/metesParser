@@ -81,7 +81,15 @@ function calculateScenario(calculation, calls) {
   const precision = gap ? perimeter / gap : null;
   return {points: translated, headings, deltas, misclosure_ft: gap, misclosure_x_ft: x, misclosure_y_ft: y, perimeter_ft: perimeter, area_sq_ft: Math.abs(area)/2, precision_denominator: Number.isFinite(precision) ? precision : null, stated_angle_sum_deg: angleSum, expected_angle_sum_deg: (distances.length - 2) * 180, computed_closing_angle_deg: calculation.method === "relative" ? mod(180 - (calculation.relative.frame.orientation === "cw" ? 1 : -1) * (headings[0] - headings.at(-1))) : null};
 }
-const DashboardMath = deepFreeze({decimal, parseAngle, parseBearing, relativeHeadings, calculateScenario});
+function scenePoints(points, placement, nativeUnits = "unknown_ft", sceneUnits = "unknown_ft") {
+  if (!placement) return points.map(point => point.slice());
+  const meters = {international_ft: .3048, us_survey_ft: 1200/3937, m: 1};
+  if ((nativeUnits === 'unknown_ft') !== (sceneUnits === 'unknown_ft')) throw Error('Unknown foot definition cannot establish map alignment.');
+  const factor = nativeUnits === 'unknown_ft' ? 1 : meters[nativeUnits] / meters[sceneUnits];
+  const a = mod(placement.rotation_deg) * Math.PI/180, c = Math.cos(a), s = Math.sin(a);
+  return points.map(([x,y]) => [(c*x+s*y)*factor+placement.translation[0],(-s*x+c*y)*factor+placement.translation[1]]);
+}
+const DashboardMath = deepFreeze({scenePoints, decimal, parseAngle, parseBearing, relativeHeadings, calculateScenario});
 if (typeof module !== "undefined" && module.exports) module.exports = DashboardMath;
 if (typeof document !== "undefined") {
   const baseline = deepFreeze(JSON.parse(document.getElementById("dashboard-data").textContent));
@@ -125,7 +133,8 @@ if (typeof document !== "undefined") {
     const body = byId("call-body"); body.replaceChildren();
     working.forEach((item, index) => {
       const row = document.createElement("tr"); if (item.reading_status !== "certain") row.className = "uncertain";
-      row.append(text("td", `${index + 1} · ${item.id}`), text("td", item.quote));
+      const courseCell=text('td',''), sourceButton=text('button',`${index+1} · ${item.id}`); sourceButton.type='button'; sourceButton.addEventListener('click',()=>selectSourceCall(item.id)); courseCell.append(sourceButton);
+      row.append(courseCell, text("td", item.quote));
       const distanceCell = document.createElement("td"), bearingCell = document.createElement("td");
       const fields = [[distanceCell, "distance_ft", item.call && item.call.distance_ft, "Distance in feet"], [bearingCell, "bearing_azimuth_deg_from_north", item.call && item.call.bearing_azimuth_deg_from_north, "Azimuth or quadrant bearing"]];
       fields.forEach(([cell, field, value, label]) => {
@@ -154,8 +163,8 @@ if (typeof document !== "undefined") {
       byId("closing-angle-detail").append(text("p", `Stated closing relation: ${closing.length ? closing.map(c => `${c.kind}: ${c.angle_deg === null ? "angle not numeric" : fmt(c.angle_deg) + "°"} — ${c.source.quote}`).join("; ") : "Not supplied"}`), text("p", `Computed heading-based closing angle: ${fmt(result.computed_closing_angle_deg)}${result.computed_closing_angle_deg === null ? "" : "°"}. Expected complete angle sum: ${fmt(result.expected_angle_sum_deg)}°.`));
       const active = working.filter(c => !(c.call && c.call.is_tie_in));
       working.forEach((item, index) => { const j = active.findIndex(c => c.id === item.id), cells = byId("call-body").rows[index].cells; cells[5].textContent = j >= 0 ? fmt(result.headings[j]) + "°" : "Tie-in excluded"; cells[6].textContent = j >= 0 ? `${fmt(result.deltas[j][0])} / ${fmt(result.deltas[j][1])}` : "—"; });
-      plot(result);
-    } catch (error) { byId("scenario-status").textContent = `Unresolved browser scenario: ${error.message}`; [...byId("call-body").rows].forEach(row => { row.cells[5].textContent = "—"; row.cells[6].textContent = "—"; }); }
+      plot(result); enhanceRecordPlot(result);
+    } catch (error) { enhanceRecordPlot(null); byId("scenario-status").textContent = `Unresolved browser scenario: ${error.message}`; [...byId("call-body").rows].forEach(row => { row.cells[5].textContent = "—"; row.cells[6].textContent = "—"; }); }
   }
   function plot(result) {
     const svg = byId("plot"), ns = "http://www.w3.org/2000/svg", points = result.points;
@@ -165,10 +174,10 @@ if (typeof document !== "undefined") {
     add("polyline", {points: points.map(p => convert(p).join(",")).join(" "), class: "boundary"});
     const first = convert(points[0]), last = convert(points.at(-1)); add("line", {x1: last[0], y1: last[1], x2: first[0], y2: first[1], class: "gap"});
     points.slice(0,-1).forEach((p, i) => { const [x,y] = convert(p); add("circle", {cx:x,cy:y,r:3}); add("text", {x:x+6,y:y-6}).textContent = i === 0 ? "POB / 1" : String(i+1); });
-    add("text", {x:12,y:325}).textContent = selectedCalculation.frame.basis === "arbitrary_local" ? "↑ Local +Y · arbitrary frame" : "↑ North · recorded bearing basis";
+    add("text", {x:12,y:325}).textContent = selectedCalculation.frame.basis === "arbitrary_local" ? "↑ Local +Y · arbitrary frame" : "↑ Local +Y · recorded bearing basis; geographic north unestablished";
     const scaleLength = 100 * scale; if (scaleLength <= 280) { add("line", {x1:60,y1:345,x2:60+scaleLength,y2:345,class:"boundary"}); add("text",{x:60,y:365}).textContent = "100 ft"; } else add("text",{x:12,y:365}).textContent = "Plot fitted to boundary · units: feet";
   }
-  selector.addEventListener("change", reset); parcelSelect.addEventListener("change", refreshOptions); scenarioSelect.addEventListener("change", applyPreset); byId("reset-record").addEventListener("click", reset); refreshOptions();
+  selector.addEventListener("change", reset); parcelSelect.addEventListener("change", refreshOptions); scenarioSelect.addEventListener("change", applyPreset); byId("reset-record").addEventListener("click", reset);
   document.querySelectorAll("[data-copy-target]").forEach(button => button.addEventListener("click", async () => {
     const content = byId(button.dataset.copyTarget).textContent; const status = button.parentElement.querySelector(".copy-status");
     try { if (!navigator.clipboard || !navigator.clipboard.writeText) throw Error("Clipboard unavailable"); await navigator.clipboard.writeText(content); status.textContent = "Copied."; }
@@ -177,6 +186,7 @@ if (typeof document !== "undefined") {
   const viewer = byId("source-viewer"); let pageIndex = 0, viewerImageURL = null;
   document.querySelectorAll("img").forEach(image => image.addEventListener("error", () => { image.hidden = true; let message = image.nextElementSibling; if (!message || !message.classList.contains("image-error")) { message = text("p", "Image could not be decoded. The source ledger reference is preserved."); message.className = "image-error warning"; image.after(message); } }));
   function showPage(index) {
+    viewer.querySelectorAll(".selected-source-detail").forEach(node => node.remove());
     pageIndex = Math.max(0, Math.min(index, bundle.pages.length - 1)); const page = bundle.pages[pageIndex]; if (!page) return;
     const doc = bundle.documents.find(d => d.id === page.document_id); byId("viewer-label").textContent = `${doc.label} · page ${page.number} · ${page.label || page.id} · ${page.reading_status}`;
     const image = byId("viewer-image"), link = byId("open-image"); image.hidden = !page.image; byId("viewer-missing").hidden = Boolean(page.image); link.hidden = !page.image;
@@ -194,4 +204,81 @@ if (typeof document !== "undefined") {
   document.querySelectorAll("[data-page-id]").forEach(button => button.addEventListener("click", () => { previousFocus = document.activeElement; showPage(bundle.pages.findIndex(p => p.id === button.dataset.pageId)); viewer.showModal(); byId("viewer-close").focus(); }));
   byId("viewer-prev").addEventListener("click", () => showPage(pageIndex - 1)); byId("viewer-next").addEventListener("click", () => showPage(pageIndex + 1)); byId("viewer-close").addEventListener("click", () => viewer.close()); viewer.addEventListener("close", () => { if (previousFocus) previousFocus.focus(); });
   viewer.addEventListener("keydown", event => { if (event.key === "ArrowLeft") { event.preventDefault(); showPage(pageIndex - 1); } if (event.key === "ArrowRight") { event.preventDefault(); showPage(pageIndex + 1); } if (event.key === "Escape") { event.preventDefault(); viewer.close(); } });
+  function currentRecordPlot() { return [...document.querySelectorAll('[data-baseline-plot]')].find(node => node.dataset.baselinePlot === selector.value); }
+  function updateScale(svg) {
+    const box = svg.viewBox.baseVal, width = svg.getBoundingClientRect().width;
+    const height = svg.getBoundingClientRect().height, pixelsPerUnit = Math.min(width / box.width, height / box.height);
+    const target = 90 / pixelsPerUnit, exponent = Math.pow(10, Math.floor(Math.log10(target)));
+    const length = [1, 2, 5, 10].map(v => v * exponent).find(v => v >= target) || exponent * 10;
+    const label = svg.parentElement.querySelector('.plot-scale');
+    label.replaceChildren(); const bar = document.createElement('span'); bar.className = 'scale-bar'; bar.style.width = `${length * pixelsPerUnit}px`; label.append(bar, document.createTextNode(`${Number(length.toPrecision(3))} ${svg.dataset.units} · viewport scale`));
+    svg.dataset.scaleLength = length; svg.dataset.scalePixels = length * pixelsPerUnit;
+    svg.querySelectorAll('marker').forEach(n=>{n.setAttribute('markerWidth',8/pixelsPerUnit);n.setAttribute('markerHeight',8/pixelsPerUnit);});
+    svg.querySelectorAll('.pob-marker').forEach(n=>n.setAttribute('r',3/pixelsPerUnit));
+    svg.querySelectorAll('.pob-label').forEach(n=>n.style.fontSize = `${12/pixelsPerUnit}px`);
+    svg.querySelectorAll('.course-label').forEach(n => n.style.fontSize = `${13/pixelsPerUnit}px`);
+    svg.querySelectorAll('.bearing-label,.distance-label').forEach(n => n.style.fontSize = `${11/pixelsPerUnit}px`);
+  }
+  function setPlotView(svg, values) { svg.setAttribute('viewBox', values.join(' ')); updateScale(svg); }
+  function zoomPlot(factor) { const svg = currentRecordPlot(); if (!svg) return; const b = svg.viewBox.baseVal, w=b.width*factor, h=b.height*factor; setPlotView(svg,[b.x+(b.width-w)/2,b.y+(b.height-h)/2,w,h]); }
+  function enhanceRecordPlot(result) {
+    document.querySelectorAll('[data-plot-panel]').forEach(panel => panel.hidden = panel.dataset.plotPanel !== selector.value);
+    const svg = currentRecordPlot(); if (!svg) return;
+    const layer = svg.querySelector('[data-scenario-layer]'); layer.replaceChildren();
+    if (result) {
+      const placement = baseline.plots.placements.find(p => p.calculation_id === selector.value && p.status !== 'unplaced');
+      const scene = placement && bundle.scenes.find(s => s.id === placement.scene_id);
+      const points = scenePoints(result.points, placement, selectedCalculation.frame.foot_definition || 'unknown_ft', scene ? scene.units : 'unknown_ft');
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path'); path.classList.add('scenario-course');
+      path.setAttribute('d', points.map((p,i) => `${i ? 'L':'M'} ${p[0]} ${-p[1]}`).join(' ')); layer.append(path);
+      layer.dataset.baselineGeometryHash = baseline.plots.geometries.find(g=>g.calculation_id===selector.value).geometry_hash;
+      layer.dataset.scenarioId = scenarioSelect.value || 'browser-working-copy';
+      layer.dataset.rotation = placement ? placement.rotation_deg : 0;
+      layer.dataset.translation = JSON.stringify(placement ? placement.translation : [0,0]);
+    }
+    updateScale(svg);
+  }
+  document.querySelectorAll('[data-baseline-plot]').forEach(svg => {
+    svg.setAttribute('tabindex','0'); let dragging = null;
+    svg.addEventListener('pointerdown', event => { if (event.target.closest('[data-plot-call],[data-source-call]')) return; dragging = [event.clientX,event.clientY,...[svg.viewBox.baseVal.x,svg.viewBox.baseVal.y]]; svg.setPointerCapture(event.pointerId); });
+    svg.addEventListener('pointermove', event => { if (!dragging) return; const b=svg.viewBox.baseVal, scale=Math.min(svg.clientWidth/b.width,svg.clientHeight/b.height); setPlotView(svg,[dragging[2]-(event.clientX-dragging[0])/scale,dragging[3]-(event.clientY-dragging[1])/scale,b.width,b.height]); });
+    svg.addEventListener('pointerup',()=>{dragging=null;}); svg.addEventListener('pointercancel',()=>{dragging=null;});
+    svg.addEventListener('keydown',event=>{ if (event.target !== svg) return; const b=svg.viewBox.baseVal, steps={ArrowLeft:[-.1,0],ArrowRight:[.1,0],ArrowUp:[0,-.1],ArrowDown:[0,.1]}; if(steps[event.key]) { event.preventDefault(); const d=steps[event.key];setPlotView(svg,[b.x+d[0]*b.width,b.y+d[1]*b.height,b.width,b.height]); } else if(event.key==='+'||event.key==='='){event.preventDefault();zoomPlot(.8);}else if(event.key==='-'){event.preventDefault();zoomPlot(1.25);} });
+  });
+  byId('plot-zoom-in').addEventListener('click',()=>zoomPlot(.8)); byId('plot-zoom-out').addEventListener('click',()=>zoomPlot(1.25));
+  for(const id of ['plot-fit','plot-reset']) byId(id).addEventListener('click',()=>{const svg=currentRecordPlot();if(svg){svg.setAttribute('viewBox',id === 'plot-fit' ? svg.dataset.fitViewbox : svg.dataset.initialViewbox);updateScale(svg);}});
+  byId('plot-labels').addEventListener('change',event=>document.querySelectorAll('.course-label').forEach(n=>n.toggleAttribute('hidden',!event.target.checked)));
+  byId('plot-bearings').addEventListener('change',event=>document.querySelectorAll('.bearing-label').forEach(n=>n.style.display=event.target.checked?'block':'none'));
+  byId('plot-distances').addEventListener('change',event=>document.querySelectorAll('.distance-label').forEach(n=>n.style.display=event.target.checked?'block':'none'));
+  function selectSourceCall(id) {
+    document.querySelectorAll('[data-call-row]').forEach(row=>row.classList.toggle('selected-call',row.dataset.callRow===id));
+    document.querySelectorAll('[data-plot-call]').forEach(path=>path.classList.toggle('selected-call',path.dataset.plotCall===id));
+    const row=[...document.querySelectorAll('[data-call-row]')].find(r=>r.dataset.callRow===id);
+    if(row) {
+      row.scrollIntoView({block:'nearest'}); row.querySelector('[data-page-id]').click();
+      const source=bundle.calls.find(c=>c.id===id), evidence=bundle.evidence.find(e=>e.call_id===id), detail=text('div',''); detail.className='selected-source-detail';
+      detail.append(text('p',`${id}: ${source.quote}`));
+      if(evidence && evidence.image) { const image=document.createElement('img');image.src=evidence.image;image.alt=evidence.label;image.className='selected-source-crop';image.addEventListener('error',()=>{image.hidden=true;detail.append(text('p','Evidence crop could not be decoded. Inspect the source page.'));});detail.append(image,text('p',`Evidence: ${evidence.label}. Crop pixels: ${JSON.stringify(evidence.bounds_px)}.`)); }
+      else detail.append(text('p','No individual evidence crop supplied; inspect the linked source page.'));
+      byId('viewer-label').after(detail);
+    }
+  }
+  document.querySelectorAll('[data-plot-call],[data-source-call]').forEach(node=>{
+    const select=()=>selectSourceCall(node.dataset.plotCall||node.dataset.sourceCall);
+    node.addEventListener('click',select); node.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();select();}});
+  });
+  const initialView = bundle.plot_view || {};
+  const labels = initialView.labels || ['course'];
+  byId('plot-labels').checked=labels.includes('course'); byId('plot-bearings').checked=labels.includes('bearing'); byId('plot-distances').checked=labels.includes('distance');
+  document.querySelectorAll('.course-label').forEach(n=>n.toggleAttribute('hidden',!labels.includes('course')));
+  document.querySelectorAll('.bearing-label').forEach(n=>n.style.display=labels.includes('bearing')?'block':'none');
+  document.querySelectorAll('.distance-label').forEach(n=>n.style.display=labels.includes('distance')?'block':'none');
+  document.querySelectorAll('[data-layer-opacity]').forEach(input => { const pair=(initialView.opacity || []).find(p=>p[0]===input.dataset.layerOpacity); if(pair)input.value=pair[1]; });
+  document.querySelectorAll('[data-layer-toggle]').forEach(input => { if((initialView.visible_layer_ids || []).length)input.checked=initialView.visible_layer_ids.includes(input.dataset.layerToggle); document.querySelectorAll('[data-map-layer]').forEach(layer=>{if(layer.dataset.mapLayer===input.dataset.layerToggle)layer.toggleAttribute('hidden',!input.checked);}); });
+  document.querySelectorAll('[data-layer-toggle]').forEach(input=>input.addEventListener('change',()=>document.querySelectorAll('[data-map-layer]').forEach(layer=>{if(layer.dataset.mapLayer===input.dataset.layerToggle)layer.toggleAttribute('hidden',!input.checked);})));
+  document.querySelectorAll('[data-layer-opacity]').forEach(input=>input.addEventListener('input',()=>document.querySelectorAll('[data-map-layer]').forEach(layer=>{if(layer.dataset.mapLayer===input.dataset.layerOpacity)layer.style.opacity=input.value;})));
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(()=>{const svg=currentRecordPlot();if(svg)updateScale(svg);}).observe(byId('workbench'));
+
+
+  refreshOptions();
 }

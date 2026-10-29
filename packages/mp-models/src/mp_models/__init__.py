@@ -34,6 +34,21 @@ from .envelope import (
 )
 from .legal_description import LegalDescription
 from .logging import configure_logging, get_log_format
+from .plot import (
+    DashboardPlots,
+    MapSource,
+    PlotComparison,
+    PlotComparisonSpec,
+    PlotGeometry,
+    PlotPlacement,
+    PlotPrimitive,
+    PlotScene,
+    PlotView,
+    PointCorrespondence,
+    VectorLayer,
+)
+from .plot_request import PlotCall, PlotRequest, PreparedPlot
+from .raster import RasterControl, RasterLayer, RasterRegistration, RasterResidual
 from .relative import (
     LocalFrame,
     RelativeAnalysisResult,
@@ -50,6 +65,10 @@ from .units import ConversionFactors, DistanceUnit
 __version__ = "1.0.0"
 
 __all__ = [
+    "RasterControl",
+    "RasterLayer",
+    "RasterRegistration",
+    "RasterResidual",
     "AuditContext",
     "CallAudit",
     "CheckResult",
@@ -59,6 +78,20 @@ __all__ = [
     "CurveDirection",
     "CurveType",
     "DashboardBundle",
+    "DashboardPlots",
+    "MapSource",
+    "PlotComparison",
+    "PlotComparisonSpec",
+    "PlotGeometry",
+    "PlotCall",
+    "PlotRequest",
+    "PreparedPlot",
+    "PlotPlacement",
+    "PlotPrimitive",
+    "PlotScene",
+    "PlotView",
+    "PointCorrespondence",
+    "VectorLayer",
     "DashboardManifest",
     "DashboardResult",
     "Decision",
