@@ -642,3 +642,27 @@ def test_non_utf8_transcript_still_reports_selection_transcript_identity(bundle)
     )
     assert check["actual_sha256"] == digest(raw)
     assert check["status"] == "matched"
+
+
+@pytest.mark.parametrize("via_symlinked_root", [False, True])
+def test_absolute_override_through_symlinked_directory_below_root_is_rejected(
+    bundle, tmp_path_factory, via_symlinked_root
+):
+    real = bundle / "real"
+    real.mkdir()
+    (real / "acquisition.json").write_bytes((bundle / "source-acquisition.json").read_bytes())
+    (bundle / "sub").symlink_to(real, target_is_directory=True)
+    root = bundle
+    if via_symlinked_root:
+        root = tmp_path_factory.mktemp("symlinked-root") / "bundle"
+        root.symlink_to(bundle, target_is_directory=True)
+    result = validate(root, acquisition=root / "sub" / "acquisition.json")
+    assert result["status"] == "error"
+    assert findings(result, "unsafe_path")
+
+
+def test_absolute_override_that_is_a_file_symlink_below_root_is_rejected(bundle):
+    (bundle / "linked-acquisition.json").symlink_to(bundle / "source-acquisition.json")
+    result = validate(bundle, acquisition=bundle / "linked-acquisition.json")
+    assert result["status"] == "error"
+    assert findings(result, "unsafe_path")

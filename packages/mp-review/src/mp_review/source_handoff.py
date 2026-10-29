@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,7 @@ def _json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 class _Validator:
     def __init__(self, root: Path) -> None:
         self.root = root
+        self.given_root = root
         # Raw transcript bytes, kept independently of UTF-8 decoding for identity checks.
         self.transcript_bytes: bytes | None = None
         self.result: dict[str, Any] = {
@@ -98,6 +100,20 @@ class _Validator:
         else:
             self.result["source_uncertainties"]["status"] = "declared"
 
+    def _relative_to_root(self, value: Path) -> Path:
+        candidates = [
+            Path(os.path.normpath(self.given_root.absolute())),
+            self.root,
+            self.root.resolve(),
+        ]
+        target = Path(os.path.normpath(value))
+        for base in candidates:
+            try:
+                return target.relative_to(base)
+            except ValueError:
+                continue
+        raise ValueError("outside root")
+
     def read(
         self, reference: str | Path, record_id: str | None, *, record: bool = False
     ) -> bytes | None:
@@ -105,9 +121,9 @@ class _Validator:
         display = str(reference)
         if value.is_absolute():
             try:
-                # Resolve the directory (not the final name) so symlinked roots such as
-                # macOS /tmp compare equal to the resolved root without hiding a final symlink.
-                value = (value.parent.resolve() / value.name).relative_to(self.root)
+                # Strip the root prefix lexically (as given or in resolved form) and never
+                # resolve below it, so the per-component symlink check still sees any link.
+                value = self._relative_to_root(value)
                 display = value.as_posix()
             except ValueError:
                 self.finding(
