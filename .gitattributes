@@ -1,0 +1,3 @@
+# Source-handoff examples test exact bytes, including BOM, CRLF and trailing spaces.
+packages/mp-review/tests/fixtures/source_handoff/*.txt -text -whitespace
+plugins/metesparser/references/source-handoff/*.txt -text -whitespace

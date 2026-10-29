@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.1",
+  "id": "selection-1",
+  "acquisition_id": "acq-1",
+  "acquisition_sha256": "321bb8ab7639d3144c9f7c8f416d2c7d97e2e4e354cd61ebaf04b6b1517840e3",
+  "transcript_sha256": "71d1fe2a63cee54c109f0599df10a34c1ce7d08f96ff596d5ca1558524aad7bf",
+  "request": "Select the operative synthetic parcel description.",
+  "selection_instructions": "Preserve separate spans and explicit separators.",
+  "candidates": [
+    {
+      "id": "candidate-a",
+      "label": "Parcel A",
+      "role": "operative",
+      "selected_text": {
+        "path": "description-a.txt",
+        "sha256": "5624692691bcca09b02b63b82612d4a1dba1fe876df346f38b6678d5b2079161"
+      },
+      "spans": [
+        {
+          "page_id": "page-1",
+          "start_byte": 3,
+          "end_byte": 22,
+          "start_line": 1,
+          "end_line": 1
+        },
+        {
+          "page_id": "page-2",
+          "start_byte": 48,
+          "end_byte": 65,
+          "start_line": 3,
+          "end_line": 3
+        }
+      ],
+      "separators": [
+        "\n"
+      ],
+      "opening_words": "N 45°",
+      "closing_words": "ft\r\n",
+      "rationale": "Operative two-span description; historical text excluded.",
+      "unresolved_references": [],
+      "carried_uncertainty_ids": []
+    }
+  ]
+}
