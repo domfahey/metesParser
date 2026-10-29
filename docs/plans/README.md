@@ -1,10 +1,10 @@
 # Implementation plans
 
-Prepared with the improve planning skill on 2026-10-27. These are implementation handoffs, not completion reports. Historical plans remain in `docs/plans/`.
+Implementation plans and acceptance handoffs live here alongside dated historical plans. The Mapbox handoff below was prepared with the improve planning skill on 2026-10-27; its status distinguishes local implementation from host/provider acceptance.
 
 | Plan | Outcome | Priority | Effort | Dependencies | Status |
 |---|---|---|---|---|---|
-| [001](001-mapbox-online-viewer.md) | Optional Mapbox viewer combining registered tax maps and recorded deed geometry | P1 | L | Existing plot, registration, and dashboard contracts | IMPLEMENTED — local gates passed; live token blocked, native-host acceptance not run |
+| [001](2026-10-27-mapbox-online-viewer.md) | Optional Mapbox viewer combining registered tax maps and recorded deed geometry | P1 | L | Existing plot, registration, and dashboard contracts | IMPLEMENTED — local gates passed; live token blocked, native-host acceptance not run |
 
 The parent executor owns this index. Read the entire plan before dispatching its bounded work packets. Use at most three concurrent workers plus the parent. Every worker must preserve existing changes and report red/green evidence, limitations, and files changed.
 
