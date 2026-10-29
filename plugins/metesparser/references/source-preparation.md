@@ -1,53 +1,46 @@
 # Source preparation and handoff
 
-The acquisition and selection records are separate from the deterministic engine's `audit.json`. That engine records parsing and geometry; it does not attest that Claude's transcription or section selection matches a document. Retain these records alongside review outputs and preserve the original source.
+Acquisition and description-selection records preserve what was supplied, read, selected, and left uncertain. They are separate from the deterministic engine's `audit.json`, which records parsing and geometry. Neither record attests that a transcription or selection is accurate.
 
-Use a fresh working folder; do not overwrite source documents or existing review artifacts. Keep this layout as a convention, without requiring additional conversion software:
+Keep the original document and exact UTF-8 transcript. A common working folder is:
 
 ```text
+original.pdf
 source-text.txt
 source-acquisition.json
 description-parcel-a.txt
 description-selection.json
-review-parcel-a/          # New directory created by the deterministic review engine
+review-parcel-a/          # fresh deterministic review output
 ```
 
-## Native reading record
+## Schema 1.1
 
-Record the actual conversion request and instructions applied, the resulting full transcription file, native reading method, source filenames or attachment identifiers, pages supplied and read, ordering, missing pages, and uncertainties. Include the Claude model identifier only when known. Compute source/text SHA-256 hashes with available tools when possible; otherwise leave hashes null and disclose that they were not computed. Do not store a guessed hash or mark native transcription as deterministic.
+The authoritative Pydantic contracts are `mp_models.source_handoff.SourceAcquisitionRecord` and `DescriptionSelectionRecord`. Their generated packaged JSON schemas are [acquisition](source-handoff/source-acquisition.schema.json) and [selection](source-handoff/description-selection.schema.json); the runtime additionally enforces cross-field references, safe paths, and exact-byte span rules. Complete synthetic examples are [source-acquisition.json](source-handoff/source-acquisition.json) and [description-selection.json](source-handoff/description-selection.json), alongside their byte-exact source/transcript/selected files in `references/source-handoff/`. Those fixtures are software examples, not real source-reading evidence. Keep records at schema version `1.1` and use only observed facts.
 
-An acquisition record may use this shape (replace examples with observed facts):
+| Record | Required evidence |
+| --- | --- |
+| Acquisition | `id`, actual `method`, optional known `model`, actual `request` and `conversion_instructions`; `sources` with ID and exactly one root-relative `path` or opaque `attachment_id`; transcript path; source/transcript SHA-256 when computed; source `page_count` when known; page map with IDs, source/page, and transcript line bounds; `supplied_pages`, `read_pages`, `unreadable_pages`, `missing_pages`; and `uncertainties`. |
+| Selection | `id`, linked `acquisition_id`, acquisition/transcript hashes when known, actual request/instructions, and separate `candidates`. Each candidate has label and `operative`/`historical`/`other` role; selected-text path/hash; source page IDs, zero-based half-open UTF-8 byte spans and one-based transcript line spans; explicit separators; exact opening/closing words; rationale; unresolved references; and carried uncertainty IDs. |
 
-```json
-{
-  "schema_version": "1.0",
-  "method": "claude_native_document_reading",
-  "source_identifiers": ["source.pdf"],
-  "source_sha256": null,
-  "model": null,
-  "request": "Convert the supplied document to text.",
-  "conversion_instructions": "Record the actual instructions applied here.",
-  "transcription_file": "source-text.txt",
-  "transcription_sha256": null,
-  "page_map": [{"source": "source.pdf", "page": 1, "start_line": 1, "end_line": 42}],
-  "missing_pages": [],
-  "uncertainties": []
-}
+Byte offsets refer to the exact transcript bytes, including a UTF-8 BOM and CRLF bytes. Do not normalize the source before measuring spans. The validator checks structure, confined local paths, page inventory, and recorded byte identities. It cannot judge whether source reading or selection is correct.
+
+Validate a bundle read-only after writing the records. The folder is the explicit root for all local paths; optional arguments select records at other root-relative paths:
+
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" validate-source BUNDLE_DIR
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" validate-source BUNDLE_DIR --acquisition source-acquisition.json --selection description-selection.json
 ```
 
-Use line numbers from the saved transcript. Record unreadable text with page, surrounding quotation, and affected field when apparent. Do not convert an absent exhibit into an empty uncertainty list.
+The package equivalent is `uv run metes-review validate-source BUNDLE_DIR`. A completed validation returns JSON status `needs_review` and exit 1, even when structure is valid and recorded hashes match. Inspect `structure`, `identity`, `source_uncertainties`, `findings`, and `limitations`; exit 1 is advisory, not a validation failure. Invalid invocation/schema or inability to produce a result returns `error` and exit 2. Validation does not rewrite records or produce verified output.
 
-## Description selection record
+## Reading and selection evidence
 
-Record the actual selection request/instructions and each candidate's label, selected text file, source ranges, exact opening and closing words, selection rationale, unresolved references, and carried uncertainties. Use observed transcript line ranges and page references, rather than invented coordinates. Record noncontiguous source ranges separately and explain any inserted separators. Keep each selected section verbatim; retain the complete transcription as the comparison source.
+Record the real conversion request, instructions, source IDs, ordering, supplied/read/unreadable/missing pages, and unresolved text. Include a Claude model identifier only when known. Compute SHA-256 over the exact source and transcript bytes when possible; otherwise use `null` and leave identity unverifiable. Distinguish unreadable content from an absent page or missing exhibit. Keep uncertainty descriptions and affected page/source references; do not turn an unknown into an empty list or claim complete coverage.
 
-Do not represent a source-derived street address as a metes-and-bounds description. For multiple candidate tracts, request clarification unless the requested parcel is clear from the task. Preserve historic description candidates as distinct from the selected operative description.
+Transcribe the whole supplied document before selecting. Preserve words, notation, page order, and source wording. Mark unreadable text as `[illegible]` and retain surrounding words and affected field when apparent. Separate operative and historical descriptions. Keep noncontiguous spans in order with explicit separators; do not fabricate coordinates or splice away context. Preserve commencement calls, exceptions, qualifications, and unresolved exhibit references.
 
-## Stage boundaries
+## Legacy records
 
-1. Convert with Claude's native document/image capabilities and disclose reading gaps.
-2. Locate and copy the operative metes-and-bounds description with its context and source locations.
-3. Resolve parcel ambiguity or material illegibility before verification.
-4. Run the existing deterministic review on the selected text. Link its artifacts to these acquisition/selection records in the response.
+Legacy schema `1.0` records are readable as legacy evidence but remain unverifiable by the `1.1` validator. Migrate by preserving the originals, then creating new `1.1` records from the underlying source and transcript: recompute hashes from exact bytes; use stable IDs for sources/pages/candidates; record only observed page and line facts; calculate selection byte ranges against the exact transcript; and carry every known uncertainty forward. Use `null` for unknown hashes/model/page counts, an opaque attachment ID when no local path exists, and explicit missing-page records when the source identifies a missing page. Do not infer missing page ranges, source identifiers, selection spans, or accuracy from legacy fields. If a fact cannot be recovered, leave it unknown and note it in `uncertainties` or `unresolved_references`.
 
-Never imply that geometric closure proves correct transcription or section selection. A successful deterministic result does not remove missing-page, transcription, or section-boundary uncertainties.
+After validation, hand off the selected text and both source records with later review artifacts. Closure cannot establish transcription completeness or correct section selection. A material unreadable or missing passage that may contain a boundary call or exception must be resolved before reporting a verified result. See [artifact handoffs](artifact-handoffs.md) for identity, reuse, and stage boundaries.

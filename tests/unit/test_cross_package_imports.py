@@ -145,6 +145,15 @@ class TestMpVerifyImports:
         assert RelativeDescription is PackageDescription
         assert analyze_relative is package_analyze
 
+    def test_source_handoff_facade(self) -> None:
+        from mp_models import SourceAcquisitionRecord
+        from mp_review import validate_source_bundle
+
+        from metesparser import source_handoff
+
+        assert source_handoff.SourceAcquisitionRecord is SourceAcquisitionRecord
+        assert source_handoff.validate_source_bundle is validate_source_bundle
+
 
 class TestMpExportImports:
     """mp-export package should export CSV and audit HTML functions."""
