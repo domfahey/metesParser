@@ -6,6 +6,7 @@ calculator is advisory and never changes canonical findings or export status.
 
 from __future__ import annotations
 
+import base64
 import csv
 import hashlib
 import html
@@ -27,7 +28,7 @@ from mp_models.plot import (
     VectorLayer,
 )
 from mp_models.plot_request import PlotCall
-from mp_models.raster import RasterLayer
+from mp_models.raster import RASTER_ORIENTATION_MESSAGE, RasterLayer, image_orientation
 from mp_models.revisions import revision_template
 from mp_verify.dashboard import validate_prepared_dashboard
 
@@ -297,6 +298,8 @@ def _raster_corners(layer: RasterLayer) -> list[XY]:
 
 
 def _raster_svg(layer: RasterLayer) -> str:
+    if image_orientation(base64.b64decode(layer.data_base64)) not in (None, 1):
+        raise ValueError(RASTER_ORIENTATION_MESSAGE)
     a, b, c, d, e, f = layer.registration.matrix
     matrix = " ".join(f"{value:.17g}" for value in (a, d, b, e, c, f))
     return f'<g transform="scale(1 -1)"><image data-raster-layer="{_escape(layer.id)}" x="-0.5" y="-0.5" width="{layer.width}" height="{layer.height}" transform="matrix({matrix})" href="data:{layer.mime_type};base64,{_escape(layer.data_base64)}" preserveAspectRatio="none"><title>{_escape(layer.label)}</title></image></g>'
