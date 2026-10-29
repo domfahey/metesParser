@@ -38,6 +38,8 @@ def _json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 class _Validator:
     def __init__(self, root: Path) -> None:
         self.root = root
+        # Raw transcript bytes, kept independently of UTF-8 decoding for identity checks.
+        self.transcript_bytes: bytes | None = None
         self.result: dict[str, Any] = {
             "schema_version": SCHEMA_VERSION,
             "operation": "validate-source",
@@ -103,7 +105,9 @@ class _Validator:
         display = str(reference)
         if value.is_absolute():
             try:
-                value = value.relative_to(self.root)
+                # Resolve the directory (not the final name) so symlinked roots such as
+                # macOS /tmp compare equal to the resolved root without hiding a final symlink.
+                value = (value.parent.resolve() / value.name).relative_to(self.root)
                 display = value.as_posix()
             except ValueError:
                 self.finding(
@@ -240,6 +244,11 @@ class _Validator:
         try:
             text = raw.decode("utf-8-sig")
         except UnicodeDecodeError:
+            self.result[kind] = {
+                "status": "invalid",
+                "path": str(reference),
+                "sha256": _digest(raw),
+            }
             self.finding(
                 "invalid_utf8",
                 "Record must contain valid UTF-8 JSON.",
@@ -258,6 +267,11 @@ class _Validator:
             if not isinstance(data, dict):
                 raise ValueError("Record must be a JSON object.")
         except ValueError as exc:
+            self.result[kind] = {
+                "status": "invalid",
+                "path": str(reference),
+                "sha256": _digest(raw),
+            }
             self.finding("invalid_json", str(exc), path=str(reference), error=True)
             return None, raw
         version = data.get("schema_version")
@@ -371,6 +385,7 @@ class _Validator:
                     attachment_id=source.attachment_id,
                 )
         raw = self.read(record.transcript.path, record.id)
+        self.transcript_bytes = raw
         self.check_hash(raw, record.transcript.sha256, record.id, record.transcript.path)
         if self.utf8(raw, record.id, record.transcript.path) is not None:
             assert raw is not None
@@ -606,7 +621,7 @@ def validate_source_bundle(
                     path=acquisition_record.transcript.path,
                 )
             validator.check_hash(
-                transcript,
+                validator.transcript_bytes,
                 selection_record.transcript_sha256,
                 selection_record.id,
                 acquisition_record.transcript.path,
