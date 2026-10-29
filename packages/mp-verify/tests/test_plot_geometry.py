@@ -190,3 +190,31 @@ def test_consistent_tangent_and_chord_orientation_uses_circular_residual():
         )
     )
     assert geometry.primitives[0].start_tangent_deg == pytest.approx(350)
+
+
+def _second_precision_curve(chord_bearing):
+    delta = 45 + 15 / 60 + 15 / 3600  # 45 deg 15' 15"
+    return make_bundle(
+        [
+            {
+                "bearing_azimuth_deg_from_north": 0,
+                "curve_dir": "right",
+                "radius_ft": 100,
+                "delta_deg": delta,
+                "chord_bearing": chord_bearing,
+            }
+        ]
+    )
+
+
+def test_second_precision_chord_bearing_agrees_with_tangent():
+    # True half-delta is 22 deg 37' 37.5"; the deed states whole seconds.
+    geometry = plot(_second_precision_curve("N 22°37'38\" E"))
+    assert geometry.primitives
+    assert not geometry.unresolved
+
+
+def test_one_arcminute_tangent_chord_disagreement_still_rejected():
+    geometry = plot(_second_precision_curve("N 22°38'38\" E"))
+    assert not geometry.primitives
+    assert "inconsistent" in geometry.unresolved[0].reason
