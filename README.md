@@ -42,7 +42,13 @@ The plugin has ten capabilities, two workflows and the `review-deed` compatibili
 
 Skills can contain instructions, references and executable code. Our plugin packages those skills with one shared deterministic engine. Cowork adds convenient project-file access and task coordination; the calculations do not depend on Cowork. Claude Code is another host for the same plugin.
 
-Claude chat supports skill scripts in its code-execution environment. A self-contained chat Skill ZIP is planned for users without Cowork; it will reuse the same engine and return downloadable results. It is not built yet, and native chat testing is pending. Individual plugin skill folders are not standalone installations. See the [chat functionality gaps](docs/CLAUDE_PLUGIN.md#functional-gaps-for-claude-chat) and [two-distribution design](docs/CLAUDE_PLUGIN.md#two-distributions-one-engine).
+Claude chat supports skill scripts in its code-execution environment. The standalone chat Skill ZIP reuses the same engine and returns downloadable results, without requiring Cowork. Native chat testing is pending. Individual plugin skill folders are not standalone installations. See the [chat functionality gaps](docs/CLAUDE_PLUGIN.md#functional-gaps-for-claude-chat) and [two-distribution design](docs/CLAUDE_PLUGIN.md#two-distributions-one-engine).
+
+## Install the standalone Claude chat Skill
+
+From a source checkout, run `make chat-skill-build`. This creates `dist/metesparser-chat-skill.zip` and its `.sha256` sidecar. Verify the checksum, then upload the ZIP through **Customize → Skills** and enable code execution. The archive contains one discoverable `metesparser-review` skill with thirteen embedded procedures and one shared engine.
+
+The skill's explicit setup command checks the chat runtime and can install a pinned, hash-checked `uv` in its writable cache before provisioning locked dependencies. It requires Python 3.11+ and first-use network access unless tools and dependencies are already cached. It does not rely on laptop installations. See the [chat installation guide](plugins/metesparser-chat/README.md) and [build profiles](docs/CLAUDE_PLUGIN.md#standalone-claude-chat-skill).
 
 ## Install the Claude plugin
 
@@ -162,6 +168,7 @@ Use uv for dependencies and Ruff for linting/formatting. Keep schema, math and r
 make check          # Root lint, formatting, mypy and tests
 make pre-commit     # Required before commits; runs lint-fix, formatting and root tests
 make plugin-build   # Build dist/metesparser-plugin.zip and its SHA-256 sidecar
+make chat-skill-build # Build dist/metesparser-chat-skill.zip and its SHA-256 sidecar
 ```
 
 Package/plugin tests, browser checks and native/provider acceptance are separate lanes. Use the [testing guide](docs/TESTING.md) for commands and prerequisites, and the [contribution guide](docs/CONTRIBUTING.md) for changes and pull requests. Repository-specific agent instructions live in [AGENTS.md](AGENTS.md); `CLAUDE.md` is its symlink.
