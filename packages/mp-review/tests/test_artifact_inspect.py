@@ -548,6 +548,35 @@ def test_saved_display_freshness_is_separate_from_replayed_geometry(
     assert stage_result["status"] == expected
 
 
+def test_review_display_is_checked_before_unsupported_replay_metadata_returns(tmp_path):
+    source = tmp_path / "source.json"
+    write_json(
+        source,
+        [
+            {
+                "course": 1,
+                "direction_text": "East",
+                "distance_ft": 100,
+                "bearing_azimuth_deg_from_north": 90,
+            }
+        ],
+    )
+    output = tmp_path / "review"
+    assert review_file(source, output_dir=output)["status"] != "error"
+    manifest_path = output / "review-manifest.json"
+    manifest = json.loads(manifest_path.read_bytes())
+    del manifest["replay_version"]
+    write_json(manifest_path, manifest)
+    (output / "review.html").write_text("tampered display", encoding="utf-8")
+
+    result = inspect(tmp_path, "review")
+    core = nodes(result, "review")[0]
+    display = nodes(result, "review_display")[0]
+    assert core["status"] == "unverifiable"
+    assert display["status"] == "stale"
+    assert "artifact_hash_mismatch" in codes(display)
+
+
 def test_fabricated_plot_request_fails_even_with_consistent_hashes(tmp_path):
     from mp_models.plot_request import PlotRequest
     from mp_review.plot import plot_file
