@@ -44,3 +44,20 @@ Transcribe the whole supplied document before selecting. Preserve words, notatio
 Legacy schema `1.0` records are readable as legacy evidence but remain unverifiable by the `1.1` validator. Migrate by preserving the originals, then creating new `1.1` records from the underlying source and transcript: recompute hashes from exact bytes; use stable IDs for sources/pages/candidates; record only observed page and line facts; calculate selection byte ranges against the exact transcript; and carry every known uncertainty forward. Use `null` for unknown hashes/model/page counts, an opaque attachment ID when no local path exists, and explicit missing-page records when the source identifies a missing page. Do not infer missing page ranges, source identifiers, selection spans, or accuracy from legacy fields. If a fact cannot be recovered, leave it unknown and note it in `uncertainties` or `unresolved_references`.
 
 After validation, hand off the selected text and both source records with later review artifacts. Closure cannot establish transcription completeness or correct section selection. A material unreadable or missing passage that may contain a boundary call or exception must be resolved before reporting a verified result. See [artifact handoffs](artifact-handoffs.md) for identity, reuse, and stage boundaries.
+
+## Intake and source coverage
+
+Return a compact intake before the requested result: intended tract/candidate and source page/span; supplied/read/missing or unknown coverage; supported and unresolved geometry; available/missing position and orientation evidence; and the exact next input needed (for example, page 3 continuation, a readable bearing digit, or the user's choice between candidates). Use “unknown” where the source does not establish a count or fact. Complete local calls can be plotted without geographic placement. Lot/block-only text, including comma-separated lot lists, is identification without a traverse; PLSS labels alone do not supply section geometry.
+
+Account for source material using existing candidate spans, call quotations/audit records, uncertainty IDs and unresolved references. Present a source-linked table or short inventory with these parallel categories:
+
+| Material | Required accounting |
+| --- | --- |
+| Parsed boundary | Actual candidate, page/span and call identity; explain calculation participation. |
+| Commencement/tie or reference | Retain wording/location and reason it is outside boundary geometry. |
+| Intentionally excluded | Retain page/span and rationale, including unrequested historical descriptions; never hide a boundary qualification here. |
+| Unresolved/rejected | Quote/location where known, missing field or parser rejection, and effect on completeness. Unknown locations stay unknown. |
+
+This is a delivery view of existing evidence, not a new schema or parser-derived source attestation. Where normalized text cannot be matched reliably to a narrower source span, cite the known wider passage and mark the finer association unresolved. Do not invent spans or total course counts. Reconcile parsed output with the selected text, checking unreadable middle courses, repeated/missing calls, missing continuations, and exceptions after the POB. A closing surviving subset cannot establish completeness or justify verified delivery. Retain partial plot limitations and request missing source evidence.
+
+For several explicitly identified requested tracts, reuse one acquisition; preserve stable, distinct candidate/occurrence IDs, selections and result directories. Return a combined inventory naming each tract's source, current result, unresolved issues and retained path. Record why historical quotations and other candidates are outside scope. Continue independent results when another tract is blocked; no aggregate pass or combined traverse. On resume, invalidate only dependent selections/results, while preserving the source comparison needed to establish that other tracts remain unchanged.

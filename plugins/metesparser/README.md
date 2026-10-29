@@ -1,22 +1,25 @@
 # MetesParser Claude plugin
 
-This plugin provides seven focused capabilities and two workflows for reviewing metes-and-bounds material. Claude's native document/image reading prepares text from images and PDFs; the bundled deterministic `mp_review` engine parses selected descriptions and verifies geometry. No separate OCR service or conversion dependency is required.
+This plugin provides ten focused capabilities and two workflows for reviewing metes-and-bounds material. Claude's native document/image reading prepares text from images and PDFs; the bundled deterministic `mp_review` engine parses selected descriptions and verifies geometry. No separate OCR service or conversion dependency is required.
 
 See the [usage guide](references/usage.md) for input routing, examples, artifact meanings, and troubleshooting, and the [changelog](CHANGELOG.md) for user-visible changes. Each skill directory contains a README with its own usage example.
 
 ## Skills
 
-Ten skills share the same engine: seven capabilities, two workflows, and one compatibility alias.
+Thirteen skills share the same engine: ten capabilities, two workflows, and one compatibility alias.
 
 | Type | Skill | Purpose | Main deliverable |
 | --- | --- | --- | --- |
 | Capability | [convert-document-to-text](skills/convert-document-to-text/SKILL.md) | Transcribe a supplied document using Claude's native reading. | Full text, page map, acquisition and uncertainty records |
 | Capability | [extract-metes-and-bounds](skills/extract-metes-and-bounds/SKILL.md) | Locate and preserve the intended description in prepared text. | Verbatim description and selection/source records |
 | Capability | [verify-traverse](skills/verify-traverse/SKILL.md) | Check an identified structured traverse or run explicitly requested relative analysis. | Deterministic review or separate relative-analysis artifacts |
-| Capability | [plot-metes-and-bounds](skills/plot-metes-and-bounds/SKILL.md) | Plot identified calls or an isolated description. | Plot inputs, geometry, HTML, and manifest |
+| Capability | [plot-metes-and-bounds](skills/plot-metes-and-bounds/SKILL.md) | Plot the requested boundary, selecting it from a document when needed. | Plot inputs, geometry, HTML, and manifest |
 | Capability | [prepare-parcel-overlay](skills/prepare-parcel-overlay/SKILL.md) | Prepare supplied vector or raster map evidence. | Prepared layer and provenance |
 | Capability | [render-online-map](skills/render-online-map/SKILL.md) | Render prepared geographic evidence with Mapbox as a local viewer or requested in-chat MCP preview. | Online display artifacts or vector MCP handoff and acceptance report |
 | Capability | [compare-descriptions](skills/compare-descriptions/SKILL.md) | Compare two identified descriptions using source-linked structured inputs and explicit criteria. | Advisory component comparison and tentative structural differences |
+| Capability | [plot-corridor](skills/plot-corridor/SKILL.md) | Construct a source-bound centerline ribbon with explicit widths, tapers, joins and caps. | Advisory corridor geometry, error/topology evidence and lossless inputs |
+| Capability | [plot-plss-reference](skills/plot-plss-reference/SKILL.md) | Compute a supported aliquot from an identified supplied rectangular section reference. | Computed reference layer and source/dataset provenance |
+| Capability | [export-review-package](skills/export-review-package/SKILL.md) | Export an identified published revision with explicit format, layer and coordinate choices. | Frozen SVG/PDF/DXF/geographic GeoJSON package and audit sidecars |
 | Workflow | [review-metes-and-bounds](skills/review-metes-and-bounds/SKILL.md) | Locate the intended description, then parse and check closure. | Source-selection context and deterministic review artifacts |
 | Workflow | [deed-closure-dashboard](skills/deed-closure-dashboard/SKILL.md) | Build an explicitly requested, source-grounded interactive review dashboard. | Offline dashboard and source/calculation/render snapshots |
 | Alias | [review-deed](skills/review-deed/SKILL.md) | Route deed-specific review requests to the shared review workflow. | Same deliverable as `review-metes-and-bounds` |
@@ -27,7 +30,7 @@ Choose a capability when the user requests one stage; it stops at that deliverab
 
 ## Route and compose
 
-Start at the stage matching the supplied input and requested deliverable. A document closure review coordinates conversion and selection; existing structured calls can go directly to verification or plotting. Reuse valid upstream artifacts for unchanged sources. The [usage guide](references/usage.md#choose-the-entrypoint) provides routing examples and stopping points, including isolated prose and map preparation.
+Start at the stage matching the supplied input and requested deliverable. Document plot/plottability and closure requests coordinate native conversion when needed and tract selection; existing structured calls can go directly to verification or plotting. Reuse valid upstream artifacts for unchanged sources. The [usage guide](references/usage.md#choose-the-entrypoint) provides routing examples and stopping points, including isolated prose and map preparation.
 
 For a requested dashboard, populate a source bundle from actual source/page/call records, then use `compose-dashboard BASE_BUNDLE.json --layer PREPARED_LAYER.json --output-dir NEW_DIR` through the launcher to append prepared maps and obtain fresh geometry hashes. For a standalone online map, use `compose-map PLOT_DIR --layer PREPARED_LAYER.json --output-dir NEW_DIR`. These commands retain original inputs, reject conflicting IDs, and return `needs_review`; they do not infer placement or grant verification. See [artifact handoffs](references/artifact-handoffs.md) for accepted inputs, status boundaries, reuse, and invalidation.
 
@@ -43,9 +46,17 @@ Standalone plots use `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" plot
 
 The review and verification skills use `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py"`; the launcher starts the locked runtime using `uv` and prints the engine's JSON result. Runtime environments and package cache are stored under the user's cache directory, keyed by the bundled engine fingerprint, so the plugin directory can remain read-only. Using the `python3` prefix avoids depending on executable mode preservation when the plugin is packaged.
 
+## Corridors, supplied PLSS references and delivery
+
+Use [plot-corridor](skills/plot-corridor/SKILL.md) with `analyze-corridor REQUEST.json --output-dir NEW_DIR` for an identified line/arc centerline and ordered endpoint width intervals. Preserve the full step/taper/cap definition and declared linear error budget; unsupported topology has no apparently complete polygon. Retain `boundary_origin_in_centerline_frame` before reusing its normalized boundary plot in a centerline placement.
+
+Use [plot-plss-reference](skills/plot-plss-reference/SKILL.md) with `derive-plss REQUEST.json --output-dir NEW_DIR` only for a supplied identified reference dataset, compatible projected units and the supported rectangular rule. The output is computed reference geometry and a prepared layer, without an HTML viewer or legal subdivision claim. A PLSS recital alone does not justify nominal section corners or dimensions.
+
+Use [export-review-package](skills/export-review-package/SKILL.md) with `export-review BUNDLE.json --revision-dir REVISION_DIR --request REQUEST.json --output-dir NEW_DIR` for a published intended revision. It freezes requested layer/format/unit choices and reports representation omissions. Presentation rotation affects SVG/PDF only; geographic GeoJSON requires explicit geographic evidence. None of these capabilities promotes source review or canonical verification, and each stops at its own deliverable.
+
 ## Validate, inspect, and diagnose
 
-Source records use schema `1.1`; the [source-preparation reference](references/source-preparation.md) documents byte/page/span fields, legacy migration, and validation. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" validate-source BUNDLE_DIR` after creating or receiving acquisition/selection records. When reuse or freshness is unclear, run `inspect-artifacts BUNDLE_DIR --requested-stage STAGE`; it is read-only and reports known dependencies and restart guidance. For a requested explanation of straight-course closure sensitivity, use `diagnose-closure REQUEST.json --output-dir NEW_DIR` and the [diagnosis contract](references/closure-diagnostics.md).
+Source records use schema `1.1`; the [source-preparation reference](references/source-preparation.md) documents byte/page/span fields, legacy migration, and validation. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" validate-source BUNDLE_DIR` after creating or receiving acquisition/selection records. When reuse or freshness is unclear, run `inspect-artifacts BUNDLE_DIR --requested-stage STAGE`; it is read-only and reports known dependencies and restart guidance. For a requested explanation of supported line/circular-arc closure sensitivity, use `diagnose-closure REQUEST.json --output-dir NEW_DIR` and the [diagnosis contract](references/closure-diagnostics.md).
 
 These completed advisory operations return `needs_review` and exit 1 even for structurally valid/matching records or supported diagnosis. Exit 2 means invalid input or no result. Inspect each operation's detail fields; neither source validation, artifact usability, nor diagnosis establishes source accuracy or canonical verification. [Artifact handoffs](references/artifact-handoffs.md) defines the discovery and status boundaries.
 
