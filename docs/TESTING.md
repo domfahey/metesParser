@@ -41,6 +41,17 @@ uv run pytest plugins/metesparser/tests/ tests/unit/test_plugin_build.py \
   --no-cov --import-mode=importlib
 ```
 
+For revision, corridor, derived-source and delivery changes, these focused suites exercise the saved-data boundaries before running the full `mp-review` suite:
+
+```sh
+uv run pytest packages/mp-review/tests/test_revision_store.py packages/mp-review/tests/test_revision_corridors.py packages/mp-review/tests/test_delivery_revision_corridors.py --no-cov --import-mode=importlib
+uv run pytest packages/mp-review/tests/test_delivery_derived_sources.py packages/mp-review/tests/test_delivery_store.py --no-cov --import-mode=importlib
+uv run pytest packages/mp-review/tests/test_corridor_store.py packages/mp-review/tests/test_plss_file.py --no-cov --import-mode=importlib
+uv run pytest packages/mp-review/tests/test_raster_picker_file.py packages/mp-review/tests/test_raster_picker_cli.py --no-cov --import-mode=importlib
+```
+
+For skill catalog/materialization and packaged navigation changes, run `uv run pytest tests/unit/test_skill_eval_cowork_materialization.py tests/unit/test_packaged_skill_navigation.py --no-cov`. These tests validate repository assets and navigation, not model responses.
+
 For example, this focused node ID is present in the root suite:
 
 ```sh
@@ -54,7 +65,7 @@ make test-dashboard-browser
 make test-mapbox-browser
 ```
 
-These targets require the optional browser-test dependencies and a usable Chromium; dashboard checks also require Node. Mapbox browser checks additionally require the pinned SDK cache and Chromium WebGL2. `make test-mapbox-live` is a separate provider acceptance check requiring a public Mapbox token and network access. It is not part of `make check`.
+These targets require the optional browser-test dependencies and a usable Chromium; dashboard checks also require Node. Dashboard preview and picker browser checks exercise offline page behavior, file downloads and local adapter flows; they do not establish native Claude/Cowork behavior, real deed placement, or provider acceptance. Mapbox browser checks additionally require the pinned SDK cache and Chromium WebGL2. `make test-mapbox-live` is a separate provider acceptance check requiring a public Mapbox token and network access. It is not part of `make check`.
 
 ## PDF pipeline tests
 
@@ -78,6 +89,6 @@ For a behavior change, add a focused regression for the expected behavior, run i
 
 ## Skill and provider acceptance
 
-Plugin engine behavior is covered by `plugins/metesparser/tests/` and workspace package tests. Skill-evaluation cases are scenario specifications until run in fresh sessions. Native Claude document/client acceptance, paired baseline-versus-skill evaluations, and live Mapbox rendering are separate gates; repository tests do not establish those results. See the [evaluation protocol](../plugins/metesparser/evals/README.md) for recording model, client, tool availability, transcripts, and outcomes.
+Plugin engine behavior is covered by `plugins/metesparser/tests/` and workspace package tests. Skill-evaluation cases are scenario specifications until run in fresh sessions. Native Claude/Cowork document/client acceptance, paired baseline-versus-skill evaluations, and live Mapbox rendering are separate gates; repository tests do not establish those results. The current [Cowork workflow ledger](implementation/2026-10-28-cowork-workflow-ledger.md) records local implementation complete and native acceptance not run. See the [evaluation protocol](../plugins/metesparser/evals/README.md) for recording model, client, tool availability, transcripts, and outcomes.
 
 For plugin build and distribution checks, use the [plugin maintenance guide](CLAUDE_PLUGIN.md). Do not treat passing engine tests or generated evaluation scenarios as native-host acceptance.
