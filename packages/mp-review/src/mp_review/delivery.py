@@ -509,7 +509,7 @@ def prepare_delivery(
 
 
 def _ring_area(ring: list[Any]) -> float:
-    return sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(ring, ring[1:], strict=False)) / 2
+    return float(sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(ring, ring[1:], strict=False)) / 2)
 
 
 def _orient_rfc7946(geometry: dict[str, Any]) -> None:
@@ -552,10 +552,12 @@ def _delivery_extent(
                     )
         elif item.vector:
             layer = item.vector
-            polygons = (
+            polygons: Any = (
                 (layer.coordinates,) if layer.geometry_type == "Polygon" else layer.coordinates
             )
-            points.extend((p[0], p[1]) for polygon in polygons for ring in polygon for p in ring)
+            points.extend(
+                (float(p[0]), float(p[1])) for polygon in polygons for ring in polygon for p in ring
+            )
     finite = [p for p in points if all(math.isfinite(v) for v in p)]
     if not finite:
         return None

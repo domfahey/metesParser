@@ -89,6 +89,8 @@ nohup.out
 *.csv
 !packages/mp-review/tests/fixtures/*.csv
 *.geojson
+# Legacy delivery-1 replay golden (test evidence)
+!packages/mp-review/tests/fixtures/delivery-1-golden/deliveries/*/drawing.geojson
 *.kml
 *_verified.csv
 *.gpkg
@@ -108,6 +110,8 @@ nohup.out
 !sample_deeds/**/*.pdf
 # Allow reference PDFs in docs
 !docs/reference/*.pdf
+# Legacy delivery-1 replay golden (test evidence)
+!packages/mp-review/tests/fixtures/delivery-1-golden/deliveries/*/drawing.pdf
 
 # Generated review packets (output of scripts/generate_review_packet.py)
 sample_deeds/review_packets/
