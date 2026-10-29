@@ -61,13 +61,23 @@ def _scale(native: LinearUnit, target: LinearUnit) -> float:
 
 
 def prepare_delivery(
-    bundle: DashboardBundle, revision_dir: Path | str, request: DeliveryRequest | dict[str, Any]
+    bundle: DashboardBundle,
+    revision_dir: Path | str,
+    request: DeliveryRequest | dict[str, Any],
+    *,
+    exporter_version: str = "delivery-2",
 ) -> DeliverySnapshot:
     """Replay published input and freeze selected membership, transforms and omissions.
 
     Visible=false explicitly excludes geometry from every output while retaining
     its request membership. Opacity=0 retains all CAD/GIS geometry and tables.
+
+    ``exporter_version="delivery-1"`` exists only to replay packages published by
+    the earlier exporter; new packages always use the current version.
     """
+    if exporter_version not in ("delivery-1", "delivery-2"):
+        raise ValueError("Unsupported delivery exporter version")
+    legacy = exporter_version == "delivery-1"
     if isinstance(request, DeliveryRequest):
         request = request.model_dump(mode="json")
     request = DeliveryRequest.model_validate(request)
@@ -180,6 +190,16 @@ def prepare_delivery(
         )
     for fmt in request.formats:
         if fmt not in ("dxf", "geojson"):
+            continue
+        if legacy:
+            # delivery-1 replay: labels-only omission with the original wording.
+            if request.labels:
+                omissions.append(
+                    DeliveryOmission(
+                        format=fmt,
+                        reason="Drawn labels and presentation rotation are omitted; source values and identity remain in properties/sidecars",
+                    )
+                )
             continue
         # CAD/GIS carry real coordinates: never rotate them, but always disclose it.
         omitted = []
@@ -442,6 +462,7 @@ def prepare_delivery(
                     }
                 )
     return DeliverySnapshot(
+        exporter_version=exporter_version,  # type: ignore[arg-type]
         request=request,
         request_sha256=_hash(request.model_dump(mode="json")),
         revision_sha256=_hash(revision.revision.model_dump(mode="json")),
@@ -578,7 +599,8 @@ def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, A
                 )
                 if primitive.input_status == "hypothetical":
                     feature["properties"]["kind"] = "scenario_course"
-            _orient_rfc7946(feature["geometry"])
+            if snapshot.exporter_version != "delivery-1":  # delivery-1 replay keeps raw order
+                _orient_rfc7946(feature["geometry"])
             features.append(feature)
     return {
         "type": "FeatureCollection",
@@ -775,7 +797,10 @@ def load_delivery(
     } <= set(manifest["artifacts"]):
         raise ValueError("Delivery manifest artifact inventory incomplete")
     request = DeliveryRequest.model_validate(_load(path / "request.json"))
-    fresh = prepare_delivery(bundle, revision_dir, request)
+    # Replay with the exporter that published the package (recorded in the manifest).
+    fresh = prepare_delivery(
+        bundle, revision_dir, request, exporter_version=str(manifest["exporter_version"])
+    )
     if _hash(fresh.model_dump(mode="json")) != manifest.get("snapshot_sha256"):
         raise ValueError("Delivery snapshot identity mismatch")
     if (
