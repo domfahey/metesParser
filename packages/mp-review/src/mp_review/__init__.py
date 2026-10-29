@@ -9,12 +9,18 @@ from .mapbox_mcp import mapbox_mcp_file
 from .online_map import render_map_file
 from .plot import plot_file
 from .relative import review_relative_file
+from .revision_view import render_revision_file
+from .revisions import import_revision, load_revision, publish_revision
 from .source_handoff import validate_source_bundle
 from .webmap import PreparedWebMap, prepare_web_map
 
 __version__ = ENGINE_VERSION
 __all__ = [
     "compare_descriptions_file",
+    "render_revision_file",
+    "import_revision",
+    "load_revision",
+    "publish_revision",
     "inspect_artifacts",
     "diagnose_closure_file",
     "validate_source_bundle",

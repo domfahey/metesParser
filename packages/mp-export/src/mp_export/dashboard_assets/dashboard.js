@@ -143,6 +143,46 @@ if (typeof document !== "undefined") {
   let working = [], selectedCalculation, selectedSourceCalculation, previousFocus, scenarioIssue = "";
   const fmt = (value, digits = 3) => typeof value === "number" && Number.isFinite(value) ? value.toFixed(digits) : "Unavailable";
   const text = (tag, value) => { const node = document.createElement(tag); node.textContent = value; return node; };
+  const drafts = new MetesRevisionDrafts.RevisionDraftStore(baseline.revision_template, {
+    getItem: key => window.localStorage.getItem(key),
+    setItem: (key, value) => window.localStorage.setItem(key, value),
+  });
+  function draftIdentity(item) {
+    const occurrence = bundle.occurrences.find(o => o.id === item.occurrence_id);
+    const page = bundle.pages.find(p => p.id === item.page_id);
+    return {call_id:item.id, occurrence_id:item.occurrence_id, tract_id:occurrence.parcel_id, document_id:page.document_id};
+  }
+  function draftStatus(message = '') {
+    byId('revision-status').textContent = message || (drafts.persisted ?
+      `${drafts.recovered ? 'Recovered draft. ' : ''}Draft saved in this browser; not published or verified.` : drafts.error);
+  }
+  function draftDescription() {
+    const saved = drafts.snapshot(); byId('revision-label').value = saved.label; byId('revision-rationale').value = saved.rationale; draftStatus();
+  }
+  for (const id of ['revision-label','revision-rationale']) byId(id).addEventListener('input', () => {
+    drafts.setDescription(byId('revision-label').value, byId('revision-rationale').value); draftStatus();
+  });
+  byId('revision-download').addEventListener('click', () => {
+    const saved = drafts.snapshot(), url = URL.createObjectURL(new Blob([JSON.stringify(saved,null,2)+'\n'], {type:'application/json'}));
+    const link = document.createElement('a'); link.href = url; link.download = saved.id + '.json'; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    draftStatus('Draft download prepared. Cowork must validate and publish it with the original bundle; no geometry status was changed.');
+  });
+  byId('revision-import').addEventListener('change', async event => {
+    const file = event.target.files[0], version = drafts.version; if (!file) return;
+    try { const saved = JSON.parse(await file.text()); drafts.importRevision(saved,version); draftDescription(); applyPreset(); }
+    catch (error) { draftStatus('Draft was not loaded: '+error.message); }
+    event.target.value = '';
+  });
+  window.addEventListener('beforeunload', event => {
+    if (!drafts.persisted && drafts.version > 0) { event.preventDefault(); event.returnValue = ''; }
+  });
+  draftDescription();
+  const structuredEditor = MetesStructuredEditor.mount({
+    container:byId('structured-editor-fields'),store:drafts,bundle,
+    getCalculation:()=>selectedSourceCalculation,
+    onChange:()=>applyPreset(false),onStatus:draftStatus,
+  });
   function refreshOptions() {
     const old = selector.value; selector.replaceChildren();
     bundle.calculations.filter(c => parcelSelect.value === "all" || bundle.occurrences.find(o => o.id === c.occurrence_id).parcel_id === parcelSelect.value).forEach(c => { const o = bundle.occurrences.find(o => o.id === c.occurrence_id), option = text("option", `${o.version_label} · ${o.id} · ${c.method}`); option.value = c.id; selector.append(option); });
@@ -156,7 +196,8 @@ if (typeof document !== "undefined") {
     bundle.scenarios.filter(s => s.calculation_id === selectedSourceCalculation.id).forEach(s => { const option = text("option", s.label); option.value = s.id; scenarioSelect.append(option); });
     applyPreset();
   }
-  function applyPreset() {
+  function applyPreset(refreshEditor = true) {
+    if (!selectedSourceCalculation) { structuredEditor.refresh(); return; }
     selectedCalculation = clone(selectedSourceCalculation); working = clone(bundle.calls.filter(c => c.occurrence_id === selectedCalculation.occurrence_id));
     const preset = bundle.scenarios.find(s => s.id === scenarioSelect.value); let unsupported = "";
     if (preset) for (const edit of preset.edits) {
@@ -171,23 +212,47 @@ if (typeof document !== "undefined") {
         if (matches.length !== 1) unsupported = "Angle edit has no unique explicit interior constraint."; else matches[0].angle_deg = edit.interior_angle_deg;
       }
     }
+    const saved = drafts.snapshot(), tract = saved.tracts.find(t => t.occurrence_id === selectedCalculation.occurrence_id);
+    const originalOrder=baseline.revision_template.tracts.find(t=>t.occurrence_id===selectedCalculation.occurrence_id).call_order;
+    if (tract && JSON.stringify(tract.call_order)!==JSON.stringify(originalOrder)) unsupported='Call order or inventory changed. Download the draft for fresh shared geometry and a revision view.';
+    if (tract && tract.action === 'remove') unsupported = 'This tract is removed in the draft. Publish the revision to inspect its resulting inventory.';
+    for (const edit of saved.edits.filter(e => e.occurrence_id === selectedCalculation.occurrence_id)) {
+      if (edit.structured_input) { unsupported='Structured call edits are retained exactly. Download the draft for fresh shared geometry and a revision view.'; continue; }
+      if (edit.action === 'remove') { unsupported = 'A course removal is retained in this draft. Publish the revision to regenerate its geometry.'; continue; }
+      if (edit.raw_fields.interior_angle_deg !== undefined) {
+        const matches = selectedCalculation.relative ? selectedCalculation.relative.constraints.filter(c => c.to_course === edit.call_id && c.kind === 'interior') : [];
+        try { if (matches.length !== 1) throw Error('No unique sourced interior constraint for this draft.'); matches[0].angle_deg = parseAngle(edit.raw_fields.interior_angle_deg); }
+        catch (error) { unsupported = error.message; }
+      }
+    }
     byId("scenario-rationale").textContent = preset ? preset.edits.map(e => `${e.call_id}: ${e.rationale}`).join(" · ") : "Record values copied into a separate advisory working scenario.";
     scenarioIssue = unsupported; renderCalls(); recompute();
+    if(refreshEditor)structuredEditor.refresh();
   }
   function renderCalls() {
     const body = byId("call-body"); body.replaceChildren();
     working.forEach((item, index) => {
+      const retainedEdit=drafts.snapshot().edits.find(e=>e.call_id===item.id);
+      const useStructured=retainedEdit && (retainedEdit.structured_input || retainedEdit.action==='remove');
       const row = document.createElement("tr"); if (item.reading_status !== "certain") row.className = "uncertain";
       const courseCell=text('td',''), sourceButton=text('button',`${index+1} · ${item.id}`); sourceButton.type='button'; sourceButton.addEventListener('click',()=>selectSourceCall(item.id)); courseCell.append(sourceButton);
-      row.append(courseCell, text("td", item.quote));
+      const sourceCell = text('td',item.quote), noteLabel = text('label','Draft note'), note = document.createElement('textarea');
+      note.rows = 2; note.setAttribute('aria-label',`${item.id}: Draft note`); note.value = drafts.raw(item.id,'notes') ?? '';
+      if(useStructured){note.disabled=true;note.title='Use the structured call editor for this draft.';}
+      note.addEventListener('input', () => { drafts.setField(draftIdentity(item),'notes',note.value); draftStatus(); });
+      noteLabel.append(note); sourceCell.append(noteLabel); row.append(courseCell,sourceCell);
       const distanceCell = document.createElement("td"), bearingCell = document.createElement("td");
       const fields = [[distanceCell, "distance_ft", item.call && item.call.distance_ft, "Distance in feet"], [bearingCell, "bearing_azimuth_deg_from_north", item.call && item.call.bearing_azimuth_deg_from_north, "Azimuth or quadrant bearing"]];
       fields.forEach(([cell, field, value, label]) => {
         if (!item.call || (field === "bearing_azimuth_deg_from_north" && selectedCalculation.method === "relative")) { cell.textContent = field === "bearing_azimuth_deg_from_north" ? (item.call && item.call.bearing_azimuth_deg_from_north !== null ? `Recorded ${item.call.bearing_azimuth_deg_from_north}°; local heading derived separately` : "Local heading derived; recorded bearing remains unknown") : "Unresolved"; return; }
-        const input = document.createElement("input"); input.value = value === null ? "" : value; input.setAttribute("aria-label", `${item.id}: ${label}`); input.dataset.field = field; input.dataset.index = index; const original = bundle.calls.find(c => c.id === item.id).call[field];
-        if (value !== original) input.classList.add("edited"); input.addEventListener("input", () => {
+        const input = document.createElement("input"); input.value = drafts.raw(item.id,field) ?? (value === null ? "" : value); input.setAttribute("aria-label", `${item.id}: ${label}`); input.dataset.field = field; input.dataset.index = index; const original = bundle.calls.find(c => c.id === item.id).call[field];
+        if(useStructured){input.disabled=true;input.title='Use the structured call editor for this draft.';}
+        const readInput = () => {
           try { const number = field === "distance_ft" ? decimal(input.value) : parseBearing(input.value); if (field === "distance_ft" && number <= 0) throw Error("Distance must be positive."); item.call[field] = number; input.setAttribute("aria-invalid", "false"); input.classList.toggle("edited", number !== original); input.title = ""; }
           catch (error) { input.setAttribute("aria-invalid", "true"); input.title = error.message; }
+        };
+        readInput(); input.addEventListener("input", () => {
+          drafts.setField(draftIdentity(item),field,input.value); draftStatus(); readInput();
           recompute();
         }); cell.append(input);
       });
@@ -215,6 +280,13 @@ if (typeof document !== "undefined") {
       button.type='button'; button.dataset.diagnosticSource=item.call_id; button.addEventListener('click',()=>selectSourceCall(item.call_id)); cell.append(button);
       if (source && source.reading_status !== 'certain') cell.append(text('p',`Uncertain source: ${source.reading_note}`));
       row.append(cell,text('td',item.distance_rank === null ? 'Ranking unavailable' : `${item.distance_rank} / ${fmt(item.distance_projection_abs,6)}`),text('td',item.angle_rank === null ? 'Ranking unavailable' : `${item.angle_rank} / ${fmt(item.angle_projection_abs_per_arcsecond,8)}`)); body.append(row);
+      for (const parameter of item.curve_parameters || []) {
+        const detail = text('tr',''); detail.dataset.curveParameter = parameter.parameter;
+        const label = text('td',`${item.call_id} · ${parameter.parameter}`);
+        const value = text('td',`Derivative ΔE ${fmt(parameter.derivative.east,8)}, ΔN ${fmt(parameter.derivative.north,8)} ${parameter.derivative_units}; rank ${parameter.rank ?? 'unavailable'}; |projection| ${fmt(parameter.projection_abs,8)}`);
+        const constraint = text('td',`Fixed: ${parameter.fixed_parameters.join(', ')}. ${parameter.constraint}`);
+        detail.append(label,value,constraint); body.append(detail);
+      }
     }
     table.append(body); wrap.append(table); container.append(wrap);
   }
@@ -253,7 +325,20 @@ if (typeof document !== "undefined") {
     add("text", {x:12,y:325}).textContent = selectedCalculation.frame.basis === "arbitrary_local" ? "↑ Local +Y · arbitrary frame" : "↑ Local +Y · recorded bearing basis; geographic north unestablished";
     const scaleLength = 100 * scale; if (scaleLength <= 280) { add("line", {x1:60,y1:345,x2:60+scaleLength,y2:345,class:"boundary"}); add("text",{x:60,y:365}).textContent = "100 ft"; } else add("text",{x:12,y:365}).textContent = "Plot fitted to boundary · units: feet";
   }
-  selector.addEventListener("change", reset); parcelSelect.addEventListener("change", refreshOptions); scenarioSelect.addEventListener("change", applyPreset); byId("reset-record").addEventListener("click", reset);
+  selector.addEventListener("change", reset); parcelSelect.addEventListener("change", refreshOptions);
+  scenarioSelect.addEventListener('change', () => {
+    drafts.resetOccurrence(selectedSourceCalculation.occurrence_id);
+    const preset = bundle.scenarios.find(s => s.id === scenarioSelect.value);
+    if (preset) for (const edit of preset.edits) {
+      const item = bundle.calls.find(c => c.id === edit.call_id); if (!item) continue;
+      for (const field of ['distance_ft','bearing_azimuth_deg_from_north','interior_angle_deg']) {
+        if (edit[field] !== null && edit[field] !== undefined) drafts.setField(draftIdentity(item),field,String(edit[field]));
+      }
+      drafts.setContext(draftIdentity(item),edit.rationale,edit.evidence_ids);
+    }
+    draftStatus(); applyPreset();
+  });
+  byId('reset-record').addEventListener('click', () => { if(selectedSourceCalculation)drafts.resetOccurrence(selectedSourceCalculation.occurrence_id); draftStatus(); reset(); });
   document.querySelectorAll("[data-copy-target]").forEach(button => button.addEventListener("click", async () => {
     const content = byId(button.dataset.copyTarget).textContent; const status = button.parentElement.querySelector(".copy-status");
     try { if (!navigator.clipboard || !navigator.clipboard.writeText) throw Error("Clipboard unavailable"); await navigator.clipboard.writeText(content); status.textContent = "Copied."; }
