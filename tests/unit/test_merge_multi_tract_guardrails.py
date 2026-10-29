@@ -52,3 +52,23 @@ def test_multi_tract_export_rechecks_result_against_selected_calls(export, tmp_p
     with pytest.raises(ValueError, match="fresh verification|does not match"):
         export(calls, result, str(tmp_path / "calls.csv"), tract_results=[(tract, result)])
     assert not list(tmp_path.iterdir())
+
+
+@pytest.mark.parametrize("export", [export_verified_csv, CSVBuilder.export_verified_csv])
+def test_multi_tract_export_requires_a_verified_tract(export, tmp_path):
+    open_calls = square()[:-1]
+    result = verify_tract(open_calls)
+    assert not result.is_fully_verified()
+    if export == CSVBuilder.export_verified_csv:
+        from metesparser.models import DeedCall as LegacyCall
+        from metesparser.models import Tract as LegacyTract
+        from metesparser.models import TractType as LegacyTractType
+
+        legacy = [LegacyCall.model_validate(c.model_dump()) for c in open_calls]
+        result = ClosureChecker.verify_tract(legacy)
+        tract = LegacyTract(label="Tract A", tract_type=LegacyTractType.MAIN, calls=legacy)
+    else:
+        tract = Tract(label="Tract A", tract_type=TractType.MAIN, calls=open_calls)
+    with pytest.raises(ValueError, match="no tract passed verification"):
+        export(open_calls, result, str(tmp_path / "calls.csv"), tract_results=[(tract, result)])
+    assert not list(tmp_path.iterdir())

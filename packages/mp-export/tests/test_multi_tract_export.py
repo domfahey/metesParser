@@ -117,3 +117,46 @@ class TestMultiTractExport:
         )
         assert len(result) == 1
         assert "tract1" in result[0].stem
+
+
+def _bad_closure() -> ClosureResult:
+    return ClosureResult(
+        misclosure_x_ft=5.0,
+        misclosure_y_ft=5.0,
+        misclosure_ft=7.07,
+        area_sq_ft=2500.0,
+        area_acres=2500.0 / 43560.0,
+        perimeter_ft=200.0,
+        closure_passed=False,
+        angle_check_passed=True,
+        curve_consistency_passed=True,
+        warnings=["Closure failed"],
+    )
+
+
+class TestMultiTractGate:
+    def test_no_verified_tract_raises_and_writes_nothing(self, tmp_path: Path):
+        import pytest
+
+        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
+        with pytest.raises(ValueError, match="Cannot export verified CSV"):
+            export_verified_csv(
+                _square_calls(),
+                _good_closure(),
+                str(tmp_path / "deed.csv"),
+                tract_results=[(t1, _bad_closure())],
+            )
+        assert list(tmp_path.iterdir()) == []
+
+    def test_mixed_summary_only_lists_verified_tracts(self, tmp_path: Path):
+        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
+        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square_calls(50.0))
+        export_verified_csv(
+            _square_calls(),
+            _good_closure(),
+            str(tmp_path / "deed.csv"),
+            tract_results=[(t1, _good_closure(10000)), (t2, _bad_closure())],
+        )
+        summary = (tmp_path / "deed_verified.verification.txt").read_text()
+        assert "Tract 1" in summary
+        assert "Tract 2" not in summary
