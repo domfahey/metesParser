@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-29
+
 ### Added
 
 - Durable review revisions with exact incomplete-input recovery, stable tract/call identities, immutable publication and retry, and separate source-correction evidence. New `revision-template`, `save-revision`, `inspect-revision` and `render-revision` commands preserve original readings and keep current drafts separate from last-valid geometry.
@@ -39,11 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Configurable closure tolerance with relaxed-tolerance warning
   - Bare cardinal + distance normalization (`thence S 289.81 feet` → `thence due South`)
   - LLM anti-hallucination prompts, dual-notation handling, space-separated DMS support
-  - 22 new Wayne County MI sample deeds with ground truth JSON
   - 249 new tests across 8 test files
+- 22 Wayne County MI sample deeds with ground truth JSON, added separately from the parser fixes.
 
 ### Changed
 
+- Reorganize the README around the Claude plugin, deterministic-first design and a concise POC notice; compare Skills, chat, Cowork and Claude Code runtime requirements.
+- Document Claude chat functionality gaps and a proposed standalone Skill distribution alongside the existing plugin; both reuse one deterministic engine. The chat archive is not yet implemented.
+- Consolidate implementation plans under `docs/plans/` and preserve 32 historical outputs under `docs/archive/extraction-output/`, leaving `output/` for local runtime artifacts.
 - Natural document-to-plot routing, source-course accounting and explicit multi-tract outcomes reuse existing acquisition/selection artifacts and resume only affected stages. Workflows stop at the user's requested output.
 - Circular-arc closure diagnosis adds independent radius, sweep and orientation sensitivities, and description comparison reports supported arc changes. Conflicting redundant measurements remain explicit errors.
 - Packaged runtime dependency resolution includes transitive delivery extras for PDF/DXF support; default and no-geo distributions retain their documented prerequisites.
@@ -54,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Correct README test-selection examples and Ruff guidance; remove the stale sample-deed count from the agent guide.
 - Report missing or changed review/plot HTML separately from replayed geometry during artifact inspection, using the producer-recorded display hashes.
 - Preserve per-call delivery provenance so untouched calls remain recorded when another call or tract is edited or source-corrected.
 - Keep the raster-control example inside the packaged guide instead of linking to evaluation fixtures omitted from the ZIP.

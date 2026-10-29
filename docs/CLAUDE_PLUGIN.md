@@ -2,6 +2,66 @@
 
 Shipped user documentation lives in the [plugin README](../plugins/metesparser/README.md), [usage guide](../plugins/metesparser/references/usage.md), and [plugin changelog](../plugins/metesparser/CHANGELOG.md). This document covers source-checkout development and packaging.
 
+## Skills, chat, Cowork and Claude Code
+
+Skills describe reusable tasks and can include reference files and executable scripts. A plugin distributes related skills and their shared resources. Cowork and Claude Code are environments that can use them. Deterministic parsing, geometry and verification belong in the shared engine in every environment. Anthropic documents both [script-bearing custom skills](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills) and [skills using Claude's code execution environment](https://support.claude.com/en/articles/12512180-use-skills-in-claude).
+
+The following comparison separates platform capabilities from MetesParser integration status. Platform documentation was checked on 2026-10-29; account policies and available tools still determine a session's access.
+
+| Work | Skills in Claude chat with code execution | Cowork | Claude Code |
+| --- | --- | --- | --- |
+| Read an uploaded deed and select its description | Possible with supported document reading | Same skill, with connected project files as inputs | Same skill when document reading is available |
+| Parse, check closure, plot and compare | Possible when the shared engine and dependencies run in the session | Same engine; verify runtime provisioning | Same engine through the packaged launcher |
+| Save revisions, construct corridors/PLSS geometry and export files | Possible with required inputs/dependencies; return downloadable artifacts | Convenient for multi-file projects and repeated work | Available through local project files and commands |
+| Reopen local project folders and write results beside sources | Upload/download or a configured file integration | Direct local-file access through the connected desktop app | Local filesystem access under the client's permissions |
+| Coordinate longer tasks and parallel subtasks | Depends on the chat surface and tools | Built-in task coordination and persistent projects | Agentic command/file workflow |
+| Open an interactive dashboard or online map | Can generate files; embedded viewing and server reachability need testing | Browser access helps; runtime-to-browser reachability still needs testing | Local browser/loopback workflow is straightforward to exercise |
+
+Claude chat already supports Python execution, file creation and package installation, subject to network policy. A skill therefore need not delegate numerical work to the language model. See [Claude code execution and file creation](https://support.claude.com/en/articles/12111783-create-and-edit-files-with-claude).
+
+Cowork contributes file access and orchestration rather than new geometry algorithms. Current Anthropic documentation describes cloud execution, with local files and browser access reached through an open, connected Claude Desktop app. Installing Python or `uv` on a laptop does not establish their availability inside that execution environment. See [Cowork execution and requirements](https://support.claude.com/en/articles/13345190-get-started-with-claude-cowork).
+
+Plugin skills are available across chat, Cowork and Claude Code; hooks, subagents and local MCP servers have narrower host support. MetesParser's current manifest declares none of those components. Optional Mapbox MCP preview uses an already configured connection. See [Anthropic's plugin host support](https://support.claude.com/en/articles/13837440-use-plugins-in-claude).
+
+### What this distribution needs
+
+The [builder](../scripts/build_claude_plugin.py) packages thirteen skills, shared references, the [launcher](../plugins/metesparser/scripts/run-review.py), six engine wheels and a locked runtime. Skill instructions call `${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py`; copying one skill directory leaves those shared resources behind.
+
+Every target host needs:
+
+- Access to the complete extracted plugin and a working plugin-root path.
+- Python 3.11+, `uv`, writable output/cache directories and permission to execute the launcher.
+- Network access to pinned dependencies on first use, or an already provisioned runtime/cache. The ZIP contains engine wheels, not every third-party wheel.
+- Source documents plus native reading when needed; prepared text/calls can bypass that stage. The plugin does not require a separate LLM API key.
+- Optional geographic/delivery dependencies and, for online viewing, the requested provider connection and a usable browser path.
+
+### Functional gaps for Claude chat
+
+This is a comparison of the current MetesParser distribution and its target environments, not a claim that every Cowork integration has passed testing. The repository currently builds a plugin ZIP; it has no separate self-contained chat Skill ZIP. Native chat and Cowork acceptance are both pending.
+
+| Function | Claude chat gap today | Cowork path | Work needed for chat |
+| --- | --- | --- | --- |
+| Install and run MetesParser | The existing ZIP can be uploaded as a plugin, but its launcher/runtime path is untested in chat; no dedicated Skill ZIP exists | Upload the existing plugin ZIP; provision its runtime in Cowork's execution environment | Test the plugin path and package a self-contained Skill option with verified dependency setup |
+| Read a deed, retain exact excerpts and select a tract | No intended feature reduction; end-to-end native reading/evidence capture is untested | Same source-reading and selection skills | Test uploaded PDFs/images and source records; retain uncertainty |
+| Parse calls, verify closure, compare, plot, construct corridors/PLSS and export | No missing mathematical implementation; execution depends on the chat runtime gap above | Same Python packages and input contracts | Run the existing engine and retain the same checks; do not replace it with model calculations |
+| Process a local folder or many deeds | Ordinary uploads/downloads do not provide direct access to the user's project folder | Desktop-mediated access to granted local files and task coordination | Accept uploaded inputs, return an explicit per-tract batch summary and a downloadable result bundle; test practical limits |
+| Save and reopen revisions across work sessions | No tested project persistence or automatic artifact round trip in chat | Use retained project files and revision commands; reopen behavior still needs native testing | Return the complete revision and source evidence together, then validate it when reuploaded; never depend on a surviving chat cache |
+| Edit a dashboard or pick raster controls | HTML can be generated, but scripts, downloads and embedded interaction are not proven in chat | Open the generated page in an accessible browser; host interaction still needs testing | Support an external-browser download/edit/reupload path and test it; in-chat interactive parity remains an open integration task |
+| View Mapbox layers or an MCP preview | A generated localhost URL may be unreachable from the user's browser; a compatible connector is not guaranteed | Cloud-to-browser reachability and an authenticated provider connection are also required | Test an accessible viewer path or supported remote MCP connection; keep offline plot/evidence downloads useful |
+| Run long tasks, parallel agents or scheduled work | A Skill alone supplies none of those host services | Cowork supplies task coordination and scheduling; MetesParser currently bundles no subagents, hooks or schedules | Keep chat workflows bounded and resumable through saved artifacts; use Cowork for the richer host workflow |
+
+The file-access and orchestration differences follow [Cowork's documented capabilities](https://support.claude.com/en/articles/13345190-get-started-with-claude-cowork). The distinction between executable chat skills and host-specific plugin components follows [Claude's skill format](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills) and [plugin support](https://support.claude.com/en/articles/13837440-use-plugins-in-claude). The packaging, viewer and persistence gaps above are our integration assessment, based on the current launcher and unrun native tests.
+
+### Two distributions, one engine
+
+For users without Cowork, the proposed chat distribution is one self-contained Skill ZIP with a root dispatcher, the relevant workflow references and the same deterministic engine. It operates on uploaded documents or prepared inputs and returns downloadable reports, plots, revisions and delivery bundles. Reuse the authoritative capability instructions through a build adapter; avoid thirteen copies of the runtime. A custom Skill ZIP has a different layout from a plugin ZIP, so renaming the current archive is insufficient.
+
+The existing plugin ZIP remains the shipped plugin distribution, with thirteen discoverable entrypoints and shared resources. Anthropic supports plugins in chat, Cowork and Claude Code; MetesParser's launcher/runtime flow has been exercised locally, while native-host tests remain pending. The separate Skill ZIP would offer a chat-focused installation option without requiring Cowork. Cowork executes in the cloud, so validate tools, writable storage and dependency access there. Neither distribution should silently use laptop credentials, rely on an inherited `.env`, or claim that a laptop installation provisions Cowork.
+
+These are distribution and host adaptations, not separate numerical implementations. Both retain deterministic-first behavior, exact source evidence, unknown bearings, revision identities and the same verified-export eligibility rules. The chat archive is planned, not yet built or released.
+
+Acceptance for each distribution must include a clean install in the actual host, skill discovery, dependency provisioning, a sample deed, a deterministic plot/report, revision save/reopen and retrievable deliverables. Test interactive HTML and online maps separately. Local extracted-runtime tests have passed; native-host acceptance is still pending in the [evidence ledger](implementation/2026-10-28-cowork-workflow-ledger.md).
+
 ## Skills and engine commands
 
 The plugin has ten capability skills, two composing workflows, and one compatibility alias. The [skill catalog](../plugins/metesparser/README.md#skills) is the inventory; the [artifact handoff contract](../plugins/metesparser/references/artifact-handoffs.md) defines accepted inputs, outputs, stopping points, status boundaries, and invalidation. Skills guide the agent's task selection and evidence handling. Python packages own schemas, parsing, geometry, and rendering; a skill is not a separate numerical implementation or a one-to-one wrapper for a CLI command.

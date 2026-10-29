@@ -4,6 +4,10 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-29
+
+First GitHub-distributed plugin archive, included with MetesParser v0.6.0. The manifest version remains 1.0.0; this is not a marketplace publication.
+
 ### Added
 
 - Focused `plot-corridor`, `plot-plss-reference` and `export-review-package` capabilities complete the 13-skill catalog (ten capabilities, two workflows and the `review-deed` compatibility alias). Corridor and PLSS requests retain explicit construction/reference/revision identities and document supported inputs and refusal limits.
@@ -36,6 +40,7 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Changed
 
+- Introduce the plugin as a POC and simplify introductory review wording while retaining runtime requirements and precise verification boundaries.
 - Natural document-to-plot and plottability routing reuses native conversion and selection, returns concise source coverage, and stops at the requested scope. Explicit multi-tract requests retain independent results and resume points.
 - Guided raster controls and separate deed placement evidence reuse registration/composition APIs; current dashboard control and resume guides preserve source, geometry and map status distinctions. New routing scenarios remain specifications until paired native sessions run.
 
@@ -68,9 +73,9 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 - DXF class registration is sorted before writing, making delivery bytes deterministic across fresh processes and Python hash seeds.
 - Corridor GeoJSON samples analytic arcs using the declared geographic rendering tolerance after placement rotation and unit conversion, subject to explicit vertex and recursion limits. Construction error remains separately recorded.
 
-## [1.0.0]
+## Initial local baseline (manifest 1.0.0)
 
-Initial local plugin baseline, recorded for the existing manifest version; not a public marketplace release.
+Historical development baseline before the first GitHub-distributed archive.
 
 ### Added
 
