@@ -306,17 +306,19 @@ def verify_closure(
 
     # An unparseable chord bearing is never guessed: block the curve check and
     # traverse the course without its chord so the result is reported, not raised.
-    bad_chord_courses = [
-        c.course
-        for c in main_calls
+    # Tracked by position: course numbers may repeat, and only the offending call loses its chord.
+    bad_chord_indices = [
+        i
+        for i, c in enumerate(main_calls)
         if c.is_curve()
         and c.chord_bearing is not None
         and bearing_to_azimuth(c.chord_bearing) is None
     ]
+    bad_chord_courses = [main_calls[i].course for i in bad_chord_indices]
     points = compute_traverse(
         [
-            c.model_copy(update={"chord_bearing": None}) if c.course in bad_chord_courses else c
-            for c in main_calls
+            c.model_copy(update={"chord_bearing": None}) if i in bad_chord_indices else c
+            for i, c in enumerate(main_calls)
         ]
     )
 
@@ -330,8 +332,12 @@ def verify_closure(
 
     warnings: list[str] = []
 
-    for course in bad_chord_courses:
-        warnings.append(f"Course {course}: unparseable chord bearing; curve geometry blocked")
+    for i in bad_chord_indices:
+        call = main_calls[i]
+        warnings.append(
+            f"Course {call.course}: unparseable chord bearing {call.chord_bearing!r}; "
+            "curve geometry blocked"
+        )
 
     if not has_computable_traverse:
         warnings.append(

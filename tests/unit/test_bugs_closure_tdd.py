@@ -242,3 +242,34 @@ def test_monolith_multi_tract_does_not_overwrite_audit_context():
     )
     ClosureChecker.verify_closure([], tracts=tracts, audit_context=ctx)
     assert ctx.verification_audit is None
+
+
+def test_monolith_bad_chord_on_one_call_does_not_strip_chord_from_same_course_number() -> None:
+    """PR #60 review: a bad chord must only block its own call, not a sibling sharing a course number."""
+
+    def curve(chord: str | None) -> DeedCall:
+        return DeedCall(
+            course=2,
+            direction_text="curve",
+            bearing_azimuth_deg_from_north=90.0,
+            distance_ft=100.0,
+            curve_dir="right",
+            radius_ft=100.0,
+            delta_deg=60.0,
+            arc_length_ft=104.72,
+            chord_bearing=chord,
+        )
+
+    valid = curve("S 30° E")
+    bad = curve("South")
+    valid_alone = ClosureChecker.verify_closure([valid])
+    bad_alone = ClosureChecker.verify_closure([curve(None)])
+    combined = ClosureChecker.verify_closure([valid, bad])
+
+    assert combined.misclosure_x_ft == pytest.approx(
+        valid_alone.misclosure_x_ft + bad_alone.misclosure_x_ft, abs=1e-6
+    )
+    assert combined.misclosure_y_ft == pytest.approx(
+        valid_alone.misclosure_y_ft + bad_alone.misclosure_y_ft, abs=1e-6
+    )
+    assert any("South" in w and "chord bearing" in w.lower() for w in combined.warnings)
