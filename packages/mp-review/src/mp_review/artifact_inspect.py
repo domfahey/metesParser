@@ -404,6 +404,18 @@ class _Inspector:
                     "Review kind and separately recorded canonical status must be valid declared values.",
                 )
             node["recorded_canonical_status"] = manifest["recorded_status"]
+            declared_artifacts = manifest.get("artifacts")
+            display = self.node("review_display", "review", directory / "review.html")
+            self.run(
+                display,
+                lambda: self.check_hash(
+                    display,
+                    directory / "review.html",
+                    declared_artifacts.get("review.html")
+                    if isinstance(declared_artifacts, dict)
+                    else None,
+                ),
+            )
             source = manifest.get("input")
             parameters = manifest.get("parameters")
             if (
@@ -440,7 +452,6 @@ class _Inspector:
                 input_kind=source["kind"],
                 input_path=self.relative(source_path),
             )
-            declared_artifacts = manifest.get("artifacts")
             if not isinstance(declared_artifacts, dict) or not {
                 "calls.json",
                 "verification.json",
@@ -453,9 +464,9 @@ class _Inspector:
                     "unverifiable",
                 )
             for name, expected in declared_artifacts.items():
-                target = self.reference(directory, name)
                 if name == "review.html":
                     continue
+                target = self.reference(directory, name)
                 self.check_hash(node, target, expected)
             saved_calls = self.load(directory / "calls.json")
             saved_verification = self.load(directory / "verification.json")
@@ -504,6 +515,13 @@ class _Inspector:
             manifest = self.manifest(path)
             request_path = directory / "plot-input.json"
             geometry_path = directory / "plot-geometry.json"
+            display = self.node("plot_display", "plot", directory / "plot.html")
+            self.run(
+                display,
+                lambda: self.check_hash(
+                    display, directory / "plot.html", manifest.get("html_sha256")
+                ),
+            )
             self.check_hash(node, request_path, manifest.get("plot_input_sha256"))
             self.check_hash(node, geometry_path, manifest.get("plot_geometry_sha256"))
             request = PlotRequest.model_validate(self.load(request_path))
@@ -1434,8 +1452,8 @@ class _Inspector:
             "convert": {"acquisition"},
             "extract": {"selection"},
             "verify": {"review", "dashboard_calculations"},
-            "review": {"review"},
-            "plot": {"plot", "dashboard_plot"},
+            "review": {"review", "review_display"},
+            "plot": {"plot", "plot_display", "dashboard_plot"},
             "dashboard": {"dashboard"},
             "render-map": {"online_map"},
             "compare-descriptions": {"comparison"},
