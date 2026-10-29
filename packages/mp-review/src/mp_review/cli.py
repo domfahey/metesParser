@@ -43,6 +43,8 @@ def main() -> None:
         "inspect-artifacts",
         "diagnose-closure",
         "compare-descriptions",
+        "analyze-corridor",
+        "derive-plss",
     ):
         advisory = commands.add_parser(
             name, help="Advisory analysis; completed results retain needs_review (exit 1)."
@@ -197,6 +199,14 @@ def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, An
         )
     if args.command in ("revision-template", "save-revision", "inspect-revision"):
         return _execute_revision(args, settings)
+    if args.command == "analyze-corridor":
+        from .corridor import analyze_corridor_file
+
+        return analyze_corridor_file(args.input, output_path(settings, args.output_dir))
+    if args.command == "derive-plss":
+        from .plss import prepare_plss_file
+
+        return prepare_plss_file(args.input, output_path(settings, args.output_dir))
     if args.command == "validate-source":
         from .source_handoff import validate_source_bundle
 
