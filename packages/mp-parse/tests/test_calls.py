@@ -170,6 +170,16 @@ class TestExtractCurveInfo:
         assert info.get("chord_bearing") is not None
         assert "S" in info["chord_bearing"]
 
+    def test_chord_bearing_phrasing(self) -> None:
+        from mp_parse.calls import extract_curve_info
+
+        info = extract_curve_info(
+            "a curve to the right, radius of 50 feet, delta angle of 90 degrees, "
+            "chord bearing North 45\u00b0 East 70.71 feet"
+        )
+        assert info["chord_bearing"] == "N 45\u00b0 E"
+        assert info["chord_length_ft"] == 70.71
+
     def test_non_tangent_detection(self) -> None:
         from mp_parse.calls import extract_curve_info
 
