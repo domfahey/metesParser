@@ -1,10 +1,10 @@
- # Metes Parser
+# Metes Parser
 
 **Disclaimer:** Metes Parser is an experimental prototype developed with substantial AI-assisted coding to evaluate LLM-assisted extraction and parsing of metes-and-bounds legal descriptions from deed PDFs. It has not undergone peer review, security review, or formal audit. Outputs may contain errors and must be independently verified by qualified professionals before use in any legal, surveying, title, lending, or business decision. This repository must contain only publicly available data - no NPI, PII, or other non-public sensitive information.
 
 > **Note:** This is a work-in-progress prototype exploring AI's ability to extract, parse, and verify metes and bounds legal descriptions from deed PDFs.
 
-Parse metes and bounds legal descriptions from deed PDFs into structured, verified CSV format.
+Parse metes and bounds legal descriptions into structured calls, inspect source evidence, and run deterministic checks before exporting verified CSV.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
@@ -13,13 +13,13 @@ Parse metes and bounds legal descriptions from deed PDFs into structured, verifi
 
 Legal descriptions define the property being transferred in a deed. Today, title company employees (e.g., at FNF) manually retype these descriptions from deed documents, then use GIS software like ArcGIS to plot the boundary and confirm the traverse closes. Legal descriptions frequently contain typos — a wrong degree, a flipped quadrant, a transposed distance — and catching these errors is critical to ensuring the correct parcel is identified.
 
-This repository is a **prototype** exploring whether AI can assist with that workflow. Currently, the system takes publicly recorded deed scanned PDFs, extracts the legal descriptions, parses the surveying notation into structured data, and runs geometric verification checks — all automatically. Since all sample deeds are sourced from publicly recorded documents, the repository contains no NPI or PII. That said, the system itself has no inherent restriction to publicly recorded documents — it can process any deed PDF containing a metes and bounds legal description.
+This repository is a **prototype** exploring whether AI can assist with that workflow. The provider-backed Python pipeline extracts legal descriptions from scanned deed PDFs, parses surveying notation into structured data, and runs geometric checks. The sample corpus uses publicly recorded sources. The extraction pipeline accepts deed PDFs containing metes-and-bounds descriptions; source-reading accuracy and selection of the intended description remain separate review tasks.
 
 ### Design Pillars
 
-- **Composable architecture** — The system is built as independent, reusable components. AI may not reliably handle the end-to-end task today, but it can perform subtasks reliably. Each package (OCR, parsing, verification, export) can be used standalone or composed into a pipeline.
-- **Transparency by design** — Every LLM-generated output is traceable and auditable. Audit sidecars (`.audit.json` + `.audit.html`) accompany verified results so an attorney or surveyor reviewing the output can see exactly what the AI extracted vs. what the system derived deterministically.
-- **AI only where necessary** — AI is used solely for OCR/extraction from deed PDFs (the one step where deterministic programming falls short). Everything downstream — parsing, bearing math, verification, export — is deterministic code. The system carefully manages AI context and validates AI output with deterministic functions to minimize hallucinations.
+- **Composable architecture** — Independent components let source reading, parsing, verification, and export be evaluated separately and composed as needed.
+- **Transparency by design** — Optional audit sidecars (`.audit.json` + `.audit.html`) retain provider extraction and deterministic processing details. The plugin's acquisition and selection records separately preserve source pages, exact text spans, identities, and unresolved readings.
+- **AI only where necessary** — Model reading and description selection are source-preparation stages. Within the composable `mp-*` packages, provider calls stay in `mp-ocr`; the compatibility monolith retains its own provider clients. Numerical parsing, bearing math, verification, and export use deterministic code. The Claude plugin performs its native source reading separately.
 - **AI as assistant, not replacement** — The tool is designed to augment human judgment, not replace it. Final decisions on property boundaries remain with the professional reviewing the output.
 
 ## Features
@@ -27,7 +27,7 @@ This repository is a **prototype** exploring whether AI can assist with that wor
 - **PDF Extraction** - Extract legal descriptions using OpenAI or Gemini APIs
 - **Bearing Conversion** - Quadrant bearings to azimuth (degrees from North)
 - **Curve Support** - Full radius, delta, arc length, chord calculations; compound/reverse curves
-- **8 Verification Checks** - Traverse closure, angles, curves, area, parallelism, double-entry, bearing reversals, distance reasonableness
+- **Geometric Verification** - Closure, angles, curves, boundary topology, area, parallelism, double-entry, bearing reversals, and distance reasonableness
 - **CSV Export** - Standard 21-field schema for GIS plotting
 - **Monument Classification** - Automatically identifies survey marker types (iron rod, stone, brass cap, etc.)
 - **PLSS Support** - Extracts Section, Township, Range, Principal Meridian metadata
@@ -38,27 +38,33 @@ This repository is a **prototype** exploring whether AI can assist with that wor
 - **Unit Conversion** - Supports feet, poles, rods, chains, varas, arpents, toises, furlongs, meters, miles, engineer chains/links
 - **Quality Scoring** - Per-call quality (high/medium/low) and overall confidence score (0.0-1.0)
 - **Audit Sidecar** - Optional `.audit.json` + `.audit.html` alongside verified CSV for full transparency
-- **LLM Caching** - File-based response caching for deterministic, cost-effective re-extraction
+- **LLM Caching** - Retains a previous provider response to avoid repeating extraction calls
 - **Run Registry** - Track prompt versions and extraction results for A/B comparison across runs
 - **Composable Packages** - 8 independently installable packages in a uv workspace monorepo
+- **Source Evidence and Resume Guidance** - Read-only validation of acquisition/selection records and inspection of saved artifacts, dependencies, and restart points
+- **Closure Diagnostics** - Source-linked straight-course sensitivities and separate hypothetical scenarios; no automatic correction
+- **Description Comparison** - Explicit straight-line pairs/groups and tentative structural differences, with declared units, bearing bases, and optional placement evidence
+- **Review Views** - Independent plots, explicit dashboards, and optional online maps with per-scan opacity/order and separate fit/checkpoint evidence
 
 ## Claude Plugin Skills
 
-The [MetesParser plugin catalog](plugins/metesparser/README.md) documents nine skills: six standalone capabilities (document transcription, description extraction, traverse verification, plotting, overlay preparation, and online map rendering), two workflows (boundary review and the explicitly requested dashboard), and the `review-deed` alias for boundary review. Skills are an instruction and routing layer over the existing Python packages; they are not new parsing or verification engines.
+The [MetesParser plugin catalog](plugins/metesparser/README.md) documents ten skill entrypoints: seven capabilities (document transcription, description extraction, traverse verification, plotting, overlay preparation, online map rendering, and description comparison), two workflows (boundary review and the explicitly requested dashboard), and the `review-deed` alias for boundary review. Source validation, closure diagnosis, and artifact inspection are shared utilities used by these skills. Skills are an instruction and routing layer over the existing Python packages; they are not new parsing or verification engines. Local implementation evidence and remaining acceptance gates are tracked in the [evidence ledger](docs/implementation/2026-10-28-evidence-review-ledger.md).
 
 The plugin uses Claude's native document/image reading and description selection, then deterministic `mp-review` operations. The separate Python PDF pipeline uses OpenAI/Gemini through `mp-ocr`. Use the [shared artifact handoff contract](plugins/metesparser/references/artifact-handoffs.md) for inputs, stopping points, reuse, and status boundaries. Verification, plotting, and overlay preparation can be requested independently; a dashboard requires explicit `DashboardBundle` assembly. See the [composition architecture](docs/ARCHITECTURE.md#skill-composition) for how these paths fit together.
 
-## Recent Updates (v0.5.0)
+## v0.5.0 Foundation (Historical)
 
-- **Composable Package Architecture** - Refactored into 7 independently installable packages in a uv workspace monorepo (mp-models, mp-bearing, mp-ocr, mp-parse, mp-verify, mp-export, metesparser). Each package does one thing well; the monolith is preserved for backward compatibility.
-- **Pipeline Orchestrator** - `Pipeline` class chains mp-ocr -> mp-parse -> mp-verify -> mp-export in a single call.
+These foundation notes describe the original release. The current package layout and review capabilities are documented below and in the plugin catalog.
+
+- **Composable Package Architecture** - Initially split into six `mp-*` packages plus the root package; `mp-review` was added later. The monolith is preserved for backward compatibility.
+- **Pipeline Orchestrator** - `Pipeline.run()` processes a PDF and returns verification results, with an audit context when requested. The CLI and export APIs write output files separately.
 - **Audit Sidecar** - Full transparency with `.audit.json` + `.audit.html` alongside verified CSV. Tracks LLM extraction confidence, per-call source excerpts, field-level transformations, and verification results.
 - **Quality Scoring** - Per-call quality (high/medium/low) and weighted confidence score (0.0-1.0) on `ClosureResult`.
 - **Run Registry** - Track prompt versions (git SHA + content hash) and extraction metrics per run. Compare results with `metesparser compare-runs`.
 - **Ground Truth Review Packets** - Self-contained HTML review pages per deed with traverse plots, call tables, and text comparison.
 - **38 features** across 6 phases: foundation units, enhanced parsing, verification checks, geometric completeness, production features, and audit transparency.
-- **~996 tests, ~94% coverage** with unit, integration, regression, and e2e categories.
-- 87 sample deeds with ground truth JSON + LlamaParse markdown conversions.
+- Unit, integration, regression, and e2e coverage; see the [testing guide](docs/TESTING.md) and dated implementation evidence for observed results.
+- Sample deeds with ground truth JSON and LlamaParse markdown conversions.
 - Gemini LLM provider support alongside OpenAI (`--llm-provider gemini`).
 - File-based LLM response caching via `CachedLLMClient`.
 
@@ -81,7 +87,7 @@ uv run python scripts/extract_sample_deeds.py
 ## Project Workflow Notes
 
 - Use `make run-extract` and `make run-verify` for quick local checks.
-- Use `make check` for the full quality gate (lint + format + type + tests) and `make test-cov` for coverage.
+- Use `make check` for root lint, formatting, typing, and tests, and `make test-cov` for root coverage. Package, plugin, and opt-in browser checks are separate lanes; see [docs/TESTING.md](docs/TESTING.md).
 
 ## Quick Start
 
@@ -117,7 +123,31 @@ make run-extract PDF_FILE=deed.pdf
 make run-verify CSV_FILE=calls.csv
 ```
 
-#### Choosing an LLM Provider
+### Deterministic Review and Advisory Tools
+
+These commands accept prepared text, structured calls, or explicit request files; they do not read PDFs or call an LLM:
+
+```bash
+uv run metes-review review description.txt --output-dir review-new
+uv run metes-review verify calls.json --output-dir verification-new
+uv run metes-review plot calls.json --output-dir plot-new
+
+# Read-only utilities: BUNDLE_DIR is an explicit existing directory
+uv run metes-review validate-source BUNDLE_DIR
+uv run metes-review inspect-artifacts BUNDLE_DIR --requested-stage review
+
+# Typed requests identify immutable calls, source references, and analysis criteria
+uv run metes-review diagnose-closure diagnosis-request.json --output-dir diagnostics-new
+uv run metes-review compare-descriptions comparison-request.json --output-dir comparison-new
+```
+
+Use a new output directory for each producing command. See the [source-record](plugins/metesparser/references/source-preparation.md), [diagnosis](plugins/metesparser/references/closure-diagnostics.md), and [comparison](plugins/metesparser/references/comparison-limits.md) references for complete request examples and limits. The plugin launcher exposes the same commands through `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py"`.
+
+Completed advisory operations intentionally return `needs_review` and exit **1**, including valid source records, usable artifacts, supported diagnosis, and matching comparison results. Invalid input returns `error` and exit **2**. Canonical review/verification can return `checks_passed` and exit **0**; this reports engine checks, not source accuracy or legal correctness. Plotting, diagnosis, comparison, and map/dashboard rendering do not grant verified-export eligibility.
+
+Local engine, browser, and extracted-plugin checks are recorded in the [implementation ledger](docs/implementation/2026-10-28-evidence-review-ledger.md). Native paired-model/document-reading acceptance and live Mapbox/native-client display remain separate outstanding gates; local checks do not establish them.
+
+### Choosing an LLM Provider
 
 By default MetesParser uses OpenAI. To switch providers either set the environment variable
 `METESPARSER_LLM_PROVIDER` (`openai` or `gemini`) or pass the CLI flag:
@@ -126,7 +156,7 @@ By default MetesParser uses OpenAI. To switch providers either set the environme
 uv run metesparser extract deed.pdf --llm-provider gemini
 ```
 
-#### Logging
+### Logging
 
 MetesParser uses `structlog` for structured logs in both CLI and library modules.
 
@@ -151,12 +181,13 @@ export METESPARSER_LOG_FORMAT=json   # console or json
 ### Python API
 
 ```python
-# Using the Pipeline orchestrator (recommended)
+# Provider-backed extraction and verification; this does not write CSV files
 from pathlib import Path
 from metesparser import Pipeline
 
 pipe = Pipeline(provider="openai", cache=True, audit=True)
 result, audit_ctx = pipe.run(Path("deed.pdf"))
+# Multi-tract PDFs return a list of verification results instead of one result.
 
 # Or using individual components
 from metesparser import PDFProcessor, ClosureChecker
@@ -168,7 +199,7 @@ result = ClosureChecker.verify_closure(legal_desc.calls)
 
 print(f"Misclosure: {result.misclosure_ft:.4f} ft")
 print(f"Area: {result.area_acres:.4f} acres")
-print(f"Status: {'VERIFIED' if result.is_fully_verified() else 'NEEDS REVIEW'}")
+print(f"Engine status: {'CHECKS PASSED' if result.is_fully_verified() else 'NEEDS REVIEW'}")
 ```
 
 ## Architecture
@@ -177,18 +208,18 @@ print(f"Status: {'VERIFIED' if result.is_fully_verified() else 'NEEDS REVIEW'}")
 
 The codebase is a **uv workspace monorepo** with 8 independently installable packages: seven `mp-*` packages plus the root `metesparser` package. Each has a focused responsibility:
 
-| Package | Purpose | Dependencies |
+| Package | Purpose | Workspace Dependencies |
 |---------|---------|--------------|
-| `mp-models` | Pydantic schemas, JSONL envelope, units | None |
+| `mp-models` | Shared schemas, source/analysis contracts, JSONL envelope, units, logging | None |
 | `mp-bearing` | Pure math: azimuth, curves, deltas | mp-models |
 | `mp-ocr` | LLM boundary: PDF -> text (OpenAI/Gemini) | mp-models |
 | `mp-parse` | Rule-based parsing: text -> calls | mp-models, mp-bearing |
-| `mp-verify` | Geometric verification: 8 checks | mp-models, mp-bearing |
-| `mp-export` | CSV, audit reports, plot/dashboard rendering | mp-models, mp-verify |
-| `mp-review` | Deterministic review/plot/dashboard orchestration and overlay preparation; `metes-review` CLI | mp-models, mp-parse, mp-verify, mp-export |
+| `mp-verify` | Canonical checks, relative/plot geometry, advisory diagnosis and comparison | mp-models, mp-bearing |
+| `mp-export` | CSV/audit output and plot/dashboard/online-map rendering | mp-models, mp-verify |
+| `mp-review` | File/CLI adapters, source validation, artifact inspection/replay, review, diagnosis/comparison, overlays and views | mp-models, mp-parse, mp-verify, mp-export |
 | `metesparser` | Pipeline orchestrator + CLI | All packages |
 
-Only `mp-ocr` makes LLM provider calls in the Python packages; parsing, geometry, review, and rendering are deterministic. The Claude plugin performs native source reading outside that provider pipeline.
+Within the composable `mp-*` packages, only `mp-ocr` makes LLM provider calls. The root package also retains compatibility provider clients in `src/metesparser/llm_clients.py`. Parsing, geometry, review, and rendering are deterministic. The Claude plugin performs native source reading outside that provider pipeline.
 
 ### Data Flow
 
@@ -196,7 +227,7 @@ The separate provider-backed PDF pipeline remains available:
 
 ```
 PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
-       LLM       Rules       8 checks    _verified.csv
+       LLM       Rules       Checks      _verified.csv
        extract    extract     closure     .audit.json
                   calls       area        .audit.html
 ```
@@ -213,11 +244,12 @@ The original monolith in `src/metesparser/` is preserved for backward compatibil
 | `pdf_processor.py`, `llm_clients.py`, `llm_cache.py` | `mp-ocr` |
 | `closure_checker.py` | `mp-verify` |
 | `csv_builder.py`, `audit_reporter.py` | `mp-export` |
+| `plot.py`, `dashboard.py`, `source_handoff.py`, `artifact_inspect.py`, `diagnostics.py`, `comparison.py` | Thin facades to shared package APIs |
 | `pipeline.py`, `cli.py`, `run_registry.py` | `metesparser` |
 
 ### Verification Checks
 
-The system implements 8 checks before exporting verified CSV:
+The canonical verifier reports structured check outcomes, with explicit `passed`, `failed`, `not_applicable`, or `blocked` outcomes:
 
 1. **Traverse Closure** - Misclosure < 0.01 ft
 2. **Interior Angles** - Sum matches (n-2)x180 degrees
@@ -227,6 +259,9 @@ The system implements 8 checks before exporting verified CSV:
 6. **Double-Entry Validation** - Compare duplicate entries
 7. **Bearing Reversal Detection** - Adjacent courses ~180 degrees apart (5 degree threshold)
 8. **Distance Reasonableness** - Flags <0.5 ft, >10x median, >90% perimeter
+9. **Boundary Topology** - Detects intersections in supported straight and circular-arc boundaries
+
+Closing within 0.01 ft alone is insufficient. Verified export rechecks the exact calls, requires eligible canonical outcomes and no warnings, and rejects stale or mismatched verification. Source review, relative analysis, diagnostic availability, comparison agreement, and map placement remain separate statuses.
 
 ## Development
 
@@ -234,7 +269,7 @@ The system implements 8 checks before exporting verified CSV:
 
 - Python 3.11+
 - [UV](https://github.com/astral-sh/uv) (required for dependency management)
-- OpenAI or Google Gemini API key
+- OpenAI or Google Gemini API key only for live provider-backed PDF extraction
 
 ### Setup
 
@@ -251,20 +286,20 @@ uv sync --all-extras --dev
 
 ```bash
 make help          # Show all available commands
-make check         # Run full quality gate (lint + format + type + tests)
+make check         # Root lint + format + type + tests
 make lint          # Run ruff linter
 make format        # Format code with ruff
 make test          # Run pytest test suite
 make test-cov      # Run tests with coverage report
-make pre-commit    # Run all checks before committing
+make pre-commit    # Root lint-fix + format + tests; excludes mypy
 ```
 
 ### Running Tests
 
-The test suite runs ~996 tests organized by type:
+Tests are organized into separate root, package/plugin, browser, and external-acceptance lanes. See [docs/TESTING.md](docs/TESTING.md) for their exact scope and prerequisites.
 
 ```bash
-# Run all tests (unit + integration + e2e + regression)
+# Run root tests (unit + integration + e2e + regression)
 make test
 
 # Run only fast unit tests (skip PDF tests)
@@ -293,6 +328,10 @@ uv run pytest -k "closure" --pdb
 uv run pytest packages/mp-models/tests/ -v --no-cov
 for pkg in packages/mp-*/tests/; do uv run pytest "$pkg" -v --no-cov; done
 
+# Opt-in local browser checks; separate from live-provider acceptance
+make test-dashboard-browser
+make test-mapbox-browser
+
 # Generate coverage report
 make test-cov
 open htmlcov/index.html
@@ -317,8 +356,8 @@ make lint-fix
 # Format code
 make format
 
-# Run all checks
-# Includes lint, format, type checking, and test suite
+# Run the root quality gate
+# Package/plugin/browser lanes are documented separately in docs/TESTING.md
 make check
 ```
 
@@ -327,16 +366,13 @@ make check
 Standard 21-field output format:
 
 ```csv
-course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
-curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
-along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,
-non_tangent,radial_bearing,notes
+course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,non_tangent,radial_bearing,notes
 ```
 
 **Example:**
 ```csv
-1,"S 33 20' E","S 33 20' E",146.666667,60.00,,,,,,"SW line of Concord Dr","a point in the division line","iron_pin",,false,false,"",""
-2,"S 56 40' W","S 56 40' W",236.666667,125.00,,,,,,"Div. line L46/47 to L50","point corner to Lot 50","stone",,false,false,"",""
+1,S 33 20' E,S 33 20' E,146.666667,60.00,,,,,,,SW line of Concord Dr,a point in the division line,iron_pin,,false,false,false,false,,
+2,S 56 40' W,S 56 40' W,236.666667,125.00,,,,,,,Div. line L46/47 to L50,point corner to Lot 50,stone,,false,false,false,false,,
 ```
 
 **Key Fields:**
@@ -379,9 +415,9 @@ Azimuth = degrees clockwise from North (0-360):
 ## Core Principles
 
 1. **Never Fabricate Data** - If bearing is incomplete (e.g., "southwesterly"), leave azimuth blank and flag in notes
-2. **Verification First** - Traverse must close to <0.01 ft before exporting `_verified.csv`
+2. **Verification First** - Verified export requires fresh canonical checks, including closure <0.01 ft; advisory results cannot authorize it
 3. **Preserve Original Wording** - Keep deed language verbatim in `along` and `to` fields
-4. **Deterministic Processing** - LLM temperature=0 for consistent results
+4. **Deterministic Analysis** - Parsing and numerical analysis are deterministic; model extraction remains source evidence that must be retained and reviewed
 
 ## Project Structure
 
@@ -390,11 +426,11 @@ metesParser/
 ├── Makefile                     # Development commands
 ├── pyproject.toml               # UV workspace root + tool settings
 ├── packages/                    # Composable packages (uv workspace)
-│   ├── mp-models/               # Pydantic schemas, JSONL envelope, units
+│   ├── mp-models/               # Shared data/evidence/analysis contracts
 │   ├── mp-bearing/              # Pure math: azimuth, curves, deltas
 │   ├── mp-ocr/                  # LLM boundary: PDF -> text
 │   ├── mp-parse/                # Rule-based parsing: text -> calls
-│   ├── mp-verify/               # Geometric verification: 8 checks
+│   ├── mp-verify/               # Canonical checks + advisory geometry/analysis
 │   ├── mp-export/               # CSV, audit, plot/dashboard rendering
 │   └── mp-review/               # Deterministic review CLI + artifact orchestration
 ├── plugins/metesparser/         # Claude skills, shared contracts, bundled launcher
@@ -405,16 +441,16 @@ metesParser/
 │   ├── review_packet.py         # Ground truth review packets
 │   └── ...                      # Monolith modules (kept in sync with packages)
 ├── prompts/                     # Prompt YAML files
-├── tests/                       # Pytest test suite (~996 tests, ~94% coverage)
+├── tests/                       # Root unit, integration, regression and e2e tests
 │   ├── unit/                    # Unit tests
 │   ├── integration/             # Integration tests
 │   ├── e2e/                     # End-to-end CLI tests
 │   └── regression/              # Bug fix tests
 ├── scripts/                     # Utility scripts
-├── sample_deeds/                # 87 sample PDFs + ground truth JSON + LlamaParse markdown
+├── sample_deeds/                # Sample PDFs, ground truth and markdown
 ├── docs/                        # Documentation
-├── CLAUDE.md                    # AI assistant guidance
-└── bugs.md                      # Known issues tracker
+├── AGENTS.md                    # Repository agent guidance
+└── CLAUDE.md                    # Symlink to AGENTS.md
 ```
 
 ## Requirements
@@ -429,9 +465,9 @@ Create a `.env` file:
 
 ```bash
 METESPARSER_LLM_PROVIDER=openai
-OPENAI_API_KEY=sk-...  # Required
+OPENAI_API_KEY=sk-...  # Required when using OpenAI
 GEMINI_API_KEY=...      # Required when using Gemini
-LOG_LEVEL=INFO          # Optional (default: INFO)
+METESPARSER_LOG_LEVEL=INFO  # Optional (default: INFO)
 ```
 
 ## Troubleshooting
@@ -481,10 +517,13 @@ Based on comprehensive metes & bounds extraction best practices from professiona
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System design and data flow
 - **[Plugin catalog](plugins/metesparser/README.md)** - Claude skills and runtime usage
 - **[Artifact handoffs](plugins/metesparser/references/artifact-handoffs.md)** - Shared composition and reuse contract
+- **[Implementation evidence](docs/implementation/2026-10-28-evidence-review-ledger.md)** - Dated local gates and outstanding native/provider acceptance
 - **[docs/API.md](docs/API.md)** - Python API reference
 - **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Development guidelines
 - **[CLAUDE.md](CLAUDE.md)** - AI assistant context and guidance
 - **[docs/METES_AND_BOUNDS_REFERENCE.md](docs/METES_AND_BOUNDS_REFERENCE.md)** - Surveying reference guide
+- **[BoundaryLogic research](docs/reference/boundarylogic.md)** - Public UI observations, product claims, and ideas for the review and map skills
+- **[Skill improvement plan](docs/plans/2026-10-28-skill-evidence-and-review-improvements.md)** - Subagent workstreams, contracts, and red-green acceptance tests
 - **[docs/bugs.md](docs/bugs.md)** - Known issues tracker
 - **[docs/todos.md](docs/todos.md)** - Task tracker
 

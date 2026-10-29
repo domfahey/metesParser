@@ -89,3 +89,6 @@ def test_plugin_archive_includes_standalone_online_map_capability(tmp_path, monk
         names = set(archive.namelist())
     assert "skills/render-online-map/SKILL.md" in names
     assert "skills/render-online-map/README.md" in names
+    assert not any(name.startswith("evals/") for name in names), (
+        "Evaluator rubrics must not leak into packaged skills"
+    )
