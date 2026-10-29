@@ -425,6 +425,15 @@ class CSVBuilder:
                 summaries.append(f"--- {tract.label} ---")
                 summaries.append(ClosureChecker.get_closure_summary(tract_result))
                 summaries.append("")
+            unverified = [(t, r) for t, r in tract_results if not r.is_fully_verified()]
+            if unverified:
+                summaries.append("Not verified (no CSV written):")
+                for tract, tract_result in unverified:
+                    reasons = "; ".join(tract_result.warnings) or "verification checks did not pass"
+                    summaries.append(
+                        f"{tract.label}: misclosure {tract_result.misclosure_ft:.4f} ft; {reasons}"
+                    )
+                summaries.append("")
             with open(summary_path, "w") as f:
                 f.write("\n".join(summaries))
         else:
