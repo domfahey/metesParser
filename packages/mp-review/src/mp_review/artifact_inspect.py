@@ -178,7 +178,7 @@ class _Inspector:
         if rank[status] > rank[node["local_status"]]:
             node["local_status"] = node["status"] = status
 
-    def run(self, node: dict[str, Any], operation: Callable[[], None]) -> None:
+    def run(self, node: dict[str, Any], operation: Callable[[], object]) -> None:
         try:
             operation()
         except _Issue as exc:
