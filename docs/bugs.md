@@ -519,8 +519,10 @@ Use this for each bug ticket in issue tracker/PR discussion:
 
 Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/claude-chat-skill`), split by PR group across read-only reviewers. Each `always` ticket was reproduced by the reviewer with a throwaway test against existing fixtures; `unconfirmed` tickets come from code trace only. Reproductions for #49, #50, #52, #67, #69 and #70 were re-run independently on `main`. No ticket fabricates bearings, grants verified-export eligibility, or promotes advisory status.
 
+**Fix status (2026-10-29):** #49–#73 were fixed test-first (red regression test, then fix) on `fix/code-review-2026-10-29`; #56 and #70 are `partial` with the remaining scope noted. #74 is a new gap found during the #62 fix. Combined-branch gates: packages + plugin 1782 passed / 27 skipped; root 1633 passed / 23 skipped (93.77% coverage); `ruff check` and `mypy src/metesparser` clean.
+
 ### 49) Parallelism check blocks verification when course 1 "continues" a line
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `685a7fd`)
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-verify/src/mp_verify/checks.py` (`parallel_blocked` in `build_verification_checks`); monolith `closure_checker.py` uses the same builder. Introduced in PR #46.
@@ -531,7 +533,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Skip (or mark `not_applicable`) the first course when there is no previous main course to compare.
 
 ### 50) `export-review` crashes when an optional derived layer fails and GeoJSON is requested
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `ca3cad4`)
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-review/src/mp_review/delivery.py:500` (`_geojson`), with `prepare_delivery` (lines 414–418) and `publish_delivery` (line 673). Introduced in PR #55.
@@ -541,7 +543,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Use `next(..., None)` and skip omitted layers; clean up or reuse `pending.json` on failure.
 
 ### 51) DXF and GeoJSON silently drop presentation rotation
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `10c993e`)
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-review/src/mp_review/delivery.py:180-187`, `packages/mp-export/src/mp_export/delivery.py:342-435`. Introduced in PR #55.
@@ -551,7 +553,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Always record the omission when rotation is non-zero and a format ignores it (or apply rotation consistently where meaningful).
 
 ### 52) Schema 1.2 revisions reject added calls and tombstones
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `3a1c0d3`)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-review/src/mp_review/revisions.py:503`. Introduced in PR #53/#54.
@@ -562,7 +564,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** `revision.schema_version not in ("1.1", "1.2")`.
 
 ### 53) Corridor GeoJSON exterior rings are wound clockwise
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `7e10155`)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-review/src/mp_review/delivery_sources.py:370-376`; PLSS `_vector_feature` uses the same unchecked path (not measured). Introduced in PR #55.
@@ -573,7 +575,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Normalize ring orientation (exterior CCW, holes CW) before serialization.
 
 ### 54) `inspect-artifacts` crashes on a tampered plot CSV
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `5432338`)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-review/src/mp_review/artifact_inspect.py:585` (via `plot.py:107-111`); handler at lines 186–191. Introduced in PR #51.
@@ -583,7 +585,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Catch `csv.Error` in replay and map it to an invalid node.
 
 ### 55) `inspect-artifacts` crashes on a non-object dashboard render manifest
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `eb83e62`)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-review/src/mp_review/artifact_inspect.py:929-931`. Introduced in PR #51.
@@ -593,7 +595,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Type-check the loaded manifest before `.get(...)`.
 
 ### 56) Review and plot displays are not invalidated by their producers
-- **Status:** `open`
+- **Status:** `partial` (2026-10-29, `e3cb15b`) — Producer dependencies added (display is blocked when its review/plot is invalid). Renderer-fingerprint check not added: review and plot manifests record no renderer fingerprint.
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-review/src/mp_review/artifact_inspect.py:408` (`review_display`) and `:518` (`plot_display`). Introduced in PR #51.
@@ -603,7 +605,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Add the producing node to `dependency_ids` and a renderer-fingerprint check.
 
 ### 57) `validate-source` rejects in-bundle overrides when the root path is a symlink
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `b067f8d`)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-review/src/mp_review/source_handoff.py:104-116` (with `:536-542`). Introduced in PR #49.
@@ -613,7 +615,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Resolve the override before the containment check.
 
 ### 58) Unreadable source records are reported as `missing`
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `283cab5`)
 - **Severity:** `low`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-review/src/mp_review/source_handoff.py:242-262` (`_Validator.record`). Introduced in PR #49.
@@ -623,7 +625,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Set `self.result[kind]` to `invalid` on decode/parse failure, like the other branches.
 
 ### 59) Deeply nested JSON crashes `inspect-artifacts`
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `8f408ae`)
 - **Severity:** `low`
 - **Reproducibility:** `always` (hostile input only)
 - **Location:** `packages/mp-review/src/mp_review/artifact_inspect.py:127` and `_finite_json` (line 132). Introduced in PR #51.
@@ -633,7 +635,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Catch `RecursionError` in `load` and report `invalid_json`.
 
 ### 60) Non-UTF-8 transcript yields a misleading selection identity entry
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `68d6777`)
 - **Severity:** `low`
 - **Reproducibility:** `unconfirmed` (code trace)
 - **Location:** `packages/mp-review/src/mp_review/source_handoff.py:375-389` and `:608-614`. Introduced in PR #49.
@@ -641,7 +643,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Pass the computed hash through independently of decoding.
 
 ### 61) `run-chat.py --setup` cannot repair a corrupted cached uv
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `2b22288`)
 - **Severity:** `low`
 - **Reproducibility:** `unconfirmed` (code trace; needs a built chat archive)
 - **Location:** `plugins/metesparser-chat/scripts/run-chat.py:176-182` and `:100-108`. Introduced on `feat/claude-chat-skill`.
@@ -649,7 +651,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** On `--setup`, treat a hash mismatch as a cache miss and reinstall.
 
 ### 62) "chord bearing" phrasing is stored as the tangent bearing
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `b626023`)
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-parse/src/mp_parse/calls.py` (curve call parsing). Predates the 2026-10-22 window; surfaced while reviewing PR #47.
@@ -660,7 +662,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Recognize `chord bearing` / `chord bears` phrasings in `extract_curve_info` and keep the monolith `call_extractor.py` in sync.
 
 ### 63) Plot rejects curves whose tangent and chord bearings differ by rounding
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `2dfc51f`)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-verify/src/mp_verify/plot.py:77-80` (`_arc`); shared by plot and dashboard via `_build_geometry`. Introduced in PR #47.
@@ -671,7 +673,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Use a tolerance matched to stated precision (e.g. 1–2 arcseconds) or a linear endpoint tolerance.
 
 ### 64) Raster overlays ignore EXIF orientation
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `c491ccb`)
 - **Severity:** `medium`
 - **Reproducibility:** `unconfirmed` (code trace; no browser repro)
 - **Location:** `packages/mp-review/src/mp_review/raster_registration.py:116-128`, `packages/mp-export/src/mp_export/dashboard_html.py` (`_raster_svg`). Introduced in PR #47.
@@ -679,7 +681,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Reject non-default EXIF orientation, or normalize with `ImageOps.exif_transpose` before registration and embedding.
 
 ### 65) Corridor arc pieces fail on a floating-point end fraction
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `cf5017d`)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-verify/src/mp_verify/corridor.py:156` (`_pieces`, `f1 = (b - stations[i]) / lengths[i]`); raised by `arc_point` in `plot.py:396`. Introduced in PR #52.
@@ -689,7 +691,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Clamp the fraction to `[0, 1]`, or set `f1 = 1.0` when `b == stations[i + 1]`.
 
 ### 66) `diagnose-closure` exits 1 on deeply nested request JSON
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `3a9a6e3`)
 - **Severity:** `low`
 - **Reproducibility:** `always` (malformed input only)
 - **Location:** `packages/mp-review/src/mp_review/diagnostics.py:49` and `:81`. Introduced in PR #50.
@@ -699,7 +701,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Add `RecursionError` to the caught exceptions (see also #59).
 
 ### 67) Web-map validator accepts artifacts with features removed and reports them `ready`
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `438804a`) — Follow-up: the validator checks completeness, counts and internal coordinate consistency but does not re-derive geographic coordinates (mp-verify has no pyproj), so a uniformly shifted but self-consistent artifact still passes.
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-verify/src/mp_verify/webmap.py:123-215` (`_validate_bindings`, `validate_web_map_artifact`). Introduced in PR #48.
@@ -710,7 +712,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Validate feature completeness and coordinates against the freshly derived geometry, not just identities of present features.
 
 ### 68) Web-map CRS transform ignores the operation's area of use
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `cc1a45e`) — Follow-up: when no extent is supplied (delivery GeoJSON path, `mp_review/delivery.py` ~line 489) the area-of-use check is skipped.
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-review/src/mp_review/webmap_projection.py:110-125`; the raster path reuses it via `COORDINATE_OPERATION`. Introduced in PR #48.
@@ -721,7 +723,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Pass an `AreaOfInterest` from the placed geometry or raster extent and fail closed when the selected operation's `area_of_use` does not contain it.
 
 ### 69) Neighbour references in calls split one parcel into bogus tracts
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `9c1274b`) — Note: an in-sentence marker followed by a colon (`Description of PARCEL 1:`) still splits, by design.
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-parse/src/mp_parse/tracts.py:30-41` and `calls.py` (~line 319). Introduced in PR #43/#44.
@@ -732,7 +734,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Only treat TRACT/PARCEL as a marker at a heading position (start of line/sentence, followed by a description), not after `of`/`corner of`/`line of`.
 
 ### 70) Compound distances not joined by "and" silently keep only the first part
-- **Status:** `open`
+- **Status:** `partial` (2026-10-29, `1634475`) — Space/comma-joined compounds with distinct units now sum (`2 chains 20 links` → 145.2 ft). Still open: repeated same-unit measurements (`100 feet, 50 feet`) and 3+ component chains that repeat a unit keep only the first value without a flag.
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-parse/src/mp_parse/metadata.py` (`extract_distance` compound block, ~lines 388–500); same logic in monolith `text_parser.py`. Introduced in PR #43/#44.
@@ -743,7 +745,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Accept space/comma-joined compound units, and flag any unconsumed trailing measurement instead of dropping it.
 
 ### 71) Multi-tract verified export writes `_verified` sidecars when nothing verified
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `180b7b2`)
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-export/src/mp_export/csv_writer.py` (~lines 337–412, `export_verified_csv` with `tract_results`). Introduced in PR #43/#44.
@@ -754,7 +756,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Apply the global gate in multi-tract mode: raise when no tract verifies and restrict `_verified` sidecars to verified tracts.
 
 ### 72) Unparseable `chord_bearing` crashes `verify_closure`
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `5d5d782`)
 - **Severity:** `medium`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-verify/src/mp_verify/closure.py` (~lines 83–85, `compute_traverse`); monolith `closure_checker.py` (~line 385). Introduced in PR #43/#44.
@@ -764,12 +766,22 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Convert the parse failure into a blocked curve check with a warning.
 
 ### 73) Monolith multi-tract verification keeps only the last tract's audit
-- **Status:** `open`
+- **Status:** `fixed` (2026-10-29, `9b0dfe3`)
 - **Severity:** `medium`
 - **Reproducibility:** `unconfirmed` (code trace)
 - **Location:** `src/metesparser/closure_checker.py` (~line 110; single write at line 333) vs `packages/mp-verify/src/mp_verify/closure.py` (~line 424). Introduced in PR #43/#44.
 - **Issue:** With tracts, the monolith passes one `audit_context` to every `verify_tract`, and each call overwrites `audit_context.verification_audit`, so earlier tracts' checks are lost. The package skips audit for tracts and logs a warning — monolith/package drift.
 - **Suggested fix:** Record per-tract verification audits (or match the package behavior) and keep both in sync.
+
+### 74) Curve elements written as "radius 50" / "central angle 90°" are not parsed
+- **Status:** `open`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `packages/mp-parse/src/mp_parse/calls.py` (`CURVE_PATTERN` and the delta fallback in `extract_curve_info`); monolith `call_extractor.py`. Found while fixing #62.
+- **Minimal input:** `a curve to the right having a radius 50 feet and a central angle 90°, chord bearing North 45° East 70.71 feet`.
+- **Expected behavior:** `radius_ft=50`, `delta_deg=90`.
+- **Actual behavior:** Radius and delta are not extracted; the existing patterns expect forms like `radius of 50 feet` and `delta angle of 90°`.
+- **Suggested fix:** Accept `radius <n>` without `of` and `central angle` as a delta synonym in package and monolith, with regression tests.
 
 ## Known Limitations
 
