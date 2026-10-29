@@ -1237,3 +1237,10 @@ def test_tampered_plot_csv_source_is_reported_invalid_not_a_traceback(tmp_path):
     result = inspect(tmp_path, "plot")
     node = nodes(result, "plot")[0]
     assert node["status"] in {"invalid", "stale"}
+
+
+def test_non_object_dashboard_render_manifest_is_invalid(dashboard_bundle):
+    write_json(dashboard_bundle / "dashboard" / "render-manifest.json", [])
+    result = inspect(dashboard_bundle, "dashboard")
+    node = nodes(result, "dashboard")[0]
+    assert node["status"] == "invalid"
