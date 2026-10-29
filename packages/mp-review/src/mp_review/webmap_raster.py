@@ -132,7 +132,7 @@ def prepare_web_map_raster(
     # or allocation; invalid supplied data is an error, not an omitted display.
     layer = RasterLayer.model_validate(layer.model_dump(mode="json"))
     options = WebMapOptions.model_validate(options.model_dump(mode="json"))
-    fresh = build_web_map_projection(scene)
+    fresh = build_web_map_projection(scene, extent=projection.extent)
     if (projection.source_crs_wkt, projection.pipeline, projection.versions) != (
         fresh.source_crs_wkt,
         fresh.pipeline,
