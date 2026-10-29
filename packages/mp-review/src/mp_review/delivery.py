@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import importlib.metadata
 import re
@@ -178,11 +179,20 @@ def prepare_delivery(
             "Required drawn labels/appearance are unsupported in requested CAD/GIS format"
         )
     for fmt in request.formats:
-        if fmt in ("dxf", "geojson") and request.labels:
+        if fmt not in ("dxf", "geojson"):
+            continue
+        # CAD/GIS carry real coordinates: never rotate them, but always disclose it.
+        omitted = []
+        if request.labels:
+            omitted.append("Drawn labels")
+        if request.presentation_rotation_deg != 0:
+            omitted.append("Presentation rotation")
+        if omitted:
             omissions.append(
                 DeliveryOmission(
                     format=fmt,
-                    reason="Drawn labels and presentation rotation are omitted; source values and identity remain in properties/sidecars",
+                    reason=f"{' and '.join(omitted)} omitted (coordinates are not rotated); "
+                    "source values and identity remain in properties/sidecars",
                 )
             )
     for selection in request.layers:
@@ -476,6 +486,25 @@ def prepare_delivery(
     )
 
 
+def _ring_area(ring: list[Any]) -> float:
+    return sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(ring, ring[1:], strict=False)) / 2
+
+
+def _orient_rfc7946(geometry: dict[str, Any]) -> None:
+    """RFC 7946: exterior rings counterclockwise, holes clockwise (done before hashing)."""
+    if geometry.get("type") == "Polygon":
+        polygons = [geometry["coordinates"]]
+    elif geometry.get("type") == "MultiPolygon":
+        polygons = geometry["coordinates"]
+    else:
+        return
+    for rings in polygons:
+        for index, ring in enumerate(rings):
+            area = _ring_area(ring)
+            if (index == 0 and area < 0) or (index > 0 and area > 0):
+                rings[index] = ring[::-1]
+
+
 def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, Any]:
     """Reuse the shared geographic sampler/projection, with original placement evidence."""
     from mp_models.webmap import WebMapOptions
@@ -498,10 +527,17 @@ def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, A
             from .delivery_sources import delivery_source_features
 
             source_record = next(
-                record
-                for record in snapshot.derived_sources
-                if record.get("layer_id") == item.selection.id
+                (
+                    record
+                    for record in snapshot.derived_sources
+                    if record.get("layer_id") == item.selection.id
+                ),
+                None,
             )
+            if source_record is None:
+                # Non-required layer whose preparation failed: an omission is already
+                # recorded and the item carries no geometry.
+                continue
             values = delivery_source_features(
                 item, source_record, snapshot.request, scene, options, budget, projection
             )
@@ -542,6 +578,7 @@ def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, A
                 )
                 if primitive.input_status == "hypothetical":
                     feature["properties"]["kind"] = "scenario_course"
+            _orient_rfc7946(feature["geometry"])
             features.append(feature)
     return {
         "type": "FeatureCollection",
@@ -624,6 +661,15 @@ def publish_delivery(
         "errors": [],
         "artifacts": {},
     }
+    created: list[Path] = []
+
+    def write_new(path: Path, content: bytes) -> None:
+        existed = path.exists()
+        _write_once(path, content)
+        if not existed:
+            created.append(path)
+
+    manifest_path: Path | None = None
     try:
         snapshot = prepare_delivery(bundle, revision_dir, request)
         directory = Path(output_dir)
@@ -634,7 +680,8 @@ def publish_delivery(
         if directory.is_symlink():
             raise ValueError("Unsafe delivery directory symlink")
         directory.mkdir(exist_ok=True)
-        _write_once(
+        manifest_path = directory / "delivery-manifest.json"
+        write_new(
             directory / "pending.json",
             _json(
                 {
@@ -646,7 +693,7 @@ def publish_delivery(
         artifacts = _components(bundle, snapshot)
         hashes = {}
         for name, content in artifacts.items():
-            _write_once(directory / name, content)
+            write_new(directory / name, content)
             hashes[name] = hashlib.sha256(content).hexdigest()
         manifest = {
             "schema_version": "1.0",
@@ -658,7 +705,7 @@ def publish_delivery(
             "artifacts": hashes,
             "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
         }
-        _write_once(directory / "delivery-manifest.json", _json(manifest).encode("utf-8"))
+        write_new(directory / "delivery-manifest.json", _json(manifest).encode("utf-8"))
         result.update(
             status="needs_review",
             save_state="published",
@@ -672,7 +719,24 @@ def publish_delivery(
         )
     except (OSError, ValueError, TypeError, KeyError, ImportError) as exc:
         result["errors"].append(str(exc))
+        _discard_incomplete(created, manifest_path)
+    except BaseException:
+        _discard_incomplete(created, manifest_path)
+        raise
     return result
+
+
+def _discard_incomplete(created: list[Path], manifest_path: Path | None) -> None:
+    """Remove only this call's files from an unpublished package so the id can be retried.
+
+    A package with a manifest is complete and immutable; it is never touched.
+    """
+    if manifest_path is None or manifest_path.exists():
+        return
+    for path in reversed(created):
+        path.unlink(missing_ok=True)
+    with contextlib.suppress(OSError):
+        manifest_path.parent.rmdir()
 
 
 def load_delivery(
