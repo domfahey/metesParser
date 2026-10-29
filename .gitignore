@@ -73,6 +73,7 @@ htmlcov/
 .pyre/
 .pyright/
 .cache/
+/.playwright-cli/
 
 # Environment variables
 .env
