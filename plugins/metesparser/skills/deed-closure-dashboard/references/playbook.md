@@ -2,7 +2,7 @@
 
 Build an interactive closure check, like the 2 Walnut Street example, for a chain of title or any set of source documents. This playbook adapts the supplied Walnut Street workflow to the plugin's native-reading, source-preservation, and verification rules. Its historical figures are examples to verify against actual sources, never defaults for another property.
 
-Contents: [Quick start](#1-quick-start) · [Inputs and data contract](#2-inputs-and-data-contract) · [Workflow](#3-workflow) · [Page specification](#4-page-specification) · [Walnut Street lessons](#5-walnut-street-lessons) · [QA before delivery or publication](#6-qa-before-delivery-or-publication)
+Contents: [Quick start](#1-quick-start) · [Inputs and data contract](#2-inputs-and-data-contract) · [Workflow](#3-workflow) · [Page specification](#4-page-specification) · [Walnut Street lessons](#5-walnut-street-lessons) · [QA before delivery or publication](#6-qa-before-delivery-or-publication) · [Current controls and delivery](#current-controls-and-delivery)
 
 The finished page has six parts:
 
@@ -125,7 +125,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard bundle.json --ou
 
 In the development workspace, `uv run metes-review dashboard bundle.json --output-dir dashboard-new --cache-dir dashboard-cache` is equivalent. A valid bundle returns top-level `needs_review` (exit 1); inspect the artifact paths and calculation statuses in its JSON output. Deliver `dashboard.html` with `source.json`, `source-review.json`, `calculations.json`, `stage-manifest.json`, and `render-manifest.json` so the input, review-data stage, calculations, and rendered output remain inspectable. The command does not publish or write the engine's verified CSV.
 
-Record values and findings remain fixed while the browser edits a separate advisory scenario. Use Reset to restore that working copy. Do not describe scenario closure as a record finding. The browser scenario calculator currently edits straight-course values only; the canonical baseline supports implemented curves, while curve editing is not available. The renderer supports explicitly supplied rigid placements and named point comparisons, but does not automatically match corners or infer parcel alignment.
+Record values and findings remain fixed while the browser edits a separate advisory scenario. Use Reset to restore that working copy. Do not describe scenario closure as a record finding. The immediate browser scenario calculator supports straight-course patches. The structured editor supports exact line/arc drafts and explicit add/remove/reorder; publish and render the revision through the shared engine for fresh geometry. The renderer supports explicitly supplied rigid placements and named point comparisons, but does not automatically match corners or infer parcel alignment.
 
 Keep delivery local unless the user requested sharing and the host's actual access controls support it. Do not invent a public URL, declare an untested page published, or assume privacy. Identify tax-ID pages and verify the requested destination's privacy before sharing. Do not claim host-side read attestations; the bundle renderer has no review log.
 
@@ -172,3 +172,14 @@ The supplied HTML is an example only. See [example patterns](example-patterns.md
 - [ ] Viewer, keyboard navigation, copy buttons and textarea fallback, version selectors, scenario controls, and reset work.
 - [ ] Tax-ID pages identified before sharing; actual publishing scope/access verified, with no unsupported privacy promise.
 - [ ] Actual subagent/model use and any untested browser, native-reading, or publishing step disclosed.
+
+## Current controls and delivery
+
+Deliver the local dashboard path with a short guide tied to the controls actually present:
+
+- Select the parcel and description/calculation occurrence before reading its findings. Course buttons in the plot, recorded table, workbench and supported diagnosis open the linked source page/quote and evidence crop when supplied; missing crops remain explicit.
+- Choose record values or a supplied scenario preset. Edit supported existing straight-course distances and azimuth/quadrant bearings in the advisory workbench; relative headings remain derived separately. Invalid input is highlighted and blocks the current scenario result. Keep the source reading unchanged; a transcription correction needs fresh source/call artifacts and source comparison.
+- Read baseline and scenario closure sensitivity separately. Baseline diagnosis supports the documented analytic circular-arc subset; the immediate browser diagnosis remains straight-only. Unresolved or unsupported geometry and relative constraints can leave diagnosis unavailable; sensitivity is not a correction recommendation or canonical verification.
+- Use **Reset to record** to restore the selected record baseline. **Reset view** changes the viewport only; **Fit**, pan/zoom, course/bearing/distance labels and map visibility/opacity/order are display controls. Scenario closure cannot promote engine/source status.
+
+Use **Download draft**, **Load draft JSON** and the [revision commands](../../../references/revisions.md) for durable alternatives. Structured changes use `save-revision` followed by `render-revision`; inspect their current geometry separately from labeled last-valid geometry. Do not imply that in-session edits alone persist or become source corrections. When resuming outside that session, retain the artifact directory and use the [inspector summary](../../../references/artifact-handoffs.md#artifact-inspection-and-resume) to identify the earliest required stage.

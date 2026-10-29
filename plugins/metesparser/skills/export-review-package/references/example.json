@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0",
+  "id": "synthetic-package",
+  "baseline": {
+    "id": "baseline",
+    "bundle_sha256": "cd521bd935105a3c94477f304ee8cbadf78244a7ac628e82ec83417adceeb88c"
+  },
+  "revision_id": "synthetic-published",
+  "revision_generation": 0,
+  "geometry": "scenario",
+  "coordinate_mode": "local",
+  "scene_id": null,
+  "units": "unknown_ft",
+  "layers": [
+    {
+      "id": "calc-one",
+      "kind": "calculation",
+      "visible": true,
+      "opacity": 1.0,
+      "required": true,
+      "placement_id": null,
+      "placement_sha256": null
+    }
+  ],
+  "placements": [],
+  "scenes": [],
+  "source_bindings": [],
+  "formats": [
+    "svg",
+    "pdf",
+    "dxf"
+  ],
+  "labels": [
+    "course",
+    "bearing",
+    "distance"
+  ],
+  "presentation_rotation_deg": 0.0,
+  "rotation_convention": "clockwise_xy",
+  "placement_pivot": "native_origin",
+  "presentation_pivot": [
+    0.0,
+    0.0
+  ],
+  "include_full_source": false,
+  "geo_tolerance_m": 0.05,
+  "required_appearance": false
+}

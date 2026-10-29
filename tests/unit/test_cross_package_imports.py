@@ -175,6 +175,18 @@ class TestMpVerifyImports:
 class TestMpExportImports:
     """mp-export package should export CSV and audit HTML functions."""
 
+    def test_revision_facade_preserves_shared_implementations(self) -> None:
+        from mp_models import DashboardRevision, revision_template
+        from mp_review import import_revision, load_revision, publish_revision
+
+        from metesparser import revisions
+
+        assert revisions.DashboardRevision is DashboardRevision
+        assert revisions.revision_template is revision_template
+        assert revisions.import_revision is import_revision
+        assert revisions.load_revision is load_revision
+        assert revisions.publish_revision is publish_revision
+
     def test_csv_functions(self) -> None:
         from mp_export import FIELDNAMES, calls_to_csv, csv_to_calls, export_verified_csv
 
@@ -252,3 +264,43 @@ def test_standalone_online_map_facade_uses_package_implementations():
 
     assert StandaloneWebMapInput is PackageInput
     assert render_map_file is package_file
+
+
+def test_corridor_and_plss_facades_reuse_shared_implementations():
+    from mp_models.corridor import CorridorRequest
+    from mp_models.plss import PLSSDerivationRequest
+    from mp_review.corridor import analyze_corridor_file
+    from mp_review.plss import prepare_plss_file
+    from mp_verify.corridor import analyze_corridor
+    from mp_verify.plss import derive_plss
+
+    import metesparser.corridor as corridor
+    import metesparser.plss as plss
+
+    assert corridor.CorridorRequest is CorridorRequest
+    assert corridor.analyze_corridor is analyze_corridor
+    assert corridor.analyze_corridor_file is analyze_corridor_file
+    assert plss.PLSSDerivationRequest is PLSSDerivationRequest
+    assert plss.derive_plss is derive_plss
+    assert plss.prepare_plss_file is prepare_plss_file
+
+
+def test_delivery_facade_reuses_shared_models_and_replay():
+    from mp_models import DeliveryRequest
+    from mp_review.delivery import load_delivery, publish_delivery
+    from mp_review.revision_view import render_revision_file
+
+    import metesparser.delivery as delivery
+
+    assert delivery.DeliveryRequest is DeliveryRequest
+    assert delivery.load_delivery is load_delivery
+    assert delivery.publish_delivery is publish_delivery
+    assert delivery.render_revision_file is render_revision_file
+
+
+def test_raster_picker_facade_reuses_shared_adapter():
+    from mp_review.raster_picker import prepare_raster_picker_file
+
+    from metesparser.raster_picker import prepare_raster_picker_file as public
+
+    assert public is prepare_raster_picker_file

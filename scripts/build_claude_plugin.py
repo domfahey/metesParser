@@ -34,25 +34,29 @@ def runtime_project(wheels: list[Path], *, geo: bool = True, web_map: bool = Fal
     for package in lock["package"]:
         indexed.setdefault(package["name"], []).append(package)
     external: set[str] = set()
-    visited: set[str] = set()
+    visited: set[tuple[str, tuple[str, ...]]] = set()
 
-    def collect(name: str) -> None:
-        if name in visited:
+    def collect(name: str, extras: tuple[str, ...] = ()) -> None:
+        key = (name, tuple(sorted(extras)))
+        if key in visited:
             return
-        visited.add(name)
+        visited.add(key)
         if name not in PACKAGES:
             external.add(name)
         for package in indexed[name]:
-            for dependency in package.get("dependencies", []):
-                collect(dependency["name"])
+            requirements = list(package.get("dependencies", []))
+            for extra in extras:
+                requirements.extend(package.get("optional-dependencies", {}).get(extra, []))
+            for dependency in requirements:
+                collect(dependency["name"], tuple(dependency.get("extra", ())))
 
     for name in PACKAGES:
         if name in indexed:
             collect(name)
-    for extra in (["geo"] if geo else []) + (["web-map"] if web_map else []):
-        for package in indexed["mp-review"]:
-            for dependency in package.get("optional-dependencies", {}).get(extra, []):
-                collect(dependency["name"])
+    collect(
+        "mp-review",
+        tuple(["delivery"] + (["geo"] if geo else []) + (["web-map"] if web_map else [])),
+    )
     dependencies = []
     for name in [*PACKAGES, *sorted(external)]:
         for package in indexed[name]:

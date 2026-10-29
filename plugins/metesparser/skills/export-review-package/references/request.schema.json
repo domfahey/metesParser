@@ -1,0 +1,557 @@
+{
+  "$defs": {
+    "DeliveryLayer": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "calculation",
+            "vector",
+            "raster",
+            "corridor",
+            "plss_reference"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "visible": {
+          "title": "Visible",
+          "type": "boolean"
+        },
+        "opacity": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Opacity",
+          "type": "number"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "placement_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Placement Id"
+        },
+        "placement_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Placement Sha256"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "visible",
+        "opacity",
+        "required"
+      ],
+      "title": "DeliveryLayer",
+      "type": "object"
+    },
+    "DeliverySourceBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "corridor",
+            "plss_reference"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "layer_id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Layer Id",
+          "type": "string"
+        },
+        "artifact_dir": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Artifact Dir"
+        },
+        "revision_corridor_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Revision Corridor Id"
+        },
+        "manifest_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "input_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Input Sha256",
+          "type": "string"
+        },
+        "geometry_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Geometry Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "layer_id",
+        "manifest_sha256",
+        "input_sha256",
+        "geometry_sha256"
+      ],
+      "title": "DeliverySourceBinding",
+      "type": "object"
+    },
+    "PlotPlacement": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "calculation_id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "geometry_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Geometry Hash",
+          "type": "string"
+        },
+        "scene_id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Scene Id",
+          "type": "string"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "translation": {
+          "default": [
+            0.0,
+            0.0
+          ],
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Translation",
+          "type": "array"
+        },
+        "status": {
+          "default": "approximate",
+          "enum": [
+            "unplaced",
+            "approximate",
+            "referenced"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "position_evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Position Evidence",
+          "type": "array"
+        },
+        "orientation_evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Orientation Evidence",
+          "type": "array"
+        },
+        "baseline_geometry_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Geometry Hash"
+        },
+        "baseline_placement_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Baseline Placement Id"
+        },
+        "scenario_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scenario Id"
+        }
+      },
+      "required": [
+        "id",
+        "calculation_id",
+        "geometry_hash",
+        "scene_id",
+        "rationale"
+      ],
+      "title": "PlotPlacement",
+      "type": "object"
+    },
+    "PlotScene": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "local",
+            "projected"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "crs": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crs"
+        },
+        "units": {
+          "enum": [
+            "international_ft",
+            "us_survey_ft",
+            "m",
+            "unknown_ft"
+          ],
+          "title": "Units",
+          "type": "string"
+        },
+        "axis_order": {
+          "const": "xy",
+          "default": "xy",
+          "title": "Axis Order",
+          "type": "string"
+        },
+        "basis": {
+          "default": "local",
+          "title": "Basis",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind",
+        "units"
+      ],
+      "title": "PlotScene",
+      "type": "object"
+    },
+    "RevisionBaseline": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "bundle_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Bundle Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "bundle_sha256"
+      ],
+      "title": "RevisionBaseline",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "id": {
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "baseline": {
+      "$ref": "#/$defs/RevisionBaseline"
+    },
+    "revision_id": {
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+      "title": "Revision Id",
+      "type": "string"
+    },
+    "revision_generation": {
+      "minimum": 0,
+      "title": "Revision Generation",
+      "type": "integer"
+    },
+    "geometry": {
+      "enum": [
+        "recorded",
+        "scenario"
+      ],
+      "title": "Geometry",
+      "type": "string"
+    },
+    "coordinate_mode": {
+      "enum": [
+        "local",
+        "placed"
+      ],
+      "title": "Coordinate Mode",
+      "type": "string"
+    },
+    "scene_id": {
+      "anyOf": [
+        {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scene Id"
+    },
+    "units": {
+      "enum": [
+        "international_ft",
+        "us_survey_ft",
+        "m",
+        "unknown_ft"
+      ],
+      "title": "Units",
+      "type": "string"
+    },
+    "layers": {
+      "items": {
+        "$ref": "#/$defs/DeliveryLayer"
+      },
+      "minItems": 1,
+      "title": "Layers",
+      "type": "array"
+    },
+    "placements": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PlotPlacement"
+      },
+      "title": "Placements",
+      "type": "array"
+    },
+    "scenes": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/PlotScene"
+      },
+      "title": "Scenes",
+      "type": "array"
+    },
+    "source_bindings": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/DeliverySourceBinding"
+      },
+      "title": "Source Bindings",
+      "type": "array"
+    },
+    "formats": {
+      "items": {
+        "enum": [
+          "svg",
+          "pdf",
+          "dxf",
+          "geojson"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Formats",
+      "type": "array"
+    },
+    "labels": {
+      "default": [],
+      "items": {
+        "enum": [
+          "course",
+          "bearing",
+          "distance"
+        ],
+        "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+    },
+    "presentation_rotation_deg": {
+      "default": 0.0,
+      "title": "Presentation Rotation Deg",
+      "type": "number"
+    },
+    "rotation_convention": {
+      "const": "clockwise_xy",
+      "default": "clockwise_xy",
+      "title": "Rotation Convention",
+      "type": "string"
+    },
+    "placement_pivot": {
+      "const": "native_origin",
+      "default": "native_origin",
+      "title": "Placement Pivot",
+      "type": "string"
+    },
+    "presentation_pivot": {
+      "default": [
+        0.0,
+        0.0
+      ],
+      "maxItems": 2,
+      "minItems": 2,
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "title": "Presentation Pivot",
+      "type": "array"
+    },
+    "include_full_source": {
+      "default": false,
+      "title": "Include Full Source",
+      "type": "boolean"
+    },
+    "geo_tolerance_m": {
+      "default": 0.05,
+      "exclusiveMinimum": 0,
+      "title": "Geo Tolerance M",
+      "type": "number"
+    },
+    "required_appearance": {
+      "default": false,
+      "title": "Required Appearance",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "baseline",
+    "revision_id",
+    "revision_generation",
+    "geometry",
+    "coordinate_mode",
+    "units",
+    "layers",
+    "formats"
+  ],
+  "title": "DeliveryRequest",
+  "type": "object"
+}

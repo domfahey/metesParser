@@ -9,7 +9,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
+import textwrap
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,7 +39,8 @@ def _load_fixture_catalog() -> dict[str, dict[str, Any]]:
         combined[case_id] = {
             "family": case["fixture_family"],
             "request": case["request"],
-            "input": case["input"],
+            "input": case.get("candidate_input", case["input"]),
+            "provided_input": case["input"],
             "artifacts": case["fixture_artifacts"],
             "criteria": rubric["criteria"],
             "actions": rubric["required_actions"],
@@ -47,6 +50,23 @@ def _load_fixture_catalog() -> dict[str, dict[str, Any]]:
 
 FIXTURES = _load_fixture_catalog()
 MATERIALIZABLE_CASES = set(FIXTURES)
+
+
+def _provided_bytes(case_id: str) -> bytes:
+    """Read only the declared source input, never expected behavior or grading text."""
+    provided = FIXTURES[case_id]["provided_input"]
+    if not isinstance(provided, dict):
+        raise ValueError("Concrete fixture input must identify supplied text or a file")
+    text = provided.get("document_text")
+    if isinstance(text, str):
+        return text.encode("utf-8")
+    reference = provided.get("fixture_file")
+    if not isinstance(reference, str):
+        raise ValueError("Concrete fixture input must identify a file")
+    path = (CATALOG.parent / reference).resolve()
+    if not path.is_relative_to(CATALOG.parent.parent.resolve()):
+        raise ValueError("Fixture input must remain within the plugin")
+    return path.read_bytes()
 
 
 def _sha256(data: bytes) -> str:
@@ -63,6 +83,16 @@ def _is_sha256(value: Any) -> bool:
 
 def _page_lines(case_id: str) -> list[tuple[str, ...]]:
     """Return synthetic source-page content for the requested observation."""
+    if FIXTURES.get(case_id, {}).get("family") in {"document_intake", "multi_tract_intake"}:
+        groups: list[list[str]] = [[]]
+        for line in _provided_bytes(case_id).decode("utf-8").splitlines():
+            if re.fullmatch(r"SYNTHETIC DEED - PAGE \d+", line) and groups[-1]:
+                groups.append([])
+            groups[-1].extend(
+                textwrap.wrap(line, width=62, break_long_words=False, break_on_hyphens=False)
+                or [""]
+            )
+        return [tuple(lines) for lines in groups]
     pages: dict[str, list[tuple[str, ...]]] = {
         "source-reading-obscured-digits": [
             (
@@ -201,8 +231,8 @@ def _materialize_restart_bundle(directory: Path, *, changed_transcript: bool) ->
         SourceReference,
         TranscriptReference,
     )
-    from mp_review.api import review_file  # type: ignore[import-untyped]
-    from mp_review.plot import plot_file  # type: ignore[import-untyped]
+    from mp_review.api import review_file  # type: ignore[import-untyped, unused-ignore]
+    from mp_review.plot import plot_file  # type: ignore[import-untyped, unused-ignore]
 
     original = b"SYNTHETIC DEED SOURCE - all matter is invented.\n"
     description = (
@@ -286,6 +316,32 @@ def _materialize_restart_bundle(directory: Path, *, changed_transcript: bool) ->
 
 def _fixture_json(case_id: str) -> dict[str, Any]:
     """Structured, concrete evaluation inputs; values and assets are synthetic."""
+    family = FIXTURES[case_id]["family"]
+    if family in {"corridor", "corridor_overlap"}:
+        from mp_models.corridor import CorridorRequest
+
+        payload = json.loads(_provided_bytes(case_id))
+        if family == "corridor_overlap":
+            overlapping = json.loads(json.dumps(payload["widths"][0]))
+            overlapping.update(id="overlapping-width-row")
+            overlapping["start"]["fraction"] = 0.25
+            overlapping["end"]["fraction"] = 0.75
+            payload["widths"].append(overlapping)
+        return CorridorRequest.model_validate(payload).model_dump(mode="json")
+    if family == "plss":
+        from mp_models.plss import PLSSDerivationRequest
+
+        return PLSSDerivationRequest.model_validate_json(_provided_bytes(case_id)).model_dump(
+            mode="json"
+        )
+    if family == "guided_placement":
+        return dict(json.loads(_provided_bytes(case_id)))
+    if family == "delivery":
+        return {
+            "bundle": "artifacts/review/bundle.json",
+            "request": "artifacts/review/delivery-request.json",
+            "revision_dir": "artifacts/review/revisions/synthetic-published",
+        }
     if case_id == "reuse-restart":
         return {
             "schema_version": "1.0",
@@ -299,7 +355,9 @@ def _fixture_json(case_id: str) -> dict[str, Any]:
         from mp_models.plot import PlotScene
         from mp_models.raster import RasterRegistration
         from mp_models.webmap import StandaloneWebMapInput
-        from mp_review.raster_registration import image_layer  # type: ignore[import-untyped]
+        from mp_review.raster_registration import (
+            image_layer,  # type: ignore[import-untyped, unused-ignore]
+        )
 
         scene = PlotScene(
             id="synthetic-scene",
@@ -673,6 +731,45 @@ def _artifact_bytes(kind: str, case_id: str) -> bytes:
         return _pdf(case_id)
     if kind == "text":
         return _selection_text()
+    if kind == "document-text":
+        return _provided_bytes(case_id)
+    if kind == "plot-json":
+        from mp_models.plot_request import PlotRequest
+        from mp_verify.plot import prepare_plot
+
+        request = PlotRequest.model_validate(
+            {
+                "title": "Synthetic local plot without geographic placement",
+                "foot_definition": "international_ft",
+                "calls": [
+                    {
+                        "id": f"local-{i}",
+                        "source_reference": f"Synthetic supplied call {i}",
+                        "quote": "Synthetic local rectangle",
+                        "call": {
+                            "course": i,
+                            "direction_text": "Synthetic supplied numeric call",
+                            "distance_ft": 100,
+                            "bearing_azimuth_deg_from_north": angle,
+                        },
+                    }
+                    for i, angle in enumerate((0, 90, 180, 270), 1)
+                ],
+            }
+        )
+        return json.dumps(prepare_plot(request).model_dump(mode="json"), indent=2).encode()
+    if kind == "guided-png":
+        from io import BytesIO
+
+        from PIL import Image, ImageDraw
+
+        image = Image.new("RGB", (20, 20), "white")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((0, 0, 10, 10), outline="black", width=1)
+        draw.line((0, 10, 19, 10), fill="gray", width=1)
+        output = BytesIO()
+        image.save(output, format="PNG")
+        return output.getvalue()
     if kind == "png":
         from io import BytesIO
 
@@ -696,9 +793,35 @@ def _artifact_bytes(kind: str, case_id: str) -> bytes:
         return json.dumps(_fixture_json(case_id), indent=2).encode()
     if kind == "restart-bundles":
         return json.dumps(_fixture_json(case_id), indent=2).encode()
-    if kind == "json":
+    if kind in {"json", "delivery-inputs"}:
         return json.dumps(_fixture_json(case_id), indent=2).encode()
     raise ValueError(f"Unsupported fixture artifact kind: {kind}")
+
+
+def _materialize_delivery_inputs(directory: Path) -> None:
+    """Publish a real synthetic revision; leave delivery itself for the responding session."""
+    from mp_models.dashboard import DashboardBundle
+    from mp_models.delivery import DeliveryRequest
+    from mp_models.revisions import revision_template
+    from mp_review.revisions import publish_revision  # type: ignore[import-untyped, unused-ignore]
+
+    references = CATALOG.parent.parent / "skills/export-review-package/references"
+    bundle = DashboardBundle.model_validate_json((references / "bundle-example.json").read_bytes())
+    request = DeliveryRequest.model_validate_json((references / "example.json").read_bytes())
+    revision = revision_template(bundle, revision_id=request.revision_id)
+    request = DeliveryRequest.model_validate(
+        request.model_dump(mode="json")
+        | {
+            "baseline": revision.baseline.model_dump(mode="json"),
+            "revision_generation": revision.generation,
+        }
+    )
+    directory.mkdir(parents=True, exist_ok=False)
+    _write_json(directory / "bundle.json", bundle.model_dump(mode="json"))
+    _write_json(directory / "delivery-request.json", request.model_dump(mode="json"))
+    result = publish_revision(bundle, revision, directory / "revisions")
+    if result["save_state"] != "published":
+        raise ValueError("Could not publish synthetic delivery revision")
 
 
 def materialize(case_id: str, output_dir: Path, evaluator_dir: Path) -> dict[str, Any]:
@@ -718,7 +841,8 @@ def materialize(case_id: str, output_dir: Path, evaluator_dir: Path) -> dict[str
     if candidate.exists() or evaluator.exists():
         raise FileExistsError("candidate and evaluator output directories must be new")
     if any(
-        kind in {"pdf", "png", "map-png-a", "map-png-b"} for kind in FIXTURES[case_id]["artifacts"]
+        kind in {"pdf", "png", "map-png-a", "map-png-b", "guided-png"}
+        for kind in FIXTURES[case_id]["artifacts"]
     ):
         try:
             import PIL  # noqa: F401
@@ -745,6 +869,9 @@ def materialize(case_id: str, output_dir: Path, evaluator_dir: Path) -> dict[str
             "source-document": ".txt",
             "text": ".txt",
             "restart-bundles": ".json",
+            "document-text": ".txt",
+            "guided-png": ".png",
+            "delivery-inputs": ".json",
         }[kind]
         relpath = f"artifacts/source-{index}{suffix}"
         path = candidate / relpath
@@ -755,6 +882,9 @@ def materialize(case_id: str, output_dir: Path, evaluator_dir: Path) -> dict[str
     if case_id == "reuse-restart":
         _materialize_restart_bundle(candidate / "artifacts/unchanged", changed_transcript=False)
         _materialize_restart_bundle(candidate / "artifacts/changed", changed_transcript=True)
+    if spec["family"] == "delivery":
+        _materialize_delivery_inputs(candidate / "artifacts/review")
+    if case_id == "reuse-restart" or spec["family"] == "delivery":
         known = {entry["path"] for entry in artifacts}
         for path in sorted((candidate / "artifacts").rglob("*")):
             if path.is_file():
@@ -767,6 +897,28 @@ def materialize(case_id: str, output_dir: Path, evaluator_dir: Path) -> dict[str
                             "sha256": _sha256(path.read_bytes()),
                         }
                     )
+    if spec["family"] == "multi_tract_intake":
+        followup = (
+            b"SYNTHETIC DEED - CLEARER PAGE 2 SUPPLIED AT TURN 2\n"
+            b"OPERATIVE TRACT B\n"
+            b"BEGINNING at the stone; thence N 00 degrees E 100 feet;\n"
+            b"thence N 90 degrees E 100 feet along the road;\n"
+            b"thence S 00 degrees E 100 feet;\n"
+            b"thence N 90 degrees W 100 feet to the POINT OF BEGINNING.\n"
+        )
+        path = evaluator / "followup-inputs/tract-b-page-2.txt"
+        path.parent.mkdir()
+        path.write_bytes(followup)
+        _write_json(
+            evaluator / "followup-manifest.json",
+            {
+                "case_id": case_id,
+                "turn": 2,
+                "artifacts": [
+                    {"path": "followup-inputs/tract-b-page-2.txt", "sha256": _sha256(followup)}
+                ],
+            },
+        )
     request = {
         "request": spec["request"],
         "input": spec["input"],
