@@ -23,6 +23,13 @@ def main() -> None:
     source.add_argument("--acquisition", type=Path)
     source.add_argument("--selection", type=Path)
     source.add_argument("--settings", type=Path)
+    for name in ("diagnose-closure", "compare-descriptions"):
+        advisory = commands.add_parser(
+            name, help="Advisory analysis; completed results retain needs_review (exit 1)."
+        )
+        advisory.add_argument("input", type=Path)
+        advisory.add_argument("--settings", type=Path)
+        advisory.add_argument("--output-dir", type=Path)
     for name in ("review", "verify"):
         command = commands.add_parser(name)
         command.add_argument("input", type=Path)
@@ -148,6 +155,16 @@ def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, An
 
         return validate_source_bundle(
             args.input, acquisition=args.acquisition, selection=args.selection
+        )
+    if args.command == "diagnose-closure":
+        from .diagnostics import diagnose_closure_file
+
+        return diagnose_closure_file(args.input, output_dir=output_path(settings, args.output_dir))
+    if args.command == "compare-descriptions":
+        from .comparison import compare_descriptions_file
+
+        return compare_descriptions_file(
+            args.input, output_dir=output_path(settings, args.output_dir)
         )
     if args.command in ("compose-map", "compose-dashboard"):
         from .compose import compose_dashboard_file, compose_map_file

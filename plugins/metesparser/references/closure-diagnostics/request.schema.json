@@ -1,0 +1,643 @@
+{
+  "$defs": {
+    "DeedCall": {
+      "additionalProperties": false,
+      "description": "Represents a single metes and bounds call (course/line).",
+      "properties": {
+        "along": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "What the line runs along (e.g., 'Southerly line of Pennbrook Drive')",
+          "title": "Along"
+        },
+        "arc_length_ft": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Arc length in feet",
+          "title": "Arc Length Ft"
+        },
+        "bearing_azimuth_deg_from_north": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Azimuth in degrees clockwise from North (0-360)",
+          "title": "Bearing Azimuth Deg From North"
+        },
+        "bearing_quadrant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Quadrant bearing if specified (e.g., 'S 56°40' W')",
+          "title": "Bearing Quadrant"
+        },
+        "chord_bearing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Chord bearing",
+          "title": "Chord Bearing"
+        },
+        "chord_length_ft": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Chord length in feet",
+          "title": "Chord Length Ft"
+        },
+        "course": {
+          "description": "Sequential course number (1, 2, 3, ...)",
+          "minimum": 1,
+          "title": "Course",
+          "type": "integer"
+        },
+        "curve_dir": {
+          "anyOf": [
+            {
+              "enum": [
+                "left",
+                "right"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Curve direction (left/right)",
+          "title": "Curve Dir"
+        },
+        "curve_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "simple",
+                "compound",
+                "reverse",
+                "spiral"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Type of curve: simple, compound, or reverse (None for non-curves)",
+          "title": "Curve Type"
+        },
+        "delta_deg": {
+          "anyOf": [
+            {
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Central angle (Δ) in degrees",
+          "title": "Delta Deg"
+        },
+        "direction_text": {
+          "description": "Verbatim direction from deed (e.g., 'S 56°40' W' or 'southwesterly')",
+          "minLength": 1,
+          "title": "Direction Text",
+          "type": "string"
+        },
+        "distance_ft": {
+          "description": "Distance in decimal feet",
+          "exclusiveMinimum": 0,
+          "title": "Distance Ft",
+          "type": "number"
+        },
+        "is_exception": {
+          "default": false,
+          "description": "True if this call is part of an exception/exclusion tract",
+          "title": "Is Exception",
+          "type": "boolean"
+        },
+        "is_indefinite": {
+          "default": false,
+          "description": "True if this call has vague direction without precise bearing",
+          "title": "Is Indefinite",
+          "type": "boolean"
+        },
+        "is_meander": {
+          "default": false,
+          "description": "True if this call follows a water boundary (meander line)",
+          "title": "Is Meander",
+          "type": "boolean"
+        },
+        "is_tie_in": {
+          "default": false,
+          "description": "True if this call is a tie-in call between POC and POB",
+          "title": "Is Tie In",
+          "type": "boolean"
+        },
+        "monument_status": {
+          "anyOf": [
+            {
+              "enum": [
+                "found",
+                "set"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether monument text indicates found or set",
+          "title": "Monument Status"
+        },
+        "monument_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "iron_rod",
+                "iron_pin",
+                "iron_pipe",
+                "stone",
+                "concrete",
+                "wooden_post",
+                "brass_cap",
+                "rebar",
+                "railroad_spike",
+                "nail",
+                "pk_nail",
+                "hub_and_tack",
+                "monitoring_well",
+                "capped_pin",
+                "capped_rod",
+                "txdot_monument",
+                "tree",
+                "rock",
+                "natural_feature",
+                "other"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Type of survey monument at endpoint",
+          "title": "Monument Type"
+        },
+        "non_tangent": {
+          "default": false,
+          "description": "True if this curve is non-tangent (radial bearing provided)",
+          "title": "Non Tangent",
+          "type": "boolean"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Additional notes (meander flag, issues, etc.)",
+          "title": "Notes"
+        },
+        "quality": {
+          "anyOf": [
+            {
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Call quality rating based on bearing completeness and monument permanence",
+          "title": "Quality"
+        },
+        "radial_bearing": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Radial bearing for non-tangent curves (e.g., 'N 15°22' E')",
+          "title": "Radial Bearing"
+        },
+        "radius_ft": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Curve radius in feet",
+          "title": "Radius Ft"
+        },
+        "to": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Ending point description (e.g., 'iron pin', 'corner to Lot 50')",
+          "title": "To"
+        }
+      },
+      "required": [
+        "course",
+        "direction_text",
+        "distance_ft"
+      ],
+      "title": "DeedCall",
+      "type": "object"
+    },
+    "DiagnosticCall": {
+      "additionalProperties": false,
+      "properties": {
+        "call": {
+          "$ref": "#/$defs/DeedCall"
+        },
+        "call_id": {
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$",
+          "title": "Call Id",
+          "type": "string"
+        },
+        "source_refs": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/DiagnosticSourceRef"
+          },
+          "title": "Source Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "call_id",
+        "call"
+      ],
+      "title": "DiagnosticCall",
+      "type": "object"
+    },
+    "DiagnosticFrame": {
+      "additionalProperties": false,
+      "properties": {
+        "basis": {
+          "const": "recorded_bearings",
+          "default": "recorded_bearings",
+          "title": "Basis",
+          "type": "string"
+        },
+        "foot_definition": {
+          "default": "unknown_ft",
+          "enum": [
+            "international_ft",
+            "us_survey_ft",
+            "unknown_ft"
+          ],
+          "title": "Foot Definition",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$",
+          "title": "Name",
+          "type": "string"
+        },
+        "units": {
+          "const": "ft",
+          "default": "ft",
+          "title": "Units",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "DiagnosticFrame",
+      "type": "object"
+    },
+    "DiagnosticSourceRef": {
+      "additionalProperties": false,
+      "description": "Source evidence when known; absent identity details remain unknown.",
+      "properties": {
+        "crop_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "^\\S(?:.*\\S)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Crop Id"
+        },
+        "occurrence_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "^\\S(?:.*\\S)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Occurrence Id"
+        },
+        "page": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page"
+        },
+        "page_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "^\\S(?:.*\\S)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Page Id"
+        },
+        "quote": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Quote"
+        },
+        "source_id": {
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Sha256"
+        },
+        "span_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "pattern": "^\\S(?:.*\\S)?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Span Id"
+        },
+        "uncertainty": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uncertainty"
+        }
+      },
+      "required": [
+        "source_id"
+      ],
+      "title": "DiagnosticSourceRef",
+      "type": "object"
+    },
+    "QuantizationAssumptions": {
+      "additionalProperties": false,
+      "description": "Explicit source increments, with deterministic nearest-rounding limits.",
+      "properties": {
+        "bearing_increment_arcsec": {
+          "exclusiveMinimum": 0,
+          "maximum": 1296000,
+          "title": "Bearing Increment Arcsec",
+          "type": "number"
+        },
+        "distance_increment_ft": {
+          "exclusiveMinimum": 0,
+          "title": "Distance Increment Ft",
+          "type": "number"
+        },
+        "evidence": {
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$",
+          "title": "Evidence",
+          "type": "string"
+        },
+        "rounding": {
+          "const": "nearest",
+          "default": "nearest",
+          "title": "Rounding",
+          "type": "string"
+        }
+      },
+      "required": [
+        "distance_increment_ft",
+        "bearing_increment_arcsec",
+        "evidence"
+      ],
+      "title": "QuantizationAssumptions",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "baseline_request_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Baseline Request Sha256"
+    },
+    "calls": {
+      "items": {
+        "$ref": "#/$defs/DiagnosticCall"
+      },
+      "minItems": 1,
+      "title": "Calls",
+      "type": "array"
+    },
+    "frame": {
+      "$ref": "#/$defs/DiagnosticFrame"
+    },
+    "input_id": {
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$",
+      "title": "Input Id",
+      "type": "string"
+    },
+    "input_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Input Sha256",
+      "type": "string"
+    },
+    "precision": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/QuantizationAssumptions"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "request_id": {
+      "minLength": 1,
+      "pattern": "^\\S(?:.*\\S)?$",
+      "title": "Request Id",
+      "type": "string"
+    },
+    "scenario_evidence": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scenario Evidence"
+    },
+    "scenario_id": {
+      "anyOf": [
+        {
+          "minLength": 1,
+          "pattern": "^\\S(?:.*\\S)?$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Scenario Id"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "request_id",
+    "input_id",
+    "input_sha256",
+    "calls",
+    "frame"
+  ],
+  "title": "ClosureDiagnosticRequest",
+  "type": "object"
+}

@@ -235,3 +235,18 @@ def test_standalone_online_map_facade_uses_package_implementations():
 
     assert StandaloneWebMapInput is PackageInput
     assert render_map_file is package_file
+
+
+def test_diagnostics_and_comparison_facades_use_package_implementations():
+    from mp_models import ClosureDiagnosticRequest, ComparisonRequest
+    from mp_review import compare_descriptions_file, diagnose_closure_file
+    from mp_verify import compare_descriptions, diagnose_closure
+
+    from metesparser import comparison, diagnostics
+
+    assert comparison.ComparisonRequest is ComparisonRequest
+    assert comparison.compare_descriptions is compare_descriptions
+    assert comparison.compare_descriptions_file is compare_descriptions_file
+    assert diagnostics.ClosureDiagnosticRequest is ClosureDiagnosticRequest
+    assert diagnostics.diagnose_closure is diagnose_closure
+    assert diagnostics.diagnose_closure_file is diagnose_closure_file

@@ -79,9 +79,11 @@ def main(argv: list[str] | None = None) -> int:
         "fetch-parcel",
         "corpus",
         "validate-source",
+        "diagnose-closure",
+        "compare-descriptions",
     }:
         return emit_error(
-            "Usage: run-review.py {review|verify|analyze-relative|plot|compose-map|compose-dashboard|render-map|dashboard|serve-map|mapbox-mcp|corpus|import-overlay|register-raster|fetch-parcel|validate-source} [engine options]"
+            "Usage: run-review.py {review|verify|analyze-relative|plot|compose-map|compose-dashboard|render-map|dashboard|serve-map|mapbox-mcp|corpus|import-overlay|register-raster|fetch-parcel|validate-source|diagnose-closure|compare-descriptions} [engine options]"
         )
     if not any(arg == "--settings" or arg.startswith("--settings=") for arg in args):
         args.extend(["--settings", str(Path.cwd() / ".claude" / "metesparser.local.md")])
