@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Literal, cast
 
 from mp_models.plot import XY, LinearUnit, PlotGeometry, PlotPlacement, PlotPrimitive, VectorLayer
+from mp_models.raster import RasterLayer
 from mp_models.webmap import (
     WebMapArtifact,
     WebMapFeature,
@@ -268,13 +269,42 @@ def _coordinates(feature: WebMapFeature) -> Iterator[XY]:
                 yield from ring
 
 
+Extent = tuple[float, float, float, float]
+
+
+def _bounds_of(points: list[XY]) -> Extent | None:
+    finite = [p for p in points if all(math.isfinite(v) for v in p)]
+    if not finite:
+        return None
+    return (
+        min(p[0] for p in finite),
+        min(p[1] for p in finite),
+        max(p[0] for p in finite),
+        max(p[1] for p in finite),
+    )
+
+
+def _vector_extent(layer: VectorLayer) -> Extent | None:
+    polygons = (layer.coordinates,) if layer.geometry_type == "Polygon" else layer.coordinates
+    return _bounds_of([cast(XY, p) for polygon in polygons for ring in polygon for p in ring])
+
+
+def _raster_extent(raster: RasterLayer) -> Extent | None:
+    a, b, c, d, e, f = raster.registration.matrix
+    corners = itertools.product((-0.5, raster.width - 0.5), (-0.5, raster.height - 0.5))
+    return _bounds_of([(a * col + b * row + c, d * col + e * row + f) for col, row in corners])
+
+
 def _display_extent(
     context: WebMapContext, scene_id: str, scene_units: LinearUnit
-) -> tuple[float, float, float, float] | None:
-    """Scene-XY bounds of all evidence this scene would display, or ``None``.
+) -> Extent | None:
+    """Scene-XY bounds of the deed (primary) evidence, or ``None``.
 
     Used only to select and check a coordinate operation's area of use, so it
     samples generously (arcs at five parameters) and skips what cannot display.
+    Context vector layers and rasters do not choose the operation: each is
+    checked against it later and omitted individually if outside. Only a scene
+    with no displayable deed geometry falls back to its context layers.
     """
     points: list[XY] = []
     foot = dict(context.foot_definitions)
@@ -299,28 +329,27 @@ def _display_extent(
                             scene_units=scene_units,
                         )
                     )
-    for layer in context.vector_layers:
-        if layer.scene_id == scene_id:
-            polygons = (
-                (layer.coordinates,) if layer.geometry_type == "Polygon" else layer.coordinates
-            )
-            points.extend(cast(XY, p) for polygon in polygons for ring in polygon for p in ring)
-    for raster in context.raster_layers:
-        if raster.scene_id == scene_id:
-            a, b, c, d, e, f = raster.registration.matrix
-            for col, row in itertools.product(
-                (-0.5, raster.width - 0.5), (-0.5, raster.height - 0.5)
-            ):
-                points.append((a * col + b * row + c, d * col + e * row + f))
-    finite = [p for p in points if all(math.isfinite(v) for v in p)]
-    if not finite:
-        return None
-    return (
-        min(p[0] for p in finite),
-        min(p[1] for p in finite),
-        max(p[0] for p in finite),
-        max(p[1] for p in finite),
-    )
+    deed = _bounds_of(points)
+    if deed is not None:
+        return deed
+    extents = [
+        e
+        for e in (
+            *(_vector_extent(v) for v in context.vector_layers if v.scene_id == scene_id),
+            *(_raster_extent(r) for r in context.raster_layers if r.scene_id == scene_id),
+        )
+        if e is not None
+    ]
+    return _bounds_of([p for e in extents for p in ((e[0], e[1]), (e[2], e[3]))])
+
+
+def _require_area(projection: WebMapProjection, extent: Extent | None) -> None:
+    """Omit context evidence that the deed-selected operation does not cover."""
+    if projection.extent is not None and (extent is None or not projection.covers(extent)):
+        raise WebMapUnavailable(
+            "outside_area_of_use",
+            "Item extent is outside the selected coordinate operation's area of use.",
+        )
 
 
 def prepare_web_map(
@@ -430,6 +459,7 @@ def prepare_web_map(
                 continue
             before = budget.remaining
             try:
+                _require_area(projection, _vector_extent(layer))
                 feature = _vector_feature(layer, projection, options, budget)
             except WebMapUnavailable as exc:
                 budget.remaining = before
@@ -443,6 +473,7 @@ def prepare_web_map(
             from .webmap_raster import prepare_web_map_raster
 
             try:
+                _require_area(projection, _raster_extent(raster))
                 remaining = options.max_raster_pixels - raster_pixels
                 if remaining <= 0:
                     raise WebMapUnavailable(
