@@ -9,6 +9,7 @@ System design and data flow for metesParser.
 - [Composable Package Architecture](#composable-package-architecture)
 - [Skill Composition](#skill-composition)
 - [Advisory Operations and Artifact Reuse](#advisory-operations-and-artifact-reuse)
+- [Revisions, Derived Geometry, and Delivery](#revisions-derived-geometry-and-delivery)
 - [Data Flow](#data-flow)
 - [Package Details](#package-details)
 - [Data Models](#data-models)
@@ -142,7 +143,7 @@ The original monolith in `src/metesparser/` is preserved for backward compatibil
 | `mp-parse` | `call_extractor.py`, `text_parser.py` |
 | `mp-verify` | `closure_checker.py` |
 | `mp-export` | `csv_builder.py`, `audit_reporter.py` (legacy CSV/audit functionality) |
-| Shared review/analysis APIs | `plot.py`, `dashboard.py`, `source_handoff.py`, `artifact_inspect.py`, `diagnostics.py`, and `comparison.py` re-export package implementations/contracts |
+| Shared review/analysis APIs | `plot.py`, `dashboard.py`, `source_handoff.py`, `artifact_inspect.py`, `diagnostics.py`, `comparison.py`, `corridor.py`, `plss.py`, `revisions.py`, `delivery.py`, and `raster_picker.py` re-export package implementations/contracts |
 | `metesparser` | `pipeline.py`, `cli.py`, `run_registry.py`, `review_packet.py` |
 
 ### Pipeline Orchestrator
@@ -161,7 +162,7 @@ It currently wraps the monolith `PDFProcessor` for backward compatibility and us
 
 ## Skill Composition
 
-The [plugin catalog](../plugins/metesparser/README.md) describes ten skill entrypoints: seven capabilities, two workflows, and the `review-deed` alias. The capabilities cover document transcription, description selection, verification, plotting, overlay preparation, online rendering, and description comparison. Source validation, artifact inspection, and closure diagnosis are shared utilities. Skills provide instructions and routing over the packages; their [artifact handoff contract](../plugins/metesparser/references/artifact-handoffs.md) defines accepted inputs, stopping points, source identity, invalidation, and status boundaries. See [maintain the skill composition](CLAUDE_PLUGIN.md#maintain-the-skill-composition) for documentation ownership.
+The [plugin catalog](../plugins/metesparser/README.md) describes thirteen skill entrypoints: ten capabilities, two workflows, and the `review-deed` compatibility alias. Capabilities cover document transcription, description selection, verification, plotting, overlays, corridor construction, PLSS reference preparation, review-package export, online rendering, and description comparison. Source validation, artifact inspection, and closure diagnosis are shared utilities. Skills route work across packages; their [artifact handoff contract](../plugins/metesparser/references/artifact-handoffs.md) defines accepted inputs, stopping points, source identity, invalidation, and status boundaries. See [maintain the skill composition](CLAUDE_PLUGIN.md#maintain-the-skill-composition) for documentation ownership.
 
 ```mermaid
 flowchart TD
@@ -194,6 +195,18 @@ flowchart TD
     standalone --> online
     config[WebMapRequest: explicit scene + display options] --> online
     online --> viewer[Local Mapbox viewer or requested vector MCP preview]
+    draft[Browser draft: raw edits and structured line/arc input] --> revision[Versioned DashboardRevision]
+    revision --> revision_engine[mp-review / mp-verify: fresh shared geometry]
+    revision_engine --> revision_view[Rendered revision view; draft and current geometry stay distinct]
+    corridor[Schema 1.2 retained corridor request] --> revision
+    plss[Supplied PLSS reference request] --> reference[Computed reference geometry; not a deed boundary]
+    revision_view --> delivery[Explicit DeliveryRequest and source bindings]
+    reference --> delivery
+    delivery --> snapshot[Immutable delivery snapshot and omission record]
+    snapshot --> export[mp-export: SVG / PDF / DXF / GeoJSON]
+    picker[Offline raster control picker] --> controls[Downloaded control coordinates only]
+    controls --> register[Separate raster registration and review]
+    register --> prepared
     pdf[PDF for separate provider pipeline] --> ocr[mp-ocr: OpenAI or Gemini]
     ocr --> legacy[Python CLI/API path: parse, verify, gated export]
 ```
@@ -205,6 +218,8 @@ Dashboard creation is an explicit composition step: assemble source-linked calls
 A map-only request composes existing `PreparedPlot` objects, map layers, and explicit placements in `StandaloneWebMapInput`, then supplies a separate `WebMapRequest` to `render-map`. It revalidates shared geometry and placement bindings without requiring dashboard assembly. See the [standalone composition recipe](../plugins/metesparser/skills/render-online-map/references/local-viewer.md#compose-existing-artifacts).
 
 Claude's native reading and selection are source-preparation stages outside the Python provider pipeline. The plugin does not substitute `mp-ocr` or an external OCR service for native reading. In the separate Python PDF pipeline below, `mp-ocr` owns OpenAI/Gemini calls. In both paths, parsing, geometry, checks, and rendering use deterministic package code; geometric success does not establish source completeness.
+
+Browser edits are recoverable working copies. The straight-course scenario calculator is a preview; the structured editor retains exact raw line/arc inputs, but shared-engine geometry is refreshed only after publishing and rendering a revision. A browser preview, saved raw draft, or last-valid parent plot is not the current geometry for an unresolved revision.
 
 ## Advisory Operations and Artifact Reuse
 
@@ -231,6 +246,39 @@ Completed advisory commands return `needs_review` / exit **1**, even when every 
 The inspector follows declared IDs/hashes rather than filenames or timestamps. Review replay uses the recorded original input kind, stated-area option and algorithm version, even when CSV/JSON bytes are retained as `source.txt`. Source/call changes invalidate their dependent stages; map/placement changes affect only dependent positioning/rendering work; viewer opacity, raster order and viewport are presentation state. Optional maps are outside closure-only requests. Reasons/dependencies remain visible at artifact and stage levels; ambiguous occurrences do not produce a guessed restart command.
 
 Dashboards retain fresh baseline diagnosis and comparison stages separately from canonical findings, with input/output hashes checked against immutable source-owned calls. Scenario edits/reset operate on a separate browser copy. Integrated comparison regeneration uses the retained `DashboardBundle` and its specifications; it does not assume a standalone comparison request exists. Standalone diagnosis/comparison also work without a dashboard or native document reading.
+
+## Revisions, Derived Geometry, and Delivery
+
+`mp_models.revisions` defines baseline-bound alternatives; `mp_review.revisions` imports, prepares, publishes, and replays them; `mp_export.revision_html` renders a fresh revision view. Revision schema `1.0` supports the base form, `1.1` adds structured course editing, and `1.2` adds retained corridor definitions. The browser's local draft store preserves incomplete raw values and does not establish publication or geometry. Structured line, circular-arc, and annotation edits retain their exact strings and stable call/tract/document identities. After a draft is saved, `render-revision` recomputes shared-engine geometry and keeps current geometry distinct from explicitly labeled last-valid parent geometry. Unsupported or incomplete edits remain recoverable drafts; they do not borrow old geometry as current.
+
+Published revisions are immutable, baseline-hash-bound records. A retry can complete an interrupted publication only with identical content. Loading a revision replays its declared artifacts and compares them with fresh deterministic results. Changes invalidate dependent placements, comparisons, exports, and canonical verification; a source correction records supplied excerpts and revised calls but does not fabricate an acquisition or selection record. Saving or rendering an alternative does not run canonical verification or grant verified-export eligibility.
+
+Corridors are constructed from an explicit centerline `PlotRequest`, ordered width intervals, endpoint widths, step/taper rules, join/cap choices, source references, and a declared error budget. `mp_verify.corridor` owns the geometry and topology checks; `mp_review.corridor` owns standalone request/result files. A schema `1.2` revision retains the exact corridor request bytes as JSON text and replays them into separate centerline and boundary plots. Child revisions retain the full corridor ID inventory; removal is an explicit tombstone retaining the original definition, and edits recompute derived geometry. Unsupported topology or exceeded budgets do not yield an apparently complete polygon. Corridor geometry is advisory and never becomes a deed call or canonical verification result. See the [corridor capability](../plugins/metesparser/skills/plot-corridor/SKILL.md) and [revision contract](../plugins/metesparser/references/revisions.md#saved-corridor-definitions).
+
+PLSS derivation is similarly a supplied-reference computation. The request identifies a dataset version, cited authority, projected scene, section key, specific reference, and supported rectangular-aliquot rule. `mp_verify.plss` computes only from those supplied corners and retains dataset/reference/source hashes; `mp_review.plss` validates and replays its producer files. A PLSS recital alone cannot create nominal section dimensions or corners. The result is reference/context geometry, not a legal boundary, source attestation, or canonical verification. Projected-scene support uses optional geographic dependencies; the no-geo runtime explicitly reports the missing `mp-review[geo]` prerequisite. See the [PLSS reference capability](../plugins/metesparser/skills/plot-plss-reference/SKILL.md).
+
+`DeliveryRequest` selects a published revision, geometry version, layers, formats, units, coordinate mode, placements, and presentation options. `mp_review.delivery` freshly replays the revision and any bound corridor/PLSS sources, checks their manifest/input/geometry identities, and freezes the accepted membership, transforms, metrics, and omissions in a `DeliverySnapshot`. `mp_export.delivery` renders requested SVG, PDF, DXF, and geographic GeoJSON; `publish_delivery` writes immutable artifacts with its manifest last, while `load_delivery` replays and validates the package. PDF/DXF runtime dependencies are bundled in both plugin profiles; geographic projection dependencies remain optional.
+
+Representation limits are explicit in the snapshot and manifest. DXF/GeoJSON omit drawn labels and presentation rotation while retaining source properties/sidecars; raster layers cannot be embedded in CAD/GIS outputs and are refused when the layer or requested appearance is required. GeoJSON requires an explicitly projected scene and placed coordinates. A revision-bound corridor source must identify the selected revision's actual manifest hash, corridor input hash, boundary geometry hash, and boundary layer ID. Corridor placement binds the original centerline placement, then composes the stored boundary origin once. PLSS export retains the reference's original scene rather than applying a deed placement. Source bytes are omitted unless full-source inclusion is requested; hashes and explicit omission remain recorded. These exports remain advisory and set neither canonical verification nor verified-export eligibility. See [review-package export](../plugins/metesparser/skills/export-review-package/SKILL.md).
+
+Raster picking is a separate evidence step. `pick-raster` creates an offline pixel-control UI and retains the original image and control input; downloading points does not fit a registration or place a deed. A later registration command validates the controls and computes fit and any supplied independent checkpoint residuals. Raster registration, deed placement, and map rendering are separate dependencies: registration does not imply deed alignment, a good fit residual does not replace checkpoint evidence, and display controls do not alter geometry. See the [raster preparation reference](../plugins/metesparser/skills/prepare-parcel-overlay/references/overlay-preparation.md#optional-native-pixel-control-picker).
+
+The principal local commands for these handoffs are:
+
+```sh
+uv run metes-review revision-template BUNDLE.json --output NEW_DRAFT.json
+uv run metes-review save-revision BUNDLE.json --revision DRAFT.json --output-dir REVISION_STORE
+uv run metes-review inspect-revision BUNDLE.json --revision-dir REVISION_DIR
+uv run metes-review render-revision BUNDLE.json --revision-dir REVISION_DIR --output-dir NEW_VIEW
+uv run metes-review analyze-corridor REQUEST.json --output-dir NEW_CORRIDOR_DIR
+uv run metes-review derive-plss REQUEST.json --output-dir NEW_REFERENCE_DIR
+uv run metes-review pick-raster IMAGE --controls CONTROLS.json --output-dir NEW_PICKER_DIR
+uv run metes-review register-raster IMAGE --controls CONTROLS.json --output NEW_LAYER.json
+uv run metes-review export-review BUNDLE.json --revision-dir REVISION_DIR --request REQUEST.json --output-dir NEW_PACKAGE_ROOT
+uv run metes-review inspect-delivery BUNDLE.json --revision-dir REVISION_DIR --package-dir PACKAGE_DIR
+```
+
+The plugin launcher has matching subcommands. A complete local/extracted runtime check is not native Claude/Cowork acceptance; actual document reading, paired skill behavior, browser/host behavior, and live providers require separate observed gates in the [implementation ledger](implementation/2026-10-28-cowork-workflow-ledger.md).
 
 ## Data Flow
 
@@ -316,7 +364,7 @@ PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
 - `RawTextMessage`, `LegalDescriptionMessage`, `ClosureResultMessage` - JSONL envelope types
 - `ConversionFactors`, `DistanceUnit` - Unit conversion constants
 - Source acquisition/selection, artifact inspection, diagnosis and comparison contracts
-- Dashboard, plot, scene/placement, raster and web-map contracts
+- Dashboard, plot, scene/placement, raster, web-map, revision, corridor, PLSS reference, and delivery contracts
 
 ### mp-bearing
 
@@ -366,7 +414,7 @@ Deltas: dx = dist * sin(az), dy = dist * cos(az)
 
 ### mp-verify
 
-**Purpose**: Canonical geometric checks plus shared plot/relative geometry and advisory diagnosis/comparison math.
+**Purpose**: Canonical geometric checks plus shared plot/relative geometry and advisory diagnosis, comparison, corridor, and supplied-reference math.
 
 **Verification Checks**:
 1. **Traverse Closure** - Misclosure < 0.01 ft by default
@@ -385,16 +433,18 @@ Deltas: dx = dist * sin(az), dy = dist * cos(az)
 - `score_call_quality()` - Per-call high/medium/low
 - `get_closure_summary()` - Human-readable summary
 - `diagnose_closure()`, `compare_descriptions()` - Separate advisory analyses; do not modify verification tolerances or calls
+- `analyze_corridor()` - Build an explicitly parameterized centerline ribbon with source-linked width intervals, topology outcomes, and an error budget
+- `derive_plss()` - Apply the supported rectangular aliquot rule only to an identified supplied section reference
 
 ### mp-export
 
-**Purpose**: CSV/audit output and standalone plot, dashboard and online-map rendering.
+**Purpose**: CSV/audit output and standalone plot, dashboard, revision, delivery, and online-map rendering.
 
 **Key Functions**:
 - `export_verified_csv()` - Recheck exact calls and export only when canonical outcomes are eligible
 - `calls_to_csv()`, `csv_to_calls()`, `csv_text_to_calls()` - CSV I/O and retained-byte replay
 - `generate_html()`, `write_report()` - Audit HTML report
-- `plot_html.py`, `plot_svg.py`, `dashboard_html.py`, `online_map_html.py` - Display renderers
+- `plot_html.py`, `plot_svg.py`, `dashboard_html.py`, `revision_html.py`, `delivery.py`, `raster_picker.py`, `online_map_html.py` - Display and delivery renderers
 
 **CSV Schema** (21 fields):
 ```csv
@@ -408,6 +458,10 @@ course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_f
 - `api.py`: review/verification adapters and `replay_review()`; producer manifests retain input kind, parameters, versions, exact source bytes and output identities.
 - `source_handoff.py`, `artifact_inspect.py`: read-only source validation and conditional artifact replay/resume guidance.
 - `diagnostics.py`, `comparison.py`: exact-input file adapters over shared advisory engines.
+- `corridor.py`, `plss.py`: exact-request producers and replay for derived corridor and supplied PLSS reference geometry.
+- `revisions.py`, `revision_view.py`: baseline-bound, immutable revision publication/replay and fresh shared-engine views.
+- `delivery.py`: typed selection, source-binding validation, immutable package publication/replay, and recorded omissions.
+- `raster_picker.py`: offline control-point collection; registration remains a separate operation.
 - `plot.py`: `plot_file()` loads structured input and writes standalone plot artifacts without canonical verification.
 - `dashboard.py`: `prepare_dashboard()` and `dashboard_file()` validate bundles, coordinate calculation/cache stages, and write dashboard snapshots.
 - `overlays.py`, `raster_registration.py`, `parcel_provider.py`: vector import, supplied raster registration, and explicitly requested parcel retrieval/preparation.
