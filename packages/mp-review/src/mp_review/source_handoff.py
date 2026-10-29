@@ -242,6 +242,11 @@ class _Validator:
         try:
             text = raw.decode("utf-8-sig")
         except UnicodeDecodeError:
+            self.result[kind] = {
+                "status": "invalid",
+                "path": str(reference),
+                "sha256": _digest(raw),
+            }
             self.finding(
                 "invalid_utf8",
                 "Record must contain valid UTF-8 JSON.",
@@ -260,6 +265,11 @@ class _Validator:
             if not isinstance(data, dict):
                 raise ValueError("Record must be a JSON object.")
         except ValueError as exc:
+            self.result[kind] = {
+                "status": "invalid",
+                "path": str(reference),
+                "sha256": _digest(raw),
+            }
             self.finding("invalid_json", str(exc), path=str(reference), error=True)
             return None, raw
         version = data.get("schema_version")
