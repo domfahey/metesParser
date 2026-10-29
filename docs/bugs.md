@@ -519,7 +519,9 @@ Use this for each bug ticket in issue tracker/PR discussion:
 
 Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/claude-chat-skill`), split by PR group across read-only reviewers. Each `always` ticket was reproduced by the reviewer with a throwaway test against existing fixtures; `unconfirmed` tickets come from code trace only. Reproductions for #49, #50, #52, #67, #69 and #70 were re-run independently on `main`. No ticket fabricates bearings, grants verified-export eligibility, or promotes advisory status.
 
-**Fix status (2026-10-29):** #49–#73 were fixed test-first (red regression test, then fix) on `fix/code-review-2026-10-29`; #56 and #70 are `partial` with the remaining scope noted. #74 is a new gap found during the #62 fix. Combined-branch gates: packages + plugin 1782 passed / 27 skipped; root 1633 passed / 23 skipped (93.77% coverage); `ruff check` and `mypy src/metesparser` clean.
+**Fix status (2026-10-29):** #49–#73 were fixed test-first (red regression test, then fix) on `fix/code-review-2026-10-29`; #56 and #70 are `partial` with the remaining scope noted. #74 is a new gap found during the #62 fix. Combined-branch gates: packages + plugin 1804 passed / 27 skipped; root 1648 passed / 23 skipped (94.30% coverage); `ruff check` and `mypy src/metesparser` clean.
+
+**PR #60 review fixes (2026-10-29):** regressions found in review were fixed test-first on the same branch: compound-distance joining limited to known sub-unit pairs (#70); derived-tangent note kept alongside meander/approximate notes (#62); tract headings after `:`/`;` and reference-word rejection (#69); bad chord bearings tracked per call, not course number (#72); failed tracts listed in a "Not verified" section of `verification.txt` (#71); symlinks below the bundle root rejected for absolute overrides (#57); EXIF rejection moved to raster import so saved bundles still load (#64); delivery exporter bumped to `delivery-2` with `delivery-1` replay against a committed golden package (#51/#53); area-of-use checked for delivery GeoJSON and out-of-area map layers omitted instead of failing the scene (#68).
 
 ### 49) Parallelism check blocks verification when course 1 "continues" a line
 - **Status:** `fixed` (2026-10-29, `685a7fd`)
@@ -712,7 +714,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Validate feature completeness and coordinates against the freshly derived geometry, not just identities of present features.
 
 ### 68) Web-map CRS transform ignores the operation's area of use
-- **Status:** `fixed` (2026-10-29, `cc1a45e`) — Follow-up: when no extent is supplied (delivery GeoJSON path, `mp_review/delivery.py` ~line 489) the area-of-use check is skipped.
+- **Status:** `fixed` (2026-10-29, `cc1a45e`) — Delivery GeoJSON now passes its delivered extent too (PR #60 review); `delivery-1` packages replay without the check, as published. Out-of-area context layers/rasters are omitted (`outside_area_of_use`) instead of failing the whole scene; the operation is chosen from the deed geometry.
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-review/src/mp_review/webmap_projection.py:110-125`; the raster path reuses it via `COORDINATE_OPERATION`. Introduced in PR #48.
@@ -723,7 +725,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Pass an `AreaOfInterest` from the placed geometry or raster extent and fail closed when the selected operation's `area_of_use` does not contain it.
 
 ### 69) Neighbour references in calls split one parcel into bogus tracts
-- **Status:** `fixed` (2026-10-29, `9c1274b`) — Note: an in-sentence marker followed by a colon (`Description of PARCEL 1:`) still splits, by design.
+- **Status:** `fixed` (2026-10-29, `9c1274b`) — PR #60 review: headings are also recognised after `:`/`;` or before BEGINNING/COMMENCING/ALL THAT, and markers right after a reference word (of, to, said, adjoining, adjacent, along, from, with) are rejected even across a line break. A marker with its own colon or dash is always a heading.
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-parse/src/mp_parse/tracts.py:30-41` and `calls.py` (~line 319). Introduced in PR #43/#44.
@@ -734,7 +736,7 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Suggested fix:** Only treat TRACT/PARCEL as a marker at a heading position (start of line/sentence, followed by a description), not after `of`/`corner of`/`line of`.
 
 ### 70) Compound distances not joined by "and" silently keep only the first part
-- **Status:** `partial` (2026-10-29, `1634475`) — Space/comma-joined compounds with distinct units now sum (`2 chains 20 links` → 145.2 ft). Still open: repeated same-unit measurements (`100 feet, 50 feet`) and 3+ component chains that repeat a unit keep only the first value without a flag.
+- **Status:** `partial` (2026-10-29, `1634475`) — Space/comma-joined compounds with distinct units now sum (`2 chains 20 links` → 145.2 ft). PR #60 review narrowed this: without "and", only chain/pole/rod/perch followed by links are summed, so unrelated adjacent distances (`150 feet, 3 rods north of the oak`) and equivalent units (`40 poles 2 rods`) are no longer summed, and `40 poles 5 feet` now needs "and". Still open: an unconsumed trailing measurement (`100 feet, 50 feet`; `40 poles 5 feet`) keeps only the first value without a flag.
 - **Severity:** `high`
 - **Reproducibility:** `always`
 - **Location:** `packages/mp-parse/src/mp_parse/metadata.py` (`extract_distance` compound block, ~lines 388–500); same logic in monolith `text_parser.py`. Introduced in PR #43/#44.
