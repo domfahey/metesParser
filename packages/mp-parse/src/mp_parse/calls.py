@@ -420,6 +420,24 @@ def extract_single_call(
 
     curve_info = extract_curve_info(call_text)
 
+    # A stated chord bearing plus curve direction and delta yields the tangent
+    # azimuth deterministically (right: chord - delta/2; left: chord + delta/2).
+    derived_tangent = False
+    chord_text = curve_info.get("chord_bearing")
+    curve_delta = curve_info.get("delta_deg")
+    if (
+        azimuth is None
+        and isinstance(chord_text, str)
+        and curve_info.get("direction") in ("left", "right")
+        and isinstance(curve_delta, float)
+    ):
+        chord_az = bearing_to_azimuth(chord_text)
+        if chord_az is not None:
+            half_delta = curve_delta / 2.0
+            sign = -1.0 if curve_info.get("direction") == "right" else 1.0
+            azimuth = (chord_az + sign * half_delta) % 360.0
+            derived_tangent = True
+
     has_abbreviated_cardinal = bool(
         re.match(r"^\s*(?:N|S|E|W|NE|NW|SE|SW)\b", call_text, re.IGNORECASE)
     )
@@ -478,6 +496,8 @@ def extract_single_call(
 
     if is_meander or "approximate" in call_text.lower():
         notes = "meander / approximate"
+    elif derived_tangent:
+        notes = "tangent bearing derived from chord bearing and delta"
     elif not parsed_bearing and not is_due_cardinal:
         notes = "incomplete bearing - cardinal only" if cardinal_only else "incomplete bearing"
 
@@ -533,7 +553,7 @@ def extract_single_call(
     radial_bearing_value = curve_info.get("radial_bearing")
 
     is_indefinite = is_indefinite_call(
-        direction_text, has_bearing=parsed_bearing is not None or is_due_cardinal
+        direction_text, has_bearing=parsed_bearing is not None or is_due_cardinal or derived_tangent
     )
 
     curve_type_value = curve_info.get("curve_type")
@@ -825,6 +845,26 @@ def extract_distance_alternate(text: str) -> float:
     return 0.0
 
 
+_WORD_SYMBOL_BEARING = re.compile(
+    r"\b(North|South)\s+(\d{1,3})\s*\u00b0\s*(?:(\d{1,2})\s*'\s*)?"
+    r"(?:(\d{1,2}(?:\.\d+)?)\s*\"\s*)?(East|West)\b",
+    re.IGNORECASE,
+)
+
+
+def _abbreviate_word_bearing(text: str) -> str:
+    """Abbreviate 'North 45\u00b0 East' style bearings (full words, degree symbol)."""
+
+    def _repl(m: re.Match[str]) -> str:
+        minutes = f"{m.group(3)}'" if m.group(3) else ""
+        seconds = f'{m.group(4)}"' if m.group(4) else ""
+        return (
+            f"{m.group(1)[0].upper()} {m.group(2)}\u00b0{minutes}{seconds} {m.group(5)[0].upper()}"
+        )
+
+    return _WORD_SYMBOL_BEARING.sub(_repl, text)
+
+
 def extract_curve_info(text: str) -> dict[str, float | str | None]:
     """Extract curve information from call text.
 
@@ -938,13 +978,13 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
         curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
 
     chord_bearing_match = re.search(
-        r"(?:the\s+)?chord\s+(?:of\s+which\s+)?bears\s+(.+?)(?:,\s*(\d+(?:\.\d+)?)\s*(?:feet|ft))?(?:\s*$|\s*(?:to|along|;|\.))",
+        r"(?:the\s+)?chord\s+(?:of\s+which\s+)?(?:bears|bearing)\s+(.+?)(?:[,\s]\s*(\d+(?:\.\d+)?)\s*(?:feet|ft))?(?:\s*$|\s*(?:to|along|;|\.))",
         text,
         re.IGNORECASE,
     )
     if chord_bearing_match:
         raw_chord_bearing = chord_bearing_match.group(1).strip().rstrip(",")
-        normalized = standardize_cardinal_directions(raw_chord_bearing)
+        normalized = standardize_cardinal_directions(_abbreviate_word_bearing(raw_chord_bearing))
         bearing_match = QUADRANT_PATTERN.search(normalized)
         if bearing_match:
             curve_info["chord_bearing"] = bearing_match.group(0)
