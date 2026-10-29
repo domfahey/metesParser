@@ -1,5 +1,7 @@
 # Prepare map evidence
 
+Contents: [Vector layers](#vector-layers) · [Scanned map registration](#scanned-map-registration) · [Optional control picker](#optional-native-pixel-control-picker) · [Handoff boundary](#handoff-boundary) · [Later online display](#later-online-display) · [Guided registration and separate deed placement](#guided-registration-and-separate-deed-placement)
+
 This guide covers the existing `import-overlay`, `register-raster`, and `fetch-parcel` commands. Run only the operation requested and preserve its full output/provenance. A prepared layer is not yet placed against deed geometry.
 
 Run from the intended project root through the plugin's locked-runtime launcher, as shown below. If `CLAUDE_PLUGIN_ROOT` is unavailable, locate the plugin root relative to this skill file. In a development workspace with the package installed, `uv run metes-review` can replace `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py"`. Honor disabled or invalid [project settings](../../../references/plugin-settings.md).
@@ -38,6 +40,22 @@ The rendered map evidence reports registration status, fit-control count and fit
 
 Projected scene validation, vector reprojection, and decoded raster validation require the `geo` extra. Local scenes omit `crs`; projected scenes declare an actual projected CRS and matching linear units. If the runtime reports the optional dependency is unavailable, report that result and stop.
 
+## Optional native-pixel control picker
+
+When the user wants help choosing scan pixels, prepare the optional offline picker with the same scene/controls configuration:
+
+```sh
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" pick-raster IMAGE --controls CONTROLS.json --output-dir NEW_PICKER_DIR
+```
+
+`mp_review.raster_picker.prepare_raster_picker_file` retains exact `image.png`/`image.jpg`/`image.webp` and `controls-source.json`, normalized `controls-initial.json`, `picker.html`, and a final hash manifest. Supported inputs are decoded single-frame PNG/JPEG/WebP with an explicit known-unit scene. EXIF-rotated images are refused; supply an already oriented source with its transformation provenance rather than silently changing pixel meaning. Existing controls may be empty, but the scene is required. The picker does not calibrate a scan or use deed geometry.
+
+Open `picker.html` locally. Select a named row, or add a control and supply its name, fit/checkpoint role and independently supported scene X/Y. Click its image point; zoom and scrolling affect display only. Integer pixels denote centers, with u right/v down and outer edges at −0.5. The visible snap option records the nearest native pixel center; unchecking it allows subpixel coordinates. Scene values remain unchanged by clicks. Retain source controls and evidence; do not treat click precision as survey accuracy. Blank/incomplete rows remain visible and block the controls download rather than becoming zero coordinates.
+
+Download `controls-picked.json`, then run the existing `register-raster` command with that file. The shared runtime fits and validates; three noncollinear fit controls are required for affine fitting, and independent checkpoints stay out of the fit. If the source supplied an affine matrix, the picker explicitly offers retaining it: checked means the runtime uses that supplied matrix and controls provide residual evidence; unchecking requests an affine fit. The original matrix/configuration stays in the retained source file in either case.
+
+Keep the picked file and picker folder with the resulting registration artifact. Their image/control hashes, pixel convention and exact originals preserve the collection provenance. A downloaded file is not a registration result, and registration remains `approximate`. Continue with the existing composition/placement procedure only when requested; raster controls alone never place the deed.
+
 ## Handoff boundary
 
 Return the exact command result and its output artifact paths, then stop. Existing deed plot geometry is not an input to import or registration; retain its identity for later composition without changing it. This stage prepares the supplied map evidence independently and does not align it to the deed.
@@ -51,3 +69,16 @@ Imported layers may remain unplaced context. For an explicitly requested deed pl
 ## Later online display
 
 The [render-online-map capability](../../render-online-map/SKILL.md) reuses these preparation artifacts and derives warped display pixels without changing original scan bytes, controls, or registration. Its local viewer provides per-scan visibility, opacity, and accessible raise/lower controls; vectors and deed courses remain above scans. These are in-session display controls and do not change the source, registration, geometry, placement, or verification records. Retain fit residuals and independent checkpoints separately from projection/display tolerances. Local-only coordinates cannot establish a Mapbox location. Follow the [online handoff](../../../references/artifact-handoffs.md#optional-online-map-handoff); provider connection belongs to the explicitly requested online renderer, not this capability.
+
+## Guided registration and separate deed placement
+
+For “put this scan behind my plot using these controls”, collect only missing facts and preserve supplied evidence. Do not require a dashboard for a map-only request.
+
+1. Identify the supplied image, source/date or unknowns, exact bytes/hash, dimensions, and any crop/resize history. Identify the target scene: local with no CRS, or an explicit projected CRS, XY axis order and matching `m`, `international_ft` or `us_survey_ft` units. Unknown feet cannot support registration/conversion. A local scene does not establish geographic location.
+2. Confirm integer pixel centers, with pixel `u` right and `v` down in the supplied image, and scene XY coordinates in the declared units. Obtain uniquely named fit controls and independently measured checkpoints, each with its source/rationale retained alongside the controls file. Do not reuse fitting points as independent checkpoints. At least three noncollinear fit controls are required for affine fitting; supplied affine matrices follow the same six-number order above.
+3. Author `CONTROLS.json` using the current `PlotScene` and `RasterControl` contracts, then run the documented `register-raster` command in a fresh path. The [synthetic controls fixture](../../../evals/fixtures/guided-controls.json) illustrates the accepted shape, not real location evidence. Keep unsupported extra evidence in companion notes rather than guessing model fields. Preserve registration output and original bytes; inspect fit and checkpoint residuals separately. A low fit RMS with poor checkpoints remains problematic; no checkpoints means independent accuracy unknown. Registration status remains `approximate`.
+4. Separately establish deed placement: selected fresh plot/calculation ID and geometry hash, target scene, deed foot definition, sourced position tie and orientation/bearing-basis evidence, and the user-supported transform/rationale. Raster pixel-to-scene controls do not locate the deed's POB or establish its orientation. Without this evidence, show the scan and deed independently and name the missing tie/orientation; do not choose an address, imagery corner or direction word as an anchor.
+5. Author only the permitted placement: clockwise rotation about the deed frame origin, explicit supported unit conversion, then scene-XY translation. The contract does not support scale fitting, shear, reflection, snapping or closure repair. Use `id`, `calculation_id`, fresh `geometry_hash`, `scene_id`, `rotation_deg`, `translation`, `status` and `rationale`; retain position/orientation evidence. In dashboard bundles, `referenced` additionally requires actual `position_evidence` and `orientation_evidence` plus compatible basis/units. Standalone map placements support only `approximate`/`unplaced`: evidence cannot upgrade that contract to `referenced`.
+6. Compose with `compose-map` for a requested standalone map, or `compose-dashboard` for a requested dashboard. Use the fresh hashes from composition before binding placements, then the existing render command. Rebuilding revalidates both geometry/placement and independent raster registration. Report deed misclosure, fit RMS, checkpoint RMS, and map comparison/placement separately; reuse visibility, opacity and order controls only where available. The optional picker above collects pixels into this same input-file workflow; affine fitting remains in the shared runtime.
+
+Changing controls, image bytes, scene CRS or units invalidates the raster and dependent display. Changing deed calls invalidates its geometry-bound placement and dependent display, while an unchanged independent registration remains reusable. Neither a good registration nor a visually aligned display changes source review, canonical verification or verified-export eligibility.

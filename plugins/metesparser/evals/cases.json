@@ -949,5 +949,326 @@
       "png"
     ],
     "synthetic": true
+  },
+  {
+    "id": "document-to-plot-requested-stop",
+    "skill": "plot-metes-and-bounds",
+    "request": "Plot the boundary in this deed.",
+    "input": {
+      "document_text": "SYNTHETIC DEED\nGrant and recording boilerplate.\nEXHIBIT A\nBEGINNING at the pin; thence N 00 degrees E 100 feet; thence N 90 degrees E 100 feet; thence S 00 degrees E 100 feet; thence N 90 degrees W 100 feet to the POINT OF BEGINNING.\nSigned and acknowledged.",
+      "materialization": "Supply as a text document; repeat separately as a rendered PDF for native-reading acceptance."
+    },
+    "expected": "Select the operative passage verbatim with source locations, preserve the complete source, then plot only the selected description. Return compact intake, local plot and source accounting. Text needs no invented conversion; PDF needs native reading. No automatic closure review or dashboard.",
+    "must_not": [
+      "parse boilerplate as a boundary",
+      "run canonical verification",
+      "create a dashboard",
+      "claim geographic placement"
+    ],
+    "synthetic": true,
+    "fixture_family": "document_intake",
+    "fixture_artifacts": [
+      "document-text",
+      "pdf"
+    ],
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task."
+  },
+  {
+    "id": "plottability-lot-block-comma-list",
+    "skill": "plot-metes-and-bounds",
+    "request": "Can this description be plotted?",
+    "input": {
+      "document_text": "SYNTHETIC DEED: Lots 1, 2, and 3, Block 14, as shown on the recorded subdivision plat. No plat is supplied."
+    },
+    "expected": "Identify the lot/block-only source and missing referenced plat/courses. Return plottability intake and exact missing input; no nominal geometry or invented course count.",
+    "must_not": [
+      "treat comma-separated lots as courses",
+      "manufacture bearings",
+      "create nominal PLSS geometry",
+      "verify an empty traverse"
+    ],
+    "synthetic": true,
+    "fixture_family": "document_intake",
+    "fixture_artifacts": [
+      "document-text",
+      "pdf"
+    ],
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task."
+  },
+  {
+    "id": "closing-subset-unreadable-middle",
+    "skill": "plot-metes-and-bounds",
+    "request": "Plot the boundary and tell me what source material remains unresolved.",
+    "input": {
+      "document_text": "SYNTHETIC DEED\nEXHIBIT A\nBEGINNING at a pin; thence N 00 degrees E 100 feet; thence [illegible] feet along the road; thence S 00 degrees E 100 feet to the POINT OF BEGINNING."
+    },
+    "expected": "Account for both parsed calls and the unreadable middle source segment with actual page/span or explicit unknowns. A cancelling surviving subset cannot imply complete source review, full parcel area, or verified eligibility. Request a clearer middle course; retain a clearly partial plot only when supported.",
+    "must_not": [
+      "omit unreadable passage from coverage",
+      "equate closure with source completeness",
+      "invent a total source-course count",
+      "issue verified CSV"
+    ],
+    "synthetic": true,
+    "fixture_family": "document_intake",
+    "fixture_artifacts": [
+      "document-text",
+      "pdf"
+    ],
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task."
+  },
+  {
+    "id": "document-plot-exception-after-pob",
+    "skill": "plot-metes-and-bounds",
+    "request": "Plot the boundary in this deed.",
+    "input": {
+      "document_text": "SYNTHETIC DEED\nEXHIBIT A\nBEGINNING at the pin; thence N 00 degrees E 100 feet; thence N 90 degrees E 100 feet; thence S 00 degrees E 100 feet; thence N 90 degrees W 100 feet to the POINT OF BEGINNING. LESS AND EXCEPT the north ten feet as described in missing Exhibit C."
+    },
+    "expected": "Retain the exception after the POB, mark the missing exhibit and prevent complete-source claims. Return intake and source-linked accounting, stopping before unrequested verification/dashboard.",
+    "must_not": [
+      "repair geometry to close",
+      "hide unresolved source material",
+      "claim source completeness from parsed calls"
+    ],
+    "synthetic": true,
+    "fixture_family": "document_intake",
+    "fixture_artifacts": [
+      "document-text",
+      "pdf"
+    ],
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task."
+  },
+  {
+    "id": "document-plot-missing-continuation",
+    "skill": "plot-metes-and-bounds",
+    "request": "Plot the boundary in this deed.",
+    "input": {
+      "document_text": "SYNTHETIC DEED\nEXHIBIT A\nBEGINNING at a pin; thence N 00 degrees E 100 feet; continued on page 2. [Page 2 not supplied]"
+    },
+    "expected": "Identify the absent continuation separately from unreadability and request page 2; do not close the available fragment. Return intake and source-linked accounting, stopping before unrequested verification/dashboard.",
+    "must_not": [
+      "repair geometry to close",
+      "hide unresolved source material",
+      "claim source completeness from parsed calls"
+    ],
+    "synthetic": true,
+    "fixture_family": "document_intake",
+    "fixture_artifacts": [
+      "document-text",
+      "pdf"
+    ],
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task."
+  },
+  {
+    "id": "document-plot-duplicate-course",
+    "skill": "plot-metes-and-bounds",
+    "request": "Plot the boundary in this deed.",
+    "input": {
+      "document_text": "SYNTHETIC DEED\nEXHIBIT A\nBEGINNING at the pin; thence N 00 degrees E 100 feet; thence N 90 degrees E 100 feet; thence S 00 degrees E 100 feet; thence N 90 degrees W 100 feet to the POINT OF BEGINNING. The second east course appears again in the supplied copy: thence N 90 degrees E 100 feet."
+    },
+    "expected": "Retain the repeated passage and investigate whether it is a duplicate or operative qualification; do not silently deduplicate it to obtain a ring. Return intake and source-linked accounting, stopping before unrequested verification/dashboard.",
+    "must_not": [
+      "repair geometry to close",
+      "hide unresolved source material",
+      "claim source completeness from parsed calls"
+    ],
+    "synthetic": true,
+    "fixture_family": "document_intake",
+    "fixture_artifacts": [
+      "document-text",
+      "pdf"
+    ],
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task."
+  },
+  {
+    "id": "document-plot-cardinal-only",
+    "skill": "plot-metes-and-bounds",
+    "request": "Plot the boundary in this deed.",
+    "input": {
+      "document_text": "SYNTHETIC DEED\nEXHIBIT A\nBEGINNING at a pin; thence southwesterly 100 feet to a fence."
+    },
+    "expected": "Retain cardinal-only bearing as unknown, distinguish it from missing text, and explain the unsupported geometry without guessing 225 degrees. Return intake and source-linked accounting, stopping before unrequested verification/dashboard.",
+    "must_not": [
+      "repair geometry to close",
+      "hide unresolved source material",
+      "claim source completeness from parsed calls"
+    ],
+    "synthetic": true,
+    "fixture_family": "document_intake",
+    "fixture_artifacts": [
+      "document-text",
+      "pdf"
+    ],
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task."
+  },
+  {
+    "id": "multi-tract-independent-results-and-resume",
+    "skill": "review-metes-and-bounds",
+    "request": "Review operative Tracts A and B, then resume only Tract B when I supply a clearer page 2.",
+    "input": {
+      "fixture_file": "fixtures/multiple-operative-tracts.txt",
+      "materialization": "Copy the fixture into the candidate directory as the supplied complete document text. For the second turn provide a new page 2 reading; retain the original and all prior artifacts."
+    },
+    "expected": "Use one acquisition/source record with distinct selections and results per operative tract. Retain Tract A missing Exhibit C and Tract B unreadable middle call independently; exclude the page 3 historical quotation with location/reason. Return combined inventory without a whole-set pass or merging traverses. Inspect retained dependencies on resume and restart affected Tract B stages only after comparing changed source/selection identities; preserve earlier evidence and any unaffected result.",
+    "must_not": [
+      "substitute historical quote for an operative tract",
+      "suppress independent requested results",
+      "merge tract traverses",
+      "reuse stale Tract B geometry",
+      "claim every tract passed"
+    ],
+    "synthetic": true,
+    "fixture_family": "multi_tract_intake",
+    "fixture_artifacts": [
+      "document-text",
+      "pdf"
+    ],
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task."
+  },
+  {
+    "id": "guided-raster-no-deed-placement",
+    "skill": "prepare-parcel-overlay",
+    "request": "Put this scan behind my local plot using the supplied controls.",
+    "input": {
+      "fixture_file": "fixtures/guided-controls.json",
+      "materialization": "Supply a synthetic 20x20 PNG with this controls JSON and a valid local plot, with no deed position/orientation evidence."
+    },
+    "expected": "Run existing registration with three named fit controls and one independent checkpoint. Report exact fit RMS zero and checkpoint RMS 5 m separately from deed misclosure; registration stays approximate. Ask for sourced deed position/orientation, keep deed unplaced and independent, and do not create an unrequested dashboard or imply fit controls place the deed.",
+    "must_not": [
+      "use checkpoint as a fit control",
+      "hide poor checkpoint residual",
+      "infer deed POB from raster controls",
+      "upgrade registration or standalone placement to referenced",
+      "fit the deed to imagery"
+    ],
+    "synthetic": true,
+    "fixture_family": "guided_placement",
+    "fixture_artifacts": [
+      "json",
+      "guided-png",
+      "plot-json"
+    ],
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task."
+  },
+  {
+    "id": "document-plot-missing-numbered-course",
+    "skill": "plot-metes-and-bounds",
+    "request": "Plot the boundary in this deed.",
+    "input": {
+      "document_text": "SYNTHETIC DEED - EXHIBIT A\nBEGINNING at a pin; Course 1: N 00 degrees E 100 feet; Course 3: S 00 degrees E 100 feet to the POINT OF BEGINNING. The supplied copy contains no Course 2."
+    },
+    "expected": "Account for both surviving courses and the missing numbered course with source location and unresolved coverage. Request the complete original passage; cancelling courses do not establish a complete boundary or justify automatic verification. Return any supported partial plot with explicit limitations and stop before unrequested downstream stages.",
+    "must_not": [
+      "invent Course 2",
+      "renumber away the omission",
+      "claim completeness because surviving courses close",
+      "issue verified CSV"
+    ],
+    "synthetic": true,
+    "fixture_family": "document_intake",
+    "fixture_artifacts": [
+      "document-text",
+      "pdf"
+    ],
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task."
+  },
+  {
+    "id": "corridor-taper-and-cap",
+    "skill": "plot-corridor",
+    "request": "Construct the easement corridor from the supplied centerline and endpoint widths. Preserve its taper, cap choice and error budget; stop at corridor artifacts.",
+    "input": {
+      "fixture_file": "../skills/plot-corridor/references/example.json"
+    },
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_family": "corridor",
+    "fixture_artifacts": [
+      "json"
+    ],
+    "synthetic": true,
+    "expected": "Use the focused capability for supported supplied inputs, retain provenance and explicit unavailable outcomes, and stop at the requested deliverable.",
+    "must_not": [
+      "average widths per course",
+      "infer map placement",
+      "verify the open centerline"
+    ]
+  },
+  {
+    "id": "corridor-overlapping-widths",
+    "skill": "plot-corridor",
+    "request": "Construct a corridor from these supplied width intervals and report any unsupported construction.",
+    "input": {
+      "fixture_file": "../skills/plot-corridor/references/example.json"
+    },
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_family": "corridor_overlap",
+    "fixture_artifacts": [
+      "json"
+    ],
+    "synthetic": true,
+    "expected": "Use the focused capability for supported supplied inputs, retain provenance and explicit unavailable outcomes, and stop at the requested deliverable.",
+    "must_not": [
+      "choose a preferred overlapping row",
+      "publish an apparently normal area"
+    ]
+  },
+  {
+    "id": "plss-supplied-reference",
+    "skill": "plot-plss-reference",
+    "request": "Plot the north half of the supplied identified section reference using its declared rectangular rule. Preserve the source, dataset and computed-reference status.",
+    "input": {
+      "fixture_file": "../skills/plot-plss-reference/references/example.json"
+    },
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_family": "plss",
+    "fixture_artifacts": [
+      "json"
+    ],
+    "synthetic": true,
+    "expected": "Use the focused capability for supported supplied inputs, retain provenance and explicit unavailable outcomes, and stop at the requested deliverable.",
+    "must_not": [
+      "assume a 640 acre section",
+      "claim legal subdivision",
+      "fetch a substitute reference"
+    ]
+  },
+  {
+    "id": "plss-no-reference-no-nominal-section",
+    "skill": "plot-plss-reference",
+    "request": "Plot the N 1/2 of Section 1, T1N R1E, Synthetic Meridian. I have not supplied a section reference.",
+    "input": {
+      "document_text": "SYNTHETIC REQUEST: N 1/2 of Section 1, T1N R1E, Synthetic Meridian. No corner coordinates, section reference dataset, CRS or unit evidence is supplied."
+    },
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_family": "document_intake",
+    "fixture_artifacts": [
+      "document-text"
+    ],
+    "synthetic": true,
+    "expected": "Use the focused capability for supported supplied inputs, retain provenance and explicit unavailable outcomes, and stop at the requested deliverable.",
+    "must_not": [
+      "invent corners",
+      "assume nominal section dimensions",
+      "silently fetch another dataset"
+    ]
+  },
+  {
+    "id": "export-published-revision-package",
+    "skill": "export-review-package",
+    "request": "Export the supplied published review revision as the selected SVG, PDF and DXF package. Retain recorded values, omissions and source references; do not claim canonical verification.",
+    "input": {
+      "fixture_file": "../skills/export-review-package/references/example.json"
+    },
+    "candidate_input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_family": "delivery",
+    "fixture_artifacts": [
+      "delivery-inputs"
+    ],
+    "synthetic": true,
+    "expected": "Use the focused capability for supported supplied inputs, retain provenance and explicit unavailable outcomes, and stop at the requested deliverable.",
+    "must_not": [
+      "export a stale last-valid draft",
+      "silently apply presentation rotation to CAD coordinates",
+      "claim verified CSV eligibility"
+    ]
   }
 ]

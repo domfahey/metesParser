@@ -1,6 +1,7 @@
 """Actual Chromium checks; run explicitly with make test-dashboard-browser."""
 
 import json
+import math
 import os
 from pathlib import Path
 
@@ -427,3 +428,258 @@ def test_diagnostic_source_button_selects_current_occurrence_page(open_dashboard
     page.locator('#baseline-diagnostics [data-diagnostic-source="copy-call-one"]').click()
     assert "page 2" in page.locator("#viewer-label").inner_text()
     assert page._dashboard_errors == []
+
+
+def test_draft_recovery_preserves_invalid_input_and_download(open_dashboard):
+    page = open_dashboard()
+    bearing = page.get_by_label("call-one: Azimuth or quadrant bearing", exact=True)
+    bearing.fill(" N  ")
+    page.get_by_label("call-one: Draft note", exact=True).fill("  check page 1\nkeep this  ")
+    page.reload()
+    page.wait_for_selector("#call-body input")
+    assert bearing.input_value() == " N  "
+    assert bearing.get_attribute("aria-invalid") == "true"
+    assert page.get_by_label("call-one: Draft note", exact=True).input_value() == (
+        "  check page 1\nkeep this  "
+    )
+    assert "Unresolved" in page.locator("#scenario-status").inner_text()
+    assert "Recovered" in page.locator("#revision-status").inner_text()
+    with page.expect_download() as download_info:
+        page.locator("#revision-download").click()
+    saved = json.loads(Path(download_info.value.path()).read_text())
+    edit = next(item for item in saved["edits"] if item["call_id"] == "call-one")
+    assert edit["raw_fields"]["bearing_azimuth_deg_from_north"] == " N  "
+    assert edit["raw_fields"]["notes"] == "  check page 1\nkeep this  "
+    assert "canonical_status" not in saved
+    assert page._dashboard_errors == []
+
+
+def test_draft_import_rejects_other_baseline_and_reset_is_durable(open_dashboard):
+    page = open_dashboard()
+    distance = page.get_by_label("call-one: Distance in feet", exact=True)
+    distance.fill("101")
+    with page.expect_download() as download_info:
+        page.locator("#revision-download").click()
+    saved = json.loads(Path(download_info.value.path()).read_text())
+    saved["baseline"]["bundle_sha256"] = "b" * 64
+    page.locator("#revision-import").set_input_files(
+        {"name": "wrong.json", "mimeType": "application/json", "buffer": json.dumps(saved).encode()}
+    )
+    page.wait_for_function(
+        "() => document.getElementById('revision-status').textContent.includes('baseline')"
+    )
+    assert distance.input_value() == "101"
+    page.locator("#reset-record").click()
+    page.reload()
+    page.wait_for_selector("#call-body input")
+    assert distance.input_value() == "100"
+    assert page._dashboard_errors == []
+
+
+def test_arc_baseline_sensitivity_exposes_independent_parameters(open_dashboard):
+    value = fixture_data()
+    value["calls"] = value["calls"][:3]
+    value["calls"][0]["call"].update(
+        curve_dir="right",
+        radius_ft=40,
+        delta_deg=90,
+        arc_length_ft=20 * math.pi,
+        distance_ft=20 * math.pi,
+        chord_length_ft=40 * math.sqrt(2),
+        chord_bearing="N 45°00'00\" E",
+        bearing_azimuth_deg_from_north=0,
+    )
+    value["calls"][1]["call"].update(distance_ft=40, bearing_azimuth_deg_from_north=270)
+    value["calls"][2]["call"].update(distance_ft=39, bearing_azimuth_deg_from_north=180)
+    page = open_dashboard(value)
+    for parameter in ("radius_ft", "sweep_radian", "start_tangent_radian"):
+        row = page.locator(f'#baseline-diagnostics [data-curve-parameter="{parameter}"]')
+        assert row.count() == 1
+        assert "Fixed" in row.inner_text()
+    assert "unsupported" in page.locator("#scenario-diagnostics").inner_text().lower()
+    assert page._dashboard_errors == []
+
+
+def test_structured_curve_draft_add_reorder_remove_and_recover(open_dashboard, tmp_path):
+    page = open_dashboard()
+    record = page.locator('[data-baseline-layer="calc-one"]').inner_html()
+    page.locator("#structured-editor summary").click()
+    page.get_by_role("button", name="Add circular arc", exact=True).click()
+    selected_id = page.locator("#structured-call-select").input_value()
+    page.locator('[data-structured-field="radius_value"]').fill(" 10. ")
+    page.locator('[data-structured-field="delta_value"]').fill("18")
+    page.locator('[data-structured-field="bearing_value"]').fill("  N  ")
+    page.locator('[data-structured-field="notes"]').fill("  Check curve source\n  ")
+    page.get_by_role("button", name="Move course up", exact=True).click()
+    page.reload()
+    page.locator("#structured-editor summary").click()
+    page.locator("#structured-call-select").select_option(selected_id)
+    assert page.locator('[data-structured-field="radius_value"]').input_value() == " 10. "
+    assert page.locator('[data-structured-field="bearing_value"]').input_value() == "  N  "
+    assert (
+        page.locator('[data-structured-field="notes"]').input_value() == "  Check curve source\n  "
+    )
+    assert "shared" in page.locator("#scenario-status").inner_text().lower()
+    assert page.locator('[data-baseline-layer="calc-one"]').inner_html() == record
+    with page.expect_download() as download:
+        page.locator("#revision-download").click()
+    path = tmp_path / "draft.json"
+    download.value.save_as(path)
+    saved = json.loads(path.read_text())
+    assert saved["schema_version"] == "1.1"
+    assert saved["tracts"][0]["call_order"][-2] == selected_id
+    edit = next(e for e in saved["edits"] if e["call_id"] == selected_id)
+    assert edit["action"] == "add" and edit["structured_input"]["radius_value"] == " 10. "
+    page.get_by_role("button", name="Remove course", exact=True).click()
+    page.reload()
+    assert selected_id not in page.locator("#structured-call-select").locator(
+        "option"
+    ).evaluate_all("nodes => nodes.map(n=>n.value)")
+    assert page._dashboard_errors == []
+    assert page._dashboard_remote == []
+
+
+def test_selected_preset_download_keeps_its_rationale_and_evidence(open_dashboard, tmp_path):
+    page = open_dashboard()
+    preset = fixture_data()["scenarios"][0]
+    page.locator("#scenario-select").select_option(preset["id"])
+    with page.expect_download() as download:
+        page.locator("#revision-download").click()
+    path = tmp_path / "preset.json"
+    download.value.save_as(path)
+    saved = json.loads(path.read_text())
+    for expected in preset["edits"]:
+        retained = next(e for e in saved["edits"] if e["call_id"] == expected["call_id"])
+        assert retained["rationale"] == expected["rationale"]
+        assert retained["evidence_ids"] == expected["evidence_ids"]
+
+
+@pytest.mark.parametrize("width", [1200, 400])
+def test_structured_packed_chord_ui_download_publish_and_render_view(
+    open_dashboard, tmp_path, width
+):
+    from mp_review.revision_view import render_revision_file
+    from mp_review.revisions import import_revision, publish_revision
+
+    original = fixture_data()
+    bundle = DashboardBundle.model_validate(original)
+    page = open_dashboard(original, width=width)
+    page.locator("#structured-editor summary").click()
+    page.get_by_role("button", name="Add circular arc", exact=True).click()
+    call_id = page.locator("#structured-call-select").input_value()
+
+    def field(name):
+        return page.locator(f'[data-structured-field="{name}"]')
+
+    for name, value in {
+        "bearing_format": "quadrant_packed_dms",
+        "quadrant_ns": "N",
+        "quadrant_ew": "E",
+        "curve_dir": "right",
+        "delta_format": "packed_dms",
+        "chord_bearing_format": "quadrant_packed_dms",
+        "chord_quadrant_ns": "S",
+        "chord_quadrant_ew": "E",
+    }.items():
+        field(name).select_option(value)
+    for name, value in {
+        "bearing_value": "45.0000",
+        "radius_value": " 10.00 ",
+        "delta_value": "180.0000",
+        "chord_bearing_value": "45.0000",
+        "chord_length_value": "20.00",
+        "notes": "  Independent tangent and chord quadrants\n",
+    }.items():
+        field(name).fill(value)
+    assert "shared" in page.locator("#scenario-status").inner_text().lower()
+    with page.expect_download() as download:
+        page.locator("#revision-download").click()
+    path = tmp_path / "packed-chord-draft.json"
+    download.value.save_as(path)
+    saved = json.loads(path.read_bytes())
+    raw = next(e for e in saved["edits"] if e["call_id"] == call_id)["structured_input"]
+    assert raw["bearing_format"] == raw["chord_bearing_format"] == "quadrant_packed_dms"
+    assert raw["quadrant_ns"] == "N" and raw["chord_quadrant_ns"] == "S"
+    assert raw["radius_value"] == " 10.00 " and raw["delta_value"] == "180.0000"
+    prepared = import_revision(bundle, saved)
+    assert prepared.state == "parsed", prepared.errors
+    arc = next(
+        p for p in prepared.current_geometry[0].plot.geometry.primitives if p.call_id == call_id
+    )
+    assert arc.kind == "arc" and arc.sweep_deg == pytest.approx(180)
+    assert arc.start_tangent_deg == pytest.approx(45)
+    assert arc.length_ft == pytest.approx(10 * math.pi)
+    assert (arc.end[0] - arc.start[0], arc.end[1] - arc.start[1]) == pytest.approx(
+        (10 * math.sqrt(2), -10 * math.sqrt(2))
+    )
+    added = next(c for c in prepared.prepared_calls if c.id == call_id)
+    assert added.quote is None and added.source_status == "hypothetical"
+    assert added.raw_input == raw
+    assert not prepared.canonical_status_changed and not prepared.exportable
+    result = publish_revision(bundle, saved, tmp_path / "store")
+    assert result["save_state"] == "published" and result["state"] == "parsed"
+    source = tmp_path / "source-bundle.json"
+    source.write_text(bundle.model_dump_json(indent=2))
+    baseline_bytes = source.read_bytes()
+    result = render_revision_file(source, tmp_path / "store" / saved["id"], tmp_path / "view")
+    assert result["status"] == "needs_review"
+    assert source.read_bytes() == baseline_bytes
+    view = page.context.new_page()
+    errors = []
+    view.on("pageerror", lambda error: errors.append(str(error)))
+    view.goto((tmp_path / "view" / "revision.html").as_uri())
+    rendered_arc = view.locator('iframe[data-view="current"]').content_frame.locator(
+        f'[data-plot-call="{call_id}"]'
+    )
+    rendered_arc.wait_for(state="visible")
+    assert " A " in rendered_arc.get_attribute("d")
+    assert "hypothetical" in view.locator(f'[data-revision-call="{call_id}"]').inner_text()
+    assert errors == [] and page._dashboard_errors == [] and page._dashboard_remote == []
+    page.locator("#structured-editor").scroll_into_view_if_needed()
+    SCREENSHOTS.mkdir(parents=True, exist_ok=True)
+    page.screenshot(path=str(SCREENSHOTS / f"structured-packed-chord-{width}.png"), full_page=True)
+    assert bundle.model_dump(mode="json") == DashboardBundle.model_validate(original).model_dump(
+        mode="json"
+    )
+
+
+def test_late_draft_file_import_rejects_after_intervening_exact_edit(open_dashboard):
+    page = open_dashboard()
+    data = json.loads(page.locator("#dashboard-data").text_content())["revision_template"]
+    data["label"] = "Delayed older draft"
+    page.evaluate("""() => {
+      const original = File.prototype.text;
+      File.prototype.text = async function(...args) {
+        window.slowDraftStarted = performance.now();
+        await new Promise(resolve => setTimeout(resolve, 2800));
+        const result = await original.apply(this, args);
+        window.slowDraftFinished = performance.now();
+        return result;
+      };
+    }""")
+    page.locator("#revision-import").set_input_files(
+        {
+            "name": "delayed.json",
+            "mimeType": "application/json",
+            "buffer": json.dumps(data).encode(),
+        }
+    )
+    page.wait_for_function("() => window.slowDraftStarted !== undefined")
+    page.get_by_label("call-one: Distance in feet", exact=True).fill(" 102.00 ")
+    page.get_by_label("call-one: Draft note", exact=True).fill("  Newer exact input\n")
+    page.wait_for_function(
+        "() => document.getElementById('revision-status').textContent.includes('changed while')",
+        timeout=10000,
+    )
+    assert page.evaluate("slowDraftFinished - slowDraftStarted") >= 2700
+    assert page.get_by_label("call-one: Distance in feet", exact=True).input_value() == " 102.00 "
+    with page.expect_download() as download:
+        page.locator("#revision-download").click()
+    saved = json.loads(Path(download.value.path()).read_bytes())
+    assert saved["label"] != "Delayed older draft"
+    edit = next(e for e in saved["edits"] if e["call_id"] == "call-one")
+    assert edit["raw_fields"] == {"distance_ft": " 102.00 ", "notes": "  Newer exact input\n"}
+    page.reload()
+    page.wait_for_selector("#call-body input")
+    assert page.get_by_label("call-one: Distance in feet", exact=True).input_value() == " 102.00 "
+    assert page._dashboard_errors == [] and page._dashboard_remote == []
