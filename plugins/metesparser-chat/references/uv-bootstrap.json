@@ -1,0 +1,38 @@
+{
+  "version": "0.9.6",
+  "source": "https://pypi.org/pypi/uv/0.9.6/json",
+  "wheels": {
+    "linux-x86_64": {
+      "filename": "uv-0.9.6-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "url": "https://files.pythonhosted.org/packages/e4/29/9cbafd47012a68b39902ff022bd1c7051384fcc23392b2d813d0f418e61f/uv-0.9.6-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "sha256": "3c2c2b2b093330e603d838fec26941ab6f62e8d62a012f9fa0d5ed88da39d907",
+      "size": 21384698,
+      "script": "uv-0.9.6.data/scripts/uv",
+      "binary_sha256": "bba9038d0486f71861a039215cffc5303909747ac1ce65da67a529d547a0b6da"
+    },
+    "linux-aarch64": {
+      "filename": "uv-0.9.6-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl",
+      "url": "https://files.pythonhosted.org/packages/eb/0b/597719ad347610588954730f1124761184a6b71cf5aa1600f0a992939ef4/uv-0.9.6-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl",
+      "sha256": "0169a85d3ba5ef1c37089d64ff26de573439ca84ecf549276a2eee42d7f833f2",
+      "size": 20144462,
+      "script": "uv-0.9.6.data/scripts/uv",
+      "binary_sha256": "d916a2cf416ea896882700132072e868893867e30433380be5ee0a083b4d3fc9"
+    },
+    "darwin-x86_64": {
+      "filename": "uv-0.9.6-py3-none-macosx_10_12_x86_64.whl",
+      "url": "https://files.pythonhosted.org/packages/0e/d8/eba09583108476b9c21f4e09427553af7c5516a21ac01a18c63c357bcd72/uv-0.9.6-py3-none-macosx_10_12_x86_64.whl",
+      "sha256": "a7c6067919d87208c4a6092033c3bc9799cb8be1c8bc6ef419a1f6d42a755329",
+      "size": 19666984,
+      "script": "uv-0.9.6.data/scripts/uv",
+      "binary_sha256": "49e5a64e858a4133e7233e26d07979b10d390dd0c1f07f3d57c31087da75f0f0"
+    },
+    "darwin-arm64": {
+      "filename": "uv-0.9.6-py3-none-macosx_11_0_arm64.whl",
+      "url": "https://files.pythonhosted.org/packages/f4/a3/8d7da102542995ed8b16ae6079ae853221e17a5eec1fff442e6eacf5760c/uv-0.9.6-py3-none-macosx_11_0_arm64.whl",
+      "sha256": "95a62c1f668272555ad0c446bf44a9924dee06054b831d04c162e0bad736dc28",
+      "size": 18335059,
+      "script": "uv-0.9.6.data/scripts/uv",
+      "binary_sha256": "b517d8865e8d65e274a53552f87b76efce4e308ea0e5b6284679f2bb44605c72"
+    }
+  }
+}

@@ -162,6 +162,8 @@ It currently wraps the monolith `PDFProcessor` for backward compatibility and us
 
 ## Skill Composition
 
+Two distributions share one deterministic engine. `make plugin-build` packages thirteen discoverable skill entrypoints. `make chat-skill-build` uses `scripts/build_claude_skill.py` to adapt those instructions into one root chat Skill and thirteen embedded procedures, retaining the same wheels, lock and engine fingerprint. Shared procedures remain in `plugins/metesparser/`; the chat dispatcher, setup wrapper and download guidance live in `plugins/metesparser-chat/`. See [distribution layout and setup](CLAUDE_PLUGIN.md#standalone-claude-chat-skill) for the host-specific paths and prerequisites.
+
 The [plugin catalog](../plugins/metesparser/README.md) describes thirteen skill entrypoints: ten capabilities, two workflows, and the `review-deed` compatibility alias. Capabilities cover document transcription, description selection, verification, plotting, overlays, corridor construction, PLSS reference preparation, review-package export, online rendering, and description comparison. Source validation, artifact inspection, and closure diagnosis are shared utilities. Skills route work across packages; their [artifact handoff contract](../plugins/metesparser/references/artifact-handoffs.md) defines accepted inputs, stopping points, source identity, invalidation, and status boundaries. See [maintain the skill composition](CLAUDE_PLUGIN.md#maintain-the-skill-composition) for documentation ownership.
 
 ```mermaid
@@ -612,7 +614,7 @@ return ClosureResult(..., warnings=warnings)
 **Rationale**:
 - **Unix philosophy** - Each package does one thing well
 - **Independent installation** - Install/test only the required workspace packages using uv
-- **Clear boundaries** - Only `mp-ocr` calls LLMs; everything else is deterministic
+- **Clear boundaries** - Within the composable Python packages, only `mp-ocr` calls LLM providers. The compatibility monolith retains provider clients, and Claude skills use native AI reading/selection separately. Downstream parsing, geometry and verification remain deterministic.
 - **Testable in isolation** - Per-package test suites
 
 **Trade-off**: Dual maintenance (packages + monolith for backward compat), but cross-package import tests prevent drift.

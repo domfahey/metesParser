@@ -4,7 +4,7 @@ Contents: [Vector layers](#vector-layers) · [Scanned map registration](#scanned
 
 This guide covers the existing `import-overlay`, `register-raster`, and `fetch-parcel` commands. Run only the operation requested and preserve its full output/provenance. A prepared layer is not yet placed against deed geometry.
 
-Run from the intended project root through the plugin's locked-runtime launcher, as shown below. If `CLAUDE_PLUGIN_ROOT` is unavailable, locate the plugin root relative to this skill file. In a development workspace with the package installed, `uv run metes-review` can replace `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py"`. Honor disabled or invalid [project settings](../../../references/plugin-settings.md).
+Run from the intended project root through the packaged locked-runtime launcher, as shown below. If `CLAUDE_PLUGIN_ROOT` is unavailable, locate the archive root relative to this procedure file. Honor disabled or invalid [project settings](../../../references/plugin-settings.md).
 
 ## Vector layers
 
