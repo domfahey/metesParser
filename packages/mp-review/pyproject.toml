@@ -6,6 +6,7 @@ description = "Deterministic text-first deed review"
 dependencies = ["mp-models>=1.0.0", "mp-parse>=1.0.0", "mp-verify>=1.0.0", "mp-export>=1.0.0", "pyyaml>=6.0.2"]
 
 [project.optional-dependencies]
+delivery = ["mp-export[delivery]>=1.0.0"]
 geo = ["pyproj>=3.7,<4", "pillow>=11,<13"]
 web-map = ["pyproj>=3.7,<4", "pillow>=11,<13", "rasterio>=1.4.3,<2", "numpy>=1.26,<3"]
 
