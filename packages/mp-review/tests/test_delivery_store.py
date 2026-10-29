@@ -11,6 +11,34 @@ from mp_review.delivery import load_delivery, prepare_delivery, publish_delivery
 from mp_review.revisions import publish_revision
 
 
+def _two_tracts(bundle):
+    data = bundle.model_dump(mode="json")
+    groups = (
+        "documents",
+        "pages",
+        "parcels",
+        "occurrences",
+        "calls",
+        "evidence",
+        "calculations",
+        "scenarios",
+    )
+    ids = {item["id"] for group in groups for item in data[group]}
+
+    def remap(value):
+        if isinstance(value, str):
+            return "second-" + value if value in ids else value
+        if isinstance(value, list):
+            return [remap(item) for item in value]
+        if isinstance(value, dict):
+            return {key: remap(item) for key, item in value.items()}
+        return value
+
+    for group in groups:
+        data[group] += remap(data[group])
+    return DashboardBundle.model_validate(data)
+
+
 @pytest.fixture
 def setup(tmp_path):
     bundle = DashboardBundle.model_validate_json(
@@ -51,6 +79,115 @@ def test_snapshot_zero_opacity_membership_recorded_values_and_no_full_source(set
     assert snapshot.items[0].primitives[0].recorded_bearing_deg == 0.0
     assert snapshot.canonical_verification == "not_requested"
     assert "image" not in json.dumps(snapshot.source_references)
+
+
+def test_input_status_tracks_each_selected_call_for_scenario_and_source_correction(setup, tmp_path):
+    bundle, revision_dir, base_request = setup
+    revision = revision_template(bundle, revision_id="mixed-scenario").model_dump(mode="json")
+    revision["edits"] = [
+        {
+            "call_id": "call-one",
+            "occurrence_id": "occ-one",
+            "tract_id": "parcel-one",
+            "document_id": "doc-one",
+            "raw_fields": {"distance_ft": "101"},
+            "rationale": "Adjust one hypothetical course.",
+        }
+    ]
+    assert publish_revision(bundle, revision, revision_dir.parent)["save_state"] == "published"
+    scenario = prepare_delivery(
+        bundle,
+        revision_dir.parent / "mixed-scenario",
+        base_request.model_copy(update={"id": "scenario-package", "revision_id": "mixed-scenario"}),
+    )
+    scenario_status = {p.call_id: p.input_status for p in scenario.items[0].primitives}
+    assert scenario_status == {
+        "call-one": "hypothetical",
+        "call-two": "recorded",
+        "call-three": "recorded",
+        "call-four": "recorded",
+    }
+
+    recorded = prepare_delivery(
+        bundle,
+        revision_dir.parent / "mixed-scenario",
+        base_request.model_copy(
+            update={
+                "id": "recorded-package",
+                "revision_id": "mixed-scenario",
+                "geometry": "recorded",
+            }
+        ),
+    )
+    assert {p.input_status for p in recorded.items[0].primitives} == {"recorded"}
+
+    correction = revision_template(bundle, revision_id="mixed-correction").model_dump(mode="json")
+    correction["kind"] = "source_correction"
+    correction["edits"] = [
+        {
+            "call_id": "call-one",
+            "occurrence_id": "occ-one",
+            "tract_id": "parcel-one",
+            "document_id": "doc-one",
+            "raw_fields": {"distance_ft": "101"},
+            "rationale": "Correct the transcription from the cited page.",
+            "source_refs": [{"page_id": "page-one", "quote": "  101 feet  "}],
+        }
+    ]
+    assert publish_revision(bundle, correction, revision_dir.parent)["save_state"] == "published"
+    corrected = prepare_delivery(
+        bundle,
+        revision_dir.parent / "mixed-correction",
+        base_request.model_copy(
+            update={"id": "correction-package", "revision_id": "mixed-correction"}
+        ),
+    )
+    corrected_status = {p.call_id: p.input_status for p in corrected.items[0].primitives}
+    assert corrected_status == {
+        "call-one": "source_correction",
+        "call-two": "recorded",
+        "call-three": "recorded",
+        "call-four": "recorded",
+    }
+
+
+def test_scenario_status_does_not_spread_to_an_unedited_tract(setup, tmp_path):
+    original, _, _ = setup
+    bundle = _two_tracts(original)
+    revision = revision_template(bundle, revision_id="one-tract-edited").model_dump(mode="json")
+    revision["edits"] = [
+        {
+            "call_id": "call-one",
+            "occurrence_id": "occ-one",
+            "tract_id": "parcel-one",
+            "document_id": "doc-one",
+            "raw_fields": {"distance_ft": "101"},
+            "rationale": "Adjust the first tract only.",
+        }
+    ]
+    revision_root = tmp_path / "revisions"
+    assert publish_revision(bundle, revision, revision_root)["save_state"] == "published"
+    request = DeliveryRequest(
+        id="untouched-tract-package",
+        baseline=revision_template(bundle, revision_id="template").baseline,
+        revision_id="one-tract-edited",
+        revision_generation=0,
+        geometry="scenario",
+        coordinate_mode="local",
+        units="unknown_ft",
+        layers=[
+            {
+                "id": "second-calc-one",
+                "kind": "calculation",
+                "visible": True,
+                "opacity": 1.0,
+                "required": True,
+            }
+        ],
+        formats=["svg"],
+    )
+    snapshot = prepare_delivery(bundle, revision_root / "one-tract-edited", request)
+    assert {p.input_status for p in snapshot.items[0].primitives} == {"recorded"}
 
 
 def test_draft_or_wrong_revision_cannot_export_older_geometry(setup, tmp_path):
