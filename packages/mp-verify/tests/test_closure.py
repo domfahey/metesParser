@@ -259,3 +259,34 @@ def test_unparseable_chord_bearing_blocks_instead_of_raising(bad_chord):
     assert any("chord bearing" in w.lower() for w in result.warnings)
     curve = next(c for c in result.checks if c.name == "curve_consistency")
     assert curve.status == "blocked"
+
+
+def test_bad_chord_on_one_call_does_not_strip_chord_from_same_course_number():
+    """PR #60 review: a bad chord must only block its own call, not a sibling sharing a course number."""
+    from mp_models import DeedCall
+    from mp_verify import verify_closure
+
+    def curve(chord: str | None) -> DeedCall:
+        return DeedCall(
+            course=2,
+            direction_text="curve",
+            bearing_azimuth_deg_from_north=90.0,
+            distance_ft=100.0,
+            curve_dir="right",
+            radius_ft=100.0,
+            delta_deg=60.0,
+            arc_length_ft=104.72,
+            chord_bearing=chord,
+        )
+
+    valid = curve("S 30° E")
+    bad = curve("South")
+    valid_alone = verify_closure([valid])
+    bad_alone = verify_closure([curve(None)])
+    combined = verify_closure([valid, bad])
+
+    expected_x = valid_alone.misclosure_x_ft + bad_alone.misclosure_x_ft
+    expected_y = valid_alone.misclosure_y_ft + bad_alone.misclosure_y_ft
+    assert combined.misclosure_x_ft == pytest.approx(expected_x, abs=1e-6)
+    assert combined.misclosure_y_ft == pytest.approx(expected_y, abs=1e-6)
+    assert any("South" in w and "chord bearing" in w.lower() for w in combined.warnings)
