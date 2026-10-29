@@ -417,11 +417,27 @@ def extract_distance(text: str) -> tuple[float, str]:
             r"toises?|furlongs?|meters?|miles?"
         )
         component_pattern = rf"({COMMA_NUMBER})\s*({compound_unit})"
+        # Components join with "and", or implicitly by whitespace/comma when each
+        # carries its own distinct unit ("2 chains 20 links", "40 poles, 5 feet").
+        joiner = r"(?:\s+and\s+|\s*,\s*|\s+)"
         compound = re.search(
-            rf"{component_pattern}(?:\s+and\s+{component_pattern})+",
+            rf"{component_pattern}(?:{joiner}{component_pattern})+",
             text,
             re.IGNORECASE,
         )
+        if compound and not re.fullmatch(
+            rf"{component_pattern}(?:\s+and\s+{component_pattern})+",
+            compound.group(0),
+            re.IGNORECASE,
+        ):
+            implicit_units = [
+                {"ft": "feet", "foot": "feet"}.get(
+                    u := " ".join(c.group(2).lower().split()).rstrip("s"), u
+                )
+                for c in re.finditer(component_pattern, compound.group(0), re.IGNORECASE)
+            ]
+            if len(set(implicit_units)) != len(implicit_units):
+                compound = None
         if compound:
             trailing_component = re.match(
                 rf"\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+", text[compound.end() :], re.IGNORECASE
