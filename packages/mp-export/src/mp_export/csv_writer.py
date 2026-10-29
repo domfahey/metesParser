@@ -338,8 +338,14 @@ def export_verified_csv(
         ValueError: If verification checks did not pass (single-tract only).
             For multi-tract, individual unverified tracts are skipped with warnings.
     """
-    # In multi-tract mode, skip global gate — each tract checked independently
-    if not tract_results and not closure_result.is_fully_verified():
+    # Multi-tract mode gates per tract, but at least one tract must verify.
+    if tract_results:
+        if not any(result.is_fully_verified() for _, result in tract_results):
+            raise ValueError(
+                "Cannot export verified CSV: no tract passed verification. "
+                f"Tracts checked: {len(tract_results)}"
+            )
+    elif not closure_result.is_fully_verified():
         raise ValueError(
             "Cannot export verified CSV: verification checks failed. "
             f"Misclosure: {closure_result.misclosure_ft:.4f} ft, "
@@ -392,6 +398,8 @@ def export_verified_csv(
     if tract_results:
         summaries: list[str] = []
         for tract, tract_result in tract_results:
+            if not tract_result.is_fully_verified():
+                continue
             summaries.append(f"--- {tract.label} ---")
             summaries.append(get_closure_summary(tract_result))
             summaries.append("")
