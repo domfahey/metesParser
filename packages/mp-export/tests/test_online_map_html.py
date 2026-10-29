@@ -1,6 +1,7 @@
 """Online shell contracts, with no provider or geographic computation."""
 
 import hashlib
+import html
 import json
 import re
 from pathlib import Path
@@ -122,6 +123,52 @@ def test_stale_artifact_rejected():
         render_online_map(prepared, artifact, view=MapboxViewOptions())
 
 
+def test_map_summary_preserves_calculation_frame_and_bearing_basis():
+    prepared, artifact = prepared_and_artifact()
+    result = render_online_map(prepared, artifact, view=MapboxViewOptions())
+    frame = prepared.bundle.calculations[0].frame
+    assert f"Bearing basis: {frame.basis}" in result
+    assert f"Frame: {frame.name}" in result
+    assert "foot definition: international_ft" in result
+    assert "numerical placement uncertainty is unknown" in result
+
+
+def test_active_raster_control_escapes_long_malicious_labels_without_mutating_evidence():
+    from io import BytesIO
+
+    from mp_models.plot import PlotScene
+    from mp_models.raster import RasterRegistration
+    from mp_review.raster_registration import image_layer
+    from mp_review.webmap import prepare_web_map
+    from PIL import Image
+
+    prepared, _ = prepared_and_artifact()
+    data = prepared.bundle.model_dump(mode="json")
+    image = BytesIO()
+    Image.new("RGBA", (2, 2), (40, 80, 240, 180)).save(image, format="PNG")
+    image_bytes = image.getvalue()
+    layer, source = image_layer(
+        image_bytes,
+        scene=PlotScene.model_validate(data["scenes"][0]),
+        registration=RasterRegistration(method="supplied_affine", matrix=(1, 0, 0, 0, 1, 0)),
+        filename="synthetic.png",
+    )
+    label = (
+        '<img src=x onerror="window.scanLabelInjected=true"> & "quoted" ' + "LongScanLabel" * 100
+    )
+    data["map_sources"].append(source.model_dump(mode="json"))
+    data["raster_layers"] = [{**layer.model_dump(mode="json"), "label": label}]
+    prepared = calculate_dashboard(DashboardBundle.model_validate(data))
+    artifact = prepare_web_map(prepared, scene_id="scene-one", options=WebMapOptions()).artifact
+    assert len(artifact.rasters) == 1
+    before = prepared.model_dump_json(), artifact.model_dump_json()
+    rendered = render_online_map(prepared, artifact, view=MapboxViewOptions())
+    assert f"<legend>{html.escape(label)}</legend>" in rendered
+    assert f'aria-label="Raise {html.escape(label, quote=True)}"' in rendered
+    assert label not in rendered
+    assert before == (prepared.model_dump_json(), artifact.model_dump_json())
+
+
 def test_fingerprint_includes_descriptor_and_both_assets(monkeypatch):
     baseline = online_renderer_fingerprint()
     original = Path.read_bytes
@@ -214,7 +261,9 @@ const assert = require('node:assert/strict');
 let config = [], sourceIDs = [], layerIDs = [];
 let baseline = {view:{style:'standard'}};
 let artifact = {features:[],rasters:[{id:'selection',path:'x',corners:[]},{id:'parcel_context',path:'y',corners:[]}]};
-let mapError = false, opacity = 0.5;
+let mapError = false;
+const rasterOrder=['selection','parcel_context'];
+const rasterOpacity={selection:0.5,parcel_context:0.5};
 const visibility = {"raster-selection":true,"raster-parcel_context":true,parcel_context:true,recorded_course:true,pob:true,closure_gap:true};
 const layerId = kind => `review-${kind}`;
 const rasterId = id => `review-raster-${id}`;

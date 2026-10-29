@@ -6,6 +6,9 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Added
 
+- Read-only schema 1.1 source-handoff validation, bounded artifact freshness inspection with conditional resume recommendations, and standalone identity-bound closure diagnosis; each preserves advisory `needs_review`/exit 1 semantics.
+- Closure sensitivity panel in supported dashboard work, plus independent per-raster visibility, opacity, and layer-order controls with fit/checkpoint, basis, and placement evidence summaries. Controls remain presentation-only.
+- Added the focused `compare-descriptions` capability for explicit source-linked `ComparisonRequest` inputs, advisory geometric components, and tentative structural differences; the catalog now has seven capabilities, two workflows, and the retained `review-deed` alias.
 - Explicit `plot --input-format text` prepares an isolated description through shared parsing, preserves its source bytes, and separates commencement-to-POB tie-ins without running canonical verification.
 - Packaged-runtime `compose-map` and `compose-dashboard` commands assemble existing artifacts, preserve provenance, and expose fresh geometry hashes without ad hoc workspace Python setup.
 - Behavioral evaluation scenarios cover commencement plotting, packaged composition, and direct relative-analysis routing.

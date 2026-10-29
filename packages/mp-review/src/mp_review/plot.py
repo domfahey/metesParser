@@ -19,6 +19,8 @@ from .dashboard import _atomic
 from .relative import _invalid_number, _unique_object
 from .text import prepare_text
 
+REPLAY_VERSION = "plot-input-replay-1"
+
 
 def _json(value: object) -> str:
     return json.dumps(value, sort_keys=True, indent=2, allow_nan=False) + "\n"
@@ -179,6 +181,9 @@ def plot_file(
         geometry = _json(prepared.geometry.model_dump(mode="json"))
         manifest = {
             "schema_version": "1.0",
+            "replay_version": REPLAY_VERSION,
+            "source_name": source_path.name,
+            "input_format": input_format,
             "source_sha256": _sha(source),
             "input_hash": prepared.input_hash,
             "plot_input_sha256": _sha(canonical),
