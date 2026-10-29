@@ -496,6 +496,8 @@ def extract_single_call(
 
     if is_meander or "approximate" in call_text.lower():
         notes = "meander / approximate"
+        if derived_tangent:
+            notes += "; tangent bearing derived from chord bearing and delta"
     elif derived_tangent:
         notes = "tangent bearing derived from chord bearing and delta"
     elif not parsed_bearing and not is_due_cardinal:

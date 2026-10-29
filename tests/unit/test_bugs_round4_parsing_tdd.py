@@ -151,7 +151,6 @@ def test_conveyed_parcel_area_after_parent_tract_clause_is_selected(extract_area
     ("course", "expected_ft"),
     [
         ("THENCE N 10° E 2 chains 20 links to an iron pin", 145.2),
-        ("THENCE N 10° E 40 poles 5 feet to an iron pin", 665.0),
         ("THENCE N 10° E 2 chains, 20 links to an iron pin", 145.2),
     ],
 )
@@ -161,6 +160,38 @@ def test_compound_distance_without_and_sums_every_component(parse, course, expec
 
 
 @pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize(
+    ("course", "expected_ft"),
+    [
+        ("THENCE N 10° E 150 feet, 3 rods north of the oak to an iron pin", 150.0),
+        ("THENCE N 10° E 40 poles 2 rods to an iron pin", 660.0),
+        ("THENCE N 10° E 40 poles 5 feet to an iron pin", 660.0),
+        ("THENCE N 10° E 40 poles and 5 feet to an iron pin", 665.0),
+        ("THENCE N 10° E 3 poles 4 links to an iron pin", 52.14),
+    ],
+)
+def test_unrelated_adjacent_units_are_not_summed_without_and(parse, course, expected_ft):
+    # PR #60 review: only genuine descending sub-unit pairs join without "and".
+    assert parse(course)[0].distance_ft == pytest.approx(expected_ft)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
 def test_repeated_same_unit_measurements_are_not_summed_without_and(parse):
     call = parse("THENCE N 10° E 100 feet, 50 feet from the corner to an iron pin")[0]
     assert call.distance_ft == pytest.approx(100.0)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize("qualifier", ["approximately ", ""])
+def test_derived_tangent_note_survives_meander_or_approximate_note(parse, qualifier):
+    # PR #60 review: the derivation disclosure was replaced by the meander note.
+    call = parse(
+        f"THENCE a curve to the right, {qualifier}radius of 50 feet, delta angle of 90°, "
+        "chord bearing North 45° East 70.71 feet; THENCE due South 50 feet; "
+        "THENCE due West 50 feet to the point of beginning."
+    )[0]
+    assert call.bearing_azimuth_deg_from_north == pytest.approx(0.0, abs=1e-6)
+    assert call.bearing_quadrant is None
+    assert "tangent bearing derived from chord bearing and delta" in (call.notes or "")
+    if qualifier:
+        assert "meander / approximate" in call.notes

@@ -53,21 +53,36 @@ _POB_CLOSE_PATTERN = re.compile(
 )
 
 
+# Words that make a following TRACT/PARCEL a reference to another parcel
+# ("corner of Parcel 2", "adjoining Tract 4"), even across an OCR line break.
+_REFERENCE_WORD_BEFORE = re.compile(
+    r"\b(?:of|to|said|adjoining|adjacent|along|from|with)\s*$", re.IGNORECASE
+)
+# Text after a marker that indicates it opens a description.
+_HEADING_CONTINUATION = re.compile(r"\s*(?:BEGINNING|COMMENCING|ALL\s+THAT)\b", re.IGNORECASE)
+
+
 def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
     """Return whether a TRACT/PARCEL match heads a description.
 
-    Neighbour references ("corner of Parcel 2", "Lot 5 of Tract 4567") sit in
-    the middle of a sentence. A heading starts the text, a line or a sentence,
-    or is explicitly followed by a colon ("Description of PARCEL 1: ...").
+    Neighbour references ("corner of Parcel 2", "Lot 5 of Tract 4567") follow a
+    reference word, even when OCR wrapped the line. A heading that is not such a
+    reference starts the text, a line, or a sentence/clause (period, colon,
+    semicolon), or is followed by a description opener such as BEGINNING (which
+    also covers headings merged into the preceding sentence). A marker with its
+    own colon/dash ("Description of PARCEL 1: ...") is always a heading.
     """
+    if re.search(r"[:\-\u2014]", match.group(0)):
+        return True
     prefix = text[: match.start()]
     if not prefix.strip():
         return True
-    if "\n" in prefix[len(prefix.rstrip()) :]:
+    if _REFERENCE_WORD_BEFORE.search(prefix):
+        return False
+    stripped = prefix.rstrip()
+    if "\n" in prefix[len(stripped) :] or stripped.endswith((".", ":", ";")):
         return True
-    if prefix.rstrip().endswith("."):
-        return True
-    return ":" in match.group(0)
+    return bool(_HEADING_CONTINUATION.match(text, match.end()))
 
 
 def find_tract_markers(
