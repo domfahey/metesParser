@@ -1,0 +1,22 @@
+{
+  "version": "3.33.0",
+  "files": {
+    "mapbox-gl.js": {
+      "url": "https://api.mapbox.com/mapbox-gl-js/v3.33.0/mapbox-gl.js",
+      "sha256": "d0e40476915ab351ca35c5b881f4ed73068cb2428af9e5ba18ceaa3d5f32fd78",
+      "integrity": "sha384-jdGuG3GDIph+ONsjITkxWmlUE2RR0At6jtOVirn6L/6dYy3WcAVDaBNI3X96rUT0"
+    },
+    "mapbox-gl.css": {
+      "url": "https://api.mapbox.com/mapbox-gl-js/v3.33.0/mapbox-gl.css",
+      "sha256": "48833ccdced793ae305a93ea33a310e567aba60e293148a5060abeec3030ffa9",
+      "integrity": "sha384-S0a+eT2dLtsB1suB6ZJ/8IX+0d0Fvix9weJQ67L3E+jHOvn6SUKwYXVDyGdMuJtL"
+    }
+  },
+  "reviewed_at": "2026-10-27",
+  "connect_origins": [
+    "https://api.mapbox.com",
+    "https://events.mapbox.com"
+  ],
+  "documentation": "https://docs.mapbox.com/mapbox-gl-js/guides/security-and-testing/",
+  "attribution": "Retain Mapbox logo and attribution controls; provider styles remain live."
+}

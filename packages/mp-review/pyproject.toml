@@ -7,6 +7,7 @@ dependencies = ["mp-models>=1.0.0", "mp-parse>=1.0.0", "mp-verify>=1.0.0", "mp-e
 
 [project.optional-dependencies]
 geo = ["pyproj>=3.7,<4", "pillow>=11,<13"]
+web-map = ["pyproj>=3.7,<4", "pillow>=11,<13", "rasterio>=1.4.3,<2", "numpy>=1.26,<3"]
 
 [project.scripts]
 metes-review = "mp_review.cli:main"

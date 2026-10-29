@@ -40,7 +40,13 @@ This repository is a **prototype** exploring whether AI can assist with that wor
 - **Audit Sidecar** - Optional `.audit.json` + `.audit.html` alongside verified CSV for full transparency
 - **LLM Caching** - File-based response caching for deterministic, cost-effective re-extraction
 - **Run Registry** - Track prompt versions and extraction results for A/B comparison across runs
-- **Composable Packages** - 7 independently installable packages in a uv workspace monorepo
+- **Composable Packages** - 8 independently installable packages in a uv workspace monorepo
+
+## Claude Plugin Skills
+
+The [MetesParser plugin catalog](plugins/metesparser/README.md) documents nine skills: six standalone capabilities (document transcription, description extraction, traverse verification, plotting, overlay preparation, and online map rendering), two workflows (boundary review and the explicitly requested dashboard), and the `review-deed` alias for boundary review. Skills are an instruction and routing layer over the existing Python packages; they are not new parsing or verification engines.
+
+The plugin uses Claude's native document/image reading and description selection, then deterministic `mp-review` operations. The separate Python PDF pipeline uses OpenAI/Gemini through `mp-ocr`. Use the [shared artifact handoff contract](plugins/metesparser/references/artifact-handoffs.md) for inputs, stopping points, reuse, and status boundaries. Verification, plotting, and overlay preparation can be requested independently; a dashboard requires explicit `DashboardBundle` assembly. See the [composition architecture](docs/ARCHITECTURE.md#skill-composition) for how these paths fit together.
 
 ## Recent Updates (v0.5.0)
 
@@ -169,7 +175,7 @@ print(f"Status: {'VERIFIED' if result.is_fully_verified() else 'NEEDS REVIEW'}")
 
 ### Composable Packages
 
-The codebase is a **uv workspace monorepo** with 7 independently installable packages following Unix philosophy (each does one thing well):
+The codebase is a **uv workspace monorepo** with 8 independently installable packages: seven `mp-*` packages plus the root `metesparser` package. Each has a focused responsibility:
 
 | Package | Purpose | Dependencies |
 |---------|---------|--------------|
@@ -178,12 +184,15 @@ The codebase is a **uv workspace monorepo** with 7 independently installable pac
 | `mp-ocr` | LLM boundary: PDF -> text (OpenAI/Gemini) | mp-models |
 | `mp-parse` | Rule-based parsing: text -> calls | mp-models, mp-bearing |
 | `mp-verify` | Geometric verification: 8 checks | mp-models, mp-bearing |
-| `mp-export` | CSV/JSON/audit HTML output | mp-models, mp-verify |
+| `mp-export` | CSV, audit reports, plot/dashboard rendering | mp-models, mp-verify |
+| `mp-review` | Deterministic review/plot/dashboard orchestration and overlay preparation; `metes-review` CLI | mp-models, mp-parse, mp-verify, mp-export |
 | `metesparser` | Pipeline orchestrator + CLI | All packages |
 
-Only `mp-ocr` calls LLMs; everything downstream is deterministic.
+Only `mp-ocr` makes LLM provider calls in the Python packages; parsing, geometry, review, and rendering are deterministic. The Claude plugin performs native source reading outside that provider pipeline.
 
 ### Data Flow
+
+The separate provider-backed PDF pipeline remains available:
 
 ```
 PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
@@ -386,7 +395,9 @@ metesParser/
 │   ├── mp-ocr/                  # LLM boundary: PDF -> text
 │   ├── mp-parse/                # Rule-based parsing: text -> calls
 │   ├── mp-verify/               # Geometric verification: 8 checks
-│   └── mp-export/               # CSV/JSON/audit HTML output
+│   ├── mp-export/               # CSV, audit, plot/dashboard rendering
+│   └── mp-review/               # Deterministic review CLI + artifact orchestration
+├── plugins/metesparser/         # Claude skills, shared contracts, bundled launcher
 ├── src/metesparser/             # Orchestrator + backward-compat monolith
 │   ├── pipeline.py              # Pipeline orchestrator
 │   ├── cli.py                   # Command-line interface
@@ -409,7 +420,7 @@ metesParser/
 ## Requirements
 
 - Python 3.11+
-- OpenAI or Gemini API key (based on selected provider)
+- OpenAI or Gemini API key for the provider-backed PDF pipeline (the Claude plugin uses native source reading)
 - UV package manager (no pip/conda/poetry)
 
 ## Environment Variables
@@ -468,6 +479,8 @@ Based on comprehensive metes & bounds extraction best practices from professiona
 - **[README.md](README.md)** - This file, overview and quick start
 - **[docs/TESTING.md](docs/TESTING.md)** - Test suite guide and best practices
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System design and data flow
+- **[Plugin catalog](plugins/metesparser/README.md)** - Claude skills and runtime usage
+- **[Artifact handoffs](plugins/metesparser/references/artifact-handoffs.md)** - Shared composition and reuse contract
 - **[docs/API.md](docs/API.md)** - Python API reference
 - **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Development guidelines
 - **[CLAUDE.md](CLAUDE.md)** - AI assistant context and guidance
@@ -485,3 +498,11 @@ For issues or questions:
 ---
 
 **Note**: This parser follows strict surveying principles. It will never fabricate missing data and requires traverse closure before marking results as verified.
+
+### Optional online map review
+
+The [render-online-map capability](plugins/metesparser/skills/render-online-map/README.md) renders prepared deed plots and registered map layers in a local Mapbox viewer or requested in-chat MCP preview. A dashboard can delegate an online companion to it after source assembly. See the [configuration, optional dependencies, and loopback preview guide](plugins/metesparser/skills/render-online-map/references/local-viewer.md). Connect requires a runtime public token; map display does not establish survey accuracy or verified-export eligibility. Live provider and native-host acceptance are separate from local checks.
+
+For a Mapbox preview inside Claude, the optional [`mapbox-mcp` handoff](plugins/metesparser/skills/render-online-map/references/mapbox-mcp.md) reuses prepared vectors from intact standalone-map or legacy dashboard stages. It generates exact tool arguments and a local provenance/omission report without contacting Mapbox. A compatible connected MCP tool supplies the interactive panel; registered scans and source review remain in the local evidence/dashboard views.
+
+To try both views, follow the [Mapbox testing guide](docs/CONTRIBUTING.md#manual-mapbox-smoke-test), including a reproducible synthetic fixture, Claude MCP setup, local overlay checks, and automated browser/live-provider commands.

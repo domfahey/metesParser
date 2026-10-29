@@ -11,3 +11,7 @@ A `placements` entry identifies `id`, `calculation_id`, fresh `geometry_hash`, i
 Compare only explicitly named point correspondences in the same supported linear scene. Present residual vectors, RMS, maximum norm, and point names. If prerequisites are missing, report `not_comparable`. Residuals are not survey accuracy or deed closure. Keep any scenario placement tied to scenario geometry while retaining baseline geometry hash, placement ID, and scenario ID; do not refit it.
 
 `plot_view` is presentation only. Visibility, opacity, labels, pan, zoom, and viewport cannot alter geometry, placement, or verification. An empty `visible_layer_ids` uses the default of showing all supplied layers; nonempty IDs choose the initially visible layers. See [dashboard bundle](dashboard-bundle.md) for the authoritative bundle contract.
+
+## Optional geographic display
+
+The [online handoff](../../../references/artifact-handoffs.md#optional-online-map-handoff) defines the Mapbox companion's evidence and invalidation boundary. Reuse the existing projected scene, registered scan, and supported explicit deed placement; a basemap cannot supply missing position/orientation evidence. The [render-online-map configuration/preview procedure](../../render-online-map/references/local-viewer.md) covers optional dependencies, localhost serving, runtime tokens, and offline fallback.

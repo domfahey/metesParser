@@ -2,6 +2,8 @@
 
 The offline dashboard accepts `schema_version: "1.0"` deed-only bundles and `"1.1"` bundles with plot/map fields. Its Pydantic schema is `mp_models.dashboard.DashboardBundle`; the package is the authoritative, versioned contract. This page summarizes the fields and important validation rules without duplicating every model constraint. Version 1.0 remains supported; version-specific validation rejects plot/overlay fields in a 1.0 input instead of silently dropping them.
 
+Contents: [Top-level fields](#top-level-fields) · [Compose existing plot and map artifacts](#compose-existing-plot-and-map-artifacts) · [Status fields](#status-fields) · [Output, cache, and invalidation](#output-cache-and-invalidation) · [Runnable example](#runnable-example) · [Optional Mapbox companion](#optional-mapbox-companion)
+
 ## Top-level fields
 
 | Field | Purpose |
@@ -30,31 +32,18 @@ Reuse original source/acquisition/selection records and `plot-input.json`; `plot
 
 Map preparation is reusable without repeating the command. Append its supported `scenes`, `map_sources`, `vector_layers`, and/or `raster_layers` arrays to those same bundle fields and set `schema_version` to `1.1`. Validate IDs and references; conflicting IDs require an explicit mapping, not silent overwriting. Retain the complete imported/registered artifact as a sidecar. In particular, vector import's top-level `operation` and `original_base64` are not `DashboardBundle` fields; source bytes and processing history are also retained inside `map_sources`. Do not merge the whole preparation object or any prepared calculation/geometry result into the bundle.
 
-This development-workspace example composes a valid source bundle (`BASE_BUNDLE.json`) with an existing map-preparation artifact (`PREPARED_LAYER.json`). It writes a new input file and prints freshly computed dashboard geometry hashes. It has been checked with supplied GeoJSON imported to EPSG:3857 and the synthetic absolute-bearing source bundle; it does not infer placement or source-review evidence.
+Compose a valid source bundle (`BASE_BUNDLE.json`) with existing map-preparation artifacts through the bundled locked runtime. Use the launcher in an extracted distribution:
 
 ```sh
-uv run python - BASE_BUNDLE.json PREPARED_LAYER.json NEW_BUNDLE.json <<'PYTHON'
-import json
-import sys
-from pathlib import Path
-from mp_models.dashboard import DashboardBundle
-from mp_review.dashboard import prepare_dashboard
-
-base_path, layer_path, output_path = map(Path, sys.argv[1:])
-base = json.loads(base_path.read_text())
-layer = json.loads(layer_path.read_text())
-base["schema_version"] = "1.1"
-for key in ("scenes", "map_sources", "vector_layers", "raster_layers"):
-    base[key] = base.get(key, []) + layer.get(key, [])
-bundle = DashboardBundle.model_validate(base)
-prepared = prepare_dashboard(bundle)
-with output_path.open("x") as output:
-    output.write(bundle.model_dump_json(indent=2) + "\n")
-for geometry in prepared.plots.geometries:
-    print(geometry.calculation_id, geometry.geometry_hash)
-PYTHON
-uv run metes-review dashboard NEW_BUNDLE.json --output-dir NEW_DASHBOARD_DIR
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" compose-dashboard BASE_BUNDLE.json --layer PREPARED_LAYER.json --output-dir COMPOSED_NEW
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard COMPOSED_NEW/bundle.json --output-dir NEW_DASHBOARD_DIR
 ```
+
+In a source checkout, use `uv run metes-review compose-dashboard BASE_BUNDLE.json --layer PREPARED_LAYER.json --output-dir COMPOSED_NEW`. Repeat `--layer` for additional artifacts, or omit it to validate an existing bundle and obtain freshly computed geometry hashes. The command validates the original source ledger, appends only supported map arrays, upgrades the output schema to `1.1`, and uses the shared dashboard preparer. It does not import standalone plot geometry, infer placement, create source records, or add reading/review attestations.
+
+The new directory contains validated `bundle.json`, `composition-manifest.json`, the byte-exact original `inputs/base-bundle.json`, and complete preparation sidecars `inputs/layer-N.json`. The single JSON result and manifest expose `geometry_hashes` keyed by calculation ID. Source quotes, relative constraints, IDs, review fields, and provenance are retained. Wrappers such as `operation` and `original_base64` stay in their complete preparation sidecars rather than being added as unsupported bundle fields.
+
+Composition does not render or call providers. Valid composition returns `needs_review` (exit 1), with `engine_verified`, `verified_export_eligible`, and `source_review_complete` false at the command level. Invalid source/overlay records, ID collisions, stale placements, and existing output paths return `error` (exit 2) without overwriting inputs. Source review and canonical verification remain separate stages. Use a fresh output directory.
 
 An unplaced layer remains independent map context. If placement is requested, finalize the dashboard calls, calculation identity, frame, and explicit foot definition before computing its geometry. Use the freshly computed dashboard hash for the placement's `geometry_hash`, its calculation ID for `calculation_id`, and the imported scene ID for `scene_id`. Supply only the documented rotation/translation and evidence; see [placement and comparison](plot-and-overlays.md). Standalone and dashboard geometry hashes differ because their source/calculation identities differ even when XY coordinates match. Copying the standalone hash produces a stale-placement error; changing the hash alone does not revalidate an old transform. Revalidate the transform against the current geometry and evidence. Rendering recomputes geometry and rejects tampered or stale prepared results.
 
@@ -107,3 +96,7 @@ From the repository root, run it with fresh output/cache paths:
 ```sh
 uv run metes-review dashboard plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-example.json --output-dir /tmp/metesparser-dashboard-example --cache-dir /tmp/metesparser-dashboard-cache
 ```
+
+## Optional Mapbox companion
+
+Online rendering is owned by [render-online-map](../../render-online-map/SKILL.md). The dashboard workflow owns source/bundle assembly and delegates the requested provider view. Follow the [local viewer procedure](../../render-online-map/references/local-viewer.md) for configuration, optional dependencies, rendering, runtime tokens, preview, and fallback. The existing `dashboard --online-map-config` command remains a compatibility path.

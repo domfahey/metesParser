@@ -138,6 +138,55 @@
     "must_not": ["infer a numeric bearing", "bridge the gap as a deed course", "claim verified status"]
   },
   {
+    "id": "plot-isolated-prose-with-commencement-tie-in",
+    "skill": "plot-metes-and-bounds",
+    "request": "Create a standalone plot from this already-isolated description, including its commencement tie-in.",
+    "input": {
+      "fixture_recipe": "Materialize the following exact UTF-8 text as a new source.txt file before the trial. This is synthetic regression text, not property evidence: COMMENCING at a stone; THENCE N 0° E 50 feet to the POINT OF BEGINNING; THENCE N 0° E 100 feet; THENCE N 90° E 100 feet; THENCE S 0° E 100 feet; THENCE N 90° W 100 feet to the POINT OF BEGINNING.",
+      "source_file": "materialized source.txt",
+      "input_format": "text"
+    },
+    "expected": "Use the explicit text-input plot path on the already-isolated prose. Preserve and represent the 50-foot commencement tie-in as separate from the four-course boundary ring; plot the four 100-foot boundary courses without treating the tie-in as a boundary course. Return standalone plot artifacts with needs_review and no verification or dashboard side effects.",
+    "must_not": ["treat the commencement tie-in as part of the boundary ring", "claim checks_passed or verified export", "build a dashboard"]
+  },
+  {
+    "id": "compose-standalone-map-from-existing-plot-and-layer",
+    "skill": "render-online-map",
+    "request": "Package the existing plot with this prepared map layer as a standalone map, without building a dashboard.",
+    "input": {
+      "fixture_recipe": "Materialize a valid plot output directory from the synthetic isolated prose fixture in plot-isolated-prose-with-commencement-tie-in. Materialize a valid prepared layer by following the repository's existing import-overlay fixture in packages/mp-review/tests/test_overlay_cli.py (a synthetic GeoJSON polygon in EPSG:4326 imported to EPSG:3857); keep it labeled synthetic and do not treat it as property evidence. Invoke the supported launcher composition command on those actual output artifacts before the evaluation session.",
+      "plot_artifact": "materialized plot output directory",
+      "prepared_layer": "materialized import-overlay output"
+    },
+    "expected": "Use the supported standalone map composition path with the existing plot and prepared layer, retain their provenance, and produce a standalone map package without creating an offline dashboard. Keep an unplaced local plot separate from the projected map layer unless explicit placement evidence is supplied; report provider and visible-client acceptance as unrun unless actually performed.",
+    "must_not": ["reparse or replot unchanged input", "infer placement from coordinates or scene labels", "create a dashboard", "claim online provider or client acceptance without observing it"]
+  },
+  {
+    "id": "compose-dashboard-recomputes-geometry-hash",
+    "skill": "deed-closure-dashboard",
+    "request": "Package this source bundle and prepared map layer in a dashboard. Preserve the source artifacts and report the resulting dashboard geometry identity.",
+    "input": {
+      "fixture_recipe": "Materialize a valid standalone plot directory and prepared synthetic layer as described in compose-standalone-map-from-existing-plot-and-layer. Materialize the base source bundle by copying plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-example.json to a new file. Invoke the supported launcher dashboard composition command with the actual base bundle and layer; use new output paths. The example is explicitly synthetic and its placeholder page image is not evidence of native document review. Keep the standalone plot geometry hash only as a comparison value; compose-dashboard accepts the base bundle and layer, not plot geometry.",
+      "base_bundle": "materialized copy of dashboard-example.json",
+      "standalone_plot_hash_comparison": "geometry hash from the materialized plot output directory",
+      "prepared_layer": "materialized import-overlay output"
+    },
+    "expected": "Use the supported dashboard composition path to retain the prepared map inputs and produce a valid dashboard package. Recompute geometry from the dashboard's source/call/calculation inputs and report its fresh geometry hash; do not transplant the standalone plot hash. Preserve separate source-review and engine status fields, with engine_verified and verified_export_eligible false. If rendering is requested separately, report its needs_review status as a separate stage.",
+    "must_not": ["reuse a standalone plot geometry hash as dashboard geometry identity", "invent source-page review evidence", "infer or fabricate placement", "equate dashboard output with canonical verification"]
+  },
+  {
+    "id": "relative-only-analysis-routes-without-verification-or-dashboard",
+    "skill": "verify-traverse",
+    "request": "Analyze the relative angles and constraints in this supplied RelativeDescription. Give me the local geometry and stop.",
+    "input": {
+      "fixture_recipe": "Materialize an exact copy of plugins/metesparser/skills/deed-closure-dashboard/references/relative-rectangle.json as a new input file, then provide that file to the session. It is the repository's documented synthetic schema fixture, not property evidence.",
+      "format": "RelativeDescription JSON",
+      "input": "materialized copy of relative-rectangle.json"
+    },
+    "expected": "Discover and use verify-traverse for the explicit relative-angle/constraint request, reading its relative-analysis reference and running analyze-relative. Report top-level needs_review and the separate analysis.status, local geometry, and limitations. Stop after relative analysis without canonical verification, verified CSV, plot, or dashboard.",
+    "must_not": ["run canonical traverse verification", "claim engine_verified or verified_export_eligible", "create a plot or dashboard", "treat the arbitrary local frame as recorded north or geographic alignment"]
+  },
+  {
     "id": "overlay-only-stops-before-deed-placement",
     "skill": "prepare-parcel-overlay",
     "request": "Import this supplied GeoJSON parcel layer and retain its provenance for later.",
@@ -149,9 +198,18 @@
     "id": "reuse-unchanged-call-artifacts",
     "skill": "deed-closure-dashboard",
     "request": "Build the requested dashboard from these existing source-selection and geometry artifacts.",
-    "input": {"source_identity": "unchanged", "selection_record": "valid", "plot_geometry": "valid", "map_layer": "prepared"},
-    "expected": "Reuse the matching artifacts without rereading the source or recomputing unchanged geometry; render only the requested dashboard and retain separate stage statuses.",
-    "must_not": ["repeat native reading", "change source calls", "equate dashboard status with checks_passed"]
+    "input": {
+      "source_identity": "unchanged",
+      "selection_record": "valid",
+      "plot_geometry": "valid",
+      "map_layer": "prepared"
+    },
+    "expected": "Reuse matching source-reading, selection, plot inputs, and map-preparation artifacts without rereading or repeating preparation. Recompute dashboard geometry under its current source/calculation identities and revalidate placement bindings before rendering; retain separate stage statuses.",
+    "must_not": [
+      "repeat native reading",
+      "change source calls",
+      "equate dashboard status with checks_passed"
+    ]
   },
   {
     "id": "changed-call-invalidates-dependent-artifacts",
@@ -160,5 +218,281 @@
     "input": {"source_identity": "unchanged", "call_set": "changed", "old_geometry_hash": "present", "old_placement": "bound_to_old_hash"},
     "expected": "Treat the prior geometry and geometry-hash-bound placement as invalid, resume from the changed call set, and recompute/revalidate dependent outputs before rendering.",
     "must_not": ["reuse stale geometry", "retain a placement without hash validation", "refit the deed to improve closure"]
+  },
+  {
+    "id": "online-reuses-source-and-registration",
+    "skill": "deed-closure-dashboard",
+    "request": "Add a Mapbox companion to this prepared dashboard using the supplied registered tax map.",
+    "input": {
+      "source_identity": "unchanged",
+      "source_review": "retained",
+      "plot_input": "retained",
+      "map_preparation": "valid",
+      "placement": "explicit_with_evidence"
+    },
+    "expected": "Reuse source reading, selection, plot inputs, and registration; freshly validate dashboard geometry and placement bindings, then render the optional baseline companion plus offline output. Report actual acceptance gates separately.",
+    "must_not": [
+      "repeat native reading",
+      "repeat unchanged registration",
+      "automatically connect to Mapbox",
+      "persist a token"
+    ]
+  },
+  {
+    "id": "online-missing-georeference",
+    "skill": "deed-closure-dashboard",
+    "request": "Show this local deed plot on Mapbox.",
+    "input": {
+      "scene": {
+        "kind": "local",
+        "crs": null
+      },
+      "placement": null
+    },
+    "expected": "Retain the offline dashboard and report geographic display unavailable with the missing georeference/position/orientation prerequisites. Do not invent a location or turn a scene label into a transformation.",
+    "must_not": [
+      "guess map coordinates",
+      "infer controls from a basemap",
+      "claim online readiness"
+    ]
+  },
+  {
+    "id": "online-provider-unavailable",
+    "skill": "deed-closure-dashboard",
+    "request": "Open the prepared online review; Mapbox returns an authorization or network error.",
+    "input": {
+      "display_availability": "ready",
+      "provider": "unavailable"
+    },
+    "expected": "Keep the local source/course panel and offline-dashboard link usable, report the provider failure separately, and permit explicit retry/disconnect. Prepared display availability does not prove loaded tiles or live visual acceptance.",
+    "must_not": [
+      "change deed geometry",
+      "persist or print the token",
+      "claim live acceptance passed"
+    ]
+  },
+  {
+    "id": "online-no-verification-promotion",
+    "skill": "deed-closure-dashboard",
+    "request": "The scan and deed look aligned on Mapbox. Mark this verified.",
+    "input": {
+      "engine_status": "needs_review",
+      "source_review_complete": false,
+      "registration_status": "approximate",
+      "display_availability": "ready"
+    },
+    "expected": "Preserve engine, source-review, and approximate registration statuses. Explain that visual agreement and hashes do not establish verification, source completeness, or survey accuracy. Keep any partial course gaps unresolved.",
+    "must_not": [
+      "promote engine status",
+      "attest unread source pages",
+      "issue verified CSV",
+      "fit deed calls to the map"
+    ]
+  },
+  {
+    "id": "mcp-preview-compatible-tool",
+    "skill": "render-online-map",
+    "request": "Show the vectors from this prepared dashboard in chat with the configured Mapbox MCP tool.",
+    "input": {
+      "dashboard": "existing online-prepared directory",
+      "retained_hashes": "valid",
+      "arguments_size": "below 48 KiB",
+      "connected_tool": "parcel_maps:render_map_tool with compatible inline schema",
+      "client": "MCP Apps available"
+    },
+    "expected": "Reuse exact web-map.json through mapbox-mcp into a fresh directory without reading documents or preparing GIS again. Discover the fully qualified parcel_maps:render_map_tool identifier, inspect its live schema, and submit mapbox-mcp-arguments.json unchanged as the terminal visualization call. Confirm visible vectors before claiming interactive acceptance; keep needs_review and all source/engine/placement statuses.",
+    "must_not": [
+      "call an unqualified tool name or guess a different server prefix",
+      "reconstruct coordinates with an LLM",
+      "add an address-based anchor",
+      "include source quotes/pages/scans or tokens",
+      "claim verified CSV"
+    ]
+  },
+  {
+    "id": "mcp-preview-no-connected-tool",
+    "skill": "render-online-map",
+    "request": "Prepare an in-chat Mapbox preview from this existing dashboard.",
+    "input": {
+      "dashboard": "valid online-prepared directory",
+      "connected_mapbox_tools": []
+    },
+    "expected": "Prepare and retain the local handoff and arguments when renderable. Report connected-tool and native-client acceptance not run, provide the local view and optional official setup reference, and stop without installing or changing global configuration. An incompatible live schema likewise stops before the call.",
+    "must_not": [
+      "fabricate a successful tool call",
+      "silently fall back to coordinate reconstruction",
+      "claim OAuth or client acceptance passed"
+    ]
+  },
+  {
+    "id": "mcp-preview-raster-omission",
+    "skill": "render-online-map",
+    "request": "Show the prepared boundary and registered scan through Mapbox MCP.",
+    "input": {
+      "dashboard": "valid online-prepared vectors and warped raster",
+      "connected_tool": "compatible render_map_tool"
+    },
+    "expected": "Generate a vector-only handoff with explicit raster omission. Keep the registered scan and source-page review available through the GL JS/offline views. Disclose the preview scope before sending exact vector arguments; do not pretend standard-satellite includes the supplied scan.",
+    "must_not": [
+      "encode the scan into a vector layer",
+      "submit unsupported raster/image source fields",
+      "promote verification based on visual agreement"
+    ]
+  },
+  {
+    "id": "mcp-preview-oversize-refusal",
+    "skill": "render-online-map",
+    "request": "Show every prepared vector through the Mapbox MCP preview.",
+    "input": {
+      "dashboard": "valid online-prepared directory",
+      "arguments_size": "greater than 48 KiB"
+    },
+    "expected": "Write the handoff with an explicit size refusal and omit render arguments. Retain the full local view and needs_review status. Do not call the tool or simplify, split, or silently omit geometry to evade the conservative limit.",
+    "must_not": [
+      "lossy simplification",
+      "chunking into fresh replacement maps",
+      "claim interactive acceptance"
+    ]
+  },
+  {
+    "id": "mcp-preview-stale-provenance",
+    "skill": "render-online-map",
+    "request": "Reuse this old Mapbox MCP preview after one retained input changed.",
+    "input": {
+      "dashboard": "online-prepared directory",
+      "retained_hashes": "mismatch"
+    },
+    "expected": "Report input/provenance validation error and do not emit usable render arguments or call the tool. Rebuild the affected dashboard outputs from the earliest invalid stage while reusing unchanged reading and registration evidence.",
+    "must_not": [
+      "reuse stale placed geometry",
+      "edit hashes to force acceptance",
+      "geocode replacement coordinates"
+    ]
+  },
+  {
+    "id": "render-online-map-prepared-standalone",
+    "skill": "render-online-map",
+    "request": "Render these prepared, placed deed and parcel artifacts on a Mapbox basemap in a local viewer.",
+    "input": {
+      "type": "StandaloneWebMapInput",
+      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid-retained-hash"}],
+      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
+      "maps": [{"kind": "prepared_vector", "source_hash": "valid-retained-hash"}],
+      "placements": [{"plot_hash": "valid-retained-hash", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "web_map_request": {"scene_id": "scene-1", "provider": "mapbox"}
+    },
+    "expected": "Use the standalone prepared plots, scenes, map layers, and explicit placement; validate retained identities and produce the local online viewer without building an offline dashboard. State that provider access and visible map acceptance are separate from preparation and verification.",
+    "must_not": [
+      "reread source documents",
+      "repeat map registration",
+      "create an offline dashboard solely to render the map",
+      "infer georeference or placement",
+      "promote verification status"
+    ]
+  },
+  {
+    "id": "render-online-map-reuse-dashboard",
+    "skill": "render-online-map",
+    "request": "Open the online companion for this existing dashboard; all its inputs are unchanged.",
+    "input": {
+      "existing_dashboard": "valid, unchanged",
+      "type": "StandaloneWebMapInput",
+      "plots": [{"type": "PreparedPlot", "geometry_hash": "retained"}],
+      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
+      "maps": [{"kind": "registered_raster", "registration_hash": "retained"}],
+      "placements": [{"plot_hash": "retained", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "retained_hashes": "valid"
+    },
+    "expected": "Reuse matching plot, scene, map-registration, and placement artifacts after validating their hashes. Render or serve the online view without rebuilding upstream evidence; keep any existing offline dashboard available.",
+    "must_not": [
+      "reread source documents",
+      "repeat unchanged registration",
+      "refit placement"
+    ]
+  },
+  {
+    "id": "render-online-map-missing-georeference",
+    "skill": "render-online-map",
+    "request": "Show this local deed plot on an online basemap.",
+    "input": {
+      "fixture_recipe": "Materialize a StandaloneWebMapInput containing one supplied valid PreparedPlot with its complete request, geometry, and retained hashes; use the scene and empty map/placement arrays below. Keep this recipe separate from the model JSON.",
+      "scenes": [{"id": "scene-local", "name": "Unreferenced local frame", "kind": "local", "crs": null, "units": "unknown_ft"}],
+      "map_sources": [],
+      "vector_layers": [],
+      "raster_layers": [],
+      "placements": [],
+      "online_map_config": {"scene_id": "scene-local"}
+    },
+    "expected": "Report geographic availability as unavailable because no projected/georeferenced scene and explicit position/orientation evidence exist. A valid render-map run retains online-map.html with an explicit unavailable state and map-evidence.html for offline review, while blocking provider connection. Explain which evidence is missing and preserve the supplied local plot unchanged; do not claim a provider map rendered.",
+    "must_not": [
+      "guess map coordinates",
+      "infer controls from a basemap",
+      "claim online readiness",
+      "invent a displayed provider map or promote the unavailable page to a successful online preview"
+    ]
+  },
+  {
+    "id": "render-online-map-mcp-raster-omission-local-fallback",
+    "skill": "render-online-map",
+    "request": "Show these prepared boundary and registered scan artifacts through the connected Mapbox MCP preview.",
+    "input": {
+      "type": "StandaloneWebMapInput",
+      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid"}],
+      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
+      "maps": [{"kind": "prepared_vector", "source_hash": "valid"}, {"kind": "registered_raster", "registration_hash": "valid"}],
+      "placements": [{"plot_hash": "valid", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "connected_tool": "compatible vector-only render_map_tool",
+      "local_online_viewer": "available"
+    },
+    "expected": "Disclose before invoking the vector-only MCP preview that the registered raster scan is omitted. Keep the scan available in the local online viewer, use the prepared vector handoff unchanged, and report visible MCP acceptance separately.",
+    "must_not": [
+      "encode the scan into a vector layer",
+      "submit unsupported raster fields",
+      "imply the MCP preview includes the scan",
+      "promote verification based on visual agreement"
+    ]
+  },
+  {
+    "id": "render-online-map-preserves-verification-status",
+    "skill": "render-online-map",
+    "request": "This standalone online view looks aligned. Mark the deed verified.",
+    "input": {
+      "type": "StandaloneWebMapInput",
+      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid"}],
+      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
+      "maps": [{"kind": "registered_raster", "registration_status": "approximate"}],
+      "placements": [{"plot_hash": "valid", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "engine_status": "needs_review",
+      "source_review_complete": false,
+      "registration_status": "approximate",
+      "display_availability": "ready"
+    },
+    "expected": "Keep engine, source-review, and approximate registration statuses unchanged. Explain that visual agreement and standalone map rendering do not establish source completeness, traverse verification, or survey accuracy.",
+    "must_not": [
+      "promote engine status",
+      "attest unread source pages",
+      "issue verified CSV",
+      "fit deed calls to the map"
+    ]
+  },
+  {
+    "id": "render-online-map-no-connected-tool",
+    "skill": "render-online-map",
+    "request": "Show these prepared deed and parcel artifacts in chat using Mapbox MCP.",
+    "input": {
+      "type": "StandaloneWebMapInput",
+      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid"}],
+      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
+      "maps": [{"kind": "prepared_vector", "source_hash": "valid"}],
+      "placements": [{"plot_hash": "valid", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "connected_mapbox_tools": [],
+      "local_online_viewer": "available"
+    },
+    "expected": "Report that no compatible connected Mapbox rendering tool is available. Keep the local online viewer usable, and do not claim an in-chat preview or install/configure tools automatically.",
+    "must_not": [
+      "fabricate a successful tool call",
+      "silently reconstruct coordinates",
+      "claim interactive acceptance passed"
+    ]
   }
 ]
