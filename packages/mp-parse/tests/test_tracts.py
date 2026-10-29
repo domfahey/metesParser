@@ -274,3 +274,35 @@ class TestExtractCallsMultiTract:
         for exc_tract in exception_tracts:
             for call in exc_tract.calls:
                 assert call.is_exception is True
+
+
+class TestNeighbourReferencesAreNotMarkers:
+    """Bug #69: references to adjoining parcels/tracts must not split a parcel."""
+
+    def test_neighbour_parcel_references_stay_one_tract(self):
+        text = (
+            "BEGINNING at the northeast corner of Parcel 2; "
+            "THENCE S 0° W 100 ft along the line of Parcel 3; "
+            "THENCE W 100 ft; THENCE N 100 ft; "
+            "THENCE E 100 ft to the POINT OF BEGINNING."
+        )
+        assert [label for _t, label, _k in split_into_tracts(text)] == ["Tract 1"]
+        calls, tracts = extract_calls(text)
+        assert tracts == []
+        assert len(calls) == 4
+
+    def test_lot_of_tract_references_do_not_split(self):
+        text = (
+            "BEGINNING at the corner of Lot 5 of Tract 4567; "
+            "THENCE N 100 ft along Lot 6 of Tract 4567; THENCE E 100 ft; "
+            "THENCE S 100 ft; THENCE W 100 ft to the POINT OF BEGINNING."
+        )
+        _calls, tracts = extract_calls(text)
+        assert tracts == []
+
+    def test_heading_markers_after_sentence_or_newline_still_split(self):
+        text = (
+            "PARCEL A BEGINNING at a point THENCE N 100 ft to the POINT OF BEGINNING.\n"
+            "PARCEL B BEGINNING at a point THENCE S 100 ft to the POINT OF BEGINNING."
+        )
+        assert [label for _t, label, _k in split_into_tracts(text)] == ["Parcel A", "Parcel B"]
