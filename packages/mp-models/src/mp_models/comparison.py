@@ -36,6 +36,8 @@ class ComparisonTolerance(_Model):
     position: FiniteFloat = Field(ge=0)
     linear_unit: LinearUnit
     bearing_deg: FiniteFloat = Field(ge=0, lt=180)
+    radius: FiniteFloat | None = Field(default=None, ge=0)
+    sweep_deg: FiniteFloat | None = Field(default=None, ge=0, lt=360)
     source_references: tuple[str, ...] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -105,6 +107,14 @@ class ComparisonComponent(_Model):
     units: str | None = None
 
 
+class CircularArcComparison(_Model):
+    """Separate shape evidence; equal chord endpoints alone do not establish agreement."""
+
+    radius: ComparisonComponent
+    sweep: ComparisonComponent
+    turn: ComparisonComponent
+
+
 class ComparedPair(_Model):
     id: Identifier
     left_call_ids: tuple[Identifier, ...]
@@ -117,6 +127,7 @@ class ComparedPair(_Model):
     position: ComparisonComponent
     left_displacement: XY | None = None
     right_displacement: XY | None = None
+    curve: CircularArcComparison | None = None
 
 
 class StructuralDifference(_Model):
@@ -141,7 +152,7 @@ class StructuralDifference(_Model):
 
 class DescriptionComparison(_Model):
     schema_version: Literal["1.0"] = "1.0"
-    algorithm_version: Literal["comparison-1.0.0"] = "comparison-1.0.0"
+    algorithm_version: Literal["comparison-1.1.0"] = "comparison-1.1.0"
     input_hash: Digest
     left_id: Identifier
     right_id: Identifier
@@ -160,7 +171,7 @@ class DescriptionComparison(_Model):
 class ComparisonManifest(_Model):
     schema_version: Literal["1.0"] = "1.0"
     artifact_kind: Literal["description_comparison"] = "description_comparison"
-    algorithm_version: Literal["comparison-1.0.0"] = "comparison-1.0.0"
+    algorithm_version: Literal["comparison-1.1.0"] = "comparison-1.1.0"
     request_file: Literal["comparison-request.json"] = "comparison-request.json"
     result_file: Literal["comparison.json"] = "comparison.json"
     request_sha256: Digest

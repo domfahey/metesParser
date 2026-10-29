@@ -1,9 +1,10 @@
-"""Immutable identities and explicitly advisory straight-traverse diagnostics."""
+"""Immutable identities and explicitly advisory line/circular-arc diagnostics."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Sequence
 from typing import Annotated, Literal, Self
 
@@ -118,16 +119,78 @@ class DiagnosticResidual(_DiagnosticModel):
     magnitude_ft: Annotated[FiniteFloat, Field(ge=0)]
 
 
+class CurveParameterSensitivity(_DiagnosticModel):
+    """Endpoint derivative in an independent circular-arc basis, never a correction."""
+
+    parameter: Literal["radius_ft", "sweep_radian", "start_tangent_radian"]
+    value: FiniteFloat
+    derivative: DiagnosticVector
+    derivative_units: Literal["ft/ft", "ft/radian"]
+    fixed_parameters: tuple[Identity, ...] = Field(min_length=1)
+    constraint: Identity
+    projection_abs: Annotated[FiniteFloat, Field(ge=0)] | None = None
+    rank: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def _basis(self) -> Self:
+        parameters = ("radius_ft", "sweep_radian", "start_tangent_radian", "curve_dir")
+        if self.fixed_parameters != tuple(p for p in parameters if p != self.parameter):
+            raise ValueError(
+                "fixed parameters must hold the other independent arc parameters constant"
+            )
+        expected_units = "ft/ft" if self.parameter == "radius_ft" else "ft/radian"
+        if self.derivative_units != expected_units:
+            raise ValueError("derivative units differ from the independent parameter")
+        if (
+            (self.parameter == "radius_ft" and self.value <= 0)
+            or (self.parameter == "sweep_radian" and not 0 < self.value < 2 * math.pi)
+            or (self.parameter == "start_tangent_radian" and not 0 <= self.value < 2 * math.pi)
+        ):
+            raise ValueError("curve parameter value outside the supported circular-arc basis")
+        if (self.projection_abs is None) != (self.rank is None):
+            raise ValueError("projection and rank must be available together")
+        return self
+
+
 class CallSensitivity(_DiagnosticModel):
     call_id: Identity
     source_refs: tuple[DiagnosticSourceRef, ...] = ()
-    distance_derivative: DiagnosticVector
-    angle_derivative_per_radian: DiagnosticVector
-    angle_derivative_per_arcsecond: DiagnosticVector
+    geometry_kind: Literal["line", "arc"] = "line"
+    distance_derivative: DiagnosticVector | None = None
+    angle_derivative_per_radian: DiagnosticVector | None = None
+    angle_derivative_per_arcsecond: DiagnosticVector | None = None
     distance_projection_abs: FiniteFloat | None = None
     angle_projection_abs_per_arcsecond: FiniteFloat | None = None
     distance_rank: int | None = Field(default=None, ge=1)
     angle_rank: int | None = Field(default=None, ge=1)
+    curve_parameters: tuple[CurveParameterSensitivity, ...] = ()
+
+    @model_validator(mode="after")
+    def _parameter_basis(self) -> Self:
+        line_vectors = (
+            self.distance_derivative,
+            self.angle_derivative_per_radian,
+            self.angle_derivative_per_arcsecond,
+        )
+        if self.geometry_kind == "line":
+            if any(v is None for v in line_vectors) or self.curve_parameters:
+                raise ValueError("line sensitivities require line derivatives and no curve basis")
+        elif (
+            any(v is not None for v in line_vectors)
+            or any(
+                v is not None
+                for v in (
+                    self.distance_projection_abs,
+                    self.angle_projection_abs_per_arcsecond,
+                    self.distance_rank,
+                    self.angle_rank,
+                )
+            )
+            or tuple(p.parameter for p in self.curve_parameters)
+            != ("radius_ft", "sweep_radian", "start_tangent_radian")
+        ):
+            raise ValueError("arc sensitivities require only the independent circular-arc basis")
+        return self
 
 
 class QuantizationBound(_DiagnosticModel):
@@ -138,7 +201,7 @@ class QuantizationBound(_DiagnosticModel):
 
 class ClosureDiagnostics(_DiagnosticModel):
     schema_version: Literal["1.0"] = "1.0"
-    algorithm_version: Literal["closure-diagnostics-1"] = "closure-diagnostics-1"
+    algorithm_version: Literal["closure-diagnostics-2"] = "closure-diagnostics-2"
     request: ClosureDiagnosticRequest
     request_sha256: Digest
     input_sha256: Digest
@@ -183,4 +246,9 @@ class ClosureDiagnostics(_DiagnosticModel):
                 for row, call in zip(self.sensitivities, included, strict=True)
             ):
                 raise ValueError("sensitivity source identity differs from its request")
+            if any(
+                row.geometry_kind != ("arc" if call.call.is_curve() else "line")
+                for row, call in zip(self.sensitivities, included, strict=True)
+            ):
+                raise ValueError("sensitivity geometry kind differs from its request")
         return self
