@@ -10,6 +10,7 @@ Structural/API validation confirms that an artifact matches an accepted input co
 
 | Stage | Accepted handoff | Output and status | Stopping point |
 | --- | --- | --- | --- |
+| Validate source | Bundle root with schema 1.1 acquisition and/or selection records | Read-only structural, identity, and source-uncertainty findings; `needs_review` for a completed result | Inspect findings and unknowns; hashes establish byte identity only, not transcription or selection accuracy. |
 | Convert document | Supplied image, PDF, or supported document | Full `source-text.txt`, page map, `source-acquisition.json`, uncertainties | Return transcription and acquisition record; do not select a tract or calculate unless requested. Claude native reading is required; do not substitute external OCR. |
 | Extract description | Full source text and page map, or already isolated text | Verbatim `description-<label>.txt`, `description-selection.json`, candidate/source locations | Return selected description and selection records; do not transcribe again or run review unless requested. |
 | Verify traverse | Strict CSV, calls-list/LegalDescription JSON, or an explicitly requested relative-analysis JSON | Deterministic review artifacts or local-angle analysis artifacts; statuses remain distinct | Return the requested check/analysis only; do not create a plot, dashboard, or perform document reading unless requested. |
@@ -23,6 +24,8 @@ Structural/API validation confirms that an artifact matches an accepted input co
 ## Statuses and identity
 
 The canonical deterministic review uses `checks_passed` (exit 0), `needs_review` (exit 1), and `error` (exit 2). Relative analysis reports its own `analysis.status` (`analyzed`, `unresolved`, or `inconsistent`) while the command's top-level review status remains `needs_review`; successful relative analysis is not canonical verification. Plot and online-map preparation also return top-level `needs_review`, because a display plot is not verification. Overlay preparation reports preparation/validation outcomes and does not change any deed status. Dashboard calculation, source-review, placement, and map-comparison statuses remain separate. Never translate one stage's status into another's.
+
+The advisory `validate-source` command uses `needs_review` (exit 1) for every completed result, including structurally valid records with matching hashes. `error` (exit 2) means the command could not produce a result. Inspect its structure, identity, uncertainty, findings, and limitations fields; do not interpret exit 1 as canonical verification. See [source preparation](source-preparation.md).
 
 Use source identity and exact input bytes for provenance. The deterministic API schemas and validation rules are authoritative in `mp_models` and `mp_review`; these instructions describe handoff behavior and do not replace those schemas. PlotRequest JSON uses `schema_version: "1.0"`, `title`, optional `calculation_id` (default `plot`), `calls` entries with `id`, `call`, and optional `occurrence_id`, `page_id`, `source_reference`, and `quote`; `foot_definition` defaults to `unknown_ft`; `relative` is optional. Read the authoritative model/API before authoring structured inputs if fields or accepted variants are uncertain.
 

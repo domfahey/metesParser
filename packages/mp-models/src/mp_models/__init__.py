@@ -59,6 +59,17 @@ from .relative import (
     RelativeIssue,
     RelativeSource,
 )
+from .source_handoff import (
+    DescriptionCandidate,
+    DescriptionSelectionRecord,
+    MissingSourcePage,
+    SelectionSpan,
+    SourceAcquisitionRecord,
+    SourcePage,
+    SourceReference,
+    SourceUncertainty,
+    TranscriptReference,
+)
 from .tract import Tract, TractType
 from .units import ConversionFactors, DistanceUnit
 from .webmap import (
@@ -72,6 +83,15 @@ from .webmap import (
 __version__ = "1.0.0"
 
 __all__ = [
+    "DescriptionCandidate",
+    "DescriptionSelectionRecord",
+    "MissingSourcePage",
+    "SelectionSpan",
+    "SourceAcquisitionRecord",
+    "SourcePage",
+    "SourceReference",
+    "SourceUncertainty",
+    "TranscriptReference",
     "MapboxViewOptions",
     "StandaloneWebMapInput",
     "WebMapArtifact",
