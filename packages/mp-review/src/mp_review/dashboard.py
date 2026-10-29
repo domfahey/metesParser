@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -16,11 +17,8 @@ from mp_models.dashboard import (
     PreparedDashboard,
 )
 from mp_verify.dashboard import (
-    CALCULATOR_VERSION,
-    _calculate,
     _hash,
     _json,
-    _source_complete,
     _source_data,
 )
 from mp_verify.dashboard import (
@@ -68,26 +66,19 @@ def prepare_dashboard(
     even for cache hits. It never reruns extraction or document reading. Hashing a source
     never means that somebody reviewed it.
     """
-    bundle = DashboardBundle.model_validate(bundle.model_dump(mode="json"))
+    from mp_verify.dashboard import calculate_dashboard, map_stage
+
+    fresh = calculate_dashboard(bundle)
+    bundle = fresh.bundle
+    if bundle.raster_layers:
+        from .raster_registration import validate_raster_layer
+
+        scenes = {scene.id: scene for scene in bundle.scenes}
+        for layer in bundle.raster_layers:
+            validate_raster_layer(layer, scenes[layer.scene_id])
     source = _source_data(bundle)
-    source_hash = _hash(source)
-    input_hash = _hash(
-        {
-            "source_review_hash": source_hash,
-            "calculations": [c.model_dump(mode="json") for c in bundle.calculations],
-            "calculator_version": CALCULATOR_VERSION,
-        }
-    )
-    presentation_hash = _hash(
-        {
-            "title": bundle.title,
-            "presentation": bundle.presentation.model_dump(mode="json"),
-            "scenarios": [s.model_dump(mode="json") for s in bundle.scenarios],
-        }
-    )
     directory = Path(cache_dir) if cache_dir is not None else None
-    calculations = None
-    fresh_calculations = tuple(_calculate(bundle, spec) for spec in bundle.calculations)
+    reused = False
     if directory is not None:
         if directory.is_symlink():
             raise ValueError("Cache directory must not be a symlink")
@@ -96,37 +87,37 @@ def prepare_dashboard(
             manifest = DashboardManifest.model_validate(_load(directory / "stage-manifest.json"))
             saved_source = _load(directory / "source-review.json")
             saved = _load(directory / "calculations.json")
-            if (
-                manifest.calculator_version == CALCULATOR_VERSION
-                and manifest.calculation_input_hash == input_hash
-                and manifest.source_review_hash == source_hash == _hash(saved_source)
+            reused = (
+                manifest.calculator_version == fresh.manifest.calculator_version
+                and manifest.calculation_input_hash == fresh.manifest.calculation_input_hash
+                and manifest.source_review_hash
+                == fresh.manifest.source_review_hash
+                == _hash(saved_source)
                 and manifest.calculation_output_hash == _hash(saved)
-            ):
-                candidate = tuple(DashboardResult.model_validate(item) for item in saved)
-                if candidate == fresh_calculations:
-                    calculations = candidate
+                and tuple(DashboardResult.model_validate(item) for item in saved)
+                == fresh.calculations
+            )
         except (OSError, ValueError, TypeError):
             pass  # Incomplete/tampered/old stages are recomputed, never trusted.
-    reused = calculations is not None
-    if calculations is None:
-        calculations = fresh_calculations
-    manifest = DashboardManifest(
-        calculator_version=CALCULATOR_VERSION,
-        source_review_hash=source_hash,
-        calculation_input_hash=input_hash,
-        calculation_output_hash=_hash([r.model_dump(mode="json") for r in calculations]),
-        presentation_hash=presentation_hash,
-        source_review_complete=_source_complete(bundle),
-        cache_reused=reused,
+    manifest = fresh.manifest.model_copy(update={"cache_reused": reused})
+    prepared = PreparedDashboard(
+        bundle=bundle, calculations=fresh.calculations, manifest=manifest, plots=fresh.plots
     )
     if directory is not None:
-        _atomic(directory / "source-review.json", _json(source))
-        _atomic(
-            directory / "calculations.json",
-            _json([r.model_dump(mode="json") for r in calculations]),
-        )
-        _atomic(directory / "stage-manifest.json", _json(manifest.model_dump(mode="json")))
-    return PreparedDashboard(bundle=bundle, calculations=calculations, manifest=manifest)
+        stages = {
+            "source-review.json": source,
+            "calculations.json": [r.model_dump(mode="json") for r in prepared.calculations],
+            "plot-geometry.json": [g.model_dump(mode="json") for g in prepared.plots.geometries],
+            "map-layers.json": map_stage(bundle),
+            "placements.json": {
+                "placements": [p.model_dump(mode="json") for p in prepared.plots.placements],
+                "comparisons": [c.model_dump(mode="json") for c in prepared.plots.comparisons],
+            },
+            "stage-manifest.json": manifest.model_dump(mode="json"),
+        }
+        for name, data in stages.items():
+            _atomic(directory / name, _json(data))
+    return prepared
 
 
 def dashboard_file(
@@ -137,6 +128,7 @@ def dashboard_file(
         render_dashboard,
         renderer_fingerprint,
     )
+    from mp_verify.dashboard import map_stage
 
     result: dict[str, Any] = {
         "schema_version": "1.0",
@@ -185,11 +177,37 @@ def dashboard_file(
             "calculations.json": _json([r.model_dump(mode="json") for r in prepared.calculations]),
             "stage-manifest.json": _json(prepared.manifest.model_dump(mode="json")),
             "render-manifest.json": _json(render_manifest),
+            "plot-geometry.json": _json(
+                [g.model_dump(mode="json") for g in prepared.plots.geometries]
+            ),
+            "map-layers.json": _json(map_stage(bundle)),
+            "placements.json": _json(
+                {
+                    "placements": [p.model_dump(mode="json") for p in prepared.plots.placements],
+                    "comparisons": [c.model_dump(mode="json") for c in prepared.plots.comparisons],
+                }
+            ),
         }
         for name, content in artifacts.items():
             if (directory / name).resolve() == Path(path).resolve():
                 raise ValueError("Output must not overwrite the original input bundle")
             _atomic(directory / name, content)
+            result["artifacts"][name] = str(directory / name)
+        # Use validated IDs, never a supplied filename, for retained source bytes.
+        originals = {
+            item.id: base64.b64decode(item.data_base64, validate=True)
+            for item in bundle.map_sources
+            if item.data_base64 is not None
+        }
+        for layer in bundle.raster_layers:
+            originals.setdefault(
+                layer.source_id, base64.b64decode(layer.data_base64, validate=True)
+            )
+        if originals:
+            (directory / "assets").mkdir()
+        for source_id, data in originals.items():
+            name = f"assets/{source_id}.bin"
+            _atomic(directory / name, data)
             result["artifacts"][name] = str(directory / name)
         result.update(
             source_review_complete=prepared.manifest.source_review_complete,

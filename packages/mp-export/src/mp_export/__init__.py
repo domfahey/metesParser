@@ -9,6 +9,7 @@ from .csv_writer import (
     legal_description_to_csv,
 )
 from .dashboard_html import render_dashboard
+from .plot_html import render_plot
 
 __version__ = "1.0.0"
 
@@ -20,5 +21,6 @@ __all__ = [
     "generate_html",
     "legal_description_to_csv",
     "render_dashboard",
+    "render_plot",
     "write_report",
 ]
