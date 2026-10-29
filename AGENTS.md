@@ -67,13 +67,13 @@ The Claude plugin is an instruction layer over the shared packages. Its [catalog
 - Keep each capability scoped to its own output; workflows select stages and reuse valid artifacts.
 - Follow the [skill maintenance guide](docs/CLAUDE_PLUGIN.md#maintain-the-skill-composition) when changing instructions, handoffs or examples. Link shared references rather than duplicating contracts across skills.
 - Use the [handoff contract](plugins/metesparser/references/artifact-handoffs.md) for accepted inputs, stopping points, status separation and invalidation.
-- Maintain shared capability instructions in `plugins/metesparser/`. `make chat-skill-build` adapts them into one standalone chat Skill (same wheels, lock and engine fingerprint) without changing the plugin. Validate the extracted archive outside the checkout.
-- The plugin uses native Claude document reading; `mp-ocr` is the provider-backed path for the Python pipeline only.
+- Maintain shared capability instructions in `plugins/metesparser/`. `make chat-skill-build` adapts them into one standalone chat Skill (same wheels, lock and engine fingerprint) without changing the plugin. Validate the extracted archive outside the checkout, and distinguish local runtime checks from native Claude chat acceptance.
+- The plugin is designed for native Claude document reading, but native Claude/Cowork acceptance remains unrun — do not claim it. `mp-ocr` is the provider-backed path for the Python pipeline only.
 
 **Status separation (never promote verification)**
 - Plotting, overlay preparation, dashboards, maps, revisions, diagnoses, scenarios, tentative matches and comparisons must not modify canonical calls, verification or verified-export eligibility.
 - Completed advisory commands return `needs_review` (exit 1), including completed findings; invocation/schema errors return `error` (exit 2).
-- `validate-source` checks source records (schema 1.1, exact UTF-8 bytes, page/span identities, uncertainties); it does not establish source accuracy. `inspect-artifacts` is read-only and never executes a workflow. See the [source](plugins/metesparser/references/source-preparation.md), [diagnosis](plugins/metesparser/references/closure-diagnostics.md) and [comparison](plugins/metesparser/references/comparison-limits.md) references.
+- `validate-source` checks source records (schema 1.1, exact UTF-8 bytes, page/span identities, uncertainties); it does not establish source accuracy. `inspect-artifacts` inventories and replays artifacts read-only, reporting dependencies and restart guidance without executing a workflow. `diagnose-closure` and `compare-descriptions` retain the explicit request alongside their advisory results. See the [source](plugins/metesparser/references/source-preparation.md), [diagnosis](plugins/metesparser/references/closure-diagnostics.md) and [comparison](plugins/metesparser/references/comparison-limits.md) references.
 
 **Revisions** — [contract](plugins/metesparser/references/revisions.md)
 - Save exact raw drafts separately from parsed or last-valid geometry; preserve source/document/tract/call identities; publish immutable revisions.
@@ -90,7 +90,8 @@ The Claude plugin is an instruction layer over the shared packages. Its [catalog
 - `render-online-map` owns Mapbox and in-chat MCP rendering; the dashboard workflow owns bundle assembly. Map-only requests do not require a dashboard; the offline dashboard stays unchanged.
 - Require explicit CRS, unit, placement and registration evidence. Never infer a location from direction words or fit a deed to imagery. Stale placements fail.
 - Mapbox tokens belong only in the runtime Connect field — never in configuration or generated files. MCP connection credentials stay outside artifacts.
-- `mapbox-mcp` must not reproject, simplify, transmit data or promote verification. Code locations: contract `mp_models.webmap`, provenance `mp_verify.webmap`, preparation `mp_review.webmap`/`mp_review.mapbox_mcp`, rendering `mp_export.online_map_html`/`mp_export.mapbox_mcp`. Raster reprojection needs the `web-map` extra.
+- `render-map` accepts `StandaloneWebMapInput` (prepared plots and map arrays/placements) plus a token-free `WebMapRequest`; shared math revalidates plots. It writes an online viewer and an offline evidence fallback without building a dashboard or granting source-review/verification status.
+- `mapbox-mcp` reuses intact standalone-map or legacy dashboard geographic stages for a vector-only in-chat preview; it must not reproject, simplify, transmit data or promote verification. Request external previews only through an already configured compatible tool. Code locations: contract `mp_models.webmap`, provenance `mp_verify.webmap`, preparation `mp_review.webmap`/`mp_review.mapbox_mcp`, rendering `mp_export.online_map_html`/`mp_export.mapbox_mcp`. Raster reprojection needs the `web-map` extra.
 
 ## Commands
 
@@ -144,7 +145,7 @@ Cardinal-only patterns must include `(?:erly|wardly)?` suffixes AND abbreviated 
 - `src/metesparser/text_parser.py` (`CARDINAL_ONLY_PATTERN`)
 - `scripts/audit_gt_vs_md.py` (`CARDINAL_ONLY_PATTERN`)
 
-Bug history: missing `wardly` caused false negatives (`d25fcc9`); missing abbreviations caused call rejection when LLM normalization turned "NORTHWEST" into "NW" (PR #21).
+Bug history: missing `wardly` caused false negatives; missing abbreviations caused call rejection when LLM normalization turned "NORTHWEST" into "NW" (PR #21).
 
 ### LLM Configuration
 - `OpenAIClient` and `GeminiClient` behind `METESPARSER_LLM_PROVIDER`; `BaseLLMClient` ABC in `mp_ocr.clients`; `PDFProcessor` accepts `provider=` or `client=` for DI.
@@ -158,7 +159,7 @@ Bug history: missing `wardly` caused false negatives (`d25fcc9`); missing abbrev
 
 ## Git Workflow
 - Never push to `main` — use branches and PRs.
-- Run `make pre-commit` before committing.
+- Run `make pre-commit` before committing on a clean tree. On a dirty tree it reformats unrelated files; run `make quality` and `make test` instead and fix only the files you changed.
 - Never commit `.env` or API keys.
 - For generated deed CSV outputs, only commit exports accepted by the canonical verified-export gate; synthetic test inputs remain separate fixtures.
 - Preserve the `CLAUDE.md` symlink to this file.
@@ -195,6 +196,6 @@ Bug history: missing `wardly` caused false negatives (`d25fcc9`); missing abbrev
 ### Adding New Unit Support
 1. Add conversion factor to `ConversionFactors` in `packages/mp-models/src/mp_models/units.py`
 2. Update `convert_to_feet()` method
-3. Add to `distance_unit` Literal in `LegalDescription`
+3. Add to the `DistanceUnit` Literal in `packages/mp-models/src/mp_models/units.py` (used by `LegalDescription.distance_unit`)
 4. Keep monolith `models.py` in sync
 5. Test with sample deed using that unit
