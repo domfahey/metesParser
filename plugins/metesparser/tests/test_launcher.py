@@ -86,6 +86,27 @@ def test_preserves_engine_json_and_status(monkeypatch, tmp_path, capsys):
     assert capsys.readouterr().out == engine_output
 
 
+def test_relative_analysis_reaches_engine_without_promoting_status(monkeypatch, tmp_path, capsys):
+    runtime = make_runtime(tmp_path)
+    setup_launcher(monkeypatch, runtime)
+    commands = []
+    engine_output = (
+        json.dumps(
+            {"status": "needs_review", "analysis": {"status": "analyzed", "engine_verified": False}}
+        )
+        + "\n"
+    )
+
+    def run(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=1, stdout=engine_output, stderr="")
+
+    monkeypatch.setattr(launcher.subprocess, "run", run)
+    assert launcher.main(["analyze-relative", "angles.json"]) == 1
+    assert commands[0][-4:-2] == ["analyze-relative", "angles.json"]
+    assert capsys.readouterr().out == engine_output
+
+
 def test_rejects_runtime_hash_map_path_escape(monkeypatch, tmp_path, capsys):
     runtime = make_runtime(tmp_path)
     metadata = json.loads((runtime / "engine.json").read_text())
@@ -99,6 +120,21 @@ def test_rejects_runtime_hash_map_path_escape(monkeypatch, tmp_path, capsys):
     assert launcher.main(["review", "deed.txt"]) == 2
     response = json.loads(capsys.readouterr().out)
     assert "escapes runtime directory" in response["errors"][0]["message"]
+
+
+def test_dashboard_reaches_engine_without_promoting_status(monkeypatch, tmp_path, capsys):
+    setup_launcher(monkeypatch, make_runtime(tmp_path))
+    commands = []
+    engine_output = '{"status":"needs_review","artifacts":{"dashboard":"dashboard.html"}}\n'
+
+    def run(command, **kwargs):
+        commands.append(command)
+        return SimpleNamespace(returncode=1, stdout=engine_output, stderr="")
+
+    monkeypatch.setattr(launcher.subprocess, "run", run)
+    assert launcher.main(["dashboard", "bundle.json", "--cache-dir", "stages"]) == 1
+    assert commands[0][-6:-2] == ["dashboard", "bundle.json", "--cache-dir", "stages"]
+    assert capsys.readouterr().out == engine_output
 
 
 def test_settings_come_from_calling_project_not_plugin_install(monkeypatch, tmp_path, capsys):

@@ -13,6 +13,7 @@ from .audit import (
 from .base import _Model
 from .closure import CheckResult, ClosureResult, Point
 from .constants import PERMANENT_MONUMENTS, PRIOR_CONVEYANCE_SIGNALS
+from .dashboard import DashboardBundle, DashboardManifest, DashboardResult, PreparedDashboard
 from .deed_call import (
     CurveDirection,
     CurveType,
@@ -33,6 +34,16 @@ from .envelope import (
 )
 from .legal_description import LegalDescription
 from .logging import configure_logging, get_log_format
+from .relative import (
+    LocalFrame,
+    RelativeAnalysisResult,
+    RelativeConstraint,
+    RelativeCourse,
+    RelativeCourseGeometry,
+    RelativeDescription,
+    RelativeIssue,
+    RelativeSource,
+)
 from .tract import Tract, TractType
 from .units import ConversionFactors, DistanceUnit
 
@@ -47,6 +58,9 @@ __all__ = [
     "ConversionFactors",
     "CurveDirection",
     "CurveType",
+    "DashboardBundle",
+    "DashboardManifest",
+    "DashboardResult",
     "Decision",
     "DeedCall",
     "DeedClause",
@@ -55,13 +69,22 @@ __all__ = [
     "LLMStageRecord",
     "LegalDescription",
     "LegalDescriptionMessage",
+    "LocalFrame",
     "MessageType",
     "MonumentStatus",
     "MonumentType",
     "PERMANENT_MONUMENTS",
     "PRIOR_CONVEYANCE_SIGNALS",
     "Point",
+    "PreparedDashboard",
     "RawTextMessage",
+    "RelativeAnalysisResult",
+    "RelativeConstraint",
+    "RelativeCourse",
+    "RelativeCourseGeometry",
+    "RelativeDescription",
+    "RelativeIssue",
+    "RelativeSource",
     "RunMetadata",
     "SubdivisionReference",
     "Tract",
