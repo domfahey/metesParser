@@ -138,10 +138,13 @@ def build_verification_checks(
     continuing = [
         i
         for i, call in enumerate(calls)
-        if call.along and ("continuing" in call.along.lower() or "same line" in call.along.lower())
+        # Course 0 has no predecessor, so it cannot form a continuing-line pair.
+        if i > 0
+        and call.along
+        and ("continuing" in call.along.lower() or "same line" in call.along.lower())
     ]
     parallel_blocked = any(
-        i == 0 or not calls[i].is_complete_bearing() or not calls[i - 1].is_complete_bearing()
+        not calls[i].is_complete_bearing() or not calls[i - 1].is_complete_bearing()
         for i in continuing
     )
     straight_pairs = [

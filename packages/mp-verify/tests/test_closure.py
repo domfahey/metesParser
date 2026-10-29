@@ -218,3 +218,44 @@ def test_get_closure_summary_contains_sections():
     assert "Misclosure" in summary
     assert "Area" in summary
     assert "Verification Checks" in summary
+
+
+import pytest  # noqa: E402
+
+
+@pytest.mark.parametrize("bad_chord", ["S 0 E", "S34-57E", "South"])
+def test_unparseable_chord_bearing_blocks_instead_of_raising(bad_chord):
+    """#72: an unparseable chord bearing must block the curve check, not crash."""
+    from mp_models import DeedCall
+    from mp_verify import verify_closure
+
+    calls = [
+        DeedCall(
+            course=1,
+            direction_text="N",
+            bearing_azimuth_deg_from_north=0.0,
+            distance_ft=100.0,
+        ),
+        DeedCall(
+            course=2,
+            direction_text="curve",
+            bearing_azimuth_deg_from_north=90.0,
+            distance_ft=100.0,
+            curve_dir="right",
+            radius_ft=100.0,
+            delta_deg=60.0,
+            arc_length_ft=104.72,
+            chord_bearing=bad_chord,
+        ),
+        DeedCall(
+            course=3,
+            direction_text="S",
+            bearing_azimuth_deg_from_north=180.0,
+            distance_ft=100.0,
+        ),
+    ]
+    result = verify_closure(calls)
+    assert not result.geometry_verified
+    assert any("chord bearing" in w.lower() for w in result.warnings)
+    curve = next(c for c in result.checks if c.name == "curve_consistency")
+    assert curve.status == "blocked"

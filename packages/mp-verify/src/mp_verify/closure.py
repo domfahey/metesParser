@@ -24,6 +24,7 @@ import structlog
 from mp_bearing import bearing_to_azimuth, calculate_deltas, compute_curve_endpoint
 from mp_models import (
     AuditContext,
+    CheckResult,
     ClosureResult,
     DeedCall,
     Point,
@@ -303,7 +304,21 @@ def verify_closure(
     main_calls = [c for c in calls if not c.is_exception and not c.is_tie_in]
     exception_calls = [c for c in calls if c.is_exception]
 
-    points = compute_traverse(main_calls)
+    # An unparseable chord bearing is never guessed: block the curve check and
+    # traverse the course without its chord so the result is reported, not raised.
+    bad_chord_courses = [
+        c.course
+        for c in main_calls
+        if c.is_curve()
+        and c.chord_bearing is not None
+        and bearing_to_azimuth(c.chord_bearing) is None
+    ]
+    points = compute_traverse(
+        [
+            c.model_copy(update={"chord_bearing": None}) if c.course in bad_chord_courses else c
+            for c in main_calls
+        ]
+    )
 
     # Check for degenerate traverse: no calls contributed azimuths
     computable_calls = sum(1 for c in main_calls if c.bearing_azimuth_deg_from_north is not None)
@@ -314,6 +329,9 @@ def verify_closure(
     misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
 
     warnings: list[str] = []
+
+    for course in bad_chord_courses:
+        warnings.append(f"Course {course}: unparseable chord bearing; curve geometry blocked")
 
     if not has_computable_traverse:
         warnings.append(
@@ -348,7 +366,7 @@ def verify_closure(
 
     perimeter = calculate_perimeter(main_calls)
 
-    closure_passed = has_computable_traverse and misclosure < tolerance
+    closure_passed = has_computable_traverse and misclosure < tolerance and not bad_chord_courses
 
     # Warn when closure only passes because of a relaxed tolerance
     if closure_passed and tolerance > CLOSURE_TOLERANCE_FT and misclosure >= CLOSURE_TOLERANCE_FT:
@@ -431,6 +449,21 @@ def verify_closure(
         double_entry_performed=double_entry_calls is not None,
         discrepancies=discrepancies,
     )
+
+    if bad_chord_courses:
+        check_results = [
+            CheckResult(
+                name="curve_consistency",
+                status="blocked",
+                reason="invalid_chord_bearing",
+                detail="Unparseable chord bearing on course(s) "
+                + ", ".join(str(c) for c in bad_chord_courses),
+            )
+            if check.name == "curve_consistency"
+            else check
+            for check in check_results
+        ]
+        curve_consistency_passed_val = False
 
     closure_result = ClosureResult(
         misclosure_x_ft=misclosure_x,
