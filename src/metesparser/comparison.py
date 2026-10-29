@@ -2,6 +2,7 @@
 
 from mp_models.comparison import (
     BearingBasis,
+    CircularArcComparison,
     ComparedPair,
     ComparisonComponent,
     ComparisonDescription,
@@ -19,6 +20,7 @@ from mp_verify.comparison import compare_descriptions
 
 __all__ = [
     "BearingBasis",
+    "CircularArcComparison",
     "ComparedPair",
     "ComparisonComponent",
     "ComparisonDescription",
