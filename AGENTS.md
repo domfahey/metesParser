@@ -8,7 +8,7 @@ Extracts, parses, and verifies metes and bounds legal descriptions from deed PDF
 
 MetesParser transforms scanned deeds into structured metes-and-bounds data. Follow these guardrails so every contribution stays reliable, auditable, and easy to review.
 
-**Version**: 0.5.0 | **Tests**: ~996 | **Coverage**: ~94%
+Versions are declared in each package's `pyproject.toml` (root `metesparser`: 0.5.0; `mp-*`: 1.0.0). Test counts and coverage depend on the selected suite; use the latest [implementation evidence](docs/implementation/2026-10-28-evidence-review-ledger.md#completion-audit-follow-up), not a fixed count in this guide.
 
 ## Critical Architecture Principles
 
@@ -16,13 +16,13 @@ MetesParser transforms scanned deeds into structured metes-and-bounds data. Foll
 **Most Important Rule**: If a bearing is incomplete (e.g., "southwesterly" without degrees), leave `bearing_azimuth_deg_from_north` as `None` and set `notes="incomplete bearing - cardinal only"`. Never invent numerical bearings.
 
 ### 2. Verification Before Export
-Traverse must close to < 0.01 ft misclosure before exporting `_verified.csv`. Use `verify_closure()` to run all 8 verification checks before calling `export_verified_csv()`.
+Use `verify_closure()` before `export_verified_csv()`. Geometry eligibility requires closure below 0.01 ft, applicable checks passing (explicit `not_applicable` is distinct from `passed`), and no warnings; failed or blocked checks prevent eligibility. The exporter freshly verifies the selected calls and validates the supplied result against them. `source_review_status` remains an explicit, separate assessment; geometry eligibility does not establish source completeness or legal validity.
 
 ### 3. Preserve Verbatim Deed Language
 Keep original wording in `along` and `to` fields. Example: Keep "Southerly line of Pennbrook Drive" exactly as written in the deed.
 
 ### 4. GenAI Transparency & Auditability
-Build for transparency by design. All LLM-generated outputs must be traceable and auditable — log prompts, responses, and extraction decisions so users can verify what the AI produced vs. what the parser derived deterministically. Only `mp-ocr` calls LLMs; everything downstream is deterministic.
+Build for transparency by design. All LLM-generated outputs must be traceable and auditable — log prompts, responses, and extraction decisions so users can verify what the AI produced vs. what the parser derived deterministically. Within the composable packages, only `mp-ocr` calls LLMs; downstream packages are deterministic. The compatibility monolith also retains provider clients in `src/metesparser/llm_clients.py`.
 
 ## Composable Package Architecture
 
@@ -30,15 +30,17 @@ The codebase is a **uv workspace monorepo** with 8 independently installable pac
 
 ```
 packages/
-  mp-models/    → Pydantic schemas, JSONL envelope, units (zero deps)
+  mp-models/    → Pydantic schemas, JSONL envelope, units (no workspace deps)
   mp-bearing/   → Pure math: azimuth, curves, deltas (depends: mp-models)
   mp-ocr/       → LLM boundary: PDF → text (depends: mp-models)
   mp-parse/     → Rule-based parsing: text → calls (depends: mp-models, mp-bearing)
-  mp-verify/    → Geometric verification: 8 checks (depends: mp-models, mp-bearing)
+  mp-verify/    → Canonical geometry checks (depends: mp-models, mp-bearing)
   mp-export/    → CSV/JSON/audit HTML output (depends: mp-models, mp-verify)
-  mp-review/    → Deterministic review/plot/dashboard CLI and artifact adapters
+  mp-review/    → Deterministic CLI/adapters (depends: mp-models, mp-parse, mp-verify, mp-export)
 src/metesparser/ → Orchestrator + backward-compat monolith
 ```
+
+These dependency notes list workspace edges; third-party dependencies and optional geographic/browser extras are declared in the package `pyproject.toml` files. In particular, `mp-models` depends on Pydantic and Structlog. `mp-review` provides `metes-review` without an OCR/provider dependency.
 
 ### Package → Monolith Module Mapping
 | Package | Module(s) | Monolith Equivalent |
@@ -49,14 +51,16 @@ src/metesparser/ → Orchestrator + backward-compat monolith
 | `mp-parse` | `mp_parse.calls`, `mp_parse.metadata`, `mp_parse.monuments`, `mp_parse.normalizer`, `mp_parse.numbers` | `call_extractor.py`, `text_parser.py` |
 | `mp-verify` | `mp_verify.closure`, `mp_verify.checks`, `mp_verify.confidence` | `closure_checker.py` |
 | `mp-export` | `mp_export.csv_writer`, `mp_export.audit_html` | `csv_builder.py`, `audit_reporter.py` |
-| `mp-review` | `mp_review.api`, `mp_review.plot`, `mp_review.dashboard`, `mp_review.cli` | Review API/CLI; `metesparser.plot` and `metesparser.dashboard` compatibility facades |
+| `mp-review` | `mp_review.api`, `mp_review.plot`, `mp_review.dashboard`, `mp_review.source_handoff`, `mp_review.artifact_inspect`, `mp_review.diagnostics`, `mp_review.comparison`, `mp_review.cli` | Review API/CLI and corresponding `metesparser` compatibility facades |
 | `metesparser` | `metesparser.pipeline` | Orchestrator (new) |
 
 ### Composable Skills
 
-The Claude plugin is an instruction layer over the shared packages. Its [catalog](plugins/metesparser/README.md#skills) lists six capabilities, two workflows, and the `review-deed` compatibility alias. Keep each capability scoped to its own output; workflows select stages and reuse valid artifacts. The plugin uses native Claude document reading; `mp-ocr` remains the provider-backed extraction path for the separate Python pipeline.
+The Claude plugin is an instruction layer over the shared packages. Its [catalog](plugins/metesparser/README.md#skills) lists ten skills: seven capabilities, two workflows, and the `review-deed` compatibility alias. Keep each capability scoped to its own output; workflows select stages and reuse valid artifacts. The plugin uses native Claude document reading; `mp-ocr` remains the provider-backed extraction path for the separate Python pipeline.
 
 Use the [handoff contract](plugins/metesparser/references/artifact-handoffs.md) for accepted inputs, stopping points, status separation, and invalidation. Keep schemas in `mp_models`, adapters in `mp_review`, numerical logic in the shared parsing/bearing/verification packages, and rendering in `mp_export`. Plotting and overlay preparation must not grant canonical verification status. Dashboard assembly is explicit and placements bind to freshly computed dashboard geometry.
+
+Source acquisition/selection records use schema 1.1 and preserve exact UTF-8 bytes, page/span identities and uncertainties. `validate-source` checks those records; it does not establish source accuracy. `inspect-artifacts` inventories and replays supported artifacts read-only, reporting dependencies and restart guidance without executing a workflow. `diagnose-closure` and `compare-descriptions` retain explicit requests and produce advisory results; diagnoses, scenarios, tentative matches and comparisons must not modify canonical calls, verification or verified-export eligibility. Completed advisory commands return `needs_review` (exit 1), including completed findings; invocation/schema errors return `error` (exit 2). See the shared [source](plugins/metesparser/references/source-preparation.md), [diagnosis](plugins/metesparser/references/closure-diagnostics.md) and [comparison](plugins/metesparser/references/comparison-limits.md) references.
 
 Follow the [skill maintenance guide](docs/CLAUDE_PLUGIN.md#maintain-the-skill-composition) when changing instructions, handoffs, or examples. Link shared references rather than duplicating contracts across skills. Preserve the `CLAUDE.md` symlink to this file.
 
@@ -65,7 +69,7 @@ The `render-online-map` capability owns optional local Mapbox and requested in-c
 The standalone `render-map` command accepts `StandaloneWebMapInput` (prepared plots and map arrays/placements) plus token-free `WebMapRequest`; shared math revalidates plots and stale placements fail. It writes an online viewer and offline evidence fallback without building a dashboard or granting source-review/verification status. The optional `mapbox-mcp` command reuses intact standalone-map or legacy dashboard geographic stages for a vector-only in-chat preview. Keep shared provenance validation in `mp_verify.webmap`, serialization in `mp_export.mapbox_mcp`, and stage I/O in `mp_review.mapbox_mcp`. It must not reproject, simplify, transmit data, or promote verification. The renderer skill handles a requested external preview through an already configured compatible tool; MCP connection credentials stay outside artifacts. See the [MCP reference](plugins/metesparser/skills/render-online-map/references/mapbox-mcp.md).
 
 ### Pipeline Orchestrator
-`Pipeline` chains mp-ocr → mp-parse → mp-verify → mp-export. Currently uses the monolith `PDFProcessor` for backward compatibility.
+`Pipeline.run()` uses the monolith `PDFProcessor` for extraction/parsing, then shared `mp_verify` verification. It returns a `ClosureResult` (or a list for multiple tracts), optionally paired with `AuditContext`; it does not write exports. CSV/audit export is a separate step.
 
 ```python
 from metesparser import Pipeline
@@ -75,7 +79,7 @@ result, audit_ctx = pipe.run(Path("deed.pdf"))
 
 ### When Modifying Code
 1. Modify the package code (e.g., `packages/mp-parse/`)
-2. Keep the monolith in `src/metesparser/` in sync
+2. Keep existing duplicated monolith behavior in sync; for shared review features, maintain the corresponding compatibility facade rather than duplicating the implementation
 3. Run per-package tests: `uv run pytest packages/mp-parse/tests/ -v --no-cov`
 4. Run cross-package import verification: `uv run pytest tests/unit/test_cross_package_imports.py -v`
 
@@ -96,9 +100,12 @@ make test-fast     # Run pytest with fail-fast (stop on first failure)
 make test-cov      # Tests with HTML coverage report
 make quality       # Run lint + format checks only
 make pre-commit    # Run lint-fix, format, and tests (no type checks)
-make check         # Run all checks (lint + format + type + test)
-make ci            # Run CI-style full check workflow
-make clean         # Remove generated artifacts and caches
+make check         # Root lint + mutating format + root typing/tests
+make ci            # Clean/reinstall, quality checks and root coverage tests
+make clean         # Remove .venv, build/dist artifacts and caches
+make test-dashboard-browser # Opt-in offline dashboard Chromium/Node checks
+make test-mapbox-browser    # Local map adapter/pinned SDK checks; no provider credentials
+make test-mapbox-live       # Separate explicit live-provider acceptance gate
 make doctor        # Verify project dependencies and environment
 make run-extract   # Quick local PDF extraction
 make run-verify    # Quick local CSV verification
@@ -106,6 +113,9 @@ make run-verify    # Quick local CSV verification
 
 - `make run-extract PDF_FILE=deed.pdf` executes the pipeline end-to-end; `make run-verify CSV_FILE=calls.csv` applies closure and curve guardrails to produced calls.
 - `make test-cov` writes coverage HTML to `htmlcov/index.html`.
+- Makefile lint/format target `src/metesparser` and `tests`; typing targets `src/metesparser`. Root Pytest discovery targets `tests`, with coverage for `src/metesparser` and an 80% minimum. Package/plugin tests and changed package/script lint/type checks need explicit commands; `make check` does not cover every workspace file.
+- `make check` and `make pre-commit` can change files. Use `make quality` for nonmutating root lint/format checks. `make ci` removes the environment and build outputs through `clean` and does not run the `type` target.
+- Local browser/SDK and extracted-archive checks do not establish live Mapbox acceptance, native skill discovery or native document-reading accuracy. Keep these gates separate and report unrun gates explicitly.
 
 ### Direct CLI Usage
 ```bash
@@ -117,6 +127,12 @@ uv run metesparser verify calls.csv --area 7500
 uv run metesparser compare-runs
 uv run metesparser compare-runs --pdf pennbrook
 
+# Deterministic advisory commands (completed results exit 1)
+uv run metes-review validate-source BUNDLE_DIR
+uv run metes-review inspect-artifacts BUNDLE_DIR --requested-stage compare-descriptions
+uv run metes-review diagnose-closure REQUEST.json --output-dir NEW_DIR
+uv run metes-review compare-descriptions REQUEST.json --output-dir NEW_DIR
+
 # Development
 uv run pytest tests/unit/test_bearing_converter.py -v
 uv run pytest -k "test_closure" --pdb
@@ -127,6 +143,9 @@ uv run pytest packages/mp-bearing/tests/ -v --no-cov
 
 # All per-package tests at once
 for pkg in packages/mp-*/tests/; do uv run pytest "$pkg" -v --no-cov; done
+
+# Combined package/plugin checks (avoid duplicate test module names)
+uv run pytest packages/mp-*/tests plugins/metesparser/tests --no-cov --import-mode=importlib
 ```
 
 ### UV (REQUIRED - Never use pip/conda/poetry)
@@ -160,11 +179,11 @@ PDF → PDFProcessor.process_deed_pdf() → LegalDescription
 
 LegalDescription → verify_closure() → ClosureResult               [mp-verify]
   ├─ Traverse closure (sum dx, dy)
-  ├─ 8 verification checks
-  └─ Area calculation (shoelace formula)
+  ├─ Canonical checks with explicit applicability and blocked outcomes
+  └─ Area calculation (shoelace plus analytic circular-segment corrections)
 
 ClosureResult → export_verified_csv() → CSV + Audit               [mp-export]
-  ├─ Only exports _verified.csv if all checks pass
+  ├─ Freshly validates selected calls/result and geometry eligibility
   ├─ .audit.json sidecar (if audit_context provided)
   └─ .audit.html report (if audit_context provided)
 ```
@@ -204,15 +223,17 @@ When `PDFProcessor.process_deed_pdf(audit=True)`, an `AuditContext` threads thro
 - `classify_monument()`, `classify_monument_status()`: Monument classification
 - Metadata extraction: PLSS, POC/POB, area, basis of bearing, surveyor cert, etc.
 
-**mp-verify** (`packages/mp-verify/`) - 8 Verification Checks
-1. Traverse closure (< 0.01 ft)
-2. Interior angles sum ((n-2)*180°)
-3. Parallelism checks
-4. Curve consistency (L ≈ R*Δ)
-5. Area reasonableness (vs stated)
-6. Double-entry validation
-7. Bearing reversal detection (adjacent courses ~180° apart)
-8. Distance reasonableness (short/long/dominant)
+**mp-verify** (`packages/mp-verify/`) - Canonical checks
+
+- Traverse closure (< 0.01 ft)
+- Interior angles sum ((n-2)*180°) where applicable
+- Parallelism checks
+- Curve consistency (L ≈ R*Δ)
+- Boundary topology: straight-segment and circular-arc intersections; incomplete or unsupported geometry blocks a clear outcome
+- Area reasonableness (vs stated)
+- Double-entry validation when an independent second entry is supplied
+- Bearing reversal detection (adjacent straight courses ~180° apart)
+- Distance reasonableness (short/long/dominant)
 
 **mp-export** (`packages/mp-export/`) - Output formats
 - `export_verified_csv()`, `calls_to_csv()`, `csv_to_calls()`: CSV I/O
@@ -260,7 +281,7 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 
 ## Coding Style & Naming Conventions
 - Target Python 3.11+, four-space indentation, snake_case modules/functions/tests, CapWords classes, and typed public APIs.
-- Use Ruff for all formatting and linting (`text_parser.py` excluded due to Unicode DMS symbols). Never use Black. Keep imports sorted and add concise comments only when geometry rules or guardrails need justification.
+- Use Ruff for formatting and linting; respect the exclusions in `pyproject.toml`. Never use Black. Keep imports sorted and add concise comments only when geometry rules or guardrails need justification.
 
 ## Testing Strategy
 
@@ -287,15 +308,12 @@ packages/mp-*/tests/                      # Per-package unit tests
 ### Running Specific Tests
 ```bash
 uv run pytest tests/unit/test_bearing_converter.py::TestQuadrantToAzimuth::test_ne_quadrant -v
-uv run pytest -k "closure" --cov=src/metesparser/closure_checker.py
+uv run pytest tests/unit/test_closure_checker.py --no-cov
 uv run pytest packages/mp-parse/tests/ -v --no-cov  # Per-package (needs --no-cov)
 ```
 
-### Expected Test Output
-```
-~996 passed
-```
-All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`, investigate before committing.
+### Expected Test Outcomes
+Required checks must pass. Investigate failures and unexpected warnings or skips before committing; optional browser/provider suites have explicit prerequisites and are not established by a skipped test. Record the exact command, result and scope rather than relying on a fixed expected test count.
 
 ### Testing Guidelines
 - Run Pytest via `make test`; mock LLM calls to keep suites deterministic. Store sanitized inputs and expected outputs under `tests/fixtures/`.
@@ -304,9 +322,7 @@ All tests should pass with no warnings or errors. If you see `FAILED` or `ERROR`
 ## Known Issues & Workarounds
 
 ### text_parser.py Linting
-**Issue**: Contains Unicode DMS symbols (°, ', ") that break ruff parser
-**Workaround**: Excluded in `pyproject.toml` under `[tool.ruff] exclude`
-**Action**: Don't try to lint this file - it's functionally correct
+`src/metesparser/text_parser.py` is currently excluded under `[tool.ruff] exclude`. Preserve that configured scope unless deliberately changing it. Unicode DMS symbols alone do not establish a Ruff parser defect, and a lint exclusion does not establish functional correctness; verify changes with focused parsing tests.
 
 ### Boolean Field Validation
 **Rule**: Do NOT use `strict=True` on boolean `Field()` declarations in `DeedCall`
@@ -348,7 +364,7 @@ non_tangent,radial_bearing,notes
 - `AuditContext`: Separate sidecar output (`.audit.json`), not part of CSV schema
 
 ### Per-Package Testing
-**Gotcha**: Running `uv run pytest packages/mp-*/tests/` without `--no-cov` fails because root `pyproject.toml` coverage config targets `src/metesparser/`, causing 0% coverage. Always use `--no-cov` for per-package tests.
+Root coverage defaults target `src/metesparser`, so a package-only run can fail the unrelated 80% root coverage threshold. Use `--no-cov` for per-package tests unless explicitly configuring package coverage. Use `--import-mode=importlib` when collecting multiple package/plugin suites together.
 
 ## Feature Reference
 
@@ -390,7 +406,7 @@ non_tangent,radial_bearing,notes
 | 34 | Verification audit | `mp-verify` | `verify_closure(audit_context=)` | CheckResults + closure_summary in audit trail |
 | 35 | Run registry | `metesparser` | `RunManifest`, `get_prompt_versions()` | Git SHA prompt versioning, per-run JSON, compare-runs CLI |
 | 36 | Ground truth review packets | `metesparser` | `generate_review_html()`, `generate_all_packets()` | Self-contained HTML with traverse plot, call table, closure summary |
-| 37 | Pipeline orchestrator | `metesparser` | `Pipeline.run()` | Chains mp-ocr → mp-parse → mp-verify → mp-export |
+| 37 | Pipeline orchestrator | `metesparser` | `Pipeline.run()` | Returns verification results and optional audit; export is separate |
 | 38 | Cross-package imports | `metesparser` | `test_cross_package_imports.py` | Verifies all package public APIs |
 
 ## Environment Setup
@@ -408,14 +424,14 @@ METESPARSER_LOG_LEVEL=INFO  # Optional, defaults to INFO
 - Never push to `main` - use branches and PRs
 - Run `make pre-commit` before committing
 - Never commit `.env` or API keys
-- Only commit `_verified.csv` files (passed all checks)
+- For generated deed CSV outputs, only commit exports accepted by the canonical verified-export gate; synthetic test inputs remain separate fixtures
 
 ### Git Gotchas
-- `*.pdf` is globally gitignored — use `mv` not `git mv` for PDFs, add `!path/*.pdf` exceptions
+- `.gitignore` ignores PDFs except allowed sample/reference paths. Use `git check-ignore -v PATH` to inspect a specific untracked path; add a scoped exception only for intended repository evidence. Tracked PDFs can be moved with `git mv`.
 - Pre-commit hooks may reformat files — check `git status` after every commit for new unstaged changes
 - `uv.lock` is tracked (not gitignored) — commit lockfile changes with dependency updates
-- GitHub remote: `gh repo create --private --source=. --push` if no remote configured
-- `gh pr merge` requires clean working tree — `git stash` before merging if unstaged changes exist
+- Inspect the configured remote before GitHub operations; creating a repository or pushing requires user authorization.
+- Preserve unrelated or concurrent work. Do not automatically stash, reset or clean a dirty checkout to merge; inspect the state and use an isolated worktree or obtain authorization for changes to that work.
 
 ### Commit & Pull Request Guidelines
 - Write conventional commit messages (`feat: add curve support`); types: `feat:`, `fix:`, `docs:`, `chore:`, `test:`, `refactor:`.

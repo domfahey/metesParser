@@ -71,20 +71,27 @@ One JSONL record per case, condition, and model run is sufficient. Keep full tra
 {
   "run_id": "trial-001",
   "case_id": "ambiguous-cardinal-bearing",
-  "condition": "baseline | with_skill",
+  "pair_id": "pair-001",
+  "condition": "baseline | with_skill | non_equivalent",
   "model_provider": "",
   "model_name_version": "",
   "client_surface": "",
   "started_at_utc": "",
   "case_source_commit": "",
   "case_source_sha256": "",
-  "skill_files_and_hashes": [],
   "fresh_session": true,
-  "request_and_input_artifact": "",
+  "isolation_status": "equivalent | non_equivalent",
+  "skill_files_and_hashes": [],
+  "candidate_bundle_path": "case-input",
+  "rubric_path": "case-rubric/rubric.json",
+  "input_manifest_path": "case-input/manifest.json",
+  "input_manifest_sha256": "",
+  "artifact_paths": [],
   "available_tools_and_schema_evidence": [],
   "transcript_path": "",
   "transcript_sha256": "",
-  "criteria": [{"criterion": "", "result": "pass | fail | not_run", "evidence": ""}],
+  "criteria": [{"criterion_id": "", "result": "pass | fail | not_run", "evidence": ""}],
+  "required_actions": [{"action": "", "result": "pass | fail | not_run", "evidence": "", "reason": ""}],
   "overall_result": "pass | fail | not_run",
   "observations": ""
 }
@@ -95,3 +102,21 @@ One JSONL record per case, condition, and model run is sufficient. Keep full tra
 The entries in `cases.json` are authored routing/behavior specifications. The [October 28 Codex smoke record](runs/2026-10-28-codex-smoke.json) records three fresh smaller-model checks: relative-analysis discovery, prose plotting with a commencement call, and packaged map composition. Each completed its requested task using the extracted plugin. These are unpaired forward checks with command/skill reports and artifact hashes, not full transcripts or baseline comparisons; no improvement score is claimed. A separate seven-command smoke checked the bundled runtime from a project outside the checkout.
 
 No paired evaluation, Claude Haiku/Sonnet/Opus matrix, native Claude document/client acceptance, or live Mapbox acceptance has been recorded. Engine and repository tests remain their own verification lane. Keep matter files and full transcripts outside the repository unless sanitized and approved for inclusion; retain their hashes in the run record.
+
+## E1 fixture preparation and evidence validation
+
+`scripts/skill_evals.py`, run from the repository root, materializes synthetic inputs, checks one run record, and prints a descriptive ledger. It never starts a model/provider session or decides whether a transcription is true. Use new, separate candidate and evaluator directories:
+
+```sh
+uv sync --all-extras --dev
+uv run python scripts/skill_evals.py materialize source-reading-obscured-digits \
+  --output-dir /tmp/case-input --evaluator-dir /tmp/case-rubric
+uv run python scripts/skill_evals.py validate-run /tmp/run.json
+uv run python scripts/skill_evals.py summarize /tmp/runs.jsonl
+```
+
+The candidate directory contains `request.json`, `manifest.json`, and synthetic source artifacts with hashes. The evaluator directory contains `rubric.json`; do not provide it to either responding session. A run record points to both directories and records hashes, complete transcript path/hash, exact model and client, condition and pair ID, available tool/schema evidence, exposed skill resource hashes, artifact paths, criterion evidence, and required actions. Set `isolation_status` to `equivalent` only when the client verifies that baseline cannot access plugin/repository/rubric material and both conditions have identical tools. Otherwise record the run as `non_equivalent`; it is not paired evidence.
+
+The validator checks file hashes and criterion/action coverage. Scored observations require a machine-readable transcript: a JSON object with a `turns` array, a JSON array of turns, or JSONL client events. Startup metadata, empty turns, and synthetic authentication-error messages do not establish model behavior; a client/session failure must remain `not_run`. The helper checks these structural facts without judging whether the response is true or the criterion was scored correctly. A `pass` requires every applicable criterion and required action to have observable `pass` evidence; `fail` requires a failed criterion or action. `not_run` is a valid recorded result and never becomes a pass or an observed paired comparison. Summary rows remain separated by case, exact model, and client. No cross-client improvement score is computed.
+
+The matrix materializes synthetic PDF/image reading cases (obscured figures, absent exhibit, repeated occurrences), selection-only, reuse/restart, closure diagnosis, map routing, optional UI interaction, map checkpoint evidence, reversed/incompatible/structural comparison, and end-to-end review. Native-document and optional UI actions must remain `not_run` when the required client or identical browser tools are unavailable.

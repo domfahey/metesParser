@@ -204,11 +204,13 @@ Found by running all 6 sample deeds and comparing extraction output against grou
 
 ## Dashboard Skill and Metes & Bounds Checking Improvements (2026-10-26)
 
+The [2026-10-28 implementation plan](plans/2026-10-28-skill-evidence-and-review-improvements.md) expands items 4–6 into subagent workstreams and adds source-handoff validation, artifact inspection, and map usability improvements. Items 4 and 5 have local implementations for their documented supported scopes; item 6 remains open pending native and paired behavior evaluations. See the [implementation evidence ledger](implementation/2026-10-28-evidence-review-ledger.md) for current results and remaining gates.
+
 Skill composability refactor implemented 2026-10-27: five focused capabilities (conversion, selection, verification, plotting, overlay preparation), two composing workflows (review, dashboard), and the deed-review compatibility alias. Standalone plotting reuses the shared geometry/SVG engine; explicit artifact contracts preserve source identity, unresolved values, and separate verification status. [Design and validation evidence](plans/2026-10-27-composable-skills-refactor.md). Native Claude/Cowork behavior remains part of item 6.
 
 Plot and optional tax-map overlays implemented 2026-10-27: source-linked line/arc/partial plotting, explicit rigid placement, supplied vector layers, GeoJSON import, scanned-map calibration and optional exact-identifier NJGIN retrieval. [Plan](plans/2026-10-26-deed-plot-and-tax-overlay-plan.md) · [red–green and release evidence](plans/2026-10-27-deed-plot-implementation.md). Validation: 1,495 root tests, 829 package/plugin tests, 10 actual browser cases, both locked plugin runtime variants and live retrieval/offline replay passed. This supplies alignment prerequisites for item 5; structural boundary matching and item 6's native-reading/Claude/Cowork acceptance remain open.
 
-Recommended sequence: first complete item 1, the data-schema portion of item 2, and a small fixture suite from item 6. Then build the reusable renderer and angle-analysis module against those contracts. Add diagnostics and cross-description comparison afterward. Keep package and backward-compatible monolith behavior in sync, and preserve the existing verified-export gate.
+Next: complete item 6's observed native document-reading and equivalent paired-model evaluations. Local implementation for items 1–5 is complete within the scopes below. Keep package and backward-compatible monolith behavior in sync, and preserve the existing verified-export gate.
 
 - [x] High — 1. Distinguish successful checks from checks that were not performed. **Effort: Medium.** Completed 2026-10-26.
   - Add structured `passed`, `failed`, `not_applicable`, and `blocked` outcomes with reasons; display geometric results separately from source-review completeness.
@@ -238,17 +240,19 @@ Recommended sequence: first complete item 1, the data-schema portion of item 2, 
   - Verified with two implementation subagents and an independent review subagent: 56 new model/solver tests, 20 API/CLI tests, and 5 launcher/facade/export/import regressions. `make check` passed 1,436 root tests; the deterministic package/launcher suite passed 624 tests. Built plugin smoke test: 100 × 50 ft rectangle gives 5,000 sq ft and negligible floating-point gap, retains `needs_review`/unknown bearings, and produces no verified CSV.
   - Scope: explicit straight-course JSON constraints; native document reading, automatic prose-to-constraint extraction, circular constraints, and target-host dashboard UI testing are outside this item. Independent review regressions reject unrepresentable translated coordinates and complete angle rings with contradictory winding sums.
 
-- [ ] Medium — 4. Explain which calls deserve source reinspection. **Effort: Medium.**
+- [x] Medium — 4. Explain which calls deserve source reinspection. **Effort: Medium.**
   - Add course-level displacement and sensitivity diagnostics showing how small distance or angle changes affect the endpoint; link each review candidate to its source excerpt/crop.
   - Evaluate proposed digit readings as explicit scenarios without selecting corrections merely because they improve closure. Report competing explanations.
   - Introduce rounding bounds only when source precision supports them, and keep those bounds distinct from the heuristic score in `packages/mp-verify/src/mp_verify/confidence.py`.
   - Acceptance: a 0.5-ft eastward residual identifies both opposing east/west distances as review candidates; diagnostics neither choose the erroneous source value nor change export eligibility.
+  - Local implementation complete for the documented supported scope: standalone and dashboard closure diagnostics provide source-linked sensitivity, explicit unsupported/incomplete outcomes, and isolated scenario analysis without changing canonical verification or export eligibility. Evidence: [implementation ledger](implementation/2026-10-28-evidence-review-ledger.md) and [diagnostics evidence](implementation/diagnostics-evidence.md). Native document/model behavior acceptance remains unrun under item 6.
 
-- [ ] Medium — 5. Compare descriptions structurally across versions and adjoining parcels. **Effort: Large.**
+- [x] Medium — 5. Compare descriptions structurally across versions and adjoining parcels. **Effort: Large.**
   - Extend beyond word redlines and positional double-entry comparison to identify changed distances, bearings, monuments, omitted calls, and one course split into several.
   - Start shared-boundary comparison with explicitly selected line pairs, opposite traversal directions, and declared alignment/bearing-basis prerequisites. Keep tentative matches distinct from established relationships.
   - Reuse `packages/mp-verify/src/mp_verify/checks.py:compare_double_entry()` where appropriate; preserve its existing same-traverse behavior while adding a separate comparison capability.
   - Acceptance: reversed descriptions of the same line agree geometrically, length differences are quantified, and an unresolved bearing basis returns `not_comparable` instead of silently aligning parcels.
+  - Local implementation complete for the documented supported scope: standalone and dashboard comparison cover explicit straight-line pairs, grouped collinear calls, structural version differences, and tentative split/merge suggestions. Curves, relative-only geometry, unknown units/bases, and unsupported boundaries remain explicitly unavailable. This does not establish adjoining or legal boundaries. Evidence: [implementation ledger](implementation/2026-10-28-evidence-review-ledger.md) and [comparison evidence](implementation/comparison-evidence.md). Independent skill behavior acceptance remains part of item 6.
 
 - [ ] High — 6. Evaluate the full document-to-dashboard workflow. **Effort: Medium to Large.**
   - Add reviewed document fixtures for obscured digits, repeated exhibits, missing pages, angle-only descriptions, exceptions, and conflicting versions; extend `plugins/metesparser/evals/cases.json` with dashboard scenarios.
@@ -256,3 +260,4 @@ Recommended sequence: first complete item 1, the data-schema portion of item 2, 
   - For disputed figures, have a second reader inspect the source without seeing the first reading or closure result; record and reconcile disagreements explicitly.
   - Acceptance: every expected page and description occurrence is accounted for; unresolved digits stay conditional; source links open the correct occurrence; Python/JavaScript results agree within 0.001 ft; scenario/reset isolation, strict input validation, and responsive viewer/copy controls pass browser checks.
   - Record actual subagent/model use and stage completion, including any native-reading or target-host checks that remain untested.
+  - Synthetic fixtures, paired-run validation helpers, and skill catalog changes are implemented. This item remains open: native document reading and paired model sessions/transcripts have not been completed. See the [evaluation evidence](implementation/evaluations-evidence.md) for run status and outstanding gates.

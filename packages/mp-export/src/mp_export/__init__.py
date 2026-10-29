@@ -4,6 +4,7 @@ from .audit_html import generate_html, write_report
 from .csv_writer import (
     FIELDNAMES,
     calls_to_csv,
+    csv_text_to_calls,
     csv_to_calls,
     export_verified_csv,
     legal_description_to_csv,
@@ -17,6 +18,7 @@ from .plot_html import render_plot
 __version__ = "1.0.0"
 
 __all__ = [
+    "csv_text_to_calls",
     "FIELDNAMES",
     "build_mapbox_mcp_handoff",
     "calls_to_csv",
