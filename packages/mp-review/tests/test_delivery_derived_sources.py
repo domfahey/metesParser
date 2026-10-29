@@ -437,3 +437,79 @@ def test_corridor_placement_must_match_fresh_centerline_even_with_self_consisten
     )
     with pytest.raises(ValueError, match="stale"):
         prepare_delivery(bundle, revision, DeliveryRequest.model_validate(data))
+
+
+def _placed_corridor_request(tmp_path):
+    bundle, revision, req, corridor, _ = request(tmp_path, "corridor")
+    scene = PlotScene(
+        id="corridor-grid",
+        name="Supplied control grid",
+        kind="projected",
+        crs="EPSG:3857",
+        units="m",
+        basis="grid",
+    )
+    placement = PlotPlacement(
+        id="centerline-control",
+        calculation_id=corridor.centerline.request.calculation_id,
+        geometry_hash=corridor.centerline.geometry.geometry_hash,
+        scene_id=scene.id,
+        status="referenced",
+        rationale="Synthetic supplied origin and rotation",
+        position_evidence=("supplied origin",),
+        orientation_evidence=("supplied 90 degree clockwise rotation",),
+        rotation_deg=90,
+        translation=(1000, 2000),
+    )
+    data = req.model_dump(mode="json")
+    data.update(
+        coordinate_mode="placed",
+        scene_id=scene.id,
+        scenes=[scene.model_dump(mode="json")],
+        placements=[placement.model_dump(mode="json")],
+        units="m",
+        formats=["svg", "dxf", "geojson"],
+    )
+    data["layers"][0].update(
+        placement_id=placement.id, placement_sha256=_hash(placement.model_dump(mode="json"))
+    )
+    return bundle, revision, data
+
+
+def _with_failing_optional_layer(data):
+    data = json.loads(json.dumps(data))
+    bad = dict(data["source_bindings"][0], id="bad-binding", layer_id="bad-layer")
+    data["source_bindings"].append(bad)
+    data["layers"].append(
+        {"id": "bad-layer", "kind": "corridor", "visible": True, "opacity": 1.0, "required": False}
+    )
+    return DeliveryRequest.model_validate(data)
+
+
+def test_geojson_skips_optional_layer_that_failed_preparation(tmp_path):
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    req = _with_failing_optional_layer(data)
+    snapshot = prepare_delivery(bundle, revision, req)
+    assert any(o.layer_id == "bad-layer" for o in snapshot.omissions)
+    response = publish_delivery(bundle, revision, req, tmp_path / "exports")
+    assert response["status"] == "needs_review", response
+    features = json.loads((tmp_path / "exports/package/drawing.geojson").read_text())["features"]
+    assert features and all(f["properties"]["delivery_layer_id"] != "bad-layer" for f in features)
+
+
+def test_failed_publish_does_not_strand_request_id(tmp_path, monkeypatch):
+    import mp_review.delivery as delivery
+
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    req = DeliveryRequest.model_validate(data)
+
+    def boom(*_args, **_kwargs):
+        raise ValueError("simulated render failure")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(delivery, "_geojson", boom)
+        failed = publish_delivery(bundle, revision, req, tmp_path / "exports")
+    assert failed["status"] == "error"
+    assert not (tmp_path / "exports/package/pending.json").exists()
+    retry = publish_delivery(bundle, revision, req, tmp_path / "exports")
+    assert retry["status"] == "needs_review", retry

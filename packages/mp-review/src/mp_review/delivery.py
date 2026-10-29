@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import importlib.metadata
 import re
@@ -498,10 +499,17 @@ def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, A
             from .delivery_sources import delivery_source_features
 
             source_record = next(
-                record
-                for record in snapshot.derived_sources
-                if record.get("layer_id") == item.selection.id
+                (
+                    record
+                    for record in snapshot.derived_sources
+                    if record.get("layer_id") == item.selection.id
+                ),
+                None,
             )
+            if source_record is None:
+                # Non-required layer whose preparation failed: an omission is already
+                # recorded and the item carries no geometry.
+                continue
             values = delivery_source_features(
                 item, source_record, snapshot.request, scene, options, budget, projection
             )
@@ -624,6 +632,15 @@ def publish_delivery(
         "errors": [],
         "artifacts": {},
     }
+    created: list[Path] = []
+
+    def write_new(path: Path, content: bytes) -> None:
+        existed = path.exists()
+        _write_once(path, content)
+        if not existed:
+            created.append(path)
+
+    manifest_path: Path | None = None
     try:
         snapshot = prepare_delivery(bundle, revision_dir, request)
         directory = Path(output_dir)
@@ -634,7 +651,8 @@ def publish_delivery(
         if directory.is_symlink():
             raise ValueError("Unsafe delivery directory symlink")
         directory.mkdir(exist_ok=True)
-        _write_once(
+        manifest_path = directory / "delivery-manifest.json"
+        write_new(
             directory / "pending.json",
             _json(
                 {
@@ -646,7 +664,7 @@ def publish_delivery(
         artifacts = _components(bundle, snapshot)
         hashes = {}
         for name, content in artifacts.items():
-            _write_once(directory / name, content)
+            write_new(directory / name, content)
             hashes[name] = hashlib.sha256(content).hexdigest()
         manifest = {
             "schema_version": "1.0",
@@ -658,7 +676,7 @@ def publish_delivery(
             "artifacts": hashes,
             "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
         }
-        _write_once(directory / "delivery-manifest.json", _json(manifest).encode("utf-8"))
+        write_new(directory / "delivery-manifest.json", _json(manifest).encode("utf-8"))
         result.update(
             status="needs_review",
             save_state="published",
@@ -672,7 +690,24 @@ def publish_delivery(
         )
     except (OSError, ValueError, TypeError, KeyError, ImportError) as exc:
         result["errors"].append(str(exc))
+        _discard_incomplete(created, manifest_path)
+    except BaseException:
+        _discard_incomplete(created, manifest_path)
+        raise
     return result
+
+
+def _discard_incomplete(created: list[Path], manifest_path: Path | None) -> None:
+    """Remove only this call's files from an unpublished package so the id can be retried.
+
+    A package with a manifest is complete and immutable; it is never touched.
+    """
+    if manifest_path is None or manifest_path.exists():
+        return
+    for path in reversed(created):
+        path.unlink(missing_ok=True)
+    with contextlib.suppress(OSError):
+        manifest_path.parent.rmdir()
 
 
 def load_delivery(
