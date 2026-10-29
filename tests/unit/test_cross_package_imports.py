@@ -136,6 +136,15 @@ class TestMpVerifyImports:
 
         assert callable(verify_tract)
 
+    def test_relative_analysis_facade(self) -> None:
+        from mp_models import RelativeDescription as PackageDescription
+        from mp_verify import analyze_relative as package_analyze
+
+        from metesparser.relative import RelativeDescription, analyze_relative
+
+        assert RelativeDescription is PackageDescription
+        assert analyze_relative is package_analyze
+
 
 class TestMpExportImports:
     """mp-export package should export CSV and audit HTML functions."""
@@ -153,6 +162,24 @@ class TestMpExportImports:
 
         assert generate_html is not None
         assert write_report is not None
+
+    def test_dashboard_facade(self) -> None:
+        from mp_export import render_dashboard as package_render
+        from mp_models import DashboardBundle as PackageBundle
+        from mp_review import dashboard_file as package_file
+        from mp_review import prepare_dashboard as package_prepare
+
+        from metesparser.dashboard import (
+            DashboardBundle,
+            dashboard_file,
+            prepare_dashboard,
+            render_dashboard,
+        )
+
+        assert DashboardBundle is PackageBundle
+        assert render_dashboard is package_render
+        assert prepare_dashboard is package_prepare
+        assert dashboard_file is package_file
 
 
 class TestPipelineImport:

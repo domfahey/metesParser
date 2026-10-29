@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "frame": {
+    "name": "Synthetic rectangle: arbitrary local north, feet",
+    "first_azimuth_deg": 0,
+    "origin": [0, 0],
+    "orientation": "cw"
+  },
+  "courses": [
+    {"course_id": "c1", "distance_ft": 100, "source": {"reference": "analytic fixture, course 1", "quote": "100 feet"}},
+    {"course_id": "c2", "distance_ft": 50, "source": {"reference": "analytic fixture, course 2", "quote": "50 feet"}},
+    {"course_id": "c3", "distance_ft": 100, "source": {"reference": "analytic fixture, course 3", "quote": "100 feet"}},
+    {"course_id": "c4", "distance_ft": 50, "source": {"reference": "analytic fixture, course 4", "quote": "50 feet"}}
+  ],
+  "constraints": [
+    {"constraint_id": "a2", "kind": "interior", "from_course": "c1", "to_course": "c2", "angle_deg": 90, "source": {"reference": "analytic fixture, corner 2", "quote": "an interior angle of 90 degrees"}},
+    {"constraint_id": "a3", "kind": "interior", "from_course": "c2", "to_course": "c3", "angle_deg": 90, "source": {"reference": "analytic fixture, corner 3", "quote": "an interior angle of 90 degrees"}},
+    {"constraint_id": "a4", "kind": "interior", "from_course": "c3", "to_course": "c4", "angle_deg": 90, "source": {"reference": "analytic fixture, corner 4", "quote": "an interior angle of 90 degrees"}},
+    {"constraint_id": "closing", "kind": "interior", "from_course": "c4", "to_course": "c1", "angle_deg": 90, "source": {"reference": "analytic fixture, point of beginning", "quote": "an interior angle of 90 degrees at the point of beginning"}}
+  ]
+}

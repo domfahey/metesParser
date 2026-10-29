@@ -6,6 +6,8 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Added
 
+- `analyze-relative` command for source-linked straight-course interior/exterior, perpendicular, and parallel constraints in a declared local frame. Reports unresolved/contradictory constraints separately, preserves unknown recorded bearings, and never authorizes verified CSV export. Includes a runnable synthetic rectangle and replaces the dashboard playbook's inline calculation.
+- `deed-closure-dashboard` skill now builds from a validated version 1.0 source bundle and the offline renderer, with separate source-review status and advisory scenarios. Includes a synthetic runnable bundle example.
 - `convert-document-to-text` uses Claude's native document/image reading for PDFs, scans, images, and other supported sources, with source coverage and uncertainty records.
 - `extract-metes-and-bounds` locates complete descriptions in any document, preserves source wording and locations, and separates candidate tracts.
 - `review-metes-and-bounds` coordinates description identification before deterministic closure checks.
@@ -17,6 +19,7 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 - `review-deed` delegates to the document-agnostic workflow; `verify-traverse` accepts an identified structured boundary and routes unselected documents to description selection.
 - Closure requests now locate the intended description before calculation. Native conversion, Claude's section selection, and deterministic verification remain distinct evidence stages.
 - Scanned documents use Claude's native reading when available instead of always requiring a user-provided transcription. No separate OCR provider or conversion dependency is added.
+- Dashboard guidance now reflects the renderer's available per-occurrence views and statuses. Shared parcel alignment/comparison is deferred; canonical baseline calculations support curves, while browser edits are limited to straight-course scenarios.
 
 ### Removed
 

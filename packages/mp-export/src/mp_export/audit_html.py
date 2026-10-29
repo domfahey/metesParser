@@ -41,7 +41,7 @@ def _css() -> str:
         ".confidence-high { color: #2d6a4f; background: #d8f3dc; }\n"
         ".confidence-medium { color: #9c6500; background: #fff3cd; }\n"
         ".confidence-low { color: #842029; background: #f8d7da; }\n"
-        ".pass { color: #2d6a4f; } .fail { color: #842029; }\n"
+        ".pass { color: #2d6a4f; } .fail { color: #842029; } .not-applicable { color: #555; } .blocked { color: #8a4b00; }\n"
         ".flag { display: inline-block; padding: 2px 8px; border-radius: 12px; "
         "font-size: 0.85em; background: #fff3cd; color: #9c6500; margin: 2px; }\n"
         ".source-excerpt { background: #f8f9fa; padding: 8px; "
@@ -227,12 +227,23 @@ def _build_verification_section(ctx: AuditContext) -> str:
         parts.append("<table>")
         parts.append("<tr><th>Check</th><th>Result</th><th>Detail</th></tr>")
         for check in va.checks:
-            css = "pass" if check.passed else "fail"
-            label = "PASS" if check.passed else "FAIL"
+            css = {
+                "passed": "pass",
+                "failed": "fail",
+                "not_applicable": "not-applicable",
+                "blocked": "blocked",
+            }[check.status]
+            label = {
+                "passed": "PASS",
+                "failed": "FAIL",
+                "not_applicable": "NOT APPLICABLE",
+                "blocked": "BLOCKED",
+            }[check.status]
             parts.append(
                 f"<tr><td>{html.escape(check.name)}</td>"
                 f"<td class='{css}'>{label}</td>"
-                f"<td>{html.escape(check.detail)}</td></tr>"
+                f"<td>{html.escape(check.detail)}"
+                f"{' [' + html.escape(check.reason) + ']' if check.reason else ''}</td></tr>"
             )
         parts.append("</table>")
 
