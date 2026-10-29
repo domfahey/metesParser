@@ -1,6 +1,9 @@
 # Python API Reference
 
-Complete reference for metesParser Python API.
+Core compatibility API exposed by the `metesparser` package and its legacy modules.
+For the composable package boundaries, see [Architecture](ARCHITECTURE.md#composable-package-architecture).
+For the `metes-review` file/CLI workflows and their handoffs, see the [usage guide](../plugins/metesparser/references/usage.md)
+and [artifact contract](../plugins/metesparser/references/artifact-handoffs.md).
 
 ## Quick Example
 
@@ -10,9 +13,10 @@ from metesparser import CallExtractor, ClosureChecker, CSVBuilder
 # Parse legal description
 text = """
 BEGINNING at a point;
-THENCE North 45 degrees East 100 feet;
-THENCE South 45 degrees East 100 feet;
-THENCE South 45 degrees West 141.42 feet to the POINT OF BEGINNING.
+THENCE North 100 feet;
+THENCE East 100 feet;
+THENCE South 100 feet;
+THENCE West 100 feet to the POINT OF BEGINNING.
 """
 
 calls = CallExtractor.extract_calls(text)
@@ -117,7 +121,7 @@ print(f"Verified: {result.is_fully_verified()}")
 points = ClosureChecker.compute_traverse(calls)
 
 # Calculate area from points
-area = ClosureChecker.calculate_area(points)
+area = ClosureChecker.calculate_area(points, calls=calls)
 
 # Get summary
 summary = ClosureChecker.get_closure_summary(result)
@@ -206,26 +210,21 @@ call.is_curve()             # Returns: False
 ### ClosureResult
 
 ```python
-from metesparser.models import ClosureResult
+from metesparser import CallExtractor, ClosureChecker
 
-result = ClosureResult(
-    misclosure_x_ft=0.0,
-    misclosure_y_ft=0.0,
-    misclosure_ft=0.0,
-    area_sq_ft=10000.0,
-    area_acres=0.2296,
-    perimeter_ft=400.0,
-    precision_ratio=0.0,  # misclosure / perimeter
-    closure_passed=True,
-    angle_check_passed=True,
-    curve_consistency_passed=True,
-    warnings=[],
-    points=[...]
-)
+text = """
+BEGINNING at a point;
+THENCE North 100 feet;
+THENCE East 100 feet;
+THENCE South 100 feet;
+THENCE West 100 feet to the POINT OF BEGINNING.
+"""
+calls = CallExtractor.enrich_calls_with_azimuths(CallExtractor.extract_calls(text))
+result = ClosureChecker.verify_closure(calls)
 
 # Methods
 result.is_fully_verified()     # Returns: True
-result.get_closure_status()    # Returns: "PASS"
+result.get_closure_status()    # Returns: "EXCELLENT" for this zero-misclosure example
 ```
 
 ### Point
@@ -237,42 +236,32 @@ p1 = Point(x=0.0, y=0.0)
 p2 = Point(x=100.0, y=100.0)
 ```
 
-## Complete Example
+## Provider-Backed PDF Example
+
+This example covers one `LegalDescription` returned by the provider-backed Python
+pipeline. It assumes the intended boundary has been selected and source wording
+has been reviewed. It does not demonstrate native Claude acquisition or
+multi-tract selection.
 
 ```python
-from pathlib import Path
 from metesparser import (
-    PDFProcessor,
-    TextParser,
-    CallExtractor,
     ClosureChecker,
     CSVBuilder,
-    LegalDescription
+    PDFProcessor,
 )
 
-# 1. Extract from PDF
+# 1. Extract and parse one boundary through the configured provider
 processor = PDFProcessor()
-legal_text = processor.process_deed_pdf("deed.pdf")
+legal_desc = processor.process_deed_pdf("deed.pdf")
+calls = legal_desc.calls
 
-# 2. Normalize
-normalized = TextParser.normalize_legal_description(legal_text)
-pob = TextParser.extract_pob(normalized)
-
-# 3. Extract calls
-calls = CallExtractor.extract_calls(normalized)
-calls = CallExtractor.enrich_calls_with_azimuths(calls)
-
-# 4. Verify
-result = ClosureChecker.verify_closure(calls)
-
-# 5. Create legal description
-legal_desc = LegalDescription(
-    pob_description=pob,
-    calls=calls,
-    source_doc="deed.pdf"
+# 2. Verify the returned calls, retaining a stated area when present
+result = ClosureChecker.verify_closure(
+    calls,
+    stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0,
 )
 
-# 6. Export
+# 3. Export with the original parsed metadata
 if result.is_fully_verified():
     CSVBuilder.export_verified_csv(
         calls,
@@ -306,6 +295,7 @@ legal_desc, audit_context = processor.process_deed_pdf("deed.pdf", audit=True)
 # Verify closure (audit context records check results)
 result = ClosureChecker.verify_closure(
     legal_desc.calls,
+    stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0,
     audit_context=audit_context
 )
 
@@ -318,7 +308,9 @@ if result.is_fully_verified():
         legal_desc=legal_desc,
         audit_context=audit_context
     )
-    # Creates: output_verified.csv, output.audit.json, output.audit.html
+    # Creates: output_verified.csv, output_verified.metadata.txt,
+    # output_verified.verification.txt,
+    # output_verified.audit.json, output_verified.audit.html
 ```
 
 ### AuditContext
