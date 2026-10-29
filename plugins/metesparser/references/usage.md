@@ -13,6 +13,10 @@ Start a closure request by locating the intended metes-and-bounds description. A
 | Isolated description and “Does this close?” | `review-metes-and-bounds`, treating the supplied passage as selected. | Run the requested review. |
 | Selected CSV/JSON calls and “Verify closure.” | Identify the intended call set, then `verify-traverse`. | Return verification only. |
 | RelativeDescription JSON and “Analyze these relative angles.” | `verify-traverse` runs `analyze-relative`. | Return local analysis only; no canonical verification, plot, or dashboard. |
+| PDF/image or whole document and “Plot the boundary in this deed.” | `plot-metes-and-bounds` composes native conversion when needed → description selection → standalone plot. | Return intake, source coverage and plot; no automatic verification/dashboard. |
+| Document and “Can this description be plotted?” | Same source preparation, then assess supported/unresolved geometry. | State exact missing input; no automatic downstream deliverables. |
+| Several explicitly identified tracts and “Review/plot A and B.” | Share acquisition, then separate selection and requested outputs per tract. | Combined inventory with independent results; retain blocked tracts and excluded historical descriptions. |
+| Retained review and “Continue with this new scan.” | Read-only `inspect-artifacts` for the requested stage, then earliest invalid dependency. | Resume summary and only requested replacement outputs; preserve earlier runs. |
 | Selected calls and “Plot these.” | `plot-metes-and-bounds`. | Return plot artifacts only; no closure verification. |
 | Isolated prose and “Plot this description.” | `plot-metes-and-bounds` runs `plot --input-format text`. | Preserve tie-ins outside boundary geometry and unknown bearings; no verification side effect. |
 | Supplied GeoJSON or scanned map and “Prepare this for later use.” | `prepare-parcel-overlay`. | Return prepared layer and provenance only. |
@@ -28,6 +32,7 @@ Transcription, description extraction, traverse verification, plotting, overlay 
 ## Examples of composition
 
 - **Document to closure review:** `review-metes-and-bounds` uses `convert-document-to-text` when needed, passes its full text and page map to `extract-metes-and-bounds`, then runs deterministic review. Carry acquisition and selection records forward; do not repeat valid stages.
+- **Document to plot:** native conversion when needed → verbatim selection with source coverage → `plot --input-format text` on the selected file. Preserve rejected/unresolved material and separate tracts; the plot is local unless independent placement evidence is supplied.
 - **Selected boundary to plot:** pass identified structured calls to `plot-metes-and-bounds`. For isolated prose, use explicit `--input-format text`; shared preparation handles commencement-to-POB tie-ins without canonical verification. A plot's `needs_review` status is not a verification result.
 - **Prepared evidence to online map:** `render-online-map` uses `compose-map PLOT_DIR --layer PREPARED_LAYER.json --output-dir NEW_DIR` through the packaged launcher to retain intact plot/map inputs and fresh geometry hashes. Rendering still requires supplied geographic evidence for deed placement. It does not create a dashboard solely to render a map.
 - **Prepared evidence to dashboard:** if a dashboard is explicitly requested, use `compose-dashboard BASE_BUNDLE.json --layer PREPARED_LAYER.json --output-dir NEW_DIR` through the same launcher. The base bundle must already contain actual source/page/call records. Composition retains source inputs, appends supported map arrays, and recomputes geometry; it does not infer deed alignment or attest source reading. Both composition commands return `needs_review` (exit 1), distinct from canonical verification.
@@ -73,6 +78,10 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" analyze-relative angles.js
 These commands accept prepared descriptions or identified call sets; they do not locate a description inside a PDF or arbitrary whole document. Output directories must be new. A configured output base can supply a fresh child when `--output-dir` is omitted. See [project settings](plugin-settings.md) for `.claude/metesparser.local.md`, CLI precedence, and per-run reload behavior.
 
 For straight descriptions defined by relative angles, `analyze-relative` accepts a [source-linked JSON constraint description](../skills/deed-closure-dashboard/references/relative-analysis.md). It calculates local geometry separately from canonical verification and always retains `needs_review` (exit 1) for valid inputs, including successful analysis. It preserves unknown recorded bearings and produces no verified CSV. Check `analysis.status` for `analyzed`, `unresolved`, or `inconsistent`.
+
+## Intake, controls and resuming
+
+Return the [compact intake and coverage accounting](source-preparation.md#intake-and-source-coverage) for a document task. For an explicitly requested dashboard, provide the [current controls guide](../skills/deed-closure-dashboard/references/playbook.md#current-controls-and-delivery). For a later continuation, use the [inspector and resume summary](artifact-handoffs.md#artifact-inspection-and-resume), reusing unchanged independent tracts and map registrations. Guided scan registration and separate deed placement use the [existing overlay procedure](../skills/prepare-parcel-overlay/references/overlay-preparation.md#guided-registration-and-separate-deed-placement).
 
 ## Interpret the result
 
