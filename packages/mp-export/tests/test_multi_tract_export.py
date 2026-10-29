@@ -148,7 +148,7 @@ class TestMultiTractGate:
             )
         assert list(tmp_path.iterdir()) == []
 
-    def test_mixed_summary_only_lists_verified_tracts(self, tmp_path: Path):
+    def test_mixed_summary_lists_unverified_tracts_separately(self, tmp_path: Path):
         t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
         t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square_calls(50.0))
         export_verified_csv(
@@ -158,5 +158,31 @@ class TestMultiTractGate:
             tract_results=[(t1, _good_closure(10000)), (t2, _bad_closure())],
         )
         summary = (tmp_path / "deed_verified.verification.txt").read_text()
-        assert "Tract 1" in summary
-        assert "Tract 2" not in summary
+        verified_part, _, not_verified_part = summary.partition("Not verified (no CSV written):")
+        assert "Tract 1" in verified_part
+        assert "Tract 2" not in verified_part
+        assert "Tract 2" in not_verified_part
+
+
+class TestUnverifiedTractSummary:
+    def test_unverified_tract_listed_in_not_verified_section(self, tmp_path: Path):
+        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
+        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square_calls(50.0))
+        export_verified_csv(
+            _square_calls(),
+            _good_closure(),
+            str(tmp_path / "deed.csv"),
+            tract_results=[(t1, _good_closure(10000)), (t2, _bad_closure())],
+        )
+        assert (tmp_path / "deed_verified_tract1.csv").exists()
+        assert not (tmp_path / "deed_verified_tract2.csv").exists()
+
+        summary = (tmp_path / "deed_verified.verification.txt").read_text()
+        header = "Not verified (no CSV written):"
+        verified_part, sep, not_verified_part = summary.partition(header)
+        assert sep == header
+        assert "Tract 1" in verified_part
+        assert "Tract 2" not in verified_part
+        assert "Tract 2" in not_verified_part
+        assert "7.0700 ft" in not_verified_part
+        assert "Closure failed" in not_verified_part
