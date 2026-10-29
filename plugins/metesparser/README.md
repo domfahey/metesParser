@@ -1,12 +1,12 @@
 # MetesParser Claude plugin
 
-This plugin provides six focused capabilities and two workflows for reviewing metes-and-bounds material. Claude's native document/image reading prepares text from images and PDFs; the bundled deterministic `mp_review` engine parses selected descriptions and verifies geometry. No separate OCR service or conversion dependency is required.
+This plugin provides seven focused capabilities and two workflows for reviewing metes-and-bounds material. Claude's native document/image reading prepares text from images and PDFs; the bundled deterministic `mp_review` engine parses selected descriptions and verifies geometry. No separate OCR service or conversion dependency is required.
 
 See the [usage guide](references/usage.md) for input routing, examples, artifact meanings, and troubleshooting, and the [changelog](CHANGELOG.md) for user-visible changes. Each skill directory contains a README with its own usage example.
 
 ## Skills
 
-Nine skills share the same engine: six capabilities, two workflows, and one compatibility alias.
+Ten skills share the same engine: seven capabilities, two workflows, and one compatibility alias.
 
 | Type | Skill | Purpose | Main deliverable |
 | --- | --- | --- | --- |
@@ -16,6 +16,7 @@ Nine skills share the same engine: six capabilities, two workflows, and one comp
 | Capability | [plot-metes-and-bounds](skills/plot-metes-and-bounds/SKILL.md) | Plot identified calls or an isolated description. | Plot inputs, geometry, HTML, and manifest |
 | Capability | [prepare-parcel-overlay](skills/prepare-parcel-overlay/SKILL.md) | Prepare supplied vector or raster map evidence. | Prepared layer and provenance |
 | Capability | [render-online-map](skills/render-online-map/SKILL.md) | Render prepared geographic evidence with Mapbox as a local viewer or requested in-chat MCP preview. | Online display artifacts or vector MCP handoff and acceptance report |
+| Capability | [compare-descriptions](skills/compare-descriptions/SKILL.md) | Compare two identified descriptions using source-linked structured inputs and explicit criteria. | Advisory component comparison and tentative structural differences |
 | Workflow | [review-metes-and-bounds](skills/review-metes-and-bounds/SKILL.md) | Locate the intended description, then parse and check closure. | Source-selection context and deterministic review artifacts |
 | Workflow | [deed-closure-dashboard](skills/deed-closure-dashboard/SKILL.md) | Build an explicitly requested, source-grounded interactive review dashboard. | Offline dashboard and source/calculation/render snapshots |
 | Alias | [review-deed](skills/review-deed/SKILL.md) | Route deed-specific review requests to the shared review workflow. | Same deliverable as `review-metes-and-bounds` |
@@ -41,6 +42,12 @@ The `metes-review dashboard` package command accepts the same options. Valid inp
 Standalone plots use `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" plot INPUT --output-dir NEW_DIR --input-format auto`. Formats are `auto`, `calls`, `relative`, `plot`, and explicit `text`. Structured inputs include strict CSV, calls-list/LegalDescription JSON, RelativeDescription JSON, and PlotRequest JSON. Use `text` only for an already-isolated UTF-8 description; shared preparation retains commencement calls as tie-ins outside boundary geometry and preserves unknown bearings. Output includes an exact-byte source copy (`source.csv`, `source.json`, or `source.txt`), `plot-input.json`, `plot-geometry.json`, `plot.html`, and `plot-manifest.json`. Its top-level status is `needs_review`; plotting does not verify a traverse or create a verified CSV.
 
 The review and verification skills use `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py"`; the launcher starts the locked runtime using `uv` and prints the engine's JSON result. Runtime environments and package cache are stored under the user's cache directory, keyed by the bundled engine fingerprint, so the plugin directory can remain read-only. Using the `python3` prefix avoids depending on executable mode preservation when the plugin is packaged.
+
+## Validate, inspect, and diagnose
+
+Source records use schema `1.1`; the [source-preparation reference](references/source-preparation.md) documents byte/page/span fields, legacy migration, and validation. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" validate-source BUNDLE_DIR` after creating or receiving acquisition/selection records. When reuse or freshness is unclear, run `inspect-artifacts BUNDLE_DIR --requested-stage STAGE`; it is read-only and reports known dependencies and restart guidance. For a requested explanation of straight-course closure sensitivity, use `diagnose-closure REQUEST.json --output-dir NEW_DIR` and the [diagnosis contract](references/closure-diagnostics.md).
+
+These completed advisory operations return `needs_review` and exit 1 even for structurally valid/matching records or supported diagnosis. Exit 2 means invalid input or no result. Inspect each operation's detail fields; neither source validation, artifact usability, nor diagnosis establishes source accuracy or canonical verification. [Artifact handoffs](references/artifact-handoffs.md) defines the discovery and status boundaries.
 
 ## Locate before checking closure
 

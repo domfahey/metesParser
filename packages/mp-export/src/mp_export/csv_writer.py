@@ -7,6 +7,7 @@ Reads CSV files back into DeedCall objects.
 from __future__ import annotations
 
 import csv
+import io
 from pathlib import Path
 
 import structlog
@@ -243,16 +244,19 @@ def csv_to_calls(input_path: str, *, strict: bool = True) -> list[DeedCall]:
     Returns:
         List of DeedCall objects.
     """
-    calls: list[DeedCall] = []
-
     with open(input_path) as f:
-        reader = csv.DictReader(f)
-        for row_number, row in enumerate(reader, start=2):
-            call = _row_to_call(row, row_number=row_number)
-            if call:
-                calls.append(call)
-            elif strict:
-                raise ValueError(f"Cannot import complete parcel: invalid CSV row {row_number}")
+        return csv_text_to_calls(f.read(), strict=strict)
+
+
+def csv_text_to_calls(text: str, *, strict: bool = True) -> list[DeedCall]:
+    """Decode retained CSV text without requiring or reopening its original file."""
+    calls: list[DeedCall] = []
+    for row_number, row in enumerate(csv.DictReader(io.StringIO(text)), start=2):
+        call = _row_to_call(row, row_number=row_number)
+        if call:
+            calls.append(call)
+        elif strict:
+            raise ValueError(f"Cannot import complete parcel: invalid CSV row {row_number}")
 
     return calls
 
