@@ -1,6 +1,6 @@
 # MetesParser Claude plugin
 
-This plugin provides ten focused capabilities and two workflows for reviewing metes-and-bounds material. Claude's native document/image reading prepares text from images and PDFs; the bundled deterministic `mp_review` engine parses selected descriptions and verifies geometry. No separate OCR service or conversion dependency is required.
+This proof-of-concept plugin provides ten focused capabilities and two workflows for reviewing metes-and-bounds material. When available in the current session, Claude's native document/image reading prepares text from images and PDFs; the bundled deterministic `mp_review` engine parses selected descriptions and verifies geometry. No separate OCR service or conversion dependency is required.
 
 See the [usage guide](references/usage.md) for input routing, examples, artifact meanings, and troubleshooting, and the [changelog](CHANGELOG.md) for user-visible changes. Each skill directory contains a README with its own usage example.
 
@@ -72,7 +72,7 @@ Start by locating the boundary description requested, whether it appears in a su
 
 Native conversion and description selection depend on Claude's reading of the source; closure cannot prove those stages were complete or accurate. Retain the acquisition and selection records described in [source preparation](references/source-preparation.md). Native reading must be available in the current Claude session; disclose unsupported or unreadable sources rather than silently substituting another provider.
 
-The engine uses exit code 0 for `checks_passed`, 1 for `needs_review`, and 2 for `error`. A passing status is limited to implemented deterministic checks and is not a legal or survey certification. See `references/review-limits.md`.
+The engine uses exit code 0 for `checks_passed`, 1 for `needs_review`, and 2 for `error`. A passing status describes the implemented deterministic checks; source review remains a separate step. See the [review limits](references/review-limits.md).
 
 ## Project settings
 
