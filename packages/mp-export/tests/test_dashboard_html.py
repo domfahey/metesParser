@@ -368,3 +368,32 @@ def test_javascript_explicit_constraint_kinds_agree_with_python(kind):
     expected = prepared.calculations[0]
     assert result["misclosure_ft"] == pytest.approx(expected.misclosure_ft, abs=0.001)
     assert result["area_sq_ft"] == pytest.approx(expected.area_sq_ft, abs=0.001)
+
+
+def test_baseline_diagnostics_is_separate_and_independent_browser_derivatives_agree():
+    prepared = prepare()
+    rendered = render_dashboard(prepared)
+    assert 'id="baseline-diagnostics"' in rendered
+    assert 'id="scenario-diagnostics"' in rendered
+    assert "Unit sensitivity is not a correction or an error probability" in rendered
+    data = bundle_data()
+    data["calls"][0]["call"]["distance_ft"] = 100.5
+    result = browser_math("math.diagnoseScenario(input.calculations[0],input.calls)", data)
+    assert result["availability"] == "supported"
+    assert result["residual"]["magnitude_ft"] == pytest.approx(0.5)
+    by_id = {row["call_id"]: row for row in result["sensitivities"]}
+    assert by_id["call-one"]["distance_rank"] == by_id["call-three"]["distance_rank"] == 1
+    expected = prepare(data).diagnostics[0].baseline
+    for actual, row in zip(result["sensitivities"], expected.sensitivities, strict=True):
+        assert actual["distance_derivative"] == pytest.approx(row.distance_derivative.model_dump())
+        assert actual["angle_derivative_per_arcsecond"] == pytest.approx(
+            row.angle_derivative_per_arcsecond.model_dump()
+        )
+
+
+def test_relative_browser_diagnosis_explicitly_unsupported():
+    result = browser_math(
+        "math.diagnoseScenario(input.calculations[0],input.calls)", bundle_data("relative")
+    )
+    assert result["availability"] == "unsupported"
+    assert result["residual"] is None

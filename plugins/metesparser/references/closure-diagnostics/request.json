@@ -1,0 +1,186 @@
+{
+  "schema_version": "1.0",
+  "request_id": "synthetic-rectangle",
+  "input_id": "rectangle",
+  "input_sha256": "0420edbf7214ff7dc952f5005ce2a538a30681b3f5e3c73c9e36fff71a9fc39a",
+  "calls": [
+    {
+      "call_id": "c1",
+      "call": {
+        "course": 1,
+        "direction_text": "Synthetic course 1",
+        "bearing_quadrant": null,
+        "bearing_azimuth_deg_from_north": 90.0,
+        "distance_ft": 100.5,
+        "curve_dir": null,
+        "radius_ft": null,
+        "delta_deg": null,
+        "arc_length_ft": null,
+        "chord_bearing": null,
+        "chord_length_ft": null,
+        "along": null,
+        "to": null,
+        "monument_status": null,
+        "monument_type": null,
+        "is_exception": false,
+        "non_tangent": false,
+        "radial_bearing": null,
+        "is_meander": false,
+        "is_tie_in": false,
+        "is_indefinite": false,
+        "curve_type": null,
+        "quality": null,
+        "notes": null
+      },
+      "source_refs": [
+        {
+          "source_id": "synthetic-deed",
+          "source_sha256": null,
+          "occurrence_id": "exhibit-a",
+          "page": 1,
+          "page_id": null,
+          "crop_id": null,
+          "span_id": null,
+          "quote": "Synthetic course 1: 100.5 feet.",
+          "uncertainty": null
+        }
+      ]
+    },
+    {
+      "call_id": "c2",
+      "call": {
+        "course": 2,
+        "direction_text": "Synthetic course 2",
+        "bearing_quadrant": null,
+        "bearing_azimuth_deg_from_north": 180.0,
+        "distance_ft": 100.0,
+        "curve_dir": null,
+        "radius_ft": null,
+        "delta_deg": null,
+        "arc_length_ft": null,
+        "chord_bearing": null,
+        "chord_length_ft": null,
+        "along": null,
+        "to": null,
+        "monument_status": null,
+        "monument_type": null,
+        "is_exception": false,
+        "non_tangent": false,
+        "radial_bearing": null,
+        "is_meander": false,
+        "is_tie_in": false,
+        "is_indefinite": false,
+        "curve_type": null,
+        "quality": null,
+        "notes": null
+      },
+      "source_refs": [
+        {
+          "source_id": "synthetic-deed",
+          "source_sha256": null,
+          "occurrence_id": "exhibit-a",
+          "page": 1,
+          "page_id": null,
+          "crop_id": null,
+          "span_id": null,
+          "quote": "Synthetic course 2: 100 feet.",
+          "uncertainty": null
+        }
+      ]
+    },
+    {
+      "call_id": "c3",
+      "call": {
+        "course": 3,
+        "direction_text": "Synthetic course 3",
+        "bearing_quadrant": null,
+        "bearing_azimuth_deg_from_north": 270.0,
+        "distance_ft": 100.0,
+        "curve_dir": null,
+        "radius_ft": null,
+        "delta_deg": null,
+        "arc_length_ft": null,
+        "chord_bearing": null,
+        "chord_length_ft": null,
+        "along": null,
+        "to": null,
+        "monument_status": null,
+        "monument_type": null,
+        "is_exception": false,
+        "non_tangent": false,
+        "radial_bearing": null,
+        "is_meander": false,
+        "is_tie_in": false,
+        "is_indefinite": false,
+        "curve_type": null,
+        "quality": null,
+        "notes": null
+      },
+      "source_refs": [
+        {
+          "source_id": "synthetic-deed",
+          "source_sha256": null,
+          "occurrence_id": "exhibit-a",
+          "page": 1,
+          "page_id": null,
+          "crop_id": null,
+          "span_id": null,
+          "quote": "Synthetic course 3: 100 feet.",
+          "uncertainty": null
+        }
+      ]
+    },
+    {
+      "call_id": "c4",
+      "call": {
+        "course": 4,
+        "direction_text": "Synthetic course 4",
+        "bearing_quadrant": null,
+        "bearing_azimuth_deg_from_north": 0.0,
+        "distance_ft": 100.0,
+        "curve_dir": null,
+        "radius_ft": null,
+        "delta_deg": null,
+        "arc_length_ft": null,
+        "chord_bearing": null,
+        "chord_length_ft": null,
+        "along": null,
+        "to": null,
+        "monument_status": null,
+        "monument_type": null,
+        "is_exception": false,
+        "non_tangent": false,
+        "radial_bearing": null,
+        "is_meander": false,
+        "is_tie_in": false,
+        "is_indefinite": false,
+        "curve_type": null,
+        "quality": null,
+        "notes": null
+      },
+      "source_refs": [
+        {
+          "source_id": "synthetic-deed",
+          "source_sha256": null,
+          "occurrence_id": "exhibit-a",
+          "page": 1,
+          "page_id": null,
+          "crop_id": null,
+          "span_id": null,
+          "quote": "Synthetic course 4: 100 feet.",
+          "uncertainty": null
+        }
+      ]
+    }
+  ],
+  "frame": {
+    "name": "Synthetic recorded bearings",
+    "basis": "recorded_bearings",
+    "units": "ft",
+    "foot_definition": "unknown_ft"
+  },
+  "precision": null,
+  "scenario_id": null,
+  "baseline_request_sha256": null,
+  "scenario_evidence": null
+}
