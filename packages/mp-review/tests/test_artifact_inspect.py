@@ -1252,3 +1252,36 @@ def test_deeply_nested_json_is_reported_invalid_json(chain):
     path.write_text("[" * depth + "]" * depth, encoding="utf-8")
     result = inspect(chain, "review")
     assert any("invalid_json" in codes(a) for a in result["artifacts"])
+
+
+def test_review_and_plot_displays_depend_on_their_producers(tmp_path):
+    from mp_review.plot import plot_file
+
+    source = tmp_path / "source.json"
+    write_json(
+        source,
+        [
+            {
+                "course": 1,
+                "direction_text": "East",
+                "distance_ft": 100,
+                "bearing_azimuth_deg_from_north": 90,
+            }
+        ],
+    )
+    assert review_file(source, output_dir=tmp_path / "review")["status"] != "error"
+    assert plot_file(source, tmp_path / "plot", input_format="calls")["status"] != "error"
+    result = inspect(tmp_path, "review")
+    for core_kind, display_kind in (("review", "review_display"), ("plot", "plot_display")):
+        core = nodes(result, core_kind)[0]
+        display = nodes(result, display_kind)[0]
+        assert core["id"] in display["dependency_ids"]
+
+
+def test_display_status_follows_invalid_producer(chain):
+    (chain / "review-a" / "calls.json").write_text("[]", encoding="utf-8")
+    result = inspect(chain, "review")
+    core = nodes(result, "review")[0]
+    display = nodes(result, "review_display")[0]
+    assert core["status"] != "present_valid"
+    assert display["status"] != "present_valid"
