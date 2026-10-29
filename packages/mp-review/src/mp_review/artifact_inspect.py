@@ -394,6 +394,7 @@ class _Inspector:
                 )
                 return
             manifest = self.manifest(path)
+            display = self.node("review_display", "review", directory / "review.html")
             if manifest.get("kind") != "review" or manifest.get("recorded_status") not in {
                 "checks_passed",
                 "needs_review",
@@ -455,8 +456,22 @@ class _Inspector:
             for name, expected in declared_artifacts.items():
                 target = self.reference(directory, name)
                 if name == "review.html":
+                    self.run(
+                        display,
+                        lambda target=target, expected=expected: self.check_hash(
+                            display, target, expected
+                        ),
+                    )
                     continue
                 self.check_hash(node, target, expected)
+            if "review.html" not in declared_artifacts:
+                self.issue(
+                    display,
+                    "hash_unavailable",
+                    "Review display output has no declared SHA-256 identity.",
+                    "unverifiable",
+                    self.relative(directory / "review.html"),
+                )
             saved_calls = self.load(directory / "calls.json")
             saved_verification = self.load(directory / "verification.json")
             saved_audit = self.load(directory / "audit.json")
@@ -504,6 +519,13 @@ class _Inspector:
             manifest = self.manifest(path)
             request_path = directory / "plot-input.json"
             geometry_path = directory / "plot-geometry.json"
+            display = self.node("plot_display", "plot", directory / "plot.html")
+            self.run(
+                display,
+                lambda: self.check_hash(
+                    display, directory / "plot.html", manifest.get("html_sha256")
+                ),
+            )
             self.check_hash(node, request_path, manifest.get("plot_input_sha256"))
             self.check_hash(node, geometry_path, manifest.get("plot_geometry_sha256"))
             request = PlotRequest.model_validate(self.load(request_path))
@@ -1434,8 +1456,8 @@ class _Inspector:
             "convert": {"acquisition"},
             "extract": {"selection"},
             "verify": {"review", "dashboard_calculations"},
-            "review": {"review"},
-            "plot": {"plot", "dashboard_plot"},
+            "review": {"review", "review_display"},
+            "plot": {"plot", "plot_display", "dashboard_plot"},
             "dashboard": {"dashboard"},
             "render-map": {"online_map"},
             "compare-descriptions": {"comparison"},
