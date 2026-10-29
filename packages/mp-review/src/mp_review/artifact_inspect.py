@@ -394,7 +394,6 @@ class _Inspector:
                 )
                 return
             manifest = self.manifest(path)
-            display = self.node("review_display", "review", directory / "review.html")
             if manifest.get("kind") != "review" or manifest.get("recorded_status") not in {
                 "checks_passed",
                 "needs_review",
@@ -405,6 +404,18 @@ class _Inspector:
                     "Review kind and separately recorded canonical status must be valid declared values.",
                 )
             node["recorded_canonical_status"] = manifest["recorded_status"]
+            declared_artifacts = manifest.get("artifacts")
+            display = self.node("review_display", "review", directory / "review.html")
+            self.run(
+                display,
+                lambda: self.check_hash(
+                    display,
+                    directory / "review.html",
+                    declared_artifacts.get("review.html")
+                    if isinstance(declared_artifacts, dict)
+                    else None,
+                ),
+            )
             source = manifest.get("input")
             parameters = manifest.get("parameters")
             if (
@@ -441,7 +452,6 @@ class _Inspector:
                 input_kind=source["kind"],
                 input_path=self.relative(source_path),
             )
-            declared_artifacts = manifest.get("artifacts")
             if not isinstance(declared_artifacts, dict) or not {
                 "calls.json",
                 "verification.json",
@@ -454,24 +464,10 @@ class _Inspector:
                     "unverifiable",
                 )
             for name, expected in declared_artifacts.items():
-                target = self.reference(directory, name)
                 if name == "review.html":
-                    self.run(
-                        display,
-                        lambda target=target, expected=expected: self.check_hash(
-                            display, target, expected
-                        ),
-                    )
                     continue
+                target = self.reference(directory, name)
                 self.check_hash(node, target, expected)
-            if "review.html" not in declared_artifacts:
-                self.issue(
-                    display,
-                    "hash_unavailable",
-                    "Review display output has no declared SHA-256 identity.",
-                    "unverifiable",
-                    self.relative(directory / "review.html"),
-                )
             saved_calls = self.load(directory / "calls.json")
             saved_verification = self.load(directory / "verification.json")
             saved_audit = self.load(directory / "audit.json")
