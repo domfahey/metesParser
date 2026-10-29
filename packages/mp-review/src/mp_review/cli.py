@@ -472,6 +472,7 @@ def _execute_delivery(args: argparse.Namespace, settings: dict[str, Any]) -> dic
             "status": "needs_review",
             "errors": [],
             "artifacts": {},
+            "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
             "snapshot": snapshot.model_dump(mode="json"),
         }
     except (OSError, ValueError, KeyError, TypeError) as exc:

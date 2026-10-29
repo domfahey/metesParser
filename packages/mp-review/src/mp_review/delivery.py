@@ -179,11 +179,20 @@ def prepare_delivery(
             "Required drawn labels/appearance are unsupported in requested CAD/GIS format"
         )
     for fmt in request.formats:
-        if fmt in ("dxf", "geojson") and request.labels:
+        if fmt not in ("dxf", "geojson"):
+            continue
+        # CAD/GIS carry real coordinates: never rotate them, but always disclose it.
+        omitted = []
+        if request.labels:
+            omitted.append("Drawn labels")
+        if request.presentation_rotation_deg != 0:
+            omitted.append("Presentation rotation")
+        if omitted:
             omissions.append(
                 DeliveryOmission(
                     format=fmt,
-                    reason="Drawn labels and presentation rotation are omitted; source values and identity remain in properties/sidecars",
+                    reason=f"{' and '.join(omitted)} omitted (coordinates are not rotated); "
+                    "source values and identity remain in properties/sidecars",
                 )
             )
     for selection in request.layers:

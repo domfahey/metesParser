@@ -513,3 +513,63 @@ def test_failed_publish_does_not_strand_request_id(tmp_path, monkeypatch):
     assert not (tmp_path / "exports/package/pending.json").exists()
     retry = publish_delivery(bundle, revision, req, tmp_path / "exports")
     assert retry["status"] == "needs_review", retry
+
+
+@pytest.mark.parametrize("fmt", ["dxf", "geojson"])
+def test_rotation_without_labels_records_disclosed_omission_for_cad_gis(tmp_path, fmt):
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    data["presentation_rotation_deg"] = 30.0
+    data["formats"] = ["svg", fmt]
+    data["labels"] = []
+    req = DeliveryRequest.model_validate(data)
+    snapshot = prepare_delivery(bundle, revision, req)
+    omitted = [o for o in snapshot.omissions if o.format == fmt]
+    assert omitted and "rotation" in omitted[0].reason.lower()
+    assert not [o for o in snapshot.omissions if o.format == "svg"]
+    response = publish_delivery(bundle, revision, req, tmp_path / "exports")
+    assert response["status"] == "needs_review", response
+    assert any(o["format"] == fmt for o in response["omissions"])
+
+
+def test_geojson_coordinates_ignore_presentation_rotation(tmp_path):
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    data["formats"] = ["geojson"]
+    data["labels"] = []
+    rotated = DeliveryRequest.model_validate({**data, "presentation_rotation_deg": 30.0})
+    flat = DeliveryRequest.model_validate({**data, "id": "flat"})
+    publish_delivery(bundle, revision, rotated, tmp_path / "exports")
+    publish_delivery(bundle, revision, flat, tmp_path / "exports")
+
+    def geometries(name):
+        text = (tmp_path / "exports" / name / "drawing.geojson").read_text()
+        return [f["geometry"] for f in json.loads(text)["features"]]
+
+    assert geometries("package") == geometries("flat")
+
+
+def test_inspect_delivery_surfaces_rotation_omission(tmp_path, monkeypatch, capsys):
+    from mp_review.cli import main
+
+    bundle, revision, data = _placed_corridor_request(tmp_path)
+    data["presentation_rotation_deg"] = 30.0
+    data["labels"] = []
+    req = DeliveryRequest.model_validate(data)
+    assert publish_delivery(bundle, revision, req, tmp_path / "exports")["status"] == "needs_review"
+    bundle_path = tmp_path / "bundle.json"
+    bundle_path.write_text(bundle.model_dump_json())
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "metes-review",
+            "inspect-delivery",
+            str(bundle_path),
+            "--revision-dir",
+            str(revision),
+            "--package-dir",
+            str(tmp_path / "exports/package"),
+        ],
+    )
+    with pytest.raises(SystemExit):
+        main()
+    payload = json.loads(capsys.readouterr().out)
+    assert any("rotation" in o["reason"].lower() for o in payload["omissions"])
