@@ -1,8 +1,8 @@
 # Plan 001: Display recorded deed geometry and tax maps over Mapbox
 
-> **Executor instructions:** Read this entire plan and the current `AGENTS.md` before changing code. The parent owns integration, shared contracts, acceptance evidence, and `plans/README.md`. Workers implement only their assigned files. Start each behavior with a failing regression, record the failure, implement the smallest passing change, and rerun the owning test suite. Stop the affected packet and report a concrete blocker when a boundary below cannot be met; independent packets may continue.
+> **Executor instructions:** Read this entire plan and the current `AGENTS.md` before changing code. The parent owns integration, shared contracts, acceptance evidence, and `docs/plans/README.md`. Workers implement only their assigned files. Start each behavior with a failing regression, record the failure, implement the smallest passing change, and rerun the owning test suite. Stop the affected packet and report a concrete blocker when a boundary below cannot be met; independent packets may continue.
 >
-> **Planning status:** No implementation, tests, dependency installation, build, commit, or live Mapbox acceptance was performed while preparing this plan. Three read-only subagents inspected geometry/registration, viewer/runtime integration, and tests/skills/distribution. Proposed files, APIs, commands, and test names below do not exist yet unless identified as current.
+> **Status:** This plan is an implementation handoff and acceptance record. Local implementation and gates are complete; remaining live-provider and native plugin-host acceptance status is tracked in `docs/plans/README.md`.
 
 ## Status and objective
 
@@ -25,7 +25,7 @@ Run from the repository root:
 ```sh
 git status --short --branch
 git worktree list --porcelain
-git diff --stat f05338f93adeb88f1f4fe8b0e43cd1f30a60493b..HEAD -- packages/mp-models packages/mp-review packages/mp-export src/metesparser/dashboard.py scripts/build_claude_plugin.py scripts/check_dashboard_browser.py plugins/metesparser tests pyproject.toml uv.lock Makefile AGENTS.md README.md docs plans
+git diff --stat f05338f93adeb88f1f4fe8b0e43cd1f30a60493b..HEAD -- packages/mp-models packages/mp-review packages/mp-export src/metesparser/dashboard.py scripts/build_claude_plugin.py scripts/check_dashboard_browser.py plugins/metesparser tests pyproject.toml uv.lock Makefile AGENTS.md README.md docs
 ```
 
 Expected: identify the actual branch and all current edits before dispatch. Compare any changed implementation against the excerpts below. If an API has drifted, parent revises this plan before workers depend on it. Do not reset, stash, delete, or rebase someone else's work to match this SHA.
@@ -453,7 +453,7 @@ Use one prompt per owned packet. Supply the absolute repository path, packet let
 
 ```text
 Work in /Users/dfahey/projects/metesParser. Read AGENTS.md and
-plans/001-mapbox-online-viewer.md completely. Implement packet <LETTER> only.
+docs/plans/2026-10-27-mapbox-online-viewer.md completely. Implement packet <LETTER> only.
 The parent has completed P0 and frozen the contracts at <CURRENT SHA/STATE>.
 Your exclusive files are the packet's ownership row and named tests/fixtures.
 You are not alone in this codebase. Preserve all existing dirty work and other
@@ -514,7 +514,7 @@ Execution notes:
 
 ## Optional Mapbox MCP handoff follow-up
 
-Implemented on 2026-10-27 through three subagents, retaining the existing eight skills. The dashboard skill links to [the MCP procedure](../plugins/metesparser/skills/deed-closure-dashboard/references/mapbox-mcp.md). `metes-review mapbox-mcp EXISTING_DASHBOARD_DIR --output-dir NEW_DIR` validates retained source/request/artifact hashes and local fallback files, then emits exact vector arguments plus a local provenance/omission report. Shared identity validation lives in `mp_verify.webmap`; `mp_export.mapbox_mcp` performs only serialization. The handoff never projects, warps, calls a provider, or grants verified status. CRS/unit validation still requires the geo runtime.
+Implemented on 2026-10-27 through three subagents, retaining the existing eight skills. The dashboard skill links to [the MCP procedure](../../plugins/metesparser/skills/deed-closure-dashboard/references/mapbox-mcp.md). `metes-review mapbox-mcp EXISTING_DASHBOARD_DIR --output-dir NEW_DIR` validates retained source/request/artifact hashes and local fallback files, then emits exact vector arguments plus a local provenance/omission report. Shared identity validation lives in `mp_verify.webmap`; `mp_export.mapbox_mcp` performs only serialization. The handoff never projects, warps, calls a provider, or grants verified status. CRS/unit validation still requires the geo runtime.
 
 The adapter pins the upstream contract to commit `6ee4589df5433234969bc525d9342bb7210a529f`, preserves coordinates and feature IDs, keeps closure annotations separate, omits rasters explicitly, and refuses requests over a conservative 48 KiB budget without simplifying geometry. Existing local views retain scans and source-page review.
 
@@ -530,7 +530,7 @@ The adapter pins the upstream contract to commit `6ee4589df5433234969bc525d9342b
 | Connected Mapbox schema/call and OAuth | not run | No Mapbox MCP tool connected in this session; no provider configuration or authentication changed |
 | Visible Claude MCP Apps map | not run | Requires a connected server and native-client visual acceptance |
 
-Browser lanes were not rerun for this serializer/validator extraction; their preceding GL JS evidence is recorded above and does not substitute for MCP acceptance. The [manual testing guide](../docs/CONTRIBUTING.md#manual-mapbox-smoke-test) now supplies a reusable synthetic fixture and separate MCP/local-viewer steps. Its fixture, dashboard, and MCP-generation commands were executed successfully; authentication and live rendering remain the separate gates above.
+Browser lanes were not rerun for this serializer/validator extraction; their preceding GL JS evidence is recorded above and does not substitute for MCP acceptance. The [manual testing guide](../CONTRIBUTING.md#manual-mapbox-smoke-test) now supplies a reusable synthetic fixture and separate MCP/local-viewer steps. Its fixture, dashboard, and MCP-generation commands were executed successfully; authentication and live rendering remain the separate gates above.
 
 ## Stop conditions and maintenance
 
