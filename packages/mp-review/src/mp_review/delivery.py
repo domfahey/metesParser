@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import importlib.metadata
+import math
 import re
 from pathlib import Path
 from typing import Any
@@ -526,6 +527,46 @@ def _orient_rfc7946(geometry: dict[str, Any]) -> None:
                 rings[index] = ring[::-1]
 
 
+def _delivery_extent(
+    snapshot: DeliverySnapshot, scene: PlotScene
+) -> tuple[float, float, float, float] | None:
+    """Scene-XY bounds of the visible geometry GeoJSON will carry (operation selection only)."""
+    from mp_verify.plot import transform_point
+
+    from .webmap import _primitive_point
+
+    points: list[tuple[float, float]] = []
+    for item in snapshot.items:
+        if not item.selection.visible:
+            continue
+        if item.plot and item.placement:
+            for primitive in item.plot.geometry.primitives:
+                for t in (0, 0.25, 0.5, 0.75, 1):
+                    points.append(
+                        transform_point(
+                            _primitive_point(primitive, t),
+                            item.placement,
+                            native_units=item.plot.request.foot_definition,
+                            scene_units=scene.units,
+                        )
+                    )
+        elif item.vector:
+            layer = item.vector
+            polygons = (
+                (layer.coordinates,) if layer.geometry_type == "Polygon" else layer.coordinates
+            )
+            points.extend((p[0], p[1]) for polygon in polygons for ring in polygon for p in ring)
+    finite = [p for p in points if all(math.isfinite(v) for v in p)]
+    if not finite:
+        return None
+    return (
+        min(p[0] for p in finite),
+        min(p[1] for p in finite),
+        max(p[0] for p in finite),
+        max(p[1] for p in finite),
+    )
+
+
 def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, Any]:
     """Reuse the shared geographic sampler/projection, with original placement evidence."""
     from mp_models.webmap import WebMapOptions
@@ -536,7 +577,11 @@ def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, A
     scene = next(
         s for s in (*bundle.scenes, *snapshot.request.scenes) if s.id == snapshot.request.scene_id
     )
-    projection = build_web_map_projection(scene)
+    # delivery-1 packages were published without an area-of-use check; replay them as such.
+    extent = (
+        None if snapshot.exporter_version == "delivery-1" else _delivery_extent(snapshot, scene)
+    )
+    projection = build_web_map_projection(scene, extent=extent)
     options = WebMapOptions(tolerance_m=snapshot.request.geo_tolerance_m)
     budget = _Budget(options.max_vertices)
     features = []
