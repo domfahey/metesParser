@@ -500,9 +500,9 @@ def _validate_identities(bundle: DashboardBundle, revision: DashboardRevision) -
                 )
                 if hasattr(item, "id")
             }
-            if revision.schema_version != "1.1" or edit.call_id in known_ids:
+            if revision.schema_version not in ("1.1", "1.2") or edit.call_id in known_ids:
                 raise ValueError(
-                    "Added call/tombstone requires schema 1.1 and a distinct stable identity"
+                    "Added call/tombstone requires schema 1.1 or 1.2 and a distinct stable identity"
                 )
             added_occurrence = occurrences.get(edit.occurrence_id)
             if (

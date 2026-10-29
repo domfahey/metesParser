@@ -321,3 +321,13 @@ def test_boundary_plot_origin_is_explicit_and_reproduces_centerline_frame_points
         assert (primitive.start[0] + origin[0], primitive.start[1] + origin[1]) == pytest.approx(
             expected, abs=result.error.floating_point_bound
         )
+
+
+def test_floating_point_end_fraction_on_arc_is_clamped_not_unsupported():
+    req = request(
+        [line("before", 100, 0), arc("bend", 100, 90, tangent=0)],
+        [width(start="before", end="bend", left=(20, 20), right=(10, 10))],
+    )
+    result = analyze_corridor(req)
+    assert result.availability == "supported", result.limitations
+    assert result.boundary.geometry.area_sq_ft > 0
