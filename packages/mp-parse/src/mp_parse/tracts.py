@@ -53,6 +53,23 @@ _POB_CLOSE_PATTERN = re.compile(
 )
 
 
+def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
+    """Return whether a TRACT/PARCEL match heads a description.
+
+    Neighbour references ("corner of Parcel 2", "Lot 5 of Tract 4567") sit in
+    the middle of a sentence. A heading starts the text, a line or a sentence,
+    or is explicitly followed by a colon ("Description of PARCEL 1: ...").
+    """
+    prefix = text[: match.start()]
+    if not prefix.strip():
+        return True
+    if "\n" in prefix[len(prefix.rstrip()) :]:
+        return True
+    if prefix.rstrip().endswith("."):
+        return True
+    return ":" in match.group(0)
+
+
 def find_tract_markers(
     text: str,
 ) -> list[tuple[int, str, str]]:
@@ -62,9 +79,11 @@ def find_tract_markers(
     """
     markers: list[tuple[int, str, str]] = []
     for m in _TRACT_MARKER.finditer(text):
-        markers.append((m.start(), f"Tract {m.group(1)}", "tract"))
+        if _is_heading_marker(text, m):
+            markers.append((m.start(), f"Tract {m.group(1)}", "tract"))
     for m in _PARCEL_MARKER.finditer(text):
-        markers.append((m.start(), f"Parcel {m.group(1)}", "parcel"))
+        if _is_heading_marker(text, m):
+            markers.append((m.start(), f"Parcel {m.group(1)}", "parcel"))
     markers.sort(key=lambda x: x[0])
     return markers
 
