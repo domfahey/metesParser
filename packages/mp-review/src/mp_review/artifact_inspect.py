@@ -928,6 +928,12 @@ class _Inspector:
                 )
             fresh = self.contexts[str(directory)]
             render = self.load(directory / "render-manifest.json")
+            if not isinstance(render, dict):
+                raise _Issue(
+                    "invalid_manifest",
+                    "Dashboard render manifest must be an object.",
+                    path=self.relative(directory / "render-manifest.json"),
+                )
             if (
                 render.get("presentation_hash") != fresh.manifest.presentation_hash
                 or render.get("renderer_sha256") != renderer_fingerprint()
