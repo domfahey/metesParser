@@ -94,12 +94,8 @@ def staged_standalone(directory: Path) -> Path:
 def stage_with_real_renderer(directory: Path) -> Path:
     source = directory.parent / "standalone-input.json"
     source.parent.mkdir(parents=True, exist_ok=True)
-    source.write_text(
-        _json(standalone_input().model_dump(mode="json")), encoding="utf-8"
-    )
-    result = render_map_file(
-        source, directory, online_map=WebMapRequest(scene_id="grid")
-    )
+    source.write_text(_json(standalone_input().model_dump(mode="json")), encoding="utf-8")
+    result = render_map_file(source, directory, online_map=WebMapRequest(scene_id="grid"))
     assert result["status"] == "needs_review", result
     assert result["online_map_availability"] == "ready", result
     return directory
