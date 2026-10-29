@@ -172,7 +172,12 @@ def _validate_export_geometry(
             f"Misclosure: {fresh_result.misclosure_ft:.4f} ft, "
             f"Warnings: {len(fresh_result.warnings)}"
         )
-    if closure_result.model_dump() != fresh_result.model_dump():
+    # Source review is an explicit human assessment, independent of fresh geometry.
+    excluded = {"source_review_status"}
+    if not {"checks", "source_review_status"} & closure_result.model_fields_set:
+        # Historical results lack structured checks and used an older heuristic score.
+        excluded.update({"checks", "confidence_score"})
+    if closure_result.model_dump(exclude=excluded) != fresh_result.model_dump(exclude=excluded):
         raise ValueError("Cannot export verified CSV: closure result does not match selected calls")
     return selected_calls
 

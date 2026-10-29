@@ -1,0 +1,258 @@
+{
+  "schema_version": "1.0",
+  "title": "Synthetic relative rectangle",
+  "documents": [
+    {
+      "id": "doc-one",
+      "label": "Synthetic deed",
+      "source_name": "synthetic.txt",
+      "expected_page_count": 1
+    }
+  ],
+  "pages": [
+    {
+      "id": "page-one",
+      "document_id": "doc-one",
+      "number": 1,
+      "label": "Synthetic page 1",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aLc8AAAAASUVORK5CYII=",
+      "image_sha256": "660cae90f2982c50d6c59c53d97ed3cb3a6fc775a24f454e8cdf2873aa1d7f61",
+      "reading_status": "read"
+    }
+  ],
+  "parcels": [
+    {
+      "id": "parcel-one",
+      "label": "Synthetic parcel"
+    }
+  ],
+  "occurrences": [
+    {
+      "id": "occ-one",
+      "parcel_id": "parcel-one",
+      "version_label": "Synthetic relative version",
+      "page_ids": [
+        "page-one"
+      ],
+      "transcript": "  100 feet; at interior angle 90 degrees, 50 feet; at interior angle 90 degrees, 100 feet; at interior angle 90 degrees, 50 feet; closing interior angle 90 degrees.\n",
+      "reading_status": "read",
+      "source_review_status": "reviewed"
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-one",
+      "occurrence_id": "occ-one",
+      "page_id": "page-one",
+      "quote": "  Course 1: 100 feet.  ",
+      "reading_status": "certain",
+      "distance_text": "100 feet",
+      "call": {
+        "course": 1,
+        "direction_text": "northwardly",
+        "distance_ft": 100,
+        "bearing_azimuth_deg_from_north": null,
+        "notes": "incomplete bearing - cardinal only"
+      },
+      "stated_angle_text": "90 degrees",
+      "stated_angle_type": "interior"
+    },
+    {
+      "id": "call-two",
+      "occurrence_id": "occ-one",
+      "page_id": "page-one",
+      "quote": "  Course 2: 50 feet.  ",
+      "reading_status": "certain",
+      "distance_text": "50 feet",
+      "call": {
+        "course": 2,
+        "direction_text": "northwardly",
+        "distance_ft": 50,
+        "bearing_azimuth_deg_from_north": null,
+        "notes": "incomplete bearing - cardinal only"
+      },
+      "stated_angle_text": "90 degrees",
+      "stated_angle_type": "interior"
+    },
+    {
+      "id": "call-three",
+      "occurrence_id": "occ-one",
+      "page_id": "page-one",
+      "quote": "  Course 3: 100 feet.  ",
+      "reading_status": "certain",
+      "distance_text": "100 feet",
+      "call": {
+        "course": 3,
+        "direction_text": "northwardly",
+        "distance_ft": 100,
+        "bearing_azimuth_deg_from_north": null,
+        "notes": "incomplete bearing - cardinal only"
+      },
+      "stated_angle_text": "90 degrees",
+      "stated_angle_type": "interior"
+    },
+    {
+      "id": "call-four",
+      "occurrence_id": "occ-one",
+      "page_id": "page-one",
+      "quote": "  Course 4: 50 feet.  ",
+      "reading_status": "certain",
+      "distance_text": "50 feet",
+      "call": {
+        "course": 4,
+        "direction_text": "northwardly",
+        "distance_ft": 50,
+        "bearing_azimuth_deg_from_north": null,
+        "notes": "incomplete bearing - cardinal only"
+      },
+      "stated_angle_text": "90 degrees",
+      "stated_angle_type": "interior"
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence-one",
+      "occurrence_id": "occ-one",
+      "page_id": "page-one",
+      "call_id": "call-one",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aLc8AAAAASUVORK5CYII=",
+      "image_sha256": "660cae90f2982c50d6c59c53d97ed3cb3a6fc775a24f454e8cdf2873aa1d7f61",
+      "label": "Synthetic first distance",
+      "bounds_px": [
+        0,
+        0,
+        1,
+        1
+      ]
+    }
+  ],
+  "calculations": [
+    {
+      "id": "calc-one",
+      "occurrence_id": "occ-one",
+      "method": "relative",
+      "frame": {
+        "basis": "arbitrary_local",
+        "units": "ft",
+        "name": "Arbitrary local north, feet"
+      },
+      "assumptions": [
+        "Declared clockwise traversal; arbitrary initial local north."
+      ],
+      "relative": {
+        "frame": {
+          "name": "Arbitrary local north, feet",
+          "first_azimuth_deg": 0,
+          "origin": [
+            0,
+            0
+          ],
+          "orientation": "cw"
+        },
+        "courses": [
+          {
+            "course_id": "call-one",
+            "distance_ft": 100,
+            "source": {
+              "reference": "call-one",
+              "quote": "  Course 1: 100 feet.  "
+            }
+          },
+          {
+            "course_id": "call-two",
+            "distance_ft": 50,
+            "source": {
+              "reference": "call-two",
+              "quote": "  Course 2: 50 feet.  "
+            }
+          },
+          {
+            "course_id": "call-three",
+            "distance_ft": 100,
+            "source": {
+              "reference": "call-three",
+              "quote": "  Course 3: 100 feet.  "
+            }
+          },
+          {
+            "course_id": "call-four",
+            "distance_ft": 50,
+            "source": {
+              "reference": "call-four",
+              "quote": "  Course 4: 50 feet.  "
+            }
+          }
+        ],
+        "constraints": [
+          {
+            "constraint_id": "angle-0",
+            "kind": "interior",
+            "from_course": "call-one",
+            "to_course": "call-two",
+            "angle_deg": 90,
+            "source": {
+              "reference": "page-one",
+              "quote": "at interior angle 90 degrees"
+            }
+          },
+          {
+            "constraint_id": "angle-1",
+            "kind": "interior",
+            "from_course": "call-two",
+            "to_course": "call-three",
+            "angle_deg": 90,
+            "source": {
+              "reference": "page-one",
+              "quote": "at interior angle 90 degrees"
+            }
+          },
+          {
+            "constraint_id": "angle-2",
+            "kind": "interior",
+            "from_course": "call-three",
+            "to_course": "call-four",
+            "angle_deg": 90,
+            "source": {
+              "reference": "page-one",
+              "quote": "at interior angle 90 degrees"
+            }
+          },
+          {
+            "constraint_id": "angle-3",
+            "kind": "interior",
+            "from_course": "call-four",
+            "to_course": "call-one",
+            "angle_deg": 90,
+            "source": {
+              "reference": "page-one",
+              "quote": "at interior angle 90 degrees"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "scenario-one",
+      "label": "Hypothetical 0.5 ft change",
+      "calculation_id": "calc-one",
+      "edits": [
+        {
+          "call_id": "call-one",
+          "distance_ft": 100.5,
+          "rationale": "Synthetic sensitivity example; not a source correction",
+          "evidence_ids": [
+            "evidence-one"
+          ]
+        }
+      ]
+    }
+  ],
+  "presentation": {
+    "subtitle": "Analytic fixture only",
+    "method_notes": [
+      "No property evidence. Synthetic figures only."
+    ]
+  }
+}

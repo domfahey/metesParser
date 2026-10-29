@@ -72,12 +72,14 @@ def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> 
         closure_score = max(0.0, 0.3 - result.misclosure_ft * 0.02)
 
     # Verification checks (20%)
-    checks_passed = sum(
-        [
-            result.angle_check_passed,
-            result.curve_consistency_passed,
-        ]
-    )
+    if result.checks:
+        checks_passed = sum(
+            check.status == "passed"
+            for check in result.checks
+            if check.name in {"interior_angles", "curve_consistency"}
+        )
+    else:
+        checks_passed = sum([result.angle_check_passed, result.curve_consistency_passed])
     checks_score = checks_passed / 2.0
 
     # Bearing completeness (25%)

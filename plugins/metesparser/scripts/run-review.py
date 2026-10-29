@@ -63,8 +63,16 @@ def validate_runtime(runtime: Path) -> tuple[str | None, str | None]:
 
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
-    if len(args) < 2 or args[0] not in {"review", "verify", "corpus"}:
-        return emit_error("Usage: run-review.py {review|verify|corpus} INPUT [engine options]")
+    if len(args) < 2 or args[0] not in {
+        "review",
+        "verify",
+        "analyze-relative",
+        "dashboard",
+        "corpus",
+    }:
+        return emit_error(
+            "Usage: run-review.py {review|verify|analyze-relative|dashboard|corpus} INPUT [engine options]"
+        )
     if not any(arg == "--settings" or arg.startswith("--settings=") for arg in args):
         args.extend(["--settings", str(Path.cwd() / ".claude" / "metesparser.local.md")])
     uv = shutil.which("uv")
