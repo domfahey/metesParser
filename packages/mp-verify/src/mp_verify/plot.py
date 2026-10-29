@@ -52,6 +52,12 @@ def _finite(point: XY) -> XY:
     return point
 
 
+# Deeds state angles to whole arcseconds (+/-0.5" each for tangent, chord and
+# delta, i.e. up to ~1.25" combined); 1.5" absorbs that rounding while
+# arcminute-scale disagreement remains rejected.
+TANGENT_CHORD_TOLERANCE_DEG = 1.5 / 3600
+
+
 def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
     if call.radius_ft is None or call.curve_dir is None:
         raise ValueError("curve radius and direction unresolved")
@@ -76,7 +82,7 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
         tangent = (chord - sign * sweep / 2) % 360
         if call.bearing_azimuth_deg_from_north is not None and not call.non_tangent:
             residual = (tangent - call.bearing_azimuth_deg_from_north + 180) % 360 - 180
-            if abs(residual) > 1e-6:
+            if abs(residual) > TANGENT_CHORD_TOLERANCE_DEG:
                 raise ValueError("inconsistent tangent and chord angular evidence")
     elif call.bearing_azimuth_deg_from_north is not None and not call.non_tangent:
         tangent = call.bearing_azimuth_deg_from_north
