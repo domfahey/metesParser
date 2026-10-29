@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "purpose": "computed_reference_geometry",
+  "dataset": {
+    "id": "synthetic-dataset",
+    "version": "synthetic-1",
+    "authority_citation": "Supplied synthetic rectangular reference; no government data was fetched.",
+    "scene": {
+      "id": "synthetic-grid",
+      "name": "Synthetic projected frame",
+      "kind": "projected",
+      "crs": "EPSG:3857",
+      "units": "m",
+      "axis_order": "xy",
+      "basis": "grid"
+    },
+    "source": {
+      "id": "synthetic-survey",
+      "label": "Synthetic supplied coordinate sheet",
+      "sha256": "7d783f90d38533a1c92384875be0fc9cea8a987edfb62776c82e3e94190e3e82",
+      "filename": null,
+      "url": null,
+      "provider": null,
+      "retrieved_at": null,
+      "source_date": "2026-10-28",
+      "native_crs": "EPSG:3857",
+      "native_units": "m",
+      "axis_order": "xy",
+      "feature_ids": [],
+      "processing_history": [],
+      "data_base64": "U1lOVEhFVElDIFNVUFBMSUVEIFJFRkVSRU5DRTogU1coMCwwKSwgU0UoODAsMCksIE5FKDgwLDQwKSwgTlcoMCw0MCkgbWV0ZXJzLiBOb3QgYSBzdXJ2ZXllZCByZWNvcmQuCg=="
+    },
+    "references": [
+      {
+        "id": "synthetic-section",
+        "section": {
+          "principal_meridian": "Synthetic Meridian",
+          "township": 1,
+          "township_direction": "N",
+          "range": 1,
+          "range_direction": "E",
+          "section": 1
+        },
+        "subdivision_class": "rectangular",
+        "corners": [
+          {
+            "name": "SW",
+            "xy": [
+              0.0,
+              0.0
+            ],
+            "source_id": "synthetic-survey"
+          },
+          {
+            "name": "SE",
+            "xy": [
+              80.0,
+              0.0
+            ],
+            "source_id": "synthetic-survey"
+          },
+          {
+            "name": "NE",
+            "xy": [
+              80.0,
+              40.0
+            ],
+            "source_id": "synthetic-survey"
+          },
+          {
+            "name": "NW",
+            "xy": [
+              0.0,
+              40.0
+            ],
+            "source_id": "synthetic-survey"
+          }
+        ]
+      }
+    ]
+  },
+  "selected_dataset_id": "synthetic-dataset",
+  "selected_reference_id": "synthetic-section",
+  "section": {
+    "principal_meridian": "Synthetic Meridian",
+    "township": 1,
+    "township_direction": "N",
+    "range": 1,
+    "range_direction": "E",
+    "section": 1
+  },
+  "rule": "rectangular_aliquot_v1",
+  "aliquot_steps": [
+    "N2"
+  ]
+}
