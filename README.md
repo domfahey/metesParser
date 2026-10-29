@@ -42,15 +42,21 @@ This repository is a **prototype** exploring whether AI can assist with that wor
 - **Run Registry** - Track prompt versions and extraction results for A/B comparison across runs
 - **Composable Packages** - 8 independently installable packages in a uv workspace monorepo
 - **Source Evidence and Resume Guidance** - Read-only validation of acquisition/selection records and inspection of saved artifacts, dependencies, and restart points
-- **Closure Diagnostics** - Source-linked straight-course sensitivities and separate hypothetical scenarios; no automatic correction
-- **Description Comparison** - Explicit straight-line pairs/groups and tentative structural differences, with declared units, bearing bases, and optional placement evidence
+- **Closure Diagnostics** - Source-linked straight-course and supported circular-arc sensitivities, with separate hypothetical scenarios; no automatic correction
+- **Description Comparison** - Explicit straight/arc pairs and groups, tentative structural differences, declared units and bearing bases, and optional placement evidence
 - **Review Views** - Independent plots, explicit dashboards, and optional online maps with per-scan opacity/order and separate fit/checkpoint evidence
+- **Durable Revisions** - Save exact drafts and source-correction evidence under stable identities; publish immutable generations and regenerate shared views from the selected revision
+- **Structured Editing** - Edit line and circular-arc calls through the shared revision path; the immediate browser preview is straight-course only
+- **Review-Package Delivery** - Freeze published revisions as SVG, PDF, DXF, and GeoJSON with independent inspection and explicit coordinate/layer choices
+- **Corridor Geometry** - Preserve centerline width intervals, tapers, joins, caps, and approximation budgets through schema 1.2 revisions and delivery
+- **Supplied PLSS References** - Derive geometry only from an identified supplied reference dataset under the supported rectangular rule; PLSS text alone does not establish section geometry
+- **Raster Control-Point Picker** - Record pixel controls for raster registration; controls do not place deed geometry
 
 ## Claude Plugin Skills
 
-The [MetesParser plugin catalog](plugins/metesparser/README.md) documents ten skill entrypoints: seven capabilities (document transcription, description extraction, traverse verification, plotting, overlay preparation, online map rendering, and description comparison), two workflows (boundary review and the explicitly requested dashboard), and the `review-deed` alias for boundary review. Source validation, closure diagnosis, and artifact inspection are shared utilities used by these skills. Skills are an instruction and routing layer over the existing Python packages; they are not new parsing or verification engines. Local implementation evidence and remaining acceptance gates are tracked in the [evidence ledger](docs/implementation/2026-10-28-evidence-review-ledger.md).
+The [MetesParser plugin catalog](plugins/metesparser/README.md) documents thirteen skill entrypoints: ten capabilities (document conversion, description extraction, traverse verification, plotting, overlay preparation, online maps, description comparison, corridors, supplied PLSS references, and review-package export), two workflows (boundary review and the explicitly requested dashboard), and the `review-deed` compatibility alias. Source validation, closure diagnosis, artifact inspection, revision management, and delivery inspection are shared utilities used by these skills. Skills route work through existing Python packages; they are not separate parsing or verification engines. See the [Cowork implementation ledger](docs/implementation/2026-10-28-cowork-workflow-ledger.md) for local evidence and remaining acceptance gates.
 
-The plugin uses Claude's native document/image reading and description selection, then deterministic `mp-review` operations. The separate Python PDF pipeline uses OpenAI/Gemini through `mp-ocr`. Use the [shared artifact handoff contract](plugins/metesparser/references/artifact-handoffs.md) for inputs, stopping points, reuse, and status boundaries. Verification, plotting, and overlay preparation can be requested independently; a dashboard requires explicit `DashboardBundle` assembly. See the [composition architecture](docs/ARCHITECTURE.md#skill-composition) for how these paths fit together.
+The plugin is designed to use Claude's native document/image reading and description selection, followed by deterministic `mp-review` operations. Native Claude/Cowork sessions have not passed acceptance; local tests and extracted-plugin checks do not establish native reading quality or skill discovery. The separate Python PDF pipeline uses OpenAI/Gemini through `mp-ocr`. Use the [shared artifact handoff contract](plugins/metesparser/references/artifact-handoffs.md) for inputs, stopping points, reuse, and status boundaries. Verification, plotting, and overlay preparation can be requested independently; a dashboard requires explicit `DashboardBundle` assembly. See the [composition architecture](docs/ARCHITECTURE.md#skill-composition) for how these paths fit together.
 
 ## v0.5.0 Foundation (Historical)
 
@@ -145,7 +151,25 @@ Use a new output directory for each producing command. See the [source-record](p
 
 Completed advisory operations intentionally return `needs_review` and exit **1**, including valid source records, usable artifacts, supported diagnosis, and matching comparison results. Invalid input returns `error` and exit **2**. Canonical review/verification can return `checks_passed` and exit **0**; this reports engine checks, not source accuracy or legal correctness. Plotting, diagnosis, comparison, and map/dashboard rendering do not grant verified-export eligibility.
 
-Local engine, browser, and extracted-plugin checks are recorded in the [implementation ledger](docs/implementation/2026-10-28-evidence-review-ledger.md). Native paired-model/document-reading acceptance and live Mapbox/native-client display remain separate outstanding gates; local checks do not establish them.
+Local engine, browser, and extracted-plugin checks are recorded in the [implementation ledger](docs/implementation/2026-10-28-evidence-review-ledger.md) and the [Cowork workflow ledger](docs/implementation/2026-10-28-cowork-workflow-ledger.md). Native Claude/Cowork reading and workflow acceptance remains unrun; optional live Mapbox provider acceptance is also separate. Local checks do not establish either gate.
+
+### Durable Revisions and Derived Geometry
+
+The deterministic CLI also supports immutable revision publication, fresh revision views, corridor analysis, supplied-reference PLSS derivation, review-package export, delivery inspection, and the optional raster control-point picker:
+
+```bash
+uv run metes-review revision-template BUNDLE.json --output REVISION.json --revision-id ID
+uv run metes-review save-revision BUNDLE.json --revision REVISION.json --output-dir REVISIONS_DIR
+uv run metes-review inspect-revision BUNDLE.json --revision-dir REVISIONS_DIR/ID
+uv run metes-review render-revision BUNDLE.json --revision-dir REVISIONS_DIR/ID --output-dir NEW_DIR
+uv run metes-review analyze-corridor REQUEST.json --output-dir NEW_DIR
+uv run metes-review derive-plss REQUEST.json --output-dir NEW_DIR
+uv run metes-review export-review BUNDLE.json --revision-dir REVISIONS_DIR/ID --request REQUEST.json --output-dir NEW_DIR
+uv run metes-review inspect-delivery BUNDLE.json --revision-dir REVISIONS_DIR/ID --package-dir PACKAGE_DIR
+uv run metes-review pick-raster IMAGE --controls CONTROLS.json --output-dir NEW_DIR
+```
+
+Revision schema 1.2 preserves exact raw corridor definitions and replays their geometry from the saved revision. Structured line/arc publication and shared revision rendering support arcs; the immediate browser preview is straight-course only. SVG/PDF/DXF/GeoJSON delivery freezes a named published revision. Corridor output does not imply parcel closure; PLSS geometry requires an identified supplied reference and uses only the supported rectangular derivation. Pixel control points support raster registration, not deed placement. See the [plugin usage guide](plugins/metesparser/README.md) and [revision contract](plugins/metesparser/references/revisions.md) for request shapes and status boundaries.
 
 ### Choosing an LLM Provider
 
