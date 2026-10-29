@@ -166,16 +166,18 @@ def test_relative_analysis_does_not_claim_canonical_checks_ran():
     assert "Canonical checks were not run by relative analysis" in rendered
 
 
-def test_renderer_fingerprint_captures_asset_changes_separately(tmp_path, monkeypatch):
+@pytest.mark.parametrize("asset", ["dashboard.css", "revisions.js", "structured_editor.js"])
+def test_renderer_fingerprint_captures_asset_changes_separately(tmp_path, monkeypatch, asset):
     import mp_export.dashboard_html as renderer
 
     assert re.fullmatch(r"[a-f0-9]{64}", renderer_fingerprint())
     assert renderer_fingerprint() == renderer_fingerprint()
-    for name in ("dashboard.css", "dashboard.js"):
-        (tmp_path / name).write_bytes((renderer._ASSETS / name).read_bytes())
+    for path in renderer._ASSETS.iterdir():
+        if path.is_file():
+            (tmp_path / path.name).write_bytes(path.read_bytes())
     monkeypatch.setattr(renderer, "_ASSETS", tmp_path)
     before = renderer_fingerprint()
-    (tmp_path / "dashboard.css").write_text("body { color: navy; }")
+    (tmp_path / asset).write_text("/* Changed presentation asset */")
     assert renderer_fingerprint() != before
 
 
