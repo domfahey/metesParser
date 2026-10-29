@@ -1,0 +1,254 @@
+{
+  "schema_version": "1.0",
+  "title": "Synthetic rectangular parcel",
+  "documents": [
+    {
+      "id": "doc-one",
+      "label": "Synthetic deed",
+      "source_name": "synthetic.txt",
+      "sha256": null,
+      "expected_page_count": 1
+    }
+  ],
+  "pages": [
+    {
+      "id": "page-one",
+      "document_id": "doc-one",
+      "number": 1,
+      "label": "Synthetic page 1",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aLc8AAAAASUVORK5CYII=",
+      "image_sha256": "660cae90f2982c50d6c59c53d97ed3cb3a6fc775a24f454e8cdf2873aa1d7f61",
+      "reading_status": "read",
+      "notes": ""
+    }
+  ],
+  "parcels": [
+    {
+      "id": "parcel-one",
+      "label": "Synthetic parcel"
+    }
+  ],
+  "occurrences": [
+    {
+      "id": "occ-one",
+      "parcel_id": "parcel-one",
+      "version_label": "Synthetic absolute version",
+      "page_ids": [
+        "page-one"
+      ],
+      "transcript": "  BEGINNING; North 100 feet; East 50 feet; South 100 feet; West 50 feet.\n",
+      "reading_status": "uncertain",
+      "source_review_status": "unreviewed",
+      "notes": ""
+    }
+  ],
+  "calls": [
+    {
+      "id": "call-one",
+      "occurrence_id": "occ-one",
+      "page_id": "page-one",
+      "quote": "  Course 1: 100 feet.  ",
+      "reading_status": "certain",
+      "reading_note": "",
+      "distance_text": "100 feet",
+      "stated_angle_text": null,
+      "stated_angle_type": null,
+      "call": {
+        "course": 1,
+        "direction_text": "North",
+        "bearing_quadrant": null,
+        "bearing_azimuth_deg_from_north": 0.0,
+        "distance_ft": 100.0,
+        "curve_dir": null,
+        "radius_ft": null,
+        "delta_deg": null,
+        "arc_length_ft": null,
+        "chord_bearing": null,
+        "chord_length_ft": null,
+        "along": null,
+        "to": null,
+        "monument_status": null,
+        "monument_type": null,
+        "is_exception": false,
+        "non_tangent": false,
+        "radial_bearing": null,
+        "is_meander": false,
+        "is_tie_in": false,
+        "is_indefinite": false,
+        "curve_type": null,
+        "quality": null,
+        "notes": null
+      }
+    },
+    {
+      "id": "call-two",
+      "occurrence_id": "occ-one",
+      "page_id": "page-one",
+      "quote": "  Course 2: 50 feet.  ",
+      "reading_status": "certain",
+      "reading_note": "",
+      "distance_text": "50 feet",
+      "stated_angle_text": null,
+      "stated_angle_type": null,
+      "call": {
+        "course": 2,
+        "direction_text": "East",
+        "bearing_quadrant": null,
+        "bearing_azimuth_deg_from_north": 90.0,
+        "distance_ft": 50.0,
+        "curve_dir": null,
+        "radius_ft": null,
+        "delta_deg": null,
+        "arc_length_ft": null,
+        "chord_bearing": null,
+        "chord_length_ft": null,
+        "along": null,
+        "to": null,
+        "monument_status": null,
+        "monument_type": null,
+        "is_exception": false,
+        "non_tangent": false,
+        "radial_bearing": null,
+        "is_meander": false,
+        "is_tie_in": false,
+        "is_indefinite": false,
+        "curve_type": null,
+        "quality": null,
+        "notes": null
+      }
+    },
+    {
+      "id": "call-three",
+      "occurrence_id": "occ-one",
+      "page_id": "page-one",
+      "quote": "  Course 3: 100 feet.  ",
+      "reading_status": "certain",
+      "reading_note": "",
+      "distance_text": "100 feet",
+      "stated_angle_text": null,
+      "stated_angle_type": null,
+      "call": {
+        "course": 3,
+        "direction_text": "South",
+        "bearing_quadrant": null,
+        "bearing_azimuth_deg_from_north": 180.0,
+        "distance_ft": 100.0,
+        "curve_dir": null,
+        "radius_ft": null,
+        "delta_deg": null,
+        "arc_length_ft": null,
+        "chord_bearing": null,
+        "chord_length_ft": null,
+        "along": null,
+        "to": null,
+        "monument_status": null,
+        "monument_type": null,
+        "is_exception": false,
+        "non_tangent": false,
+        "radial_bearing": null,
+        "is_meander": false,
+        "is_tie_in": false,
+        "is_indefinite": false,
+        "curve_type": null,
+        "quality": null,
+        "notes": null
+      }
+    },
+    {
+      "id": "call-four",
+      "occurrence_id": "occ-one",
+      "page_id": "page-one",
+      "quote": "  Course 4: 50 feet.  ",
+      "reading_status": "certain",
+      "reading_note": "",
+      "distance_text": "50 feet",
+      "stated_angle_text": null,
+      "stated_angle_type": null,
+      "call": {
+        "course": 4,
+        "direction_text": "West",
+        "bearing_quadrant": null,
+        "bearing_azimuth_deg_from_north": 270.0,
+        "distance_ft": 50.0,
+        "curve_dir": null,
+        "radius_ft": null,
+        "delta_deg": null,
+        "arc_length_ft": null,
+        "chord_bearing": null,
+        "chord_length_ft": null,
+        "along": null,
+        "to": null,
+        "monument_status": null,
+        "monument_type": null,
+        "is_exception": false,
+        "non_tangent": false,
+        "radial_bearing": null,
+        "is_meander": false,
+        "is_tie_in": false,
+        "is_indefinite": false,
+        "curve_type": null,
+        "quality": null,
+        "notes": null
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence-one",
+      "occurrence_id": "occ-one",
+      "page_id": "page-one",
+      "call_id": "call-one",
+      "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aLc8AAAAASUVORK5CYII=",
+      "image_sha256": "660cae90f2982c50d6c59c53d97ed3cb3a6fc775a24f454e8cdf2873aa1d7f61",
+      "label": "Synthetic first distance",
+      "notes": "",
+      "bounds_px": [
+        0,
+        0,
+        1,
+        1
+      ]
+    }
+  ],
+  "calculations": [
+    {
+      "id": "calc-one",
+      "occurrence_id": "occ-one",
+      "method": "canonical",
+      "frame": {
+        "foot_definition": "unknown_ft",
+        "units": "ft",
+        "basis": "recorded_bearings",
+        "name": "Recorded north; local origin, feet"
+      },
+      "assumptions": [],
+      "relative": null,
+      "stated_area_sq_ft": null
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "scenario-one",
+      "label": "Hypothetical 0.5 ft change",
+      "calculation_id": "calc-one",
+      "edits": [
+        {
+          "call_id": "call-one",
+          "distance_ft": 100.5,
+          "interior_angle_deg": null,
+          "bearing_azimuth_deg_from_north": null,
+          "rationale": "Synthetic sensitivity example; not a source correction",
+          "evidence_ids": [
+            "evidence-one"
+          ]
+        }
+      ]
+    }
+  ],
+  "presentation": {
+    "subtitle": "Analytic fixture only",
+    "method_notes": [
+      "No property evidence. Synthetic figures only."
+    ]
+  }
+}

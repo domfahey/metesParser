@@ -38,6 +38,16 @@ def main() -> None:
     render_revision.add_argument("--revision-dir", type=Path, required=True)
     render_revision.add_argument("--output-dir", type=Path)
     render_revision.add_argument("--settings", type=Path)
+    for name in ("export-review", "inspect-delivery"):
+        delivery = commands.add_parser(name, help="Revision-specific advisory package delivery.")
+        delivery.add_argument("input", type=Path, help="Original dashboard source bundle")
+        delivery.add_argument("--revision-dir", type=Path, required=True)
+        delivery.add_argument("--settings", type=Path)
+        if name == "inspect-delivery":
+            delivery.add_argument("--package-dir", type=Path, required=True)
+        else:
+            delivery.add_argument("--output-dir", type=Path)
+            delivery.add_argument("--request", type=Path, required=True)
     for name in (
         "validate-source",
         "inspect-artifacts",
@@ -197,6 +207,8 @@ def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, An
         return render_revision_file(
             args.input, args.revision_dir, output_path(settings, args.output_dir)
         )
+    if args.command in ("export-review", "inspect-delivery"):
+        return _execute_delivery(args, settings)
     if args.command in ("revision-template", "save-revision", "inspect-revision"):
         return _execute_revision(args, settings)
     if args.command == "analyze-corridor":
@@ -363,6 +375,37 @@ def _execute_revision(args: argparse.Namespace, settings: dict[str, Any]) -> dic
             "status": "error",
             "artifacts": {},
             "errors": [{"code": "invalid_revision", "message": str(exc)}],
+        }
+
+
+def _execute_delivery(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    from mp_models.dashboard import DashboardBundle
+    from mp_models.delivery import DeliveryRequest
+
+    from .dashboard import _load
+    from .delivery import load_delivery, publish_delivery
+
+    try:
+        bundle = DashboardBundle.model_validate(_load(args.input))
+        if args.command == "export-review":
+            request = DeliveryRequest.model_validate(_load(args.request))
+            return publish_delivery(
+                bundle, args.revision_dir, request, output_path(settings, args.output_dir)
+            )
+        snapshot = load_delivery(bundle, args.revision_dir, args.package_dir)
+        return {
+            "schema_version": "1.0",
+            "status": "needs_review",
+            "errors": [],
+            "artifacts": {},
+            "snapshot": snapshot.model_dump(mode="json"),
+        }
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return {
+            "schema_version": "1.0",
+            "status": "error",
+            "artifacts": {},
+            "errors": [{"code": "invalid_delivery", "message": str(exc)}],
         }
 
 
