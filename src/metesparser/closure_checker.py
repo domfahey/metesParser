@@ -21,6 +21,8 @@ import math
 import statistics
 from typing import overload
 
+import structlog
+
 from .bearing_converter import BearingConverter
 from .models import (
     PERMANENT_MONUMENTS,
@@ -32,6 +34,8 @@ from .models import (
     Tract,
     VerificationAudit,
 )
+
+logger = structlog.get_logger(__name__)
 
 
 class ClosureChecker:
@@ -107,13 +111,16 @@ class ClosureChecker:
             If tracts provided, returns list[ClosureResult] with one per tract.
         """
         if tracts is not None:
+            if audit_context is not None:
+                logger.warning(
+                    "Audit trail recording not yet implemented for per-tract verification"
+                )
             results: list[ClosureResult] = []
             for tract in tracts:
                 result = cls.verify_tract(
                     tract.calls,
                     stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
                     closure_tolerance_ft=closure_tolerance_ft,
-                    audit_context=audit_context,
                 )
                 results.append(result)
             return results
