@@ -486,6 +486,25 @@ def prepare_delivery(
     )
 
 
+def _ring_area(ring: list[Any]) -> float:
+    return sum(a[0] * b[1] - b[0] * a[1] for a, b in zip(ring, ring[1:], strict=False)) / 2
+
+
+def _orient_rfc7946(geometry: dict[str, Any]) -> None:
+    """RFC 7946: exterior rings counterclockwise, holes clockwise (done before hashing)."""
+    if geometry.get("type") == "Polygon":
+        polygons = [geometry["coordinates"]]
+    elif geometry.get("type") == "MultiPolygon":
+        polygons = geometry["coordinates"]
+    else:
+        return
+    for rings in polygons:
+        for index, ring in enumerate(rings):
+            area = _ring_area(ring)
+            if (index == 0 and area < 0) or (index > 0 and area > 0):
+                rings[index] = ring[::-1]
+
+
 def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, Any]:
     """Reuse the shared geographic sampler/projection, with original placement evidence."""
     from mp_models.webmap import WebMapOptions
@@ -559,6 +578,7 @@ def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, A
                 )
                 if primitive.input_status == "hypothetical":
                     feature["properties"]["kind"] = "scenario_course"
+            _orient_rfc7946(feature["geometry"])
             features.append(feature)
     return {
         "type": "FeatureCollection",
