@@ -135,6 +135,10 @@ def prepare_delivery(
     plots = {g.calculation_id: g.plot for g in revision.current_geometry}
     if request.geometry == "recorded" and revision.revision.kind == "scenario":
         plots = _recorded_plots(bundle)
+    prepared_call_status = {record.id: record.source_status for record in revision.prepared_calls}
+    drawing_recorded_inputs = (
+        request.geometry == "recorded" and revision.revision.kind == "scenario"
+    )
     original_calls = {c.id: c.call for c in bundle.calls}
     calculations = {c.id: c for c in bundle.calculations}
     vectors = {layer.id: layer for layer in bundle.vector_layers}
@@ -331,12 +335,10 @@ def prepare_delivery(
                             if call
                             else None,
                             selected_distance_ft=call.distance_ft if call else None,
-                            input_status="source_correction"
-                            if revision.revision.kind == "source_correction"
-                            else (
-                                "hypothetical"
-                                if request.geometry == "scenario" and revision.revision.edits
-                                else "recorded"
+                            input_status=(
+                                "recorded"
+                                if drawing_recorded_inputs
+                                else prepared_call_status.get(primitive.call_id, "recorded")
                             ),
                         )
                     )
