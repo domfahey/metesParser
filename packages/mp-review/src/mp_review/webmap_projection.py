@@ -58,6 +58,13 @@ class WebMapProjection:
     _forward: Callable[[float, float], XY] = field(repr=False, compare=False)
     _geographic: Callable[[float, float], XY] = field(repr=False, compare=False)
     extent: tuple[float, float, float, float] | None = None
+    _covers_extent: Callable[[tuple[float, float, float, float]], bool] | None = field(
+        default=None, repr=False, compare=False
+    )
+
+    def covers(self, extent: tuple[float, float, float, float]) -> bool:
+        """Whether the selected operation's area of use contains a scene-XY extent."""
+        return self._covers_extent is not None and self._covers_extent(extent)
 
     def to_mercator(self, point: XY) -> XY:
         """Transform normalized scene XY to EPSG:3857 meters, without wrapping."""
@@ -219,6 +226,12 @@ def build_web_map_projection(
         )
         accuracy = selected.accuracy
 
+        def covers_extent(item: tuple[float, float, float, float]) -> bool:
+            try:
+                return _covers(selected.area_of_use, _geographic_bounds(pyproj, source, item))
+            except Exception:
+                return False
+
         def forward(x: float, y: float) -> XY:
             ordered = (y, x) if axes == ("north", "east") else (x, y)
             return _point(transformer.transform(*ordered, errcheck=True))
@@ -234,6 +247,7 @@ def build_web_map_projection(
             _forward=forward,
             _geographic=longitude_latitude,
             extent=None if extent is None else (extent[0], extent[1], extent[2], extent[3]),
+            _covers_extent=covers_extent,
         )
     except WebMapUnavailable:
         raise
