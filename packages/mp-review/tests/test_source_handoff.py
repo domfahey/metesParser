@@ -617,3 +617,28 @@ def test_unreadable_acquisition_record_is_reported_invalid_with_identity(bundle,
     assert result["acquisition"]["path"] == "source-acquisition.json"
     assert result["acquisition"]["sha256"] == digest(content)
     assert findings(result, code)[0]["path"] == "source-acquisition.json"
+
+
+def test_non_utf8_transcript_still_reports_selection_transcript_identity(bundle):
+    raw = b"\xff\xfe transcript bytes that are not UTF-8\n"
+    (bundle / "source-text.txt").write_bytes(raw)
+    alter(
+        bundle,
+        "source-acquisition.json",
+        lambda d: d["transcript"].update(sha256=digest(raw)),
+    )
+    alter(
+        bundle,
+        "description-selection.json",
+        lambda d: d.update(transcript_sha256=digest(raw)),
+    )
+    result = validate(bundle)
+    assert result["status"] == "needs_review"
+    assert findings(result, "invalid_utf8")[0]["path"] == "source-text.txt"
+    check = next(
+        c
+        for c in result["identity"]["checks"]
+        if c["id"] == "selection-1" and c["path"] == "source-text.txt"
+    )
+    assert check["actual_sha256"] == digest(raw)
+    assert check["status"] == "matched"
