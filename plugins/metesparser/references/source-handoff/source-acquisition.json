@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.1",
+  "id": "acq-1",
+  "method": "native_document_reading",
+  "model": null,
+  "request": "Transcribe the supplied synthetic document.",
+  "conversion_instructions": "Preserve exact wording and reading uncertainties.",
+  "sources": [
+    {
+      "id": "source-1",
+      "path": "original.bin",
+      "attachment_id": null,
+      "sha256": "d39fe8379a039162d9c884f014a97aeb7cd164a0e9bc3749d2ed2c3bb8a4d468",
+      "page_count": 2
+    }
+  ],
+  "transcript": {
+    "path": "source-text.txt",
+    "sha256": "71d1fe2a63cee54c109f0599df10a34c1ce7d08f96ff596d5ca1558524aad7bf"
+  },
+  "page_map": [
+    {
+      "id": "page-1",
+      "source_id": "source-1",
+      "page": 1,
+      "start_line": 1,
+      "end_line": 2
+    },
+    {
+      "id": "page-2",
+      "source_id": "source-1",
+      "page": 2,
+      "start_line": 3,
+      "end_line": 3
+    }
+  ],
+  "supplied_pages": [
+    "page-1",
+    "page-2"
+  ],
+  "read_pages": [
+    "page-1",
+    "page-2"
+  ],
+  "unreadable_pages": [],
+  "missing_pages": [],
+  "uncertainties": []
+}
