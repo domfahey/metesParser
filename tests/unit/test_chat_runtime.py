@@ -232,3 +232,25 @@ def test_delegation_restores_path_on_exception(chat, monkeypatch):
     launcher.main = fail
     assert module.main(["verify", "calls.csv"]) == 2
     assert module.os.environ.get("PATH") == original
+
+
+def test_setup_repairs_tampered_cached_uv_by_reinstalling(chat, tmp_path, monkeypatch, capsys):
+    module = wheel_fixture(chat, tmp_path, monkeypatch)
+    module.install_uv().write_bytes(b"changed")
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *a, **kw: types.SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+    assert module.main(["--setup"]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "ready"
+    assert module.cached_uv().read_bytes() == b"fake executable"
+
+
+def test_offline_setup_does_not_repair_tampered_cached_uv(chat, tmp_path, monkeypatch, capsys):
+    module = wheel_fixture(chat, tmp_path, monkeypatch)
+    module.install_uv().write_bytes(b"changed")
+    monkeypatch.setattr(module, "download", lambda _: pytest.fail("unexpected download"))
+    assert module.main(["--setup", "--offline"]) == 2
+    assert "integrity" in json.loads(capsys.readouterr().out)["errors"][0]["message"]
+    assert module.cached_uv().read_bytes() == b"changed"

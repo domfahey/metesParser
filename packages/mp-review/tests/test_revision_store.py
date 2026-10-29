@@ -838,3 +838,23 @@ def test_delayed_rejected_save_retains_newer_edit_other_document_and_exact_retry
     assert retained_bytes(store / other.id) == other_bytes
     assert load_revision(bundle, store / newer["id"]) == current
     assert load_revision(other_bundle, store / other.id) == independent
+
+
+def test_added_call_and_tombstone_parse_and_save_under_schema_1_2(bundle, tmp_path):
+    data = added(bundle)
+    data["schema_version"] = "1.2"
+    prepared = import_revision(bundle, data)
+    assert prepared.state == "parsed"
+    assert any(c.id == "inserted-east" for c in prepared.prepared_calls)
+    assert publish_revision(bundle, data, tmp_path)["save_state"] == "published"
+    loaded = load_revision(bundle, tmp_path / "inserted")
+    assert loaded.state == "parsed"
+    assert loaded.revision.schema_version == "1.2"
+    data["id"] = "removed-inserted"
+    data["parent_revision_id"] = "inserted"
+    data["tracts"][0]["call_order"].remove("inserted-east")
+    data["edits"][1]["action"] = "remove"
+    assert publish_revision(bundle, data, tmp_path)["save_state"] == "published"
+    tombstone = load_revision(bundle, tmp_path / "removed-inserted")
+    assert tombstone.state == "parsed"
+    assert all(c.id != "inserted-east" for c in tombstone.current_geometry[0].plot.request.calls)

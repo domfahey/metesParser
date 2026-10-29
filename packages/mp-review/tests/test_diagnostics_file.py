@@ -93,3 +93,30 @@ def test_committed_synthetic_fixture_uses_public_identity_contract(tmp_path):
     assert result["status"] == "needs_review"
     assert request.input_sha256 == diagnostic_input_hash(request.calls)
     assert result["diagnostics"]["residual"]["magnitude_ft"] == pytest.approx(0.5, abs=1e-10)
+
+
+def test_deeply_nested_request_json_is_an_error_not_a_traceback(tmp_path):
+    import subprocess
+    import sys
+
+    source = tmp_path / "nested.json"
+    source.write_text("[" * 100000 + "]" * 100000)
+    output = tmp_path / "out"
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mp_review",
+            "diagnose-closure",
+            str(source),
+            "--output-dir",
+            str(output),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 2, result.stderr
+    assert "Traceback" not in result.stderr
+    assert json.loads(result.stdout)["status"] == "error"
+    assert not output.exists()
