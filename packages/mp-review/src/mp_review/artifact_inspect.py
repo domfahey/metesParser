@@ -407,6 +407,7 @@ class _Inspector:
             node["recorded_canonical_status"] = manifest["recorded_status"]
             declared_artifacts = manifest.get("artifacts")
             display = self.node("review_display", "review", directory / "review.html")
+            display["dependency_ids"] = [node["id"]]
             self.run(
                 display,
                 lambda: self.check_hash(
@@ -517,6 +518,7 @@ class _Inspector:
             request_path = directory / "plot-input.json"
             geometry_path = directory / "plot-geometry.json"
             display = self.node("plot_display", "plot", directory / "plot.html")
+            display["dependency_ids"] = [node["id"]]
             self.run(
                 display,
                 lambda: self.check_hash(
@@ -1505,15 +1507,24 @@ class _Inspector:
                     ),
                     "present_valid",
                 )
+            member_ids = {n["id"] for n in members}
             dependency_ids = list(
                 dict.fromkeys(
-                    dependency for node in members for dependency in node["dependency_ids"]
+                    dependency
+                    for node in members
+                    for dependency in node["dependency_ids"]
+                    if dependency not in member_ids
                 )
             )
             reasons = []
             seen_reasons = set()
             for node in members:
                 for reason in node["reasons"]:
+                    if (
+                        reason["code"] == "upstream_invalid"
+                        and reason["dependency_id"] in member_ids
+                    ):
+                        continue  # Derived from a producer already summarized in this stage.
                     attributed = {**reason, "artifact_id": node["id"]}
                     identity = json.dumps(attributed, sort_keys=True)
                     if identity not in seen_reasons:
