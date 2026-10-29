@@ -6,18 +6,22 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Added
 
-- Focused `plot-corridor`, `plot-plss-reference` and `export-review-package` capabilities, bringing the catalog to ten capabilities, two workflows and one compatibility alias. Generated request schemas and validated synthetic examples retain explicit construction/reference/revision identities.
+- Focused `plot-corridor`, `plot-plss-reference` and `export-review-package` capabilities complete the 13-skill catalog (ten capabilities, two workflows and the `review-deed` compatibility alias). Corridor and PLSS requests retain explicit construction/reference/revision identities and document supported inputs and refusal limits.
 - Executable synthetic document-intake, multi-tract resume, guided scan/deed-placement, corridor, PLSS and published-delivery evaluation inputs. Candidate artifacts omit evaluator rubrics; multi-tract turn-two evidence stays withheld until that turn. Materialization/runtime checks are separate from model/native acceptance.
 
 - Read-only schema 1.1 source-handoff validation, bounded artifact freshness inspection with conditional resume recommendations, and standalone identity-bound closure diagnosis; each preserves advisory `needs_review`/exit 1 semantics.
+- Durable revision save/load preserves exact incomplete draft fields, source-correction readings and evidence, stable source identities, and immutable published generations. Schema 1.2 retains exact corridor requests, explicit removals, and freshly replayed geometry with each saved revision.
+- Structured line and circular-arc editing publishes through the shared revision store and renders from freshly prepared revision geometry. The immediate browser preview remains straight-course only; arc edits use the shared publication/rendering path.
+- Immutable review-package delivery exports SVG, PDF, DXF and GeoJSON from a published revision, with independent artifact inspection and freshness checks. An optional raster control-point picker produces validated inputs for the existing registration workflow; it does not assign deed placement.
+- Deterministic corridor construction retains interval widths, tapers, joins and caps through revision save and delivery. Supplied PLSS reference data is derived only for the documented supported subset; unsupported or incomplete references remain explicit outcomes.
 - Closure sensitivity panel in supported dashboard work, plus independent per-raster visibility, opacity, and layer-order controls with fit/checkpoint, basis, and placement evidence summaries. Controls remain presentation-only.
-- Added the focused `compare-descriptions` capability for explicit source-linked `ComparisonRequest` inputs, advisory geometric components, and tentative structural differences; the catalog now has seven capabilities, two workflows, and the retained `review-deed` alias.
+- Added the focused `compare-descriptions` capability for explicit source-linked `ComparisonRequest` inputs, advisory geometric components, and tentative structural differences.
 - Explicit `plot --input-format text` prepares an isolated description through shared parsing, preserves its source bytes, and separates commencement-to-POB tie-ins without running canonical verification.
 - Packaged-runtime `compose-map` and `compose-dashboard` commands assemble existing artifacts, preserve provenance, and expose fresh geometry hashes without ad hoc workspace Python setup.
 - Behavioral evaluation scenarios cover commencement plotting, packaged composition, and direct relative-analysis routing.
 - A paired skill-evaluation protocol reuses existing scenarios, hides grading rubrics from responding agents, and records model/client evidence separately from engine and provider checks. Claude model coverage remains unrun.
 - Standalone `render-map` composes prepared plot/map artifacts without a dashboard, revalidates shared geometry and placement identities, and retains an offline evidence fallback. `mapbox-mcp` accepts these intact stages or legacy dashboard stages.
-- `render-online-map` capability owns local Mapbox viewer and requested vector-only MCP preview, bringing the catalog to six capabilities, two workflows, and one alias.
+- `render-online-map` capability owns the local Mapbox viewer and requested vector-only MCP preview.
 - Optional `mapbox-mcp` handoff in `render-online-map`: validates retained geographic artifacts, prepares vector-only render arguments, records omissions and digests, and keeps connected-tool/provider/client acceptance separate from local preparation and verification.
 - `plot-metes-and-bounds` creates a standalone plot from structured calls, RelativeDescription JSON, or PlotRequest JSON and stops after plot artifacts.
 - `prepare-parcel-overlay` prepares supplied vector/raster evidence and provenance without placing deed geometry or building a dashboard.
@@ -44,7 +48,9 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 - Dashboard discovery is limited to explicit dashboard/workbench requests. Renderer guidance now describes supported explicit placements and named-point comparisons while retaining the boundary against automatic matching.
 - Closure requests now locate the intended description before calculation. Native conversion, Claude's section selection, and deterministic verification remain distinct evidence stages.
 - Scanned documents use Claude's native reading when available instead of always requiring a user-provided transcription. No separate OCR provider or conversion dependency is added.
-- Dashboard guidance now reflects explicit placement and named-point comparison support. Automatic corner matching remains unsupported; canonical baseline calculations support curves, while browser edits are limited to straight-course scenarios.
+- Dashboard guidance reflects explicit placement and named-point comparison support. Automatic corner matching remains unsupported. Canonical verification and shared revision publication/rendering support circular arcs; only the immediate browser preview is limited to straight-course scenarios.
+- Curve-aware closure diagnosis and description comparison report supported circular-arc effects and explicit unavailable reasons without promoting advisory results to canonical verification.
+- Corridor offset and GeoJSON delivery preserve declared approximation bounds through shared arc sampling and coordinate transforms; invalid width coverage and unsupported geometry remain explicit outcomes.
 
 ### Removed
 
@@ -55,6 +61,9 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 - Online-map documentation and evaluation expectations now cover standalone composition, map layers without deed placement, and the explicit unavailable viewer with offline evidence when georeferencing is missing.
 - Circular boundaries now check line–arc and arc–arc contacts, overlaps, and unsupported geometry before verified export, while allowing legitimate shared endpoints. Unequal-radius intersections are independent of argument order.
 - Closing point/place-of-beginning wording no longer causes the spurious multiple-BEGINNING warning, without merging or dropping valid POINT/PLACE OF BEGINNING tract openings.
+- Delayed draft input updates are no longer overwritten by an older file load or save completion; source corrections remain bound to their original document, tract, occurrence and call identities.
+- DXF class registration is sorted before writing, making delivery bytes deterministic across fresh processes and Python hash seeds.
+- Corridor GeoJSON samples analytic arcs using the declared geographic rendering tolerance after placement rotation and unit conversion, subject to explicit vertex and recursion limits. Construction error remains separately recorded.
 
 ## [1.0.0]
 
