@@ -54,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Report missing or changed review/plot HTML separately from replayed geometry during artifact inspection, using the producer-recorded display hashes.
+- Preserve per-call delivery provenance so untouched calls remain recorded when another call or tract is edited or source-corrected.
+- Keep the raster-control example inside the packaged guide instead of linking to evaluation fixtures omitted from the ZIP.
 - Preserve exact drafts, rationale and evidence through delayed imports, rejected/interrupted saves and retries; late completion cannot overwrite newer edits or another document's revision.
 - Validate selected scene units, placement hashes, source/call identities and PLSS reference uniqueness before replay or delivery. Unavailable selected values remain unavailable instead of falling back to recorded values.
 - Produce reproducible DXF output across fresh processes and Python hash seeds, allowing retained delivery packages to pass deterministic replay.
