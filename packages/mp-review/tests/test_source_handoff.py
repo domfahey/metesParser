@@ -604,3 +604,16 @@ def test_outside_absolute_override_through_symlinked_root_is_rejected(bundle, tm
     result = validate(link, acquisition=outside)
     assert result["status"] == "error"
     assert findings(result, "unsafe_path")[0]["path"] == str(outside)
+
+
+@pytest.mark.parametrize(
+    "content,code", [(b"{not json", "invalid_json"), (b"\xff", "invalid_utf8")]
+)
+def test_unreadable_acquisition_record_is_reported_invalid_with_identity(bundle, content, code):
+    (bundle / "source-acquisition.json").write_bytes(content)
+    result = validate(bundle)
+    assert result["status"] == "error"
+    assert result["acquisition"]["status"] == "invalid"
+    assert result["acquisition"]["path"] == "source-acquisition.json"
+    assert result["acquisition"]["sha256"] == digest(content)
+    assert findings(result, code)[0]["path"] == "source-acquisition.json"
