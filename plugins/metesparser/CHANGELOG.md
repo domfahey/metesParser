@@ -58,6 +58,9 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Fixed
 
+- Report missing or changed review/plot HTML separately from replayed geometry during artifact inspection, using the producer-recorded display hashes.
+- Preserve per-call delivery provenance so untouched calls remain recorded when another call or tract is edited or source-corrected.
+- Keep the raster-control example inside the packaged guide instead of linking to evaluation fixtures omitted from the ZIP.
 - Online-map documentation and evaluation expectations now cover standalone composition, map layers without deed placement, and the explicit unavailable viewer with offline evidence when georeferencing is missing.
 - Circular boundaries now check line–arc and arc–arc contacts, overlaps, and unsupported geometry before verified export, while allowing legitimate shared endpoints. Unequal-radius intersections are independent of argument order.
 - Closing point/place-of-beginning wording no longer causes the spurious multiple-BEGINNING warning, without merging or dropping valid POINT/PLACE OF BEGINNING tract openings.
