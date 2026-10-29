@@ -151,12 +151,27 @@ def test_conveyed_parcel_area_after_parent_tract_clause_is_selected(extract_area
     ("course", "expected_ft"),
     [
         ("THENCE N 10° E 2 chains 20 links to an iron pin", 145.2),
-        ("THENCE N 10° E 40 poles 5 feet to an iron pin", 665.0),
         ("THENCE N 10° E 2 chains, 20 links to an iron pin", 145.2),
     ],
 )
 def test_compound_distance_without_and_sums_every_component(parse, course, expected_ft):
     # Bug #70: only the first component was kept when "and" was absent.
+    assert parse(course)[0].distance_ft == pytest.approx(expected_ft)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize(
+    ("course", "expected_ft"),
+    [
+        ("THENCE N 10° E 150 feet, 3 rods north of the oak to an iron pin", 150.0),
+        ("THENCE N 10° E 40 poles 2 rods to an iron pin", 660.0),
+        ("THENCE N 10° E 40 poles 5 feet to an iron pin", 660.0),
+        ("THENCE N 10° E 40 poles and 5 feet to an iron pin", 665.0),
+        ("THENCE N 10° E 3 poles 4 links to an iron pin", 52.14),
+    ],
+)
+def test_unrelated_adjacent_units_are_not_summed_without_and(parse, course, expected_ft):
+    # PR #60 review: only genuine descending sub-unit pairs join without "and".
     assert parse(course)[0].distance_ft == pytest.approx(expected_ft)
 
 

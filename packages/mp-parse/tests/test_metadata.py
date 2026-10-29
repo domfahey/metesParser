@@ -364,4 +364,6 @@ def test_extract_distance_compound_without_and():
     from mp_parse.metadata import extract_distance
 
     assert extract_distance("N 10° E 2 chains 20 links") == (145.2, "feet")
-    assert extract_distance("40 poles 5 feet") == (665.0, "feet")
+    assert extract_distance("40 poles 5 feet") == (40.0, "poles")
+    assert extract_distance("40 poles 2 rods") == (40.0, "poles")
+    assert extract_distance("150 feet, 3 rods north of the oak") == (150.0, "feet")
