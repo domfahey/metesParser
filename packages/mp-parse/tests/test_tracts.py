@@ -1,8 +1,9 @@
 """Tests for tract splitting logic."""
 
+import pytest
 from mp_models import TractType
 from mp_parse.calls import extract_calls
-from mp_parse.tracts import split_into_tracts
+from mp_parse.tracts import find_tract_markers, split_into_tracts
 
 
 class TestExplicitTractMarkers:
@@ -306,3 +307,31 @@ class TestNeighbourReferencesAreNotMarkers:
             "PARCEL B BEGINNING at a point THENCE S 100 ft to the POINT OF BEGINNING."
         )
         assert [label for _t, label, _k in split_into_tracts(text)] == ["Parcel A", "Parcel B"]
+
+
+class TestHeadingDetectionAfterColonAndMergedText:
+    """PR #60 review: headings after ':'/';' or merged by the normalizer."""
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "A tract of land described as follows: TRACT 1 BEGINNING at a point "
+            "THENCE N 100 ft to the POINT OF BEGINNING. "
+            "TRACT 2 BEGINNING at a point THENCE S 100 ft to the POINT OF BEGINNING.",
+            "TRACT 1 BEGINNING at a point THENCE N 100 ft to the POINT OF BEGINNING, "
+            "containing 1 acre more or less PARCEL 2 BEGINNING at a point "
+            "THENCE S 100 ft to the POINT OF BEGINNING.",
+            "PARCEL 1: BEGINNING at a point THENCE N 100 ft to the POINT OF BEGINNING; "
+            "PARCEL 2 BEGINNING at a point THENCE S 100 ft to the POINT OF BEGINNING.",
+        ],
+    )
+    def test_colon_semicolon_and_merged_headings_split(self, text):
+        assert len(find_tract_markers(text)) == 2
+
+    def test_ocr_wrapped_reference_is_not_a_heading(self):
+        text = (
+            "BEGINNING at the northeast corner of\nParcel 2; "
+            "THENCE S 0° W 100 ft along the line of\nParcel 3; "
+            "THENCE W 100 ft to the POINT OF BEGINNING."
+        )
+        assert find_tract_markers(text) == []
