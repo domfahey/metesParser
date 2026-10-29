@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Standalone Claude chat Skill archive with one discoverable entrypoint, thirteen embedded procedures and the existing deterministic engine. `make chat-skill-build` produces the ZIP and checksum; generated instructions use paths within the extracted archive.
+- Explicit chat runtime setup using host/cached `uv` or a pinned, hash-checked bootstrap for Linux and macOS on x86_64/ARM64, followed by locked dependency provisioning. Offline setup and ordinary invocations never download the bootstrap tool. Native chat acceptance remains pending.
+
 ## [0.6.0] - 2026-10-29
 
 ### Added
