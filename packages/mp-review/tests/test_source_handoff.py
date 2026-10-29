@@ -581,3 +581,26 @@ def test_outside_record_override_is_not_read(bundle, tmp_path_factory):
     result = validate(bundle, acquisition=outside)
     assert result["status"] == "error"
     assert findings(result, "unsafe_path")[0]["path"] == str(outside)
+
+
+def test_in_bundle_absolute_override_through_symlinked_root_is_accepted(bundle, tmp_path_factory):
+    link = tmp_path_factory.mktemp("symlinked-root") / "bundle"
+    link.symlink_to(bundle, target_is_directory=True)
+    result = validate(
+        link,
+        acquisition=link / "source-acquisition.json",
+        selection=link / "description-selection.json",
+    )
+    assert result["status"] == "needs_review"
+    assert findings(result, "unsafe_path") == []
+    assert result["identity"]["status"] == "matched"
+
+
+def test_outside_absolute_override_through_symlinked_root_is_rejected(bundle, tmp_path_factory):
+    link = tmp_path_factory.mktemp("symlinked-root") / "bundle"
+    link.symlink_to(bundle, target_is_directory=True)
+    outside = tmp_path_factory.mktemp("outside-link") / "acquisition.json"
+    outside.write_bytes((bundle / "source-acquisition.json").read_bytes())
+    result = validate(link, acquisition=outside)
+    assert result["status"] == "error"
+    assert findings(result, "unsafe_path")[0]["path"] == str(outside)

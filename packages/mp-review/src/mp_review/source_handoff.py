@@ -103,7 +103,9 @@ class _Validator:
         display = str(reference)
         if value.is_absolute():
             try:
-                value = value.relative_to(self.root)
+                # Resolve the directory (not the final name) so symlinked roots such as
+                # macOS /tmp compare equal to the resolved root without hiding a final symlink.
+                value = (value.parent.resolve() / value.name).relative_to(self.root)
                 display = value.as_posix()
             except ValueError:
                 self.finding(
