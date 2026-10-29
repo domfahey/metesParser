@@ -5,12 +5,15 @@ SHELL := /bin/bash
 UV ?= uv
 UV_RUN := $(UV) run
 
-.PHONY: review-corpus plugin-build
+.PHONY: review-corpus plugin-build chat-skill-build
 review-corpus: ## Run reviewed deterministic pipeline fixtures without OCR.
 	$(UV_RUN) python -m mp_review corpus packages/mp-review/tests/fixtures/corpus.json
 
 plugin-build: ## Build the Claude plugin ZIP with a locked deterministic runtime.
 	$(UV_RUN) python scripts/build_claude_plugin.py
+
+chat-skill-build: ## Build the standalone Claude chat Skill ZIP and checksum.
+	$(UV_RUN) python scripts/build_claude_skill.py
 PY_SRC := src/metesparser
 PY_TESTS := tests
 

@@ -264,6 +264,8 @@ Start with the [skill catalog](../plugins/metesparser/README.md#skills) and [han
 
 Follow the [maintenance guide](CLAUDE_PLUGIN.md#maintain-the-skill-composition) for documentation ownership, shared implementation boundaries, and change validation. Keep substantial procedures in linked references, schemas in the Python models, and user examples in the existing READMEs/usage guide. For documentation-only edits, validate links and changed examples; behavior changes also need relevant engine tests and realistic skill evaluations. Native-host acceptance is a separate check from local tests.
 
+Maintain shared capability procedures under `plugins/metesparser/` and chat-specific dispatch, setup and download guidance under `plugins/metesparser-chat/`. The chat builder adapts shared procedures and keeps the engine unchanged. After changing shared instructions, rebuild both distributions with `make plugin-build` and `make chat-skill-build`, then check navigation in the extracted archives. After chat-only edits, rebuild the chat archive. Source chat templates intentionally link to shared resources added at build time. Use the [chat testing lane](TESTING.md#standalone-chat-distribution) for builder/setup changes, and record actual host acceptance separately from local checks.
+
 ### Adding a New Module
 
 1. Choose the owning package using [Architecture](ARCHITECTURE.md#composable-package-architecture).
