@@ -2,7 +2,10 @@
 
 import importlib.util
 import tomllib
+import zipfile
 from pathlib import Path
+
+import pytest
 
 
 def load_builder():
@@ -43,3 +46,46 @@ def test_geo_runtime_pins_optional_import_dependencies():
     assert not any(d.startswith("playwright") for d in dependencies)
     basic = tomllib.loads(builder.runtime_project([], geo=False))
     assert not any(d.startswith("pyproj==") for d in basic["project"]["dependencies"])
+
+
+def test_web_map_runtime_is_opt_in_and_pins_warp_dependencies():
+    builder = load_builder()
+    ordinary = tomllib.loads(builder.runtime_project([]))["project"]["dependencies"]
+    assert not any(d.startswith("rasterio==") for d in ordinary)
+    mapped = tomllib.loads(builder.runtime_project([], web_map=True))["project"]["dependencies"]
+    for name in ("rasterio", "numpy", "pyproj", "pillow"):
+        assert any(d.startswith(name + "==") for d in mapped)
+    assert not any(d.startswith("playwright") for d in mapped)
+
+
+def test_web_map_build_rejects_without_geo_before_building(tmp_path, monkeypatch):
+    builder = load_builder()
+    monkeypatch.setattr(builder, "run", lambda *a, **k: pytest.fail("must reject before building"))
+    with pytest.raises(ValueError, match="requires geo"):
+        builder.build(tmp_path / "invalid.zip", geo=False, web_map=True)
+    assert not (tmp_path / "invalid.zip").exists()
+
+
+def test_plugin_archive_includes_standalone_online_map_capability(tmp_path, monkeypatch):
+    builder = load_builder()
+    monkeypatch.setattr(builder.shutil, "which", lambda name: "/fake/uv")
+
+    def fake_run(arguments, *, cwd):
+        if arguments[1] == "build":
+            output_dir = Path(arguments[arguments.index("--out-dir") + 1])
+            package = arguments[arguments.index("--package") + 1]
+            (output_dir / f"{package.replace('-', '_')}-1.0.0-py3-none-any.whl").write_bytes(
+                b"wheel"
+            )
+        elif arguments[1] == "lock":
+            (Path(arguments[arguments.index("--project") + 1]) / "uv.lock").write_text(
+                "version = 1\n", encoding="utf-8"
+            )
+
+    monkeypatch.setattr(builder, "run", fake_run)
+    archive_path = builder.build(tmp_path / "plugin.zip")
+
+    with zipfile.ZipFile(archive_path) as archive:
+        names = set(archive.namelist())
+    assert "skills/render-online-map/SKILL.md" in names
+    assert "skills/render-online-map/README.md" in names

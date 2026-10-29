@@ -1,4 +1,4 @@
-"""Compose existing structured calls into an offline advisory plot, without reading PDFs."""
+"""Compose structured calls or isolated prose into a non-verifying offline plot."""
 
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from mp_verify.plot import prepare_plot
 
 from .dashboard import _atomic
 from .relative import _invalid_number, _unique_object
+from .text import prepare_text
 
 
 def _json(value: object) -> str:
@@ -70,10 +71,34 @@ def _relative_request(description: RelativeDescription, title: str) -> PlotReque
 
 
 def _request(source: bytes, name: str, input_format: str) -> tuple[PlotRequest, str]:
-    if input_format not in {"auto", "calls", "relative", "plot"}:
-        raise ValueError("input_format must be auto, calls, relative or plot")
+    if input_format not in {"auto", "calls", "relative", "plot", "text"}:
+        raise ValueError(
+            "input_format must be auto, calls, relative or plot; text is also accepted explicitly"
+        )
     is_csv = input_format in {"auto", "calls"} and Path(name).suffix.lower() == ".csv"
     text = source.decode("utf-8")
+    if input_format == "text":
+        prepared = prepare_text(text)
+        if prepared.multiple_tracts:
+            raise ValueError(
+                "Multi-tract descriptions require selecting a boundary before plotting"
+            )
+        if prepared.unresolved_commencement:
+            raise ValueError("Point of commencement could not be separated from boundary calls.")
+        return PlotRequest(
+            title=name,
+            calls=tuple(
+                PlotCall(
+                    id=f"call-{i}",
+                    call=call,
+                    source_reference=f"{name}: isolated description, call {i}",
+                    quote=quote,
+                )
+                for i, (call, quote) in enumerate(
+                    zip(prepared.legal_description.calls, prepared.quotes, strict=True), 1
+                )
+            ),
+        ), "txt"
     if is_csv:
         from mp_export.csv_writer import FIELDNAMES, _row_to_call  # type: ignore[import-untyped]
 

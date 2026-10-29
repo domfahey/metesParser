@@ -1,23 +1,38 @@
 # Using the metes-and-bounds skills
 
+Use a capability for one requested stage and stop at its deliverable. Use a workflow when the user requested the full review sequence or an interactive dashboard. The catalog in the [plugin README](../README.md#skills) links each skill and summarizes its purpose and output.
+
 Start a closure request by locating the intended metes-and-bounds description. Any supplied source can contain it: a survey, plat, report, exhibit, title document, deed, email, image, or PDF.
 
 ## Choose the entrypoint
 
-| Supplied input | Example request | Workflow |
+| Supplied input and request | Route | Stop point |
 | --- | --- | --- |
-| Image or PDF | "Check the closure of the boundary in this survey." | `review-metes-and-bounds` → native conversion → description selection → deterministic review |
-| Complete document text | "Find the boundary description in this report and check closure." | `review-metes-and-bounds` → description selection → deterministic review |
-| Already isolated description | "Does this metes-and-bounds description close?" | Identify the supplied passage as the selected boundary, then deterministic review |
-| Selected CSV/JSON calls | "Verify the closure of this call set." | Identify the intended boundary, then `verify-traverse` |
-| Selected CSV/JSON calls, plot requested | "Plot these selected calls." | `plot-metes-and-bounds`; returns plot artifacts only |
-| Supplied GeoJSON or scanned map, preparation requested | "Register/import this supplied map for later use." | `prepare-parcel-overlay`; returns prepared layer and provenance only |
-| Prepared description and an explicit dashboard request | "Show the selected deed and parcel in an interactive workbench." | `deed-closure-dashboard`; reuse valid source and geometry artifacts |
-| Several descriptions, no tract selected | "Does this property close?" | Locate candidates separately and clarify which boundary to check |
+| Image/PDF and “Check the closure of the boundary in this survey.” | `review-metes-and-bounds` coordinates native conversion → description selection → deterministic review. | Return review results and source records. |
+| Complete document text and “Find the boundary description and check closure.” | `review-metes-and-bounds` coordinates selection → deterministic review. | Reuse the supplied text; do not invent a conversion stage. |
+| Isolated description and “Does this close?” | `review-metes-and-bounds`, treating the supplied passage as selected. | Run the requested review. |
+| Selected CSV/JSON calls and “Verify closure.” | Identify the intended call set, then `verify-traverse`. | Return verification only. |
+| RelativeDescription JSON and “Analyze these relative angles.” | `verify-traverse` runs `analyze-relative`. | Return local analysis only; no canonical verification, plot, or dashboard. |
+| Selected calls and “Plot these.” | `plot-metes-and-bounds`. | Return plot artifacts only; no closure verification. |
+| Isolated prose and “Plot this description.” | `plot-metes-and-bounds` runs `plot --input-format text`. | Preserve tie-ins outside boundary geometry and unknown bearings; no verification side effect. |
+| Supplied GeoJSON or scanned map and “Prepare this for later use.” | `prepare-parcel-overlay`. | Return prepared layer and provenance only. |
+| Source material and explicit interactive dashboard/workbench request | `deed-closure-dashboard`; reuse valid acquisition, selection, and calculation handoffs. | Return local dashboard and stage artifacts. |
+| Prepared geographically placed evidence and “Show this on a Mapbox basemap.” | `render-online-map` uses the [local viewer](../skills/render-online-map/references/local-viewer.md). | Return local map/display provenance; no dashboard, acquisition, verification, or inferred alignment. |
+| Existing online-prepared map and “Show these vectors in chat using Mapbox MCP.” | `render-online-map` uses the [MCP handoff](../skills/render-online-map/references/mapbox-mcp.md). | Prepare exact vector arguments, inspect the connected tool schema, and call only if compatible; retain local raster/source review and report acceptance separately. |
+| Several descriptions and “Does this property close?” without a tract selected | `review-metes-and-bounds` identifies candidates. | Ask which boundary to review before calculation. |
 
 `review-deed` remains an entrypoint for deed-specific requests and follows the same shared workflow.
 
-Transcription, description extraction, traverse verification, plotting, and overlay preparation are capabilities with separate deliverables. Stop after the requested capability; do not continue automatically to review, plotting, or dashboard creation. If a later stage is requested, reuse valid handoff artifacts for the unchanged source instead of rereading it. Dashboard discovery is limited to explicit interactive dashboard/workbench/source-comparison requests; a request for a plot alone uses the plot capability.
+Transcription, description extraction, traverse verification, plotting, overlay preparation, and online map rendering are capabilities with separate deliverables. Stop after the requested capability; do not continue automatically to another stage. If a later stage is requested, reuse valid handoff artifacts for the unchanged source instead of rereading it. Dashboard discovery is limited to explicit interactive dashboard/workbench/source-comparison requests; a request for a plot alone uses the plot capability. `review-deed` is an alias for deed-specific requests and routes to `review-metes-and-bounds`.
+
+## Examples of composition
+
+- **Document to closure review:** `review-metes-and-bounds` uses `convert-document-to-text` when needed, passes its full text and page map to `extract-metes-and-bounds`, then runs deterministic review. Carry acquisition and selection records forward; do not repeat valid stages.
+- **Selected boundary to plot:** pass identified structured calls to `plot-metes-and-bounds`. For isolated prose, use explicit `--input-format text`; shared preparation handles commencement-to-POB tie-ins without canonical verification. A plot's `needs_review` status is not a verification result.
+- **Prepared evidence to online map:** `render-online-map` uses `compose-map PLOT_DIR --layer PREPARED_LAYER.json --output-dir NEW_DIR` through the packaged launcher to retain intact plot/map inputs and fresh geometry hashes. Rendering still requires supplied geographic evidence for deed placement. It does not create a dashboard solely to render a map.
+- **Prepared evidence to dashboard:** if a dashboard is explicitly requested, use `compose-dashboard BASE_BUNDLE.json --layer PREPARED_LAYER.json --output-dir NEW_DIR` through the same launcher. The base bundle must already contain actual source/page/call records. Composition retains source inputs, appends supported map arrays, and recomputes geometry; it does not infer deed alignment or attest source reading. Both composition commands return `needs_review` (exit 1), distinct from canonical verification.
+
+The full accepted handoffs, status meanings, and invalidation rules are in [artifact handoffs](artifact-handoffs.md); see the [dashboard bundle reference](../skills/deed-closure-dashboard/references/dashboard-bundle.md#compose-existing-plot-and-map-artifacts) for the checked composition procedure.
 
 ## Use in Claude
 
@@ -41,9 +56,13 @@ For already supplied text or calls, identify those as the source without inventi
 
 For stage-specific accepted inputs, output artifacts, status meanings, and invalidation rules, see [artifact handoffs](artifact-handoffs.md).
 
+## Runtime prerequisites
+
+The Python launcher requires Python 3.11+ and `uv`; check `python3 --version` and `uv --version` before first use. Use an extracted plugin distribution: the source plugin directory does not contain its built runtime. First use provisions the locked runtime in the user's cache and needs access to pinned dependencies unless already cached. Report missing prerequisites without claiming an engine run. Optional geo/web-map operations require the appropriate distribution described in their capability references.
+
 ## Run the selected text directly
 
-The Python launcher requires Python 3.11+ and `uv`. First use provisions the locked runtime in the user's cache. Run from the intended project root:
+Run from the intended project root:
 
 ```sh
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" review description-parcel-a.txt --output-dir reviews/parcel-a-new
@@ -59,8 +78,16 @@ For straight descriptions defined by relative angles, `analyze-relative` accepts
 
 `checks_passed` (exit 0) means implemented deterministic checks passed; `needs_review` (exit 1) identifies unresolved checks; `error` (exit 2) reports a processing or configuration failure. The selected source and any uncertainty remain part of the result, even when geometry closes.
 
+For a processing error, inspect the diagnostic, correct supported configuration or source-grounded input formatting, and rerun in a fresh directory. For `needs_review`, retain the issue and consult the source; do not change a recorded value merely to obtain a passing result.
+
 Missing exhibits, material illegibility, or unresolved tract selection must be resolved before issuing a verified result. Never infer a missing bearing or omit an exception to make a traverse close. Intersection checks cover straight segments and circular arcs; unsupported or incomplete curve geometry requires review. See [review scope](review-limits.md).
 
 ## Documentation and changes
 
 Each skill directory has a human-facing `README.md` for examples and inputs/outputs, and `SKILL.md` for Claude's instructions. Keep detailed shared guidance in linked references. Record user-visible changes once in the [plugin changelog](../CHANGELOG.md); use the repository changelog for project-level announcements.
+
+## Requested Mapbox companion
+
+For a request to view prepared deed and map evidence over Mapbox, use [render-online-map](../skills/render-online-map/SKILL.md). Reuse valid reading/selection/import/registration outputs and validate geometry/placement bindings. The dashboard workflow assembles a source-grounded dashboard only when that deliverable is also requested, then delegates rendering. Follow the [online handoff](artifact-handoffs.md#optional-online-map-handoff) and [local viewer procedure](../skills/render-online-map/references/local-viewer.md). The ordinary dashboard remains offline. Local provider access starts only when the user clicks Connect; unavailable georeference/provider access never authorizes guessed placement or status promotion.
+
+For a requested in-chat MCP preview, follow the [MCP procedure](../skills/render-online-map/references/mapbox-mcp.md). This vector-only option uses a configured Mapbox MCP connection and its authentication, rather than the local page's Connect field. It sends prepared geometry, opaque IDs, and provenance to that server only within the requested external-preview scope. Raster overlays and source-page review stay in the existing local views. Missing tools, incompatible schemas, or oversized arguments leave a reviewable local handoff and must not be reported as a successful interactive preview.

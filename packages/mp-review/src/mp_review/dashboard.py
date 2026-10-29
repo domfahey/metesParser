@@ -16,6 +16,7 @@ from mp_models.dashboard import (
     DashboardResult,
     PreparedDashboard,
 )
+from mp_models.webmap import WebMapRequest
 from mp_verify.dashboard import (
     _hash,
     _json,
@@ -121,9 +122,13 @@ def prepare_dashboard(
 
 
 def dashboard_file(
-    path: Path | str, output_dir: Path | str, *, cache_dir: Path | str | None = None
+    path: Path | str,
+    output_dir: Path | str,
+    *,
+    cache_dir: Path | str | None = None,
+    online_map: WebMapRequest | None = None,
 ) -> dict[str, Any]:
-    """Render a validated offline bundle and atomically save inspectable stage artifacts."""
+    """Stage an offline review and, when requested, a separate baseline online view."""
     from mp_export.dashboard_html import (  # type: ignore[import-untyped]
         render_dashboard,
         renderer_fingerprint,
@@ -137,6 +142,8 @@ def dashboard_file(
         "artifacts": {},
     }
     try:
+        if online_map is not None:
+            online_map = WebMapRequest.model_validate(online_map.model_dump(mode="json"))
         source_path = Path(path)
         directory = Path(output_dir)
         if directory.is_symlink() or directory.exists():
@@ -188,11 +195,55 @@ def dashboard_file(
                 }
             ),
         }
+        online_manifest = None
+        if online_map is not None:
+            from mp_export.online_map_html import (  # type: ignore[import-untyped]
+                online_renderer_fingerprint,
+                render_online_map,
+            )
+
+            from .webmap import prepare_web_map
+
+            web_map = prepare_web_map(
+                prepared, scene_id=online_map.scene_id, options=online_map.display
+            )
+            online_html = render_online_map(prepared, web_map.artifact, view=online_map.view)
+            request_data = online_map.model_dump(mode="json")
+            display_data = web_map.artifact.model_dump(mode="json")
+            artifacts.update(
+                {
+                    "web-map-request.json": _json(request_data),
+                    "web-map.json": _json(display_data),
+                    "online-map.html": online_html,
+                    **dict(web_map.assets),
+                }
+            )
+            display_files = {
+                "dashboard.html": output.encode("utf-8"),
+                "online-map.html": online_html.encode("utf-8"),
+                **dict(web_map.assets),
+            }
+            online_manifest = {
+                "schema_version": "1.0",
+                "input_hashes": dict(web_map.artifact.input_hashes),
+                "request_sha256": _hash(request_data),
+                "artifact_sha256": _hash(display_data),
+                "renderer_sha256": online_renderer_fingerprint(),
+                "files": {
+                    name: hashlib.sha256(data).hexdigest() for name, data in display_files.items()
+                },
+            }
+            result["online_map_availability"] = web_map.artifact.availability
         for name, content in artifacts.items():
             if (directory / name).resolve() == Path(path).resolve():
                 raise ValueError("Output must not overwrite the original input bundle")
+            (directory / name).parent.mkdir(parents=True, exist_ok=True)
             _atomic(directory / name, content)
             result["artifacts"][name] = str(directory / name)
+        # Publish the preview allowlist only after every declared display byte is present.
+        if online_manifest is not None:
+            _atomic(directory / "web-map-manifest.json", _json(online_manifest))
+            result["artifacts"]["web-map-manifest.json"] = str(directory / "web-map-manifest.json")
         # Use validated IDs, never a supplied filename, for retained source bytes.
         originals = {
             item.id: base64.b64decode(item.data_base64, validate=True)

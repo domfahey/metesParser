@@ -26,7 +26,7 @@ Build for transparency by design. All LLM-generated outputs must be traceable an
 
 ## Composable Package Architecture
 
-The codebase is a **uv workspace monorepo** with 7 independently installable packages (the 6 `mp-*` packages under `packages/` plus the root `metesparser` package) following Unix philosophy (each does one thing well). The original monolith in `src/metesparser/` is preserved for backward compatibility.
+The codebase is a **uv workspace monorepo** with 8 independently installable packages (the 7 `mp-*` packages under `packages/` plus the root `metesparser` package) following Unix philosophy (each does one thing well). The original monolith in `src/metesparser/` is preserved for backward compatibility.
 
 ```
 packages/
@@ -36,6 +36,7 @@ packages/
   mp-parse/     → Rule-based parsing: text → calls (depends: mp-models, mp-bearing)
   mp-verify/    → Geometric verification: 8 checks (depends: mp-models, mp-bearing)
   mp-export/    → CSV/JSON/audit HTML output (depends: mp-models, mp-verify)
+  mp-review/    → Deterministic review/plot/dashboard CLI and artifact adapters
 src/metesparser/ → Orchestrator + backward-compat monolith
 ```
 
@@ -48,7 +49,20 @@ src/metesparser/ → Orchestrator + backward-compat monolith
 | `mp-parse` | `mp_parse.calls`, `mp_parse.metadata`, `mp_parse.monuments`, `mp_parse.normalizer`, `mp_parse.numbers` | `call_extractor.py`, `text_parser.py` |
 | `mp-verify` | `mp_verify.closure`, `mp_verify.checks`, `mp_verify.confidence` | `closure_checker.py` |
 | `mp-export` | `mp_export.csv_writer`, `mp_export.audit_html` | `csv_builder.py`, `audit_reporter.py` |
+| `mp-review` | `mp_review.api`, `mp_review.plot`, `mp_review.dashboard`, `mp_review.cli` | Review API/CLI; `metesparser.plot` and `metesparser.dashboard` compatibility facades |
 | `metesparser` | `metesparser.pipeline` | Orchestrator (new) |
+
+### Composable Skills
+
+The Claude plugin is an instruction layer over the shared packages. Its [catalog](plugins/metesparser/README.md#skills) lists six capabilities, two workflows, and the `review-deed` compatibility alias. Keep each capability scoped to its own output; workflows select stages and reuse valid artifacts. The plugin uses native Claude document reading; `mp-ocr` remains the provider-backed extraction path for the separate Python pipeline.
+
+Use the [handoff contract](plugins/metesparser/references/artifact-handoffs.md) for accepted inputs, stopping points, status separation, and invalidation. Keep schemas in `mp_models`, adapters in `mp_review`, numerical logic in the shared parsing/bearing/verification packages, and rendering in `mp_export`. Plotting and overlay preparation must not grant canonical verification status. Dashboard assembly is explicit and placements bind to freshly computed dashboard geometry.
+
+Follow the [skill maintenance guide](docs/CLAUDE_PLUGIN.md#maintain-the-skill-composition) when changing instructions, handoffs, or examples. Link shared references rather than duplicating contracts across skills. Preserve the `CLAUDE.md` symlink to this file.
+
+The `render-online-map` capability owns optional local Mapbox and requested in-chat MCP rendering; the dashboard workflow owns source/bundle assembly and delegates provider rendering. Map-only requests do not require a dashboard. Optional online maps compose these same artifacts: `mp_models.webmap` defines the display contract, `mp_review.webmap` prepares geographic features and warped raster assets, and `mp_export.online_map_html` renders the Mapbox companion. Install the `web-map` extra for raster reprojection. The ordinary offline dashboard stays unchanged. Require explicit CRS, unit, placement and registration evidence; never infer a location from direction words or fit a deed to imagery. Mapbox tokens belong only in the runtime Connect field, never in configuration or generated files. See the [online map reference](plugins/metesparser/skills/render-online-map/references/local-viewer.md) for configuration, local preview and separate live-provider acceptance gates.
+
+The standalone `render-map` command accepts `StandaloneWebMapInput` (prepared plots and map arrays/placements) plus token-free `WebMapRequest`; shared math revalidates plots and stale placements fail. It writes an online viewer and offline evidence fallback without building a dashboard or granting source-review/verification status. The optional `mapbox-mcp` command reuses intact standalone-map or legacy dashboard geographic stages for a vector-only in-chat preview. Keep shared provenance validation in `mp_verify.webmap`, serialization in `mp_export.mapbox_mcp`, and stage I/O in `mp_review.mapbox_mcp`. It must not reproject, simplify, transmit data, or promote verification. The renderer skill handles a requested external preview through an already configured compatible tool; MCP connection credentials stay outside artifacts. See the [MCP reference](plugins/metesparser/skills/render-online-map/references/mapbox-mcp.md).
 
 ### Pipeline Orchestrator
 `Pipeline` chains mp-ocr → mp-parse → mp-verify → mp-export. Currently uses the monolith `PDFProcessor` for backward compatibility.
@@ -234,7 +248,8 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 - 1 acre = 43,560 sq ft
 
 ## Key Directories
-- `packages/` — 6 composable packages (mp-models, mp-bearing, mp-ocr, mp-parse, mp-verify, mp-export)
+- `packages/` — 7 composable packages (mp-models, mp-bearing, mp-ocr, mp-parse, mp-verify, mp-export, mp-review)
+- `plugins/metesparser/` — capability/workflow skills, shared handoffs, launcher, and plugin documentation
 - `src/metesparser/` — orchestrator (`pipeline.py`) + backward-compat monolith modules
 - `scripts/` — standalone utility scripts (extract_sample_deeds.py, generate_ground_truth.py, generate_review_packet.py, backfill_run_registry.py, audit_gt_vs_md.py, parse_pdfs_to_md.sh, test_31_pennbrook_text.py)
 - `docs/reference/` — reference PDFs (BLM manual, etc.) — tracked via `!docs/reference/*.pdf`
