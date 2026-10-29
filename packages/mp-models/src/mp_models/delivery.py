@@ -148,7 +148,7 @@ class DeliveryMetric(_Model):
 
 class DeliverySnapshot(_Model):
     schema_version: Literal["1.0"] = "1.0"
-    exporter_version: Literal["delivery-1"] = "delivery-1"
+    exporter_version: Literal["delivery-1", "delivery-2"] = "delivery-2"
     request: DeliveryRequest
     request_sha256: Digest
     revision_sha256: Digest
@@ -170,7 +170,7 @@ class DeliverySnapshot(_Model):
 class DeliveryManifest(_Model):
     schema_version: Literal["1.0"] = "1.0"
     save_state: Literal["published"] = "published"
-    exporter_version: Literal["delivery-1"] = "delivery-1"
+    exporter_version: Literal["delivery-1", "delivery-2"] = "delivery-2"
     request_sha256: Digest
     snapshot_sha256: Digest
     revision_sha256: Digest
