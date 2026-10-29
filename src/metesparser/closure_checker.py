@@ -21,6 +21,8 @@ import math
 import statistics
 from typing import overload
 
+import structlog
+
 from .bearing_converter import BearingConverter
 from .models import (
     PERMANENT_MONUMENTS,
@@ -32,6 +34,8 @@ from .models import (
     Tract,
     VerificationAudit,
 )
+
+logger = structlog.get_logger(__name__)
 
 
 class ClosureChecker:
@@ -107,13 +111,16 @@ class ClosureChecker:
             If tracts provided, returns list[ClosureResult] with one per tract.
         """
         if tracts is not None:
+            if audit_context is not None:
+                logger.warning(
+                    "Audit trail recording not yet implemented for per-tract verification"
+                )
             results: list[ClosureResult] = []
             for tract in tracts:
                 result = cls.verify_tract(
                     tract.calls,
                     stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
                     closure_tolerance_ft=closure_tolerance_ft,
-                    audit_context=audit_context,
                 )
                 results.append(result)
             return results
@@ -125,7 +132,21 @@ class ClosureChecker:
         main_calls = [c for c in calls if not c.is_exception and not c.is_tie_in]
         exception_calls = [c for c in calls if c.is_exception]
 
-        points = cls.compute_traverse(main_calls)
+        # An unparseable chord bearing is never guessed: block the curve check and
+        # traverse the course without its chord so the result is reported, not raised.
+        bad_chord_courses = [
+            c.course
+            for c in main_calls
+            if c.is_curve()
+            and c.chord_bearing is not None
+            and BearingConverter.bearing_to_azimuth(c.chord_bearing) is None
+        ]
+        points = cls.compute_traverse(
+            [
+                c.model_copy(update={"chord_bearing": None}) if c.course in bad_chord_courses else c
+                for c in main_calls
+            ]
+        )
 
         # Check for degenerate traverse: no calls contributed azimuths
         computable_calls = sum(
@@ -138,6 +159,9 @@ class ClosureChecker:
         misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
 
         warnings = []
+
+        for course in bad_chord_courses:
+            warnings.append(f"Course {course}: unparseable chord bearing; curve geometry blocked")
 
         if not has_computable_traverse:
             warnings.append(
@@ -171,7 +195,9 @@ class ClosureChecker:
 
         perimeter = cls.calculate_perimeter(main_calls)
 
-        closure_passed = has_computable_traverse and misclosure < tolerance
+        closure_passed = (
+            has_computable_traverse and misclosure < tolerance and not bad_chord_courses
+        )
 
         # Warn when closure only passes because of a relaxed tolerance
         if (
@@ -266,6 +292,20 @@ class ClosureChecker:
         check_results = [
             CheckResult.model_validate(check.model_dump()) for check in package_check_results
         ]
+        if bad_chord_courses:
+            check_results = [
+                CheckResult(
+                    name="curve_consistency",
+                    status="blocked",
+                    reason="invalid_chord_bearing",
+                    detail="Unparseable chord bearing on course(s) "
+                    + ", ".join(str(c) for c in bad_chord_courses),
+                )
+                if check.name == "curve_consistency"
+                else check
+                for check in check_results
+            ]
+            curve_consistency_passed = False
 
         closure_result = ClosureResult(
             misclosure_x_ft=misclosure_x,
