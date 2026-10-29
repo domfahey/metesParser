@@ -6,21 +6,39 @@
     "input": "Beginning at the iron pin; thence southwesterly 100 feet to a stake; thence back to the beginning.",
     "expected_status": "needs_review",
     "must_preserve_unknown_bearing": true,
-    "must_not": ["invent a numeric azimuth", "claim legal certification"]
+    "must_not": [
+      "invent a numeric azimuth",
+      "claim legal certification"
+    ]
   },
   {
     "id": "analytic-square-traverse",
     "skill": "verify-traverse",
     "request": "Verify the supplied square traverse.",
-    "input": {"format": "CSV", "calls": ["N 100 ft", "E 100 ft", "S 100 ft", "W 100 ft"]},
+    "input": {
+      "format": "CSV",
+      "calls": [
+        "N 100 ft",
+        "E 100 ft",
+        "S 100 ft",
+        "W 100 ft"
+      ]
+    },
     "expected_status": "checks_passed",
-    "must_not": ["claim survey certification"]
+    "must_not": [
+      "claim survey certification"
+    ]
   },
   {
     "id": "malformed-calls",
     "skill": "verify-traverse",
     "request": "Verify this malformed call file.",
-    "input": {"format": "CSV", "calls": ["not,a,valid,call"]},
+    "input": {
+      "format": "CSV",
+      "calls": [
+        "not,a,valid,call"
+      ]
+    },
     "expected_status": "needs_review_or_error",
     "must_report_engine_errors": true
   },
@@ -28,28 +46,47 @@
     "id": "scanned-pdf-native-conversion",
     "skill": "review-metes-and-bounds",
     "request": "Review this scanned deed PDF.",
-    "input": {"kind": "scanned_pdf", "pages": "image-only"},
+    "input": {
+      "kind": "scanned_pdf",
+      "pages": "image-only"
+    },
     "expected": "Use Claude native document/image reading, preserve transcription and uncertainties, locate the complete intended description, then calculate only when source gaps are resolved. Do not call an external OCR service or claim unread pages were reviewed."
   },
   {
     "id": "survey-image-illegible-bearing",
     "skill": "review-metes-and-bounds",
     "request": "Check the closure of the boundary in this survey image.",
-    "input": {"kind": "image", "issue": "One boundary bearing cannot be read."},
+    "input": {
+      "kind": "image",
+      "issue": "One boundary bearing cannot be read."
+    },
     "expected": "Use native reading, locate the description, preserve illegibility and source location, and request a clearer source before a verified result. Never infer the bearing from closure."
   },
   {
     "id": "report-operative-description",
     "skill": "extract-metes-and-bounds",
     "request": "Find the new tract description in this report for a closure check.",
-    "input": {"kind": "native_pdf", "sections": ["old description quoted as background", "new boundary continued in an exhibit with an exception after POB"]},
+    "input": {
+      "kind": "native_pdf",
+      "sections": [
+        "old description quoted as background",
+        "new boundary continued in an exhibit with an exception after POB"
+      ]
+    },
     "expected": "Read natively, distinguish the requested new description, preserve its continuation and exception verbatim, record source locations, and pass only that selected description to deterministic review."
   },
   {
     "id": "correspondence-ambiguous-tracts",
     "skill": "extract-metes-and-bounds",
     "request": "Does this boundary close?",
-    "input": {"kind": "email_text", "descriptions": ["Tract A", "Tract B"], "selected_tract": null},
+    "input": {
+      "kind": "email_text",
+      "descriptions": [
+        "Tract A",
+        "Tract B"
+      ],
+      "selected_tract": null
+    },
     "expected": "Locate both descriptions separately and clarify the intended tract; do not merge calls or silently calculate the first tract."
   },
   {
@@ -69,73 +106,180 @@
       "map": null
     },
     "expected": "Plot only the source-supported prefix; preserve southwesterly as unresolved without a numeric azimuth; do not bridge to the later east course or close the partial plot. Keep the engine review status unchanged.",
-    "must_not": ["guess a bearing from closure", "draw the gap as a deed course", "claim verified export"]
+    "must_not": [
+      "guess a bearing from closure",
+      "draw the gap as a deed course",
+      "claim verified export"
+    ]
   },
   {
     "id": "plot-map-needs-placement",
     "skill": "deed-closure-dashboard",
     "request": "Overlay this deed plot on the supplied tax parcel polygon and report the boundary fit.",
     "input": {
-      "deed_frame": {"foot_definition": "unknown", "bearing_basis": "recorded_bearings"},
-      "tax_layer": {"units": "unknown", "source_date": null, "coordinates": "projected polygon"},
+      "deed_frame": {
+        "foot_definition": "unknown",
+        "bearing_basis": "recorded_bearings"
+      },
+      "tax_layer": {
+        "units": "unknown",
+        "source_date": null,
+        "coordinates": "projected polygon"
+      },
       "placement": null
     },
     "expected": "Explain that map comparison is not comparable until explicit compatible units/foot definitions, scene, and placement exist. Ask for or prepare the deed-only geometry hash before a placement. Preserve the map's unknown source date and describe tax parcels as assessment context, not legal boundaries.",
-    "must_not": ["treat similar coordinates or scene names as alignment", "scale the deed to fit", "claim survey accuracy"]
+    "must_not": [
+      "treat similar coordinates or scene names as alignment",
+      "scale the deed to fit",
+      "claim survey accuracy"
+    ]
   },
   {
     "id": "scenario-keeps-baseline-placement",
     "skill": "deed-closure-dashboard",
     "request": "Show a hypothetical corrected distance over the parcel map while keeping the recorded result visible.",
     "input": {
-      "baseline": {"geometry_hash": "baseline-hash", "placement_id": "record-placement", "rotation_deg": 15, "translation": [100, 200]},
-      "scenario": {"id": "distance-variant", "geometry_hash": "scenario-hash", "distance_ft": 100.2}
+      "baseline": {
+        "geometry_hash": "baseline-hash",
+        "placement_id": "record-placement",
+        "rotation_deg": 15,
+        "translation": [
+          100,
+          200
+        ]
+      },
+      "scenario": {
+        "id": "distance-variant",
+        "geometry_hash": "scenario-hash",
+        "distance_ft": 100.2
+      }
     },
     "expected": "Keep record findings and placement frozen; derive a scenario placement tied to scenario geometry while retaining baseline geometry hash, placement ID, and scenario ID; apply the unchanged rotation/translation without refitting. Label scenario results advisory.",
-    "must_not": ["mutate the record", "refit placement to the map", "improve engine status"]
+    "must_not": [
+      "mutate the record",
+      "refit placement to the map",
+      "improve engine status"
+    ]
   },
   {
     "id": "raster-pixel-center-registration",
     "skill": "deed-closure-dashboard",
     "request": "Register the supplied scanned tax map from the named controls and include it in the offline dashboard.",
     "input": {
-      "image": {"format": "PNG", "width": 800, "height": 600, "sha256": "retained-hash"},
-      "controls": [{"id": "tl", "pixel": [0, 0], "scene": [100, 200]}, {"id": "tr", "pixel": [799, 0], "scene": [899, 200]}, {"id": "bl", "pixel": [0, 599], "scene": [100, -399]}]
+      "image": {
+        "format": "PNG",
+        "width": 800,
+        "height": 600,
+        "sha256": "retained-hash"
+      },
+      "controls": [
+        {
+          "id": "tl",
+          "pixel": [
+            0,
+            0
+          ],
+          "scene": [
+            100,
+            200
+          ]
+        },
+        {
+          "id": "tr",
+          "pixel": [
+            799,
+            0
+          ],
+          "scene": [
+            899,
+            200
+          ]
+        },
+        {
+          "id": "bl",
+          "pixel": [
+            0,
+            599
+          ],
+          "scene": [
+            100,
+            -399
+          ]
+        }
+      ]
     },
     "expected": "Record the affine registration, controls, scene units, fit/checkpoint roles and residuals; integer pixel coordinates are centers, so outer edges map from (-0.5,-0.5) through (width-0.5,height-0.5). Keep scan alignment approximate and preserve its provenance in the bundle.",
-    "must_not": ["treat three fit controls as independent accuracy validation", "warp deed geometry", "claim tax map is a legal boundary"]
+    "must_not": [
+      "treat three fit controls as independent accuracy validation",
+      "warp deed geometry",
+      "claim tax map is a legal boundary"
+    ]
   },
   {
     "id": "transcribe-only-stops-after-acquisition",
     "skill": "convert-document-to-text",
     "request": "Transcribe this scanned survey and give me the text file.",
-    "input": {"kind": "scanned_pdf", "pages": "complete_and_readable"},
+    "input": {
+      "kind": "scanned_pdf",
+      "pages": "complete_and_readable"
+    },
     "expected": "Use Claude native reading for all supplied pages and return the transcription, page map, and acquisition record. Stop without selecting a legal description or running geometry checks.",
-    "must_not": ["call external OCR", "automatically extract a description", "automatically verify closure"]
+    "must_not": [
+      "call external OCR",
+      "automatically extract a description",
+      "automatically verify closure"
+    ]
   },
   {
     "id": "extract-only-stops-after-selection",
     "skill": "extract-metes-and-bounds",
     "request": "Find and extract the operative description from this prepared transcript; do not review it yet.",
-    "input": {"source_text": "prepared transcript with page map", "acquisition_record": "valid for unchanged source"},
+    "input": {
+      "source_text": "prepared transcript with page map",
+      "acquisition_record": "valid for unchanged source"
+    },
     "expected": "Reuse the existing transcription and return the verbatim selected description with source ranges and selection record. Stop before deterministic review.",
-    "must_not": ["reread or re-transcribe the PDF", "run verification", "omit exceptions"]
+    "must_not": [
+      "reread or re-transcribe the PDF",
+      "run verification",
+      "omit exceptions"
+    ]
   },
   {
     "id": "plot-existing-csv-without-reread-or-dashboard",
     "skill": "plot-metes-and-bounds",
     "request": "Plot this existing selected boundary CSV as-is.",
-    "input": {"format": "strict_csv", "source_identity": "unchanged", "selection_record": "available"},
+    "input": {
+      "format": "strict_csv",
+      "source_identity": "unchanged",
+      "selection_record": "available"
+    },
     "expected": "Use the CSV directly and create standalone plot artifacts. Do not read source documents, repeat selection, run review, or build a dashboard.",
-    "must_not": ["claim document reading", "create a dashboard", "issue a verified CSV"]
+    "must_not": [
+      "claim document reading",
+      "create a dashboard",
+      "issue a verified CSV"
+    ]
   },
   {
     "id": "plot-keeps-missing-bearing-unresolved",
     "skill": "plot-metes-and-bounds",
     "request": "Plot this call set, including the southwesterly course.",
-    "input": {"format": "calls", "calls": ["N 100 feet", "southwesterly 50 feet", "E 100 feet"]},
+    "input": {
+      "format": "calls",
+      "calls": [
+        "N 100 feet",
+        "southwesterly 50 feet",
+        "E 100 feet"
+      ]
+    },
     "expected": "Preserve the cardinal-only bearing as unknown and show only geometry supported by the supplied values. Return plot artifacts with top-level needs_review and stop.",
-    "must_not": ["infer a numeric bearing", "bridge the gap as a deed course", "claim verified status"]
+    "must_not": [
+      "infer a numeric bearing",
+      "bridge the gap as a deed course",
+      "claim verified status"
+    ]
   },
   {
     "id": "plot-isolated-prose-with-commencement-tie-in",
@@ -147,7 +291,11 @@
       "input_format": "text"
     },
     "expected": "Use the explicit text-input plot path on the already-isolated prose. Preserve and represent the 50-foot commencement tie-in as separate from the four-course boundary ring; plot the four 100-foot boundary courses without treating the tie-in as a boundary course. Return standalone plot artifacts with needs_review and no verification or dashboard side effects.",
-    "must_not": ["treat the commencement tie-in as part of the boundary ring", "claim checks_passed or verified export", "build a dashboard"]
+    "must_not": [
+      "treat the commencement tie-in as part of the boundary ring",
+      "claim checks_passed or verified export",
+      "build a dashboard"
+    ]
   },
   {
     "id": "compose-standalone-map-from-existing-plot-and-layer",
@@ -159,7 +307,12 @@
       "prepared_layer": "materialized import-overlay output"
     },
     "expected": "Use the supported standalone map composition path with the existing plot and prepared layer, retain their provenance, and produce a standalone map package without creating an offline dashboard. Keep an unplaced local plot separate from the projected map layer unless explicit placement evidence is supplied; report provider and visible-client acceptance as unrun unless actually performed.",
-    "must_not": ["reparse or replot unchanged input", "infer placement from coordinates or scene labels", "create a dashboard", "claim online provider or client acceptance without observing it"]
+    "must_not": [
+      "reparse or replot unchanged input",
+      "infer placement from coordinates or scene labels",
+      "create a dashboard",
+      "claim online provider or client acceptance without observing it"
+    ]
   },
   {
     "id": "compose-dashboard-recomputes-geometry-hash",
@@ -172,7 +325,12 @@
       "prepared_layer": "materialized import-overlay output"
     },
     "expected": "Use the supported dashboard composition path to retain the prepared map inputs and produce a valid dashboard package. Recompute geometry from the dashboard's source/call/calculation inputs and report its fresh geometry hash; do not transplant the standalone plot hash. Preserve separate source-review and engine status fields, with engine_verified and verified_export_eligible false. If rendering is requested separately, report its needs_review status as a separate stage.",
-    "must_not": ["reuse a standalone plot geometry hash as dashboard geometry identity", "invent source-page review evidence", "infer or fabricate placement", "equate dashboard output with canonical verification"]
+    "must_not": [
+      "reuse a standalone plot geometry hash as dashboard geometry identity",
+      "invent source-page review evidence",
+      "infer or fabricate placement",
+      "equate dashboard output with canonical verification"
+    ]
   },
   {
     "id": "relative-only-analysis-routes-without-verification-or-dashboard",
@@ -184,15 +342,28 @@
       "input": "materialized copy of relative-rectangle.json"
     },
     "expected": "Discover and use verify-traverse for the explicit relative-angle/constraint request, reading its relative-analysis reference and running analyze-relative. Report top-level needs_review and the separate analysis.status, local geometry, and limitations. Stop after relative analysis without canonical verification, verified CSV, plot, or dashboard.",
-    "must_not": ["run canonical traverse verification", "claim engine_verified or verified_export_eligible", "create a plot or dashboard", "treat the arbitrary local frame as recorded north or geographic alignment"]
+    "must_not": [
+      "run canonical traverse verification",
+      "claim engine_verified or verified_export_eligible",
+      "create a plot or dashboard",
+      "treat the arbitrary local frame as recorded north or geographic alignment"
+    ]
   },
   {
     "id": "overlay-only-stops-before-deed-placement",
     "skill": "prepare-parcel-overlay",
     "request": "Import this supplied GeoJSON parcel layer and retain its provenance for later.",
-    "input": {"format": "geojson", "target_crs": "declared_projected_crs", "source_date": null},
+    "input": {
+      "format": "geojson",
+      "target_crs": "declared_projected_crs",
+      "source_date": null
+    },
     "expected": "Prepare the vector layer, preserve source provenance and the unknown source date, then stop. Do not plot or align deed geometry or create a dashboard.",
-    "must_not": ["infer deed alignment", "fetch a different parcel", "claim survey accuracy"]
+    "must_not": [
+      "infer deed alignment",
+      "fetch a different parcel",
+      "claim survey accuracy"
+    ]
   },
   {
     "id": "reuse-unchanged-call-artifacts",
@@ -215,9 +386,18 @@
     "id": "changed-call-invalidates-dependent-artifacts",
     "skill": "deed-closure-dashboard",
     "request": "Use the prior placement and dashboard after I changed one source call.",
-    "input": {"source_identity": "unchanged", "call_set": "changed", "old_geometry_hash": "present", "old_placement": "bound_to_old_hash"},
+    "input": {
+      "source_identity": "unchanged",
+      "call_set": "changed",
+      "old_geometry_hash": "present",
+      "old_placement": "bound_to_old_hash"
+    },
     "expected": "Treat the prior geometry and geometry-hash-bound placement as invalid, resume from the changed call set, and recompute/revalidate dependent outputs before rendering.",
-    "must_not": ["reuse stale geometry", "retain a placement without hash validation", "refit the deed to improve closure"]
+    "must_not": [
+      "reuse stale geometry",
+      "retain a placement without hash validation",
+      "refit the deed to improve closure"
+    ]
   },
   {
     "id": "online-reuses-source-and-registration",
@@ -375,11 +555,38 @@
     "request": "Render these prepared, placed deed and parcel artifacts on a Mapbox basemap in a local viewer.",
     "input": {
       "type": "StandaloneWebMapInput",
-      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid-retained-hash"}],
-      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
-      "maps": [{"kind": "prepared_vector", "source_hash": "valid-retained-hash"}],
-      "placements": [{"plot_hash": "valid-retained-hash", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
-      "web_map_request": {"scene_id": "scene-1", "provider": "mapbox"}
+      "plots": [
+        {
+          "type": "PreparedPlot",
+          "geometry_hash": "valid-retained-hash"
+        }
+      ],
+      "scenes": [
+        {
+          "id": "scene-1",
+          "kind": "projected",
+          "crs": "EPSG:3857",
+          "units": "m"
+        }
+      ],
+      "maps": [
+        {
+          "kind": "prepared_vector",
+          "source_hash": "valid-retained-hash"
+        }
+      ],
+      "placements": [
+        {
+          "plot_hash": "valid-retained-hash",
+          "scene_id": "scene-1",
+          "status": "approximate",
+          "explicit": true
+        }
+      ],
+      "web_map_request": {
+        "scene_id": "scene-1",
+        "provider": "mapbox"
+      }
     },
     "expected": "Use the standalone prepared plots, scenes, map layers, and explicit placement; validate retained identities and produce the local online viewer without building an offline dashboard. State that provider access and visible map acceptance are separate from preparation and verification.",
     "must_not": [
@@ -397,10 +604,34 @@
     "input": {
       "existing_dashboard": "valid, unchanged",
       "type": "StandaloneWebMapInput",
-      "plots": [{"type": "PreparedPlot", "geometry_hash": "retained"}],
-      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
-      "maps": [{"kind": "registered_raster", "registration_hash": "retained"}],
-      "placements": [{"plot_hash": "retained", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "plots": [
+        {
+          "type": "PreparedPlot",
+          "geometry_hash": "retained"
+        }
+      ],
+      "scenes": [
+        {
+          "id": "scene-1",
+          "kind": "projected",
+          "crs": "EPSG:3857",
+          "units": "m"
+        }
+      ],
+      "maps": [
+        {
+          "kind": "registered_raster",
+          "registration_hash": "retained"
+        }
+      ],
+      "placements": [
+        {
+          "plot_hash": "retained",
+          "scene_id": "scene-1",
+          "status": "approximate",
+          "explicit": true
+        }
+      ],
       "retained_hashes": "valid"
     },
     "expected": "Reuse matching plot, scene, map-registration, and placement artifacts after validating their hashes. Render or serve the online view without rebuilding upstream evidence; keep any existing offline dashboard available.",
@@ -416,12 +647,22 @@
     "request": "Show this local deed plot on an online basemap.",
     "input": {
       "fixture_recipe": "Materialize a StandaloneWebMapInput containing one supplied valid PreparedPlot with its complete request, geometry, and retained hashes; use the scene and empty map/placement arrays below. Keep this recipe separate from the model JSON.",
-      "scenes": [{"id": "scene-local", "name": "Unreferenced local frame", "kind": "local", "crs": null, "units": "unknown_ft"}],
+      "scenes": [
+        {
+          "id": "scene-local",
+          "name": "Unreferenced local frame",
+          "kind": "local",
+          "crs": null,
+          "units": "unknown_ft"
+        }
+      ],
       "map_sources": [],
       "vector_layers": [],
       "raster_layers": [],
       "placements": [],
-      "online_map_config": {"scene_id": "scene-local"}
+      "online_map_config": {
+        "scene_id": "scene-local"
+      }
     },
     "expected": "Report geographic availability as unavailable because no projected/georeferenced scene and explicit position/orientation evidence exist. A valid render-map run retains online-map.html with an explicit unavailable state and map-evidence.html for offline review, while blocking provider connection. Explain which evidence is missing and preserve the supplied local plot unchanged; do not claim a provider map rendered.",
     "must_not": [
@@ -437,10 +678,38 @@
     "request": "Show these prepared boundary and registered scan artifacts through the connected Mapbox MCP preview.",
     "input": {
       "type": "StandaloneWebMapInput",
-      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid"}],
-      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
-      "maps": [{"kind": "prepared_vector", "source_hash": "valid"}, {"kind": "registered_raster", "registration_hash": "valid"}],
-      "placements": [{"plot_hash": "valid", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "plots": [
+        {
+          "type": "PreparedPlot",
+          "geometry_hash": "valid"
+        }
+      ],
+      "scenes": [
+        {
+          "id": "scene-1",
+          "kind": "projected",
+          "crs": "EPSG:3857",
+          "units": "m"
+        }
+      ],
+      "maps": [
+        {
+          "kind": "prepared_vector",
+          "source_hash": "valid"
+        },
+        {
+          "kind": "registered_raster",
+          "registration_hash": "valid"
+        }
+      ],
+      "placements": [
+        {
+          "plot_hash": "valid",
+          "scene_id": "scene-1",
+          "status": "approximate",
+          "explicit": true
+        }
+      ],
       "connected_tool": "compatible vector-only render_map_tool",
       "local_online_viewer": "available"
     },
@@ -458,10 +727,34 @@
     "request": "This standalone online view looks aligned. Mark the deed verified.",
     "input": {
       "type": "StandaloneWebMapInput",
-      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid"}],
-      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
-      "maps": [{"kind": "registered_raster", "registration_status": "approximate"}],
-      "placements": [{"plot_hash": "valid", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "plots": [
+        {
+          "type": "PreparedPlot",
+          "geometry_hash": "valid"
+        }
+      ],
+      "scenes": [
+        {
+          "id": "scene-1",
+          "kind": "projected",
+          "crs": "EPSG:3857",
+          "units": "m"
+        }
+      ],
+      "maps": [
+        {
+          "kind": "registered_raster",
+          "registration_status": "approximate"
+        }
+      ],
+      "placements": [
+        {
+          "plot_hash": "valid",
+          "scene_id": "scene-1",
+          "status": "approximate",
+          "explicit": true
+        }
+      ],
       "engine_status": "needs_review",
       "source_review_complete": false,
       "registration_status": "approximate",
@@ -481,10 +774,34 @@
     "request": "Show these prepared deed and parcel artifacts in chat using Mapbox MCP.",
     "input": {
       "type": "StandaloneWebMapInput",
-      "plots": [{"type": "PreparedPlot", "geometry_hash": "valid"}],
-      "scenes": [{"id": "scene-1", "kind": "projected", "crs": "EPSG:3857", "units": "m"}],
-      "maps": [{"kind": "prepared_vector", "source_hash": "valid"}],
-      "placements": [{"plot_hash": "valid", "scene_id": "scene-1", "status": "approximate", "explicit": true}],
+      "plots": [
+        {
+          "type": "PreparedPlot",
+          "geometry_hash": "valid"
+        }
+      ],
+      "scenes": [
+        {
+          "id": "scene-1",
+          "kind": "projected",
+          "crs": "EPSG:3857",
+          "units": "m"
+        }
+      ],
+      "maps": [
+        {
+          "kind": "prepared_vector",
+          "source_hash": "valid"
+        }
+      ],
+      "placements": [
+        {
+          "plot_hash": "valid",
+          "scene_id": "scene-1",
+          "status": "approximate",
+          "explicit": true
+        }
+      ],
       "connected_mapbox_tools": [],
       "local_online_viewer": "available"
     },
@@ -494,5 +811,143 @@
       "silently reconstruct coordinates",
       "claim interactive acceptance passed"
     ]
+  },
+  {
+    "id": "source-reading-obscured-digits",
+    "fixture_family": "source_reading",
+    "request": "Transcribe the supplied deed page. Preserve any unreadable characters and cite the page.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "pdf",
+      "png"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "source-reading-missing-exhibit",
+    "fixture_family": "source_reading",
+    "request": "Locate and transcribe the operative boundary from the supplied deed.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "pdf"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "source-reading-repeated-occurrences",
+    "fixture_family": "source_reading",
+    "request": "Find the operative boundary in the supplied report and cite its page and occurrence.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "pdf",
+      "png"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "selection-only",
+    "fixture_family": "selection_only",
+    "request": "Select the operative description from the supplied report, preserve exclusions verbatim, and stop before calculation.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "pdf",
+      "text"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "reuse-restart",
+    "fixture_family": "reuse_restart",
+    "request": "Inspect the supplied artifact records and state which existing work can be reused and what must restart.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "restart-bundles"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "closure-diagnosis",
+    "fixture_family": "closure_diagnosis",
+    "request": "Explain the supplied closure discrepancy while preserving the source-reading alternatives.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "json"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "map-presentation-routing",
+    "fixture_family": "map_presentation",
+    "request": "Prepare a view from the supplied map bundle and report the controls available in this session.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "json",
+      "map-png-a",
+      "map-png-b"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "map-interaction-optional",
+    "fixture_family": "map_interaction_optional",
+    "request": "If the same browser controls are available in this session, toggle both raster layers and change their order; otherwise report the missing tool.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "json",
+      "map-png-a",
+      "map-png-b"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "map-evidence-checkpoints",
+    "fixture_family": "map_evidence",
+    "request": "Summarize registration quality from the supplied fit and checkpoint evidence.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "json"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "comparison-reversed-lines",
+    "fixture_family": "comparison",
+    "request": "Compare the supplied line pair under its declared tolerance and account for reversed traversal.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "json"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "comparison-incompatible-basis",
+    "fixture_family": "comparison",
+    "request": "Compare the supplied descriptions and report any structural or geometric result that is unavailable.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "json"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "comparison-structural-tentative",
+    "fixture_family": "comparison",
+    "request": "Compare the supplied call sequences and report only supported structural suggestions.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "json"
+    ],
+    "synthetic": true
+  },
+  {
+    "id": "end-to-end-review",
+    "fixture_family": "end_to_end_review",
+    "request": "Review the supplied synthetic deed through the requested review stage. Retain source locations, uncertainties, and requested output scope.",
+    "input": "Attached files are the complete materials supplied for this synthetic task.",
+    "fixture_artifacts": [
+      "pdf",
+      "png"
+    ],
+    "synthetic": true
   }
 ]

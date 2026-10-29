@@ -4,9 +4,11 @@ Shipped user documentation lives in the [plugin README](../plugins/metesparser/R
 
 ## Skills and engine commands
 
-The plugin has six capability skills, two composing workflows, and one compatibility alias. The [skill catalog](../plugins/metesparser/README.md#skills) is the inventory; the [artifact handoff contract](../plugins/metesparser/references/artifact-handoffs.md) defines accepted inputs, outputs, stopping points, status boundaries, and invalidation. Skills guide the agent's task selection and evidence handling. Python packages own schemas, parsing, geometry, and rendering; a skill is not a separate numerical implementation or a one-to-one wrapper for a CLI command.
+The plugin has seven capability skills, two composing workflows, and one compatibility alias. The [skill catalog](../plugins/metesparser/README.md#skills) is the inventory; the [artifact handoff contract](../plugins/metesparser/references/artifact-handoffs.md) defines accepted inputs, outputs, stopping points, status boundaries, and invalidation. Skills guide the agent's task selection and evidence handling. Python packages own schemas, parsing, geometry, and rendering; a skill is not a separate numerical implementation or a one-to-one wrapper for a CLI command.
 
 `review-metes-and-bounds` coordinates conversion and description selection only when those stages are needed, then runs deterministic review. `review-deed` delegates to it. Existing calls can go directly to verification or plotting. Overlay preparation is independent of deed geometry. Dashboard composition reuses source and map evidence, maps it into a validated bundle, and recomputes geometry under the dashboard's identities. Assembly is explicit, and any requested placement requires a supplied transform; there is no automatic plot-to-dashboard adapter or deed-to-map alignment.
+
+Supplementary runtime commands cover schema 1.1 source validation, read-only artifact freshness inspection, and requested straight-course closure diagnosis; they are helpers used by the skills, not additional skill entrypoints. The `compare-descriptions` capability accepts an explicit comparison request and returns advisory component/grouping results plus tentative structural differences. None replaces source review or promotes verification status; use the [plugin catalog and command guide](../plugins/metesparser/README.md) for exact invocations and limits. Evaluation case files define scenarios; they are not model-run evidence. Native Claude and live-provider acceptance remain separate gates.
 
 ## Dashboard development
 
@@ -89,6 +91,20 @@ Native Claude/Cowork document reading and host acceptance need their own recorde
 
 Run `make plugin-build` for the default distribution. To omit the optional geo dependencies, use `uv run python scripts/build_claude_plugin.py --without-geo --output dist/metesparser-plugin-minimal.zip`. The minimal runtime supports review and standalone plotting; operations requiring the geo extra report its absence. `--offline` uses cached build/runtime dependencies and fails if required dependencies are unavailable.
 
+These are dependency profiles of the same plugin, with the same ten skills:
+
+| Profile | Build option | Bundled geographic dependencies |
+| --- | --- | --- |
+| Standard | Default (`make plugin-build`) | `pyproj` and Pillow for geographic imports and scan preparation |
+| Web-map | `--with-web-map` | Standard dependencies plus Rasterio and NumPy for online maps and raster reprojection |
+| Minimal | `--without-geo` | No optional geographic dependencies; review and standalone plots remain available |
+
+Choose the web-map profile for a deed plot over a registered tax scan and online
+basemap. ZIP filenames can be changed with `--output`; multiple ZIPs in `dist/`
+can therefore represent different profiles or previous builds. Use the archive
+identified by its build/smoke-test evidence and SHA-256 sidecar. Building another
+profile does not replace an installed Claude plugin or remove other archives.
+
 `scripts/build_claude_plugin.py` builds six engine wheels from the current working tree, pins external runtime dependencies to root `uv.lock` versions, and creates `dist/metesparser-plugin.zip` plus a SHA-256 sidecar. The ZIP contains the manifest at its root, skills, references, a launcher, wheel hashes, and a separate runtime lock. Build artifacts include current uncommitted engine changes. Rebuild after changing engine or plugin files.
 
 Extract the ZIP to a fresh directory. In Claude Code, use `claude --plugin-dir /absolute/path/to/extracted-plugin` for a local session. For Cowork, use its plugin upload interface with the built ZIP. No account installation or publication is performed by the build. The launcher requires Python 3.11+ and `uv`; first use downloads the pinned third-party runtime dependencies and creates a fingerprint-specific environment in the user's cache. The source plugin directory has no built runtime: use the extracted distribution for execution. The release is portable Python packaging, but OS-specific client acceptance must still be tested on each target.
@@ -97,7 +113,7 @@ Closure does not establish source completeness or legal correctness. Topology ch
 
 ## Optional Mapbox renderer and distribution
 
-The `render-online-map` capability owns an explicitly requested local Mapbox view or in-chat MCP preview; all nine skill entrypoints retain their independent scope. The dashboard workflow owns source/bundle assembly and delegates provider rendering. A map-only request does not require an offline dashboard. Follow the [online handoff](../plugins/metesparser/references/artifact-handoffs.md#optional-online-map-handoff) and [runtime/configuration procedure](../plugins/metesparser/skills/render-online-map/references/local-viewer.md). The default dashboard makes no external requests; the companion also makes none before explicit Connect.
+The `render-online-map` capability owns an explicitly requested local Mapbox view or in-chat MCP preview; all ten skill entrypoints retain their independent scope. The dashboard workflow owns source/bundle assembly and delegates provider rendering. A map-only request does not require an offline dashboard. Follow the [online handoff](../plugins/metesparser/references/artifact-handoffs.md#optional-online-map-handoff) and [runtime/configuration procedure](../plugins/metesparser/skills/render-online-map/references/local-viewer.md). The default dashboard makes no external requests; the companion also makes none before explicit Connect.
 
 An optional [Mapbox MCP handoff](../plugins/metesparser/skills/render-online-map/references/mapbox-mcp.md) adapts existing standalone online-map or legacy dashboard stages into vector-only `render_map_tool` arguments with provenance checks and a conservative 48 KiB limit. Use `mapbox-mcp EXISTING_MAP_DIR --output-dir NEW_DIR` through the launcher or `metes-review`. It does not repeat GIS preparation or carry raster/source pages. Before a requested external call, inspect the configured tool's live schema and send the exact generated arguments as the terminal visualization call. Hosted OAuth, schema compatibility, provider access, and visible native-client acceptance remain separate gates; local generation does not prove them. Connection setup and the pinned upstream contract are linked in the procedure.
 

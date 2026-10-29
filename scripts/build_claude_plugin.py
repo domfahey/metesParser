@@ -91,7 +91,7 @@ def build(output: Path, *, offline: bool = False, geo: bool = True, web_map: boo
         shutil.copytree(
             ROOT / "plugins" / "metesparser",
             plugin,
-            ignore=shutil.ignore_patterns("__pycache__", ".DS_Store", "runtime", "tests"),
+            ignore=shutil.ignore_patterns("__pycache__", ".DS_Store", "runtime", "tests", "evals"),
         )
         runtime = plugin / "runtime"
         wheel_dir = runtime / "wheels"

@@ -23,7 +23,7 @@ Start a closure request by locating the intended metes-and-bounds description. A
 
 `review-deed` remains an entrypoint for deed-specific requests and follows the same shared workflow.
 
-Transcription, description extraction, traverse verification, plotting, overlay preparation, and online map rendering are capabilities with separate deliverables. Stop after the requested capability; do not continue automatically to another stage. If a later stage is requested, reuse valid handoff artifacts for the unchanged source instead of rereading it. Dashboard discovery is limited to explicit interactive dashboard/workbench/source-comparison requests; a request for a plot alone uses the plot capability. `review-deed` is an alias for deed-specific requests and routes to `review-metes-and-bounds`.
+Transcription, description extraction, traverse verification, plotting, overlay preparation, online map rendering, and description comparison are capabilities with separate deliverables. Stop after the requested capability; do not continue automatically to another stage. If a later stage is requested, reuse valid handoff artifacts for unchanged sources, conditionally using read-only `inspect-artifacts` when freshness or dependencies are unclear. Dashboard discovery is limited to explicit interactive dashboard/workbench requests; a request for a plot alone uses the plot capability. A two-description comparison uses `compare-descriptions` after the intended versions have been identified. `review-deed` is an alias for deed-specific requests and routes to `review-metes-and-bounds`.
 
 ## Examples of composition
 
