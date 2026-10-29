@@ -64,6 +64,22 @@ def parse_comma_number(s: str) -> float:
     return float(s.replace(",", ""))
 
 
+# Without "and", only these (larger, smaller) unit pairs form a compound
+# distance ("2 chains 20 links"). Equivalent units (pole/rod/perch) and
+# unrelated adjacent measurements ("150 feet, 3 rods north of ...") never sum.
+_IMPLICIT_COMPOUND_PAIRS = {
+    ("chain", "link"),
+    ("pole", "link"),
+    ("rod", "link"),
+    ("perch", "link"),
+}
+
+
+def _singular_unit(unit: str) -> str:
+    unit = " ".join(unit.lower().split())
+    return unit.removesuffix("es") if unit.endswith("ches") else unit.removesuffix("s")
+
+
 class TextParser:
     """Parse and normalize legal description text."""
 
@@ -522,8 +538,8 @@ class TextParser:
                 r"toises?|furlongs?|meters?|miles?"
             )
             component_pattern = rf"({_COMMA_NUMBER})\s*({compound_unit})"
-            # Components join with "and", or implicitly by whitespace/comma when each
-            # carries its own distinct unit ("2 chains 20 links", "40 poles, 5 feet").
+            # Components join with "and"; without it only genuine descending
+            # sub-unit pairs (_IMPLICIT_COMPOUND_PAIRS) are summed.
             joiner = r"(?:\s+and\s+|\s*,\s*|\s+)"
             compound = re.search(
                 rf"{component_pattern}(?:{joiner}{component_pattern})+",
@@ -536,10 +552,13 @@ class TextParser:
                 re.IGNORECASE,
             ):
                 implicit_units = [
-                    {"ft": "feet", "foot": "feet"}.get(u := " ".join(c.group(2).lower().split()).rstrip("s"), u)
+                    _singular_unit(c.group(2))
                     for c in re.finditer(component_pattern, compound.group(0), re.IGNORECASE)
                 ]
-                if len(set(implicit_units)) != len(implicit_units):
+                if any(
+                    pair not in _IMPLICIT_COMPOUND_PAIRS
+                    for pair in zip(implicit_units, implicit_units[1:], strict=False)
+                ):
                     compound = None
             if compound:
                 trailing_component = re.match(
