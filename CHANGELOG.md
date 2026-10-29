@@ -8,10 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- Durable review revisions with exact incomplete-input recovery, stable tract/call identities, immutable publication and retry, and separate source-correction evidence. New `revision-template`, `save-revision`, `inspect-revision` and `render-revision` commands preserve original readings and keep current drafts separate from last-valid geometry.
+- Structured line/circular-arc entry, insertion, removal and reordering with explicit angle formats, units, course roles and source references. Shared revision rendering supports arcs; unsupported input remains recoverable without invented bearings.
+- Revision-specific SVG, PDF, DXF and geographic GeoJSON delivery through `export-review` and `inspect-delivery`. Packages freeze revision, layer, unit, placement and presentation choices; retain source/omission metadata; and publish their manifest only after all required outputs succeed.
+- Centerline corridor construction with ordered left/right width intervals, tapers, joins, caps, topology checks and a declared linear error budget. Schema 1.2 revisions retain exact construction inputs through save, reopen, plotting and export.
+- Supplied-reference PLSS geometry for the explicitly supported rectangular aliquot subset, preserving unique dataset/reference identities, source corners, CRS and derivation rules. Missing, ambiguous and unsupported references cannot produce nominal section geometry.
+- Offline raster control-point picker with named fit controls and checkpoints, native/subpixel coordinates and downloadable registration inputs. Raster registration remains separate from deed placement.
 - Added reusable runtime commands for schema 1.1 source validation, read-only artifact freshness inspection with conditional restart guidance, and standalone closure-sensitivity diagnosis. Skills invoke these helpers when appropriate; they preserve advisory `needs_review` status and do not certify source accuracy or closure.
 - Added the `compare-descriptions` capability for explicit source-linked `ComparisonRequest` inputs, with advisory component grouping and tentative structural differences. Unknown bearing bases and unsupported alignments remain unresolved rather than inferred.
-- The plugin catalog now has ten entrypoints: seven capabilities, two workflows, and the `review-deed` compatibility alias.
-- Behavioral evaluation scenarios and a paired-evaluation protocol that keeps candidate instructions and grading rubrics separate; scenario definitions are not model results, and native Claude acceptance remains outstanding.
+- Added `plot-corridor`, `plot-plss-reference` and `export-review-package`; the plugin catalog now has 13 entrypoints: ten capabilities, two workflows and the `review-deed` compatibility alias.
+- Behavioral evaluation scenarios and materialized synthetic inputs for document intake, multi-tract resume, registration, corridors, PLSS and delivery. The paired-evaluation protocol keeps grading rubrics hidden; local fixture checks do not establish native Claude/Cowork acceptance.
 - Standalone `metes-review plot` with strict call/relative JSON and CSV inputs, preserved source bytes, reusable plot inputs, deterministic geometry, and offline HTML; plotting never grants verified-export status.
 - Composable plotting and parcel-overlay skills, shared artifact handoff/invalidation guidance, and focused review/dashboard workflows that reuse valid upstream work.
 - Source-linked dashboard plots with analytic arcs, honest partial boundaries, closure detail, zoom/pan and frozen advisory scenario placement; version 1.1 preserves v1.0 compatibility.
@@ -34,16 +41,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - LLM anti-hallucination prompts, dual-notation handling, space-separated DMS support
   - 249 new tests across 8 test files
 
+### Changed
+
+- Natural document-to-plot routing, source-course accounting and explicit multi-tract outcomes reuse existing acquisition/selection artifacts and resume only affected stages. Workflows stop at the user's requested output.
+- Circular-arc closure diagnosis adds independent radius, sweep and orientation sensitivities, and description comparison reports supported arc changes. Conflicting redundant measurements remain explicit errors.
+- Packaged runtime dependency resolution includes transitive delivery extras for PDF/DXF support; default and no-geo distributions retain their documented prerequisites.
+
 ### Removed
+
 - Plugin/skill-development guides accidentally shipped as product skills; retain metes-and-bounds workflows and project settings support.
 
 ### Fixed
+
+- Report missing or changed review/plot HTML separately from replayed geometry during artifact inspection, using the producer-recorded display hashes.
+- Preserve per-call delivery provenance so untouched calls remain recorded when another call or tract is edited or source-corrected.
+- Keep the raster-control example inside the packaged guide instead of linking to evaluation fixtures omitted from the ZIP.
+- Preserve exact drafts, rationale and evidence through delayed imports, rejected/interrupted saves and retries; late completion cannot overwrite newer edits or another document's revision.
+- Validate selected scene units, placement hashes, source/call identities and PLSS reference uniqueness before replay or delivery. Unavailable selected values remain unavailable instead of falling back to recorded values.
+- Produce reproducible DXF output across fresh processes and Python hash seeds, allowing retained delivery packages to pass deterministic replay.
+- Correct nearly parallel corridor miter error bounds and apply shared tolerance-aware sampling to corridor arc GeoJSON exports, with explicit work-limit refusals.
 - Check line–arc and arc–arc boundary intersections using finite circular sweeps, including tangencies, overlaps, and unequal radii in either argument order; apply the same guardrails to independent and exception tracts and verified CSV export.
 - Count actual BEGINNING clauses rather than closing point/place-of-beginning references, while preserving tracts that open with POINT/PLACE OF BEGINNING.
 - Preserve strict parsing, intersection checks, and fresh CSV export verification when integrating multi-tract support; adapt text review to the composable parser's `(calls, tracts)` result.
 - Backfill registry handles 0-call deeds, removed stale 7535-933 manifest (PR #34)
 - Fixed stale test counts, coverage metrics, and outdated references in docs (PR #36)
 - Doctor target now correctly reads `.env` values for API key validation (PR #38)
+
+Local implementation, browser and packaged-runtime results are recorded in the [Cowork workflow evidence ledger](docs/implementation/2026-10-28-cowork-workflow-ledger.md). Native Claude/Cowork acceptance and optional live-provider checks remain unrun; these additions do not grant canonical verification or verified CSV eligibility.
 
 ## [0.5.0] - 2026-02-16
 

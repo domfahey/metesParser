@@ -8,7 +8,7 @@ The plugin has ten capability skills, two composing workflows, and one compatibi
 
 `review-metes-and-bounds` coordinates conversion and description selection only when those stages are needed, then runs deterministic review. `review-deed` delegates to it. Existing calls can go directly to verification or plotting. Overlay preparation is independent of deed geometry. Dashboard composition reuses source and map evidence, maps it into a validated bundle, and recomputes geometry under the dashboard's identities. Assembly is explicit, and any requested placement requires a supplied transform; there is no automatic plot-to-dashboard adapter or deed-to-map alignment.
 
-Supplementary runtime commands cover schema 1.1 source validation, read-only artifact freshness inspection, and requested line/circular-arc closure diagnosis; they are helpers used by the skills, not additional skill entrypoints. The `compare-descriptions` capability accepts an explicit comparison request and returns advisory component/grouping results plus tentative structural differences. None replaces source review or promotes verification status; use the [plugin catalog and command guide](../plugins/metesparser/README.md) for exact invocations and limits. Evaluation case files define scenarios; they are not model-run evidence. Native Claude and live-provider acceptance remain separate gates.
+Supplementary runtime commands support schema 1.1 source validation, read-only artifact freshness inspection, closure diagnosis, saved revision publication/replay, corridor construction, supplied-reference PLSS derivation, raster registration/picking, and revision-bound delivery. They are helpers used by the thirteen skill entrypoints, not additional skills. The `compare-descriptions` capability accepts an explicit comparison request and returns advisory component/grouping results plus tentative structural differences. None replaces source review or promotes verification status; use the [plugin catalog and command guide](../plugins/metesparser/README.md) for routing and limits, and the [revision reference](../plugins/metesparser/references/revisions.md) for publication and delivery contracts. Evaluation case files define scenarios; they are not model-run evidence. Native Claude/Cowork and live-provider acceptance remain separate gates.
 
 ## Dashboard development
 
@@ -24,6 +24,16 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" dashboard bundle.json --ou
 Use one command at a time and a fresh output directory. Valid bundles return top-level `needs_review` (exit 1); inspect the generated dashboard and JSON artifacts. `geometry_status` (`analyzed`, `unresolved`, `inconsistent`, `blocked`), canonical engine status, and source-review completeness are separate. Native reading, description selection, and the correctness of supplied review attestations remain outside the renderer. Relative calculations and all interactive scenario edits are advisory; no dashboard command writes verified CSV. The [bundle reference](../plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-bundle.md) documents the schema, output files, legacy check-boolean compatibility, and cache invalidation. Explicit rigid placements and named-point residual comparisons are supported. Automatic boundary matching remains unsupported. The browser retains structured line/arc drafts; `save-revision` and `render-revision` use shared geometry for fresh views. The immediate browser calculator remains straight-only.
 
 Follow the [composition example](../plugins/metesparser/skills/deed-closure-dashboard/references/dashboard-bundle.md#compose-existing-plot-and-map-artifacts) to populate a source bundle and append prepared layers using `compose-dashboard`. The command is available through the packaged launcher as well as `uv run metes-review`, retains exact input sidecars, and prints fresh geometry hashes. Required page and review records must come from actual evidence. A placement uses the freshly computed dashboard geometry hash, not a standalone plot's hash.
+
+### Saved revisions and derived sources
+
+Use `revision-template` only when no dashboard draft was downloaded, then publish with `save-revision`; `inspect-revision` replays a published revision, while `render-revision` writes a new view. These commands retain recoverable raw drafts and separate current geometry from any last-valid parent geometry. They do not run canonical verification or grant verified-export eligibility. For the full command sequence and immutable publication rules, see [saved alternatives and source corrections](../plugins/metesparser/references/revisions.md).
+
+Schema 1.2 revisions can retain exact corridor request JSON and explicitly remove prior corridors. Reopening recomputes a retained corridor from its request; delivery binds the revision manifest, corridor input and boundary geometry hashes and uses that fresh result directly. Standalone corridor artifacts remain a separate source path. Source-correction sidecars preserve supplied supporting excerpts and fresh calls, not native acquisition records or proof of complete source selection. When a new full selection is needed, use the actual source-reading workflow.
+
+The [corridor capability](../plugins/metesparser/skills/plot-corridor/SKILL.md), [PLSS capability](../plugins/metesparser/skills/plot-plss-reference/SKILL.md), and [delivery capability](../plugins/metesparser/skills/export-review-package/SKILL.md) document their supported inputs and stopping points. PLSS derivation requires a supplied, identified reference dataset and supported rectangular rule; a recital does not provide missing section geometry. Delivery exports an explicitly selected published revision and remains a presentation artifact, not a verification result.
+
+For a guided pixel-control workflow, `pick-raster IMAGE --controls CONTROLS.json --output-dir NEW_DIR` produces a downloadable control file for `register-raster`. The [overlay preparation reference](../plugins/metesparser/skills/prepare-parcel-overlay/references/overlay-preparation.md#optional-native-pixel-control-picker) explains prerequisites and limits. Picker points aid raster registration; deed placement remains a separate explicit operation.
 
 ## Review and standalone plot development
 
@@ -85,7 +95,7 @@ make test-dashboard-browser
 
 The reviewed corpus lives in `packages/mp-review/tests/fixtures/corpus.json`. Expectations are explicit analytic values and behaviors; the runner compares them with tolerances and reports individual failures. Existing generated sample-deed ground truth is not treated as authoritative. Add reviewed cases with source provenance rather than copying actual output into expected values.
 
-Native Claude/Cowork document reading and host acceptance need their own recorded runs. Local schema, engine, browser, and packaging checks do not establish them; use the [model evaluation protocol](../plugins/metesparser/evals/README.md) and see [pending evaluation work](todos.md#dashboard-skill-and-metes--bounds-checking-improvements-2026-10-26). Claude Haiku, Sonnet, and Opus coverage remains unrun until recorded separately for the actual model versions and client surfaces.
+Native Claude/Cowork document reading, paired model evaluations, and host acceptance need their own recorded runs. The current [Cowork workflow ledger](implementation/2026-10-28-cowork-workflow-ledger.md) records local implementation complete and native acceptance not run, including current access evidence. Local schema, engine, browser, and packaging checks do not establish those gates; use the [model evaluation protocol](../plugins/metesparser/evals/README.md) for future recorded paired sessions.
 
 ## Packaging and local installation
 
@@ -104,6 +114,10 @@ basemap. ZIP filenames can be changed with `--output`; multiple ZIPs in `dist/`
 can therefore represent different profiles or previous builds. Use the archive
 identified by its build/smoke-test evidence and SHA-256 sidecar. Building another
 profile does not replace an installed Claude plugin or remove other archives.
+All profiles include the delivery extra; the standard profile also includes the
+geo extra, while `--without-geo` omits it. The web-map extra adds Rasterio and
+NumPy on top of geo support. Consult each capability's reference for the exact
+prerequisite of a requested operation.
 
 `scripts/build_claude_plugin.py` builds six engine wheels from the current working tree, pins external runtime dependencies to root `uv.lock` versions, and creates `dist/metesparser-plugin.zip` plus a SHA-256 sidecar. The ZIP contains the manifest at its root, skills, references, a launcher, wheel hashes, and a separate runtime lock. Build artifacts include current uncommitted engine changes. Rebuild after changing engine or plugin files.
 

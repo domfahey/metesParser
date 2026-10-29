@@ -169,7 +169,7 @@ class TestFeature:
 
 ### Coverage Goals
 
-- New features: **> 90% coverage**
+- Aim for **> 90% coverage** on new features; the enforced root-suite floor is the configured 80% for `src/metesparser/` (see [Testing](TESTING.md)). Workspace package coverage is not included in that root threshold.
 - Bug fixes: **Add regression test**
 - Refactoring: **Maintain existing coverage**
 
@@ -203,6 +203,8 @@ uv run pytest tests/integration/ -v
 # Run with coverage
 make test-cov
 ```
+
+Package and plugin suites are separate from these root commands. Use the focused commands in [Testing](TESTING.md#per-package-and-plugin-tests) for saved revisions, revision-bound corridors, delivery, raster picker, PLSS and skill materialization/navigation. The offline dashboard browser target checks local preview interactions; it does not establish Claude/Cowork conversation behavior or real-world deed placement. Native paired evaluations and live Mapbox rendering remain separately recorded gates.
 
 ## Core Principles
 
