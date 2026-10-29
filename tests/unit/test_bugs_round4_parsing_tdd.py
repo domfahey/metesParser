@@ -144,3 +144,23 @@ def test_conveyed_parcel_area_after_parent_tract_clause_is_selected(extract_area
     )
     assert area is not None
     assert area["value_sq_ft"] == pytest.approx(2.5 * 43560)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize(
+    ("course", "expected_ft"),
+    [
+        ("THENCE N 10° E 2 chains 20 links to an iron pin", 145.2),
+        ("THENCE N 10° E 40 poles 5 feet to an iron pin", 665.0),
+        ("THENCE N 10° E 2 chains, 20 links to an iron pin", 145.2),
+    ],
+)
+def test_compound_distance_without_and_sums_every_component(parse, course, expected_ft):
+    # Bug #70: only the first component was kept when "and" was absent.
+    assert parse(course)[0].distance_ft == pytest.approx(expected_ft)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_repeated_same_unit_measurements_are_not_summed_without_and(parse):
+    call = parse("THENCE N 10° E 100 feet, 50 feet from the corner to an iron pin")[0]
+    assert call.distance_ft == pytest.approx(100.0)

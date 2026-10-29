@@ -127,3 +127,30 @@ def test_saved_miwayn_ground_truth_township_is_extracted():
     description = ground_truth["Full_Legal_Description"]
     assert extract_plss_metadata(description)["township"] == "4 S"
     assert TextParser.extract_plss_metadata(description)["township"] == "4 S"
+
+
+@pytest.mark.parametrize("parse,verify", list(_apis()))
+def test_chord_bearing_phrasing_populates_chord_bearing_and_closes(parse, verify):
+    # Bug #62: "chord bearing ..." was stored as the tangent bearing.
+    calls = parse(
+        "THENCE a curve to the right, radius of 50 feet, delta angle of 90°, "
+        "chord bearing North 45° East 70.71 feet; THENCE due South 50 feet; "
+        "THENCE due West 50 feet to the point of beginning."
+    )
+    assert calls[0].chord_bearing is not None
+    assert calls[0].chord_bearing.replace("°", " ").split()[0] == "N"
+    assert calls[0].chord_length_ft == pytest.approx(70.71)
+    # right curve, delta 90: tangent = chord (45) - delta/2 = 0
+    assert calls[0].bearing_azimuth_deg_from_north == pytest.approx(0.0, abs=1e-6)
+    assert calls[0].bearing_quadrant is None
+    result = verify(calls)
+    assert result.misclosure_ft < 0.1
+
+
+def test_extract_curve_info_chord_bearing_phrasing():
+    info = extract_curve_info(
+        "a curve to the right, radius of 50 feet, delta angle of 90°, "
+        "chord bearing North 45° East 70.71 feet"
+    )
+    assert info["chord_bearing"] == "N 45° E"
+    assert info["chord_length_ft"] == pytest.approx(70.71)
