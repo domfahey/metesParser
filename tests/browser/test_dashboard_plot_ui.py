@@ -351,3 +351,79 @@ def test_raster_outer_edges_follow_pixel_center_affine_and_controls(open_dashboa
     page.locator('[data-baseline-plot="calc-one"]').screenshot(path=str(SCREENSHOTS / "raster.png"))
     assert page._dashboard_remote == []
     assert page._dashboard_errors == []
+
+
+def test_diagnostic_candidates_preserve_baseline_reset_and_source_occurrence(open_dashboard):
+    value = fixture_data()
+    value["calls"][0]["call"]["distance_ft"] = 100.5
+    page = open_dashboard(value)
+    baseline = page.locator("#baseline-diagnostics")
+    scenario = page.locator("#scenario-diagnostics")
+    baseline_html = baseline.inner_html()
+    frozen = page.locator("#dashboard-data").text_content()
+    assert "0.500" in baseline.inner_text()
+    assert (
+        baseline.locator('[data-diagnostic-call="call-one"]').get_attribute("data-distance-rank")
+        == "1"
+    )
+    assert (
+        baseline.locator('[data-diagnostic-call="call-three"]').get_attribute("data-distance-rank")
+        == "1"
+    )
+    candidate = baseline.locator('[data-diagnostic-source="call-one"]')
+    candidate.focus()
+    candidate.press("Enter")
+    assert page.locator("#source-viewer").evaluate("node => node.open")
+    assert "call-one" in page.locator(".selected-source-detail").inner_text()
+    assert page.locator(".selected-source-crop").get_attribute("alt") == "Synthetic first distance"
+    page.locator("#viewer-close").click()
+    page.locator('input[aria-label="call-one: Distance in feet"]').fill("100")
+    assert "direction ranking unavailable" in scenario.inner_text().lower()
+    assert baseline.inner_html() == baseline_html
+    page.locator("#reset-record").click()
+    assert "0.500" in scenario.inner_text()
+    assert baseline.inner_html() == baseline_html
+    assert page.locator("#dashboard-data").text_content() == frozen
+    assert page._dashboard_errors == []
+    assert page._dashboard_remote == []
+
+
+def test_diagnostic_source_button_selects_current_occurrence_page(open_dashboard):
+    import copy
+
+    value = fixture_data()
+    value["documents"][0]["expected_page_count"] = 2
+    page_two = copy.deepcopy(value["pages"][0])
+    page_two.update(id="page-two", number=2, label="Second occurrence source")
+    value["pages"].append(page_two)
+    occurrence = copy.deepcopy(value["occurrences"][0])
+    occurrence.update(id="occ-two", version_label="Second occurrence", page_ids=["page-two"])
+    value["occurrences"].append(occurrence)
+    for original in list(value["calls"]):
+        call = copy.deepcopy(original)
+        call.update(id="copy-" + original["id"], occurrence_id="occ-two", page_id="page-two")
+        value["calls"].append(call)
+    calc = copy.deepcopy(value["calculations"][0])
+    calc.update(id="calc-two", occurrence_id="occ-two")
+    value["calculations"].append(calc)
+    evidence = copy.deepcopy(value["evidence"][0])
+    evidence.update(
+        id="evidence-two",
+        occurrence_id="occ-two",
+        page_id="page-two",
+        call_id="copy-call-one",
+        label="Second occurrence crop",
+    )
+    value["evidence"].append(evidence)
+    page = open_dashboard(value)
+    page.locator("#calculation-select").select_option("calc-two")
+    candidate = page.locator('#scenario-diagnostics [data-diagnostic-source="copy-call-one"]')
+    candidate.click()
+    assert "page 2" in page.locator("#viewer-label").inner_text()
+    assert "copy-call-one" in page.locator(".selected-source-detail").inner_text()
+    assert page.locator(".selected-source-crop").get_attribute("alt") == "Second occurrence crop"
+    page.locator("#viewer-close").click()
+    page.locator("#reset-record").click()
+    page.locator('#baseline-diagnostics [data-diagnostic-source="copy-call-one"]').click()
+    assert "page 2" in page.locator("#viewer-label").inner_text()
+    assert page._dashboard_errors == []
