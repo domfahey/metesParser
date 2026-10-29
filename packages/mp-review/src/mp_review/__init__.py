@@ -3,11 +3,13 @@
 from .api import ENGINE_VERSION, replay_review, review_file, review_text, verify_file
 from .artifact_inspect import inspect_artifacts
 from .comparison import compare_descriptions_file
+from .corridor import analyze_corridor_file, replay_corridor
 from .dashboard import dashboard_file, prepare_dashboard
 from .diagnostics import diagnose_closure_file
 from .mapbox_mcp import mapbox_mcp_file
 from .online_map import render_map_file
 from .plot import plot_file
+from .plss import prepare_plss_file
 from .relative import review_relative_file
 from .revision_view import render_revision_file
 from .revisions import import_revision, load_revision, publish_revision
@@ -16,6 +18,9 @@ from .webmap import PreparedWebMap, prepare_web_map
 
 __version__ = ENGINE_VERSION
 __all__ = [
+    "analyze_corridor_file",
+    "replay_corridor",
+    "prepare_plss_file",
     "compare_descriptions_file",
     "render_revision_file",
     "import_revision",
