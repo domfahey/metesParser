@@ -581,3 +581,64 @@ def test_outside_record_override_is_not_read(bundle, tmp_path_factory):
     result = validate(bundle, acquisition=outside)
     assert result["status"] == "error"
     assert findings(result, "unsafe_path")[0]["path"] == str(outside)
+
+
+def test_in_bundle_absolute_override_through_symlinked_root_is_accepted(bundle, tmp_path_factory):
+    link = tmp_path_factory.mktemp("symlinked-root") / "bundle"
+    link.symlink_to(bundle, target_is_directory=True)
+    result = validate(
+        link,
+        acquisition=link / "source-acquisition.json",
+        selection=link / "description-selection.json",
+    )
+    assert result["status"] == "needs_review"
+    assert findings(result, "unsafe_path") == []
+    assert result["identity"]["status"] == "matched"
+
+
+def test_outside_absolute_override_through_symlinked_root_is_rejected(bundle, tmp_path_factory):
+    link = tmp_path_factory.mktemp("symlinked-root") / "bundle"
+    link.symlink_to(bundle, target_is_directory=True)
+    outside = tmp_path_factory.mktemp("outside-link") / "acquisition.json"
+    outside.write_bytes((bundle / "source-acquisition.json").read_bytes())
+    result = validate(link, acquisition=outside)
+    assert result["status"] == "error"
+    assert findings(result, "unsafe_path")[0]["path"] == str(outside)
+
+
+@pytest.mark.parametrize(
+    "content,code", [(b"{not json", "invalid_json"), (b"\xff", "invalid_utf8")]
+)
+def test_unreadable_acquisition_record_is_reported_invalid_with_identity(bundle, content, code):
+    (bundle / "source-acquisition.json").write_bytes(content)
+    result = validate(bundle)
+    assert result["status"] == "error"
+    assert result["acquisition"]["status"] == "invalid"
+    assert result["acquisition"]["path"] == "source-acquisition.json"
+    assert result["acquisition"]["sha256"] == digest(content)
+    assert findings(result, code)[0]["path"] == "source-acquisition.json"
+
+
+def test_non_utf8_transcript_still_reports_selection_transcript_identity(bundle):
+    raw = b"\xff\xfe transcript bytes that are not UTF-8\n"
+    (bundle / "source-text.txt").write_bytes(raw)
+    alter(
+        bundle,
+        "source-acquisition.json",
+        lambda d: d["transcript"].update(sha256=digest(raw)),
+    )
+    alter(
+        bundle,
+        "description-selection.json",
+        lambda d: d.update(transcript_sha256=digest(raw)),
+    )
+    result = validate(bundle)
+    assert result["status"] == "needs_review"
+    assert findings(result, "invalid_utf8")[0]["path"] == "source-text.txt"
+    check = next(
+        c
+        for c in result["identity"]["checks"]
+        if c["id"] == "selection-1" and c["path"] == "source-text.txt"
+    )
+    assert check["actual_sha256"] == digest(raw)
+    assert check["status"] == "matched"
