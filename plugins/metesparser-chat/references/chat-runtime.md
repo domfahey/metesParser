@@ -1,6 +1,6 @@
 # Claude chat runtime
 
-The chat archive carries the review launcher and pinned MetesParser runtime artifacts. The execution host still needs Python 3.11+, `uv`, permission to execute Python, writable output/cache storage, and network access to fetch pinned third-party dependencies on first use unless a compatible runtime/cache is already provisioned. The archive does not include every third-party wheel. Runtime availability is per host/session; do not rely on laptop installations, repository files, inherited environment variables, credentials, or persistent shell state.
+The chat archive carries the review launcher and pinned MetesParser runtime artifacts. The execution host needs Python 3.11+, permission to execute Python, writable output/cache storage, and network access to fetch pinned third-party dependencies on first use unless a compatible runtime/cache is already provisioned. Setup uses an available host/cached `uv` or downloads a pinned verified copy. The archive does not include every third-party wheel. Runtime availability is per host/session; do not rely on laptop installations, repository files, inherited environment variables, credentials, or persistent shell state.
 
 ## Locate the launcher
 
@@ -13,12 +13,14 @@ Each tool execution may start in a fresh process. Set the root and invoke the wr
 Run setup explicitly before the first engine command:
 
 ```sh
+METESPARSER_SKILL_ROOT="/actual/extracted/path"
 python3 "$METESPARSER_SKILL_ROOT/scripts/run-chat.py" --setup
 ```
 
 The wrapper uses an available host or cached `uv`, or downloads the pinned and verified `uv` 0.9.6 into the session cache, then runs a locked dependency sync. For an offline setup, use:
 
 ```sh
+METESPARSER_SKILL_ROOT="/actual/extracted/path"
 python3 "$METESPARSER_SKILL_ROOT/scripts/run-chat.py" --setup --offline
 ```
 

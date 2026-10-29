@@ -4,7 +4,7 @@ A Claude plugin for reviewing metes-and-bounds descriptions, backed by determini
 
 Use it to locate a boundary description in a deed, inspect its calls, check closure, create a plot, compare versions and prepare review deliverables. The same Python engine is available through a CLI and independently installable packages.
 
-[Get the plugin](https://github.com/domfahey/metesParser/releases) · [Skill catalog](plugins/metesparser/README.md#skills) · [Usage guide](plugins/metesparser/references/usage.md) · [Changelog](CHANGELOG.md)
+[Get the plugin](https://github.com/domfahey/metesParser/releases) · [Chat Skill installation](#install-the-standalone-claude-chat-skill) · [Skill catalog](plugins/metesparser/README.md#skills) · [Usage guide](plugins/metesparser/references/usage.md) · [Changelog](CHANGELOG.md)
 
 > **Proof of concept (POC).** MetesParser explores source-traceable boundary review with Claude and deterministic tools. Review source readings and results before relying on them.
 
@@ -150,6 +150,7 @@ The plugin supplies instructions and workflow routing. Shared packages own the c
 | Location | Responsibility |
 | --- | --- |
 | `plugins/metesparser/` | Claude skills, shared procedures and the bundled-runtime launcher |
+| `plugins/metesparser-chat/` | Standalone chat dispatcher, host setup wrapper and download guidance |
 | `packages/mp-models/` | Schemas, source identities, units and artifact contracts |
 | `packages/mp-bearing/`, `packages/mp-parse/` | Bearing math and rule-based parsing |
 | `packages/mp-verify/` | Canonical checks and advisory geometry/analysis |
@@ -182,7 +183,7 @@ Keep only publicly available source data in the repository. Do not commit creden
 - [Implementation plans](docs/plans/README.md) and [historical extraction outputs](docs/archive/extraction-output/README.md)
 - [Architecture](docs/ARCHITECTURE.md) and [testing](docs/TESTING.md)
 - [Project changelog](CHANGELOG.md) and [plugin changelog](plugins/metesparser/CHANGELOG.md)
-- [Local implementation evidence and outstanding acceptance gates](docs/implementation/2026-10-28-cowork-workflow-ledger.md)
+- [Workflow implementation evidence](docs/implementation/2026-10-28-cowork-workflow-ledger.md) and [chat distribution validation](docs/implementation/2026-10-29-claude-chat-skill.md), including outstanding host checks
 
 ## License
 

@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standalone Claude chat Skill archive with one discoverable entrypoint, thirteen embedded procedures and the existing deterministic engine. `make chat-skill-build` produces the ZIP and checksum; generated instructions use paths within the extracted archive.
 - Explicit chat runtime setup using host/cached `uv` or a pinned, hash-checked bootstrap for Linux and macOS on x86_64/ARM64, followed by locked dependency provisioning. Offline setup and ordinary invocations never download the bootstrap tool. Native chat acceptance remains pending.
 
+### Fixed
+
+- Correct Python API examples for structured PDF results, closure status and audit filenames; align architecture and testing guidance with both Claude distributions.
+- Clarify chat bootstrap prerequisites, complete skill-root setup examples and archive unpacking before inspection/reuse; remove a redundant launcher substitution from packaged overlay guidance.
+
 ## [0.6.0] - 2026-10-29
 
 ### Added
@@ -374,7 +379,8 @@ Update any code that reads CSV files to handle the new fields.
 **Testing**:
 Session-scoped fixtures may affect test timing. Use `pytest --cache-clear` if you encounter caching issues.
 
-[Unreleased]: https://github.com/domfahey/metesParser/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/domfahey/metesParser/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/domfahey/metesParser/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/domfahey/metesParser/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/domfahey/metesParser/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/domfahey/metesParser/compare/v0.3.0...v0.3.1

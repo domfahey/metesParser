@@ -1,6 +1,6 @@
 # Claude plugin and deterministic review
 
-Shipped user documentation lives in the [plugin README](../plugins/metesparser/README.md), [usage guide](../plugins/metesparser/references/usage.md), and [plugin changelog](../plugins/metesparser/CHANGELOG.md). This document covers source-checkout development and packaging.
+User documentation lives in the [plugin README](../plugins/metesparser/README.md), [chat Skill README](../plugins/metesparser-chat/README.md), shared [usage guide](../plugins/metesparser/references/usage.md), and [plugin changelog](../plugins/metesparser/CHANGELOG.md). This document covers source-checkout development and packaging; the chat builder adapts shared instructions for its archive.
 
 ## Skills, chat, Cowork and Claude Code
 
@@ -27,10 +27,10 @@ Plugin skills are available across chat, Cowork and Claude Code; hooks, subagent
 
 The [plugin builder](../scripts/build_claude_plugin.py) packages thirteen skills, shared references, the [launcher](../plugins/metesparser/scripts/run-review.py), six engine wheels and a locked runtime. Plugin instructions call `${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py`; copying one skill directory leaves those shared resources behind. The [chat builder](../scripts/build_claude_skill.py) adapts those same procedures and runtime into a standalone Skill with its own setup wrapper.
 
-Every target host needs:
+Both distributions need:
 
-- Access to the complete extracted plugin and a working plugin-root path.
-- Python 3.11+, `uv`, writable output/cache directories and permission to execute the launcher.
+- Access to the complete extracted archive. Plugin commands locate the plugin root; chat commands locate the loaded root `SKILL.md` and its sibling resources.
+- Python 3.11+, writable output/cache directories and permission to execute the launcher. The plugin requires `uv` on `PATH`; the chat wrapper can also use its pinned cached copy or install it during explicit setup.
 - Network access to pinned dependencies on first use, or an already provisioned runtime/cache. The ZIP contains engine wheels, not every third-party wheel.
 - Source documents plus native reading when needed; prepared text/calls can bypass that stage. The plugin does not require a separate LLM API key.
 - Optional geographic/delivery dependencies and, for online viewing, the requested provider connection and a usable browser path.
@@ -122,6 +122,7 @@ Keep each fact with its owning layer and link to it from other documents:
 | Concern | Maintained location |
 | --- | --- |
 | Skill discovery and essential agent instructions | `plugins/metesparser/skills/<name>/SKILL.md` |
+| Standalone chat discovery, host setup and downloads | `plugins/metesparser-chat/`; the builder adapts shared procedures at packaging time |
 | Human-facing skill choice and examples | [Plugin catalog](../plugins/metesparser/README.md#skills), [usage guide](../plugins/metesparser/references/usage.md), and existing per-skill READMEs |
 | Cross-skill inputs, outputs, status, reuse, and invalidation | [Artifact handoffs](../plugins/metesparser/references/artifact-handoffs.md) |
 | Native reading and description-selection evidence | [Source preparation](../plugins/metesparser/references/source-preparation.md) |
