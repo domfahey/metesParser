@@ -76,9 +76,25 @@ For “put this scan behind my plot using these controls”, collect only missin
 
 1. Identify the supplied image, source/date or unknowns, exact bytes/hash, dimensions, and any crop/resize history. Identify the target scene: local with no CRS, or an explicit projected CRS, XY axis order and matching `m`, `international_ft` or `us_survey_ft` units. Unknown feet cannot support registration/conversion. A local scene does not establish geographic location.
 2. Confirm integer pixel centers, with pixel `u` right and `v` down in the supplied image, and scene XY coordinates in the declared units. Obtain uniquely named fit controls and independently measured checkpoints, each with its source/rationale retained alongside the controls file. Do not reuse fitting points as independent checkpoints. At least three noncollinear fit controls are required for affine fitting; supplied affine matrices follow the same six-number order above.
-3. Author `CONTROLS.json` using the current `PlotScene` and `RasterControl` contracts, then run the documented `register-raster` command in a fresh path. The [synthetic controls fixture](../../../evals/fixtures/guided-controls.json) illustrates the accepted shape, not real location evidence. Keep unsupported extra evidence in companion notes rather than guessing model fields. Preserve registration output and original bytes; inspect fit and checkpoint residuals separately. A low fit RMS with poor checkpoints remains problematic; no checkpoints means independent accuracy unknown. Registration status remains `approximate`.
+3. Author `CONTROLS.json` using the current `PlotScene` and `RasterControl` contracts, then run the documented `register-raster` command in a fresh path. The [synthetic controls example](#synthetic-controls-example) illustrates the accepted shape, not real location evidence. Keep unsupported extra evidence in companion notes rather than guessing model fields. Preserve registration output and original bytes; inspect fit and checkpoint residuals separately. A low fit RMS with poor checkpoints remains problematic; no checkpoints means independent accuracy unknown. Registration status remains `approximate`.
 4. Separately establish deed placement: selected fresh plot/calculation ID and geometry hash, target scene, deed foot definition, sourced position tie and orientation/bearing-basis evidence, and the user-supported transform/rationale. Raster pixel-to-scene controls do not locate the deed's POB or establish its orientation. Without this evidence, show the scan and deed independently and name the missing tie/orientation; do not choose an address, imagery corner or direction word as an anchor.
 5. Author only the permitted placement: clockwise rotation about the deed frame origin, explicit supported unit conversion, then scene-XY translation. The contract does not support scale fitting, shear, reflection, snapping or closure repair. Use `id`, `calculation_id`, fresh `geometry_hash`, `scene_id`, `rotation_deg`, `translation`, `status` and `rationale`; retain position/orientation evidence. In dashboard bundles, `referenced` additionally requires actual `position_evidence` and `orientation_evidence` plus compatible basis/units. Standalone map placements support only `approximate`/`unplaced`: evidence cannot upgrade that contract to `referenced`.
 6. Compose with `compose-map` for a requested standalone map, or `compose-dashboard` for a requested dashboard. Use the fresh hashes from composition before binding placements, then the existing render command. Rebuilding revalidates both geometry/placement and independent raster registration. Report deed misclosure, fit RMS, checkpoint RMS, and map comparison/placement separately; reuse visibility, opacity and order controls only where available. The optional picker above collects pixels into this same input-file workflow; affine fitting remains in the shared runtime.
 
 Changing controls, image bytes, scene CRS or units invalidates the raster and dependent display. Changing deed calls invalidates its geometry-bound placement and dependent display, while an unchanged independent registration remains reusable. Neither a good registration nor a visually aligned display changes source review, canonical verification or verified-export eligibility.
+
+## Synthetic controls example
+
+This local metric example includes three fit controls and a separate checkpoint with a visible residual. Replace it with supplied image/scene measurements; it is not real location evidence.
+
+```json
+{
+  "scene": {"id": "scan-local", "name": "Synthetic local metric scene", "kind": "local", "units": "m", "axis_order": "xy", "basis": "local"},
+  "controls": [
+    {"id": "fit-a", "pixel": [0, 0], "scene": [100, 200], "role": "fit"},
+    {"id": "fit-b", "pixel": [10, 0], "scene": [120, 200], "role": "fit"},
+    {"id": "fit-c", "pixel": [0, 10], "scene": [100, 180], "role": "fit"},
+    {"id": "check-d", "pixel": [10, 10], "scene": [125, 180], "role": "checkpoint"}
+  ]
+}
+```
