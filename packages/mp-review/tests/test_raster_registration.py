@@ -88,3 +88,43 @@ def test_supplied_singular_nonfinite_and_forged_raster_rejected():
     )
     with pytest.raises(ValueError, match="dimensions"):
         validate_raster_layer(layer.model_copy(update={"width": 9}), scene)
+
+
+def _oriented_image(fmt, orientation):
+    from PIL import Image
+
+    image = Image.new("RGB", (10, 20))
+    exif = Image.Exif()
+    exif[274] = orientation
+    stream = BytesIO()
+    image.save(stream, format=fmt, exif=exif.tobytes())
+    return stream.getvalue()
+
+
+@pytest.mark.parametrize("fmt", ["JPEG", "PNG", "WEBP"])
+@pytest.mark.parametrize("orientation", [2, 3, 6, 8])
+def test_exif_oriented_raster_fails_closed(fmt, orientation):
+    scene = PlotScene(id="map", name="map", kind="projected", crs="EPSG:3857", units="m")
+    data = _oriented_image(fmt, orientation)
+    with pytest.raises(ValueError, match="orientation"):
+        image_layer(data, scene=scene, registration=fit_affine(controls()), filename="s.img")
+
+
+def test_exif_orientation_one_is_accepted():
+    scene = PlotScene(id="map", name="map", kind="projected", crs="EPSG:3857", units="m")
+    layer, _ = image_layer(
+        _oriented_image("JPEG", 1),
+        scene=scene,
+        registration=fit_affine(controls()),
+        filename="s.jpg",
+    )
+    assert (layer.width, layer.height) == (10, 20)
+
+
+def test_header_only_guard_rejects_oriented_raster_without_pillow():
+    from mp_models.raster import image_orientation
+
+    assert image_orientation(_oriented_image("JPEG", 6)) == 6
+    assert image_orientation(_oriented_image("JPEG", 1)) == 1
+    assert image_orientation(_oriented_image("PNG", 6)) == 6
+    assert image_orientation(_oriented_image("WEBP", 6)) == 6
