@@ -33,3 +33,7 @@ The equivalent package command is `uv run metes-review dashboard bundle.json --o
 - [Prepare parcel overlay](../prepare-parcel-overlay/SKILL.md)
 - [Shared plugin usage](../../references/usage.md)
 - [Plugin changelog](../../CHANGELOG.md)
+
+## Optional online view
+
+When requested alongside the dashboard, delegate the Mapbox view to [render-online-map](../render-online-map/README.md) after assembling source-linked geometry and explicit placement evidence. The dashboard owns source composition; the renderer owns the local viewer or requested in-chat MCP preview. Keep the offline dashboard and report geographic availability separately from source review and verification.

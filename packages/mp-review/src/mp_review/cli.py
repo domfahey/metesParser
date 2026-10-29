@@ -29,14 +29,22 @@ def main() -> None:
     relative.add_argument("--output-dir", type=Path)
     relative.add_argument("--settings", type=Path)
     plot = commands.add_parser(
-        "plot", help="Plot existing structured calls or explicit relative constraints offline."
+        "plot", help="Plot structured calls, relative constraints, or explicitly selected text."
     )
     plot.add_argument("input", type=Path)
     plot.add_argument(
-        "--input-format", choices=("auto", "calls", "relative", "plot"), default="auto"
+        "--input-format", choices=("auto", "calls", "relative", "plot", "text"), default="auto"
     )
     plot.add_argument("--output-dir", type=Path)
     plot.add_argument("--settings", type=Path)
+    for name in ("compose-map", "compose-dashboard"):
+        composition = commands.add_parser(
+            name, help="Compose retained plot/map inputs without rendering or verification."
+        )
+        composition.add_argument("input", type=Path)
+        composition.add_argument("--layer", type=Path, action="append", default=[])
+        composition.add_argument("--output-dir", type=Path, required=True)
+        composition.add_argument("--settings", type=Path)
     dashboard = commands.add_parser(
         "dashboard",
         help="Render a validated source bundle as an offline, non-verifying dashboard.",
@@ -44,7 +52,26 @@ def main() -> None:
     dashboard.add_argument("input", type=Path)
     dashboard.add_argument("--output-dir", type=Path)
     dashboard.add_argument("--cache-dir", type=Path)
+    dashboard.add_argument("--online-map-config", type=Path)
     dashboard.add_argument("--settings", type=Path)
+    render_map = commands.add_parser(
+        "render-map", help="Render existing standalone plots and overlays as an online map."
+    )
+    render_map.add_argument("input", type=Path)
+    render_map.add_argument("--online-map-config", type=Path, required=True)
+    render_map.add_argument("--output-dir", type=Path, required=True)
+    render_map.add_argument("--settings", type=Path)
+    preview = commands.add_parser("serve-map", help="Serve generated map views on localhost.")
+    preview.add_argument("directory", type=Path)
+    preview.add_argument("--port", type=int, default=8765)
+    preview.add_argument("--settings", type=Path)
+    mcp = commands.add_parser(
+        "mapbox-mcp", help="Prepare vector tool arguments from an existing geographic map."
+    )
+    mcp.add_argument("directory", type=Path)
+    mcp.add_argument("--output-dir", type=Path)
+    mcp.add_argument("--style", choices=("standard", "standard-satellite"))
+    mcp.add_argument("--settings", type=Path)
     overlay = commands.add_parser(
         "import-overlay", help="Import supplied polygons into an explicit projected scene."
     )
@@ -108,6 +135,30 @@ def main() -> None:
 
 
 def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, Any]:
+    if args.command in ("compose-map", "compose-dashboard"):
+        from .compose import compose_dashboard_file, compose_map_file
+
+        compose = compose_map_file if args.command == "compose-map" else compose_dashboard_file
+        return compose(args.input, output_path(settings, args.output_dir), layers=args.layer)
+    if args.command == "mapbox-mcp":
+        from .mapbox_mcp import mapbox_mcp_file
+
+        return mapbox_mcp_file(
+            args.directory, output_path(settings, args.output_dir), style=args.style
+        )
+    if args.command == "serve-map":
+        from .map_preview import serve_map_preview
+
+        try:
+            serve_map_preview(args.directory, port=args.port)
+            return {"schema_version": "1.0", "status": "passed", "errors": [], "artifacts": {}}
+        except (OSError, ValueError) as exc:
+            return {
+                "schema_version": "1.0",
+                "status": "error",
+                "artifacts": {},
+                "errors": [{"code": "map_preview_unavailable", "message": str(exc)}],
+            }
     if args.command in ("import-overlay", "register-raster", "fetch-parcel"):
         return _overlay_artifact(args)
     if args.command == "corpus":
@@ -123,14 +174,43 @@ def _execute(args: argparse.Namespace, settings: dict[str, Any]) -> dict[str, An
             }
     elif args.command == "analyze-relative":
         result = review_relative_file(args.input, output_dir=output_path(settings, args.output_dir))
-    elif args.command == "dashboard":
-        from .dashboard import dashboard_file
+    elif args.command in ("dashboard", "render-map"):
+        from mp_models.webmap import WebMapRequest
 
-        result = dashboard_file(
-            args.input,
-            output_dir=output_path(settings, args.output_dir),
-            cache_dir=args.cache_dir,
-        )
+        from .dashboard import _load, dashboard_file
+
+        request = None
+        if args.online_map_config is not None:
+            try:
+                request = WebMapRequest.model_validate(_load(args.online_map_config))
+            except (OSError, ValueError, TypeError):
+                # Validation errors can contain rejected values, including pasted credentials.
+                return {
+                    "schema_version": "1.0",
+                    "status": "error",
+                    "artifacts": {},
+                    "errors": [
+                        {
+                            "code": "invalid_online_map_config",
+                            "message": "Invalid online map configuration. Supply a scene ID and supported display/view options; credentials are entered only in the viewer.",
+                        }
+                    ],
+                }
+
+        if args.command == "render-map":
+            from .online_map import render_map_file
+
+            assert request is not None
+            result = render_map_file(
+                args.input, output_path(settings, args.output_dir), online_map=request
+            )
+        else:
+            result = dashboard_file(
+                args.input,
+                output_dir=output_path(settings, args.output_dir),
+                cache_dir=args.cache_dir,
+                online_map=request,
+            )
     elif args.command == "plot":
         from .plot import plot_file
 

@@ -68,14 +68,19 @@ def main(argv: list[str] | None = None) -> int:
         "verify",
         "analyze-relative",
         "plot",
+        "render-map",
+        "compose-map",
+        "compose-dashboard",
         "dashboard",
+        "serve-map",
+        "mapbox-mcp",
         "import-overlay",
         "register-raster",
         "fetch-parcel",
         "corpus",
     }:
         return emit_error(
-            "Usage: run-review.py {review|verify|analyze-relative|plot|dashboard|corpus|import-overlay|register-raster|fetch-parcel} [engine options]"
+            "Usage: run-review.py {review|verify|analyze-relative|plot|compose-map|compose-dashboard|render-map|dashboard|serve-map|mapbox-mcp|corpus|import-overlay|register-raster|fetch-parcel} [engine options]"
         )
     if not any(arg == "--settings" or arg.startswith("--settings=") for arg in args):
         args.extend(["--settings", str(Path.cwd() / ".claude" / "metesparser.local.md")])
@@ -108,6 +113,11 @@ def main(argv: list[str] | None = None) -> int:
         *args,
     ]
     try:
+        if args[0] == "serve-map":
+            # Replace the launcher: stream the URL immediately and let uv forward signals.
+            # All other commands retain their one-JSON-result capture contract.
+            os.execvpe(uv, command, env)
+            return 0
         result = subprocess.run(command, env=env, check=False, capture_output=True, text=True)
     except OSError as exc:
         return emit_error(f"Could not start uv: {exc}")
