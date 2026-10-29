@@ -8,6 +8,7 @@ System design and data flow for metesParser.
 - [Core Principles](#core-principles)
 - [Composable Package Architecture](#composable-package-architecture)
 - [Skill Composition](#skill-composition)
+- [Advisory Operations and Artifact Reuse](#advisory-operations-and-artifact-reuse)
 - [Data Flow](#data-flow)
 - [Package Details](#package-details)
 - [Data Models](#data-models)
@@ -16,16 +17,17 @@ System design and data flow for metesParser.
 - [Performance Considerations](#performance-considerations)
 - [Design Decisions](#design-decisions)
 - [Concrete Sample Workflow](#concrete-sample-workflow)
+- [Optional Geographic Display Architecture](#optional-geographic-display-architecture)
 
 ## System Overview
 
-metesParser is a deterministic metes & bounds parser that converts legal descriptions from PDFs into structured, verified CSV format.
+metesParser combines source acquisition with deterministic metes-and-bounds parsing, canonical verification, advisory analysis, and review views. Verified CSV is conditional on the export gate; source validity and display results remain separate.
 
 ### Key Characteristics
 
 - **Rule-based parsing** - Numerical call parsing is deterministic; source reading uses `mp-ocr` in the Python pipeline or Claude's native capabilities in the plugin.
-- **Deterministic output** - Same input always produces same result
-- **Verification-first** - Won't output `_verified.csv` unless all checks pass
+- **Deterministic analysis** - The same prepared calls and explicit parameters produce the same numerical results; model reading is a separate source-evidence stage
+- **Verification-first** - `_verified.csv` requires fresh canonical verification of the actual exported calls
 - **Never fabricates** - Flags incomplete data rather than guessing
 - **Composable** - 8 independently installable packages, each does one thing well
 
@@ -35,7 +37,7 @@ metesParser is a deterministic metes & bounds parser that converts legal descrip
 - **Pydantic v2** - Data validation and schema enforcement
 - **OpenAI + optional Gemini** - Configurable LLM providers for PDF extraction
 - **UV workspace monorepo** - 8 composable packages (no pip/conda/poetry)
-- **pytest** - Test framework with ~996 tests (~94% coverage)
+- **pytest** - Root, package/plugin, and opt-in browser suites; scope and commands are in [TESTING.md](TESTING.md)
 
 ## Core Principles
 
@@ -48,7 +50,10 @@ if bearing is None:
 
 # ALWAYS do this:
 if bearing is None:
-    call.notes = "incomplete bearing - manual review required"  # CORRECT
+    call = call.model_copy(update={
+        "bearing_azimuth_deg_from_north": None,
+        "notes": "incomplete bearing - cardinal only",
+    })
 ```
 
 ### 2. Verification Before Export
@@ -67,6 +72,8 @@ else:
 ```python
 # Keep deed language verbatim in descriptive fields
 call = DeedCall(
+    course=1,
+    direction_text="S 56 40' W",
     bearing_quadrant="S 56 40' W",
     distance_ft=125.0,
     along="the division line between Lots 46 and 47",  # Preserve exact wording
@@ -74,16 +81,9 @@ call = DeedCall(
 )
 ```
 
-### 4. Deterministic Processing
+### 4. Deterministic Analysis and Auditable Reading
 
-```python
-# LLM extraction uses temperature=0 for deterministic behavior
-from mp_ocr import OpenAIClient, GeminiClient
-
-client = OpenAIClient()
-# or
-client = GeminiClient()
-```
+Parsing, bearing math, verification, diagnosis, and comparison are deterministic. Provider settings do not guarantee repeatable or accurate model extraction. Enable extraction audit (for example, `Pipeline(audit=True)`) to retain provider prompts/responses and processing context; retain acquisition/selection evidence when using native Claude reading. Cached responses preserve a particular extraction, not proof of its truth.
 
 ## Composable Package Architecture
 
@@ -91,13 +91,15 @@ The codebase is a **uv workspace monorepo** with 8 independently installable pac
 
 ```
 packages/
-  mp-models/    -> Pydantic schemas, JSONL envelope, units (zero deps)
+  mp-models/    -> Shared schemas, evidence/analysis contracts, units, logging
+                  (no workspace package dependencies)
   mp-bearing/   -> Pure math: azimuth, curves, deltas (depends: mp-models)
   mp-ocr/       -> LLM boundary: PDF -> text (depends: mp-models)
   mp-parse/     -> Rule-based parsing: text -> calls (depends: mp-models, mp-bearing)
-  mp-verify/    -> Geometric verification: 8 checks (depends: mp-models, mp-bearing)
+  mp-verify/    -> Canonical checks + plot/relative/diagnosis/comparison math
+                  (depends: mp-models, mp-bearing)
   mp-export/    -> CSV, audit, plot/dashboard rendering (depends: mp-models, mp-verify)
-  mp-review/    -> Review/plot/dashboard orchestration + overlay preparation
+  mp-review/    -> File/CLI adapters, evidence validation/replay, analysis and views
                   (depends: mp-models, mp-parse, mp-verify, mp-export)
 src/metesparser/ -> Orchestrator + backward-compat monolith
 ```
@@ -130,7 +132,7 @@ graph TD
 
 ### Package-to-Monolith Mapping
 
-The original monolith in `src/metesparser/` is preserved for backward compatibility. Corresponding legacy implementations must stay in sync. `mp-review` has no duplicate monolith implementation; `metesparser.plot` and `metesparser.dashboard` provide compatibility facades to the shared APIs.
+The original monolith in `src/metesparser/` is preserved for backward compatibility. Corresponding legacy implementations must stay in sync. New review capabilities use thin facades rather than duplicate engines.
 
 | Package | Monolith Module(s) |
 |---------|-------------------|
@@ -140,25 +142,26 @@ The original monolith in `src/metesparser/` is preserved for backward compatibil
 | `mp-parse` | `call_extractor.py`, `text_parser.py` |
 | `mp-verify` | `closure_checker.py` |
 | `mp-export` | `csv_builder.py`, `audit_reporter.py` (legacy CSV/audit functionality) |
-| `mp-review` | No duplicate implementation; `metesparser.plot` and `metesparser.dashboard` expose compatibility APIs |
+| Shared review/analysis APIs | `plot.py`, `dashboard.py`, `source_handoff.py`, `artifact_inspect.py`, `diagnostics.py`, and `comparison.py` re-export package implementations/contracts |
 | `metesparser` | `pipeline.py`, `cli.py`, `run_registry.py`, `review_packet.py` |
 
 ### Pipeline Orchestrator
 
-The `Pipeline` class chains all stages in a single call:
+`Pipeline.run()` extracts and parses a PDF, then returns canonical verification results and an optional audit context:
 
 ```python
+from pathlib import Path
 from metesparser import Pipeline
 
 pipe = Pipeline(provider="openai", cache=True, audit=True)
 result, audit_ctx = pipe.run(Path("deed.pdf"))
 ```
 
-Currently wraps the monolith `PDFProcessor` for backward compatibility.
+It currently wraps the monolith `PDFProcessor` for backward compatibility and uses shared verification. Multi-tract input returns a list of results. `Pipeline.run()` does not write CSV or audit files; the CLI/export APIs own file publication and the fresh verified-export gate.
 
 ## Skill Composition
 
-The [plugin catalog](../plugins/metesparser/README.md) describes nine skills: six capabilities, two workflows, and the `review-deed` alias for the boundary-review workflow. These skills provide instructions and routing over existing Python packages. Their [shared artifact handoff contract](../plugins/metesparser/references/artifact-handoffs.md) defines accepted inputs, stage stopping points, source identity, invalidation, and status boundaries. For documentation ownership and update checks, see [maintain the skill composition](CLAUDE_PLUGIN.md#maintain-the-skill-composition).
+The [plugin catalog](../plugins/metesparser/README.md) describes ten skill entrypoints: seven capabilities, two workflows, and the `review-deed` alias. The capabilities cover document transcription, description selection, verification, plotting, overlay preparation, online rendering, and description comparison. Source validation, artifact inspection, and closure diagnosis are shared utilities. Skills provide instructions and routing over the packages; their [artifact handoff contract](../plugins/metesparser/references/artifact-handoffs.md) defines accepted inputs, stopping points, source identity, invalidation, and status boundaries. See [maintain the skill composition](CLAUDE_PLUGIN.md#maintain-the-skill-composition) for documentation ownership.
 
 ```mermaid
 flowchart TD
@@ -169,6 +172,8 @@ flowchart TD
     selected --> parse[mp-parse: deterministic call parsing]
     supplied[Supplied structured calls] --> calls[Identified structured calls]
     parse --> calls
+    calls --> diagnosis[mp-verify: advisory closure diagnosis]
+    versions[Two identified descriptions + explicit comparison criteria] --> comparison[mp-verify: advisory description comparison]
     calls --> verify[mp-review / mp-verify: independent verification]
     verify --> checked[Review artifacts + canonical status]
     calls --> plot[mp-review / mp-verify / mp-export: independent plotting]
@@ -190,7 +195,7 @@ flowchart TD
     config[WebMapRequest: explicit scene + display options] --> online
     online --> viewer[Local Mapbox viewer or requested vector MCP preview]
     pdf[PDF for separate provider pipeline] --> ocr[mp-ocr: OpenAI or Gemini]
-    ocr --> legacy[Python Pipeline: parse, verify, export]
+    ocr --> legacy[Python CLI/API path: parse, verify, gated export]
 ```
 
 Verification and plotting each accept identified structured calls independently. Plotting does not require a passing verification result and remains advisory (`needs_review`). Overlay preparation is independent of deed geometry and returns layer/provenance artifacts; it does not align a deed. Capability skills stop at their requested deliverable. The boundary-review workflow composes source preparation, selection, and deterministic review as needed; it does not automatically build a plot or dashboard.
@@ -201,13 +206,39 @@ A map-only request composes existing `PreparedPlot` objects, map layers, and exp
 
 Claude's native reading and selection are source-preparation stages outside the Python provider pipeline. The plugin does not substitute `mp-ocr` or an external OCR service for native reading. In the separate Python PDF pipeline below, `mp-ocr` owns OpenAI/Gemini calls. In both paths, parsing, geometry, checks, and rendering use deterministic package code; geometric success does not establish source completeness.
 
+## Advisory Operations and Artifact Reuse
+
+| Operation | Contract and responsibility | Meaning and limits |
+| --- | --- | --- |
+| Source validation | `mp_models.source_handoff` schema `1.1`; `mp_review.source_handoff.validate_source_bundle()` | Read-only structural, identity and uncertainty outcomes. Reconstructs selected UTF-8 spans byte for byte, preserves BOM/CRLF and explicit separators, confines paths to the supplied root, and retains unknown hashes/pages. Legacy `1.0` stays unverifiable. |
+| Artifact inspection | `mp_models.artifact_inspection`; `mp_review.artifact_inspect.inspect_artifacts()` | Discovers known artifacts under an explicit directory, replays deterministic source inputs, validates declared dependencies and returns causal restart guidance. Artifact usability is separate from stored canonical status. No workflow is executed. |
+| Closure diagnosis | `mp_models.diagnostics`; `mp_verify.diagnostics.diagnose_closure()` | Complete straight-boundary sensitivities, with distance and angle units kept separate. Missing bearings and unsupported geometry remain explicit. Precision bounds require source precision and a rounding assumption; neither ranking nor a scenario selects a correction. |
+| Description comparison | `mp_models.comparison`; `mp_verify.comparison.compare_descriptions()` | Explicit straight pairs/reversed traversals or contiguous collinear groups, plus tentative content differences and split/merge suggestions. Direction needs compatible documented basis and units or a sourced rigid transform; position also needs validated common scene/placements. No automatic alignment or legal-boundary claim. |
+
+These operations are exposed by `metes-review` and the packaged launcher:
+
+```sh
+uv run metes-review validate-source BUNDLE_DIR
+uv run metes-review inspect-artifacts BUNDLE_DIR --requested-stage dashboard
+uv run metes-review diagnose-closure diagnosis-request.json --output-dir diagnostics-new
+uv run metes-review compare-descriptions comparison-request.json --output-dir comparison-new
+```
+
+`validate-source` and `inspect-artifacts` do not write to their input folders or create a configured output directory. File-producing diagnosis/comparison commands require a new output directory, retain exact request bytes, and write result plus versioned identity manifests. Complete request examples are linked from [source preparation](../plugins/metesparser/references/source-preparation.md), [closure diagnosis](../plugins/metesparser/references/closure-diagnostics.md), and [comparison limits](../plugins/metesparser/references/comparison-limits.md).
+
+Completed advisory commands return `needs_review` / exit **1**, even when every requested component is usable or agrees. Invalid invocation/schema returns `error` / exit **2**. Canonical review/verification may return `checks_passed` / exit **0**. Source validation, artifact freshness, diagnostic availability and comparison agreement cannot substitute for canonical verification or authorize verified export.
+
+The inspector follows declared IDs/hashes rather than filenames or timestamps. Review replay uses the recorded original input kind, stated-area option and algorithm version, even when CSV/JSON bytes are retained as `source.txt`. Source/call changes invalidate their dependent stages; map/placement changes affect only dependent positioning/rendering work; viewer opacity, raster order and viewport are presentation state. Optional maps are outside closure-only requests. Reasons/dependencies remain visible at artifact and stage levels; ambiguous occurrences do not produce a guessed restart command.
+
+Dashboards retain fresh baseline diagnosis and comparison stages separately from canonical findings, with input/output hashes checked against immutable source-owned calls. Scenario edits/reset operate on a separate browser copy. Integrated comparison regeneration uses the retained `DashboardBundle` and its specifications; it does not assume a standalone comparison request exists. Standalone diagnosis/comparison also work without a dashboard or native document reading.
+
 ## Data Flow
 
 ### Provider-Backed PDF Pipeline
 
 ```
 PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
-       LLM       Rules       8 checks    _verified.csv
+       LLM       Rules       Checks      _verified.csv
        extract    extract     closure     .audit.json
                   calls       area        .audit.html
 ```
@@ -217,7 +248,7 @@ PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
 ```
 1. PDF Extraction [mp-ocr]
    |-> Configured LLM provider (OpenAI or Gemini)
-   |-> Temperature=0 for determinism
+   |-> Retain provider output; sampling settings do not prove repeatability or accuracy
    |-> File-based response caching (CachedLLMClient)
    |-> LLM confidence scoring (7 heuristic signals)
    '-> Returns: Raw legal description text
@@ -253,7 +284,7 @@ PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
 
 6. Closure Verification [mp-verify]
    |-> Compute traverse (calculate all points)
-   |-> Run 8 verification checks
+   |-> Record structured canonical check outcomes
    |-> Calculate area, perimeter, misclosure
    |-> Score per-call quality and overall confidence
    '-> Returns: ClosureResult
@@ -274,7 +305,7 @@ PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
 
 ### mp-models
 
-**Purpose**: Data schemas and validation (zero external dependencies beyond Pydantic)
+**Purpose**: Shared schemas, units, logging and validation; no workspace package dependencies. External dependencies include Pydantic and structlog.
 
 **Key Types**:
 - `DeedCall` - Single course with bearing, distance, curve data, and metadata
@@ -284,6 +315,8 @@ PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
 - `CallAudit`, `Transformation`, `Decision` - Per-call audit details
 - `RawTextMessage`, `LegalDescriptionMessage`, `ClosureResultMessage` - JSONL envelope types
 - `ConversionFactors`, `DistanceUnit` - Unit conversion constants
+- Source acquisition/selection, artifact inspection, diagnosis and comparison contracts
+- Dashboard, plot, scene/placement, raster and web-map contracts
 
 ### mp-bearing
 
@@ -311,7 +344,7 @@ Deltas: dx = dist * sin(az), dy = dist * cos(az)
 
 ### mp-ocr
 
-**Purpose**: LLM boundary - the ONLY package that calls AI
+**Purpose**: LLM provider boundary for the Python PDF pipeline. Native plugin reading is outside this package.
 
 **Key Classes**:
 - `PDFProcessor` - Extracts text from deed PDFs via LLM
@@ -333,7 +366,7 @@ Deltas: dx = dist * sin(az), dy = dist * cos(az)
 
 ### mp-verify
 
-**Purpose**: Geometric verification with 8 checks
+**Purpose**: Canonical geometric checks plus shared plot/relative geometry and advisory diagnosis/comparison math.
 
 **Verification Checks**:
 1. **Traverse Closure** - Misclosure < 0.01 ft by default
@@ -344,41 +377,42 @@ Deltas: dx = dist * sin(az), dy = dist * cos(az)
 6. **Double Entry** - Optional comparison if second call set supplied
 7. **Bearing Reversal** - Adjacent courses ~180 degrees apart
 8. **Distance Reasonableness** - Flags <0.5 ft, >10x median, >90% perimeter
+9. **Boundary Topology** - Intersections in supported straight and circular-arc boundaries
 
 **Key Functions**:
 - `verify_closure()` - Main verification entry point
 - `calculate_confidence_score()` - 0.0-1.0 weighted score
 - `score_call_quality()` - Per-call high/medium/low
 - `get_closure_summary()` - Human-readable summary
+- `diagnose_closure()`, `compare_descriptions()` - Separate advisory analyses; do not modify verification tolerances or calls
 
 ### mp-export
 
-**Purpose**: CSV/audit output and standalone plot/dashboard rendering
+**Purpose**: CSV/audit output and standalone plot, dashboard and online-map rendering.
 
 **Key Functions**:
-- `export_verified_csv()` - Export only if all checks pass
-- `calls_to_csv()`, `csv_to_calls()` - CSV I/O
+- `export_verified_csv()` - Recheck exact calls and export only when canonical outcomes are eligible
+- `calls_to_csv()`, `csv_to_calls()`, `csv_text_to_calls()` - CSV I/O and retained-byte replay
 - `generate_html()`, `write_report()` - Audit HTML report
-- `plot_html.py`, `plot_svg.py`, `dashboard_html.py` - Display renderers
+- `plot_html.py`, `plot_svg.py`, `dashboard_html.py`, `online_map_html.py` - Display renderers
 
 **CSV Schema** (21 fields):
 ```csv
-course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
-curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
-along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,
-non_tangent,radial_bearing,notes
+course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,non_tangent,radial_bearing,notes
 ```
 
 ### mp-review
 
 **Purpose**: Deterministic file/API orchestration and the `metes-review` CLI, without LLM provider calls.
 
-- `api.py`: `review_text()`, `review_file()`, and `verify_file()` coordinate parsing, verification, provenance, and review artifacts.
+- `api.py`: review/verification adapters and `replay_review()`; producer manifests retain input kind, parameters, versions, exact source bytes and output identities.
+- `source_handoff.py`, `artifact_inspect.py`: read-only source validation and conditional artifact replay/resume guidance.
+- `diagnostics.py`, `comparison.py`: exact-input file adapters over shared advisory engines.
 - `plot.py`: `plot_file()` loads structured input and writes standalone plot artifacts without canonical verification.
 - `dashboard.py`: `prepare_dashboard()` and `dashboard_file()` validate bundles, coordinate calculation/cache stages, and write dashboard snapshots.
 - `overlays.py`, `raster_registration.py`, `parcel_provider.py`: vector import, supplied raster registration, and explicitly requested parcel retrieval/preparation.
 
-Shared input contracts live in `mp_models` (`DashboardBundle`, `PlotRequest`, relative, scene, and raster models). `mp_verify` owns geometry, topology, relative analysis, scene validation, and dashboard calculations; `mp_export` owns HTML/SVG rendering. `mp-review` coordinates these responsibilities rather than duplicating their engines. Native document transcription and description selection remain Claude skill responsibilities.
+Shared input contracts live in `mp_models`. `mp_verify` owns numerical analysis and pure geometry/provenance validation; `mp_export` owns serialization and HTML/SVG rendering. `mp-review` coordinates file, CLI and optional provider adapters rather than duplicating their engines. It makes no LLM calls; explicitly requested parcel retrieval and connected map viewing have separate network boundaries. Native transcription and selection remain Claude skill responsibilities.
 
 ## Data Models
 
@@ -413,7 +447,7 @@ class DeedCall:
     is_meander: bool                               # Water boundary (meander line)
     is_tie_in: bool                                # Tie-in call between POC and POB
     is_indefinite: bool                            # Vague direction without precise bearing
-    curve_type: str | None                         # simple, compound, or reverse
+    curve_type: str | None                         # simple/compound/reverse; spiral is explicitly unsupported geometry
     notes: str | None                              # Warnings/flags
 ```
 
@@ -430,7 +464,7 @@ class ClosureResult:
     area_acres: float                          # Area in acres
     perimeter_ft: float                        # Total perimeter
     precision_ratio: float | None              # Misclosure / perimeter ratio
-    confidence_score: float                    # 0.0-1.0 weighted confidence
+    confidence_score: float | None             # Optional 0.0-1.0 heuristic, not source accuracy
 
     closure_passed: bool                       # Misclosure < tolerance?
     angle_check_passed: bool                   # Angles sum correctly?
@@ -438,52 +472,23 @@ class ClosureResult:
 
     warnings: list[str]                        # List of warnings
     points: list[Point]                        # All traverse points
+    checks: list[CheckResult]                  # passed/failed/not_applicable/blocked + reason
 
     def is_fully_verified(self) -> bool:
-        """Check if all verification checks passed."""
+        """Check engine geometry eligibility independently of source review."""
 ```
 
 ## Verification Pipeline
 
 ### Traverse Computation
 
-```python
-def compute_traverse(calls, start_point=Point(0, 0)):
-    """Compute all points from calls."""
-    points = [start_point]
-    current = start_point
+Use `mp_verify.verify_closure()` for canonical results and `mp_verify.plot.prepare_plot()` for source-linked display geometry. Both use shared bearing/curve math; their outputs have different meanings. Tie-in calls are explicitly excluded from boundary geometry. Missing orientations and unsupported connectivity remain blocked/unresolved rather than proving a complete boundary from known calls alone. Plotting may retain a valid prefix, but it cannot authorize verified export.
 
-    for call in calls:
-        if call.bearing_azimuth_deg_from_north is None:
-            continue  # Skip incomplete bearings
-
-        if call.is_curve():
-            next_point = compute_curve_endpoint(...)
-        else:
-            dx, dy = calculate_deltas(call.bearing_azimuth_deg_from_north, call.distance_ft)
-            next_point = Point(current.x + dx, current.y + dy)
-
-        points.append(next_point)
-        current = next_point
-
-    return points
-```
+For a supported straight course, `delta E = distance × sin(azimuth)` and `delta N = distance × cos(azimuth)`, with azimuth clockwise from north. Supported circular arcs use radius, sweep and explicit orientation evidence. The exporter re-runs canonical verification on the exact calls and rejects stale/mismatched results. Closure below 0.01 ft is necessary, but eligible applicable outcomes and no warnings are also required; `not_applicable` never means a check was performed.
 
 ### Area Calculation
 
-Uses the Shoelace formula (Gauss's area formula):
-
-```python
-def calculate_area(points):
-    area = 0.0
-    n = len(points)
-
-    for i in range(n - 1):
-        area += points[i].x * points[i+1].y
-        area -= points[i+1].x * points[i].y
-
-    return abs(area) / 2.0
-```
+Straight boundaries use the shoelace formula. Supported circular boundaries include analytic arc contributions rather than treating arc endpoints as a replacement chord. Open-traverse display/scenario area can include an implicit closing segment and remains provisional; it is not evidence that the recorded boundary closes. Exception and multi-tract handling use the canonical verifier's explicit tract semantics.
 
 ## Error Handling
 
@@ -496,8 +501,8 @@ class DeedCall(BaseModel):
     distance_ft: float = Field(gt=0)  # Must be > 0
 
 # This raises ValidationError:
-DeedCall(distance_ft=0.0)
-DeedCall(distance_ft=-10.0)
+DeedCall(course=1, direction_text="North", distance_ft=0.0)
+DeedCall(course=1, direction_text="North", distance_ft=-10.0)
 ```
 
 ### Graceful Degradation
@@ -506,14 +511,16 @@ Handle incomplete data without crashing:
 
 ```python
 if parsed_bearing is None:
-    call.bearing_azimuth_deg_from_north = None
-    call.notes = "incomplete bearing - manual review required"
-    # Continue processing, don't crash
+    call = call.model_copy(update={
+        "bearing_azimuth_deg_from_north": None,
+        "notes": "incomplete bearing - cardinal only",
+    })
+    # Retain the unresolved reading; do not infer a numeric direction.
 ```
 
 ### Verification Warnings
 
-Collect warnings rather than failing:
+Verification warnings remain visible and prevent verified-export eligibility; unavailable checks have explicit reasons:
 
 ```python
 warnings = []
@@ -533,14 +540,14 @@ return ClosureResult(..., warnings=warnings)
 
 ### Slow Operations
 
-- **PDF extraction**: LLM API call (~2-5 seconds)
+- **PDF extraction**: Provider latency varies with document and service
 - **Large parcels**: 100+ calls take longer to verify
 
 ### Optimization Strategies
 
 1. **LLM response caching** - `CachedLLMClient` avoids re-extracting the same PDF
 2. **Batch processing** - Process multiple PDFs in sequence (significantly faster with LLM response cache)
-3. **Skip verification** - For quick viewing, don't run all checks
+3. **Independent plotting** - Request an advisory plot when only a view is needed; this produces no verification claim
 
 ## Design Decisions
 
@@ -550,7 +557,7 @@ return ClosureResult(..., warnings=warnings)
 
 **Rationale**:
 - **Unix philosophy** - Each package does one thing well
-- **Independent installation** - Use only what you need (e.g., `pip install mp-bearing` for math only)
+- **Independent installation** - Install/test only the required workspace packages using uv
 - **Clear boundaries** - Only `mp-ocr` calls LLMs; everything else is deterministic
 - **Testable in isolation** - Per-package test suites
 
@@ -590,7 +597,7 @@ return ClosureResult(..., warnings=warnings)
 
 ### Why Separate Verification Step?
 
-**Decision**: Don't export verified CSV unless all checks pass.
+**Decision**: Export verified CSV only after fresh verification establishes eligible outcomes for the actual calls, with no warnings.
 
 **Rationale**:
 - **Quality control** - Prevent bad data from entering GIS
@@ -616,4 +623,8 @@ For more information:
 
 The opt-in 2D Mercator companion renders only baseline evidence. It retains identity/projection provenance and explicit partial/unavailable layers, serves declared display files through loopback, and activates Mapbox only after runtime Connect. See the [shared handoff and invalidation contract](../plugins/metesparser/references/artifact-handoffs.md#optional-online-map-handoff) and [runtime guide](../plugins/metesparser/skills/render-online-map/references/local-viewer.md). Projection accuracy, scan residuals, display tolerance, and deed closure remain independent measures.
 
+Each scan has independent opacity, visibility and raise/lower controls. Raster order stays below vector context, recorded courses, POB, closure and selection; per-ID session settings survive style reload. These controls change presentation only. Evidence summaries retain source/scene/units, fit and checkpoint counts/RMS, recorded bearing basis and placement status. Zero independent checkpoints means checkpoint accuracy is unknown; a small fit residual does not estimate survey accuracy.
+
 For a requested in-chat preview, `mp_review.mapbox_mcp` reads intact standalone-map or legacy dashboard stages and `mp_export.mapbox_mcp` serializes their prepared vectors as Mapbox MCP tool arguments. Both online renderers share `mp_verify.webmap` provenance validation. The MCP adapter performs no reprojection, raster warp, or provider call; it retains a local omission report and refuses oversized payloads. The `render-online-map` skill invokes a compatible connected tool only within the requested preview scope. See the [MCP handoff procedure](../plugins/metesparser/skills/render-online-map/references/mapbox-mcp.md) for the separate external data path and host acceptance checks.
+
+Local deterministic engine tests, browser/SDK checks and extracted-plugin smoke tests do not establish native document reading, equivalent paired-model behavior, live-provider pixels or native-client display. Those outstanding gates and dated observations are recorded in the [implementation ledger](implementation/2026-10-28-evidence-review-ledger.md); see [TESTING.md](TESTING.md) for the separate execution lanes.

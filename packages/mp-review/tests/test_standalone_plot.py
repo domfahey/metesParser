@@ -33,6 +33,9 @@ def test_json_plot_roundtrip_and_hashes(tmp_path):
     assert not list(out.glob("*.csv"))
     manifest = json.loads((out / "plot-manifest.json").read_text())
     assert manifest["source_sha256"] == hashlib.sha256(raw).hexdigest()
+    assert manifest["source_name"] == "calls.json"
+    assert manifest["input_format"] == "auto"
+    assert manifest["replay_version"] == "plot-input-replay-1"
     rerun = plot_file(out / "plot-input.json", tmp_path / "second")
     assert rerun["status"] == "needs_review"
     assert json.loads((out / "plot-geometry.json").read_text()) == json.loads(

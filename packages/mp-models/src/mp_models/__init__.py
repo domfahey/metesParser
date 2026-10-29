@@ -1,5 +1,11 @@
 """Pydantic schemas for metes and bounds deed parsing."""
 
+from .artifact_inspection import (
+    ArtifactInspection,
+    InspectedArtifact,
+    InspectedStage,
+    InspectionReason,
+)
 from .audit import (
     AuditContext,
     CallAudit,
@@ -118,6 +124,10 @@ from .webmap import (
 __version__ = "1.0.0"
 
 __all__ = [
+    "ArtifactInspection",
+    "InspectedArtifact",
+    "InspectedStage",
+    "InspectionReason",
     "BearingBasis",
     "ComparedPair",
     "ComparisonComponent",
@@ -143,7 +153,6 @@ __all__ = [
     "QuantizationAssumptions",
     "QuantizationBound",
     "diagnostic_input_hash",
-    "DashboardDiagnosis",
     "DescriptionCandidate",
     "DescriptionSelectionRecord",
     "MissingSourcePage",
@@ -153,6 +162,7 @@ __all__ = [
     "SourceReference",
     "SourceUncertainty",
     "TranscriptReference",
+    "DashboardDiagnosis",
     "MapboxViewOptions",
     "StandaloneWebMapInput",
     "WebMapArtifact",

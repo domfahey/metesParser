@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added reusable runtime commands for schema 1.1 source validation, read-only artifact freshness inspection with conditional restart guidance, and standalone closure-sensitivity diagnosis. Skills invoke these helpers when appropriate; they preserve advisory `needs_review` status and do not certify source accuracy or closure.
+- Added the `compare-descriptions` capability for explicit source-linked `ComparisonRequest` inputs, with advisory component grouping and tentative structural differences. Unknown bearing bases and unsupported alignments remain unresolved rather than inferred.
+- The plugin catalog now has ten entrypoints: seven capabilities, two workflows, and the `review-deed` compatibility alias.
+- Behavioral evaluation scenarios and a paired-evaluation protocol that keeps candidate instructions and grading rubrics separate; scenario definitions are not model results, and native Claude acceptance remains outstanding.
 - Standalone `metes-review plot` with strict call/relative JSON and CSV inputs, preserved source bytes, reusable plot inputs, deterministic geometry, and offline HTML; plotting never grants verified-export status.
 - Composable plotting and parcel-overlay skills, shared artifact handoff/invalidation guidance, and focused review/dashboard workflows that reuse valid upstream work.
 - Source-linked dashboard plots with analytic arcs, honest partial boundaries, closure detail, zoom/pan and frozen advisory scenario placement; version 1.1 preserves v1.0 compatibility.

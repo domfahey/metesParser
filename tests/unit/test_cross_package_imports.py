@@ -145,14 +145,31 @@ class TestMpVerifyImports:
         assert RelativeDescription is PackageDescription
         assert analyze_relative is package_analyze
 
-    def test_source_handoff_facade(self) -> None:
-        from mp_models import SourceAcquisitionRecord
-        from mp_review import validate_source_bundle
+    def test_diagnostics_and_source_handoff_facades(self) -> None:
+        from mp_models import ClosureDiagnosticRequest, SourceAcquisitionRecord
+        from mp_review import diagnose_closure_file, validate_source_bundle
+        from mp_verify import diagnose_closure
 
-        from metesparser import source_handoff
+        from metesparser import diagnostics, source_handoff
 
+        assert diagnostics.ClosureDiagnosticRequest is ClosureDiagnosticRequest
+        assert diagnostics.diagnose_closure is diagnose_closure
+        assert diagnostics.diagnose_closure_file is diagnose_closure_file
         assert source_handoff.SourceAcquisitionRecord is SourceAcquisitionRecord
         assert source_handoff.validate_source_bundle is validate_source_bundle
+
+    def test_comparison_and_inspection_facades(self) -> None:
+        from mp_models import ArtifactInspection, ComparisonRequest
+        from mp_review import compare_descriptions_file, inspect_artifacts
+        from mp_verify import compare_descriptions
+
+        from metesparser import artifact_inspect, comparison
+
+        assert comparison.ComparisonRequest is ComparisonRequest
+        assert comparison.compare_descriptions is compare_descriptions
+        assert comparison.compare_descriptions_file is compare_descriptions_file
+        assert artifact_inspect.ArtifactInspection is ArtifactInspection
+        assert artifact_inspect.inspect_artifacts is inspect_artifacts
 
 
 class TestMpExportImports:
@@ -235,18 +252,3 @@ def test_standalone_online_map_facade_uses_package_implementations():
 
     assert StandaloneWebMapInput is PackageInput
     assert render_map_file is package_file
-
-
-def test_diagnostics_and_comparison_facades_use_package_implementations():
-    from mp_models import ClosureDiagnosticRequest, ComparisonRequest
-    from mp_review import compare_descriptions_file, diagnose_closure_file
-    from mp_verify import compare_descriptions, diagnose_closure
-
-    from metesparser import comparison, diagnostics
-
-    assert comparison.ComparisonRequest is ComparisonRequest
-    assert comparison.compare_descriptions is compare_descriptions
-    assert comparison.compare_descriptions_file is compare_descriptions_file
-    assert diagnostics.ClosureDiagnosticRequest is ClosureDiagnosticRequest
-    assert diagnostics.diagnose_closure is diagnose_closure
-    assert diagnostics.diagnose_closure_file is diagnose_closure_file
