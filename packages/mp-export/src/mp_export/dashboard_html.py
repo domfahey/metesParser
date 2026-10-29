@@ -26,6 +26,7 @@ from mp_models.plot import (
     Polygon,
     VectorLayer,
 )
+from mp_models.plot_request import PlotCall
 from mp_models.raster import RasterLayer
 from mp_verify.dashboard import validate_prepared_dashboard
 
@@ -491,6 +492,72 @@ def _plot_views(prepared: PreparedDashboard) -> str:
     return "".join(parts)
 
 
+def _description_comparison_section(prepared: PreparedDashboard) -> str:
+    """Render fresh immutable results; source buttons reuse the existing viewer."""
+    if not prepared.description_comparisons:
+        return ""
+    occurrences = {o.id: o for o in prepared.bundle.occurrences}
+
+    def sources(records: tuple[PlotCall, ...]) -> str:
+        items = []
+        for record in records:
+            if record.occurrence_id is None:
+                raise ValueError("dashboard comparison source lacks occurrence identity")
+            occurrence = occurrences[record.occurrence_id]
+            wording = ""
+            if record.call is not None:
+                wording = f"<p>Along: {_escape(record.call.along or '')}<br>To: {_escape(record.call.to or '')}</p>"
+            items.append(
+                f'<div class="comparison-source"><button type="button" data-comparison-source="{_escape(record.id)}">{_escape(occurrence.version_label)} · {_escape(record.id)}</button>'
+                f'<p class="muted">{_escape(record.source_reference or "Source reference unavailable")}</p><pre>{_escape(record.quote)}</pre>{wording}</div>'
+            )
+        return "".join(items) or "No counterpart selected"
+
+    cards = []
+    for advisory in prepared.description_comparisons:
+        result = advisory.comparison
+        pairs = []
+        for pair in result.pairs:
+            components = []
+            for label, component in (
+                ("Length", pair.length),
+                ("Bearing", pair.bearing),
+                ("Displacement", pair.displacement),
+                ("Position", pair.position),
+            ):
+                difference = (
+                    "Unavailable"
+                    if component.difference is None
+                    else f"{_number(component.difference)} {_escape(component.units or '')}"
+                )
+                components.append(
+                    f"<tr><th>{label}</th><td>{_escape(component.outcome)}</td><td>{difference}</td><td>{_escape(component.reason)}</td></tr>"
+                )
+            pairs.append(
+                f'<article class="panel comparison-pair" data-comparison-pair="{_escape(pair.id)}"><h4>Explicit pair {_escape(pair.id)}</h4>'
+                f'<div class="comparison-versions"><div>{sources(pair.left_sources)}</div><div>{sources(pair.right_sources)}</div></div>'
+                f'<div class="table-wrap"><table><thead><tr><th>Component</th><th>Outcome</th><th>Difference</th><th>Reason</th></tr></thead><tbody>{"".join(components)}</tbody></table></div></article>'
+            )
+        structural = []
+        for structural_difference in result.structural:
+            structural.append(
+                f"<tr><th>{_escape(structural_difference.kind)}{' · tentative' if structural_difference.tentative else ' · exact content anchor'}</th><td>{sources(structural_difference.left_sources)}</td><td>{sources(structural_difference.right_sources)}</td><td>{_escape(structural_difference.reason)}<p>Changed fields: {_escape(', '.join(structural_difference.changed_fields) or 'none identified')}</p></td></tr>"
+            )
+        tolerance = result.tolerances
+        cards.append(
+            f'<article class="panel" data-description-comparison="{_escape(advisory.id)}"><h3>{_escape(occurrences[advisory.left_occurrence_id].version_label)} ↔ {_escape(occurrences[advisory.right_occurrence_id].version_label)}</h3>'
+            f"<p>Criteria: length {_number(tolerance.length)}, vector {_number(tolerance.displacement)}, position {_number(tolerance.position)} {_escape(tolerance.linear_unit)}; bearing {_number(tolerance.bearing_deg)} degrees. Criteria source: {_escape('; '.join(tolerance.source_references))}.</p>"
+            f"<h4>Explicit geometric selections</h4>{''.join(pairs) or '<p>No explicit geometric pairs requested.</p>'}"
+            f'<details><summary>Structural content differences and tentative correspondences</summary><div class="table-wrap"><table><thead><tr><th>Suggestion</th><th>Left version source</th><th>Right version source</th><th>Reason / changed fields</th></tr></thead><tbody>{"".join(structural)}</tbody></table></div></details>'
+            f'<p class="hash">Comparison identity {_escape(result.input_hash)} · {_escape(result.algorithm_version)}</p></article>'
+        )
+    return (
+        '<section id="description-comparisons"><h2>Description comparison</h2><p>Recorded versions remain fixed during scenario edits and reset. Same physical or legal boundary is not established. Comparison criteria do not change verification tolerances or export eligibility. Structural suggestions remain tentative when geographic comparison is unavailable.</p>'
+        + "".join(cards)
+        + "</section>"
+    )
+
+
 def render_dashboard(prepared: PreparedDashboard) -> str:
     """Render a prepared dashboard reproducibly without reading external assets.
 
@@ -536,11 +603,12 @@ def render_dashboard(prepared: PreparedDashboard) -> str:
     )
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><title>{_escape(bundle.title)}</title><style>{css}</style></head>
-<body><header><div class="eyebrow">Metes &amp; bounds · record review</div><h1>{_escape(bundle.title)}</h1><p>{_escape(bundle.presentation.subtitle)}</p><p class="muted">Immutable record findings, source evidence, and a separate advisory scenario workbench.</p><nav aria-label="Dashboard sections"><a href="#findings">Findings</a><a href="#evidence">Evidence</a><a href="#workbench">Workbench</a><a href="#records">As recorded</a><a href="#sources">Source copies</a><a href="#method">Method &amp; limits</a></nav></header>
+<body><header><div class="eyebrow">Metes &amp; bounds · record review</div><h1>{_escape(bundle.title)}</h1><p>{_escape(bundle.presentation.subtitle)}</p><p class="muted">Immutable record findings, source evidence, and a separate advisory scenario workbench.</p><nav aria-label="Dashboard sections"><a href="#findings">Findings</a><a href="#evidence">Evidence</a><a href="#workbench">Workbench</a><a href="#records">As recorded</a>{'<a href="#description-comparisons">Comparison</a>' if prepared.description_comparisons else ""}<a href="#sources">Source copies</a><a href="#method">Method &amp; limits</a></nav></header>
 <main><noscript><p class="warning">JavaScript is disabled. Record findings, transcripts and page images remain visible. Workbench and full-size viewer require JavaScript.</p></noscript>
 <section id="findings"><h2>1. Record findings</h2><p>Each occurrence retains its own source values. Findings and canonical engine status stay fixed during workbench edits. Geometric closure does not resolve an uncertain reading.</p><div class="cards">{_findings(prepared)}</div></section>
 <section id="evidence"><h2>2. Record evidence</h2><div class="cards">{_evidence(bundle)}</div></section>
-<section id="workbench"><h2>3. Scenario workbench</h2><div class="panel"><div class="controls"><label>Parcel<select id="parcel-select"><option value="all">All parcels</option>{parcel_options}</select></label><label>Occurrence / calculation<select id="calculation-select"></select></label><label>Scenario<select id="scenario-select"></select></label><button type="button" id="reset-record">Reset to record</button></div><p id="scenario-rationale" class="muted"></p><p class="warning">Browser edits are hypothetical. They cannot verify a deed or authorize a verified export. Relative calculations permit distance edits; angular interpretations remain the explicit sourced constraints. Absolute bearings accept decimal azimuth or quadrant DMS. No bearings are inferred from direction words.</p>{_plot_views(prepared)}<div class="scenario-summary"><svg id="plot" hidden class="plot" viewBox="0 0 420 380" role="img" aria-label="Scenario traverse with numbered courses, POB and dashed closure gap"></svg><div><h3 id="scenario-status" role="status" aria-live="polite">Loading advisory scenario…</h3><div id="scenario-metrics" class="metrics"></div><p class="muted">Gap vector is endpoint minus POB in the declared frame. Area includes an implicit endpoint-to-start segment and is provisional for an open traverse.</p></div></div><div class="table-wrap" role="region" aria-label="Editable scenario call sheet" tabindex="0"><table><thead><tr><th>Course</th><th>Source quote / direction</th><th>Distance (ft)</th><th>Recorded azimuth (degrees) / basis</th><th>Stated angle</th><th>Derived heading</th><th>ΔX / ΔY (ft)</th></tr></thead><tbody id="call-body"></tbody></table></div><p class="muted">Amber fields differ from the selected record. Uncertain source readings retain their warning stripe. Direction-word agreement is not evaluated as a measured bearing.</p><details><summary>Closing angle and shared corners</summary><p>Stated closing angles remain in the sourced constraints and transcripts. The heading-based closing angle is derived; it is not a replacement reading. A missing closing angle leaves the stated angle sum unavailable.</p><div id="closing-angle-detail"></div><p>Explicit named-point overlay comparisons appear in map provenance when supplied with a compatible placement. Automated boundary matching and inferred cross-parcel alignment are unavailable. Independent arbitrary local frames are not overlaid or silently aligned.</p></details></div></section>
+<section id="workbench"><h2>3. Scenario workbench</h2><div class="panel"><div class="controls"><label>Parcel<select id="parcel-select"><option value="all">All parcels</option>{parcel_options}</select></label><label>Occurrence / calculation<select id="calculation-select"></select></label><label>Scenario<select id="scenario-select"></select></label><button type="button" id="reset-record">Reset to record</button></div><p id="scenario-rationale" class="muted"></p><p class="warning">Browser edits are hypothetical. They cannot verify a deed or authorize a verified export. Relative calculations permit distance edits; angular interpretations remain the explicit sourced constraints. Absolute bearings accept decimal azimuth or quadrant DMS. No bearings are inferred from direction words.</p>{_plot_views(prepared)}<details open class="diagnosis"><summary>Advisory closure diagnosis</summary><p>Unit sensitivity is not a correction or an error probability. Distance and bearing ranks use separate units. Opposing candidates remain tied; closure cannot choose a source reading.</p><div class="diagnosis-grid"><section aria-label="Recorded baseline diagnosis"><h3>Recorded baseline diagnosis</h3><div id="baseline-diagnostics"></div></section><section aria-label="Browser scenario diagnosis"><h3>Browser scenario diagnosis</h3><div id="scenario-diagnostics" aria-live="polite"></div></section></div></details><div class="scenario-summary"><svg id="plot" hidden class="plot" viewBox="0 0 420 380" role="img" aria-label="Scenario traverse with numbered courses, POB and dashed closure gap"></svg><div><h3 id="scenario-status" role="status" aria-live="polite">Loading advisory scenario…</h3><div id="scenario-metrics" class="metrics"></div><p class="muted">Gap vector is endpoint minus POB in the declared frame. Area includes an implicit endpoint-to-start segment and is provisional for an open traverse.</p></div></div><div class="table-wrap" role="region" aria-label="Editable scenario call sheet" tabindex="0"><table><thead><tr><th>Course</th><th>Source quote / direction</th><th>Distance (ft)</th><th>Recorded azimuth (degrees) / basis</th><th>Stated angle</th><th>Derived heading</th><th>ΔX / ΔY (ft)</th></tr></thead><tbody id="call-body"></tbody></table></div><p class="muted">Amber fields differ from the selected record. Uncertain source readings retain their warning stripe. Direction-word agreement is not evaluated as a measured bearing.</p><details><summary>Closing angle and shared corners</summary><p>Stated closing angles remain in the sourced constraints and transcripts. The heading-based closing angle is derived; it is not a replacement reading. A missing closing angle leaves the stated angle sum unavailable.</p><div id="closing-angle-detail"></div><p>Explicit named-point overlay comparisons appear in map provenance when supplied with a compatible placement. Automated boundary matching and inferred cross-parcel alignment are unavailable. Independent arbitrary local frames are not overlaid or silently aligned.</p></details></div></section>
+{_description_comparison_section(prepared)}
 <section id="records"><h2>4. Metes and bounds as recorded</h2><p>Untouched transcripts preserve the supplied wording and whitespace. Uncertain course readings are marked in the course tables; no alternate figure replaces the transcript.</p>{_records(bundle)}</section>
 <section id="sources"><h2>5. Source copies</h2><p>Every indexed page appears below, including unavailable images and unread pages. Description pages have an outlined edge. Missing expected pages are listed explicitly; completeness is a separate source-review claim.</p>{_sources(bundle)}</section>
 <section id="method"><h2>6. Method, limits, and sources</h2><div class="panel"><p>Bearings use degrees clockwise from North. Local-angle calculations use an explicitly declared arbitrary frame, interior/exterior angle convention, and orientation. Straight-course displacement is distance × sin(heading) in X and distance × cos(heading) in Y. The browser independently propagates explicit constraints, rejects unresolved or contradictory relations, and never adjusts values to close a boundary.</p><p>The recorded baseline displays determined analytic lines and circular arcs, and preserves known prefixes before unresolved calls. Editable browser scenarios support complete straight boundaries only; curve editing is unavailable. Exceptions, meanders and indefinite connectivity remain explicit unresolved cases. Source uncertainty remains independent of geometric closure. Precision is perimeter divided by gap; an unavailable denominator is not proof of infinite precision for a nonzero gap. A matching angle sum does not prove the angles are correct.</p><p>Only the canonical verifier’s full checks and its &lt;0.01 ft threshold govern verified export. Browser scenarios have no verified-export control. This dashboard is not a survey, title opinion, or boundary certification. Image presence is not evidence that a person inspected the page. Review sensitive source pages before sharing.</p><ul>{methods}</ul><h3>Stage and source identities</h3><p>Source review: {"complete" if prepared.manifest.source_review_complete else "incomplete"} · calculator {_escape(prepared.manifest.calculator_version)} · schema {_escape(bundle.schema_version)}</p>{hashes}</div></section></main>

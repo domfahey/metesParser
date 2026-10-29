@@ -81,6 +81,51 @@ function calculateScenario(calculation, calls) {
   const precision = gap ? perimeter / gap : null;
   return {points: translated, headings, deltas, misclosure_ft: gap, misclosure_x_ft: x, misclosure_y_ft: y, perimeter_ft: perimeter, area_sq_ft: Math.abs(area)/2, precision_denominator: Number.isFinite(precision) ? precision : null, stated_angle_sum_deg: angleSum, expected_angle_sum_deg: (distances.length - 2) * 180, computed_closing_angle_deg: calculation.method === "relative" ? mod(180 - (calculation.relative.frame.orientation === "cw" ? 1 : -1) * (headings[0] - headings.at(-1))) : null};
 }
+function accurateSum(values) {
+  let total = 0, correction = 0;
+  for (const value of values) {
+    const next = total + value;
+    correction += Math.abs(total) >= Math.abs(value) ? (total-next)+value : (value-next)+total;
+    total = next;
+  }
+  return total + correction;
+}
+function sensitivityRanks(values) {
+  const close = (a,b) => Math.abs(a-b) <= Math.max(1e-12, 1e-10 * Math.max(Math.abs(a),Math.abs(b)));
+  const groups = [];
+  for (const value of values.slice().sort((a,b)=>b-a)) if (!groups.length || !close(value,groups.at(-1))) groups.push(value);
+  return values.map(value => groups.findIndex(group=>close(value,group))+1);
+}
+function binaryUlp(value) {
+  let exponent = Math.floor(Math.log2(value));
+  // log2 can round a value immediately below 2^k up to the integer k.
+  if (value < Math.pow(2,exponent)) exponent -= 1;
+  return Math.max(Number.MIN_VALUE,Math.pow(2,exponent-52));
+}
+function diagnoseScenario(calculation, calls) {
+  const unavailable = (availability, reason) => ({availability, residual:null, sensitivities:[], excluded_call_ids:[], ranking_available:false, limitations:[reason]});
+  if (calculation.method !== 'canonical') return unavailable('unsupported','Relative constraints are unsupported by canonical straight-bearing diagnosis.');
+  const records = calls.filter(c=>c.occurrence_id === calculation.occurrence_id);
+  if (records.some(c=>!c.call)) return unavailable('incomplete','Unknown source calls block diagnosis; no partial residual was manufactured.');
+  const active = records.filter(c=>!c.call.is_tie_in), excluded = records.filter(c=>c.call.is_tie_in).map(c=>c.id);
+  if (active.some(c=>c.call.curve_dir || c.call.curve_type || c.call.non_tangent || c.call.radial_bearing || c.call.chord_bearing || c.call.radius_ft !== null && c.call.radius_ft !== undefined || c.call.is_exception || c.call.is_meander)) return {...unavailable('unsupported','Curves, meanders and exception boundaries are unsupported; no partial residual was manufactured.'),excluded_call_ids:excluded};
+  if (active.length < 3 || active.some(c=>c.call.is_indefinite || !Number.isFinite(c.call.bearing_azimuth_deg_from_north) || !Number.isFinite(c.call.distance_ft) || c.call.distance_ft <= 0)) return {...unavailable('incomplete','At least three complete finite straight boundary courses are required.'),excluded_call_ids:excluded};
+  const derivatives = active.map(item=>{
+    const d=item.call.distance_ft, a=item.call.bearing_azimuth_deg_from_north*Math.PI/180, sine=Math.sin(a), cosine=Math.cos(a), factor=Math.PI/648000;
+    return {call_id:item.id, distance_derivative:{east:sine,north:cosine}, angle_derivative_per_radian:{east:d*cosine,north:-d*sine}, angle_derivative_per_arcsecond:{east:d*cosine*factor,north:-d*sine*factor}};
+  });
+  const east=accurateSum(active.map((c,i)=>c.call.distance_ft*derivatives[i].distance_derivative.east)), north=accurateSum(active.map((c,i)=>c.call.distance_ft*derivatives[i].distance_derivative.north));
+  const magnitude=Math.hypot(east,north), perimeter=accurateSum(active.map(c=>c.call.distance_ft));
+  if (![east,north,magnitude,perimeter].every(Number.isFinite)) return {...unavailable('unsupported','Calculation exceeds finite arithmetic limits.'),excluded_call_ids:excluded};
+  const threshold=32*binaryUlp(perimeter), ranking=magnitude>threshold;
+  const unitEast=ranking?east/magnitude:0, unitNorth=ranking?north/magnitude:0;
+  const distance=ranking?derivatives.map(row=>Math.abs(accurateSum([row.distance_derivative.east*unitEast,row.distance_derivative.north*unitNorth]))):[];
+  const angle=ranking?derivatives.map(row=>Math.abs(accurateSum([row.angle_derivative_per_radian.east*unitEast,row.angle_derivative_per_radian.north*unitNorth]))*Math.PI/648000):[];
+  if (![...distance,...angle].every(Number.isFinite)) return {...unavailable('unsupported','Calculation exceeds finite arithmetic limits.'),excluded_call_ids:excluded};
+  const dr=sensitivityRanks(distance), ar=sensitivityRanks(angle);
+  return {availability:'supported',residual:{east_ft:east,north_ft:north,magnitude_ft:magnitude},ranking_available:ranking,numerical_zero_threshold_ft:threshold,excluded_call_ids:excluded,limitations:ranking?[]:['Residual direction ranking unavailable at numerical zero residual.'],sensitivities:derivatives.map((row,i)=>({...row,distance_projection_abs:ranking?distance[i]:null,angle_projection_abs_per_arcsecond:ranking?angle[i]:null,distance_rank:ranking?dr[i]:null,angle_rank:ranking?ar[i]:null}))};
+}
+
 function scenePoints(points, placement, nativeUnits = "unknown_ft", sceneUnits = "unknown_ft") {
   if (!placement) return points.map(point => point.slice());
   const meters = {international_ft: .3048, us_survey_ft: 1200/3937, m: 1};
@@ -89,7 +134,7 @@ function scenePoints(points, placement, nativeUnits = "unknown_ft", sceneUnits =
   const a = mod(placement.rotation_deg) * Math.PI/180, c = Math.cos(a), s = Math.sin(a);
   return points.map(([x,y]) => [(c*x+s*y)*factor+placement.translation[0],(-s*x+c*y)*factor+placement.translation[1]]);
 }
-const DashboardMath = deepFreeze({scenePoints, decimal, parseAngle, parseBearing, relativeHeadings, calculateScenario});
+const DashboardMath = deepFreeze({scenePoints, decimal, parseAngle, parseBearing, relativeHeadings, calculateScenario, diagnoseScenario});
 if (typeof module !== "undefined" && module.exports) module.exports = DashboardMath;
 if (typeof document !== "undefined") {
   const baseline = deepFreeze(JSON.parse(document.getElementById("dashboard-data").textContent));
@@ -149,7 +194,38 @@ if (typeof document !== "undefined") {
       row.append(distanceCell, bearingCell, text("td", item.stated_angle_text || "Not stated"), text("td", "—"), text("td", "—")); body.append(row);
     });
   }
+
+  function renderDiagnosis(container, diagnosis) {
+    container.replaceChildren();
+    const value = diagnosis && diagnosis.baseline ? diagnosis.baseline : diagnosis;
+    if (!value) { container.append(text('p','Diagnosis unavailable.')); return; }
+    container.append(text('p',`Availability: ${value.availability}.`));
+    if (value.residual) container.append(text('p',`Endpoint residual: ${fmt(value.residual.magnitude_ft)} ft · ΔE ${fmt(value.residual.east_ft)} ft · ΔN ${fmt(value.residual.north_ft)} ft.`));
+    for (const limitation of value.limitations || []) container.append(text('p',limitation));
+    if ((value.excluded_call_ids || []).length) container.append(text('p',`Commencement tie-ins excluded: ${value.excluded_call_ids.join(', ')}.`));
+    if (!value.sensitivities || !value.sensitivities.length) return;
+    const wrap=text('div',''); wrap.className='table-wrap'; const table=text('table',''), head=text('thead',''), header=text('tr','');
+    for (const label of ['Source course','Distance rank / |projection| (ft/ft)','Bearing rank / |projection| (ft/arcsecond)']) header.append(text('th',label));
+    head.append(header); table.append(head); const body=text('tbody','');
+    for (const item of value.sensitivities) {
+      const row=text('tr',''); row.dataset.diagnosticCall=item.call_id;
+      row.dataset.distanceRank=item.distance_rank === null ? '' : item.distance_rank;
+      row.dataset.angleRank=item.angle_rank === null ? '' : item.angle_rank;
+      const source=bundle.calls.find(c=>c.id===item.call_id), cell=text('td',''), button=text('button',item.call_id);
+      button.type='button'; button.dataset.diagnosticSource=item.call_id; button.addEventListener('click',()=>selectSourceCall(item.call_id)); cell.append(button);
+      if (source && source.reading_status !== 'certain') cell.append(text('p',`Uncertain source: ${source.reading_note}`));
+      row.append(cell,text('td',item.distance_rank === null ? 'Ranking unavailable' : `${item.distance_rank} / ${fmt(item.distance_projection_abs,6)}`),text('td',item.angle_rank === null ? 'Ranking unavailable' : `${item.angle_rank} / ${fmt(item.angle_projection_abs_per_arcsecond,8)}`)); body.append(row);
+    }
+    table.append(body); wrap.append(table); container.append(wrap);
+  }
+  function updateDiagnoses() {
+    const original=baseline.diagnostics.find(d=>d.calculation_id===selector.value);
+    renderDiagnosis(byId('baseline-diagnostics'),original);
+    const invalid=scenarioIssue || (byId('call-body').querySelector('[aria-invalid="true"]') ? 'Correct highlighted invalid input before diagnosis.' : '');
+    renderDiagnosis(byId('scenario-diagnostics'),invalid ? {availability:'incomplete',limitations:[invalid]} : diagnoseScenario(selectedCalculation,working));
+  }
   function recompute() {
+    updateDiagnoses();
     const metrics = byId("scenario-metrics"); metrics.replaceChildren(); byId("plot").replaceChildren();
     byId("closing-angle-detail").replaceChildren();
     try {
@@ -267,6 +343,7 @@ if (typeof document !== "undefined") {
     const select=()=>selectSourceCall(node.dataset.plotCall||node.dataset.sourceCall);
     node.addEventListener('click',select); node.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();select();}});
   });
+  document.querySelectorAll('[data-comparison-source]').forEach(button=>button.addEventListener('click',()=>selectSourceCall(button.dataset.comparisonSource)));
   const initialView = bundle.plot_view || {};
   const labels = initialView.labels || ['course'];
   byId('plot-labels').checked=labels.includes('course'); byId('plot-bearings').checked=labels.includes('bearing'); byId('plot-distances').checked=labels.includes('distance');
