@@ -152,8 +152,8 @@ def _pieces(request: CorridorRequest, primitives: tuple[PlotPrimitive, ...]) -> 
                 _Piece(
                     primitive,
                     row,
-                    (a - stations[i]) / lengths[i],
-                    (b - stations[i]) / lengths[i],
+                    min(1.0, max(0.0, (a - stations[i]) / lengths[i])),
+                    min(1.0, max(0.0, (b - stations[i]) / lengths[i])),
                     width(row.left_start, row.left_end, t0),
                     width(row.left_start, row.left_end, t1),
                     width(row.right_start, row.right_end, t0),
