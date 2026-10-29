@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
@@ -23,7 +24,7 @@ from mp_models.webmap import (
 )
 from mp_verify.dashboard import _hash
 from mp_verify.plot import arc_point, transform_point
-from mp_verify.webmap import WebMapInput, normalize_web_map_context
+from mp_verify.webmap import WebMapContext, WebMapInput, normalize_web_map_context
 
 from .webmap_projection import WebMapProjection, WebMapUnavailable, build_web_map_projection
 
@@ -267,6 +268,61 @@ def _coordinates(feature: WebMapFeature) -> Iterator[XY]:
                 yield from ring
 
 
+def _display_extent(
+    context: WebMapContext, scene_id: str, scene_units: LinearUnit
+) -> tuple[float, float, float, float] | None:
+    """Scene-XY bounds of all evidence this scene would display, or ``None``.
+
+    Used only to select and check a coordinate operation's area of use, so it
+    samples generously (arcs at five parameters) and skips what cannot display.
+    """
+    points: list[XY] = []
+    foot = dict(context.foot_definitions)
+    for geometry in context.geometries:
+        native = foot.get(geometry.calculation_id)
+        if native is None or native == "unknown_ft":
+            continue
+        for placement in context.placements:
+            if (
+                placement.calculation_id != geometry.calculation_id
+                or placement.scene_id != scene_id
+                or placement.status == "unplaced"
+            ):
+                continue
+            for primitive in geometry.primitives:
+                for t in (0, 0.25, 0.5, 0.75, 1):
+                    points.append(
+                        transform_point(
+                            _primitive_point(primitive, t),
+                            placement,
+                            native_units=native,
+                            scene_units=scene_units,
+                        )
+                    )
+    for layer in context.vector_layers:
+        if layer.scene_id == scene_id:
+            polygons = (
+                (layer.coordinates,) if layer.geometry_type == "Polygon" else layer.coordinates
+            )
+            points.extend(cast(XY, p) for polygon in polygons for ring in polygon for p in ring)
+    for raster in context.raster_layers:
+        if raster.scene_id == scene_id:
+            a, b, c, d, e, f = raster.registration.matrix
+            for col, row in itertools.product(
+                (-0.5, raster.width - 0.5), (-0.5, raster.height - 0.5)
+            ):
+                points.append((a * col + b * row + c, d * col + e * row + f))
+    finite = [p for p in points if all(math.isfinite(v) for v in p)]
+    if not finite:
+        return None
+    return (
+        min(p[0] for p in finite),
+        min(p[1] for p in finite),
+        max(p[0] for p in finite),
+        max(p[1] for p in finite),
+    )
+
+
 def prepare_web_map(
     prepared: WebMapInput, *, scene_id: str, options: WebMapOptions
 ) -> PreparedWebMap:
@@ -305,7 +361,9 @@ def prepare_web_map(
         )
 
     try:
-        projection = build_web_map_projection(scenes[scene_id])
+        projection = build_web_map_projection(
+            scenes[scene_id], extent=_display_extent(context, scene_id, scenes[scene_id].units)
+        )
     except WebMapUnavailable as exc:
         omit(scene_id, "scene", exc)
     else:
