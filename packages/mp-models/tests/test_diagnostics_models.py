@@ -85,3 +85,39 @@ def test_precision_needs_finite_increments_supported_rounding_evidence(values):
 def test_scenario_requires_all_evidence_fields():
     with pytest.raises(ValidationError, match="scenario"):
         ClosureDiagnosticRequest(**payload(), scenario_id="b")
+
+
+def test_sensitivity_basis_cannot_mix_line_and_curve_derivatives():
+    from mp_models.diagnostics import CallSensitivity, DiagnosticVector
+
+    vector = DiagnosticVector(east=0, north=1)
+    with pytest.raises(ValueError, match="line derivatives"):
+        CallSensitivity(call_id="line")
+    with pytest.raises(ValueError, match="independent circular-arc basis"):
+        CallSensitivity(call_id="arc", geometry_kind="arc", distance_derivative=vector)
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"value": -40},
+        {"derivative_units": "ft/radian"},
+        {"fixed_parameters": ("radius_ft",)},
+        {"projection_abs": -1, "rank": 1},
+        {"projection_abs": 1, "rank": None},
+    ],
+)
+def test_curve_parameter_requires_consistent_independent_basis(change):
+    from mp_models.diagnostics import CurveParameterSensitivity
+
+    values = {
+        "parameter": "radius_ft",
+        "value": 40,
+        "derivative": {"east": 1, "north": 1},
+        "derivative_units": "ft/ft",
+        "fixed_parameters": ("sweep_radian", "start_tangent_radian", "curve_dir"),
+        "constraint": "derive redundant observations together",
+        **change,
+    }
+    with pytest.raises(ValueError):
+        CurveParameterSensitivity.model_validate(values)

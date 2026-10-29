@@ -3,6 +3,10 @@
     "BearingBasis": {
       "additionalProperties": false,
       "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
         "identity": {
           "anyOf": [
             {
@@ -14,10 +18,6 @@
           ],
           "default": null,
           "title": "Identity"
-        },
-        "label": {
-          "title": "Label",
-          "type": "string"
         },
         "source_references": {
           "default": [],
@@ -37,13 +37,16 @@
     "ComparisonDescription": {
       "additionalProperties": false,
       "properties": {
-        "bearing_basis": {
-          "$ref": "#/$defs/BearingBasis"
-        },
         "id": {
           "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
           "title": "Id",
           "type": "string"
+        },
+        "plot": {
+          "$ref": "#/$defs/PlotRequest"
+        },
+        "bearing_basis": {
+          "$ref": "#/$defs/BearingBasis"
         },
         "placement": {
           "anyOf": [
@@ -55,9 +58,6 @@
             }
           ],
           "default": null
-        },
-        "plot": {
-          "$ref": "#/$defs/PlotRequest"
         }
       },
       "required": [
@@ -122,10 +122,9 @@
     "ComparisonTolerance": {
       "additionalProperties": false,
       "properties": {
-        "bearing_deg": {
-          "exclusiveMaximum": 180,
+        "length": {
           "minimum": 0,
-          "title": "Bearing Deg",
+          "title": "Length",
           "type": "number"
         },
         "displacement": {
@@ -133,9 +132,9 @@
           "title": "Displacement",
           "type": "number"
         },
-        "length": {
+        "position": {
           "minimum": 0,
-          "title": "Length",
+          "title": "Position",
           "type": "number"
         },
         "linear_unit": {
@@ -148,10 +147,38 @@
           "title": "Linear Unit",
           "type": "string"
         },
-        "position": {
+        "bearing_deg": {
+          "exclusiveMaximum": 180,
           "minimum": 0,
-          "title": "Position",
+          "title": "Bearing Deg",
           "type": "number"
+        },
+        "radius": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Radius"
+        },
+        "sweep_deg": {
+          "anyOf": [
+            {
+              "exclusiveMaximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sweep Deg"
         },
         "source_references": {
           "items": {
@@ -181,14 +208,6 @@
           "title": "Rotation Deg",
           "type": "number"
         },
-        "source_references": {
-          "items": {
-            "type": "string"
-          },
-          "minItems": 1,
-          "title": "Source References",
-          "type": "array"
-        },
         "translation": {
           "default": [
             0.0,
@@ -206,6 +225,14 @@
           ],
           "title": "Translation",
           "type": "array"
+        },
+        "source_references": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source References",
+          "type": "array"
         }
       },
       "required": [
@@ -219,7 +246,19 @@
       "additionalProperties": false,
       "description": "Represents a single metes and bounds call (course/line).",
       "properties": {
-        "along": {
+        "course": {
+          "description": "Sequential course number (1, 2, 3, ...)",
+          "minimum": 1,
+          "title": "Course",
+          "type": "integer"
+        },
+        "direction_text": {
+          "description": "Verbatim direction from deed (e.g., 'S 56\u00b040' W' or 'southwesterly')",
+          "minLength": 1,
+          "title": "Direction Text",
+          "type": "string"
+        },
+        "bearing_quadrant": {
           "anyOf": [
             {
               "type": "string"
@@ -229,22 +268,8 @@
             }
           ],
           "default": null,
-          "description": "What the line runs along (e.g., 'Southerly line of Pennbrook Drive')",
-          "title": "Along"
-        },
-        "arc_length_ft": {
-          "anyOf": [
-            {
-              "minimum": 0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Arc length in feet",
-          "title": "Arc Length Ft"
+          "description": "Quadrant bearing if specified (e.g., 'S 56\u00b040' W')",
+          "title": "Bearing Quadrant"
         },
         "bearing_azimuth_deg_from_north": {
           "anyOf": [
@@ -261,9 +286,19 @@
           "description": "Azimuth in degrees clockwise from North (0-360)",
           "title": "Bearing Azimuth Deg From North"
         },
-        "bearing_quadrant": {
+        "distance_ft": {
+          "description": "Distance in decimal feet",
+          "exclusiveMinimum": 0,
+          "title": "Distance Ft",
+          "type": "number"
+        },
+        "curve_dir": {
           "anyOf": [
             {
+              "enum": [
+                "left",
+                "right"
+              ],
               "type": "string"
             },
             {
@@ -271,8 +306,50 @@
             }
           ],
           "default": null,
-          "description": "Quadrant bearing if specified (e.g., 'S 56°40' W')",
-          "title": "Bearing Quadrant"
+          "description": "Curve direction (left/right)",
+          "title": "Curve Dir"
+        },
+        "radius_ft": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Curve radius in feet",
+          "title": "Radius Ft"
+        },
+        "delta_deg": {
+          "anyOf": [
+            {
+              "maximum": 360,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Central angle (\u0394) in degrees",
+          "title": "Delta Deg"
+        },
+        "arc_length_ft": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Arc length in feet",
+          "title": "Arc Length Ft"
         },
         "chord_bearing": {
           "anyOf": [
@@ -301,19 +378,9 @@
           "description": "Chord length in feet",
           "title": "Chord Length Ft"
         },
-        "course": {
-          "description": "Sequential course number (1, 2, 3, ...)",
-          "minimum": 1,
-          "title": "Course",
-          "type": "integer"
-        },
-        "curve_dir": {
+        "along": {
           "anyOf": [
             {
-              "enum": [
-                "left",
-                "right"
-              ],
               "type": "string"
             },
             {
@@ -321,18 +388,12 @@
             }
           ],
           "default": null,
-          "description": "Curve direction (left/right)",
-          "title": "Curve Dir"
+          "description": "What the line runs along (e.g., 'Southerly line of Pennbrook Drive')",
+          "title": "Along"
         },
-        "curve_type": {
+        "to": {
           "anyOf": [
             {
-              "enum": [
-                "simple",
-                "compound",
-                "reverse",
-                "spiral"
-              ],
               "type": "string"
             },
             {
@@ -340,59 +401,8 @@
             }
           ],
           "default": null,
-          "description": "Type of curve: simple, compound, or reverse (None for non-curves)",
-          "title": "Curve Type"
-        },
-        "delta_deg": {
-          "anyOf": [
-            {
-              "maximum": 360,
-              "minimum": 0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Central angle (Δ) in degrees",
-          "title": "Delta Deg"
-        },
-        "direction_text": {
-          "description": "Verbatim direction from deed (e.g., 'S 56°40' W' or 'southwesterly')",
-          "minLength": 1,
-          "title": "Direction Text",
-          "type": "string"
-        },
-        "distance_ft": {
-          "description": "Distance in decimal feet",
-          "exclusiveMinimum": 0,
-          "title": "Distance Ft",
-          "type": "number"
-        },
-        "is_exception": {
-          "default": false,
-          "description": "True if this call is part of an exception/exclusion tract",
-          "title": "Is Exception",
-          "type": "boolean"
-        },
-        "is_indefinite": {
-          "default": false,
-          "description": "True if this call has vague direction without precise bearing",
-          "title": "Is Indefinite",
-          "type": "boolean"
-        },
-        "is_meander": {
-          "default": false,
-          "description": "True if this call follows a water boundary (meander line)",
-          "title": "Is Meander",
-          "type": "boolean"
-        },
-        "is_tie_in": {
-          "default": false,
-          "description": "True if this call is a tie-in call between POC and POB",
-          "title": "Is Tie In",
-          "type": "boolean"
+          "description": "Ending point description (e.g., 'iron pin', 'corner to Lot 50')",
+          "title": "To"
         },
         "monument_status": {
           "anyOf": [
@@ -446,13 +456,19 @@
           "description": "Type of survey monument at endpoint",
           "title": "Monument Type"
         },
+        "is_exception": {
+          "default": false,
+          "description": "True if this call is part of an exception/exclusion tract",
+          "title": "Is Exception",
+          "type": "boolean"
+        },
         "non_tangent": {
           "default": false,
           "description": "True if this curve is non-tangent (radial bearing provided)",
           "title": "Non Tangent",
           "type": "boolean"
         },
-        "notes": {
+        "radial_bearing": {
           "anyOf": [
             {
               "type": "string"
@@ -462,8 +478,45 @@
             }
           ],
           "default": null,
-          "description": "Additional notes (meander flag, issues, etc.)",
-          "title": "Notes"
+          "description": "Radial bearing for non-tangent curves (e.g., 'N 15\u00b022' E')",
+          "title": "Radial Bearing"
+        },
+        "is_meander": {
+          "default": false,
+          "description": "True if this call follows a water boundary (meander line)",
+          "title": "Is Meander",
+          "type": "boolean"
+        },
+        "is_tie_in": {
+          "default": false,
+          "description": "True if this call is a tie-in call between POC and POB",
+          "title": "Is Tie In",
+          "type": "boolean"
+        },
+        "is_indefinite": {
+          "default": false,
+          "description": "True if this call has vague direction without precise bearing",
+          "title": "Is Indefinite",
+          "type": "boolean"
+        },
+        "curve_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "simple",
+                "compound",
+                "reverse",
+                "spiral"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Type of curve: simple, compound, or reverse (None for non-curves)",
+          "title": "Curve Type"
         },
         "quality": {
           "anyOf": [
@@ -483,7 +536,7 @@
           "description": "Call quality rating based on bearing completeness and monument permanence",
           "title": "Quality"
         },
-        "radial_bearing": {
+        "notes": {
           "anyOf": [
             {
               "type": "string"
@@ -493,34 +546,8 @@
             }
           ],
           "default": null,
-          "description": "Radial bearing for non-tangent curves (e.g., 'N 15°22' E')",
-          "title": "Radial Bearing"
-        },
-        "radius_ft": {
-          "anyOf": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Curve radius in feet",
-          "title": "Radius Ft"
-        },
-        "to": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "Ending point description (e.g., 'iron pin', 'corner to Lot 50')",
-          "title": "To"
+          "description": "Additional notes (meander flag, issues, etc.)",
+          "title": "Notes"
         }
       },
       "required": [
@@ -535,21 +562,13 @@
       "additionalProperties": false,
       "description": "Explicit arbitrary frame, in feet; azimuth is clockwise from local +Y.\n\nOrientation sets the interior/exterior-angle interpretation convention and\ncomputed closing angle. It does not certify the winding of the resulting\nboundary. Explicit perpendicular/parallel directions are independent of it.",
       "properties": {
-        "first_azimuth_deg": {
-          "title": "First Azimuth Deg",
-          "type": "number"
-        },
         "name": {
           "title": "Name",
           "type": "string"
         },
-        "orientation": {
-          "enum": [
-            "cw",
-            "ccw"
-          ],
-          "title": "Orientation",
-          "type": "string"
+        "first_azimuth_deg": {
+          "title": "First Azimuth Deg",
+          "type": "number"
         },
         "origin": {
           "maxItems": 2,
@@ -564,6 +583,14 @@
           ],
           "title": "Origin",
           "type": "array"
+        },
+        "orientation": {
+          "enum": [
+            "cw",
+            "ccw"
+          ],
+          "title": "Orientation",
+          "type": "string"
         }
       },
       "required": [
@@ -579,6 +606,11 @@
       "additionalProperties": false,
       "description": "A supplied call and optional actual source references, never invented pages.",
       "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
         "call": {
           "anyOf": [
             {
@@ -588,11 +620,6 @@
               "type": "null"
             }
           ]
-        },
-        "id": {
-          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
-          "title": "Id",
-          "type": "string"
         },
         "occurrence_id": {
           "anyOf": [
@@ -620,11 +647,6 @@
           "default": null,
           "title": "Page Id"
         },
-        "quote": {
-          "default": "",
-          "title": "Quote",
-          "type": "string"
-        },
         "source_reference": {
           "anyOf": [
             {
@@ -636,6 +658,11 @@
           ],
           "default": null,
           "title": "Source Reference"
+        },
+        "quote": {
+          "default": "",
+          "title": "Quote",
+          "type": "string"
         }
       },
       "required": [
@@ -648,6 +675,89 @@
     "PlotPlacement": {
       "additionalProperties": false,
       "properties": {
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "calculation_id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Calculation Id",
+          "type": "string"
+        },
+        "geometry_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Geometry Hash",
+          "type": "string"
+        },
+        "scene_id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Scene Id",
+          "type": "string"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "title": "Rotation Deg",
+          "type": "number"
+        },
+        "translation": {
+          "default": [
+            0.0,
+            0.0
+          ],
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "title": "Translation",
+          "type": "array"
+        },
+        "status": {
+          "default": "approximate",
+          "enum": [
+            "unplaced",
+            "approximate",
+            "referenced"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "rationale": {
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "evidence_ids": {
+          "default": [],
+          "items": {
+            "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+            "type": "string"
+          },
+          "title": "Evidence Ids",
+          "type": "array"
+        },
+        "position_evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Position Evidence",
+          "type": "array"
+        },
+        "orientation_evidence": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Orientation Evidence",
+          "type": "array"
+        },
         "baseline_geometry_hash": {
           "anyOf": [
             {
@@ -674,56 +784,6 @@
           "default": null,
           "title": "Baseline Placement Id"
         },
-        "calculation_id": {
-          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
-          "title": "Calculation Id",
-          "type": "string"
-        },
-        "evidence_ids": {
-          "default": [],
-          "items": {
-            "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
-            "type": "string"
-          },
-          "title": "Evidence Ids",
-          "type": "array"
-        },
-        "geometry_hash": {
-          "pattern": "^[a-f0-9]{64}$",
-          "title": "Geometry Hash",
-          "type": "string"
-        },
-        "id": {
-          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
-          "title": "Id",
-          "type": "string"
-        },
-        "orientation_evidence": {
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "title": "Orientation Evidence",
-          "type": "array"
-        },
-        "position_evidence": {
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "title": "Position Evidence",
-          "type": "array"
-        },
-        "rationale": {
-          "minLength": 1,
-          "title": "Rationale",
-          "type": "string"
-        },
-        "rotation_deg": {
-          "default": 0.0,
-          "title": "Rotation Deg",
-          "type": "number"
-        },
         "scenario_id": {
           "anyOf": [
             {
@@ -736,39 +796,6 @@
           ],
           "default": null,
           "title": "Scenario Id"
-        },
-        "scene_id": {
-          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
-          "title": "Scene Id",
-          "type": "string"
-        },
-        "status": {
-          "default": "approximate",
-          "enum": [
-            "unplaced",
-            "approximate",
-            "referenced"
-          ],
-          "title": "Status",
-          "type": "string"
-        },
-        "translation": {
-          "default": [
-            0.0,
-            0.0
-          ],
-          "maxItems": 2,
-          "minItems": 2,
-          "prefixItems": [
-            {
-              "type": "number"
-            },
-            {
-              "type": "number"
-            }
-          ],
-          "title": "Translation",
-          "type": "array"
         }
       },
       "required": [
@@ -785,6 +812,17 @@
       "additionalProperties": false,
       "description": "Calls to plot in an unadjusted local frame, independently of a dashboard.",
       "properties": {
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
         "calculation_id": {
           "default": "plot",
           "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
@@ -820,17 +858,6 @@
             }
           ],
           "default": null
-        },
-        "schema_version": {
-          "const": "1.0",
-          "default": "1.0",
-          "title": "Schema Version",
-          "type": "string"
-        },
-        "title": {
-          "minLength": 1,
-          "title": "Title",
-          "type": "string"
         }
       },
       "required": [
@@ -843,15 +870,21 @@
     "PlotScene": {
       "additionalProperties": false,
       "properties": {
-        "axis_order": {
-          "const": "xy",
-          "default": "xy",
-          "title": "Axis Order",
+        "id": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
+          "title": "Id",
           "type": "string"
         },
-        "basis": {
-          "default": "local",
-          "title": "Basis",
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "local",
+            "projected"
+          ],
+          "title": "Kind",
           "type": "string"
         },
         "crs": {
@@ -866,23 +899,6 @@
           "default": null,
           "title": "Crs"
         },
-        "id": {
-          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$",
-          "title": "Id",
-          "type": "string"
-        },
-        "kind": {
-          "enum": [
-            "local",
-            "projected"
-          ],
-          "title": "Kind",
-          "type": "string"
-        },
-        "name": {
-          "title": "Name",
-          "type": "string"
-        },
         "units": {
           "enum": [
             "international_ft",
@@ -891,6 +907,17 @@
             "unknown_ft"
           ],
           "title": "Units",
+          "type": "string"
+        },
+        "axis_order": {
+          "const": "xy",
+          "default": "xy",
+          "title": "Axis Order",
+          "type": "string"
+        },
+        "basis": {
+          "default": "local",
+          "title": "Basis",
           "type": "string"
         }
       },
@@ -907,6 +934,31 @@
       "additionalProperties": false,
       "description": "Relation from one directed course to another.\n\nInterior/exterior angles connect successive boundary courses (last to first\nis the closing angle). Exterior values require an explicit convention that\ninterior = 360 - exterior; an unspecified convention stays unresolved.\nPerpendicular turns and parallel direction refer to the directed from_course,\nso they also work for nonadjacent courses. Unspecified choices stay unresolved.",
       "properties": {
+        "constraint_id": {
+          "title": "Constraint Id",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "interior",
+            "exterior",
+            "perpendicular",
+            "parallel"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "from_course": {
+          "title": "From Course",
+          "type": "string"
+        },
+        "to_course": {
+          "title": "To Course",
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/$defs/RelativeSource"
+        },
         "angle_deg": {
           "anyOf": [
             {
@@ -921,14 +973,13 @@
           "default": null,
           "title": "Angle Deg"
         },
-        "constraint_id": {
-          "title": "Constraint Id",
-          "type": "string"
-        },
-        "exterior_convention": {
+        "turn": {
           "anyOf": [
             {
-              "const": "interior_complement",
+              "enum": [
+                "left",
+                "right"
+              ],
               "type": "string"
             },
             {
@@ -936,33 +987,7 @@
             }
           ],
           "default": null,
-          "title": "Exterior Convention"
-        },
-        "from_course": {
-          "title": "From Course",
-          "type": "string"
-        },
-        "interpretation": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Interpretation"
-        },
-        "kind": {
-          "enum": [
-            "interior",
-            "exterior",
-            "perpendicular",
-            "parallel"
-          ],
-          "title": "Kind",
-          "type": "string"
+          "title": "Turn"
         },
         "parallel_direction": {
           "anyOf": [
@@ -980,20 +1005,10 @@
           "default": null,
           "title": "Parallel Direction"
         },
-        "source": {
-          "$ref": "#/$defs/RelativeSource"
-        },
-        "to_course": {
-          "title": "To Course",
-          "type": "string"
-        },
-        "turn": {
+        "exterior_convention": {
           "anyOf": [
             {
-              "enum": [
-                "left",
-                "right"
-              ],
+              "const": "interior_complement",
               "type": "string"
             },
             {
@@ -1001,7 +1016,19 @@
             }
           ],
           "default": null,
-          "title": "Turn"
+          "title": "Exterior Convention"
+        },
+        "interpretation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interpretation"
         }
       },
       "required": [
@@ -1027,6 +1054,9 @@
           "title": "Distance Ft",
           "type": "number"
         },
+        "source": {
+          "$ref": "#/$defs/RelativeSource"
+        },
         "recorded_bearing_azimuth_deg_from_north": {
           "anyOf": [
             {
@@ -1040,9 +1070,6 @@
           ],
           "default": null,
           "title": "Recorded Bearing Azimuth Deg From North"
-        },
-        "source": {
-          "$ref": "#/$defs/RelativeSource"
         }
       },
       "required": [
@@ -1057,12 +1084,14 @@
       "additionalProperties": false,
       "description": "A source-linked straight boundary plus explicit local interpretation.",
       "properties": {
-        "constraints": {
-          "items": {
-            "$ref": "#/$defs/RelativeConstraint"
-          },
-          "title": "Constraints",
-          "type": "array"
+        "schema_version": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "frame": {
+          "$ref": "#/$defs/LocalFrame"
         },
         "courses": {
           "items": {
@@ -1072,14 +1101,12 @@
           "title": "Courses",
           "type": "array"
         },
-        "frame": {
-          "$ref": "#/$defs/LocalFrame"
-        },
-        "schema_version": {
-          "const": "1.0",
-          "default": "1.0",
-          "title": "Schema Version",
-          "type": "string"
+        "constraints": {
+          "items": {
+            "$ref": "#/$defs/RelativeConstraint"
+          },
+          "title": "Constraints",
+          "type": "array"
         }
       },
       "required": [
@@ -1094,12 +1121,12 @@
       "additionalProperties": false,
       "description": "Verbatim evidence plus a document/page/occurrence reference.",
       "properties": {
-        "quote": {
-          "title": "Quote",
-          "type": "string"
-        },
         "reference": {
           "title": "Reference",
+          "type": "string"
+        },
+        "quote": {
+          "title": "Quote",
           "type": "string"
         }
       },
@@ -1113,7 +1140,16 @@
   },
   "additionalProperties": false,
   "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
     "left": {
+      "$ref": "#/$defs/ComparisonDescription"
+    },
+    "right": {
       "$ref": "#/$defs/ComparisonDescription"
     },
     "pairs": {
@@ -1124,8 +1160,8 @@
       "title": "Pairs",
       "type": "array"
     },
-    "right": {
-      "$ref": "#/$defs/ComparisonDescription"
+    "tolerances": {
+      "$ref": "#/$defs/ComparisonTolerance"
     },
     "right_to_left_transform": {
       "anyOf": [
@@ -1148,15 +1184,6 @@
         }
       ],
       "default": null
-    },
-    "schema_version": {
-      "const": "1.0",
-      "default": "1.0",
-      "title": "Schema Version",
-      "type": "string"
-    },
-    "tolerances": {
-      "$ref": "#/$defs/ComparisonTolerance"
     }
   },
   "required": [

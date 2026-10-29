@@ -104,7 +104,11 @@ def test_zero_residual_retains_derivatives_without_direction_ranking():
     "update,availability,reason",
     [
         ({"bearing_azimuth_deg_from_north": None}, "incomplete", "unresolved_bearing"),
-        ({"curve_dir": "left", "radius_ft": 100, "delta_deg": 30}, "unsupported", "curve"),
+        (
+            {"curve_dir": "left", "radius_ft": 100, "delta_deg": 30, "curve_type": "spiral"},
+            "unsupported",
+            "curve",
+        ),
         ({"is_meander": True}, "unsupported", "meander"),
         ({"is_exception": True}, "unsupported", "exception_boundary"),
         ({"is_indefinite": True}, "incomplete", "indefinite_call"),

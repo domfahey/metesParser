@@ -20,6 +20,7 @@ from .base import _Model
 from .closure import CheckResult, ClosureResult, Point
 from .comparison import (
     BearingBasis,
+    CircularArcComparison,
     ComparedPair,
     ComparisonComponent,
     ComparisonDescription,
@@ -33,6 +34,16 @@ from .comparison import (
     StructuralDifference,
 )
 from .constants import PERMANENT_MONUMENTS, PRIOR_CONVEYANCE_SIGNALS
+from .corridor import (
+    CorridorBoundaryEdge,
+    CorridorErrorBudget,
+    CorridorErrorReport,
+    CorridorManifest,
+    CorridorRequest,
+    CorridorResult,
+    CorridorStation,
+    CorridorWidthInterval,
+)
 from .dashboard import (
     DashboardBundle,
     DashboardDescriptionComparison,
@@ -51,10 +62,22 @@ from .deed_call import (
     MonumentType,
     SubdivisionReference,
 )
+from .delivery import (
+    DeliveryItem,
+    DeliveryLayer,
+    DeliveryManifest,
+    DeliveryMetric,
+    DeliveryOmission,
+    DeliveryPrimitive,
+    DeliveryRequest,
+    DeliverySnapshot,
+    DeliverySourceBinding,
+)
 from .diagnostics import (
     CallSensitivity,
     ClosureDiagnosticRequest,
     ClosureDiagnostics,
+    CurveParameterSensitivity,
     DiagnosticCall,
     DiagnosticFrame,
     DiagnosticResidual,
@@ -89,6 +112,14 @@ from .plot import (
     VectorLayer,
 )
 from .plot_request import PlotCall, PlotRequest, PreparedPlot
+from .plss import (
+    PLSSCorner,
+    PLSSDerivationRequest,
+    PLSSDerivationResult,
+    PLSSReferenceDataset,
+    PLSSSectionKey,
+    PLSSSectionReference,
+)
 from .raster import RasterControl, RasterLayer, RasterRegistration, RasterResidual
 from .relative import (
     LocalFrame,
@@ -99,6 +130,24 @@ from .relative import (
     RelativeDescription,
     RelativeIssue,
     RelativeSource,
+)
+from .revisions import (
+    DashboardRevision,
+    PreparedRevision,
+    PreparedRevisionCorridor,
+    RevisionBaseline,
+    RevisionCallDraft,
+    RevisionComparison,
+    RevisionCorridor,
+    RevisionError,
+    RevisionGeometry,
+    RevisionManifest,
+    RevisionPreparedCall,
+    RevisionSourceChange,
+    RevisionSourceRef,
+    RevisionTract,
+    bind_baseline,
+    revision_template,
 )
 from .source_handoff import (
     DescriptionCandidate,
@@ -124,6 +173,47 @@ from .webmap import (
 __version__ = "1.0.0"
 
 __all__ = [
+    "DeliveryItem",
+    "DeliveryLayer",
+    "DeliveryManifest",
+    "DeliveryMetric",
+    "DeliveryOmission",
+    "DeliveryPrimitive",
+    "DeliveryRequest",
+    "DeliverySnapshot",
+    "DeliverySourceBinding",
+    "CorridorBoundaryEdge",
+    "CorridorErrorBudget",
+    "CorridorErrorReport",
+    "CorridorManifest",
+    "CorridorRequest",
+    "CorridorResult",
+    "CorridorStation",
+    "CorridorWidthInterval",
+    "PLSSCorner",
+    "PLSSDerivationRequest",
+    "PLSSDerivationResult",
+    "PLSSReferenceDataset",
+    "PLSSSectionKey",
+    "PLSSSectionReference",
+    "RevisionPreparedCall",
+    "RevisionComparison",
+    "CircularArcComparison",
+    "CurveParameterSensitivity",
+    "DashboardRevision",
+    "PreparedRevision",
+    "PreparedRevisionCorridor",
+    "RevisionBaseline",
+    "RevisionCallDraft",
+    "RevisionCorridor",
+    "RevisionError",
+    "RevisionGeometry",
+    "RevisionManifest",
+    "RevisionSourceChange",
+    "RevisionSourceRef",
+    "RevisionTract",
+    "bind_baseline",
+    "revision_template",
     "ArtifactInspection",
     "InspectedArtifact",
     "InspectedStage",
