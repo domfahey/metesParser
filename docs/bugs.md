@@ -998,9 +998,16 @@ Seven findings plus one found while fixing, fixed red-green on `fix/code-review-
 ### PR #60 twenty-fifth review (2026-10-30)
 Six findings plus one found while fixing, fixed red-green on `fix/code-review-2026-10-29`:
 - **More chord phrasings (fabrication):** "a long chord of", "chord:", "chord =", "chord direction of", "chord brg.", "C.B.", "a chord which runs" now open a chord clause, so the chord bearing is never stored as the tangent (`70d4013`).
-- **Ties, record calls and adjoiner lines are not courses:** before counting complete courses, each bearing+distance pair is classified; ties ("said pin being …", "distant …", "which is … from"), parenthetical/labelled record calls ("(… per deed)") and adjoiner lines ("which line bears …") are excluded, so valid deeds no longer fail closed. Genuine two-course fragments still fail closed (`70d4013`). Open: a record call is not captured in any call field.
+- **Ties, record calls and adjoiner lines are not courses:** before counting complete courses, each bearing+distance pair is classified; ties ("said pin being …", "distant …", "which is … from"), parenthetical/labelled record calls ("(… per deed)") and adjoiner lines ("which line bears …") are excluded, so valid deeds no longer fail closed. Genuine two-course fragments still fail closed (`70d4013`). Fixed in round 26 (`d290473`): record calls are kept verbatim in notes.
 - **One course-text preparation:** `_prepare_course_text` serves both bearing reading and course counting; the reversed `_DASHED_BEARING_CONTEXT` alias is removed (`70d4013`).
 - **Normalize once, idempotently (found by the facade work):** `extract_calls` normalizes exactly once, and normalization is idempotent — "and <bearing>" → "thence" now happens in one pass and never inside a bearing-tied point of beginning, and "PK" no longer gains a "nail" per pass (`705ace7`).
+
+### PR #60 twenty-sixth review (2026-10-30)
+Four findings plus one carried over, fixed red-green on `fix/code-review-2026-10-29`:
+- **Record calls kept:** a parenthetical or labelled record call is appended verbatim to the call's notes ("record call: …") and recorded as an audit Decision; a "per record" label after a course no longer marks the measured course itself as a record (`d290473`).
+- **Spirals stated by length:** a spiral with a stated length (and optional direction/radius) and no chord is representable — `arc_length_ft` holds the stated spiral length, never R·δ — and verification leaves it unpositioned with the curve check blocked (`4572d56`). Packaged plugin schemas were synced with the new field description.
+- **Non-tangent curves:** a course bearing never fixes a non-tangent curve's starting tangent; it is positioned by chord + sweep or by a radial bearing (tangent = radial ∓ 90° by direction), otherwise unpositioned — the same rule in traverse, plot, topology, parallelism, closure and confidence, so verify and plot agree (`0d0f7c1`). Open: an unreadable chord still positions the curve in verify but not in plot; chord vs radial bearing are not cross-checked; diagnostics still rejects radial bearings.
+- **JPEG EXIF fill bytes:** 0xFF fill bytes before a marker are skipped, so a rotated JPEG is no longer read as upright (`74c314f`).
 
 ## Known Limitations
 
