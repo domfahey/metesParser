@@ -1,4 +1,4 @@
-"""A concurrent publish never leaves a manifest that references discarded artifacts."""
+"""A package appears only complete; a failing publish never affects a concurrent one."""
 
 import threading
 from pathlib import Path
@@ -88,65 +88,25 @@ def test_failing_publish_cannot_discard_files_a_concurrent_manifest_references(
     load_delivery(bundle, revision, directory)
 
 
-def test_publish_reasserts_artifacts_before_writing_the_manifest(tmp_path, monkeypatch):
+def test_package_is_invisible_until_complete(tmp_path, monkeypatch):
     import mp_review.delivery as api
 
     bundle, revision, request = _setup(tmp_path)
-    original = api._write_once
-
-    def write_once(path, content):
-        if path.name == "delivery-manifest.json":
-            # A non-cooperating deletion after the artifact was written.
-            (path.parent / "snapshot.json").unlink(missing_ok=True)
-        return original(path, content)
-
-    monkeypatch.setattr(api, "_write_once", write_once)
-    result = publish_delivery(bundle, revision, request, tmp_path / "deliveries")
     directory = tmp_path / "deliveries" / request.id
+    original = api._write_once
+    written = []
+
+    def write_once(path, content):
+        # Every file, the manifest last, goes to private staging, not the package.
+        assert not directory.exists()
+        assert path.parent != directory
+        written.append(path.name)
+        return original(path, content)
+
+    monkeypatch.setattr(api, "_write_once", write_once)
+    result = publish_delivery(bundle, revision, request, tmp_path / "deliveries")
     assert result["status"] == "needs_review", result
+    assert written[-1] == "delivery-manifest.json"
+    assert sorted(written[:-1]) == sorted(result["artifacts"])
+    assert sorted(p.name for p in directory.iterdir()) == sorted(written)
     load_delivery(bundle, revision, directory)
-
-
-def test_locked_publish_does_not_rewrite_artifacts_after_the_manifest(tmp_path, monkeypatch):
-    import mp_review.delivery as api
-
-    bundle, revision, request = _setup(tmp_path)
-    original = api._write_once
-    after_manifest = []
-
-    def write_once(path, content):
-        if (path.parent / "delivery-manifest.json").exists():
-            after_manifest.append(path.name)
-        return original(path, content)
-
-    monkeypatch.setattr(api, "_write_once", write_once)
-    result = publish_delivery(bundle, revision, request, tmp_path / "deliveries")
-    assert result["status"] == "needs_review", result
-    assert after_manifest == []
-    load_delivery(bundle, revision, tmp_path / "deliveries" / request.id)
-
-
-def test_unlocked_publish_reasserts_every_artifact_after_the_manifest(tmp_path, monkeypatch):
-    import contextlib
-
-    import mp_review.delivery as api
-
-    bundle, revision, request = _setup(tmp_path)
-    original = api._write_once
-    after_manifest = []
-
-    @contextlib.contextmanager
-    def unlocked(directory):  # a platform without fcntl
-        directory.mkdir(exist_ok=True)
-        yield False
-
-    def write_once(path, content):
-        if (path.parent / "delivery-manifest.json").exists():
-            after_manifest.append(path.name)
-        return original(path, content)
-
-    monkeypatch.setattr(api, "_claim", unlocked)
-    monkeypatch.setattr(api, "_write_once", write_once)
-    result = publish_delivery(bundle, revision, request, tmp_path / "deliveries")
-    assert result["status"] == "needs_review", result
-    assert sorted(after_manifest) == sorted(result["artifacts"])

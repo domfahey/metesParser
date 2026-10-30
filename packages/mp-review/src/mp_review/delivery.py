@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import contextlib
 import hashlib
 import importlib.metadata
 import json
 import os
 import re
-import stat
-from collections.abc import Iterable, Iterator, Sequence
+import secrets
+import shutil
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 
@@ -695,6 +695,7 @@ def _geojson_area(
     it does not cover. Raises ``_GeoJSONUnavailable`` when no operation serves it.
     """
     from mp_models.webmap import WebMapOptions
+    from mp_verify.webmap import bounds_of
 
     from . import webmap
     from . import webmap_projection as projections
@@ -715,7 +716,7 @@ def _geojson_area(
             if item.selection.kind == "calculation":
                 primary.extend(points)
             else:
-                context.append((item, webmap.bounds_of(points)))
+                context.append((item, bounds_of(points)))
         elif item.vector:
             context.append((item, webmap.vector_extent(item.vector)))
     try:
@@ -933,6 +934,13 @@ def publish_delivery(
     request: DeliveryRequest | dict[str, Any],
     output_dir: Path | str,
 ) -> dict[str, Any]:
+    """Publish one immutable package under ``output_dir/<request.id>``.
+
+    Every artifact and the manifest are written and fsynced into a private
+    sibling directory, which is then renamed into place: a package is visible
+    only complete. An existing package id is never replaced, so of concurrent
+    publishers of one id exactly one succeeds.
+    """
     result: dict[str, Any] = {
         "schema_version": "1.0",
         "operation": "deliver-review",
@@ -941,67 +949,51 @@ def publish_delivery(
         "errors": [],
         "artifacts": {},
     }
-    created: list[Path] = []
-
-    def write_new(path: Path, content: bytes) -> None:
-        existed = path.exists()
-        _write_once(path, content)
-        if not existed:
-            created.append(path)
-
     try:
         snapshot, geojson_area = _prepare(bundle, revision_dir, request)
-        directory = Path(output_dir)
-        if directory.is_symlink():
+        store = Path(output_dir)
+        if store.is_symlink():
             raise ValueError("Unsafe delivery store symlink")
-        directory.mkdir(parents=True, exist_ok=True)
-        directory = directory / snapshot.request.id
-        manifest_path = directory / "delivery-manifest.json"
-        # Serialize publishes of one delivery id so a failing publish cannot
-        # discard files that a concurrent publish found present and referenced.
-        with _claim(directory) as locked:
+        store.mkdir(parents=True, exist_ok=True)
+        directory = store / snapshot.request.id
+        _clear_stale_publishes(store, snapshot.request.id)
+        if os.path.lexists(directory):
+            raise ValueError(_already_published(snapshot.request.id))
+        artifacts = _components(bundle, snapshot, geojson_area)
+        manifest = {
+            "schema_version": "1.0",
+            "save_state": "published",
+            "exporter_version": snapshot.exporter_version,
+            "request_sha256": snapshot.request_sha256,
+            "snapshot_sha256": _hash(snapshot.model_dump(mode="json")),
+            "revision_sha256": snapshot.revision_sha256,
+            "artifacts": {n: hashlib.sha256(c).hexdigest() for n, c in artifacts.items()},
+            "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
+        }
+        staging = _make_staging(store, snapshot.request.id)
+        try:
+            for name, content in artifacts.items():
+                _write_once(staging / name, content)
+            # Manifest last, so even the private staging copy never names a missing file.
+            _write_once(staging / "delivery-manifest.json", _json(manifest).encode("utf-8"))
+            if os.path.lexists(directory):
+                raise ValueError(_already_published(snapshot.request.id))
             try:
-                if locked:
-                    _clear_unpublished(directory, manifest_path)
-                write_new(
-                    directory / "pending.json",
-                    _json(
-                        {
-                            "request": snapshot.request.model_dump(mode="json"),
-                            "snapshot_sha256": _hash(snapshot.model_dump(mode="json")),
-                        }
-                    ).encode("utf-8"),
-                )
-                artifacts = _components(bundle, snapshot, geojson_area)
-                hashes = {}
-                for name, content in artifacts.items():
-                    write_new(directory / name, content)
-                    hashes[name] = hashlib.sha256(content).hexdigest()
-                manifest = {
-                    "schema_version": "1.0",
-                    "save_state": "published",
-                    "exporter_version": snapshot.exporter_version,
-                    "request_sha256": snapshot.request_sha256,
-                    "snapshot_sha256": _hash(snapshot.model_dump(mode="json")),
-                    "revision_sha256": snapshot.revision_sha256,
-                    "artifacts": hashes,
-                    "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
-                }
-                write_new(manifest_path, _json(manifest).encode("utf-8"))
-                # Never end with a manifest referencing a missing artifact. Under the
-                # flock claim cooperating publishers cannot interleave, so a cheap
-                # existence+size check suffices; anything else (or no flock) is
-                # re-asserted write-once (restores identical bytes, refuses differing).
-                for name, content in artifacts.items():
-                    if not locked or not _present(directory / name, len(content)):
-                        _write_once(directory / name, content)
-            except BaseException:
-                _discard_incomplete(created, manifest_path)
+                # POSIX rename(2) refuses a non-empty target (always the case for a
+                # package); Windows refuses any existing target.
+                os.rename(staging, directory)
+            except OSError as exc:
+                if os.path.lexists(directory):
+                    raise ValueError(_already_published(snapshot.request.id)) from exc
                 raise
+        except BaseException:
+            shutil.rmtree(staging, ignore_errors=True)
+            raise
+        _fsync_directory(store)
         result.update(
             status="needs_review",
             save_state="published",
-            manifest=str(manifest_path),
+            manifest=str(directory / "delivery-manifest.json"),
             revision_id=snapshot.request.revision_id,
             request_sha256=snapshot.request_sha256,
             omissions=manifest["omissions"],
@@ -1014,114 +1006,59 @@ def publish_delivery(
     return result
 
 
-def _present(path: Path, size: int | None = None) -> bool:
-    """Whether ``path`` is a regular (non-symlink) file, of ``size`` bytes if given."""
-    try:
-        status = os.stat(path, follow_symlinks=False)
-    except OSError:
-        return False
-    return stat.S_ISREG(status.st_mode) and (size is None or status.st_size == size)
+def _already_published(delivery_id: str) -> str:
+    return f"Delivery {delivery_id!r} is already published; published deliveries are immutable"
 
 
-@contextlib.contextmanager
-def _claim(directory: Path) -> Iterator[bool]:
-    """Hold an exclusive advisory lock on the delivery directory (POSIX ``flock``).
+def _staging_prefix(delivery_id: str) -> str:
+    """Hidden staging name ``.<id>.publishing-<pid>-<random>`` beside the package."""
+    return f".{delivery_id}.publishing-"
 
-    Yields whether the lock is held. The lock is released on exit or process
-    death. A waiter whose directory was removed by a discarding publish
-    re-creates it and locks the new one. Platforms without ``fcntl`` publish
-    unlocked (yield ``False``) behind an exclusive ``<id>.publishing`` claim file
-    beside the delivery directory; an existing claim (a concurrent or crashed
-    publish) is refused, never deleted.
-    """
-    try:
-        import fcntl
-    except ImportError:  # pragma: no cover - non-POSIX
-        if directory.is_symlink():
-            raise ValueError("Unsafe delivery directory symlink") from None
-        claim = directory.with_name(directory.name + ".publishing")
-        try:
-            os.close(os.open(claim, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))
-        except FileExistsError:
-            raise ValueError(
-                "Delivery id is being published or a previous publish crashed; "
-                f"remove {claim} to retry"
-            ) from None
-        try:
-            directory.mkdir(exist_ok=True)
-            yield False
-        finally:
-            claim.unlink(missing_ok=True)
-        return
+
+def _make_staging(store: Path, delivery_id: str) -> Path:
+    # Plain mkdir (not mkdtemp's 0o700) so the published directory keeps umask modes.
     while True:
-        if directory.is_symlink():
-            raise ValueError("Unsafe delivery directory symlink")
-        directory.mkdir(exist_ok=True)
-        descriptor = os.open(directory, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        staging = store / f"{_staging_prefix(delivery_id)}{os.getpid()}-{secrets.token_hex(8)}"
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX)
-            held = os.fstat(descriptor)
-            try:
-                current = os.stat(directory, follow_symlinks=False)
-            except FileNotFoundError:
-                continue
-            if (current.st_dev, current.st_ino) == (held.st_dev, held.st_ino):
-                yield True
-                return
-        finally:
-            os.close(descriptor)
+            staging.mkdir()
+        except FileExistsError:
+            continue
+        return staging
 
 
-_DELIVERY_FILES = frozenset(
-    {
-        "pending.json",
-        "snapshot.json",
-        "request.json",
-        "revision-calls.json",
-        "metrics.json",
-        "calls.json",
-        "drawing.svg",
-        "drawing.pdf",
-        "drawing.dxf",
-        "drawing.geojson",
-        "full-source.json",
-    }
-)
-
-
-def _clear_unpublished(directory: Path, manifest_path: Path) -> None:
-    """Remove files a crashed earlier publish left in a manifest-less directory.
-
-    Runs under the delivery claim. Without a manifest the directory is an
-    incomplete prior publish (a completed one is immutable and untouched). Only
-    regular files named by the delivery layout are removed, never following
-    symlinks; anything else raises ``ValueError`` and nothing is removed.
-    """
-    if os.path.lexists(manifest_path):
+def _fsync_directory(path: Path) -> None:
+    if os.name == "nt":  # directories cannot be opened for fsync on Windows
         return
-    entries = list(directory.iterdir())
-    for entry in entries:
-        if entry.name not in _DELIVERY_FILES or not _present(entry):
-            raise ValueError(
-                f"Incomplete delivery directory holds unexpected entry {entry.name!r}; "
-                "refusing to clear it"
-            )
-    for entry in entries:
-        entry.unlink()
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
-def _discard_incomplete(created: list[Path], manifest_path: Path) -> None:
-    """Remove only this call's files from an unpublished package so the id can be retried.
+def _clear_stale_publishes(store: Path, delivery_id: str) -> None:
+    """Remove staging directories left by crashed publishes of this id.
 
-    Runs under the delivery claim. A package with a manifest is complete and
-    immutable; it is never touched.
+    Staging directories never block a publish; one is removed only when its
+    owning process is gone (POSIX). Elsewhere, or for a live or unknown owner,
+    it is left alone and ignored.
     """
-    if manifest_path.exists():
+    if os.name == "nt":  # no safe liveness probe: os.kill(pid, 0) would signal it
         return
-    for path in reversed(created):
-        path.unlink(missing_ok=True)
-    with contextlib.suppress(OSError):
-        manifest_path.parent.rmdir()
+    prefix = _staging_prefix(delivery_id)
+    for entry in store.iterdir():
+        match = re.fullmatch(rf"{re.escape(prefix)}(\d+)-[0-9a-f]+", entry.name)
+        if match is None or entry.is_symlink() or not entry.is_dir():
+            continue
+        pid = int(match.group(1))
+        if pid == os.getpid():
+            continue
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            shutil.rmtree(entry, ignore_errors=True)
+        except OSError:  # alive under another user, or unknown: leave it
+            continue
 
 
 class DeliveryReplay(NamedTuple):
@@ -1129,8 +1066,10 @@ class DeliveryReplay(NamedTuple):
 
     ``geojson_coordinates`` is ``"reproduced"`` when GeoJSON was re-rendered with
     the recorded coordinate operation and matched byte-for-byte, ``"not_verified"``
-    when this host cannot instantiate that operation (only identity, operation
-    presence and layer binding were checked; see ``findings``), and
+    when this host cannot instantiate or faithfully execute that operation (a
+    domain/PROJ error, or a mismatch while a grid it names is not installed;
+    only identity, operation presence and layer binding were checked; see
+    ``findings``), and
     ``"not_applicable"`` when the package has no GeoJSON.
     """
 
@@ -1143,6 +1082,14 @@ _COORDINATES_NOT_VERIFIED = (
     "GeoJSON coordinates not re-verified: the recorded coordinate operation cannot be "
     "instantiated on this host (for example a missing grid); only identity, the "
     "recorded operation's presence and layer binding were checked"
+)
+
+
+_COORDINATES_HOST_LIMITED = (
+    "GeoJSON coordinates not re-verified: the recorded coordinate operation cannot be "
+    "executed faithfully on this host (for example a domain error or a grid it names is "
+    "not installed); only identity, the recorded operation's presence and layer binding "
+    "were checked"
 )
 
 
@@ -1243,13 +1190,32 @@ def replay_delivery(
     area = _recorded_area(bundle, fresh, recorded_projection)
     if area is None:
         return DeliveryReplay(fresh, "not_verified", (_COORDINATES_NOT_VERIFIED,))
+    from .webmap_projection import WebMapUnavailable, _projection_dependencies
+
+    pyproj, _ = _projection_dependencies()
     try:
         rendered = _json(_geojson(bundle, fresh, area)).encode("utf-8")
-    except ValueError as exc:  # the recorded operation fails on the snapshot geometry
-        raise ValueError("Delivery artifact differs from fresh replay") from exc
+    except (WebMapUnavailable, pyproj.exceptions.ProjError):
+        # The operation built but cannot run here (domain error, grid failure):
+        # a host capability limit, not evidence that the artifact changed.
+        return DeliveryReplay(fresh, "not_verified", (_COORDINATES_HOST_LIMITED,))
     if rendered != recorded_geojson:
+        # A grid the recorded operation names but this host lacks can make PROJ
+        # pass points through unchanged (optional ``@grid``), so a mismatch is
+        # tampering only when the operation is fully usable here.
+        if not _grids_installed(pyproj, recorded_projection["pipeline"]):
+            return DeliveryReplay(fresh, "not_verified", (_COORDINATES_HOST_LIMITED,))
         raise ValueError("Delivery artifact differs from fresh replay")
     return DeliveryReplay(fresh, "reproduced", ())
+
+
+def _grids_installed(pyproj: Any, pipeline: str) -> bool:
+    """Whether every grid the pipeline names is available offline on this host."""
+    try:
+        operation = pyproj.crs.CoordinateOperation.from_string(pipeline)
+        return all(grid.available for grid in operation.grids)
+    except Exception:  # an operation this host cannot inspect is not proven usable
+        return False
 
 
 def _recorded_area(
