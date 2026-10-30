@@ -74,13 +74,18 @@ def test_spiral_without_arc_or_chord_does_not_derive_arc_from_delta(parse):
     assert call.distance_ft != pytest.approx(math.radians(5) * 1000.0, rel=1e-3)
 
 
-def test_circular_curve_still_derives_tangent(parse):
+def test_circular_curve_keeps_tangent_unstated(parse):
+    # Round 21: a circular curve's tangent is no longer derived either; it is
+    # positioned by its chord and delta in verification.
     call = parse(SPIRAL.replace("spiral curve", "curve"))
     assert call.curve_type != "spiral"
-    assert call.bearing_azimuth_deg_from_north == pytest.approx(
-        10.0 - (5 + 43 / 60 + 46 / 3600) / 2, abs=1e-6
+    assert call.bearing_azimuth_deg_from_north is None
+    assert call.chord_bearing is not None
+    assert (
+        "tangent bearing not stated - curve positioned by chord and delta in verification"
+        in call.notes
     )
-    assert "tangent bearing derived" in call.notes
+    assert "tangent bearing derived" not in call.notes
 
 
 @pytest.mark.parametrize(
@@ -97,7 +102,8 @@ def test_comma_grouped_chord_length(parse, clause):
         f"1,100.00 feet, {clause}"
     )
     assert call.chord_length_ft == pytest.approx(1097.78)
-    assert call.bearing_azimuth_deg_from_north is not None
+    assert call.chord_bearing is not None
+    assert call.bearing_azimuth_deg_from_north is None
 
 
 def test_comma_grouped_chord_without_arc(parse):

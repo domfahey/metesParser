@@ -113,6 +113,11 @@ PACKED_DMS_PATTERN = re.compile(
 )
 
 ARC_COMPUTED_NOTE = "arc length not stated - course distance computed from radius and delta"
+# A curve fixed by its stated chord bearing and delta (or arc and radius) with no
+# stated tangent: the tangent is computed only inside verification, never stored.
+TANGENT_NOT_STATED_NOTE = (
+    "tangent bearing not stated - curve positioned by chord and delta in verification"
+)
 ARC_COMPUTED_RULE = "curve: distance is the arc computed from the stated radius and delta"
 LENGTH_NOT_DETERMINED_NOTE = "spiral length not stated - course distance not determined"
 LENGTH_NOT_DETERMINED_RULE = (
@@ -1130,14 +1135,12 @@ def _extract_call(
         curve_info["arc_length_ft"] = distance_ft
 
     # The tangent azimuth is only what the course text states (chord and radial
-    # clauses were removed before extraction). Without one, a stated chord bearing
-    # plus curve direction and delta yields it deterministically (right: chord -
-    # delta/2; left: chord + delta/2). Only an explicitly stated delta is stored as
-    # delta_deg; otherwise the stated arc length and radius define it exactly
-    # (delta = arc / R), used for the tangent only and disclosed in the notes.
-    # Radius + chord without a stated delta or arc: no delta, arc or tangent is
-    # derived (a stated tangent is kept as stated); the course is positioned by its
-    # chord only.
+    # clauses were removed before extraction); it is never derived. A curve with a
+    # stated chord bearing, direction and delta (or arc and radius) but no tangent
+    # keeps bearing_azimuth None: verification positions it by chord and delta and
+    # computes its tangents internally. Only an explicitly stated delta is stored as
+    # delta_deg. Radius + chord without a stated delta or arc: nothing is derived;
+    # the course is positioned by its chord only.
     has_stated_tangent = parsed_bearing is not None or is_due_cardinal
     chord_text = curve_info.get("chord_bearing")
     chord_only = isinstance(chord_text, str) and not has_stated_tangent
@@ -1148,7 +1151,6 @@ def _extract_call(
     tangent_delta: float | None = (
         curve_delta if isinstance(curve_delta, float) and not is_spiral else None
     )
-    delta_source = ""
     stated_radius = curve_info.get("radius_ft")
     stated_arc = curve_info.get("arc_length_ft")
     stated_chord = curve_info.get("chord_length_ft")
@@ -1161,7 +1163,6 @@ def _extract_call(
         and stated_arc > 0.0
     ):
         tangent_delta = math.degrees(stated_arc / stated_radius)
-        delta_source = "arc length"
     # A stated tangent, chord bearing, chord and radius (no delta or arc) are kept as
     # stated: nothing is derived into delta_deg/arc_length_ft. The chord positions the
     # course; verification cross-checks the stated tangent, chord and radius.
@@ -1185,7 +1186,8 @@ def _extract_call(
         and isinstance(stated_radius, float)
         and stated_chord > 2.0 * abs(stated_radius)
     )
-    derived_tangent = False
+    # Fixed by stated chord bearing, direction and delta/arc (not stored as a tangent).
+    chord_positioned = False
     cardinal_conflict = False
     if (
         chord_only
@@ -1193,7 +1195,6 @@ def _extract_call(
         and curve_info.get("direction") in ("left", "right")
         and tangent_delta is not None
     ):
-        chord_az = bearing_to_azimuth(chord_text)
         cardinal_conflict = bool(
             raw_direction
             and not parsed_bearing
@@ -1201,12 +1202,7 @@ def _extract_call(
             and _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip())
             and _cardinal_conflicts_chord(raw_direction, chord_text)
         )
-        if chord_az is not None and not cardinal_conflict:
-            half_delta = tangent_delta / 2.0
-            sign = -1.0 if curve_info.get("direction") == "right" else 1.0
-            azimuth = (chord_az + sign * half_delta) % 360.0
-            bearing_quadrant = None
-            derived_tangent = True
+        chord_positioned = bearing_to_azimuth(chord_text) is not None and not cardinal_conflict
 
     has_abbreviated_cardinal = bool(
         re.match(r"^\s*(?:N|S|E|W|NE|NW|SE|SW)\b", call_text, re.IGNORECASE)
@@ -1289,11 +1285,8 @@ def _extract_call(
             cardinal_only = True
 
     tangent_notes: list[str] = []
-    if derived_tangent:
-        note = "tangent bearing derived from chord bearing and delta"
-        if delta_source:
-            note += f" (delta computed from {delta_source} and radius)"
-        tangent_notes.append(note)
+    if chord_positioned:
+        tangent_notes.append(TANGENT_NOT_STATED_NOTE)
         if cardinal_only and raw_direction:
             tangent_notes.append(
                 f"stated direction is cardinal only ({raw_direction.strip().lower()})"
@@ -1322,7 +1315,7 @@ def _extract_call(
             note_parts.append(tangent_note)
     elif tangent_note:
         note_parts.append(tangent_note)
-    if cardinal_only and not derived_tangent:
+    if cardinal_only and not chord_positioned:
         note_parts.append("incomplete bearing - cardinal only")
     elif not note_parts and not parsed_bearing and not is_due_cardinal:
         note_parts.append("incomplete bearing")
@@ -1387,11 +1380,11 @@ def _extract_call(
 
     radial_bearing_value = curve_info.get("radial_bearing")
 
-    # A chord-only curve whose tangent could not be derived has no stored bearing.
-    chord_only_unresolved = chord_only and not derived_tangent
+    # A tangent-less curve not fixed by its chord bearing and delta is indefinite.
+    chord_only_unresolved = chord_only and not chord_positioned
     is_indefinite = chord_only_unresolved or is_indefinite_call(
         direction_text,
-        has_bearing=has_stated_tangent or derived_tangent,
+        has_bearing=has_stated_tangent or chord_positioned,
     )
 
     curve_type_value = curve_info.get("curve_type")
@@ -1438,41 +1431,12 @@ def _extract_call(
     return call, raw_direction
 
 
-def _is_derived_tangent(call: DeedCall, raw_direction: str) -> bool:
-    """Return True when the call's azimuth was derived from its chord bearing."""
-    if (
+def _tangent_not_stated(call: DeedCall) -> bool:
+    """Return True for a curve fixed by chord and delta whose tangent is not stated."""
+    return (
         call.bearing_azimuth_deg_from_north is None
-        or call.bearing_quadrant is not None
-        or call.chord_bearing is None
-        or call.curve_dir is None
-        or (call.delta_deg is None and (call.arc_length_ft is None or not call.radius_ft))
-    ):
-        return False
-    if raw_direction and (
-        parse_quadrant_bearing(raw_direction) or due_cardinal_to_azimuth(raw_direction) is not None
-    ):
-        return False
-    return True
-
-
-def _derived_tangent_transformation(call: DeedCall) -> Transformation:
-    """Audit step for a tangent derived from the chord bearing and delta."""
-    if call.delta_deg is not None:
-        delta = call.delta_deg
-        source = "stated delta"
-    else:
-        assert call.arc_length_ft is not None and call.radius_ft
-        delta = math.degrees(call.arc_length_ft / call.radius_ft)
-        source = f"arc length and radius (arc {call.arc_length_ft} ft / radius {call.radius_ft} ft)"
-    sign = "-" if call.curve_dir == "right" else "+"
-    return Transformation(
-        step="derive_tangent_azimuth",
-        input=(
-            f"chord bearing {call.chord_bearing}; delta {delta} deg from {source}; "
-            f"curve {call.curve_dir}"
-        ),
-        output=str(call.bearing_azimuth_deg_from_north),
-        rule=f"tangent = chord azimuth {sign} delta / 2 ({call.curve_dir} curve)",
+        and call.notes is not None
+        and TANGENT_NOT_STATED_NOTE in call.notes
     )
 
 
@@ -1555,9 +1519,7 @@ def _audit_single_call(
             )
         )
 
-    derived_tangent = _is_derived_tangent(call, raw_direction)
-    if derived_tangent:
-        transformations.append(_derived_tangent_transformation(call))
+    tangent_not_stated = _tangent_not_stated(call)
 
     # --- Distance transformation ---
     # Record the source the stored distance actually came from, never the first
@@ -1596,12 +1558,20 @@ def _audit_single_call(
             Decision(
                 field="bearing_azimuth_deg_from_north",
                 value=str(call.bearing_azimuth_deg_from_north),
-                reason=(
-                    "tangent derived from stated chord bearing and delta"
-                    if derived_tangent
-                    else "exact quadrant bearing parsed"
-                ),
+                reason="exact quadrant bearing parsed",
                 confidence=0.95,
+            )
+        )
+    elif tangent_not_stated:
+        decisions.append(
+            Decision(
+                field="bearing_azimuth_deg_from_north",
+                value="none",
+                reason=(
+                    f"tangent bearing not stated; chord bearing {call.chord_bearing} and "
+                    "delta/arc kept as stated for verification, no tangent derived"
+                ),
+                confidence=1.0,
             )
         )
 
@@ -1635,13 +1605,13 @@ def _audit_single_call(
         if _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip()):
             cardinal_only = True
 
-    if derived_tangent and cardinal_only:
+    if tangent_not_stated and cardinal_only:
         flags.append("cardinal_only_direction")
     elif not is_due and (cardinal_only or (raw_direction and not call.bearing_quadrant)):
         flags.append("incomplete_bearing")
     if (
         cardinal_only
-        and not derived_tangent
+        and not tangent_not_stated
         and call.bearing_azimuth_deg_from_north is None
         and _cardinal_conflicts_chord(raw_direction, call.chord_bearing)
     ):
