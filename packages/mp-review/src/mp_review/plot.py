@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import hashlib
-import io
 import json
 import math
 from collections.abc import Sequence
@@ -102,26 +101,9 @@ def _request(source: bytes, name: str, input_format: str) -> tuple[PlotRequest, 
             ),
         ), "txt"
     if is_csv:
-        from mp_export.csv_writer import (  # type: ignore[import-untyped]
-            _row_to_call,
-            is_supported_csv_header,
-        )
+        from mp_export.csv_writer import csv_text_to_calls  # type: ignore[import-untyped]
 
-        reader = csv.reader(io.StringIO(text), strict=True)
-        header = next(reader, None)
-        if header is None or not is_supported_csv_header(header):
-            raise ValueError(
-                "CSV requires the exact ordered 22-field call schema "
-                "(or the legacy 21-field schema without curve_type)"
-            )
-        csv_calls = []
-        for number, values in enumerate(reader, 2):
-            if len(values) != len(header):
-                raise ValueError(f"Malformed CSV row {number}")
-            call = _row_to_call(dict(zip(header, values, strict=True)), row_number=number)
-            if call is None:
-                raise ValueError(f"Invalid CSV call at row {number}")
-            csv_calls.append(call)
+        csv_calls = csv_text_to_calls(text, strict=True)
         request = _calls_request(csv_calls, name, f"{name}: data row")
         return request, "csv"
     data = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_invalid_number)

@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import csv
 import hashlib
 import html
-import io
 import json
 import math
 from datetime import UTC, datetime
@@ -16,7 +14,6 @@ from mp_export.csv_writer import (  # type: ignore[import-untyped]
     calls_to_csv,
     csv_text_to_calls,
     export_verified_csv,
-    is_supported_csv_header,
 )
 from mp_models import AuditContext, DeedCall, LegalDescription, RunMetadata
 from mp_verify import verify_closure
@@ -119,15 +116,6 @@ def _run(
             else:
                 raise ValueError("JSON must be a calls list or LegalDescription object.")
         elif kind == "csv":
-            reader = csv.reader(io.StringIO(text))
-            header = next(reader, None)
-            if header is None or not is_supported_csv_header(header):
-                raise ValueError(
-                    "CSV header must match the complete 22-field schema "
-                    "(or the legacy 21-field schema without curve_type)."
-                )
-            if any(len(row) != len(header) for row in reader if row):
-                raise ValueError("CSV contains a row with incorrect field count.")
             calls = csv_text_to_calls(text, strict=True)
             legal = LegalDescription(calls=calls)
         else:
