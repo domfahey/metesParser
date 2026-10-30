@@ -134,6 +134,11 @@ def _direction_conflict(call: DeedCall, chord_azimuth: float | None) -> bool:
     )
 
 
+def _indefinite(call: DeedCall, direction_conflict: bool) -> bool:
+    """The single indefinite rule: stated by the parser flag, or a detected conflict."""
+    return call.is_indefinite or direction_conflict
+
+
 def effective_indefinite(call: DeedCall) -> bool:
     """Indefinite as stated (parser flag) or by verification's own conflict rule.
 
@@ -141,7 +146,7 @@ def effective_indefinite(call: DeedCall) -> bool:
     comparison and confidence decision uses this one rule. The stored flag is never
     changed.
     """
-    return call.is_indefinite or _direction_conflict(call, parse_chord(call))
+    return _indefinite(call, _direction_conflict(call, parse_chord(call)))
 
 
 @dataclass(frozen=True)
@@ -180,7 +185,7 @@ class CourseAnalysis:
         is_indefinite is not a CSV column, so verification derives the conflict from
         the persisted fields and never relies on the flag alone.
         """
-        return self.call.is_indefinite or self.direction_conflict  # == effective_indefinite
+        return _indefinite(self.call, self.direction_conflict)
 
     @property
     def chord_positioned(self) -> bool:
@@ -197,45 +202,50 @@ class CourseAnalysis:
         )
 
 
-def analyze_courses(
-    calls: list[DeedCall], start_point: Point | None = None
-) -> tuple[list[Point], list[CourseAnalysis]]:
-    """Traverse boundary calls as verification does and record each call's analysis.
+def _analyze(index: int, call: DeedCall, current: Point) -> tuple[Point | None, CourseAnalysis]:
+    """Decide one call's chord, positioning and direction, and its endpoint from ``current``.
 
     An unparseable chord bearing is never guessed and never replaced by a tangent or
     radial bearing: that curve is unpositioned (blocked), exactly as plotting treats
-    it. The stated calls themselves are never modified.
+    it. Whether a call is positioned depends on the call alone, never on where it
+    starts. The stated call is never modified.
     """
+    chord_azimuth = parse_chord(call)
+    bad_chord = is_curved_course(call) and call.chord_bearing is not None and chord_azimuth is None
+    # A spiral is never a chord-only circular curve (minor/major arc ambiguity).
+    chord_only = call.is_chord_only_curve() and not is_spiral(call)
+    endpoint = _advance(call, current, chord_azimuth)
+    return endpoint, CourseAnalysis(
+        index=index,
+        call=call,
+        bad_chord=bad_chord,
+        chord_only=chord_only,
+        feasible_chord=not (chord_only and not chord_is_feasible(call)),
+        arc_undetermined=chord_only or (endpoint is not None and is_spiral(call)),
+        positioned=endpoint is not None,
+        determined_direction=has_determined_direction(call),
+        direction_conflict=_direction_conflict(call, chord_azimuth),
+    )
+
+
+def analyze_course(call: DeedCall, index: int = 0) -> CourseAnalysis:
+    """Analyze one call without a traverse: its positioning does not depend on its start."""
+    return _analyze(index, call, Point(x=0, y=0))[1]
+
+
+def analyze_courses(
+    calls: list[DeedCall], start_point: Point | None = None
+) -> tuple[list[Point], list[CourseAnalysis]]:
+    """Traverse boundary calls as verification does and record each call's analysis."""
     current = start_point if start_point is not None else Point(x=0, y=0)
     points = [current]
     records: list[CourseAnalysis] = []
     for index, call in enumerate(calls):
-        chord_azimuth = parse_chord(call)
-        bad_chord = (
-            is_curved_course(call) and call.chord_bearing is not None and chord_azimuth is None
-        )
-        # A spiral is never a chord-only circular curve (minor/major arc ambiguity).
-        chord_only = call.is_chord_only_curve() and not is_spiral(call)
-        feasible_chord = not (chord_only and not chord_is_feasible(call))
-        determined = has_determined_direction(call)
-        direction_conflict = _direction_conflict(call, chord_azimuth)
-        endpoint = _advance(call, current, chord_azimuth)
+        endpoint, record = _analyze(index, call, current)
         if endpoint is not None:
             current = endpoint
             points.append(current)
-        records.append(
-            CourseAnalysis(
-                index=index,
-                call=call,
-                bad_chord=bad_chord,
-                chord_only=chord_only,
-                feasible_chord=feasible_chord,
-                arc_undetermined=chord_only or (endpoint is not None and is_spiral(call)),
-                positioned=endpoint is not None,
-                determined_direction=determined,
-                direction_conflict=direction_conflict,
-            )
-        )
+        records.append(record)
     return points, records
 
 
@@ -253,13 +263,8 @@ def traverse_positions(
 
 
 def chord_positioned_flags(calls: list[DeedCall]) -> list[bool]:
-    """Per call: is it positioned by a stated chord alone (one traverse pass)?
-
-    Positioning is independent of earlier courses, so this equals calling
-    is_chord_positioned on each call.
-    """
-    _, records = analyze_courses(calls)
-    return [record.chord_positioned for record in records]
+    """Per call: is it positioned by a stated chord alone? (``is_chord_positioned``)."""
+    return [is_chord_positioned(call) for call in calls]
 
 
 def is_chord_positioned(call: DeedCall) -> bool:
@@ -267,8 +272,8 @@ def is_chord_positioned(call: DeedCall) -> bool:
 
     A chord-only circular curve or spiral whose chord bearing and length the traverse
     uses: its direction is stated (by the chord) although its tangent direction and
-    arc are not determined. Decided by the traverse itself, never predicted. An
-    indefinite call (including a cardinal word that conflicts with the chord) does not
-    state a direction.
+    arc are not determined. Decided by the traverse's own per-call rule, never
+    predicted. An indefinite call (including a cardinal word that conflicts with the
+    chord) does not state a direction.
     """
-    return chord_positioned_flags([call])[0]
+    return analyze_course(call).chord_positioned

@@ -34,12 +34,7 @@ from mp_verify.comparison import COMPARISON_VERSION, compare_descriptions
 from mp_verify.diagnostics import diagnose_closure
 from mp_verify.plot import build_dashboard_plots, prepare_plot
 from mp_verify.scene import validate_scene
-from mp_verify.tangents import (
-    curve_tangents,
-    has_determined_direction,
-    parse_chord,
-    stated_tangent,
-)
+from mp_verify.tangents import entry_azimuth, has_determined_direction
 from mp_verify.traverse import chord_positioned_flags
 
 CALCULATOR_VERSION = "dashboard-1.1.0"
@@ -216,7 +211,10 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
     for record, chord, a, b in zip(
         boundary, chord_flags, verification.points, verification.points[1:], strict=False
     ):
-        azimuth = _local_azimuth(record.call, chord)
+        assert record.call is not None  # boundary holds only resolved calls
+        # The verification rule: tangent-in for a curve, else the stated bearing; a
+        # course positioned only by its stated chord is drawn as that chord.
+        azimuth = entry_azimuth(record.call, chord_positioned=chord)
         if azimuth is None:
             return DashboardResult(
                 **base,
@@ -259,24 +257,6 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
         precision_denominator=denominator,
         warnings=warnings,
     )
-
-
-def _local_azimuth(call: Any, chord_positioned: bool) -> float | None:
-    """Start direction of a course: stated tangent, else the curve's derived tangent-in.
-
-    A course positioned only by its stated chord is drawn as that chord, so its
-    direction is the chord azimuth (no tangent or arc is invented).
-    """
-    stated = stated_tangent(call)
-    if stated is not None:
-        return float(stated)
-    tangents = curve_tangents(call)
-    if tangents is not None:
-        return tangents[0]
-    if chord_positioned:
-        chord = parse_chord(call)
-        return float(chord) if chord is not None else None
-    return None
 
 
 def diagnostic_request_from_dashboard(

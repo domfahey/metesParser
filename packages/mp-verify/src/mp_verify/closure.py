@@ -48,12 +48,10 @@ from .checks import (
 )
 from .confidence import calculate_confidence_score, score_call_quality
 from .tangents import (
-    curve_sweep,
-    curve_tangents,
+    determined_arc_sweep,
     has_determined_direction,
     is_circular_curve,
     is_spiral,
-    stated_sweep,
     stated_tangent,
 )
 from .traverse import (
@@ -103,18 +101,10 @@ def calculate_area(points: list[Point], *, calls: list[DeedCall] | None = None) 
     for call in calls or []:
         # Only an arc whose start is fixed (stated tangent, chord and sweep, or a
         # non-tangent curve's radial bearing) contributes a segment.
-        tangentless = stated_tangent(call) is None
-        if (
-            not is_circular_curve(call)
-            or (tangentless and curve_tangents(call) is None)
-            or not call.is_curve()
-        ):
+        delta = determined_arc_sweep(call)
+        if delta is None:
             continue
-        if call.radius_ft is None or call.curve_dir is None:
-            continue
-        delta = stated_sweep(call)
-        if delta is None or abs(delta) <= 1e-9:
-            continue
+        assert call.radius_ft is not None
         theta = math.radians(delta)
         segment = call.radius_ft**2 * (theta - math.sin(theta)) / 2.0
         # Shoelace uses positive counterclockwise area; left arcs add area.
@@ -137,14 +127,10 @@ def calculate_perimeter(calls: list[DeedCall]) -> float:
     for call in calls:
         if call.is_curve() and call.arc_length_ft is not None and call.arc_length_ft > 0.0:
             perimeter += call.arc_length_ft
-        elif (
-            stated_tangent(call) is None
-            and curve_tangents(call) is not None
-            and (delta := curve_sweep(call)) is not None
-            and call.radius_ft is not None
-        ):
+        elif stated_tangent(call) is None and (delta := determined_arc_sweep(call)) is not None:
             # Tangent-less curve positioned by its chord (or a non-tangent curve by its
             # radial bearing): arc = R * delta is determined.
+            assert call.radius_ft is not None
             perimeter += call.radius_ft * math.radians(delta)
         elif call.distance_ft is None:
             raise ValueError(f"Course {call.course}: distance not determined")

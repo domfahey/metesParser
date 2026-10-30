@@ -21,6 +21,7 @@ from mp_bearing import curves as bearing_curves
 from mp_parse.calls import extract_single_call as package_single_call
 from mp_verify import checks as package_checks
 from mp_verify import plot as package_plot
+from mp_verify import tangents as package_tangents
 from mp_verify.closure import verify_closure as package_verify
 
 from metesparser import models as monolith_models
@@ -147,7 +148,6 @@ def test_one_curve_element_tolerance_is_shared():
         "arc_length_tolerance_ft",
         "chord_length_tolerance_ft",
         "deflection_chord_tolerance_ft",
-        "delta_uncertainty_rad",
         "tangent_chord_tolerance_deg",
     ):
         helper = getattr(bearing_curves, name)
@@ -159,6 +159,12 @@ def test_one_curve_element_tolerance_is_shared():
     assert package_plot.tangent_chord_issue is package_checks.tangent_chord_issue
     assert package_plot.radial_chord_issue is package_checks.radial_chord_issue
     assert package_plot.radial_tangent_issue is package_checks.radial_tangent_issue
+    # The delta uncertainty is selected by one shared rule (stated delta, else
+    # arc / radius) that checks and plot both import; neither re-derives it.
+    assert package_tangents.delta_uncertainty_rad is bearing_curves.delta_uncertainty_rad
+    for module in (package_checks, package_plot):
+        assert module.stated_sweep_with_error is package_tangents.stated_sweep_with_error
+        assert not hasattr(module, "delta_uncertainty_rad")
 
 
 def _plots(call) -> bool:
