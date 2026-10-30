@@ -5,11 +5,12 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import importlib.metadata
+import json
 import os
 import re
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from mp_models.dashboard import DashboardBundle
 from mp_models.delivery import (
@@ -89,10 +90,14 @@ def _prepare(
     request: DeliveryRequest | dict[str, Any],
     *,
     exporter_version: str = "delivery-2",
+    recorded_omissions: Sequence[DeliveryOmission] | None = None,
 ) -> tuple[DeliverySnapshot, _GeoJSONArea | None]:
     """``prepare_delivery`` plus the GeoJSON projection/classification it computed.
 
-    Returned so one publish (or one replay) builds the projection group once.
+    Returned so one publish builds the projection group once. Replay passes the
+    package's ``recorded_omissions``: its GeoJSON area-of-use omissions are then
+    accepted as recorded (validated against the request) instead of re-running the
+    installation-dependent operation/area choice, and no projection is built.
     """
     if exporter_version not in ("delivery-1", "delivery-2"):
         raise ValueError("Unsupported delivery exporter version")
@@ -469,29 +474,10 @@ def _prepare(
         raise ValueError("Delivery has no selected representable content")
     geojson_area: _GeoJSONArea | None = None
     if "geojson" in request.formats and not legacy:
-        assert scene is not None
-        # Like the web map: deed geometry selects the operation; each context or
-        # derived layer it does not cover is omitted, or blocks when required.
-        try:
-            geojson_area = _geojson_area(items, scene, tolerance_m=request.geo_tolerance_m)
-        except _GeoJSONUnavailable as exc:
-            # No installed operation serves the deed extent. Scene-coordinate formats
-            # need no projection, so GeoJSON alone is omitted -- unless a visible
-            # required layer, required appearance or a GeoJSON-only request needs it.
-            required = [
-                i.selection.id for i in items if i.selection.visible and i.selection.required
-            ]
-            if required or request.required_appearance or set(request.formats) == {"geojson"}:
-                raise ValueError(f"{', '.join(required)}: {exc}" if required else str(exc)) from exc
-            omissions.append(DeliveryOmission(format="geojson", reason=str(exc)))
-        else:
-            for layer_id, reason in geojson_area[1].items():
-                selection = next(i.selection for i in items if i.selection.id == layer_id)
-                if selection.required or request.required_appearance:
-                    raise ValueError(f"{layer_id}: {reason}")
-                omissions.append(
-                    DeliveryOmission(format="geojson", layer_id=layer_id, reason=reason)
-                )
+        geojson_area, area_omissions = _geojson_omissions(
+            items, scene, request, recorded=recorded_omissions
+        )
+        omissions.extend(area_omissions)
     references = []
     for item in items:
         if item.plot:
@@ -585,11 +571,110 @@ _GEOJSON_UNAVAILABLE = "GeoJSON omitted: "
 # rather than an invalid request; they omit GeoJSON alone unless it is required.
 _UNAVAILABLE_CODES = frozenset({"operation_unavailable", "missing_grid", "projection_domain"})
 
-_GeoJSONArea = tuple["WebMapProjection", dict[str, str]]
+
+class _GeoJSONArea(NamedTuple):
+    """Publish-time GeoJSON operation, out-of-area layers and sampled corridor rings."""
+
+    projection: WebMapProjection
+    outside: dict[str, str]
+    # Geographic ring per corridor layer, sampled once for both area check and export.
+    corridor_rings: dict[str, list[XY]]
 
 
 class _GeoJSONUnavailable(ValueError):
     """No installed coordinate operation serves the deed extent (safe reason text)."""
+
+
+def _geojson_context(item: DeliveryItem) -> bool:
+    """Whether an item is area-checked context (not operation-selecting deed geometry)."""
+    return (
+        item.selection.visible
+        and item.selection.kind != "calculation"
+        and bool((item.plot and item.placement) or item.vector)
+    )
+
+
+def _required_visible(items: Sequence[DeliveryItem]) -> list[str]:
+    return [i.selection.id for i in items if i.selection.visible and i.selection.required]
+
+
+def _geojson_omissions(
+    items: Sequence[DeliveryItem],
+    scene: PlotScene | None,
+    request: DeliveryRequest,
+    *,
+    recorded: Sequence[DeliveryOmission] | None = None,
+) -> tuple[_GeoJSONArea | None, list[DeliveryOmission]]:
+    """GeoJSON area-of-use omissions: computed at publish, accepted as recorded on replay.
+
+    Publish (``recorded is None``) runs the fail-closed operation/area check. Replay
+    never re-runs it: the choice depends on installed PROJ grids/operations, so the
+    package's recorded omissions are validated against the request and items, and
+    integrity rests on the stored artifact hashes and snapshot identity.
+    """
+    if scene is None:
+        raise ValueError("Geographic GeoJSON area check requires an explicitly projected scene")
+    if recorded is not None:
+        return None, _recorded_geojson_omissions(items, request, recorded)
+    # Like the web map: deed geometry selects the operation; each context or
+    # derived layer it does not cover is omitted, or blocks when required.
+    try:
+        area = _geojson_area(items, scene, tolerance_m=request.geo_tolerance_m)
+    except _GeoJSONUnavailable as exc:
+        # No installed operation serves the deed extent. Scene-coordinate formats
+        # need no projection, so GeoJSON alone is omitted -- unless a visible
+        # required layer, required appearance or a GeoJSON-only request needs it.
+        required = _required_visible(items)
+        if required or request.required_appearance or set(request.formats) == {"geojson"}:
+            raise ValueError(f"{', '.join(required)}: {exc}" if required else str(exc)) from exc
+        return None, [DeliveryOmission(format="geojson", reason=str(exc))]
+    omissions = []
+    for layer_id, reason in area.outside.items():
+        selection = next(i.selection for i in items if i.selection.id == layer_id)
+        if selection.required or request.required_appearance:
+            raise ValueError(f"{layer_id}: {reason}")
+        omissions.append(DeliveryOmission(format="geojson", layer_id=layer_id, reason=reason))
+    return area, omissions
+
+
+def _recorded_geojson_omissions(
+    items: Sequence[DeliveryItem],
+    request: DeliveryRequest,
+    recorded: Sequence[DeliveryOmission],
+) -> list[DeliveryOmission]:
+    """Accept recorded area-of-use omissions only where a publish could have made them."""
+    whole = [
+        o
+        for o in recorded
+        if o.format == "geojson"
+        and o.layer_id is None
+        and o.reason.startswith(_GEOJSON_UNAVAILABLE)
+    ]
+    layers = [o for o in recorded if o.format == "geojson" and o.reason == _OUTSIDE_AREA]
+    if whole:
+        if len(whole) > 1 or layers:
+            raise ValueError("Recorded GeoJSON omissions are inconsistent")
+        if (
+            _required_visible(items)
+            or request.required_appearance
+            or set(request.formats) == {"geojson"}
+        ):
+            raise ValueError("Recorded GeoJSON omission contradicts required layers or appearance")
+        return whole
+    by_id = {i.selection.id: i for i in items}
+    seen: set[str] = set()
+    for omission in layers:
+        item = by_id.get(omission.layer_id) if omission.layer_id else None
+        if (
+            item is None
+            or item.selection.id in seen
+            or not _geojson_context(item)
+            or item.selection.required
+            or request.required_appearance
+        ):
+            raise ValueError("Recorded GeoJSON area-of-use omission contradicts the request")
+        seen.add(item.selection.id)
+    return layers
 
 
 def _geojson_area(
@@ -607,7 +692,7 @@ def _geojson_area(
 
     from . import webmap
     from . import webmap_projection as projections
-    from .delivery_sources import corridor_export_extent
+    from .delivery_sources import corridor_export_ring
 
     primary: list[XY] = []
     context: list[tuple[DeliveryItem, tuple[float, float, float, float] | None]] = []
@@ -640,17 +725,20 @@ def _geojson_area(
         ) from exc
     options = WebMapOptions() if tolerance_m is None else WebMapOptions(tolerance_m=tolerance_m)
     outside: dict[str, str] = {}
+    rings: dict[str, list[XY]] = {}
     for item, extent in context:
         try:
             if item.selection.kind == "corridor":
-                # The exported polygon, not coarse primitive samples, must be covered.
-                extent = corridor_export_extent(item, scene, options, projection)
+                # The exported polygon, not coarse primitive samples, must be covered;
+                # keep the sampled ring so export does not sample it again.
+                ring, extent = corridor_export_ring(item, scene, options, projection)
+                rings[item.selection.id] = ring
             webmap.require_area(projection, extent)
         except projections.WebMapUnavailable as exc:
             if exc.code not in {"outside_area_of_use", "projection_domain"}:
                 raise
             outside[item.selection.id] = _OUTSIDE_AREA
-    return projection, outside
+    return _GeoJSONArea(projection, outside, rings)
 
 
 def _geojson_omitted(snapshot: DeliverySnapshot) -> bool:
@@ -666,7 +754,8 @@ def _geojson(
     """Reuse the shared geographic sampler/projection, with original placement evidence.
 
     ``area`` is the projection/classification computed while preparing this
-    snapshot in the same publish or replay; it is recomputed only when absent.
+    snapshot in the same publish. Only publish renders GeoJSON; replay checks the
+    recorded artifact instead (``_check_recorded_geojson``).
     """
     from mp_models.webmap import WebMapOptions
 
@@ -676,14 +765,15 @@ def _geojson(
     scene = next(
         s for s in (*bundle.scenes, *snapshot.request.scenes) if s.id == snapshot.request.scene_id
     )
+    rings: dict[str, list[XY]] = {}
     if snapshot.exporter_version == "delivery-1":
-        # delivery-1 packages were published without an area-of-use check; replay them as such.
+        # delivery-1 packages were published without an area-of-use check.
         outside: dict[str, str] = {}
         projection = build_web_map_projection(scene)
     else:
-        projection, outside = area or _geojson_area(
-            snapshot.items, scene, tolerance_m=snapshot.request.geo_tolerance_m
-        )
+        if area is None:
+            raise ValueError("GeoJSON rendering requires the publish-time area-of-use check")
+        projection, outside, rings = area
         recorded = {
             o.layer_id: o.reason
             for o in snapshot.omissions
@@ -714,7 +804,14 @@ def _geojson(
                 # recorded and the item carries no geometry.
                 continue
             values = delivery_source_features(
-                item, source_record, snapshot.request, scene, options, budget, projection
+                item,
+                source_record,
+                snapshot.request,
+                scene,
+                options,
+                budget,
+                projection,
+                ring=rings.get(item.selection.id),
             )
         elif item.plot and item.placement:
             values = _deed_features(
@@ -774,7 +871,11 @@ def _geojson(
 
 
 def _components(
-    bundle: DashboardBundle, snapshot: DeliverySnapshot, area: _GeoJSONArea | None = None
+    bundle: DashboardBundle,
+    snapshot: DeliverySnapshot,
+    area: _GeoJSONArea | None = None,
+    *,
+    render_geojson: bool = True,
 ) -> dict[str, bytes]:
     from mp_export.delivery import render_delivery_dxf, render_delivery_pdf, render_delivery_svg
 
@@ -818,7 +919,7 @@ def _components(
             artifacts["drawing.pdf"] = render_delivery_pdf(snapshot)
         elif fmt == "dxf":
             artifacts["drawing.dxf"] = render_delivery_dxf(snapshot)
-        elif not _geojson_omitted(snapshot):
+        elif render_geojson and not _geojson_omitted(snapshot):
             artifacts["drawing.geojson"] = _json(_geojson(bundle, snapshot, area)).encode("utf-8")
     if snapshot.request.include_full_source:
         artifacts["full-source.json"] = _json(bundle.model_dump(mode="json")).encode("utf-8")
@@ -992,9 +1093,18 @@ def load_delivery(
     } <= set(manifest["artifacts"]):
         raise ValueError("Delivery manifest artifact inventory incomplete")
     request = DeliveryRequest.model_validate(_load(path / "request.json"))
-    # Replay with the exporter that published the package (recorded in the manifest).
-    fresh, geojson_area = _prepare(
-        bundle, revision_dir, request, exporter_version=str(manifest["exporter_version"])
+    recorded = _load(path / "snapshot.json")
+    if not isinstance(recorded, dict) or not isinstance(recorded.get("omissions"), list):
+        raise ValueError("Delivery snapshot artifact is malformed")
+    # Replay with the exporter that published the package (recorded in the manifest),
+    # accepting its recorded GeoJSON area-of-use omissions: they depend on the
+    # publishing host's PROJ grids/operations and are never recomputed here.
+    fresh, _ = _prepare(
+        bundle,
+        revision_dir,
+        request,
+        exporter_version=str(manifest["exporter_version"]),
+        recorded_omissions=[DeliveryOmission.model_validate(o) for o in recorded["omissions"]],
     )
     if _hash(fresh.model_dump(mode="json")) != manifest.get("snapshot_sha256"):
         raise ValueError("Delivery snapshot identity mismatch")
@@ -1005,10 +1115,71 @@ def load_delivery(
         or manifest["omissions"] != [o.model_dump(mode="json") for o in fresh.omissions]
     ):
         raise ValueError("Delivery manifest identity or omission policy mismatch")
-    expected = _components(bundle, fresh, geojson_area)
-    if set(expected) != set(manifest["artifacts"]):
+    # GeoJSON coordinates depend on the recorded coordinate operation and the PROJ
+    # installation; the hash-verified artifact is checked against the snapshot.
+    expected = _components(bundle, fresh, render_geojson=False)
+    geojson = "geojson" in fresh.request.formats and not _geojson_omitted(fresh)
+    if set(expected) | ({"drawing.geojson"} if geojson else set()) != set(manifest["artifacts"]):
         raise ValueError("Delivery artifact inventory mismatch")
     for name, content in expected.items():
         if (path / name).read_bytes() != content:
             raise ValueError("Delivery artifact differs from fresh replay")
+    if geojson:
+        _check_recorded_geojson((path / "drawing.geojson").read_bytes(), fresh)
     return fresh
+
+
+def _check_recorded_geojson(content: bytes, snapshot: DeliverySnapshot) -> None:
+    """Bind a hash-verified recorded GeoJSON artifact to the replayed snapshot.
+
+    Checks identity, that a coordinate operation is recorded, and that exactly the
+    snapshot's visible, non-omitted geographic layers are present.
+    """
+    try:
+        data = json.loads(content)
+    except ValueError as exc:
+        raise ValueError("Recorded GeoJSON artifact is malformed") from exc
+    meta = data.get("metesparser") if isinstance(data, dict) else None
+    projection = meta.get("projection") if isinstance(meta, dict) else None
+    features = data.get("features") if isinstance(data, dict) else None
+    if (
+        not isinstance(meta, dict)
+        or data.get("type") != "FeatureCollection"
+        or meta.get("request_sha256") != snapshot.request_sha256
+        or meta.get("revision_id") != snapshot.request.revision_id
+        or meta.get("curve_linearization_tolerance_m") != snapshot.request.geo_tolerance_m
+        or not isinstance(projection, dict)
+        or not isinstance(projection.get("pipeline"), str)
+        or not projection["pipeline"]
+        or not isinstance(features, list)
+    ):
+        raise ValueError("Recorded GeoJSON identity or coordinate operation mismatch")
+    omitted = {
+        o.layer_id
+        for o in snapshot.omissions
+        if o.format == "geojson" and o.reason == _OUTSIDE_AREA
+    }
+    sourced = {record.get("layer_id") for record in snapshot.derived_sources}
+    expected = {
+        item.selection.id
+        for item in snapshot.items
+        if item.selection.visible
+        and item.selection.id not in omitted
+        and ((item.plot and item.placement) or item.vector)
+        and (
+            item.selection.kind not in {"corridor", "plss_reference"}
+            or item.selection.id in sourced
+        )
+    }
+    present = set()
+    for feature in features:
+        properties = feature.get("properties") if isinstance(feature, dict) else None
+        if (
+            not isinstance(properties, dict)
+            or properties.get("revision_sha256") != snapshot.revision_sha256
+            or properties.get("revision_id") != snapshot.request.revision_id
+        ):
+            raise ValueError("Recorded GeoJSON feature identity mismatch")
+        present.add(properties.get("delivery_layer_id"))
+    if present != expected:
+        raise ValueError("Recorded GeoJSON layers differ from the replayed snapshot omissions")
