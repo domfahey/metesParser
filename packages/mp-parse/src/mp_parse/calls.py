@@ -1056,7 +1056,9 @@ _VERBATIM_BEARING = re.compile(
 )
 
 
-def _verbatim_candidates(course_text: str, *, keep_line_radial: bool = False) -> list[str]:
+def _verbatim_bearing_matches(
+    course_text: str, *, keep_line_radial: bool = False
+) -> list[re.Match[str]]:
     """Return the deed's bearings in ``course_text``, skipping chord/radial openers.
 
     With ``keep_line_radial``, the bearing of a radial line being run is kept.
@@ -1076,10 +1078,14 @@ def _verbatim_candidates(course_text: str, *, keep_line_radial: bool = False) ->
             reference = _VERBATIM_BEARING.search(clause)
             if reference:
                 excluded.add(match.end() + reference.start())
+    return [m for m in _VERBATIM_BEARING.finditer(course_text) if m.start() not in excluded]
+
+
+def _verbatim_candidates(course_text: str, *, keep_line_radial: bool = False) -> list[str]:
+    """Return the deed's bearings in ``course_text``, skipping chord/radial openers."""
     return [
-        match.group(0)
-        for match in _VERBATIM_BEARING.finditer(course_text)
-        if match.start() not in excluded
+        m.group(0)
+        for m in _verbatim_bearing_matches(course_text, keep_line_radial=keep_line_radial)
     ]
 
 
@@ -1192,13 +1198,29 @@ def _in_parentheses(text: str, position: int) -> bool:
     return text.rfind("(", 0, position) > text.rfind(")", 0, position)
 
 
-def _is_boundary_pair(text: str, start: int, end: int, *, first: bool, complete: bool) -> bool:
+def _record_suffix(text: str, end: int, segment_end: int) -> bool:
+    """Return True when a record label follows a length that ends at ``end``.
+
+    A label that runs up to the next bearing ("... 100 feet, per record N ...")
+    introduces that bearing and does not describe the pair before it.
+    """
+    suffix = _RECORD_AFTER.match(text[end : end + _ROLE_WINDOW])
+    if not suffix:
+        return False
+    return segment_end >= len(text) or bool(
+        text[end + suffix.end() : segment_end].strip(" \t\n,;:=")
+    )
+
+
+def _is_boundary_pair(
+    text: str, start: int, end: int, *, first: bool, complete: bool, segment_end: int
+) -> bool:
     """Return False for a tie, record or adjoiner pair (``_TIE_BEFORE`` and following)."""
     before = text[max(0, start - _ROLE_WINDOW) : start]
     after = text[end : end + _ROLE_WINDOW]
     if _in_parentheses(text, start):
         return False  # a parenthetical bearing restates the course (record)
-    if _RECORD_BEFORE.search(before) or (complete and _RECORD_AFTER.match(after)):
+    if _RECORD_BEFORE.search(before) or (complete and _record_suffix(text, end, segment_end)):
         return False
     if _ADJOINER_BEFORE.search(before) or _TIE_BEFORE.search(before):
         return False
@@ -1223,9 +1245,52 @@ def _bearing_pairs(text: str) -> list[_BearingPair]:
         length = _LENGTH_TOKEN.search(text, bearing_end, segment_end)
         end = length.end() if length else bearing_end
         complete = length is not None
-        boundary = _is_boundary_pair(text, start, end, first=index == 0, complete=complete)
+        boundary = _is_boundary_pair(
+            text, start, end, first=index == 0, complete=complete, segment_end=segment_end
+        )
         pairs.append(_BearingPair(start, end, complete, boundary))
     return pairs
+
+
+RECORD_CALL_NOTE_PREFIX = "record call: "
+
+
+def _record_call_texts(call_text: str, *, is_curve: bool) -> list[str]:
+    """Return the deed's own wording of each record call excluded from the course.
+
+    A record call (a parenthetical bearing, or one labelled "per deed"/"of record"/
+    "(R)") restates the course and is not read as it (``_is_boundary_pair``). The
+    wording is returned verbatim from ``call_text``, parenthetical or label
+    included, so the record bearing and distance are never lost.
+    """
+    course_text = _boundary_course_text(call_text)
+    matches = _verbatim_bearing_matches(course_text, keep_line_radial=not is_curve)
+    found: list[str] = []
+    covered = 0
+    for index, match in enumerate(matches):
+        if match.start() < covered:
+            continue
+        next_start = matches[index + 1].start() if index + 1 < len(matches) else len(course_text)
+        length = _LENGTH_TOKEN.search(course_text, match.end(), next_start)
+        end = length.end() if length else match.end()
+        before = course_text[max(0, match.start() - _ROLE_WINDOW) : match.start()]
+        after = course_text[end : end + _ROLE_WINDOW]
+        label = _RECORD_BEFORE.search(before)
+        suffix = _RECORD_AFTER.match(after) if length else None
+        if suffix and not _record_suffix(course_text, end, next_start):
+            suffix = None
+        if _in_parentheses(course_text, match.start()):
+            start = course_text.rfind("(", 0, match.start())
+            close = course_text.find(")", match.end())
+            stop = close + 1 if close >= 0 else end
+        elif label or suffix:
+            start = match.start() - (len(before) - label.start()) if label else match.start()
+            stop = end + suffix.end() if suffix else end
+        else:
+            continue
+        found.append(course_text[start:stop].strip())
+        covered = stop
+    return found
 
 
 def _without_pairs(text: str, pairs: list[_BearingPair]) -> str:
@@ -1601,6 +1666,11 @@ def _extract_call(
             note_parts.append(element_note)
     if length_not_determined:
         note_parts.append(LENGTH_NOT_DETERMINED_NOTE)
+    # The record call sits outside bearing/distance/along/to; keep its wording.
+    note_parts.extend(
+        RECORD_CALL_NOTE_PREFIX + text
+        for text in _record_call_texts(call_text, is_curve=_describes_curve(curve_info))
+    )
     notes = "; ".join(note_parts)
 
     if distance_ft is not None and distance_ft <= 0.0:
@@ -1845,6 +1915,27 @@ def _audit_single_call(
                     f"tangent bearing not stated; chord bearing {call.chord_bearing} and "
                     "delta/arc kept as stated for verification, no tangent derived"
                 ),
+                confidence=1.0,
+            )
+        )
+
+    # --- Record call decision ---
+    is_curve = any(
+        value is not None
+        for value in (
+            call.curve_dir,
+            call.radius_ft,
+            call.delta_deg,
+            call.arc_length_ft,
+            call.chord_length_ft,
+        )
+    )
+    for record_text in _record_call_texts(call_text, is_curve=is_curve):
+        decisions.append(
+            Decision(
+                field="record_call",
+                value=record_text,
+                reason="record call present; excluded from the measured course, kept in notes",
                 confidence=1.0,
             )
         )
@@ -2294,7 +2385,12 @@ def enrich_calls_with_azimuths(calls: list[DeedCall]) -> list[DeedCall]:
                 }
                 # Clear incomplete-bearing notes if present
                 if call.notes and "incomplete" in call.notes:
-                    updates["notes"] = None
+                    kept = [
+                        part
+                        for part in call.notes.split("; ")
+                        if part.startswith(RECORD_CALL_NOTE_PREFIX)
+                    ]
+                    updates["notes"] = "; ".join(kept) or None
                 enriched.append(call.model_copy(update=updates))
             else:
                 enriched.append(call)
