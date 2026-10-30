@@ -5,10 +5,11 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import importlib.metadata
-import math
+import os
 import re
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mp_models.dashboard import DashboardBundle
 from mp_models.delivery import (
@@ -28,6 +29,9 @@ from mp_verify.scene import validate_scene
 
 from .dashboard import _load
 from .revisions import _write_once, load_revision
+
+if TYPE_CHECKING:
+    from .webmap_projection import WebMapProjection
 
 
 def _recorded_plots(bundle: DashboardBundle) -> dict[str, Any]:
@@ -449,6 +453,15 @@ def prepare_delivery(
             items.append(DeliveryItem(selection=selection))
     if not any(item.primitives or item.vector or item.raster for item in items):
         raise ValueError("Delivery has no selected representable content")
+    if "geojson" in request.formats and not legacy:
+        assert scene is not None
+        # Like the web map: deed geometry selects the operation; each context or
+        # derived layer it does not cover is omitted, or blocks when required.
+        for layer_id, reason in _geojson_area(items, scene)[1].items():
+            selection = next(i.selection for i in items if i.selection.id == layer_id)
+            if selection.required or request.required_appearance:
+                raise ValueError(f"{layer_id}: {reason}")
+            omissions.append(DeliveryOmission(format="geojson", layer_id=layer_id, reason=reason))
     references = []
     for item in items:
         if item.plot:
@@ -527,46 +540,53 @@ def _orient_rfc7946(geometry: dict[str, Any]) -> None:
                 rings[index] = ring[::-1]
 
 
-def _delivery_extent(
-    snapshot: DeliverySnapshot, scene: PlotScene
-) -> tuple[float, float, float, float] | None:
-    """Scene-XY bounds of the visible geometry GeoJSON will carry (operation selection only)."""
-    from mp_verify.plot import transform_point
+# Fixed reason text: the frozen snapshot records it and GeoJSON rendering re-derives it.
+_OUTSIDE_AREA = (
+    "Outside the deed-selected coordinate operation's area of use; omitted from GeoJSON "
+    "and retained in scene-coordinate formats and the snapshot"
+)
 
-    from .webmap import _primitive_point
 
-    points: list[tuple[float, float]] = []
-    for item in snapshot.items:
+def _geojson_area(
+    items: Iterable[DeliveryItem], scene: PlotScene
+) -> tuple[WebMapProjection, dict[str, str]]:
+    """Select the GeoJSON operation like the web map and classify context by area of use.
+
+    Deed calculations choose the operation (shared ``operation_extent``). Context
+    vectors and derived corridor/PLSS sources are checked individually against it;
+    returns the projection and ``{layer_id: reason}`` for layers it does not cover.
+    """
+    from .webmap import bounds_of, operation_extent, placed_points, require_area, vector_extent
+    from .webmap_projection import WebMapUnavailable, build_web_map_projection
+
+    primary: list[XY] = []
+    context: list[tuple[str, tuple[float, float, float, float] | None]] = []
+    for item in items:
         if not item.selection.visible:
             continue
         if item.plot and item.placement:
-            for primitive in item.plot.geometry.primitives:
-                for t in (0, 0.25, 0.5, 0.75, 1):
-                    points.append(
-                        transform_point(
-                            _primitive_point(primitive, t),
-                            item.placement,
-                            native_units=item.plot.request.foot_definition,
-                            scene_units=scene.units,
-                        )
-                    )
+            points = placed_points(
+                item.plot.geometry.primitives,
+                item.placement,
+                item.plot.request.foot_definition,
+                scene.units,
+            )
+            if item.selection.kind == "calculation":
+                primary.extend(points)
+            else:
+                context.append((item.selection.id, bounds_of(points)))
         elif item.vector:
-            layer = item.vector
-            polygons: Any = (
-                (layer.coordinates,) if layer.geometry_type == "Polygon" else layer.coordinates
-            )
-            points.extend(
-                (float(p[0]), float(p[1])) for polygon in polygons for ring in polygon for p in ring
-            )
-    finite = [p for p in points if all(math.isfinite(v) for v in p)]
-    if not finite:
-        return None
-    return (
-        min(p[0] for p in finite),
-        min(p[1] for p in finite),
-        max(p[0] for p in finite),
-        max(p[1] for p in finite),
+            context.append((item.selection.id, vector_extent(item.vector)))
+    projection = build_web_map_projection(
+        scene, extent=operation_extent(primary, (extent for _, extent in context))
     )
+    outside: dict[str, str] = {}
+    for layer_id, extent in context:
+        try:
+            require_area(projection, extent)
+        except WebMapUnavailable:
+            outside[layer_id] = _OUTSIDE_AREA
+    return projection, outside
 
 
 def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, Any]:
@@ -579,16 +599,24 @@ def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, A
     scene = next(
         s for s in (*bundle.scenes, *snapshot.request.scenes) if s.id == snapshot.request.scene_id
     )
-    # delivery-1 packages were published without an area-of-use check; replay them as such.
-    extent = (
-        None if snapshot.exporter_version == "delivery-1" else _delivery_extent(snapshot, scene)
-    )
-    projection = build_web_map_projection(scene, extent=extent)
+    if snapshot.exporter_version == "delivery-1":
+        # delivery-1 packages were published without an area-of-use check; replay them as such.
+        outside: dict[str, str] = {}
+        projection = build_web_map_projection(scene)
+    else:
+        projection, outside = _geojson_area(snapshot.items, scene)
+        recorded = {
+            o.layer_id: o.reason
+            for o in snapshot.omissions
+            if o.format == "geojson" and o.reason == _OUTSIDE_AREA
+        }
+        if recorded != outside:
+            raise ValueError("GeoJSON area-of-use omissions differ from the frozen snapshot")
     options = WebMapOptions(tolerance_m=snapshot.request.geo_tolerance_m)
     budget = _Budget(options.max_vertices)
     features = []
     for item in snapshot.items:
-        if not item.selection.visible:
+        if not item.selection.visible or item.selection.id in outside:
             continue
         values: list[Any] = []
         if item.selection.kind in {"corridor", "plss_reference"}:
@@ -738,7 +766,6 @@ def publish_delivery(
         if not existed:
             created.append(path)
 
-    manifest_path: Path | None = None
     try:
         snapshot = prepare_delivery(bundle, revision_dir, request)
         directory = Path(output_dir)
@@ -746,39 +773,47 @@ def publish_delivery(
             raise ValueError("Unsafe delivery store symlink")
         directory.mkdir(parents=True, exist_ok=True)
         directory = directory / snapshot.request.id
-        if directory.is_symlink():
-            raise ValueError("Unsafe delivery directory symlink")
-        directory.mkdir(exist_ok=True)
         manifest_path = directory / "delivery-manifest.json"
-        write_new(
-            directory / "pending.json",
-            _json(
-                {
-                    "request": snapshot.request.model_dump(mode="json"),
+        # Serialize publishes of one delivery id so a failing publish cannot
+        # discard files that a concurrent publish found present and referenced.
+        with _claim(directory):
+            try:
+                write_new(
+                    directory / "pending.json",
+                    _json(
+                        {
+                            "request": snapshot.request.model_dump(mode="json"),
+                            "snapshot_sha256": _hash(snapshot.model_dump(mode="json")),
+                        }
+                    ).encode("utf-8"),
+                )
+                artifacts = _components(bundle, snapshot)
+                hashes = {}
+                for name, content in artifacts.items():
+                    write_new(directory / name, content)
+                    hashes[name] = hashlib.sha256(content).hexdigest()
+                manifest = {
+                    "schema_version": "1.0",
+                    "save_state": "published",
+                    "exporter_version": snapshot.exporter_version,
+                    "request_sha256": snapshot.request_sha256,
                     "snapshot_sha256": _hash(snapshot.model_dump(mode="json")),
+                    "revision_sha256": snapshot.revision_sha256,
+                    "artifacts": hashes,
+                    "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
                 }
-            ).encode("utf-8"),
-        )
-        artifacts = _components(bundle, snapshot)
-        hashes = {}
-        for name, content in artifacts.items():
-            write_new(directory / name, content)
-            hashes[name] = hashlib.sha256(content).hexdigest()
-        manifest = {
-            "schema_version": "1.0",
-            "save_state": "published",
-            "exporter_version": snapshot.exporter_version,
-            "request_sha256": snapshot.request_sha256,
-            "snapshot_sha256": _hash(snapshot.model_dump(mode="json")),
-            "revision_sha256": snapshot.revision_sha256,
-            "artifacts": hashes,
-            "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
-        }
-        write_new(directory / "delivery-manifest.json", _json(manifest).encode("utf-8"))
+                write_new(manifest_path, _json(manifest).encode("utf-8"))
+                # Never end with a manifest referencing a missing artifact: re-assert
+                # each one (write-once: restores identical bytes, refuses differing).
+                for name, content in artifacts.items():
+                    _write_once(directory / name, content)
+            except BaseException:
+                _discard_incomplete(created, manifest_path)
+                raise
         result.update(
             status="needs_review",
             save_state="published",
-            manifest=str(directory / "delivery-manifest.json"),
+            manifest=str(manifest_path),
             revision_id=snapshot.request.revision_id,
             request_sha256=snapshot.request_sha256,
             omissions=manifest["omissions"],
@@ -788,19 +823,51 @@ def publish_delivery(
         )
     except (OSError, ValueError, TypeError, KeyError, ImportError) as exc:
         result["errors"].append(str(exc))
-        _discard_incomplete(created, manifest_path)
-    except BaseException:
-        _discard_incomplete(created, manifest_path)
-        raise
     return result
 
 
-def _discard_incomplete(created: list[Path], manifest_path: Path | None) -> None:
+@contextlib.contextmanager
+def _claim(directory: Path) -> Iterator[None]:
+    """Hold an exclusive advisory lock on the delivery directory (POSIX ``flock``).
+
+    The lock is released on exit or process death. A waiter whose directory was
+    removed by a discarding publish re-creates it and locks the new one.
+    Platforms without ``fcntl`` publish unlocked.
+    """
+    try:
+        import fcntl
+    except ImportError:  # pragma: no cover - non-POSIX
+        if directory.is_symlink():
+            raise ValueError("Unsafe delivery directory symlink") from None
+        directory.mkdir(exist_ok=True)
+        yield
+        return
+    while True:
+        if directory.is_symlink():
+            raise ValueError("Unsafe delivery directory symlink")
+        directory.mkdir(exist_ok=True)
+        descriptor = os.open(directory, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            held = os.fstat(descriptor)
+            try:
+                current = os.stat(directory, follow_symlinks=False)
+            except FileNotFoundError:
+                continue
+            if (current.st_dev, current.st_ino) == (held.st_dev, held.st_ino):
+                yield
+                return
+        finally:
+            os.close(descriptor)
+
+
+def _discard_incomplete(created: list[Path], manifest_path: Path) -> None:
     """Remove only this call's files from an unpublished package so the id can be retried.
 
-    A package with a manifest is complete and immutable; it is never touched.
+    Runs under the delivery claim. A package with a manifest is complete and
+    immutable; it is never touched.
     """
-    if manifest_path is None or manifest_path.exists():
+    if manifest_path.exists():
         return
     for path in reversed(created):
         path.unlink(missing_ok=True)
