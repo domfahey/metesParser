@@ -332,3 +332,36 @@ def test_export_verified_csv_with_audit_context(tmp_path):
     assert audit_json.exists()
     audit_html = tmp_path / "deed_verified.audit.html"
     assert audit_html.exists()
+
+
+def test_legacy_curved_row_notes_circular_assumption():
+    """A 21-column row cannot state a spiral, so its circular reading is noted."""
+    from mp_export.csv_writer import (
+        LEGACY_CURVE_NOTE,
+        LEGACY_FIELDNAMES,
+        _call_to_row,
+        csv_text_to_calls,
+    )
+    from mp_models import DeedCall
+
+    curve = DeedCall(
+        course=1,
+        direction_text="along a spiral curve to the right",
+        distance_ft=49.5,
+        curve_type="spiral",
+        curve_dir="right",
+        radius_ft=100.0,
+        arc_length_ft=50.0,
+        notes="per plat",
+    )
+    line = DeedCall(
+        course=2, direction_text="N 0 E", bearing_azimuth_deg_from_north=0.0, distance_ft=10.0
+    )
+    lines = [",".join(LEGACY_FIELDNAMES)]
+    for call in (curve, line):
+        row = _call_to_row(call)
+        lines.append(",".join(f'"{row[name]}"' for name in LEGACY_FIELDNAMES))
+    loaded = csv_text_to_calls("\n".join(lines) + "\n")
+    assert loaded[0].curve_type is None
+    assert loaded[0].notes == f"per plat; {LEGACY_CURVE_NOTE}"
+    assert loaded[1].notes is None
