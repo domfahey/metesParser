@@ -199,10 +199,14 @@ def _normalize_bearing_segments(segments: list[str]) -> list[str]:
 _CHORD_PREFIX_PATTERN = re.compile(
     r"(?:the\s+)?chord\s+(?:of\s+which\s+)?(?:bears|bearing)\s+(?:of\s+)?", re.IGNORECASE
 )
+# A radial clause gives the bearing toward the curve's center, never the course
+# tangent: "radius point (of which | which | that) bears", "whose radius bears",
+# "the radius of which bears", "radial (line | bearing) (of | which bears | bears)",
+# "center/centre (point) (of which | which | that) bears".
 _RADIAL_PREFIX_PATTERN = re.compile(
-    r"(?:radius\s+point|radial(?:\s+line)?|(?:center|centre)(?:\s+point)?"
-    r"|(?:center|centre)\s+of\s+which)"
-    r"\s+(?:which\s+|that\s+)?(?:bears?|bearing)\s+(?:of\s+)?",
+    r"\b(?:(?:radius|center|centre)(?:\s+point)?|radial(?:\s+(?:line|bearing))?)\s+"
+    r"(?:of\s+which\s+|which\s+|that\s+)?(?:bears?|bearing)\s+(?:of\s+)?"
+    r"|\bradial\s+(?:line|bearing)\s+of\s+",
     re.IGNORECASE,
 )
 
@@ -1371,16 +1375,15 @@ class CallExtractor:
         if re.search(r"\bnon-?tangent\b", text, re.IGNORECASE):
             curve_info["non_tangent"] = True
 
-        radial_match = re.search(
-            r"radial\s+(?:line\s+)?bear(?:s|ing)\s+(?:of\s+)?(.+?)(?:,|\s*radius|\s*$)",
-            text,
-            re.IGNORECASE,
-        )
+        radial_match = _RADIAL_PREFIX_PATTERN.search(text)
         if radial_match:
             curve_info["non_tangent"] = True
-            raw_radial = radial_match.group(1).strip()
-            normalized_radial = _normalize_bearing_forms(raw_radial)
-            radial_bearing_match = BearingConverter.QUADRANT_PATTERN.search(normalized_radial)
+            rest = text[radial_match.end() :]
+            clause_end = re.search(r"[,;]", rest)
+            clause = rest[: clause_end.start()] if clause_end else rest
+            radial_bearing_match = BearingConverter.QUADRANT_PATTERN.search(
+                _normalize_bearing_forms(clause)
+            )
             if radial_bearing_match:
                 curve_info["radial_bearing"] = radial_bearing_match.group(0)
 
