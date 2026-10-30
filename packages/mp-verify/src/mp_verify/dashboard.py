@@ -34,6 +34,7 @@ from mp_verify.comparison import COMPARISON_VERSION, compare_descriptions
 from mp_verify.diagnostics import diagnose_closure
 from mp_verify.plot import build_dashboard_plots, prepare_plot
 from mp_verify.scene import validate_scene
+from mp_verify.tangents import curve_tangents, has_determined_direction, stated_tangent
 
 CALCULATOR_VERSION = "dashboard-1.1.0"
 DIAGNOSTICS_VERSION = "closure-diagnostics-2"
@@ -163,9 +164,9 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
         for r in records
         if r.call is not None and not r.call.is_tie_in and not r.call.is_exception
     ]
-    known = bool(boundary) and all(
-        r.call is not None and r.call.bearing_azimuth_deg_from_north is not None for r in boundary
-    )
+    boundary_calls = [r.call for r in boundary if r.call is not None]
+    # Same direction rule as verification: stated or curve-element-fixed, never stored.
+    known = bool(boundary_calls) and all(has_determined_direction(c) for c in boundary_calls)
     engine_verified = verification.is_fully_verified()
     base.update(
         engine_status="checks_passed" if engine_verified else "needs_review",
@@ -194,12 +195,18 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
         )
     geometry = []
     for record, a, b in zip(boundary, verification.points, verification.points[1:], strict=False):
-        assert record.call is not None
-        assert record.call.bearing_azimuth_deg_from_north is not None
+        azimuth = _local_azimuth(record.call)
+        if azimuth is None:
+            return DashboardResult(
+                **base,
+                geometry_status="unresolved",
+                warnings=warnings
+                + ("A course direction could not be determined; geometry is not determined.",),
+            )
         geometry.append(
             DashboardCourseGeometry(
                 call_id=record.id,
-                local_azimuth_deg=record.call.bearing_azimuth_deg_from_north,
+                local_azimuth_deg=azimuth,
                 delta_x_ft=b.x - a.x,
                 delta_y_ft=b.y - a.y,
             )
@@ -231,6 +238,15 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
         precision_denominator=denominator,
         warnings=warnings,
     )
+
+
+def _local_azimuth(call: Any) -> float | None:
+    """Start direction of a course: stated tangent, else the curve's derived tangent-in."""
+    stated = stated_tangent(call)
+    if stated is not None:
+        return float(stated)
+    tangents = curve_tangents(call)
+    return tangents[0] if tangents is not None else None
 
 
 def diagnostic_request_from_dashboard(
