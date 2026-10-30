@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, TypedDict
 
 from mp_bearing import (  # type: ignore[import-untyped]
     arc_length_tolerance_ft,
+    bearing_difference_uncertainty_rad,
     bearing_to_azimuth,
     calculate_curve_properties,
     calculate_deltas,
@@ -83,7 +84,7 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
             arc_length_ft=call.arc_length_ft, radius_ft=call.radius_ft
         )
     else:
-        delta_error = delta_uncertainty_rad()
+        delta_error = delta_uncertainty_rad(delta_deg=call.delta_deg)
         if call.arc_length_ft is not None and abs(
             call.arc_length_ft - arc_ft
         ) > arc_length_tolerance_ft(call.radius_ft, sweep):
@@ -102,13 +103,16 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
             deflection = tangent_chord_deflection(
                 call.bearing_azimuth_deg_from_north, chord, call.curve_dir
             )
+            defl_error = bearing_difference_uncertainty_rad(
+                call.bearing_azimuth_deg_from_north, chord
+            )
             if deflection <= 0.0 or abs(deflection - sweep / 2) > tangent_chord_tolerance_deg(
-                delta_error
+                delta_error, defl_error
             ):
                 raise ValueError("inconsistent tangent and chord angular evidence")
             if call.chord_length_ft is not None and abs(
                 call.chord_length_ft - 2 * call.radius_ft * math.sin(math.radians(deflection))
-            ) > deflection_chord_tolerance_ft(call.radius_ft, deflection):
+            ) > deflection_chord_tolerance_ft(call.radius_ft, deflection, defl_error):
                 raise ValueError("inconsistent tangent, chord and radius")
     elif call.bearing_azimuth_deg_from_north is not None and not call.non_tangent:
         tangent = call.bearing_azimuth_deg_from_north

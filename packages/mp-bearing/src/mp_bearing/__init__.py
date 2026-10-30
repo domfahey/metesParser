@@ -15,7 +15,9 @@ from .azimuth import (
 from .curves import (
     CURVE_ELEMENT_TOLERANCE_FT,
     TANGENT_CHORD_TOLERANCE_DEG,
+    angle_half_unit_rad,
     arc_length_tolerance_ft,
+    bearing_difference_uncertainty_rad,
     calculate_chord_bearing,
     calculate_curve_properties,
     calculate_missing_curve_elements,
@@ -46,6 +48,8 @@ __all__ = [
     "compass_point_to_azimuth",
     "compute_curve_endpoint",
     "deflection_chord_tolerance_ft",
+    "angle_half_unit_rad",
+    "bearing_difference_uncertainty_rad",
     "delta_uncertainty_rad",
     "degree_of_curvature_to_radius",
     "due_cardinal_to_azimuth",
