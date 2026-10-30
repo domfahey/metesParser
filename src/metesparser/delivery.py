@@ -12,9 +12,11 @@ from mp_models.delivery import (
     DeliverySourceBinding,
 )
 from mp_review.delivery import (  # type: ignore[import-untyped]
+    DeliveryReplay,
     load_delivery,
     prepare_delivery,
     publish_delivery,
+    replay_delivery,
 )
 from mp_review.revision_view import render_revision_file  # type: ignore[import-untyped]
 
@@ -25,6 +27,7 @@ __all__ = [
     "DeliveryMetric",
     "DeliveryOmission",
     "DeliveryPrimitive",
+    "DeliveryReplay",
     "DeliveryRequest",
     "DeliverySnapshot",
     "DeliverySourceBinding",
@@ -32,4 +35,5 @@ __all__ = [
     "prepare_delivery",
     "publish_delivery",
     "render_revision_file",
+    "replay_delivery",
 ]
