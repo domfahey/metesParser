@@ -442,6 +442,60 @@ def _is_initial_course_prefix(prefix: str) -> bool:
     return bool(parse_quadrant_bearing(direction) or due_cardinal_to_azimuth(direction) is not None)
 
 
+_TRAILING_LEAD = re.compile(
+    r"(?:subject\s+to|under\s+and\s+subject|being\s+(?:the\s+same|all\s+that)|together\s+with"
+    r"|the\s+above\s+described|containing|excepting|reserving|said\s+premises)\b",
+    re.IGNORECASE,
+)
+_CLOSING_PHRASE = re.compile(
+    r"\bto\s+(?:the\s+)?(?:first\s+mentioned\s+)?(?:point|place)(?:\s+(?:and|or)\s+place)?"
+    r"\s+of\s+beginning\b",
+    re.IGNORECASE,
+)
+_COURSE_DISTANCE = re.compile(
+    r"\d[\d,.]*\s*(?:'|feet|foot|ft\b|rods?|poles?|chains?|links?|perch(?:es)?|miles?|"
+    r"meters?|metres?|varas?|m\b)",
+    re.IGNORECASE,
+)
+
+
+def _trailing_start(call_texts: list[str]) -> int:
+    """Return the index of the first fragment after the description's last course.
+
+    The description ends at its closing course (the last fragment returning to
+    the point of beginning) or, failing that, where a metadata boundary
+    ("Subject to", "BEING the same", ...) leads a fragment after a course.
+    """
+    end = len(call_texts)
+    for index, text in enumerate(call_texts):
+        if index > 0 and _TRAILING_LEAD.match(text.lstrip()):
+            end = index
+            break
+    for index in range(end - 1, -1, -1):
+        if is_closure_to_pob(call_texts[index]) or _CLOSING_PHRASE.search(call_texts[index][-80:]):
+            return index + 1
+    return end
+
+
+def _states_complete_course(text: str) -> bool:
+    """Return whether text states a bearing (or curve) together with a distance."""
+    has_bearing = bool(
+        extract_direction(text)
+        or re.search(r"\b(?:[NSEW])\s+\d", text, re.I)
+        or CURVE_KEYWORD_PATTERN.search(text)
+    )
+    return has_bearing and bool(_COURSE_DISTANCE.search(text))
+
+
+def _is_trailing_text(call_texts: list[str], source_course: int, call_text: str) -> bool:
+    """Return whether a fragment is non-course text after the description's end.
+
+    Text that states a complete course (bearing or curve plus distance) is never
+    trailing text: it stays a recorded or raised course.
+    """
+    return source_course > _trailing_start(call_texts) and not _states_complete_course(call_text)
+
+
 def _extract_calls_from_text(
     text: str,
     distance_unit: str = "feet",
@@ -530,6 +584,8 @@ def _extract_calls_from_text(
                         call_texts[source_course - 1 : source_course] = pieces
                         source_course -= 1
                         continue
+                if _is_trailing_text(call_texts, source_course, call_text):
+                    continue
                 if strict:
                     raise ValueError(
                         f"Malformed course {source_course}: {call_text.strip()!r}: {exc}"
@@ -550,6 +606,10 @@ def _extract_calls_from_text(
                 continue
 
             if call is None:
+                # Text after the closing course (exception lists, form text) is
+                # not course material, unless it states a complete course.
+                if _is_trailing_text(call_texts, source_course, call_text):
+                    continue
                 explicit_course = has_thence_marker or has_numbered_course_markers
                 if (
                     explicit_course
