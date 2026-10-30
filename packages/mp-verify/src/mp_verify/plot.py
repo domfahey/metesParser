@@ -213,6 +213,7 @@ def _build_geometry(
                         reason=SPIRAL_CHORD_UNRESOLVED_REASON
                         if spiral
                         else CHORD_ONLY_UNRESOLVED_REASON,
+                        positioned=True,
                     )
                 )
                 if chains[-1]:

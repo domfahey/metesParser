@@ -260,6 +260,9 @@ class PlotPrimitive(_Model):
 class PlotUnresolved(_Model):
     call_id: Identifier
     reason: str
+    # True only when the course is positioned by its stated chord but not drawn
+    # (chord-only circular curve, chord-stated spiral): the traverse continues.
+    positioned: bool = False
 
 
 class PlotGeometry(_Model):
