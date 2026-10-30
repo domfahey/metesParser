@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import itertools
 import math
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Literal, cast
 
@@ -271,9 +270,9 @@ def vector_extent(layer: VectorLayer) -> Extent | None:
 
 
 def _raster_extent(raster: RasterLayer) -> Extent | None:
-    a, b, c, d, e, f = raster.registration.matrix
-    corners = itertools.product((-0.5, raster.width - 0.5), (-0.5, raster.height - 0.5))
-    return bounds_of([(a * col + b * row + c, d * col + e * row + f) for col, row in corners])
+    from .raster_registration import outer_corners
+
+    return bounds_of(outer_corners(raster.registration, raster.width, raster.height))
 
 
 def placed_points(
@@ -292,6 +291,26 @@ def placed_points(
         )
         for primitive in primitives
         for t in (0, 0.25, 0.5, 0.75, 1)
+    ]
+
+
+def displayed_calculation_points(
+    primitives: Iterable[PlotPrimitive],
+    placements: Sequence[PlotPlacement],
+    native_units: LinearUnit,
+    scene_units: LinearUnit,
+) -> list[XY]:
+    """Placed samples of a calculation that the web map and delivery actually display.
+
+    A calculation with no placement, or with any unplaced one, is omitted whole
+    (``[]``); omitted geometry must not pick the coordinate operation.
+    """
+    if not placements or any(p.status == "unplaced" for p in placements):
+        return []
+    return [
+        point
+        for placement in placements
+        for point in placed_points(primitives, placement, native_units, scene_units)
     ]
 
 
@@ -327,12 +346,9 @@ def _display_extent(
             for p in context.placements
             if p.calculation_id == geometry.calculation_id and p.scene_id == scene_id
         ]
-        # prepare_web_map omits the whole calculation when any placement is
-        # unplaced (or none exists); omitted geometry must not pick the operation.
-        if not placements or any(p.status == "unplaced" for p in placements):
-            continue
-        for placement in placements:
-            points.extend(placed_points(geometry.primitives, placement, native, scene_units))
+        points.extend(
+            displayed_calculation_points(geometry.primitives, placements, native, scene_units)
+        )
     return operation_extent(
         points,
         (
