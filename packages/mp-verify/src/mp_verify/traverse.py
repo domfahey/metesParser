@@ -17,12 +17,13 @@ from mp_bearing import (  # type: ignore[import-untyped]
 from mp_models import DeedCall, Point
 
 from .tangents import (
+    chord_delta,
     chord_is_feasible,
     curve_sweep,
     has_determined_direction,
-    is_circular_curve,
     is_curved_course,
     is_spiral,
+    stated_sweep,
 )
 
 
@@ -72,11 +73,12 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
         return Point(x=current.x + dx, y=current.y + dy)
 
     if call.is_curve() and call.radius_ft is not None and call.curve_dir is not None:
-        delta_deg = call.delta_deg
-        if delta_deg is None and call.arc_length_ft is not None and call.radius_ft > 0.0:
-            delta_deg = math.degrees(call.arc_length_ft / call.radius_ft)
-
-        if delta_deg is not None and abs(delta_deg) > 1e-9:
+        stated = stated_sweep(call)
+        if stated is not None and abs(stated) > 1e-9:
+            # The same sweep rule as topology, tangents and area: invalid is unpositioned.
+            delta_deg = curve_sweep(call)
+            if delta_deg is None:
+                return None
             if call.chord_bearing is not None:
                 if chord_azimuth is None:
                     raise ValueError(f"Course {call.course}: invalid chord bearing")
@@ -198,12 +200,7 @@ def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnal
                 no_endpoint=no_endpoint,
                 chord_only=chord_only,
                 feasible_chord=feasible_chord,
-                # Same as tangents.chord_positioned_delta, without reparsing the chord.
-                chord_positioned_delta=(
-                    curve_sweep(call)
-                    if chord_azimuth is not None and is_circular_curve(call)
-                    else None
-                ),
+                chord_positioned_delta=chord_delta(call, chord_azimuth),
                 arc_undetermined=chord_only or (endpoint is not None and is_spiral(call)),
                 positioned=endpoint is not None,
                 determined_direction=has_determined_direction(call),

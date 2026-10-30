@@ -51,6 +51,7 @@ from .tangents import (
     has_determined_direction,
     is_circular_curve,
     is_spiral,
+    stated_sweep,
 )
 from .traverse import analyze_courses, traverse_positions
 
@@ -103,9 +104,7 @@ def calculate_area(points: list[Point], *, calls: list[DeedCall] | None = None) 
             continue
         if call.radius_ft is None or call.curve_dir is None:
             continue
-        delta = call.delta_deg
-        if delta is None and call.arc_length_ft is not None and call.radius_ft > 0:
-            delta = math.degrees(call.arc_length_ft / call.radius_ft)
+        delta = stated_sweep(call)
         if delta is None or abs(delta) <= 1e-9:
             continue
         theta = math.radians(delta)
@@ -557,7 +556,9 @@ def verify_closure(
             )
 
     # Curves fixed by chord bearing and sweep have determined tangents, not incomplete ones.
-    incomplete = [record for record in records if not record.determined_direction]
+    incomplete = [
+        record for record in records if not record.determined_direction and not record.positioned
+    ]
     if incomplete:
         warnings.append(
             f"{len(incomplete)} call(s) have incomplete bearings (cardinal-only or meanders)"
