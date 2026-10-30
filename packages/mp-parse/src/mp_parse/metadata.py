@@ -16,7 +16,13 @@ from typing import TYPE_CHECKING, Literal, TypedDict
 from mp_models import ConversionFactors
 
 from .numbers import COMMA_NUMBER, parse_comma_number
-from .units import LENGTH_NUMBER_GUARD, LENGTH_UNIT, is_foot_mark, normalize_unit_token
+from .units import (
+    LENGTH_NUMBER_GUARD,
+    LENGTH_UNIT,
+    UNIT_TOKEN,
+    is_foot_mark,
+    normalize_unit_token,
+)
 
 if TYPE_CHECKING:
     from mp_models import DeedClause, SubdivisionReference
@@ -833,16 +839,10 @@ def extract_distance(text: str) -> tuple[float, str]:
     Returns:
         Tuple of (distance_value, unit)
     """
-    pattern = (
-        rf"({COMMA_NUMBER})\s*"
-        r"(US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?"
-        r"|foot|feet|ft|poles?|rods?|perches?|chains?|links?"
-        r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
-    )
+    pattern = rf"({COMMA_NUMBER})\s*({UNIT_TOKEN})"
 
     total_match = re.search(
-        rf"\b(?:for\s+)?a\s+total\s+distance\s+(?:of\s+)?({COMMA_NUMBER})\s*"
-        r"(US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?|foot|feet|ft|poles?|rods?|perches?|chains?|links?|varas?|arpents?|toises?|furlongs?|meters?|miles?)",
+        rf"\b(?:for\s+)?a\s+total\s+distance\s+(?:of\s+)?({COMMA_NUMBER})\s*({UNIT_TOKEN})",
         text,
         re.IGNORECASE,
     )
@@ -858,12 +858,7 @@ def extract_distance(text: str) -> tuple[float, str]:
     if total_match and not total_has_additional_component:
         match = total_match
     else:
-        compound_unit = (
-            r"US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?|"
-            r"foot|feet|ft|poles?|rods?|perches?|chains?|links?|varas?|arpents?|"
-            r"toises?|furlongs?|meters?|miles?"
-        )
-        component_pattern = rf"({COMMA_NUMBER})\s*({compound_unit})"
+        component_pattern = rf"({COMMA_NUMBER})\s*({UNIT_TOKEN})"
         # Components join with "and"; without it only genuine descending
         # sub-unit pairs (_IMPLICIT_COMPOUND_PAIRS) are summed.
         joiner = r"(?:\s+and\s+|\s*,\s*|\s+)"
@@ -915,42 +910,9 @@ def extract_distance(text: str) -> tuple[float, str]:
                 (component.group(1), component.group(2))
                 for component in re.finditer(component_pattern, compound.group(0), re.IGNORECASE)
             ]
-            unit_keys = {
-                "ft": "feet",
-                "foot": "feet",
-                "feet": "feet",
-                "poles": "poles",
-                "pole": "poles",
-                "rods": "rods",
-                "rod": "rods",
-                "perch": "perches",
-                "perches": "perches",
-                "chain": "chains",
-                "chains": "chains",
-                "link": "links",
-                "links": "links",
-                "engineer chain": "engineer_chains",
-                "engineer chains": "engineer_chains",
-                "engineer link": "engineer_links",
-                "engineer links": "engineer_links",
-                "us survey foot": "us_survey_feet",
-                "us survey feet": "us_survey_feet",
-                "vara": "varas",
-                "varas": "varas",
-                "arpent": "arpents",
-                "arpents": "arpents",
-                "toise": "toises",
-                "toises": "toises",
-                "furlong": "furlongs",
-                "furlongs": "furlongs",
-                "meter": "meters",
-                "meters": "meters",
-                "mile": "miles",
-                "miles": "miles",
-            }
             total_ft = sum(
                 ConversionFactors.convert_to_feet(
-                    parse_comma_number(value), unit_keys[" ".join(unit.lower().split())]
+                    parse_comma_number(value), normalize_unit_token(unit)
                 )
                 for value, unit in values
             )
@@ -961,7 +923,7 @@ def extract_distance(text: str) -> tuple[float, str]:
             re.IGNORECASE,
         )
         if and_pair:
-            units = re.findall(rf"{COMMA_NUMBER}\s*({compound_unit})\b", and_pair.group(0), re.I)
+            units = re.findall(rf"{COMMA_NUMBER}\s*({UNIT_TOKEN})\b", and_pair.group(0), re.I)
             # Same-unit "and" pairs are separate measurements: the first one is used.
             if not (len(units) == 2 and _same_unit_family(*(_singular_unit(u) for u in units))):
                 return 0.0, "feet"
