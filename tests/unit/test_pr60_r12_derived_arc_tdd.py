@@ -138,9 +138,9 @@ def _spy(monkeypatch, impl):
     monkeypatch.setattr(package_calls, "_normalize_bearing_segments", normalize)
     original_curve = package_calls.extract_curve_info
 
-    def curve(text):
+    def curve(text, *args, **kwargs):
         seen["curve"].append(text)
-        return original_curve(text)
+        return original_curve(text, *args, **kwargs)
 
     monkeypatch.setattr(package_calls, "extract_curve_info", curve)
     return seen
