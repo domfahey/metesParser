@@ -15,6 +15,8 @@ from mp_bearing import (  # type: ignore[import-untyped]
     chord_length_tolerance_ft,
 )
 from mp_models.plot import (
+    CHORD_ONLY_UNRESOLVED_REASON,
+    SPIRAL_CHORD_UNRESOLVED_REASON,
     XY,
     DashboardPlots,
     LinearUnit,
@@ -56,18 +58,6 @@ def _hash(value: object) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     ).hexdigest()
-
-
-# A chord-only curve (radius + chord, no delta/arc) is positioned by its chord but
-# its minor/major arc is unknown, so it is listed as unresolved without stopping.
-CHORD_ONLY_UNRESOLVED_REASON = (
-    "curve delta/arc not stated - arc not drawn; positioned by chord only"
-)
-# A spiral with a stated chord bearing and length: the chord fixes the next start
-# exactly (as verification positions it), but no line or circular arc is drawn.
-SPIRAL_CHORD_UNRESOLVED_REASON = (
-    "spiral geometry unsupported - not drawn; positioned by stated chord only"
-)
 
 
 def _finite(point: XY) -> XY:
@@ -213,7 +203,6 @@ def _build_geometry(
                         reason=SPIRAL_CHORD_UNRESOLVED_REASON
                         if spiral
                         else CHORD_ONLY_UNRESOLVED_REASON,
-                        positioned=True,
                     )
                 )
                 if chains[-1]:

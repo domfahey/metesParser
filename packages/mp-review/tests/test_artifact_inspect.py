@@ -110,6 +110,37 @@ def test_self_consistent_tampered_review_is_invalid_after_semantic_replay(chain,
     assert "replay_mismatch" in codes(node)
 
 
+def test_legacy_audit_without_skipped_courses_key_still_replays(chain):
+    directory = chain / "review-a"
+    payload = json.loads((directory / "audit.json").read_bytes())
+    assert payload.pop("skipped_courses") == []
+    write_json(directory / "audit.json", payload)
+    rewrite_manifest(directory, "audit.json")
+    node = nodes(inspect(chain), "review")[0]
+    assert "replay_mismatch" not in codes(node)
+    assert node["status"] == "present_valid"
+
+
+def test_audit_with_different_skipped_courses_is_replay_mismatch(chain):
+    directory = chain / "review-a"
+    payload = json.loads((directory / "audit.json").read_bytes())
+    payload["skipped_courses"] = [
+        {
+            "course": 9,
+            "source_course": 9,
+            "source_excerpt": "THENCE elsewhere",
+            "error_type": "ValueError",
+            "error": "unparsed",
+            "tract_label": None,
+        }
+    ]
+    write_json(directory / "audit.json", payload)
+    rewrite_manifest(directory, "audit.json")
+    node = nodes(inspect(chain), "review")[0]
+    assert node["status"] == "invalid"
+    assert "replay_mismatch" in codes(node)
+
+
 def test_algorithm_version_change_is_stale(chain):
     path = chain / "review-a/review-manifest.json"
     data = json.loads(path.read_bytes())
