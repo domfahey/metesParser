@@ -21,6 +21,17 @@ def is_circular_curve(call: DeedCall) -> bool:
     return call.curve_type != "spiral"
 
 
+def line_distance(call: DeedCall) -> float:
+    """Return a course's recorded distance, refusing one that is not determined.
+
+    Only a spiral with no stated length has ``distance_ft=None``; such a course is
+    never measured as a line.
+    """
+    if call.distance_ft is None:
+        raise ValueError(f"Course {call.course}: course distance not determined")
+    return call.distance_ft
+
+
 def chord_is_feasible(call: DeedCall) -> bool:
     """Return False when a stated chord exceeds the diameter 2*|radius| (no such circle)."""
     if call.chord_length_ft is None or call.radius_ft is None:

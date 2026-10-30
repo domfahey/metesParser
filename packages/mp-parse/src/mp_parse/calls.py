@@ -111,6 +111,10 @@ PACKED_DMS_PATTERN = re.compile(
 
 ARC_COMPUTED_NOTE = "arc length not stated - course distance computed from radius and delta"
 ARC_COMPUTED_RULE = "curve: distance is the arc computed from the stated radius and delta"
+LENGTH_NOT_DETERMINED_NOTE = "spiral length not stated - course distance not determined"
+LENGTH_NOT_DETERMINED_RULE = (
+    "spiral: no arc, chord or course length stated; a spiral's length is not radius * delta"
+)
 
 # One curve-word spelling (curve/curved/curving) shared by every curve gate in this module.
 CURVE_WORD = r"curv(?:e|ed|ing)"
@@ -197,6 +201,41 @@ def _boundary_course_text(call_text: str) -> str:
     if not starts:
         return call_text
     return call_text[: min(starts)]
+
+
+# Distances that measure a curve element, never the course run: the radius (or the
+# distance to the radius point or center), the tangent length and a stated chord.
+# Each is removed before the course distance is read. A number directly after a
+# degree sign is a bearing's minutes, never a distance.
+_ELEMENT_DISTANCE = rf"(?<![\d.,\u00b0])(?<!\u00b0\s){COMMA_NUMBER}\s*(?:{_UNIT_TOKEN}\b|'(?!'))"
+_CURVE_ELEMENT_DISTANCE_PATTERN = re.compile(
+    rf"\bradius(?:\s+(?:length|distance))?\s+(?:(?:of|is|equal\s+to)\s+|=\s*)?{_ELEMENT_DISTANCE}"
+    r"|\b(?:radius\s+point|radial(?:\s+(?:line|bearing))?|cent(?:er|re)(?:\s+point)?)\b"
+    rf"[^;,]*?{_ELEMENT_DISTANCE}"
+    rf"|\btangent\s+(?:length|distance)\s+(?:of\s+)?{_ELEMENT_DISTANCE}",
+    re.IGNORECASE,
+)
+# A stated chord's clause runs from the chord keyword to its length.
+_CHORD_ELEMENT_DISTANCE_PATTERN = re.compile(
+    rf"\b(?:long\s+)?chord\b[^;]*?{_ELEMENT_DISTANCE}", re.IGNORECASE
+)
+
+
+def _course_distance_text(call_text: str, *, is_curve: bool, has_chord_length: bool) -> str:
+    """Return the text a course distance is read from.
+
+    Corner witnesses are cut off (``_boundary_course_text``). For a curve, every
+    curve-element distance (radius, radius point/center, tangent length and a
+    stated chord length) is also removed, so the first distance in the text,
+    usually the radius, is never taken as the course length; only an arc or a
+    stated course length remains.
+    """
+    course_text = _boundary_course_text(call_text)
+    if not is_curve:
+        return course_text
+    if has_chord_length:
+        course_text = _CHORD_ELEMENT_DISTANCE_PATTERN.sub(" ", course_text)
+    return _CURVE_ELEMENT_DISTANCE_PATTERN.sub(" ", course_text)
 
 
 def _is_initial_course_prefix(prefix: str) -> bool:
@@ -777,7 +816,11 @@ def _extract_call(
             bearing_quadrant = None
             azimuth = None
 
-    course_text = _boundary_course_text(call_text)
+    course_text = _course_distance_text(
+        call_text,
+        is_curve=_describes_curve(curve_info),
+        has_chord_length=curve_info.get("chord_length_ft") is not None,
+    )
     distance, unit = extract_distance(course_text)
     if distance == 0:
         if re.search(
@@ -789,7 +832,7 @@ def _extract_call(
         distance = extract_distance_alternate(course_text)
         unit = distance_unit
 
-    distance_ft = ConversionFactors.convert_to_feet(distance, unit)
+    distance_ft: float | None = ConversionFactors.convert_to_feet(distance, unit)
 
     # The tangent azimuth is only what the course text states (chord and radial
     # clauses were removed before extraction). Without one, a stated chord bearing
@@ -922,7 +965,19 @@ def _extract_call(
         # radius (the first distance in the text) or a derived arc.
         distance_ft = stated_chord
 
-    if distance_ft <= 0.0:
+    # A spiral stated without an arc, chord or course length has no determinable
+    # length (it is not R * delta): the course is kept with its distance not
+    # determined, so it is neither given an invented length nor dropped.
+    length_not_determined = (
+        distance_ft is not None
+        and distance_ft <= 0.0
+        and is_spiral
+        and stated_arc is None
+        and stated_chord is None
+    )
+    if length_not_determined:
+        distance_ft = None
+    elif distance_ft is None or distance_ft <= 0.0:
         raise ValueError("Missing boundary course distance")
 
     along, to = extract_along_to_fields(call_text)
@@ -977,9 +1032,11 @@ def _extract_call(
         note_parts.append("incomplete bearing")
     if arc_computed:
         note_parts.append(ARC_COMPUTED_NOTE)
+    if length_not_determined:
+        note_parts.append(LENGTH_NOT_DETERMINED_NOTE)
     notes = "; ".join(note_parts)
 
-    if distance_ft <= 0.0:
+    if distance_ft is not None and distance_ft <= 0.0:
         return None, raw_direction
 
     has_curve = bool(curve_info.get("direction") or curve_info.get("radius_ft"))
@@ -1121,6 +1178,11 @@ def _derived_tangent_transformation(call: DeedCall) -> Transformation:
 
 def _distance_audit_source(call_text: str, call: DeedCall) -> tuple[str, str | None]:
     """Return the audited input and rule for the stored course distance."""
+    if call.distance_ft is None:
+        return (
+            f"radius {call.radius_ft} feet, delta {call.delta_deg} deg (spiral)",
+            LENGTH_NOT_DETERMINED_RULE,
+        )
     if (
         call.notes
         and ARC_COMPUTED_NOTE in call.notes
@@ -1138,7 +1200,9 @@ def _distance_audit_source(call_text: str, call: DeedCall) -> tuple[str, str | N
         )
     if call.arc_length_ft is not None and call.arc_length_ft == call.distance_ft:
         return f"{call.arc_length_ft} feet", None
-    course_text = _boundary_course_text(call_text)
+    course_text = _course_distance_text(
+        call_text, is_curve=call.is_curve(), has_chord_length=call.chord_length_ft is not None
+    )
     distance, unit = extract_distance(course_text)
     if distance == 0:
         return call_text.strip(), None
@@ -1205,7 +1269,7 @@ def _audit_single_call(
         Transformation(
             step="extract_distance",
             input=distance_input,
-            output=str(call.distance_ft),
+            output="not determined" if call.distance_ft is None else str(call.distance_ft),
             rule=distance_rule,
         )
     )
@@ -1290,6 +1354,9 @@ def _audit_single_call(
 
     if call.is_meander:
         flags.append("meander")
+
+    if call.distance_ft is None:
+        flags.append("distance_not_determined")
 
     return transformations, decisions, flags
 

@@ -102,7 +102,7 @@ def _call_to_row(call: DeedCall) -> dict[str, str]:
             if call.bearing_azimuth_deg_from_north is not None
             else ""
         ),
-        "distance_ft": _format_float(call.distance_ft, 2),
+        "distance_ft": (_format_float(call.distance_ft, 2) if call.distance_ft is not None else ""),
         "curve_dir": call.curve_dir or "",
         "radius_ft": _format_float(call.radius_ft, 2) if call.radius_ft is not None else "",
         "delta_deg": _format_float(call.delta_deg, 6) if call.delta_deg is not None else "",

@@ -150,10 +150,17 @@
           "type": "string"
         },
         "distance_ft": {
-          "description": "Distance in decimal feet",
-          "exclusiveMinimum": 0,
-          "title": "Distance Ft",
-          "type": "number"
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Distance in decimal feet; None only for a spiral whose length is not stated (not determinable without fabrication)",
+          "title": "Distance Ft"
         },
         "is_exception": {
           "default": false,
