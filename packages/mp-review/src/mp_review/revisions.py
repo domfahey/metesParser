@@ -44,7 +44,12 @@ from mp_models.revisions import (
 )
 from mp_verify.comparison import compare_descriptions
 from mp_verify.dashboard import _hash, _json
-from mp_verify.plot import prepare_plot, unit_factor, validate_prepared_plot
+from mp_verify.plot import (
+    CHORD_ONLY_UNRESOLVED_REASON,
+    prepare_plot,
+    unit_factor,
+    validate_prepared_plot,
+)
 
 from .dashboard import _load
 
@@ -292,7 +297,34 @@ def _structured_call(
             else None
         )
         if sweep is None and arc is None:
-            raise ValueError("Circular arc requires complete radius and sweep or arc length")
+            if not (
+                raw.get("chord_bearing_value", "").strip()
+                and raw.get("chord_length_value", "").strip()
+            ):
+                raise ValueError(
+                    "Circular arc requires complete radius and sweep or arc length, "
+                    "or a chord bearing and chord length"
+                )
+            # Chord-only curve: kept as stated and positioned by its chord; no delta,
+            # arc or tangent is derived (minor/major arc is ambiguous).
+            chord_length = _distance(raw["chord_length_value"], unit, foot_definition)
+            if raw.get("distance_value", "").strip() and not math.isclose(
+                _distance(raw["distance_value"], unit, foot_definition),
+                chord_length,
+                rel_tol=1e-6,
+                abs_tol=0.01,
+            ):
+                raise ValueError("Curve distance conflicts with supplied chord length")
+            data.update(
+                radius_ft=radius,
+                curve_dir=raw["curve_dir"],
+                chord_length_ft=chord_length,
+                chord_bearing=_quadrant_text(_angle(raw, "chord_bearing")),
+                distance_ft=chord_length,
+            )
+            return DeedCall.model_validate(data), cast(
+                Literal["boundary", "tie_in", "reference", "omitted"], role
+            )
         properties = calculate_curve_properties(radius, delta_deg=sweep, arc_length_ft=arc)
         if not 0 < properties["delta_deg"] < 360:
             raise ValueError("Full circles and multiple revolutions unsupported in call editor")
@@ -315,6 +347,15 @@ def _structured_call(
                 data[field] = _quadrant_text(_angle(raw, field))
     return DeedCall.model_validate(data), cast(
         Literal["boundary", "tie_in", "reference", "omitted"], role
+    )
+
+
+def _supported_geometry(geometry: RevisionGeometry) -> bool:
+    """Complete geometry, or every course positioned with only chord-only arcs undrawn."""
+    plot = geometry.plot.geometry
+    return plot.completeness == "complete" or (
+        bool(plot.primitives)
+        and all(u.reason == CHORD_ONLY_UNRESOLVED_REASON for u in plot.unresolved)
     )
 
 
@@ -898,7 +939,7 @@ def import_revision(
             fallback = tuple(
                 g.model_copy(update={"revision_id": revision.baseline.id})
                 for g in _plots(bundle, None, {})
-                if g.plot.geometry.completeness == "complete"
+                if _supported_geometry(g)
             )
         except ValueError:
             pass  # Baseline itself can have unresolved geometry.
@@ -906,7 +947,7 @@ def import_revision(
     if not errors:
         try:
             current = _plots(bundle, revision, values, prepared_calls)
-            if any(g.plot.geometry.completeness != "complete" for g in current):
+            if not all(_supported_geometry(g) for g in current):
                 raise ValueError("Current revision geometry is incomplete or unsupported")
         except ValueError as exc:
             errors.append(RevisionError(field="geometry", message=str(exc)))
