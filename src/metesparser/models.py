@@ -784,6 +784,9 @@ class VerificationAudit(_Model):
 
     checks: list[CheckResult] = Field(default_factory=list)
     closure_summary: dict[str, float | str] = Field(default_factory=dict)
+    tract_label: str | None = Field(
+        default=None, description="Tract label when recorded by per-tract verification"
+    )
 
 
 class AuditContext(BaseModel):
@@ -800,3 +803,6 @@ class AuditContext(BaseModel):
     extraction_record: ExtractionRecord | None = Field(default=None)
     call_audits: list[CallAudit] = Field(default_factory=list)
     verification_audit: VerificationAudit | None = Field(default=None)
+    tract_verification_audits: list[VerificationAudit] = Field(
+        default_factory=list, description="Per-tract verification audits, in tract order"
+    )
