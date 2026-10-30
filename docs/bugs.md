@@ -986,6 +986,15 @@ Four findings plus one found while fixing, fixed red-green on `fix/code-review-2
 - **Unnumbered counted lists:** a counted header without enumeration is satisfied when at least that many courses follow in the tract, and flagged only when fewer remain (`5b07404`).
 - **Semicolon-separated header courses:** courses after a header separated only by ";" are split instead of merged, so the second is no longer lost (`5b07404`).
 
+### PR #60 twenty-fourth review (2026-10-30)
+Seven findings plus one found while fixing, fixed red-green on `fix/code-review-2026-10-29`:
+- **Fail closed on merged courses (root cause of silent course loss):** a call fragment holding two or more complete bearing+distance courses is split safely on ";" (or back-to-back courses) when every piece is one course; otherwise strict raises `MultipleCoursesError` and non-strict records a `SkippedCourse`. Headers "in the following …" and "the next N (N) courses" and (a)/(b) enumerators are recognised (`0330425`). Sample deeds recover silently lost courses: 8 Kings Highway W (9787-1784) 7 → 8 (now matches ground truth, misclosure 117.49 → 0.98 ft), 26 Chews Landing (8566-200) 1 → 5, 75 Haddon (10604-1433) 1 → 5. Three sample texts now fail closed where a fragment truly holds two courses (1 Walnut St tract 3; 101-111 Kings Highway E 7683-1295 normalized, whose 158 ft course was silently lost and is missing from ground truth; 26 Chews Landing 8566-209 md).
+- **Dashed bearings:** any context except identifiers (Lot, Block, Route, …) expands "N 45-30 E" (`0330425`).
+- **Count-mismatch record:** names the header text with declared/found counts (`0330425`).
+- **Source CRS area of use:** an extent must lie inside both the coordinate operation's and the source CRS's own area of use (`d45e4c3`).
+- **Monolith parser facade:** `CallExtractor`, `MonumentClassifier` and `TextParser` delegate to `mp_parse` via shared `package_bridge` converters (−3,635 lines); a differential test over 1,389 texts finds 0 differences (`504a2a8`). Found: the public `mp_parse.extract_calls` normalizes twice and can turn a bearing-tied point of beginning into course 1 — pinned by a strict xfail, fix queued.
+- **Library-mode logging:** `mp_*` package warnings reach the configured handler (`6da1dc3`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
