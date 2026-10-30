@@ -371,13 +371,19 @@ def _corridor_ring(
     return points
 
 
-def corridor_export_extent(
+def corridor_export_ring(
     item: DeliveryItem, scene: PlotScene, options: WebMapOptions, projection: WebMapProjection
-) -> tuple[float, float, float, float] | None:
-    """Scene-XY bounds of the corridor polygon vertices GeoJSON would export."""
+) -> tuple[list[XY], tuple[float, float, float, float] | None]:
+    """The geographic ring GeoJSON exports and the scene-XY bounds of its samples.
+
+    Sampled once per publish: the area check uses the bounds and export reuses
+    the ring (``delivery_source_features(ring=...)``).
+    """
     collected: list[XY] = []
-    _corridor_ring(item, scene, options, _Budget(options.max_vertices), projection, collected)
-    return bounds_of(collected)
+    ring = _corridor_ring(
+        item, scene, options, _Budget(options.max_vertices), projection, collected
+    )
+    return ring, bounds_of(collected)
 
 
 def delivery_source_features(
@@ -388,15 +394,27 @@ def delivery_source_features(
     options: WebMapOptions,
     budget: _Budget,
     projection: WebMapProjection,
+    *,
+    ring: list[XY] | None = None,
 ) -> list[dict[str, Any]]:
-    """Project explicit constructed polygons without deed-course or POB assertions."""
+    """Project explicit constructed polygons without deed-course or POB assertions.
+
+    ``ring`` is the corridor ring already sampled with ``projection`` and
+    ``options`` for the area check; its vertices are charged to ``budget``
+    exactly as sampling them here would (one take per vertex).
+    """
     if (
         source_record.get("layer_id") != item.selection.id
         or source_record.get("kind") != item.selection.kind
     ):
         raise ValueError("Derived geographic feature differs from source binding")
     if item.selection.kind == "corridor":
-        points = _corridor_ring(item, scene, options, budget, projection)
+        if ring is None:
+            points = _corridor_ring(item, scene, options, budget, projection)
+        else:
+            for _ in ring:
+                budget.take()
+            points = list(ring)
         if len(points) < 4:
             raise ValueError("Geographic corridor requires a closed boundary ring")
         if points[-1] != points[0]:
