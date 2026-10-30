@@ -139,6 +139,34 @@ def _inside_open_description(prefix: str) -> bool:
     return _POB_CLOSE_PATTERN.search(prefix, starts[-1].end()) is None
 
 
+# A description opener; with no course before it, the marker's own text begins a
+# description ("Parcel 2 being all that lot BEGINNING at a pin").
+_DESCRIPTION_OPENER = re.compile(
+    r"\b(?:(?:POINT(?:\s+AND\s+PLACE)?|PLACE)\s+OF\s+)?BEGINNING\b|\bCOMMENCING\b|\bALL\s+THAT\b",
+    re.IGNORECASE,
+)
+# Wording right after an ID that makes the marker a reference whatever follows.
+_REFERENCE_AFTER_ID = re.compile(
+    r"[ \t]*(?:(?:of|as|on|per|thence)\b|in\s+said\b"
+    r"|being\s+(?:the\s+same|part\s+of|a\s+part\s+of)\b)",
+    re.IGNORECASE,
+)
+
+
+def _opens_description_before_course(text: str, end: int) -> bool:
+    """Return whether a description opener precedes any THENCE course after a marker ID.
+
+    Looks only at the marker's own segment, up to the next TRACT/PARCEL marker.
+    """
+    following = _MARKER.search(text, end)
+    segment = text[end : following.start() if following else len(text)]
+    opener = _DESCRIPTION_OPENER.search(segment)
+    if opener is None:
+        return False
+    course = _THENCE_COURSE.search(segment)
+    return course is None or opener.start() < course.start()
+
+
 def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
     """Return whether a TRACT/PARCEL match is a heading rather than a reference.
 
@@ -157,7 +185,9 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
       TRACT/PARCEL is a heading whatever follows its ID unless reference or
       recital wording does ("TRACT 2 of ...", "PARCEL 2 as shown", "TRACT 2
       BEING THE SAME ..."). Titlecase or lowercase markers followed by prose
-      stay references. Leading text with calls is kept as its own tract by
+      stay references unless the segment opens a description (BEGINNING,
+      COMMENCING, ALL THAT) before any THENCE course and the previous description
+      is closed. Leading text with calls is kept as its own tract by
       split_on_markers, so an OCR-dropped heading no longer loses data.
     """
     prefix = text[: match.start()]
@@ -174,6 +204,14 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
     if not heading_position:
         return False
     if _WEAK_TERMINATOR.match(text, end):
+        return True
+    # Structural signal, in any case: the prior description is closed and this
+    # segment opens its own description before any course.
+    if (
+        not _REFERENCE_AFTER_ID.match(text, end)
+        and not _inside_open_description(prefix)
+        and _opens_description_before_course(text, end)
+    ):
         return True
     # Heading position already excludes a marker right after a reference word.
     return match["kind"].isupper() and not _UPPERCASE_REFERENCE_AFTER_ID.match(text, end)
