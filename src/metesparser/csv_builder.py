@@ -7,7 +7,9 @@ import csv
 import io
 from pathlib import Path
 
+import mp_models
 import structlog
+from mp_verify.closure import skips_for_tract as package_skips_for_tract
 from pydantic import ValidationError, field_validator
 
 from .models import (
@@ -26,6 +28,30 @@ logger = structlog.get_logger(__name__)
 def _misclosure_text(result: ClosureResult) -> str:
     """Misclosure for messages; an undetermined misclosure is never shown as 0.0."""
     return f"{result.misclosure_ft:.4f} ft" if result.misclosure_available else "not determined"
+
+
+def skips_for_tract(
+    tract: Tract, all_tracts: list[Tract], extra_skips: list[SkippedCourse]
+) -> list[SkippedCourse]:
+    """Monolith-typed adapter over the shared ``mp_verify`` per-tract skip routing."""
+
+    def mirror(t: Tract) -> mp_models.Tract:
+        return mp_models.Tract.model_construct(
+            label=t.label,
+            tract_type=t.tract_type,
+            calls=[],
+            skipped_courses=[
+                mp_models.SkippedCourse.model_validate(skip.model_dump())
+                for skip in t.skipped_courses
+            ],
+        )
+
+    routed = package_skips_for_tract(
+        mirror(tract),
+        [mirror(t) for t in all_tracts],
+        [mp_models.SkippedCourse.model_validate(skip.model_dump()) for skip in extra_skips],
+    )
+    return [SkippedCourse.model_validate(skip.model_dump()) for skip in routed]
 
 
 def _cleanup_stale_sidecars(output_file: Path, *, metadata_written: bool) -> None:
@@ -115,25 +141,31 @@ class CSVBuilder:
     ]
 
     @staticmethod
-    def _skips_for_tract(
-        tract: Tract,
-        audit_context: AuditContext | None,
-        tracts: list[Tract],
-        explicit: list[SkippedCourse] | None = None,
+    def _labelled_skips(
+        audit_context: AuditContext | None, explicit: list[SkippedCourse] | None
     ) -> list[SkippedCourse]:
-        """Every skip that applies to one tract, mirroring ``verify_closure``."""
-        labelled = [
+        """Explicit and audit-context skip records, before tract routing."""
+        return [
             *(explicit or []),
             *(audit_context.skipped_courses if audit_context is not None else []),
         ]
-        unplaced = {skip.tract_label for skip in labelled} - {t.label for t in tracts}
-        applicable = [*tract.skipped_courses]
-        applicable.extend(
-            skip
-            for skip in labelled
-            if skip.tract_label in (tract.label, *unplaced) and skip not in applicable
-        )
-        return applicable
+
+    @classmethod
+    def _single_description_skips(
+        cls,
+        legal_desc: LegalDescription | None,
+        audit_context: AuditContext | None,
+        explicit: list[SkippedCourse] | None,
+    ) -> list[SkippedCourse]:
+        """Every skip blocking a single-description export, including each tract's own."""
+        labelled = cls._labelled_skips(audit_context, explicit)
+        skips = list(labelled)
+        tracts = legal_desc.tracts if legal_desc is not None else []
+        for tract in tracts:
+            skips.extend(
+                skip for skip in skips_for_tract(tract, tracts, labelled) if skip not in skips
+            )
+        return skips
 
     @staticmethod
     def _validate_export_geometry(
@@ -474,8 +506,10 @@ class CSVBuilder:
                         result,
                         selected,
                         independent_tract=True,
-                        skipped_courses=cls._skips_for_tract(
-                            tract, audit_context, [t for t, _ in tract_results], skipped_courses
+                        skipped_courses=skips_for_tract(
+                            tract,
+                            [t for t, _ in tract_results],
+                            cls._labelled_skips(audit_context, skipped_courses),
                         ),
                     )
         else:
@@ -483,10 +517,9 @@ class CSVBuilder:
                 calls,
                 closure_result,
                 legal_desc,
-                skipped_courses=[
-                    *(skipped_courses or []),
-                    *(audit_context.skipped_courses if audit_context else []),
-                ],
+                skipped_courses=cls._single_description_skips(
+                    legal_desc, audit_context, skipped_courses
+                ),
             )
 
         if tract_results:

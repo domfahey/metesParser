@@ -223,6 +223,22 @@ def _merge_skips(*groups: list[SkippedCourse]) -> list[SkippedCourse]:
     return merged
 
 
+def skips_for_tract(
+    tract: Tract, all_tracts: list[Tract], extra_skips: list[SkippedCourse]
+) -> list[SkippedCourse]:
+    """Every skip that applies to one tract of a multi-tract run.
+
+    A tract's own skips apply, as do ``extra_skips`` labelled with it. A skip tied
+    to no supplied tract cannot be placed, so it applies to every tract.
+    """
+    tract_labels = {t.label for t in all_tracts}
+    unplaced = {skip.tract_label for skip in extra_skips} - tract_labels
+    return _merge_skips(
+        tract.skipped_courses,
+        [skip for skip in extra_skips if skip.tract_label in (tract.label, *unplaced)],
+    )
+
+
 def _block_skipped_closure(
     checks: list[CheckResult], skipped: list[SkippedCourse]
 ) -> list[CheckResult]:
@@ -307,8 +323,6 @@ def verify_closure(
         labelled = _merge_skips(
             skipped_courses or [], audit_context.skipped_courses if audit_context else []
         )
-        tract_labels = {tract.label for tract in tracts}
-        unplaced = {skip.tract_label for skip in labelled} - tract_labels
         for tract in tracts:
             # Scratch context per tract so tracts never overwrite each other's audit.
             scratch = (
@@ -321,11 +335,7 @@ def verify_closure(
                 stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
                 closure_tolerance_ft=closure_tolerance_ft,
                 audit_context=scratch,
-                skipped_courses=_merge_skips(
-                    tract.skipped_courses,
-                    # A skip tied to no supplied tract cannot be placed: it blocks all.
-                    [skip for skip in labelled if skip.tract_label in (tract.label, *unplaced)],
-                ),
+                skipped_courses=skips_for_tract(tract, tracts, labelled),
             )
             if audit_context is not None and scratch is not None and scratch.verification_audit:
                 audit_context.tract_verification_audits.append(
