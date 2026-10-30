@@ -989,6 +989,15 @@ def _prepare_course_text(
     return _PreparedCourse(normalized, candidates, normalized_candidates)
 
 
+_CONCAVITY_DIRECTION = r"(?:north|south)(?:[\s-]*(?:east|west))?|east|west|NE|NW|SE|SW|[NSEW]"
+_CONCAVITY_CLAUSE = re.compile(
+    rf"\b(?:concave[d]?(?:\s+(?:to|toward|towards|facing)\s+(?:the\s+)?)?"
+    rf"|whose\s+concave\s+side\s+(?:faces|is\s+(?:to|toward|towards))\s+(?:the\s+)?)"
+    rf"\s*(?:{_CONCAVITY_DIRECTION})(?:erly|wardly)?\b",
+    re.IGNORECASE,
+)
+
+
 def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -> _CourseBearing:
     """Return the course (tangent) direction stated in the boundary course text.
 
@@ -1006,7 +1015,8 @@ def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -
         text = _without_pairs(text, [pair for pair in pairs if not pair.boundary])
         if any(pair.complete and pair.start < courses[0].start for pair in pairs):
             distance_text = text
-    direction = extract_direction(text)
+    # Concavity wording names the side of the curve's centre, never the travel direction.
+    direction = extract_direction(_CONCAVITY_CLAUSE.sub(" ", text))
     return _CourseBearing(
         direction,
         _verbatim_course_direction(direction, prepared.candidates, prepared.normalized_candidates),
