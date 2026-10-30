@@ -8,11 +8,15 @@ import math
 from typing import TYPE_CHECKING, TypedDict
 
 from mp_bearing import (  # type: ignore[import-untyped]
-    CURVE_ELEMENT_TOLERANCE_FT,
-    TANGENT_CHORD_TOLERANCE_DEG,
+    arc_length_tolerance_ft,
     bearing_to_azimuth,
     calculate_curve_properties,
     calculate_deltas,
+    chord_length_tolerance_ft,
+    deflection_chord_tolerance_ft,
+    delta_uncertainty_rad,
+    tangent_chord_deflection,
+    tangent_chord_tolerance_deg,
 )
 from mp_models.plot import (
     XY,
@@ -68,15 +72,26 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
         call.radius_ft, delta_deg=call.delta_deg, arc_length_ft=call.arc_length_ft
     )
     sweep = props["delta_deg"]
-    if sweep <= 0 or sweep > 360:
+    arc_ft = props["arc_length_ft"]
+    chord_ft = props["chord_length_ft"]
+    if sweep is None or arc_ft is None or chord_ft is None or sweep <= 0 or sweep > 360:
         raise ValueError("curve sweep unresolved or unsupported")
-    # Check every redundant supplied element before drawing an arc.
-    for field in ("delta_deg", "arc_length_ft", "chord_length_ft"):
-        supplied = getattr(call, field)
-        if supplied is not None and not math.isclose(
-            supplied, props[field], rel_tol=1e-6, abs_tol=CURVE_ELEMENT_TOLERANCE_FT
-        ):
-            raise ValueError(f"inconsistent curve element: {field}")
+    # Check every redundant supplied element before drawing an arc, within the
+    # same rounding-aware tolerances verification applies (mp_bearing helpers).
+    if call.delta_deg is None:
+        delta_error = delta_uncertainty_rad(
+            arc_length_ft=call.arc_length_ft, radius_ft=call.radius_ft
+        )
+    else:
+        delta_error = delta_uncertainty_rad()
+        if call.arc_length_ft is not None and abs(
+            call.arc_length_ft - arc_ft
+        ) > arc_length_tolerance_ft(call.radius_ft, sweep):
+            raise ValueError("inconsistent curve element: arc_length_ft")
+    if call.chord_length_ft is not None and abs(
+        call.chord_length_ft - chord_ft
+    ) > chord_length_tolerance_ft(call.radius_ft, sweep, delta_error):
+        raise ValueError("inconsistent curve element: chord_length_ft")
     sign = 1 if call.curve_dir == "right" else -1
     if call.chord_bearing is not None:
         chord = bearing_to_azimuth(call.chord_bearing)
@@ -84,16 +99,24 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
             raise ValueError("curve chord orientation unresolved")
         tangent = (chord - sign * sweep / 2) % 360
         if call.bearing_azimuth_deg_from_north is not None and not call.non_tangent:
-            residual = (tangent - call.bearing_azimuth_deg_from_north + 180) % 360 - 180
-            if abs(residual) > TANGENT_CHORD_TOLERANCE_DEG:
+            deflection = tangent_chord_deflection(
+                call.bearing_azimuth_deg_from_north, chord, call.curve_dir
+            )
+            if deflection <= 0.0 or abs(deflection - sweep / 2) > tangent_chord_tolerance_deg(
+                delta_error
+            ):
                 raise ValueError("inconsistent tangent and chord angular evidence")
+            if call.chord_length_ft is not None and abs(
+                call.chord_length_ft - 2 * call.radius_ft * math.sin(math.radians(deflection))
+            ) > deflection_chord_tolerance_ft(call.radius_ft, deflection):
+                raise ValueError("inconsistent tangent, chord and radius")
     elif call.bearing_azimuth_deg_from_north is not None and not call.non_tangent:
         tangent = call.bearing_azimuth_deg_from_north
     else:
         raise ValueError("curve starting orientation unresolved")
     dx, dy = calculate_deltas(tangent + sign * 90, call.radius_ft)
     center = _finite((start[0] + dx, start[1] + dy))
-    dx, dy = calculate_deltas(tangent + sign * sweep / 2, props["chord_length_ft"])
+    dx, dy = calculate_deltas(tangent + sign * sweep / 2, chord_ft)
     end = _finite((start[0] + dx, start[1] + dy))
     return PlotPrimitive(
         kind="arc",
@@ -105,7 +128,7 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
         sweep_deg=sweep,
         curve_dir=call.curve_dir,
         start_tangent_deg=tangent,
-        length_ft=props["arc_length_ft"],
+        length_ft=arc_ft,
     )
 
 
