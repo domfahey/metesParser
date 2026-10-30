@@ -2093,16 +2093,11 @@ def _extract_call(
         and not direction_conflicts_chord
     )
     chord_only_unresolved = chord_only and not chord_positioned and not chord_states_direction
-    # A stated chord bearing that was not read leaves the course's geometry unverifiable
-    # (verification would otherwise position it by tangent or radial instead).
-    chord_unread = is_curve and isinstance(curve_info.get("chord_bearing_unread"), str)
-    is_indefinite = (
-        chord_unread
-        or chord_only_unresolved
-        or is_indefinite_call(
-            direction_text,
-            has_bearing=has_stated_tangent or chord_positioned or chord_states_direction,
-        )
+    # An unread chord bearing is recorded in notes only: is_indefinite is not a CSV
+    # column, so flagging it here would make text and CSV verification disagree.
+    is_indefinite = chord_only_unresolved or is_indefinite_call(
+        direction_text,
+        has_bearing=has_stated_tangent or chord_positioned or chord_states_direction,
     )
 
     curve_type_value = curve_info.get("curve_type")
