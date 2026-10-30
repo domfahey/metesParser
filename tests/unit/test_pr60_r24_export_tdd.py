@@ -10,7 +10,6 @@ from mp_export import export_verified_csv as package_export
 from mp_verify.checks import compare_double_entry as package_compare
 from mp_verify.closure import verify_closure as package_verify
 
-from metesparser import csv_builder as monolith_writer
 from metesparser import models as monolith_models
 from metesparser.closure_checker import ClosureChecker
 from metesparser.csv_builder import CSVBuilder
@@ -132,8 +131,8 @@ def test_exporters_and_verifier_use_shared_helper(monkeypatch, tmp_path):
 
     for target, name in (
         (package_closure, "skips_for_tract"),
+        # The monolith CSVBuilder delegates to the package writer's routing.
         (package_writer, "skips_for_tract"),
-        (monolith_writer, "package_skips_for_tract"),
     ):
         monkeypatch.setattr(target, name, spy)
     m = mp_models
