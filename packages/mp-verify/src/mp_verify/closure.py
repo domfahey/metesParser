@@ -57,8 +57,6 @@ from .tangents import (
 )
 from .traverse import (
     analyze_courses,
-    chord_positioned_flags,
-    effective_indefinite,
     traverse_positions,
 )
 
@@ -552,8 +550,7 @@ def verify_closure(
             f"(courses {course_nums}) may affect closure accuracy"
         )
 
-    indefinite_ids = {id(r.call) for r in records if r.indefinite}
-    indefinite_calls = [c for c in main_calls if id(c) in indefinite_ids or effective_indefinite(c)]
+    indefinite_calls = [record.call for record in records if record.indefinite]
     if indefinite_calls:
         course_nums = ", ".join(str(c.course) for c in indefinite_calls)
         warnings.append(
@@ -672,12 +669,15 @@ def verify_closure(
     )
 
     # Reuse the boundary analysis already done; only exception/tie-in calls need their own.
-    by_identity = {id(record.call): record.chord_positioned for record in records}
-    others = [c for c in calls if id(c) not in by_identity]
+    analysis = {id(record.call): record for record in records}
+    others = [c for c in calls if id(c) not in analysis]
     if others:
-        by_identity.update(zip(map(id, others), chord_positioned_flags(others), strict=True))
+        analysis.update({id(record.call): record for record in analyze_courses(others)[1]})
     confidence = calculate_confidence_score(
-        closure_result, calls, [by_identity[id(c)] for c in calls]
+        closure_result,
+        calls,
+        [analysis[id(c)].chord_positioned for c in calls],
+        [analysis[id(c)].indefinite for c in calls],
     )
     closure_result = closure_result.model_copy(update={"confidence_score": confidence})
 
