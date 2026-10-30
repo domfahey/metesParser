@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from mp_parse.metadata import extract_distance
+from mp_parse.metadata import extract_distance, read_course_length
 
 OFFSETS = [
     "parallel to and 50 feet distant from Main Street",
@@ -41,3 +41,17 @@ def test_offset_clause_before_bearing(offset: str) -> None:
 def test_two_unlabelled_lengths_stay_ambiguous() -> None:
     reading = extract_distance("thence N 45° E 100 feet 50 feet to a pin")
     assert reading == (0.0, "feet")
+
+
+@pytest.mark.parametrize(
+    "offset",
+    [
+        "50 feet distant from X",
+        "50 feet off X",
+        "50 feet at right angles from X",
+    ],
+)
+def test_adjacent_unjoined_offset_stays_ambiguous(offset: str) -> None:
+    text = f"thence N 45° E 100 feet {offset} to a pin"
+    assert extract_distance(text) == (0.0, "feet")
+    assert read_course_length(text).ambiguous == ("100 feet", "50 feet")
