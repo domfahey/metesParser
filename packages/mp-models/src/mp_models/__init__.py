@@ -13,6 +13,7 @@ from .audit import (
     ExtractionRecord,
     LLMStageRecord,
     RunMetadata,
+    SkippedCourse,
     Transformation,
     VerificationAudit,
 )
@@ -312,6 +313,7 @@ __all__ = [
     "RelativeIssue",
     "RelativeSource",
     "RunMetadata",
+    "SkippedCourse",
     "SubdivisionReference",
     "Tract",
     "TractType",

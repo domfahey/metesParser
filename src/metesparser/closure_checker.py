@@ -25,6 +25,7 @@ from .models import (
     ClosureResult,
     DeedCall,
     Point,
+    SkippedCourse,
     Tract,
     VerificationAudit,
 )
@@ -51,6 +52,10 @@ def _monolith_result(result: mp_models.ClosureResult) -> ClosureResult:
     return ClosureResult.model_validate(result.model_dump())
 
 
+def _package_skips(skips: list[SkippedCourse]) -> list[mp_models.SkippedCourse]:
+    return [mp_models.SkippedCourse.model_validate(skip.model_dump()) for skip in skips]
+
+
 def _monolith_audit(audit: mp_models.VerificationAudit) -> VerificationAudit:
     return VerificationAudit.model_validate(audit.model_dump())
 
@@ -68,6 +73,7 @@ class ClosureChecker:
         stated_area_sq_ft: float = 0.0,
         closure_tolerance_ft: float | None = None,
         audit_context: AuditContext | None = None,
+        skipped_courses: list[SkippedCourse] | None = None,
     ) -> ClosureResult:
         """Check one independent tract using every standard verification guardrail."""
         boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
@@ -76,6 +82,7 @@ class ClosureChecker:
             stated_area_sq_ft=stated_area_sq_ft,
             closure_tolerance_ft=closure_tolerance_ft,
             audit_context=audit_context,
+            skipped_courses=skipped_courses,
         )
 
     @overload
@@ -89,6 +96,7 @@ class ClosureChecker:
         audit_context: AuditContext | None = ...,
         *,
         tracts: None = None,
+        skipped_courses: list[SkippedCourse] | None = ...,
     ) -> ClosureResult: ...
 
     @overload
@@ -102,6 +110,7 @@ class ClosureChecker:
         audit_context: AuditContext | None = ...,
         *,
         tracts: list[Tract],
+        skipped_courses: list[SkippedCourse] | None = ...,
     ) -> list[ClosureResult]: ...
 
     @classmethod
@@ -114,6 +123,7 @@ class ClosureChecker:
         audit_context: AuditContext | None = None,
         *,
         tracts: list[Tract] | None = None,
+        skipped_courses: list[SkippedCourse] | None = None,
     ) -> ClosureResult | list[ClosureResult]:
         """Verify traverse closure and perform all validation checks.
 
@@ -125,7 +135,10 @@ class ClosureChecker:
             stated_area_sq_ft: Stated area from deed (optional, for comparison)
             closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft)
             double_entry_calls: Optional independently-entered call set for guardrail F
-            audit_context: Optional audit context for recording check results
+            audit_context: Optional audit context for recording check results; its
+                skipped courses block closure like ``skipped_courses``
+            skipped_courses: Courses extraction could not parse; any skip blocks
+                traverse closure (see ``mp_verify.closure.verify_closure``)
 
         Returns:
             ClosureResult with all checks, computed values, and confidence_score.
@@ -143,6 +156,9 @@ class ClosureChecker:
         package_double_entry = (
             _package_calls(double_entry_calls) if double_entry_calls is not None else None
         )
+        package_skips = _package_skips(
+            [*(skipped_courses or []), *(audit_context.skipped_courses if audit_context else [])]
+        )
         results: list[ClosureResult]
         if tracts is not None:
             package_tracts = [
@@ -150,6 +166,7 @@ class ClosureChecker:
                     label=tract.label,
                     tract_type=tract.tract_type,
                     calls=_package_calls(tract.calls),
+                    skipped_courses=_package_skips(tract.skipped_courses),
                     stated_area_sq_ft=tract.stated_area_sq_ft,
                 )
                 for tract in tracts
@@ -163,6 +180,7 @@ class ClosureChecker:
                     closure_tolerance_ft=closure_tolerance_ft,
                     double_entry_calls=package_double_entry,
                     audit_context=scratch,
+                    skipped_courses=package_skips,
                 )
             ]
         else:
@@ -174,6 +192,7 @@ class ClosureChecker:
                         closure_tolerance_ft=closure_tolerance_ft,
                         double_entry_calls=package_double_entry,
                         audit_context=scratch,
+                        skipped_courses=package_skips,
                     )
                 )
             ]

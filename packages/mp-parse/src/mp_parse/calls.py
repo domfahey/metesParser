@@ -32,6 +32,7 @@ from mp_models import (
     CurveType,
     Decision,
     DeedCall,
+    SkippedCourse,
     Tract,
     Transformation,
 )
@@ -182,6 +183,53 @@ def _is_debug_logging_enabled() -> bool:
     return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
 
 
+def _record_skipped_course(
+    call_text: str,
+    *,
+    course: int,
+    source_course: int,
+    error_type: str,
+    error: str,
+    exc: BaseException | None,
+    tract_label: str | None,
+    audit_context: AuditContext | None,
+    skipped_courses: list[SkippedCourse] | None,
+) -> None:
+    """Record a course non-strict extraction could not parse; never drop it silently.
+
+    With nowhere to record the skip, verification could not learn of it, so the
+    course is rejected exactly as in strict mode.
+    """
+    if audit_context is None and skipped_courses is None:
+        raise ValueError(
+            f"Malformed course {source_course}: {call_text.strip()!r}: {error}; "
+            "skipped course not recorded (pass audit_context or skipped_courses)"
+        ) from exc
+    skip = SkippedCourse(
+        course=course,
+        source_course=source_course,
+        source_excerpt=call_text,
+        error_type=error_type,
+        error=error,
+        tract_label=tract_label,
+    )
+    payload = {
+        "course": course,
+        "call_preview": _call_preview(call_text),
+        "call_hash": _call_hash(call_text),
+        "error": error,
+        "error_type": error_type,
+    }
+    if _is_debug_logging_enabled():
+        logger.warning("Skipping malformed call", **payload, call_text=call_text, exc_info=exc)
+    else:
+        logger.warning("Skipping malformed call", **payload)
+    if audit_context is not None:
+        audit_context.skipped_courses.append(skip)
+    if skipped_courses is not None:
+        skipped_courses.append(skip)
+
+
 def _boundary_course_text(call_text: str) -> str:
     """Remove bearing references that describe a corner instead of the course."""
     starts = [
@@ -267,6 +315,8 @@ def _extract_calls_from_text(
     audit_context: AuditContext | None = None,
     strict: bool = True,
     course_start: int = 1,
+    skipped_courses: list[SkippedCourse] | None = None,
+    tract_label: str | None = None,
 ) -> list[DeedCall]:
     """Extract all calls from normalized legal description text.
 
@@ -278,6 +328,11 @@ def _extract_calls_from_text(
         distance_unit: Primary distance unit (feet, poles, etc.)
         audit_context: Optional audit context for recording parsing decisions
         strict: Raise with course context when a geometric course is malformed.
+            Otherwise the course is recorded as a ``SkippedCourse`` (in
+            ``audit_context`` and/or ``skipped_courses``) with its course number
+            reserved; with neither supplied it raises as in strict mode.
+        skipped_courses: Optional list receiving non-strict skipped courses.
+        tract_label: Tract label recorded on skipped courses.
 
     Returns:
         List of DeedCall objects
@@ -319,36 +374,46 @@ def _extract_calls_from_text(
                     raise ValueError(
                         f"Malformed course {source_course}: {call_text.strip()!r}: {exc}"
                     ) from exc
-                payload = {
-                    "course": course_num,
-                    "call_preview": _call_preview(call_text),
-                    "call_hash": _call_hash(call_text),
-                    "error": str(exc),
-                    "error_type": type(exc).__name__,
-                }
-                if _is_debug_logging_enabled():
-                    logger.warning(
-                        "Skipping malformed call",
-                        **payload,
-                        call_text=call_text,
-                        exc_info=exc,
-                    )
-                else:
-                    logger.warning("Skipping malformed call", **payload)
+                _record_skipped_course(
+                    call_text,
+                    course=course_num,
+                    source_course=source_course,
+                    error_type=type(exc).__name__,
+                    error=str(exc),
+                    exc=exc,
+                    tract_label=tract_label,
+                    audit_context=audit_context,
+                    skipped_courses=skipped_courses,
+                )
+                # Reserve the course number so the gap stays visible downstream.
+                course_num += 1
                 continue
 
             if call is None:
-                standalone_thence = re.fullmatch(r"\s*THENCE\s*", call_text, re.I)
+                standalone_thence = re.fullmatch(r"\s*THENCE\s*[:;,.]?\s*", call_text, re.I)
                 explicit_course = not standalone_thence and (
                     has_thence_marker or has_numbered_course_markers
                 )
-                if strict and (
+                if (
                     explicit_course
                     or extract_direction(call_text)
                     or re.search(r"\b(?:[NSEW])\s+\d", call_text, re.I)
                     or CURVE_KEYWORD_PATTERN.search(call_text)
                 ):
-                    raise ValueError(f"Malformed course {source_course}: {call_text.strip()!r}")
+                    if strict:
+                        raise ValueError(f"Malformed course {source_course}: {call_text.strip()!r}")
+                    _record_skipped_course(
+                        call_text,
+                        course=course_num,
+                        source_course=source_course,
+                        error_type="UnparsedCourse",
+                        error="no computable course could be parsed",
+                        exc=None,
+                        tract_label=tract_label,
+                        audit_context=audit_context,
+                        skipped_courses=skipped_courses,
+                    )
+                    course_num += 1
                 continue
 
             if is_exception_tract:
@@ -380,6 +445,7 @@ def extract_calls(
     *,
     audit_context: AuditContext | None = None,
     strict: bool = True,
+    skipped_courses: list[SkippedCourse] | None = None,
 ) -> tuple[list[DeedCall], list[Tract]]:
     """Extract all calls from normalized legal description text.
 
@@ -391,6 +457,11 @@ def extract_calls(
         distance_unit: Primary distance unit (feet, poles, etc.)
         audit_context: Optional audit context for recording parsing decisions
         strict: Raise with course context when a geometric course is malformed.
+            Otherwise each unparsed course is recorded as a ``SkippedCourse`` in
+            ``audit_context`` and/or ``skipped_courses`` (and on its ``Tract``),
+            keeps its course number, and blocks verification given that record.
+            With neither supplied, an unparsed course raises as in strict mode.
+        skipped_courses: Optional list receiving non-strict skipped courses.
 
     Returns:
         Tuple of (flat_calls, tracts).
@@ -408,7 +479,12 @@ def extract_calls(
     # Single-tract fast path: preserve backward-compatible behavior
     if len(segments) == 1 and segments[0][2] == TractType.MAIN:
         flat_calls = _extract_calls_from_text(
-            normalized, distance_unit, audit_context=audit_context, course_start=1, strict=strict
+            normalized,
+            distance_unit,
+            audit_context=audit_context,
+            course_start=1,
+            strict=strict,
+            skipped_courses=skipped_courses,
         )
         return flat_calls, []
 
@@ -417,13 +493,24 @@ def extract_calls(
     tract_objects: list[Tract] = []
 
     for segment_text, label, tract_type in segments:
+        recordable = audit_context is not None or skipped_courses is not None
+        tract_skips: list[SkippedCourse] = []
         tract_calls = _extract_calls_from_text(
-            segment_text, distance_unit, audit_context=audit_context, course_start=1, strict=strict
+            segment_text,
+            distance_unit,
+            audit_context=audit_context,
+            course_start=1,
+            strict=strict,
+            skipped_courses=tract_skips if recordable else None,
+            tract_label=label,
         )
+        if skipped_courses is not None:
+            skipped_courses.extend(tract_skips)
 
         if not tract_calls and strict:
             raise ValueError(f"Tract {label!r} has no computable calls")
-        if not tract_calls:
+        # A tract whose every course was skipped is kept so its skips block it.
+        if not tract_calls and not tract_skips:
             logger.warning(
                 "Empty tract after extraction — segment dropped",
                 tract_label=label,
@@ -440,6 +527,7 @@ def extract_calls(
             label=label,
             tract_type=tract_type,
             calls=tract_calls,
+            skipped_courses=tract_skips,
         )
         tract_objects.append(tract)
         all_calls.extend(tract_calls)

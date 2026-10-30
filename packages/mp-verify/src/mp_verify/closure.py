@@ -23,9 +23,11 @@ from typing import overload
 import structlog
 from mp_models import (
     AuditContext,
+    CheckResult,
     ClosureResult,
     DeedCall,
     Point,
+    SkippedCourse,
     Tract,
     VerificationAudit,
 )
@@ -201,6 +203,7 @@ def verify_tract(
     stated_area_sq_ft: float = 0.0,
     closure_tolerance_ft: float | None = None,
     audit_context: AuditContext | None = None,
+    skipped_courses: list[SkippedCourse] | None = None,
 ) -> ClosureResult:
     """Check one independent tract using every standard verification guardrail."""
     boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
@@ -209,7 +212,37 @@ def verify_tract(
         stated_area_sq_ft=stated_area_sq_ft,
         closure_tolerance_ft=closure_tolerance_ft,
         audit_context=audit_context,
+        skipped_courses=skipped_courses,
     )
+
+
+def _merge_skips(*groups: list[SkippedCourse]) -> list[SkippedCourse]:
+    """Combine skip records from every source once, preserving order."""
+    merged: list[SkippedCourse] = []
+    for group in groups:
+        merged.extend(skip for skip in group if skip not in merged)
+    return merged
+
+
+def _block_skipped_closure(
+    checks: list[CheckResult], skipped: list[SkippedCourse]
+) -> list[CheckResult]:
+    """Block traverse closure: the extracted calls omit courses the deed states."""
+    detail = "Traverse closure not determined: extraction skipped course(s) " + ", ".join(
+        str(skip.course) for skip in skipped
+    )
+    return [
+        CheckResult(
+            name="traverse_closure",
+            status="blocked",
+            reason="skipped_courses",
+            detail=detail,
+            inputs={"skipped_course_count": len(skipped)},
+        )
+        if check.name == "traverse_closure"
+        else check
+        for check in checks
+    ]
 
 
 @overload
@@ -221,6 +254,7 @@ def verify_closure(
     closure_tolerance_ft: float | None = ...,
     double_entry_calls: list[DeedCall] | None = ...,
     audit_context: AuditContext | None = ...,
+    skipped_courses: list[SkippedCourse] | None = ...,
 ) -> ClosureResult: ...
 
 
@@ -233,6 +267,7 @@ def verify_closure(
     closure_tolerance_ft: float | None = ...,
     double_entry_calls: list[DeedCall] | None = ...,
     audit_context: AuditContext | None = ...,
+    skipped_courses: list[SkippedCourse] | None = ...,
 ) -> list[ClosureResult]: ...
 
 
@@ -244,6 +279,7 @@ def verify_closure(
     closure_tolerance_ft: float | None = None,
     double_entry_calls: list[DeedCall] | None = None,
     audit_context: AuditContext | None = None,
+    skipped_courses: list[SkippedCourse] | None = None,
 ) -> ClosureResult | list[ClosureResult]:
     """Verify traverse closure and perform all validation checks.
 
@@ -253,7 +289,11 @@ def verify_closure(
         stated_area_sq_ft: Stated area from deed (optional, for comparison).
         closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft).
         double_entry_calls: Optional independently-entered call set for guardrail F.
-        audit_context: Optional audit context for recording check results.
+        audit_context: Optional audit context for recording check results; its
+            ``skipped_courses`` are honoured like ``skipped_courses``.
+        skipped_courses: Courses extraction could not parse. Any skip blocks
+            traverse closure and leaves misclosure, area and perimeter undetermined;
+            per tract, a tract's own skips and those labelled with it apply.
 
     Returns:
         ClosureResult when tracts is None (single-tract).
@@ -265,10 +305,15 @@ def verify_closure(
             audit_context.verification_audit = None
             audit_context.tract_verification_audits = []
         results: list[ClosureResult] = []
+        labelled = _merge_skips(
+            skipped_courses or [], audit_context.skipped_courses if audit_context else []
+        )
+        tract_labels = {tract.label for tract in tracts}
+        unplaced = {skip.tract_label for skip in labelled} - tract_labels
         for tract in tracts:
             # Scratch context per tract so tracts never overwrite each other's audit.
             scratch = (
-                audit_context.model_copy(update={"verification_audit": None})
+                audit_context.model_copy(update={"verification_audit": None, "skipped_courses": []})
                 if audit_context is not None
                 else None
             )
@@ -277,6 +322,11 @@ def verify_closure(
                 stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
                 closure_tolerance_ft=closure_tolerance_ft,
                 audit_context=scratch,
+                skipped_courses=_merge_skips(
+                    tract.skipped_courses,
+                    # A skip tied to no supplied tract cannot be placed: it blocks all.
+                    [skip for skip in labelled if skip.tract_label in (tract.label, *unplaced)],
+                ),
             )
             if audit_context is not None and scratch is not None and scratch.verification_audit:
                 audit_context.tract_verification_audits.append(
@@ -286,6 +336,11 @@ def verify_closure(
         return results
 
     tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
+    # Courses the extractor skipped are missing from ``calls``: a traverse of the
+    # rest is not the deed's boundary, so nothing derived from it is determined.
+    skipped = _merge_skips(
+        skipped_courses or [], audit_context.skipped_courses if audit_context else []
+    )
 
     main_calls = [c for c in calls if not c.is_exception and not c.is_tie_in]
     exception_calls = [c for c in calls if c.is_exception]
@@ -333,12 +388,16 @@ def verify_closure(
     misclosure_x = points[-1].x - points[0].x
     misclosure_y = points[-1].y - points[0].y
     misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
-    misclosure_available = not unpositioned
+    misclosure_available = not unpositioned and not skipped
     if not misclosure_available:
         # A broken chain gives no absolute positions: report no misclosure, not a wrong one.
         misclosure_x = misclosure_y = misclosure = 0.0
 
-    warnings: list[str] = []
+    warnings: list[str] = [
+        f"Course {skip.course}: skipped malformed course {skip.source_excerpt.strip()!r} "
+        f"({skip.error_type}); closure, area and perimeter are not determined"
+        for skip in skipped
+    ]
 
     for record in bad_chords:
         warnings.append(
@@ -405,6 +464,7 @@ def verify_closure(
         and not chord_only
         and not arc_undetermined
         and not unpositioned
+        and not skipped
     )
     area_sq_ft = 0.0
     area_acres = 0.0
@@ -435,7 +495,9 @@ def verify_closure(
             area_acres = 0.0
             warnings.append(f"Cannot calculate area: {e}")
 
-    perimeter_available = not chord_only and not arc_undetermined and not unpositioned
+    perimeter_available = (
+        not chord_only and not arc_undetermined and not unpositioned and not skipped
+    )
     perimeter = calculate_perimeter(main_calls) if perimeter_available else 0.0
 
     closure_passed = has_computable_traverse and misclosure < tolerance and misclosure_available
@@ -567,6 +629,8 @@ def verify_closure(
     if curve_blocks:
         check_results = block_curve_consistency(check_results, curve_blocks)
         curve_consistency_passed_val = False
+    if skipped:
+        check_results = _block_skipped_closure(check_results, skipped)
 
     closure_result = ClosureResult(
         misclosure_x_ft=misclosure_x,
