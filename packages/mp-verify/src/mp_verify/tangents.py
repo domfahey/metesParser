@@ -17,7 +17,7 @@ def is_spiral(call: DeedCall) -> bool:
     """Return True for a spiral, decided by its curve type alone.
 
     A spiral is never a circular arc and never a straight line, even when it states
-    no radius or curve direction (``DeedCall.is_curve()`` is then False). It is
+    no radius or curve direction (``DeedCall.is_curve()`` is still True). It is
     positioned only by a stated chord bearing and chord length; otherwise unpositioned.
     """
     return call.curve_type == "spiral"
@@ -34,7 +34,7 @@ def is_circular_curve(call: DeedCall) -> bool:
 
 def is_curved_course(call: DeedCall) -> bool:
     """Return True for any course that is not a straight line (circular curve or spiral)."""
-    return call.is_curve() or is_spiral(call)
+    return call.is_curve()
 
 
 def line_distance(call: DeedCall) -> float:
