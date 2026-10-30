@@ -12,6 +12,7 @@ from mp_models import ClosureResult, DeedCall
 from mp_models.constants import PERMANENT_MONUMENTS
 
 from .tangents import has_determined_direction
+from .traverse import is_chord_positioned
 
 
 def score_call_quality(call: DeedCall) -> str:
@@ -19,7 +20,10 @@ def score_call_quality(call: DeedCall) -> str:
 
     Scoring logic:
     - low: direction not determined (no stated bearing and not fixed by stated
-      curve elements) OR indefinite call
+      curve elements, and not positioned by a stated chord) OR indefinite call
+    - medium also: positioned by a stated chord only (chord-only curve or spiral):
+      the chord bearing is stated, but tangent and arc are not determined, so it
+      ranks below a fully determined course
     - medium: complete bearing but has meander flag or non-permanent monument
     - high: complete bearing with permanent or no monument, no flags
 
@@ -29,8 +33,11 @@ def score_call_quality(call: DeedCall) -> str:
     Returns:
         "high", "medium", or "low".
     """
-    if not has_determined_direction(call) or call.is_indefinite:
+    if call.is_indefinite:
         return "low"
+
+    if not has_determined_direction(call):
+        return "medium" if is_chord_positioned(call) else "low"
 
     if call.is_meander:
         return "medium"
@@ -87,8 +94,9 @@ def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> 
         checks_passed = sum([result.angle_check_passed, result.curve_consistency_passed])
     checks_score = checks_passed / 2.0
 
-    # Bearing completeness (25%)
-    complete = sum(1 for c in calls if has_determined_direction(c))
+    # Bearing completeness (25%): a stated chord bearing that positions the course
+    # counts as a stated direction (its lower quality is scored below).
+    complete = sum(1 for c in calls if has_determined_direction(c) or is_chord_positioned(c))
     bearing_score = complete / len(calls)
 
     # Call quality (15%)
