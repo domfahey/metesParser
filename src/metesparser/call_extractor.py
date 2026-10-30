@@ -515,6 +515,10 @@ class MonumentClassifier:
         return None
 
 
+_ARC_COMPUTED_NOTE = "arc length not stated - course distance computed from radius and delta"
+_ARC_COMPUTED_RULE = "curve: distance is the arc computed from the stated radius and delta"
+
+
 class CallExtractor:
     """Extract and structure deed calls from legal description text."""
 
@@ -835,6 +839,7 @@ class CallExtractor:
             return None, raw_direction
 
         arc_length_ft = curve_info.get("arc_length_ft")
+        arc_computed = False
         if isinstance(arc_length_ft, float) and arc_length_ft > 0.0:
             distance_ft = arc_length_ft
         elif curve_info.get("radius_ft") is not None and curve_info.get("delta_deg") is not None:
@@ -844,13 +849,15 @@ class CallExtractor:
                 props = BearingConverter.calculate_curve_properties(radius_ft, delta_deg=delta_deg)
             else:
                 raise ValueError("Curve info missing numeric radius/delta")
+            # The required course length is the arc fixed by the stated radius and
+            # delta. It is disclosed as computed; the unstated arc and chord are never
+            # stored, so verification has no derived element to cross-check.
             arc_length_ft = props["arc_length_ft"]
             if arc_length_ft is None:
                 raise ValueError("Curve props missing arc length")
             if arc_length_ft > 0.0:
                 distance_ft = arc_length_ft
-            curve_info.setdefault("arc_length_ft", props["arc_length_ft"])
-            curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
+                arc_computed = True
         elif positioned_by_chord and isinstance(stated_chord, float):
             # Chord-only curve: its course distance is the stated chord, never the
             # radius (the first distance in the text) or a derived arc.
@@ -898,6 +905,8 @@ class CallExtractor:
             note_parts.append("incomplete bearing - cardinal only")
         elif not note_parts and not parsed_bearing and not is_due_cardinal:
             note_parts.append("incomplete bearing")
+        if arc_computed:
+            note_parts.append(_ARC_COMPUTED_NOTE)
         notes = "; ".join(note_parts)
 
         if distance_ft <= 0.0:
@@ -1070,6 +1079,8 @@ class CallExtractor:
                 rule=(
                     "chord-only curve: distance is the stated chord length"
                     if call.is_chord_only_curve()
+                    else _ARC_COMPUTED_RULE
+                    if call.notes and _ARC_COMPUTED_NOTE in call.notes
                     else None
                 ),
             )
@@ -1314,16 +1325,14 @@ class CallExtractor:
                 arc_unit = _normalize_unit_token(arc_length_match.group(2))
                 arc_length = ConversionFactors.convert_to_feet(arc_raw, arc_unit)
 
-            props = BearingConverter.calculate_curve_properties(radius, delta_deg=delta_deg)
-            computed_arc_length = arc_length if arc_length is not None else props["arc_length_ft"]
-
+            # Only stated elements are stored; an unstated arc or chord stays None.
             curve_info = {
                 "direction": direction,
                 "radius_ft": radius,
                 "delta_deg": delta_deg,
-                "arc_length_ft": computed_arc_length,
-                "chord_length_ft": props["chord_length_ft"],
             }
+            if arc_length is not None:
+                curve_info["arc_length_ft"] = arc_length
 
         else:
             dir_match = re.search(r"curve\s+to\s+the\s+(left|right)", text, re.IGNORECASE)
@@ -1381,16 +1390,6 @@ class CallExtractor:
                     curve_info["radius_ft"] = BearingConverter.degree_of_curvature_to_radius(
                         doc_deg
                     )
-
-        radius_ft = curve_info.get("radius_ft")
-        curve_delta_deg = curve_info.get("delta_deg")
-        if isinstance(radius_ft, float) and isinstance(curve_delta_deg, float):
-            props = BearingConverter.calculate_curve_properties(
-                radius_ft, delta_deg=curve_delta_deg
-            )
-            if curve_info.get("arc_length_ft") is None:
-                curve_info["arc_length_ft"] = props["arc_length_ft"]
-            curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
 
         chord_bearing_match = re.search(
             r"(?:the\s+)?chord\s+(?:of\s+which\s+)?(?:bears|bearing)\s+(.+?)(?:[,\s]\s*(\d+(?:\.\d+)?)\s*(?:feet|ft))?(?:\s*$|\s*(?:to|along|;|\.))",
