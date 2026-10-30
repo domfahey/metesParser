@@ -103,8 +103,8 @@ class TestCurveExtraction:
         assert call.along.startswith("a curve to the right")
         assert call.notes == "incomplete bearing"
 
-    def test_curve_without_arc_length_uses_computed_value(self):
-        """When only radius and delta are supplied, compute the arc length."""
+    def test_curve_without_arc_length_computes_distance_only(self):
+        """Radius and delta fix the course distance; the unstated arc is not stored."""
         call_text = (
             "along a curve to the left having a radius of 100.00 feet "
             "and a delta angle of 45°00' to a point"
@@ -114,9 +114,12 @@ class TestCurveExtraction:
         assert call is not None
         expected_arc = 100.0 * math.radians(45.0)
         assert math.isclose(call.distance_ft, expected_arc, abs_tol=0.01)
-        assert call.arc_length_ft is not None
-        assert math.isclose(call.arc_length_ft, expected_arc, abs_tol=0.01)
-        assert call.notes == "incomplete bearing"
+        assert call.arc_length_ft is None
+        assert call.chord_length_ft is None
+        assert call.notes == (
+            "incomplete bearing; "
+            "arc length not stated - course distance computed from radius and delta"
+        )
 
     @pytest.mark.curve
     def test_curve_with_full_properties(self):
