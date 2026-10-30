@@ -941,6 +941,17 @@ Five findings plus one found while fixing, fixed red-green on `fix/code-review-2
 - **Spirals in verification and plot:** one `is_spiral` predicate (curve_type alone) — a spiral is never a circular arc or a straight line; positioned only by a stated chord bearing + length (nothing drawn, area/perimeter not determined); curve consistency reports `spiral_geometry_unverified`; plot treats chord-stated spirals like chord-only curves so verify and plot position the same spirals; the circular 2R chord bound is not applied to spirals (`d2a1e0f`).
 - **No radius as course distance:** `_course_distance_text` strips radius, radial, tangent-length and stated-chord distances before generic distance extraction on curve calls. A spiral with no stated length keeps `distance_ft=None` (allowed only in that case) with "spiral length not stated - course distance not determined"; verification treats it as unpositioned; CSV leaves the value blank and CSV import rejects it (`5d3711f`). Previously such a course got the radius (1000 ft) as its length.
 
+### PR #60 eighteenth review (2026-10-30)
+Five findings plus three found while fixing, fixed red-green on `fix/code-review-2026-10-29`:
+- **CSV `curve_type`:** appended as the 22nd (last) CSV column so spirals survive export/import; the first 21 columns keep their order and legacy 21-column CSVs still import (`8d3e825`). Schema change — documented in DEVELOPER_REFERENCE, ARCHITECTURE, API, CLAUDE_PLUGIN and README.
+- **Blank distance on import:** a spiral with no stated length round-trips its blank distance; non-strict CSV import records rejected rows (`rejected_rows`) or raises — never drops a row silently (`8d3e825`).
+- **Stated curve length:** a radius+delta curve that states its length keeps it as the stated arc (verification cross-checks it) instead of the computed R·δ (`fc75587`).
+- **"center line" is not a curve element:** only center/centre [point] or center of the/said curve/circle clauses strip a distance (`fc75587`).
+- **Scripts:** extraction and Pennbrook scripts print "not determined" for an undetermined distance (`40e3bd6`); the run-registry backfill no longer invents a 0.0 distance and reports the deed as not backfillable (`8b23526`).
+- **Radius from a radius-point clause:** the length after a radial bearing is the radius; a conflicting stated radius is kept and flagged (`de08631`).
+- **Skipped courses fail closed:** non-strict extraction records each unparseable course (`SkippedCourse` on `AuditContext`/`Tract`, course number reserved) or raises if there is nowhere to record it; verification blocks `traverse_closure` (`skipped_courses`), makes misclosure/area/perimeter unavailable and names the course; audit HTML lists skips (`5cd1cf4`). No production caller uses non-strict extraction.
+- **Standalone "thence:" marker:** punctuated THENCE markers are markers, not malformed courses; 1350 Brace Rd and 38 Birchall Dr now parse in strict mode and match ground truth (`9f1db1d`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
