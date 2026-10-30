@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 from mp_parse.calls import extract_curve_info as package_extract_curve_info
 
@@ -18,9 +16,11 @@ ARC_CHORD = (
     "THENCE along a curve to the right having a radius of 100.00 feet, an arc length of "
     "50.00 feet, the chord of which bears N 45°00'00\" E 49.00 feet{along} to a point"
 )
-# delta = arc / radius = 0.5 rad; right curve tangent = chord - delta / 2.
-ARC_DELTA_DEG = math.degrees(0.5)
-ARC_TANGENT_AZ = 45.0 - ARC_DELTA_DEG / 2.0
+# No tangent is stated: none is derived or stored (round 21); verification
+# positions the curve by its chord bearing and delta (arc / radius).
+TANGENT_NOT_STATED = (
+    "tangent bearing not stated - curve positioned by chord and delta in verification"
+)
 ALONG = " along the Northerly line of Pennbrook Drive"
 
 
@@ -44,13 +44,15 @@ def test_explicit_delta_after_chord_bearing_is_still_read(curve_info):
 
 @pytest.mark.parametrize("parse", PARSERS)
 @pytest.mark.parametrize("along", ["", ALONG])
-def test_tangent_uses_delta_computed_from_arc_and_radius(parse, along):
+def test_arc_and_radius_curve_keeps_tangent_unstated(parse, along):
     call = parse(ARC_CHORD.format(along=along) + CLOSING)[0]
-    assert call.bearing_azimuth_deg_from_north == pytest.approx(ARC_TANGENT_AZ)
+    assert call.bearing_azimuth_deg_from_north is None
     assert call.bearing_quadrant is None
     assert call.delta_deg is None
-    assert "tangent bearing derived from chord bearing and delta" in (call.notes or "")
-    assert "delta computed from arc length and radius" in (call.notes or "")
+    assert call.arc_length_ft == pytest.approx(50.0)
+    assert call.chord_bearing == "N 45°00'00\" E"
+    assert TANGENT_NOT_STATED in (call.notes or "")
+    assert "tangent bearing derived" not in (call.notes or "")
 
 
 @pytest.mark.parametrize("parse", PARSERS)
@@ -111,9 +113,9 @@ def test_chord_only_curve_without_derivable_tangent_is_indefinite(parse, monkeyp
 
 
 @pytest.mark.parametrize("parse", PARSERS)
-def test_derived_tangent_curve_stays_definite(parse):
+def test_chord_and_delta_curve_stays_definite(parse):
     call = parse(ARC_CHORD.format(along="") + CLOSING)[0]
-    assert call.bearing_azimuth_deg_from_north is not None
+    assert call.bearing_azimuth_deg_from_north is None
     assert call.is_indefinite is False
 
 
@@ -124,8 +126,6 @@ RADIAL_CLAUSES = [
     "to the center point which bears S 10° W,",
     "to the centre point which bears S 10° W,",
 ]
-# left curve, arc 50 / radius 500 => delta 0.1 rad; tangent = chord + delta/2.
-RADIAL_TANGENT_AZ = 80.0 + math.degrees(0.1) / 2.0
 
 
 @pytest.mark.parametrize("parse", PARSERS)
@@ -137,6 +137,7 @@ def test_radial_bearing_is_not_a_stated_tangent(parse, clause):
     )
     call = parse(text + CLOSING)[0]
     # Neither the chord nor the radial bearing is taken as the tangent.
-    assert call.bearing_azimuth_deg_from_north == pytest.approx(RADIAL_TANGENT_AZ)
+    assert call.bearing_azimuth_deg_from_north is None
     assert call.bearing_quadrant is None
-    assert "tangent bearing derived from chord bearing and delta" in (call.notes or "")
+    assert call.chord_bearing == "N 80° E"
+    assert TANGENT_NOT_STATED in (call.notes or "")

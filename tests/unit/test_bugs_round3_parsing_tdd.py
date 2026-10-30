@@ -75,8 +75,9 @@ def test_curve_without_initial_tangent_keeps_chord_bearing_for_closure(parse, ve
         "141.421356 feet; THENCE due South 100 feet; "
         "THENCE due West 100 feet to the point of beginning."
     )
-    # Chord-only bearing is not the tangent: derived tangent = 45 - 90/2 = 0.
-    assert calls[0].bearing_azimuth_deg_from_north == pytest.approx(0.0, abs=1e-6)
+    # The chord bearing is not the tangent, and no tangent is derived (round 21):
+    # verification positions the curve by its chord and delta.
+    assert calls[0].bearing_azimuth_deg_from_north is None
     assert calls[0].chord_bearing == "N 45° E"
     result = verify(calls)
     assert result.is_fully_verified()
@@ -141,8 +142,8 @@ def test_chord_bearing_phrasing_populates_chord_bearing_and_closes(parse, verify
     assert calls[0].chord_bearing is not None
     assert calls[0].chord_bearing.replace("°", " ").split()[0] == "N"
     assert calls[0].chord_length_ft == pytest.approx(70.71)
-    # right curve, delta 90: tangent = chord (45) - delta/2 = 0
-    assert calls[0].bearing_azimuth_deg_from_north == pytest.approx(0.0, abs=1e-6)
+    # No tangent is stated, so none is derived or stored (round 21).
+    assert calls[0].bearing_azimuth_deg_from_north is None
     assert calls[0].bearing_quadrant is None
     result = verify(calls)
     assert result.misclosure_ft < 0.1

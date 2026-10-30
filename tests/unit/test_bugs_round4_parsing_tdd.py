@@ -183,16 +183,18 @@ def test_repeated_same_unit_measurements_are_not_summed_without_and(parse):
 
 @pytest.mark.parametrize("parse", PARSERS)
 @pytest.mark.parametrize("qualifier", ["approximately ", ""])
-def test_derived_tangent_note_survives_meander_or_approximate_note(parse, qualifier):
-    # PR #60 review: the derivation disclosure was replaced by the meander note.
+def test_tangent_not_stated_note_survives_meander_or_approximate_note(parse, qualifier):
+    # PR #60 review: the tangent disclosure was replaced by the meander note.
     call = parse(
         f"THENCE a curve to the right, {qualifier}radius of 50 feet, delta angle of 90°, "
         "chord bearing North 45° East 70.71 feet; THENCE due South 50 feet; "
         "THENCE due West 50 feet to the point of beginning."
     )[0]
-    assert call.bearing_azimuth_deg_from_north == pytest.approx(0.0, abs=1e-6)
+    assert call.bearing_azimuth_deg_from_north is None
     assert call.bearing_quadrant is None
-    assert "tangent bearing derived from chord bearing and delta" in (call.notes or "")
+    assert "tangent bearing not stated - curve positioned by chord and delta in verification" in (
+        call.notes or ""
+    )
     if qualifier:
         assert "meander / approximate" in call.notes
 
@@ -206,10 +208,13 @@ def test_abbreviated_chord_bearing_is_not_used_as_tangent(parse):
     )
     a = parse(text.format(chord="N 45°00'00\" E"))[0]
     b = parse(text.format(chord="North 45°00'00\" East"))[0]
-    assert a.bearing_azimuth_deg_from_north == pytest.approx(0.0, abs=1e-6)
-    assert a.bearing_azimuth_deg_from_north == b.bearing_azimuth_deg_from_north
+    assert a.bearing_azimuth_deg_from_north is None
+    assert b.bearing_azimuth_deg_from_north is None
+    assert a.chord_bearing is not None and b.chord_bearing is not None
     assert a.bearing_quadrant is None
-    assert "tangent bearing derived from chord bearing and delta" in (a.notes or "")
+    assert "tangent bearing not stated - curve positioned by chord and delta in verification" in (
+        a.notes or ""
+    )
 
 
 @pytest.mark.parametrize("parse", PARSERS)

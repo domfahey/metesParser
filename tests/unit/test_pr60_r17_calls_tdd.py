@@ -48,7 +48,8 @@ def test_chord_word_orders_record_chord_not_tangent(parse, clause):
     assert call.chord_bearing is not None
     assert bearing_to_azimuth(call.chord_bearing) == pytest.approx(45.0, abs=1e-9)
     assert call.chord_length_ft == 51.76
-    assert call.bearing_azimuth_deg_from_north == pytest.approx(30.0, abs=1e-3)
+    # The chord is never the tangent, and no tangent is derived (round 21).
+    assert call.bearing_azimuth_deg_from_north is None
 
 
 @pytest.mark.parametrize(

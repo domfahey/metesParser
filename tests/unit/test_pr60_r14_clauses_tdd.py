@@ -73,14 +73,14 @@ CHORD_ROWS = [
 
 
 @pytest.mark.parametrize(("clause", "chord_az", "chord_len"), CHORD_ROWS)
-def test_chord_clause_records_chord_and_derives_tangent(parse, clause, chord_az, chord_len):
+def test_chord_clause_records_chord_and_no_tangent(parse, clause, chord_az, chord_len):
     call = parse(CURVE.format(clause=clause))
     assert call is not None
     assert call.chord_bearing is not None
     assert bearing_to_azimuth(call.chord_bearing) == pytest.approx(chord_az, abs=1e-9)
     assert call.chord_length_ft == chord_len
-    # Right curve: tangent = chord - delta / 2; never the chord itself.
-    assert call.bearing_azimuth_deg_from_north == pytest.approx(chord_az - 15.0, abs=1e-3)
+    # The chord is never the tangent, and no tangent is derived (round 21).
+    assert call.bearing_azimuth_deg_from_north is None
 
 
 RADIAL_ROWS = [
@@ -155,7 +155,8 @@ def test_radius_point_without_bearing_on_curve_records_nothing(parse):
         "point of a curve"
     )
     assert call.radial_bearing is None
-    assert call.bearing_azimuth_deg_from_north == pytest.approx(30.0, abs=1e-3)
+    assert call.bearing_azimuth_deg_from_north is None
+    assert call.chord_bearing is not None
 
 
 def _bearing_heavy_text(tokens: int) -> str:
