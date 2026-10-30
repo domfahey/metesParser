@@ -42,15 +42,51 @@ CurveType = Literal["simple", "compound", "reverse", "spiral"]
 # closing course carries it verbatim; verification reports the exception as not
 # applied, so the gross boundary is never mistaken for the deed's net parcel.
 UNAPPLIED_EXCEPTION_NOTE_PREFIX = "exception not applied: "
+# Notes prefix for an easement described by its own courses: it is its own tract,
+# never part of the boundary.
+SEPARATE_EASEMENT_NOTE_PREFIX = "easement, not part of the boundary: "
+# Notes prefixes for deed wording kept verbatim beside a course.
+RECORD_CALL_NOTE_PREFIX = "record call: "
+PASSING_CALL_NOTE_PREFIX = "passing call: "
+PARENTHETICAL_NOTE_PREFIX = "parenthetical: "
+# A note with one of these prefixes carries deed wording verbatim, which may itself
+# hold "; " ("EXCEPTING the West 10 feet thereof; conveyed to the County"). Such a
+# note runs to the next "; " that starts another verbatim note (or the fixed
+# incomplete-bearing note), never to the first "; " in its wording.
+VERBATIM_NOTE_PREFIXES: tuple[str, ...] = (
+    RECORD_CALL_NOTE_PREFIX,
+    PASSING_CALL_NOTE_PREFIX,
+    PARENTHETICAL_NOTE_PREFIX,
+    UNAPPLIED_EXCEPTION_NOTE_PREFIX,
+    SEPARATE_EASEMENT_NOTE_PREFIX,
+)
+_NOTE_BOUNDARY_PREFIXES = (*VERBATIM_NOTE_PREFIXES, "incomplete bearing")
+
+
+def split_notes(notes: str | None) -> list[str]:
+    """Split a call's ``notes`` into its notes, keeping verbatim deed wording whole.
+
+    Notes are joined with "; ". A fixed note ends at the next "; "; a verbatim note
+    (``VERBATIM_NOTE_PREFIXES``) ends only at a "; " followed by a known note prefix.
+    ``"; ".join(split_notes(notes)) == notes``.
+    """
+    if not notes:
+        return []
+    parts: list[str] = []
+    for piece in notes.split("; "):
+        if parts and parts[-1].startswith(VERBATIM_NOTE_PREFIXES):
+            if not piece.startswith(_NOTE_BOUNDARY_PREFIXES):
+                parts[-1] = f"{parts[-1]}; {piece}"
+                continue
+        parts.append(piece)
+    return parts
 
 
 def unapplied_exceptions(notes: str | None) -> list[str]:
     """Return the verbatim stated exceptions a call's notes record as not applied."""
-    if not notes:
-        return []
     return [
         part[len(UNAPPLIED_EXCEPTION_NOTE_PREFIX) :]
-        for part in notes.split("; ")
+        for part in split_notes(notes)
         if part.startswith(UNAPPLIED_EXCEPTION_NOTE_PREFIX)
     ]
 

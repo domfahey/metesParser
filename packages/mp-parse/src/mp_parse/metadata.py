@@ -2067,11 +2067,27 @@ _WIDTH_GROUP = rf"(?P<width>{LENGTH_NUMBER})"
 # Unit: feet or ft.
 _UNIT_GROUP = r"(?:feet|ft)"
 
-# "thereof", "deeded for roadway", "thereof taken for road purposes": the
-# strip's own trailing wording, kept with it.
+# The whole lead of a strip, kept verbatim with it: "EXCEPT", "and except",
+# "LESS AND EXCEPT", "SAVE AND EXCEPT", "EXCEPTING AND RESERVING", "EXCEPTING
+# THEREFROM", "excepting thereout and therefrom".
+_STRIP_LEAD = (
+    r"(?:(?:less|save)\s+and\s+|and\s+)?except(?:ing)?"
+    r"(?:\s+and\s+reserving)?(?:\s+(?:thereout\s+and\s+)?therefrom)?"
+)
+# What the strip is taken from: "thereof", "of said lot", "of the above described
+# premises", "of the herein described tract".
+_STRIP_OBJECT = (
+    r"(?:\s+(?:thereof|of\s+(?:(?:said|the|this)\s+)?"
+    r"(?:(?:above|herein(?:above|before)?)[\s-]+described\s+)?"
+    r"(?:lot|premises|tract|parcel|land|lands|property)))?"
+)
+# The strip's own trailing purpose: "deeded for roadway", "for road purposes",
+# "conveyed for ...", "taken for ...", "; conveyed to the County".
 _PURPOSE_TAIL = (
-    r"(?:\s+(?P<purpose>deeded\s+for\s+[^.;,]+?"
-    r"|thereof(?:\s+(?:taken|deeded|conveyed|used|reserved|dedicated)\s+for\s+[^.;,]+?)?))?"
+    r"(?:(?:\s*[,;]\s*|\s+)(?P<purpose>"
+    r"(?:heretofore\s+)?(?:taken|deeded|conveyed|used|reserved|dedicated|granted)"
+    r"\s+(?:for|to)\s+[^.;,]+?"
+    r"|for\s+[^.;,]+?\s+purposes))?"
 )
 # A strip ends its clause: more wording ("of said Lot in even width ...") makes it
 # part of a longer exception, which is not read as a strip.
@@ -2090,27 +2106,18 @@ class _StripException(TypedDict):
 # match produces one _StripException dict.
 _STRIP_PATTERNS: list[re.Pattern[str]] = [
     # "except the East 20 feet [deeded for roadway]"
-    # "except the South 30 feet thereof"
-    # Also covers "and except the ..." and "LESS AND EXCEPT the ..."
+    # "except the South 30 feet thereof", "SAVE AND EXCEPT the westerly 10 feet thereof"
+    # "LESS AND EXCEPT the North 10 feet of said lot conveyed for road purposes"
+    # "EXCEPTING THEREFROM the Northerly 10 feet of the above described premises ..."
     re.compile(
-        r"(?:(?:less\s+)?and\s+)?except(?:ing)?\s+(?:the\s+)"
+        _STRIP_LEAD
+        + r"\s+(?:the\s+)"
         + _DIRECTION_GROUP
         + r"\s+"
         + _WIDTH_GROUP
         + r"\s+"
         + _UNIT_GROUP
-        + _PURPOSE_TAIL
-        + _STRIP_END,
-        re.IGNORECASE,
-    ),
-    # "excepting therefrom the West 25 feet", "excepting thereout and therefrom the ..."
-    re.compile(
-        r"except(?:ing)?\s+(?:thereout\s+and\s+)?therefrom\s+(?:the\s+)"
-        + _DIRECTION_GROUP
-        + r"\s+"
-        + _WIDTH_GROUP
-        + r"\s+"
-        + _UNIT_GROUP
+        + _STRIP_OBJECT
         + _PURPOSE_TAIL
         + _STRIP_END,
         re.IGNORECASE,

@@ -198,6 +198,100 @@ def easement_description_spans(text: str) -> list[tuple[int, int]]:
     return spans
 
 
+# The whole lead of a stated exception ("SAVE AND EXCEPT", "ALSO EXCEPTING").
+_STATED_EXCEPT_LEAD = re.compile(
+    r"\b(?:(?:ALSO|AND|BUT)\s+)?(?:(?:LESS|SAVE)\s+AND\s+)?EXCEPT(?:ING)?\b", re.IGNORECASE
+)
+# A stated exception's clause ends at a period before a new sentence or the text's end
+# (never at a decimal point or "Vol. 12").
+_CLAUSE_SENTENCE_END = re.compile(r"\.(?=\s+[A-Z(]|\s*$)")
+# A described traverse: any THENCE, or a quadrant bearing.
+_TRAVERSE_WORDING = re.compile(
+    r"\bTHENCE\b|\b[NS]\s*\.?\s*\d{1,3}\s*(?:°|deg\b|degrees?\b)", re.IGNORECASE
+)
+_CLAUSE_START_BEFORE = re.compile(r"(?:^|[.;:\n])\s*$")
+
+
+def stated_exception_spans(text: str) -> list[tuple[int, int]]:
+    """Return the spans of stated exceptions that describe no traverse.
+
+    A stated exception opens a clause ("... to the point of beginning, EXCEPT the
+    South 43.65 feet of said Lot in even width conveyed to Jones.") after a closed
+    description. When no THENCE or bearing follows before the next structural
+    clause, tract heading or easement description, it describes no course: reading
+    its wording as a course invents one, and splitting on it makes an exception
+    tract without calls. Its span runs from its lead to the end of its sentence.
+    An EXCEPT inside an open description qualifies that description and is kept.
+    """
+    leads = list(_STATED_EXCEPT_LEAD.finditer(text))
+    if not leads:
+        return []
+    stops = sorted(
+        {
+            *(m.start() for m in leads if not _is_lot_qualifier_except(text, m)),
+            *(m.end() - len(m.group().lstrip(";\n. \t")) for m in _ADDITION_START.finditer(text)),
+            *(position for position, _, _ in find_tract_markers(text)),
+            *(
+                m.start("open") if m["open"] else m.start("also")
+                for m in _EASEMENT_OPENER.finditer(text)
+            ),
+        }
+    )
+    spans: list[tuple[int, int]] = []
+    for lead in leads:
+        start = lead.start()
+        if spans and start < spans[-1][1]:
+            continue
+        prefix = text[:start]
+        openings = [
+            *(m.end() for m in _beginning_starts(prefix)),
+            *(m.end() for m in _COMMENCING.finditer(prefix)),
+            *(m.end() for m in _THENCE_WORD.finditer(prefix)),
+        ]
+        closure = list(_POB_CLOSE_PATTERN.finditer(prefix, max(openings))) if openings else []
+        if not closure:
+            continue
+        # At a clause start, or directly after the closure ("... beginning, except ...").
+        between = prefix[closure[-1].end() :]
+        if not (_CLAUSE_START_BEFORE.search(prefix) or not between.strip(" \t\n,;:.")):
+            continue
+        extent_end = next((stop for stop in stops if stop > start), len(text))
+        if _TRAVERSE_WORDING.search(text, lead.end(), extent_end):
+            continue
+        sentence_end = _CLAUSE_SENTENCE_END.search(text, lead.end(), extent_end)
+        end = (
+            sentence_end.start()
+            if sentence_end
+            else start + len(text[start:extent_end].rstrip(" \t\n.;,:"))
+        )
+        spans.append((start, end))
+    return spans
+
+
+def stated_clause_end(text: str, end: int) -> int:
+    """Return where the clause of wording ending at ``end`` ends.
+
+    Wording continued after a comma or semicolon ("EXCEPT the North 10 feet thereof,
+    conveyed to X by deed recorded in Book 12, page 4.") belongs to the clause up to
+    its sentence end, unless a traverse, a structural clause or a tract heading
+    starts before it. Otherwise the clause ends at ``end``.
+    """
+    if text[end : end + 1] not in (",", ";"):
+        return end
+    sentence_end = _CLAUSE_SENTENCE_END.search(text, end)
+    stop = sentence_end.start() if sentence_end else len(text.rstrip(" \t\n.;,:"))
+    rest = text[end:stop]
+    if (
+        _TRAVERSE_WORDING.search(rest)
+        or _STATED_EXCEPT_LEAD.search(rest)
+        or _ADDITION_START.search(rest)
+        or _EASEMENT_OPENER.search(rest)
+        or find_tract_markers(rest)
+    ):
+        return end
+    return end + len(rest.rstrip(" \t\n;,:"))
+
+
 def _separate_easements(
     segments: list[tuple[str, str, TractType]],
 ) -> list[tuple[str, str, TractType]]:
@@ -523,35 +617,58 @@ def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
     return blocks
 
 
+# Wording between an easement and the description after it ("ALSO all that lot")
+# is that description's lead-in; punctuation alone is no lead-in.
+_LEAD_IN_PUNCTUATION = " \t\n.;,:"
+
+
 def _with_unassigned_course_text(
     blocks: list[tuple[int, int]], text: str
-) -> list[tuple[int, int, bool]]:
+) -> list[tuple[int, int, TractType | None, int]]:
     """Return blocks plus any text between or around them that holds courses.
 
-    Each entry is (start, end, is_block). Course text outside every block (an
-    unclosed description, a block dropped for an intervening BEGINNING) is kept
-    as its own span so it is never silently lost; text without a course
-    (schedule headings, recitals) is still dropped.
+    Each entry is (start, end, kind, typed_at): kind None for a BEGINNING block,
+    EASEMENT for an easement description, MAIN for other course text; typed_at is
+    where the wording that types a block ends (its BEGINNING). Course text outside
+    every block (an unclosed description, a block dropped for an intervening
+    BEGINNING) is kept as its own span so it is never silently lost; text without a
+    course (schedule headings, recitals) is still dropped. When a gap's only courses
+    are easement descriptions, each is its own span and the wording left after the
+    last ("ALSO all that lot") is the following block's lead-in, never a tract.
     """
-    spans: list[tuple[int, int, bool]] = []
+    spans: list[tuple[int, int, TractType | None, int]] = []
+    easements = easement_description_spans(text)
 
-    def keep_gap(start: int, end: int) -> None:
+    def keep_gap(start: int, end: int, before_block: bool) -> int | None:
+        """Keep the gap's course text; return the following block's lead-in start."""
         gap = text[start:end]
-        if _THENCE_COURSE.search(gap):
-            logger.warning(
-                "Course text outside every BEGINNING block; keeping it as an unlabelled tract",
-                position=start,
-                preview=gap.strip()[:120],
-                characters=len(gap.strip()),
-            )
-            spans.append((start, end, False))
+        if not _THENCE_COURSE.search(gap):
+            return None
+        inside = [(s, e) for s, e in easements if start <= s and e <= end]
+        remainder = gap
+        for s, e in inside:
+            remainder = remainder[: s - start] + " " * (e - s) + remainder[e - start :]
+        if inside and not _THENCE_COURSE.search(remainder):
+            spans.extend((s, e, TractType.EASEMENT, s) for s, e in inside)
+            tail = inside[-1][1]
+            while tail < end and text[tail] in _LEAD_IN_PUNCTUATION:
+                tail += 1
+            return tail if before_block and tail < end else None
+        logger.warning(
+            "Course text outside every BEGINNING block; keeping it as an unlabelled tract",
+            position=start,
+            preview=gap.strip()[:120],
+            characters=len(gap.strip()),
+        )
+        spans.append((start, end, TractType.MAIN, start))
+        return None
 
     cursor = 0
     for start, end in blocks:
-        keep_gap(cursor, start)
-        spans.append((start, end, True))
+        lead_in = keep_gap(cursor, start, before_block=True)
+        spans.append((start if lead_in is None else lead_in, end, None, start))
         cursor = end
-    keep_gap(cursor, len(text))
+    keep_gap(cursor, len(text), before_block=False)
     return spans
 
 
@@ -563,7 +680,8 @@ def label_beginning_blocks(
 
     Inspects the text preceding each block to detect ALSO/EXCEPT keywords
     and assign the correct TractType. Course text outside every block is kept
-    under the unlabelled-tract label (numbered when there is more than one).
+    under the unlabelled-tract label (numbered when there is more than one); an
+    easement description between blocks is an easement tract.
     """
     result: list[tuple[str, str, TractType]] = []
     main_count = 0
@@ -571,9 +689,13 @@ def label_beginning_blocks(
     addition_count = 0
     unlabelled_count = 0
 
-    for start, end, is_block in _with_unassigned_course_text(blocks, text):
+    for start, end, kind, typed_at in _with_unassigned_course_text(blocks, text):
         segment = text[start:end].strip()
-        if not is_block:
+        if kind == TractType.EASEMENT:
+            # Numbered with every other easement by _separate_easements.
+            result.append((segment, EASEMENT_LABEL, TractType.EASEMENT))
+            continue
+        if kind is not None:
             unlabelled_count += 1
             label = UNLABELLED_TRACT_LABEL
             if unlabelled_count > 1:
@@ -581,8 +703,8 @@ def label_beginning_blocks(
             result.append((segment, label, TractType.MAIN))
             continue
 
-        # Check text before this block for easement/EXCEPT/ALSO wording
-        tract_type = _tract_type_before(text[max(0, start - 80) : start])
+        # Check text before this block (and its lead-in) for easement/EXCEPT/ALSO wording
+        tract_type = _tract_type_before(text[max(0, typed_at - 80) : typed_at])
         if tract_type == TractType.EASEMENT:
             # Numbered with every other easement by _separate_easements.
             label = EASEMENT_LABEL
