@@ -795,6 +795,19 @@ Ten findings from a second review of PR #60, fixed red-green on `fix/code-review
 - **Concurrent publish:** `publish_delivery` holds a per-delivery-id `flock` across write and discard, and re-writes every artifact through the write-once path after the manifest, so a manifest never references a missing file (`5b9dd54`). Without `fcntl` (Windows) only the re-write check applies.
 - **Cleanup:** one geographic Transformer per projection; `mp_review` reuses `mp_verify.webmap.feature_vertices` (`f57864f`).
 
+### PR #60 third review (2026-10-29)
+Ten findings from a third review of PR #60, fixed red-green on `fix/code-review-2026-10-29`:
+- **Fabricated tangent (critical):** curve delta is never read from a bearing's degrees; only a stated delta/central angle sets `delta_deg`. Without one, the tangent is derived from arc/radius (noted as such, `delta_deg` stays None) or left None (`7dbd98a`, package and monolith).
+- **Chord-only test:** only a numeric quadrant/DMS or "due" bearing counts as a separately stated tangent, so "along the Northerly line of …" no longer keeps the chord as the tangent (`7dbd98a`).
+- **Standalone tract headings (#69):** a marker on its own line after of/in/being/with is a heading unless an earlier BEGINNING is still open (`0a0470a`). Limitation: relies on a "point of beginning" closure phrase; a prior tract without one keeps the next standalone marker as a reference.
+- **GeoJSON-only failure:** if no coordinate operation serves the deed extent (or a grid is missing), only GeoJSON is omitted, recorded as a format-level `DeliveryOmission`; required layers, `required_appearance` or a GeoJSON-only request still fail (`7e0b10c`).
+- **Rotated rasters:** one shared `mp_export.raster_guard.require_upright_raster` runs in the dashboard, delivery SVG/PDF and map evidence renderers; a rotated raster fails the render, including optional ones (`62c8533`). Follow-up: omit optional rotated rasters with a recorded omission instead.
+- **Mixed compounds (#70):** `10 chains 50 links and 3 perches` sums to 742.5 ft instead of dropping the chains (`207bc74`).
+- **Blocked chord check:** an unparseable chord bearing blocks `curve_consistency` but no longer marks `traverse_closure` failed (`e58c9bb`).
+- **Corridor area of use:** checked against every boundary point the export samples, not 5 samples per primitive (`7e0b10c`).
+- **Per-tract audits (#73):** `AuditContext.tract_verification_audits` records one labelled `VerificationAudit` per tract in package and monolith (`e58c9bb`).
+- **Cleanup:** one projection build per publish and per replay; `prepare_web_map` uses `bounds_of` (`7e0b10c`, `523bf0b`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
