@@ -1349,6 +1349,16 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
     ):
         curve_info["curve_type"] = "spiral"
 
+    # Non-tangent/radial data describes a curve; a straight course that names the
+    # next curve's radius point must not carry it (the clause is still stripped
+    # from the course text, and stays in the verbatim call text).
+    is_curve = any(
+        curve_info.get(key) is not None
+        for key in ("direction", "radius_ft", "delta_deg", "arc_length_ft", "chord_length_ft")
+    )
+    if not is_curve:
+        return curve_info
+
     if re.search(r"\bnon-?tangent\b", text, re.IGNORECASE):
         curve_info["non_tangent"] = True
 

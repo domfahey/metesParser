@@ -251,3 +251,29 @@ def test_word_symbol_pass_is_removed():
     for module in (package_calls, monolith_calls):
         assert not hasattr(module, "_abbreviate_word_bearing")
         assert not hasattr(module, "_WORD_SYMBOL_BEARING")
+
+
+# --- 4. A straight course that names the NEXT curve's radius point -------------
+
+LINE_RADIAL = [
+    "thence N 80° E 100.00 feet to a point on a curve, the radius point of which bears N 10° W",
+    "thence N 80° E 100.00 feet to a point of curvature, the radial line of N 10° W",
+    "thence N 80° E 100.00 feet to a point, the center of which bears N 10° W",
+]
+
+
+@pytest.mark.parametrize("text", LINE_RADIAL)
+def test_line_naming_next_curves_radial_is_not_marked_non_tangent(parse, text):
+    call = parse(text)
+    assert call is not None
+    assert call.bearing_azimuth_deg_from_north == pytest.approx(80.0)
+    assert call.direction_text == "N 80° E"
+    assert call.curve_dir is None
+    assert call.non_tangent is False
+    assert call.radial_bearing is None
+
+
+def test_curve_radial_clause_unchanged(parse):
+    call = parse(WITH_CHORD.format(clause="the radius point of which bears"))
+    assert call.non_tangent is True
+    assert call.radial_bearing == "S 10° W"
