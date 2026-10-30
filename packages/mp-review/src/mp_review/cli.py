@@ -2,9 +2,11 @@
 
 import argparse
 import contextlib
+import contextvars
 import json
 import sys
-import traceback
+import time
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -13,34 +15,90 @@ from .relative import review_relative_file
 from .settings import SettingsError, read_settings
 from .settings import output_path as _output_path
 
-# Output directories handed out in this invocation, with the files present beforehand,
-# so an internal failure can still report what was already written.
-_OUTPUT_DIRS: list[tuple[Path, frozenset[Path]]] = []
+# Output directories handed out during the current invocation. main() sets a fresh list and
+# resets it afterwards, so nothing persists between in-process calls.
+_RUN_OUTPUT_DIRS: contextvars.ContextVar[list[Path] | None] = contextvars.ContextVar(
+    "mp_review_run_output_dirs", default=None
+)
+# Filesystem timestamps can be coarser than the wall clock.
+_MTIME_SLACK_NS = 1_000_000_000
+
+# Commands whose positional input is a JSON file read before any work starts.
+_JSON_INPUT_COMMANDS = frozenset(
+    {
+        "plot",
+        "verify",
+        "review",
+        "analyze-corridor",
+        "derive-plss",
+        "analyze-relative",
+        "compare-descriptions",
+        "validate-source",
+        "dashboard",
+        "render-map",
+        "render-revision",
+        "export-review",
+        "inspect-delivery",
+        "revision-template",
+        "save-revision",
+        "inspect-revision",
+        "compose-map",
+        "compose-dashboard",
+        "diagnose-closure",
+    }
+)
+
+
+class InvalidInputJson(Exception):
+    """Input JSON is nested too deeply to load or validate."""
+
+
+@contextlib.contextmanager
+def input_boundary() -> Iterator[None]:
+    """Input-loading phase: recursion inside it means the supplied JSON is too deep."""
+    try:
+        yield
+    except RecursionError as exc:
+        raise InvalidInputJson from exc
+
+
+def load_input(path: Path) -> None:
+    """Load and depth-check a JSON input file inside the input boundary.
+
+    Other failures (unreadable file, non-JSON text, invalid values) are left to the command,
+    which reports them with its own error code.
+    """
+    from .plot import _finite_json
+
+    with input_boundary():
+        try:
+            _finite_json(json.loads(path.read_bytes()))
+        except (OSError, ValueError):
+            return
 
 
 def output_path(settings: dict[str, Any], explicit: Path | None) -> Path:
     path = _output_path(settings, explicit)
-    before = frozenset(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else frozenset()
-    _OUTPUT_DIRS.append((path, before))
+    dirs = _RUN_OUTPUT_DIRS.get()
+    if dirs is not None:
+        dirs.append(path)
     return path
 
 
-def _written_artifacts() -> dict[str, str]:
+def _written_artifacts(dirs: list[Path], started_ns: int) -> dict[str, str]:
+    """Files under this run's output directories modified since the run began."""
     written: dict[str, str] = {}
-    for root, before in _OUTPUT_DIRS:
+    cutoff = started_ns - _MTIME_SLACK_NS
+    for root in dict.fromkeys(dirs):
         if not root.is_dir():
             continue
-        for path in sorted(p for p in root.rglob("*") if p.is_file() and p not in before):
-            written[str(path.relative_to(root))] = str(path)
+        for path in sorted(root.rglob("*")):
+            try:
+                if path.is_file() and path.stat().st_mtime_ns >= cutoff:
+                    written[str(path.relative_to(root))] = str(path)
+            except OSError:
+                continue
     return written
-
-
-def _is_input_parse_recursion(exc: RecursionError) -> bool:
-    """True only when recursion happened decoding JSON or validating the loaded input."""
-    frames = traceback.extract_tb(exc.__traceback__)
-    if any(f.filename.endswith(("json/decoder.py", "json/scanner.py")) for f in frames):
-        return True
-    return bool(frames) and frames[-1].filename.endswith("pydantic/main.py")
 
 
 def main() -> None:
@@ -203,29 +261,42 @@ def main() -> None:
     corpus.add_argument("--settings", type=Path)
     args = parser.parse_args()
     result: dict[str, Any]
-    with contextlib.redirect_stdout(sys.stderr):
-        try:
-            settings = read_settings(args.settings)
-            if not settings["enabled"]:
+    run_dirs: list[Path] = []
+    token = _RUN_OUTPUT_DIRS.set(run_dirs)
+    started_ns = time.time_ns()
+    try:
+        with contextlib.redirect_stdout(sys.stderr):
+            try:
+                settings = read_settings(args.settings)
+                if not settings["enabled"]:
+                    result = {
+                        "schema_version": "1.0",
+                        "status": "error",
+                        "artifacts": {},
+                        "errors": [
+                            {
+                                "code": "plugin_disabled",
+                                "message": "Plugin disabled in local settings.",
+                            }
+                        ],
+                    }
+                else:
+                    input_file = getattr(args, "input", None)
+                    if (
+                        args.command in _JSON_INPUT_COMMANDS
+                        and isinstance(input_file, Path)
+                        and input_file.is_file()
+                    ):
+                        load_input(input_file)
+                    result = _execute(args, settings)
+            except SettingsError as exc:
                 result = {
                     "schema_version": "1.0",
                     "status": "error",
                     "artifacts": {},
-                    "errors": [
-                        {"code": "plugin_disabled", "message": "Plugin disabled in local settings."}
-                    ],
+                    "errors": [{"code": "invalid_settings", "message": str(exc)}],
                 }
-            else:
-                result = _execute(args, settings)
-        except SettingsError as exc:
-            result = {
-                "schema_version": "1.0",
-                "status": "error",
-                "artifacts": {},
-                "errors": [{"code": "invalid_settings", "message": str(exc)}],
-            }
-        except RecursionError as exc:
-            if _is_input_parse_recursion(exc):
+            except InvalidInputJson:
                 # Deeply nested JSON exhausts the parser; report it as an invocation error.
                 result = {
                     "schema_version": "1.0",
@@ -238,13 +309,13 @@ def main() -> None:
                         }
                     ],
                 }
-            else:
-                # Later recursion (rendering, publishing) is an internal failure; files
-                # may already be written, so report them rather than hide them.
+            except RecursionError:
+                # Recursion after input loading (rendering, publishing) is an internal
+                # failure; files may already be written, so report them rather than hide them.
                 result = {
                     "schema_version": "1.0",
                     "status": "error",
-                    "artifacts": _written_artifacts(),
+                    "artifacts": _written_artifacts(run_dirs, started_ns),
                     "errors": [
                         {
                             "code": "internal_recursion_error",
@@ -253,6 +324,8 @@ def main() -> None:
                         }
                     ],
                 }
+    finally:
+        _RUN_OUTPUT_DIRS.reset(token)
     print(json.dumps(result, allow_nan=False))
     raise SystemExit(
         {"checks_passed": 0, "needs_review": 1, "passed": 0, "failed": 1, "error": 2}.get(
