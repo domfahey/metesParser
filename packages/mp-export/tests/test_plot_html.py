@@ -150,3 +150,42 @@ def test_excluded_tie_in_row_does_not_claim_supported_boundary_geometry():
     assert "Tie-in excluded from boundary" in row
     assert "Supported geometry" not in row
     assert 'data-plot-call="tie"' not in output
+
+
+def _chord_only_request():
+    def line(i, bearing):
+        return PlotCall(
+            id=f"call-{i}",
+            call=DeedCall(
+                course=i,
+                direction_text="Recorded course",
+                bearing_azimuth_deg_from_north=bearing,
+                distance_ft=100,
+            ),
+            quote=f"Course {i}",
+        )
+
+    curve = PlotCall(
+        id="call-2",
+        call=DeedCall(
+            course=2,
+            direction_text="curve",
+            curve_dir="right",
+            radius_ft=100,
+            distance_ft=50,
+            chord_bearing="N 90°00'00\" E",
+            chord_length_ft=50,
+        ),
+        quote="Course 2",
+    )
+    return PlotRequest(title="Chord only", calls=(line(1, 0), curve, line(3, 180), line(4, 270)))
+
+
+def test_chord_only_partial_notice_does_not_claim_prefix_only():
+    prepared = prepare_plot(_chord_only_request())
+    assert prepared.geometry.completeness == "partial"
+    assert len(prepared.geometry.primitives) == 3
+    notice = re.search(r'<p class="notice">(.*?)</p>', render_plot(prepared))[1]
+    assert "anchored prefix" not in notice
+    assert "call-2" in notice
+    assert "chord" in notice

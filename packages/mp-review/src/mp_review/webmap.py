@@ -392,7 +392,11 @@ def prepare_web_map(
         from .raster_registration import validate_raster_layer
 
         for original_raster in context.raster_layers:
-            validate_raster_layer(original_raster, scenes[original_raster.scene_id])
+            validate_raster_layer(
+                original_raster,
+                scenes[original_raster.scene_id],
+                allow_legacy_orientation=True,
+            )
     hashes = context.input_hashes
     features: list[WebMapFeature] = []
     rasters: list[WebMapRaster] = []
