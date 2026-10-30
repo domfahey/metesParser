@@ -54,6 +54,7 @@ CHORD_ONLY = "tangent bearing not stated - chord bearing only"
 # Radius + chord without a stated delta or arc is ambiguous (minor or major arc):
 # nothing is derived; the course is positioned by its chord only.
 BY_CHORD = "curve delta/arc not stated - positioned by chord only"
+BY_TANGENT_CHORD = "curve positioned by stated tangent and chord; arc not stated"
 CHORD_TOO_LONG = "chord length exceeds twice the radius"
 
 
@@ -247,8 +248,8 @@ CASES: dict[str, Case] = {
         quadrant="N 40°00' E",
         chord_bearing="N 45° E",
         no_arc=True,
-        notes_in=(BY_CHORD,),
-        notes_out=(DERIVED, CHORD_ONLY, ARC_FROM_CHORD),
+        notes_in=(BY_TANGENT_CHORD,),
+        notes_out=(DERIVED, CHORD_ONLY, ARC_FROM_CHORD, BY_CHORD),
         extra={"chord_length_ft": 100.0},
     ),
     "r6-chord-longer-than-diameter-is-kept-and-flagged": Case(
