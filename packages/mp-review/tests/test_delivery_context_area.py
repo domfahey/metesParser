@@ -160,7 +160,7 @@ def test_out_of_area_derived_sources_are_checked_like_context(tmp_path):
         corridor("far-corridor", (far_xy[0], far_xy[1])),
         corridor("near-corridor", deed.placement.translation),
     )
-    _, outside = _geojson_area(items, scene)
+    outside = _geojson_area(items, scene).outside
     assert set(outside) == {"far-plss", "far-corridor"}
 
 
