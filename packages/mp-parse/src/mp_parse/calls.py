@@ -1686,6 +1686,7 @@ def _bearing_pairs(text: str) -> list[_BearingPair]:
 # a course that does not state a value itself fails closed (or stays cardinal only)
 # under the usual rules. Their wording is kept verbatim in notes.
 RECORD_CALL_NOTE_PREFIX = "record call: "
+PARENTHETICAL_NOTE_PREFIX = "parenthetical: "
 _RECORD_BEFORE = re.compile(
     r"(?<![A-Za-z])(?:per\s+(?:deed|record)|of\s+record|(?:(?:in|from|by|as\s+in)\s+(?:the\s+|said\s+)?"
     r"(?:prior|previous|former|earlier|original|old)\s+)?(?:deed|record)|[(\[]R[)\]])\s*[:=]?\s*$",
@@ -1749,6 +1750,9 @@ class _RecordScan(NamedTuple):
 
     reading: str
     records: tuple[str, ...]
+    # Each other bracketed group holding a length, verbatim, and whether it only
+    # describes a feature (states no course-capable length: "(50 feet wide)").
+    parentheticals: tuple[tuple[str, bool], ...] = ()
 
 
 def _bracket_groups(text: str) -> list[tuple[int, int, bool]]:
@@ -2013,10 +2017,15 @@ def _scan_record_calls(call_text: str) -> _RecordScan:
     text = course_text
     spans: list[tuple[int, int]] = []
     measured_groups: list[tuple[int, int]] = []
+    parentheticals: list[tuple[str, bool]] = []
     for start, end, closed in _bracket_groups(course_text):
         inner_start = start + 1
         inner = course_text[inner_start : end - 1 if closed else end]
         role = _group_role(inner)
+        if role is None and _lengths_outside_bearings(inner):
+            stated = read_course_length(inner)
+            describes = stated.value == 0.0 and not stated.ambiguous
+            parentheticals.append((call_text[start:end].strip(), describes))
         if role == "record":
             spans.append((start, end))
             text = _blank(text, start, end)
@@ -2052,7 +2061,26 @@ def _scan_record_calls(call_text: str) -> _RecordScan:
         else:
             merged.append((start, end))
     records = tuple(call_text[start:end].strip() for start, end in merged)
-    return _RecordScan(text + call_text[len(course_text) :], records)
+    return _RecordScan(text + call_text[len(course_text) :], records, tuple(parentheticals))
+
+
+def _parenthetical_notes(
+    parentheticals: tuple[tuple[str, bool], ...], along: str | None, to: str | None
+) -> list[str]:
+    """Return the notes keeping each bracketed non-record length verbatim.
+
+    A bracketed length that is not a record or measured call is never read as the
+    course length (``_length_role``), so it must not vanish: an alternative length
+    ("(calculated 101 feet)", "(see plan 12 feet)") is always noted; a description
+    that states no course-capable length ("(50 feet wide)", "(crossing a 10 foot
+    easement)") is noted only when the along/to wording does not keep it verbatim.
+    """
+    kept = " ".join(field for field in (along, to) if field)
+    return [
+        PARENTHETICAL_NOTE_PREFIX + wording
+        for wording, describes in parentheticals
+        if not (describes and wording in kept)
+    ]
 
 
 def _noted_record_calls(notes: str | None) -> list[str]:
@@ -2663,7 +2691,8 @@ def _extract_call(
             note_parts.append(element_note)
     if length_not_determined:
         note_parts.append(LENGTH_NOT_DETERMINED_NOTE)
-    # A record call is never read as the course; keep its wording.
+    note_parts.extend(_parenthetical_notes(record_scan.parentheticals, along, to))
+    # A record call is never read as the course; keep its wording (always last).
     note_parts.extend(RECORD_CALL_NOTE_PREFIX + text for text in record_scan.records)
     notes = "; ".join(note_parts)
 
