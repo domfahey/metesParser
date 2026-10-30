@@ -756,6 +756,34 @@ def _enumerated_parts(analysis: CourseListAnalysis) -> list[str]:
     return parts
 
 
+class CallFragment(NamedTuple):
+    """One fragment of a split description.
+
+    ``preamble`` marks a fragment opening with BEGINNING/COMMENCING/POB/POINT, which
+    is not itself a call; its ``text`` is kept so a course inside it is never lost.
+    """
+
+    text: str
+    preamble: bool = False
+
+
+def unlisted_course_lists(text: str) -> CourseListAnalysis:
+    """Return the analysis of ``text`` read without course-list detection."""
+    return CourseListAnalysis(
+        source=text,
+        text=text,
+        lists=(),
+        mismatches=(),
+        mismatch_headers=(),
+        item_starts=frozenset(),
+        list_starts=frozenset(),
+        has_numbered_markers=_NUMBERED_LINE.search(text) is not None,
+    )
+
+
+_PREAMBLE_FRAGMENT = re.compile(r"^\s*(?:BEGINNING|COMMENCING|POB|POINT)", re.IGNORECASE)
+
+
 def split_into_calls(text: str, *, course_lists: CourseListAnalysis | None = None) -> list[str]:
     """Split text into individual THENCE calls.
 
@@ -769,7 +797,22 @@ def split_into_calls(text: str, *, course_lists: CourseListAnalysis | None = Non
         course_lists: The text's precomputed ``analyze_course_lists`` result
 
     Returns:
-        List of call strings
+        List of call strings; BEGINNING/COMMENCING fragments are dropped
+        (``split_call_fragments`` reports them).
+    """
+    return [
+        fragment.text
+        for fragment in split_call_fragments(text, course_lists=course_lists)
+        if not fragment.preamble
+    ]
+
+
+def split_call_fragments(
+    text: str, *, course_lists: CourseListAnalysis | None = None
+) -> list[CallFragment]:
+    """Split text as ``split_into_calls`` does, keeping the preamble fragments it drops.
+
+    Fragments are in source order; a preamble fragment's text is stripped only.
     """
     analysis = course_lists if course_lists is not None else analyze_course_lists(text)
     if analysis.item_starts:
@@ -787,7 +830,8 @@ def split_into_calls(text: str, *, course_lists: CourseListAnalysis | None = Non
         if not cleaned:
             continue
 
-        if re.match(r"^\s*(?:BEGINNING|COMMENCING|POB|POINT)", cleaned, re.IGNORECASE):
+        if _PREAMBLE_FRAGMENT.match(cleaned):
+            calls.append(CallFragment(cleaned, preamble=True))
             continue
 
         cleaned = re.sub(r"^(?:\(\d+\)|\d+[.)])\s+", "", cleaned)
@@ -802,7 +846,7 @@ def split_into_calls(text: str, *, course_lists: CourseListAnalysis | None = Non
         cleaned = re.sub(r"[;,\.\s]+$", "", cleaned)
 
         if cleaned:
-            calls.append(cleaned)
+            calls.append(CallFragment(cleaned))
 
     return calls
 
