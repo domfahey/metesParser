@@ -73,7 +73,11 @@ def test_unavailable_operation_omits_only_geojson(tmp_path, unavailable):
     assert any(o.format == "geojson" and o.layer_id is None for o in snapshot.omissions)
 
 
-def test_replay_rejects_geojson_omission_when_operation_becomes_available(tmp_path, monkeypatch):
+def test_replay_accepts_recorded_geojson_omission_when_operation_becomes_available(
+    tmp_path, monkeypatch
+):
+    # Replay trusts the recorded package: an operation that is installed on the
+    # replay host does not invalidate a package published without it.
     import mp_review.webmap_projection as module
 
     real = module.build_web_map_projection
@@ -87,8 +91,8 @@ def test_replay_rejects_geojson_omission_when_operation_becomes_available(tmp_pa
     result = publish_delivery(bundle, revision, request, tmp_path / "deliveries")
     assert result["status"] == "needs_review", result
     monkeypatch.setattr(module, "build_web_map_projection", real)
-    with pytest.raises(ValueError, match="mismatch"):
-        load_delivery(bundle, revision, tmp_path / "deliveries" / request.id)
+    snapshot = load_delivery(bundle, revision, tmp_path / "deliveries" / request.id)
+    assert any(o.reason.startswith("GeoJSON omitted") for o in snapshot.omissions)
 
 
 def test_required_layer_blocks_geojson_omission(tmp_path, unavailable):
@@ -145,7 +149,7 @@ def test_projection_group_is_built_once_per_publish(tmp_path, monkeypatch):
     assert len(calls) == 1
     calls.clear()
     load_delivery(bundle, revision, tmp_path / "deliveries" / request.id)
-    assert len(calls) == 1  # replay recomputes independently, once
+    assert calls == []  # replay accepts the recorded operation/omissions; never rebuilds
 
 
 def test_corridor_area_check_uses_exported_polygon_vertices(tmp_path, monkeypatch):
