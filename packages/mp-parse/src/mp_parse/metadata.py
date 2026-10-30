@@ -15,13 +15,13 @@ from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict
 
 from mp_models import ConversionFactors
 
-from .numbers import COMMA_NUMBER, parse_comma_number
 from .units import (
-    LENGTH_NUMBER_GUARD,
+    LENGTH_NUMBER,
     LENGTH_UNIT,
     UNIT_TOKEN,
     is_foot_mark,
     normalize_unit_token,
+    parse_number,
 )
 
 if TYPE_CHECKING:
@@ -846,7 +846,7 @@ TIE_BEFORE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 # Lengths (possibly compound) and an optional "more or less" before a suffix label.
-LENGTH_RUN = rf"(?:\s*,?\s*(?:and\s+)?{COMMA_NUMBER}\s*{UNIT_TOKEN}\b\.?)*\s*,?\s*"
+LENGTH_RUN = rf"(?:\s*,?\s*(?:and\s+)?{LENGTH_NUMBER}\s*{UNIT_TOKEN}\b\.?)*\s*,?\s*"
 # "... 2 feet from|of <object>": a tie, unless it is the first length stated.
 TIE_AFTER_PATTERN = re.compile(
     LENGTH_RUN + r"(?:more\s+or\s+less\s*,?\s*)?(?:from|of)\s+\S", re.IGNORECASE
@@ -915,35 +915,40 @@ _MONUMENT_NOUN = (
     r"(?:pipe|pin|rod|rebar|bar|spike|nail|stake|hub|monument|post|marker|cap|tack)s?\b"
 )
 _NOT_MONUMENT_SIZE = rf"(?!\.?\s*{_MONUMENT_NOUN})"
-_MONUMENT_SIZE_AFTER_FOOT = rf",?\s*\d+(?:\.\d+)?\s*{_INCH_TOKEN}(?=\.?\s*{_MONUMENT_NOUN})"
+_MONUMENT_SIZE_AFTER_FOOT = rf",?\s*{LENGTH_NUMBER}\s*{_INCH_TOKEN}(?=\.?\s*{_MONUMENT_NOUN})"
 _INCH_UNIT = rf"(?:inch(?:es)?\b|in\b\.?{_MEASUREMENT_END}){_NOT_MONUMENT_SIZE}"
-_INCH = re.compile(r"(?:inch(?:es)?|in\.?)", re.IGNORECASE)
+_INCH = re.compile(r"(?:inch(?:es)?|in\.?|\"|\u2033)", re.IGNORECASE)
+# An inch mark ending the measurement directly after a word-unit feet length
+# ("100 feet 6\" to a point") is that length's inches (``_length_runs``). After a
+# bearing's minutes a mark stays seconds: only a word-unit feet length qualifies.
+_INCH_MARK_UNIT = rf"{_INCH_MARK}{_MEASUREMENT_END}{_NOT_MONUMENT_SIZE}"
+_INCH_MARK_GAP = re.compile(r"\s*,?\s*")
 # A number with an inch-like token directly after the chosen course length that
 # was not summed into it: the length is not dropped silently, the course fails
 # closed (a monument size is not a length).
 _UNREAD_INCH_AFTER = re.compile(
-    rf"\.?(?:\s*,\s*|\s+)(?:and\s+)?{COMMA_NUMBER}\s*(?:{_INCH_TOKEN}|'')"
+    rf"\.?(?:\s*,\s*|\s+)(?:and\s+)?{LENGTH_NUMBER}\s*(?:{_INCH_TOKEN}|'')"
     rf"{_NOT_MONUMENT_SIZE}",
     re.IGNORECASE,
 )
 # Without "and", a later component must be a clearly smaller unit to extend a run.
 _DESCENDING_RATIO = 1.5
 _UNSUPPORTED_AND_PAIR = re.compile(
-    rf"{COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
+    rf"{LENGTH_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{LENGTH_NUMBER}\s+[A-Za-z]+",
     re.IGNORECASE,
 )
 # A foot-mark length, optionally followed by an inch mark ("100' 6\"") that is
 # one measurement with it only where the measurement ends; elsewhere the inch
 # mark may be a bearing's seconds and the course fails closed (``_FOOT_INCH``).
 _FOOT_MARK_LENGTH = re.compile(
-    rf"{LENGTH_NUMBER_GUARD}({COMMA_NUMBER})\s*(?:'(?!')|′(?!′))"
-    rf"(?:\s*,?\s*(\d+(?:\.\d+)?)\s*{_INCH_TOKEN}"
+    rf"({LENGTH_NUMBER})\s*(?:'(?!')|′(?!′))"
+    rf"(?:\s*,?\s*({LENGTH_NUMBER})\s*{_INCH_TOKEN}"
     rf"(?=\s*(?:(?:feet|foot|ft)\b|{_MEASUREMENT_END_ALT})))?"
     rf"(?=\s*(?:(?:feet|foot|ft)\b|{_MEASUREMENT_END_ALT}|{_MONUMENT_SIZE_AFTER_FOOT}))",
     re.IGNORECASE,
 )
 _FOOT_INCH = re.compile(
-    rf"{LENGTH_NUMBER_GUARD}{COMMA_NUMBER}\s*(?:'(?!')|′(?!′))\s*,?\s*\d+(?:\.\d+)?\s*"
+    rf"{LENGTH_NUMBER}\s*(?:'(?!')|′(?!′))\s*,?\s*{LENGTH_NUMBER}\s*"
     rf"{_INCH_MARK}{_NOT_MONUMENT_SIZE}"
 )
 # Degrees written without a sign ("N 45 30' 15\""): the marks are minutes and seconds.
@@ -982,8 +987,8 @@ def _unit_key(token: str) -> str:
 
 def _component_feet(value: str, token: str) -> float:
     if _is_inch(token):
-        return parse_comma_number(value) / 12.0
-    return ConversionFactors.convert_to_feet(parse_comma_number(value), normalize_unit_token(token))
+        return parse_number(value) / 12.0
+    return ConversionFactors.convert_to_feet(parse_number(value), normalize_unit_token(token))
 
 
 def _compound_size(text: str, tokens: list[Match[str]], index: int) -> int:
@@ -1036,7 +1041,7 @@ def _unsupported_and_pair(text: str, start: int) -> bool:
     pair = _UNSUPPORTED_AND_PAIR.match(text, start)
     if not pair:
         return False
-    units = re.findall(rf"{COMMA_NUMBER}\s*({UNIT_TOKEN})\b", pair.group(0), re.IGNORECASE)
+    units = re.findall(rf"{LENGTH_NUMBER}\s*({UNIT_TOKEN})\b", pair.group(0), re.IGNORECASE)
     return not (len(units) == 2 and _same_unit_family(*(_singular_unit(u) for u in units)))
 
 
@@ -1068,17 +1073,35 @@ def _tie_clause_start(text: str) -> int:
     return clause.end() if clause else len(text) + 1
 
 
+def _inch_mark_after_word_feet(text: str, tokens: list[Match[str]], mark: Match[str]) -> bool:
+    """Return True when an inch-mark length directly follows a word-unit feet length.
+
+    Fewer than 12 inches only; the mark is otherwise left unread (and the course
+    fails closed on it).
+    """
+    if not tokens or parse_number(mark.group(1)) >= 12:
+        return False
+    previous = tokens[-1]
+    return (
+        previous.end() <= mark.start()
+        and re.fullmatch(r"(?:feet|foot|ft)", previous.group(2), re.IGNORECASE) is not None
+        and _INCH_MARK_GAP.fullmatch(text, previous.end(), mark.start()) is not None
+    )
+
+
 def _length_runs(text: str) -> list[_LengthRun]:
     """Group the unit-word lengths in ``text`` into stated lengths, each with its role."""
-    tokens = [
-        m
-        for m in re.finditer(
-            rf"{LENGTH_NUMBER_GUARD}({COMMA_NUMBER})\s*({LENGTH_UNIT}|{_INCH_UNIT})",
-            text,
-            re.IGNORECASE,
-        )
-        if not is_foot_mark(m.group(2))
-    ]
+    tokens: list[Match[str]] = []
+    for m in re.finditer(
+        rf"({LENGTH_NUMBER})\s*({LENGTH_UNIT}|{_INCH_UNIT}|{_INCH_MARK_UNIT})",
+        text,
+        re.IGNORECASE,
+    ):
+        if is_foot_mark(m.group(2)):
+            continue
+        if re.fullmatch(_INCH_MARK, m.group(2)) and not _inch_mark_after_word_feet(text, tokens, m):
+            continue
+        tokens.append(m)
     tie_from = _tie_clause_start(text)
     runs: list[_LengthRun] = []
     index = 0
@@ -1087,14 +1110,21 @@ def _length_runs(text: str) -> list[_LengthRun]:
         group = tokens[index : index + size]
         start, end = group[0].start(), group[-1].end()
         unsupported = bool(
-            re.match(rf"\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+", text[end:], re.IGNORECASE)
+            re.match(rf"\s+and\s+{LENGTH_NUMBER}\s+[A-Za-z]+", text[end:], re.IGNORECASE)
             if size >= 2
             else _unsupported_and_pair(text, start)
         )
         # Inches alone size an object ("a 1.5 inch iron pipe"); never a course length.
+        # Inches directly before a larger unit ("6 inches 10 feet") are an ascending
+        # compound that is never summed: it stays a course length, so the course
+        # is ambiguous rather than silently dropping the inches.
+        following = tokens[index + size] if index + size < len(tokens) else None
+        ascending = following is not None and bool(
+            _COMPOUND_GAP.fullmatch(text, end, following.start())
+        )
         role = (
             "size"
-            if _is_inch(group[0].group(2))
+            if _is_inch(group[0].group(2)) and not ascending
             else _length_role(text, start, end, first=not runs, tie_from=tie_from)
         )
         components = tuple((m.group(1), m.group(2)) for m in group)
@@ -1106,7 +1136,7 @@ def _length_runs(text: str) -> list[_LengthRun]:
 def _run_value(run: _LengthRun) -> tuple[float, str]:
     if len(run.components) == 1 and not _is_inch(run.components[0][1]):
         value, unit = run.components[0]
-        return parse_comma_number(value), normalize_unit_token(unit)
+        return parse_number(value), normalize_unit_token(unit)
     return sum(_component_feet(value, unit) for value, unit in run.components), "feet"
 
 
@@ -1151,7 +1181,7 @@ def read_course_length(text: str) -> CourseLengthReading:
             continue
         components: tuple[tuple[str, str], ...] = ((mark.group(1), "feet"),)
         if mark.group(2) is not None:
-            if parse_comma_number(mark.group(2)) >= 12:
+            if parse_number(mark.group(2)) >= 12:
                 continue
             components += ((mark.group(2), "inches"),)
         role = _length_role(text, mark.start(), mark.end(), first=not runs, tie_from=tie_from)
@@ -1230,7 +1260,7 @@ def _is_lot_qualifier_except(text: str, match: re.Match[str]) -> bool:
         r"^\s+the\s+"
         r"(?:North|South|East|West)"
         r"(?:erly|wardly)?"
-        rf"\s+{COMMA_NUMBER}"
+        rf"\s+{LENGTH_NUMBER}"
         r"\s+(?:feet|foot|ft|poles?|rods?|chains?|links?|varas?|meters?)"
         r"\s+(?:of\b|in\b|thereof\b)",
         re.IGNORECASE,

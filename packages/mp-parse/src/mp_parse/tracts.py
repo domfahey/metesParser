@@ -14,7 +14,7 @@ import structlog
 from mp_models import TractType
 
 from .metadata import split_exception_clauses
-from .units import LENGTH_NUMBER_GUARD, LENGTH_UNIT
+from .units import LENGTH_NUMBER, LENGTH_UNIT
 
 logger = structlog.get_logger(__name__)
 
@@ -111,7 +111,7 @@ _RECITAL_CONVEYANCE = re.compile(r"\b(?:conveyed|vested|deed|recorded)\b", re.IG
 # A measured distance; a recital may name directions ("lying Northerly of ...",
 # even "thence Westerly of ...") but states no course distance.
 _COURSE_DISTANCE = re.compile(
-    rf"{LENGTH_NUMBER_GUARD}\d[\d,.]*\s*{LENGTH_UNIT}",
+    rf"{LENGTH_NUMBER}\s*{LENGTH_UNIT}",
     re.IGNORECASE,
 )
 
