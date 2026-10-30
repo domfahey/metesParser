@@ -1081,6 +1081,19 @@ Six findings, fixed red-green on `fix/code-review-2026-10-29`:
 - **Strip-exception widths:** use the shared number grammar, so "except the East 20 1/2 feet thereof" and "except the North 1,200 feet" are detected and removed (`a4c7501`).
 - **Closure computes indefinite once:** the closure warning and confidence score use the `CourseAnalysis` records instead of re-deriving per call; identical output (`58a8366`).
 
+### PR #60 thirty-seventh review (2026-10-30)
+Nine findings, fixed red-green on `fix/code-review-2026-10-29` (findings 3-8 also behave this way on `main`):
+- **Curve followed by a course (fabrication):** "along a curve ... arc length of 50 feet; THENCE N 20° E 10 feet" stored N 20° E as the curve's tangent and lost the 10 ft course. A curve fragment beside a separate complete course now raises `MultipleCoursesError` in `extract_single_call`, and `extract_calls` splits it into both courses (`4fb7dfb`).
+- **Cardinal/chord conflict survives CSV:** verification derives the conflict with the parser's rule (chord bearing stated, no numeric course bearing, cardinal word outside its sector) even when chord and sweep determine the direction, so a re-imported conflicting curve stays indefinite (`c5b68e5`).
+- **Out-of-range bearings agree:** with or without "THENCE", degree-sign, hyphen and word forms ("N 91° E", "N 91-30-00 E", "N 91 degrees E") give an incomplete-bearing call from both `extract_single_call` and `extract_calls` (`4fb7dfb`).
+- **Comma grouping:** only valid thousands grouping is a number; "100,50 feet" fails closed instead of reading 10050 (`3cb6eae`).
+- **Verbatim `along`:** the course's own bearing and length are no longer captured in `along` ("Main Street (50 feet wide)", "Main Street") (`4fb7dfb`).
+- **Decimal degrees:** a degree-sign decimal with 1 or 3 decimals ("N 45.5° E") is not read as packed DD.MMSS; azimuth stays empty with "incomplete bearing - ambiguous decimal degrees". Two- and four-plus-decimal forms stay packed (bug #43) (`3cb6eae`).
+- **Seconds kept in `bearing_quadrant`:** "S 89°59'59\" W" is stored as stated instead of "S 90°00' W"; 186 sample bearing strings gain their stated seconds, azimuths unchanged (`3cb6eae`).
+- **CSV row numbers:** errors and `rejected_rows` give the physical line where the record starts, correct after multi-line quoted cells (`c5b68e5`).
+- **Cleanup:** duplicate "due {cardinal}" block removed from `extract_direction` (`4fb7dfb`).
+- **Known limitations:** two-decimal degree values ("N 45.50° E") are still read as packed minutes; a comma list "100, 200 feet" reads 200.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
