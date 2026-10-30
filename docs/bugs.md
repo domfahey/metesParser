@@ -1063,6 +1063,11 @@ Five findings plus one follow-up, fixed red-green on `fix/code-review-2026-10-29
 - **Conflicting chord-only courses:** a course whose cardinal word conflicts with its chord (is_indefinite) is not chord-positioned, so the dashboard blocks it and confidence scores it low; the chord analysis is computed once per dashboard calculation; one conflict boolean in the parser (`884463e`).
 - **Hyphenated DMS with marks:** "N 45-30' 15\" E", "N 45-30'-15\" E", "S 10-15' W" and similar expand to canonical DMS; identifier guards unchanged (`1081076`).
 
+### PR #60 thirty-fourth review (2026-10-30)
+Five findings, fixed red-green on `fix/code-review-2026-10-29`:
+- **Verification derives direction conflicts:** `mp_bearing.cardinal_conflicts_bearing` (shared sector rule) lets `CourseAnalysis` detect a cardinal/chord conflict and an over-diameter chord itself, so courses read from CSV or built without the parser are not chord-positioned and get the same indefinite warning, confidence and dashboard status as parsed ones (`bd21927`). Open: confidence, corridor, plot, diagnostics and comparison still read `call.is_indefinite` directly.
+- **Monument sizes are not lengths; one inch token:** "100.00 feet, 1\" iron pipe", "3/4\" rebar" read 100; foot-inch pairs end at thence/more or less like every inch form; one shared inch token, measurement-end rule and monument vocabulary (`ab419eb`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
