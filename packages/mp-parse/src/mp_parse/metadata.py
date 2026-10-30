@@ -861,6 +861,16 @@ _DIRECTED_TIE_AFTER = re.compile(
     + r"(?:\s+direction)?\s*,?\s+(?:from|of)\b",
     re.IGNORECASE,
 )
+# "... 50 feet distant from|off <object>", "50 feet (measured) at right angles from":
+# a separation from an object, even when it is the first length stated.
+_OFFSET_AFTER = re.compile(
+    r"\s*,?\s*(?:more\s+or\s+less\s*,?\s*)?(?:"
+    r"(?:distant|distance)\s+(?:from|of)\b"
+    r"|off\b(?!\s+(?:to|at)\b)"
+    r"|(?:measured\s+)?at\s+(?:a\s+)?right\s+angles?\s+(?:from|to)\b)",
+    re.IGNORECASE,
+)
+_LENGTH_JUST_BEFORE = re.compile(rf"{LENGTH_NUMBER}\s*{UNIT_TOKEN}\b\.?\s*,?\s*$", re.IGNORECASE)
 # "said point (also) being ...": every later length locates that point.
 _TIE_CLAUSE = re.compile(
     r"\b(?:said|which)\s+(?:[A-Za-z-]+\s+){0,3}?(?:also\s+)?"
@@ -1079,6 +1089,9 @@ def _length_role(text: str, start: int, end: int, *, first: bool, tie_from: int)
     if start >= tie_from or TIE_BEFORE_PATTERN.search(before) or _DIRECTED_TIE_AFTER.match(after):
         return "tie"
     if not first and TIE_AFTER_PATTERN.match(after):
+        return "tie"
+    if _OFFSET_AFTER.match(after) and not _LENGTH_JUST_BEFORE.search(before):
+        # An offset directly after another unjoined length is not told apart: both stay.
         return "tie"
     if _WIDTH_AFTER.match(after):
         return "width"
