@@ -297,6 +297,10 @@ def calls_to_csv(
     _cleanup_stale_sidecars(output_file, metadata_written=bool(metadata))
 
 
+class _RowWidthError(ValueError):
+    """A data row whose cell count differs from the header."""
+
+
 _ROW_ERRORS = (KeyError, TypeError, ValueError, ValidationError)
 
 
@@ -348,7 +352,7 @@ def csv_to_calls(
     Returns:
         List of DeedCall objects.
     """
-    with open(input_path) as f:
+    with open(input_path, encoding="utf-8-sig", newline="") as f:
         return csv_text_to_calls(f.read(), strict=strict, rejected_rows=rejected_rows)
 
 
@@ -366,23 +370,37 @@ def csv_text_to_calls(
     must be the exact current or legacy schema; anything else raises ValueError.
     """
     calls: list[DeedCall] = []
-    reader = csv.DictReader(io.StringIO(text))
-    _require_supported_header(None if reader.fieldnames is None else list(reader.fieldnames))
-    for row_number, row in enumerate(reader, start=2):
-        try:
-            calls.append(_validate_row(row))
-        except _ROW_ERRORS as e:
-            logger.warning("Invalid CSV row", row=row_number, error=str(e))
-            if strict:
-                raise ValueError(
-                    f"Cannot import complete parcel: invalid CSV row {row_number}"
-                ) from e
-            if rejected_rows is None:
-                raise ValueError(
-                    f"Cannot import parcel: invalid CSV row {row_number}; non-strict import "
-                    "requires rejected_rows to record each rejected course"
-                ) from e
-            rejected_rows.append((row_number, str(e)))
+    text = text.removeprefix("\ufeff")
+    reader = csv.reader(io.StringIO(text), strict=True)
+    try:
+        header = next(reader, None)
+        _require_supported_header(header)
+        assert header is not None
+        for row_number, values in enumerate(reader, start=2):
+            if not values:
+                continue  # blank lines are skipped; a row of empty cells is still malformed
+            try:
+                if len(values) != len(header):
+                    raise _RowWidthError(f"expected {len(header)} cells, got {len(values)}")
+                calls.append(_validate_row(dict(zip(header, values, strict=True))))
+            except _ROW_ERRORS as e:
+                logger.warning("Invalid CSV row", row=row_number, error=str(e))
+                if strict:
+                    raise ValueError(
+                        f"Cannot import complete parcel: invalid CSV row {row_number}: {e}"
+                        if isinstance(e, _RowWidthError)
+                        else f"Cannot import complete parcel: invalid CSV row {row_number}"
+                    ) from e
+                if rejected_rows is None:
+                    raise ValueError(
+                        f"Cannot import parcel: invalid CSV row {row_number}; non-strict import "
+                        "requires rejected_rows to record each rejected course"
+                    ) from e
+                rejected_rows.append((row_number, str(e)))
+    except csv.Error as e:
+        raise ValueError(
+            f"Cannot import parcel: malformed CSV near row {reader.line_num}: {e}"
+        ) from e
 
     return calls
 
