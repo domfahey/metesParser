@@ -9,6 +9,12 @@ import math
 import statistics
 from typing import Literal
 
+from mp_bearing import (  # type: ignore[import-untyped]
+    CURVE_ELEMENT_TOLERANCE_FT,
+    TANGENT_CHORD_TOLERANCE_DEG,
+    bearing_to_azimuth,
+    tangent_chord_deflection,
+)
 from mp_models import CheckResult, DeedCall, Point
 
 from .topology import check_curved_boundary_intersections
@@ -81,6 +87,7 @@ def build_verification_checks(
     area_available: bool,
     double_entry_performed: bool,
     discrepancies: list[str],
+    curve_issues: list[str] | None = None,
 ) -> list[CheckResult]:
     """Build auditable engine outcomes without turning unavailable checks into passes."""
     incomplete = any(not call.is_complete_bearing() for call in calls)
@@ -183,7 +190,9 @@ def build_verification_checks(
         evaluate_interior_angles(calls),
         outcome(
             "curve_consistency",
-            [] if curve_consistency_passed else ["Curve math inconsistency detected"],
+            []
+            if curve_consistency_passed
+            else (curve_issues or ["Curve math inconsistency detected"]),
             applicable=bool(curves) and len(redundant_curves) == len(curves),
             blocked=curve_incomplete,
             detail=(
@@ -419,12 +428,59 @@ def check_parallelism(calls: list[DeedCall]) -> list[str]:
     return warnings
 
 
+def tangent_chord_issue(call: DeedCall) -> str | None:
+    """Return why a curve's stated tangent, chord bearing and radius disagree, if they do.
+
+    Applies when the call states a tangent azimuth (not non-tangent), a parseable
+    chord bearing and a curve direction. The chord deflects from the tangent by
+    half the delta toward the curve, so the deflection must be on the curve's side,
+    the stated chord must equal 2R*sin(deflection), and a stated delta (or the one
+    implied by arc / radius) must be twice the deflection.
+    """
+    if (
+        call.non_tangent
+        or call.curve_dir not in ("left", "right")
+        or call.bearing_azimuth_deg_from_north is None
+        or call.chord_bearing is None
+    ):
+        return None
+    chord_az = bearing_to_azimuth(call.chord_bearing)
+    if chord_az is None:
+        return None
+    deflection = tangent_chord_deflection(
+        call.bearing_azimuth_deg_from_north, chord_az, call.curve_dir
+    )
+    prefix = f"Course {call.course}: stated tangent, chord and radius are inconsistent"
+    if deflection <= 0.0:
+        return f"{prefix} (chord bearing is not on the {call.curve_dir} side of the tangent)"
+    radius = call.radius_ft
+    if radius is not None and radius > 0.0 and call.chord_length_ft is not None:
+        expected_chord = 2.0 * radius * math.sin(math.radians(deflection))
+        if abs(call.chord_length_ft - expected_chord) > CURVE_ELEMENT_TOLERANCE_FT:
+            return (
+                f"{prefix} (chord: {call.chord_length_ft:.2f}, expected from tangent-to-chord "
+                f"deflection {deflection:.6f}\u00b0 and radius: {expected_chord:.2f})"
+            )
+    delta = call.delta_deg
+    if delta is None and call.arc_length_ft is not None and radius is not None and radius > 0.0:
+        delta = math.degrees(call.arc_length_ft / radius)
+    if delta is not None and abs(deflection - delta / 2.0) > TANGENT_CHORD_TOLERANCE_DEG:
+        return (
+            f"{prefix} (delta {delta:.6f}\u00b0 is not twice the tangent-to-chord "
+            f"deflection {deflection:.6f}\u00b0)"
+        )
+    return None
+
+
 def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
     """Check curve math consistency: L ~ R*delta, chord ~ 2R*sin(delta/2).
 
     When delta_deg is not provided but both radius_ft and arc_length_ft
     are present, the implied delta is derived from arc/radius and used
-    for consistency checks (including chord validation).
+    for consistency checks (including chord validation). A stated tangent
+    azimuth with a chord bearing is cross-checked by ``tangent_chord_issue``.
+    Linear elements agree within ``CURVE_ELEMENT_TOLERANCE_FT``, the tolerance
+    the parser and plot builder also apply.
 
     Args:
         calls: List of DeedCall objects.
@@ -442,7 +498,7 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
             continue
 
         delta_deg = call.delta_deg
-        tolerance_ft = 0.1
+        tolerance_ft = CURVE_ELEMENT_TOLERANCE_FT
 
         # Derive delta from radius + arc when delta_deg is not explicit
         if delta_deg is None:
@@ -455,12 +511,17 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
                 delta_deg = math.degrees(implied_delta_rad)
             else:
                 # No delta or arc: a radius and chord alone leave the arc ambiguous,
-                # so only the chord's own feasibility can be checked.
+                # so only the chord's own feasibility (and any stated tangent) can be
+                # checked.
                 if call.chord_length_ft is not None and call.chord_length_ft > 2 * call.radius_ft:
                     warnings.append(
                         f"Course {call.course}: chord length exceeds twice the radius "
                         f"(chord: {call.chord_length_ft:.2f}, radius: {call.radius_ft:.2f})"
                     )
+                    return False, warnings
+                issue = tangent_chord_issue(call)
+                if issue:
+                    warnings.append(issue)
                     return False, warnings
                 continue
 
@@ -486,6 +547,11 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
                     f"(given: {call.chord_length_ft:.2f}, expected: {expected_chord:.2f})"
                 )
                 return False, warnings
+
+        issue = tangent_chord_issue(call)
+        if issue:
+            warnings.append(issue)
+            return False, warnings
 
     return True, warnings
 

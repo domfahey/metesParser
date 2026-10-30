@@ -50,9 +50,9 @@ def capped_semicircle(call_type, height, direction="right", chord=False):
     right = direction == "right"
     curved = arc(call_type, 1, 0 if right else 180, direction)
     if chord:
-        curved = curved.model_copy(
-            update={"chord_bearing": "N 90° E", "bearing_azimuth_deg_from_north": 90}
-        )
+        # The stated tangent stays the course azimuth; the chord of the 180-degree
+        # arc deflects 90 degrees toward the curve (due east for both directions).
+        curved = curved.model_copy(update={"chord_bearing": "N 90° E"})
     return [
         curved,
         line(call_type, 2, 0 if right else 180, height),

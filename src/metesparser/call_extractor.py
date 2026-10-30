@@ -10,6 +10,10 @@ import re
 from typing import NamedTuple
 
 import structlog
+from mp_bearing import (  # type: ignore[import-untyped]
+    CURVE_ELEMENT_TOLERANCE_FT,
+    tangent_chord_deflection,
+)
 from pydantic import ValidationError
 
 from .bearing_converter import BearingConverter
@@ -288,10 +292,6 @@ def _describes_curve(curve_info: dict[str, float | str | None]) -> bool:
     return any(curve_info.get(key) is not None for key in _CURVE_GEOMETRY_KEYS)
 
 
-# Same tolerance as the verification curve check (chord ~ 2R*sin(delta/2)).
-_TANGENT_CHORD_TOLERANCE_FT = 0.1
-
-
 def _tangent_chord_delta(
     tangent_az: float, chord_az: float, curve_dir: str, radius_ft: float, chord_ft: float
 ) -> float | None:
@@ -299,15 +299,14 @@ def _tangent_chord_delta(
 
     The chord deflects from the tangent by half the delta, toward the curve
     (clockwise for a right curve). None when the deflection turns the other way
-    (or is zero) or the stated chord is not 2R*sin(delta/2) within tolerance.
+    (or is zero) or the stated chord is not 2R*sin(delta/2) within the shared
+    ``CURVE_ELEMENT_TOLERANCE_FT`` that verification and plotting also apply.
     """
-    deflection = (chord_az - tangent_az + 180.0) % 360.0 - 180.0
-    if curve_dir == "left":
-        deflection = -deflection
+    deflection: float = tangent_chord_deflection(tangent_az, chord_az, curve_dir)
     if deflection <= 0.0:
         return None
     expected_chord = 2.0 * radius_ft * math.sin(math.radians(deflection))
-    if abs(expected_chord - chord_ft) > _TANGENT_CHORD_TOLERANCE_FT:
+    if abs(expected_chord - chord_ft) > CURVE_ELEMENT_TOLERANCE_FT:
         return None
     return 2.0 * deflection
 

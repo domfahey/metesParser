@@ -41,6 +41,7 @@ from .checks import (
     check_interior_angles,
     check_parallelism,
     compare_double_entry,
+    tangent_chord_issue,
 )
 from .confidence import calculate_confidence_score, score_call_quality
 
@@ -377,10 +378,22 @@ def verify_closure(
         ]
     )
 
-    chord_only_courses = [
-        c.course
+    chord_only_indices = [
+        i
         for i, c in enumerate(main_calls)
         if c.is_chord_only_curve() and i not in bad_chord_indices
+    ]
+    # A chord-only curve whose stated tangent disagrees with its chord and radius
+    # is reported as inconsistent, not merely as lacking a delta/arc.
+    inconsistent_chord_indices = {
+        i for i in chord_only_indices if tangent_chord_issue(main_calls[i]) is not None
+    }
+    chord_only_courses = [main_calls[i].course for i in chord_only_indices]
+    inconsistent_chord_courses = [
+        main_calls[i].course for i in chord_only_indices if i in inconsistent_chord_indices
+    ]
+    delta_not_stated_courses = [
+        main_calls[i].course for i in chord_only_indices if i not in inconsistent_chord_indices
     ]
 
     # Check for degenerate traverse: no calls contributed azimuths
@@ -415,9 +428,14 @@ def verify_closure(
             "No computable traverse \u2014 all calls lack bearings (cardinal-only or empty)"
         )
 
-    for course in chord_only_courses:
+    for i in chord_only_indices:
+        reason = (
+            "stated tangent, chord and radius are inconsistent"
+            if i in inconsistent_chord_indices
+            else "curve delta/arc not stated"
+        )
         warnings.append(
-            f"Course {course}: curve delta/arc not stated - positioned by chord only; "
+            f"Course {main_calls[i].course}: {reason} - positioned by chord only; "
             "arc, area and perimeter are not determined"
         )
 
@@ -537,16 +555,26 @@ def verify_closure(
         area_available=area_available,
         double_entry_performed=double_entry_calls is not None,
         discrepancies=discrepancies,
+        curve_issues=curve_warnings,
     )
 
     curve_blocks: list[tuple[str, str]] = []
-    if chord_only_courses:
+    if inconsistent_chord_courses:
+        curve_blocks.append(
+            (
+                "curve_tangent_chord_inconsistent",
+                "Stated tangent, chord and radius are inconsistent; "
+                "positioned by chord only on course(s) "
+                + ", ".join(str(c) for c in inconsistent_chord_courses),
+            )
+        )
+    if delta_not_stated_courses:
         curve_blocks.append(
             (
                 "curve_delta_not_stated",
                 "Curve delta/arc not stated (minor or major arc ambiguous); "
                 "positioned by chord only on course(s) "
-                + ", ".join(str(c) for c in chord_only_courses),
+                + ", ".join(str(c) for c in delta_not_stated_courses),
             )
         )
     if bad_chord_courses:

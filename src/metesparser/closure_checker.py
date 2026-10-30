@@ -183,10 +183,22 @@ class ClosureChecker:
             ]
         )
 
-        chord_only_courses = [
-            c.course
+        chord_only_indices = [
+            i
             for i, c in enumerate(main_calls)
             if c.is_chord_only_curve() and i not in bad_chord_indices
+        ]
+        # A chord-only curve whose stated tangent disagrees with its chord and radius
+        # is reported as inconsistent, not merely as lacking a delta/arc.
+        inconsistent_chord_indices = {
+            i for i in chord_only_indices if cls.curve_consistency_issues([main_calls[i]])
+        }
+        chord_only_courses = [main_calls[i].course for i in chord_only_indices]
+        inconsistent_chord_courses = [
+            main_calls[i].course for i in chord_only_indices if i in inconsistent_chord_indices
+        ]
+        delta_not_stated_courses = [
+            main_calls[i].course for i in chord_only_indices if i not in inconsistent_chord_indices
         ]
 
         # Check for degenerate traverse: no calls contributed azimuths
@@ -223,9 +235,14 @@ class ClosureChecker:
                 "No computable traverse — all calls lack bearings (cardinal-only or empty)"
             )
 
-        for course in chord_only_courses:
+        for i in chord_only_indices:
+            reason = (
+                "stated tangent, chord and radius are inconsistent"
+                if i in inconsistent_chord_indices
+                else "curve delta/arc not stated"
+            )
             warnings.append(
-                f"Course {course}: curve delta/arc not stated - positioned by chord only; "
+                f"Course {main_calls[i].course}: {reason} - positioned by chord only; "
                 "arc, area and perimeter are not determined"
             )
 
@@ -278,7 +295,8 @@ class ClosureChecker:
             )
 
         angle_check_passed = cls.check_interior_angles(main_calls)
-        curve_consistency_passed = cls.check_curve_consistency(main_calls)
+        curve_issues = cls.curve_consistency_issues(main_calls)
+        curve_consistency_passed = not curve_issues
 
         parallel_warnings = cls.check_parallelism(main_calls)
         warnings.extend(parallel_warnings)
@@ -355,15 +373,25 @@ class ClosureChecker:
             area_available=area_available,
             double_entry_performed=double_entry_calls is not None,
             discrepancies=discrepancies,
+            curve_issues=curve_issues,
         )
         curve_blocks: list[tuple[str, str]] = []
-        if chord_only_courses:
+        if inconsistent_chord_courses:
+            curve_blocks.append(
+                (
+                    "curve_tangent_chord_inconsistent",
+                    "Stated tangent, chord and radius are inconsistent; "
+                    "positioned by chord only on course(s) "
+                    + ", ".join(str(c) for c in inconsistent_chord_courses),
+                )
+            )
+        if delta_not_stated_courses:
             curve_blocks.append(
                 (
                     "curve_delta_not_stated",
                     "Curve delta/arc not stated (minor or major arc ambiguous); "
                     "positioned by chord only on course(s) "
-                    + ", ".join(str(c) for c in chord_only_courses),
+                    + ", ".join(str(c) for c in delta_not_stated_courses),
                 )
             )
         if bad_chord_courses:
@@ -771,8 +799,23 @@ class ClosureChecker:
         return warnings
 
     @classmethod
+    def curve_consistency_issues(cls, calls: list[DeedCall]) -> list[str]:
+        """Return the curve-math inconsistencies found by the canonical package check.
+
+        Delegates to ``mp_verify.checks.check_curve_consistency`` (L ~ R*delta,
+        chord ~ 2R*sin(delta/2), and stated tangent vs chord bearing and radius),
+        so the compatibility path applies the same rules and shared tolerances.
+        """
+        from mp_models import DeedCall as PackageCall
+        from mp_verify.checks import check_curve_consistency
+
+        package_calls = [PackageCall.model_construct(**call.model_dump()) for call in calls]
+        passed, warnings = check_curve_consistency(package_calls)
+        return [] if passed else warnings or ["Curve math inconsistency detected"]
+
+    @classmethod
     def check_curve_consistency(cls, calls: list[DeedCall]) -> bool:
-        """Check curve math consistency: L ≈ R*Δ, chord ≈ 2R*sin(Δ/2).
+        """Check curve math consistency: L ≈ R*Δ, chord ≈ 2R*sin(Δ/2), tangent vs chord.
 
         When delta_deg is not provided but both radius_ft and arc_length_ft
         are present, the implied delta is derived from arc/radius and used
@@ -784,50 +827,7 @@ class ClosureChecker:
         Returns:
             True if all curves are consistent (within tolerance)
         """
-        for call in calls:
-            if not call.is_curve():
-                continue
-
-            if call.radius_ft is None:
-                continue
-
-            delta_deg = call.delta_deg
-            tolerance_ft = 0.1
-
-            # Derive delta from radius + arc when delta_deg is not explicit
-            if delta_deg is None:
-                if call.arc_length_ft is not None and call.radius_ft > 0.0:
-                    implied_delta_rad = call.arc_length_ft / call.radius_ft
-                    # Arc cannot exceed full circle (2*pi*radius)
-                    if implied_delta_rad > 2 * math.pi:
-                        return False
-                    delta_deg = math.degrees(implied_delta_rad)
-                else:
-                    # No delta or arc: a radius and chord alone leave the arc ambiguous,
-                    # so only the chord's own feasibility can be checked.
-                    if (
-                        call.chord_length_ft is not None
-                        and call.chord_length_ft > 2 * call.radius_ft
-                    ):
-                        return False
-                    continue
-
-            delta_rad = math.radians(delta_deg)
-            expected_arc = call.radius_ft * delta_rad
-
-            if call.arc_length_ft is not None:
-                arc_diff = abs(call.arc_length_ft - expected_arc)
-                if arc_diff > tolerance_ft:
-                    return False
-
-            expected_chord = 2 * call.radius_ft * math.sin(delta_rad / 2)
-
-            if call.chord_length_ft is not None:
-                chord_diff = abs(call.chord_length_ft - expected_chord)
-                if chord_diff > tolerance_ft:
-                    return False
-
-        return True
+        return not cls.curve_consistency_issues(calls)
 
     @classmethod
     def check_bearing_reversals(cls, calls: list[DeedCall]) -> list[str]:
