@@ -193,6 +193,16 @@ def find_tract_markers(
     ]
 
 
+def _label_key(label: str) -> str:
+    """Identity of a tract label for folding: the ID's case is not significant.
+
+    The displayed label stays the first occurrence's wording ("Tract ONE").
+    Number spellings are not folded: the codebase keeps no word-to-digit mapping
+    for tract IDs, so "Tract ONE" and "Tract 1" remain distinct tracts.
+    """
+    return label.casefold()
+
+
 def split_on_markers(
     text: str,
     markers: list[tuple[int, str, str]],
@@ -247,7 +257,9 @@ def split_on_markers(
         # A repeated label whose segment has no calls is prose about an earlier
         # tract (area, exception recital), not a new tract: fold it back.
         if not (_BEGINNING_PATTERN.search(segment) or _THENCE_COURSE.search(segment)):
-            earlier = next((j for j, r in enumerate(result) if r[1] == label), None)
+            earlier = next(
+                (j for j, r in enumerate(result) if _label_key(r[1]) == _label_key(label)), None
+            )
             if earlier is not None:
                 prev_text, prev_label, prev_type = result[earlier]
                 result[earlier] = (f"{prev_text} {segment}".strip(), prev_label, prev_type)
@@ -257,7 +269,9 @@ def split_on_markers(
 
     described = bool(result)
     for segment, label, tract_type in recitals:
-        same = next((j for j, r in enumerate(result) if r[1] == label), None)
+        same = next(
+            (j for j, r in enumerate(result) if _label_key(r[1]) == _label_key(label)), None
+        )
         if same is not None:
             prev_text, prev_label, prev_type = result[same]
             result[same] = (f"{prev_text} {segment}".strip(), prev_label, prev_type)
