@@ -13,7 +13,6 @@ from mp_bearing import (  # type: ignore[import-untyped]
     calculate_curve_properties,
     calculate_deltas,
     chord_length_tolerance_ft,
-    delta_uncertainty_rad,
 )
 from mp_models.plot import (
     XY,
@@ -36,6 +35,7 @@ from .tangents import (
     is_spiral,
     line_distance,
     start_tangent,
+    stated_sweep_with_error,
 )
 from .traverse import effective_indefinite
 
@@ -89,16 +89,13 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
         raise ValueError("curve sweep unresolved or unsupported")
     # Check every redundant supplied element before drawing an arc, within the
     # same rounding-aware tolerances verification applies (mp_bearing helpers).
-    if call.delta_deg is None:
-        delta_error = delta_uncertainty_rad(
-            arc_length_ft=call.arc_length_ft, radius_ft=call.radius_ft
-        )
-    else:
-        delta_error = delta_uncertainty_rad(delta_deg=call.delta_deg)
-        if call.arc_length_ft is not None and abs(
-            call.arc_length_ft - arc_ft
-        ) > arc_length_tolerance_ft(call.radius_ft, sweep):
-            raise ValueError("inconsistent curve element: arc_length_ft")
+    _, delta_error = stated_sweep_with_error(call)
+    if (
+        call.delta_deg is not None
+        and call.arc_length_ft is not None
+        and abs(call.arc_length_ft - arc_ft) > arc_length_tolerance_ft(call.radius_ft, sweep)
+    ):
+        raise ValueError("inconsistent curve element: arc_length_ft")
     if call.chord_length_ft is not None and abs(
         call.chord_length_ft - chord_ft
     ) > chord_length_tolerance_ft(call.radius_ft, sweep, delta_error):
