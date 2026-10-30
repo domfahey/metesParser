@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 import statistics
+from collections.abc import Mapping
 from typing import Literal
 
 from mp_bearing import (  # type: ignore[import-untyped]
@@ -524,7 +525,10 @@ def tangent_chord_issue(call: DeedCall) -> str | None:
     return None
 
 
-def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
+def check_curve_consistency(
+    calls: list[DeedCall],
+    tangent_issues: Mapping[int, str | None] | None = None,
+) -> tuple[bool, list[str]]:
     """Check curve math consistency: L ~ R*delta, chord ~ 2R*sin(delta/2).
 
     When delta_deg is not provided but both radius_ft and arc_length_ft
@@ -536,13 +540,20 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
 
     Args:
         calls: List of DeedCall objects.
+        tangent_issues: Optional ``tangent_chord_issue`` results already computed
+            by the caller, keyed by index into ``calls``; avoids recomputation.
 
     Returns:
         Tuple of (passed, warnings).
     """
     warnings: list[str] = []
 
-    for call in calls:
+    def _tangent_issue(index: int, call: DeedCall) -> str | None:
+        if tangent_issues is not None and index in tangent_issues:
+            return tangent_issues[index]
+        return tangent_chord_issue(call)
+
+    for index, call in enumerate(calls):
         if not call.is_curve():
             continue
 
@@ -571,7 +582,7 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
                         f"(chord: {call.chord_length_ft:.2f}, radius: {call.radius_ft:.2f})"
                     )
                     return False, warnings
-                issue = tangent_chord_issue(call)
+                issue = _tangent_issue(index, call)
                 if issue:
                     warnings.append(issue)
                     return False, warnings
@@ -600,7 +611,7 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
                 )
                 return False, warnings
 
-        issue = tangent_chord_issue(call)
+        issue = _tangent_issue(index, call)
         if issue:
             warnings.append(issue)
             return False, warnings
