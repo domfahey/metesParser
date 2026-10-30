@@ -10,6 +10,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from mp_export.raster_guard import require_upright_raster
 from mp_models.plot import XY, PlotScene
 from mp_models.raster import RasterLayer
 from mp_models.webmap import WebMapOptions, WebMapProjectionRecord, WebMapRaster
@@ -147,6 +148,11 @@ def prepare_web_map_raster(
             "operation_unavailable",
             "Raster display requires GDAL 3.11 or newer for strict operation selection.",
         )
+    try:
+        require_upright_raster(layer)
+    except ValueError as exc:
+        # Legacy layers saved before orientation was enforced: omit with a reason, never warp.
+        raise WebMapUnavailable("raster_orientation", str(exc)) from exc
     validate_raster_layer(layer, scene)
     xmin, ymin, xmax, ymax = _bounds(layer, projection, options)
     resolution = options.raster_pixel_size_m

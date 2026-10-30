@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 import base64
-import hashlib
 
 from mp_models.raster import RASTER_ORIENTATION_MESSAGE, RasterLayer, image_orientation
 
 _CACHE_LIMIT = 16
-# Holds only sha256 digests of the base64 payload and small orientation ints, never the payload itself.
+# Holds only RasterLayer.sha256 digests and small orientation ints, never the payload itself.
 _ORIENTATION_BY_DIGEST: dict[str, int | None] = {}
 
 
@@ -23,6 +22,6 @@ def _orientation_for(digest: str, data_base64: str) -> int | None:
 
 def require_upright_raster(layer: RasterLayer) -> None:
     """Refuse to embed a raster whose EXIF Orientation would make browsers rotate it."""
-    digest = hashlib.sha256(layer.data_base64.encode("ascii")).hexdigest()
-    if _orientation_for(digest, layer.data_base64) not in (None, 1):
+    # RasterLayer validates sha256 against the decoded bytes, so it is a sound cache key.
+    if _orientation_for(layer.sha256, layer.data_base64) not in (None, 1):
         raise ValueError(RASTER_ORIENTATION_MESSAGE)
