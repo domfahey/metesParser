@@ -262,6 +262,11 @@ _MARKER_CASES = [
     ("spelled-number", "described as follows:\n\nTRACT TWO\nBeginning at a point", ["Tract TWO"]),
     ("number-letter-id", "place of beginning.\nTRACT #2B: BEGINNING at a point", ["Tract 2B"]),
     ("markdown-heading", "### TRACT #3\nBEGINNING at a point", ["Tract 3"]),
+    (
+        "markdown-heading-after-unterminated-calls",
+        "BEGINNING at a stake; THENCE N 10 E 100 feet to the POINT OF BEGINNING\n## TRACT #2\nBEING UNIT B",
+        ["Tract 2"],
+    ),
     ("colon-being", "page 405.\nTRACT #2: BEING the same lands", ["Tract 2"]),
     (
         "ocr-displaced-colon-heading",
@@ -391,3 +396,43 @@ def test_tract_heading_markers(text, labels, normalize):
     if normalize:
         text = normalize_legal_description(text)
     assert [label for _pos, label, _kind in find_tract_markers(text)] == labels
+
+
+_LEADING = (
+    "BEGINNING at an iron pin; THENCE North 45 degrees 00 minutes 00 seconds East, "
+    "a distance of 100.00 feet to a point; THENCE South 45 degrees 00 minutes 00 seconds East, "
+    "a distance of 100.00 feet to a point; THENCE South 45 degrees 00 minutes 00 seconds West, "
+    "a distance of 100.00 feet to a point; THENCE North 45 degrees 00 minutes 00 seconds West, "
+    "a distance of 100.00 feet to the POINT OF BEGINNING"
+)
+_TRACT2 = (
+    "## TRACT #2\nBEING UNIT B. BEGINNING at a pin; THENCE North 10 degrees 00 minutes 00 seconds East, "
+    "a distance of 50.00 feet to a point; THENCE South 80 degrees 00 minutes 00 seconds East, "
+    "a distance of 50.00 feet to a point; THENCE South 10 degrees 00 minutes 00 seconds West, "
+    "a distance of 50.00 feet to a point; THENCE North 80 degrees 00 minutes 00 seconds West, "
+    "a distance of 50.00 feet to the POINT OF BEGINNING."
+)
+
+
+class TestLeadingTractBeforeFirstMarker:
+    def test_leading_calls_kept_as_unlabelled_tract(self):
+        result = split_into_tracts(f"{_LEADING}\n{_TRACT2}")
+        assert [label for _t, label, _k in result] == ["Unlabelled tract", "Tract 2"]
+        assert "THENCE" in result[0][0]
+        assert result[0][2] == TractType.MAIN
+
+    def test_preamble_without_calls_still_dropped(self):
+        result = split_into_tracts(f"Schedule A recital\nDeed Book 1\n{_TRACT2}")
+        assert [label for _t, label, _k in result] == ["Tract 2"]
+
+    def test_thence_noise_before_marker_not_a_tract(self):
+        pre = "Grantor thence colspan=3 First Party thence in Southeasterly direction"
+        result = split_into_tracts(f"{pre}\n{_TRACT2}")
+        assert [label for _t, label, _k in result] == ["Tract 2"]
+
+    def test_extract_calls_keeps_leading_tract(self):
+        from mp_parse.calls import extract_calls
+
+        _flat, tracts = extract_calls(f"{_LEADING}\n{_TRACT2}")
+        assert [t.label for t in tracts] == ["Unlabelled tract", "Tract 2"]
+        assert len(tracts[0].calls) == 4
