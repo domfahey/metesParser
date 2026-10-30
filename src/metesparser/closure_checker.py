@@ -19,6 +19,7 @@ Quality and confidence scoring:
 
 import math
 import statistics
+from collections.abc import Mapping
 from typing import overload
 
 from .bearing_converter import BearingConverter
@@ -202,9 +203,8 @@ class ClosureChecker:
         ]
         # A chord-only curve whose stated tangent disagrees with its chord and radius
         # is reported as inconsistent, not merely as lacking a delta/arc.
-        inconsistent_chord_indices = {
-            i for i in chord_only_indices if cls.curve_consistency_issues([main_calls[i]])
-        }
+        tangent_issues = {i: cls._tangent_chord_issue(main_calls[i]) for i in chord_only_indices}
+        inconsistent_chord_indices = {i for i, issue in tangent_issues.items() if issue is not None}
         chord_only_courses = [main_calls[i].course for i in chord_only_indices]
         inconsistent_chord_courses = [
             main_calls[i].course for i in chord_only_indices if i in inconsistent_chord_indices
@@ -220,11 +220,8 @@ class ClosureChecker:
             if i not in inconsistent_chord_indices
         ]
 
-        # Check for degenerate traverse: no calls contributed azimuths
-        computable_calls = sum(
-            1 for c in main_calls if c.bearing_azimuth_deg_from_north is not None
-        )
-        has_computable_traverse = computable_calls > 0
+        # Degenerate traverse: no course was positioned (bearings or chord endpoints).
+        has_computable_traverse = any(positioned)
 
         misclosure_x = points[-1].x - points[0].x
         misclosure_y = points[-1].y - points[0].y
@@ -332,7 +329,7 @@ class ClosureChecker:
             )
 
         angle_check_passed = cls.check_interior_angles(main_calls)
-        curve_issues = cls.curve_consistency_issues(main_calls)
+        curve_issues = cls.curve_consistency_issues(main_calls, tangent_issues=tangent_issues)
         curve_consistency_passed = not curve_issues
 
         parallel_warnings = cls.check_parallelism(main_calls)
@@ -853,8 +850,20 @@ class ClosureChecker:
 
         return warnings
 
+    @staticmethod
+    def _tangent_chord_issue(call: DeedCall) -> str | None:
+        """Canonical stated-tangent vs chord/radius issue for one call (package check)."""
+        from mp_models import DeedCall as PackageCall
+        from mp_verify.checks import tangent_chord_issue
+
+        return tangent_chord_issue(PackageCall.model_construct(**call.model_dump()))
+
     @classmethod
-    def curve_consistency_issues(cls, calls: list[DeedCall]) -> list[str]:
+    def curve_consistency_issues(
+        cls,
+        calls: list[DeedCall],
+        tangent_issues: Mapping[int, str | None] | None = None,
+    ) -> list[str]:
         """Return the curve-math inconsistencies found by the canonical package check.
 
         Delegates to ``mp_verify.checks.check_curve_consistency`` (L ~ R*delta,
@@ -865,7 +874,7 @@ class ClosureChecker:
         from mp_verify.checks import check_curve_consistency
 
         package_calls = [PackageCall.model_construct(**call.model_dump()) for call in calls]
-        passed, warnings = check_curve_consistency(package_calls)
+        passed, warnings = check_curve_consistency(package_calls, tangent_issues=tangent_issues)
         return [] if passed else warnings or ["Curve math inconsistency detected"]
 
     @classmethod

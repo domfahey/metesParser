@@ -410,9 +410,8 @@ def verify_closure(
     ]
     # A chord-only curve whose stated tangent disagrees with its chord and radius
     # is reported as inconsistent, not merely as lacking a delta/arc.
-    inconsistent_chord_indices = {
-        i for i in chord_only_indices if tangent_chord_issue(main_calls[i]) is not None
-    }
+    tangent_issues = {i: tangent_chord_issue(main_calls[i]) for i in chord_only_indices}
+    inconsistent_chord_indices = {i for i, issue in tangent_issues.items() if issue is not None}
     chord_only_courses = [main_calls[i].course for i in chord_only_indices]
     inconsistent_chord_courses = [
         main_calls[i].course for i in chord_only_indices if i in inconsistent_chord_indices
@@ -428,9 +427,8 @@ def verify_closure(
         if i not in inconsistent_chord_indices
     ]
 
-    # Check for degenerate traverse: no calls contributed azimuths
-    computable_calls = sum(1 for c in main_calls if c.bearing_azimuth_deg_from_north is not None)
-    has_computable_traverse = computable_calls > 0
+    # Degenerate traverse: no course was positioned (bearings or chord endpoints).
+    has_computable_traverse = any(positioned)
 
     misclosure_x = points[-1].x - points[0].x
     misclosure_y = points[-1].y - points[0].y
@@ -533,7 +531,9 @@ def verify_closure(
         )
 
     angle_check_passed = check_interior_angles(main_calls, points)
-    curve_consistency_passed_val, curve_warnings = check_curve_consistency(main_calls)
+    curve_consistency_passed_val, curve_warnings = check_curve_consistency(
+        main_calls, tangent_issues=tangent_issues
+    )
     warnings.extend(curve_warnings)
 
     parallel_warnings = check_parallelism(main_calls)
