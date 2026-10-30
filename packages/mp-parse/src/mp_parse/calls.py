@@ -938,9 +938,35 @@ def _expand_marked_dms(text: str) -> str:
     return _MARKED_DMS_BEARING.sub(_repl, text)
 
 
+# A hyphen between degrees and minutes with marked minutes/seconds: ``N 45-30' 15" E``,
+# ``N 45-30'-15" E``, ``S 10-15' W``. The minute mark makes the hyphen a degree
+# separator; a number group after an identifier word ("Lot N 12-3' E") stays a label.
+_HYPHEN_MARKED_DMS_BEARING = re.compile(
+    r"\b([NS])\.?\s*(\d{1,3})\s*-\s*(\d{1,2})\s*(?:'|\u2019|\u2032)\s*-?\s*"
+    r"(?:(\d{1,2}(?:\.\d+)?)\s*(?:\"|\u2033|\u201d|''|\u2019\u2019)\s*)?([EW])\b",
+    re.IGNORECASE,
+)
+
+
+def _expand_hyphen_marked_dms(text: str) -> str:
+    """Rewrite hyphenated degrees with marked minutes/seconds into symbols."""
+
+    def _repl(m: re.Match[str]) -> str:
+        if _ends_with(_IDENTIFIER_BEFORE, text, m.start()) or _ends_with(
+            _DASHED_LABEL_BEFORE, text, m.start()
+        ):
+            return m.group(0)
+        seconds = f'{m.group(4)}"' if m.group(4) else ""
+        return f"{m.group(1).upper()} {m.group(2)}\u00b0{m.group(3)}'{seconds} {m.group(5).upper()}"
+
+    return _HYPHEN_MARKED_DMS_BEARING.sub(_repl, text)
+
+
 def _normalize_bearing_forms(text: str) -> str:
     """Rewrite every bearing form the parser accepts into abbreviated DMS."""
-    return standardize_cardinal_directions(_expand_compact_dms(_expand_marked_dms(text)))
+    return standardize_cardinal_directions(
+        _expand_compact_dms(_expand_marked_dms(_expand_hyphen_marked_dms(text)))
+    )
 
 
 # Joins texts for a single normalization pass. No bearing pattern spans NUL, and "("
