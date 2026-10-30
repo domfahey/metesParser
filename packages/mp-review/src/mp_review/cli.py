@@ -5,7 +5,6 @@ import contextlib
 import contextvars
 import json
 import sys
-import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -15,13 +14,12 @@ from .relative import review_relative_file
 from .settings import SettingsError, read_settings
 from .settings import output_path as _output_path
 
-# Output directories handed out during the current invocation. main() sets a fresh list and
-# resets it afterwards, so nothing persists between in-process calls.
-_RUN_OUTPUT_DIRS: contextvars.ContextVar[list[Path] | None] = contextvars.ContextVar(
+# Output directories handed out during the current invocation, with the directory's mtime when
+# it was handed out (None if it did not exist yet). main() sets a fresh dict and resets it
+# afterwards, so nothing persists between in-process calls.
+_RUN_OUTPUT_DIRS: contextvars.ContextVar[dict[Path, int | None] | None] = contextvars.ContextVar(
     "mp_review_run_output_dirs", default=None
 )
-# Filesystem timestamps can be coarser than the wall clock.
-_MTIME_SLACK_NS = 1_000_000_000
 
 # Commands whose positional input is a JSON file read before any work starts.
 _JSON_INPUT_COMMANDS = frozenset(
@@ -77,28 +75,33 @@ def load_input(path: Path) -> None:
             return
 
 
+def _dir_mtime_ns(path: Path) -> int | None:
+    try:
+        return path.stat().st_mtime_ns if path.is_dir() else None
+    except OSError:
+        return None
+
+
 def output_path(settings: dict[str, Any], explicit: Path | None) -> Path:
     path = _output_path(settings, explicit)
     dirs = _RUN_OUTPUT_DIRS.get()
-    if dirs is not None:
-        dirs.append(path)
+    if dirs is not None and path not in dirs:
+        dirs[path] = _dir_mtime_ns(path)
     return path
 
 
-def _written_artifacts(dirs: list[Path], started_ns: int) -> dict[str, str]:
-    """Files under this run's output directories modified since the run began."""
-    written: dict[str, str] = {}
-    cutoff = started_ns - _MTIME_SLACK_NS
-    for root in dict.fromkeys(dirs):
-        if not root.is_dir():
-            continue
-        for path in sorted(root.rglob("*")):
-            try:
-                if path.is_file() and path.stat().st_mtime_ns >= cutoff:
-                    written[str(path.relative_to(root))] = str(path)
-            except OSError:
-                continue
-    return written
+def _partial_output_directories(dirs: dict[Path, int | None]) -> list[str]:
+    """Output directories this run created or whose top-level entries changed.
+
+    Exact files are not reported: a shared output directory may hold other runs' files and
+    staging entries, and stages write through many helpers. Callers must inspect the listed
+    directories themselves.
+    """
+    return [
+        str(root)
+        for root, before in dirs.items()
+        if (now := _dir_mtime_ns(root)) is not None and now != before
+    ]
 
 
 def main() -> None:
@@ -261,9 +264,8 @@ def main() -> None:
     corpus.add_argument("--settings", type=Path)
     args = parser.parse_args()
     result: dict[str, Any]
-    run_dirs: list[Path] = []
+    run_dirs: dict[Path, int | None] = {}
     token = _RUN_OUTPUT_DIRS.set(run_dirs)
-    started_ns = time.time_ns()
     try:
         with contextlib.redirect_stdout(sys.stderr):
             try:
@@ -311,16 +313,18 @@ def main() -> None:
                 }
             except RecursionError:
                 # Recursion after input loading (rendering, publishing) is an internal
-                # failure; files may already be written, so report them rather than hide them.
+                # failure; files may already be written, so name the directories that may hold them.
                 result = {
                     "schema_version": "1.0",
                     "status": "error",
-                    "artifacts": _written_artifacts(run_dirs, started_ns),
+                    "artifacts": {},
+                    "partial_output_directories": _partial_output_directories(run_dirs),
                     "errors": [
                         {
                             "code": "internal_recursion_error",
                             "message": "Recursion limit exceeded while processing; "
-                            "artifacts listed may be incomplete.",
+                            "output directories listed under partial_output_directories "
+                            "may contain partial output.",
                         }
                     ],
                 }
