@@ -498,24 +498,15 @@ def prepare_web_map(
                 assets.append((derived.record.path, derived.data))
     points = [p for feature in features for p in feature_vertices(feature)]
     points.extend(p for raster in rasters for p in raster.corners)
-    if points and max(p[0] for p in points) - min(p[0] for p in points) > 180:
+    bounds = bounds_of(points)
+    if bounds is not None and bounds[2] - bounds[0] > 180:
         # Bounds spanning the dateline are unsupported even for disjoint evidence.
-        features, rasters, assets, points = [], [], [], []
+        features, rasters, assets, points, bounds = [], [], [], [], None
         omit(
             scene_id,
             "scene",
             WebMapUnavailable("antimeridian", "Scene evidence spans the unsupported antimeridian."),
         )
-    bounds = (
-        (
-            min(p[0] for p in points),
-            min(p[1] for p in points),
-            max(p[0] for p in points),
-            max(p[1] for p in points),
-        )
-        if points
-        else None
-    )
     return PreparedWebMap(
         artifact=WebMapArtifact(
             scene_id=scene_id,
