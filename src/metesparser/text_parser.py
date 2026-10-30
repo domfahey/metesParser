@@ -546,6 +546,13 @@ class TextParser:
                 text,
                 re.IGNORECASE,
             )
+            # A compound counts only if it starts at the first measurement; a later
+            # pair (e.g. a witness distance after "to a stake") never replaces it.
+            first_measurement = re.search(pattern, text, re.IGNORECASE)
+            if compound and (
+                first_measurement is None or compound.start() != first_measurement.start()
+            ):
+                compound = None
             if compound and not re.fullmatch(
                 rf"{component_pattern}(?:\s+and\s+{component_pattern})+",
                 compound.group(0),
