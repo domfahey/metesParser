@@ -10,6 +10,7 @@ import hashlib
 import logging
 import math
 import re
+from typing import NamedTuple
 
 import structlog
 from mp_bearing import (
@@ -224,8 +225,12 @@ def _extract_calls_from_text(
 
         for source_course, call_text in enumerate(call_texts, start=1):
             try:
+                course_bearing = _course_bearing(call_text)
                 call = extract_single_call(
-                    call_text, course=course_num, distance_unit=distance_unit
+                    call_text,
+                    course=course_num,
+                    distance_unit=distance_unit,
+                    course_bearing=course_bearing,
                 )
             except (ValidationError, ValueError, TypeError) as exc:
                 if strict:
@@ -269,7 +274,9 @@ def _extract_calls_from_text(
             calls.append(call)
 
             if audit_context is not None:
-                transformations, decisions, flags = _audit_single_call(call_text, call)
+                transformations, decisions, flags = _audit_single_call(
+                    call_text, call, course_bearing.direction
+                )
                 audit_context.call_audits.append(
                     CallAudit(
                         course=course_num,
@@ -441,6 +448,20 @@ def _normalize_bearing_forms(text: str) -> str:
     return standardize_cardinal_directions(_expand_compact_dms(_expand_marked_dms(text)))
 
 
+# Joins texts for a single normalization pass. No bearing pattern spans NUL, and "("
+# is a clause boundary, so each later text is read exactly as if it stood alone.
+_SEGMENT_BREAK = "\x00("
+
+
+def _normalize_bearing_segments(segments: list[str]) -> list[str]:
+    """Normalize several texts in one pass; each result equals normalizing it alone.
+
+    Only the first segment may contain ``_SEGMENT_BREAK``.
+    """
+    joined = _normalize_bearing_forms(_SEGMENT_BREAK.join(segments))
+    return joined.rsplit(_SEGMENT_BREAK, len(segments) - 1)
+
+
 _CHORD_PREFIX_PATTERN = re.compile(
     r"(?:the\s+)?chord\s+(?:of\s+which\s+)?(?:bears|bearing)\s+(?:of\s+)?", re.IGNORECASE
 )
@@ -457,9 +478,9 @@ def _without_reference_bearings(text: str, prefix: re.Pattern[str]) -> str:
 
     The bearing is searched only within the clause (up to the next comma or
     semicolon); if none is recognised the clause itself is dropped so its
-    direction words cannot be read as the course bearing.
+    direction words cannot be read as the course bearing. ``text`` must already
+    be normalized (``_normalize_bearing_forms``).
     """
-    text = _normalize_bearing_forms(text)
     while True:
         match = prefix.search(text)
         if not match:
@@ -474,23 +495,38 @@ def _without_reference_bearings(text: str, prefix: re.Pattern[str]) -> str:
 
 def _without_chord_bearing(text: str) -> str:
     """Remove chord-bearing clauses; the chord is never the tangent."""
-    return _without_reference_bearings(text, _CHORD_PREFIX_PATTERN)
+    return _without_reference_bearings(_normalize_bearing_forms(text), _CHORD_PREFIX_PATTERN)
 
 
 def _without_radial_bearing(text: str) -> str:
     """Remove radius-point/radial/center bearing clauses; they are not the tangent."""
-    return _without_reference_bearings(text, _RADIAL_PREFIX_PATTERN)
+    return _without_reference_bearings(_normalize_bearing_forms(text), _RADIAL_PREFIX_PATTERN)
 
 
-def _course_direction(call_text: str) -> str:
+class _CourseBearing(NamedTuple):
+    """The course direction of one call: ``direction`` parses, ``text`` is the deed's."""
+
+    direction: str
+    text: str
+
+
+def _course_bearing(call_text: str) -> _CourseBearing:
     """Return the course (tangent) direction stated in the boundary course text.
 
-    Bearing forms are normalized, then corner witnesses, chord bearings and
-    radial/radius-point/center bearings are removed *before* extraction, so only
-    a bearing describing the course itself can be returned.
+    Corner witnesses are cut off, and the course text and its verbatim bearing
+    candidates are normalized together in one pass. Chord and
+    radial/radius-point/center bearings are then removed *before* extraction, so
+    only a bearing describing the course itself can be returned.
     """
-    course_text = _without_radial_bearing(_without_chord_bearing(_boundary_course_text(call_text)))
-    return extract_direction(course_text)
+    course_text = _boundary_course_text(call_text)
+    candidates = _verbatim_candidates(course_text)
+    normalized, *normalized_candidates = _normalize_bearing_segments([course_text, *candidates])
+    for prefix in (_CHORD_PREFIX_PATTERN, _RADIAL_PREFIX_PATTERN):
+        normalized = _without_reference_bearings(normalized, prefix)
+    direction = extract_direction(normalized)
+    return _CourseBearing(
+        direction, _verbatim_course_direction(direction, candidates, normalized_candidates)
+    )
 
 
 # Any bearing form in the deed's own wording (symbols, words, dashes, d/m units).
@@ -505,17 +541,8 @@ _VERBATIM_BEARING = re.compile(
 )
 
 
-def _verbatim_course_direction(call_text: str, direction: str) -> str:
-    """Return the deed's own wording for the parsed course ``direction``.
-
-    ``direction`` comes from normalized text and is used only for parsing. The
-    first bearing in the boundary course text (skipping the bearing that opens a
-    chord or radial clause) whose normalized form equals it is returned verbatim;
-    other directions (due/compass words, unparsed bearings) are returned unchanged.
-    """
-    if not parse_quadrant_bearing(direction):
-        return direction
-    course_text = _boundary_course_text(call_text)
+def _verbatim_candidates(course_text: str) -> list[str]:
+    """Return the deed's bearings in ``course_text``, skipping chord/radial openers."""
     excluded: set[int] = set()
     for prefix in (_CHORD_PREFIX_PATTERN, _RADIAL_PREFIX_PATTERN):
         for match in prefix.finditer(course_text):
@@ -525,16 +552,36 @@ def _verbatim_course_direction(call_text: str, direction: str) -> str:
             reference = _VERBATIM_BEARING.search(clause)
             if reference:
                 excluded.add(match.end() + reference.start())
-    for match in _VERBATIM_BEARING.finditer(course_text):
-        if match.start() in excluded:
-            continue
-        if extract_direction(_normalize_bearing_forms(match.group(0))) == direction:
-            return match.group(0)
+    return [
+        match.group(0)
+        for match in _VERBATIM_BEARING.finditer(course_text)
+        if match.start() not in excluded
+    ]
+
+
+def _verbatim_course_direction(
+    direction: str, candidates: list[str], normalized_candidates: list[str]
+) -> str:
+    """Return the deed's own wording for the parsed course ``direction``.
+
+    ``direction`` comes from normalized text and is used only for parsing. The
+    first candidate whose normalized form equals it is returned verbatim; other
+    directions (due/compass words, unparsed bearings) are returned unchanged.
+    """
+    if not parse_quadrant_bearing(direction):
+        return direction
+    for candidate, normalized in zip(candidates, normalized_candidates, strict=True):
+        if extract_direction(normalized) == direction:
+            return candidate
     return direction
 
 
 def extract_single_call(
-    call_text: str, course: int, distance_unit: str = "feet"
+    call_text: str,
+    course: int,
+    distance_unit: str = "feet",
+    *,
+    course_bearing: _CourseBearing | None = None,
 ) -> DeedCall | None:
     """Extract a single call from text.
 
@@ -542,6 +589,7 @@ def extract_single_call(
         call_text: Text for one call
         course: Course number
         distance_unit: Primary distance unit
+        course_bearing: ``_course_bearing(call_text)`` when already computed
 
     Returns:
         DeedCall object or None if parsing fails
@@ -549,11 +597,11 @@ def extract_single_call(
     if re.match(r"^\s*(BEGINNING|COMMENCING|POB)\b", call_text, re.IGNORECASE):
         return None
 
-    raw_direction = _course_direction(call_text)
+    if course_bearing is None:
+        course_bearing = _course_bearing(call_text)
+    raw_direction = course_bearing.direction
     # direction_text keeps the deed's wording; the normalized form is for parsing only.
-    direction_text = (
-        _verbatim_course_direction(call_text, raw_direction) if raw_direction else call_text.strip()
-    )
+    direction_text = course_bearing.text if raw_direction else call_text.strip()
 
     bearing_quadrant = None
     azimuth = None
@@ -881,6 +929,7 @@ def _derived_tangent_transformation(call: DeedCall) -> Transformation:
 def _audit_single_call(
     call_text: str,
     call: DeedCall,
+    raw_direction: str,
 ) -> tuple[list[Transformation], list[Decision], list[str]]:
     """Build audit data for a successfully parsed call.
 
@@ -890,6 +939,7 @@ def _audit_single_call(
     Args:
         call_text: Original text of the call
         call: The successfully parsed DeedCall
+        raw_direction: The normalized course direction the call was parsed from
 
     Returns:
         Tuple of (transformations, decisions, flags)
@@ -899,7 +949,6 @@ def _audit_single_call(
     flags: list[str] = []
 
     # --- Bearing transformation ---
-    raw_direction = _course_direction(call_text)
     if raw_direction:
         transformations.append(
             Transformation(

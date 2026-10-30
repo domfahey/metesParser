@@ -11,12 +11,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
+import mp_models
 import pytest
 from mp_parse import calls as package_calls
 from mp_parse.calls import extract_single_call as package_single_call
 
 from metesparser import call_extractor as monolith_calls
+from metesparser import models as monolith_models
 from metesparser.call_extractor import CallExtractor
 from tests.fixtures.package_parser import extract_calls as package_extract_calls
 
@@ -42,6 +45,75 @@ ENTRY_POINTS = {
 @pytest.fixture(params=sorted(ENTRY_POINTS))
 def parse(request):
     return ENTRY_POINTS[request.param]
+
+
+# --- 2. Normalization runs once per call --------------------------------------
+
+STRAIGHT = (
+    "BEGINNING at a point; THENCE N 10° W 100.00 feet to a point; "
+    "THENCE North 80 degrees 00' East 100.00 feet to a point; "
+    "THENCE S 10-00 E 100.00 feet to a point; "
+    "THENCE S 80° W 100.00 feet to the point of beginning."
+)
+IMPLEMENTATIONS = {
+    "package": (package_calls, package_extract_calls, mp_models),
+    "monolith": (monolith_calls, CallExtractor.extract_calls, monolith_models),
+}
+
+
+def _audit_ctx(models):
+    return models.AuditContext(
+        run_metadata=models.RunMetadata(
+            parser_version="t",
+            llm_provider="t",
+            llm_model="t",
+            prompt_hash="t",
+            timestamp_utc=datetime.now(UTC),
+            source_pdf="t.pdf",
+            cache_enabled=False,
+        )
+    )
+
+
+@pytest.mark.parametrize("impl", sorted(IMPLEMENTATIONS))
+def test_bearing_normalization_runs_once_per_call(monkeypatch, impl):
+    module, extract, models = IMPLEMENTATIONS[impl]
+    original = module._normalize_bearing_forms
+    seen: list[str] = []
+
+    def spy(text: str) -> str:
+        seen.append(text)
+        return original(text)
+
+    monkeypatch.setattr(module, "_normalize_bearing_forms", spy)
+    audit = _audit_ctx(models)
+    calls = extract(STRAIGHT, audit_context=audit)
+
+    assert len(calls) == 4
+    assert [round(c.bearing_azimuth_deg_from_north, 6) for c in calls] == [350, 80, 170, 260]
+    assert [c.direction_text for c in calls] == [
+        "N 10° W",
+        "North 80 degrees 00' East",
+        "S 10-00 E",
+        "S 80° W",
+    ]
+    assert len(audit.call_audits) == 4
+    assert len(seen) == len(calls)
+
+
+@pytest.mark.parametrize("impl", sorted(IMPLEMENTATIONS))
+def test_segmented_normalization_matches_separate_normalization(impl):
+    module = IMPLEMENTATIONS[impl][0]
+    segments = [
+        "thence Lot N 12-3 E, N 45-30 E 100 feet",
+        "N 45-30 E",
+        "North 34 degrees 02' 00\" West",
+        "N 45.3015 E",
+        "S 10d 15m W",
+    ]
+    assert module._normalize_bearing_segments(segments) == [
+        module._normalize_bearing_forms(s) for s in segments
+    ]
 
 
 # --- 3. Glued word bearings -----------------------------------------------------
