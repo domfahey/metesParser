@@ -618,6 +618,32 @@ _CURVE_WORD = r"curv(?:e|ed|ing)"
 _CURVE_KEYWORD_PATTERN = re.compile(rf"\b(?:{_CURVE_WORD}|spiral|transition)\b", re.IGNORECASE)
 
 
+def _distance_audit_source(call_text: str, call: DeedCall) -> tuple[str, str | None]:
+    """Return the audited input and rule for the stored course distance."""
+    if (
+        call.notes
+        and _ARC_COMPUTED_NOTE in call.notes
+        and call.radius_ft
+        and call.delta_deg is not None
+    ):
+        return (
+            f"radius {call.radius_ft} feet, delta {call.delta_deg} deg",
+            _ARC_COMPUTED_RULE,
+        )
+    if call.is_chord_only_curve():
+        return (
+            f"{call.chord_length_ft} feet",
+            "chord-only curve: distance is the stated chord length",
+        )
+    if call.arc_length_ft is not None and call.arc_length_ft == call.distance_ft:
+        return f"{call.arc_length_ft} feet", None
+    course_text = _boundary_course_text(call_text)
+    distance, unit = TextParser.extract_distance(course_text)
+    if distance == 0:
+        return call_text.strip(), None
+    return f"{distance} {unit}", None
+
+
 class CallExtractor:
     """Extract and structure deed calls from legal description text."""
 
@@ -1185,20 +1211,15 @@ class CallExtractor:
             transformations.append(_derived_tangent_transformation(call))
 
         # --- Distance transformation ---
-        distance, unit = TextParser.extract_distance(call_text)
-        distance_input = f"{distance} {unit}" if distance > 0 else call_text.strip()
+        # Record the source the stored distance actually came from, never the first
+        # distance in the text (which for a curve is the radius).
+        distance_input, distance_rule = _distance_audit_source(call_text, call)
         transformations.append(
             Transformation(
                 step="extract_distance",
                 input=distance_input,
                 output=str(call.distance_ft),
-                rule=(
-                    "chord-only curve: distance is the stated chord length"
-                    if call.is_chord_only_curve()
-                    else _ARC_COMPUTED_RULE
-                    if call.notes and _ARC_COMPUTED_NOTE in call.notes
-                    else None
-                ),
+                rule=distance_rule,
             )
         )
 
