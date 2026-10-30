@@ -905,6 +905,13 @@ Eight findings plus one found while fixing, fixed red-green on `fix/code-review-
 - **Raster import:** orientation comes only from the shared `image_orientation` reader, matching render (`fe7b222`).
 - **Cleanup:** dead `misclosure_known` removed; tolerance comment corrected.
 
+### PR #60 thirteenth review (2026-10-30)
+Five findings plus one follow-up, fixed red-green on `fix/code-review-2026-10-29`:
+- **One chord/radial clause grammar:** SUBJECT (chord | radius point | radius | radial [line|bearing] | center/centre [point] [of the/said curve]) + optional LINK (of which/to which/which/that/whose) + VERB (bears/bearing [of|is]; lies/is only before a quadrant) + a full course-form bearing captured up to the next comma/semicolon. Fixes "chord which/that bears", decimal-second chord bearings and "center of said curve bears"/"radius point lies" being taken as the course bearing (`8f43351`, package and monolith).
+- **Linear tail-context scans:** bounded `_ends_with` replaces quadratic prefix searches (2000 tokens: 7.27 s → 0.016 s) (`8f43351`).
+- **Radius + delta/arc + chord bearing without a tangent:** verification positions it by its chord exactly as the plot does; perimeter uses R·δ; area includes the segment (`06e62cf`).
+- **Strict-mode curve gate:** "Malformed course" detection uses the shared curve/curved/curving keyword (`d1dcad2`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
