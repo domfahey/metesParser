@@ -542,3 +542,21 @@ class TestExtractDistanceAndCompoundTrailing:
         value, unit = TextParser.extract_distance("10 chains 50 links and 3 perches")
         assert value == pytest.approx(742.5)
         assert unit == "feet"
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("1 chain, 2 rods and 3 links", (0.0, "feet")),
+            ("10 chains 50 links and 3 perches", (742.5, "feet")),
+            ("10 chains and 50 links, 3 rods from the corner", (693.0, "feet")),
+            ("150 feet, 3 rods north of the oak", (150.0, "feet")),
+            ("40 poles 2 rods", (40.0, "poles")),
+            ("2 rods and 3 links", (34.98, "feet")),
+        ],
+    )
+    def test_compound_table_never_drops_leading_measurement(
+        self, text: str, expected: tuple[float, str]
+    ) -> None:
+        value, unit = TextParser.extract_distance(text)
+        assert value == pytest.approx(expected[0])
+        assert unit == expected[1]

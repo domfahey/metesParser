@@ -462,12 +462,13 @@ def extract_distance(text: str) -> tuple[float, str]:
                     re.IGNORECASE,
                 ).match(text, compound.start())
             else:
-                # Keep a valid "and" compound; drop unrelated trailing measurements.
-                compound = re.search(
+                # Keep a valid "and" compound only if it begins at the first
+                # measurement (never skip a leading component); otherwise the
+                # first measurement alone is used.
+                compound = re.compile(
                     rf"{component_pattern}(?:\s+and\s+{component_pattern})+",
-                    text,
                     re.IGNORECASE,
-                )
+                ).match(text, compound.start())
         if compound:
             trailing_component = re.match(
                 rf"\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+", text[compound.end() :], re.IGNORECASE
