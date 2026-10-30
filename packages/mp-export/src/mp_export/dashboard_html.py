@@ -230,7 +230,7 @@ def _records(bundle: DashboardBundle) -> str:
     for occurrence in bundle.occurrences:
         transcript_id, csv_id = f"transcript-{occurrence.id}", f"courses-{occurrence.id}"
         parts.append(
-            f'<details class="panel" open><summary>{_escape(occurrence.version_label)} · {_escape(occurrence.id)}</summary><p>{_escape(occurrence.notes)}</p><div><pre id="{transcript_id}">{_escape(occurrence.transcript)}</pre>{_copy_button(transcript_id, "Copy untouched transcript")}</div><h3>Extracted courses</h3><p class="muted">Source-linked review table in feet; not the engine’s verified 21-column CSV. POB location is retained in the transcript.</p><div class="table-wrap" role="region" aria-label="Recorded courses" tabindex="0"><table><thead><tr><th>Course</th><th>Direction / source quote</th><th>Angle as written / type</th><th>Distance as written / feet</th><th>Along / to</th><th>Reading / source</th></tr></thead><tbody>'
+            f'<details class="panel" open><summary>{_escape(occurrence.version_label)} · {_escape(occurrence.id)}</summary><p>{_escape(occurrence.notes)}</p><div><pre id="{transcript_id}">{_escape(occurrence.transcript)}</pre>{_copy_button(transcript_id, "Copy untouched transcript")}</div><h3>Extracted courses</h3><p class="muted">Source-linked review table in feet; not the engine’s verified CSV. POB location is retained in the transcript.</p><div class="table-wrap" role="region" aria-label="Recorded courses" tabindex="0"><table><thead><tr><th>Course</th><th>Direction / source quote</th><th>Angle as written / type</th><th>Distance as written / feet</th><th>Along / to</th><th>Reading / source</th></tr></thead><tbody>'
         )
         for item in bundle.calls:
             if item.occurrence_id != occurrence.id:

@@ -84,7 +84,10 @@ def create_extraction_report(legal_desc, closure_result, output_file):
             f.write(
                 f"Azimuth:         {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north is not None else '(none)'}\n"
             )
-            f.write(f"Distance:        {call.distance_ft:.2f} feet\n")
+            distance = (
+                f"{call.distance_ft:.2f} feet" if call.distance_ft is not None else "not determined"
+            )
+            f.write(f"Distance:        {distance}\n")
 
             # Curve info if present
             if call.curve_dir:
