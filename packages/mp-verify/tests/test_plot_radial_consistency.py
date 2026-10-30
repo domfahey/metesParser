@@ -19,26 +19,26 @@ from mp_verify.plot import prepare_plot
 INCONSISTENT = {
     # Non-tangent right curve R=100, delta=90: chord S45E implies tangent 0, so the
     # radial must be N90W; N45W contradicts it.
-    "radial_vs_chord": dict(
-        non_tangent=True,
-        radial_bearing="N 45°00'00\" W",
-        chord_bearing="S 45°00'00\" E",
-    ),
-    "radial_vs_tangent": dict(
-        bearing_azimuth_deg_from_north=0.0,
-        radial_bearing="N 45°00'00\" W",
-    ),
+    "radial_vs_chord": {
+        "non_tangent": True,
+        "radial_bearing": "N 45°00'00\" W",
+        "chord_bearing": "S 45°00'00\" E",
+    },
+    "radial_vs_tangent": {
+        "bearing_azimuth_deg_from_north": 0.0,
+        "radial_bearing": "N 45°00'00\" W",
+    },
 }
 CONSISTENT = {
-    "radial_chord_ok": dict(
-        non_tangent=True,
-        radial_bearing="N 90°00'00\" E",
-        chord_bearing="N 45°00'00\" E",
-    ),
-    "radial_tangent_ok": dict(
-        bearing_azimuth_deg_from_north=0.0,
-        radial_bearing="N 90°00'00\" E",
-    ),
+    "radial_chord_ok": {
+        "non_tangent": True,
+        "radial_bearing": "N 90°00'00\" E",
+        "chord_bearing": "N 45°00'00\" E",
+    },
+    "radial_tangent_ok": {
+        "bearing_azimuth_deg_from_north": 0.0,
+        "radial_bearing": "N 90°00'00\" E",
+    },
 }
 
 
