@@ -11,7 +11,7 @@ from mp_models.corridor import CorridorManifest, CorridorRequest, CorridorResult
 from mp_verify.corridor import analyze_corridor, validate_corridor_result
 
 from .dashboard import _atomic
-from .plot import _finite_json
+from .json_input import parse_json
 from .relative import _invalid_number, _unique_object
 
 
@@ -30,9 +30,7 @@ def _read(path: Path) -> bytes:
 
 
 def _payload(data: bytes) -> Any:
-    result = json.loads(data, object_pairs_hook=_unique_object, parse_constant=_invalid_number)
-    _finite_json(result)
-    return result
+    return parse_json(data, object_pairs_hook=_unique_object, parse_constant=_invalid_number)
 
 
 def analyze_corridor_file(input: Path | str, output_dir: Path | str) -> dict[str, Any]:

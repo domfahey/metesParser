@@ -7,7 +7,6 @@ A manifest is the commit record, written after every content-bound artifact.
 from __future__ import annotations
 
 import hashlib
-import json
 import math
 import os
 import re
@@ -52,6 +51,7 @@ from mp_verify.plot import (
 )
 
 from .dashboard import _load
+from .json_input import parse_json
 
 
 def _number(raw: str, field: str) -> float:
@@ -592,7 +592,7 @@ def _validate_identities(bundle: DashboardBundle, revision: DashboardRevision) -
 def _parse_corridor_request(raw_request_json: str) -> CorridorRequest:
     from .relative import _invalid_number, _unique_object
 
-    payload = json.loads(
+    payload = parse_json(
         raw_request_json, object_pairs_hook=_unique_object, parse_constant=_invalid_number
     )
     return CorridorRequest.model_validate(payload)
@@ -868,7 +868,7 @@ def import_revision(
     if isinstance(payload, (str, bytes)):
         from .relative import _invalid_number, _unique_object
 
-        payload = json.loads(
+        payload = parse_json(
             payload, object_pairs_hook=_unique_object, parse_constant=_invalid_number
         )
     if isinstance(payload, DashboardRevision):

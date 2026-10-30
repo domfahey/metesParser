@@ -4,104 +4,41 @@ import argparse
 import contextlib
 import contextvars
 import json
+import os
 import sys
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 from .api import review_file, verify_file
+from .json_input import InvalidInputJson, read_json_input
 from .relative import review_relative_file
 from .settings import SettingsError, read_settings
 from .settings import output_path as _output_path
 
-# Output directories handed out during the current invocation, with the directory's mtime when
-# it was handed out (None if it did not exist yet). main() sets a fresh dict and resets it
-# afterwards, so nothing persists between in-process calls.
-_RUN_OUTPUT_DIRS: contextvars.ContextVar[dict[Path, int | None] | None] = contextvars.ContextVar(
-    "mp_review_run_output_dirs", default=None
+# Output paths handed out during the current invocation (output_path() results and explicit
+# --output targets). main() sets a fresh dict and resets it afterwards, so nothing persists
+# between in-process calls.
+_RUN_OUTPUT_PATHS: contextvars.ContextVar[dict[Path, None] | None] = contextvars.ContextVar(
+    "mp_review_run_output_paths", default=None
 )
-
-# Commands whose positional input is a JSON file read before any work starts.
-_JSON_INPUT_COMMANDS = frozenset(
-    {
-        "plot",
-        "verify",
-        "review",
-        "analyze-corridor",
-        "derive-plss",
-        "analyze-relative",
-        "compare-descriptions",
-        "validate-source",
-        "dashboard",
-        "render-map",
-        "render-revision",
-        "export-review",
-        "inspect-delivery",
-        "revision-template",
-        "save-revision",
-        "inspect-revision",
-        "compose-map",
-        "compose-dashboard",
-        "diagnose-closure",
-    }
-)
-
-
-class InvalidInputJson(Exception):
-    """Input JSON is nested too deeply to load or validate."""
-
-
-@contextlib.contextmanager
-def input_boundary() -> Iterator[None]:
-    """Input-loading phase: recursion inside it means the supplied JSON is too deep."""
-    try:
-        yield
-    except RecursionError as exc:
-        raise InvalidInputJson from exc
-
-
-def load_input(path: Path) -> None:
-    """Load and depth-check a JSON input file inside the input boundary.
-
-    Other failures (unreadable file, non-JSON text, invalid values) are left to the command,
-    which reports them with its own error code.
-    """
-    from .plot import _finite_json
-
-    with input_boundary():
-        try:
-            _finite_json(json.loads(path.read_bytes()))
-        except (OSError, ValueError):
-            return
-
-
-def _dir_mtime_ns(path: Path) -> int | None:
-    try:
-        return path.stat().st_mtime_ns if path.is_dir() else None
-    except OSError:
-        return None
 
 
 def output_path(settings: dict[str, Any], explicit: Path | None) -> Path:
     path = _output_path(settings, explicit)
-    dirs = _RUN_OUTPUT_DIRS.get()
-    if dirs is not None and path not in dirs:
-        dirs[path] = _dir_mtime_ns(path)
+    handed = _RUN_OUTPUT_PATHS.get()
+    if handed is not None:
+        handed[path] = None
     return path
 
 
-def _partial_output_directories(dirs: dict[Path, int | None]) -> list[str]:
-    """Output directories this run created or whose top-level entries changed.
+def _partial_output_directories(handed: dict[Path, None]) -> list[str]:
+    """Output paths handed to this run whose target exists after the failure.
 
-    Exact files are not reported: a shared output directory may hold other runs' files and
-    staging entries, and stages write through many helpers. Callers must inspect the listed
-    directories themselves.
+    Conservative: a handed-out path is listed whether or not this run wrote to it (it may be
+    a pre-existing shared directory), because mtime inference misses same-second, nested and
+    in-place writes. Paths never handed to this run are never listed.
     """
-    return [
-        str(root)
-        for root, before in dirs.items()
-        if (now := _dir_mtime_ns(root)) is not None and now != before
-    ]
+    return [str(path) for path in handed if os.path.lexists(path)]
 
 
 def main() -> None:
@@ -264,8 +201,10 @@ def main() -> None:
     corpus.add_argument("--settings", type=Path)
     args = parser.parse_args()
     result: dict[str, Any]
-    run_dirs: dict[Path, int | None] = {}
-    token = _RUN_OUTPUT_DIRS.set(run_dirs)
+    run_dirs: dict[Path, None] = {}
+    token = _RUN_OUTPUT_PATHS.set(run_dirs)
+    if isinstance(explicit_output := getattr(args, "output", None), Path):
+        run_dirs[explicit_output] = None
     try:
         with contextlib.redirect_stdout(sys.stderr):
             try:
@@ -283,13 +222,6 @@ def main() -> None:
                         ],
                     }
                 else:
-                    input_file = getattr(args, "input", None)
-                    if (
-                        args.command in _JSON_INPUT_COMMANDS
-                        and isinstance(input_file, Path)
-                        and input_file.is_file()
-                    ):
-                        load_input(input_file)
                     result = _execute(args, settings)
             except SettingsError as exc:
                 result = {
@@ -312,8 +244,8 @@ def main() -> None:
                     ],
                 }
             except RecursionError:
-                # Recursion after input loading (rendering, publishing) is an internal
-                # failure; files may already be written, so name the directories that may hold them.
+                # Recursion outside input loading (rendering, publishing) is an internal
+                # failure; files may already be written, so name the paths that may hold them.
                 result = {
                     "schema_version": "1.0",
                     "status": "error",
@@ -323,13 +255,13 @@ def main() -> None:
                         {
                             "code": "internal_recursion_error",
                             "message": "Recursion limit exceeded while processing; "
-                            "output directories listed under partial_output_directories "
+                            "paths listed under partial_output_directories "
                             "may contain partial output.",
                         }
                     ],
                 }
     finally:
-        _RUN_OUTPUT_DIRS.reset(token)
+        _RUN_OUTPUT_PATHS.reset(token)
     print(json.dumps(result, allow_nan=False))
     raise SystemExit(
         {"checks_passed": 0, "needs_review": 1, "passed": 0, "failed": 1, "error": 2}.get(
@@ -491,7 +423,7 @@ def _overlay_artifact(args: argparse.Namespace) -> dict[str, Any]:
 
             from .raster_registration import fit_affine, image_layer, supplied_affine
 
-            config = json.loads(args.controls.read_bytes())
+            config = read_json_input(args.controls)
             scene = PlotScene.model_validate(config["scene"])
             controls = tuple(RasterControl.model_validate(c) for c in config.get("controls", []))
             registration = (

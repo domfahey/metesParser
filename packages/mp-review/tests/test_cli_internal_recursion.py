@@ -108,7 +108,8 @@ def test_shared_dir_other_runs_files_are_never_listed(tmp_path, monkeypatch, cap
     assert result["artifacts"] == {}
     assert "other-run.json" not in json.dumps(result)
     assert ".publishing" not in json.dumps(result)
-    assert "partial_output_directories" not in result or result["partial_output_directories"] == []
+    # The handed-out directory is listed (over-reporting is acceptable); its contents never are.
+    assert result["partial_output_directories"] == [str(out)]
 
 
 def test_nothing_written_lists_nothing(tmp_path, monkeypatch, capsys):

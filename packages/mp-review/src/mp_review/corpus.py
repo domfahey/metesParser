@@ -9,6 +9,8 @@ from typing import Any
 
 from mp_models import DeedCall
 
+from .json_input import parse_json
+
 _EXPECTATION_KEYS = {
     "status",
     "call_count",
@@ -129,7 +131,7 @@ def _validate_case(case: Any) -> tuple[str, dict[str, Any]]:
 def run_corpus(manifest_path: str | Path, output_path: str | Path | None = None) -> dict[str, Any]:
     """Run manifest cases independently and compare results with reviewed expectations."""
     manifest_file = Path(manifest_path).resolve()
-    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    manifest = parse_json(manifest_file.read_text(encoding="utf-8"))
     if not isinstance(manifest, dict):
         raise ValueError("manifest must be an object")
     if manifest.get("schema_version") != "1.0" or not isinstance(manifest.get("cases"), list):
