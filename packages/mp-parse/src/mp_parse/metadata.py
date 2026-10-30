@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Literal, TypedDict
 from mp_models import ConversionFactors
 
 from .numbers import COMMA_NUMBER, parse_comma_number
+from .units import LENGTH_NUMBER_GUARD, LENGTH_UNIT, is_foot_mark, normalize_unit_token
 
 if TYPE_CHECKING:
     from mp_models import DeedClause, SubdivisionReference
@@ -954,46 +955,22 @@ def extract_distance(text: str) -> tuple[float, str]:
             re.IGNORECASE,
         ):
             return 0.0, "feet"
-        match = re.search(pattern, text, re.IGNORECASE)
+        match = next(
+            (
+                m
+                for m in re.finditer(
+                    rf"{LENGTH_NUMBER_GUARD}({COMMA_NUMBER})\s*({LENGTH_UNIT})", text, re.IGNORECASE
+                )
+                if not is_foot_mark(m.group(2))
+            ),
+            None,
+        )
     if match:
         value = parse_comma_number(match.group(1))
-        unit = " ".join(match.group(2).lower().split())
-
-        if unit in ("us survey feet", "us survey foot"):
-            unit = "us_survey_feet"
-        elif unit in ("engineer chain", "engineer chains"):
-            unit = "engineer_chains"
-        elif unit in ("engineer link", "engineer links"):
-            unit = "engineer_links"
-        elif unit in ("ft", "feet", "foot"):
-            unit = "feet"
-        elif unit in ("pole", "poles"):
-            unit = "poles"
-        elif unit in ("rod", "rods"):
-            unit = "rods"
-        elif unit in ("perch", "perches"):
-            unit = "perches"
-        elif unit in ("chain", "chains"):
-            unit = "chains"
-        elif unit in ("link", "links"):
-            unit = "links"
-        elif unit in ("vara", "varas"):
-            unit = "varas"
-        elif unit in ("arpent", "arpents"):
-            unit = "arpents"
-        elif unit in ("toise", "toises"):
-            unit = "toises"
-        elif unit in ("furlong", "furlongs"):
-            unit = "furlongs"
-        elif unit in ("meter", "meters"):
-            unit = "meters"
-        elif unit in ("mile", "miles"):
-            unit = "miles"
-
-        return (value, unit)
+        return (value, normalize_unit_token(match.group(2)))
 
     apostrophe_feet = re.search(
-        rf"(?<!\u00b0)({COMMA_NUMBER})\s*'(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
+        rf"{LENGTH_NUMBER_GUARD}({COMMA_NUMBER})\s*(?:'(?!')|\u2032(?!\u2032))(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
         text,
         re.IGNORECASE,
     )
