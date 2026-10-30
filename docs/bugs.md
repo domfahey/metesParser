@@ -1113,7 +1113,14 @@ Nine findings (three regressions against `main`), fixed red-green on `fix/code-r
 - **`DeedCall.is_curve()` includes spirals:** one curve predicate for verification and every caller; the relative-course plot and dashboard validators reject spirals instead of drawing them as lines; perimeter uses a spiral's stated length (`9658b58`).
 - **Dead code:** `csv_writer._row_to_call` (log and drop) removed (`9658b58`).
 - **Cardinal vocabulary sync:** `mp_bearing.normalize_cardinal_word` is added to the AGENTS.md sync list, and a test checks every copy accepts and rejects the same words (`9658b58`).
-- **Known limitations:** a lone course labelled "per deed" or "(R)" loses the label wording (as on `main`); "N 45° E 100 feet per deed, N 50° E 80 feet per deed" reads the second pair as a record call; a qualifier before an explicit "along" is not kept; a qualifier at a sentence end can run on into the next word ("parallel with the first course the").
+- **Known limitations:** a lone course labelled "per deed" or "(R)" loses the label wording (as on `main`); a qualifier before an explicit "along" is not kept; a qualifier at a sentence end can run on into the next word ("parallel with the first course the").
+
+### PR #60 fortieth review (2026-10-30)
+Ten findings (two fabrications, two regressions against `main`), fixed red-green on `fix/code-review-2026-10-29`:
+- **Record calls identified once, before any course value is read:** a single scan (`_scan_record_calls`) finds nested-aware bracketed record groups and record-labelled statements, blanks them from the text used to read bearing, tangent, chord, radial, distance and curve elements, and keeps them verbatim in notes. A record bearing can no longer become a curve's tangent ("chord bearing N 45° E 49.9 feet (deed N 44° E 49.8 feet)" was az 44) or a cardinal-only course's bearing ("Northeasterly (deed N 44° E)" was az 44, now "incomplete bearing - cardinal only"); pairs are never mixed; "[deed 99.5 feet]" reads 100 again; (M) beats (R) for lengths and chords; R/M, "formerly" and "(recorded as …)" distances are noted; a course whose only length is a record fails closed; "per deed, … per deed" now raises `MultipleCoursesError` (`e70a791`).
+- **Notes kept on enrichment:** `enrich_calls_with_azimuths` removes only the incomplete-bearing note, keeping every other note intact (`e70a791`).
+- **Offset distances (regression):** "parallel to and 50 feet distant from", "N feet off", "N feet measured at right angles from" are offsets, not the course length; a length directly after another unjoined length stays ambiguous (`d61636f`, `92f4536`).
+- **Known limitations:** a lone labelled course loses its label (or keeps it in `along`); a tie inside parentheses is noted as a record call; an unclosed bracket holding a bearing is treated as a record to the end of the text; "one hundred (100) feet" fails closed.
 
 ## Known Limitations
 
