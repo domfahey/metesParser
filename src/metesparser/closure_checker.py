@@ -156,6 +156,12 @@ class ClosureChecker:
             ]
         )
 
+        chord_only_courses = [
+            c.course
+            for i, c in enumerate(main_calls)
+            if c.is_chord_only_curve() and i not in bad_chord_indices
+        ]
+
         # Check for degenerate traverse: no calls contributed azimuths
         computable_calls = sum(
             1 for c in main_calls if c.bearing_azimuth_deg_from_north is not None
@@ -180,7 +186,17 @@ class ClosureChecker:
                 "No computable traverse — all calls lack bearings (cardinal-only or empty)"
             )
 
-        area_available = bool(main_calls) and all(call.is_complete_bearing() for call in main_calls)
+        for course in chord_only_courses:
+            warnings.append(
+                f"Course {course}: curve delta/arc not stated - positioned by chord only; "
+                "arc, area and perimeter are not determined"
+            )
+
+        area_available = (
+            bool(main_calls)
+            and all(call.is_complete_bearing() for call in main_calls)
+            and not chord_only_courses
+        )
         try:
             main_area_sq_ft = cls.calculate_area(points, calls=main_calls)
 
@@ -302,6 +318,22 @@ class ClosureChecker:
         check_results = [
             CheckResult.model_validate(check.model_dump()) for check in package_check_results
         ]
+        curve_check = next(c for c in check_results if c.name == "curve_consistency")
+        if chord_only_courses and curve_check.status != "failed":
+            check_results = [
+                CheckResult(
+                    name="curve_consistency",
+                    status="blocked",
+                    reason="curve_delta_not_stated",
+                    detail="Curve delta/arc not stated (minor or major arc ambiguous); "
+                    "positioned by chord only on course(s) "
+                    + ", ".join(str(c) for c in chord_only_courses),
+                )
+                if check.name == "curve_consistency"
+                else check
+                for check in check_results
+            ]
+            curve_consistency_passed = False
         if bad_chord_courses:
             check_results = [
                 CheckResult(
@@ -379,6 +411,18 @@ class ClosureChecker:
         current = start_point
 
         for call in calls:
+            if call.is_chord_only_curve():
+                # Radius + chord without delta/arc: the arc is ambiguous (minor or
+                # major), but the stated chord fixes the endpoint displacement exactly.
+                assert call.chord_bearing is not None and call.chord_length_ft is not None
+                chord_azimuth = BearingConverter.bearing_to_azimuth(call.chord_bearing)
+                if chord_azimuth is None:
+                    raise ValueError(f"Course {call.course}: invalid chord bearing")
+                dx, dy = BearingConverter.calculate_deltas(chord_azimuth, call.chord_length_ft)
+                current = Point(x=current.x + dx, y=current.y + dy)
+                points.append(current)
+                continue
+
             if call.bearing_azimuth_deg_from_north is None:
                 continue
 
@@ -719,7 +763,13 @@ class ClosureChecker:
                         return False
                     delta_deg = math.degrees(implied_delta_rad)
                 else:
-                    # No delta and insufficient data to derive one — skip
+                    # No delta or arc: a radius and chord alone leave the arc ambiguous,
+                    # so only the chord's own feasibility can be checked.
+                    if (
+                        call.chord_length_ft is not None
+                        and call.chord_length_ft > 2 * call.radius_ft
+                    ):
+                        return False
                     continue
 
             delta_rad = math.radians(delta_deg)

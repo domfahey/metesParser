@@ -429,7 +429,14 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
                     return False, warnings
                 delta_deg = math.degrees(implied_delta_rad)
             else:
-                # No delta and insufficient data to derive one -- skip
+                # No delta or arc: a radius and chord alone leave the arc ambiguous,
+                # so only the chord's own feasibility can be checked.
+                if call.chord_length_ft is not None and call.chord_length_ft > 2 * call.radius_ft:
+                    warnings.append(
+                        f"Course {call.course}: chord length exceeds twice the radius "
+                        f"(chord: {call.chord_length_ft:.2f}, radius: {call.radius_ft:.2f})"
+                    )
+                    return False, warnings
                 continue
 
         delta_rad = math.radians(delta_deg)
