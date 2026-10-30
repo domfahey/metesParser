@@ -297,10 +297,18 @@ PIECES = {
         "along a line parallel to and 10 feet from Main Street",
         "parallel to and 10 feet from Main Street",
     ),
+    "offset-lead": (
+        "along a line 10 feet from and parallel to the line of Smith",
+        "10 feet from and parallel to the line of Smith",
+    ),
+    "offset-lead-bare": (
+        "10 feet northerly of and parallel with the line of Smith",
+        "10 feet northerly of and parallel with the line of Smith",
+    ),
 }
 POSITIONS = ("before-bearing", "after-bearing", "after-length", "after-terminus", "after-semicolon")
 # An adjoiner after the destination behind ';' is attached to no field: it fails closed.
-FAILS_CLOSED = {("offset", "after-semicolon")}
+FAILS_CLOSED = {(name, "after-semicolon") for name in ("offset", "offset-lead", "offset-lead-bare")}
 
 
 def _insert(wording: str, position: str) -> str:
