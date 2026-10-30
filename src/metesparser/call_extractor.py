@@ -203,6 +203,13 @@ _CHORD_PREFIX_PATTERN = re.compile(
 # tangent: "radius point (of which | which | that) bears", "whose radius bears",
 # "the radius of which bears", "radial (line | bearing) (of | which bears | bears)",
 # "center/centre (point) (of which | which | that) bears".
+# Deed says the curve is tangent ("tangent to the last course", "tangent curve", "being
+# tangent"); "non-tangent"/"not tangent" is excluded.
+_TANGENT_STATEMENT_PATTERN = re.compile(
+    r"(?<!non-)(?<!non)(?<!not\s)\btangent\s+(?:to\s+(?:the\s+)?(?:last|preceding|previous|prior)\s+course"
+    r"|curve)\b|\bbeing\s+tangent\b",
+    re.IGNORECASE,
+)
 _RADIAL_PREFIX_PATTERN = re.compile(
     r"\b(?:(?:radius|center|centre)(?:\s+point)?|radial(?:\s+(?:line|bearing))?)\s+"
     r"(?:of\s+which\s+|which\s+|that\s+)?(?:bears?|bearing)\s+(?:of\s+)?"
@@ -886,6 +893,8 @@ class CallExtractor:
                 notes += f"; {tangent_note}"
         elif tangent_note:
             notes = tangent_note
+            if cardinal_only:
+                notes += "; incomplete bearing - cardinal only"
         elif not parsed_bearing and not is_due_cardinal:
             notes = "incomplete bearing - cardinal only" if cardinal_only else "incomplete bearing"
 
@@ -1420,12 +1429,15 @@ class CallExtractor:
         if not _describes_curve(curve_info):
             return curve_info
 
-        if re.search(r"\bnon-?tangent\b", text, re.IGNORECASE):
+        if re.search(r"\b(?:non-?tangent|not\s+tangent)\b", text, re.IGNORECASE):
             curve_info["non_tangent"] = True
 
         radial_match = _RADIAL_PREFIX_PATTERN.search(text)
         if radial_match:
-            curve_info["non_tangent"] = True
+            # A stated radius point is evidence of a non-tangent curve only when the deed
+            # does not also call the curve tangent.
+            if not _TANGENT_STATEMENT_PATTERN.search(text):
+                curve_info["non_tangent"] = True
             rest = text[radial_match.end() :]
             clause_end = re.search(r"[,;]", rest)
             clause = rest[: clause_end.start()] if clause_end else rest
