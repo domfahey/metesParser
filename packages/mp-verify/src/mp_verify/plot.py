@@ -46,6 +46,13 @@ def _hash(value: object) -> str:
     ).hexdigest()
 
 
+# A chord-only curve (radius + chord, no delta/arc) is positioned by its chord but
+# its minor/major arc is unknown, so it is listed as unresolved without stopping.
+CHORD_ONLY_UNRESOLVED_REASON = (
+    "curve delta/arc not stated - arc not drawn; positioned by chord only"
+)
+
+
 def _finite(point: XY) -> XY:
     if not all(math.isfinite(v) for v in point):
         raise ValueError("nonfinite plot arithmetic")
@@ -151,17 +158,26 @@ def _build_geometry(
             # Radius + chord without delta/arc: minor or major arc is ambiguous, so
             # nothing is drawn, but the stated chord fixes the next start exactly.
             assert call.chord_bearing is not None and call.chord_length_ft is not None
+            assert call.radius_ft is not None
             chord = bearing_to_azimuth(call.chord_bearing)
+            end: XY | None = None
             if chord is None:
                 reason = "curve chord orientation unresolved"
+            elif call.chord_length_ft > 2.0 * abs(call.radius_ft):
+                # No circle of this radius has such a chord; never position by it.
+                reason = "curve chord length exceeds twice the radius"
             else:
-                dx, dy = calculate_deltas(chord, call.chord_length_ft)
-                current = _finite((current[0] + dx, current[1] + dy))
+                try:
+                    dx, dy = calculate_deltas(chord, call.chord_length_ft)
+                    end = _finite((current[0] + dx, current[1] + dy))
+                except (ValueError, OverflowError) as exc:
+                    reason = str(exc)
+            if end is not None:
+                current = end
                 unresolved.append(
                     PlotUnresolved(
                         call_id=record.id,
-                        reason="curve delta/arc not stated - arc not drawn; "
-                        "positioned by chord only",
+                        reason=CHORD_ONLY_UNRESOLVED_REASON,
                     )
                 )
                 if chains[-1]:
