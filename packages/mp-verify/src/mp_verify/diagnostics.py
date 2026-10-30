@@ -19,6 +19,7 @@ from mp_models.diagnostics import (
 from mp_models.plot import PlotPrimitive
 
 from .plot import _arc
+from .tangents import line_distance
 
 ARCSECOND_RADIANS = math.pi / 648000
 _Parameter = Literal["radius_ft", "sweep_radian", "start_tangent_radian"]
@@ -184,7 +185,8 @@ def diagnose_closure(request: ClosureDiagnosticRequest) -> ClosureDiagnostics:
     north = []
     try:
         perimeter = math.fsum(
-            arcs[c.call_id].length_ft if c.call_id in arcs else c.call.distance_ft for c in boundary
+            arcs[c.call_id].length_ft if c.call_id in arcs else line_distance(c.call)
+            for c in boundary
         )
         if request.precision is not None and arcs:
             limitations.append(
@@ -195,7 +197,7 @@ def diagnose_closure(request: ClosureDiagnosticRequest) -> ClosureDiagnostics:
             half_angle = request.precision.bearing_increment_arcsec * ARCSECOND_RADIANS / 2
             bound = math.fsum(
                 half_distance
-                + (item.call.distance_ft + half_distance) * 2 * math.sin(half_angle / 2)
+                + (line_distance(item.call) + half_distance) * 2 * math.sin(half_angle / 2)
                 for item in boundary
             )
             if not math.isfinite(bound):
@@ -212,11 +214,10 @@ def diagnose_closure(request: ClosureDiagnosticRequest) -> ClosureDiagnostics:
                 assert call.bearing_azimuth_deg_from_north is not None
                 theta = math.radians(call.bearing_azimuth_deg_from_north)
                 sine, cosine = math.sin(theta), math.cos(theta)
-                east.append(call.distance_ft * sine)
-                north.append(call.distance_ft * cosine)
-                derivatives.append(
-                    (sine, cosine, call.distance_ft * cosine, -call.distance_ft * sine)
-                )
+                distance = line_distance(call)
+                east.append(distance * sine)
+                north.append(distance * cosine)
+                derivatives.append((sine, cosine, distance * cosine, -distance * sine))
         e, n = math.fsum(east), math.fsum(north)
         magnitude = math.hypot(e, n)
         if not all(math.isfinite(v) for v in (perimeter, e, n, magnitude)):
