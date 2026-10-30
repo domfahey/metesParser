@@ -39,6 +39,11 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
 
     ``chord_azimuth`` is the call's chord bearing, parsed once by the caller.
     """
+    if is_curved_course(call) and call.chord_bearing is not None and chord_azimuth is None:
+        # A stated but unreadable chord makes the course's geometry suspect: it is
+        # never positioned by a tangent or radial bearing instead (plot agrees).
+        return None
+
     if is_spiral(call):
         # Decided by curve type alone, even without radius or direction: a spiral's
         # shape is unknown, so only a stated chord bearing and length fix its endpoint
@@ -179,10 +184,9 @@ class CourseAnalysis:
 def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnalysis]]:
     """Traverse boundary calls as verification does and record each call's analysis.
 
-    An unparseable chord bearing is never guessed: the course is traversed without
-    its chord. Without its chord, a curve with no delta or arc has no determinable
-    endpoint, so it also loses its bearing for traversal and is never run along its
-    tangent. The stated calls themselves are never modified.
+    An unparseable chord bearing is never guessed and never replaced by a tangent or
+    radial bearing: that curve is unpositioned (blocked), exactly as plotting treats
+    it. The stated calls themselves are never modified.
     """
     current = Point(x=0, y=0)
     points = [current]
@@ -193,16 +197,10 @@ def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnal
             is_curved_course(call) and call.chord_bearing is not None and chord_azimuth is None
         )
         no_endpoint = bad_chord and call.delta_deg is None and call.arc_length_ft is None
-        traversed = call
-        if bad_chord:
-            update: dict[str, object] = {"chord_bearing": None}
-            if no_endpoint:
-                update["bearing_azimuth_deg_from_north"] = None
-            traversed = call.model_copy(update=update)
         # A spiral is never a chord-only circular curve (minor/major arc ambiguity).
         chord_only = call.is_chord_only_curve() and not is_spiral(call)
         feasible_chord = not (chord_only and not chord_is_feasible(call))
-        endpoint = _advance(traversed, current, chord_azimuth)
+        endpoint = _advance(call, current, chord_azimuth)
         if endpoint is not None:
             current = endpoint
             points.append(current)

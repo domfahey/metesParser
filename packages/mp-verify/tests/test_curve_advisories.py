@@ -374,12 +374,13 @@ def test_chord_oriented_nontangent_arcs_and_arc_length_only_sweeps(sweep):
     assert pair.bearing.outcome == pair.displacement.outcome == "agree"
 
 
-def test_unvalidated_radial_observation_is_explicitly_refused():
+def test_radial_observation_is_not_refused_by_diagnostics():
+    # Orientation now follows the shared tangents rule (radial orients only
+    # non-tangent curves); diagnostics no longer rejects the field outright.
     fields = curve(radial_bearing="N 90° E")
     diagnosed = diagnose_closure(diagnostic(fields))
-    assert diagnosed.availability == "unsupported"
-    assert "radial curve orientation convention unsupported" in " ".join(diagnosed.limitations)
-    assert compare(comparison(fields, curve())).pairs[0].displacement.outcome == "not_comparable"
+    assert "radial curve orientation convention unsupported" not in " ".join(diagnosed.limitations)
+    assert compare(comparison(fields, curve())).pairs[0].displacement.outcome == "agree"
 
 
 def test_unsupported_curve_tie_in_is_excluded_without_changing_boundary():
