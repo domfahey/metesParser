@@ -551,14 +551,22 @@ class TextParser:
                 compound.group(0),
                 re.IGNORECASE,
             ):
-                implicit_units = [
-                    _singular_unit(c.group(2))
-                    for c in re.finditer(component_pattern, compound.group(0), re.IGNORECASE)
-                ]
-                if any(
-                    pair not in _IMPLICIT_COMPOUND_PAIRS
-                    for pair in zip(implicit_units, implicit_units[1:], strict=False)
-                ):
+                comps = list(re.finditer(component_pattern, compound.group(0), re.IGNORECASE))
+                keep = 1
+                for prev, cur in zip(comps, comps[1:], strict=False):
+                    gap = compound.group(0)[prev.end() : cur.start()]
+                    pair = (_singular_unit(prev.group(2)), _singular_unit(cur.group(2)))
+                    joined_by_and = re.search(r"\band\b", gap, re.IGNORECASE)
+                    if not (joined_by_and or pair in _IMPLICIT_COMPOUND_PAIRS):
+                        break
+                    keep += 1
+                if keep >= 2:
+                    # Sum the full valid run so no leading component is dropped.
+                    compound = re.compile(
+                        rf"{component_pattern}(?:{joiner}{component_pattern}){{{keep - 1}}}",
+                        re.IGNORECASE,
+                    ).match(text, compound.start())
+                else:
                     # Keep a valid "and" compound; drop unrelated trailing measurements.
                     compound = re.search(
                         rf"{component_pattern}(?:\s+and\s+{component_pattern})+",
