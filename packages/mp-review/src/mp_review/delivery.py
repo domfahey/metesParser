@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import importlib.metadata
-import json
 import os
 import re
 import secrets
@@ -30,6 +29,7 @@ from mp_verify.plot import prepare_plot, transform_point, unit_factor, validate_
 from mp_verify.scene import validate_scene
 
 from .dashboard import _load
+from .json_input import parse_json
 from .revisions import _write_once, load_revision
 
 if TYPE_CHECKING:
@@ -1015,7 +1015,10 @@ _STAGING_PREFIX = ".publishing-"
 # Everything a pre-staging publisher could leave in a crashed, manifest-less directory.
 _LEGACY_NAMES = re.compile(
     r"(?:(?:pending|snapshot|request|metrics|calls|revision-calls|full-source)\.json"
-    r"|drawing\.(?:svg|pdf|dxf|geojson)|\.DS_Store|Thumbs\.db|desktop\.ini|\._.*)"
+    r"|drawing\.(?:svg|pdf|dxf|geojson)|\.DS_Store|Thumbs\.db|desktop\.ini|\._.*"
+    # tempfile.NamedTemporaryFile default name ("tmp" + 8 of [a-z0-9_]) used by the legacy
+    # atomic writer, left behind when a publisher was killed mid-write.
+    r"|tmp[a-z0-9_]{8})"
 )
 
 
@@ -1328,7 +1331,7 @@ def _check_recorded_geojson(content: bytes, snapshot: DeliverySnapshot) -> dict[
     recorded projection block.
     """
     try:
-        data = json.loads(content)
+        data = parse_json(content)
     except ValueError as exc:
         raise ValueError("Recorded GeoJSON artifact is malformed") from exc
     meta = data.get("metesparser") if isinstance(data, dict) else None

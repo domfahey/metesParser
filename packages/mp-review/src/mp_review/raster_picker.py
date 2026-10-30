@@ -12,7 +12,7 @@ from mp_models.plot import PlotScene
 from mp_models.raster import RasterControl
 
 from .dashboard import _atomic
-from .plot import _finite_json
+from .json_input import parse_json
 from .raster_registration import image_layer, supplied_affine
 from .relative import _invalid_number, _unique_object
 
@@ -51,10 +51,9 @@ def prepare_raster_picker_file(
         if output.is_symlink() or output.exists():
             raise ValueError("Picker output must be a new directory")
         image_bytes, controls_bytes = _read(Path(image_path)), _read(Path(controls_path))
-        config = json.loads(
+        config = parse_json(
             controls_bytes, object_pairs_hook=_unique_object, parse_constant=_invalid_number
         )
-        _finite_json(config)
         if not isinstance(config, dict):
             raise ValueError("Picker controls require a scene/config object")
         if config.get("pixel_convention", "integer_pixel_centers") != "integer_pixel_centers":

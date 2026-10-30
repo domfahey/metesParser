@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 from pathlib import Path
 from typing import Any
@@ -14,6 +13,8 @@ from mp_models.source_handoff import (
     SourceAcquisitionRecord,
 )
 from pydantic import ValidationError
+
+from .json_input import parse_json
 
 SCHEMA_VERSION = "1.1"
 LIMITATIONS = [
@@ -275,7 +276,7 @@ class _Validator:
             )
             return None, raw
         try:
-            data = json.loads(
+            data = parse_json(
                 text,
                 object_pairs_hook=_json_object,
                 parse_constant=lambda x: (_ for _ in ()).throw(

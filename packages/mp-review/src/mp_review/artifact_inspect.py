@@ -16,6 +16,7 @@ from typing import Any
 
 from mp_models.artifact_inspection import ArtifactInspection
 
+from .json_input import InvalidInputJson, parse_json
 from .source_handoff import _json_object, _Validator, validate_source_bundle
 
 STAGES = (
@@ -122,17 +123,14 @@ class _Inspector:
             ) from None
 
     def load(self, path: Path) -> Any:
-        from .plot import _finite_json
-
         try:
-            value = json.loads(
+            value = parse_json(
                 self.read(path).decode("utf-8-sig"),
                 object_pairs_hook=_json_object,
                 parse_constant=lambda x: (_ for _ in ()).throw(ValueError("Nonfinite JSON")),
             )
-            _finite_json(value)
             return value
-        except (ValueError, UnicodeDecodeError, RecursionError):
+        except (ValueError, UnicodeDecodeError, RecursionError, InvalidInputJson):
             raise _Issue(
                 "invalid_json",
                 "Artifact must contain strict UTF-8 JSON without duplicate keys.",
