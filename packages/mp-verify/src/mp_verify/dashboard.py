@@ -40,7 +40,7 @@ from mp_verify.tangents import (
     parse_chord,
     stated_tangent,
 )
-from mp_verify.traverse import is_chord_positioned
+from mp_verify.traverse import chord_positioned_flags
 
 CALCULATOR_VERSION = "dashboard-1.1.0"
 DIAGNOSTICS_VERSION = "closure-diagnostics-2"
@@ -174,10 +174,12 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
     # Same direction rule as verification: stated or curve-element-fixed, never stored.
     # A course positioned only by its stated chord (chord-only curve or spiral) has no
     # known tangent but is not a missing bearing: it is drawn as its chord, arc not drawn.
+    chord_flags = chord_positioned_flags(boundary_calls)
     known = bool(boundary_calls) and all(
-        has_determined_direction(c) or is_chord_positioned(c) for c in boundary_calls
+        has_determined_direction(c) or chord
+        for c, chord in zip(boundary_calls, chord_flags, strict=True)
     )
-    chord_courses = [r.id for r in boundary if r.call is not None and is_chord_positioned(r.call)]
+    chord_courses = [r.id for r, chord in zip(boundary, chord_flags, strict=True) if chord]
     engine_verified = verification.is_fully_verified()
     base.update(
         engine_status="checks_passed" if engine_verified else "needs_review",
@@ -211,8 +213,10 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
             + ("A course could not be positioned; full boundary geometry is not determined.",),
         )
     geometry = []
-    for record, a, b in zip(boundary, verification.points, verification.points[1:], strict=False):
-        azimuth = _local_azimuth(record.call)
+    for record, chord, a, b in zip(
+        boundary, chord_flags, verification.points, verification.points[1:], strict=False
+    ):
+        azimuth = _local_azimuth(record.call, chord)
         if azimuth is None:
             return DashboardResult(
                 **base,
@@ -257,7 +261,7 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
     )
 
 
-def _local_azimuth(call: Any) -> float | None:
+def _local_azimuth(call: Any, chord_positioned: bool) -> float | None:
     """Start direction of a course: stated tangent, else the curve's derived tangent-in.
 
     A course positioned only by its stated chord is drawn as that chord, so its
@@ -269,7 +273,7 @@ def _local_azimuth(call: Any) -> float | None:
     tangents = curve_tangents(call)
     if tangents is not None:
         return tangents[0]
-    if is_chord_positioned(call):
+    if chord_positioned:
         chord = parse_chord(call)
         return float(chord) if chord is not None else None
     return None
