@@ -1696,8 +1696,8 @@ _DIRECTION_ABBREV: dict[str, str] = {
 # Full direction names (case-insensitive group).
 _DIRECTION_GROUP = r"(?P<dir>North|South|East|West|N|S|E|W)"
 
-# Width: integer or decimal number.
-_WIDTH_GROUP = r"(?P<width>\d+(?:\.\d+)?)"
+# Width: any shared length number (decimal, comma-grouped, fraction or mixed).
+_WIDTH_GROUP = rf"(?P<width>{LENGTH_NUMBER})"
 
 # Unit: feet or ft.
 _UNIT_GROUP = r"(?:feet|ft)"
@@ -1851,7 +1851,7 @@ def detect_strip_exceptions(text: str) -> list[_StripException]:
                     continue
 
             direction_raw = match.group("dir")
-            width = float(match.group("width"))
+            width = parse_number(match.group("width"))
 
             # Extract purpose -- not all patterns define this named group
             purpose_raw = None
