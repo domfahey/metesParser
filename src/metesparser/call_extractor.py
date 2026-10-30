@@ -273,7 +273,7 @@ _CHORD_BEARING_LEAD = (
 )
 _CHORD_PREFIX_PATTERN = re.compile(
     rf"\b{_CHORD_SUBJECT}(?:\s+(?:length|distance))?\s+"
-    r"(?:(?:of\s+)?(?P<chord_lead_len>\d+(?:\.\d+)?)\s*(?:feet|ft)\b\s*,?\s*"
+    rf"(?:(?:of\s+)?(?P<chord_lead_len>{_COMMA_NUMBER})\s*(?:feet|ft)\b\s*,?\s*"
     r"(?:and\s+)?(?:(?:an?|the)\s+)?)?"
     rf"(?:{_CLAUSE_LINK})?{_CHORD_BEARING_LEAD}",
     re.IGNORECASE,
@@ -360,10 +360,10 @@ _BEARING_DEGREE_PREFIX = re.compile(
 _CHORD_LENGTH_AFTER_BEARING = re.compile(
     r"\s*,?\s*(?:(?:and|for)\s+)?(?:(?:a|the)\s+)?"
     r"(?:chord\s+(?:length|distance)\s+of\s+|distance\s+of\s+)?"
-    r"(\d+(?:\.\d+)?)\s*(?:feet|ft)\b",
+    rf"({_COMMA_NUMBER})\s*(?:feet|ft)\b",
     re.IGNORECASE,
 )
-_CHORD_LENGTH_IN_CLAUSE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:feet|ft)\b", re.IGNORECASE)
+_CHORD_LENGTH_IN_CLAUSE = re.compile(rf"({_COMMA_NUMBER})\s*(?:feet|ft)\b", re.IGNORECASE)
 
 
 def _is_bearing_degree(text: str, start: int) -> bool:
@@ -393,6 +393,41 @@ def _boundary_course_text(call_text: str) -> str:
 
 
 _CURVE_GEOMETRY_KEYS = ("direction", "radius_ft", "delta_deg", "arc_length_ft", "chord_length_ft")
+
+
+# Distances that measure a curve element, never the course run: the radius (or the
+# distance to the radius point or center), the tangent length and a stated chord.
+# Each is removed before the course distance is read. A number directly after a
+# degree sign is a bearing's minutes, never a distance.
+_ELEMENT_DISTANCE = rf"(?<![\d.,\u00b0])(?<!\u00b0\s){_COMMA_NUMBER}\s*(?:{_UNIT_TOKEN}\b|'(?!'))"
+_CURVE_ELEMENT_DISTANCE_PATTERN = re.compile(
+    rf"\bradius(?:\s+(?:length|distance))?\s+(?:(?:of|is|equal\s+to)\s+|=\s*)?{_ELEMENT_DISTANCE}"
+    r"|\b(?:radius\s+point|radial(?:\s+(?:line|bearing))?|cent(?:er|re)(?:\s+point)?)\b"
+    rf"[^;,]*?{_ELEMENT_DISTANCE}"
+    rf"|\btangent\s+(?:length|distance)\s+(?:of\s+)?{_ELEMENT_DISTANCE}",
+    re.IGNORECASE,
+)
+# A stated chord's clause runs from the chord keyword to its length.
+_CHORD_ELEMENT_DISTANCE_PATTERN = re.compile(
+    rf"\b(?:long\s+)?chord\b[^;]*?{_ELEMENT_DISTANCE}", re.IGNORECASE
+)
+
+
+def _course_distance_text(call_text: str, *, is_curve: bool, has_chord_length: bool) -> str:
+    """Return the text a course distance is read from.
+
+    Corner witnesses are cut off (``_boundary_course_text``). For a curve, every
+    curve-element distance (radius, radius point/center, tangent length and a
+    stated chord length) is also removed, so the first distance in the text,
+    usually the radius, is never taken as the course length; only an arc or a
+    stated course length remains.
+    """
+    course_text = _boundary_course_text(call_text)
+    if not is_curve:
+        return course_text
+    if has_chord_length:
+        course_text = _CHORD_ELEMENT_DISTANCE_PATTERN.sub(" ", course_text)
+    return _CURVE_ELEMENT_DISTANCE_PATTERN.sub(" ", course_text)
 
 
 def _describes_curve(curve_info: dict[str, float | str | None]) -> bool:
@@ -622,6 +657,10 @@ class MonumentClassifier:
 
 _ARC_COMPUTED_NOTE = "arc length not stated - course distance computed from radius and delta"
 _ARC_COMPUTED_RULE = "curve: distance is the arc computed from the stated radius and delta"
+_LENGTH_NOT_DETERMINED_NOTE = "spiral length not stated - course distance not determined"
+_LENGTH_NOT_DETERMINED_RULE = (
+    "spiral: no arc, chord or course length stated; a spiral's length is not radius * delta"
+)
 
 
 # One curve-word spelling (curve/curved/curving) shared by every curve gate in this module.
@@ -631,6 +670,11 @@ _CURVE_KEYWORD_PATTERN = re.compile(rf"\b(?:{_CURVE_WORD}|spiral|transition)\b",
 
 def _distance_audit_source(call_text: str, call: DeedCall) -> tuple[str, str | None]:
     """Return the audited input and rule for the stored course distance."""
+    if call.distance_ft is None:
+        return (
+            f"radius {call.radius_ft} feet, delta {call.delta_deg} deg (spiral)",
+            _LENGTH_NOT_DETERMINED_RULE,
+        )
     if (
         call.notes
         and _ARC_COMPUTED_NOTE in call.notes
@@ -648,7 +692,9 @@ def _distance_audit_source(call_text: str, call: DeedCall) -> tuple[str, str | N
         )
     if call.arc_length_ft is not None and call.arc_length_ft == call.distance_ft:
         return f"{call.arc_length_ft} feet", None
-    course_text = _boundary_course_text(call_text)
+    course_text = _course_distance_text(
+        call_text, is_curve=call.is_curve(), has_chord_length=call.chord_length_ft is not None
+    )
     distance, unit = TextParser.extract_distance(course_text)
     if distance == 0:
         return call_text.strip(), None
@@ -872,7 +918,11 @@ class CallExtractor:
                 bearing_quadrant = None
                 azimuth = None
 
-        course_text = _boundary_course_text(call_text)
+        course_text = _course_distance_text(
+            call_text,
+            is_curve=_describes_curve(curve_info),
+            has_chord_length=curve_info.get("chord_length_ft") is not None,
+        )
         distance, unit = TextParser.extract_distance(course_text)
         if distance == 0:
             if re.search(
@@ -884,7 +934,7 @@ class CallExtractor:
             distance = cls.extract_distance_alternate(course_text)
             unit = distance_unit
 
-        distance_ft = ConversionFactors.convert_to_feet(distance, unit)
+        distance_ft: float | None = ConversionFactors.convert_to_feet(distance, unit)
 
         # The tangent azimuth is only what the course text states (chord and radial
         # clauses were removed before extraction). Without one, a stated chord bearing
@@ -899,13 +949,19 @@ class CallExtractor:
         chord_text = curve_info.get("chord_bearing")
         chord_only = isinstance(chord_text, str) and not has_stated_tangent
         curve_delta = curve_info.get("delta_deg")
-        tangent_delta: float | None = curve_delta if isinstance(curve_delta, float) else None
+        # A spiral's chord deflection is not delta / 2, so no circular value (tangent,
+        # delta from arc, arc from radius and delta) is ever derived for a spiral.
+        is_spiral = curve_info.get("curve_type") == "spiral"
+        tangent_delta: float | None = (
+            curve_delta if isinstance(curve_delta, float) and not is_spiral else None
+        )
         delta_source = ""
         stated_radius = curve_info.get("radius_ft")
         stated_arc = curve_info.get("arc_length_ft")
         stated_chord = curve_info.get("chord_length_ft")
         if (
             tangent_delta is None
+            and not is_spiral
             and isinstance(stated_radius, float)
             and stated_radius > 0.0
             and isinstance(stated_arc, float)
@@ -986,7 +1042,11 @@ class CallExtractor:
         arc_computed = False
         if isinstance(arc_length_ft, float) and arc_length_ft > 0.0:
             distance_ft = arc_length_ft
-        elif curve_info.get("radius_ft") is not None and curve_info.get("delta_deg") is not None:
+        elif (
+            curve_info.get("radius_ft") is not None
+            and curve_info.get("delta_deg") is not None
+            and not is_spiral
+        ):
             radius_ft = curve_info.get("radius_ft")
             delta_deg = curve_info.get("delta_deg")
             if isinstance(radius_ft, float) and isinstance(delta_deg, float):
@@ -1007,7 +1067,19 @@ class CallExtractor:
             # radius (the first distance in the text) or a derived arc.
             distance_ft = stated_chord
 
-        if distance_ft <= 0.0:
+        # A spiral stated without an arc, chord or course length has no determinable
+        # length (it is not R * delta): the course is kept with its distance not
+        # determined, so it is neither given an invented length nor dropped.
+        length_not_determined = (
+            distance_ft is not None
+            and distance_ft <= 0.0
+            and is_spiral
+            and stated_arc is None
+            and stated_chord is None
+        )
+        if length_not_determined:
+            distance_ft = None
+        elif distance_ft is None or distance_ft <= 0.0:
             raise ValueError("Missing boundary course distance")
 
         along, to = TextParser.extract_along_to_fields(call_text)
@@ -1032,6 +1104,8 @@ class CallExtractor:
                 tangent_notes.append(
                     f"stated direction is cardinal only ({raw_direction.strip().lower()})"
                 )
+        elif is_spiral and not has_stated_tangent:
+            tangent_notes.append("spiral tangent not stated - not derived")
         elif chord_only and not positioned_by_chord:
             tangent_notes.append("tangent bearing not stated - chord bearing only")
         if positioned_by_chord and tangent_and_chord:
@@ -1060,9 +1134,11 @@ class CallExtractor:
             note_parts.append("incomplete bearing")
         if arc_computed:
             note_parts.append(_ARC_COMPUTED_NOTE)
+        if length_not_determined:
+            note_parts.append(_LENGTH_NOT_DETERMINED_NOTE)
         notes = "; ".join(note_parts)
 
-        if distance_ft <= 0.0:
+        if distance_ft is not None and distance_ft <= 0.0:
             return None, raw_direction
 
         has_curve = bool(curve_info.get("direction") or curve_info.get("radius_ft"))
@@ -1229,7 +1305,7 @@ class CallExtractor:
             Transformation(
                 step="extract_distance",
                 input=distance_input,
-                output=str(call.distance_ft),
+                output="not determined" if call.distance_ft is None else str(call.distance_ft),
                 rule=distance_rule,
             )
         )
@@ -1318,6 +1394,9 @@ class CallExtractor:
 
         if call.is_meander:
             flags.append("meander")
+
+        if call.distance_ft is None:
+            flags.append("distance_not_determined")
 
         return transformations, decisions, flags
 
@@ -1559,9 +1638,11 @@ class CallExtractor:
             else:
                 chord_length = _CHORD_LENGTH_IN_CLAUSE.search(chord_text, 0, chord_clause_end)
             if chord_match.group("chord_lead_len"):
-                curve_info["chord_length_ft"] = float(chord_match.group("chord_lead_len"))
+                curve_info["chord_length_ft"] = parse_comma_number(
+                    chord_match.group("chord_lead_len")
+                )
             elif chord_length:
-                curve_info["chord_length_ft"] = float(chord_length.group(1))
+                curve_info["chord_length_ft"] = parse_comma_number(chord_length.group(1))
 
         if re.search(
             r"\b(?:point\s+of\s+compound\s+curvature|PCC|compound\s+curve)\b",
