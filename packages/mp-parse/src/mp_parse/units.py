@@ -9,6 +9,12 @@ import unicodedata
 # minutes or part of a larger number, never a length; after a fraction slash it
 # is a fraction's denominator.
 LENGTH_NUMBER_GUARD = r"(?<![\d.,\u00b0/\u2044])(?<!\u00b0\s)"
+# A leading-decimal number (".5") starts only at a word boundary: at the start of
+# the text or directly after whitespace, "=" or "(", and never after a digit (with
+# or without a gap), a letter, a period/comma or a degree/minute mark. It therefore
+# never starts inside another number ("1.2.3", "100.5", "100 .5") or after a
+# sentence period ("feet.5").
+_LEADING_DECIMAL_GUARD = r"(?<![^\s=(])(?<!\d\s)(?<!\u00b0\s)"
 
 # --- The one length-number grammar -------------------------------------------------
 # Every length, curve-element, compound and inch value is read with LENGTH_NUMBER
@@ -34,12 +40,13 @@ _MIXED_GAP = r"(?:\s*-\s*|\s+)"
 _NO_WHOLE_BEFORE = r"(?<!\d\s)(?<!\d\s\s)(?<!\d,\s)(?<!\d-)(?<!\d\s-)(?<!\d-\s)"
 _NUMBER_END = rf"(?!\d|[.,]\d|{_FRACTION_SLASH}|{_VULGAR}|\s*-?\s*\d+{_FRACTION_SLASH}\d)"
 LENGTH_NUMBER = (
-    rf"{LENGTH_NUMBER_GUARD}(?:{_WHOLE}{_MIXED_GAP}{_FRACTION}|{_WHOLE}\s*{_VULGAR}"
+    rf"(?:{LENGTH_NUMBER_GUARD}(?:{_WHOLE}{_MIXED_GAP}{_FRACTION}|{_WHOLE}\s*{_VULGAR}"
     rf"|{_WHOLE}(?:\.\d+)?|{_NO_WHOLE_BEFORE}{_FRACTION}|{_NO_WHOLE_BEFORE}{_VULGAR})"
+    rf"|{_LEADING_DECIMAL_GUARD}\.\d+)"
     rf"{_NUMBER_END}"
 )
 _NUMBER_FORM = re.compile(
-    rf"(?P<decimal>{_WHOLE}(?:\.\d+)?)"
+    rf"(?P<decimal>{_WHOLE}(?:\.\d+)?|\.\d+)"
     rf"|(?:(?P<whole>{_WHOLE})(?:{_MIXED_GAP}(?=\d)|\s*(?={_VULGAR})))?"
     rf"(?:(?P<num>\d+){_FRACTION_SLASH}(?P<den>\d+)|(?P<vulgar>{_VULGAR}))"
 )
