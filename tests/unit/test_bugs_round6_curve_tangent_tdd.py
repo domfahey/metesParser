@@ -10,7 +10,6 @@ package and monolith, both via ``extract_calls`` (normalized) and directly via
 from __future__ import annotations
 
 import importlib
-import math
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
@@ -47,6 +46,8 @@ ENTRY_POINTS = {
 }
 
 DERIVED = "tangent bearing derived from chord bearing and delta"
+# Round 21: no tangent is derived or stored; verification positions the curve.
+NOT_STATED = "tangent bearing not stated - curve positioned by chord and delta in verification"
 FROM_ARC = "delta computed from arc length and radius"
 FROM_CHORD = "delta computed from chord length and radius"
 ARC_FROM_CHORD = "arc length computed from chord length and radius"
@@ -80,8 +81,6 @@ ARC_CHORD = (
     "THENCE along a curve to the right having a radius of 100.00 feet, an arc length of "
     "50.00 feet, the chord of which bears N 45°00'00\" E 49.00 feet{along} to a point"
 )
-ARC_TANGENT_AZ = 45.0 - math.degrees(0.5) / 2.0
-RADIAL_TANGENT_AZ = 80.0 + math.degrees(0.1) / 2.0
 # Finding 1/2: radius 500, arc 100, chord N 51°13'46" E; stated tangent N 45°30' E.
 STATED_TANGENT_CURVE = (
     "thence {tangent} along a curve to the right having a radius of 500.00 feet, an arc "
@@ -95,8 +94,8 @@ def _radial(clause: str) -> Case:
             f"THENCE along a non-tangent curve to the left {clause} having a radius of 500 feet, "
             "an arc length of 50 feet, chord bears N 80° E 49.9 feet to a point"
         ),
-        azimuth=RADIAL_TANGENT_AZ,
-        notes_in=(DERIVED,),
+        notes_in=(NOT_STATED,),
+        notes_out=(DERIVED,),
     )
 
 
@@ -118,10 +117,10 @@ CASES: dict[str, Case] = {
             "THENCE along a curve to the right, radius of 100 feet, delta angle of 90 degrees, "
             "arc length of 157.0796327 feet, the chord of which bears N 45° E, 141.421356 feet"
         ),
-        azimuth=0.0,
         chord_bearing="N 45° E",
         delta_deg=90.0,
-        notes_in=(DERIVED,),
+        notes_in=(NOT_STATED,),
+        notes_out=(DERIVED,),
     ),
     "r3-chord-bearing-word-form": Case(
         text=(
@@ -129,18 +128,18 @@ CASES: dict[str, Case] = {
             "chord bearing North 45° East 70.71 feet"
         ),
         delta_deg=90.0,
-        azimuth=0.0,
-        notes_in=(DERIVED,),
+        notes_in=(NOT_STATED,),
+        notes_out=(DERIVED,),
     ),
     # --- round 4 ---------------------------------------------------------
-    "r4-approximate-keeps-derived-note": Case(
+    "r4-approximate-keeps-not-stated-note": Case(
         text=(
             "THENCE a curve to the right, approximately radius of 50 feet, delta angle of 90°, "
             "chord bearing North 45° East 70.71 feet"
         ),
         delta_deg=90.0,
-        azimuth=0.0,
-        notes_in=(DERIVED, "meander / approximate"),
+        notes_in=(NOT_STATED, "meander / approximate"),
+        notes_out=(DERIVED,),
     ),
     "r4-abbreviated-chord": Case(
         text=(
@@ -148,8 +147,8 @@ CASES: dict[str, Case] = {
             "chord bears N 45°00'00\" E 141.42 feet"
         ),
         delta_deg=90.0,
-        azimuth=0.0,
-        notes_in=(DERIVED,),
+        notes_in=(NOT_STATED,),
+        notes_out=(DERIVED,),
     ),
     "r4-spelled-chord": Case(
         text=(
@@ -157,8 +156,8 @@ CASES: dict[str, Case] = {
             "chord bears North 45°00'00\" East 141.42 feet"
         ),
         delta_deg=90.0,
-        azimuth=0.0,
-        notes_in=(DERIVED,),
+        notes_in=(NOT_STATED,),
+        notes_out=(DERIVED,),
     ),
     "r4-separate-tangent-kept": Case(
         text=(
@@ -173,13 +172,13 @@ CASES: dict[str, Case] = {
     # --- round 5 ---------------------------------------------------------
     "r5-arc-radius-delta": Case(
         text=ARC_CHORD.format(along=""),
-        azimuth=ARC_TANGENT_AZ,
-        notes_in=(DERIVED, FROM_ARC),
+        notes_in=(NOT_STATED,),
+        notes_out=(DERIVED, FROM_ARC),
     ),
     "r5-arc-radius-delta-with-along": Case(
         text=ARC_CHORD.format(along=" along the Northerly line of Pennbrook Drive"),
-        azimuth=ARC_TANGENT_AZ,
-        notes_in=(DERIVED, FROM_ARC),
+        notes_in=(NOT_STATED,),
+        notes_out=(DERIVED, FROM_ARC),
     ),
     "r5-radial-radius-point": _radial("whose radius point bears S 10° W,"),
     "r5-radial-bearing-of": _radial("radial bearing of S 10° W,"),
@@ -215,14 +214,14 @@ CASES: dict[str, Case] = {
         tol=1e-9,
         notes_out=(DERIVED, CHORD_ONLY),
     ),
-    "r6-dashed-chord-derives-tangent": Case(
+    "r6-dashed-chord-keeps-tangent-unstated": Case(
         text=(
             "thence along a curve to the right having a radius of 500.00 feet, an arc length "
             "of 100.00 feet, the chord of which bears N 51-13-46 E 99.83 feet to a point"
         ),
-        azimuth=51.0 + 13.0 / 60 + 46.0 / 3600 - math.degrees(0.2) / 2.0,
         chord_bearing="N 51°13'46\" E",
-        notes_in=(DERIVED, FROM_ARC),
+        notes_in=(NOT_STATED,),
+        notes_out=(DERIVED, FROM_ARC),
     ),
     # --- round 6, finding 3: radius + chord length only -----------------
     # Ambiguous (minor vs major arc): no delta, arc or tangent is derived. The
@@ -410,7 +409,7 @@ def test_unparsed_bearing_keeps_its_cardinal_direction_text(entry):
     assert call.is_indefinite is True
 
 
-# --- round 6 follow-up: audit of a derived tangent ---------------------------
+# --- round 6 follow-up: audit of a curve without a stated tangent ------------
 def _audit_ctx(models):
     return models.AuditContext(
         run_metadata=models.RunMetadata(
@@ -444,17 +443,20 @@ AUDIT_ENTRY_POINTS = {
     ids=["stated-delta", "arc-delta"],
 )
 @pytest.mark.parametrize("impl", AUDIT_ENTRY_POINTS)
-def test_derived_tangent_records_an_audit_step(impl, text, delta_source):
+def test_tangent_not_stated_is_recorded_in_audit(impl, text, delta_source):
+    # Round 21: no derive_tangent_azimuth step; the audit records that no tangent
+    # was stated or derived, whatever the delta source.
     extract, models_name = AUDIT_ENTRY_POINTS[impl]
     ctx = _audit_ctx(importlib.import_module(models_name))
     call = extract(text + CLOSING, audit_context=ctx, strict=True)[0]
     assert call.bearing_quadrant is None
-    steps = {t.step: t for t in ctx.call_audits[0].transformations}
-    step = steps["derive_tangent_azimuth"]
-    assert call.chord_bearing in step.input
-    assert delta_source in step.input
-    assert step.output == str(call.bearing_azimuth_deg_from_north)
-    assert step.rule is not None and "chord" in step.rule
+    assert call.bearing_azimuth_deg_from_north is None
+    audit = ctx.call_audits[0]
+    assert "derive_tangent_azimuth" not in {t.step for t in audit.transformations}
+    (decision,) = [d for d in audit.decisions if d.field == "bearing_azimuth_deg_from_north"]
+    assert decision.value == "none"
+    assert call.chord_bearing in decision.reason
+    assert "no tangent derived" in decision.reason
 
 
 # --- round 6 follow-up: verification of chord-positioned curves --------------
