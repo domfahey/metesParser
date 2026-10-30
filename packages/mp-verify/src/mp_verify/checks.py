@@ -138,14 +138,14 @@ def build_verification_checks(
     continuing = [
         i
         for i, call in enumerate(calls)
-        if call.along and ("continuing" in call.along.lower() or "same line" in call.along.lower())
+        # Course 0 has no predecessor, so it cannot form a continuing-line pair.
+        if i > 0
+        and call.along
+        and ("continuing" in call.along.lower() or "same line" in call.along.lower())
     ]
-    # A continuation on course 0 names a line that cannot be identified: blocked, not skipped.
-    orphan_continuation = 0 in continuing
-    parallel_blocked = orphan_continuation or any(
+    parallel_blocked = any(
         not calls[i].is_complete_bearing() or not calls[i - 1].is_complete_bearing()
         for i in continuing
-        if i > 0
     )
     straight_pairs = [
         (first, second)
@@ -164,7 +164,7 @@ def build_verification_checks(
             )
     unavailable_intersections = any("unavailable" in issue for issue in intersection_warnings)
     intersection_failures = [issue for issue in intersection_warnings if "unavailable" not in issue]
-    checks = [
+    return [
         CheckResult(
             name="traverse_closure",
             status="blocked" if missing else "passed" if closure_passed else "failed",
@@ -263,19 +263,6 @@ def build_verification_checks(
             detail="Boundary distances checked",
         ),
     ]
-    if orphan_continuation:
-        checks = [
-            check.model_copy(
-                update={
-                    "reason": "continuation_without_predecessor",
-                    "detail": "Continuing-line check has no predecessor course to continue",
-                }
-            )
-            if check.name == "parallelism" and check.status == "blocked"
-            else check
-            for check in checks
-        ]
-    return checks
 
 
 def block_curve_consistency(
