@@ -32,7 +32,7 @@ from mp_verify.scene import validate_scene
 
 from .corridor import replay_corridor
 from .plss import replay_plss
-from .webmap import _Budget, _primitive_point, _sample, _vector_feature
+from .webmap import _Budget, _primitive_point, _sample, _vector_feature, bounds_of
 from .webmap_projection import WebMapProjection
 
 
@@ -328,6 +328,58 @@ def prepare_delivery_source(
         raise ValueError("Derived source artifact is unavailable for fresh replay") from exc
 
 
+def _corridor_ring(
+    item: DeliveryItem,
+    scene: PlotScene,
+    options: WebMapOptions,
+    budget: _Budget,
+    projection: WebMapProjection,
+    scene_points: list[XY] | None = None,
+) -> list[XY]:
+    """Sample the constructed corridor boundary exactly as GeoJSON exports it.
+
+    Returns geographic ring vertices. ``scene_points`` collects every placed
+    scene-XY point the sampler evaluates (a superset of the exported vertices'
+    sources, all on the boundary), for area-of-use checks of exported geometry.
+    """
+    if item.plot is None or item.placement is None:
+        raise ValueError("Geographic corridor requires its composed explicit placement")
+    native = item.plot.request.foot_definition
+    placement = item.placement
+    points: list[XY] = []
+    for primitive in item.plot.geometry.primitives:
+
+        def placed_point(t: float, p: PlotPrimitive = primitive) -> XY:
+            value = transform_point(
+                _primitive_point(p, t),
+                placement,
+                native_units=native,
+                scene_units=scene.units,
+            )
+            if scene_points is not None:
+                scene_points.append(value)
+            return value
+
+        sampled = _sample(
+            placed_point,
+            projection,
+            options,
+            budget,
+            count_start=not points,
+        )
+        points.extend(sampled if not points else sampled[1:])
+    return points
+
+
+def corridor_export_extent(
+    item: DeliveryItem, scene: PlotScene, options: WebMapOptions, projection: WebMapProjection
+) -> tuple[float, float, float, float] | None:
+    """Scene-XY bounds of the corridor polygon vertices GeoJSON would export."""
+    collected: list[XY] = []
+    _corridor_ring(item, scene, options, _Budget(options.max_vertices), projection, collected)
+    return bounds_of(collected)
+
+
 def delivery_source_features(
     item: DeliveryItem,
     source_record: dict[str, Any],
@@ -344,29 +396,7 @@ def delivery_source_features(
     ):
         raise ValueError("Derived geographic feature differs from source binding")
     if item.selection.kind == "corridor":
-        if item.plot is None or item.placement is None:
-            raise ValueError("Geographic corridor requires its composed explicit placement")
-        native = item.plot.request.foot_definition
-        placement = item.placement
-        points: list[XY] = []
-        for primitive in item.plot.geometry.primitives:
-
-            def placed_point(t: float, p: PlotPrimitive = primitive) -> XY:
-                return transform_point(
-                    _primitive_point(p, t),
-                    placement,
-                    native_units=native,
-                    scene_units=scene.units,
-                )
-
-            sampled = _sample(
-                placed_point,
-                projection,
-                options,
-                budget,
-                count_start=not points,
-            )
-            points.extend(sampled if not points else sampled[1:])
+        points = _corridor_ring(item, scene, options, budget, projection)
         if len(points) < 4:
             raise ValueError("Geographic corridor requires a closed boundary ring")
         if points[-1] != points[0]:
