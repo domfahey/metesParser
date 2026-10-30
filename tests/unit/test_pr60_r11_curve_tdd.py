@@ -141,10 +141,18 @@ def test_chord_only_without_tangent_is_not_cross_checked(impl):
 
 
 def test_one_curve_element_tolerance_is_shared():
-    tol = bearing_curves.CURVE_ELEMENT_TOLERANCE_FT
-    assert package_checks.CURVE_ELEMENT_TOLERANCE_FT == tol
-    assert package_plot.CURVE_ELEMENT_TOLERANCE_FT == tol
-    assert package_plot.TANGENT_CHORD_TOLERANCE_DEG == bearing_curves.TANGENT_CHORD_TOLERANCE_DEG
+    # Round 13: tolerances are rounding-aware helpers in mp_bearing, shared by
+    # verification and plotting (the parser does not compare curve elements).
+    for name in (
+        "arc_length_tolerance_ft",
+        "chord_length_tolerance_ft",
+        "deflection_chord_tolerance_ft",
+        "delta_uncertainty_rad",
+        "tangent_chord_tolerance_deg",
+    ):
+        helper = getattr(bearing_curves, name)
+        assert getattr(package_checks, name) is helper
+        assert getattr(package_plot, name) is helper
 
 
 def _plots(call) -> bool:
