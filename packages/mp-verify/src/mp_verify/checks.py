@@ -88,6 +88,7 @@ def build_verification_checks(
     double_entry_performed: bool,
     discrepancies: list[str],
     curve_issues: list[str] | None = None,
+    misclosure_available: bool = True,
 ) -> list[CheckResult]:
     """Build auditable engine outcomes without turning unavailable checks into passes."""
     incomplete = any(not call.is_complete_bearing() for call in calls)
@@ -174,15 +175,23 @@ def build_verification_checks(
     return [
         CheckResult(
             name="traverse_closure",
-            status="blocked" if missing else "passed" if closure_passed else "failed",
+            status="blocked"
+            if missing or not misclosure_available
+            else "passed"
+            if closure_passed
+            else "failed",
             reason="missing_bearings"
             if missing
+            else "unpositioned_courses"
+            if not misclosure_available
             else "within_tolerance"
             if closure_passed
             else "misclosure_exceeds_tolerance",
             detail=(
                 "Traverse closure requires a bearing for every boundary course"
                 if missing
+                else "Misclosure not determined: a course could not be positioned"
+                if not misclosure_available
                 else f"misclosure: {misclosure:.4f} ft; tolerance: {tolerance} ft"
             ),
             inputs={"misclosure_total_ft": misclosure, "tolerance_ft": tolerance},
