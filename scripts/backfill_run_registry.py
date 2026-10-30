@@ -47,7 +47,7 @@ def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
                 direction_text=raw.get("direction_text", ""),
                 bearing_quadrant=raw.get("bearing_quadrant"),
                 bearing_azimuth_deg_from_north=raw.get("bearing_azimuth_deg_from_north"),
-                distance_ft=raw.get("distance_ft", 0.0),
+                distance_ft=raw.get("distance_ft"),
                 along=raw.get("along"),
                 to=raw.get("to"),
                 notes=raw.get("notes"),
@@ -108,7 +108,12 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
                 parser_version=metesparser.__version__,
             )
         else:
-            calls = _build_calls(expected_calls)
+            try:
+                calls = _build_calls(expected_calls)
+            except ValueError as exc:
+                reason = " ".join(str(exc).split())
+                print(f"  NOT BACKFILLABLE: {pdf_name} — {reason}; no run entry written")
+                continue
             closure_result = ClosureChecker.verify_closure(calls)
 
             manifest = RunManifest(
