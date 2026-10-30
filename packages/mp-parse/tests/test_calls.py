@@ -359,8 +359,14 @@ class TestChordDegreesNeverDelta:
 
 
 def test_radial_bearing_clause_is_not_a_stated_tangent():
-    from mp_parse.calls import _without_radial_bearing
+    from mp_parse.calls import extract_single_call
 
-    stripped = _without_radial_bearing("curve whose radius point bears S 10° W, radius 500 feet")
-    assert "S 10" not in stripped
-    assert "radius 500 feet" in stripped
+    call = extract_single_call(
+        "thence along a curve to the right whose radius point bears S 10° W, "
+        "radius 500 feet, an arc length of 50 feet to a point",
+        1,
+    )
+    assert call is not None
+    assert call.radial_bearing == "S 10° W"
+    assert call.bearing_azimuth_deg_from_north is None
+    assert call.radius_ft == 500.0
