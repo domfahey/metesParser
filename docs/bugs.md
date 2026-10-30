@@ -1051,6 +1051,11 @@ Four findings plus the round-30 length fix and merge follow-ups, fixed red-green
 - **Ground-truth discrepancies found (not changed):** 75 Haddon Ave (4924-448, 10604-1433, 4924-452) ground truth records 15.83 ft for the last course, which is the distance to a stone passed on the way; the deed's "total distance of 336.25 feet" closes the parcel (misclosure 320.45 → 0.034 ft). 101-111 Kings Highway E (7683-1295) ground truth records 10 ft (an alley width) for courses 8 and 9, which the deed states as 148.10 and 12 feet.
 - **Known limitation:** distance-first courses ("100' N 45° E") are not parsed and fail closed.
 
+### PR #60 thirty-second review (2026-10-30)
+Four findings, fixed red-green on `fix/code-review-2026-10-29`:
+- **Inch components never dropped:** "in"/"in." count as inches only where a measurement ends and only as the trailing component of a descending compound ("100 feet 6 in." → 100.5, independent of trailing punctuation); "100' 6\"" reads 100.5 in a length context only; prepositions ("in a northerly direction") are never inches; an unread inch component makes the course fail closed. A square with "100 feet 6 in." on one side now reports 0.5 ft misclosure instead of verifying (`1abaa1a`).
+- **Chord-positioned courses:** `traverse.is_chord_positioned` marks chord-only curves and chord-stated spirals; the dashboard draws them as their chord with "Arc not determined; positioned by chord only" instead of blocking as incomplete bearings; confidence rates them medium; the parser no longer marks them indefinite, so text and CSV paths give the same warnings (`350893d`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
