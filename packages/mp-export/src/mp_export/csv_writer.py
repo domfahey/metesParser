@@ -322,19 +322,6 @@ def _validate_row(row: dict[str, str | None]) -> DeedCall:
     return DeedCall.model_validate(normalized_payload, strict=True)
 
 
-def _row_to_call(row: dict[str, str | None], row_number: int | None = None) -> DeedCall | None:
-    """Convert a CSV row to a DeedCall object.
-
-    Returns None if the row fails validation.
-    """
-    try:
-        return _validate_row(row)
-    except _ROW_ERRORS as e:
-        row_label = row_number if row_number is not None else "unknown"
-        logger.warning("Invalid CSV row", row=row_label, error=str(e))
-        return None
-
-
 def csv_to_calls(
     input_path: str,
     *,

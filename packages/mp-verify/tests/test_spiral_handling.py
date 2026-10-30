@@ -69,7 +69,7 @@ def _plot(calls: list[DeedCall]):
 def test_radiusless_spiral_is_spiral_and_never_a_straight_line():
     square = _square()
     square[1] = _radiusless_spiral(course=2, azimuth=90.0)
-    assert is_spiral(square[1]) and not square[1].is_curve()
+    assert is_spiral(square[1]) and square[1].is_curve()
     assert traverse_positions(square)[1] == [True, False, True, True]
     result = verify_closure(square)
     assert not result.area_available and result.area_sq_ft == 0.0

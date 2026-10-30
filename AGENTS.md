@@ -138,12 +138,13 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 Do NOT use `strict=True` on boolean `Field()` declarations in `DeedCall` — it contradicts the `_coerce_bool_field` validator that coerces `"true"`/`"false"` strings.
 
 ### Cardinal Direction Patterns
-Cardinal-only patterns must include `(?:erly|wardly)?` suffixes AND abbreviated forms (`NE|NW|SE|SW`). The three real copies must stay in sync:
+Cardinal-only patterns must include `(?:erly|wardly)?` suffixes AND abbreviated forms (`NE|NW|SE|SW`). The four real copies must stay in sync (six vocabularies counting the two aliases below):
 - `packages/mp-parse/src/mp_parse/calls.py` (`_CARDINAL_ONLY_PATTERN`)
 - `packages/mp-parse/src/mp_parse/metadata.py` (`CARDINAL_ONLY_PATTERN`)
 - `scripts/audit_gt_vs_md.py` (`CARDINAL_ONLY_PATTERN`)
+- `packages/mp-bearing/src/mp_bearing/azimuth.py` (`normalize_cardinal_word`; mp-bearing cannot import mp-parse, so it keeps its own copy)
 
-`src/metesparser/call_extractor.py` and `src/metesparser/text_parser.py` only alias the package patterns; do not redefine them.
+`src/metesparser/call_extractor.py` and `src/metesparser/text_parser.py` only alias the package patterns; do not redefine them. `tests/unit/test_pr60_r40_cardinal_sync_tdd.py` checks that all six accept and reject the same words.
 
 Bug history: missing `wardly` caused false negatives; missing abbreviations caused call rejection when LLM normalization turned "NORTHWEST" into "NW" (PR #21).
 
