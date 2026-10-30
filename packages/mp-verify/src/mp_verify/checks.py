@@ -698,17 +698,17 @@ def check_distance_reasonableness(calls: list[DeedCall]) -> list[str]:
     Returns:
         List of warning messages.
     """
-    if len(calls) < 2:
+    # A course whose distance is not determined has no length to compare.
+    measured = [(c, c.distance_ft) for c in calls if c.distance_ft is not None]
+    if len(measured) < 2:
         return []
 
     warnings: list[str] = []
-    distances = [c.distance_ft for c in calls]
+    distances = [dist for _, dist in measured]
     median_dist = statistics.median(distances)
     total_perimeter = sum(distances)
 
-    for call in calls:
-        dist = call.distance_ft
-
+    for call, dist in measured:
         if dist < 0.5:
             warnings.append(f"Course {call.course}: suspiciously short distance ({dist:.2f} ft)")
 
@@ -816,10 +816,7 @@ def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list
         elif abs((az1 - az2 + 180.0) % 360.0 - 180.0) > 0.0001:
             discrepancies.append(f"Course {i}: Azimuth mismatch - {az1:.6f} vs {az2:.6f}")
 
-        if abs(c1.distance_ft - c2.distance_ft) > 0.01:
-            discrepancies.append(
-                f"Course {i}: Distance mismatch - {c1.distance_ft:.2f} vs {c2.distance_ft:.2f}"
-            )
+        compare_optional_float(i, "Distance", c1.distance_ft, c2.distance_ft)
 
         curve1 = c1.is_curve()
         curve2 = c2.is_curve()

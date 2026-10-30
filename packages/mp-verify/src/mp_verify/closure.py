@@ -135,6 +135,8 @@ def calculate_perimeter(calls: list[DeedCall]) -> float:
         ):
             # Tangent-less curve positioned by its chord: arc = R * delta is determined.
             perimeter += call.radius_ft * math.radians(delta)
+        elif call.distance_ft is None:
+            raise ValueError(f"Course {call.course}: distance not determined")
         else:
             perimeter += call.distance_ft
     return perimeter

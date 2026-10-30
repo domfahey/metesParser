@@ -34,7 +34,7 @@ from mp_models.plot import (
 )
 from mp_models.plot_request import PlotCall, PlotRequest, PreparedPlot
 
-from .tangents import chord_is_feasible, is_spiral
+from .tangents import chord_is_feasible, is_spiral, line_distance
 
 if TYPE_CHECKING:
     from mp_models.dashboard import DashboardBundle, DashboardCalculation, DashboardResult
@@ -235,10 +235,11 @@ def _build_geometry(
                         raise ValueError(
                             "incomplete bearing - cardinal only or unresolved orientation"
                         )
-                    dx, dy = calculate_deltas(bearing, call.distance_ft)
+                    distance = line_distance(call)
+                    dx, dy = calculate_deltas(bearing, distance)
                     end = _finite((current[0] + dx, current[1] + dy))
                     primitive = PlotPrimitive(
-                        kind="line", **source, start=current, end=end, length_ft=call.distance_ft
+                        kind="line", **source, start=current, end=end, length_ft=distance
                     )
                 if require_representable:
                     expected = primitive.length_ft
