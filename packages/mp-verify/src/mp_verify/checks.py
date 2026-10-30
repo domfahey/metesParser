@@ -35,7 +35,7 @@ from .tangents import (
     stated_tangent,
 )
 from .topology import check_curved_boundary_intersections
-from .traverse import position_courses
+from .traverse import traverse_positions
 
 
 def check_boundary_intersections(calls: list[DeedCall], coordinates: list[Point]) -> list[str]:
@@ -120,7 +120,7 @@ def build_verification_checks(
     missing = incomplete or not calls
     if positioned is None:
         # Never predict positioning separately: run the traverse verification uses.
-        positioned = position_courses(calls)[1]
+        positioned = traverse_positions(calls)[1]
     unpositioned = [call for call, ok in zip(calls, positioned, strict=True) if not ok]
     # A non-tangent curve's course bearing is not its orientation (stated_tangent).
     closure_missing = not calls or any(
