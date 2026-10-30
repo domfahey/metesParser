@@ -70,7 +70,8 @@ def test_chord_only_curve_without_delta_or_arc_is_positioned_by_chord_only(parse
     assert call.delta_deg is None
     assert call.arc_length_ft is None
     assert call.chord_length_ft == pytest.approx(49.0)
-    assert call.is_indefinite is True
+    # The stated chord bearing positions the course, so it is not indefinite (r33).
+    assert call.is_indefinite is False
     assert "curve delta/arc not stated - positioned by chord only" in (call.notes or "")
     assert "delta computed from chord length" not in (call.notes or "")
 
