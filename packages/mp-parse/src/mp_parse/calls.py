@@ -10,6 +10,7 @@ import hashlib
 import logging
 import math
 import re
+from functools import lru_cache
 from typing import NamedTuple
 
 import structlog
@@ -1130,11 +1131,9 @@ class _CourseBearing(NamedTuple):
     direction: str
     text: str
     complete_courses: int = 0
-    # The normalized course text without tie/record/adjoiner pairs, read for a
-    # straight course's length (``read_course_length``).
+    # The normalized course text without tie/adjoiner pairs, read for a straight
+    # course's length (``read_course_length``).
     distance_text: str = ""
-    # A lone record-labelled pair was read as the course (``_BearingPair.promoted``).
-    promoted_record: bool = False
 
 
 class _PreparedCourse(NamedTuple):
@@ -1182,10 +1181,12 @@ _CONCAVITY_CLAUSE = re.compile(
 def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -> _CourseBearing:
     """Return the course (tangent) direction stated in the boundary course text.
 
-    The text is prepared by ``_prepare_course_text``. When the fragment states a
-    complete boundary course, tie, record and adjoiner pairs (``_bearing_pairs``)
-    are removed before extraction, so they never replace the measured course.
-    ``curve_info`` is ``extract_curve_info(call_text)``, computed once by the caller.
+    ``call_text`` is the fragment's reading text (``_scan_record_calls``), so record
+    calls are already blanked. The text is prepared by ``_prepare_course_text``.
+    When the fragment states a complete boundary course, tie and adjoiner pairs
+    (``_bearing_pairs``) are removed before extraction, so they never replace the
+    course. ``curve_info`` is ``extract_curve_info(call_text)``, computed once by
+    the caller.
     """
     prepared = _prepare_course_text(call_text, curve_info)
     pairs = _bearing_pairs(prepared.normalized)
@@ -1201,10 +1202,8 @@ def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -
         _verbatim_course_direction(direction, prepared.candidates, prepared.normalized_candidates),
         len(courses),
         # Read with bearings normalized (a bearing's "30m" minutes is never a
-        # length), without tie/record/adjoiner pairs, whose lengths are never
-        # course lengths.
+        # length), without tie/adjoiner pairs, whose lengths are never course lengths.
         _without_pairs(prepared.normalized, others),
-        any(pair.promoted for pair in pairs),
     )
 
 
@@ -1307,41 +1306,27 @@ def _course_bearing_spans(text: str) -> list[tuple[int, int]]:
 def _boundary_course_reading(call_text: str) -> tuple[int, bool]:
     """Return (complete boundary courses, has any course bearing) in one call fragment.
 
-    The text is read exactly as for the course bearing (``_prepare_course_text``),
-    so a curve's chord or radial bearing and length never count as a second course.
+    The text is read exactly as for the course bearing (record calls blanked by
+    ``_scan_record_calls``, then ``_prepare_course_text``), so a record call or a
+    curve's chord or radial bearing and length never count as a second course.
     """
-    return _complete_courses(
-        _prepare_course_text(call_text, extract_curve_info(call_text)).normalized
-    )
+    reading = _scan_record_calls(call_text).reading
+    return _complete_courses(_prepare_course_text(reading, extract_curve_info(reading)).normalized)
 
 
 # --- Bearing + distance pair roles ----------------------------------------------------
 # Only a BOUNDARY pair is a course. A TIE locates a point ("said pin being N 30 E
-# 2 feet from a stone", "a point distant S 10 W 50 feet from a monument"); a RECORD
-# call restates the course ("(N 45 10 E 100.5 feet per deed)", "... (R)"); an
+# 2 feet from a stone", "a point distant S 10 W 50 feet from a monument"); an
 # ADJOINER pair describes a neighbouring line ("which line bears S 45 E 300 feet").
 # Their wording stays in the call text; they are only excluded from course reading.
+# Record calls never reach this reading: they are blanked first (``_scan_record_calls``).
 _ROLE_WINDOW = 120
 # Shared with the course-length roles (``read_course_length``). "... 2 feet
 # from|of <object>" is applied only to a pair after the first: a fragment's first
-# pair is its course unless a prefix or label marks it.
+# pair is its course unless a prefix marks it.
 _TIE_BEFORE = TIE_BEFORE_PATTERN
 _LENGTH_RUN = LENGTH_RUN
 _TIE_AFTER = TIE_AFTER_PATTERN
-_RECORD_BEFORE = re.compile(
-    r"(?<![A-Za-z])(?:per\s+(?:deed|record)|of\s+record|deed|record|\(R\))\s*[:=]?\s*$",
-    re.IGNORECASE,
-)
-_RECORD_AFTER = re.compile(
-    _LENGTH_RUN
-    + r"(?:(?:per|by)\s+(?:deed|record)\b|of\s+record\b|(?P<mark>[(\[](?:R|record|deed)[)\]]))",
-    re.IGNORECASE,
-)
-# A bracketed record distance with no bearing ("(deed 99.5 feet)"); a width
-# ("(formerly X Avenue - 100.00 feet wide)") or radius is never a record call.
-_RECORD_GROUP_LABEL = re.compile(r"(?<![A-Za-z])(?:deed|record)(?![A-Za-z])", re.IGNORECASE)
-_RECORD_GROUP_WIDTH = re.compile(r"(?<![A-Za-z])wide(?![A-Za-z])", re.IGNORECASE)
-_BRACKET_GROUP = re.compile(r"\([^()\[\]]*\)|\[[^()\[\]]*\]")
 _ADJOINER_BEFORE = re.compile(
     r"(?:(?<![A-Za-z])(?:which|said|whose)\s+line\s+|\bthe\s+line\s+of\s+[^,;()]{1,80}?\s+)"
     r"(?:bears?|bearing|runs?)\s+(?:of\s+)?$",
@@ -1356,10 +1341,6 @@ class _BearingPair(NamedTuple):
     end: int  # end of its length, or of the bearing without one
     complete: bool
     boundary: bool
-    # A record label alone made it a record call; it is read as the course
-    # (promoted) when the fragment states no other complete boundary pair.
-    labelled: bool = False
-    promoted: bool = False
 
 
 def _in_parentheses(text: str, position: int) -> bool:
@@ -1368,105 +1349,377 @@ def _in_parentheses(text: str, position: int) -> bool:
     return opened > max(text.rfind(")", 0, position), text.rfind("]", 0, position))
 
 
-def _group_end(text: str, position: int) -> int:
-    """Return the index just past the group closing at or after ``position`` (or len)."""
-    closes = [index for index in (text.find(")", position), text.find("]", position)) if index >= 0]
-    return min(closes) + 1 if closes else len(text)
-
-
-def _record_suffix(text: str, end: int, segment_end: int) -> bool:
-    """Return True when a record label follows a length that ends at ``end``.
-
-    A label that runs up to the next bearing ("... 100 feet, per record N ...")
-    introduces that bearing and does not describe the pair before it.
-    """
-    suffix = _RECORD_AFTER.match(text[end : end + _ROLE_WINDOW])
-    if not suffix:
-        return False
-    if suffix.group("mark"):
-        return True  # "(R)"/"[deed]" always marks the pair it follows
-    return segment_end >= len(text) or bool(
-        text[end + suffix.end() : segment_end].strip(" \t\n,;:=")
-    )
-
-
-def _pair_role(
-    text: str, start: int, end: int, *, first: bool, complete: bool, segment_end: int
-) -> str:
-    """Return "boundary", "record" (bracketed), "labelled" (record label) or "other".
-
-    "other" is a tie or adjoiner pair (``_TIE_BEFORE`` and following).
-    """
+def _is_tie_or_adjoiner(text: str, start: int) -> bool:
+    """Return True when the wording before ``start`` makes its pair a tie or adjoiner line."""
     before = text[max(0, start - _ROLE_WINDOW) : start]
-    after = text[end : end + _ROLE_WINDOW]
-    if _in_parentheses(text, start):
-        return "record"  # a parenthetical or bracketed bearing restates the course
-    if _ADJOINER_BEFORE.search(before) or _TIE_BEFORE.search(before):
-        return "other"
-    if _RECORD_BEFORE.search(before) or (complete and _record_suffix(text, end, segment_end)):
-        return "labelled"
-    return "boundary" if first or not (complete and _TIE_AFTER.match(after)) else "other"
-
-
-def _mask_record_groups(text: str, bearings: list[tuple[int, int]]) -> str:
-    """Blank every bracketed group holding a bearing, keeping positions.
-
-    A record call's own bearing and length ("(deed N 44 E)", "[N 44 E 99 feet]")
-    never supply the length of a bearing outside it.
-    """
-    for group in reversed(list(_BRACKET_GROUP.finditer(text))):
-        if any(group.start() < start < group.end() for start, _ in bearings):
-            text = text[: group.start()] + " " * (group.end() - group.start()) + text[group.end() :]
-    return text
+    return bool(_ADJOINER_BEFORE.search(before) or _TIE_BEFORE.search(before))
 
 
 def _bearing_pairs(text: str) -> list[_BearingPair]:
     """Return every course-form bearing in normalized course text with its role.
 
     A pair is complete when a length follows the bearing before the next bearing.
-    ``text`` has had its chord and radial clauses removed. A later
-    BEGINNING/COMMENCING clause opens another description, whose bearings are ties
-    to its point of beginning, so reading stops there.
+    ``text`` has had its record calls (``_scan_record_calls``) and its chord and
+    radial clauses removed. A later BEGINNING/COMMENCING clause opens another
+    description, whose bearings are ties to its point of beginning, so reading
+    stops there.
     """
     preamble = _LATER_BEGINNING.search(text, 1)
     if preamble:
         text = text[: preamble.start()]
     bearings = _course_bearing_spans(text)
-    masked = _mask_record_groups(text, bearings)
-    inside = [_in_parentheses(text, start) for start, _ in bearings]
+    ends = [start for start, _ in bearings[1:]] + [len(text)] if bearings else []
     pairs = []
-    for index, (start, bearing_end) in enumerate(bearings):
-        later = list(zip(bearings[index + 1 :], inside[index + 1 :], strict=True))
-        if inside[index]:
-            # A bracketed bearing's length lies inside its own group.
-            segment_end = min([s for (s, _), _grouped in later[:1]] + [_group_end(text, start)])
-            source = text
-        else:
-            # Skip bracketed record calls: the next course is the next bearing outside them.
-            outside = [s for (s, _), grouped in later if not grouped]
-            segment_end = outside[0] if outside else len(text)
-            source = masked
-        length = _LENGTH_TOKEN.search(source, bearing_end, segment_end)
+    for index, ((start, bearing_end), segment_end) in enumerate(zip(bearings, ends, strict=True)):
+        length = _LENGTH_TOKEN.search(text, bearing_end, segment_end)
         end = length.end() if length else bearing_end
         complete = length is not None
-        role = _pair_role(
-            text, start, end, first=index == 0, complete=complete, segment_end=segment_end
+        boundary = not _is_tie_or_adjoiner(text, start) and (
+            index == 0 or not (complete and _TIE_AFTER.match(text[end : end + _ROLE_WINDOW]))
         )
-        pairs.append(
-            _BearingPair(start, end, complete, role == "boundary", labelled=role == "labelled")
-        )
-    if not any(pair.complete and pair.boundary for pair in pairs):
-        # A record label makes a pair a record call only beside another boundary
-        # pair: a fragment's lone labelled pair is its course ("100 feet (R)").
-        # Several such pairs all become courses, so a merged fragment fails closed.
-        pairs = [
-            pair._replace(boundary=True, promoted=True) if pair.labelled and pair.complete else pair
-            for pair in pairs
-        ]
+        pairs.append(_BearingPair(start, end, complete, boundary))
     return pairs
 
 
+# --- Record calls ---------------------------------------------------------------------
+# A RECORD call restates the course as an earlier deed, plan or record gave it: a
+# bracketed group holding a course bearing or a labelled length ("(deed N 44 E)",
+# "[N 44 E 99 feet deed]", "(recorded as 600.00 feet)"), or a pair or length
+# labelled "(R)", "per deed" or "of record" beside the course's own value. Record
+# calls are identified once per fragment (``_scan_record_calls``), before any
+# bearing, tangent, chord, radial, length or curve element is read, and are blanked
+# from the text every reading uses: a record value never becomes a course value, and
+# a course that does not state a value itself fails closed (or stays cardinal only)
+# under the usual rules. Their wording is kept verbatim in notes.
 RECORD_CALL_NOTE_PREFIX = "record call: "
+_RECORD_BEFORE = re.compile(
+    r"(?<![A-Za-z])(?:per\s+(?:deed|record)|of\s+record|deed|record|[(\[]R[)\]])\s*[:=]?\s*$",
+    re.IGNORECASE,
+)
+_RECORD_AFTER = re.compile(
+    _LENGTH_RUN
+    + r"(?:(?:per|by)\s+(?:deed|record)\b|of\s+record\b|(?P<mark>[(\[](?:R|record|deed)[)\]]))",
+    re.IGNORECASE,
+)
+_MEASURED_AFTER = re.compile(r"\s*,?\s*[(\[](?:M|(?i:meas\.?|measured))[)\]]")
+# Inside a bracketed group: a record word, or a trailing "R" ("(100 feet R)").
+_GROUP_RECORD_WORD = re.compile(
+    r"(?<![A-Za-z])(?:deeds?|record(?:ed|s)?|formerly|(?:per|by)\s+(?:plan|map))(?![A-Za-z])",
+    re.IGNORECASE,
+)
+_GROUP_RECORD_LABEL = re.compile(r"(?<![A-Za-z])R\.?\s*$")
+_GROUP_MEASURED_LABEL = re.compile(
+    r"^\s*(?:M|(?i:meas\.?|measured))(?![A-Za-z])|(?<![A-Za-z])(?:M|(?i:meas\.?|measured))\s*$"
+)
+# A road width ("(formerly X Avenue - 100.00 feet wide)") is never a record call.
+_GROUP_WIDTH = re.compile(r"(?<![A-Za-z])(?:wide|in\s+width)(?![A-Za-z])", re.IGNORECASE)
+# The course's own direction word beside a labelled pair ("thence Northeasterly 100
+# feet per deed N 44 E"): a compass word ending -erly/-ward(ly), a "due" direction,
+# or a compass word opening the course. A line or road name ("the Westerly line of",
+# "North Street") is not a direction.
+_COURSE_DIRECTION_WORD = re.compile(
+    r"(?:(?<![A-Za-z])(?:(?:north|south)(?:[\s-]*(?:east|west))?|east|west)"
+    r"(?:erly|wardly|wards?)|\bdue\s+(?:north|south|east|west)"
+    r"|(?:^|\bthence\b)\s*,?\s*(?:(?:north|south)(?:[\s-]*(?:east|west))?|east|west|N[EW]|S[EW]))"
+    r"(?![A-Za-z])(?!\s+(?:lines?|sides?|corners?|boundary|edge|most|half|part|portion|end"
+    r"|face|of|street|avenue|road|lane|drive)\b)",
+    re.IGNORECASE,
+)
+
+
+class _RecordStatement(NamedTuple):
+    """A bearing (with its length) or a lone length, labelled by the deed's wording."""
+
+    start: int  # start of its wording: label, chord/radial opener or value
+    end: int  # end of its wording: label, length or bearing
+    length: tuple[int, int] | None
+    kind: str  # "course", "chord" or "radial" for a bearing; "length" for a lone length
+    label: str  # "record", "measured", "plain" or "other" (a tie or adjoiner line)
+
+
+class _RecordScan(NamedTuple):
+    """Course text with its record calls blanked, and their verbatim wording."""
+
+    reading: str
+    records: tuple[str, ...]
+
+
+def _bracket_groups(text: str) -> list[tuple[int, int, bool]]:
+    """Return top-level bracketed groups (nested-aware) as (start, end, closed).
+
+    An unclosed group runs to the end of ``text``.
+    """
+    groups: list[tuple[int, int, bool]] = []
+    depth = 0
+    start = 0
+    for index, char in enumerate(text):
+        if char in "([":
+            if depth == 0:
+                start = index
+            depth += 1
+        elif char in ")]" and depth:
+            depth -= 1
+            if depth == 0:
+                groups.append((start, index + 1, True))
+    if depth:
+        groups.append((start, len(text), False))
+    return groups
+
+
+def _lengths_outside_bearings(text: str) -> list[re.Match[str]]:
+    """Return the lengths in ``text`` that are not part of a bearing."""
+    spans = [(m.start(), m.end()) for m in _VERBATIM_BEARING.finditer(text)]
+    return [
+        token
+        for token in _LENGTH_TOKEN.finditer(text)
+        if not any(start <= token.start() < end for start, end in spans)
+    ]
+
+
+def _measured_labels(inner: str, lengths: list[re.Match[str]]) -> list[tuple[int, int]]:
+    """Return the measured labels ("M", "meas.") in a group, never a metre unit."""
+    return [
+        label.span()
+        for label in _GROUP_MEASURED_LABEL.finditer(inner)
+        if not any(token.start() <= label.start() < token.end() for token in lengths)
+    ]
+
+
+def _states_course_bearing(text: str) -> bool:
+    """Return True when ``text`` holds a course bearing in the deed's own wording.
+
+    Quadrant (any form), packed and due bearings count; a chord or radial clause
+    bearing does not. The text is not normalized: normalization runs once per call.
+    """
+    return bool(
+        _verbatim_bearing_matches(text, keep_line_radial=True)
+        or PACKED_DMS_PATTERN.search(text)
+        or _DUE_COURSE_BEARING.search(text)
+    )
+
+
+def _group_role(inner: str) -> str | None:
+    """Return "record", "measured" or None for a bracketed group's inner text.
+
+    A group holding a course bearing (quadrant, packed or due) restates the course
+    (record) unless it is labelled measured; a group holding only lengths is a record
+    call when a record word or a trailing "R" labels it, never a width. A chord or
+    radial bearing is not a course bearing.
+    """
+    has_bearing = _states_course_bearing(inner)
+    lengths = _lengths_outside_bearings(inner)
+    if not (has_bearing or lengths):
+        return None
+    record = bool(_GROUP_RECORD_WORD.search(inner) or _GROUP_RECORD_LABEL.search(inner))
+    if not record and _measured_labels(inner, lengths):
+        return "measured"
+    if has_bearing or (lengths and record and not _GROUP_WIDTH.search(inner)):
+        return "record"
+    return None
+
+
+def _blank(text: str, start: int, end: int) -> str:
+    """Replace ``text[start:end]`` with spaces, keeping every position."""
+    return text[:start] + " " * (end - start) + text[end:]
+
+
+def _reference_openers(text: str) -> dict[int, tuple[str, int]]:
+    """Return bearing start -> (kind, opener start) for chord and radial clause bearings.
+
+    A radial line being run ("along a radial line bearing ...") is the course itself.
+    """
+    openers: dict[int, tuple[str, int]] = {}
+    for kind, prefix in (("chord", _CHORD_PREFIX_PATTERN), ("radial", _RADIAL_PREFIX_PATTERN)):
+        for match in prefix.finditer(text):
+            if kind == "radial" and _runs_along_radial(text, match.start()):
+                continue
+            clause_end = _CLAUSE_END.search(text, match.end())
+            stop = clause_end.start() if clause_end else len(text)
+            reference = _VERBATIM_BEARING.search(text, match.end(), stop)
+            if reference:
+                openers.setdefault(reference.start(), (kind, match.start()))
+    return openers
+
+
+def _record_label_after(
+    text: str, end: int, next_bearing: int | None, *, mark_only: bool = False
+) -> int | None:
+    """Return the end of a record label describing the value that ends at ``end``.
+
+    A word label running straight into the next bearing ("... 100 feet, per record
+    N ...") introduces that bearing and does not describe the value before it.
+    """
+    suffix = _RECORD_AFTER.match(text[end : end + _ROLE_WINDOW])
+    if not suffix or (mark_only and not suffix.group("mark")):
+        return None
+    if suffix.group("mark") or next_bearing is None:
+        return end + suffix.end()
+    return end + suffix.end() if text[end + suffix.end() : next_bearing].strip() else None
+
+
+def _record_statements(text: str, limit: int) -> list[_RecordStatement]:
+    """Return the bearings and labelled lone lengths of ``text`` before ``limit``.
+
+    ``text`` has its record groups blanked. A bearing's length is the first length
+    before the next bearing; its label is a record label before it or after its
+    length ("(R)", "per deed", "of record"; "being ... of record" is a record call,
+    not a tie), a tie or adjoiner prefix ("other"), a measured label after it
+    ("(M)"), or none ("plain").
+    """
+    bearings = list(_VERBATIM_BEARING.finditer(text, 0, limit))
+    openers = _reference_openers(text[:limit])
+    statements: list[_RecordStatement] = []
+    pair_lengths: set[int] = set()
+    first_course = True
+    for index, bearing in enumerate(bearings):
+        next_bearing = bearings[index + 1].start() if index + 1 < len(bearings) else None
+        kind, start = openers.get(bearing.start(), ("course", bearing.start()))
+        length = _LENGTH_TOKEN.search(text, bearing.end(), next_bearing or limit)
+        end = length.end() if length else bearing.end()
+        if length:
+            pair_lengths.add(length.start())
+        before = text[max(0, start - _ROLE_WINDOW) : start]
+        label = "plain"
+        record_before = _RECORD_BEFORE.search(before)
+        record_after = _record_label_after(text, end, next_bearing, mark_only=length is None)
+        measured = _MEASURED_AFTER.match(text, end)
+        if record_before:
+            label, start = "record", start - (len(before) - record_before.start())
+        elif record_after is not None:
+            label, end = "record", record_after
+        elif kind == "course" and _is_tie_or_adjoiner(text, start):
+            label = "other"
+        elif measured:
+            label, end = "measured", measured.end()
+        elif (
+            kind == "course"
+            and not first_course
+            and length
+            and _TIE_AFTER.match(text[end : end + _ROLE_WINDOW])
+        ):
+            label = "other"
+        first_course = first_course and kind != "course"
+        statements.append(
+            _RecordStatement(start, end, length.span() if length else None, kind, label)
+        )
+    for token in _lengths_outside_bearings(text[:limit]):
+        if token.start() in pair_lengths or _in_parentheses(text, token.start()):
+            continue
+        following = next((b.start() for b in bearings if b.start() >= token.end()), None)
+        record_after = _record_label_after(text, token.end(), following)
+        measured = _MEASURED_AFTER.match(text, token.end())
+        if record_after is not None:
+            statements.append(
+                _RecordStatement(token.start(), record_after, token.span(), "length", "record")
+            )
+        elif measured:
+            statements.append(
+                _RecordStatement(token.start(), measured.end(), token.span(), "length", "measured")
+            )
+    return statements
+
+
+def _states_own_direction(text: str, limit: int, records: list[_RecordStatement]) -> bool:
+    """Return True when ``text`` states a course direction word outside ``records``."""
+    for record in records:
+        text = _blank(text, record.start, record.end)
+    for start, end, _closed in _bracket_groups(text):
+        text = _blank(text, start, end)
+    text = _CONCAVITY_CLAUSE.sub(lambda m: " " * len(m.group(0)), text[:limit])
+    return bool(_COURSE_DIRECTION_WORD.search(text))
+
+
+def _record_spans(
+    text: str, limit: int, statements: list[_RecordStatement]
+) -> list[tuple[int, int]]:
+    """Return the spans of the labelled statements that are record calls.
+
+    A record-labelled bearing is a record call beside another bearing of the same
+    kind (course, chord or radial) that is unlabelled or measured; a record-labelled
+    course bearing also beside the course's own direction word. A fragment's only
+    labelled bearing is its course ("N 45 E 100 feet (R)"), except that beside a
+    measured length its length alone is the record call ("100 feet (R) (100.05 feet
+    M)"). A record-labelled lone length is a record call beside an unlabelled or
+    measured course length.
+    """
+    spans: list[tuple[int, int]] = []
+    measured_length = any(s.kind == "length" and s.label == "measured" for s in statements)
+    for kind in ("course", "chord", "radial"):
+        records = [s for s in statements if s.kind == kind and s.label == "record"]
+        if not records:
+            continue
+        rivals = [s for s in statements if s.kind == kind and s.label in ("plain", "measured")]
+        if rivals or (kind == "course" and _states_own_direction(text, limit, records)):
+            spans.extend((s.start, s.end) for s in records)
+        elif kind == "course" and measured_length:
+            spans.extend((s.length[0], s.end) for s in records if s.length)
+    course_length = measured_length or any(
+        s.kind == "course" and s.label in ("plain", "measured") and s.length for s in statements
+    )
+    if course_length:
+        spans.extend(
+            (s.start, s.end) for s in statements if s.kind == "length" and s.label == "record"
+        )
+    return spans
+
+
+@lru_cache(maxsize=4096)
+def _scan_record_calls(call_text: str) -> _RecordScan:
+    """Identify the record calls of one course fragment before anything is read from it.
+
+    Bracketed groups are found nested-aware: a record group (``_group_role``) is
+    blanked whole; a measured group keeps its values and loses only its brackets
+    and label. Labelled bearings and lone lengths outside groups are then read
+    (``_record_statements``) and the record calls among them blanked
+    (``_record_spans``). ``reading`` keeps every position of ``call_text``, so
+    along/to and every other verbatim field still come from ``call_text``; bearing,
+    tangent, chord, radial, length and curve elements are read only from
+    ``reading``. ``records`` is each record call's wording, verbatim, in order.
+    """
+    course_text = _boundary_course_text(call_text)
+    text = course_text
+    spans: list[tuple[int, int]] = []
+    measured_groups: list[tuple[int, int]] = []
+    for start, end, closed in _bracket_groups(course_text):
+        inner_start = start + 1
+        inner = course_text[inner_start : end - 1 if closed else end]
+        role = _group_role(inner)
+        if role == "record":
+            spans.append((start, end))
+            text = _blank(text, start, end)
+        elif role == "measured":
+            text = _blank(text, start, inner_start)
+            if closed:
+                text = _blank(text, end - 1, end)
+            for label_start, label_end in _measured_labels(inner, _lengths_outside_bearings(inner)):
+                text = _blank(text, inner_start + label_start, inner_start + label_end)
+            measured_groups.append((start, end))
+    preamble = _LATER_BEGINNING.search(text, 1)
+    limit = preamble.start() if preamble else len(text)
+    statements = [
+        statement._replace(label="measured")
+        if statement.label == "plain"
+        and any(start <= statement.start < end for start, end in measured_groups)
+        else statement
+        for statement in _record_statements(text, limit)
+    ]
+    statements += [
+        _RecordStatement(token.start(), token.end(), token.span(), "length", "measured")
+        for start, end in measured_groups
+        for token in _lengths_outside_bearings(text[:end])
+        if token.start() >= start and not any(s.length == token.span() for s in statements)
+    ]
+    labelled = _record_spans(text, limit, statements)
+    for start, end in labelled:
+        text = _blank(text, start, end)
+    merged: list[tuple[int, int]] = []
+    for start, end in sorted(spans + labelled):
+        if merged and start < merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
+        else:
+            merged.append((start, end))
+    records = tuple(call_text[start:end].strip() for start, end in merged)
+    return _RecordScan(text + call_text[len(course_text) :], records)
 
 
 def _noted_record_calls(notes: str | None) -> list[str]:
@@ -1483,56 +1736,6 @@ def _noted_record_calls(notes: str | None) -> list[str]:
     return rest.split(marker)
 
 
-def _record_call_texts(call_text: str, *, is_curve: bool, promoted: bool) -> list[str]:
-    """Return the deed's own wording of each record call excluded from the course.
-
-    A record call (a parenthetical or bracketed bearing, one labelled "per deed"/
-    "of record"/"(R)", or a bracketed record distance such as "(deed 99.5 feet)")
-    restates the course and is not read as it (``_pair_role``). The wording is
-    returned verbatim from ``call_text``, brackets or label included, so the record
-    bearing and distance are never lost. A lone labelled pair read as the course
-    (``promoted``, ``_CourseBearing.promoted_record``) is not a record call.
-    """
-    course_text = _boundary_course_text(call_text)
-    matches = _verbatim_bearing_matches(course_text, keep_line_radial=not is_curve)
-    found: list[tuple[int, int]] = []
-    covered = 0
-    for index, match in enumerate(matches):
-        if match.start() < covered:
-            continue
-        next_start = matches[index + 1].start() if index + 1 < len(matches) else len(course_text)
-        length = _LENGTH_TOKEN.search(course_text, match.end(), next_start)
-        end = length.end() if length else match.end()
-        before = course_text[max(0, match.start() - _ROLE_WINDOW) : match.start()]
-        after = course_text[end : end + _ROLE_WINDOW]
-        label = _RECORD_BEFORE.search(before)
-        suffix = _RECORD_AFTER.match(after) if length else None
-        if suffix and not _record_suffix(course_text, end, next_start):
-            suffix = None
-        if _in_parentheses(course_text, match.start()):
-            start = max(
-                course_text.rfind("(", 0, match.start()), course_text.rfind("[", 0, match.start())
-            )
-            stop = _group_end(course_text, match.end())
-        elif (label or suffix) and not promoted:
-            start = match.start() - (len(before) - label.start()) if label else match.start()
-            stop = end + suffix.end() if suffix else end
-        else:
-            continue
-        found.append((start, stop))
-        covered = stop
-    for group in _BRACKET_GROUP.finditer(course_text):
-        if (
-            _RECORD_GROUP_LABEL.search(group.group())
-            and not _RECORD_GROUP_WIDTH.search(group.group())
-            and _LENGTH_TOKEN.search(group.group())
-            and not _VERBATIM_BEARING.search(group.group())
-            and not any(start < group.end() and group.start() < stop for start, stop in found)
-        ):
-            found.append(group.span())
-    return [course_text[start:stop].strip() for start, stop in sorted(found)]
-
-
 def _without_pairs(text: str, pairs: list[_BearingPair]) -> str:
     """Blank out ``pairs`` (bearing through length) in ``text``."""
     for pair in reversed(pairs):
@@ -1544,7 +1747,7 @@ def _complete_courses(text: str) -> tuple[int, bool]:
     """Return (complete boundary courses, has any course bearing) in normalized text.
 
     A complete course is a complete boundary pair (``_bearing_pairs``): a
-    course-form bearing and its length that are not a tie, record or adjoiner call.
+    course-form bearing and its length that are not a tie or adjoiner call.
     """
     pairs = _bearing_pairs(text)
     return sum(1 for pair in pairs if pair.complete and pair.boundary), bool(pairs)
@@ -1713,27 +1916,40 @@ def _inch_course_length(course_text: str, direction: str) -> float | None:
     return read_standalone_inch_length(course_text[position + len(direction) :])
 
 
-def _adjoiner_wording(along: str, course_direction: str, course_distance_ft: float | None) -> str:
+def _adjoiner_wording(
+    along: str,
+    course_direction: str,
+    course_distance_ft: float | None,
+    records: tuple[str, ...] = (),
+) -> str:
     """Return ``along`` without the course's own bearing and length.
 
     ``along`` is the deed's wording after "along"; on a straight course it can
     run on into the course itself ("Main Street (50 feet wide) N 45 E 100 feet").
     The course's own verbatim bearing and the length read as its distance are
-    removed; everything else, parentheticals included, stays as written.
+    removed; everything else, parentheticals and record calls (``records``)
+    included, stays as written.
     """
+    # Record wording is never taken for the course's own bearing or length.
+    located = along
+    for record in records:
+        position = located.find(record)
+        if position >= 0:
+            located = _blank(located, position, position + len(record))
     if course_direction:
-        position = along.find(course_direction)
+        position = located.find(course_direction)
         while position >= 0 and _in_parentheses(along, position):
-            position = along.find(course_direction, position + 1)
+            position = located.find(course_direction, position + 1)
         if position >= 0:
             end = position + len(course_direction)
             gap = len(along[end:]) - len(along[end:].lstrip())
             length = _LENGTH_TOKEN.match(along, end + gap)
             if length:
                 end = length.end()
-            along = along[:position] + " " + along[end:]
+            along = _blank(along, position, end)
+            located = _blank(located, position, end)
     if course_distance_ft is not None:
-        for token in reversed(list(_LENGTH_TOKEN.finditer(along))):
+        for token in reversed(list(_LENGTH_TOKEN.finditer(located))):
             if _in_parentheses(along, token.start()):
                 continue
             reading = read_course_length(token.group(0))
@@ -1794,8 +2010,11 @@ def _extract_call(
 ) -> tuple[DeedCall | None, str]:
     """Return ``extract_single_call``'s result with the parsed course direction.
 
-    BEGINNING/POB clauses return before any curve or bearing work; otherwise curve
-    info is extracted once and shared with the course-bearing extraction.
+    BEGINNING/POB clauses return before any curve or bearing work. Record calls are
+    identified first (``_scan_record_calls``): every bearing, length and curve
+    element is read from ``reading``, the text with them blanked, while along/to
+    and the record wording come from the verbatim ``call_text``. Curve info is
+    extracted once and shared with the course-bearing extraction.
     """
     if _BEGINNING_CLAUSE.match(call_text):
         return None, ""
@@ -1814,10 +2033,12 @@ def _extract_call(
             raise MultipleCoursesError(MULTIPLE_COURSES_ERROR)
         call_text = head
 
-    curve_info = extract_curve_info(call_text, distance_unit)
-    if _describes_curve(curve_info) and _has_second_course(call_text):
+    record_scan = _scan_record_calls(call_text)
+    reading = record_scan.reading
+    curve_info = extract_curve_info(reading, distance_unit)
+    if _describes_curve(curve_info) and _has_second_course(reading):
         raise MultipleCoursesError(MULTIPLE_COURSES_ERROR)
-    course_bearing = _course_bearing(call_text, curve_info)
+    course_bearing = _course_bearing(reading, curve_info)
     if course_bearing.complete_courses >= 2:
         # Never keep only the first of several courses.
         raise MultipleCoursesError(MULTIPLE_COURSES_ERROR)
@@ -1847,7 +2068,7 @@ def _extract_call(
 
     is_curve = _describes_curve(curve_info)
     if is_curve:
-        course_text = _course_distance_text(call_text, is_curve=True)
+        course_text = _course_distance_text(reading, is_curve=True)
     else:
         course_text = course_bearing.distance_text
     length = read_course_length(course_text)
@@ -1983,7 +2204,7 @@ def _extract_call(
     if (
         not raw_direction
         and not has_abbreviated_cardinal
-        and not _has_out_of_range_bearing(call_text)
+        and not _has_out_of_range_bearing(reading)
         and not has_curve_geometry
         and not has_boundary_endpoint
         and not detect_meander(call_text)
@@ -2037,7 +2258,9 @@ def _extract_call(
 
     along, to = extract_along_to_fields(call_text)
     if along and not is_curve:
-        along = _adjoiner_wording(along, direction_text if raw_direction else "", distance_ft)
+        along = _adjoiner_wording(
+            along, direction_text if raw_direction else "", distance_ft, record_scan.records
+        )
 
     monument_type = classify_monument(to) if to else None
     monument_status = classify_monument_status(to or call_text)
@@ -2107,15 +2330,8 @@ def _extract_call(
             note_parts.append(element_note)
     if length_not_determined:
         note_parts.append(LENGTH_NOT_DETERMINED_NOTE)
-    # The record call sits outside bearing/distance/along/to; keep its wording.
-    note_parts.extend(
-        RECORD_CALL_NOTE_PREFIX + text
-        for text in _record_call_texts(
-            call_text,
-            is_curve=_describes_curve(curve_info),
-            promoted=course_bearing.promoted_record,
-        )
-    )
+    # A record call is never read as the course; keep its wording.
+    note_parts.extend(RECORD_CALL_NOTE_PREFIX + text for text in record_scan.records)
     notes = "; ".join(note_parts)
 
     if distance_ft is not None and distance_ft <= 0.0:
@@ -2128,10 +2344,10 @@ def _extract_call(
         or has_curve
         or along
         or is_meander
-        or re.search(r"\b[NS]\s+\d+\u00b0", call_text)
+        or re.search(r"\b[NS]\s+\d+\u00b0", reading)
         # An out-of-range bearing (letter or spelled cardinals, degree mark, hyphen or
         # words, any component) is an incomplete bearing; in-range forms are parsed.
-        or _has_out_of_range_bearing(call_text)
+        or _has_out_of_range_bearing(reading)
     )
     if not has_direction_intent:
         payload = {
@@ -2287,7 +2503,8 @@ def _distance_audit_source(call_text: str, call: DeedCall) -> tuple[str, str | N
         )
     if call.arc_length_ft is not None and call.arc_length_ft == call.distance_ft:
         return f"{call.arc_length_ft} feet", None
-    course_text = _course_distance_text(call_text, is_curve=call.is_curve())
+    reading = _scan_record_calls(call_text).reading
+    course_text = _course_distance_text(reading, is_curve=call.is_curve())
     distance, unit = extract_distance(course_text)
     if distance == 0:
         return call_text.strip(), None
@@ -2866,6 +3083,29 @@ def mark_tie_in_calls(calls: list[DeedCall], poc_description: str | None) -> lis
     return result
 
 
+_INCOMPLETE_BEARING_NOTES = frozenset(
+    {"incomplete bearing", "incomplete bearing - cardinal only", AMBIGUOUS_DECIMAL_DEGREES_NOTE}
+)
+
+
+def _without_incomplete_bearing_note(notes: str) -> str | None:
+    """Return ``notes`` without its incomplete-bearing note, everything else verbatim.
+
+    Record calls are always the last notes and are kept whole, even when their
+    wording holds "; ".
+    """
+    marker = "; " + RECORD_CALL_NOTE_PREFIX
+    if notes.startswith(RECORD_CALL_NOTE_PREFIX):
+        head, records = "", notes
+    elif marker in notes:
+        split = notes.index(marker)
+        head, records = notes[:split], notes[split + 2 :]
+    else:
+        head, records = notes, ""
+    parts = [part for part in head.split("; ") if part and part not in _INCOMPLETE_BEARING_NOTES]
+    return "; ".join([*parts, records] if records else parts) or None
+
+
 def enrich_calls_with_azimuths(calls: list[DeedCall]) -> list[DeedCall]:
     """Add azimuths to calls that have quadrant bearings but missing azimuths.
 
@@ -2894,14 +3134,9 @@ def enrich_calls_with_azimuths(calls: list[DeedCall]) -> list[DeedCall]:
                 updates: dict[str, object] = {
                     "bearing_azimuth_deg_from_north": due_az,
                 }
-                # Clear incomplete-bearing notes if present
-                if call.notes and "incomplete" in call.notes:
-                    kept = [
-                        part
-                        for part in call.notes.split("; ")
-                        if part.startswith(RECORD_CALL_NOTE_PREFIX)
-                    ]
-                    updates["notes"] = "; ".join(kept) or None
+                # Clear the incomplete-bearing note; every other note stays intact.
+                if call.notes:
+                    updates["notes"] = _without_incomplete_bearing_note(call.notes)
                 enriched.append(call.model_copy(update=updates))
             else:
                 enriched.append(call)
