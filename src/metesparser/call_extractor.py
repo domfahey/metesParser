@@ -23,6 +23,7 @@ from .models import (
     DeedCall,
     MonumentStatus,
     MonumentType,
+    SkippedCourse,
     Transformation,
 )
 from .text_parser import _COMMA_NUMBER, TextParser, parse_comma_number
@@ -131,6 +132,51 @@ def _call_hash(call_text: str) -> str:
 
 def _is_debug_logging_enabled() -> bool:
     return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
+
+
+def _record_skipped_course(
+    call_text: str,
+    *,
+    course: int,
+    source_course: int,
+    error_type: str,
+    error: str,
+    exc: BaseException | None,
+    audit_context: AuditContext | None,
+    skipped_courses: list[SkippedCourse] | None,
+) -> None:
+    """Record a course non-strict extraction could not parse; never drop it silently.
+
+    With nowhere to record the skip, verification could not learn of it, so the
+    course is rejected exactly as in strict mode.
+    """
+    if audit_context is None and skipped_courses is None:
+        raise ValueError(
+            f"Malformed course {source_course}: {call_text.strip()!r}: {error}; "
+            "skipped course not recorded (pass audit_context or skipped_courses)"
+        ) from exc
+    skip = SkippedCourse(
+        course=course,
+        source_course=source_course,
+        source_excerpt=call_text,
+        error_type=error_type,
+        error=error,
+    )
+    payload = {
+        "course": course,
+        "call_preview": _call_preview(call_text),
+        "call_hash": _call_hash(call_text),
+        "error": error,
+        "error_type": error_type,
+    }
+    if _is_debug_logging_enabled():
+        logger.warning("Skipping malformed call", **payload, call_text=call_text, exc_info=exc)
+    else:
+        logger.warning("Skipping malformed call", **payload)
+    if audit_context is not None:
+        audit_context.skipped_courses.append(skip)
+    if skipped_courses is not None:
+        skipped_courses.append(skip)
 
 
 _PACKED_DMS_BEARING = re.compile(r"(N|S)\s+(\d{1,3}\.\d+)°\s*(E|W)", re.IGNORECASE)
@@ -771,6 +817,7 @@ class CallExtractor:
         *,
         audit_context: AuditContext | None = None,
         strict: bool = True,
+        skipped_courses: list[SkippedCourse] | None = None,
     ) -> list[DeedCall]:
         """Extract all calls from normalized legal description text.
 
@@ -782,6 +829,11 @@ class CallExtractor:
             distance_unit: Primary distance unit (feet, poles, etc.)
             audit_context: Optional audit context for recording parsing decisions
             strict: Raise with course context when a geometric course is malformed.
+                Otherwise the course is recorded as a ``SkippedCourse`` (in
+                ``audit_context`` and/or ``skipped_courses``) with its course
+                number reserved, and blocks verification given that record. With
+                neither supplied it raises as in strict mode.
+            skipped_courses: Optional list receiving non-strict skipped courses.
 
         Returns:
             List of DeedCall objects
@@ -827,22 +879,18 @@ class CallExtractor:
                         raise ValueError(
                             f"Malformed course {source_course}: {call_text.strip()!r}: {exc}"
                         ) from exc
-                    payload = {
-                        "course": course_num,
-                        "call_preview": _call_preview(call_text),
-                        "call_hash": _call_hash(call_text),
-                        "error": str(exc),
-                        "error_type": type(exc).__name__,
-                    }
-                    if _is_debug_logging_enabled():
-                        logger.warning(
-                            "Skipping malformed call",
-                            **payload,
-                            call_text=call_text,
-                            exc_info=exc,
-                        )
-                    else:
-                        logger.warning("Skipping malformed call", **payload)
+                    _record_skipped_course(
+                        call_text,
+                        course=course_num,
+                        source_course=source_course,
+                        error_type=type(exc).__name__,
+                        error=str(exc),
+                        exc=exc,
+                        audit_context=audit_context,
+                        skipped_courses=skipped_courses,
+                    )
+                    # Reserve the course number so the gap stays visible downstream.
+                    course_num += 1
                     continue
 
                 if call is None:
@@ -850,13 +898,27 @@ class CallExtractor:
                     explicit_course = not standalone_thence and (
                         has_thence_marker or has_numbered_course_markers
                     )
-                    if strict and (
+                    if (
                         explicit_course
                         or cls.extract_direction(call_text)
                         or re.search(r"\b(?:[NSEW])\s+\d", call_text, re.I)
                         or _CURVE_KEYWORD_PATTERN.search(call_text)
                     ):
-                        raise ValueError(f"Malformed course {source_course}: {call_text.strip()!r}")
+                        if strict:
+                            raise ValueError(
+                                f"Malformed course {source_course}: {call_text.strip()!r}"
+                            )
+                        _record_skipped_course(
+                            call_text,
+                            course=course_num,
+                            source_course=source_course,
+                            error_type="UnparsedCourse",
+                            error="no computable course could be parsed",
+                            exc=None,
+                            audit_context=audit_context,
+                            skipped_courses=skipped_courses,
+                        )
+                        course_num += 1
                     continue
 
                 if is_exception_tract:

@@ -18,9 +18,12 @@ def test_extract_calls_skips_incomplete_curve_and_continues() -> None:
         "THENCE N 10° E 100 feet to a point"
     )
 
-    calls = CallExtractor.extract_calls(text, strict=False)
+    skipped: list = []
+    calls = CallExtractor.extract_calls(text, strict=False, skipped_courses=skipped)
     assert len(calls) == 1
-    assert calls[0].course == 1
+    # The skipped curve keeps course 1 reserved so the gap stays visible.
+    assert [s.course for s in skipped] == [1]
+    assert calls[0].course == 2
     assert math.isclose(calls[0].distance_ft, 100.0, abs_tol=0.001)
 
 
