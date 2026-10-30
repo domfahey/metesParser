@@ -1198,6 +1198,19 @@ Ten findings (two regressions from recent rounds), fixed red-green on `fix/code-
 - **CLI input recursion by phase:** each JSON-input command loads and depth-checks its input inside an input boundary first, so recursion there is `invalid_input_json` on every platform; output tracking records only this run's paths, without walking the output directory (`8b209ce`).
 - **Known limitations:** three other ". "+capital splitters (`calls._SENTENCE_END`, `metadata._SENTENCE_BREAK`, the RESERVING/SUBJECT TO clause text) do not yet use `ends_sentence`; a measured group after the destination keeps its value in `distance_ft` but the word "measured" is in no field; "Lot B. Next …" can over-capture into an exception note.
 
+### PR #60 forty-eighth review (2026-10-30)
+Nine findings (two regressions from recent rounds), fixed red-green on `fix/code-review-2026-10-29`. Tract, exception and easement classification had oscillated across rounds 43-48, so every case asserted since round 43 now lives in one corpus (`test_tract_classification_corpus.py`, 115 deeds) that must pass at once:
+- **Strip inside the closing course (regression):** "…, except the North 10 feet thereof, to the point of beginning." keeps `to` = "the point of beginning"; a strip in an open course is never extended, and no extension crosses a point-of-beginning mention (`50ad847`).
+- **Easement grants (regression):** "the use of an easement / right of way", "the right to use", "a right of ingress and egress", "the free and uninterrupted use", and grantee wording with or without commas are easements again; land that merely adjoins or lies within a right of way or easement stays a fee addition. A BEGINNING block is an easement when a grant clause runs on to it with no sentence end, ";" or THENCE between (`50ad847`).
+- **EXCEPT after acreage:** an EXCEPT after the closure with only course-free wording between ("containing 0.23 acres, more or less") is noted as not applied instead of failing the deed (`50ad847`).
+- **Dividing-line exceptions:** an exception is a traverse only with two or more courses or one course closing to the point of beginning; "a line running N 80° E 100 feet from the pin" is noted, not traversed (`50ad847`).
+- **Computed once:** clause stops, openings, closures, EXCEPT leads and easement spans are indexed once per text (`50ad847`). In the samples, 100 Haddon Ave (4658-859) `.md` now gives the same 4 courses as its other sources instead of failing; a signature-page warranty "except as otherwise set forth" is noted as an unapplied exception (fails closed).
+- **Note registry:** every fixed note the system writes is registered in `mp_models`, so `split_notes` never merges a following fixed note (e.g. the legacy-CSV curve note) into exception or record wording; round-trip tested over all pairs and random combinations (`c2f68e5`).
+- **Passing calls before the bearing:** "passing over a stone wall S 45° E 100 feet" notes only "passing over a stone wall" (`c2f68e5`).
+- **One passing-piece rule and one bracket scanner** (`c2f68e5`).
+- **CLI partial output:** an internal error lists only output directories this run created or changed, as "may contain partial output", never other runs' files (`6559d98`).
+- **Known limitations:** a strip exception inside a middle course still fails closed as an ambiguous length; a new fixed note must be added to the registry; partial-output directories are detected by top-level change only.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
