@@ -73,6 +73,7 @@ from .metadata import (
     read_standalone_inch_length,
     split_call_fragments,
     split_exception_clauses,
+    split_outside_brackets,
     strip_exception_spans,
     unlisted_course_lists,
 )
@@ -2365,12 +2366,15 @@ def _complete_courses(text: str) -> tuple[int, bool]:
     return sum(1 for pair in pairs if pair.complete and pair.boundary), bool(pairs)
 
 
-_COURSE_SEPARATOR = re.compile(r";|(?<=\S)\s+(?=THENCE\b)|,\s*(?=thence\b)", re.IGNORECASE)
+_THENCE_SEPARATOR = re.compile(r"(?<=\S)\s+(?=THENCE\b)|,\s*(?=thence\b)", re.IGNORECASE)
 
 
 def _course_segments(call_text: str) -> list[str]:
     """Cut a fragment at ';' and at a later THENCE into its candidate course segments."""
-    return [piece.strip() for piece in _COURSE_SEPARATOR.split(call_text) if piece.strip()]
+    pieces: list[str] = []
+    for chunk in split_outside_brackets(call_text):
+        pieces.extend(_THENCE_SEPARATOR.split(chunk))
+    return [piece.strip() for piece in pieces if piece.strip()]
 
 
 def _is_curve_segment(segment: str) -> bool:
@@ -2533,6 +2537,17 @@ def _inch_course_length(course_text: str, direction: str) -> float | None:
     return read_standalone_inch_length(course_text[position + len(direction) :])
 
 
+def _is_course_length(token: str, course_distance_ft: float | None) -> bool:
+    """Return True when length ``token`` reads as the course distance (or none is known)."""
+    if course_distance_ft is None:
+        return True
+    reading = read_course_length(token)
+    if reading.ambiguous or reading.value <= 0:
+        return False
+    converted = ConversionFactors.convert_to_feet(reading.value, reading.unit)
+    return converted is not None and abs(converted - course_distance_ft) < 1e-6
+
+
 def _adjoiner_wording(
     along: str,
     course_direction: str,
@@ -2561,7 +2576,9 @@ def _adjoiner_wording(
             end = position + len(course_direction)
             gap = len(along[end:]) - len(along[end:].lstrip())
             length = _LENGTH_TOKEN.match(along, end + gap)
-            if length:
+            # Only the course's own length goes with its bearing: a length right
+            # after it that is not the course length (an offset) stays in ``along``.
+            if length and _is_course_length(length.group(0), course_distance_ft):
                 end = length.end()
             along = _blank(along, position, end)
             located = _blank(located, position, end)
