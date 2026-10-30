@@ -29,6 +29,7 @@ from .tangents import (
     has_determined_direction,
     is_curved_course,
     is_spiral,
+    radial_implied_tangent,
     radial_tangent_in,
     stated_sweep,
     stated_tangent,
@@ -602,6 +603,35 @@ def radial_chord_issue(call: DeedCall) -> str | None:
     return None
 
 
+def radial_tangent_issue(call: DeedCall) -> str | None:
+    """Return why a tangent curve's stated tangent and radial bearings disagree, if they do."""
+    if (
+        is_spiral(call)
+        or call.non_tangent
+        or call.bearing_azimuth_deg_from_north is None
+        or call.curve_dir not in ("left", "right")
+    ):
+        return None
+    implied = radial_implied_tangent(call)
+    if implied is None:
+        return None
+    stated = call.bearing_azimuth_deg_from_north
+    diff = abs(implied - stated) % 360.0
+    diff = min(diff, 360.0 - diff)
+    delta_error = delta_uncertainty_rad(delta_deg=call.delta_deg)
+    if call.delta_deg is None and call.arc_length_ft is not None and call.radius_ft:
+        delta_error = delta_uncertainty_rad(
+            arc_length_ft=call.arc_length_ft, radius_ft=call.radius_ft
+        )
+    err = bearing_difference_uncertainty_rad(implied, stated)
+    if diff > tangent_chord_tolerance_deg(delta_error, err):
+        return (
+            f"Course {call.course}: stated tangent and radial bearings are inconsistent "
+            f"(tangent {stated:.4f}\u00b0 stated, {implied:.4f}\u00b0 from radial)"
+        )
+    return None
+
+
 def check_curve_consistency(
     calls: list[DeedCall],
     tangent_issues: Mapping[int, str | None] | None = None,
@@ -663,7 +693,7 @@ def check_curve_consistency(
                         f"(chord: {call.chord_length_ft:.2f}, radius: {call.radius_ft:.2f})"
                     )
                     return False, warnings
-                issue = _tangent_issue(index, call)
+                issue = _tangent_issue(index, call) or radial_tangent_issue(call)
                 if issue:
                     warnings.append(issue)
                     return False, warnings
@@ -693,7 +723,9 @@ def check_curve_consistency(
                 )
                 return False, warnings
 
-        issue = _tangent_issue(index, call) or radial_chord_issue(call)
+        issue = (
+            _tangent_issue(index, call) or radial_chord_issue(call) or radial_tangent_issue(call)
+        )
         if issue:
             warnings.append(issue)
             return False, warnings

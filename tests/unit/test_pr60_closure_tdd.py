@@ -87,3 +87,34 @@ def test_repeated_multi_tract_verification_replaces_tract_audits():
     verify_closure([], tracts=tracts, audit_context=ctx)
     verify_closure([], tracts=tracts, audit_context=ctx)
     assert [a.tract_label for a in ctx.tract_verification_audits] == ["A", "B"]
+
+
+def test_monolith_cross_checks_tangent_and_radial_bearings():
+    def curve(radial: str) -> DeedCall:
+        return DeedCall(
+            course=2,
+            direction_text="recorded",
+            curve_dir="right",
+            radius_ft=300.0,
+            delta_deg=20.0,
+            arc_length_ft=104.72,
+            distance_ft=104.72,
+            bearing_azimuth_deg_from_north=45.0,
+            radial_bearing=radial,
+        )
+
+    def line(course: int, az: float) -> DeedCall:
+        return DeedCall(
+            course=course,
+            direction_text="recorded",
+            bearing_azimuth_deg_from_north=az,
+            distance_ft=100.0,
+        )
+
+    def run(radial: str):
+        return verify_closure([line(1, 0.0), curve(radial), line(3, 180.0), line(4, 270.0)])
+
+    assert run("S 45°00'00\" E").curve_consistency_passed is True
+    bad = run("S 80°00'00\" E")
+    assert bad.curve_consistency_passed is False
+    assert any("tangent and radial bearings are inconsistent" in w for w in bad.warnings)
