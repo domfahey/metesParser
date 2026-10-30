@@ -79,10 +79,19 @@ _CARDINAL_ONLY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# A decimal with a degree sign is read as packed DD.MM[SS[.s]] only when it has two
+# decimals (minutes) or four or more (minutes, seconds, decimal seconds): "N 46.1631\u00b0 E"
+# = 46\u00b016'31" (bug #43 tests pin these forms; no sample deed uses them). A one- or
+# three-decimal value ("N 45.5\u00b0 E") cannot be minutes/seconds and may be decimal
+# degrees, so it is never converted: azimuth stays None with
+# AMBIGUOUS_DECIMAL_DEGREES_NOTE.
 PACKED_DMS_PATTERN = re.compile(
     r"(N|S)\s+(\d{1,3}\.\d+)\u00b0\s*(E|W)",
     re.IGNORECASE,
 )
+
+AMBIGUOUS_DECIMAL_DEGREES_NOTE = "incomplete bearing - ambiguous decimal degrees"
+_AMBIGUOUS_DECIMAL_DEGREES = re.compile(r"(?:N|S)\s+\d{1,3}\.(?:\d|\d{3})\u00b0\s*(?:E|W)", re.I)
 
 ARC_COMPUTED_NOTE = "arc length not stated - course distance computed from radius and delta"
 # A curve fixed by its stated chord bearing and delta (or arc and radius) with no
@@ -1484,6 +1493,17 @@ def _split_multi_course_fragment(call_text: str) -> list[str]:
 _BEGINNING_CLAUSE = re.compile(r"^\s*(BEGINNING|COMMENCING|POB)\b", re.IGNORECASE)
 
 
+def _format_quadrant(cardinal1: str, degrees: float, cardinal2: str) -> str:
+    """Quadrant bearing as stated: seconds kept, never rounded into the next degree/minute."""
+    total = round(degrees * 3600, 2)
+    deg, remainder = divmod(total, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if seconds == 0:
+        return f"{cardinal1} {int(deg)}\u00b0{int(minutes):02d}' {cardinal2}"
+    seconds_text = f"{seconds:05.2f}".rstrip("0").rstrip(".")
+    return f"{cardinal1} {int(deg)}\u00b0{int(minutes):02d}'{seconds_text}\" {cardinal2}"
+
+
 def extract_single_call(
     call_text: str,
     course: int,
@@ -1555,15 +1575,7 @@ def _extract_call(
     parsed_bearing = parse_quadrant_bearing(raw_direction) if raw_direction else None
     if parsed_bearing:
         cardinal1, degrees, cardinal2 = parsed_bearing
-        deg_int = int(degrees)
-        minutes = (degrees - deg_int) * 60
-
-        rounded_minutes = round(minutes)
-        if rounded_minutes >= 60:
-            rounded_minutes = 0
-            deg_int += 1
-
-        bearing_quadrant = f"{cardinal1} {deg_int}\u00b0{rounded_minutes:02d}' {cardinal2}"
+        bearing_quadrant = _format_quadrant(cardinal1, degrees, cardinal2)
         azimuth = quadrant_to_azimuth(cardinal1, degrees, cardinal2)
     else:
         # Try "due {cardinal}" before giving up
@@ -1807,7 +1819,10 @@ def _extract_call(
     if cardinal_only and not chord_positioned:
         note_parts.append("incomplete bearing - cardinal only")
     elif not note_parts and not parsed_bearing and not is_due_cardinal:
-        note_parts.append("incomplete bearing")
+        if _AMBIGUOUS_DECIMAL_DEGREES.fullmatch((raw_direction or "").strip()):
+            note_parts.append(AMBIGUOUS_DECIMAL_DEGREES_NOTE)
+        else:
+            note_parts.append("incomplete bearing")
     if arc_computed:
         note_parts.append(ARC_COMPUTED_NOTE)
     for key in ("radius_conflict_note", "length_ambiguity_note"):
@@ -2178,6 +2193,8 @@ def extract_direction(text: str) -> str:
         cardinal1 = packed_match.group(1).upper()
         packed_value = float(packed_match.group(2))
         cardinal2 = packed_match.group(3).upper()
+        if len(packed_match.group(2).split(".")[1]) in (1, 3):
+            return packed_match.group(0)  # ambiguous decimal degrees: never converted
         decimal_degrees = parse_packed_dms(packed_value)
         total_seconds = round(decimal_degrees * 3600, 4)
         degree, remainder = divmod(total_seconds, 3600)

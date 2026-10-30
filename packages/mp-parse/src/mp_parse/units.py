@@ -25,7 +25,9 @@ VULGAR_FRACTIONS = (
 _VULGAR = f"[{VULGAR_FRACTIONS}]"
 _FRACTION_SLASH = r"[/\u2044]"
 _FRACTION = rf"\d+{_FRACTION_SLASH}0*[1-9]\d*"
-_WHOLE = r"\d(?:[\d,]*\d)?"
+# Comma grouping is valid thousands grouping only ("1,200"); "100,50" or "1,2,3" is
+# no number, never a different value.
+_WHOLE = r"(?:\d{1,3}(?:,\d{3})+|\d+)"
 _MIXED_GAP = r"(?:\s*-\s*|\s+)"
 # A fraction (or lone vulgar fraction) never starts after a whole number and a gap
 # (it would be read without the whole number).
