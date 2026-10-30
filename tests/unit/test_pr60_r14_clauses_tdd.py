@@ -207,7 +207,7 @@ def test_clause_grammar_is_shared_by_package_and_monolith():
     "pattern_name",
     [
         "_IDENTIFIER_BEFORE",
-        "_DASHED_BEARING_CONTEXT",
+        "_DASHED_LABEL_BEFORE",
         "_BEARING_DEGREE_PREFIX",
         "_ALONG_RADIAL_PATTERN",
     ],
