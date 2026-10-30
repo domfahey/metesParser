@@ -961,7 +961,8 @@ def publish_delivery(
         # discard files that a concurrent publish found present and referenced.
         with _claim(directory) as locked:
             try:
-                _clear_unpublished(directory, manifest_path)
+                if locked:
+                    _clear_unpublished(directory, manifest_path)
                 write_new(
                     directory / "pending.json",
                     _json(
@@ -1013,13 +1014,13 @@ def publish_delivery(
     return result
 
 
-def _present(path: Path, size: int) -> bool:
-    """Whether ``path`` is a regular (non-symlink) file of exactly ``size`` bytes."""
+def _present(path: Path, size: int | None = None) -> bool:
+    """Whether ``path`` is a regular (non-symlink) file, of ``size`` bytes if given."""
     try:
         status = os.stat(path, follow_symlinks=False)
     except OSError:
         return False
-    return stat.S_ISREG(status.st_mode) and status.st_size == size
+    return stat.S_ISREG(status.st_mode) and (size is None or status.st_size == size)
 
 
 @contextlib.contextmanager
@@ -1029,15 +1030,28 @@ def _claim(directory: Path) -> Iterator[bool]:
     Yields whether the lock is held. The lock is released on exit or process
     death. A waiter whose directory was removed by a discarding publish
     re-creates it and locks the new one. Platforms without ``fcntl`` publish
-    unlocked (yield ``False``).
+    unlocked (yield ``False``) behind an exclusive ``<id>.publishing`` claim file
+    beside the delivery directory; an existing claim (a concurrent or crashed
+    publish) is refused, never deleted.
     """
     try:
         import fcntl
     except ImportError:  # pragma: no cover - non-POSIX
         if directory.is_symlink():
             raise ValueError("Unsafe delivery directory symlink") from None
-        directory.mkdir(exist_ok=True)
-        yield False
+        claim = directory.with_name(directory.name + ".publishing")
+        try:
+            os.close(os.open(claim, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644))
+        except FileExistsError:
+            raise ValueError(
+                "Delivery id is being published or a previous publish crashed; "
+                f"remove {claim} to retry"
+            ) from None
+        try:
+            directory.mkdir(exist_ok=True)
+            yield False
+        finally:
+            claim.unlink(missing_ok=True)
         return
     while True:
         if directory.is_symlink():
@@ -1087,20 +1101,13 @@ def _clear_unpublished(directory: Path, manifest_path: Path) -> None:
         return
     entries = list(directory.iterdir())
     for entry in entries:
-        if entry.name not in _DELIVERY_FILES or not _present_regular(entry):
+        if entry.name not in _DELIVERY_FILES or not _present(entry):
             raise ValueError(
                 f"Incomplete delivery directory holds unexpected entry {entry.name!r}; "
                 "refusing to clear it"
             )
     for entry in entries:
         entry.unlink()
-
-
-def _present_regular(path: Path) -> bool:
-    try:
-        return stat.S_ISREG(os.stat(path, follow_symlinks=False).st_mode)
-    except OSError:
-        return False
 
 
 def _discard_incomplete(created: list[Path], manifest_path: Path) -> None:
