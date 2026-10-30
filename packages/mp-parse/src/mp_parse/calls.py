@@ -475,36 +475,73 @@ _RADIAL_PREFIX_PATTERN = re.compile(
     r"|\bradial\s+(?:line|bearing)\s+of\s+",
     re.IGNORECASE,
 )
+# "along (a | the | said) radial line ...": the radial line is the course itself.
+_ALONG_RADIAL_PATTERN = re.compile(r"\balong\s+(?:(?:a|the|said)\s+)?$", re.IGNORECASE)
 
 
-def _without_reference_bearings(text: str, prefix: re.Pattern[str]) -> str:
+def _runs_along_radial(text: str, start: int) -> bool:
+    """Return True when the radial clause at ``start`` names the line being run."""
+    return bool(_ALONG_RADIAL_PATTERN.search(text[:start]))
+
+
+def _without_reference_bearings(
+    text: str, prefix: re.Pattern[str], *, keep_line_radial: bool = False
+) -> str:
     """Remove every ``prefix`` clause together with the bearing it introduces.
 
     The bearing is searched only within the clause (up to the next comma or
     semicolon); if none is recognised the clause itself is dropped so its
     direction words cannot be read as the course bearing. ``text`` must already
-    be normalized (``_normalize_bearing_forms``).
+    be normalized (``_normalize_bearing_forms``). With ``keep_line_radial``, a
+    clause naming the radial line being run (``_runs_along_radial``) is kept.
     """
+    position = 0
     while True:
-        match = prefix.search(text)
+        match = prefix.search(text, position)
         if not match:
             return text
+        if keep_line_radial and _runs_along_radial(text, match.start()):
+            position = match.end()
+            continue
         rest = text[match.end() :]
         clause_end = re.search(r"[,;]", rest)
         clause = rest[: clause_end.start()] if clause_end else rest
         bearing = PACKED_DMS_PATTERN.search(clause) or QUADRANT_PATTERN.search(clause)
         cut = bearing.end() if bearing else len(clause)
         text = text[: match.start()] + " " + rest[cut:]
+        position = match.start()
 
 
-def _without_chord_bearing(text: str) -> str:
-    """Remove chord-bearing clauses; the chord is never the tangent."""
-    return _without_reference_bearings(_normalize_bearing_forms(text), _CHORD_PREFIX_PATTERN)
+_CURVE_GEOMETRY_KEYS = ("direction", "radius_ft", "delta_deg", "arc_length_ft", "chord_length_ft")
 
 
-def _without_radial_bearing(text: str) -> str:
-    """Remove radius-point/radial/center bearing clauses; they are not the tangent."""
-    return _without_reference_bearings(_normalize_bearing_forms(text), _RADIAL_PREFIX_PATTERN)
+def _describes_curve(curve_info: dict[str, float | str | None]) -> bool:
+    """Return True when extracted curve info states any curve geometry."""
+    return any(curve_info.get(key) is not None for key in _CURVE_GEOMETRY_KEYS)
+
+
+# Same tolerance as the verification curve check (chord ~ 2R*sin(delta/2)).
+_TANGENT_CHORD_TOLERANCE_FT = 0.1
+
+
+def _tangent_chord_delta(
+    tangent_az: float, chord_az: float, curve_dir: str, radius_ft: float, chord_ft: float
+) -> float | None:
+    """Return the central angle fixed by a curve's stated tangent and chord bearings.
+
+    The chord deflects from the tangent by half the delta, toward the curve
+    (clockwise for a right curve). None when the deflection turns the other way
+    (or is zero) or the stated chord is not 2R*sin(delta/2) within tolerance.
+    """
+    deflection = (chord_az - tangent_az + 180.0) % 360.0 - 180.0
+    if curve_dir == "left":
+        deflection = -deflection
+    if deflection <= 0.0:
+        return None
+    expected_chord = 2.0 * radius_ft * math.sin(math.radians(deflection))
+    if abs(expected_chord - chord_ft) > _TANGENT_CHORD_TOLERANCE_FT:
+        return None
+    return 2.0 * deflection
 
 
 class _CourseBearing(NamedTuple):
@@ -520,13 +557,19 @@ def _course_bearing(call_text: str) -> _CourseBearing:
     Corner witnesses are cut off, and the course text and its verbatim bearing
     candidates are normalized together in one pass. Chord and
     radial/radius-point/center bearings are then removed *before* extraction, so
-    only a bearing describing the course itself can be returned.
+    only a bearing describing the course itself can be returned. On a straight
+    course, a radial clause naming the line being run ("along a radial line
+    bearing ...") states the course bearing and is kept; one describing the radius
+    point of a curve reached at the end of the line is removed.
     """
+    keep_line_radial = not _describes_curve(extract_curve_info(call_text))
     course_text = _boundary_course_text(call_text)
-    candidates = _verbatim_candidates(course_text)
+    candidates = _verbatim_candidates(course_text, keep_line_radial=keep_line_radial)
     normalized, *normalized_candidates = _normalize_bearing_segments([course_text, *candidates])
-    for prefix in (_CHORD_PREFIX_PATTERN, _RADIAL_PREFIX_PATTERN):
-        normalized = _without_reference_bearings(normalized, prefix)
+    normalized = _without_reference_bearings(normalized, _CHORD_PREFIX_PATTERN)
+    normalized = _without_reference_bearings(
+        normalized, _RADIAL_PREFIX_PATTERN, keep_line_radial=keep_line_radial
+    )
     direction = extract_direction(normalized)
     return _CourseBearing(
         direction, _verbatim_course_direction(direction, candidates, normalized_candidates)
@@ -545,11 +588,20 @@ _VERBATIM_BEARING = re.compile(
 )
 
 
-def _verbatim_candidates(course_text: str) -> list[str]:
-    """Return the deed's bearings in ``course_text``, skipping chord/radial openers."""
+def _verbatim_candidates(course_text: str, *, keep_line_radial: bool = False) -> list[str]:
+    """Return the deed's bearings in ``course_text``, skipping chord/radial openers.
+
+    With ``keep_line_radial``, the bearing of a radial line being run is kept.
+    """
     excluded: set[int] = set()
     for prefix in (_CHORD_PREFIX_PATTERN, _RADIAL_PREFIX_PATTERN):
         for match in prefix.finditer(course_text):
+            if (
+                keep_line_radial
+                and prefix is _RADIAL_PREFIX_PATTERN
+                and _runs_along_radial(course_text, match.start())
+            ):
+                continue
             rest = course_text[match.end() :]
             clause_end = re.search(r"[,;]", rest)
             clause = rest[: clause_end.start()] if clause_end else rest
@@ -657,7 +709,7 @@ def extract_single_call(
     # delta/2; left: chord + delta/2). Only an explicitly stated delta is stored as
     # delta_deg; otherwise the stated arc length and radius define it exactly
     # (delta = arc / R), used for the tangent only and disclosed in the notes.
-    # Radius + chord without a stated delta or arc is ambiguous (minor or major
+    # Radius + chord without a stated delta, arc or tangent is ambiguous (minor or major
     # arc): no delta, arc or tangent is derived; the course is positioned by its
     # chord only.
     has_stated_tangent = parsed_bearing is not None or is_due_cardinal
@@ -678,6 +730,38 @@ def extract_single_call(
     ):
         tangent_delta = math.degrees(stated_arc / stated_radius)
         delta_source = "arc length"
+    # A stated tangent with the chord bearing fixes the delta (twice their
+    # deflection); the stated chord and radius must agree with it. Consistent: the
+    # delta is used for the arc only (delta_deg stays unset) and the arc
+    # is derived. Inconsistent: the call is kept, flagged and positioned by chord.
+    delta_from_tangent_chord = False
+    tangent_chord_inconsistent = False
+    curve_side = curve_info.get("direction")
+    if (
+        tangent_delta is None
+        and stated_arc is None
+        and azimuth is not None
+        and has_stated_tangent
+        and not curve_info.get("non_tangent")
+        and isinstance(curve_side, str)
+        and curve_side in ("left", "right")
+        and isinstance(stated_radius, float)
+        and stated_radius > 0.0
+        and isinstance(chord_text, str)
+        and isinstance(stated_chord, float)
+        and stated_chord > 0.0
+    ):
+        stated_chord_az = bearing_to_azimuth(chord_text)
+        if stated_chord_az is not None:
+            tangent_chord = _tangent_chord_delta(
+                azimuth, stated_chord_az, curve_side, stated_radius, stated_chord
+            )
+            if tangent_chord is None:
+                tangent_chord_inconsistent = True
+            else:
+                tangent_delta = tangent_chord
+                delta_from_tangent_chord = True
+                curve_info["arc_length_ft"] = stated_radius * math.radians(tangent_chord)
     positioned_by_chord = (
         tangent_delta is None
         and stated_arc is None
@@ -777,6 +861,13 @@ def extract_single_call(
         tangent_notes.append("tangent bearing not stated - chord bearing only")
     if positioned_by_chord:
         tangent_notes.append("curve delta/arc not stated - positioned by chord only")
+    if delta_from_tangent_chord:
+        tangent_notes.append(
+            "curve delta derived from tangent and chord bearings "
+            "(arc computed from delta and radius)"
+        )
+    if tangent_chord_inconsistent:
+        tangent_notes.append("stated tangent, chord and radius are inconsistent")
     if chord_exceeds_diameter:
         tangent_notes.append("chord length exceeds twice the radius")
     tangent_note = "; ".join(tangent_notes)
@@ -1352,11 +1443,7 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
     # Non-tangent/radial data describes a curve; a straight course that names the
     # next curve's radius point must not carry it (the clause is still stripped
     # from the course text, and stays in the verbatim call text).
-    is_curve = any(
-        curve_info.get(key) is not None
-        for key in ("direction", "radius_ft", "delta_deg", "arc_length_ft", "chord_length_ft")
-    )
-    if not is_curve:
+    if not _describes_curve(curve_info):
         return curve_info
 
     if re.search(r"\bnon-?tangent\b", text, re.IGNORECASE):
