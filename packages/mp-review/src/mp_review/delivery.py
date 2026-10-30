@@ -1088,11 +1088,26 @@ _COORDINATES_NOT_VERIFIED = (
 )
 
 
+class DeliveryReplayIncomplete(ValueError):
+    """Replay succeeded but GeoJSON coordinates could not be re-verified on this host."""
+
+
 def load_delivery(
-    bundle: DashboardBundle, revision_dir: Path | str, directory: Path | str
+    bundle: DashboardBundle,
+    revision_dir: Path | str,
+    directory: Path | str,
+    *,
+    allow_unverified_geojson: bool = False,
 ) -> DeliverySnapshot:
-    """Replay a published package read-only; ``replay_delivery`` also reports its depth."""
-    return replay_delivery(bundle, revision_dir, directory).snapshot
+    """Replay a published package read-only and return its snapshot.
+
+    Raises ``DeliveryReplayIncomplete`` when GeoJSON coordinates were not re-verified,
+    unless ``allow_unverified_geojson`` is set. ``replay_delivery`` reports the depth.
+    """
+    replay = replay_delivery(bundle, revision_dir, directory)
+    if replay.geojson_coordinates == "not_verified" and not allow_unverified_geojson:
+        raise DeliveryReplayIncomplete("; ".join(replay.findings) or _COORDINATES_NOT_VERIFIED)
+    return replay.snapshot
 
 
 def replay_delivery(
