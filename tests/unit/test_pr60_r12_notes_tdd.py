@@ -40,11 +40,11 @@ CASES = {
         f"Thence southwesterly {CURVE}the chord of which bears S 40°00'00\" W, 50.00 feet",
         ["positioned by chord only"],
     ),
-    "derived-tangent": (
+    "tangent-not-stated": (
         f"Thence southwesterly {CURVE}a delta of 20°00'00\", "
         "the chord of which bears S 40°00'00\" W, 34.73 feet",
         [
-            "tangent bearing derived from chord bearing and delta",
+            "tangent bearing not stated - curve positioned by chord and delta in verification",
             "stated direction is cardinal only (southwesterly)",
         ],
     ),
@@ -58,9 +58,11 @@ def test_cardinal_marker_kept_with_other_notes(parse, name):
     call = parse(text)
     assert call is not None
     assert call.notes is not None
-    # A derived tangent holds a numeric azimuth, so it is not "incomplete"; the
-    # cardinal-only statement is disclosed in its own words (round 15).
-    if name == "derived-tangent":
+    # A curve fixed by chord and delta is positioned in verification, so it is not
+    # "incomplete"; the cardinal-only statement is disclosed in its own words
+    # (round 15). No tangent is stored (round 21).
+    if name == "tangent-not-stated":
+        assert call.bearing_azimuth_deg_from_north is None
         assert MARKER not in call.notes
     else:
         assert MARKER in call.notes

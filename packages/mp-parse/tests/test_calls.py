@@ -316,10 +316,12 @@ class TestChordBearingNotTangent:
         a = extract_single_call(self.CURVE.format(chord="N 45°00'00\" E"), 1)
         b = extract_single_call(self.CURVE.format(chord="North 45°00'00\" East"), 1)
         assert a is not None and b is not None
-        assert a.bearing_azimuth_deg_from_north == b.bearing_azimuth_deg_from_north
-        assert abs(a.bearing_azimuth_deg_from_north) < 1e-6
+        # No tangent is stated, so none is derived or stored (round 21).
+        assert a.bearing_azimuth_deg_from_north is None
+        assert b.bearing_azimuth_deg_from_north is None
+        assert a.chord_bearing is not None and b.chord_bearing is not None
         assert a.bearing_quadrant is None
-        assert "derived from chord bearing" in (a.notes or "")
+        assert "tangent bearing not stated" in (a.notes or "")
 
     def test_separate_tangent_bearing_kept(self) -> None:
         from mp_parse.calls import extract_single_call
@@ -344,18 +346,17 @@ class TestChordDegreesNeverDelta:
 
         assert extract_curve_info(self.ARC_CHORD.format(along="")).get("delta_deg") is None
 
-    def test_tangent_from_arc_radius_delta_with_along_text(self) -> None:
-        import math
-
+    def test_arc_radius_curve_keeps_tangent_unstated_with_along_text(self) -> None:
         from mp_parse.calls import extract_single_call
 
-        expected = 45.0 - math.degrees(0.5) / 2.0
         for along in ("", " along the Northerly line of Pennbrook Drive"):
             c = extract_single_call(self.ARC_CHORD.format(along=along), 1)
             assert c is not None
-            assert abs(c.bearing_azimuth_deg_from_north - expected) < 1e-9
+            # No tangent is derived (round 21); chord and arc/radius stay as stated.
+            assert c.bearing_azimuth_deg_from_north is None
             assert c.delta_deg is None
-            assert "delta computed from arc length and radius" in (c.notes or "")
+            assert c.arc_length_ft == 50.0
+            assert "tangent bearing not stated" in (c.notes or "")
 
 
 def test_radial_bearing_clause_is_not_a_stated_tangent():

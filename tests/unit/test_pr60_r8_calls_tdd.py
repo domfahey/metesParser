@@ -10,7 +10,6 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -56,13 +55,12 @@ NO_CHORD = (
     "thence along a curve to the right having a radius of 50.00 feet, {clause} N 10° W, "
     "an arc length of 30.00 feet to a point"
 )
-# Same with a chord: the tangent follows the existing chord/arc rule
-# (left curve: chord + delta / 2, delta = arc / radius).
+# Same with a chord: the radial bearing is still not the tangent, and no tangent is
+# derived from the chord (round 21); chord and delta position it in verification.
 WITH_CHORD = (
     "thence along a curve to the left, {clause} S 10° W, having a radius of 500 feet, "
     "an arc length of 50 feet, chord bears N 80° E 49.9 feet to a point"
 )
-CHORD_TANGENT_AZ = 80.0 + math.degrees(50 / 500) / 2
 
 RADIAL_PHRASINGS = [
     # radius point (of which | which | that)? bears
@@ -105,10 +103,13 @@ def test_radial_phrasing_is_recorded_and_not_the_tangent(parse, clause):
 
 
 @pytest.mark.parametrize("clause", RADIAL_PHRASINGS)
-def test_radial_phrasing_with_chord_uses_chord_rule_for_tangent(parse, clause):
+def test_radial_phrasing_with_chord_keeps_tangent_unstated(parse, clause):
     call = parse(WITH_CHORD.format(clause=clause))
     assert call is not None
-    assert call.bearing_azimuth_deg_from_north == pytest.approx(CHORD_TANGENT_AZ, abs=1e-9)
+    assert call.bearing_azimuth_deg_from_north is None
+    assert "tangent bearing not stated - curve positioned by chord and delta in verification" in (
+        call.notes or ""
+    )
     assert call.radial_bearing == "S 10° W"
     assert call.chord_bearing == "N 80° E"
     assert call.non_tangent is True

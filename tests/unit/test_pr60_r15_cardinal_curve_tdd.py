@@ -60,11 +60,16 @@ CURVE = (
 )
 
 
-def test_consistent_cardinal_with_chord_derives_tangent_with_clear_note(parse):
+def test_consistent_cardinal_with_chord_keeps_tangent_unstated_with_clear_note(parse):
     call, flags = parse(CURVE.format(word="Northeasterly", chord="N 45°00'00\" E"))
     assert call is not None
-    assert call.bearing_azimuth_deg_from_north == pytest.approx(59.32, abs=0.01)
-    assert "tangent bearing derived from chord bearing and delta" in call.notes
+    # Round 21: no tangent is derived or stored; the chord and delta position it.
+    assert call.bearing_azimuth_deg_from_north is None
+    assert call.is_indefinite is False
+    assert (
+        "tangent bearing not stated - curve positioned by chord and delta in verification"
+        in call.notes
+    )
     assert "stated direction is cardinal only (northeasterly)" in call.notes
     assert "incomplete bearing" not in call.notes
     if flags is not None:
@@ -97,7 +102,9 @@ def test_sector_rule_boundaries(parse, word, chord, conflict):
     call, _ = parse(CURVE.format(word=word, chord=chord))
     assert call is not None
     assert ("conflicts with chord bearing" in call.notes) is conflict
-    assert (call.bearing_azimuth_deg_from_north is None) is conflict
+    # No tangent is stored either way (round 21); a conflict leaves it unpositioned.
+    assert call.bearing_azimuth_deg_from_north is None
+    assert call.is_indefinite is conflict
 
 
 def test_plain_cardinal_only_line_unchanged(parse):
