@@ -33,7 +33,7 @@ def test_existing_package_directory_is_never_touched(tmp_path):
     (directory / "notes.txt").write_text("user data")
     result = publish_delivery(bundle, revision, request, tmp_path / "deliveries")
     assert result["status"] == "error"
-    assert "already published" in result["errors"][0]
+    assert "not a published delivery" in result["errors"][0]
     assert (directory / "notes.txt").read_text() == "user data"
     assert (directory / "drawing.svg").read_bytes() == b"<svg>old</svg>"
     assert _staging(tmp_path / "deliveries") == []
@@ -115,8 +115,10 @@ def test_failed_publish_leaves_no_package_or_staging(tmp_path, monkeypatch):
 def test_live_publisher_staging_is_ignored_not_removed(tmp_path):
     bundle, revision, request = _setup(tmp_path)
     store = tmp_path / "deliveries"
-    live = store / f".{request.id}.publishing-{os.getpid()}-abc123"
-    live.mkdir(parents=True)
+    import mp_review.delivery as delivery
+
+    store.mkdir()
+    live = delivery._make_staging(store, request.id)
     (live / "pending.json").write_text("{}")
     result = publish_delivery(bundle, revision, request, store)
     assert result["status"] == "needs_review", result

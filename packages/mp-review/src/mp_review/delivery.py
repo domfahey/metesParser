@@ -958,7 +958,7 @@ def publish_delivery(
         directory = store / snapshot.request.id
         _clear_stale_publishes(store, snapshot.request.id)
         if os.path.lexists(directory):
-            raise ValueError(_already_published(snapshot.request.id))
+            _clear_legacy_incomplete(directory, snapshot.request.id)
         artifacts = _components(bundle, snapshot, geojson_area)
         manifest = {
             "schema_version": "1.0",
@@ -1010,20 +1010,62 @@ def _already_published(delivery_id: str) -> str:
     return f"Delivery {delivery_id!r} is already published; published deliveries are immutable"
 
 
-def _staging_prefix(delivery_id: str) -> str:
-    """Hidden staging name ``.<id>.publishing-<pid>-<random>`` beside the package."""
-    return f".{delivery_id}.publishing-"
+_STAGING_PREFIX = ".publishing-"
+
+# Everything a pre-staging publisher could leave in a crashed, manifest-less directory.
+_LEGACY_NAMES = re.compile(
+    r"(?:(?:pending|snapshot|request|metrics|calls|revision-calls|full-source)\.json"
+    r"|drawing\.(?:svg|pdf|dxf|geojson)|\.DS_Store|Thumbs\.db|desktop\.ini|\._.*)"
+)
+
+
+def _id_tag(delivery_id: str) -> str:
+    return hashlib.sha256(delivery_id.encode("utf-8")).hexdigest()[:12]
+
+
+def _staging_pattern(delivery_id: str) -> re.Pattern[str]:
+    return re.compile(rf"{re.escape(_STAGING_PREFIX)}(\d+)-[0-9a-f]{{16}}-{_id_tag(delivery_id)}")
 
 
 def _make_staging(store: Path, delivery_id: str) -> Path:
+    """Private sibling ``.publishing-<pid>-<random>-<id hash>``; short whatever the id."""
     # Plain mkdir (not mkdtemp's 0o700) so the published directory keeps umask modes.
     while True:
-        staging = store / f"{_staging_prefix(delivery_id)}{os.getpid()}-{secrets.token_hex(8)}"
+        name = f"{_STAGING_PREFIX}{os.getpid()}-{secrets.token_hex(8)}-{_id_tag(delivery_id)}"
+        staging = store / name
         try:
             staging.mkdir()
         except FileExistsError:
             continue
         return staging
+
+
+def _clear_legacy_incomplete(directory: Path, delivery_id: str) -> None:
+    """Make way for a publish when ``directory`` is not a published delivery.
+
+    A directory with a manifest is published and immutable (never touched). One
+    without is a crashed pre-staging publish only if it holds nothing but plain
+    files the old publisher could write (plus OS litter); those are removed.
+    Anything else is refused untouched.
+    """
+    refusal = ValueError(
+        f"Delivery directory {delivery_id!r} exists but is not a published delivery "
+        "(incomplete or unknown contents); refusing to modify it"
+    )
+    if directory.is_symlink() or not directory.is_dir():
+        raise refusal
+    if os.path.lexists(directory / "delivery-manifest.json"):
+        raise ValueError(_already_published(delivery_id))
+    entries = list(directory.iterdir())
+    for entry in entries:
+        if _LEGACY_NAMES.fullmatch(entry.name) is None or entry.is_symlink() or not entry.is_file():
+            raise refusal
+    for entry in entries:
+        entry.unlink()
+    try:
+        directory.rmdir()
+    except OSError as exc:
+        raise refusal from exc
 
 
 def _fsync_directory(path: Path) -> None:
@@ -1045,9 +1087,9 @@ def _clear_stale_publishes(store: Path, delivery_id: str) -> None:
     """
     if os.name == "nt":  # no safe liveness probe: os.kill(pid, 0) would signal it
         return
-    prefix = _staging_prefix(delivery_id)
+    pattern = _staging_pattern(delivery_id)
     for entry in store.iterdir():
-        match = re.fullmatch(rf"{re.escape(prefix)}(\d+)-[0-9a-f]+", entry.name)
+        match = pattern.fullmatch(entry.name)
         if match is None or entry.is_symlink() or not entry.is_dir():
             continue
         pid = int(match.group(1))
