@@ -934,6 +934,13 @@ Four findings, fixed red-green on `fix/code-review-2026-10-29`:
 - **Spirals:** `is_circular_curve` keeps spirals out of circular chord positioning, circular area segments, tangents and topology; a spiral is positioned only by a stated chord bearing and length, with area/perimeter not determined (`ed65dc3`).
 - **Chord feasibility:** one `chord_is_feasible` helper (2·|R|) for checks, traverse and plot (`ed65dc3`).
 
+### PR #60 seventeenth review (2026-10-30)
+Five findings plus one found while fixing, fixed red-green on `fix/code-review-2026-10-29`:
+- **Spirals in the parser:** no circular derivation (tangent from chord − δ/2, delta from arc/R, arc from R·δ) for `curve_type='spiral'`; a spiral without a stated tangent gets azimuth None and "spiral tangent not stated - not derived" (`ea07235`).
+- **Comma-grouped chord lengths:** all chord-length groups use `COMMA_NUMBER` (`1,097.78 feet`) (`ea07235`).
+- **Spirals in verification and plot:** one `is_spiral` predicate (curve_type alone) — a spiral is never a circular arc or a straight line; positioned only by a stated chord bearing + length (nothing drawn, area/perimeter not determined); curve consistency reports `spiral_geometry_unverified`; plot treats chord-stated spirals like chord-only curves so verify and plot position the same spirals; the circular 2R chord bound is not applied to spirals (`d2a1e0f`).
+- **No radius as course distance:** `_course_distance_text` strips radius, radial, tangent-length and stated-chord distances before generic distance extraction on curve calls. A spiral with no stated length keeps `distance_ft=None` (allowed only in that case) with "spiral length not stated - course distance not determined"; verification treats it as unpositioned; CSV leaves the value blank and CSV import rejects it (`5d3711f`). Previously such a course got the radius (1000 ft) as its length.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
