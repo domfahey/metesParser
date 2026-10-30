@@ -20,6 +20,7 @@ from mp_models.plot import PlotPrimitive
 
 from .plot import _arc
 from .tangents import line_distance
+from .traverse import effective_indefinite
 
 ARCSECOND_RADIANS = math.pi / 648000
 _Parameter = Literal["radius_ft", "sweep_radian", "start_tangent_radian"]
@@ -159,7 +160,7 @@ def diagnose_closure(request: ClosureDiagnosticRequest) -> ClosureDiagnostics:
             unsupported.append(f"{item.call_id}: meander")
         if call.is_exception:
             unsupported.append(f"{item.call_id}: exception_boundary")
-        if call.is_indefinite:
+        if effective_indefinite(call):
             incomplete.append(f"{item.call_id}: indefinite_call")
     minimum = 2 if arcs else 3
     if len(boundary) < minimum:

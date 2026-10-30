@@ -37,6 +37,7 @@ from .tangents import (
     line_distance,
     start_tangent,
 )
+from .traverse import effective_indefinite
 
 if TYPE_CHECKING:
     from mp_models.dashboard import DashboardBundle, DashboardCalculation, DashboardResult
@@ -230,7 +231,7 @@ def _build_geometry(
                         if relative is not None and record.id in relative
                         else call.bearing_azimuth_deg_from_north
                     )
-                    if bearing is None or call.is_indefinite:
+                    if bearing is None or effective_indefinite(call):
                         raise ValueError(
                             "incomplete bearing - cardinal only or unresolved orientation"
                         )

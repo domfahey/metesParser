@@ -12,7 +12,7 @@ from mp_models import ClosureResult, DeedCall
 from mp_models.constants import PERMANENT_MONUMENTS
 
 from .tangents import has_determined_direction
-from .traverse import chord_positioned_flags, is_chord_positioned
+from .traverse import chord_positioned_flags, effective_indefinite, is_chord_positioned
 
 
 def score_call_quality(call: DeedCall, chord_positioned: bool | None = None) -> str:
@@ -33,7 +33,7 @@ def score_call_quality(call: DeedCall, chord_positioned: bool | None = None) -> 
     Returns:
         "high", "medium", or "low".
     """
-    if call.is_indefinite:
+    if effective_indefinite(call):
         return "low"
 
     if not has_determined_direction(call):
