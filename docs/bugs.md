@@ -1122,6 +1122,16 @@ Ten findings (two fabrications, two regressions against `main`), fixed red-green
 - **Offset distances (regression):** "parallel to and 50 feet distant from", "N feet off", "N feet measured at right angles from" are offsets, not the course length; a length directly after another unjoined length stays ambiguous (`d61636f`, `92f4536`).
 - **Known limitations:** a lone labelled course loses its label (or keeps it in `along`); a tie inside parentheses is noted as a record call; an unclosed bracket holding a bearing is treated as a record to the end of the text; "one hundred (100) feet" fails closed.
 
+### PR #60 forty-first review (2026-10-30)
+Nine findings (three regressions against `main`, one a silent loss of every course), fixed red-green on `fix/code-review-2026-10-29`:
+- **Courses joined by "and" (regression, silent loss):** "BEGINNING at a pin and running N 45° E 100 feet to a pin and S 45° E …" returned no calls and no error in strict mode (`main` returned 3 of 4). "and running <bearing>" opens a course and later "and <bearing>" separates courses, so all 4 parse. Defence in depth: a BEGINNING/COMMENCING clause that states a course is never dropped silently — strict raises, non-strict records `SkippedCourse(error_type="CourseInPreamble")`. 8 Kings Highway W (7489-772), which lost its first two numbered courses this way (2 calls, misclosure 89.87), now fails closed (`2aef883`).
+- **COMMENCING tie-ins:** courses from the point of commencement to the point of beginning are marked `is_tie_in` at extraction (skipped when a course gap could hide the real tie). MIWAYN-50058-00465 now verifies (misclosure 81.997 → 0.005); MIWAYN-50146-01291 Parcel A's two commencement courses are tie-ins (`2aef883`).
+- **Trailing separator in `to`:** "to a pin and thence" gives "a pin" (`2aef883`).
+- **Adjective widths and monument depths (regressions):** "a 50 foot road", "a 16.5 foot right of way", "a 20 foot alley" are widths; "found 0.5 feet below grade" is a monument position, not a course length (`79caf75`).
+- **Every excluded record value is noted, verbatim:** an (R) bearing after an (M) bearing without a comma, and "Rec.", "plan", "plat", "survey", "P", "D" labels are noted; record notes in `extract_calls` use the deed's own text, including label words ("in prior deed") (`78ad6d7`).
+- **"by the line of Smith":** kept in `along` like "along" (`78ad6d7`).
+- **Known limitations:** numbered courses before the first THENCE fail closed instead of being extracted; MIWAYN-50231's tie ("to a place of beginning") is not marked; "to a point, thence" keeps the trailing "thence"; a non-record parenthetical length ("(see plan 12 feet)") is excluded without a note.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
