@@ -208,9 +208,13 @@ def _boundary_course_text(call_text: str) -> str:
 # Each is removed before the course distance is read. A number directly after a
 # degree sign is a bearing's minutes, never a distance.
 _ELEMENT_DISTANCE = rf"(?<![\d.,\u00b0])(?<!\u00b0\s){COMMA_NUMBER}\s*(?:{_UNIT_TOKEN}\b|'(?!'))"
+# A "center" is a curve element only as the center point or the center of the
+# (said) curve/circle (the shared radial grammar). "center line", "centerline" and
+# "center of Route 9 / the road" describe a physical line or road, not the curve.
+_CENTER_ELEMENT = r"cent(?:er|re)(?!(?:[-\s]*line)\b)(?:\s+point\b|(?!\s+of\b)|\s+of\s+(?:the|said)\s+(?:curve|circle)\b)"
 _CURVE_ELEMENT_DISTANCE_PATTERN = re.compile(
     rf"\bradius(?:\s+(?:length|distance))?\s+(?:(?:of|is|equal\s+to)\s+|=\s*)?{_ELEMENT_DISTANCE}"
-    r"|\b(?:radius\s+point|radial(?:\s+(?:line|bearing))?|cent(?:er|re)(?:\s+point)?)\b"
+    r"|\b(?:radius\s+point|radial(?:\s+(?:line|bearing))?|" + _CENTER_ELEMENT + r")\b"
     rf"[^;,]*?{_ELEMENT_DISTANCE}"
     rf"|\btangent\s+(?:length|distance)\s+(?:of\s+)?{_ELEMENT_DISTANCE}",
     re.IGNORECASE,
@@ -944,6 +948,18 @@ def _extract_call(
         curve_info.get("radius_ft") is not None
         and curve_info.get("delta_deg") is not None
         and not is_spiral
+        and distance_ft is not None
+        and distance_ft > 0.0
+    ):
+        # A stated course length on a radius + delta curve is the stated arc length,
+        # kept as stated (never replaced by R * delta) so verification can cross-check
+        # radius, delta and arc.
+        curve_info["arc_length_ft"] = distance_ft
+    elif (
+        curve_info.get("radius_ft") is not None
+        and curve_info.get("delta_deg") is not None
+        and not is_spiral
+        and (distance_ft is None or distance_ft <= 0.0)
     ):
         radius_ft = curve_info.get("radius_ft")
         delta_deg = curve_info.get("delta_deg")
