@@ -1162,7 +1162,7 @@ def _extract_call(
     positioned_by_chord = (
         tangent_delta is None
         and stated_arc is None
-        and isinstance(stated_radius, float)
+        and (isinstance(stated_radius, float) or is_spiral)
         and isinstance(chord_text, str)
         and isinstance(stated_chord, float)
         and stated_chord > 0.0
@@ -1286,6 +1286,8 @@ def _extract_call(
         tangent_notes.append("curve positioned by stated tangent and chord; arc not stated")
     elif positioned_by_chord:
         tangent_notes.append("curve delta/arc not stated - positioned by chord only")
+    if is_spiral and positioned_by_chord and not isinstance(stated_radius, float):
+        tangent_notes.append("spiral positioned by stated chord; radius not stated")
     if cardinal_conflict and raw_direction:
         tangent_notes.append(
             f"stated direction ({raw_direction.strip().lower()}) conflicts with "
