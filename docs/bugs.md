@@ -957,6 +957,14 @@ Four findings (three regressions from round 18), fixed red-green on `fix/code-re
 - **Curve length roles:** every length in a curve call is classified by its own label — radius, chord, tangent, arc, radial element or course length — before anything is stored. A chord length is never saved as the arc, a bare "tangent N" is never a length, "a distance of N" after a radial bearing is not the radius. One unlabelled course length is the stated arc; two or more are noted "curve length ambiguous" and none is chosen (`26a96d0`). Behaviour change: a single course length is the stated arc whenever a radius is stated.
 - **Course-list headers:** "THENCE (by/along) the following N courses (and distances)" and lone/punctuated THENCE markers are removed before numbering, so courses follow the deed's (1)…(n) with no skip; 89 Haddon Ave (4732-544) now parses its six courses (`26a96d0`). Open: numbered courses run inline after the header on one line are not split.
 
+### PR #60 twentieth review (2026-10-30)
+Four findings plus one found while fixing, fixed red-green on `fix/code-review-2026-10-29`:
+- **No stored derived tangent (supersedes the derived-tangent behaviour recorded in earlier rounds, including the `derive_tangent_azimuth` audit step):** the parser no longer computes chord ± δ/2 into `bearing_azimuth_deg_from_north`. A curve without a stated tangent keeps azimuth None with "tangent bearing not stated - curve positioned by chord and delta in verification"; verification positions it by chord and delta. Closure, area, perimeter, check statuses and eligibility are numerically identical; the tautological tangent/chord check no longer runs on such curves (`f13caa5`).
+- **Confidence scoring:** call quality and bearing completeness use `has_determined_direction`, so chord-and-delta curves are not scored as missing a bearing (`6dfce18`).
+- **Curved boundaries first:** interior angles are `not_applicable` for curves positioned by their chord (spirals, chord-only), and the incomplete-bearings warning counts only courses that are neither direction-determined nor positioned (`96e6e03`).
+- **One sweep rule:** the traverse uses `curve_sweep` (0 < sweep ≤ 360); `stated_sweep`/`chord_delta` helpers replace four inline copies (`96e6e03`).
+- **Inline numbered courses:** "(1) … (2) …", "1)", "1." and ordinal enumerators after a course-list header or THENCE are split even on one line; a header count mismatch raises (strict) or is recorded as a skipped course (non-strict). 104 Kings Highway E (8964-1299) now yields all 12 ground-truth courses instead of 2 (`0cc5202`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
