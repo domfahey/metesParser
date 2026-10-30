@@ -258,3 +258,27 @@ def test_unsupported_gdal_fails_explicitly(monkeypatch):
     with pytest.raises(WebMapUnavailable) as error:
         prepare(layer)
     assert error.value.code == "operation_unavailable"
+
+
+def test_exif_rotated_raster_is_omittable_not_warped():
+    import base64
+
+    from mp_models.raster import RASTER_ORIENTATION_MESSAGE
+
+    stream = BytesIO()
+    exif = Image.Exif()
+    exif[274] = 6
+    Image.new("RGB", (3, 3)).save(stream, format="JPEG", exif=exif.tobytes())
+    data = stream.getvalue()
+    upright = layer_for(np.full((3, 3, 4), 255, dtype="uint8"))
+    rotated = upright.model_copy(
+        update={
+            "mime_type": "image/jpeg",
+            "data_base64": base64.b64encode(data).decode(),
+            "sha256": hashlib.sha256(data).hexdigest(),
+        }
+    )
+    with pytest.raises(WebMapUnavailable) as excinfo:
+        prepare(rotated)
+    assert excinfo.value.code == "raster_orientation"
+    assert str(excinfo.value) == RASTER_ORIENTATION_MESSAGE
