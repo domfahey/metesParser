@@ -121,7 +121,7 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
                     call_count=len(calls),
                     closure_passed=closure_result.closure_passed,
                     misclosure_ft=closure_result.misclosure_ft,
-                    area_sq_ft=closure_result.area_sq_ft,
+                    area_sq_ft=closure_result.area_sq_ft if closure_result.area_available else None,
                     confidence_score=closure_result.confidence_score or 0.0,
                     warnings=closure_result.warnings,
                 ),
