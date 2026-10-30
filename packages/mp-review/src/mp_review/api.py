@@ -199,7 +199,13 @@ def _run(
             )
             if result["status"] == "checks_passed" and verification is not None:
                 # Exporter rechecks geometry before issuing the verified artifact.
-                export_verified_csv(calls, verification, str(directory / "calls.csv"), legal)
+                export_verified_csv(
+                    calls,
+                    verification,
+                    str(directory / "calls.csv"),
+                    legal,
+                    skipped_courses=audit.skipped_courses,
+                )
                 result["artifacts"]["calls_verified.csv"] = str(directory / "calls_verified.csv")
             body = html.escape(json.dumps(result, indent=2, allow_nan=False))
             write(
