@@ -138,14 +138,14 @@ def build_verification_checks(
     continuing = [
         i
         for i, call in enumerate(calls)
-        # Course 0 has no predecessor, so it cannot form a continuing-line pair.
-        if i > 0
-        and call.along
-        and ("continuing" in call.along.lower() or "same line" in call.along.lower())
+        if call.along and ("continuing" in call.along.lower() or "same line" in call.along.lower())
     ]
-    parallel_blocked = any(
+    # A continuation on course 0 names a line that cannot be identified: blocked, not skipped.
+    orphan_continuation = 0 in continuing
+    parallel_blocked = orphan_continuation or any(
         not calls[i].is_complete_bearing() or not calls[i - 1].is_complete_bearing()
         for i in continuing
+        if i > 0
     )
     straight_pairs = [
         (first, second)
@@ -164,7 +164,7 @@ def build_verification_checks(
             )
     unavailable_intersections = any("unavailable" in issue for issue in intersection_warnings)
     intersection_failures = [issue for issue in intersection_warnings if "unavailable" not in issue]
-    return [
+    checks = [
         CheckResult(
             name="traverse_closure",
             status="blocked" if missing else "passed" if closure_passed else "failed",
@@ -262,6 +262,44 @@ def build_verification_checks(
             blocked=not calls,
             detail="Boundary distances checked",
         ),
+    ]
+    if orphan_continuation:
+        checks = [
+            check.model_copy(
+                update={
+                    "reason": "continuation_without_predecessor",
+                    "detail": "Continuing-line check has no predecessor course to continue",
+                }
+            )
+            if check.name == "parallelism" and check.status == "blocked"
+            else check
+            for check in checks
+        ]
+    return checks
+
+
+def block_curve_consistency(
+    checks: list[CheckResult],
+    blocks: list[tuple[str, str]],
+) -> list[CheckResult]:
+    """Downgrade curve_consistency to blocked for every applicable (reason, detail) block.
+
+    A failed curve check stays failed: a detected inconsistency is stronger than a
+    missing input. Otherwise all supplied reasons and details are combined, so no
+    block silently overwrites another.
+    """
+    if not blocks:
+        return checks
+    return [
+        CheckResult(
+            name="curve_consistency",
+            status="blocked",
+            reason=",".join(reason for reason, _ in blocks),
+            detail="; ".join(detail for _, detail in blocks),
+        )
+        if check.name == "curve_consistency" and check.status != "failed"
+        else check
+        for check in checks
     ]
 
 

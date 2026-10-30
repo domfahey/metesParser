@@ -108,7 +108,8 @@ class ClosureChecker:
         """
         if tracts is not None:
             if audit_context is not None:
-                # Reflect only the latest multi-tract run (mirrors verification_audit overwrite).
+                # Reflect only the latest multi-tract run: drop the single-tract audit too.
+                audit_context.verification_audit = None
                 audit_context.tract_verification_audits = []
             results: list[ClosureResult] = []
             for tract in tracts:
@@ -156,6 +157,17 @@ class ClosureChecker:
             for i in bad_chord_indices
             if main_calls[i].delta_deg is None and main_calls[i].arc_length_ft is None
         ]
+        # A chord longer than the diameter fits no circle of that radius: never positioned by it.
+        infeasible_chord_indices = [
+            i
+            for i, c in enumerate(main_calls)
+            if i not in bad_chord_indices
+            and c.is_chord_only_curve()
+            and c.chord_length_ft is not None
+            and c.radius_ft is not None
+            and c.chord_length_ft > 2.0 * abs(c.radius_ft)
+        ]
+        unpositioned_indices = unpositioned_indices + infeasible_chord_indices
         unpositioned_courses = [main_calls[i].course for i in unpositioned_indices]
         bad_chord_texts = {i: main_calls[i].chord_bearing for i in bad_chord_indices}
         main_calls = [
@@ -194,11 +206,17 @@ class ClosureChecker:
                 f"Course {main_calls[i].course}: unparseable chord bearing {bad_chord_texts[i]!r}; "
                 "curve geometry blocked"
             )
-        for course in unpositioned_courses:
-            warnings.append(
-                f"Course {course}: curve cannot be positioned (no parseable chord, delta or arc); "
-                "closure, area and perimeter are not determined"
-            )
+        for i in unpositioned_indices:
+            if i in infeasible_chord_indices:
+                warnings.append(
+                    f"Course {main_calls[i].course}: curve cannot be positioned (chord length "
+                    "exceeds twice the radius); closure, area and perimeter are not determined"
+                )
+            else:
+                warnings.append(
+                    f"Course {main_calls[i].course}: curve cannot be positioned (no parseable "
+                    "chord, delta or arc); closure, area and perimeter are not determined"
+                )
 
         if not has_computable_traverse:
             warnings.append(
@@ -318,7 +336,7 @@ class ClosureChecker:
                 )
 
         from mp_models import DeedCall as PackageCall
-        from mp_verify.checks import build_verification_checks
+        from mp_verify.checks import block_curve_consistency, build_verification_checks
 
         package_calls = [PackageCall.model_construct(**call.model_dump()) for call in main_calls]
         package_check_results = build_verification_checks(
@@ -337,39 +355,30 @@ class ClosureChecker:
             double_entry_performed=double_entry_calls is not None,
             discrepancies=discrepancies,
         )
-        check_results = [
-            CheckResult.model_validate(check.model_dump()) for check in package_check_results
-        ]
-        curve_check = next(c for c in check_results if c.name == "curve_consistency")
-        if chord_only_courses and curve_check.status != "failed":
-            check_results = [
-                CheckResult(
-                    name="curve_consistency",
-                    status="blocked",
-                    reason="curve_delta_not_stated",
-                    detail="Curve delta/arc not stated (minor or major arc ambiguous); "
+        curve_blocks: list[tuple[str, str]] = []
+        if chord_only_courses:
+            curve_blocks.append(
+                (
+                    "curve_delta_not_stated",
+                    "Curve delta/arc not stated (minor or major arc ambiguous); "
                     "positioned by chord only on course(s) "
                     + ", ".join(str(c) for c in chord_only_courses),
                 )
-                if check.name == "curve_consistency"
-                else check
-                for check in check_results
-            ]
-            curve_consistency_passed = False
+            )
         if bad_chord_courses:
-            check_results = [
-                CheckResult(
-                    name="curve_consistency",
-                    status="blocked",
-                    reason="invalid_chord_bearing",
-                    detail="Unparseable chord bearing on course(s) "
+            curve_blocks.append(
+                (
+                    "invalid_chord_bearing",
+                    "Unparseable chord bearing on course(s) "
                     + ", ".join(str(c) for c in bad_chord_courses),
                 )
-                if check.name == "curve_consistency"
-                else check
-                for check in check_results
-            ]
+            )
+        if curve_blocks:
+            package_check_results = block_curve_consistency(package_check_results, curve_blocks)
             curve_consistency_passed = False
+        check_results = [
+            CheckResult.model_validate(check.model_dump()) for check in package_check_results
+        ]
 
         closure_result = ClosureResult(
             misclosure_x_ft=misclosure_x,
@@ -392,6 +401,8 @@ class ClosureChecker:
         closure_result = closure_result.model_copy(update={"confidence_score": confidence})
 
         if audit_context is not None:
+            # Reflect only the latest single-tract run: drop any multi-tract audits.
+            audit_context.tract_verification_audits = []
             precision_ratio_str: str
             if perimeter and (misclosure / perimeter) > 1e-10:
                 precision_ratio_str = f"1:{round(1.0 / (misclosure / perimeter))}"
@@ -438,6 +449,10 @@ class ClosureChecker:
                 # Radius + chord without delta/arc: the arc is ambiguous (minor or
                 # major), but the stated chord fixes the endpoint displacement exactly.
                 assert call.chord_bearing is not None and call.chord_length_ft is not None
+                assert call.radius_ft is not None
+                if call.chord_length_ft > 2.0 * abs(call.radius_ft):
+                    # No circle of this radius has such a chord; leave it unpositioned.
+                    continue
                 chord_azimuth = BearingConverter.bearing_to_azimuth(call.chord_bearing)
                 if chord_azimuth is None:
                     raise ValueError(f"Course {call.course}: invalid chord bearing")
