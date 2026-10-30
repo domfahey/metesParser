@@ -965,6 +965,14 @@ Four findings plus one found while fixing, fixed red-green on `fix/code-review-2
 - **One sweep rule:** the traverse uses `curve_sweep` (0 < sweep ≤ 360); `stated_sweep`/`chord_delta` helpers replace four inline copies (`96e6e03`).
 - **Inline numbered courses:** "(1) … (2) …", "1)", "1." and ordinal enumerators after a course-list header or THENCE are split even on one line; a header count mismatch raises (strict) or is recorded as a skipped course (non-strict). 104 Kings Highway E (8964-1299) now yields all 12 ground-truth courses instead of 2 (`0cc5202`).
 
+### PR #60 twenty-first review (2026-10-30)
+Seven findings, fixed red-green on `fix/code-review-2026-10-29`:
+- **One course-list header grammar:** `COURSE_LIST_MARKER` (metadata.py, shared with calls.py; monolith mirrored) drives both marker removal and enumeration detection. It accepts leading qualifiers ("along said road"), trailing qualifiers, "to wit", "viz", "namely"; a counted header with no matching enumeration is a mismatch (strict raises, non-strict records `CourseCountMismatch`) — never a silent drop (`280d36a`).
+- **Ordinals:** ordinal words are enumerators only as a sequence of two or more starting at First after a header; "THENCE first North …" keeps its wording (`280d36a`).
+- **Enumeration once per tract:** `analyze_course_lists` runs once and is passed to `split_into_calls`; bounded header search (1000 courses: 328 ms → 12.9 ms) (`280d36a`).
+- **Scoped THENCE re-split:** only list headers and inline-enumerated list courses are re-split; other courses keep "thence running with said line" whole (`280d36a`).
+- **Parallelism across curves:** continuing-line checks compare the previous course's exit tangent with the next course's entry tangent (`curve_tangents`), so chord-and-delta curves no longer block and a correct continuation after a curve passes; chord-only curves still block; #49 unchanged (`965c9c7`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
