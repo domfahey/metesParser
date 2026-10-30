@@ -33,7 +33,8 @@ def test_recursion_after_writing_is_internal_error_reporting_artifacts(
     assert code == 2
     assert result["status"] == "error"
     assert result["errors"][0]["code"] == "internal_recursion_error"
-    assert result["artifacts"] == {"written.json": str(out / "written.json")}
+    assert result["artifacts"] == {}
+    assert result["partial_output_directories"] == [str(out)]
 
 
 def test_recursion_in_json_decoder_is_still_invalid_input(tmp_path, monkeypatch, capsys):
@@ -54,7 +55,7 @@ def test_recursion_in_input_validation_is_invalid_input(tmp_path, monkeypatch, c
     assert result["errors"][0]["code"] == "invalid_input_json"
 
 
-def test_internal_recursion_lists_only_this_runs_files(tmp_path, monkeypatch, capsys):
+def test_internal_recursion_never_lists_files(tmp_path, monkeypatch, capsys):
     out = tmp_path / "out"
     out.mkdir()
     old = out / "old.json"
@@ -71,7 +72,8 @@ def test_internal_recursion_lists_only_this_runs_files(tmp_path, monkeypatch, ca
     monkeypatch.setattr(cli, "_execute", exploding)
     argv = ["analyze-corridor", str(source), "--output-dir", str(out)]
     _, result = _run(monkeypatch, capsys, argv)
-    assert result["artifacts"] == {"new.json": str(out / "new.json")}
+    assert result["artifacts"] == {}
+    assert result["partial_output_directories"] == [str(out)]
     assert not hasattr(cli, "_OUTPUT_DIRS")
 
 
@@ -84,3 +86,41 @@ def test_output_path_does_not_walk_directory(tmp_path, monkeypatch):
 
     monkeypatch.setattr(type(out), "rglob", boom)
     assert cli.output_path({}, out) == out
+
+
+def test_shared_dir_other_runs_files_are_never_listed(tmp_path, monkeypatch, capsys):
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "other-run.json").write_text("{}")  # fresh mtime, written by another run
+    (out / ".publishing-abc").mkdir()
+    (out / ".publishing-abc" / "stage.tmp").write_text("{}")
+    source = tmp_path / "in.json"
+    source.write_text("{}")
+
+    def exploding(args, settings):
+        cli.output_path(settings, args.output_dir)
+        raise RecursionError  # this run wrote nothing
+
+    monkeypatch.setattr(cli, "_execute", exploding)
+    argv = ["analyze-corridor", str(source), "--output-dir", str(out)]
+    _, result = _run(monkeypatch, capsys, argv)
+    assert result["errors"][0]["code"] == "internal_recursion_error"
+    assert result["artifacts"] == {}
+    assert "other-run.json" not in json.dumps(result)
+    assert ".publishing" not in json.dumps(result)
+    assert "partial_output_directories" not in result or result["partial_output_directories"] == []
+
+
+def test_nothing_written_lists_nothing(tmp_path, monkeypatch, capsys):
+    source = tmp_path / "in.json"
+    source.write_text("{}")
+
+    def exploding(args, settings):
+        cli.output_path(settings, args.output_dir)  # never created
+        raise RecursionError
+
+    monkeypatch.setattr(cli, "_execute", exploding)
+    argv = ["analyze-corridor", str(source), "--output-dir", str(tmp_path / "missing")]
+    _, result = _run(monkeypatch, capsys, argv)
+    assert result["artifacts"] == {}
+    assert result.get("partial_output_directories", []) == []
