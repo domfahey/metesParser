@@ -533,8 +533,19 @@ _RADIAL_SUBJECT = (
     r"(?:radius\s+point|radius|radial(?:\s+(?:line|bearing))?"
     r"|cent(?:er|re)(?:\s+point)?(?:\s+of\s+(?:the|said)\s+curve)?)"
 )
+# The chord may state its length before the bearing ("a chord of 51.76 feet bearing
+# N 45 E"), say "on a bearing of", and drop the verb when a quadrant bearing follows
+# the subject (or the length phrase) directly ("chord N 45 E, 51.76 feet").
+_CHORD_BEARING_LEAD = (
+    rf"(?:{_CLAUSE_VERB}|on\s+(?:a\s+)?bearing\s+(?:of\s+)?"
+    r"|(?=(?:N|S|North|South)(?![a-z])))"
+)
 _CHORD_PREFIX_PATTERN = re.compile(
-    rf"\b{_CHORD_SUBJECT}\s+(?:{_CLAUSE_LINK})?{_CLAUSE_VERB}", re.IGNORECASE
+    rf"\b{_CHORD_SUBJECT}(?:\s+(?:length|distance))?\s+"
+    r"(?:(?:of\s+)?(?P<chord_lead_len>\d+(?:\.\d+)?)\s*(?:feet|ft)\b\s*,?\s*"
+    r"(?:and\s+)?(?:(?:an?|the)\s+)?)?"
+    rf"(?:{_CLAUSE_LINK})?{_CHORD_BEARING_LEAD}",
+    re.IGNORECASE,
 )
 _RADIAL_PREFIX_PATTERN = re.compile(
     rf"\b{_RADIAL_SUBJECT}\s+(?:{_CLAUSE_LINK})?{_CLAUSE_VERB}"
@@ -544,7 +555,7 @@ _RADIAL_PREFIX_PATTERN = re.compile(
 # Deed says the curve is tangent ("tangent to the last course", "tangent curve", "being
 # tangent"); "non-tangent"/"not tangent" is excluded.
 _TANGENT_STATEMENT_PATTERN = re.compile(
-    r"(?<!non-)(?<!non)(?<!not\s)\btangent\s+(?:to\s+(?:the\s+)?(?:last|preceding|previous|prior)\s+course"
+    r"(?<!non[-\s\u2010-\u2015\u2212])(?<!non)(?<!not\s)\btangent\s+(?:to\s+(?:the\s+)?(?:last|preceding|previous|prior)\s+course"
     r"|curve)\b|\bbeing\s+tangent\b",
     re.IGNORECASE,
 )
@@ -1526,7 +1537,9 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
             chord_length = _CHORD_LENGTH_AFTER_BEARING.match(chord_text, chord_bearing.end())
         else:
             chord_length = _CHORD_LENGTH_IN_CLAUSE.search(chord_text, 0, chord_clause_end)
-        if chord_length:
+        if chord_match.group("chord_lead_len"):
+            curve_info["chord_length_ft"] = float(chord_match.group("chord_lead_len"))
+        elif chord_length:
             curve_info["chord_length_ft"] = float(chord_length.group(1))
 
     if re.search(
@@ -1554,7 +1567,7 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
     if not _describes_curve(curve_info):
         return curve_info
 
-    if re.search(r"\b(?:non-?tangent|not\s+tangent)\b", text, re.IGNORECASE):
+    if re.search(r"\b(?:non[-\s\u2010-\u2015\u2212]?tangent|not\s+tangent)\b", text, re.IGNORECASE):
         curve_info["non_tangent"] = True
 
     radial_match = _RADIAL_PREFIX_PATTERN.search(text)
