@@ -473,6 +473,10 @@ class _Inspector:
             saved_calls = self.load(directory / "calls.json")
             saved_verification = self.load(directory / "verification.json")
             saved_audit = self.load(directory / "audit.json")
+            if isinstance(saved_audit, dict) and "skipped_courses" not in saved_audit:
+                # Audits written before the key existed recorded no skips; a present
+                # but different list still mismatches.
+                saved_audit = {**saved_audit, "skipped_courses": []}
             fresh = api.replay_review(
                 raw,
                 input_kind=source["kind"],

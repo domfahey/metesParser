@@ -257,12 +257,34 @@ class PlotPrimitive(_Model):
         return self
 
 
+# A chord-only curve (radius + chord, no delta/arc) is positioned by its chord but
+# its minor/major arc is unknown, so it is listed as unresolved without stopping.
+CHORD_ONLY_UNRESOLVED_REASON = (
+    "curve delta/arc not stated - arc not drawn; positioned by chord only"
+)
+# A spiral with a stated chord bearing and length: the chord fixes the next start
+# exactly (as verification positions it), but no line or circular arc is drawn.
+SPIRAL_CHORD_UNRESOLVED_REASON = (
+    "spiral geometry unsupported - not drawn; positioned by stated chord only"
+)
+# The only unresolved outcomes the plot builder positions without drawing.
+POSITIONED_UNRESOLVED_REASONS = frozenset(
+    {CHORD_ONLY_UNRESOLVED_REASON, SPIRAL_CHORD_UNRESOLVED_REASON}
+)
+
+
 class PlotUnresolved(_Model):
     call_id: Identifier
     reason: str
-    # True only when the course is positioned by its stated chord but not drawn
-    # (chord-only circular curve, chord-stated spiral): the traverse continues.
-    positioned: bool = False
+
+    @property
+    def positioned(self) -> bool:
+        """True when the course is positioned by its stated chord but not drawn.
+
+        Derived (never serialized) so stored geometry, its ``geometry_hash`` and
+        placements bound to it stay byte-identical to artifacts that predate it.
+        """
+        return self.reason in POSITIONED_UNRESOLVED_REASONS
 
 
 class PlotGeometry(_Model):
