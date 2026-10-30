@@ -15,6 +15,11 @@ from .models import AuditContext, ClosureResult, DeedCall, LegalDescription, Tra
 logger = structlog.get_logger(__name__)
 
 
+def _misclosure_text(result: ClosureResult) -> str:
+    """Misclosure for messages; an undetermined misclosure is never shown as 0.0."""
+    return f"{result.misclosure_ft:.4f} ft" if result.misclosure_available else "not determined"
+
+
 def _cleanup_stale_sidecars(output_file: Path, *, metadata_written: bool) -> None:
     """Remove exact sidecars a successful raw CSV rewrite can no longer support."""
     sidecars = []
@@ -123,7 +128,7 @@ class CSVBuilder:
         if not fresh_result.is_fully_verified():
             raise ValueError(
                 "Cannot export verified CSV: selected calls failed fresh verification. "
-                f"Misclosure: {fresh_result.misclosure_ft:.4f} ft, "
+                f"Misclosure: {_misclosure_text(fresh_result)}, "
                 f"Warnings: {len(fresh_result.warnings)}"
             )
         # Source review is an explicit human assessment, independent of fresh geometry.
@@ -368,7 +373,7 @@ class CSVBuilder:
         elif not closure_result.is_fully_verified():
             raise ValueError(
                 "Cannot export verified CSV: verification checks failed. "
-                f"Misclosure: {closure_result.misclosure_ft:.4f} ft, "
+                f"Misclosure: {_misclosure_text(closure_result)}, "
                 f"Warnings: {len(closure_result.warnings)}"
             )
 
@@ -394,7 +399,11 @@ class CSVBuilder:
                     logger.warning(
                         "Skipping unverified tract",
                         tract=tract.label,
-                        misclosure_ft=tract_result.misclosure_ft,
+                        misclosure_ft=(
+                            tract_result.misclosure_ft
+                            if tract_result.misclosure_available
+                            else None
+                        ),
                         warnings_count=len(tract_result.warnings),
                     )
                     continue
@@ -431,7 +440,7 @@ class CSVBuilder:
                 for tract, tract_result in unverified:
                     reasons = "; ".join(tract_result.warnings) or "verification checks did not pass"
                     summaries.append(
-                        f"{tract.label}: misclosure {tract_result.misclosure_ft:.4f} ft; {reasons}"
+                        f"{tract.label}: misclosure {_misclosure_text(tract_result)}; {reasons}"
                     )
                 summaries.append("")
             with open(summary_path, "w") as f:
