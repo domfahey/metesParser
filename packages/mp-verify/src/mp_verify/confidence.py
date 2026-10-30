@@ -58,8 +58,10 @@ def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> 
     if not calls:
         return 0.0
 
-    # Closure quality (30%)
-    if result.closure_passed:
+    # Closure quality (30%); an undetermined misclosure earns no closure credit.
+    if not result.misclosure_available:
+        closure_score = 0.0
+    elif result.closure_passed:
         if result.misclosure_ft < 0.001:
             closure_score = 1.0
         elif result.misclosure_ft < 0.01:
