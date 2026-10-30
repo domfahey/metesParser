@@ -865,6 +865,17 @@ Ten findings; eight fixed red-green, one rejected, one not reproducible:
 - **Rejected:** "course-0 continuation should block parallelism" reverses #49; `f5b0c31` restores the #49 behaviour and its test.
 - **Not reproducible:** "a required raster blocks the GeoJSON-only omission" — a required raster is already rejected for GeoJSON earlier; `_required_geojson` makes the rule explicit (`64d0c8f`).
 
+### PR #60 ninth review (2026-10-30)
+Ten findings plus one follow-up, fixed red-green on `fix/code-review-2026-10-29`:
+- **Radial data on straight courses:** `non_tangent`/`radial_bearing` are set only on curve calls (`7b68d1a`).
+- **Radial lines:** a straight course run "along a/the/said radial line" keeps that bearing as its course bearing; radial clauses end at their bearing (`7571fb5`).
+- **Tangent + chord + radius:** delta = 2 × deflection; consistent within 0.1 ft → arc derived and positioned normally; inconsistent or wrong-sided → kept chord-only, noted "stated tangent, chord and radius are inconsistent" (`7571fb5`). Open: mp_verify does not itself re-check tangent/chord/radius; parser 0.1 ft vs plot 0.01 ft tolerance mismatch.
+- **Uppercase recital sentences:** CONTAINING/IS/HEREIN/DESCRIBED/EXCEPTED … after an uppercase ID are references; a repeated label whose segment has no calls folds into the earlier tract (`39c909a`). Open: a `TRACT #1: BEING the same …` recital containing a course word still forms its own tract (15 E Euclid).
+- **Area:** `ClosureResult.area_available`; summaries, audit and review packet show "not determined" (`cbd7bbd`). Numeric fields are kept with flags; consumers must read the flags.
+- **Compound distances (#70):** a fallback "and" compound must start at the first measurement; `1 chain, 2 rods and 3 links` is flagged unsupported instead of silently becoming 34.98 ft (`a9f83e1`). Limitation: that form is not summed (100.98 ft).
+- **Delivery:** a crashed publish without a manifest no longer wedges the id; leftovers are cleared under the lock (`889a82d`). Raster extents use `outer_corners`; one `displayed_calculation_points` helper for web map and delivery (`9db01e4`).
+- **Cleanup:** dead API per-tract branch and dead strip helpers removed.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
