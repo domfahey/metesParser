@@ -116,9 +116,14 @@ def radial_tangent_in(call: DeedCall) -> float | None:
     toward its centre (radius point), and the centre lies to the curve's side of
     the tangent, so tangent-in = radial - dir * 90 (right = +1).
     """
-    if not is_non_tangent_curve(call) or call.radial_bearing is None:
+    if not is_non_tangent_curve(call):
         return None
-    if call.curve_dir not in ("left", "right"):
+    return radial_implied_tangent(call)
+
+
+def radial_implied_tangent(call: DeedCall) -> float | None:
+    """Return the tangent-in implied by a stated radial bearing, tangent or not."""
+    if call.radial_bearing is None or call.curve_dir not in ("left", "right"):
         return None
     radial: float | None = bearing_to_azimuth(call.radial_bearing)
     if radial is None or not math.isfinite(radial):
