@@ -16,7 +16,14 @@ from mp_bearing import (  # type: ignore[import-untyped]
 )
 from mp_models import DeedCall, Point
 
-from .tangents import chord_is_feasible, curve_sweep, has_determined_direction, is_circular_curve
+from .tangents import (
+    chord_is_feasible,
+    curve_sweep,
+    has_determined_direction,
+    is_circular_curve,
+    is_curved_course,
+    is_spiral,
+)
 
 
 def _parse_chord(call: DeedCall) -> float | None:
@@ -29,12 +36,13 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
 
     ``chord_azimuth`` is the call's chord bearing, parsed once by the caller.
     """
-    if call.is_curve() and not is_circular_curve(call):
-        # A spiral's arc shape is unknown: only a stated chord bearing and length
-        # fix its endpoint exactly; otherwise it is unpositioned (never a circle).
-        if call.chord_length_ft is None or not chord_is_feasible(call):
-            return None
-        if call.chord_bearing is None:
+    if is_spiral(call):
+        # Decided by curve type alone, even without radius or direction: a spiral's
+        # shape is unknown, so only a stated chord bearing and length fix its endpoint
+        # exactly. Otherwise it is unpositioned - never a circular arc, never run as
+        # a straight line along its bearing and distance, and never tested against
+        # the circular chord <= 2R bound.
+        if call.chord_length_ft is None or call.chord_bearing is None:
             return None
         if chord_azimuth is None:
             raise ValueError(f"Course {call.course}: invalid chord bearing")
@@ -161,7 +169,9 @@ def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnal
     records: list[CourseAnalysis] = []
     for index, call in enumerate(calls):
         chord_azimuth = _parse_chord(call)
-        bad_chord = call.is_curve() and call.chord_bearing is not None and chord_azimuth is None
+        bad_chord = (
+            is_curved_course(call) and call.chord_bearing is not None and chord_azimuth is None
+        )
         no_endpoint = bad_chord and call.delta_deg is None and call.arc_length_ft is None
         traversed = call
         if bad_chord:
@@ -169,7 +179,8 @@ def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnal
             if no_endpoint:
                 update["bearing_azimuth_deg_from_north"] = None
             traversed = call.model_copy(update=update)
-        chord_only = call.is_chord_only_curve()
+        # A spiral is never a chord-only circular curve (minor/major arc ambiguity).
+        chord_only = call.is_chord_only_curve() and not is_spiral(call)
         feasible_chord = not (chord_only and not chord_is_feasible(call))
         endpoint = _advance(traversed, current, chord_azimuth)
         if endpoint is not None:
@@ -190,8 +201,7 @@ def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnal
                     if chord_azimuth is not None and is_circular_curve(call)
                     else None
                 ),
-                arc_undetermined=chord_only
-                or (endpoint is not None and call.is_curve() and not is_circular_curve(call)),
+                arc_undetermined=chord_only or (endpoint is not None and is_spiral(call)),
                 positioned=endpoint is not None,
                 determined_direction=has_determined_direction(call),
             )

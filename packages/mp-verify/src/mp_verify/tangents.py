@@ -12,13 +12,28 @@ from mp_bearing import bearing_to_azimuth  # type: ignore[import-untyped]
 from mp_models import DeedCall
 
 
+def is_spiral(call: DeedCall) -> bool:
+    """Return True for a spiral, decided by its curve type alone.
+
+    A spiral is never a circular arc and never a straight line, even when it states
+    no radius or curve direction (``DeedCall.is_curve()`` is then False). It is
+    positioned only by a stated chord bearing and chord length; otherwise unpositioned.
+    """
+    return call.curve_type == "spiral"
+
+
 def is_circular_curve(call: DeedCall) -> bool:
     """Return False for curve types whose shape is not a circular arc (spirals).
 
     The single predicate deciding whether circular-arc geometry (chord 2R*sin(d/2),
     circular segment area, R*delta perimeter, arc tangents) may be derived.
     """
-    return call.curve_type != "spiral"
+    return not is_spiral(call)
+
+
+def is_curved_course(call: DeedCall) -> bool:
+    """Return True for any course that is not a straight line (circular curve or spiral)."""
+    return call.is_curve() or is_spiral(call)
 
 
 def chord_is_feasible(call: DeedCall) -> bool:
