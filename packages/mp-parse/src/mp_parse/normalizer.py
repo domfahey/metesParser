@@ -283,6 +283,13 @@ def expand_assessor_abbreviations(text: str) -> str:
     text = re.sub(r"\bWLY\b", "westerly", text, flags=re.IGNORECASE)
 
     # --- 7. POB variants → point of beginning ------------------------------
+    # A closing "to the P.O.B." that starts a new sentence keeps its period, as "POB." does.
+    text = re.sub(
+        r"(\bto\s+(?:the\s+)?)P\.O\.B\.(?=\s+(?!thence\b|then\b)(?-i:[A-Z\d(]))",
+        r"\1point of beginning.",
+        text,
+        flags=re.IGNORECASE,
+    )
     text = re.sub(r"\bP\.O\.B\.", "point of beginning", text, flags=re.IGNORECASE)
     text = re.sub(r"\bP\s+OB\b", "point of beginning", text, flags=re.IGNORECASE)
     text = re.sub(r"\bPOB\b", "point of beginning", text, flags=re.IGNORECASE)
