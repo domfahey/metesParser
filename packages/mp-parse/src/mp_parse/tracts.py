@@ -21,7 +21,12 @@ from functools import lru_cache
 import structlog
 from mp_models import TractType
 
-from .metadata import _is_lot_qualifier_except, ends_sentence, split_exception_clauses
+from .metadata import (
+    VERBATIM_BEARING,
+    _is_lot_qualifier_except,
+    ends_sentence,
+    split_exception_clauses,
+)
 from .units import LENGTH_NUMBER, LENGTH_UNIT
 
 logger = structlog.get_logger(__name__)
@@ -198,8 +203,11 @@ _STATED_EXCEPT_LEAD = re.compile(
     r"\b(?:(?:ALSO|AND|BUT)\s+)?(?:(?:LESS|SAVE)\s+AND\s+)?EXCEPT(?:ING)?\b", re.IGNORECASE
 )
 # A complete course: a quadrant bearing and a measured distance in the same clause.
+# The bearing is any form the course parser reads verbatim (``VERBATIM_BEARING``:
+# symbols, words, dashed DMS, symbol-less "N 80 E"); one it then cannot parse fails
+# its course closed rather than being set aside.
 _COMPLETE_COURSE = re.compile(
-    r"\b[NS]\s*\.?\s*\d{1,3}\s*(?:°|deg\b|degrees?\b)[^;]{0,80}?" + _COURSE_DISTANCE.pattern,
+    VERBATIM_BEARING.pattern + r"[^;]{0,80}?" + _COURSE_DISTANCE.pattern,
     re.IGNORECASE,
 )
 # Course wording: any THENCE, or a complete course. A bearing alone ("lying north of
@@ -231,10 +239,12 @@ class _TextIndex:
     stops: tuple[int, ...]
     # Where each description opening (BEGINNING, COMMENCING, THENCE) ends.
     openings: tuple[int, ...]
-    # Point-of-beginning mentions (start, end), and their ends.
+    # Point-of-beginning closures (start, end) (``_course_closures``), and their ends.
     closures: tuple[tuple[int, int], ...]
     closure_ends: tuple[int, ...]
     except_leads: tuple[re.Match[str], ...]
+    # Where each tract heading starts.
+    headings: tuple[int, ...]
     # Where each easement opener starts, and the easement descriptions they open.
     openers: tuple[int, ...]
     easements: tuple[tuple[int, int], ...]
@@ -249,27 +259,29 @@ class _TextIndex:
 def _index(text: str) -> _TextIndex:
     """Return the clause structure of ``text`` (cached: one computation per text)."""
     except_leads = tuple(_STATED_EXCEPT_LEAD.finditer(text))
+    headings = tuple(position for position, _, _ in find_tract_markers(text))
     openers = tuple(
         m.start("open") if m["open"] else m.start("also") for m in _EASEMENT_OPENER.finditer(text)
     )
     # A structural stated-exception lead, an ALSO/INCLUDING addition, a tract heading
     # or an easement opener starts a new clause.
-    stops = sorted(
+    structural = sorted(
         {
             *(m.start() for m in except_leads if not _is_lot_qualifier_except(text, m)),
             *(m.end() - len(m.group().lstrip(";\n. \t")) for m in _ADDITION_START.finditer(text)),
-            *(position for position, _, _ in find_tract_markers(text)),
-            *openers,
+            *headings,
         }
     )
+    stops = sorted({*structural, *openers})
+    beginnings = [m.span() for m in _beginning_starts(text)]
+    commencings = [m.span() for m in _COMMENCING.finditer(text)]
     openings = sorted(
         {
-            *(m.end() for m in _beginning_starts(text)),
-            *(m.end() for m in _COMMENCING.finditer(text)),
+            *(end for _, end in [*beginnings, *commencings]),
             *(m.end() for m in _THENCE_WORD.finditer(text)),
         }
     )
-    closures = tuple(m.span() for m in _POB_CLOSE_PATTERN.finditer(text))
+    closures = _course_closures(text, beginnings, commencings, structural)
     index = _TextIndex(
         text=text,
         stops=tuple(stops),
@@ -277,10 +289,78 @@ def _index(text: str) -> _TextIndex:
         closures=closures,
         closure_ends=tuple(end for _, end in closures),
         except_leads=except_leads,
+        headings=headings,
         openers=openers,
         easements=(),
     )
     return replace(index, easements=tuple(_easement_spans(index)))
+
+
+# A point of beginning a course leaves from ("and from said point of beginning running").
+_FROM_BEFORE = re.compile(
+    r"\bfrom\s+(?:(?:the|said|a|aforesaid|original|true|initial)\s+)*$", re.IGNORECASE
+)
+# "the true point of beginning": the point a tie reaches, whatever opened its description.
+_TRUE_BEFORE = re.compile(r"\btrue\s+$", re.IGNORECASE)
+
+
+def _course_closures(
+    text: str,
+    beginnings: Sequence[tuple[int, int]],
+    commencings: Sequence[tuple[int, int]],
+    structural: Sequence[int],
+) -> tuple[tuple[int, int], ...]:
+    """Return the point-of-beginning mentions that close a description, in text order.
+
+    A closure is a course's destination: a point of beginning reached after the
+    description's opening clause, by a THENCE course or by the last course of a
+    BEGINNING description stated without THENCE ("...; N 10 E 10 feet to the point of
+    beginning"). These mentions close nothing:
+
+    * one inside an opening: in the BEGINNING/COMMENCING clause itself, before any
+      THENCE or semicolon ("BEGINNING at an iron pin marking the point of beginning,
+      together with ...; thence ..."), or one that opens a description ("POINT OF
+      BEGINNING at a pin");
+    * a point a course leaves from ("and from said point of beginning running thence");
+    * a point of beginning followed directly by THENCE (a tie, as in
+      ``find_beginning_blocks``: "to a point and place of beginning, thence; (1) ...");
+    * a tie: the first point of beginning reached after COMMENCING, or any "true point
+      of beginning", when a THENCE follows in its sentence before any structural clause
+      (EXCEPT, ALSO, a tract heading) or another opening ("COMMENCING ...; thence ... to
+      the true point of beginning, subject to a right of way ...; thence ..."). The tie
+      opens the boundary; it never closes it. Reached with no course after it, the same
+      point closes the description.
+    """
+    starts = sorted(
+        [(start, end, False) for start, end in beginnings]
+        + [(start, end, True) for start, end in commencings],
+        key=lambda opening: opening[1],
+    )
+    ends = [end for _, end, _ in starts]
+    closures: list[tuple[int, int]] = []
+    for mention in _POB_CLOSE_PATTERN.finditer(text):
+        start, end = mention.span()
+        i = bisect_right(ends, start)
+        if i < len(starts) and starts[i][0] <= start:
+            continue  # "POINT OF BEGINNING at ...": an opening
+        if i and _OPENER_CLAUSE_BREAK.search(text, ends[i - 1], start) is None:
+            continue
+        if _FROM_BEFORE.search(text, max(0, start - 60), start) or _POB_CONTINUES.match(text, end):
+            continue
+        commencing_tie = bool(
+            i and starts[i - 1][2] and not (closures and closures[-1][0] >= ends[i - 1])
+        )
+        if commencing_tie or _TRUE_BEFORE.search(text, max(0, start - 20), start):
+            course = _THENCE_WORD.search(text, end)
+            if (
+                course is not None
+                and _sentence_end(text, end, course.start()) is None
+                and not (i < len(ends) and ends[i] <= course.start())
+                and not any(end <= stop < course.start() for stop in structural)
+            ):
+                continue
+        closures.append((start, end))
+    return tuple(closures)
 
 
 def _last_closure_end(
@@ -289,8 +369,8 @@ def _last_closure_end(
     """Return where the last description before ``position`` closed.
 
     A description is open from its last BEGINNING, COMMENCING or THENCE until a
-    point-of-beginning closure. Returns None while one is still open and
-    ``_NO_DESCRIPTION`` when none has opened. ``closed`` spans (easement descriptions
+    point-of-beginning closure (``_course_closures``). Returns None while one is still
+    open and ``_NO_DESCRIPTION`` when none has opened. ``closed`` spans (easement descriptions
     and exceptions set aside on their own) close where they end, whether or not their
     courses return to a point of beginning; openings inside them are theirs.
     """
@@ -354,6 +434,48 @@ def easement_description_spans(text: str) -> list[tuple[int, int]]:
     return list(_index(text).easements)
 
 
+# Wording that resumes the course after a comma (its destination or its length): an
+# easement clause followed by it is part of the course and is not set aside.
+_COURSE_RESUMES = re.compile(r",\s*(?:to\b|a\s+distance\b|\d)", re.IGNORECASE)
+# Where an easement clause inside a description ends: a semicolon, a THENCE, or the
+# description's "running" ("..., together with an easement ..., running thence").
+_EASEMENT_CLAUSE_BREAK = re.compile(
+    r";|\bTHENCE\b|(?:,|\band)\s+(?:running|proceeding|continuing)\b", re.IGNORECASE
+)
+
+
+def easement_clause_spans(text: str) -> list[tuple[int, int]]:
+    """Return easement clauses stated inside an open description without courses of their own.
+
+    An easement opener inside an open description ("COMMENCING ...; thence ... to the
+    true point of beginning, subject to a right of way for ingress and egress; thence
+    ...", "BEGINNING at a pin, together with an easement for utilities over the same;
+    thence ...") qualifies the description; it is never a tract and never takes a
+    course. Its clause runs to the next semicolon, THENCE, "running", sentence end or
+    clause stop.
+    A clause stating a course or an opening of its own, or followed after a comma by
+    its course's destination or length ("..., subject to a right of way, to a pin"), is
+    left to its course.
+    """
+    index = _index(text)
+    spans: list[tuple[int, int]] = []
+    for start in index.openers:
+        if _last_closure_end(index, start, index.easements) is not None:
+            continue
+        brk = _EASEMENT_CLAUSE_BREAK.search(text, start)
+        end = min(brk.start() if brk else len(text), index.next_stop(start))
+        sentence_end = _sentence_end(text, start, end)
+        clause = text[start : end if sentence_end is None else sentence_end]
+        if (
+            _DESCRIPTION_OPENER.search(clause)
+            or _COMPLETE_COURSE.search(clause)
+            or _COURSE_RESUMES.search(clause)
+        ):
+            continue
+        spans.append((start, start + len(clause.rstrip(" \t\n,;:."))))
+    return spans
+
+
 def _sentence_end(text: str, start: int, end: int) -> int | None:
     """Return the first sentence-ending period in ``text[start:end]`` (``ends_sentence``)."""
     return next(
@@ -365,17 +487,21 @@ def _sentence_end(text: str, start: int, end: int) -> int | None:
 def _describes_traverse(text: str, start: int, end: int) -> bool:
     """Return whether ``text[start:end]`` describes an exception traverse.
 
-    A traverse has courses: two or more, or one reaching a point of beginning. Each
-    THENCE opens a course, and a complete course (bearing and distance) before the
-    first THENCE is one more ("BEGINNING ... S 61° W 50 feet; thence ..."). A single
-    bearing and distance ("lying North of a line running N 80° E 100 feet from the
-    pin", "a line running thence N 80° E 100 feet to the river") locates a dividing
-    line; it is no traverse.
+    A traverse has courses: two or more, or one reaching a point of beginning. In
+    each ';'-separated clause every THENCE opens a course, and a complete course
+    (bearing and distance) before its first THENCE is one more ("BEGINNING ... S 61° W
+    50 feet; thence ...", "Beginning ...; S 80-00-00 E 10 feet; S 10-00-00 W 10 feet;
+    ..."). A single bearing and distance ("lying North of a line running N 80° E 100
+    feet from the pin", "a line running thence N 80° E 100 feet to the river") locates
+    a dividing line; it is no traverse.
     """
-    first = _THENCE_WORD.search(text, start, end)
-    courses = len(_THENCE_WORD.findall(text, start, end)) + bool(
-        _COMPLETE_COURSE.search(text, start, first.start() if first else end)
-    )
+    courses = 0
+    clause_starts = [start, *(i + 1 for i in range(start, end) if text[i] == ";")]
+    for clause_start, clause_end in zip(clause_starts, [*clause_starts[1:], end], strict=True):
+        first = _THENCE_WORD.search(text, clause_start, clause_end)
+        courses += len(_THENCE_WORD.findall(text, clause_start, clause_end)) + bool(
+            _COMPLETE_COURSE.search(text, clause_start, first.start() if first else clause_end)
+        )
     return courses >= 2 or (courses == 1 and _POB_REACHED.search(text, start, end) is not None)
 
 
@@ -406,6 +532,10 @@ def stated_exception_spans(text: str) -> list[tuple[int, int]]:
         if _TRAVERSE_WORDING.search(text, closed_at, start):
             continue
         extent_end = index.next_stop(start)
+        # A lead introducing a described parcel ("the following described parcel:
+        # PARCEL A: BEGINNING ...") runs on over the parcel's heading.
+        while extent_end in index.headings and _sentence_end(text, lead.end(), extent_end) is None:
+            extent_end = index.next_stop(extent_end)
         if _describes_traverse(text, lead.end(), extent_end):
             continue
         sentence_end = _sentence_end(text, lead.end(), extent_end)
@@ -523,14 +653,41 @@ def _easement_lead(text: str, position: int, floor: int = 0) -> int | None:
     return None
 
 
+def _except_lead(text: str, position: int, floor: int = 0) -> int | None:
+    """Return where the EXCEPT lead introducing the tract starting at ``position`` starts.
+
+    The lead follows ``floor`` (the end of the previous tract) and its wording runs on
+    to ``position`` with no sentence end and no course ("EXCEPTING THEREFROM the
+    following described parcel: PARCEL A: ...", "LESS AND EXCEPT that part described
+    as follows: Tract 2: ...").
+    """
+    leads = [
+        lead
+        for lead in _index(text).except_leads
+        if floor <= lead.start() < position and not _is_lot_qualifier_except(text, lead)
+    ]
+    if not leads:
+        return None
+    lead = leads[-1]
+    if (
+        _sentence_end(text, lead.end(), position) is None
+        and _TRAVERSE_WORDING.search(text, lead.end(), position) is None
+    ):
+        return lead.start()
+    return None
+
+
 def _tract_type_at(text: str, position: int, floor: int = 0) -> TractType:
     """Type of the tract whose wording starts at ``position`` in ``text``.
 
-    An easement opener (``_easement_lead``) makes it an easement; otherwise EXCEPT
-    and ALSO wording in the 80 characters before ``position`` types it.
+    An easement opener (``_easement_lead``) makes it an easement and an EXCEPT lead
+    introducing it (``_except_lead``) an exception; otherwise EXCEPT and ALSO wording
+    in the 80 characters before ``position`` types it.
     """
     if _easement_lead(text, position, floor) is not None:
         return TractType.EASEMENT
+    if _except_lead(text, position, floor) is not None:
+        return TractType.EXCEPTION
     preceding = text[max(0, position - 80) : position]
     if re.search(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", preceding, re.IGNORECASE):
         return TractType.EXCEPTION
@@ -676,12 +833,19 @@ def split_on_markers(
     """
     result: list[tuple[str, str, TractType]] = []
     recitals: list[tuple[str, str, TractType]] = []
+    # A tract introduced by an EXCEPT lead ("EXCEPTING THEREFROM the following
+    # described parcel: PARCEL A: ...") starts at its lead: the lead types it and is
+    # never left on the tract before it.
+    starts: list[int] = []
+    for i, (pos, _, _) in enumerate(markers):
+        lead = _except_lead(text, pos, markers[i - 1][0] if i else 0)
+        starts.append(pos if lead is None else lead)
 
     # Boundary calls before the first marker belong to a tract whose heading was
     # not found (e.g. lost by OCR). Keep them under a neutral label; recitals
     # and headers without calls are still dropped.
-    if markers and markers[0][0] > 0:
-        pre_text = text[: markers[0][0]].strip()
+    if markers and starts[0] > 0:
+        pre_text = text[: starts[0]].strip()
         if not _THENCE_COURSE.search(pre_text):
             if re.search(r"\bTHENCE\b", pre_text, re.IGNORECASE):
                 logger.warning(
@@ -698,8 +862,8 @@ def split_on_markers(
             result.append((pre_text, UNLABELLED_TRACT_LABEL, TractType.MAIN))
 
     for i, (pos, label, _kind) in enumerate(markers):
-        end = markers[i + 1][0] if i + 1 < len(markers) else len(text)
-        segment = text[pos:end].strip()
+        end = starts[i + 1] if i + 1 < len(markers) else len(text)
+        segment = text[starts[i] : end].strip()
 
         # Check preceding text for easement/EXCEPT/ALSO wording to assign the TractType
         tract_type = _tract_type_at(text, pos, markers[i - 1][0] if i else 0)
@@ -770,7 +934,9 @@ def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
     THENCE that no further THENCE follows: preamble wording ("said point of
     beginning being distant ...", "from said point of beginning running thence")
     and a tie to the point of beginning ("to a point and place of beginning,
-    thence; (1) ...") are not closures.
+    thence; (1) ...") are not closures. ';'-separated wording after the closure that
+    is the closing course's own ("; passing a monument at 30 feet") stays in the block
+    (``closing_tail_end``).
 
     Returns: list of (start, end) positions
     """
@@ -812,8 +978,59 @@ def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
             )
             continue
 
-        blocks.append((m.start(), close.end()))
+        # ';'-separated wording after the closure is the closing course's own.
+        brk = _CLAUSE_BREAK_CHARACTER.search(text, close.end())
+        end = close.end()
+        if brk is not None and text[brk.start()] == ";":
+            tail = closing_tail_end(text, brk.start())
+            if tail > brk.start():
+                end = tail
+        blocks.append((m.start(), end))
     return blocks
+
+
+# The first clause break after a closure.
+_CLAUSE_BREAK_CHARACTER = re.compile(r"[;.]")
+# A ';'-separated clause after a closing course that is no wording of that course: a
+# later clause, a deed clause, a heading or another description.
+_CLAUSE_AFTER_CLOSING = re.compile(
+    r"\s*(?:(?:AND|BUT)\s+)?(?:ALSO|INCLUDING|(?:LESS|SAVE)\s+AND|EXCEPT\w*|TRACTS?|PARCELS?|LOTS?"
+    r"|TOGETHER|SUBJECT|UNDER|RESERVING|BEING|CONTAINING|BEGINNING|COMMENCING|POINT|PLACE|POB"
+    r"|THE\s+ABOVE|SAID\s+PREMISES)\b",
+    re.IGNORECASE,
+)
+
+
+def closing_tail_end(text: str, end: int) -> int:
+    """Return where the closing course's ';'-separated wording starting at ``end`` ends.
+
+    ``end`` is where the closing course's clause ends (its first semicolon or
+    sentence end after the point of beginning). Wording after a semicolon there
+    ("... to the point of beginning; passing a monument at 30 feet.", "...; along the
+    line of Smith.") belongs to the closing course, as it would to any course: it is
+    read by the course's clause (``extract_course_clause``: a passing call is noted,
+    adjoiner wording fails the course closed), never dropped. It runs to the sentence
+    end; a clause stating a course, a THENCE, a heading, an easement or another clause
+    (``_CLAUSE_AFTER_CLOSING``) ends it. Returns the position of the semicolon or
+    sentence end closing the attached wording (``end`` when none is attached).
+    """
+    while end < len(text) and text[end] == ";":
+        semicolon = text.find(";", end + 1)
+        sentence_end = _sentence_end(text, end + 1, len(text) if semicolon < 0 else semicolon)
+        piece_end = (
+            sentence_end if sentence_end is not None else len(text) if semicolon < 0 else semicolon
+        )
+        piece = text[end + 1 : piece_end]
+        if (
+            not piece.strip()
+            or _CLAUSE_AFTER_CLOSING.match(piece)
+            or _TRAVERSE_WORDING.search(piece)
+            or _EASEMENT_OPENER.search(piece)
+            or find_tract_markers(piece)
+        ):
+            break
+        end = piece_end
+    return end
 
 
 # Wording between an easement and the description after it ("ALSO all that lot")

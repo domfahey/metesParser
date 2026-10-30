@@ -31,6 +31,24 @@ call count, the closing course's ``to`` and the verbatim notes. The rules:
   point of beginning. A single bearing and distance locating a dividing line
   ("lying North of a line running N 80° E 100 feet from the pin") is no traverse;
   it is noted, never a one-course exception tract.
+
+Round 50 adds:
+
+* A description closes where a course reaches its point of beginning ("thence ...
+  to the (true) point of beginning", or the last course of a BEGINNING description
+  without THENCE). A point-of-beginning mention inside the BEGINNING clause ("BEGINNING
+  at an iron pin marking the point of beginning") closes nothing, and a COMMENCING
+  tie reaching the true point of beginning opens the boundary.
+* An easement clause without its own courses inside an open description ("..., subject
+  to a right of way for ingress and egress; thence ...") is noted, never a tract.
+* An EXCEPT lead introducing a described parcel ("the following described parcel:
+  PARCEL A: BEGINNING ...") makes that parcel an EXCEPTION tract; the lead is never
+  set aside as a note and the boundary keeps its label.
+* ';'-separated wording after the closing point of beginning is the closing course's
+  own: a passing call is noted, adjoiner wording fails closed.
+* A described exception traverse is recognised with the parser's bearing grammar
+  (dashed DMS, symbol-less bearings), counting each ';'-separated course; one the
+  parser cannot read fails closed, never set aside as a note.
 """
 
 from __future__ import annotations
@@ -42,6 +60,7 @@ from pathlib import Path
 
 import pytest
 from mp_models import (
+    PASSING_CALL_NOTE_PREFIX,
     SEPARATE_EASEMENT_NOTE_PREFIX,
     TractType,
     split_notes,
@@ -96,6 +115,11 @@ COMMENCING_ALSO_BEING = (
     "Thence N 58° E 100 feet; Thence S 32° E 50 feet; Thence S 58° W 100 feet; "
     "Thence N 32° W 50 feet to the point of beginning."
 )
+TRUE_POB = "the true point of beginning"
+EXCEPTED_PARCEL = (
+    "BEGINNING at the northwest corner; thence S 80° E 10 feet; thence S 10° W 10 feet; "
+    "thence N 80° W 10 feet; thence N 10° E 10 feet to the point of beginning."
+)
 
 
 @dataclass(frozen=True)
@@ -108,6 +132,8 @@ class Case:
     ``exceptions`` and ``easements`` are the verbatim wordings noted on the flat
     calls. ``ordered`` False compares tracts as a multiset (generated deeds).
     ``error`` is the strict failure expected when no reading is safe (fail closed).
+    ``passing`` are the passing calls noted on the closing course; ``tie_ins`` the
+    flat calls marked as the commencement tie, when stated.
     """
 
     text: str
@@ -120,6 +146,8 @@ class Case:
     labels: tuple[str, ...] | None = None
     ordered: bool = True
     error: str | None = None
+    passing: tuple[str, ...] = ()
+    tie_ins: int | None = None
 
 
 def _strip_case(base: str, wording: str, closing_to: str = POB) -> Case:
@@ -145,8 +173,10 @@ CASES: dict[str, Case] = {
     "square": Case(SQUARE),
     "main": Case(MAIN),
     "commencing_also_being_right_of_way": Case(COMMENCING_ALSO_BEING, flat=5),
+    # r50: the easement clause qualifying the open description is noted, never a tract.
     "easement_wording_inside_open_description": Case(
-        SQUARE.replace("BEGINNING at a pin;", "BEGINNING at a pin, subject to a right of way,")
+        SQUARE.replace("BEGINNING at a pin;", "BEGINNING at a pin, subject to a right of way,"),
+        easements=("subject to a right of way",),
     ),
     "easement_clause_without_courses": Case(
         f"{SQUARE} Together with an easement of record for utilities."
@@ -356,6 +386,127 @@ CASES: dict[str, Case] = {
     "r49_strip_of_land_for_right_of_way": _addition_case(
         "ALSO a strip of land for a right of way, described as"
     ),
+    # --- r50 #1, #2: a closure is a course reaching the point of beginning ---------
+    "r50_commencing_tie_then_easement_clause": Case(
+        "COMMENCING at the corner of A Street and B Street; thence N 10° E 100 feet to the "
+        "true point of beginning, subject to a right of way for ingress and egress; "
+        "thence S 80° E 50 feet; thence S 10° W 100 feet; thence N 80° W 50 feet; "
+        "thence N 10° E 100 feet to the true point of beginning.",
+        flat=5,
+        closing_to=TRUE_POB,
+        easements=("subject to a right of way for ingress and egress",),
+        tie_ins=1,
+    ),
+    "r50_commencing_tie_then_easement_clause_comma": Case(
+        "COMMENCING at the corner of A Street and B Street; thence N 10° E 100 feet to the "
+        "true point of beginning, together with an easement for ingress and egress, "
+        "thence S 80° E 50 feet; thence S 10° W 100 feet; thence N 80° W 50 feet; "
+        "thence N 10° E 100 feet to the true point of beginning.",
+        flat=5,
+        closing_to=TRUE_POB,
+        easements=("together with an easement for ingress and egress",),
+        tie_ins=1,
+    ),
+    # "the true point of beginning" with a course after it is a tie in a BEGINNING
+    # description too; the description stays open.
+    "r50_beginning_true_pob_tie_then_easement_clause": Case(
+        "BEGINNING at the corner of A Street and B Street; thence N 10° E 100 feet to the "
+        "true point of beginning, subject to a right of way for ingress and egress; "
+        "thence S 80° E 50 feet; thence S 10° W 100 feet; thence N 80° W 50 feet; "
+        "thence N 10° E 100 feet to the true point of beginning.",
+        flat=5,
+        closing_to=TRUE_POB,
+        easements=("subject to a right of way for ingress and egress",),
+    ),
+    "r50_from_said_pob_easement_clause_running": Case(
+        "BEGINNING at a point distant 100 feet from the corner, and from said point of "
+        "beginning, together with an easement over the driveway, running thence S 80° E 50 "
+        "feet; thence S 10° W 100 feet; thence N 80° W 50 feet; thence N 10° E 100 feet to "
+        "the point of beginning.",
+        easements=("together with an easement over the driveway",),
+    ),
+    "r50_beginning_marking_pob_with_easement_clause": Case(
+        "BEGINNING at an iron pin marking the point of beginning, together with an easement "
+        "for utilities over the same; thence S 80° E 50 feet; thence S 10° W 100 feet; "
+        "thence N 80° W 50 feet; thence N 10° E 100 feet to the point of beginning.",
+        easements=("together with an easement for utilities over the same",),
+    ),
+    # A COMMENCING description whose courses return to the point of beginning with no
+    # course after it closes there: the stated exception after it is noted.
+    "r50_commencing_closing_then_stated_exception": Case(
+        "COMMENCING at a pin; thence N 0° E 100 feet; thence S 90° E 100 feet; "
+        "thence S 0° W 100 feet; thence N 90° W 100 feet to the point of beginning. "
+        "EXCEPT the part conveyed to the State of New Jersey for Route 70.",
+        exceptions=("EXCEPT the part conveyed to the State of New Jersey for Route 70",),
+    ),
+    # --- r50 #3: an EXCEPT lead introducing a described parcel --------------------
+    "r50_except_following_described_parcel_heading": Case(
+        f"{SQUARE} EXCEPTING THEREFROM the following described parcel: PARCEL A: {EXCEPTED_PARCEL}",
+        tracts=((MAIN_T, 4), (EXC, 4)),
+        flat=8,
+        labels=("Unlabelled tract", "Parcel A"),
+    ),
+    "r50_less_and_except_part_described_heading": Case(
+        f"{SQUARE} LESS AND EXCEPT that part described as follows: Tract 2: {EXCEPTED_PARCEL}",
+        tracts=((MAIN_T, 4), (EXC, 4)),
+        flat=8,
+        labels=("Unlabelled tract", "Tract 2"),
+    ),
+    "r50_headed_boundary_except_following_described_parcel": Case(
+        f"TRACT 1: {SQUARE} EXCEPTING THEREFROM the following described parcel: PARCEL A: "
+        f"{EXCEPTED_PARCEL}",
+        tracts=((MAIN_T, 4), (EXC, 4)),
+        flat=8,
+        labels=("Tract 1", "Parcel A"),
+    ),
+    "r50_except_following_described_parcel_no_heading": Case(
+        f"{SQUARE} EXCEPTING THEREFROM the following described parcel: {EXCEPTED_PARCEL}",
+        tracts=((MAIN_T, 4), (EXC, 4)),
+        flat=8,
+    ),
+    # A stated exception closed by its sentence is not the lead of the next tract.
+    "r50_stated_exception_before_next_tract": Case(
+        f"TRACT 1: {SQUARE} EXCEPT the part conveyed to the State for Route 70. TRACT 2: {SMALL}",
+        tracts=((MAIN_T, 4), (MAIN_T, 4)),
+        flat=8,
+        exceptions=("EXCEPT the part conveyed to the State for Route 70",),
+        labels=("Tract 1", "Tract 2"),
+    ),
+    # --- r50 #4: ';'-separated wording after the closing point of beginning --------
+    "r50_passing_after_closure": Case(
+        f"{SQUARE[:-1]}; passing a monument at 30 feet.",
+        passing=("passing a monument at 30 feet",),
+    ),
+    "r50_and_passing_after_closure_then_area": Case(
+        f"{SQUARE[:-1]}; and passing a monument at 30 feet; containing 0.23 acres.",
+        passing=("and passing a monument at 30 feet",),
+    ),
+    "r50_passing_after_closure_then_addition": Case(
+        f"{SQUARE[:-1]}; passing a monument at 30 feet. {LOT}",
+        tracts=((MAIN_T, 4), (ADD, 4)),
+        flat=8,
+        passing=("passing a monument at 30 feet",),
+    ),
+    "r50_adjoiner_after_closure_fails_closed": Case(
+        f"{SQUARE[:-1]}; along the line of Smith.", error="not attached"
+    ),
+    "r50_adjoiner_after_closure_then_addition_fails_closed": Case(
+        f"{SQUARE[:-1]}; along the line of Smith. {LOT}", error="not attached"
+    ),
+    # --- r50 #5: exception traverses in the parser's bearing grammar ---------------
+    "r50_exception_traverse_dashed_dms": Case(
+        f"{SQUARE} EXCEPTING therefrom: Beginning at the northwest corner; S 80-00-00 E 10 feet; "
+        "S 10-00-00 W 10 feet; N 80-00-00 W 10 feet; N 10-00-00 E 10 feet to the point of "
+        "beginning.",
+        tracts=((MAIN_T, 4), (EXC, 4)),
+        flat=8,
+    ),
+    # The parser does not read a symbol-less "S 80 E": the exception fails closed.
+    "r50_exception_traverse_symbolless_fails_closed": Case(
+        f"{SQUARE} EXCEPTING therefrom: Beginning at the northwest corner; S 80 E 10 feet; "
+        "S 10 W 10 feet; N 80 W 10 feet; N 10 E 10 feet to the point of beginning.",
+        error="Malformed course",
+    ),
 }
 
 # --- generated deeds (r48 invariant, r49 clauses) ------------------------------------
@@ -450,6 +601,16 @@ def _check_closing_to(case: Case, calls) -> None:
         assert _closing(calls).to == case.closing_to
 
 
+def _check_passing_and_ties(case: Case, calls) -> None:
+    # Passing calls are never dropped; only the ones stated are noted.
+    assert sorted(_noted(calls, PASSING_CALL_NOTE_PREFIX)) == sorted(case.passing)
+    if case.passing:
+        first_closing = next(c for c in calls if c.to == case.closing_to)
+        assert sorted(_noted([first_closing], PASSING_CALL_NOTE_PREFIX)) == sorted(case.passing)
+    if case.tie_ins is not None:
+        assert sum(c.is_tie_in for c in calls) == case.tie_ins
+
+
 # --- the corpus ---------------------------------------------------------------------------
 
 
@@ -473,6 +634,7 @@ def test_extract_calls_classifies(name: str) -> None:
     _check_closing_to(case, calls)
     assert sorted(_exceptions(calls)) == sorted(case.exceptions)
     assert sorted(_noted(calls, SEPARATE_EASEMENT_NOTE_PREFIX)) == sorted(case.easements)
+    _check_passing_and_ties(case, calls)
     # An easement's legs never join a boundary; exception legs only on exception tracts.
     for tract in tracts:
         assert all(c.is_exception == (tract.tract_type == EXC) for c in tract.calls)
@@ -492,6 +654,7 @@ def test_one_description_extraction_matches(name: str) -> None:
     _check_closing_to(case, calls)
     assert sorted(_exceptions(calls)) == sorted(case.exceptions)
     assert sorted(_noted(calls, SEPARATE_EASEMENT_NOTE_PREFIX)) == sorted(case.easements)
+    _check_passing_and_ties(case, calls)
 
 
 @pytest.mark.parametrize("name", list(CASES))
@@ -592,3 +755,25 @@ def test_clause_structure_is_computed_once_per_text() -> None:
     assert len(easements) == len(_GENERATED_EASEMENTS)
     # Every EXCEPT lead and easement opener bisects one precomputed structure.
     assert _index.cache_info().misses == 1
+
+
+# --- r50 #1: the COMMENCING tie reaches the true point of beginning ----------------------
+
+
+def test_commencing_tie_reaches_true_point_of_beginning() -> None:
+    calls, tracts = extract_calls(CASES["r50_commencing_tie_then_easement_clause"].text)
+    assert not tracts
+    assert calls[0].is_tie_in and calls[0].to == TRUE_POB
+    assert [c.distance_ft for c in calls[1:]] == [50.0, 100.0, 50.0, 100.0]
+    assert not any(c.is_tie_in for c in calls[1:])
+
+
+def test_closure_is_a_course_reaching_the_point_of_beginning() -> None:
+    from mp_parse.tracts import _index
+
+    marking = CASES["r50_beginning_marking_pob_with_easement_clause"].text
+    commencing = CASES["r50_commencing_tie_then_easement_clause"].text
+    # Only the closing course's point of beginning closes each description.
+    assert [marking[s:e] for s, e in _index(marking).closures] == ["point of beginning"]
+    assert _index(marking).closures[0][1] == len(marking) - 1
+    assert [e for _, e in _index(commencing).closures] == [len(commencing) - 1]
