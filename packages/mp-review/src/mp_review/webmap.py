@@ -33,18 +33,13 @@ from mp_models.webmap import (
 from mp_verify.dashboard import _hash
 from mp_verify.plot import arc_point, transform_point
 from mp_verify.webmap import (
-    CLOSURE_GAP_THRESHOLD as CLOSURE_GAP_THRESHOLD,
-)
-from mp_verify.webmap import (
     Extent,
     WebMapContext,
     WebMapInput,
+    bounds_of,
     feature_vertices,
     has_closure_gap,
     normalize_web_map_context,
-)
-from mp_verify.webmap import (
-    bounds_of as bounds_of,
 )
 
 from .webmap_projection import WebMapProjection, WebMapUnavailable, build_web_map_projection
