@@ -19,10 +19,11 @@ logger = structlog.get_logger(__name__)
 
 # TRACT/PARCEL [#|NO.] ID, where ID is a whole token: a number with an optional
 # letter (2B), a Roman numeral, a single letter, or a spelled number, optionally
-# hyphenated (A-1). [IVX]+ precedes [A-Z] so "TRACT III" captures "III"; the
+# hyphenated (A-1). NO is a whole token ("NO.", "NO 2", "NO #2"), never the
+# start of a word ("TRACT NOW"). [IVX]+ precedes [A-Z] so "TRACT III" captures "III"; the
 # closing \b rejects ordinary words ("TRACT OF LAND", "Parcel Info").
 _MARKER = re.compile(
-    r"\b(?P<kind>TRACT|PARCEL)\s+(?:#\s*|NO\.?\s*)?"
+    r"\b(?P<kind>TRACT|PARCEL)\s+(?:#\s*|NO(?:\.|\s*#|\s)\s*)?"
     r"(?P<id>(?:\d+[A-Z]?|[IVX]+|[A-Z]"
     r"|ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|ELEVEN|TWELVE)"
     r"(?:-(?:\d+|[A-Z]))?)\b",
@@ -53,12 +54,14 @@ _STRONG_TERMINATOR = re.compile(
 # Weak: end of line/text, a period, or a heading dash not glued to the next word.
 # Valid only when the marker is in heading position.
 _WEAK_TERMINATOR = re.compile(r"[ \t]*(?:\n|$|\.|[\-\u2013\u2014](?![A-Za-z0-9]))", re.IGNORECASE)
-# Uppercase BEING on the same line is heading style ("TRACT 2 BEING UNIT B") only
-# for an uppercase TRACT/PARCEL marker. Case-sensitive on purpose: a titlecase or
-# lowercase "being" after an ID is a recital ("Tract 2 being the same land ...").
-# Recital openers after an uppercase BEING are excluded as well.
-_HEADING_BEING_TERMINATOR = re.compile(
-    r"[ \t]*BEING\b(?!\s+(?:THE\s+SAME|PART\s+OF|A\s+PART\s+OF)\b)"
+# An uppercase TRACT/PARCEL in heading position is a heading whatever prose
+# follows its ID ("TRACT 2 Situate in ...", "PARCEL TWO being all that lot"),
+# unless that prose is reference wording ("TRACT 2 of the Smith subdivision",
+# "PARCEL 2 as shown on", "TRACT 4567 on said map") or a recital opener.
+_UPPERCASE_REFERENCE_AFTER_ID = re.compile(
+    r"[ \t]*(?:(?:of|as|on|per|and|or|thence)\b|&|in\s+said\b"
+    r"|being\s+(?:the\s+same|part\s+of|a\s+part\s+of)\b)",
+    re.IGNORECASE,
 )
 # Sentence breaks that put the following marker in heading position.
 _HEADING_POSITION_BREAKS = (".", ":", ";")
@@ -112,10 +115,13 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
       preceding sentence, except a reference-word mention inside a boundary
       description that is still open ("BEGINNING at a point lying in
       Tract 4567 BEGINNING ...").
-    * Weak terminator (end of line, '.', spaced dash, or uppercase BEING after an
-      uppercase marker): a heading only at
-      the start of the text, after a sentence break (. : ;) or behind a markdown
-      '#' heading prefix. Leading text with calls is kept as its own tract by
+    * Heading position (start of text, after a sentence break . : ; or behind a
+      markdown '#' prefix) is required otherwise. There a weak terminator (end of
+      line, '.', spaced dash) makes any marker a heading, and an uppercase
+      TRACT/PARCEL is a heading whatever follows its ID unless reference or
+      recital wording does ("TRACT 2 of ...", "PARCEL 2 as shown", "TRACT 2
+      BEING THE SAME ..."). Titlecase or lowercase markers followed by prose
+      stay references. Leading text with calls is kept as its own tract by
       split_on_markers, so an OCR-dropped heading no longer loses data.
     """
     prefix = text[: match.start()]
@@ -123,17 +129,18 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
     end = skipped.end() if skipped else match.end()
     if _STRONG_TERMINATOR.match(text, end):
         return not (_REFERENCE_WORD_BEFORE.search(prefix) and _inside_open_description(prefix))
-    weak = _WEAK_TERMINATOR.match(text, end) or (
-        match["kind"].isupper() and _HEADING_BEING_TERMINATOR.match(text, end)
-    )
-    if not weak:
-        return False
     stripped = prefix.rstrip()
-    return (
+    heading_position = (
         not stripped
         or stripped.endswith(_HEADING_POSITION_BREAKS)
         or _MARKDOWN_HEADING_PREFIX.search(prefix) is not None
     )
+    if not heading_position:
+        return False
+    if _WEAK_TERMINATOR.match(text, end):
+        return True
+    # Heading position already excludes a marker right after a reference word.
+    return match["kind"].isupper() and not _UPPERCASE_REFERENCE_AFTER_ID.match(text, end)
 
 
 def find_tract_markers(
