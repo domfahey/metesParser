@@ -906,7 +906,7 @@ _INCH = re.compile(r"(?:inch(?:es)?|in\.?)", re.IGNORECASE)
 # chosen course length that was not summed into it: the length is not dropped
 # silently, the course fails closed.
 _UNREAD_INCH_AFTER = re.compile(
-    rf"\.?\s+(?:and\s+)?{COMMA_NUMBER}\s*(?:in\b\.?|\"|\u2033|'')", re.IGNORECASE
+    rf"\.?(?:\s*,\s*|\s+)(?:and\s+)?{COMMA_NUMBER}\s*(?:in\b\.?|\"|\u2033|'')", re.IGNORECASE
 )
 # Without "and", a later component must be a clearly smaller unit to extend a run.
 _DESCENDING_RATIO = 1.5
@@ -919,15 +919,19 @@ _UNSUPPORTED_AND_PAIR = re.compile(
 # mark may be a bearing's seconds and the course fails closed (``_FOOT_INCH``).
 _FOOT_MARK_LENGTH = re.compile(
     rf"{LENGTH_NUMBER_GUARD}({COMMA_NUMBER})\s*(?:'(?!')|′(?!′))"
-    r"(?:\s*(\d+(?:\.\d+)?)\s*(?:\"|\u2033))?"
+    r"(?:\s*,?\s*(\d+(?:\.\d+)?)\s*(?:\"|\u2033|inch(?:es)?\b|in\b\.?))?"
     r"(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
     re.IGNORECASE,
 )
 _FOOT_INCH = re.compile(
-    rf"{LENGTH_NUMBER_GUARD}{COMMA_NUMBER}\s*(?:'(?!')|′(?!′))\s*\d+(?:\.\d+)?\s*(?:\"|\u2033)"
+    rf"{LENGTH_NUMBER_GUARD}{COMMA_NUMBER}\s*(?:'(?!')|′(?!′))\s*,?\s*\d+(?:\.\d+)?\s*(?:\"|\u2033)"
 )
 # Degrees written without a sign ("N 45 30' 15\""): the marks are minutes and seconds.
-_UNSIGNED_DEGREES_BEFORE = re.compile(r"\b(?:north|south|N|S)\.?\s*\d{1,3}\s+$", re.IGNORECASE)
+# Also after any degree marker: degree(s), deg., d, a degree sign or a hyphen.
+_UNSIGNED_DEGREES_BEFORE = re.compile(
+    r"\b(?:north|south|N|S)\.?\s*\d{1,3}(?:\s*(?:degrees?|deg\b\.?|d\b|[°º˚])\s*|\s+|-)$",
+    re.IGNORECASE,
+)
 
 
 class _LengthRun(NamedTuple):
@@ -988,7 +992,7 @@ def _compound_size(text: str, tokens: list[Match[str]], index: int) -> int:
         joined_by_and = re.search(r"\band\b", gap, re.IGNORECASE)
         descending = (
             not joined_by_and
-            and "," not in gap
+            and ("," not in gap or _is_inch(cur.group(2)))
             and _component_feet("1", prev.group(2))
             > _DESCENDING_RATIO * _component_feet("1", cur.group(2))
         )
