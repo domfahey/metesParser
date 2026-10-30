@@ -18,6 +18,7 @@ import math
 import pytest
 from mp_parse import calls as package_calls
 from mp_parse.calls import extract_single_call as package_single_call
+from mp_parse.metadata import CallFragment
 from mp_verify.closure import verify_closure as package_verify
 
 from metesparser.call_extractor import CallExtractor
@@ -179,11 +180,12 @@ def test_beginning_clause_single_skips_bearing_work(monkeypatch, impl):
 
 @pytest.mark.parametrize("impl", ["package", "monolith"])
 def test_beginning_clause_calls_skips_bearing_work(monkeypatch, impl):
-    # split_into_calls normally drops BEGINNING clauses; force one through so the
-    # per-call loop must reach extract_single_call's early return.
-    pieces = [BEGINNING, CURVE_TEXT]
+    # split_call_fragments normally marks BEGINNING clauses as preamble; force one
+    # through as a course fragment so the per-call loop must reach
+    # extract_single_call's early return.
+    pieces = [CallFragment(BEGINNING), CallFragment(CURVE_TEXT)]
     # The monolith delegates call splitting to the package.
-    monkeypatch.setattr(package_calls, "split_into_calls", lambda text, **_: list(pieces))
+    monkeypatch.setattr(package_calls, "split_call_fragments", lambda text, **_: list(pieces))
     seen = _spy(monkeypatch, impl)
     skipped: list = []
     calls = EXTRACT_CALLS[impl]("THENCE " + CURVE_TEXT, strict=False, skipped_courses=skipped)
