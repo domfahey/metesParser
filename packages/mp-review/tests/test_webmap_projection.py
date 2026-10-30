@@ -223,3 +223,25 @@ def test_gdal_invalid_or_missing_grid_operation_cannot_fall_back(pipeline):
     projection = build_web_map_projection(scene())
     with pytest.raises(Exception, match="Cannot instantiate pipeline"):
         _gdal_control_sample(projection, (1000.0, 2000.0), (1000.0, 2000.0), pipeline=pipeline)
+
+
+def test_geographic_transformer_is_built_once_per_projection(monkeypatch):
+    import pyproj
+
+    constructed = []
+    original = pyproj.Transformer.from_crs
+
+    def counting_from_crs(source, target, *args, **kwargs):
+        # Count only the source-CRS -> EPSG:4326 bounds transformer.
+        if isinstance(source, pyproj.CRS) and target == "EPSG:4326":
+            constructed.append(source)
+        return original(source, target, *args, **kwargs)
+
+    monkeypatch.setattr(pyproj.Transformer, "from_crs", counting_from_crs)
+    # NZTM extent over New Zealand, inside the operation's area of use.
+    extent = (1600000.0, 5400000.0, 1610000.0, 5410000.0)
+    projection = build_web_map_projection(scene("EPSG:2193"), extent)
+    for _ in range(3):
+        assert projection.covers(extent) is True
+        assert projection.covers((1600000.0, 5400000.0, 1600100.0, 5400100.0)) is True
+    assert len(constructed) == 1

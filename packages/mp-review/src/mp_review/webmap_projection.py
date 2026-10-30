@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import math
 import warnings
@@ -99,7 +100,7 @@ def _projection_dependencies() -> Any:
 
 
 def _geographic_bounds(
-    pyproj: Any, source: Any, extent: tuple[float, float, float, float]
+    to_geographic: Any, extent: tuple[float, float, float, float]
 ) -> tuple[float, float, float, float]:
     """Geographic (west, south, east, north) bounds of a source-CRS XY extent.
 
@@ -111,7 +112,6 @@ def _geographic_bounds(
     ):
         raise ValueError("Extent is not finite")
     minx, miny, maxx, maxy = extent
-    to_geographic = pyproj.Transformer.from_crs(source, "EPSG:4326", always_xy=True)
     points = [
         to_geographic.transform(
             minx + (maxx - minx) * i / 8, miny + (maxy - miny) * j / 8, errcheck=True
@@ -169,10 +169,14 @@ def build_web_map_projection(
     try:
         # Missing-grid warnings contain raw URLs/paths. The typed failure below
         # reports the same condition without exposing external diagnostic text.
+        @functools.cache
+        def to_geographic() -> Any:
+            return pyproj.Transformer.from_crs(source, "EPSG:4326", always_xy=True)
+
         aoi = None
         if extent is not None:
             try:
-                bounds = _geographic_bounds(pyproj, source, extent)
+                bounds = _geographic_bounds(to_geographic(), extent)
             except Exception as exc:
                 raise WebMapUnavailable("projection_domain", _DOMAIN_MESSAGE) from exc
             from pyproj.aoi import AreaOfInterest
@@ -228,7 +232,7 @@ def build_web_map_projection(
 
         def covers_extent(item: tuple[float, float, float, float]) -> bool:
             try:
-                return _covers(selected.area_of_use, _geographic_bounds(pyproj, source, item))
+                return _covers(selected.area_of_use, _geographic_bounds(to_geographic(), item))
             except Exception:
                 return False
 
