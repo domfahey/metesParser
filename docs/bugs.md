@@ -973,6 +973,11 @@ Seven findings, fixed red-green on `fix/code-review-2026-10-29`:
 - **Scoped THENCE re-split:** only list headers and inline-enumerated list courses are re-split; other courses keep "thence running with said line" whole (`280d36a`).
 - **Parallelism across curves:** continuing-line checks compare the previous course's exit tangent with the next course's entry tangent (`curve_tangents`), so chord-and-delta curves no longer block and a correct continuation after a curve passes; chord-only curves still block; #49 unchanged (`965c9c7`).
 
+### PR #60 twenty-second review (2026-10-30)
+Two findings, fixed red-green on `fix/code-review-2026-10-29`:
+- **Verified export honours skipped courses:** the exporter's fresh re-check (package `export_verified_csv` and monolith `CSVBuilder`) receives tract skips, audit-context skips and an explicit `skipped_courses` list, and refuses export when any apply; `metes-review` passes its audit skips. Callers that extract non-strictly must pass them (`c73b7f7`).
+- **Chord-only spirals representable:** `DeedCall` accepts a spiral with chord bearing + chord length and no radius (curve direction optional); the parser uses the stated chord as the course distance with "spiral positioned by stated chord; radius not stated" (`45cd3e2`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
