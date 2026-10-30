@@ -13,6 +13,7 @@ from mp_models.delivery import (
 )
 from mp_review.delivery import (  # type: ignore[import-untyped]
     DeliveryReplay,
+    DeliveryReplayIncomplete,
     load_delivery,
     prepare_delivery,
     publish_delivery,
@@ -28,6 +29,7 @@ __all__ = [
     "DeliveryOmission",
     "DeliveryPrimitive",
     "DeliveryReplay",
+    "DeliveryReplayIncomplete",
     "DeliveryRequest",
     "DeliverySnapshot",
     "DeliverySourceBinding",

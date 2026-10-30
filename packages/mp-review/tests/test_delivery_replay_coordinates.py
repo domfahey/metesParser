@@ -12,7 +12,12 @@ import json
 from pathlib import Path
 
 import pytest
-from mp_review.delivery import load_delivery, publish_delivery, replay_delivery
+from mp_review.delivery import (
+    DeliveryReplayIncomplete,
+    load_delivery,
+    publish_delivery,
+    replay_delivery,
+)
 
 pyproj = pytest.importorskip("pyproj")
 
@@ -95,6 +100,20 @@ def test_host_without_recorded_operation_reports_reduced_verification(tmp_path, 
     _rehash(directory, "drawing.geojson")
     with pytest.raises(ValueError, match="GeoJSON"):
         replay_delivery(bundle, revision, directory)
+
+
+def test_load_delivery_refuses_reduced_verification_unless_allowed(tmp_path, monkeypatch):
+    bundle, revision, directory = _publish(tmp_path)
+
+    def unavailable(*args, **kwargs):
+        raise pyproj.exceptions.ProjError("File not found or invalid")
+
+    monkeypatch.setattr(pyproj.Transformer, "from_pipeline", unavailable)
+    with pytest.raises(DeliveryReplayIncomplete, match="not re-verified"):
+        load_delivery(bundle, revision, directory)
+    assert issubclass(DeliveryReplayIncomplete, ValueError)
+    snapshot = load_delivery(bundle, revision, directory, allow_unverified_geojson=True)
+    assert snapshot == replay_delivery(bundle, revision, directory).snapshot
 
 
 def test_cli_replay_reports_reduced_verification(tmp_path, monkeypatch):
