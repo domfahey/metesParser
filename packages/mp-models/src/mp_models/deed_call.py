@@ -323,8 +323,14 @@ class DeedCall(_Model):
         )
 
     def is_curve(self) -> bool:
-        """Check if this call represents a curve."""
-        return self.curve_dir is not None or self.radius_ft is not None
+        """Check if this call is a curved (non-straight) course, spirals included.
+
+        A spiral is curved even with no radius or direction; it is never a circular
+        arc (see ``mp_verify.tangents.is_circular_curve``) and never a straight line.
+        """
+        return (
+            self.curve_dir is not None or self.radius_ft is not None or self.curve_type == "spiral"
+        )
 
     def is_complete_bearing(self) -> bool:
         """Check if bearing is fully specified (has azimuth)."""
