@@ -53,11 +53,14 @@ from .metadata import (
     COURSE_LENGTH_AMBIGUOUS_NOTE,
     COURSE_LIST_MARKER,
     LENGTH_RUN,
+    PASSING_PIECE,
     TIE_AFTER_PATTERN,
     TIE_BEFORE_PATTERN,
+    VERBATIM_BEARING,
     CourseListAnalysis,
     _tie_clause_start,
     analyze_course_lists,
+    bracket_groups,
     course_length_phrase_span,
     detect_meander,
     extract_course_clause,
@@ -1757,18 +1760,6 @@ def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -
     )
 
 
-# Any bearing form in the deed's own wording (symbols, words, dashes, d/m units).
-# Possessive quantifiers keep long digit runs from backtracking.
-_VERBATIM_BEARING = re.compile(
-    r"(?<![A-Za-z])(?:North|South|N|S)\.?(?![A-Za-z])\s*+\d++(?:\.\d++)?"
-    r"(?:\s*+(?:[\u00b0\u00ba'\u2032\u2019\"\u2033\u201d-]|degrees?(?![a-z])|deg(?![a-z])\.?"
-    r"|d(?![a-z])|minutes?(?![a-z])|min(?![a-z])\.?|m(?![a-z])|seconds?(?![a-z])"
-    r"|sec(?![a-z])\.?|s(?![a-z])|\d++(?:\.\d++)?))*+"
-    r"\s*+,?\s*+(?:East|West|E|W)(?![A-Za-z])",
-    re.IGNORECASE,
-)
-
-
 def _verbatim_bearing_matches(
     course_text: str, *, keep_line_radial: bool = False
 ) -> list[re.Match[str]]:
@@ -1788,10 +1779,10 @@ def _verbatim_bearing_matches(
             rest = course_text[match.end() :]
             clause_end = re.search(r"[,;]", rest)
             clause = rest[: clause_end.start()] if clause_end else rest
-            reference = _VERBATIM_BEARING.search(clause)
+            reference = VERBATIM_BEARING.search(clause)
             if reference:
                 excluded.add(match.end() + reference.start())
-    return [m for m in _VERBATIM_BEARING.finditer(course_text) if m.start() not in excluded]
+    return [m for m in VERBATIM_BEARING.finditer(course_text) if m.start() not in excluded]
 
 
 def _verbatim_candidates(course_text: str, *, keep_line_radial: bool = False) -> list[str]:
@@ -2013,31 +2004,9 @@ class _RecordScan(NamedTuple):
     drop_spans: tuple[tuple[int, int], ...] = ()
 
 
-def _bracket_groups(text: str) -> list[tuple[int, int, bool]]:
-    """Return top-level bracketed groups (nested-aware) as (start, end, closed).
-
-    An unclosed group runs to the end of ``text``.
-    """
-    groups: list[tuple[int, int, bool]] = []
-    depth = 0
-    start = 0
-    for index, char in enumerate(text):
-        if char in "([":
-            if depth == 0:
-                start = index
-            depth += 1
-        elif char in ")]" and depth:
-            depth -= 1
-            if depth == 0:
-                groups.append((start, index + 1, True))
-    if depth:
-        groups.append((start, len(text), False))
-    return groups
-
-
 def _lengths_outside_bearings(text: str) -> list[re.Match[str]]:
     """Return the lengths in ``text`` that are not part of a bearing."""
-    spans = [(m.start(), m.end()) for m in _VERBATIM_BEARING.finditer(text)]
+    spans = [(m.start(), m.end()) for m in VERBATIM_BEARING.finditer(text)]
     return [
         token
         for token in _LENGTH_TOKEN.finditer(text)
@@ -2108,7 +2077,7 @@ def _reference_openers(text: str) -> dict[int, tuple[str, int]]:
                 continue
             clause_end = _CLAUSE_END.search(text, match.end())
             stop = clause_end.start() if clause_end else len(text)
-            reference = _VERBATIM_BEARING.search(text, match.end(), stop)
+            reference = VERBATIM_BEARING.search(text, match.end(), stop)
             if reference:
                 openers.setdefault(reference.start(), (kind, match.start()))
     return openers
@@ -2139,7 +2108,7 @@ def _record_statements(text: str, limit: int) -> list[_RecordStatement]:
     not a tie), a tie or adjoiner prefix ("other"), a measured label after it
     ("(M)"), or none ("plain").
     """
-    bearings = list(_VERBATIM_BEARING.finditer(text, 0, limit))
+    bearings = list(VERBATIM_BEARING.finditer(text, 0, limit))
     openers = _reference_openers(text[:limit])
     statements: list[_RecordStatement] = []
     pair_lengths: set[int] = set()
@@ -2209,7 +2178,7 @@ def _states_own_direction(text: str, limit: int, records: list[_RecordStatement]
     """Return True when ``text`` states a course direction word outside ``records``."""
     for record in records:
         text = _blank(text, record.start, record.end)
-    for start, end, _closed in _bracket_groups(text):
+    for start, end, _closed in bracket_groups(text):
         text = _blank(text, start, end)
     text = _CONCAVITY_CLAUSE.sub(lambda m: " " * len(m.group(0)), text[:limit])
     return bool(_COURSE_DIRECTION_WORD.search(text))
@@ -2277,7 +2246,7 @@ def _scan_record_calls(call_text: str) -> _RecordScan:
     measured_groups: list[tuple[int, int]] = []
     parentheticals: list[tuple[str, bool]] = []
     alternatives: list[tuple[int, int]] = []
-    for start, end, closed in _bracket_groups(course_text):
+    for start, end, closed in bracket_groups(course_text):
         inner_start = start + 1
         inner = course_text[inner_start : end - 1 if closed else end]
         role = _group_role(inner)
@@ -2450,9 +2419,6 @@ def _length_count(text: str) -> int:
     )
 
 
-_PASSING_SEGMENT = re.compile(r"\s*(?:and\s+)?passing\b", re.IGNORECASE)
-
-
 def _split_multi_course_fragment(call_text: str) -> list[str]:
     """Split a fragment holding several complete courses when that is safe.
 
@@ -2480,7 +2446,7 @@ def _split_multi_course_fragment(call_text: str) -> list[str]:
         complete = _segment_course_count(segment)
         # Descriptive wording, or a passing call ("; passing a pipe at 30 feet"),
         # stays with the course before it.
-        passing = _PASSING_SEGMENT.match(segment) is not None
+        passing = PASSING_PIECE.match(segment) is not None
         if complete == 0 and not has_bearing and (passing or not _LENGTH_TOKEN.search(segment)):
             if passing and not pieces:
                 return [call_text]
