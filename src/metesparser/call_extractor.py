@@ -887,16 +887,18 @@ class CallExtractor:
             tangent_notes.append("chord length exceeds twice the radius")
         tangent_note = "; ".join(tangent_notes)
 
+        note_parts: list[str] = []
         if is_meander or "approximate" in call_text.lower():
-            notes = "meander / approximate"
+            note_parts.append("meander / approximate")
             if tangent_note:
-                notes += f"; {tangent_note}"
+                note_parts.append(tangent_note)
         elif tangent_note:
-            notes = tangent_note
-            if cardinal_only:
-                notes += "; incomplete bearing - cardinal only"
-        elif not parsed_bearing and not is_due_cardinal:
-            notes = "incomplete bearing - cardinal only" if cardinal_only else "incomplete bearing"
+            note_parts.append(tangent_note)
+        if cardinal_only:
+            note_parts.append("incomplete bearing - cardinal only")
+        elif not note_parts and not parsed_bearing and not is_due_cardinal:
+            note_parts.append("incomplete bearing")
+        notes = "; ".join(note_parts)
 
         if distance_ft <= 0.0:
             return None, raw_direction
