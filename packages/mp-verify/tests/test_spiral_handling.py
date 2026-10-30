@@ -15,7 +15,7 @@ from mp_models.plot_request import PlotCall, PlotRequest
 from mp_verify.closure import verify_closure
 from mp_verify.plot import prepare_plot
 from mp_verify.tangents import is_spiral
-from mp_verify.traverse import position_courses
+from mp_verify.traverse import traverse_positions
 
 SIDES = [("N", 0.0), ("E", 90.0), ("S", 180.0), ("W", 270.0)]
 
@@ -70,7 +70,7 @@ def test_radiusless_spiral_is_spiral_and_never_a_straight_line():
     square = _square()
     square[1] = _radiusless_spiral(course=2, azimuth=90.0)
     assert is_spiral(square[1]) and not square[1].is_curve()
-    assert position_courses(square)[1] == [True, False, True, True]
+    assert traverse_positions(square)[1] == [True, False, True, True]
     result = verify_closure(square)
     assert not result.area_available and result.area_sq_ft == 0.0
     assert not result.perimeter_available
@@ -162,7 +162,7 @@ SPIRAL_CASES = {
 @pytest.mark.parametrize("name", SPIRAL_CASES)
 def test_verify_and_plot_position_exactly_the_same_spirals(name):
     spiral = SPIRAL_CASES[name]
-    points, positioned = position_courses([spiral])
+    points, positioned = traverse_positions([spiral])
     geometry = _plot([spiral])
     assert not geometry.primitives  # a spiral is never drawn
     plotted = geometry.unresolved[0].reason.endswith("positioned by stated chord only")

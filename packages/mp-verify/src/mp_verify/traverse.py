@@ -16,7 +16,6 @@ from mp_bearing import (  # type: ignore[import-untyped]
 from mp_models import DeedCall, Point
 
 from .tangents import (
-    chord_delta,
     chord_is_feasible,
     curve_sweep,
     has_determined_direction,
@@ -47,8 +46,7 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
         # the circular chord <= 2R bound.
         if call.chord_length_ft is None or call.chord_bearing is None:
             return None
-        if chord_azimuth is None:
-            raise ValueError(f"Course {call.course}: invalid chord bearing")
+        assert chord_azimuth is not None
         dx, dy = calculate_deltas(chord_azimuth, call.chord_length_ft)
         return Point(x=current.x + dx, y=current.y + dy)
 
@@ -59,8 +57,7 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
         if not chord_is_feasible(call):
             # No circle of this radius has such a chord; leave it unpositioned.
             return None
-        if chord_azimuth is None:
-            raise ValueError(f"Course {call.course}: invalid chord bearing")
+        assert chord_azimuth is not None
         dx, dy = calculate_deltas(chord_azimuth, call.chord_length_ft)
         return Point(x=current.x + dx, y=current.y + dy)
 
@@ -95,8 +92,7 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
             if delta_deg is None:
                 return None
             if call.chord_bearing is not None:
-                if chord_azimuth is None:
-                    raise ValueError(f"Course {call.course}: invalid chord bearing")
+                assert chord_azimuth is not None
                 # A chord bearing already describes the endpoint vector.
                 # Only tangent bearings need rotation by half the delta.
                 chord_length = 2 * call.radius_ft * math.sin(math.radians(delta_deg) / 2)
@@ -118,32 +114,6 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
     return Point(x=current.x + dx, y=current.y + dy)
 
 
-def traverse_positions(
-    calls: list[DeedCall],
-    start_point: Point | None = None,
-) -> tuple[list[Point], list[bool]]:
-    """Compute the traverse path and which calls it actually advanced through.
-
-    Args:
-        calls: List of DeedCall objects.
-        start_point: Starting point (default: origin).
-
-    Returns:
-        (vertices, positioned) where positioned[i] is True only when calls[i]
-        produced a vertex. Callers derive unpositioned courses from this outcome.
-    """
-    current = start_point if start_point is not None else Point(x=0, y=0)
-    points = [current]
-    positioned: list[bool] = []
-    for call in calls:
-        endpoint = _advance(call, current, parse_chord(call))
-        positioned.append(endpoint is not None)
-        if endpoint is not None:
-            current = endpoint
-            points.append(current)
-    return points, positioned
-
-
 @dataclass(frozen=True)
 class CourseAnalysis:
     """How verification treats one boundary call, decided in a single pass.
@@ -151,12 +121,9 @@ class CourseAnalysis:
     Attributes:
         index: Position of the call in the boundary (course numbers may repeat).
         call: The stated call, never modified.
-        chord_azimuth: Parsed chord bearing (None when absent or unparseable).
         bad_chord: A curve whose stated chord bearing cannot be parsed; never guessed.
-        no_endpoint: A bad-chord curve with no delta or arc: no determinable endpoint.
         chord_only: A curve stated by radius and chord without delta or arc.
         feasible_chord: False when a chord-only chord exceeds the diameter.
-        chord_positioned_delta: Sweep (deg) positioning a tangent-less curve by its chord.
         arc_undetermined: Positioned by a stated chord only (chord-only curve or
             spiral): the arc shape, area and perimeter are not determined.
         positioned: The traverse actually produced a vertex for this call.
@@ -165,25 +132,24 @@ class CourseAnalysis:
 
     index: int
     call: DeedCall
-    chord_azimuth: float | None
     bad_chord: bool
-    no_endpoint: bool
     chord_only: bool
     feasible_chord: bool
-    chord_positioned_delta: float | None
     arc_undetermined: bool
     positioned: bool
     determined_direction: bool
 
 
-def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnalysis]]:
+def analyze_courses(
+    calls: list[DeedCall], start_point: Point | None = None
+) -> tuple[list[Point], list[CourseAnalysis]]:
     """Traverse boundary calls as verification does and record each call's analysis.
 
     An unparseable chord bearing is never guessed and never replaced by a tangent or
     radial bearing: that curve is unpositioned (blocked), exactly as plotting treats
     it. The stated calls themselves are never modified.
     """
-    current = Point(x=0, y=0)
+    current = start_point if start_point is not None else Point(x=0, y=0)
     points = [current]
     records: list[CourseAnalysis] = []
     for index, call in enumerate(calls):
@@ -191,7 +157,6 @@ def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnal
         bad_chord = (
             is_curved_course(call) and call.chord_bearing is not None and chord_azimuth is None
         )
-        no_endpoint = bad_chord and call.delta_deg is None and call.arc_length_ft is None
         # A spiral is never a chord-only circular curve (minor/major arc ambiguity).
         chord_only = call.is_chord_only_curve() and not is_spiral(call)
         feasible_chord = not (chord_only and not chord_is_feasible(call))
@@ -203,12 +168,9 @@ def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnal
             CourseAnalysis(
                 index=index,
                 call=call,
-                chord_azimuth=chord_azimuth,
                 bad_chord=bad_chord,
-                no_endpoint=no_endpoint,
                 chord_only=chord_only,
                 feasible_chord=feasible_chord,
-                chord_positioned_delta=chord_delta(call, chord_azimuth),
                 arc_undetermined=chord_only or (endpoint is not None and is_spiral(call)),
                 positioned=endpoint is not None,
                 determined_direction=has_determined_direction(call),
@@ -217,7 +179,14 @@ def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnal
     return points, records
 
 
-def position_courses(calls: list[DeedCall]) -> tuple[list[Point], list[bool]]:
-    """Traverse boundary calls as verification does, returning (vertices, positioned)."""
-    points, records = analyze_courses(calls)
+def traverse_positions(
+    calls: list[DeedCall],
+    start_point: Point | None = None,
+) -> tuple[list[Point], list[bool]]:
+    """Compute the traverse path and which calls it actually advanced through.
+
+    Returns (vertices, positioned) where positioned[i] is True only when calls[i]
+    produced a vertex. Callers derive unpositioned courses from this outcome.
+    """
+    points, records = analyze_courses(calls, start_point)
     return points, [record.positioned for record in records]

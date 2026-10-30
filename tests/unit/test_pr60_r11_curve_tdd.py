@@ -152,7 +152,13 @@ def test_one_curve_element_tolerance_is_shared():
     ):
         helper = getattr(bearing_curves, name)
         assert getattr(package_checks, name) is helper
-        assert getattr(package_plot, name) is helper
+        # Plot keeps only the element tolerances; tangent/chord/radial checks are the
+        # shared check functions themselves.
+        if hasattr(package_plot, name):
+            assert getattr(package_plot, name) is helper
+    assert package_plot.tangent_chord_issue is package_checks.tangent_chord_issue
+    assert package_plot.radial_chord_issue is package_checks.radial_chord_issue
+    assert package_plot.radial_tangent_issue is package_checks.radial_tangent_issue
 
 
 def _plots(call) -> bool:
