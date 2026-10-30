@@ -356,3 +356,11 @@ class TestChordDegreesNeverDelta:
             assert abs(c.bearing_azimuth_deg_from_north - expected) < 1e-9
             assert c.delta_deg is None
             assert "delta computed from arc length and radius" in (c.notes or "")
+
+
+def test_radial_bearing_clause_is_not_a_stated_tangent():
+    from mp_parse.calls import _without_radial_bearing
+
+    stripped = _without_radial_bearing("curve whose radius point bears S 10° W, radius 500 feet")
+    assert "S 10" not in stripped
+    assert "radius 500 feet" in stripped
