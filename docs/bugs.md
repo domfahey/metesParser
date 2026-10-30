@@ -927,6 +927,13 @@ Five findings, fixed red-green on `fix/code-review-2026-10-29`:
 - **One verification implementation:** the monolith `ClosureChecker` is a facade over `mp_verify.verify_closure` (1304 → 329 lines); behaviour change: the monolith now also adds curve-consistency issues to `warnings`, as the package does (`e6772db`).
 - **Per-call analysis:** a frozen `CourseAnalysis` record per course replaces parallel index lists; each chord bearing is parsed once (`aa1d0cb`).
 
+### PR #60 sixteenth review (2026-10-30)
+Four findings, fixed red-green on `fix/code-review-2026-10-29`:
+- **Chord orders:** the chord grammar accepts a length before the bearing ("a chord of 51.76 feet bearing …"), no verb before a quadrant ("chord N 45° E 51.76 feet"), "on a bearing of", "long chord", "subtended by a chord of …" (`5beb2bb`). Limitation: "chord of X feet and a chord bearing of …" keeps the bearing but not the leading length.
+- **"non tangent":** tangent statements and `non_tangent` accept non-tangent with space, hyphen, dashes or no separator (`5beb2bb`).
+- **Spirals:** `is_circular_curve` keeps spirals out of circular chord positioning, circular area segments, tangents and topology; a spiral is positioned only by a stated chord bearing and length, with area/perimeter not determined (`ed65dc3`).
+- **Chord feasibility:** one `chord_is_feasible` helper (2·|R|) for checks, traverse and plot (`ed65dc3`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
