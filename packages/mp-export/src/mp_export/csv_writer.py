@@ -1,7 +1,8 @@
 """CSV export for deed calls.
 
-Exports structured calls to the standard 21-field CSV schema.
-Reads CSV files back into DeedCall objects.
+Exports structured calls to the standard 22-field CSV schema.
+Reads CSV files back into DeedCall objects, including legacy 21-field files
+(written before ``curve_type`` was appended; it then reads back as None).
 """
 
 from __future__ import annotations
@@ -57,7 +58,17 @@ FIELDNAMES: list[str] = [
     "non_tangent",
     "radial_bearing",
     "notes",
+    # Appended last so the historical 21-column order is unchanged.
+    "curve_type",
 ]
+
+# Header of CSVs written before ``curve_type`` was exported; still accepted on import.
+LEGACY_FIELDNAMES: list[str] = FIELDNAMES[:-1]
+
+
+def is_supported_csv_header(header: list[str] | None) -> bool:
+    """Return True for the current exact header or the legacy 21-field header."""
+    return header in (FIELDNAMES, LEGACY_FIELDNAMES)
 
 
 class _CSVDeedCallRow(_Model):
@@ -67,7 +78,8 @@ class _CSVDeedCallRow(_Model):
     direction_text: str
     bearing_quadrant: str | None = None
     bearing_azimuth_deg_from_north: float | None = None
-    distance_ft: float
+    # Blank only where DeedCall allows it (a spiral with no stated length).
+    distance_ft: float | None = None
     curve_dir: str | None = None
     radius_ft: float | None = None
     delta_deg: float | None = None
@@ -84,6 +96,7 @@ class _CSVDeedCallRow(_Model):
     non_tangent: bool = False
     radial_bearing: str | None = None
     notes: str | None = None
+    curve_type: str | None = None
 
     @field_validator("is_exception", "is_meander", "is_tie_in", "non_tangent", mode="before")
     @classmethod
@@ -123,6 +136,7 @@ def _call_to_row(call: DeedCall) -> dict[str, str]:
         "non_tangent": "true" if call.non_tangent else "false",
         "radial_bearing": call.radial_bearing or "",
         "notes": call.notes or "",
+        "curve_type": call.curve_type or "",
     }
 
 
@@ -216,52 +230,85 @@ def calls_to_csv(
     _cleanup_stale_sidecars(output_file, metadata_written=bool(metadata))
 
 
+_ROW_ERRORS = (KeyError, TypeError, ValueError, ValidationError)
+
+
+def _validate_row(row: dict[str, str | None]) -> DeedCall:
+    """Convert a CSV row to a strict DeedCall, raising when the row is invalid."""
+    normalized_row = {k: (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
+    normalized_row = {k: (None if v == "" else v) for k, v in normalized_row.items()}
+
+    csv_row = _CSVDeedCallRow.model_validate(normalized_row)
+    normalized_payload = csv_row.model_dump()
+    normalized_payload["is_exception"] = bool(csv_row.is_exception)
+    normalized_payload["is_meander"] = bool(csv_row.is_meander)
+    normalized_payload["is_tie_in"] = bool(csv_row.is_tie_in)
+    normalized_payload["non_tangent"] = bool(csv_row.non_tangent)
+    return DeedCall.model_validate(normalized_payload, strict=True)
+
+
 def _row_to_call(row: dict[str, str | None], row_number: int | None = None) -> DeedCall | None:
     """Convert a CSV row to a DeedCall object.
 
     Returns None if the row fails validation.
     """
     try:
-        normalized_row = {k: (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
-        normalized_row = {k: (None if v == "" else v) for k, v in normalized_row.items()}
-
-        csv_row = _CSVDeedCallRow.model_validate(normalized_row)
-        normalized_payload = csv_row.model_dump()
-        normalized_payload["is_exception"] = bool(csv_row.is_exception)
-        normalized_payload["is_meander"] = bool(csv_row.is_meander)
-        normalized_payload["is_tie_in"] = bool(csv_row.is_tie_in)
-        normalized_payload["non_tangent"] = bool(csv_row.non_tangent)
-        return DeedCall.model_validate(normalized_payload, strict=True)
-
-    except (KeyError, TypeError, ValueError, ValidationError) as e:
+        return _validate_row(row)
+    except _ROW_ERRORS as e:
         row_label = row_number if row_number is not None else "unknown"
-        logger.warning("Skipping invalid CSV row", row=row_label, error=str(e))
+        logger.warning("Invalid CSV row", row=row_label, error=str(e))
         return None
 
 
-def csv_to_calls(input_path: str, *, strict: bool = True) -> list[DeedCall]:
+def csv_to_calls(
+    input_path: str,
+    *,
+    strict: bool = True,
+    rejected_rows: list[tuple[int, str]] | None = None,
+) -> list[DeedCall]:
     """Load calls from a CSV file.
 
     Args:
         input_path: Input CSV file path.
-        strict: Reject invalid rows; False explicitly permits partial recovery.
+        strict: Reject invalid rows; False permits partial recovery only when
+            ``rejected_rows`` is supplied to record each rejected row.
+        rejected_rows: Receives ``(row_number, error)`` for each rejected row.
 
     Returns:
         List of DeedCall objects.
     """
     with open(input_path) as f:
-        return csv_text_to_calls(f.read(), strict=strict)
+        return csv_text_to_calls(f.read(), strict=strict, rejected_rows=rejected_rows)
 
 
-def csv_text_to_calls(text: str, *, strict: bool = True) -> list[DeedCall]:
-    """Decode retained CSV text without requiring or reopening its original file."""
+def csv_text_to_calls(
+    text: str,
+    *,
+    strict: bool = True,
+    rejected_rows: list[tuple[int, str]] | None = None,
+) -> list[DeedCall]:
+    """Decode retained CSV text without requiring or reopening its original file.
+
+    A rejected row is never dropped silently: strict import raises, and non-strict
+    import records it in ``rejected_rows`` (raising when no list is supplied), since
+    omitting a course would join its neighbours into a different boundary.
+    """
     calls: list[DeedCall] = []
     for row_number, row in enumerate(csv.DictReader(io.StringIO(text)), start=2):
-        call = _row_to_call(row, row_number=row_number)
-        if call:
-            calls.append(call)
-        elif strict:
-            raise ValueError(f"Cannot import complete parcel: invalid CSV row {row_number}")
+        try:
+            calls.append(_validate_row(row))
+        except _ROW_ERRORS as e:
+            logger.warning("Invalid CSV row", row=row_number, error=str(e))
+            if strict:
+                raise ValueError(
+                    f"Cannot import complete parcel: invalid CSV row {row_number}"
+                ) from e
+            if rejected_rows is None:
+                raise ValueError(
+                    f"Cannot import parcel: invalid CSV row {row_number}; non-strict import "
+                    "requires rejected_rows to record each rejected course"
+                ) from e
+            rejected_rows.append((row_number, str(e)))
 
     return calls
 
