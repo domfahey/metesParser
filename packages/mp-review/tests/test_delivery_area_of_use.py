@@ -21,7 +21,7 @@ exec(
 )  # noqa: S102
 
 
-def test_delivery_passes_delivered_extent_to_projection(tmp_path, monkeypatch):
+def test_delivery_passes_deed_extent_to_projection(tmp_path, monkeypatch):
     import mp_review.webmap_projection as module
 
     seen = {}
@@ -35,8 +35,10 @@ def test_delivery_passes_delivered_extent_to_projection(tmp_path, monkeypatch):
     bundle, revision, request = _module._placed_case(tmp_path)
     publish_delivery(bundle, revision, request, tmp_path / "deliveries")
     minx, miny, maxx, maxy = seen["extent"]
-    assert minx <= 990 and miny <= 1990 and maxx >= 1050 and maxy >= 2040
-    assert maxx - minx < 1000 and maxy - miny < 1000
+    # Deed courses alone choose the operation, like prepare_web_map; the context
+    # layer (990..1050, 1990..2040) is checked against it individually.
+    assert minx <= 1000 <= maxx and miny <= 2000 <= maxy
+    assert minx > 990 and maxy < 2040
 
 
 def test_geojson_outside_operation_area_of_use_fails_closed(tmp_path):

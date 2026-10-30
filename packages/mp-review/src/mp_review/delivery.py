@@ -5,10 +5,10 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import importlib.metadata
-import math
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mp_models.dashboard import DashboardBundle
 from mp_models.delivery import (
@@ -28,6 +28,9 @@ from mp_verify.scene import validate_scene
 
 from .dashboard import _load
 from .revisions import _write_once, load_revision
+
+if TYPE_CHECKING:
+    from .webmap_projection import WebMapProjection
 
 
 def _recorded_plots(bundle: DashboardBundle) -> dict[str, Any]:
@@ -449,6 +452,15 @@ def prepare_delivery(
             items.append(DeliveryItem(selection=selection))
     if not any(item.primitives or item.vector or item.raster for item in items):
         raise ValueError("Delivery has no selected representable content")
+    if "geojson" in request.formats and not legacy:
+        assert scene is not None
+        # Like the web map: deed geometry selects the operation; each context or
+        # derived layer it does not cover is omitted, or blocks when required.
+        for layer_id, reason in _geojson_area(items, scene)[1].items():
+            selection = next(i.selection for i in items if i.selection.id == layer_id)
+            if selection.required or request.required_appearance:
+                raise ValueError(f"{layer_id}: {reason}")
+            omissions.append(DeliveryOmission(format="geojson", layer_id=layer_id, reason=reason))
     references = []
     for item in items:
         if item.plot:
@@ -527,46 +539,53 @@ def _orient_rfc7946(geometry: dict[str, Any]) -> None:
                 rings[index] = ring[::-1]
 
 
-def _delivery_extent(
-    snapshot: DeliverySnapshot, scene: PlotScene
-) -> tuple[float, float, float, float] | None:
-    """Scene-XY bounds of the visible geometry GeoJSON will carry (operation selection only)."""
-    from mp_verify.plot import transform_point
+# Fixed reason text: the frozen snapshot records it and GeoJSON rendering re-derives it.
+_OUTSIDE_AREA = (
+    "Outside the deed-selected coordinate operation's area of use; omitted from GeoJSON "
+    "and retained in scene-coordinate formats and the snapshot"
+)
 
-    from .webmap import _primitive_point
 
-    points: list[tuple[float, float]] = []
-    for item in snapshot.items:
+def _geojson_area(
+    items: Iterable[DeliveryItem], scene: PlotScene
+) -> tuple[WebMapProjection, dict[str, str]]:
+    """Select the GeoJSON operation like the web map and classify context by area of use.
+
+    Deed calculations choose the operation (shared ``operation_extent``). Context
+    vectors and derived corridor/PLSS sources are checked individually against it;
+    returns the projection and ``{layer_id: reason}`` for layers it does not cover.
+    """
+    from .webmap import bounds_of, operation_extent, placed_points, require_area, vector_extent
+    from .webmap_projection import WebMapUnavailable, build_web_map_projection
+
+    primary: list[XY] = []
+    context: list[tuple[str, tuple[float, float, float, float] | None]] = []
+    for item in items:
         if not item.selection.visible:
             continue
         if item.plot and item.placement:
-            for primitive in item.plot.geometry.primitives:
-                for t in (0, 0.25, 0.5, 0.75, 1):
-                    points.append(
-                        transform_point(
-                            _primitive_point(primitive, t),
-                            item.placement,
-                            native_units=item.plot.request.foot_definition,
-                            scene_units=scene.units,
-                        )
-                    )
+            points = placed_points(
+                item.plot.geometry.primitives,
+                item.placement,
+                item.plot.request.foot_definition,
+                scene.units,
+            )
+            if item.selection.kind == "calculation":
+                primary.extend(points)
+            else:
+                context.append((item.selection.id, bounds_of(points)))
         elif item.vector:
-            layer = item.vector
-            polygons: Any = (
-                (layer.coordinates,) if layer.geometry_type == "Polygon" else layer.coordinates
-            )
-            points.extend(
-                (float(p[0]), float(p[1])) for polygon in polygons for ring in polygon for p in ring
-            )
-    finite = [p for p in points if all(math.isfinite(v) for v in p)]
-    if not finite:
-        return None
-    return (
-        min(p[0] for p in finite),
-        min(p[1] for p in finite),
-        max(p[0] for p in finite),
-        max(p[1] for p in finite),
+            context.append((item.selection.id, vector_extent(item.vector)))
+    projection = build_web_map_projection(
+        scene, extent=operation_extent(primary, (extent for _, extent in context))
     )
+    outside: dict[str, str] = {}
+    for layer_id, extent in context:
+        try:
+            require_area(projection, extent)
+        except WebMapUnavailable:
+            outside[layer_id] = _OUTSIDE_AREA
+    return projection, outside
 
 
 def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, Any]:
@@ -579,16 +598,24 @@ def _geojson(bundle: DashboardBundle, snapshot: DeliverySnapshot) -> dict[str, A
     scene = next(
         s for s in (*bundle.scenes, *snapshot.request.scenes) if s.id == snapshot.request.scene_id
     )
-    # delivery-1 packages were published without an area-of-use check; replay them as such.
-    extent = (
-        None if snapshot.exporter_version == "delivery-1" else _delivery_extent(snapshot, scene)
-    )
-    projection = build_web_map_projection(scene, extent=extent)
+    if snapshot.exporter_version == "delivery-1":
+        # delivery-1 packages were published without an area-of-use check; replay them as such.
+        outside: dict[str, str] = {}
+        projection = build_web_map_projection(scene)
+    else:
+        projection, outside = _geojson_area(snapshot.items, scene)
+        recorded = {
+            o.layer_id: o.reason
+            for o in snapshot.omissions
+            if o.format == "geojson" and o.reason == _OUTSIDE_AREA
+        }
+        if recorded != outside:
+            raise ValueError("GeoJSON area-of-use omissions differ from the frozen snapshot")
     options = WebMapOptions(tolerance_m=snapshot.request.geo_tolerance_m)
     budget = _Budget(options.max_vertices)
     features = []
     for item in snapshot.items:
-        if not item.selection.visible:
+        if not item.selection.visible or item.selection.id in outside:
             continue
         values: list[Any] = []
         if item.selection.kind in {"corridor", "plss_reference"}:
