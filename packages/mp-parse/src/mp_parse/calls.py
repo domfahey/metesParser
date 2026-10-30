@@ -18,6 +18,7 @@ from mp_bearing import (
     QUADRANT_PATTERN,
     bearing_to_azimuth,
     calculate_curve_properties,
+    cardinal_conflicts_bearing,
     degree_of_curvature_to_radius,
     due_cardinal_to_azimuth,
     parse_packed_dms,
@@ -70,42 +71,6 @@ _CARDINAL_ONLY_PATTERN = re.compile(
     r"(north|south|east|west|northeast|northwest|southeast|southwest|NE|NW|SE|SW)(?:erly|wardly)?",
     re.IGNORECASE,
 )
-
-# A cardinal-only word in a curve course describes the overall direction of travel,
-# i.e. the chord. Sector rule: northeast/southeast/southwest/northwest accept chord
-# azimuths within 45 degrees of their centre (the quadrant, edges inclusive);
-# north/east/south/west accept within 67.5 degrees of theirs.
-_CARDINAL_CENTRES = {
-    "north": (0.0, 67.5),
-    "northeast": (45.0, 45.0),
-    "east": (90.0, 67.5),
-    "southeast": (135.0, 45.0),
-    "south": (180.0, 67.5),
-    "southwest": (225.0, 45.0),
-    "west": (270.0, 67.5),
-    "northwest": (315.0, 45.0),
-}
-_CARDINAL_ABBREVIATIONS = {
-    "ne": "northeast",
-    "nw": "northwest",
-    "se": "southeast",
-    "sw": "southwest",
-}
-
-
-def _cardinal_conflicts_chord(cardinal_text: str, chord_text: str | None) -> bool:
-    """True when a cardinal-only word lies outside its sector around the chord azimuth."""
-    if not chord_text:
-        return False
-    word = re.sub(r"(?:erly|wardly)$", "", cardinal_text.strip().lower())
-    word = _CARDINAL_ABBREVIATIONS.get(word, word)
-    chord_az = bearing_to_azimuth(chord_text)
-    if word not in _CARDINAL_CENTRES or chord_az is None:
-        return False
-    centre, half_width = _CARDINAL_CENTRES[word]
-    diff = abs((float(chord_az) - centre + 180.0) % 360.0 - 180.0)
-    return diff > half_width + 1e-9
-
 
 PACKED_DMS_PATTERN = re.compile(
     r"(N|S)\s+(\d{1,3}\.\d+)\u00b0\s*(E|W)",
@@ -1679,23 +1644,22 @@ def _extract_call(
     # Fixed by stated chord bearing, direction and delta/arc (not stored as a tangent).
     chord_positioned = False
     # A cardinal-only direction word that conflicts with the stated chord bearing.
+    chord_azimuth = bearing_to_azimuth(chord_text) if isinstance(chord_text, str) else None
     direction_conflicts_chord = bool(
-        isinstance(chord_text, str)
+        chord_azimuth is not None
         and raw_direction
         and not parsed_bearing
         and not is_due_cardinal
         and _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip())
-        and _cardinal_conflicts_chord(raw_direction, chord_text)
+        and cardinal_conflicts_bearing(raw_direction, chord_azimuth)
     )
-    cardinal_conflict = False
     if (
         chord_only
         and isinstance(chord_text, str)
         and curve_info.get("direction") in ("left", "right")
         and tangent_delta is not None
     ):
-        cardinal_conflict = direction_conflicts_chord
-        chord_positioned = bearing_to_azimuth(chord_text) is not None and not cardinal_conflict
+        chord_positioned = chord_azimuth is not None and not direction_conflicts_chord
 
     has_abbreviated_cardinal = bool(
         re.match(r"^\s*(?:N|S|E|W|NE|NW|SE|SW)\b", call_text, re.IGNORECASE)
@@ -1794,7 +1758,7 @@ def _extract_call(
         tangent_notes.append("curve delta/arc not stated - positioned by chord only")
     if is_spiral and positioned_by_chord and not isinstance(stated_radius, float):
         tangent_notes.append("spiral positioned by stated chord; radius not stated")
-    if cardinal_conflict and raw_direction:
+    if direction_conflicts_chord and raw_direction:
         tangent_notes.append(
             f"stated direction ({raw_direction.strip().lower()}) conflicts with "
             f"chord bearing {chord_text}"
@@ -1888,8 +1852,7 @@ def _extract_call(
     chord_states_direction = (
         positioned_by_chord
         and not chord_exceeds_diameter
-        and isinstance(chord_text, str)
-        and bearing_to_azimuth(chord_text) is not None
+        and chord_azimuth is not None
         and not direction_conflicts_chord
     )
     chord_only_unresolved = chord_only and not chord_positioned and not chord_states_direction
@@ -2145,7 +2108,10 @@ def _audit_single_call(
         cardinal_only
         and not tangent_not_stated
         and call.bearing_azimuth_deg_from_north is None
-        and _cardinal_conflicts_chord(raw_direction, call.chord_bearing)
+        and cardinal_conflicts_bearing(
+            raw_direction,
+            bearing_to_azimuth(call.chord_bearing) if call.chord_bearing else None,
+        )
     ):
         flags.append("cardinal_chord_conflict")
 

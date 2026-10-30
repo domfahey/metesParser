@@ -547,7 +547,8 @@ def verify_closure(
             f"(courses {course_nums}) may affect closure accuracy"
         )
 
-    indefinite_calls = [c for c in main_calls if c.is_indefinite]
+    indefinite_ids = {id(r.call) for r in records if r.indefinite}
+    indefinite_calls = [c for c in main_calls if id(c) in indefinite_ids or c.is_indefinite]
     if indefinite_calls:
         course_nums = ", ".join(str(c.course) for c in indefinite_calls)
         warnings.append(

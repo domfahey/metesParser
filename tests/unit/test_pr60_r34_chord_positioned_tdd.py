@@ -66,7 +66,9 @@ def test_conflicting_course_is_not_chord_positioned():
 def test_confidence_does_not_count_conflicting_course_as_stated():
     call = _conflict_call()
     assert score_call_quality(call) == "low"
-    clear = call.model_copy(update={"is_indefinite": False, "notes": None})
+    clear = call.model_copy(
+        update={"direction_text": "southeasterly", "is_indefinite": False, "notes": None}
+    )
     result = verify_closure([call])
     assert calculate_confidence_score(result, [call]) < calculate_confidence_score(
         verify_closure([clear]), [clear]
