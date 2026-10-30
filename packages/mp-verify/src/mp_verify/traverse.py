@@ -16,7 +16,7 @@ from mp_bearing import (  # type: ignore[import-untyped]
 )
 from mp_models import DeedCall, Point
 
-from .tangents import curve_sweep, has_determined_direction
+from .tangents import chord_is_feasible, curve_sweep, has_determined_direction, is_circular_curve
 
 
 def _parse_chord(call: DeedCall) -> float | None:
@@ -29,11 +29,23 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
 
     ``chord_azimuth`` is the call's chord bearing, parsed once by the caller.
     """
+    if call.is_curve() and not is_circular_curve(call):
+        # A spiral's arc shape is unknown: only a stated chord bearing and length
+        # fix its endpoint exactly; otherwise it is unpositioned (never a circle).
+        if call.chord_length_ft is None or not chord_is_feasible(call):
+            return None
+        if call.chord_bearing is None:
+            return None
+        if chord_azimuth is None:
+            raise ValueError(f"Course {call.course}: invalid chord bearing")
+        dx, dy = calculate_deltas(chord_azimuth, call.chord_length_ft)
+        return Point(x=current.x + dx, y=current.y + dy)
+
     if call.is_chord_only_curve():
         # Radius + chord without delta/arc: the arc is ambiguous (minor or
         # major), but the stated chord fixes the endpoint displacement exactly.
         assert call.chord_length_ft is not None and call.radius_ft is not None
-        if call.chord_length_ft > 2.0 * abs(call.radius_ft):
+        if not chord_is_feasible(call):
             # No circle of this radius has such a chord; leave it unpositioned.
             return None
         if chord_azimuth is None:
@@ -117,6 +129,8 @@ class CourseAnalysis:
         chord_only: A curve stated by radius and chord without delta or arc.
         feasible_chord: False when a chord-only chord exceeds the diameter.
         chord_positioned_delta: Sweep (deg) positioning a tangent-less curve by its chord.
+        arc_undetermined: Positioned by a stated chord only (chord-only curve or
+            spiral): the arc shape, area and perimeter are not determined.
         positioned: The traverse actually produced a vertex for this call.
         determined_direction: The direction is stated or fixed by curve elements.
     """
@@ -129,6 +143,7 @@ class CourseAnalysis:
     chord_only: bool
     feasible_chord: bool
     chord_positioned_delta: float | None
+    arc_undetermined: bool
     positioned: bool
     determined_direction: bool
 
@@ -155,12 +170,7 @@ def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnal
                 update["bearing_azimuth_deg_from_north"] = None
             traversed = call.model_copy(update=update)
         chord_only = call.is_chord_only_curve()
-        feasible_chord = not (
-            chord_only
-            and call.chord_length_ft is not None
-            and call.radius_ft is not None
-            and call.chord_length_ft > 2.0 * abs(call.radius_ft)
-        )
+        feasible_chord = not (chord_only and not chord_is_feasible(call))
         endpoint = _advance(traversed, current, chord_azimuth)
         if endpoint is not None:
             current = endpoint
@@ -175,7 +185,13 @@ def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnal
                 chord_only=chord_only,
                 feasible_chord=feasible_chord,
                 # Same as tangents.chord_positioned_delta, without reparsing the chord.
-                chord_positioned_delta=curve_sweep(call) if chord_azimuth is not None else None,
+                chord_positioned_delta=(
+                    curve_sweep(call)
+                    if chord_azimuth is not None and is_circular_curve(call)
+                    else None
+                ),
+                arc_undetermined=chord_only
+                or (endpoint is not None and call.is_curve() and not is_circular_curve(call)),
                 positioned=endpoint is not None,
                 determined_direction=has_determined_direction(call),
             )

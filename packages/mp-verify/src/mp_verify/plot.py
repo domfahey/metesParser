@@ -34,6 +34,8 @@ from mp_models.plot import (
 )
 from mp_models.plot_request import PlotCall, PlotRequest, PreparedPlot
 
+from .tangents import chord_is_feasible
+
 if TYPE_CHECKING:
     from mp_models.dashboard import DashboardBundle, DashboardCalculation, DashboardResult
     from mp_models.deed_call import DeedCall
@@ -186,7 +188,7 @@ def _build_geometry(
             end: XY | None = None
             if chord is None:
                 reason = "curve chord orientation unresolved"
-            elif call.chord_length_ft > 2.0 * abs(call.radius_ft):
+            elif not chord_is_feasible(call):
                 # No circle of this radius has such a chord; never position by it.
                 reason = "curve chord length exceeds twice the radius"
             else:
