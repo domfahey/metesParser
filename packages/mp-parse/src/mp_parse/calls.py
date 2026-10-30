@@ -63,7 +63,14 @@ from .monuments import (
 )
 from .normalizer import normalize_legal_description, standardize_cardinal_directions
 from .numbers import COMMA_NUMBER, parse_comma_number
-from .units import LENGTH_NUMBER_GUARD, LENGTH_UNIT, UNIT_TOKEN, normalize_unit_token
+from .units import (
+    LENGTH_NUMBER,
+    LENGTH_UNIT,
+    UNIT_TOKEN,
+    VULGAR_FRACTIONS,
+    normalize_unit_token,
+    parse_number,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -94,7 +101,7 @@ CURVE_WORD = r"curv(?:e|ed|ing)"
 CURVE_KEYWORD_PATTERN = re.compile(rf"\b(?:{CURVE_WORD}|spiral|transition)\b", re.IGNORECASE)
 
 CURVE_PATTERN = re.compile(
-    rf"{CURVE_WORD}\s+to\s+the\s+(left|right).*?radius\s+of\s+({COMMA_NUMBER})\s*({LENGTH_UNIT})?.*?"
+    rf"{CURVE_WORD}\s+to\s+the\s+(left|right).*?radius\s+of\s+({LENGTH_NUMBER})\s*({LENGTH_UNIT})?.*?"
     rf"(?:delta\s+(?:angle\s+)?of\s+)?({COMMA_NUMBER})(?:\u00b0|\s+degrees?)(?:\s*({COMMA_NUMBER})(?:'|\s+minutes?))?(?:\s*({COMMA_NUMBER})(?:\"|\s+seconds?))?",
     re.IGNORECASE | re.DOTALL,
 )
@@ -193,7 +200,7 @@ def _boundary_course_text(call_text: str) -> str:
 # element ("radial", never stored). A number directly after a degree sign is a
 # bearing's minutes, never a length.
 _LENGTH_TOKEN = re.compile(
-    rf"(?<![\d.,\u00b0])(?<!\u00b0\s)({COMMA_NUMBER})\s*({LENGTH_UNIT})",
+    rf"({LENGTH_NUMBER})\s*({LENGTH_UNIT})",
     re.IGNORECASE,
 )
 # A unitless number directly after an explicit curve-element label is that element
@@ -201,7 +208,7 @@ _LENGTH_TOKEN = re.compile(
 _UNITLESS_LABELLED_LENGTH = re.compile(
     r"\b(?:(?P<arc>arc\s+(?:length|distance)|length\s+of\s+(?:(?:the|said)\s+)?arc)"
     r"|(?P<chord>chord\s+(?:length|distance))|(?P<radius>radius))"
-    rf"(?:\s+(?:of|is|equal\s+to))?\s*[:=]?\s*(?P<value>{COMMA_NUMBER})"
+    rf"(?:\s+(?:of|is|equal\s+to))?\s*[:=]?\s*(?P<value>{LENGTH_NUMBER})"
     rf"(?![\d\u00b0\u00ba]|[.,]\d|\s*(?:{LENGTH_UNIT}|[\u00b0\u00ba]|deg))",
     re.IGNORECASE,
 )
@@ -340,7 +347,7 @@ def _curve_lengths(call_text: str, distance_unit: str = "feet") -> tuple[str, li
             if role is None:
                 role = "radial" if token_start in element_starts else "course"
         unit = normalize_unit_token(unit_token, distance_unit)
-        feet = ConversionFactors.convert_to_feet(parse_comma_number(value), unit)
+        feet = ConversionFactors.convert_to_feet(parse_number(value), unit)
         lengths.append(_CurveLength(role, feet, unit, token_start, token_end))
         previous_end = token_end
     return text, lengths
@@ -409,7 +416,15 @@ def _is_initial_course_prefix(prefix: str) -> bool:
         return False
     if _CARDINAL_ONLY_PATTERN.fullmatch(direction):
         remainder = candidate.lstrip()[len(direction) :]
-        return bool(re.match(rf"\s+{COMMA_NUMBER}(?:\s|$)", remainder))
+        # A fraction opens a course only with its unit ("North 1/2 of Section 5" is
+        # an aliquot part, "Northerly 1/2 mile" a course).
+        return bool(
+            re.match(
+                rf"\s+(?:{COMMA_NUMBER}(?:\s|$)|{LENGTH_NUMBER}\s*{LENGTH_UNIT})",
+                remainder,
+                re.IGNORECASE,
+            )
+        )
     return bool(parse_quadrant_bearing(direction) or due_cardinal_to_azimuth(direction) is not None)
 
 
@@ -429,7 +444,7 @@ _SENTENCE_END = re.compile(r"\.(?=\s|$)|;")
 _BLOCK_LEAD = re.compile(r"(?:BEGINNING|COMMENCING|POB|POINT)", re.IGNORECASE)
 _BEGINNING_BLOCK = re.compile(r"\b(?:BEGINNING|COMMENCING)\s+(?:at|in|on|for|from)\b", re.I)
 _COURSE_DISTANCE = re.compile(
-    rf"{LENGTH_NUMBER_GUARD}\d[\d,.]*\s*{LENGTH_UNIT}",
+    rf"{LENGTH_NUMBER}\s*{LENGTH_UNIT}",
     re.IGNORECASE,
 )
 
@@ -978,7 +993,7 @@ _CHORD_BEARING_LEAD = (
 )
 _CHORD_PREFIX_PATTERN = re.compile(
     rf"\b{_CHORD_SUBJECT}(?:\s+(?:length|distance))?(?:\s*[:=]\s*|\s+)"
-    rf"(?:(?:of\s+)?(?P<chord_lead_len>{COMMA_NUMBER})\s*(?P<chord_lead_unit>{LENGTH_UNIT})\.?\s*,?\s*"
+    rf"(?:(?:of\s+)?(?P<chord_lead_len>{LENGTH_NUMBER})\s*(?P<chord_lead_unit>{LENGTH_UNIT})\.?\s*,?\s*"
     r"(?:and\s+)?(?:(?:an?|the)\s+)?)?"
     rf"(?:{_CLAUSE_LINK})?{_CHORD_BEARING_LEAD}",
     re.IGNORECASE,
@@ -1215,7 +1230,7 @@ _LEADING_ENUMERATOR = re.compile(r"^\s*(?:\((?:\d{1,3}|[A-Za-z])\)|\d{1,3}[.)])\
 # before normalization): a course length followed, with only whitespace between,
 # by the next course's bearing.
 _JUXTAPOSED_COURSE_BOUNDARY = re.compile(
-    rf"(?<=\d)(\s*{UNIT_TOKEN}\b\.?)\s+(?=(?:N|S|North|South)\.?\s*\d|due\s+(?:north|south|east|west)\b)",
+    rf"(?<=[\d{VULGAR_FRACTIONS}])(\s*{UNIT_TOKEN}\b\.?)\s+(?=(?:N|S|North|South)\.?\s*\d|due\s+(?:north|south|east|west)\b)",
     re.IGNORECASE,
 )
 
@@ -1563,7 +1578,7 @@ def _extract_call(
     distance, unit = length.value, length.unit
     if distance == 0:
         if re.search(
-            rf"{COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
+            rf"{LENGTH_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{LENGTH_NUMBER}\s+[A-Za-z]+",
             course_text,
             re.IGNORECASE,
         ):
@@ -2221,12 +2236,12 @@ def extract_distance_alternate(text: str) -> float:
     Returns:
         Distance value (0.0 if not found)
     """
-    feet_match = re.search(rf"({COMMA_NUMBER})\s*(?:feet|ft)\b", text, re.IGNORECASE)
+    feet_match = re.search(rf"({LENGTH_NUMBER})\s*(?:feet|ft)\b", text, re.IGNORECASE)
     if feet_match:
-        return parse_comma_number(feet_match.group(1))
+        return parse_number(feet_match.group(1))
 
     apostrophe_match = re.search(
-        r"(?<!\u00b0)(\d+(?:\.\d+)?)\s*'(?=(?:\s+(?:along|to)\b|[.,;)]|$))",
+        rf"(?<!\u00b0)({LENGTH_NUMBER})\s*'(?=(?:\s+(?:along|to)\b|[.,;)]|$))",
         text,
         re.IGNORECASE,
     )
@@ -2243,7 +2258,7 @@ def extract_distance_alternate(text: str) -> float:
             prefix,
         ):
             return 0.0
-        return float(apostrophe_match.group(1))
+        return parse_number(apostrophe_match.group(1))
 
     return 0.0
 
@@ -2260,10 +2275,10 @@ _BEARING_DEGREE_PREFIX = re.compile(
 _CHORD_LENGTH_AFTER_BEARING = re.compile(
     r"\s*,?\s*(?:(?:and|for)\s+)?(?:(?:a|the)\s+)?"
     r"(?:chord\s+(?:length|distance)\s+of\s+|distance\s+of\s+)?"
-    rf"({COMMA_NUMBER})\s*({LENGTH_UNIT})",
+    rf"({LENGTH_NUMBER})\s*({LENGTH_UNIT})",
     re.IGNORECASE,
 )
-_CHORD_LENGTH_IN_CLAUSE = re.compile(rf"({COMMA_NUMBER})\s*({LENGTH_UNIT})", re.IGNORECASE)
+_CHORD_LENGTH_IN_CLAUSE = re.compile(rf"({LENGTH_NUMBER})\s*({LENGTH_UNIT})", re.IGNORECASE)
 
 
 def _is_bearing_degree(text: str, start: int) -> bool:
@@ -2276,7 +2291,7 @@ def _is_bearing_degree(text: str, start: int) -> bool:
 # label ("a distance of"), or a bare length after a comma, is not the radius.
 _RADIAL_RADIUS_AFTER_BEARING = re.compile(
     r"(?:\s*,?\s*(?:(?:and|with)\s+)?(?:(?:a|the)\s+)?radius\s+(?:of\s+)?|\s*)"
-    rf"({COMMA_NUMBER})\s*({LENGTH_UNIT})",
+    rf"({LENGTH_NUMBER})\s*({LENGTH_UNIT})",
     re.IGNORECASE,
 )
 RADIUS_CONFLICT_NOTE = (
@@ -2293,7 +2308,7 @@ def _apply_radial_length(
     if not length:
         return
     radial_radius = ConversionFactors.convert_to_feet(
-        parse_comma_number(length.group(1)), normalize_unit_token(length.group(2))
+        parse_number(length.group(1)), normalize_unit_token(length.group(2))
     )
     stated = curve_info.get("radius_ft")
     if not isinstance(stated, float):
@@ -2329,7 +2344,7 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
         match = None
     if match:
         direction = match.group(1).lower()
-        radius_raw = parse_comma_number(match.group(2))
+        radius_raw = parse_number(match.group(2))
         radius_unit = normalize_unit_token(match.group(3), distance_unit)
         radius = ConversionFactors.convert_to_feet(radius_raw, radius_unit)
         delta_deg = parse_comma_number(match.group(4))
@@ -2352,10 +2367,10 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
             curve_info["direction"] = dir_match.group(1).lower()
 
         radius_match = re.search(
-            rf"radius\s+(?:of\s+)?({COMMA_NUMBER})\s*({LENGTH_UNIT})?", text, re.IGNORECASE
+            rf"radius\s+(?:of\s+)?({LENGTH_NUMBER})\s*({LENGTH_UNIT})?", text, re.IGNORECASE
         )
         if radius_match:
-            radius_raw = parse_comma_number(radius_match.group(1))
+            radius_raw = parse_number(radius_match.group(1))
             radius_unit = normalize_unit_token(radius_match.group(2), distance_unit)
             curve_info["radius_ft"] = ConversionFactors.convert_to_feet(radius_raw, radius_unit)
 
@@ -2403,12 +2418,12 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
             chord_length = _CHORD_LENGTH_IN_CLAUSE.search(chord_text, 0, chord_clause_end)
         if chord_match.group("chord_lead_len"):
             curve_info["chord_length_ft"] = ConversionFactors.convert_to_feet(
-                parse_comma_number(chord_match.group("chord_lead_len")),
+                parse_number(chord_match.group("chord_lead_len")),
                 normalize_unit_token(chord_match.group("chord_lead_unit")),
             )
         elif chord_length:
             curve_info["chord_length_ft"] = ConversionFactors.convert_to_feet(
-                parse_comma_number(chord_length.group(1)),
+                parse_number(chord_length.group(1)),
                 normalize_unit_token(chord_length.group(2)),
             )
 
