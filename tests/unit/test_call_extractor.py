@@ -271,18 +271,16 @@ class TestPOBPreambleFiltering:
         assert math.isclose(calls[0].distance_ft, 100.0, abs_tol=0.01)
 
     def test_bearingless_distance_only_rejected(self):
-        """A call with distance but no bearing and no curve data should return None."""
-        call = CallExtractor.extract_single_call("50 feet wide", course=1)
-
-        assert call is None
+        """A call with distance but no bearing and no curve data raises (never None)."""
+        with pytest.raises(ValueError, match="No usable course"):
+            CallExtractor.extract_single_call("50 feet wide", course=1)
 
     def test_bearingless_distance_with_context_rejected(self):
-        """Distance embedded in descriptive text without any direction should return None."""
-        call = CallExtractor.extract_single_call(
-            "in the line of Greenmount Road (50 feet wide)", course=1
-        )
-
-        assert call is None
+        """Distance embedded in descriptive text without any direction raises."""
+        with pytest.raises(ValueError, match="No usable course"):
+            CallExtractor.extract_single_call(
+                "in the line of Greenmount Road (50 feet wide)", course=1
+            )
 
     def test_cardinal_only_still_accepted(self):
         """Cardinal-only directions (e.g., 'southwesterly') should still produce calls."""
