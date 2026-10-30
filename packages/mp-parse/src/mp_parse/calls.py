@@ -357,6 +357,23 @@ def extract_calls(
     return all_calls, tract_objects
 
 
+_CHORD_PREFIX_PATTERN = re.compile(
+    r"(?:the\s+)?chord\s+(?:of\s+which\s+)?(?:bears|bearing)\s+", re.IGNORECASE
+)
+
+
+def _without_chord_bearing(text: str) -> str:
+    """Remove the chord-bearing clause (prefix and its bearing) from course text."""
+    match = _CHORD_PREFIX_PATTERN.search(text)
+    if not match:
+        return text
+    rest = text[match.end() :]
+    bearing = extract_direction(rest)
+    if bearing:
+        rest = rest.replace(bearing, " ", 1)
+    return text[: match.start()] + " " + rest
+
+
 def extract_single_call(
     call_text: str, course: int, distance_unit: str = "feet"
 ) -> DeedCall | None:
@@ -425,6 +442,15 @@ def extract_single_call(
     derived_tangent = False
     chord_text = curve_info.get("chord_bearing")
     curve_delta = curve_info.get("delta_deg")
+    if (
+        isinstance(chord_text, str)
+        and azimuth is not None
+        and not is_due_cardinal
+        and not extract_direction(_without_chord_bearing(course_text))
+    ):
+        # The only bearing stated is the chord's; it is not the tangent azimuth.
+        azimuth = None
+        bearing_quadrant = None
     if (
         azimuth is None
         and isinstance(chord_text, str)
