@@ -1163,6 +1163,15 @@ First round beyond the parser: all 129 sample tracts give identical misclosure, 
 - **Web map imports:** one `mp_verify.webmap` import block, no redundant re-export aliases (`feb57a0`).
 - **Known limitations:** on POSIX, `rename` replaces an empty directory created with the same id in the instant between the existence check and the rename; on Windows stale staging directories are ignored but not cleaned.
 
+### PR #60 forty-fifth review (2026-10-30)
+Six findings (no regressions against `main`; three were gaps in this PR's own fixes), fixed red-green on `fix/code-review-2026-10-29`:
+- **Revisions with chord-stated spirals:** an unrelated edit to a deed containing a chord-stated spiral was rejected as "incomplete or unsupported". `PlotUnresolved.positioned` (a derived, unserialized property, so `geometry_hash` and stored plot JSON are byte-identical) marks courses placed by their chord, and revision acceptance uses it (`23e47ef`, `07db92c`).
+- **Chord-only structured edits cross-checked:** a supplied tangent that contradicts the chord bearing, radius and chord length is rejected with the shared rounding-aware tangent/chord check (`23e47ef`).
+- **Skipped courses in the audit:** `audit.json` always records `skipped_courses`; replay treats an older audit without the key as empty (`23e47ef`, `07db92c`).
+- **Deeply nested JSON:** every CLI command returns the error envelope with exit 2 instead of a traceback with exit 1 (`ed96227`).
+- **Plot notice:** a partial plot caused only by chord-positioned courses names those courses instead of saying only the anchored prefix is plotted (`ed96227`, plus a follow-up using `PlotUnresolved.positioned`).
+- **Legacy EXIF-rotated rasters:** the offline map evidence and the dashboard omit them with the `raster_orientation` reason and message, matching `prepare_web_map`; delivery and compose still refuse them (`ed96227`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
