@@ -283,6 +283,20 @@ def expand_assessor_abbreviations(text: str) -> str:
     text = re.sub(r"\bWLY\b", "westerly", text, flags=re.IGNORECASE)
 
     # --- 7. POB variants → point of beginning ------------------------------
+    # T.P.O.B. / R.P.O.B. are whole tokens: never expand only their inner P.O.B.
+    for letter, word in (("T", "true"), ("R", "remote")):
+        text = re.sub(
+            rf"(?<![\w.]){letter}\.P\.O\.B\.(?=\s+(?!thence\b|then\b)(?-i:[A-Z\d(]))",
+            f"{word} point of beginning.",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            rf"(?<![\w.]){letter}\.P\.O\.B\.?(?!\w)",
+            f"{word} point of beginning",
+            text,
+            flags=re.IGNORECASE,
+        )
     # A closing "to the P.O.B." that starts a new sentence keeps its period, as "POB." does.
     text = re.sub(
         r"(\bto\s+(?:the\s+)?)P\.O\.B\.(?=\s+(?!thence\b|then\b)(?-i:[A-Z\d(]))",
