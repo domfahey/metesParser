@@ -25,3 +25,16 @@ def require_upright_raster(layer: RasterLayer) -> None:
     # RasterLayer validates sha256 against the decoded bytes, so it is a sound cache key.
     if _orientation_for(layer.sha256, layer.data_base64) not in (None, 1):
         raise ValueError(RASTER_ORIENTATION_MESSAGE)
+
+
+# Same code prepare_web_map reports when it omits such a legacy raster.
+RASTER_ORIENTATION_REASON = "raster_orientation"
+
+
+def raster_orientation_omission(layer: RasterLayer) -> str | None:
+    """Return the omission message for a legacy EXIF-rotated raster, else None."""
+    try:
+        require_upright_raster(layer)
+    except ValueError as exc:
+        return str(exc)
+    return None

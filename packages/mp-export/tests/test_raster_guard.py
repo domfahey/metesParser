@@ -72,3 +72,13 @@ def test_rotated_raster_is_refused_on_every_repeated_render():
         with pytest.raises(ValueError) as excinfo:
             require_upright_raster(layer)
         assert str(excinfo.value) == RASTER_ORIENTATION_MESSAGE
+
+
+def test_dashboard_raster_svg_omits_oriented_raster_with_reason():
+    from mp_export.dashboard_html import _raster_svg
+
+    svg = _raster_svg(_layer(6))
+    assert "raster_orientation" in svg
+    assert RASTER_ORIENTATION_MESSAGE in svg
+    assert "<image" not in svg
+    assert "<image" in _raster_svg(_layer(1))

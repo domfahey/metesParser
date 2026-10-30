@@ -153,12 +153,13 @@ def test_oriented_raster_model_still_loads_for_saved_artifacts():
     assert (layer.width, layer.height) == (10, 20)
 
 
-def test_dashboard_renderer_refuses_to_draw_oriented_raster():
+def test_dashboard_renderer_omits_oriented_raster_instead_of_drawing_it():
     from mp_export.dashboard_html import _raster_svg
-    from mp_models.raster import RasterLayer
+    from mp_models.raster import RASTER_ORIENTATION_MESSAGE, RasterLayer
 
-    with pytest.raises(ValueError, match="orientation"):
-        _raster_svg(RasterLayer.model_validate(_oriented_layer_payload()))
+    svg = _raster_svg(RasterLayer.model_validate(_oriented_layer_payload()))
+    assert "<image" not in svg
+    assert "raster_orientation" in svg and RASTER_ORIENTATION_MESSAGE in svg
 
 
 def test_oriented_saved_raster_is_reported_unsupported_when_validated_for_use():

@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import html
+from collections.abc import Iterable
 from pathlib import Path
 
-from mp_models.plot import XY, plot_point_of_beginning
+from mp_models.plot import XY, PlotUnresolved, plot_point_of_beginning
 from mp_models.plot_request import PreparedPlot
-from mp_verify.plot import validate_prepared_plot
+from mp_verify.plot import (
+    CHORD_ONLY_UNRESOLVED_REASON,
+    SPIRAL_CHORD_UNRESOLVED_REASON,
+    validate_prepared_plot,
+)
 
 from .plot_svg import fitted_viewbox, primitive_svg_path
 
@@ -20,6 +25,28 @@ def _escape(value: object) -> str:
 
 def _number(value: float | None) -> str:
     return "Unavailable" if value is None else f"{value:,.3f}"
+
+
+# Unresolved reasons for courses that are not drawn but still position the next course
+# (by their stated chord). Switch to a PlotUnresolved flag if one is added.
+_POSITIONED_REASONS = frozenset({CHORD_ONLY_UNRESOLVED_REASON, SPIRAL_CHORD_UNRESOLVED_REASON})
+
+
+def _partial_notice(unresolved: Iterable[PlotUnresolved]) -> str:
+    items = tuple(unresolved)
+    positioned = [item for item in items if item.reason in _POSITIONED_REASONS]
+    prefix = "Full-parcel closure and area unavailable: the boundary has unresolved calls."
+    names = ", ".join(_escape(item.call_id) for item in positioned)
+    if not items or len(positioned) < len(items):
+        extra = f" Not drawn but positioned by stated chord: {names}." if positioned else ""
+        return (
+            f'<p class="notice">{prefix} Only the supported anchored prefix is plotted.{extra}</p>'
+        )
+    return (
+        f'<p class="notice">{prefix} Courses not drawn: {names}. '
+        "Each is positioned by its stated chord, so later courses are plotted from that "
+        "chord endpoint; the curve or spiral itself is not drawn.</p>"
+    )
 
 
 def render_plot(prepared: PreparedPlot) -> str:
@@ -63,7 +90,7 @@ def render_plot(prepared: PreparedPlot) -> str:
             "This plot does not establish verification or source review.</p>"
         )
     else:
-        summary = '<p class="notice">Full-parcel closure and area unavailable: the boundary has unresolved calls. Only the supported anchored prefix is plotted.</p>'
+        summary = _partial_notice(geometry.unresolved)
     pob = ""
     origin = plot_point_of_beginning(geometry)
     if origin is not None:
