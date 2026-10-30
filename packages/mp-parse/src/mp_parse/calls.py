@@ -10,6 +10,8 @@ import hashlib
 import logging
 import math
 import re
+from bisect import bisect_left, bisect_right
+from difflib import SequenceMatcher
 from functools import lru_cache
 from typing import NamedTuple
 
@@ -637,7 +639,7 @@ def _extract_calls_from_text(
     skipped_courses: list[SkippedCourse] | None = None,
     tract_label: str | None = None,
     normalize: bool = True,
-    source_text: str | None = None,
+    source_text: str | _SourceMap | None = None,
 ) -> list[DeedCall]:
     """Extract all calls from normalized legal description text.
 
@@ -656,9 +658,10 @@ def _extract_calls_from_text(
         tract_label: Tract label recorded on skipped courses.
         normalize: Normalize ``text`` first; callers passing already-normalized
             text set False so normalization runs exactly once.
-        source_text: The text before normalization; record-call notes are restored
-            to its verbatim wording (``_restore_verbatim_records``). Defaults to
-            ``text`` when ``normalize`` is True.
+        source_text: The text before normalization (or its ``_SourceMap`` when
+            ``text`` is one tract of it); record-call notes are restored to its
+            verbatim wording (``_restore_verbatim_records``). Defaults to ``text``
+            when ``normalize`` is True.
 
     Returns:
         List of DeedCall objects
@@ -666,6 +669,13 @@ def _extract_calls_from_text(
     normalized = normalize_legal_description(text) if normalize else text
     if source_text is None and normalize:
         source_text = text
+    source_map = (
+        source_text
+        if isinstance(source_text, _SourceMap)
+        else _SourceMap(source_text, normalized)
+        if source_text
+        else None
+    )
 
     tracts = split_exception_clauses(normalized)
 
@@ -845,18 +855,79 @@ def _extract_calls_from_text(
             )
             course_num += 1
 
-    return _restore_verbatim_records(calls, source_text)
+    return _restore_verbatim_records(calls, normalized, source_map)
 
 
-def _restore_verbatim_records(calls: list[DeedCall], source_text: str | None) -> list[DeedCall]:
-    """Return ``calls`` with each noted record call in the wording of ``source_text``.
+_WORD_TOKEN = re.compile(r"[A-Za-z0-9]+|\S")
+# Beyond this many tokens a source alignment is not attempted; notes keep their
+# normalized wording.
+_MAX_ALIGNED_TOKENS = 40000
+
+
+class _SourceMap:
+    """The source text of a description, aligned token by token with its normalized text.
+
+    Normalization respaces and rewrites wording ("N 45° 10' E" -> "N 45°10' E"), so
+    a normalized span is carried back to the source by the tokens on either side of
+    it that normalization left alone, never by re-searching the source for its text.
+    """
+
+    def __init__(self, source: str, normalized: str) -> None:
+        self.source = source
+        self.normalized = normalized
+        self._source_tokens = list(_WORD_TOKEN.finditer(source))
+        self._tokens = list(_WORD_TOKEN.finditer(normalized))
+        self._starts = [token.start() for token in self._tokens]
+        self._ends = [token.end() for token in self._tokens]
+        self._to_source: dict[int, int] = {}
+        if max(len(self._tokens), len(self._source_tokens)) <= _MAX_ALIGNED_TOKENS:
+            matcher = SequenceMatcher(
+                None,
+                [token.group().lower() for token in self._tokens],
+                [token.group().lower() for token in self._source_tokens],
+                autojunk=False,
+            )
+            for block in matcher.get_matching_blocks():
+                for offset in range(block.size):
+                    self._to_source[block.a + offset] = block.b + offset
+        self._next_tract = 0
+
+    def locate_tract(self, tract_text: str) -> int | None:
+        """Return the offset of the next tract (in order) in the normalized text."""
+        found = self.normalized.find(tract_text, self._next_tract)
+        if found < 0:
+            return None
+        self._next_tract = found + max(len(tract_text), 1)
+        return found
+
+    def source_wording(self, start: int, end: int) -> str | None:
+        """Return the source wording of the normalized span, or None when not carried."""
+        first = bisect_left(self._starts, start)
+        last = bisect_right(self._ends, end) - 1
+        source_first = self._to_source.get(first)
+        source_last = self._to_source.get(last)
+        if first > last or source_first is None or source_last is None:
+            return None
+        if not 0 <= source_last - source_first <= 2 * (last - first) + 8:
+            return None
+        return self.source[
+            self._source_tokens[source_first].start() : self._source_tokens[source_last].end()
+        ]
+
+
+def _restore_verbatim_records(
+    calls: list[DeedCall], tract_text: str, source_map: _SourceMap | None
+) -> list[DeedCall]:
+    """Return ``calls`` with each noted record call in the wording of the source.
 
     Normalization respaces bearings ("N 45° 10' E" -> "N 45°10' E"); a record call's
-    wording is kept as the deed wrote it. The wording is located in ``source_text``
-    token by token, whitespace-insensitive and in order; one that is not found
-    (rewritten by normalization) keeps its normalized wording.
+    wording is kept as the deed wrote it. Each wording is searched, whole words only
+    and in order, in its own tract's normalized text and carried back to the source
+    through ``source_map``; one that cannot be carried (its edge tokens were rewritten
+    by normalization) keeps its normalized wording.
     """
-    if not source_text:
+    base = source_map.locate_tract(tract_text) if source_map else None
+    if source_map is None or base is None:
         return calls
     restored: list[DeedCall] = []
     position = 0
@@ -864,19 +935,21 @@ def _restore_verbatim_records(calls: list[DeedCall], source_text: str | None) ->
         noted = _noted_record_calls(call.notes)
         verbatim: list[str] = []
         for wording in noted:
-            tokens = re.findall(r"[A-Za-z0-9]+|\S", wording)
-            match = (
-                re.compile(r"\s*".join(re.escape(token) for token in tokens), re.IGNORECASE).search(
-                    source_text, position
-                )
-                if tokens
+            tokens = _WORD_TOKEN.findall(wording)
+            pattern = r"\s*".join(re.escape(token) for token in tokens)
+            if tokens and tokens[0][0].isalnum():
+                pattern = r"(?<![A-Za-z0-9])" + pattern
+            if tokens and tokens[-1][-1].isalnum():
+                pattern += r"(?![A-Za-z0-9])"
+            match = re.compile(pattern).search(tract_text, position) if tokens else None
+            source = (
+                source_map.source_wording(base + match.start(), base + match.end())
+                if match
                 else None
             )
             if match:
-                verbatim.append(match.group(0))
                 position = match.end()
-            else:
-                verbatim.append(wording)
+            verbatim.append(source if source is not None else wording)
         if verbatim != noted and call.notes:
             head = call.notes[: call.notes.index(RECORD_CALL_NOTE_PREFIX)]
             notes = head + "; ".join(RECORD_CALL_NOTE_PREFIX + text for text in verbatim)
@@ -921,6 +994,7 @@ def extract_calls(
 
     normalized = normalize_legal_description(text)
     segments = split_into_tracts(normalized)
+    source_map = _SourceMap(text, normalized)
 
     # Single-tract fast path: preserve backward-compatible behavior
     if len(segments) == 1 and segments[0][2] == TractType.MAIN:
@@ -932,7 +1006,7 @@ def extract_calls(
             strict=strict,
             skipped_courses=skipped_courses,
             normalize=False,
-            source_text=text,
+            source_text=source_map,
         )
         return flat_calls, []
 
@@ -952,7 +1026,7 @@ def extract_calls(
             skipped_courses=tract_skips if recordable else None,
             tract_label=label,
             normalize=False,
-            source_text=text,
+            source_text=source_map,
         )
         if skipped_courses is not None:
             skipped_courses.extend(tract_skips)
@@ -1741,12 +1815,22 @@ def _record_statements(text: str, limit: int) -> list[_RecordStatement]:
         before = text[max(0, start - _ROLE_WINDOW) : start]
         label = "plain"
         record_before = _RECORD_BEFORE.search(before)
+        if record_before and statements and record_before.group(0).lstrip()[:1] in ("(", "["):
+            # "N 45 W (R) N 45 10 W (M)", "N 45 W 100 feet (R) N 45 10 W (M)": a mark that
+            # ends the previous record statement labels it, not this bearing.
+            previous = statements[-1]
+            if (
+                previous.label == "record"
+                and text[: previous.end].rstrip().endswith((")", "]"))
+                and not text[previous.end : start].strip()
+            ):
+                record_before = None
         record_after = _record_label_after(text, end, next_bearing, mark_only=length is None)
         measured = _MEASURED_AFTER.match(text, end)
         record_mark = _RECORD_MARK_AFTER.match(text, bearing.end())
         if record_before:
             label, start = "record", start - (len(before) - record_before.start())
-        elif record_mark and record_after is None and length is not None:
+        elif record_mark and record_after is None:
             label, end = "record", record_mark.end()
         elif record_after is not None:
             label, end = "record", record_after
@@ -1813,7 +1897,16 @@ def _record_spans(
             continue
         rivals = [s for s in statements if s.kind == kind and s.label in ("plain", "measured")]
         if rivals or (kind == "course" and _states_own_direction(text, limit, records)):
-            spans.extend((s.start, s.end) for s in records)
+            # "N 45 E (R) 100.5 feet (M) N 46 E 100 feet": beside a rival with its
+            # own length, the length after the mark is the record's, not the course's.
+            rival_length = any(s.length for s in rivals)
+            spans.extend(
+                (
+                    s.start,
+                    s.length[1] if rival_length and s.length and s.length[0] >= s.end else s.end,
+                )
+                for s in records
+            )
         elif kind == "course" and measured_length:
             spans.extend((s.length[0], s.end) for s in records if s.length)
     course_length = measured_length or any(
