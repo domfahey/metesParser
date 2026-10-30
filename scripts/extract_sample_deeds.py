@@ -111,9 +111,12 @@ def create_extraction_report(legal_desc, closure_result, output_file):
         f.write("CLOSURE VERIFICATION\n")
         f.write("=" * 80 + "\n\n")
 
-        f.write(f"Misclosure (X):     {closure_result.misclosure_x_ft:10.4f} ft\n")
-        f.write(f"Misclosure (Y):     {closure_result.misclosure_y_ft:10.4f} ft\n")
-        f.write(f"Total Misclosure:   {closure_result.misclosure_ft:10.4f} ft\n")
+        if closure_result.misclosure_available:
+            f.write(f"Misclosure (X):     {closure_result.misclosure_x_ft:10.4f} ft\n")
+            f.write(f"Misclosure (Y):     {closure_result.misclosure_y_ft:10.4f} ft\n")
+            f.write(f"Total Misclosure:   {closure_result.misclosure_ft:10.4f} ft\n")
+        else:
+            f.write("Total Misclosure:   not determined\n")
         f.write(
             f"Closure Status:     {'✓ CLOSED' if closure_result.closure_passed else '✗ OPEN'}\n\n"
         )
@@ -211,7 +214,9 @@ def main():
                     "area_sq_ft": closure_result.area_sq_ft
                     if closure_result.area_available
                     else None,
-                    "misclosure_ft": closure_result.misclosure_ft,
+                    "misclosure_ft": closure_result.misclosure_ft
+                    if closure_result.misclosure_available
+                    else None,
                 }
             )
 
@@ -241,9 +246,12 @@ def main():
             area = (
                 f"{r['area_sq_ft']:.2f} sq ft" if r["area_sq_ft"] is not None else "not determined"
             )
-            print(
-                f"   Calls: {r['calls']}, Area: {area}, Misclosure: {r['misclosure_ft']:.4f} ft\n"
+            misclosure = (
+                f"{r['misclosure_ft']:.4f} ft"
+                if r["misclosure_ft"] is not None
+                else "not determined"
             )
+            print(f"   Calls: {r['calls']}, Area: {area}, Misclosure: {misclosure}\n")
 
     print(f"\nAll reports saved to: {OUTPUT_DIR}/")
     print("\nReview the *_extraction_report.txt files for detailed results.")
