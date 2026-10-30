@@ -1041,6 +1041,16 @@ Nine findings plus two follow-ups; fixed red-green on `fix/code-review-2026-10-2
 - **AGENTS.md:** 22 CSV fields; cardinal-only patterns live in mp_parse and the audit script, with monolith aliases (`778cef1`).
 - **Bearing minutes are not lengths:** the shared `LENGTH_UNIT` foot-mark branches refuse a mark followed by a compass direction ("N 45 30' E"), for calls, tracts and curve lengths (`f9b31c2`); tracts.py uses the shared units (`56998f7`).
 
+### PR #60 thirty-first review (2026-10-30)
+Four findings plus the round-30 length fix and merge follow-ups, fixed red-green on `fix/code-review-2026-10-29`:
+- **Straight-course lengths by role (round 30, finding 1):** `read_course_length` classifies every length on a straight course (ties, widths, parentheticals, stations, monument sizes are excluded; "in all"/"total" wins); two or more remaining lengths fail closed with "course length ambiguous" instead of taking the first (`16fff20`).
+- **Compound units:** descending runs such as "100 feet 6 inches" (100.5), "2 rods 3 feet" (36), "1 mile 20 feet" (5300) are summed; ascending or equivalent runs fail closed (`16fff20`).
+- **Dashboard:** courses with a determined direction (including tangentless curves positioned by chord and delta) reach the dashboard; local azimuths for curves come from `curve_tangents` (`e59b8be`).
+- **Dotted P.O.B. and word-form bearings:** "P.O.B.", "T.P.O.B.", "R.P.O.B." close the course region (the normalizer keeps T./R. as "true/remote point of beginning"); a foot-mark length followed by a worded bearing stays a length (`03af339`, `48decc6`).
+- **Single calls cut at the closing sentence:** `extract_single_call` drops a recital after the closing sentence, but a complete course there that is not a recital fails closed (`48decc6`, `6a4e577`).
+- **Ground-truth discrepancies found (not changed):** 75 Haddon Ave (4924-448, 10604-1433, 4924-452) ground truth records 15.83 ft for the last course, which is the distance to a stone passed on the way; the deed's "total distance of 336.25 feet" closes the parcel (misclosure 320.45 → 0.034 ft). 101-111 Kings Highway E (7683-1295) ground truth records 10 ft (an alley width) for courses 8 and 9, which the deed states as 148.10 and 12 feet.
+- **Known limitation:** distance-first courses ("100' N 45° E") are not parsed and fail closed.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
