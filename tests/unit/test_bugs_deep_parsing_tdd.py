@@ -143,8 +143,11 @@ def test_strict_default_rejects_unreadable_numbered_course(parse_calls):
 @pytest.mark.parametrize("parse_calls", APIS)
 def test_strict_false_allows_explicit_partial_recovery(parse_calls):
     text = "THENCE N 0° E 100 feet; THENCE N 12.5960° E 10 feet"
-    calls = parse_calls(text, strict=False)
+    skipped: list = []
+    calls = parse_calls(text, strict=False, skipped_courses=skipped)
     assert len(calls) == 1
     assert calls[0].course == 1
     assert calls[0].bearing_azimuth_deg_from_north == pytest.approx(0)
     assert calls[0].distance_ft == pytest.approx(100)
+    # The unparsed course is recorded, never silently dropped.
+    assert [(s.course, s.source_excerpt.strip()) for s in skipped] == [(2, "N 12.5960° E 10 feet")]
