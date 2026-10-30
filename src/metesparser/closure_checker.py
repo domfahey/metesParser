@@ -389,7 +389,9 @@ class ClosureChecker:
             )
 
         if exception_calls:
-            exception_incomplete = [c for c in exception_calls if not c.is_complete_bearing()]
+            exception_incomplete = [
+                c for c in exception_calls if not cls._has_determined_direction(c)
+            ]
             if exception_incomplete:
                 warnings.append(
                     f"Exception tract has {len(exception_incomplete)} incomplete bearing(s)"
@@ -703,11 +705,22 @@ class ClosureChecker:
         for call in calls:
             if call.is_tie_in:
                 continue
-            if call.bearing_azimuth_deg_from_north is None:
+            # Exception loops are positioned exactly like main traverses: a tangent-less
+            # curve fixed by chord bearing and sweep is determined, not incomplete.
+            if not cls._has_determined_direction(call):
                 raise ValueError(
                     f"Exception course {call.course} has an incomplete bearing; net area unavailable"
                 )
-            points.extend(cls.compute_traverse([call], start_point=points[-1])[1:])
+            if call.is_chord_only_curve():
+                raise ValueError(
+                    f"Exception course {call.course}: curve delta/arc not stated; net area unavailable"
+                )
+            vertices, positioned = cls.traverse_positions([call], start_point=points[-1])
+            if not all(positioned):
+                raise ValueError(
+                    f"Exception course {call.course} cannot be positioned; net area unavailable"
+                )
+            points.extend(vertices[1:])
             pending.append(call)
             misclosure = math.hypot(points[-1].x, points[-1].y)
             if misclosure < cls.CLOSURE_TOLERANCE_FT:
