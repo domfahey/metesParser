@@ -13,10 +13,13 @@ from .azimuth import (
     quadrant_to_azimuth,
 )
 from .curves import (
+    CURVE_ELEMENT_TOLERANCE_FT,
+    TANGENT_CHORD_TOLERANCE_DEG,
     calculate_chord_bearing,
     calculate_curve_properties,
     calculate_missing_curve_elements,
     compute_curve_endpoint,
+    tangent_chord_deflection,
 )
 from .deltas import calculate_deltas
 
@@ -24,7 +27,9 @@ __version__ = "1.0.0"
 
 __all__ = [
     "COMPASS_POINTS",
+    "CURVE_ELEMENT_TOLERANCE_FT",
     "QUADRANT_PATTERN",
+    "TANGENT_CHORD_TOLERANCE_DEG",
     "azimuth_to_quadrant",
     "bearing_to_azimuth",
     "calculate_chord_bearing",
@@ -38,4 +43,5 @@ __all__ = [
     "parse_packed_dms",
     "parse_quadrant_bearing",
     "quadrant_to_azimuth",
+    "tangent_chord_deflection",
 ]

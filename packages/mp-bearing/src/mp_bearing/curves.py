@@ -13,6 +13,28 @@ from mp_models import Point
 
 from .deltas import calculate_deltas
 
+# One agreement tolerance for redundant curve elements (stated arc vs R*delta,
+# stated chord vs 2R*sin(delta/2)), shared by parsing, verification and plotting
+# so a curve accepted by one stage is never rejected by another.
+CURVE_ELEMENT_TOLERANCE_FT = 0.01
+
+# Deeds state angles to whole arcseconds (+/-0.5" each for tangent, chord and
+# delta, i.e. up to ~1.25" combined); 1.5" absorbs that rounding while
+# arcminute-scale disagreement between tangent-to-chord deflection and half the
+# delta remains rejected.
+TANGENT_CHORD_TOLERANCE_DEG = 1.5 / 3600
+
+
+def tangent_chord_deflection(tangent_az: float, chord_az: float, curve_dir: str) -> float:
+    """Return the chord's deflection from the tangent, positive toward the curve.
+
+    The chord of a right curve turns clockwise from the tangent by half the
+    delta, and a left curve's counterclockwise. A zero or negative result means
+    the stated bearings put the chord on the wrong side of the tangent.
+    """
+    deflection = (chord_az - tangent_az + 180.0) % 360.0 - 180.0
+    return -deflection if curve_dir == "left" else deflection
+
 
 def calculate_curve_properties(
     radius_ft: float,

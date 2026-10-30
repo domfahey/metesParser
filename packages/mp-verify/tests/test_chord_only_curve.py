@@ -1,5 +1,7 @@
 """Radius + chord without a stated delta or arc: positioned by chord, never verified."""
 
+import math
+
 import pytest
 from mp_models import DeedCall
 from mp_models.plot_request import PlotCall, PlotRequest
@@ -50,7 +52,14 @@ def test_stated_tangent_does_not_replace_chord_positioning():
     assert points[1].y == pytest.approx(0.0, abs=1e-9)
 
 
-@pytest.mark.parametrize("azimuth", [None, 85.0], ids=["no-tangent", "stated-tangent"])
+# A tangent consistent with the 100 ft chord bearing due east on a 500 ft radius:
+# the chord deflects asin(100 / 1000) to the right of it.
+CONSISTENT_TANGENT = 90.0 - math.degrees(math.asin(0.1))
+
+
+@pytest.mark.parametrize(
+    "azimuth", [None, CONSISTENT_TANGENT], ids=["no-tangent", "stated-tangent"]
+)
 def test_chord_only_curve_blocks_curve_check_and_eligibility(azimuth):
     result = verify_closure(_square(_chord_curve(azimuth=azimuth)))
     assert result.misclosure_ft == pytest.approx(0.0, abs=1e-9)
