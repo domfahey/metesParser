@@ -266,11 +266,6 @@ def test_monolith_does_not_parse_pob_tie_as_a_course():
     assert [c.distance_ft for c in calls] == [138.0, 324.0, 138.0, 324.0]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="mp_parse.extract_calls normalizes twice; normalization is not idempotent "
-    "('and S 87...' becomes 'thence S 87...'), so the POB tie parses as course 1",
-)
 def test_package_extract_calls_does_not_parse_pob_tie_as_a_course():
     calls, _ = package_calls.extract_calls(POB_TIE)
     assert [c.distance_ft for c in calls] == [138.0, 324.0, 138.0, 324.0]
