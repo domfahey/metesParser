@@ -932,10 +932,18 @@ class TextParser:
             re.IGNORECASE,
         )
 
+        # A dashed, spaced or d/m bearing ("N 45-30-00 E", "N 45d30m E") is a
+        # quadrant bearing too: only DMS tokens separate the number from E/W.
+        _BEARING_TAIL = re.compile(
+            r"(?:\s*(?:[-\d.°'\"′″]+|(?:d(?:eg(?:rees?)?)?|m(?:in(?:utes?)?)?"
+            r"|s(?:ec(?:onds?)?)?)\.?(?![a-z])))*?\s*(?:E|W|East|West)\b",
+            re.IGNORECASE,
+        )
+
         def _bare_cardinal_replace(m: Match[str]) -> str:
             after_pos = m.end()
             after_text = m.string[after_pos : after_pos + 50]
-            if _DEGREE_AFTER_NUMBER.match(after_text):
+            if _DEGREE_AFTER_NUMBER.match(after_text) or _BEARING_TAIL.match(after_text):
                 return m.group(0)  # no change -- quadrant bearing
             prefix = m.group(1)
             cardinal = m.group(2)
