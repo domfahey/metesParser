@@ -28,7 +28,9 @@ from .tangents import (
     has_determined_direction,
     is_curved_course,
     is_spiral,
+    radial_tangent_in,
     stated_sweep,
+    stated_tangent,
 )
 from .topology import check_curved_boundary_intersections
 from .traverse import position_courses
@@ -118,8 +120,10 @@ def build_verification_checks(
         # Never predict positioning separately: run the traverse verification uses.
         positioned = position_courses(calls)[1]
     unpositioned = [call for call, ok in zip(calls, positioned, strict=True) if not ok]
+    # A non-tangent curve's course bearing is not its orientation (stated_tangent).
     closure_missing = not calls or any(
-        call.bearing_azimuth_deg_from_north is None
+        stated_tangent(call) is None
+        and radial_tangent_in(call) is None
         and (call.chord_bearing is None or bearing_to_azimuth(call.chord_bearing) is None)
         for call in unpositioned
     )
@@ -472,7 +476,7 @@ def _entry_azimuth(call: DeedCall) -> float | None:
         tangents = curve_tangents(call)
         if tangents is not None:
             return tangents[0]
-    return call.bearing_azimuth_deg_from_north
+    return stated_tangent(call)
 
 
 def _exit_azimuth(call: DeedCall) -> float | None:
