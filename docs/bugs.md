@@ -835,6 +835,15 @@ Fixed red-green on `fix/pr60-r6-curve` (package and monolith):
 - **Verbatim `direction_text`:** the parsed bearing is mapped back to the deed's own wording (`North 45 degrees 30 minutes East`, `N 45-30 E`), skipping chord/radial clause bearings; normalization is for parsing only. Due/compass words and unparsed bearings keep their prior text.
 - **Audit:** a tangent derived from the chord bearing and delta records a `derive_tangent_azimuth` step (chord bearing, delta and its source, result, rule).
 
+### PR #60 sixth review (2026-10-30)
+Ten findings, fixed red-green on `fix/code-review-2026-10-29`:
+- **Dashed bearings:** two-part `N 45-30 E` is degrees-minutes (45.5), not degrees-seconds; three-part stays DMS (`a6e5568`, package and monolith).
+- **Verbatim `direction_text`:** keeps the deed's own wording; normalization is used only for parsing (`a6e5568`).
+- **Radius + chord only (supersedes `0089f43`):** no delta, arc or tangent is derived (minor/major arc is ambiguous). The call is kept, positioned by its chord, `is_indefinite`, `curve_consistency` blocked, geometry never eligible; plots show it unresolved. Chord > 2R is kept and flagged, not dropped (`a6e5568`).
+- **Audit:** a derived tangent records a `derive_tangent_azimuth` step (`a6e5568`).
+- **Tract headings:** a parenthetical or comma after the ID is transparent (`PARCEL 2 (Tax ID 12-34)`, `TRACT 2, BEGINNING`); pre-marker `THENCE along/with/by …` courses are kept; dropped THENCE text is logged again (`ece4e74`).
+- **Cleanup:** raster orientation cache keyed by SHA-256 digest (`9e7cd11`); one projection factory for publish and replay; one closure-gap threshold/helper (`5ca770f`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
