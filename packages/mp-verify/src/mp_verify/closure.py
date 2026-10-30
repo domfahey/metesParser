@@ -55,7 +55,7 @@ from .tangents import (
     stated_sweep,
     stated_tangent,
 )
-from .traverse import analyze_courses, traverse_positions
+from .traverse import analyze_courses, chord_positioned_flags, traverse_positions
 
 logger = structlog.get_logger(__name__)
 
@@ -665,7 +665,14 @@ def verify_closure(
         precision_ratio=misclosure / perimeter if perimeter else None,
     )
 
-    confidence = calculate_confidence_score(closure_result, calls)
+    # Reuse the boundary analysis already done; only exception/tie-in calls need their own.
+    by_identity = {id(record.call): record.chord_positioned for record in records}
+    others = [c for c in calls if id(c) not in by_identity]
+    if others:
+        by_identity.update(zip(map(id, others), chord_positioned_flags(others), strict=True))
+    confidence = calculate_confidence_score(
+        closure_result, calls, [by_identity[id(c)] for c in calls]
+    )
     closure_result = closure_result.model_copy(update={"confidence_score": confidence})
 
     if audit_context is not None:
