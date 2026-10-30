@@ -188,3 +188,18 @@ def test_html_audit_reports_list_skipped_courses():
         page = render(ctx)
         assert "Skipped Courses" in page
         assert "N 12.5960° E 75.00 feet" in page
+
+
+@pytest.mark.parametrize("marker", ["thence:", "THENCE;", "thence,"])
+def test_punctuated_standalone_thence_is_a_marker_not_a_course(impl, marker):
+    _models, extract, verify = impl
+    text = (
+        f"BEGINNING at a point; {marker}\n\n1. due North 100.00 feet;\n2. due East 100.00 feet;\n"
+        "3. due South 100.00 feet;\n4. due West 100.00 feet to the point of beginning."
+    )
+    calls = extract(text)
+    assert [c.course for c in calls] == [1, 2, 3, 4]
+    skipped: list = []
+    assert [c.course for c in extract(text, strict=False, skipped_courses=skipped)] == [1, 2, 3, 4]
+    assert skipped == []
+    assert verify(calls).geometry_verified
