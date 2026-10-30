@@ -56,7 +56,7 @@ _POB_CLOSE_PATTERN = re.compile(
 # Words that make a following TRACT/PARCEL a reference to another parcel
 # ("corner of Parcel 2", "adjoining Tract 4"), even across an OCR line break.
 _REFERENCE_WORD_BEFORE = re.compile(
-    r"\b(?:of|to|said|adjoining|adjacent|along|from|with)\s*$", re.IGNORECASE
+    r"\b(?:of|to|said|adjoining|adjacent|along|from|with|in|within|being)\s*$", re.IGNORECASE
 )
 # Text after a marker that indicates it opens a description.
 _HEADING_CONTINUATION = re.compile(r"\s*(?:BEGINNING|COMMENCING|ALL\s+THAT)\b", re.IGNORECASE)
@@ -72,7 +72,10 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
     also covers headings merged into the preceding sentence). A marker with its
     own colon/dash ("Description of PARCEL 1: ...") is always a heading.
     """
-    if re.search(r"[:\-\u2014]", match.group(0)):
+    own_punct = match.group(0).strip()[-1:]
+    # A dash glued to the next alphanumeric is part of a hyphenated ID ("A-1").
+    hyphenated_id = own_punct == "-" and text[match.end() : match.end() + 1].isalnum()
+    if own_punct in (":", "-", "\u2014") and not hyphenated_id:
         return True
     prefix = text[: match.start()]
     if not prefix.strip():

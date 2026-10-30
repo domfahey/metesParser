@@ -335,3 +335,20 @@ class TestHeadingDetectionAfterColonAndMergedText:
             "THENCE W 100 ft to the POINT OF BEGINNING."
         )
         assert find_tract_markers(text) == []
+
+
+class TestReferencePrecedenceRound2:
+    """PR #60 round 2: reference words beat dash/newline heading heuristics."""
+
+    def test_hyphenated_id_after_reference_word_is_not_a_marker(self):
+        text = "PARCEL 1: BEGINNING at a corner of Parcel A-1, thence N 10 ft"
+        assert [m[1] for m in find_tract_markers(text)] == ["Parcel 1"]
+
+    @pytest.mark.parametrize("word", ["in", "within", "being"])
+    def test_in_within_being_references_are_not_markers(self, word):
+        text = f"TRACT 1: BEGINNING at a point {word} Tract 4567\nBEGINNING at a stake"
+        assert [m[1] for m in find_tract_markers(text)] == ["Tract 1"]
+
+    def test_reference_word_across_line_break(self):
+        text = "TRACT 1: BEGINNING at a point lying in\nTract 4567\nBEGINNING at a stake"
+        assert [m[1] for m in find_tract_markers(text)] == ["Tract 1"]
