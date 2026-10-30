@@ -51,6 +51,9 @@ class AuditReporter:
         if ctx.call_audits:
             parts.append(cls._build_calls_section(ctx))
 
+        if ctx.skipped_courses:
+            parts.append(cls._build_skipped_section(ctx))
+
         # --- Verification section ---
         if ctx.verification_audit is not None or ctx.tract_verification_audits:
             parts.append(cls._build_verification_section(ctx))
@@ -183,6 +186,25 @@ class AuditReporter:
 
         parts.append("</details>")
         parts.append("</div>")
+        return "\n".join(parts)
+
+    @classmethod
+    def _build_skipped_section(cls, ctx: AuditContext) -> str:
+        """List courses non-strict extraction could not parse (they block closure)."""
+        parts = [
+            "<div class='section'>",
+            "<h2>Skipped Courses</h2>",
+            "<p>These courses were not parsed; closure, area and perimeter are not determined.</p>",
+            "<table>",
+            "<tr><th>Course</th><th>Tract</th><th>Source Excerpt</th><th>Error</th></tr>",
+        ]
+        for skip in ctx.skipped_courses:
+            parts.append(
+                f"<tr><td>{skip.course}</td><td>{html.escape(skip.tract_label or '')}</td>"
+                f"<td>{html.escape(skip.source_excerpt)}</td>"
+                f"<td>{html.escape(skip.error_type)}: {html.escape(skip.error)}</td></tr>"
+            )
+        parts.extend(["</table>", "</div>"])
         return "\n".join(parts)
 
     @classmethod
