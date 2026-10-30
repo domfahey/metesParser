@@ -13,6 +13,8 @@ from mp_models.delivery import DeliveryPrimitive, DeliverySnapshot
 from mp_models.plot import XY
 from mp_verify.plot import unit_factor
 
+from .raster_guard import require_upright_raster
+
 
 def _presentation(snapshot: DeliverySnapshot, p: XY) -> XY:
     angle = math.radians(snapshot.request.presentation_rotation_deg)
@@ -188,6 +190,7 @@ def render_delivery_svg(snapshot: DeliverySnapshot) -> str:
         )
         if item.raster:
             r = item.raster
+            require_upright_raster(r)
             a = _presentation(snapshot, _raster_point(snapshot, r, (-0.5, -0.5)))
             b = _presentation(snapshot, _raster_point(snapshot, r, (0.5, -0.5)))
             c = _presentation(snapshot, _raster_point(snapshot, r, (-0.5, 0.5)))
@@ -271,6 +274,7 @@ def render_delivery_pdf(snapshot: DeliverySnapshot) -> bytes:
         canvas.setLineWidth(1 / scale)
         if item.raster:
             r = item.raster
+            require_upright_raster(r)
             a = _presentation(snapshot, _raster_point(snapshot, r, (-0.5, r.height - 0.5)))
             b = _presentation(snapshot, _raster_point(snapshot, r, (r.width - 0.5, r.height - 0.5)))
             c = _presentation(snapshot, _raster_point(snapshot, r, (-0.5, -0.5)))
