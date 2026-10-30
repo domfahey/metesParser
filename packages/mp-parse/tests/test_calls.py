@@ -331,3 +331,28 @@ class TestChordBearingNotTangent:
         c = extract_single_call(text, 1)
         assert c is not None
         assert c.bearing_azimuth_deg_from_north == 10.0
+
+
+class TestChordDegreesNeverDelta:
+    ARC_CHORD = (
+        "thence along a curve to the right having a radius of 100.00 feet, an arc length of "
+        "50.00 feet, the chord of which bears N 45°00'00\" E 49.00 feet{along} to a point"
+    )
+
+    def test_chord_bearing_degrees_are_not_delta(self) -> None:
+        from mp_parse.calls import extract_curve_info
+
+        assert extract_curve_info(self.ARC_CHORD.format(along="")).get("delta_deg") is None
+
+    def test_tangent_from_arc_radius_delta_with_along_text(self) -> None:
+        import math
+
+        from mp_parse.calls import extract_single_call
+
+        expected = 45.0 - math.degrees(0.5) / 2.0
+        for along in ("", " along the Northerly line of Pennbrook Drive"):
+            c = extract_single_call(self.ARC_CHORD.format(along=along), 1)
+            assert c is not None
+            assert abs(c.bearing_azimuth_deg_from_north - expected) < 1e-9
+            assert c.delta_deg is None
+            assert "delta computed from arc length and radius" in (c.notes or "")
