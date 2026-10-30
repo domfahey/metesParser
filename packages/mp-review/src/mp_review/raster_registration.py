@@ -135,7 +135,7 @@ def image_layer(
                 width, height = image.size
                 if width > 20000 or height > 20000 or width * height > 40_000_000:
                     raise ValueError("Raster dimensions exceed import limit")
-                if image.getexif().get(274, 1) != 1 or image_orientation(data) not in (None, 1):
+                if image_orientation(data) not in (None, 1):
                     raise ValueError(RASTER_ORIENTATION_MESSAGE)
                 image.load()
                 mime = {"PNG": "image/png", "JPEG": "image/jpeg", "WEBP": "image/webp"}[

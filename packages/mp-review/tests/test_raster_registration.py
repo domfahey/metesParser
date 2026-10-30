@@ -169,3 +169,61 @@ def test_oriented_saved_raster_is_reported_unsupported_when_validated_for_use():
     layer = RasterLayer.model_validate(_oriented_layer_payload())
     with pytest.raises(ValueError, match="orientation"):
         validate_raster_layer(layer, scene)
+
+
+def _import_scene():
+    return PlotScene(id="map", name="map", kind="projected", crs="EPSG:3857", units="m")
+
+
+@pytest.mark.parametrize("orientation", [0, 6])
+def test_import_rejects_orientation_the_render_guard_rejects(orientation):
+    from mp_export.raster_guard import require_upright_raster
+    from mp_models.raster import RasterLayer
+
+    with pytest.raises(ValueError, match="orientation"):
+        image_layer(
+            _oriented_image("JPEG", orientation),
+            scene=_import_scene(),
+            registration=fit_affine(controls()),
+            filename="s.jpg",
+        )
+    layer = RasterLayer.model_validate(_oriented_layer_payload(orientation))
+    with pytest.raises(ValueError, match="orientation"):
+        require_upright_raster(layer)
+
+
+def test_import_accepts_orientation_one_like_the_render_guard():
+    from mp_export.raster_guard import require_upright_raster
+    from mp_models.raster import RasterLayer
+
+    layer, _ = image_layer(
+        _oriented_image("JPEG", 1),
+        scene=_import_scene(),
+        registration=fit_affine(controls()),
+        filename="s.jpg",
+    )
+    require_upright_raster(RasterLayer.model_validate(layer.model_dump()))
+
+
+def test_import_orientation_comes_only_from_image_orientation(monkeypatch):
+    import mp_review.raster_registration as registration_module
+
+    # PIL reports Orientation=6 here; the shared reader says upright, so import must follow it.
+    monkeypatch.setattr(registration_module, "image_orientation", lambda data: None)
+    layer, _ = image_layer(
+        _oriented_image("JPEG", 6),
+        scene=_import_scene(),
+        registration=fit_affine(controls()),
+        filename="s.jpg",
+    )
+    assert (layer.width, layer.height) == (10, 20)
+
+    # Conversely, the shared reader's rotated verdict must reject even when PIL says upright.
+    monkeypatch.setattr(registration_module, "image_orientation", lambda data: 6)
+    with pytest.raises(ValueError, match="orientation"):
+        image_layer(
+            _oriented_image("JPEG", 1),
+            scene=_import_scene(),
+            registration=fit_affine(controls()),
+            filename="s.jpg",
+        )
