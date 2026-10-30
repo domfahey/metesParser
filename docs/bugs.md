@@ -1172,6 +1172,19 @@ Six findings (no regressions against `main`; three were gaps in this PR's own fi
 - **Plot notice:** a partial plot caused only by chord-positioned courses names those courses instead of saying only the anchored prefix is plotted (`ed96227`, plus a follow-up using `PlotUnresolved.positioned`).
 - **Legacy EXIF-rotated rasters:** the offline map evidence and the dashboard omit them with the `raster_orientation` reason and message, matching `prepare_web_map`; delivery and compose still refuse them (`ed96227`).
 
+### PR #60 forty-sixth review (2026-10-30)
+Ten findings (four regressions from recent rounds), fixed red-green on `fix/code-review-2026-10-29`:
+- **"ALSO an easement" then "ALSO all that lot" (regression):** strict extraction raised on a stray "Unlabelled tract"; the easement is now its own EASEMENT tract and the lot an Addition (8 boundary calls, as on `main`, which dropped the easement silently). Easement notes use the deed's own wording (`adc6027`).
+- **Strip-exception wording:** "SAVE/LESS AND EXCEPT", "EXCEPTING THEREFROM/AND RESERVING", "of said lot/premises", "of the above described premises" and purpose tails ("for road purposes", "conveyed to …") are recognised and noted whole. Any other EXCEPT clause after a closed description with no traverse is noted as not applied instead of becoming an invented course or a calls-less tract. 219 Berlin Rd (12941-00156) Tract 2 now flags its "Excepting thereout … conveyed to the State" exception, which was dropped silently (`adc6027`).
+- **Note splitting:** note prefixes live in `mp_models.deed_call`; `split_notes` splits only before a known prefix, so exception wording containing "; " stays whole in the verification warning (`adc6027`).
+- **Passing calls in brackets (regression):** "(passing a pin at 50 feet)" no longer truncates `along` to "the line of Smith (" or is noted twice; it is noted once as a passing call (`5539674`).
+- **Record calls never in `along`:** `along` is built with the record scan's spans removed, so the result is the same whatever the word order (`5539674`).
+- **Legacy crashed publishes (regression):** a manifest-less delivery directory holding only files the old publisher wrote (plus OS litter) is cleared and republished; anything else is refused untouched (`b596f7f`).
+- **Long delivery ids (regression):** staging names no longer embed the id, so any id whose directory name is legal publishes (`b596f7f`).
+- **CLI recursion:** only recursion while reading the input JSON is `invalid_input_json`; other recursion is `internal_recursion_error` and lists files already written (`b596f7f`).
+- **Dashboard calculator version:** `dashboard-1.2.0`, since round 44 changed stored local azimuths; older dashboards inspect as `algorithm_version_mismatch` (`b596f7f`).
+- **Known limitations:** a non-boundary reservation after the description ("EXCEPTING AND RESERVING unto the Grantor all oil, gas and minerals") is flagged as an unapplied exception and blocks verified export; "Subject to easements of record, except as noted." still raises in strict mode.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
