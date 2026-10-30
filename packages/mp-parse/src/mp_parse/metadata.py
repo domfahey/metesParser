@@ -893,20 +893,38 @@ _ROLE_CONTEXT = 120
 # An abbreviation's period ("100 ft. 6 in.") may precede the joiner.
 _COMPOUND_GAP = re.compile(r"\.?(?:\s+and\s+|\s*,\s*|\s+)")
 # Inches are only a compound component ("100 feet 6 inches"); the doubled marks
-# '' and the double prime stay a bearing's seconds and are never inches. The
-# abbreviation "in"/"in." (its period may already be stripped by call splitting)
-# is inches only where a measurement ends: before the end of the text,
-# punctuation, "to", "thence", "along" or "more or less". A preposition ("100
-# feet in a northerly direction", "in the line of") is never inches; a number
-# with "in" elsewhere is left unread and caught by ``_UNREAD_INCH_AFTER``.
-_MEASUREMENT_END = r"(?=\s*(?:$|[.,;:)]|(?:to|thence|along|more\s+or\s+less)\b))"
-_INCH_UNIT = rf"(?:inch(?:es)?\b|in\b\.?{_MEASUREMENT_END})"
+# '' and the double prime stay a bearing's seconds and are never inches. ONE inch
+# token, ONE measurement-end rule and ONE monument-size exclusion serve every
+# inch form (compound unit, foot-inch pair, unread-inch check).
+#
+# Token: the words, the abbreviation "in"/"in." (its period may already be
+# stripped by call splitting) or the inch marks (" and the double prime).
+_INCH_WORD = r"(?:inch(?:es)?\b|in\b\.?)"
+_INCH_MARK = r"(?:\"|\u2033)"
+_INCH_TOKEN = rf"(?:{_INCH_WORD}|{_INCH_MARK})"
+# Measurement end: the end of the text, punctuation, "to", "thence", "along" or
+# "more or less". A preposition ("100 feet in a northerly direction", "in the
+# line of") is never inches; the abbreviation "in" elsewhere is left unread and
+# caught by ``_UNREAD_INCH_AFTER``.
+_MEASUREMENT_END_ALT = r"$|[.,;:)]|(?:to|thence|along|more\s+or\s+less)\b"
+_MEASUREMENT_END = rf"(?=\s*(?:{_MEASUREMENT_END_ALT}))"
+# Monument size: an inch value directly before a monument noun ("1\" iron pipe",
+# "3/4\" rebar") sizes the monument; it is not a length component.
+_MONUMENT_NOUN = (
+    r"(?:(?:iron|steel|capped|concrete|wooden|wood|aluminum|brass)\s+)*"
+    r"(?:pipe|pin|rod|rebar|bar|spike|nail|stake|hub|monument|post|marker|cap|tack)s?\b"
+)
+_NOT_MONUMENT_SIZE = rf"(?!\.?\s*{_MONUMENT_NOUN})"
+_MONUMENT_SIZE_AFTER_FOOT = rf",?\s*\d+(?:\.\d+)?\s*{_INCH_TOKEN}(?=\.?\s*{_MONUMENT_NOUN})"
+_INCH_UNIT = rf"(?:inch(?:es)?\b|in\b\.?{_MEASUREMENT_END}){_NOT_MONUMENT_SIZE}"
 _INCH = re.compile(r"(?:inch(?:es)?|in\.?)", re.IGNORECASE)
-# A number with an inch-like token (abbreviation or marks) directly after the
-# chosen course length that was not summed into it: the length is not dropped
-# silently, the course fails closed.
+# A number with an inch-like token directly after the chosen course length that
+# was not summed into it: the length is not dropped silently, the course fails
+# closed (a monument size is not a length).
 _UNREAD_INCH_AFTER = re.compile(
-    rf"\.?(?:\s*,\s*|\s+)(?:and\s+)?{COMMA_NUMBER}\s*(?:in\b\.?|\"|\u2033|'')", re.IGNORECASE
+    rf"\.?(?:\s*,\s*|\s+)(?:and\s+)?{COMMA_NUMBER}\s*(?:{_INCH_TOKEN}|'')"
+    rf"{_NOT_MONUMENT_SIZE}",
+    re.IGNORECASE,
 )
 # Without "and", a later component must be a clearly smaller unit to extend a run.
 _DESCENDING_RATIO = 1.5
@@ -919,12 +937,14 @@ _UNSUPPORTED_AND_PAIR = re.compile(
 # mark may be a bearing's seconds and the course fails closed (``_FOOT_INCH``).
 _FOOT_MARK_LENGTH = re.compile(
     rf"{LENGTH_NUMBER_GUARD}({COMMA_NUMBER})\s*(?:'(?!')|′(?!′))"
-    r"(?:\s*,?\s*(\d+(?:\.\d+)?)\s*(?:\"|\u2033|inch(?:es)?\b|in\b\.?))?"
-    r"(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
+    rf"(?:\s*,?\s*(\d+(?:\.\d+)?)\s*{_INCH_TOKEN}"
+    rf"(?=\s*(?:(?:feet|foot|ft)\b|{_MEASUREMENT_END_ALT})))?"
+    rf"(?=\s*(?:(?:feet|foot|ft)\b|{_MEASUREMENT_END_ALT}|{_MONUMENT_SIZE_AFTER_FOOT}))",
     re.IGNORECASE,
 )
 _FOOT_INCH = re.compile(
-    rf"{LENGTH_NUMBER_GUARD}{COMMA_NUMBER}\s*(?:'(?!')|′(?!′))\s*,?\s*\d+(?:\.\d+)?\s*(?:\"|\u2033)"
+    rf"{LENGTH_NUMBER_GUARD}{COMMA_NUMBER}\s*(?:'(?!')|′(?!′))\s*,?\s*\d+(?:\.\d+)?\s*"
+    rf"{_INCH_MARK}{_NOT_MONUMENT_SIZE}"
 )
 # Degrees written without a sign ("N 45 30' 15\""): the marks are minutes and seconds.
 # Also after any degree marker: degree(s), deg., d, a degree sign or a hyphen.
