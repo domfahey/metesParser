@@ -8,9 +8,10 @@ import importlib.metadata
 import json
 import os
 import re
+import stat
 from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 
 from mp_models.dashboard import DashboardBundle
 from mp_models.delivery import (
@@ -754,33 +755,28 @@ def _geojson(
     """Reuse the shared geographic sampler/projection, with original placement evidence.
 
     ``area`` is the projection/classification computed while preparing this
-    snapshot in the same publish. Only publish renders GeoJSON; replay checks the
-    recorded artifact instead (``_check_recorded_geojson``).
+    snapshot in the same publish, or on replay the operation recorded in the
+    package's GeoJSON with the recorded omissions (``_recorded_area``).
     """
     from mp_models.webmap import WebMapOptions
 
     from .webmap import _Budget, _deed_features, _vector_feature
-    from .webmap_projection import build_web_map_projection
 
     scene = next(
         s for s in (*bundle.scenes, *snapshot.request.scenes) if s.id == snapshot.request.scene_id
     )
-    rings: dict[str, list[XY]] = {}
-    if snapshot.exporter_version == "delivery-1":
-        # delivery-1 packages were published without an area-of-use check.
-        outside: dict[str, str] = {}
-        projection = build_web_map_projection(scene)
-    else:
-        if area is None:
-            raise ValueError("GeoJSON rendering requires the publish-time area-of-use check")
-        projection, outside, rings = area
-        recorded = {
-            o.layer_id: o.reason
-            for o in snapshot.omissions
-            if o.format == "geojson" and o.reason == _OUTSIDE_AREA
-        }
-        if recorded != outside:
-            raise ValueError("GeoJSON area-of-use omissions differ from the frozen snapshot")
+    if area is None:
+        raise ValueError("GeoJSON rendering requires a coordinate operation")
+    projection, outside, rings = area
+    # delivery-1 packages were published without an area-of-use check, so they
+    # record no layer omissions and replay with ``outside == {}``.
+    recorded = {
+        o.layer_id: o.reason
+        for o in snapshot.omissions
+        if o.format == "geojson" and o.reason == _OUTSIDE_AREA
+    }
+    if recorded != outside:
+        raise ValueError("GeoJSON area-of-use omissions differ from the frozen snapshot")
     options = WebMapOptions(tolerance_m=snapshot.request.geo_tolerance_m)
     budget = _Budget(options.max_vertices)
     features = []
@@ -958,7 +954,7 @@ def publish_delivery(
         manifest_path = directory / "delivery-manifest.json"
         # Serialize publishes of one delivery id so a failing publish cannot
         # discard files that a concurrent publish found present and referenced.
-        with _claim(directory):
+        with _claim(directory) as locked:
             try:
                 write_new(
                     directory / "pending.json",
@@ -985,10 +981,13 @@ def publish_delivery(
                     "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
                 }
                 write_new(manifest_path, _json(manifest).encode("utf-8"))
-                # Never end with a manifest referencing a missing artifact: re-assert
-                # each one (write-once: restores identical bytes, refuses differing).
+                # Never end with a manifest referencing a missing artifact. Under the
+                # flock claim cooperating publishers cannot interleave, so a cheap
+                # existence+size check suffices; anything else (or no flock) is
+                # re-asserted write-once (restores identical bytes, refuses differing).
                 for name, content in artifacts.items():
-                    _write_once(directory / name, content)
+                    if not locked or not _present(directory / name, len(content)):
+                        _write_once(directory / name, content)
             except BaseException:
                 _discard_incomplete(created, manifest_path)
                 raise
@@ -1008,13 +1007,23 @@ def publish_delivery(
     return result
 
 
+def _present(path: Path, size: int) -> bool:
+    """Whether ``path`` is a regular (non-symlink) file of exactly ``size`` bytes."""
+    try:
+        status = os.stat(path, follow_symlinks=False)
+    except OSError:
+        return False
+    return stat.S_ISREG(status.st_mode) and status.st_size == size
+
+
 @contextlib.contextmanager
-def _claim(directory: Path) -> Iterator[None]:
+def _claim(directory: Path) -> Iterator[bool]:
     """Hold an exclusive advisory lock on the delivery directory (POSIX ``flock``).
 
-    The lock is released on exit or process death. A waiter whose directory was
-    removed by a discarding publish re-creates it and locks the new one.
-    Platforms without ``fcntl`` publish unlocked.
+    Yields whether the lock is held. The lock is released on exit or process
+    death. A waiter whose directory was removed by a discarding publish
+    re-creates it and locks the new one. Platforms without ``fcntl`` publish
+    unlocked (yield ``False``).
     """
     try:
         import fcntl
@@ -1022,7 +1031,7 @@ def _claim(directory: Path) -> Iterator[None]:
         if directory.is_symlink():
             raise ValueError("Unsafe delivery directory symlink") from None
         directory.mkdir(exist_ok=True)
-        yield
+        yield False
         return
     while True:
         if directory.is_symlink():
@@ -1037,7 +1046,7 @@ def _claim(directory: Path) -> Iterator[None]:
             except FileNotFoundError:
                 continue
             if (current.st_dev, current.st_ino) == (held.st_dev, held.st_ino):
-                yield
+                yield True
                 return
         finally:
             os.close(descriptor)
@@ -1057,9 +1066,39 @@ def _discard_incomplete(created: list[Path], manifest_path: Path) -> None:
         manifest_path.parent.rmdir()
 
 
+class DeliveryReplay(NamedTuple):
+    """A read-only replay of a published package and how fully it was re-verified.
+
+    ``geojson_coordinates`` is ``"reproduced"`` when GeoJSON was re-rendered with
+    the recorded coordinate operation and matched byte-for-byte, ``"not_verified"``
+    when this host cannot instantiate that operation (only identity, operation
+    presence and layer binding were checked; see ``findings``), and
+    ``"not_applicable"`` when the package has no GeoJSON.
+    """
+
+    snapshot: DeliverySnapshot
+    geojson_coordinates: Literal["reproduced", "not_verified", "not_applicable"]
+    findings: tuple[str, ...]
+
+
+_COORDINATES_NOT_VERIFIED = (
+    "GeoJSON coordinates not re-verified: the recorded coordinate operation cannot be "
+    "instantiated on this host (for example a missing grid); only identity, the "
+    "recorded operation's presence and layer binding were checked"
+)
+
+
 def load_delivery(
     bundle: DashboardBundle, revision_dir: Path | str, directory: Path | str
 ) -> DeliverySnapshot:
+    """Replay a published package read-only; ``replay_delivery`` also reports its depth."""
+    return replay_delivery(bundle, revision_dir, directory).snapshot
+
+
+def replay_delivery(
+    bundle: DashboardBundle, revision_dir: Path | str, directory: Path | str
+) -> DeliveryReplay:
+    """Replay a published package read-only and report how fully it was re-verified."""
     path = Path(directory)
     if path.is_symlink():
         raise ValueError("Unsafe delivery directory")
@@ -1115,8 +1154,6 @@ def load_delivery(
         or manifest["omissions"] != [o.model_dump(mode="json") for o in fresh.omissions]
     ):
         raise ValueError("Delivery manifest identity or omission policy mismatch")
-    # GeoJSON coordinates depend on the recorded coordinate operation and the PROJ
-    # installation; the hash-verified artifact is checked against the snapshot.
     expected = _components(bundle, fresh, render_geojson=False)
     geojson = "geojson" in fresh.request.formats and not _geojson_omitted(fresh)
     if set(expected) | ({"drawing.geojson"} if geojson else set()) != set(manifest["artifacts"]):
@@ -1124,16 +1161,106 @@ def load_delivery(
     for name, content in expected.items():
         if (path / name).read_bytes() != content:
             raise ValueError("Delivery artifact differs from fresh replay")
-    if geojson:
-        _check_recorded_geojson((path / "drawing.geojson").read_bytes(), fresh)
-    return fresh
+    if not geojson:
+        return DeliveryReplay(fresh, "not_applicable", ())
+    recorded_geojson = (path / "drawing.geojson").read_bytes()
+    recorded_projection = _check_recorded_geojson(recorded_geojson, fresh)
+    # Re-render with the operation recorded at publish. It is never re-selected
+    # here, so the replay host's grids/area of use cannot change the omissions.
+    area = _recorded_area(bundle, fresh, recorded_projection)
+    if area is None:
+        return DeliveryReplay(fresh, "not_verified", (_COORDINATES_NOT_VERIFIED,))
+    try:
+        rendered = _json(_geojson(bundle, fresh, area)).encode("utf-8")
+    except ValueError as exc:  # the recorded operation fails on the snapshot geometry
+        raise ValueError("Delivery artifact differs from fresh replay") from exc
+    if rendered != recorded_geojson:
+        raise ValueError("Delivery artifact differs from fresh replay")
+    return DeliveryReplay(fresh, "reproduced", ())
 
 
-def _check_recorded_geojson(content: bytes, snapshot: DeliverySnapshot) -> None:
+def _recorded_area(
+    bundle: DashboardBundle, snapshot: DeliverySnapshot, recorded: dict[str, Any]
+) -> _GeoJSONArea | None:
+    """The recorded GeoJSON operation and omissions, or ``None`` if not instantiable here.
+
+    CRS WKT, accuracy and versions are publish-host evidence carried over verbatim
+    (the CRS must still equal the scene CRS); coordinates come from executing the
+    recorded ``pipeline``. Area of use is not consulted.
+    """
+    from .webmap_projection import (
+        WebMapProjection,
+        WebMapUnavailable,
+        _point,
+        _projection_dependencies,
+    )
+
+    accuracy = recorded.get("accuracy_m")
+    versions = recorded.get("versions")
+    wkt = recorded.get("source_crs_wkt")
+    if (
+        not isinstance(wkt, str)
+        or not (accuracy is None or (isinstance(accuracy, float | int) and accuracy is not True))
+        or not isinstance(versions, list)
+        or not all(
+            isinstance(v, list) and len(v) == 2 and all(isinstance(x, str) for x in v)
+            for v in versions
+        )
+    ):
+        raise ValueError("Recorded GeoJSON identity or coordinate operation mismatch")
+    scene = next(
+        s for s in (*bundle.scenes, *snapshot.request.scenes) if s.id == snapshot.request.scene_id
+    )
+    try:
+        pyproj, _ = _projection_dependencies()
+    except WebMapUnavailable:  # pyproj not installed on this replay host
+        return None
+    try:
+        source = pyproj.CRS.from_user_input(scene.crs)
+        same_crs = pyproj.CRS.from_wkt(wkt).equals(source)
+    except Exception as exc:
+        raise ValueError("Recorded GeoJSON coordinate operation mismatch") from exc
+    if not same_crs:
+        raise ValueError("Recorded GeoJSON coordinate operation differs from the scene CRS")
+    axes = tuple(axis.direction for axis in source.axis_info)
+    pyproj.network.set_network_enabled(False)
+    try:
+        transformer = pyproj.Transformer.from_pipeline(recorded["pipeline"])
+        geographic = pyproj.Transformer.from_crs(
+            "EPSG:3857", "EPSG:4326", always_xy=True, allow_ballpark=False, only_best=True
+        )
+    except pyproj.exceptions.ProjError:
+        return None
+
+    def forward(x: float, y: float) -> XY:
+        ordered = (y, x) if axes == ("north", "east") else (x, y)
+        return _point(transformer.transform(*ordered, errcheck=True))
+
+    def longitude_latitude(x: float, y: float) -> XY:
+        return _point(geographic.transform(x, y, errcheck=True))
+
+    projection = WebMapProjection(
+        source_crs_wkt=wkt,
+        pipeline=recorded["pipeline"],
+        accuracy=accuracy,
+        versions=tuple((v[0], v[1]) for v in versions),
+        _forward=forward,
+        _geographic=longitude_latitude,
+    )
+    outside = {
+        o.layer_id: o.reason
+        for o in snapshot.omissions
+        if o.format == "geojson" and o.layer_id is not None and o.reason == _OUTSIDE_AREA
+    }
+    return _GeoJSONArea(projection, outside, {})
+
+
+def _check_recorded_geojson(content: bytes, snapshot: DeliverySnapshot) -> dict[str, Any]:
     """Bind a hash-verified recorded GeoJSON artifact to the replayed snapshot.
 
     Checks identity, that a coordinate operation is recorded, and that exactly the
-    snapshot's visible, non-omitted geographic layers are present.
+    snapshot's visible, non-omitted geographic layers are present; returns the
+    recorded projection block.
     """
     try:
         data = json.loads(content)
@@ -1183,3 +1310,4 @@ def _check_recorded_geojson(content: bytes, snapshot: DeliverySnapshot) -> None:
         present.add(properties.get("delivery_layer_id"))
     if present != expected:
         raise ValueError("Recorded GeoJSON layers differ from the replayed snapshot omissions")
+    return projection

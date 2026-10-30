@@ -452,7 +452,7 @@ def _execute_delivery(args: argparse.Namespace, settings: dict[str, Any]) -> dic
     from mp_models.delivery import DeliveryRequest
 
     from .dashboard import _load
-    from .delivery import load_delivery, publish_delivery
+    from .delivery import publish_delivery, replay_delivery
     from .revision_view import render_revision_file
 
     if args.command == "render-revision":
@@ -466,13 +466,18 @@ def _execute_delivery(args: argparse.Namespace, settings: dict[str, Any]) -> dic
             return publish_delivery(
                 bundle, args.revision_dir, request, output_path(settings, args.output_dir)
             )
-        snapshot = load_delivery(bundle, args.revision_dir, args.package_dir)
+        replay = replay_delivery(bundle, args.revision_dir, args.package_dir)
+        snapshot = replay.snapshot
         return {
             "schema_version": "1.0",
             "status": "needs_review",
             "errors": [],
             "artifacts": {},
             "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
+            "replay_verification": {
+                "geojson_coordinates": replay.geojson_coordinates,
+                "findings": list(replay.findings),
+            },
             "snapshot": snapshot.model_dump(mode="json"),
         }
     except (OSError, ValueError, KeyError, TypeError) as exc:

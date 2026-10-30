@@ -105,3 +105,48 @@ def test_publish_reasserts_artifacts_before_writing_the_manifest(tmp_path, monke
     directory = tmp_path / "deliveries" / request.id
     assert result["status"] == "needs_review", result
     load_delivery(bundle, revision, directory)
+
+
+def test_locked_publish_does_not_rewrite_artifacts_after_the_manifest(tmp_path, monkeypatch):
+    import mp_review.delivery as api
+
+    bundle, revision, request = _setup(tmp_path)
+    original = api._write_once
+    after_manifest = []
+
+    def write_once(path, content):
+        if (path.parent / "delivery-manifest.json").exists():
+            after_manifest.append(path.name)
+        return original(path, content)
+
+    monkeypatch.setattr(api, "_write_once", write_once)
+    result = publish_delivery(bundle, revision, request, tmp_path / "deliveries")
+    assert result["status"] == "needs_review", result
+    assert after_manifest == []
+    load_delivery(bundle, revision, tmp_path / "deliveries" / request.id)
+
+
+def test_unlocked_publish_reasserts_every_artifact_after_the_manifest(tmp_path, monkeypatch):
+    import contextlib
+
+    import mp_review.delivery as api
+
+    bundle, revision, request = _setup(tmp_path)
+    original = api._write_once
+    after_manifest = []
+
+    @contextlib.contextmanager
+    def unlocked(directory):  # a platform without fcntl
+        directory.mkdir(exist_ok=True)
+        yield False
+
+    def write_once(path, content):
+        if (path.parent / "delivery-manifest.json").exists():
+            after_manifest.append(path.name)
+        return original(path, content)
+
+    monkeypatch.setattr(api, "_claim", unlocked)
+    monkeypatch.setattr(api, "_write_once", write_once)
+    result = publish_delivery(bundle, revision, request, tmp_path / "deliveries")
+    assert result["status"] == "needs_review", result
+    assert sorted(after_manifest) == sorted(result["artifacts"])
