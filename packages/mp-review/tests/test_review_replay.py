@@ -44,7 +44,7 @@ def test_replay_uses_original_input_kind_without_export_or_disk_writes(tmp_path,
     call = DeedCall(
         course=1, direction_text="E", bearing_azimuth_deg_from_north=90, distance_ft=100
     )
-    source = tmp_path / ("original." + kind)
+    source = tmp_path / ("original." + {"text": "txt"}.get(kind, kind))
     if kind == "csv":
         calls_to_csv([call], str(source))
     elif kind == "json":

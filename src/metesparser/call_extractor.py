@@ -115,59 +115,75 @@ def _is_debug_logging_enabled() -> bool:
     return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
 
 
-_CHORD_PREFIX_PATTERN = re.compile(
-    r"(?:the\s+)?chord\s+(?:of\s+which\s+)?(?:bears|bearing)\s+", re.IGNORECASE
+_PACKED_DMS_BEARING = re.compile(r"(N|S)\s+(\d{1,3}\.\d+)°\s*(E|W)", re.IGNORECASE)
+
+_COMPACT_DMS_BEARING = re.compile(
+    r"\b([NS])\s*(\d{1,3})\s*(?:-|d\b|d(?=\d)|deg\.?|degrees?)\s*"
+    r"(?:(\d{1,2})\s*(?:-|m\b|m(?=\d)|min\.?|minutes?)\s*)?"
+    r"(?:(\d{1,2}(?:\.\d+)?)\s*(?:s\b|sec\.?|seconds?)?\s*)?([EW])\b",
+    re.IGNORECASE,
 )
 
 
-_PACKED_DMS_BEARING = re.compile(r"(N|S)\s+(\d{1,3}\.\d+)°\s*(E|W)", re.IGNORECASE)
+def _expand_compact_dms(text: str) -> str:
+    """Rewrite dashed or d/m bearings (``N 45-30-00 E``, ``N 45d30m E``) with symbols."""
+
+    def _repl(m: re.Match[str]) -> str:
+        minutes = f"{m.group(3)}'" if m.group(3) else ""
+        seconds = f'{m.group(4)}"' if m.group(4) else ""
+        return f"{m.group(1).upper()} {m.group(2)}°{minutes}{seconds} {m.group(5).upper()}"
+
+    return _COMPACT_DMS_BEARING.sub(_repl, text)
 
 
-def _without_chord_bearing(text: str) -> str:
-    """Remove the chord-bearing clause (prefix and its bearing) from course text."""
-    match = _CHORD_PREFIX_PATTERN.search(text)
-    if not match:
-        return text
-    rest = TextParser.standardize_cardinal_directions(_abbreviate_word_bearing(text[match.end() :]))
-    bearing = _PACKED_DMS_BEARING.search(rest) or BearingConverter.QUADRANT_PATTERN.search(rest)
-    if bearing:
-        rest = rest[: bearing.start()] + " " + rest[bearing.end() :]
-    return text[: match.start()] + " " + rest
+def _normalize_bearing_forms(text: str) -> str:
+    """Rewrite every bearing form the parser accepts into abbreviated DMS."""
+    return TextParser.standardize_cardinal_directions(
+        _abbreviate_word_bearing(_expand_compact_dms(text))
+    )
 
 
+_CHORD_PREFIX_PATTERN = re.compile(
+    r"(?:the\s+)?chord\s+(?:of\s+which\s+)?(?:bears|bearing)\s+(?:of\s+)?", re.IGNORECASE
+)
 _RADIAL_PREFIX_PATTERN = re.compile(
-    r"(?:radius\s+point|radial(?:\s+line)?|(?:center|centre)(?:\s+point)?)"
+    r"(?:radius\s+point|radial(?:\s+line)?|(?:center|centre)(?:\s+point)?"
+    r"|(?:center|centre)\s+of\s+which)"
     r"\s+(?:which\s+|that\s+)?(?:bears?|bearing)\s+(?:of\s+)?",
     re.IGNORECASE,
 )
 
 
-def _without_radial_bearing(text: str) -> str:
-    """Remove radius-point/radial bearing clauses; they are not the tangent."""
+def _without_reference_bearings(text: str, prefix: re.Pattern[str]) -> str:
+    """Remove every ``prefix`` clause together with the bearing it introduces.
+
+    The bearing is searched only within the clause (up to the next comma or
+    semicolon); if none is recognised the clause itself is dropped so its
+    direction words cannot be read as the course bearing.
+    """
+    text = _normalize_bearing_forms(text)
     while True:
-        match = _RADIAL_PREFIX_PATTERN.search(text)
+        match = prefix.search(text)
         if not match:
             return text
-        rest = TextParser.standardize_cardinal_directions(
-            _abbreviate_word_bearing(text[match.end() :])
+        rest = text[match.end() :]
+        clause_end = re.search(r"[,;]", rest)
+        clause = rest[: clause_end.start()] if clause_end else rest
+        bearing = _PACKED_DMS_BEARING.search(clause) or BearingConverter.QUADRANT_PATTERN.search(
+            clause
         )
-        bearing = _PACKED_DMS_BEARING.match(rest) or BearingConverter.QUADRANT_PATTERN.match(rest)
-        rest = rest[bearing.end() :] if bearing else rest
-        text = text[: match.start()] + " " + rest
+        cut = bearing.end() if bearing else len(clause)
+        text = text[: match.start()] + " " + rest[cut:]
 
 
-def _has_stated_bearing(text: str) -> bool:
-    """Return True only for a numeric quadrant/DMS or "due" bearing.
+def _without_chord_bearing(text: str) -> str:
+    """Remove chord-bearing clauses; the chord is never the tangent."""
+    return _without_reference_bearings(text, _CHORD_PREFIX_PATTERN)
 
-    Plain direction words (e.g. verbatim "along the Northerly line of") are
-    not bearings and must not count as a separately stated tangent.
-    """
-    normalized = TextParser.standardize_cardinal_directions(_abbreviate_word_bearing(text))
-    return bool(
-        BearingConverter.QUADRANT_PATTERN.search(normalized)
-        or _PACKED_DMS_BEARING.search(normalized)
-        or re.search(r"\bdue\s+(?:north|south|east|west|N|S|E|W)\b", text, re.IGNORECASE)
-    )
+
+def _without_radial_bearing(text: str) -> str:
+    """Remove radius-point/radial/center bearing clauses; they are not the tangent."""
+    return _without_reference_bearings(text, _RADIAL_PREFIX_PATTERN)
 
 
 _BEARING_DEGREE_PREFIX = re.compile(
@@ -200,6 +216,17 @@ def _boundary_course_text(call_text: str) -> str:
     if not starts:
         return call_text
     return call_text[: min(starts)]
+
+
+def _course_direction(call_text: str) -> str:
+    """Return the course (tangent) direction stated in the boundary course text.
+
+    Bearing forms are normalized, then corner witnesses, chord bearings and
+    radial/radius-point/center bearings are removed *before* extraction, so only
+    a bearing describing the course itself can be returned.
+    """
+    course_text = _without_radial_bearing(_without_chord_bearing(_boundary_course_text(call_text)))
+    return CallExtractor.extract_direction(course_text)
 
 
 class MonumentClassifier:
@@ -457,7 +484,7 @@ class CallExtractor:
         if re.match(r"^\s*(BEGINNING|COMMENCING|POB)\b", call_text, re.IGNORECASE):
             return None
 
-        raw_direction = cls.extract_direction(_boundary_course_text(call_text))
+        raw_direction = _course_direction(call_text)
         direction_text = raw_direction if raw_direction else call_text.strip()
 
         bearing_quadrant = None
@@ -508,42 +535,39 @@ class CallExtractor:
 
         curve_info = cls.extract_curve_info(call_text)
 
-        # A stated chord bearing plus curve direction and delta yields the tangent
-        # azimuth deterministically (right: chord - delta/2; left: chord + delta/2).
-        # Only an explicitly stated delta is stored as delta_deg; when absent, the
-        # stated arc length and radius define it exactly (delta = arc / radius rad),
-        # used here for the tangent only and disclosed in the notes.
-        derived_tangent = False
-        delta_from_arc = False
-        chord_only = False
+        # The tangent azimuth is only what the course text states (chord and radial
+        # clauses were removed before extraction). Without one, a stated chord bearing
+        # plus curve direction and delta yields it deterministically (right: chord -
+        # delta/2; left: chord + delta/2). Only an explicitly stated delta is stored as
+        # delta_deg; otherwise the stated arc length and radius (delta = arc / R) or
+        # chord length and radius (delta = 2 asin(c / 2R)) define it exactly. Such a
+        # delta is used for the tangent only, and disclosed in the notes.
+        has_stated_tangent = parsed_bearing is not None or is_due_cardinal
         chord_text = curve_info.get("chord_bearing")
+        chord_only = isinstance(chord_text, str) and not has_stated_tangent
         curve_delta = curve_info.get("delta_deg")
-        if (
-            isinstance(chord_text, str)
-            and azimuth is not None
-            and not is_due_cardinal
-            and not _has_stated_bearing(
-                _without_radial_bearing(_without_chord_bearing(course_text))
-            )
-        ):
-            # The only bearing stated is the chord's; it is not the tangent azimuth.
-            azimuth = None
-            bearing_quadrant = None
-            chord_only = True
         tangent_delta: float | None = curve_delta if isinstance(curve_delta, float) else None
+        delta_source = ""
+        arc_from_chord = False
         stated_radius = curve_info.get("radius_ft")
         stated_arc = curve_info.get("arc_length_ft")
+        stated_chord = curve_info.get("chord_length_ft")
+        if tangent_delta is None and isinstance(stated_radius, float) and stated_radius > 0.0:
+            if isinstance(stated_arc, float) and stated_arc > 0.0:
+                tangent_delta = math.degrees(stated_arc / stated_radius)
+                delta_source = "arc length"
+            elif isinstance(stated_chord, float) and stated_chord > 0.0:
+                if stated_chord > 2.0 * stated_radius:
+                    raise ValueError("Curve chord length exceeds twice the radius")
+                delta_rad = 2.0 * math.asin(stated_chord / (2.0 * stated_radius))
+                tangent_delta = math.degrees(delta_rad)
+                delta_source = "chord length"
+                # The arc follows exactly from the stated radius and chord length.
+                curve_info["arc_length_ft"] = stated_radius * delta_rad
+                arc_from_chord = True
+        derived_tangent = False
         if (
-            tangent_delta is None
-            and isinstance(stated_radius, float)
-            and isinstance(stated_arc, float)
-            and stated_radius > 0.0
-            and stated_arc > 0.0
-        ):
-            tangent_delta = math.degrees(stated_arc / stated_radius)
-            delta_from_arc = True
-        if (
-            azimuth is None
+            chord_only
             and isinstance(chord_text, str)
             and curve_info.get("direction") in ("left", "right")
             and tangent_delta is not None
@@ -553,6 +577,7 @@ class CallExtractor:
                 half_delta = tangent_delta / 2.0
                 sign = -1.0 if curve_info.get("direction") == "right" else 1.0
                 azimuth = (chord_az + sign * half_delta) % 360.0
+                bearing_quadrant = None
                 derived_tangent = True
 
         has_abbreviated_cardinal = bool(
@@ -611,13 +636,17 @@ class CallExtractor:
             if _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip()):
                 cardinal_only = True
 
-        tangent_note = ""
+        tangent_notes: list[str] = []
         if derived_tangent:
-            tangent_note = "tangent bearing derived from chord bearing and delta"
-            if delta_from_arc:
-                tangent_note += " (delta computed from arc length and radius)"
+            note = "tangent bearing derived from chord bearing and delta"
+            if delta_source:
+                note += f" (delta computed from {delta_source} and radius)"
+            tangent_notes.append(note)
         elif chord_only:
-            tangent_note = "tangent bearing not stated - chord bearing only"
+            tangent_notes.append("tangent bearing not stated - chord bearing only")
+        if arc_from_chord:
+            tangent_notes.append("arc length computed from chord length and radius")
+        tangent_note = "; ".join(tangent_notes)
 
         if is_meander or "approximate" in call_text.lower():
             notes = "meander / approximate"
@@ -685,9 +714,7 @@ class CallExtractor:
         chord_only_unresolved = chord_only and not derived_tangent
         is_indefinite = chord_only_unresolved or TextParser.is_indefinite_call(
             direction_text,
-            has_bearing=(parsed_bearing is not None and not chord_only_unresolved)
-            or is_due_cardinal
-            or derived_tangent,
+            has_bearing=has_stated_tangent or derived_tangent,
         )
 
         curve_type_value = curve_info.get("curve_type")
@@ -758,7 +785,7 @@ class CallExtractor:
         flags: list[str] = []
 
         # --- Bearing transformation ---
-        raw_direction = cls.extract_direction(_boundary_course_text(call_text))
+        raw_direction = _course_direction(call_text)
         if raw_direction:
             transformations.append(
                 Transformation(
@@ -1115,9 +1142,7 @@ class CallExtractor:
         )
         if chord_bearing_match:
             raw_chord_bearing = chord_bearing_match.group(1).strip().rstrip(",")
-            normalized = TextParser.standardize_cardinal_directions(
-                _abbreviate_word_bearing(raw_chord_bearing)
-            )
+            normalized = _normalize_bearing_forms(raw_chord_bearing)
             bearing_match = BearingConverter.QUADRANT_PATTERN.search(normalized)
             if bearing_match:
                 curve_info["chord_bearing"] = bearing_match.group(0)
@@ -1154,7 +1179,7 @@ class CallExtractor:
         if radial_match:
             curve_info["non_tangent"] = True
             raw_radial = radial_match.group(1).strip()
-            normalized_radial = TextParser.standardize_cardinal_directions(raw_radial)
+            normalized_radial = _normalize_bearing_forms(raw_radial)
             radial_bearing_match = BearingConverter.QUADRANT_PATTERN.search(normalized_radial)
             if radial_bearing_match:
                 curve_info["radial_bearing"] = radial_bearing_match.group(0)
