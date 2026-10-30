@@ -1009,6 +1009,15 @@ Four findings plus one carried over, fixed red-green on `fix/code-review-2026-10
 - **Non-tangent curves:** a course bearing never fixes a non-tangent curve's starting tangent; it is positioned by chord + sweep or by a radial bearing (tangent = radial ∓ 90° by direction), otherwise unpositioned — the same rule in traverse, plot, topology, parallelism, closure and confidence, so verify and plot agree (`0d0f7c1`). Follow-ups fixed (`b52aa1a`, `7cda88a`): an unreadable chord leaves the curve unpositioned in verify and plot; radial vs chord and radial vs stated tangent are cross-checked; diagnostics uses the shared orientation rule.
 - **JPEG EXIF fill bytes:** 0xFF fill bytes before a marker are skipped, so a rotated JPEG is no longer read as upright (`74c314f`).
 
+### PR #60 twenty-seventh review (2026-10-30)
+Six findings plus two follow-ups, fixed red-green on `fix/code-review-2026-10-29`:
+- **Curve length units:** one shared `_LENGTH_UNIT` pattern (feet, ft, ft., foot marks, meters/metres/m, chains, rods …, comma-grouped) for every chord, radius and radial length; chord lengths are converted to feet. A chord of `200.00'` no longer turns its bearing into the tangent (half-disc repro misclosure 282.843 → 0.0) (`5242f78`).
+- **Unitless labelled curve lengths (regression from round 19):** "an arc length of 87.27" / "chord distance of 87.16" keep their stated value in the deed's unit; unlabelled unitless numbers are still excluded (`5242f78`).
+- **Monolith CSVBuilder facade:** delegates to `mp_export.csv_writer` (593 → 161 lines); a differential test compares every written file byte for byte (`1e15623`).
+- **Legacy 21-column curve rows:** noted "curve type not recorded (legacy CSV); treated as circular" (`11846f4`).
+- **Chord parsed once:** `tangents.parse_chord` caches the chord azimuth, so verification parses each chord string once (8 → 1) (`280401c`).
+- **Curve orientation follow-ups:** unreadable chords leave a curve unpositioned in verify and plot; radial vs chord and radial vs stated tangent are cross-checked; diagnostics uses the shared rule (`b52aa1a`, `7cda88a`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
