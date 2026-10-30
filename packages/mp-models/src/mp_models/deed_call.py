@@ -60,25 +60,73 @@ VERBATIM_NOTE_PREFIXES: tuple[str, ...] = (
     UNAPPLIED_EXCEPTION_NOTE_PREFIX,
     SEPARATE_EASEMENT_NOTE_PREFIX,
 )
-_NOTE_BOUNDARY_PREFIXES = (*VERBATIM_NOTE_PREFIXES, "incomplete bearing")
+# Fixed notes the system writes (exact text; some hold "; "). Every fixed note is
+# registered here so a verbatim note never swallows the note that follows it.
+LEGACY_CURVE_NOTE = "curve type not recorded (legacy CSV); treated as circular"
+FIXED_NOTES: tuple[str, ...] = (
+    "incomplete bearing",
+    "incomplete bearing - cardinal only",
+    "incomplete bearing - ambiguous decimal degrees",
+    "meander / approximate",
+    "arc length not stated - course distance computed from radius and delta",
+    "tangent bearing not stated - curve positioned by chord and delta in verification",
+    "spiral length not stated - course distance not determined",
+    "spiral tangent not stated - not derived",
+    "tangent bearing not stated - chord bearing only",
+    "curve positioned by stated tangent and chord; arc not stated",
+    "spiral positioned by its stated chord only",
+    "curve delta/arc not stated - positioned by chord only",
+    "radius not stated",
+    "chord length exceeds twice the radius",
+    LEGACY_CURVE_NOTE,
+)
+# Fixed notes that carry a measured or quoted value after the prefix.
+FIXED_NOTE_PREFIXES: tuple[str, ...] = (
+    "stated direction ",
+    "chord bearing not read: ",
+    "radial bearing not read: ",
+    "radius conflict: ",
+    "curve length ambiguous: ",
+    "course length ambiguous: ",
+)
+_FIXED_NOTES_LONGEST_FIRST = tuple(sorted(FIXED_NOTES, key=len, reverse=True))
+_NOTE_BOUNDARY_PREFIXES = (*VERBATIM_NOTE_PREFIXES, *FIXED_NOTE_PREFIXES)
+
+
+def _starts_note(text: str) -> bool:
+    return text.startswith(_NOTE_BOUNDARY_PREFIXES) or any(
+        text == note or text.startswith(f"{note}; ") for note in _FIXED_NOTES_LONGEST_FIRST
+    )
 
 
 def split_notes(notes: str | None) -> list[str]:
     """Split a call's ``notes`` into its notes, keeping verbatim deed wording whole.
 
-    Notes are joined with "; ". A fixed note ends at the next "; "; a verbatim note
-    (``VERBATIM_NOTE_PREFIXES``) ends only at a "; " followed by a known note prefix.
+    Notes are joined with "; ". A registered fixed note is taken whole; a verbatim
+    note (``VERBATIM_NOTE_PREFIXES``) ends only at a "; " followed by another
+    registered note; any other note ends at the next "; ".
     ``"; ".join(split_notes(notes)) == notes``.
     """
-    if not notes:
-        return []
     parts: list[str] = []
-    for piece in notes.split("; "):
-        if parts and parts[-1].startswith(VERBATIM_NOTE_PREFIXES):
-            if not piece.startswith(_NOTE_BOUNDARY_PREFIXES):
-                parts[-1] = f"{parts[-1]}; {piece}"
-                continue
-        parts.append(piece)
+    rest = notes or ""
+    while rest:
+        fixed = next(
+            (n for n in _FIXED_NOTES_LONGEST_FIRST if rest == n or rest.startswith(f"{n}; ")),
+            None,
+        )
+        if fixed is not None:
+            end = len(fixed)
+        else:
+            end = len(rest)
+            verbatim = rest.startswith(VERBATIM_NOTE_PREFIXES)
+            at = rest.find("; ")
+            while at != -1:
+                if not verbatim or _starts_note(rest[at + 2 :]):
+                    end = at
+                    break
+                at = rest.find("; ", at + 2)
+        parts.append(rest[:end])
+        rest = rest[end + 2 :]
     return parts
 
 
