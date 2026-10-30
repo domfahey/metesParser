@@ -193,6 +193,19 @@ def main() -> None:
                 "artifacts": {},
                 "errors": [{"code": "invalid_settings", "message": str(exc)}],
             }
+        except RecursionError:
+            # Deeply nested JSON exhausts the parser; report it as an invocation error.
+            result = {
+                "schema_version": "1.0",
+                "status": "error",
+                "artifacts": {},
+                "errors": [
+                    {
+                        "code": "invalid_input_json",
+                        "message": "Input JSON is nested too deeply to process.",
+                    }
+                ],
+            }
     print(json.dumps(result, allow_nan=False))
     raise SystemExit(
         {"checks_passed": 0, "needs_review": 1, "passed": 0, "failed": 1, "error": 2}.get(
