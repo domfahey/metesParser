@@ -422,6 +422,82 @@ _MARKER_CASES = [
         "BEGINNING at a stake; THENCE N 10 E 100 feet to the POINT OF BEGINNING. TRACT 2 BEING THE SAME LAND CONVEYED TO JOHN SMITH",
         [],
     ),
+    # --- uppercase marker in heading position followed by heading prose --------
+    (
+        "uppercase-tract-situate-after-period",
+        f"TRACT 1: BEGINNING at a stake{_SQ} containing 1 acre. TRACT 2 Situate in the Township of X, BEGINNING at a pin{_SQ}",
+        ["Tract 1", "Tract 2"],
+    ),
+    (
+        "uppercase-parcel-spelled-being-all",
+        f"PARCEL ONE: BEGINNING at a stake{_SQ}\nPARCEL TWO being all that lot BEGINNING at a pin{_SQ}",
+        ["Parcel ONE", "Parcel TWO"],
+    ),
+    (
+        "uppercase-parcel-two-at-start",
+        f"PARCEL TWO being all that lot BEGINNING at a pin{_SQ}",
+        ["Parcel TWO"],
+    ),
+    (
+        "uppercase-tract-after-semicolon-situate",
+        f"TRACT 1: BEGINNING at a stake{_SQ[:-1]}; TRACT 2 SITUATE IN THE BOROUGH OF Y BEGINNING at a pin{_SQ}",
+        ["Tract 1", "Tract 2"],
+    ),
+    (
+        "uppercase-markdown-heading-prose",
+        f"## PARCEL B lying in the County of Z\nBEGINNING at a pin{_SQ}",
+        ["Parcel B"],
+    ),
+    (
+        "uppercase-reference-of-subdivision",
+        "BEGINNING at a pin; THENCE N 10 E 100 feet to the POINT OF BEGINNING. TRACT 2 of the Smith subdivision adjoins on the north.",
+        [],
+    ),
+    (
+        "uppercase-reference-as-shown",
+        "BEGINNING at a pin; THENCE N 10 E 100 feet to the POINT OF BEGINNING. PARCEL 2 as shown on a plan of lots.",
+        [],
+    ),
+    (
+        "uppercase-reference-on-said-map",
+        "BEGINNING at a pin; THENCE N 10 E 100 feet to the POINT OF BEGINNING. TRACT 4567 on said map is excepted.",
+        [],
+    ),
+    (
+        "uppercase-reference-in-said",
+        "BEGINNING at a pin; THENCE N 10 E 100 feet to the POINT OF BEGINNING. TRACT 4567 IN SAID SUBDIVISION",
+        [],
+    ),
+    (
+        "uppercase-reference-per-plan",
+        "BEGINNING at a pin; THENCE N 10 E 100 feet to the POINT OF BEGINNING. PARCEL 2 PER PLAN OF LOTS",
+        [],
+    ),
+    (
+        "uppercase-mid-sentence-stays-reference",
+        "BEGINNING at a corner of TRACT 2 situate in the Township; THENCE N 10 E 100 feet to the POINT OF BEGINNING.",
+        [],
+    ),
+    (
+        "uppercase-in-open-description-after-reference-word",
+        "TRACT 1: BEGINNING at a point lying in\nTRACT 4567 Situate in the Township\nthence N 10 E 100 feet",
+        ["Tract 1"],
+    ),
+    (
+        "titlecase-situate-after-period-stays-reference",
+        "BEGINNING at a pin; THENCE N 10 E 100 feet to the POINT OF BEGINNING. Tract 2 situate in the Township of X",
+        [],
+    ),
+    # --- 'NO' prefix must be a standalone token ---------------------------------
+    ("no-prefix-not-word-start", "TRACT 1: Beginning x. TRACT NOW.", ["Tract 1"]),
+    ("no-prefix-not-word-start-parcel", "PARCEL 1: Beginning x. PARCEL NOT.", ["Parcel 1"]),
+    ("no-prefix-space", "described as follows:\n\nTRACT NO 2\nBEGINNING at a point", ["Tract 2"]),
+    ("no-prefix-hash", "described as follows:\n\nTRACT NO #3\nBEGINNING at a point", ["Tract 3"]),
+    (
+        "no-prefix-glued-period",
+        "described as follows:\n\nPARCEL NO.4: BEGINNING at a point",
+        ["Parcel 4"],
+    ),
 ]
 
 
