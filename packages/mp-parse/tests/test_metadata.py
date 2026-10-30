@@ -402,6 +402,12 @@ _DISTANCE_TABLE = [
     ("150 feet, 3 rods north of the oak", (150.0, "feet")),
     ("40 poles 2 rods", (40.0, "poles")),
     ("2 rods and 3 links", (34.98, "feet")),
+    ("N 10 E 150 feet to a stake 2 chains 20 links west of a white oak", (150.0, "feet")),
+    ("N 10 E 150 feet distant 2 chains 20 links from the oak", (150.0, "feet")),
+    ("N 10 E 150 feet from a stake 2 chains 20 links west", (150.0, "feet")),
+    ("N 10 E 150 feet to a stake 2 chains 20 links", (150.0, "feet")),
+    ("N 10 E 2 chains 20 links to a stake", (145.2, "feet")),
+    ("N 10 E 2 chains 20 links to a stake 3 chains 5 links west of an oak", (145.2, "feet")),
 ]
 
 
@@ -419,4 +425,10 @@ def test_extract_distance_compound_table(text, expected):
     first = re.search(r"([\d.]+)\s*(chain|rod|pole|perch|feet|link)", text)
     plural = "feet" if first.group(2) == "feet" else first.group(2) + "s"
     first_ft = ConversionFactors.convert_to_feet(float(first.group(1)), plural)
-    assert value == 0.0 or ConversionFactors.convert_to_feet(value, unit) >= first_ft - 1e-9
+    result_ft = ConversionFactors.convert_to_feet(value, unit)
+    assert value == 0.0 or result_ft >= first_ft - 1e-9
+    # ...and a larger result is only valid as a compound that starts at the
+    # first measurement (a later chain/link pair must never replace it).
+    if value != 0.0 and result_ft > first_ft + 1e-9:
+        rest = text[first.end() :]
+        assert re.match(r"[A-Za-z]*\s*(?:,|\band\b)?\s*[\d.]+\s*[A-Za-z]", rest)
