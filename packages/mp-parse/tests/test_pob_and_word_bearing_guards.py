@@ -51,3 +51,24 @@ def test_foot_mark_before_word_bearing_is_a_length(text):
 @pytest.mark.parametrize("text", ["N 45 30' E", "S 5 20' West"])
 def test_minutes_still_not_lengths(text):
     assert not _LENGTH.search(text)
+
+
+def test_single_call_course_after_closing_sentence_fails_closed() -> None:
+    """A real course after the closing sentence is never silently dropped."""
+    from mp_parse.calls import MultipleCoursesError
+
+    text = (
+        "N 80°00'00\" W 100 feet to the point of beginning. "
+        "Thence S 10°00'00\" W 50.00 feet to a pin."
+    )
+    with pytest.raises(MultipleCoursesError):
+        extract_single_call(text, 1)
+
+
+def test_single_call_recital_after_closing_sentence_is_cut() -> None:
+    """A recital (no complete course) after the closing sentence is not part of the course."""
+    call = extract_single_call(
+        "N 80°00'00\" W 100 feet to the point of beginning. Being the same premises.", 1
+    )
+    assert call is not None
+    assert call.distance_ft == 100.0
