@@ -269,3 +269,12 @@ def test_monolith_does_not_parse_pob_tie_as_a_course():
 def test_package_extract_calls_does_not_parse_pob_tie_as_a_course():
     calls, _ = package_calls.extract_calls(POB_TIE)
     assert [c.distance_ft for c in calls] == [138.0, 324.0, 138.0, 324.0]
+
+
+def test_monolith_extract_single_call_raises_for_unusable_course_and_none_for_beginning() -> None:
+    import pytest
+    from metesparser.call_extractor import CallExtractor
+
+    with pytest.raises(ValueError, match="No usable course"):
+        CallExtractor.extract_single_call("thence to a point 100 feet", 1)
+    assert CallExtractor.extract_single_call("BEGINNING at a point", 1) is None

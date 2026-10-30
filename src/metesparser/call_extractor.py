@@ -128,7 +128,11 @@ class CallExtractor:
             distance_unit: Primary distance unit
 
         Returns:
-            DeedCall object or None if parsing fails
+            DeedCall, or None only for a BEGINNING/COMMENCING/POB clause (no course).
+
+        Raises:
+            ValueError: A course is present but unusable (rejected bearing, zero or
+                unread length); MultipleCoursesError: more than one course stated.
         """
         call = package_calls.extract_single_call(call_text, course, distance_unit)
         return monolith_call(call) if call is not None else None
