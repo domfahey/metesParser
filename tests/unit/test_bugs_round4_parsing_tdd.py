@@ -195,3 +195,28 @@ def test_derived_tangent_note_survives_meander_or_approximate_note(parse, qualif
     assert "tangent bearing derived from chord bearing and delta" in (call.notes or "")
     if qualifier:
         assert "meander / approximate" in call.notes
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_abbreviated_chord_bearing_is_not_used_as_tangent(parse):
+    text = (
+        "THENCE a curve to the right, radius of 100 feet, delta angle of 90°, "
+        "chord bears {chord} 141.42 feet; THENCE due South 50 feet; "
+        "THENCE due West 50 feet to the point of beginning."
+    )
+    a = parse(text.format(chord="N 45°00'00\" E"))[0]
+    b = parse(text.format(chord="North 45°00'00\" East"))[0]
+    assert a.bearing_azimuth_deg_from_north == pytest.approx(0.0, abs=1e-6)
+    assert a.bearing_azimuth_deg_from_north == b.bearing_azimuth_deg_from_north
+    assert a.bearing_quadrant is None
+    assert "tangent bearing derived from chord bearing and delta" in (a.notes or "")
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_separately_stated_tangent_bearing_is_kept_with_chord(parse):
+    text = (
+        "THENCE N 10°00'00\" E along a curve to the right, radius of 100 feet, delta angle of 90°, "
+        "chord bears N 55°00'00\" E 141.42 feet; THENCE due South 50 feet; "
+        "THENCE due West 50 feet to the point of beginning."
+    )
+    assert parse(text)[0].bearing_azimuth_deg_from_north == pytest.approx(10.0)
