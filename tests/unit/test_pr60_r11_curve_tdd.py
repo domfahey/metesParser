@@ -7,7 +7,7 @@
    A hand-built call with inconsistent elements fails the curve check, and a
    chord-only call's warnings/blocks say "stated tangent, chord and radius are
    inconsistent" rather than only "delta/arc not stated".
-2. Parser, verification and plotting share one curve-element tolerance, so a chord
+2. Verification and plotting share one curve-element tolerance, so a chord
    that parses and verifies also plots (and vice versa).
 """
 
@@ -18,13 +18,11 @@ import math
 import mp_models
 import pytest
 from mp_bearing import curves as bearing_curves
-from mp_parse import calls as package_calls
 from mp_parse.calls import extract_single_call as package_single_call
 from mp_verify import checks as package_checks
 from mp_verify import plot as package_plot
 from mp_verify.closure import verify_closure as package_verify
 
-from metesparser import call_extractor as monolith_calls
 from metesparser import models as monolith_models
 from metesparser.call_extractor import CallExtractor
 from metesparser.closure_checker import ClosureChecker
@@ -146,8 +144,6 @@ def test_one_curve_element_tolerance_is_shared():
     tol = bearing_curves.CURVE_ELEMENT_TOLERANCE_FT
     assert package_checks.CURVE_ELEMENT_TOLERANCE_FT == tol
     assert package_plot.CURVE_ELEMENT_TOLERANCE_FT == tol
-    assert package_calls.CURVE_ELEMENT_TOLERANCE_FT == tol
-    assert monolith_calls.CURVE_ELEMENT_TOLERANCE_FT == tol
     assert package_plot.TANGENT_CHORD_TOLERANCE_DEG == bearing_curves.TANGENT_CHORD_TOLERANCE_DEG
 
 
@@ -195,14 +191,15 @@ TANGENT_CHORD_TEXT = (
 
 @pytest.mark.parametrize("error", CHORD_ERRORS)
 @pytest.mark.parametrize("single", [package_single_call, CallExtractor.extract_single_call])
-def test_parser_tangent_chord_derivation_agrees_with_verify_and_plot(single, error):
+def test_parser_keeps_stated_tangent_chord_and_verify_judges_them(single, error):
+    # Round 12: the parser never derives an arc; verification alone cross-checks
+    # the stated tangent, chord and radius with the shared tolerance.
     chord = round(CHORD, 2) + error
     call = single(TANGENT_CHORD_TEXT.format(chord=chord), 1)
-    derived = call.arc_length_ft is not None
+    assert call.arc_length_ft is None
+    assert call.delta_deg is None
+    assert call.distance_ft == pytest.approx(round(chord, 2))
     tol = bearing_curves.CURVE_ELEMENT_TOLERANCE_FT
     stated_error = abs(round(chord, 2) - CHORD)
-    assert derived is (stated_error <= tol)
-    if derived:
-        package_call = mp_models.DeedCall.model_validate(call.model_dump())
-        assert package_checks.check_curve_consistency([package_call])[0]
-        assert _plots(package_call)
+    package_call = mp_models.DeedCall.model_validate(call.model_dump())
+    assert package_checks.check_curve_consistency([package_call])[0] is (stated_error <= tol)
