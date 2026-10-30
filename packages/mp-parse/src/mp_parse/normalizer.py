@@ -156,10 +156,14 @@ def clean_ocr_errors(text: str) -> str:
     return text
 
 
+_BEARING_AHEAD = r"(?=(?:[NS]|North|South)\s*\d{1,3}\s*(?:°|degrees?\b))"
+# "and" (or "and running") directly before a quadrant bearing.
 _AND_BEARING_RE = re.compile(
-    r"(?<=\S)\s+(?:&|and)\s+(?=(?:[NS]|North|South)\s*\d{1,3}\s*(?:°|degrees?\b))",
+    r"(?<=\S)\s+(?:&|and)(?P<running>\s+running)?\s+" + _BEARING_AHEAD,
     re.IGNORECASE,
 )
+# "and running <bearing>" opens a course, even right after a BEGINNING clause.
+_AND_RUNNING_RE = re.compile(r"\band\s+running\s+" + _BEARING_AHEAD, re.IGNORECASE)
 _POB_START = re.compile(r"\b(?:beginning|commencing|beg\.?)\b", re.IGNORECASE)
 _COURSE_START = re.compile(r"\b(?:thence|then|th\.?|proceeding)\b", re.IGNORECASE)
 
@@ -323,10 +327,18 @@ def expand_assessor_abbreviations(text: str) -> str:
     # exactly what a second pass would (idempotence).  A tie from the point of
     # beginning ("Beginning at a point distant N .. and S .. from ...") is not a
     # course: no `thence` has started a course since the last Beginning/Commencing.
+    # "and running <bearing>" always opens a course ("BEGINNING at a pin and running
+    # N 45° E ..."), so the courses joined to it by "and" are courses too.
     def _and_separator(m: Match[str]) -> str:
+        if m["running"]:
+            return " thence "
         before = m.string[: m.start()]
         starts = list(_POB_START.finditer(before))
-        if starts and not _COURSE_START.search(before, starts[-1].end()):
+        if (
+            starts
+            and not _COURSE_START.search(before, starts[-1].end())
+            and not _AND_RUNNING_RE.search(before, starts[-1].end())
+        ):
             return m.group(0)
         return " thence "
 
