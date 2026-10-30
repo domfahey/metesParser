@@ -451,7 +451,7 @@ _TRAILING_LEAD = re.compile(
 _CLOSING_PHRASE = re.compile(
     r"\bto\s+(?:the\s+)?(?:(?:first\s+mentioned|true|remote)\s+)?"
     r"(?:(?:point|place)(?:\s+(?:and|or)\s+place)?\s+of\s+)?beginning\b"
-    r"|\bto\s+(?:the\s+)?(?:[TR]?POB\b|[TR]\.P\.O\.B\.)",
+    r"|\bto\s+(?:the\s+)?(?:[TR]\.?)?P\.?O\.?B\b",
     re.IGNORECASE,
 )
 _SENTENCE_END = re.compile(r"\.(?=\s|$)|;")
