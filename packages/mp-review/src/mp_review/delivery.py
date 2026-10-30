@@ -706,9 +706,9 @@ def _geojson_area(
         if not item.selection.visible:
             continue
         if item.plot and item.placement:
-            points = webmap.placed_points(
+            points = webmap.displayed_calculation_points(
                 item.plot.geometry.primitives,
-                item.placement,
+                [item.placement],
                 item.plot.request.foot_definition,
                 scene.units,
             )
