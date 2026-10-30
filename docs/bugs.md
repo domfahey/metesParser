@@ -785,6 +785,16 @@ Bug review of changes merged 2026-10-22 to 2026-10-29 (PRs #43–#58 and `feat/c
 - **Actual behavior:** Radius and delta are not extracted; the existing patterns expect forms like `radius of 50 feet` and `delta angle of 90°`.
 - **Suggested fix:** Accept `radius <n>` without `of` and `central angle` as a delta synonym in package and monolith, with regression tests.
 
+### PR #60 second review (2026-10-29)
+Ten findings from a second review of PR #60, fixed red-green on `fix/code-review-2026-10-29`:
+- **Distance regression (#70):** `10 chains and 50 links, 3 rods` again parses as 693 ft; the comma/space joiner no longer swallows a trailing measurement after a valid "and" compound (`84e2ddb`, package and monolith).
+- **Tract headings (#69):** a hyphenated ID (`Parcel A-1`) after a reference word is no longer a dash heading, and `in`/`within`/`being` are reference words, including across a line break (`7dd0ed8`).
+- **Source paths (#57):** an absolute reference with a `..` component is rejected before normalization, so `root/link/../b.txt` through a symlink is `unsafe_path` again (`8f01106`).
+- **Chord-only curve bearing:** when the chord bearing is the only bearing in a curve call, it is no longer used as the tangent azimuth in any spelling; the tangent is derived (`5448a51`, package and monolith). Limitation: a chord-only `due North` style bearing is still taken as the tangent.
+- **Delivery area of use (#68):** delivery and the web map share one extent helper in `mp_review.webmap`; the GeoJSON operation is chosen from deed geometry; optional out-of-area context, corridor and PLSS layers are omitted from GeoJSON and recorded as `DeliveryOmission(reason=outside_area_of_use)`; required ones block the publish (`4aff764`). SVG/PDF/DXF keep the layer.
+- **Concurrent publish:** `publish_delivery` holds a per-delivery-id `flock` across write and discard, and re-writes every artifact through the write-once path after the manifest, so a manifest never references a missing file (`5b9dd54`). Without `fcntl` (Windows) only the re-write check applies.
+- **Cleanup:** one geographic Transformer per projection; `mp_review` reuses `mp_verify.webmap.feature_vertices` (`f57864f`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
