@@ -339,15 +339,30 @@ def _beginning_starts(text: str) -> list[re.Match[str]]:
     ]
 
 
+_THENCE_WORD = re.compile(r"\bTHENCE\b", re.IGNORECASE)
+
+
 def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
     """Find BEGINNING...POB blocks.
+
+    A block closes at the first point-of-beginning mention after its first
+    THENCE: preamble wording ("said point of beginning being distant ...",
+    "from said point of beginning running thence") is not a closure.
 
     Returns: list of (start, end) positions
     """
     blocks: list[tuple[int, int]] = []
     for m in _beginning_starts(text):
-        # Look for matching POB closure after this BEGINNING
-        close = _POB_CLOSE_PATTERN.search(text, m.end())
+        # The block's courses start at its first THENCE; a closure precedes none.
+        first_thence = _THENCE_WORD.search(text, m.end())
+        if not first_thence:
+            logger.warning(
+                "BEGINNING block without THENCE calls",
+                position=m.start(),
+                preview=text[m.start() : m.start() + 80],
+            )
+            continue
+        close = _POB_CLOSE_PATTERN.search(text, first_thence.end())
         if not close:
             logger.warning(
                 "BEGINNING block without matching POB closure",
@@ -360,24 +375,47 @@ def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
         intervening = _beginning_starts(text[m.end() : close.start()])
         if intervening:
             logger.warning(
-                "Dropping BEGINNING block due to intervening BEGINNING before POB",
+                "BEGINNING block has an intervening BEGINNING before its POB; "
+                "its text is kept by split_into_tracts if it holds courses",
                 position=m.start(),
                 preview=text[m.start() : m.start() + 120],
             )
             continue
 
-        # Verify this block has at least one THENCE
-        block_text = text[m.start() : close.end()]
-        if not re.search(r"\bTHENCE\b", block_text, re.IGNORECASE):
-            logger.warning(
-                "BEGINNING block without THENCE calls",
-                position=m.start(),
-                preview=block_text[:80],
-            )
-            continue
-
         blocks.append((m.start(), close.end()))
     return blocks
+
+
+def _with_unassigned_course_text(
+    blocks: list[tuple[int, int]], text: str
+) -> list[tuple[int, int, bool]]:
+    """Return blocks plus any text between or around them that holds courses.
+
+    Each entry is (start, end, is_block). Course text outside every block (an
+    unclosed description, a block dropped for an intervening BEGINNING) is kept
+    as its own span so it is never silently lost; text without a course
+    (schedule headings, recitals) is still dropped.
+    """
+    spans: list[tuple[int, int, bool]] = []
+
+    def keep_gap(start: int, end: int) -> None:
+        gap = text[start:end]
+        if _THENCE_COURSE.search(gap):
+            logger.warning(
+                "Course text outside every BEGINNING block; keeping it as an unlabelled tract",
+                position=start,
+                preview=gap.strip()[:120],
+                characters=len(gap.strip()),
+            )
+            spans.append((start, end, False))
+
+    cursor = 0
+    for start, end in blocks:
+        keep_gap(cursor, start)
+        spans.append((start, end, True))
+        cursor = end
+    keep_gap(cursor, len(text))
+    return spans
 
 
 def label_beginning_blocks(
@@ -387,15 +425,24 @@ def label_beginning_blocks(
     """Label multiple BEGINNING blocks as tracts.
 
     Inspects the text preceding each block to detect ALSO/EXCEPT keywords
-    and assign the correct TractType.
+    and assign the correct TractType. Course text outside every block is kept
+    under the unlabelled-tract label (numbered when there is more than one).
     """
     result: list[tuple[str, str, TractType]] = []
     main_count = 0
     exception_count = 0
     addition_count = 0
+    unlabelled_count = 0
 
-    for start, end in blocks:
+    for start, end, is_block in _with_unassigned_course_text(blocks, text):
         segment = text[start:end].strip()
+        if not is_block:
+            unlabelled_count += 1
+            label = UNLABELLED_TRACT_LABEL
+            if unlabelled_count > 1:
+                label = f"{UNLABELLED_TRACT_LABEL} {unlabelled_count}"
+            result.append((segment, label, TractType.MAIN))
+            continue
 
         # Check text before this block for EXCEPT or ALSO keywords
         preceding = text[max(0, start - 80) : start]
