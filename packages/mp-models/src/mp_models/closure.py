@@ -70,6 +70,12 @@ class ClosureResult(_Model):
         ...,
         description="Total perimeter in feet; 0.0 when perimeter_available is False",
     )
+    area_available: bool = Field(
+        default=True,
+        description="False when area cannot be determined (e.g. a chord-only curve, an "
+        "unpositioned course or an incomplete bearing); area_sq_ft/area_acres are then not "
+        "measurements",
+    )
     perimeter_available: bool = Field(
         default=True,
         description="False when a course length is not determined (e.g. a chord-only curve "
@@ -131,6 +137,7 @@ class ClosureResult(_Model):
         "angle_check_passed",
         "curve_consistency_passed",
         "perimeter_available",
+        "area_available",
         mode="before",
     )
     @classmethod
