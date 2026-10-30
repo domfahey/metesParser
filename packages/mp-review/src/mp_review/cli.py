@@ -4,12 +4,43 @@ import argparse
 import contextlib
 import json
 import sys
+import traceback
 from pathlib import Path
 from typing import Any
 
 from .api import review_file, verify_file
 from .relative import review_relative_file
-from .settings import SettingsError, output_path, read_settings
+from .settings import SettingsError, read_settings
+from .settings import output_path as _output_path
+
+# Output directories handed out in this invocation, with the files present beforehand,
+# so an internal failure can still report what was already written.
+_OUTPUT_DIRS: list[tuple[Path, frozenset[Path]]] = []
+
+
+def output_path(settings: dict[str, Any], explicit: Path | None) -> Path:
+    path = _output_path(settings, explicit)
+    before = frozenset(p for p in path.rglob("*") if p.is_file()) if path.is_dir() else frozenset()
+    _OUTPUT_DIRS.append((path, before))
+    return path
+
+
+def _written_artifacts() -> dict[str, str]:
+    written: dict[str, str] = {}
+    for root, before in _OUTPUT_DIRS:
+        if not root.is_dir():
+            continue
+        for path in sorted(p for p in root.rglob("*") if p.is_file() and p not in before):
+            written[str(path.relative_to(root))] = str(path)
+    return written
+
+
+def _is_input_parse_recursion(exc: RecursionError) -> bool:
+    """True only when recursion happened decoding JSON or validating the loaded input."""
+    frames = traceback.extract_tb(exc.__traceback__)
+    if any(f.filename.endswith(("json/decoder.py", "json/scanner.py")) for f in frames):
+        return True
+    return bool(frames) and frames[-1].filename.endswith("pydantic/main.py")
 
 
 def main() -> None:
@@ -193,19 +224,35 @@ def main() -> None:
                 "artifacts": {},
                 "errors": [{"code": "invalid_settings", "message": str(exc)}],
             }
-        except RecursionError:
-            # Deeply nested JSON exhausts the parser; report it as an invocation error.
-            result = {
-                "schema_version": "1.0",
-                "status": "error",
-                "artifacts": {},
-                "errors": [
-                    {
-                        "code": "invalid_input_json",
-                        "message": "Input JSON is nested too deeply to process.",
-                    }
-                ],
-            }
+        except RecursionError as exc:
+            if _is_input_parse_recursion(exc):
+                # Deeply nested JSON exhausts the parser; report it as an invocation error.
+                result = {
+                    "schema_version": "1.0",
+                    "status": "error",
+                    "artifacts": {},
+                    "errors": [
+                        {
+                            "code": "invalid_input_json",
+                            "message": "Input JSON is nested too deeply to process.",
+                        }
+                    ],
+                }
+            else:
+                # Later recursion (rendering, publishing) is an internal failure; files
+                # may already be written, so report them rather than hide them.
+                result = {
+                    "schema_version": "1.0",
+                    "status": "error",
+                    "artifacts": _written_artifacts(),
+                    "errors": [
+                        {
+                            "code": "internal_recursion_error",
+                            "message": "Recursion limit exceeded while processing; "
+                            "artifacts listed may be incomplete.",
+                        }
+                    ],
+                }
     print(json.dumps(result, allow_nan=False))
     raise SystemExit(
         {"checks_passed": 0, "needs_review": 1, "passed": 0, "failed": 1, "error": 2}.get(
