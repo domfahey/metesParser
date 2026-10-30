@@ -55,6 +55,9 @@ from .dashboard import (
     PreparedDashboard,
 )
 from .deed_call import (
+    FIXED_NOTE_PREFIXES,
+    FIXED_NOTES,
+    LEGACY_CURVE_NOTE,
     PARENTHETICAL_NOTE_PREFIX,
     PASSING_CALL_NOTE_PREFIX,
     RECORD_CALL_NOTE_PREFIX,
@@ -188,6 +191,9 @@ __all__ = [
     "SEPARATE_EASEMENT_NOTE_PREFIX",
     "UNAPPLIED_EXCEPTION_NOTE_PREFIX",
     "VERBATIM_NOTE_PREFIXES",
+    "FIXED_NOTES",
+    "FIXED_NOTE_PREFIXES",
+    "LEGACY_CURVE_NOTE",
     "split_notes",
     "unapplied_exceptions",
     "DeliveryItem",
