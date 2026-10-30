@@ -147,7 +147,12 @@ def normalize_web_map_context(prepared: WebMapInput) -> WebMapContext:
 # Display coordinates are WGS84 degrees; 1e-9 degree is about 0.1 mm.
 _COORDINATE_TOLERANCE_DEG = 1e-9
 _NATIVE_JOIN_TOLERANCE = 1e-6
-_CLOSURE_GAP_THRESHOLD = 1e-8
+CLOSURE_GAP_THRESHOLD = 1e-8
+
+
+def has_closure_gap(first: tuple[float, float], last: tuple[float, float]) -> bool:
+    """Whether a complete boundary's endpoints differ by more than numerical residue."""
+    return math.hypot(last[0] - first[0], last[1] - first[1]) > CLOSURE_GAP_THRESHOLD
 
 
 def _near(a: tuple[float, float], b: tuple[float, float]) -> bool:
@@ -244,10 +249,7 @@ def _validate_deed_set(geometry: PlotGeometry, features: list[WebMapFeature]) ->
     gaps = [f for f in features if f.properties.kind == "closure_gap"]
     primitives = geometry.primitives
     first, last = primitives[0].start, primitives[-1].end
-    wants_gap = (
-        geometry.completeness == "complete"
-        and math.hypot(last[0] - first[0], last[1] - first[1]) > _CLOSURE_GAP_THRESHOLD
-    )
+    wants_gap = geometry.completeness == "complete" and has_closure_gap(first, last)
     if (
         sorted(f.properties.call_id or "" for f in courses) != sorted(p.call_id for p in primitives)
         or len(pobs) != 1
