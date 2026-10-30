@@ -1316,3 +1316,14 @@ def test_display_status_follows_invalid_producer(chain):
     display = nodes(result, "review_display")[0]
     assert core["status"] != "present_valid"
     assert display["status"] != "present_valid"
+
+
+def test_dashboard_saved_by_older_calculator_is_stale(dashboard_bundle):
+    path = dashboard_bundle / "dashboard/stage-manifest.json"
+    data = json.loads(path.read_bytes())
+    assert data["calculator_version"] != "dashboard-1.1.0"
+    data["calculator_version"] = "dashboard-1.1.0"
+    write_json(path, data)
+    node = nodes(inspect(dashboard_bundle, "dashboard"), "dashboard_calculations")[0]
+    assert node["status"] == "stale"
+    assert "algorithm_version_mismatch" in codes(node)
