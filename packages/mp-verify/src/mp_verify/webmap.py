@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from mp_models.dashboard import DashboardCall, PreparedDashboard
@@ -29,6 +30,21 @@ from mp_models.webmap import (
 
 from mp_verify.dashboard import validate_prepared_dashboard
 from mp_verify.plot import validate_plot_placement, validate_prepared_plot
+
+Extent = tuple[float, float, float, float]
+
+
+def bounds_of(points: Sequence[tuple[float, float]]) -> Extent | None:
+    """Bounds of the finite points, or ``None``."""
+    finite = [p for p in points if all(math.isfinite(v) for v in p)]
+    if not finite:
+        return None
+    return (
+        min(p[0] for p in finite),
+        min(p[1] for p in finite),
+        max(p[0] for p in finite),
+        max(p[1] for p in finite),
+    )
 
 
 def _digest(value: object) -> str:
@@ -213,13 +229,8 @@ def _validate_completeness(context: WebMapContext, artifact: WebMapArtifact, sce
                 raise ValueError("online display is incomplete: raster neither shown nor omitted")
     points = [p for f in artifact.features for p in feature_vertices(f)]
     points.extend(p for r in artifact.rasters for p in r.corners)
-    if points:
-        expected = (
-            min(p[0] for p in points),
-            min(p[1] for p in points),
-            max(p[0] for p in points),
-            max(p[1] for p in points),
-        )
+    expected = bounds_of(points)
+    if expected is not None:
         if artifact.bounds is None or any(
             abs(a - b) > _COORDINATE_TOLERANCE_DEG
             for a, b in zip(artifact.bounds, expected, strict=True)

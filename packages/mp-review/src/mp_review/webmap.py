@@ -25,7 +25,14 @@ from mp_models.webmap import (
 )
 from mp_verify.dashboard import _hash
 from mp_verify.plot import arc_point, transform_point
-from mp_verify.webmap import WebMapContext, WebMapInput, feature_vertices, normalize_web_map_context
+from mp_verify.webmap import (
+    Extent,
+    WebMapContext,
+    WebMapInput,
+    bounds_of,
+    feature_vertices,
+    normalize_web_map_context,
+)
 
 from .webmap_projection import WebMapProjection, WebMapUnavailable, build_web_map_projection
 
@@ -254,22 +261,6 @@ def _vector_feature(
     )
 
 
-Extent = tuple[float, float, float, float]
-
-
-def bounds_of(points: list[XY]) -> Extent | None:
-    """Scene-XY bounds of the finite points, or ``None``."""
-    finite = [p for p in points if all(math.isfinite(v) for v in p)]
-    if not finite:
-        return None
-    return (
-        min(p[0] for p in finite),
-        min(p[1] for p in finite),
-        max(p[0] for p in finite),
-        max(p[1] for p in finite),
-    )
-
-
 def vector_extent(layer: VectorLayer) -> Extent | None:
     """Scene-XY bounds of a context vector layer."""
     polygons = (layer.coordinates,) if layer.geometry_type == "Polygon" else layer.coordinates
@@ -328,13 +319,16 @@ def _display_extent(
         native = foot.get(geometry.calculation_id)
         if native is None or native == "unknown_ft":
             continue
-        for placement in context.placements:
-            if (
-                placement.calculation_id != geometry.calculation_id
-                or placement.scene_id != scene_id
-                or placement.status == "unplaced"
-            ):
-                continue
+        placements = [
+            p
+            for p in context.placements
+            if p.calculation_id == geometry.calculation_id and p.scene_id == scene_id
+        ]
+        # prepare_web_map omits the whole calculation when any placement is
+        # unplaced (or none exists); omitted geometry must not pick the operation.
+        if not placements or any(p.status == "unplaced" for p in placements):
+            continue
+        for placement in placements:
             points.extend(placed_points(geometry.primitives, placement, native, scene_units))
     return operation_extent(
         points,
