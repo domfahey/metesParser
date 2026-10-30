@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from mp_bearing import (  # type: ignore[import-untyped]
     calculate_deltas,
+    cardinal_conflicts_bearing,
     compute_curve_endpoint,
 )
 from mp_models import DeedCall, Point
@@ -128,6 +129,9 @@ class CourseAnalysis:
             spiral): the arc shape, area and perimeter are not determined.
         positioned: The traverse actually produced a vertex for this call.
         determined_direction: The direction is stated or fixed by curve elements.
+        direction_conflict: Verification-detected conflicting direction evidence: a
+            cardinal-only direction word outside its sector around the parsed chord
+            azimuth, or a chord-only chord longer than the diameter.
     """
 
     index: int
@@ -138,19 +142,29 @@ class CourseAnalysis:
     arc_undetermined: bool
     positioned: bool
     determined_direction: bool
+    direction_conflict: bool = False
+
+    @property
+    def indefinite(self) -> bool:
+        """Indefinite as stated (parser flag) or by verification's own conflict check.
+
+        is_indefinite is not a CSV column, so verification derives the conflict from
+        the persisted fields and never relies on the flag alone.
+        """
+        return self.call.is_indefinite or self.direction_conflict
 
     @property
     def chord_positioned(self) -> bool:
         """A stated chord alone positions the course with no known tangent.
 
-        A course whose direction evidence conflicts (the parser's cardinal/chord
-        conflict leaves it indefinite) does not state a direction.
+        A course whose direction evidence conflicts (cardinal word against the chord
+        bearing, or a chord longer than the diameter) does not state a direction.
         """
         return (
             self.positioned
             and self.arc_undetermined
             and not self.determined_direction
-            and not self.call.is_indefinite
+            and not self.indefinite
         )
 
 
@@ -174,6 +188,13 @@ def analyze_courses(
         # A spiral is never a chord-only circular curve (minor/major arc ambiguity).
         chord_only = call.is_chord_only_curve() and not is_spiral(call)
         feasible_chord = not (chord_only and not chord_is_feasible(call))
+        determined = has_determined_direction(call)
+        direction_conflict = (chord_only and not feasible_chord) or (
+            chord_azimuth is not None
+            and not determined
+            and bool(call.direction_text)
+            and cardinal_conflicts_bearing(call.direction_text, chord_azimuth)
+        )
         endpoint = _advance(call, current, chord_azimuth)
         if endpoint is not None:
             current = endpoint
@@ -187,7 +208,8 @@ def analyze_courses(
                 feasible_chord=feasible_chord,
                 arc_undetermined=chord_only or (endpoint is not None and is_spiral(call)),
                 positioned=endpoint is not None,
-                determined_direction=has_determined_direction(call),
+                determined_direction=determined,
+                direction_conflict=direction_conflict,
             )
         )
     return points, records
