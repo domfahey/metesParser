@@ -1,4 +1,4 @@
-"""PR #60 round 8: audit mode reset, infeasible chord-only curves, continuation, curve precedence.
+"""PR #60 round 8: audit mode reset, infeasible chord-only curves, #49 continuation, curve precedence.
 
 Each behavior runs through the package and the compatibility monolith.
 """
@@ -126,15 +126,15 @@ def test_feasible_chord_only_curve_is_still_positioned(impl):
 
 @pytest.mark.parametrize("impl", IMPLS)
 @pytest.mark.parametrize("along", ["continuing along the same line", "same line as above"])
-def test_first_course_continuation_without_predecessor_is_blocked(impl, along):
+def test_first_course_continuation_does_not_block_parallelism(impl, along):
+    """#49: course 0 has no predecessor to compare, so it must not block verification."""
     m, verify, _ = IMPLS[impl]
     calls = _square(m)
     calls[0] = calls[0].model_copy(update={"along": along})
     result = verify(calls)
     parallel = next(c for c in result.checks if c.name == "parallelism")
-    assert parallel.status == "blocked"
-    assert parallel.reason == "continuation_without_predecessor"
-    assert result.geometry_verified is False
+    assert parallel.status != "blocked"
+    assert result.geometry_verified is True
 
 
 @pytest.mark.parametrize("impl", IMPLS)
