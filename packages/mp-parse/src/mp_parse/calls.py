@@ -51,8 +51,9 @@ from .metadata import (
     CourseListAnalysis,
     _tie_clause_start,
     analyze_course_lists,
+    course_length_phrase_span,
     detect_meander,
-    extract_along_to_fields,
+    extract_course_clause,
     extract_distance,
     extract_poc,
     extract_witness_trees,
@@ -1686,6 +1687,7 @@ def _bearing_pairs(text: str) -> list[_BearingPair]:
 # a course that does not state a value itself fails closed (or stays cardinal only)
 # under the usual rules. Their wording is kept verbatim in notes.
 RECORD_CALL_NOTE_PREFIX = "record call: "
+PASSING_CALL_NOTE_PREFIX = "passing call: "
 _RECORD_BEFORE = re.compile(
     r"(?<![A-Za-z])(?:per\s+(?:deed|record)|of\s+record|(?:(?:in|from|by|as\s+in)\s+(?:the\s+|said\s+)?"
     r"(?:prior|previous|former|earlier|original|old)\s+)?(?:deed|record)|[(\[]R[)\]])\s*[:=]?\s*$",
@@ -2290,7 +2292,9 @@ def _adjoiner_wording(
                 continue
             converted = ConversionFactors.convert_to_feet(reading.value, reading.unit)
             if converted is not None and abs(converted - course_distance_ft) < 1e-6:
-                along = along[: token.start()] + " " + along[token.end() :]
+                # The length goes with its wording ("a distance of", "more or less").
+                start, end = course_length_phrase_span(along, token.start(), token.end())
+                along = along[:start] + " " + along[end:]
                 break
     return re.sub(r"\s{2,}", " ", along).strip(" ,;.")
 
@@ -2589,7 +2593,8 @@ def _extract_call(
     elif distance_ft is None or distance_ft <= 0.0:
         raise ValueError("Missing boundary course distance")
 
-    along, to = extract_along_to_fields(call_text)
+    clause = extract_course_clause(call_text)
+    along, to = clause.along, clause.to
     if along and not is_curve:
         along = _adjoiner_wording(
             along, direction_text if raw_direction else "", distance_ft, record_scan.records
@@ -2597,7 +2602,9 @@ def _extract_call(
 
     monument_type = classify_monument(to) if to else None
     monument_status = classify_monument_status(to or call_text)
-    is_meander = detect_meander(call_text)
+    # Water wording is the course's own only before its destination and any later
+    # "thence" ("to a stone on the bank of a creek, thence along the creek").
+    is_meander = detect_meander(call_text[: clause.course_end])
 
     notes = ""
     cardinal_only = False
@@ -2634,7 +2641,7 @@ def _extract_call(
     tangent_note = "; ".join(tangent_notes)
 
     note_parts: list[str] = []
-    if is_meander or "approximate" in call_text.lower():
+    if is_meander or "approximate" in call_text[: clause.clause_end].lower():
         note_parts.append("meander / approximate")
         if tangent_note:
             note_parts.append(tangent_note)
@@ -2665,6 +2672,8 @@ def _extract_call(
         note_parts.append(LENGTH_NOT_DETERMINED_NOTE)
     # A record call is never read as the course; keep its wording.
     note_parts.extend(RECORD_CALL_NOTE_PREFIX + text for text in record_scan.records)
+    # A passing call locates a point on the line; it is kept verbatim, never dropped.
+    note_parts.extend(PASSING_CALL_NOTE_PREFIX + text for text in clause.passing)
     notes = "; ".join(note_parts)
 
     if distance_ft is not None and distance_ft <= 0.0:
