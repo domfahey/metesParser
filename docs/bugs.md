@@ -1130,7 +1130,17 @@ Nine findings (three regressions against `main`, one a silent loss of every cour
 - **Adjective widths and monument depths (regressions):** "a 50 foot road", "a 16.5 foot right of way", "a 20 foot alley" are widths; "found 0.5 feet below grade" is a monument position, not a course length (`79caf75`).
 - **Every excluded record value is noted, verbatim:** an (R) bearing after an (M) bearing without a comma, and "Rec.", "plan", "plat", "survey", "P", "D" labels are noted; record notes in `extract_calls` use the deed's own text, including label words ("in prior deed") (`78ad6d7`).
 - **"by the line of Smith":** kept in `along` like "along" (`78ad6d7`).
-- **Known limitations:** numbered courses before the first THENCE fail closed instead of being extracted; MIWAYN-50231's tie ("to a place of beginning") is not marked; "to a point, thence" keeps the trailing "thence"; a non-record parenthetical length ("(see plan 12 feet)") is excluded without a note.
+- **Known limitations:** MIWAYN-50231's tie ("to a place of beginning") is not marked; "to a point, thence" keeps the trailing "thence"; a non-record parenthetical length ("(see plan 12 feet)") is excluded without a note.
+
+### PR #60 forty-second review (2026-10-30)
+Eight findings (none regressions against `main`; two fabricated lengths), fixed red-green on `fix/code-review-2026-10-29`:
+- **No fallback length (fabrication, also on `main`):** when every length in a course is an offset, tie, width or monument depth, the course fails closed with "Missing boundary course distance" instead of taking the first number ("set 0.5 feet below grade" was a 0.5 ft course). The fallback's two legitimate uses are now role rules ("80 feet in width or breadth"; a leading "at a distance of N feet"). 34 sample rows that had borrowed a tie, record or width length now fail closed; none was geometry-eligible (`1b38bd1`).
+- **Monument depth needs a monument:** "back", "deep", "high", "above", "below" make a length a tie only with a monument noun, "found"/"set", or "grade/surface/ground"; "100 feet back to the place of beginning" and "150 feet deep" are course lengths (`1b38bd1`).
+- **Preamble courses through the real splitter:** `split_call_fragments` returns every fragment, including the BEGINNING/COMMENCING ones `split_into_calls` drops. A preamble course in its own clause (";", numbered, "running") is extracted as an ordinary course; one comma-joined to the BEGINNING clause fails closed (`CourseInPreamble`); ties are decided with the parser's own pair roles. The regex detector is gone. 8 Kings Highway W (7489-772) now gives all 4 ground-truth courses and verifies (misclosure 89.87 → 0.0053 ft) (`ec38062`).
+- **"by" adjoiners only before the destination:** "to a stake in the corner formed by the line of Smith …" no longer invents an `along` (`e3fc6dd`).
+- **(R) then (M) bearings:** the measured bearing is the course in every order, with or without commas, including chord bearings (`e3fc6dd`).
+- **Verbatim record notes from aligned spans:** source and normalized text are aligned once per description and each record is restored within its own tract, with word boundaries (`e3fc6dd`).
+- **Known limitations:** a cardinal-only course (no degrees) inside a preamble clause is ignored; the monolith splitter merges 15 E Euclid's "80 feet in width or breadth; thence …" into one fragment, which now fails closed (the package path matches ground truth).
 
 ## Known Limitations
 
