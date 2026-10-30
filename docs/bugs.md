@@ -896,6 +896,15 @@ Seven findings plus one follow-up; six fixed red-green, one not reproducible:
 - **No area from partial points; dashboard alignment:** area is skipped when unavailable; the dashboard returns `unresolved` instead of zipping misaligned records and points (`be1367c`).
 - **Not reproducible:** "revisions drop radial_bearing_value" — the editor already rejects radial-bearing input with an explicit error before the chord-only branch.
 
+### PR #60 twelfth review (2026-10-30)
+Eight findings plus one found while fixing, fixed red-green on `fix/code-review-2026-10-29`:
+- **Rounding-aware curve tolerances:** stated lengths ±0.005 ft and angles ±0.5″ are propagated through arc, chord and deflection checks (floors 0.01 ft / 1.5″, caps 0.5 ft / 0.1°); one set of helpers in `mp_bearing.curves` used by verify and plot, which now accept exactly the same curves. Fixes large-radius (R=5000) and cul-de-sac (R=25) false failures from the round-10 fixed tolerance (`844b7e4`).
+- **No stored derived arc/chord for radius + delta curves (pre-existing on main):** `arc_length_ft`/`chord_length_ft` stay None; `distance_ft` (required) is the arc computed from the stated radius and delta and is noted "arc length not stated - course distance computed from radius and delta"; `curve_consistency` becomes `not_applicable` instead of passing on self-derived values (`4e4e83d`). Behaviour change: CSV arc/chord columns are blank for these curves.
+- **"curving to the right":** curve detection accepts curve/curved/curving and arc phrasings ("arc distance", "arc of", "distance along the arc of"). 89 Haddon (4455-174, 4732-544) course 2 and One Centennial Square (9528-156) course 9 no longer take the radius as the distance (`78e1c8e`). Ground truth for these deeds has no calls to compare.
+- **Closure:** computable traverse comes from positioning, so an all-chord-only boundary is computable; `tangent_chord_issue` runs once per curve (`90f4344`).
+- **Raster import:** orientation comes only from the shared `image_orientation` reader, matching render (`fe7b222`).
+- **Cleanup:** dead `misclosure_known` removed; tolerance comment corrected.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
