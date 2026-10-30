@@ -90,12 +90,8 @@ def _unparseable_chord(monkeypatch):
     """Make the chord bearing underivable so the tangent stays unstated."""
     import mp_parse.calls as package_calls
 
-    import metesparser.call_extractor as monolith_calls
-
+    # The monolith CallExtractor delegates to mp_parse.calls.
     monkeypatch.setattr(package_calls, "bearing_to_azimuth", lambda *_a, **_k: None)
-    monkeypatch.setattr(
-        monolith_calls.BearingConverter, "bearing_to_azimuth", staticmethod(lambda *_a, **_k: None)
-    )
 
 
 @pytest.mark.parametrize("parse", PARSERS)

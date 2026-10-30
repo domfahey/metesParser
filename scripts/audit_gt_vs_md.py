@@ -30,7 +30,7 @@ DISTANCE_PATTERN = re.compile(
 THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
 BEGINNING_PATTERN = re.compile(r"\*{0,2}\bBEGINNING\b\*{0,2}\s+(?:at|in)\b", re.IGNORECASE)
 
-# Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from call_extractor.py
+# Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from mp_parse/calls.py
 CARDINAL_ONLY_PATTERN = re.compile(
     r"\b(north|south|east|west|northeast|northwest|southeast|southwest|NE|NW|SE|SW)(?:erly|wardly)?\b",
     re.IGNORECASE,
