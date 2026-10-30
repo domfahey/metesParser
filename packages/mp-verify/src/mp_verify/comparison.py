@@ -26,6 +26,7 @@ from mp_models.plot_request import PlotCall
 from .diagnostics import _curve_evidence, _supported_circular_arc
 from .plot import prepare_plot, transform_point, unit_factor, validate_plot_placement
 from .tangents import line_distance
+from .traverse import effective_indefinite
 
 COMPARISON_VERSION = "comparison-1.1.0"
 
@@ -48,7 +49,7 @@ def _angle(a: float, b: float) -> float:
 
 
 def _excluded_boundary(call: DeedCall) -> bool:
-    return call.is_tie_in or call.is_exception or call.is_meander or call.is_indefinite
+    return call.is_tie_in or call.is_exception or call.is_meander or effective_indefinite(call)
 
 
 @dataclass(frozen=True)
