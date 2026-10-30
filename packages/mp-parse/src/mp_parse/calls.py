@@ -375,6 +375,25 @@ def _without_chord_bearing(text: str) -> str:
     return text[: match.start()] + " " + rest
 
 
+_RADIAL_PREFIX_PATTERN = re.compile(
+    r"(?:radius\s+point|radial(?:\s+line)?|(?:center|centre)(?:\s+point)?)"
+    r"\s+(?:which\s+|that\s+)?(?:bears?|bearing)\s+(?:of\s+)?",
+    re.IGNORECASE,
+)
+
+
+def _without_radial_bearing(text: str) -> str:
+    """Remove radius-point/radial bearing clauses; they are not the tangent."""
+    while True:
+        match = _RADIAL_PREFIX_PATTERN.search(text)
+        if not match:
+            return text
+        rest = standardize_cardinal_directions(_abbreviate_word_bearing(text[match.end() :]))
+        bearing = PACKED_DMS_PATTERN.match(rest) or QUADRANT_PATTERN.match(rest)
+        rest = rest[bearing.end() :] if bearing else rest
+        text = text[: match.start()] + " " + rest
+
+
 def _has_stated_bearing(text: str) -> bool:
     """Return True only for a numeric quadrant/DMS or "due" bearing.
 
@@ -466,7 +485,7 @@ def extract_single_call(
         isinstance(chord_text, str)
         and azimuth is not None
         and not is_due_cardinal
-        and not _has_stated_bearing(_without_chord_bearing(course_text))
+        and not _has_stated_bearing(_without_radial_bearing(_without_chord_bearing(course_text)))
     ):
         # The only bearing stated is the chord's; it is not the tangent azimuth.
         azimuth = None
@@ -621,8 +640,13 @@ def extract_single_call(
 
     radial_bearing_value = curve_info.get("radial_bearing")
 
-    is_indefinite = is_indefinite_call(
-        direction_text, has_bearing=parsed_bearing is not None or is_due_cardinal or derived_tangent
+    # A chord-only curve whose tangent could not be derived has no stored bearing.
+    chord_only_unresolved = chord_only and not derived_tangent
+    is_indefinite = chord_only_unresolved or is_indefinite_call(
+        direction_text,
+        has_bearing=(parsed_bearing is not None and not chord_only_unresolved)
+        or is_due_cardinal
+        or derived_tangent,
     )
 
     curve_type_value = curve_info.get("curve_type")
