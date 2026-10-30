@@ -1065,8 +1065,14 @@ Five findings plus one follow-up, fixed red-green on `fix/code-review-2026-10-29
 
 ### PR #60 thirty-fourth review (2026-10-30)
 Five findings, fixed red-green on `fix/code-review-2026-10-29`:
-- **Verification derives direction conflicts:** `mp_bearing.cardinal_conflicts_bearing` (shared sector rule) lets `CourseAnalysis` detect a cardinal/chord conflict and an over-diameter chord itself, so courses read from CSV or built without the parser are not chord-positioned and get the same indefinite warning, confidence and dashboard status as parsed ones (`bd21927`). Open: confidence, corridor, plot, diagnostics and comparison still read `call.is_indefinite` directly.
+- **Verification derives direction conflicts:** `mp_bearing.cardinal_conflicts_bearing` (shared sector rule) lets `CourseAnalysis` detect a cardinal/chord conflict and an over-diameter chord itself, so courses read from CSV or built without the parser are not chord-positioned and get the same indefinite warning, confidence and dashboard status as parsed ones (`bd21927`). Follow-up fixed (`64b7d92`): `effective_indefinite` is used by confidence, corridor, plot, diagnostics, comparison and the closure warning.
 - **Monument sizes are not lengths; one inch token:** "100.00 feet, 1\" iron pipe", "3/4\" rebar" read 100; foot-inch pairs end at thence/more or less like every inch form; one shared inch token, measurement-end rule and monument vocabulary (`ab419eb`).
+
+### PR #60 thirty-fifth review (2026-10-30)
+Nine findings plus one follow-up, fixed red-green on `fix/code-review-2026-10-29`:
+- **Fractional lengths (also wrong on main):** one shared `mp_parse.units.LENGTH_NUMBER` / `parse_number` grammar (comma-grouped decimals, mixed "100 1/2" and "100-1/2", plain "3/4", vulgar "½"/"6½") feeds every length, curve-element, compound and inch pattern; a number never starts or ends inside a fraction, and unreadable fractions fail closed. "100 1/2 feet" → 100.5 (was 2.0); "3/4 mile" → 3960 ft (was 21120); fractional inches and radii are read; an ascending compound ("6 inches 10 feet") fails closed; "100 feet 6\"" reads 100.5; "North 1/2 of Section 5" and aliquot parts are not courses (`17094c9`). Open: curve calls have no inch unit.
+- **CSV header validation:** `csv_text_to_calls` accepts only the exact 22- or legacy 21-column header, so `metesparser verify` rejects partial-column CSVs (exit 1); per-tract skip routing is computed once; `extract_single_call` docstring describes what it raises (`a4598c9`).
+- **Derived indefinite everywhere:** `effective_indefinite` (stored flag or verification-detected conflict) drives confidence, corridor, plot, diagnostics, comparison and the closure warning (`64b7d92`).
 
 ## Known Limitations
 
