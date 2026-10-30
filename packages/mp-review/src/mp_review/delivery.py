@@ -1188,12 +1188,8 @@ def _recorded_area(
     (the CRS must still equal the scene CRS); coordinates come from executing the
     recorded ``pipeline``. Area of use is not consulted.
     """
-    from .webmap_projection import (
-        WebMapProjection,
-        WebMapUnavailable,
-        _point,
-        _projection_dependencies,
-    )
+    from . import webmap_projection as projections
+    from .webmap_projection import WebMapUnavailable, _projection_dependencies
 
     accuracy = recorded.get("accuracy_m")
     versions = recorded.get("versions")
@@ -1225,28 +1221,16 @@ def _recorded_area(
     axes = tuple(axis.direction for axis in source.axis_info)
     pyproj.network.set_network_enabled(False)
     try:
-        transformer = pyproj.Transformer.from_pipeline(recorded["pipeline"])
-        geographic = pyproj.Transformer.from_crs(
-            "EPSG:3857", "EPSG:4326", always_xy=True, allow_ballpark=False, only_best=True
+        projection = projections.projection_from_pipeline(
+            pyproj,
+            source_crs_wkt=wkt,
+            axes=axes,
+            pipeline=recorded["pipeline"],
+            accuracy=accuracy,
+            versions=tuple((v[0], v[1]) for v in versions),
         )
     except pyproj.exceptions.ProjError:
         return None
-
-    def forward(x: float, y: float) -> XY:
-        ordered = (y, x) if axes == ("north", "east") else (x, y)
-        return _point(transformer.transform(*ordered, errcheck=True))
-
-    def longitude_latitude(x: float, y: float) -> XY:
-        return _point(geographic.transform(x, y, errcheck=True))
-
-    projection = WebMapProjection(
-        source_crs_wkt=wkt,
-        pipeline=recorded["pipeline"],
-        accuracy=accuracy,
-        versions=tuple((v[0], v[1]) for v in versions),
-        _forward=forward,
-        _geographic=longitude_latitude,
-    )
     outside = {
         o.layer_id: o.reason
         for o in snapshot.omissions

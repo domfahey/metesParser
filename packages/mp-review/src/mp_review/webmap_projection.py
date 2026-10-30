@@ -138,6 +138,49 @@ def _covers(area: Any, bounds: tuple[float, float, float, float]) -> bool:
     return bool(west >= area.west or east <= area.east)
 
 
+def projection_from_pipeline(
+    pyproj: Any,
+    *,
+    source_crs_wkt: str,
+    axes: tuple[str, ...],
+    pipeline: str,
+    accuracy: float | None,
+    versions: tuple[tuple[str, str], ...],
+    extent: tuple[float, float, float, float] | None = None,
+    covers_extent: Callable[[tuple[float, float, float, float]], bool] | None = None,
+) -> WebMapProjection:
+    """Instantiate a projection from an explicit pipeline (shared by build and replay).
+
+    May raise ``pyproj.exceptions.ProjError``; callers decide how to report it.
+    """
+    transformer = pyproj.Transformer.from_pipeline(pipeline)
+    geographic = pyproj.Transformer.from_crs(
+        "EPSG:3857", "EPSG:4326", always_xy=True, allow_ballpark=False, only_best=True
+    )
+
+    def forward(x: float, y: float) -> XY:
+        ordered = (y, x) if axes == ("north", "east") else (x, y)
+        return _point(transformer.transform(*ordered, errcheck=True))
+
+    def longitude_latitude(x: float, y: float) -> XY:
+        return _point(geographic.transform(x, y, errcheck=True))
+
+    kwargs: dict[str, Any] = {}
+    if extent is not None:
+        kwargs["extent"] = (extent[0], extent[1], extent[2], extent[3])
+    if covers_extent is not None:
+        kwargs["_covers_extent"] = covers_extent
+    return WebMapProjection(
+        source_crs_wkt=source_crs_wkt,
+        pipeline=pipeline,
+        accuracy=accuracy,
+        versions=versions,
+        _forward=forward,
+        _geographic=longitude_latitude,
+        **kwargs,
+    )
+
+
 def build_web_map_projection(
     scene: PlotScene, extent: tuple[float, float, float, float] | None = None
 ) -> WebMapProjection:
@@ -217,10 +260,6 @@ def build_web_map_projection(
             if definition.startswith("proj=pipeline")
             else definition + " over"
         )
-        transformer = pyproj.Transformer.from_pipeline(pipeline)
-        geographic = pyproj.Transformer.from_crs(
-            "EPSG:3857", "EPSG:4326", always_xy=True, allow_ballpark=False, only_best=True
-        )
         database = Path(pyproj.datadir.get_data_dir()) / "proj.db"
         versions = (
             ("pyproj", pyproj.__version__),
@@ -236,22 +275,15 @@ def build_web_map_projection(
             except Exception:
                 return False
 
-        def forward(x: float, y: float) -> XY:
-            ordered = (y, x) if axes == ("north", "east") else (x, y)
-            return _point(transformer.transform(*ordered, errcheck=True))
-
-        def longitude_latitude(x: float, y: float) -> XY:
-            return _point(geographic.transform(x, y, errcheck=True))
-
-        return WebMapProjection(
+        return projection_from_pipeline(
+            pyproj,
             source_crs_wkt=source.to_wkt(),
+            axes=axes,
             pipeline=pipeline,
             accuracy=None if accuracy < 0 or not math.isfinite(accuracy) else accuracy,
             versions=versions,
-            _forward=forward,
-            _geographic=longitude_latitude,
-            extent=None if extent is None else (extent[0], extent[1], extent[2], extent[3]),
-            _covers_extent=covers_extent,
+            extent=extent,
+            covers_extent=covers_extent,
         )
     except WebMapUnavailable:
         raise
