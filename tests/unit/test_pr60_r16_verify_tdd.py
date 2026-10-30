@@ -137,3 +137,58 @@ def test_check_fallback_leaves_infeasible_chord_only_curve_unpositioned():
     closure = _closure_check(_build(calls))
     assert closure.status == "blocked"
     assert closure.reason == "unpositioned_courses"
+
+
+def test_monolith_verify_closure_delegates_to_package(monkeypatch):
+    import mp_verify.closure as closure_mod
+
+    seen: list[list[mp_models.DeedCall]] = []
+    real = closure_mod.verify_closure
+
+    def spy(calls, **kwargs):
+        seen.append(calls)
+        return real(calls, **kwargs)
+
+    monkeypatch.setattr(closure_mod, "verify_closure", spy)
+    result = ClosureChecker.verify_closure(_square(monolith_models))
+
+    assert len(seen) == 1
+    assert all(isinstance(call, mp_models.DeedCall) for call in seen[0])
+    assert isinstance(result, monolith_models.ClosureResult)
+    assert result.closure_passed
+
+
+def test_monolith_multi_tract_verify_delegates_once_with_audits(monkeypatch):
+    from datetime import UTC, datetime
+
+    import mp_verify.closure as closure_mod
+
+    calls_seen: list[dict] = []
+    real = closure_mod.verify_closure
+
+    def spy(calls, **kwargs):
+        calls_seen.append(kwargs)
+        return real(calls, **kwargs)
+
+    monkeypatch.setattr(closure_mod, "verify_closure", spy)
+    m = monolith_models
+    ctx = m.AuditContext(
+        run_metadata=m.RunMetadata(
+            parser_version="t",
+            llm_provider="t",
+            llm_model="t",
+            prompt_hash="t",
+            timestamp_utc=datetime.now(UTC),
+            source_pdf="t.pdf",
+            cache_enabled=False,
+        )
+    )
+    tracts = [m.Tract(label=label, tract_type=m.TractType.MAIN, calls=_square(m)) for label in "AB"]
+    results = ClosureChecker.verify_closure(_square(m), tracts=tracts, audit_context=ctx)
+
+    # The package tract loop runs once per tract plus the delegating call.
+    assert calls_seen[0]["tracts"] is not None
+    assert [type(r) for r in results] == [m.ClosureResult, m.ClosureResult]
+    assert ctx.verification_audit is None
+    assert [a.tract_label for a in ctx.tract_verification_audits] == ["A", "B"]
+    assert all(isinstance(a, m.VerificationAudit) for a in ctx.tract_verification_audits)
