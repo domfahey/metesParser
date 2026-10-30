@@ -978,6 +978,14 @@ Two findings, fixed red-green on `fix/code-review-2026-10-29`:
 - **Verified export honours skipped courses:** the exporter's fresh re-check (package `export_verified_csv` and monolith `CSVBuilder`) receives tract skips, audit-context skips and an explicit `skipped_courses` list, and refuses export when any apply; `metes-review` passes its audit skips. Callers that extract non-strictly must pass them (`c73b7f7`).
 - **Chord-only spirals representable:** `DeedCall` accepts a spiral with chord bearing + chord length and no radius (curve direction optional); the parser uses the stated chord as the course distance with "spiral positioned by stated chord; radius not stated" (`45cd3e2`).
 
+### PR #60 twenty-third review (2026-10-30)
+Four findings plus one found while fixing, fixed red-green on `fix/code-review-2026-10-29`:
+- **Double-entry comparison:** `compare_double_entry` always compares `curve_type` and compares curve fields whenever either entry has them, so chord-only spirals and spiral-vs-circular disagreements are reported (`3a35cb9`).
+- **Single-description export:** the verified-export gate also blocks on `legal_desc.tracts[*].skipped_courses` (package and monolith) (`3a35cb9`).
+- **One skip-routing rule:** `mp_verify.closure.skips_for_tract` is used by `verify_closure` and both exporters (`3a35cb9`).
+- **Unnumbered counted lists:** a counted header without enumeration is satisfied when at least that many courses follow in the tract, and flagged only when fewer remain (`5b07404`).
+- **Semicolon-separated header courses:** courses after a header separated only by ";" are split instead of merged, so the second is no longer lost (`5b07404`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
