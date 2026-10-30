@@ -57,6 +57,18 @@ _WEAK_TERMINATOR = re.compile(
 )
 # Sentence breaks that put the following marker in heading position.
 _HEADING_POSITION_BREAKS = (".", ":", ";")
+# A markdown heading prefix before the marker: any '#' run at a line start, or
+# '##'+ after whitespace (normalization flattens newlines; a lone mid-line '#'
+# is a number sign, not a heading).
+_MARKDOWN_HEADING_PREFIX = re.compile(r"(?:(?:^|\n)[ \t]*#{1,6}|\s#{2,6})[ \t]*$")
+# Label for text with boundary calls before the first marker; no heading is invented.
+UNLABELLED_TRACT_LABEL = "Unlabelled tract"
+# A THENCE that opens a real course (a BEGINNING with no course holds no calls) (direction word or bearing letter), so OCR/table
+# noise containing "thence" is not mistaken for a boundary description.
+_THENCE_COURSE = re.compile(
+    r"\bTHENCE[\s,]+(?:(?:due|running)\s+)?(?:north|south|east|west|[NSEW]{1,2})(?:erly|wardly)?(?![A-Za-z])",
+    re.IGNORECASE,
+)
 # Words that make a following marker a reference to another parcel
 # ("corner of Parcel 2", "lying in Tract 4567"), even across an OCR line break.
 _REFERENCE_WORD_BEFORE = re.compile(
@@ -85,7 +97,9 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
       description that is still open ("BEGINNING at a point lying in
       Tract 4567 BEGINNING ...").
     * Weak terminator (end of line, '.', spaced dash, BEING): a heading only at
-      the start of the text or after a sentence break (. : ;).
+      the start of the text, after a sentence break (. : ;) or behind a markdown
+      '#' heading prefix. Leading text with calls is kept as its own tract by
+      split_on_markers, so an OCR-dropped heading no longer loses data.
     """
     prefix = text[: match.start()]
     if _STRONG_TERMINATOR.match(text, match.end()):
@@ -93,7 +107,11 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
     if not _WEAK_TERMINATOR.match(text, match.end()):
         return False
     stripped = prefix.rstrip()
-    return not stripped or stripped.endswith(_HEADING_POSITION_BREAKS)
+    return (
+        not stripped
+        or stripped.endswith(_HEADING_POSITION_BREAKS)
+        or _MARKDOWN_HEADING_PREFIX.search(prefix) is not None
+    )
 
 
 def find_tract_markers(
@@ -121,15 +139,18 @@ def split_on_markers(
     """
     result: list[tuple[str, str, TractType]] = []
 
-    # Warn if text before first marker contains THENCE calls (would be lost)
+    # Boundary calls before the first marker belong to a tract whose heading was
+    # not found (e.g. lost by OCR). Keep them under a neutral label; recitals
+    # and headers without calls are still dropped.
     if markers and markers[0][0] > 0:
         pre_text = text[: markers[0][0]].strip()
-        if re.search(r"\bTHENCE\b", pre_text, re.IGNORECASE):
+        if _THENCE_COURSE.search(pre_text):
             logger.warning(
-                "Text with THENCE calls found before first tract marker",
+                "Tract heading not found before first marker; keeping leading text as unlabelled tract",
                 preview=pre_text[:120],
                 characters=len(pre_text),
             )
+            result.append((pre_text, UNLABELLED_TRACT_LABEL, TractType.MAIN))
 
     for i, (pos, label, _kind) in enumerate(markers):
         end = markers[i + 1][0] if i + 1 < len(markers) else len(text)
