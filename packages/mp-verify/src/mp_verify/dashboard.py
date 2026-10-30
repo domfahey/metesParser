@@ -37,7 +37,7 @@ from mp_verify.scene import validate_scene
 from mp_verify.tangents import entry_azimuth, has_determined_direction
 from mp_verify.traverse import chord_positioned_flags
 
-CALCULATOR_VERSION = "dashboard-1.1.0"
+CALCULATOR_VERSION = "dashboard-1.2.0"
 DIAGNOSTICS_VERSION = "closure-diagnostics-2"
 
 
