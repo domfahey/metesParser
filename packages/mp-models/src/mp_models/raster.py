@@ -233,6 +233,10 @@ def image_orientation(data: bytes) -> int | None:
         offset = 2
         while offset + 4 <= len(data) and data[offset] == 255:
             marker = data[offset + 1]
+            if marker == 0xFF:
+                # Fill bytes may precede any marker; advance to the real marker byte.
+                offset += 1
+                continue
             if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
                 offset += 2
                 continue
