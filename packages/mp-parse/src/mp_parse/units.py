@@ -16,7 +16,18 @@ UNIT_TOKEN = (
 # each unit the distance converter supports, metric spellings and the foot marks
 # ' and \u2032 (a doubled mark is seconds). "m" is metres unless a number follows
 # it (a bearing's minutes). Converted with ``normalize_unit_token``.
-LENGTH_UNIT = rf"(?:{UNIT_TOKEN}\b|metres?\b|m\b(?!\s*\d)|'(?!')|\u2032(?!\u2032))"
+# A foot mark directly before a compass letter/word is a bearing's minutes written
+# without a degree sign ("N 45 30' E"), not a length; a compass that opens a new
+# bearing in degrees ("100' N 45\u00b0 E") leaves the mark a length.
+# Seconds ("30' 15\" E") may sit between the mark and the compass.
+_BEARING_MINUTES_TAIL = (
+    r"(?!\s*(?:\d+(?:\.\d+)?\s*(?:\"|''|\u2033)\s*)?"
+    r"(?:North|South|East|West|[NSEW])\b(?!\s*\d+\s*[\u00b0\u00ba]))"
+)
+LENGTH_UNIT = (
+    rf"(?:{UNIT_TOKEN}\b|metres?\b|m\b(?!\s*\d)"
+    rf"|'(?!'){_BEARING_MINUTES_TAIL}|\u2032(?!\u2032){_BEARING_MINUTES_TAIL})"
+)
 
 
 def normalize_unit_token(token: str | None, default: str = "feet") -> str:

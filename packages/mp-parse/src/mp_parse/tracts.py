@@ -116,21 +116,6 @@ _COURSE_DISTANCE = re.compile(
 )
 
 
-# A foot mark before a compass letter is a bearing's minutes ("N 45 30' E"), not a length.
-_BEARING_MINUTES_TAIL = re.compile(r"\s*[NSEW]\b")
-
-
-def _has_course_distance(segment: str, start: int, end: int) -> bool:
-    """Return whether a measured length appears in segment[start:end], not as bearing minutes."""
-    for match in _COURSE_DISTANCE.finditer(segment, start, end):
-        is_minutes = match.group().endswith(("'", "\u2032")) and _BEARING_MINUTES_TAIL.match(
-            segment, match.end()
-        )
-        if not is_minutes:
-            return True
-    return False
-
-
 def _is_title_recital(segment: str) -> bool:
     """Return whether a marker segment is a BEING-the-same recital with no boundary call.
 
@@ -142,7 +127,7 @@ def _is_title_recital(segment: str) -> bool:
     if _BEGINNING_PATTERN.search(segment):
         return False
     return not any(
-        _has_course_distance(segment, course.end(), course.end() + 200)
+        _COURSE_DISTANCE.search(segment, course.end(), course.end() + 200)
         for course in _THENCE_COURSE.finditer(segment)
     )
 
