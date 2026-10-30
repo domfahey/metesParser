@@ -107,9 +107,11 @@ def test_course_inside_beginning_clause_is_skipped_in_non_strict_mode(text):
     assert not verify_closure(calls, skipped_courses=skipped).geometry_verified
 
 
-def test_numbered_courses_before_the_first_thence_fail_closed():
+def test_numbered_courses_before_the_first_thence_are_extracted():
     # Sample 8 Kings Highway W (7489 - 772): courses 1 and 2 precede the first THENCE
-    # and were silently stripped with the BEGINNING preamble.
+    # and were silently stripped with the BEGINNING preamble. Round 42 failed closed;
+    # round 43 splits the stripped preamble as the courses are, so each numbered course
+    # is extracted, as the sample's ground truth expects.
     text = (
         "BEGINNING at a point in the line of Lot 10 and running;\n"
         "1. Along said line N 32° W, 41.23 feet to a point in same;\n"
@@ -117,12 +119,12 @@ def test_numbered_courses_before_the_first_thence_fail_closed():
         "3. Along said line S 28° E 36.73 feet to a point; thence\n"
         "4. Along said line S 58° W, 79.90 feet, to the point and place of BEGINNING."
     )
-    with pytest.raises(ValueError, match="BEGINNING"):
-        extract_calls(text)
+    calls, _ = extract_calls(text)
+    assert [c.course for c in calls] == [1, 2, 3, 4]
+    assert [c.distance_ft for c in calls] == [41.23, 82.47, 36.73, 79.9]
     skipped: list[SkippedCourse] = []
     extract_calls(text, strict=False, skipped_courses=skipped)
-    assert [s.error_type for s in skipped] == ["CourseInPreamble"]
-    assert "N 32° W, 41.23 feet" in skipped[0].source_excerpt
+    assert skipped == []
 
 
 def test_tie_locating_the_point_of_beginning_is_not_a_preamble_course():

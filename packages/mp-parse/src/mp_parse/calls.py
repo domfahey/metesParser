@@ -46,6 +46,8 @@ from .metadata import (
     LENGTH_RUN,
     TIE_AFTER_PATTERN,
     TIE_BEFORE_PATTERN,
+    CourseListAnalysis,
+    _tie_clause_start,
     analyze_course_lists,
     detect_meander,
     extract_along_to_fields,
@@ -56,8 +58,9 @@ from .metadata import (
     is_indefinite_call,
     read_course_length,
     read_standalone_inch_length,
+    split_call_fragments,
     split_exception_clauses,
-    split_into_calls,
+    unlisted_course_lists,
 )
 from .monuments import (
     MONUMENT_PATTERNS,
@@ -557,53 +560,131 @@ def _is_outside_region(region: range, index: int, call_text: str) -> bool:
     return index not in region and not _states_complete_course(call_text)
 
 
-# A course stated inside a BEGINNING/COMMENCING clause: a quadrant bearing, its
-# length, then a destination ("N 45° E 100 feet to a pin"). A tie locating the point
-# ("distant N 2° W 955.85 feet along ... from ...") has no destination "to".
+# The text a description drops as its BEGINNING/COMMENCING preamble is split as its
+# courses are (``split_call_fragments``) and its bearings are read by the course
+# parser's own pair reader (``_bearing_pairs``), so a course stated there is never
+# lost: in its own clause it is extracted, joined to the BEGINNING clause it fails
+# closed, and a tie locating the point is not a course.
 _PREAMBLE_OPENER = re.compile(r"\b(?:BEGINNING|COMMENCING)\b", re.IGNORECASE)
-_PREAMBLE_LEAD = re.compile(r"\s*(?:(?:POINT|PLACE)\s+(?:AND\s+PLACE\s+)?OF\s+)?$", re.IGNORECASE)
-_PREAMBLE_COURSE = re.compile(
-    r"(?<![A-Za-z])(?:[NS]|North|South)\s*\d{1,3}(?:\.\d+)?\s*(?:°|degrees?\b)[^;]{0,40}?"
-    r"(?<![A-Za-z])(?:[EW]|East|West)\b\s*,?\s*(?:a\s+distance\s+of\s+)?"
-    rf"{LENGTH_NUMBER}\s*{LENGTH_UNIT}(?:\s*,?\s*more\s+or\s+less)?\s*,?\s*"
-    r"(?:along\s+(?:(?!\b(?:from|distant)\b)[^;])*?\s+)?to\b",
+_PREAMBLE_WORD = re.compile(r"^\s*(?:BEGINNING|COMMENCING|POB|POINT)\b", re.IGNORECASE)
+# "<BEGINNING clause>, running <course>" / "... and running <course>".
+_RUNNING_SEPARATOR = re.compile(r"(?:,|\band)\s+running\b[\s,;:]*", re.IGNORECASE)
+# Locating wording earlier in a bearing's own comma clause ("distant 167.66 feet
+# N 36° W along ...", "being distant ... on a bearing of S 32° E").
+_LOCATING_BEFORE = re.compile(
+    r"\b(?:being|distant|distance|measured|located|situated|lying|which\s+(?:is|lies))\b",
     re.IGNORECASE,
 )
-# Wording that makes the clause's courses a tie locating the point of beginning
-# ("said point being S 59° W 163.90 feet to ...", "being the following courses and
-# distances from ..."), not boundary courses.
-_PREAMBLE_TIE = re.compile(r"\b(?:being|distant|measured|located|situated|lying)\b", re.I)
-_PREAMBLE_NUMBERED_SPLIT = re.compile(r"(?:^|\n)\s*(?=(?:\(\d+\)|\d+[.)])\s+)", re.MULTILINE)
+_CLAUSE_SEPARATOR = re.compile(r"[,;]")
+_AND_JOINED = re.compile(r"[\s,]*(?:and|&)[\s,]*", re.IGNORECASE)
+COURSE_IN_PREAMBLE_ERROR = "BEGINNING/COMMENCING clause states a course that is not extracted"
 
 
-def _courses_in_preamble(stripped_prefix: str, body: str) -> list[str]:
-    """Return BEGINNING/COMMENCING clauses dropped before extraction that state a course.
+class _PreambleCourse(str):
+    """A preamble fragment stating a course that cannot be separated from its clause."""
 
-    Extraction strips the text before the first THENCE (``stripped_prefix``) and
-    ``split_into_calls`` drops a fragment of ``body`` opening with BEGINNING or
-    COMMENCING; a course written inside such a clause would be lost without a trace.
+
+def _states_boundary_course(text: str) -> bool:
+    """Return whether preamble ``text`` states a boundary course.
+
+    A course is a complete boundary bearing pair as the course parser reads it
+    (``_bearing_pairs``: a bearing with its length, not a tie or adjoiner pair).
+    Preamble text locates its point, so a pair is also a tie when it follows a
+    "said point being ..." clause (every later length locates that point, as in
+    ``read_course_length``), when locating wording precedes it in its own comma
+    clause, or when its clause runs "from" an object. Pairs joined by "and" share
+    the role of the pair after them ("distant N 2° W 955 feet, and S 87° W 1782
+    feet from the corner": both are ties).
     """
-    clauses = []
-    opener = _PREAMBLE_OPENER.search(stripped_prefix)
-    if opener is not None:
-        clauses.append(stripped_prefix[opener.start() :])
-    # Split as split_into_calls does: numbered lines, else THENCE, else semicolons.
-    if _PREAMBLE_NUMBERED_SPLIT.search(body):
-        parts = _PREAMBLE_NUMBERED_SPLIT.split(body)
-    elif re.search(r"\bTHENCE\b", body, re.IGNORECASE):
-        parts = re.split(r"\bTHENCE\b", body, flags=re.IGNORECASE)
-    else:
-        parts = body.split(";")
-    for part in parts:
-        opener = _PREAMBLE_OPENER.search(part)
-        if opener is not None and _PREAMBLE_LEAD.fullmatch(part[: opener.start()]):
-            clauses.append(part[opener.start() :])
-    found = []
-    for clause in clauses:
-        course = _PREAMBLE_COURSE.search(clause)
-        if course and not _PREAMBLE_TIE.search(clause, 0, course.start()):
-            found.append(clause.strip())
-    return found
+    if not _states_complete_course(text):
+        return False
+    reading = _scan_record_calls(text).reading
+    normalized = _prepare_course_text(reading, extract_curve_info(reading)).normalized
+    tie_from = _tie_clause_start(normalized)
+    pairs = _bearing_pairs(normalized)
+    tied_to_next = False
+    for index in range(len(pairs) - 1, -1, -1):
+        pair = pairs[index]
+        opened = max(normalized.rfind(",", 0, pair.start), normalized.rfind(";", 0, pair.start))
+        closed = _CLAUSE_SEPARATOR.search(normalized, pair.end)
+        clause_end = closed.start() if closed else len(normalized)
+        joined = index + 1 < len(pairs) and _AND_JOINED.fullmatch(
+            normalized, pair.end, pairs[index + 1].start
+        )
+        is_tie = bool(
+            not pair.boundary
+            or pair.start >= tie_from
+            or (joined and tied_to_next)
+            or _LOCATING_BEFORE.search(normalized, opened + 1, pair.start)
+            or re.search(r"\bfrom\b", normalized[pair.start : clause_end], re.IGNORECASE)
+        )
+        if pair.complete and not is_tie:
+            return True
+        tied_to_next = is_tie
+    return False
+
+
+def _locates_point(text: str) -> bool:
+    """Return whether a preamble clause locates its point from an object."""
+    return _tie_clause_start(text) <= len(text) or bool(re.search(r"\bfrom\b", text, re.I))
+
+
+def _preamble_courses(fragment: str, *, opens_clause: bool) -> list[str]:
+    """Return the course fragments held by text dropped as preamble.
+
+    ``opens_clause`` marks a fragment opening with BEGINNING/COMMENCING/POB/POINT;
+    otherwise the fragment is its own clause of the stripped preamble. A course in
+    its own clause, or after "running", is returned as a course fragment; a course
+    joined to the BEGINNING clause otherwise is returned as a ``_PreambleCourse``,
+    which fails closed.
+    """
+    if not opens_clause:
+        return [fragment] if _states_boundary_course(fragment) else []
+    separator = _RUNNING_SEPARATOR.search(fragment)
+    lead = fragment[: separator.start()] if separator else fragment
+    courses: list[str] = []
+    if _states_boundary_course(_PREAMBLE_WORD.sub("", lead, count=1)):
+        courses.append(_PreambleCourse(lead.strip()))
+    if separator:
+        course = fragment[separator.end() :].strip()
+        if course and _states_boundary_course(course):
+            courses.append(course)
+    return courses
+
+
+def _course_fragments(preamble: str, body: str, course_lists: CourseListAnalysis) -> list[str]:
+    """Return a tract's course fragments, with those held by its dropped preamble.
+
+    ``preamble`` is the BEGINNING/COMMENCING clause stripped before the first
+    THENCE; it and ``body`` are split by ``split_call_fragments``, and every
+    fragment ``split_into_calls`` would drop is read by ``_preamble_courses``.
+    """
+    texts: list[str] = []
+    # The preamble's clauses are not course lists (course-list detection runs once,
+    # on the tract's courses); a numbered line still splits.
+    pieces = (
+        split_call_fragments(preamble, course_lists=unlisted_course_lists(preamble))
+        if preamble
+        else []
+    )
+    # After a clause locating the point from an object, later clauses may continue
+    # that tie: through the last clause reaching the point of beginning they are the
+    # tie; a course stated after them cannot be told from a tie, so it fails closed.
+    locating = next((i for i, piece in enumerate(pieces) if _locates_point(piece.text)), None)
+    closing = max(
+        (i for i, piece in enumerate(pieces) if _CLOSING_PHRASE.search(piece.text)), default=-1
+    )
+    for index, fragment in enumerate(pieces):
+        if locating is None or index <= locating or fragment.preamble:
+            texts.extend(_preamble_courses(fragment.text, opens_clause=fragment.preamble))
+        elif index > closing and _states_boundary_course(fragment.text):
+            texts.append(_PreambleCourse(fragment.text))
+    for fragment in split_call_fragments(body, course_lists=course_lists):
+        if fragment.preamble:
+            texts.extend(_preamble_courses(fragment.text, opens_clause=True))
+        elif not COURSE_LIST_MARKER.fullmatch(fragment.text):
+            texts.append(fragment.text)
+    return texts
 
 
 def _mark_commencement_tie_ins(
@@ -687,28 +768,11 @@ def _extract_calls_from_text(
             re.IGNORECASE,
         )
         has_initial_course = bool(thence_match and _is_initial_course_prefix(prefix))
-        stripped_prefix = ""
+        preamble = ""
         if thence_match and (has_beginning_preamble or not has_initial_course):
-            stripped_prefix = prefix
+            opener = _PREAMBLE_OPENER.search(prefix)
+            preamble = prefix[opener.start() :] if opener else ""
             tract_text = tract_text[thence_match.start() :]
-        # A course written inside the BEGINNING/COMMENCING clause is never dropped
-        # silently: it fails closed (strict) or is recorded as skipped.
-        for preamble in _courses_in_preamble(stripped_prefix, tract_text):
-            error = "BEGINNING/COMMENCING clause states a course that is not extracted"
-            if strict:
-                raise ValueError(f"{error}: {preamble!r}")
-            _record_skipped_course(
-                preamble,
-                course=course_num,
-                source_course=1,
-                error_type="CourseInPreamble",
-                error=error,
-                exc=None,
-                tract_label=tract_label,
-                audit_context=audit_context,
-                skipped_courses=skipped_courses,
-            )
-            course_num += 1
 
         # Course-list headers and enumerations are detected once per tract.
         course_lists = analyze_course_lists(tract_text)
@@ -722,11 +786,8 @@ def _extract_calls_from_text(
                 f"but {found} were found"
             )
         has_numbered_course_markers = course_lists.has_numbered_markers
-        call_texts = [
-            part
-            for part in split_into_calls(tract_text, course_lists=course_lists)
-            if not COURSE_LIST_MARKER.fullmatch(part)
-        ]
+        # Text dropped as preamble is read too: a course there is never lost.
+        call_texts = _course_fragments(preamble, tract_text, course_lists)
         starts_with_course = bool(has_beginning_preamble) or has_initial_course
         region = _course_region(call_texts, starts_with_course=starts_with_course)
 
@@ -734,6 +795,22 @@ def _extract_calls_from_text(
         while source_course < len(call_texts):
             call_text = call_texts[source_course]
             source_course += 1
+            if isinstance(call_text, _PreambleCourse):
+                if strict:
+                    raise ValueError(f"{COURSE_IN_PREAMBLE_ERROR}: {call_text!s}")
+                _record_skipped_course(
+                    str(call_text),
+                    course=course_num,
+                    source_course=source_course,
+                    error_type="CourseInPreamble",
+                    error=COURSE_IN_PREAMBLE_ERROR,
+                    exc=None,
+                    tract_label=tract_label,
+                    audit_context=audit_context,
+                    skipped_courses=skipped_courses,
+                )
+                course_num += 1
+                continue
             try:
                 call, raw_direction = _extract_call(
                     call_text, course=course_num, distance_unit=distance_unit
