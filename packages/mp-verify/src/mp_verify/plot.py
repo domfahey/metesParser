@@ -9,15 +9,11 @@ from typing import TYPE_CHECKING, TypedDict
 
 from mp_bearing import (  # type: ignore[import-untyped]
     arc_length_tolerance_ft,
-    bearing_difference_uncertainty_rad,
     bearing_to_azimuth,
     calculate_curve_properties,
     calculate_deltas,
     chord_length_tolerance_ft,
-    deflection_chord_tolerance_ft,
     delta_uncertainty_rad,
-    tangent_chord_deflection,
-    tangent_chord_tolerance_deg,
 )
 from mp_models.plot import (
     XY,
@@ -34,12 +30,12 @@ from mp_models.plot import (
 )
 from mp_models.plot_request import PlotCall, PlotRequest, PreparedPlot
 
+from .checks import radial_chord_issue, radial_tangent_issue, tangent_chord_issue
 from .tangents import (
     chord_is_feasible,
     is_spiral,
     line_distance,
     start_tangent,
-    stated_tangent,
 )
 
 if TYPE_CHECKING:
@@ -107,23 +103,20 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
     ) > chord_length_tolerance_ft(call.radius_ft, sweep, delta_error):
         raise ValueError("inconsistent curve element: chord_length_ft")
     sign = 1 if call.curve_dir == "right" else -1
+    # The same shared rules verification applies to stated tangent, chord and radial
+    # bearings: a curve they reject is unresolved here, never drawn.
+    for issue in (
+        tangent_chord_issue(call),
+        radial_chord_issue(call),
+        radial_tangent_issue(call),
+    ):
+        if issue is not None:
+            raise ValueError(issue)
     if call.chord_bearing is not None:
         chord = bearing_to_azimuth(call.chord_bearing)
         if chord is None:
             raise ValueError("curve chord orientation unresolved")
         tangent = (chord - sign * sweep / 2) % 360
-        stated = stated_tangent(call)
-        if stated is not None:
-            deflection = tangent_chord_deflection(stated, chord, call.curve_dir)
-            defl_error = bearing_difference_uncertainty_rad(stated, chord)
-            if deflection <= 0.0 or abs(deflection - sweep / 2) > tangent_chord_tolerance_deg(
-                delta_error, defl_error
-            ):
-                raise ValueError("inconsistent tangent and chord angular evidence")
-            if call.chord_length_ft is not None and abs(
-                call.chord_length_ft - 2 * call.radius_ft * math.sin(math.radians(deflection))
-            ) > deflection_chord_tolerance_ft(call.radius_ft, deflection, defl_error):
-                raise ValueError("inconsistent tangent, chord and radius")
     else:
         # A stated tangent, or a non-tangent curve's stated radial bearing; a
         # non-tangent curve's course bearing never fixes its start (shared rule).
