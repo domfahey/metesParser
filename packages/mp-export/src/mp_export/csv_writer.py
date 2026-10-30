@@ -14,6 +14,7 @@ from pathlib import Path
 
 import structlog
 from mp_models import (
+    LEGACY_CURVE_NOTE,
     AuditContext,
     ClosureResult,
     DeedCall,
@@ -70,7 +71,6 @@ LEGACY_FIELDNAMES: list[str] = FIELDNAMES[:-1]
 
 
 # A legacy row cannot say whether a curve was a spiral; make the assumption visible.
-LEGACY_CURVE_NOTE = "curve type not recorded (legacy CSV); treated as circular"
 
 
 def is_supported_csv_header(header: list[str] | None) -> bool:
