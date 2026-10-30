@@ -1333,8 +1333,21 @@ def split_exception_clauses(text: str) -> list[tuple[str, bool]]:
     return tracts if tracts else [(text, False)]
 
 
+# Relationship phrases whose "to"/"with" relates the course to an adjoiner or another
+# course. They qualify the course; they are not its destination.
+_QUALIFIER_PHRASE = re.compile(
+    r"\b(?:(?:parallel|perpendicular|tangent|radial|adjacent|next|contiguous)\s+(?:to|with)"
+    r"|at\s+(?:a\s+)?right\s+angles?\s+to)\b",
+    re.IGNORECASE,
+)
+
+
 def extract_along_to_fields(call_text: str) -> tuple[str, str]:
     """Extract along and to fields from a call description.
+
+    Qualifier phrases ("parallel to", "at right angles to", "tangent to" ...) are
+    kept verbatim in ``along`` and never supply ``to``; ``to`` comes only from a
+    destination "to" ("to a pin", "to the point of beginning").
 
     Args:
         call_text: Single call text
@@ -1349,14 +1362,19 @@ def extract_along_to_fields(call_text: str) -> tuple[str, str]:
         after = segment[token_end:].lstrip()
         return bool(re.match(r"the\s+(?:left|right)(?!\s+of)\b", after, re.IGNORECASE))
 
-    along_match = re.search(r"\balong\b", call_text, re.IGNORECASE)
-    if along_match:
-        segment = call_text[along_match.end() :].lstrip()
-        to_tokens = [
+    def destination_tokens(segment: str) -> list[re.Match[str]]:
+        qualifier_spans = [m.span() for m in _QUALIFIER_PHRASE.finditer(segment)]
+        return [
             match
             for match in re.finditer(r"\bto\b", segment, re.IGNORECASE)
             if not is_curve_direction_to(segment, match.end())
+            and not any(start <= match.start() < end for start, end in qualifier_spans)
         ]
+
+    along_match = re.search(r"\balong\b", call_text, re.IGNORECASE)
+    if along_match:
+        segment = call_text[along_match.end() :].lstrip()
+        to_tokens = destination_tokens(segment)
 
         if to_tokens:
             last_to = to_tokens[-1]
@@ -1367,17 +1385,28 @@ def extract_along_to_fields(call_text: str) -> tuple[str, str]:
             along = _before_clause_delimiter(segment).strip(" ,")
 
     if not to:
-        to_tokens = [
-            match
-            for match in re.finditer(r"\bto\b", call_text, re.IGNORECASE)
-            if not is_curve_direction_to(call_text, match.end())
-        ]
+        to_tokens = destination_tokens(call_text)
         if to_tokens:
             last = to_tokens[-1]
             to_candidate = call_text[last.end() :].strip()
             to = _before_clause_delimiter(to_candidate).strip(" ,")
+            if not along:
+                along = _qualifier_wording(call_text[: last.start()])
+        elif not along:
+            along = _qualifier_wording(call_text)
 
     return (along, to)
+
+
+def _qualifier_wording(text: str) -> str:
+    """Return the verbatim text from the first qualifier phrase on, trimmed at a clause end."""
+    match = _QUALIFIER_PHRASE.search(text)
+    if match is None:
+        return ""
+    wording = _before_clause_delimiter(text[match.start() :])
+    # "a distance of N feet" is the course's own length, not part of the qualifier.
+    wording = re.split(r"\s+(?:a\s+)?distance\s+of\b", wording, maxsplit=1, flags=re.I)[0]
+    return wording.strip(" ,;.")
 
 
 def extract_basis_of_bearing(text: str) -> str | None:
