@@ -50,6 +50,7 @@ from .metadata import (
     detect_meander,
     extract_along_to_fields,
     extract_distance,
+    extract_poc,
     extract_witness_trees,
     is_closure_to_pob,
     is_indefinite_call,
@@ -556,6 +557,76 @@ def _is_outside_region(region: range, index: int, call_text: str) -> bool:
     return index not in region and not _states_complete_course(call_text)
 
 
+# A course stated inside a BEGINNING/COMMENCING clause: a quadrant bearing, its
+# length, then a destination ("N 45° E 100 feet to a pin"). A tie locating the point
+# ("distant N 2° W 955.85 feet along ... from ...") has no destination "to".
+_PREAMBLE_OPENER = re.compile(r"\b(?:BEGINNING|COMMENCING)\b", re.IGNORECASE)
+_PREAMBLE_LEAD = re.compile(r"\s*(?:(?:POINT|PLACE)\s+(?:AND\s+PLACE\s+)?OF\s+)?$", re.IGNORECASE)
+_PREAMBLE_COURSE = re.compile(
+    r"(?<![A-Za-z])(?:[NS]|North|South)\s*\d{1,3}(?:\.\d+)?\s*(?:°|degrees?\b)[^;]{0,40}?"
+    r"(?<![A-Za-z])(?:[EW]|East|West)\b\s*,?\s*(?:a\s+distance\s+of\s+)?"
+    rf"{LENGTH_NUMBER}\s*{LENGTH_UNIT}(?:\s*,?\s*more\s+or\s+less)?\s*,?\s*"
+    r"(?:along\s+(?:(?!\b(?:from|distant)\b)[^;])*?\s+)?to\b",
+    re.IGNORECASE,
+)
+# Wording that makes the clause's courses a tie locating the point of beginning
+# ("said point being S 59° W 163.90 feet to ...", "being the following courses and
+# distances from ..."), not boundary courses.
+_PREAMBLE_TIE = re.compile(r"\b(?:being|distant|measured|located|situated|lying)\b", re.I)
+_PREAMBLE_NUMBERED_SPLIT = re.compile(r"(?:^|\n)\s*(?=(?:\(\d+\)|\d+[.)])\s+)", re.MULTILINE)
+
+
+def _courses_in_preamble(stripped_prefix: str, body: str) -> list[str]:
+    """Return BEGINNING/COMMENCING clauses dropped before extraction that state a course.
+
+    Extraction strips the text before the first THENCE (``stripped_prefix``) and
+    ``split_into_calls`` drops a fragment of ``body`` opening with BEGINNING or
+    COMMENCING; a course written inside such a clause would be lost without a trace.
+    """
+    clauses = []
+    opener = _PREAMBLE_OPENER.search(stripped_prefix)
+    if opener is not None:
+        clauses.append(stripped_prefix[opener.start() :])
+    # Split as split_into_calls does: numbered lines, else THENCE, else semicolons.
+    if _PREAMBLE_NUMBERED_SPLIT.search(body):
+        parts = _PREAMBLE_NUMBERED_SPLIT.split(body)
+    elif re.search(r"\bTHENCE\b", body, re.IGNORECASE):
+        parts = re.split(r"\bTHENCE\b", body, flags=re.IGNORECASE)
+    else:
+        parts = body.split(";")
+    for part in parts:
+        opener = _PREAMBLE_OPENER.search(part)
+        if opener is not None and _PREAMBLE_LEAD.fullmatch(part[: opener.start()]):
+            clauses.append(part[opener.start() :])
+    found = []
+    for clause in clauses:
+        course = _PREAMBLE_COURSE.search(clause)
+        if course and not _PREAMBLE_TIE.search(clause, 0, course.start()):
+            found.append(clause.strip())
+    return found
+
+
+def _mark_commencement_tie_ins(
+    calls: list[DeedCall], tract_text: str, first_course: int
+) -> list[DeedCall]:
+    """Mark courses from COMMENCING to the point of beginning as tie-ins.
+
+    Only a description with a point of commencement has tie-ins. Nothing is marked
+    when the first course reaching the point of beginning is the last course (it
+    closes the boundary) or a course before it was skipped (a skipped course may
+    be the real tie to the point of beginning): the boundary is never guessed.
+    """
+    poc = extract_poc(tract_text)
+    if not poc or not calls:
+        return calls
+    marked = mark_tie_in_calls(calls, poc)
+    ties = sum(call.is_tie_in for call in marked)
+    contiguous = [c.course for c in calls[:ties]] == list(range(first_course, first_course + ties))
+    if ties == len(calls) or not contiguous:
+        return calls
+    return marked
+
+
 def _extract_calls_from_text(
     text: str,
     distance_unit: str = "feet",
@@ -596,6 +667,9 @@ def _extract_calls_from_text(
     course_num = course_start
 
     for tract_text, is_exception_tract in tracts:
+        clause_text = tract_text
+        clause_first_call = len(calls)
+        clause_first_course = course_num
         # Remove a recognized commencement/POB preamble. A description may
         # legitimately begin with its first course and introduce THENCE later.
         thence_match = re.search(r"\bTHENCE\b", tract_text, re.IGNORECASE)
@@ -607,8 +681,28 @@ def _extract_calls_from_text(
             re.IGNORECASE,
         )
         has_initial_course = bool(thence_match and _is_initial_course_prefix(prefix))
+        stripped_prefix = ""
         if thence_match and (has_beginning_preamble or not has_initial_course):
+            stripped_prefix = prefix
             tract_text = tract_text[thence_match.start() :]
+        # A course written inside the BEGINNING/COMMENCING clause is never dropped
+        # silently: it fails closed (strict) or is recorded as skipped.
+        for preamble in _courses_in_preamble(stripped_prefix, tract_text):
+            error = "BEGINNING/COMMENCING clause states a course that is not extracted"
+            if strict:
+                raise ValueError(f"{error}: {preamble!r}")
+            _record_skipped_course(
+                preamble,
+                course=course_num,
+                source_course=1,
+                error_type="CourseInPreamble",
+                error=error,
+                exc=None,
+                tract_label=tract_label,
+                audit_context=audit_context,
+                skipped_courses=skipped_courses,
+            )
+            course_num += 1
 
         # Course-list headers and enumerations are detected once per tract.
         course_lists = analyze_course_lists(tract_text)
@@ -719,6 +813,10 @@ def _extract_calls_from_text(
                 )
 
             course_num += 1
+
+        calls[clause_first_call:] = _mark_commencement_tie_ins(
+            calls[clause_first_call:], clause_text, clause_first_course
+        )
 
         for (declared, found), header_text in count_mismatches:
             # Not silently accepted: a missing or extra course is recorded and

@@ -1355,6 +1355,13 @@ _QUALIFIER_PHRASE = re.compile(
 )
 
 
+# The separator before the next course ("to a pin and thence ...", "to a pin, and
+# running thence ..."): a trailing conjunction, never wording inside the destination.
+_TRAILING_SEPARATOR = re.compile(
+    r"(?:[\s,]+(?:and|&)(?:\s+(?:running|proceeding))?)+[\s,]*$", re.IGNORECASE
+)
+
+
 def extract_along_to_fields(call_text: str) -> tuple[str, str]:
     """Extract along and to fields from a call description.
 
@@ -1408,7 +1415,7 @@ def extract_along_to_fields(call_text: str) -> tuple[str, str]:
         elif not along:
             along = _qualifier_wording(call_text)
 
-    return (along, to)
+    return (along, _TRAILING_SEPARATOR.sub("", to))
 
 
 def _qualifier_wording(text: str) -> str:
