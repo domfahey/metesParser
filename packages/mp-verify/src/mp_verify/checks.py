@@ -24,6 +24,7 @@ from mp_models import CheckResult, DeedCall, Point
 
 from .tangents import has_determined_direction
 from .topology import check_curved_boundary_intersections
+from .traverse import position_courses
 
 
 def check_boundary_intersections(calls: list[DeedCall], coordinates: list[Point]) -> list[str]:
@@ -107,7 +108,8 @@ def build_verification_checks(
     incomplete = any(not has_determined_direction(call) for call in calls)
     missing = incomplete or not calls
     if positioned is None:
-        positioned = [call.is_complete_bearing() or call.is_chord_only_curve() for call in calls]
+        # Never predict positioning separately: run the traverse verification uses.
+        positioned = position_courses(calls)[1]
     unpositioned = [call for call, ok in zip(calls, positioned, strict=True) if not ok]
     closure_missing = not calls or any(
         call.bearing_azimuth_deg_from_north is None
