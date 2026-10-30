@@ -930,7 +930,7 @@ def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list
                 f"Course {i}: Curve type mismatch - '{c1.curve_type}' vs '{c2.curve_type}'"
             )
 
-        # A chord-only spiral is not is_curve() but still states curve fields.
+        # A curve-less call may still carry stray curve fields.
         if not (curve1 or curve2 or _has_curve_fields(c1) or _has_curve_fields(c2)):
             continue
 
