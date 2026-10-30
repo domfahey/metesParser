@@ -399,6 +399,29 @@ _MARKER_CASES = [
     ("comma-on-a-plan", "BEGINNING at Lot 5, Tract 4567, on a plan of lots", []),
     ("paren-prose-ref", "corner of Parcel 2 (see plan) thence N 10 E", []),
     ("paren-then-prose", "...beginning.\nPARCEL 2 (Tax ID 12-34) as shown on a map", []),
+    # --- titlecase BEING after an ID is a recital, not a heading -----------
+    (
+        "titlecase-being-recital-sentence",
+        "BEGINNING at a pin; thence N 10° E 100 feet to the POINT OF BEGINNING. Tract 2 being the same land conveyed to John Smith",
+        [],
+    ),
+    (
+        "titlecase-being-part-of-after-break",
+        "PARCEL 1: BEGINNING at a stake; thence N 10 E 100 feet to the POINT OF BEGINNING. Parcel 2 being part of lands of Jones",
+        ["Parcel 1"],
+    ),
+    ("titlecase-being-part-of-start", "Parcel 2 being part of lands of Jones", []),
+    # --- uppercase BEING heading style is still a heading --------------------
+    (
+        "uppercase-being-heading-same-line",
+        "BEGINNING at a stake; THENCE N 10 E 100 feet to the POINT OF BEGINNING.\nTRACT 2 BEING UNIT B",
+        ["Tract 2"],
+    ),
+    (
+        "uppercase-being-same-land-recital",
+        "BEGINNING at a stake; THENCE N 10 E 100 feet to the POINT OF BEGINNING. TRACT 2 BEING THE SAME LAND CONVEYED TO JOHN SMITH",
+        [],
+    ),
 ]
 
 
