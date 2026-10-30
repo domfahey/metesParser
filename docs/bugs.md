@@ -1130,7 +1130,7 @@ Nine findings (three regressions against `main`, one a silent loss of every cour
 - **Adjective widths and monument depths (regressions):** "a 50 foot road", "a 16.5 foot right of way", "a 20 foot alley" are widths; "found 0.5 feet below grade" is a monument position, not a course length (`79caf75`).
 - **Every excluded record value is noted, verbatim:** an (R) bearing after an (M) bearing without a comma, and "Rec.", "plan", "plat", "survey", "P", "D" labels are noted; record notes in `extract_calls` use the deed's own text, including label words ("in prior deed") (`78ad6d7`).
 - **"by the line of Smith":** kept in `along` like "along" (`78ad6d7`).
-- **Known limitations:** Deed 50231's tie ("to a place of beginning") is not marked; "to a point, thence" keeps the trailing "thence"; a non-record parenthetical length ("(see plan 12 feet)") is excluded without a note.
+- **Known limitations:** Deed 50231's tie ("to a place of beginning") is not marked; "to a point, thence" keeps the trailing "thence".
 
 ### PR #60 forty-second review (2026-10-30)
 Eight findings (none regressions against `main`; two fabricated lengths), fixed red-green on `fix/code-review-2026-10-29`:
@@ -1141,6 +1141,17 @@ Eight findings (none regressions against `main`; two fabricated lengths), fixed 
 - **(R) then (M) bearings:** the measured bearing is the course in every order, with or without commas, including chord bearings (`e3fc6dd`).
 - **Verbatim record notes from aligned spans:** source and normalized text are aligned once per description and each record is restored within its own tract, with word boundaries (`e3fc6dd`).
 - **Known limitations:** a cardinal-only course (no degrees) inside a preamble clause is ignored; the monolith splitter merges 15 E Euclid's "80 feet in width or breadth; thence …" into one fragment, which now fails closed (the package path matches ground truth).
+
+### PR #60 forty-third review (2026-10-30)
+Ten findings (two regressions against `main`), fixed red-green on `fix/code-review-2026-10-29`, plus one found while checking samples:
+- **Feature dimensions (regressions):** a length followed by high/tall/thick/square/radius/diameter is a feature dimension, never the course length ("100 feet to a corner of a fence 4 feet high", "along a fence 3 feet high" read 100 again); "long"/"deep" are the course only when no other length is stated; a course whose only length is a feature dimension fails closed (`b578dab`).
+- **Parentheticals noted:** a bracketed length that is not a record or measured call is kept verbatim as "parenthetical: (calculated 101 feet)"; "(see plan 12 feet)" is now noted (`b578dab`).
+- **Area statements:** shared number grammar (".5 acres" was 5 acres; "1/2 acre" and "2 1/2 acres" were 2 acres); compound areas ("2 acres and 50 perches") are summed; an unreadable component gives no area rather than a partial one (`b578dab`).
+- **Strip exceptions:** "EXCEPTING the westerly 10 feet thereof" and "LESS AND EXCEPT …" no longer become an invented 10 ft exception course. They are set aside before tract splitting and noted verbatim as "exception not applied: …"; verification warns that closure, area and perimeter describe the boundary before the exception, so the parcel is never export-eligible. Deed 50233 and -50795 now give 4 closing courses (was 3 plus an ambiguous skip); deed 50512 loses an invented exception tract (`a7171a5`).
+- **Appurtenant easements:** "Together with / Subject to / Reserving … easement" or "ALSO an easement" descriptions with their own courses become EASEMENT tracts instead of extra boundary courses (`a7171a5`).
+- **36 Kresson Rd (found in samples):** a tie reaching the point of beginning followed by ", thence" closed the block early and silently dropped 4 exception courses; the package path now gives all 9 ground-truth courses (`a7171a5`).
+- **`along`/`to` from one set of spans:** the destination is the first destination "to" after the course (so "lands conveyed to Smith" stays whole) and ends at the clause end ("containing … acres", "subject to", "being the same", the next "thence"); `along` comes only from the course part and accepts "by and with", "with the line of", "binding/bounding on", "adjoining", "following"; passing calls go to notes as "passing call: …"; the course's own length and "a distance of" are removed from both. 154 sample along/to values change, almost all toward verbatim adjoiner and destination wording (`17d4798`).
+- **Known limitations:** `to` stops at an initial's period ("Samuel N."); in 219 Berlin, OCR "4' a point" (for "to a point") leaves no destination; an easement deed is multi-tract, so `mp_review` plot refuses it; "100 feet (101 feet M)" fails closed as ambiguous (`main` read 100).
 
 ## Known Limitations
 
