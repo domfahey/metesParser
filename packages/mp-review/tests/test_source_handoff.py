@@ -666,3 +666,19 @@ def test_absolute_override_that_is_a_file_symlink_below_root_is_rejected(bundle)
     result = validate(bundle, acquisition=bundle / "linked-acquisition.json")
     assert result["status"] == "error"
     assert findings(result, "unsafe_path")
+
+
+def test_absolute_record_with_parent_after_symlink_is_rejected(bundle, tmp_path_factory):
+    outside = tmp_path_factory.mktemp("outside-dir")
+    (bundle / "link").symlink_to(outside, target_is_directory=True)
+    (bundle / "b.json").write_bytes((bundle / "source-acquisition.json").read_bytes())
+    result = validate(bundle, acquisition=bundle / "link" / ".." / "b.json")
+    assert result["status"] == "error"
+    assert findings(result, "unsafe_path")
+
+
+def test_absolute_record_with_parent_component_inside_root_is_rejected(bundle):
+    (bundle / "sub").mkdir()
+    result = validate(bundle, acquisition=bundle / "sub" / ".." / "source-acquisition.json")
+    assert result["status"] == "error"
+    assert findings(result, "unsafe_path")
