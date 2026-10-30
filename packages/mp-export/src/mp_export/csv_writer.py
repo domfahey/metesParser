@@ -368,6 +368,9 @@ def csv_text_to_calls(
     import records it in ``rejected_rows`` (raising when no list is supplied), since
     omitting a course would join its neighbours into a different boundary. The header
     must be the exact current or legacy schema; anything else raises ValueError.
+
+    Row numbers in errors and ``rejected_rows`` are the physical line (1-based, header
+    is line 1) on which the rejected record starts, not a record count.
     """
     calls: list[DeedCall] = []
     text = text.removeprefix("\ufeff")
@@ -376,7 +379,12 @@ def csv_text_to_calls(
         header = next(reader, None)
         _require_supported_header(header)
         assert header is not None
-        for row_number, values in enumerate(reader, start=2):
+        while True:
+            # Physical line where the record starts (a quoted cell may span lines).
+            row_number = reader.line_num + 1
+            values = next(reader, None)
+            if values is None:
+                break
             if not values:
                 continue  # blank lines are skipped; a row of empty cells is still malformed
             try:
