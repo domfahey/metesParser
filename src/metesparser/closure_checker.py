@@ -151,17 +151,12 @@ class ClosureChecker:
         ]
         bad_chord_courses = [main_calls[i].course for i in bad_chord_indices]
         # Without its chord, a curve with no delta or arc has no determinable endpoint:
-        # it gets no bearing, so it is never run along its tangent.
+        # the traverse gets no bearing for it, so it is never run along its tangent.
+        # The stated bearing itself is kept for every check.
         no_endpoint_indices = [
             i
             for i in bad_chord_indices
             if main_calls[i].delta_deg is None and main_calls[i].arc_length_ft is None
-        ]
-        main_calls = [
-            c.model_copy(update={"bearing_azimuth_deg_from_north": None})
-            if i in no_endpoint_indices
-            else c
-            for i, c in enumerate(main_calls)
         ]
         # A chord longer than the diameter fits no circle of that radius: never positioned by it.
         infeasible_chord_indices = [
@@ -175,7 +170,13 @@ class ClosureChecker:
         ]
         points, positioned = cls.traverse_positions(
             [
-                c.model_copy(update={"chord_bearing": None}) if i in bad_chord_indices else c
+                c.model_copy(
+                    update={"chord_bearing": None, "bearing_azimuth_deg_from_north": None}
+                    if i in no_endpoint_indices
+                    else {"chord_bearing": None}
+                )
+                if i in bad_chord_indices
+                else c
                 for i, c in enumerate(main_calls)
             ]
         )
@@ -189,17 +190,15 @@ class ClosureChecker:
             else []
         )
         bad_chord_texts = {i: main_calls[i].chord_bearing for i in bad_chord_indices}
-        main_calls = [
-            c.model_copy(update={"chord_bearing": None, "bearing_azimuth_deg_from_north": None})
-            if i in unpositioned_indices
-            else c
-            for i, c in enumerate(main_calls)
-        ]
+        # Stated bearings are never erased to express positioning: the traverse outcome
+        # is passed to the checks instead.
 
         chord_only_indices = [
             i
             for i, c in enumerate(main_calls)
-            if c.is_chord_only_curve() and i not in bad_chord_indices
+            if c.is_chord_only_curve()
+            and i not in bad_chord_indices
+            and i not in unpositioned_indices
         ]
         # A chord-only curve whose stated tangent disagrees with its chord and radius
         # is reported as inconsistent, not merely as lacking a delta/arc.
@@ -210,8 +209,15 @@ class ClosureChecker:
         inconsistent_chord_courses = [
             main_calls[i].course for i in chord_only_indices if i in inconsistent_chord_indices
         ]
+        # (course, tangent stated): a stated tangent fixes the arc; without one it is ambiguous.
         delta_not_stated_courses = [
-            main_calls[i].course for i in chord_only_indices if i not in inconsistent_chord_indices
+            (
+                main_calls[i].course,
+                main_calls[i].bearing_azimuth_deg_from_north is not None
+                and not main_calls[i].non_tangent,
+            )
+            for i in chord_only_indices
+            if i not in inconsistent_chord_indices
         ]
 
         # Check for degenerate traverse: no calls contributed azimuths
@@ -279,29 +285,35 @@ class ClosureChecker:
             and not chord_only_courses
             and not unpositioned_courses
         )
-        try:
-            main_area_sq_ft = cls.calculate_area(points, calls=main_calls)
+        area_sq_ft = 0.0
+        area_acres = 0.0
+        # An already-unavailable area is not computed from a partial point list.
+        if area_available:
+            try:
+                main_area_sq_ft = cls.calculate_area(points, calls=main_calls)
 
-            exception_area_sq_ft = 0.0
-            exception_area_available = True
-            if exception_calls:
-                warnings.append(
-                    f"Found {len(exception_calls)} exception calls - calculating exception area to subtract"
+                exception_area_sq_ft = 0.0
+                exception_area_available = True
+                if exception_calls:
+                    warnings.append(
+                        f"Found {len(exception_calls)} exception calls - calculating exception area to subtract"
+                    )
+                    try:
+                        exception_area_sq_ft = cls._calculate_exception_area(exception_calls)
+                    except ValueError as e:
+                        warnings.append(f"Cannot calculate exception area: {e}")
+                        exception_area_available = False
+                        area_available = False
+
+                area_sq_ft = (
+                    main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
                 )
-                try:
-                    exception_area_sq_ft = cls._calculate_exception_area(exception_calls)
-                except ValueError as e:
-                    warnings.append(f"Cannot calculate exception area: {e}")
-                    exception_area_available = False
-                    area_available = False
-
-            area_sq_ft = main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
-            area_acres = area_sq_ft / 43560.0
-        except ValueError as e:
-            area_available = False
-            area_sq_ft = 0.0
-            area_acres = 0.0
-            warnings.append(f"Cannot calculate area: {e}")
+                area_acres = area_sq_ft / 43560.0
+            except ValueError as e:
+                area_available = False
+                area_sq_ft = 0.0
+                area_acres = 0.0
+                warnings.append(f"Cannot calculate area: {e}")
 
         perimeter_available = not chord_only_courses and not unpositioned_courses
         perimeter = cls.calculate_perimeter(main_calls) if perimeter_available else 0.0
@@ -380,7 +392,11 @@ class ClosureChecker:
                 )
 
         from mp_models import DeedCall as PackageCall
-        from mp_verify.checks import block_curve_consistency, build_verification_checks
+        from mp_verify.checks import (
+            block_curve_consistency,
+            build_verification_checks,
+            chord_only_delta_detail,
+        )
 
         package_calls = [PackageCall.model_construct(**call.model_dump()) for call in main_calls]
         package_check_results = build_verification_checks(
@@ -397,6 +413,7 @@ class ClosureChecker:
             area_sq_ft=area_sq_ft,
             area_available=area_available,
             misclosure_available=misclosure_available,
+            positioned=positioned,
             double_entry_performed=double_entry_calls is not None,
             discrepancies=discrepancies,
             curve_issues=curve_issues,
@@ -415,9 +432,7 @@ class ClosureChecker:
             curve_blocks.append(
                 (
                     "curve_delta_not_stated",
-                    "Curve delta/arc not stated (minor or major arc ambiguous); "
-                    "positioned by chord only on course(s) "
-                    + ", ".join(str(c) for c in delta_not_stated_courses),
+                    chord_only_delta_detail(delta_not_stated_courses),
                 )
             )
         if bad_chord_courses:
