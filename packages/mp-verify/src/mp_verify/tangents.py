@@ -54,30 +54,42 @@ def chord_is_feasible(call: DeedCall) -> bool:
     return call.chord_length_ft <= 2.0 * abs(call.radius_ft)
 
 
+def stated_sweep(call: DeedCall) -> float | None:
+    """Return the stated sweep (delta, else arc / radius) with no validity check."""
+    if call.delta_deg is not None:
+        return call.delta_deg
+    if call.arc_length_ft is not None and call.radius_ft is not None and call.radius_ft > 0:
+        return math.degrees(call.arc_length_ft / call.radius_ft)
+    return None
+
+
 def curve_sweep(call: DeedCall) -> float | None:
     """Return the stated sweep in degrees (delta, else arc / radius) when valid."""
     if call.curve_dir not in ("left", "right") or call.radius_ft is None or call.radius_ft <= 0:
         return None
-    delta = call.delta_deg
-    if delta is None and call.arc_length_ft is not None:
-        delta = math.degrees(call.arc_length_ft / call.radius_ft)
+    delta = stated_sweep(call)
     if delta is None or not math.isfinite(delta) or not 0.0 < delta <= 360.0:
         return None
     return delta
 
 
-def chord_positioned_delta(call: DeedCall) -> float | None:
-    """Return the sweep (deg) when a tangent-less curve is positioned by its chord.
+def chord_delta(call: DeedCall, chord_azimuth: float | None) -> float | None:
+    """Return the sweep (deg) positioning a tangent-less circular curve by its chord.
 
-    Mirrors mp_verify.plot._arc: radius, direction and a sweep from delta or
-    arc length (0 < sweep <= 360) with a parseable chord bearing. The chord is
-    then 2R*sin(delta/2), computed here and never stored.
+    ``chord_azimuth`` is the already-parsed chord bearing (None when absent or
+    unparseable). Mirrors mp_verify.plot._arc: radius, direction and a sweep from
+    delta or arc length (0 < sweep <= 360). The chord is then 2R*sin(delta/2),
+    computed by callers and never stored.
     """
-    if not is_circular_curve(call):
-        return None
-    if call.chord_bearing is None or bearing_to_azimuth(call.chord_bearing) is None:
+    if chord_azimuth is None or not is_circular_curve(call):
         return None
     return curve_sweep(call)
+
+
+def chord_positioned_delta(call: DeedCall) -> float | None:
+    """Return the chord-positioning sweep, parsing the call's chord bearing."""
+    chord = bearing_to_azimuth(call.chord_bearing) if call.chord_bearing is not None else None
+    return chord_delta(call, chord)
 
 
 def curve_tangents(call: DeedCall) -> tuple[float, float] | None:
