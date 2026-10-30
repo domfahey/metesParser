@@ -279,3 +279,12 @@ def test_monolith_extract_single_call_raises_for_unusable_course_and_none_for_be
     with pytest.raises(ValueError, match="No usable course"):
         CallExtractor.extract_single_call("thence to a point 100 feet", 1)
     assert CallExtractor.extract_single_call("BEGINNING at a point", 1) is None
+
+
+def test_monolith_extract_single_call_rejects_curve_with_following_course() -> None:
+    text = (
+        "THENCE along a curve to the right having a radius of 100 feet, "
+        "an arc length of 50 feet; THENCE N 20° E 10 feet"
+    )
+    with pytest.raises(package_calls.MultipleCoursesError):
+        CallExtractor.extract_single_call(text, 1)
