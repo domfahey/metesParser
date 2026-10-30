@@ -537,3 +537,8 @@ class TestExtractDistanceAndCompoundTrailing:
         value, unit = TextParser.extract_distance(text)
         assert value == pytest.approx(693.0)
         assert unit == "feet"
+
+    def test_implicit_pair_followed_by_and_part_keeps_leading_component(self) -> None:
+        value, unit = TextParser.extract_distance("10 chains 50 links and 3 perches")
+        assert value == pytest.approx(742.5)
+        assert unit == "feet"
