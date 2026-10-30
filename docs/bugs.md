@@ -995,6 +995,13 @@ Seven findings plus one found while fixing, fixed red-green on `fix/code-review-
 - **Monolith parser facade:** `CallExtractor`, `MonumentClassifier` and `TextParser` delegate to `mp_parse` via shared `package_bridge` converters (−3,635 lines); a differential test over 1,389 texts finds 0 differences (`504a2a8`). Found: the public `mp_parse.extract_calls` normalizes twice and can turn a bearing-tied point of beginning into course 1 — pinned by a strict xfail, fix queued.
 - **Library-mode logging:** `mp_*` package warnings reach the configured handler (`6da1dc3`).
 
+### PR #60 twenty-fifth review (2026-10-30)
+Six findings plus one found while fixing, fixed red-green on `fix/code-review-2026-10-29`:
+- **More chord phrasings (fabrication):** "a long chord of", "chord:", "chord =", "chord direction of", "chord brg.", "C.B.", "a chord which runs" now open a chord clause, so the chord bearing is never stored as the tangent (`70d4013`).
+- **Ties, record calls and adjoiner lines are not courses:** before counting complete courses, each bearing+distance pair is classified; ties ("said pin being …", "distant …", "which is … from"), parenthetical/labelled record calls ("(… per deed)") and adjoiner lines ("which line bears …") are excluded, so valid deeds no longer fail closed. Genuine two-course fragments still fail closed (`70d4013`). Open: a record call is not captured in any call field.
+- **One course-text preparation:** `_prepare_course_text` serves both bearing reading and course counting; the reversed `_DASHED_BEARING_CONTEXT` alias is removed (`70d4013`).
+- **Normalize once, idempotently (found by the facade work):** `extract_calls` normalizes exactly once, and normalization is idempotent — "and <bearing>" → "thence" now happens in one pass and never inside a bearing-tied point of beginning, and "PK" no longer gains a "nail" per pass (`705ace7`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
