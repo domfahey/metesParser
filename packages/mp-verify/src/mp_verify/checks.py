@@ -24,6 +24,7 @@ from mp_models import CheckResult, DeedCall, Point
 
 from .tangents import (
     chord_is_feasible,
+    curve_tangents,
     has_determined_direction,
     is_curved_course,
     is_spiral,
@@ -184,8 +185,7 @@ def build_verification_checks(
         and ("continuing" in call.along.lower() or "same line" in call.along.lower())
     ]
     parallel_blocked = any(
-        not calls[i].is_complete_bearing() or not calls[i - 1].is_complete_bearing()
-        for i in continuing
+        _entry_azimuth(calls[i]) is None or _exit_azimuth(calls[i - 1]) is None for i in continuing
     )
     straight_pairs = [
         (first, second)
@@ -466,6 +466,23 @@ def check_straight_boundary_intersections(
     return warnings
 
 
+def _entry_azimuth(call: DeedCall) -> float | None:
+    """Azimuth at which a course starts: tangent-in for a curve, else its bearing."""
+    if is_curved_course(call):
+        tangents = curve_tangents(call)
+        if tangents is not None:
+            return tangents[0]
+    return call.bearing_azimuth_deg_from_north
+
+
+def _exit_azimuth(call: DeedCall) -> float | None:
+    """Azimuth at which a course ends: tangent-out for a curve, else its bearing."""
+    if is_curved_course(call):
+        tangents = curve_tangents(call)
+        return tangents[1] if tangents is not None else None
+    return call.bearing_azimuth_deg_from_north
+
+
 def check_parallelism(calls: list[DeedCall]) -> list[str]:
     """Check for parallel lines that should have matching bearings.
 
@@ -482,14 +499,9 @@ def check_parallelism(calls: list[DeedCall]) -> list[str]:
             continue
 
         if "continuing" in call.along.lower() or "same line" in call.along.lower():
-            if (
-                i > 0
-                and calls[i - 1].bearing_azimuth_deg_from_north is not None
-                and call.bearing_azimuth_deg_from_north is not None
-            ):
-                prev_az = calls[i - 1].bearing_azimuth_deg_from_north or 0
-                curr_az = call.bearing_azimuth_deg_from_north or 0
-
+            prev_az = _exit_azimuth(calls[i - 1]) if i > 0 else None
+            curr_az = _entry_azimuth(call)
+            if prev_az is not None and curr_az is not None:
                 diff = abs(curr_az - prev_az) % 360.0
                 diff = min(diff, 360.0 - diff)
                 if not (diff < 1.0 or abs(diff - 180.0) < 1.0):
