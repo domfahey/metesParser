@@ -60,7 +60,12 @@ def main():
     print("\n--- STEP 5: CLOSURE VERIFICATION ---")
     result = ClosureChecker.verify_closure(calls)
     print(f"Misclosure:     {result.misclosure_ft:.4f} ft")
-    print(f"Area:           {result.area_sq_ft:.2f} sq ft ({result.area_acres:.4f} acres)")
+    area = (
+        f"{result.area_sq_ft:.2f} sq ft ({result.area_acres:.4f} acres)"
+        if result.area_available
+        else "not determined"
+    )
+    print(f"Area:           {area}")
     perimeter = f"{result.perimeter_ft:.2f} ft" if result.perimeter_available else "not determined"
     print(f"Perimeter:      {perimeter}")
     print(f"Closure Status: {result.get_closure_status()}")

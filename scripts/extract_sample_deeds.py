@@ -118,8 +118,11 @@ def create_extraction_report(legal_desc, closure_result, output_file):
             f"Closure Status:     {'✓ CLOSED' if closure_result.closure_passed else '✗ OPEN'}\n\n"
         )
 
-        f.write(f"Calculated Area:    {closure_result.area_sq_ft:10.2f} sq ft\n")
-        f.write(f"                    {closure_result.area_acres:10.4f} acres\n")
+        if closure_result.area_available:
+            f.write(f"Calculated Area:    {closure_result.area_sq_ft:10.2f} sq ft\n")
+            f.write(f"                    {closure_result.area_acres:10.4f} acres\n")
+        else:
+            f.write("Calculated Area:    not determined\n")
         perimeter = (
             f"{closure_result.perimeter_ft:10.2f} ft"
             if closure_result.perimeter_available
@@ -205,7 +208,9 @@ def main():
                     "calls": len(legal_desc.calls),
                     "closes": closure_result.closure_passed,
                     "verified": closure_result.is_fully_verified(),
-                    "area_sq_ft": closure_result.area_sq_ft,
+                    "area_sq_ft": closure_result.area_sq_ft
+                    if closure_result.area_available
+                    else None,
                     "misclosure_ft": closure_result.misclosure_ft,
                 }
             )
@@ -233,8 +238,11 @@ def main():
         else:
             status = "✓ VERIFIED" if r["verified"] else ("✓ CLOSES" if r["closes"] else "⚠ OPEN")
             print(f"{status} {r['pdf']}")
+            area = (
+                f"{r['area_sq_ft']:.2f} sq ft" if r["area_sq_ft"] is not None else "not determined"
+            )
             print(
-                f"   Calls: {r['calls']}, Area: {r['area_sq_ft']:.2f} sq ft, Misclosure: {r['misclosure_ft']:.4f} ft\n"
+                f"   Calls: {r['calls']}, Area: {area}, Misclosure: {r['misclosure_ft']:.4f} ft\n"
             )
 
     print(f"\nAll reports saved to: {OUTPUT_DIR}/")
