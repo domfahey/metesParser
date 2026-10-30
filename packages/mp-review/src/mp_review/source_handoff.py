@@ -106,6 +106,8 @@ class _Validator:
             self.root,
             self.root.resolve(),
         ]
+        if ".." in value.parts:
+            raise ValueError("parent component")
         target = Path(os.path.normpath(value))
         for base in candidates:
             try:
