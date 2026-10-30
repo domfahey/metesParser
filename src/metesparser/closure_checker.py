@@ -21,8 +21,6 @@ import math
 import statistics
 from typing import overload
 
-import structlog
-
 from .bearing_converter import BearingConverter
 from .models import (
     PERMANENT_MONUMENTS,
@@ -34,8 +32,6 @@ from .models import (
     Tract,
     VerificationAudit,
 )
-
-logger = structlog.get_logger(__name__)
 
 
 class ClosureChecker:
@@ -111,6 +107,9 @@ class ClosureChecker:
             If tracts provided, returns list[ClosureResult] with one per tract.
         """
         if tracts is not None:
+            if audit_context is not None:
+                # Reflect only the latest multi-tract run (mirrors verification_audit overwrite).
+                audit_context.tract_verification_audits = []
             results: list[ClosureResult] = []
             for tract in tracts:
                 # Scratch context per tract so tracts never overwrite each other's audit.
