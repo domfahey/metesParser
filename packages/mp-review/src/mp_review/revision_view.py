@@ -11,6 +11,7 @@ from mp_export.revision_html import render_revision
 from mp_models.dashboard import DashboardBundle
 
 from .dashboard import _atomic
+from .json_input import parse_json
 from .relative import _invalid_number, _unique_object
 from .revisions import load_revision
 
@@ -42,7 +43,7 @@ def render_revision_file(
             raise ValueError("Output must be a new directory")
         raw = source.read_bytes()
         bundle = DashboardBundle.model_validate(
-            json.loads(raw, object_pairs_hook=_unique_object, parse_constant=_invalid_number)
+            parse_json(raw, object_pairs_hook=_unique_object, parse_constant=_invalid_number)
         )
         prepared = load_revision(bundle, directory)
         draft = (directory / "revision.json").read_bytes()
