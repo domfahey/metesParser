@@ -245,7 +245,7 @@ def test_audit_records_distance_not_determined(impl):
 
 
 @pytest.mark.parametrize("impl", EXTRACT_CALLS)
-def test_csv_import_rejects_blank_distance_instead_of_reading_a_circle(impl):
+def test_csv_import_reads_blank_spiral_distance_back_as_a_spiral(impl):
     calls = EXTRACT_CALLS[impl](SPIRAL_DEED, False)
     to_row = package_call_to_row if impl == "package" else CSVBuilder._call_to_row
     buffer = io.StringIO()
@@ -254,5 +254,8 @@ def test_csv_import_rejects_blank_distance_instead_of_reading_a_circle(impl):
     for call in calls:
         writer.writerow(to_row(call))
     reader = package_csv_text_to_calls if impl == "package" else CSVBuilder.csv_text_to_calls
-    with pytest.raises(ValueError, match="invalid CSV row 3"):
-        reader(buffer.getvalue())
+    # curve_type is exported (round 19), so the blank distance is read back as a spiral.
+    loaded = reader(buffer.getvalue())
+    assert [c.model_dump() for c in loaded] == [c.model_dump() for c in calls]
+    assert loaded[1].curve_type == "spiral"
+    assert loaded[1].distance_ft is None

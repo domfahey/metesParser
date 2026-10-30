@@ -105,8 +105,8 @@ class TestDeedCallPhase4Fields:
 class TestPhase4CSVSchema:
     """Tests for Phase 4 CSV schema changes."""
 
-    def test_fieldnames_count_21(self) -> None:
-        assert len(CSVBuilder.FIELDNAMES) == 21
+    def test_fieldnames_count_22(self) -> None:
+        assert len(CSVBuilder.FIELDNAMES) == 22
 
     def test_is_meander_in_fieldnames(self) -> None:
         assert "is_meander" in CSVBuilder.FIELDNAMES

@@ -436,7 +436,7 @@ class TestCSVSchemaExpansion:
         assert "radial_bearing" in CSVBuilder.FIELDNAMES
 
     def test_fieldnames_count(self) -> None:
-        assert len(CSVBuilder.FIELDNAMES) == 21
+        assert len(CSVBuilder.FIELDNAMES) == 22
 
     def test_non_tangent_in_exported_row(self) -> None:
         call = DeedCall(

@@ -3,6 +3,7 @@
 from .audit_html import generate_html, write_report
 from .csv_writer import (
     FIELDNAMES,
+    LEGACY_FIELDNAMES,
     calls_to_csv,
     csv_text_to_calls,
     csv_to_calls,
@@ -20,6 +21,7 @@ __version__ = "1.0.0"
 __all__ = [
     "csv_text_to_calls",
     "FIELDNAMES",
+    "LEGACY_FIELDNAMES",
     "build_mapbox_mcp_handoff",
     "calls_to_csv",
     "csv_to_calls",
