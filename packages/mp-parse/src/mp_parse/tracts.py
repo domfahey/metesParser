@@ -60,7 +60,11 @@ _WEAK_TERMINATOR = re.compile(r"[ \t]*(?:\n|$|\.|[\-\u2013\u2014](?![A-Za-z0-9])
 # "PARCEL 2 as shown on", "TRACT 4567 on said map") or a recital opener.
 _UPPERCASE_REFERENCE_AFTER_ID = re.compile(
     r"[ \t]*(?:(?:of|as|on|per|and|or|thence)\b|&|in\s+said\b"
-    r"|being\s+(?:the\s+same|part\s+of|a\s+part\s+of)\b)",
+    r"|being\s+(?:the\s+same|part\s+of|a\s+part\s+of)\b"
+    # Predicate/recital words that cannot start a description heading
+    # ("TRACT 1 CONTAINING 0.23 ACRES", "PARCEL 2 IS EXCEPTED THEREFROM").
+    r"|(?:containing|contains|is|are|was|herein|hereinabove|hereinbefore|above|described"
+    r"|aforesaid|excepted|excepting|subject|shall|conveyed|recorded)\b)",
     re.IGNORECASE,
 )
 # Sentence breaks that put the following marker in heading position.
@@ -200,6 +204,15 @@ def split_on_markers(
             tract_type = TractType.ADDITION
         else:
             tract_type = TractType.MAIN
+
+        # A repeated label whose segment has no calls is prose about an earlier
+        # tract (area, exception recital), not a new tract: fold it back.
+        if not (_BEGINNING_PATTERN.search(segment) or _THENCE_COURSE.search(segment)):
+            earlier = next((j for j, r in enumerate(result) if r[1] == label), None)
+            if earlier is not None:
+                prev_text, prev_label, prev_type = result[earlier]
+                result[earlier] = (f"{prev_text} {segment}".strip(), prev_label, prev_type)
+                continue
 
         result.append((segment, label, tract_type))
     return result
