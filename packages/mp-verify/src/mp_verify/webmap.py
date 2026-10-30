@@ -248,6 +248,10 @@ def _validate_deed_set(geometry: PlotGeometry, features: list[WebMapFeature]) ->
     pobs = [f for f in features if f.properties.kind == "pob"]
     gaps = [f for f in features if f.properties.kind == "closure_gap"]
     primitives = geometry.primitives
+    if not primitives:
+        raise ValueError(
+            "online display is stale: features are bound to a geometry with no courses"
+        )
     first, last = primitives[0].start, primitives[-1].end
     wants_gap = geometry.completeness == "complete" and has_closure_gap(first, last)
     if (
