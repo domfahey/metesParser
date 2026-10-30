@@ -952,6 +952,11 @@ Five findings plus three found while fixing, fixed red-green on `fix/code-review
 - **Skipped courses fail closed:** non-strict extraction records each unparseable course (`SkippedCourse` on `AuditContext`/`Tract`, course number reserved) or raises if there is nowhere to record it; verification blocks `traverse_closure` (`skipped_courses`), makes misclosure/area/perimeter unavailable and names the course; audit HTML lists skips (`5cd1cf4`). No production caller uses non-strict extraction.
 - **Standalone "thence:" marker:** punctuated THENCE markers are markers, not malformed courses; 1350 Brace Rd and 38 Birchall Dr now parse in strict mode and match ground truth (`9f1db1d`).
 
+### PR #60 nineteenth review (2026-10-30)
+Four findings (three regressions from round 18), fixed red-green on `fix/code-review-2026-10-29`:
+- **Curve length roles:** every length in a curve call is classified by its own label — radius, chord, tangent, arc, radial element or course length — before anything is stored. A chord length is never saved as the arc, a bare "tangent N" is never a length, "a distance of N" after a radial bearing is not the radius. One unlabelled course length is the stated arc; two or more are noted "curve length ambiguous" and none is chosen (`26a96d0`). Behaviour change: a single course length is the stated arc whenever a radius is stated.
+- **Course-list headers:** "THENCE (by/along) the following N courses (and distances)" and lone/punctuated THENCE markers are removed before numbering, so courses follow the deed's (1)…(n) with no skip; 89 Haddon Ave (4732-544) now parses its six courses (`26a96d0`). Open: numbered courses run inline after the header on one line are not split.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
