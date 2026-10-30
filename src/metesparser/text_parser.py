@@ -142,6 +142,38 @@ COURSE_LIST_MARKER = re.compile(
     + r")?[:;,.]?\s*",
     re.IGNORECASE,
 )
+_HEADER_PREFIX = re.compile(_HEADER_QUALIFIER + _HEADER_CORE + _HEADER_REST, re.IGNORECASE)
+
+
+def _split_header_led_parts(parts: list[str]) -> list[str]:
+    """Split a part that opens with a course-list header on its ';'-separated courses.
+
+    "THENCE the following two courses: N 10 E 100 feet; S 80 E 100 feet; THENCE ..."
+    leaves both courses in one THENCE part. A segment with no digit continues the
+    previous course (its wording is kept whole), so nothing is dropped.
+    """
+    result: list[str] = []
+    for part in parts:
+        stripped = part.lstrip()
+        header = _HEADER_PREFIX.match(stripped)
+        if header is None or ";" not in stripped[header.end() :]:
+            result.append(part)
+            continue
+        courses: list[str] = []
+        for segment in stripped[header.end() :].split(";"):
+            if courses and not re.search(r"\d", segment):
+                courses[-1] += ";" + segment
+            else:
+                courses.append(segment)
+        courses = [course for course in courses if course.strip()]
+        if len(courses) < 2:
+            result.append(part)
+            continue
+        result.append(stripped[: header.end()])
+        result.extend(courses)
+    return result
+
+
 _NUMBERED_LINE = re.compile(r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+", re.MULTILINE)
 _NUMBERED_SPLIT = re.compile(r"(?:^|\n)\s*(?=(?:\(\d+\)|\d+[.)])\s+)", re.MULTILINE)
 _TRAILING_THENCE = re.compile(r"\bTHENCE\b[\s,]*$", re.IGNORECASE)
@@ -305,15 +337,29 @@ def _course_enumerations(text: str) -> tuple[list[CourseList], list[CourseListHe
         position = best.enumerators[-1].end()
 
 
+_COURSE_SEGMENT_SPLIT = re.compile(r";|\bTHENCE\b", re.IGNORECASE)
+
+
+def _courses_after_header(text: str, header: CourseListHeader) -> int:
+    """Courses (THENCE/semicolon segments) that follow a header within its tract."""
+    opening = _HEADER_END.match(text, header.core_end)
+    tail = text[opening.end() if opening is not None else header.core_end :]
+    boundary = _METADATA_BOUNDARY.search(tail)
+    if boundary:
+        tail = tail[: boundary.start()]
+    return sum(1 for part in _COURSE_SEGMENT_SPLIT.split(tail) if re.search(r"[A-Za-z]", part))
+
+
 def _count_mismatches(
-    lists: list[CourseList], headers: list[CourseListHeader]
+    text: str, lists: list[CourseList], headers: list[CourseListHeader]
 ) -> list[tuple[int, int]]:
     """(declared, found) for each counted header its enumerated courses do not satisfy.
 
     A header opening a list must match its length. A header inside a deed-numbered
     list ("...; thence along X, the following two courses; thence (4) ...") needs at
     least that many enumerated courses after it. A counted header with no
-    enumeration at all is reported with 0 found, never silently accepted.
+    enumeration needs at least that many courses after it in the tract (the list's
+    end is not marked, so "at least" is the honest check); fewer is a mismatch.
     """
     mismatches = []
     for header in headers:
@@ -330,7 +376,8 @@ def _count_mismatches(
                 found = header.declared if after >= header.declared else after
                 break
         if found is None:
-            found = 0
+            after = _courses_after_header(text, header)
+            found = header.declared if after >= header.declared else after
         if found != header.declared:
             mismatches.append((header.declared, found))
     return mismatches
@@ -346,7 +393,7 @@ def _is_inline(text: str, match: Match[str]) -> bool:
 def analyze_course_lists(text: str) -> CourseListAnalysis:
     """Detect course-list headers and enumerations once for a tract's text."""
     lists, headers = _course_enumerations(text)
-    mismatches = _count_mismatches(lists, headers)
+    mismatches = _count_mismatches(text, lists, headers)
 
     pieces: list[str] = []
     length = 0
@@ -823,7 +870,7 @@ class TextParser:
         elif _NUMBERED_LINE.search(text):
             parts = _NUMBERED_SPLIT.split(text)
         elif _THENCE.search(text):
-            parts = _THENCE.split(text)
+            parts = _split_header_led_parts(_THENCE.split(text))
         else:
             parts = text.split(";")
 

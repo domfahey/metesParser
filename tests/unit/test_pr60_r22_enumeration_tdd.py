@@ -234,16 +234,54 @@ UNENUMERATED = (
 )
 
 
-@pytest.mark.parametrize("impl", IMPLS)
-def test_counted_header_without_enumeration_raises_strict(impl):
-    with pytest.raises(ValueError, match="2"):
-        EXTRACTORS[impl](UNENUMERATED, strict=True, skipped_courses=[])
+FOLLOWING_SEMICOLON = (
+    "BEGINNING at a pin; THENCE the following two courses and distances: "
+    "North 10 degrees East 100 feet; South 80 degrees East 100 feet; "
+    "THENCE South 5 degrees West 50 feet to the point of beginning."
+)
+FOLLOWING_THENCE = (
+    "BEGINNING at a pin; THENCE along Main Street the following two courses: "
+    "THENCE North 10 degrees East 100 feet; THENCE South 80 degrees East 100 feet; "
+    "THENCE South 5 degrees West 50 feet to the point of beginning."
+)
 
 
 @pytest.mark.parametrize("impl", IMPLS)
-def test_counted_header_without_enumeration_is_flagged_non_strict(impl):
-    _calls, skipped = _run(impl, UNENUMERATED, False)
+@STRICT
+@pytest.mark.parametrize("text", [UNENUMERATED, FOLLOWING_SEMICOLON, FOLLOWING_THENCE])
+def test_counted_header_without_enumeration_is_satisfied_by_following_courses(impl, strict, text):
+    calls, skipped = _run(impl, text, strict)
+    assert skipped == []
+    assert len(calls) == 3
+    assert ANALYZERS[impl](text).mismatches == ()
+
+
+FEWER_REMAIN = (
+    "BEGINNING at a pin; THENCE the following three courses and distances: "
+    "North 10 degrees East 100 feet; South 80 degrees East 100 feet to the point of beginning."
+)
+
+
+@pytest.mark.parametrize("impl", IMPLS)
+def test_counted_header_with_fewer_courses_remaining_raises_strict(impl):
+    with pytest.raises(ValueError, match="states 3 courses but 2 were found"):
+        EXTRACTORS[impl](FEWER_REMAIN, strict=True, skipped_courses=[])
+
+
+@pytest.mark.parametrize("impl", IMPLS)
+def test_counted_header_with_fewer_courses_remaining_is_flagged_non_strict(impl):
+    _calls, skipped = _run(impl, FEWER_REMAIN, False)
     assert "CourseCountMismatch" in [s.error_type for s in skipped]
+    assert ANALYZERS[impl](FEWER_REMAIN).mismatches == ((3, 2),)
+
+
+@pytest.mark.parametrize("impl", IMPLS)
+def test_enumerated_list_keeps_exact_count_rule(impl):
+    text = (
+        "BEGINNING at a point; THENCE the following three courses: (1) due North 100.00 feet; "
+        "(2) due East 50.00 feet; THENCE due South 100.00 feet to the point of beginning."
+    )
+    assert ANALYZERS[impl](text).mismatches == ((3, 2),)
 
 
 @pytest.mark.parametrize("impl", IMPLS)
