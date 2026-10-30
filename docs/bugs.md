@@ -844,6 +844,18 @@ Ten findings, fixed red-green on `fix/code-review-2026-10-29`:
 - **Tract headings:** a parenthetical or comma after the ID is transparent (`PARCEL 2 (Tax ID 12-34)`, `TRACT 2, BEGINNING`); pre-marker `THENCE along/with/by …` courses are kept; dropped THENCE text is logged again (`ece4e74`).
 - **Cleanup:** raster orientation cache keyed by SHA-256 digest (`9e7cd11`); one projection factory for publish and replay; one closure-gap threshold/helper (`5ca770f`).
 
+### PR #60 seventh review (2026-10-30)
+Ten findings plus one found while fixing, fixed red-green on `fix/code-review-2026-10-29`:
+- **Mixed-marker bearings:** any mix of degree (°, degrees, deg, d), minute and second markers parses; each number must carry a marker. 100 Haddon (4317-236) now parses four previously cardinal-only calls, all matching ground truth (`03ef290`).
+- **Chord-only distance and perimeter:** `distance_ft` is the stated chord length, not the radius; `ClosureResult.perimeter_available` is False when any chord-only or unpositioned course exists, and summaries show "not determined" (`1fd2f0d`). Note: `perimeter_ft` is then 0.0 to avoid a schema break; consumers must read the flag.
+- **Unparseable chord on a chord-only curve:** the course is unpositioned (no tangent-line fabrication), closure blocked and area/perimeter unavailable (`1fd2f0d`).
+- **Plot:** chord > 2R is unresolved and breaks the chain; non-finite arithmetic is caught (`1fd2f0d`).
+- **Revisions:** chord-only calls pass through revision preparation unchanged (`1fd2f0d`).
+- **Dashed bearings:** rewritten only in bearing context, never after identifiers (Lot, Block, Route, No., # …) (`1fd2f0d`). Trade-off: a bare dashed bearing after other prose (`Pennbrook Drive N 45-30 E`) is left as an incomplete bearing.
+- **Rasters:** the online-map path omits rotated rasters (`raster_orientation`); orientation cache keyed on the validated `layer.sha256` (`b1bc02d`).
+- **Replay:** `load_delivery` raises `DeliveryReplayIncomplete` when GeoJSON coordinates could not be re-verified, unless `allow_unverified_geojson=True`; an empty bound geometry is a `ValueError` (`615cdcb`).
+- **Tract headings:** same-line BEING is a heading terminator only in uppercase headings, never before "the same" / "part of" (`9d87380`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
