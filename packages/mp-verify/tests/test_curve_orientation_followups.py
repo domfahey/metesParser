@@ -18,7 +18,7 @@ from mp_verify.checks import check_curve_consistency
 from mp_verify.closure import verify_closure
 from mp_verify.diagnostics import diagnose_closure
 from mp_verify.plot import prepare_plot
-from mp_verify.traverse import position_courses
+from mp_verify.traverse import traverse_positions
 
 
 def _curve(**overrides: object) -> DeedCall:
@@ -64,7 +64,7 @@ CHORD = "N 55°00'00\" E"
 )
 def test_unreadable_chord_is_unpositioned_in_verify_and_plot(extra):
     call = _curve(chord_bearing="garbage", **extra)
-    _, positioned = position_courses([call])
+    _, positioned = traverse_positions([call])
     assert positioned == [False]
     assert not _plot_positioned(call)
     result = verify_closure([_line(1, 0.0), call, _line(3, 180.0), _line(4, 270.0)])
@@ -111,7 +111,7 @@ def test_diagnostics_accepts_radial_oriented_curve_and_matches_verify():
     calls = [_line(1, 0.0), _curve(radial_bearing=RADIAL), _line(3, 180.0), _line(4, 270.0)]
     result = _diag(calls)
     assert result.availability == "supported", result.limitations
-    points, positioned = position_courses(calls)
+    points, positioned = traverse_positions(calls)
     assert all(positioned)
     expected = math.hypot(points[-1].x - points[0].x, points[-1].y - points[0].y)
     assert result.residual is not None
