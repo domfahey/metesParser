@@ -151,7 +151,8 @@ STRAIGHT = (
 )
 IMPLEMENTATIONS = {
     "package": (package_calls, package_extract_calls, mp_models),
-    "monolith": (monolith_calls, CallExtractor.extract_calls, monolith_models),
+    # The monolith delegates to mp_parse.calls, so its helpers are the package's.
+    "monolith": (package_calls, CallExtractor.extract_calls, monolith_models),
 }
 
 
@@ -228,7 +229,7 @@ GLUED = [
 ]
 
 
-@pytest.mark.parametrize("module", [package_calls, monolith_calls], ids=["package", "monolith"])
+@pytest.mark.parametrize("module", [package_calls], ids=["package"])
 @pytest.mark.parametrize("case", GLUED, ids=[g.text for g in GLUED])
 def test_marked_dms_expands_glued_cardinal_word(module, case):
     assert module._expand_marked_dms(case.text) == case.expanded
@@ -244,8 +245,7 @@ def test_glued_word_bearing_parses_with_verbatim_text(parse, case):
 
 @pytest.mark.parametrize("text", ["North 45°Eighty", "N 45°30'Westerly", "N 45 dEasterly"], ids=str)
 def test_marked_dms_does_not_eat_other_words(text):
-    for module in (package_calls, monolith_calls):
-        assert module._expand_marked_dms(text) == text
+    assert package_calls._expand_marked_dms(text) == text
 
 
 def test_word_symbol_pass_is_removed():

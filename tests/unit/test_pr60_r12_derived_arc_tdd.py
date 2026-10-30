@@ -20,7 +20,6 @@ from mp_parse import calls as package_calls
 from mp_parse.calls import extract_single_call as package_single_call
 from mp_verify.closure import verify_closure as package_verify
 
-from metesparser import call_extractor as monolith_calls
 from metesparser.call_extractor import CallExtractor
 from metesparser.closure_checker import ClosureChecker
 from tests.fixtures.package_parser import extract_calls as package_extract_calls
@@ -129,30 +128,21 @@ def test_inconsistent_tangent_chord_curve_fails_on_stated_values(impl):
 def _spy(monkeypatch, impl):
     """Count extract_curve_info and bearing-normalization calls in one implementation."""
     seen: dict[str, list[str]] = {"curve": [], "normalize": []}
-    module = package_calls if impl == "package" else monolith_calls
-    original_normalize = module._normalize_bearing_segments
+    # The monolith CallExtractor delegates to mp_parse.calls, so both are spied there.
+    original_normalize = package_calls._normalize_bearing_segments
 
     def normalize(segments):
         seen["normalize"].append(segments[0])
         return original_normalize(segments)
 
-    monkeypatch.setattr(module, "_normalize_bearing_segments", normalize)
-    if impl == "package":
-        original_curve = package_calls.extract_curve_info
+    monkeypatch.setattr(package_calls, "_normalize_bearing_segments", normalize)
+    original_curve = package_calls.extract_curve_info
 
-        def curve(text):
-            seen["curve"].append(text)
-            return original_curve(text)
+    def curve(text):
+        seen["curve"].append(text)
+        return original_curve(text)
 
-        monkeypatch.setattr(package_calls, "extract_curve_info", curve)
-    else:
-        original_curve = CallExtractor.extract_curve_info
-
-        def mono_curve(cls, text):
-            seen["curve"].append(text)
-            return original_curve(text)
-
-        monkeypatch.setattr(CallExtractor, "extract_curve_info", classmethod(mono_curve))
+    monkeypatch.setattr(package_calls, "extract_curve_info", curve)
     return seen
 
 
@@ -192,12 +182,8 @@ def test_beginning_clause_calls_skips_bearing_work(monkeypatch, impl):
     # split_into_calls normally drops BEGINNING clauses; force one through so the
     # per-call loop must reach extract_single_call's early return.
     pieces = [BEGINNING, CURVE_TEXT]
-    if impl == "package":
-        monkeypatch.setattr(package_calls, "split_into_calls", lambda text, **_: list(pieces))
-    else:
-        from metesparser.text_parser import TextParser
-
-        monkeypatch.setattr(TextParser, "split_into_calls", classmethod(lambda cls, t, **_: pieces))
+    # The monolith delegates call splitting to the package.
+    monkeypatch.setattr(package_calls, "split_into_calls", lambda text, **_: list(pieces))
     seen = _spy(monkeypatch, impl)
     skipped: list = []
     calls = EXTRACT_CALLS[impl]("THENCE " + CURVE_TEXT, strict=False, skipped_courses=skipped)

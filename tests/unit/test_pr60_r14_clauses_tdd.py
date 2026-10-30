@@ -17,7 +17,6 @@ from mp_parse.calls import _normalize_bearing_forms as package_normalize
 from mp_parse.calls import extract_single_call as package_single_call
 
 from metesparser.call_extractor import CallExtractor
-from metesparser.call_extractor import _normalize_bearing_forms as monolith_normalize
 from tests.fixtures.package_parser import extract_calls as package_extract_calls
 
 CLOSING = "; THENCE due South 50 feet; THENCE due West 50 feet to the point of beginning."
@@ -172,7 +171,8 @@ def _bearing_heavy_text(tokens: int) -> str:
     return " ".join(f"{pieces[i % len(pieces)]} {filler}" for i in range(tokens))
 
 
-@pytest.mark.parametrize("normalize", [package_normalize, monolith_normalize])
+# The monolith delegates bearing normalisation to the package (one implementation).
+@pytest.mark.parametrize("normalize", [package_normalize])
 def test_normalization_is_fast_and_linear_in_text_length(normalize):
     text = _bearing_heavy_text(500)
     assert len(text) >= 20_000
@@ -197,8 +197,10 @@ def test_clause_grammar_is_shared_by_package_and_monolith():
 
     from metesparser import call_extractor as monolith
 
+    # The monolith is a facade: the grammar exists only in the package.
     for name in ("_CHORD_PREFIX_PATTERN", "_RADIAL_PREFIX_PATTERN", "_CHORD_LENGTH_AFTER_BEARING"):
-        assert getattr(package, name).pattern == getattr(monolith, name).pattern
+        assert hasattr(package, name)
+        assert not hasattr(monolith, name)
 
 
 @pytest.mark.parametrize(
@@ -213,8 +215,6 @@ def test_clause_grammar_is_shared_by_package_and_monolith():
 def test_bounded_tail_check_equals_full_prefix_search(pattern_name):
     from mp_parse import calls as package
 
-    from metesparser import call_extractor as monolith
-
     texts = [
         "Lot N 12-3 E",
         "thence  N 45-30 E",
@@ -227,7 +227,7 @@ def test_bounded_tail_check_equals_full_prefix_search(pattern_name):
         "  N 45-30 E",
         "lot" + " " * 40 + "N",
     ]
-    for module in (package, monolith):
+    for module in (package,):
         pattern = getattr(module, pattern_name)
         for text in texts:
             for end in range(len(text) + 1):

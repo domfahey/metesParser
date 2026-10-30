@@ -20,6 +20,7 @@ import mp_verify.confidence as package_confidence
 import mp_verify.tangents as package_tangents
 import mp_verify.traverse as package_traverse
 
+from . import package_bridge
 from .models import (
     AuditContext,
     ClosureResult,
@@ -30,10 +31,8 @@ from .models import (
     VerificationAudit,
 )
 
-
-def _package_calls(calls: list[DeedCall]) -> list[mp_models.DeedCall]:
-    """Mirror monolith calls as package calls without revalidating them."""
-    return [ClosureChecker._package_call(call) for call in calls]
+_package_calls = package_bridge.package_calls
+_package_skips = package_bridge.package_skips
 
 
 def _package_points(points: list[Point]) -> list[mp_models.Point]:
@@ -50,10 +49,6 @@ def _package_result(result: ClosureResult) -> mp_models.ClosureResult:
 
 def _monolith_result(result: mp_models.ClosureResult) -> ClosureResult:
     return ClosureResult.model_validate(result.model_dump())
-
-
-def _package_skips(skips: list[SkippedCourse]) -> list[mp_models.SkippedCourse]:
-    return [mp_models.SkippedCourse.model_validate(skip.model_dump()) for skip in skips]
 
 
 def _monolith_audit(audit: mp_models.VerificationAudit) -> VerificationAudit:
@@ -210,7 +205,7 @@ class ClosureChecker:
     @staticmethod
     def _package_call(call: DeedCall) -> mp_models.DeedCall:
         """Mirror a monolith call as a package call without revalidating it."""
-        return mp_models.DeedCall.model_construct(**call.model_dump())
+        return package_bridge.package_call(call)
 
     @staticmethod
     def _chord_positioned_delta(call: DeedCall) -> float | None:

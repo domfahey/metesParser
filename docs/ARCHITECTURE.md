@@ -140,7 +140,7 @@ The original monolith in `src/metesparser/` is preserved for backward compatibil
 | `mp-models` | `models.py` |
 | `mp-bearing` | `bearing_converter.py` |
 | `mp-ocr` | `pdf_processor.py`, `llm_clients.py`, `llm_cache.py` |
-| `mp-parse` | `call_extractor.py`, `text_parser.py` |
+| `mp-parse` | `call_extractor.py`, `text_parser.py` (facades over `mp_parse`; `package_bridge.py` converts models) |
 | `mp-verify` | `closure_checker.py` |
 | `mp-export` | `csv_builder.py`, `audit_reporter.py` (legacy CSV/audit functionality) |
 | Shared review/analysis APIs | `plot.py`, `dashboard.py`, `source_handoff.py`, `artifact_inspect.py`, `diagnostics.py`, `comparison.py`, `corridor.py`, `plss.py`, `revisions.py`, `delivery.py`, and `raster_picker.py` re-export package implementations/contracts |

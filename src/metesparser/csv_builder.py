@@ -21,6 +21,7 @@ from .models import (
     Tract,
     _Model,
 )
+from .package_bridge import monolith_skips, package_skips
 
 logger = structlog.get_logger(__name__)
 
@@ -40,18 +41,13 @@ def skips_for_tract(
             label=t.label,
             tract_type=t.tract_type,
             calls=[],
-            skipped_courses=[
-                mp_models.SkippedCourse.model_validate(skip.model_dump())
-                for skip in t.skipped_courses
-            ],
+            skipped_courses=package_skips(t.skipped_courses),
         )
 
     routed = package_skips_for_tract(
-        mirror(tract),
-        [mirror(t) for t in all_tracts],
-        [mp_models.SkippedCourse.model_validate(skip.model_dump()) for skip in extra_skips],
+        mirror(tract), [mirror(t) for t in all_tracts], package_skips(extra_skips)
     )
-    return [SkippedCourse.model_validate(skip.model_dump()) for skip in routed]
+    return monolith_skips(routed)
 
 
 def _cleanup_stale_sidecars(output_file: Path, *, metadata_written: bool) -> None:
