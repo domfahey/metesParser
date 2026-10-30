@@ -484,6 +484,20 @@ def _states_complete_course(text: str) -> bool:
         return True
 
 
+def _cut_closing_sentence(text: str) -> tuple[str, str] | None:
+    """Split text after the sentence holding its last return to the point of beginning.
+
+    Returns ``(head, tail)``, or None when there is no closing phrase or sentence end.
+    """
+    closings = list(_CLOSING_PHRASE.finditer(text))
+    if not closings:
+        return None
+    sentence_end = _SENTENCE_END.search(text, closings[-1].end())
+    if not sentence_end:
+        return None
+    return text[: sentence_end.end()], text[sentence_end.end() :].strip()
+
+
 def _course_region(call_texts: list[str], *, starts_with_course: bool) -> range:
     """Return the indices of a tract's course fragments, cutting its closing course.
 
@@ -522,12 +536,11 @@ def _course_region(call_texts: list[str], *, starts_with_course: bool) -> range:
     )
     for index in range(lead_end - 1, start - 1, -1):
         text = call_texts[index]
-        closings = list(_CLOSING_PHRASE.finditer(text))
-        if not closings:
+        if not _CLOSING_PHRASE.search(text):
             continue
-        sentence_end = _SENTENCE_END.search(text, closings[-1].end())
-        if sentence_end:
-            head, tail = text[: sentence_end.end()], text[sentence_end.end() :].strip()
+        cut = _cut_closing_sentence(text)
+        if cut:
+            head, tail = cut
             # As in split_into_calls, a BEGINNING/COMMENCING tie is not a course.
             keep_tail = tail and _states_complete_course(tail) and not _BLOCK_LEAD.match(tail)
             call_texts[index : index + 1] = [head, tail] if keep_tail else [head]
@@ -1490,6 +1503,11 @@ def _extract_call(
     """
     if re.match(r"^\s*(BEGINNING|COMMENCING|POB)\b", call_text, re.IGNORECASE):
         return None, ""
+
+    # Text after the closing sentence is not part of this course (recitals, ties).
+    cut = _cut_closing_sentence(call_text)
+    if cut:
+        call_text = cut[0]
 
     curve_info = extract_curve_info(call_text, distance_unit)
     course_bearing = _course_bearing(call_text, curve_info)
