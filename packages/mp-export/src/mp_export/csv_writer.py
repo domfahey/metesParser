@@ -2,7 +2,8 @@
 
 Exports structured calls to the standard 22-field CSV schema.
 Reads CSV files back into DeedCall objects, including legacy 21-field files
-(written before ``curve_type`` was appended; it then reads back as None).
+(written before ``curve_type`` was appended; it then reads back as None, and a
+curved legacy row records in its notes that it is treated as circular).
 """
 
 from __future__ import annotations
@@ -66,6 +67,10 @@ FIELDNAMES: list[str] = [
 
 # Header of CSVs written before ``curve_type`` was exported; still accepted on import.
 LEGACY_FIELDNAMES: list[str] = FIELDNAMES[:-1]
+
+
+# A legacy row cannot say whether a curve was a spiral; make the assumption visible.
+LEGACY_CURVE_NOTE = "curve type not recorded (legacy CSV); treated as circular"
 
 
 def is_supported_csv_header(header: list[str] | None) -> bool:
@@ -273,6 +278,10 @@ def _validate_row(row: dict[str, str | None]) -> DeedCall:
     normalized_payload["is_meander"] = bool(csv_row.is_meander)
     normalized_payload["is_tie_in"] = bool(csv_row.is_tie_in)
     normalized_payload["non_tangent"] = bool(csv_row.non_tangent)
+    call = DeedCall.model_validate(normalized_payload, strict=True)
+    if "curve_type" in row or not call.is_curve() or LEGACY_CURVE_NOTE in (call.notes or ""):
+        return call
+    normalized_payload["notes"] = "; ".join(filter(None, (call.notes, LEGACY_CURVE_NOTE)))
     return DeedCall.model_validate(normalized_payload, strict=True)
 
 
