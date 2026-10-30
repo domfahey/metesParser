@@ -139,6 +139,20 @@ class CourseAnalysis:
     positioned: bool
     determined_direction: bool
 
+    @property
+    def chord_positioned(self) -> bool:
+        """A stated chord alone positions the course with no known tangent.
+
+        A course whose direction evidence conflicts (the parser's cardinal/chord
+        conflict leaves it indefinite) does not state a direction.
+        """
+        return (
+            self.positioned
+            and self.arc_undetermined
+            and not self.determined_direction
+            and not self.call.is_indefinite
+        )
+
 
 def analyze_courses(
     calls: list[DeedCall], start_point: Point | None = None
@@ -192,13 +206,23 @@ def traverse_positions(
     return points, [record.positioned for record in records]
 
 
+def chord_positioned_flags(calls: list[DeedCall]) -> list[bool]:
+    """Per call: is it positioned by a stated chord alone (one traverse pass)?
+
+    Positioning is independent of earlier courses, so this equals calling
+    is_chord_positioned on each call.
+    """
+    _, records = analyze_courses(calls)
+    return [record.chord_positioned for record in records]
+
+
 def is_chord_positioned(call: DeedCall) -> bool:
     """Return True when a stated chord alone positions a course with no known tangent.
 
     A chord-only circular curve or spiral whose chord bearing and length the traverse
     uses: its direction is stated (by the chord) although its tangent direction and
-    arc are not determined. Decided by the traverse itself, never predicted.
+    arc are not determined. Decided by the traverse itself, never predicted. An
+    indefinite call (including a cardinal word that conflicts with the chord) does not
+    state a direction.
     """
-    _, records = analyze_courses([call])
-    record = records[0]
-    return record.positioned and record.arc_undetermined and not record.determined_direction
+    return chord_positioned_flags([call])[0]
