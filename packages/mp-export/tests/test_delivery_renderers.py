@@ -137,3 +137,49 @@ def test_dxf_is_identical_across_fresh_process_hash_seeds():
         )
         outputs.append(process.stdout)
     assert len(set(outputs)) == 1, "DXF bytes must replay identically in a fresh process"
+
+
+def _oriented_raster_snapshot(orientation):
+    import base64
+    import hashlib
+
+    from mp_models.raster import RasterLayer, RasterRegistration
+    from PIL import Image
+
+    image = Image.new("RGB", (10, 20))
+    exif = Image.Exif()
+    exif[274] = orientation
+    stream = io.BytesIO()
+    image.save(stream, format="JPEG", exif=exif.tobytes())
+    data = stream.getvalue()
+    layer = RasterLayer(
+        id="old-raster",
+        label="old.jpg",
+        source_id="src",
+        scene_id="scene",
+        mime_type="image/jpeg",
+        width=10,
+        height=20,
+        sha256=hashlib.sha256(data).hexdigest(),
+        data_base64=base64.b64encode(data).decode(),
+        registration=RasterRegistration(method="supplied_affine", matrix=(1, 0, 0, 0, 1, 0)),
+    )
+    base = snapshot()
+    selection = base.items[0].selection.model_copy(update={"id": "raster-layer", "kind": "raster"})
+    return base.model_copy(update={"items": [DeliveryItem(selection=selection, raster=layer)]})
+
+
+def test_delivery_svg_and_pdf_refuse_exif_oriented_raster():
+    import pytest
+
+    oriented = _oriented_raster_snapshot(6)
+    with pytest.raises(ValueError, match="orientation"):
+        render_delivery_svg(oriented)
+    with pytest.raises(ValueError, match="orientation"):
+        render_delivery_pdf(oriented)
+
+
+def test_delivery_svg_and_pdf_embed_upright_raster():
+    upright = _oriented_raster_snapshot(1)
+    assert "data:image/jpeg;base64," in render_delivery_svg(upright)
+    assert render_delivery_pdf(upright).startswith(b"%PDF")
