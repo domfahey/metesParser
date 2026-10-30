@@ -54,30 +54,34 @@ def test_tangent_uses_delta_computed_from_arc_and_radius(parse, along):
 
 
 @pytest.mark.parametrize("parse", PARSERS)
-def test_chord_only_curve_without_delta_or_arc_uses_chord_length_and_radius(parse):
-    # Round 6: no stated delta or arc, but radius and chord length fix the delta
-    # exactly (2 asin(c / 2R)); the tangent is derived and disclosed, never the chord.
+def test_chord_only_curve_without_delta_or_arc_is_positioned_by_chord_only(parse):
+    # Radius + chord without a stated delta or arc is ambiguous (minor vs major
+    # arc): no delta, arc or tangent is derived. The course is kept, carries no
+    # azimuth, and is positioned by its chord only.
     call = parse(
         "THENCE along a curve to the right having a radius of 100.00 feet, the chord of "
         "which bears N 45°00'00\" E 49.00 feet along the Northerly line of Pennbrook Drive "
         "to a point" + CLOSING,
         strict=True,
     )[0]
-    delta = math.degrees(2.0 * math.asin(49.0 / 200.0))
-    assert call.bearing_azimuth_deg_from_north == pytest.approx(45.0 - delta / 2.0)
+    assert call.bearing_azimuth_deg_from_north is None
     assert call.delta_deg is None
-    assert call.arc_length_ft == pytest.approx(100.0 * math.radians(delta))
-    assert "delta computed from chord length and radius" in (call.notes or "")
+    assert call.arc_length_ft is None
+    assert call.chord_length_ft == pytest.approx(49.0)
+    assert call.is_indefinite is True
+    assert "curve delta/arc not stated - positioned by chord only" in (call.notes or "")
+    assert "delta computed from chord length" not in (call.notes or "")
 
 
 @pytest.mark.parametrize("parse", PARSERS)
-def test_chord_longer_than_diameter_fails_closed(parse):
-    with pytest.raises(ValueError, match="chord length exceeds twice the radius"):
-        parse(
-            "THENCE along a curve to the right having a radius of 100.00 feet, the chord of "
-            "which bears N 45°00'00\" E 249.00 feet to a point" + CLOSING,
-            strict=True,
-        )
+def test_chord_longer_than_diameter_is_kept_and_flagged(parse):
+    call = parse(
+        "THENCE along a curve to the right having a radius of 100.00 feet, the chord of "
+        "which bears N 45°00'00\" E 249.00 feet to a point" + CLOSING,
+        strict=True,
+    )[0]
+    assert call.bearing_azimuth_deg_from_north is None
+    assert "chord length exceeds twice the radius" in (call.notes or "")
 
 
 def _unparseable_chord(monkeypatch):
