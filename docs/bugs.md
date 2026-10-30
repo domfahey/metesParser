@@ -1056,6 +1056,13 @@ Four findings, fixed red-green on `fix/code-review-2026-10-29`:
 - **Inch components never dropped:** "in"/"in." count as inches only where a measurement ends and only as the trailing component of a descending compound ("100 feet 6 in." → 100.5, independent of trailing punctuation); "100' 6\"" reads 100.5 in a length context only; prepositions ("in a northerly direction") are never inches; an unread inch component makes the course fail closed. A square with "100 feet 6 in." on one side now reports 0.5 ft misclosure instead of verifying (`1abaa1a`).
 - **Chord-positioned courses:** `traverse.is_chord_positioned` marks chord-only curves and chord-stated spirals; the dashboard draws them as their chord with "Arc not determined; positioned by chord only" instead of blocking as incomplete bearings; confidence rates them medium; the parser no longer marks them indefinite, so text and CSV paths give the same warnings (`350893d`).
 
+### PR #60 thirty-third review (2026-10-30)
+Five findings plus one follow-up, fixed red-green on `fix/code-review-2026-10-29`:
+- **Inches after a comma:** "100 feet, 6 inches", "100', 6\"" and similar forms sum to 100.5; the unread-inch guard looks across a comma (`fd2ac12`).
+- **Worded-degree bearings:** minutes and seconds after "degrees", "deg.", "d" or a hyphen are never read as a feet-and-inches length (`fd2ac12`).
+- **Conflicting chord-only courses:** a course whose cardinal word conflicts with its chord (is_indefinite) is not chord-positioned, so the dashboard blocks it and confidence scores it low; the chord analysis is computed once per dashboard calculation; one conflict boolean in the parser (`884463e`).
+- **Hyphenated DMS with marks:** "N 45-30' 15\" E", "N 45-30'-15\" E", "S 10-15' W" and similar expand to canonical DMS; identifier guards unchanged (`1081076`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
