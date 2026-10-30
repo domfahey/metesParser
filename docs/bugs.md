@@ -1105,6 +1105,16 @@ Seven findings, fixed red-green on `fix/code-review-2026-10-29`:
 - **Tabular curve labels:** R=, L=, Δ=, CB=, CH=/C= are read like the spelled-out wording; A= and D= are not read; a degree-of-curve value is no longer taken as the delta (`40eb6af`).
 - **Known limitation:** "along an arc to the right" is not recognised as a curve and fails closed.
 
+### PR #60 thirty-ninth review (2026-10-30)
+Nine findings (three regressions against `main`), fixed red-green on `fix/code-review-2026-10-29`:
+- **Record-call regressions:** "N 45° E (deed N 44° E) 100 feet", "100 feet per deed / of record / (R)" and "(R) …, … (M)" or "[N 44° E 99 feet deed]" parse as one course again. A bearing inside a parenthetical or bracketed group never takes the length of the bearing outside it; a fragment's only labelled pair is the course; with (R)/(M) labels the measured pair is the course in either order (on `main` "(R) first" took the record pair). Record bearings and record distances ("(deed 99.5 feet)") are kept verbatim in notes; road widths are not record calls (`e850ed3`).
+- **Qualifiers in `along`/`to`:** "parallel to/with", "at right angles to", "tangent to", "perpendicular to" and similar are kept verbatim in `along` and never become the destination; the course's own length no longer ends up in `to`. 114 of 1045 sample calls change (96 gain the qualifier in `along`; 18 lose a wrong `to` such as "the last course a distance of 81.52 feet") (`0b01839`).
+- **Spiral notes:** a chord-positioned spiral is noted once as "spiral positioned by its stated chord only; radius not stated", matching the verification warning (`0b01839`, `beeb5a4`).
+- **`DeedCall.is_curve()` includes spirals:** one curve predicate for verification and every caller; the relative-course plot and dashboard validators reject spirals instead of drawing them as lines; perimeter uses a spiral's stated length (`9658b58`).
+- **Dead code:** `csv_writer._row_to_call` (log and drop) removed (`9658b58`).
+- **Cardinal vocabulary sync:** `mp_bearing.normalize_cardinal_word` is added to the AGENTS.md sync list, and a test checks every copy accepts and rejects the same words (`9658b58`).
+- **Known limitations:** a lone course labelled "per deed" or "(R)" loses the label wording (as on `main`); "N 45° E 100 feet per deed, N 50° E 80 feet per deed" reads the second pair as a record call; a qualifier before an explicit "along" is not kept; a qualifier at a sentence end can run on into the next word ("parallel with the first course the").
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
