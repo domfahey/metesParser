@@ -89,10 +89,25 @@ def build_verification_checks(
     discrepancies: list[str],
     curve_issues: list[str] | None = None,
     misclosure_available: bool = True,
+    positioned: list[bool] | None = None,
 ) -> list[CheckResult]:
-    """Build auditable engine outcomes without turning unavailable checks into passes."""
+    """Build auditable engine outcomes without turning unavailable checks into passes.
+
+    ``positioned[i]`` is the traverse outcome for ``calls[i]``. Closure follows it:
+    a course positioned by its chord is not missing, and a course with a stated
+    bearing that still cannot be positioned is unpositioned, not missing.
+    """
     incomplete = any(not call.is_complete_bearing() for call in calls)
     missing = incomplete or not calls
+    if positioned is None:
+        positioned = [call.is_complete_bearing() or call.is_chord_only_curve() for call in calls]
+    unpositioned = [call for call, ok in zip(calls, positioned, strict=True) if not ok]
+    closure_missing = not calls or any(
+        call.bearing_azimuth_deg_from_north is None
+        and (call.chord_bearing is None or bearing_to_azimuth(call.chord_bearing) is None)
+        for call in unpositioned
+    )
+    closure_unpositioned = bool(unpositioned) or not misclosure_available
     curves = [call for call in calls if call.is_curve()]
 
     def outcome(
@@ -176,22 +191,22 @@ def build_verification_checks(
         CheckResult(
             name="traverse_closure",
             status="blocked"
-            if missing or not misclosure_available
+            if closure_missing or closure_unpositioned
             else "passed"
             if closure_passed
             else "failed",
             reason="missing_bearings"
-            if missing
+            if closure_missing
             else "unpositioned_courses"
-            if not misclosure_available
+            if closure_unpositioned
             else "within_tolerance"
             if closure_passed
             else "misclosure_exceeds_tolerance",
             detail=(
                 "Traverse closure requires a bearing for every boundary course"
-                if missing
+                if closure_missing
                 else "Misclosure not determined: a course could not be positioned"
-                if not misclosure_available
+                if closure_unpositioned
                 else f"misclosure: {misclosure:.4f} ft; tolerance: {tolerance} ft"
             ),
             inputs={"misclosure_total_ft": misclosure, "tolerance_ft": tolerance},
@@ -232,10 +247,15 @@ def build_verification_checks(
             ["Straight-segment and circular-arc checks: " + "; ".join(intersection_failures)]
             if intersection_failures
             else [],
-            blocked=missing or unavailable_intersections or insufficient_topology,
+            blocked=missing
+            or closure_unpositioned
+            or unavailable_intersections
+            or insufficient_topology,
             detail=(
                 "Boundary topology requires complete bearings"
                 if missing
+                else "Boundary topology requires every course to be positioned"
+                if closure_unpositioned
                 else "At least three straight courses are required for boundary topology"
                 if insufficient_topology
                 else "; ".join(intersection_warnings)
@@ -281,6 +301,29 @@ def build_verification_checks(
             detail="Boundary distances checked",
         ),
     ]
+
+
+def chord_only_delta_detail(courses: list[tuple[int, bool]]) -> str:
+    """Describe chord-only curves whose delta/arc is not stated.
+
+    Each entry is (course, tangent_stated). Without a tangent, radius and chord
+    alone leave the minor or major arc ambiguous. With a stated tangent the arc is
+    determined, but its delta/arc is not stated and verification does not derive it.
+    """
+    without_tangent = [str(course) for course, tangent in courses if not tangent]
+    with_tangent = [str(course) for course, tangent in courses if tangent]
+    parts = []
+    if without_tangent:
+        parts.append(
+            "Curve delta/arc not stated (minor or major arc ambiguous); "
+            "positioned by chord only on course(s) " + ", ".join(without_tangent)
+        )
+    if with_tangent:
+        parts.append(
+            "Curve delta/arc not stated and not derived from the stated tangent and chord; "
+            "positioned by chord only on course(s) " + ", ".join(with_tangent)
+        )
+    return "; ".join(parts)
 
 
 def block_curve_consistency(
