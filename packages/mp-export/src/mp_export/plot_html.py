@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 from pathlib import Path
 
-from mp_models.plot import XY
+from mp_models.plot import XY, plot_point_of_beginning
 from mp_models.plot_request import PreparedPlot
 from mp_verify.plot import validate_prepared_plot
 
@@ -65,8 +65,8 @@ def render_plot(prepared: PreparedPlot) -> str:
     else:
         summary = '<p class="notice">Full-parcel closure and area unavailable: the boundary has unresolved calls. Only the supported anchored prefix is plotted.</p>'
     pob = ""
-    if geometry.primitives:
-        origin = geometry.primitives[0].start
+    origin = plot_point_of_beginning(geometry)
+    if origin is not None:
         pob = (
             f'<circle class="pob-marker" cx="{origin[0]:.17g}" cy="{-origin[1]:.17g}" '
             f'r="{max(width, height) * 0.008:.17g}"/>'

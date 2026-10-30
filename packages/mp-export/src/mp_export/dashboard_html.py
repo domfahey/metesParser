@@ -25,6 +25,7 @@ from mp_models.plot import (
     PlotScene,
     Polygon,
     VectorLayer,
+    plot_point_of_beginning,
 )
 from mp_models.plot_request import PlotCall
 from mp_models.raster import RasterLayer
@@ -414,8 +415,9 @@ def _plot_views(prepared: PreparedDashboard) -> str:
             gap_box = f"{min(first[0], last[0]) - margin} {-max(first[1], last[1]) - margin} {abs(first[0] - last[0]) + 2 * margin} {abs(first[1] - last[1]) + 2 * margin}"
             gap_detail = f'<svg class="plot gap-magnifier" viewBox="{gap_box}" aria-label="Magnified endpoint to POB gap">{gap}<circle cx="{first[0]}" cy="{-first[1]}" r="{margin * 0.04}"/><circle cx="{last[0]}" cy="{-last[1]}" r="{margin * 0.04}"/></svg><p>Scene gap vector: ΔX {last[0] - first[0]:.6f}; ΔY {last[1] - first[1]:.6f} {_escape(units)}. Magnified view has its own scale.</p>'
         pob = ""
-        if geometry.primitives:
-            origin = point(geometry.primitives[0].start)
+        true_origin = plot_point_of_beginning(geometry)
+        if true_origin is not None:
+            origin = point(true_origin)
             pob = f'<circle class="pob-marker" cx="{origin[0]:.17g}" cy="{-origin[1]:.17g}" r="{max(width, height) * 0.006}"/><text class="pob-label" x="{origin[0]:.17g}" y="{-origin[1]:.17g}" dy="1.5em">POB</text>'
         scenario_id = 'id="scenario-plot-layer"' if index == 0 else ""
         parts.append(

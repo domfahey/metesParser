@@ -7,7 +7,15 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Literal, cast
 
-from mp_models.plot import XY, LinearUnit, PlotGeometry, PlotPlacement, PlotPrimitive, VectorLayer
+from mp_models.plot import (
+    XY,
+    LinearUnit,
+    PlotGeometry,
+    PlotPlacement,
+    PlotPrimitive,
+    VectorLayer,
+    plot_point_of_beginning,
+)
 from mp_models.raster import RasterLayer
 from mp_models.webmap import (
     WebMapArtifact,
@@ -202,7 +210,9 @@ def _deed_features(
             )
         )
     budget.take()
-    first, last = geometry.primitives[0].start, geometry.primitives[-1].end
+    pob = plot_point_of_beginning(geometry)
+    assert pob is not None
+    first, last = pob, geometry.primitives[-1].end
     features.append(
         WebMapFeature(
             id=f"pob:{placement.id}",
