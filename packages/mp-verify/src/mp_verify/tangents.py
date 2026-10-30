@@ -9,7 +9,10 @@ from __future__ import annotations
 import math
 from functools import lru_cache
 
-from mp_bearing import bearing_to_azimuth  # type: ignore[import-untyped]
+from mp_bearing import (  # type: ignore[import-untyped]
+    bearing_to_azimuth,
+    delta_uncertainty_rad,
+)
 from mp_models import DeedCall
 
 
@@ -62,6 +65,20 @@ def stated_sweep(call: DeedCall) -> float | None:
     if call.arc_length_ft is not None and call.radius_ft is not None and call.radius_ft > 0:
         return math.degrees(call.arc_length_ft / call.radius_ft)
     return None
+
+
+def stated_sweep_with_error(call: DeedCall) -> tuple[float | None, float]:
+    """Return the stated sweep (``stated_sweep``) and its rounding uncertainty in radians.
+
+    The single rule selecting the uncertainty: a stated delta carries its own
+    rounding; otherwise the sweep is arc / radius and carries theirs. Shared by every
+    curve-consistency check and the plot builder.
+    """
+    if call.delta_deg is not None:
+        return call.delta_deg, delta_uncertainty_rad(delta_deg=call.delta_deg)
+    return stated_sweep(call), delta_uncertainty_rad(
+        arc_length_ft=call.arc_length_ft, radius_ft=call.radius_ft
+    )
 
 
 def curve_sweep(call: DeedCall) -> float | None:
@@ -191,3 +208,47 @@ def curve_tangents(call: DeedCall) -> tuple[float, float] | None:
 def has_determined_direction(call: DeedCall) -> bool:
     """Return True when the course direction is stated or fixed by stated curve elements."""
     return stated_tangent(call) is not None or curve_tangents(call) is not None
+
+
+def determined_arc_sweep(call: DeedCall) -> float | None:
+    """Return the stated sweep of a circular arc whose start is fixed, else None.
+
+    The single predicate for area and perimeter: a circular curve with radius and
+    direction whose start is fixed (stated tangent, chord and sweep, or a
+    non-tangent curve's radial bearing) and a nonzero stated sweep.
+    """
+    if not is_circular_curve(call) or not call.is_curve():
+        return None
+    if stated_tangent(call) is None and curve_tangents(call) is None:
+        return None
+    if call.radius_ft is None or call.curve_dir is None:
+        return None
+    delta = stated_sweep(call)
+    if delta is None or abs(delta) <= 1e-9:
+        return None
+    return delta
+
+
+def entry_azimuth(call: DeedCall, *, chord_positioned: bool = False) -> float | None:
+    """Azimuth at which a course starts: tangent-in for a curve, else its bearing.
+
+    ``chord_positioned`` (``traverse.is_chord_positioned``): a course positioned by
+    its stated chord alone starts along that chord when no tangent is known; no
+    tangent or arc is invented.
+    """
+    if is_curved_course(call):
+        tangents = curve_tangents(call)
+        if tangents is not None:
+            return tangents[0]
+    stated = stated_tangent(call)
+    if stated is None and chord_positioned:
+        return parse_chord(call)
+    return stated
+
+
+def exit_azimuth(call: DeedCall) -> float | None:
+    """Azimuth at which a course ends: tangent-out for a curve, else its bearing."""
+    if is_curved_course(call):
+        tangents = curve_tangents(call)
+        return tangents[1] if tangents is not None else None
+    return call.bearing_azimuth_deg_from_north

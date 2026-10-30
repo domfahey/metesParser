@@ -2,8 +2,8 @@
 
 A tangent-less curve fixed by chord bearing and delta is positioned on a main
 traverse; an exception loop must accept the same curve rather than reporting an
-incomplete bearing. ``build_verification_checks`` without a supplied traverse
-outcome derives positioning from ``traverse_positions`` itself.
+incomplete bearing. ``build_verification_checks`` requires the caller's traverse
+outcome (``traverse_positions``); it never re-derives positioning itself.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ import mp_models
 import pytest
 from mp_verify.checks import build_verification_checks
 from mp_verify.closure import verify_closure as package_verify
+from mp_verify.traverse import traverse_positions
 
 from metesparser import models as monolith_models
 from metesparser.closure_checker import ClosureChecker
@@ -98,9 +99,10 @@ def _closure_check(checks):
     return next(check for check in checks if check.name == "traverse_closure")
 
 
-def _build(calls):
+def _build(calls, **positioning):
     return build_verification_checks(
         calls,
+        **positioning,
         closure_passed=True,
         misclosure=0.0,
         tolerance=0.01,
@@ -117,8 +119,14 @@ def _build(calls):
     )
 
 
+def test_checks_require_the_traverse_outcome():
+    with pytest.raises(TypeError, match="positioned"):
+        _build(_square(mp_models))
+
+
 def test_check_fallback_positions_tangentless_chord_and_delta_curve():
-    checks = _build(_loop(mp_models))
+    calls = _loop(mp_models)
+    checks = _build(calls, positioned=traverse_positions(calls)[1])
     closure = _closure_check(checks)
     assert closure.status == "passed"
 
@@ -134,7 +142,8 @@ def test_check_fallback_leaves_infeasible_chord_only_curve_unpositioned():
         chord_bearing="N 90°00' E",
         chord_length_ft=100.0,
     )
-    closure = _closure_check(_build(calls))
+    positioned = traverse_positions(calls)[1]
+    closure = _closure_check(_build(calls, positioned=positioned))
     assert closure.status == "blocked"
     assert closure.reason == "unpositioned_courses"
 
