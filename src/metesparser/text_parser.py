@@ -559,7 +559,12 @@ class TextParser:
                     pair not in _IMPLICIT_COMPOUND_PAIRS
                     for pair in zip(implicit_units, implicit_units[1:], strict=False)
                 ):
-                    compound = None
+                    # Keep a valid "and" compound; drop unrelated trailing measurements.
+                    compound = re.search(
+                        rf"{component_pattern}(?:\s+and\s+{component_pattern})+",
+                        text,
+                        re.IGNORECASE,
+                    )
             if compound:
                 trailing_component = re.match(
                     rf"\s+and\s+{_COMMA_NUMBER}\s+[A-Za-z]+",
