@@ -62,6 +62,22 @@ _REFERENCE_WORD_BEFORE = re.compile(
 _HEADING_CONTINUATION = re.compile(r"\s*(?:BEGINNING|COMMENCING|ALL\s+THAT)\b", re.IGNORECASE)
 
 
+def _is_standalone_line(text: str, match: re.Match[str]) -> bool:
+    """Return whether the marker starts a line and ends it or is followed by BEGINNING."""
+    prefix = text[: match.start()]
+    if "\n" not in prefix[len(prefix.rstrip()) :]:
+        return False
+    return "\n" in match.group(0) or bool(_HEADING_CONTINUATION.match(text, match.end()))
+
+
+def _inside_open_description(prefix: str) -> bool:
+    """Return whether a BEGINNING in prefix has no later point-of-beginning closure."""
+    starts = list(_BEGINNING_PATTERN.finditer(prefix))
+    if not starts:
+        return False
+    return _POB_CLOSE_PATTERN.search(prefix, starts[-1].start()) is None
+
+
 def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
     """Return whether a TRACT/PARCEL match heads a description.
 
@@ -81,7 +97,10 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
     if not prefix.strip():
         return True
     if _REFERENCE_WORD_BEFORE.search(prefix):
-        return False
+        # A marker alone on its line is a heading even after a dangling word
+        # ("description of\nPARCEL 1\nBEGINNING"), unless an earlier BEGINNING
+        # is still unclosed, where a wrapped "in\nTract 4567" is a reference.
+        return _is_standalone_line(text, match) and not _inside_open_description(prefix)
     stripped = prefix.rstrip()
     if "\n" in prefix[len(stripped) :] or stripped.endswith((".", ":", ";")):
         return True

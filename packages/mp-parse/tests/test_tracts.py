@@ -352,3 +352,23 @@ class TestReferencePrecedenceRound2:
     def test_reference_word_across_line_break(self):
         text = "TRACT 1: BEGINNING at a point lying in\nTract 4567\nBEGINNING at a stake"
         assert [m[1] for m in find_tract_markers(text)] == ["Tract 1"]
+
+
+class TestStandaloneHeadingAfterReferenceWord:
+    """PR #60 round 3: a standalone heading line is not a reference."""
+
+    @pytest.mark.parametrize(
+        ("text", "label"),
+        [
+            ("Schedule A description of\nPARCEL 1\nBEGINNING at a point", "Parcel 1"),
+            ("land being\nTRACT 2\nBEGINNING at a point", "Tract 2"),
+            ("lands in\nTract 3\nBeginning at a point", "Tract 3"),
+            ("TOGETHER WITH\nPARCEL 2\nBEGINNING at a point", "Parcel 2"),
+        ],
+    )
+    def test_standalone_heading_line_is_a_marker(self, text, label):
+        assert [m[1] for m in find_tract_markers(text)] == [label]
+
+    def test_inline_reference_after_closed_description_is_not_a_marker(self):
+        text = "of Parcel 2 then N 10 ft"
+        assert find_tract_markers(text) == []
