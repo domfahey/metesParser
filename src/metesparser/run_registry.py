@@ -33,7 +33,9 @@ class RunResults(BaseModel):
     call_count: int = Field(..., description="Number of calls extracted")
     closure_passed: bool = Field(..., description="Whether traverse closure passed")
     misclosure_ft: float = Field(..., description="Misclosure distance in feet")
-    area_sq_ft: float = Field(..., description="Computed area in square feet")
+    area_sq_ft: float | None = Field(
+        ..., description="Computed area in square feet; None when area is not determined"
+    )
     confidence_score: float = Field(..., ge=0.0, le=1.0, description="Overall confidence 0-1")
     warnings: list[str] = Field(default_factory=list, description="Verification warnings")
 
