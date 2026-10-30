@@ -13,26 +13,7 @@ from metesparser.models import (
     Point,
 )
 
-CSV_FIELDNAMES: list[str] = [
-    "course",
-    "direction_text",
-    "bearing_quadrant",
-    "bearing_azimuth_deg_from_north",
-    "distance_ft",
-    "curve_dir",
-    "radius_ft",
-    "delta_deg",
-    "arc_length_ft",
-    "chord_bearing",
-    "chord_length_ft",
-    "along",
-    "to",
-    "monument_type",
-    "is_exception",
-    "notes",
-    "non_tangent",
-    "radial_bearing",
-]
+CSV_FIELDNAMES: list[str] = list(CSVBuilder.FIELDNAMES)
 
 
 def _base_csv_row(overrides: dict[str, str] | None = None) -> dict[str, str]:
