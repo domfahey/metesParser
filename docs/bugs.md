@@ -1026,6 +1026,12 @@ Four findings plus one follow-up, fixed red-green on `fix/code-review-2026-10-29
 - **Same-unit "and" pairs are not summed:** "100.00 feet and 50.00 feet" gives the first measurement; different-unit compounds still sum (`db2e11a`).
 - **Metric course lengths:** `extract_distance` reads metres/meters/m, foot marks and "ft." via the shared `mp_parse.units` module (`b4d83c2`).
 
+### PR #60 twenty-ninth review (2026-10-30)
+Five findings (two regressions against main), fixed red-green on `fix/code-review-2026-10-29`:
+- **Course region per tract:** `_course_region` bounds course material from the first course (or BEGINNING block) to the fragment containing the closing "point/place of beginning" phrase anywhere in it, cut at the closing sentence. Cover-sheet preambles and trailing affidavit/form text are not courses unless they state a complete course. 20 E Redman Ave (8214-294, 12427-01665) and 17 Kings Highway W (10394-9), which verified on main and regressed, verify again (`d1b17eb`).
+- **Main-parity guard:** `tests/unit/test_sample_verification_parity.py` with a recorded main baseline fails if any sample deed that verified on main stops verifying (now 37 vs 36 on main; none lost) (`d1b17eb`).
+- **Shared units:** the course-distance check and `extract_distance` read `mp_parse.units` (US survey feet, engineer chains/links, arpents, toises, furlongs; singular "perch") instead of hand-written lists; the region is computed once per tract (`d1b17eb`, `f301c50`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
