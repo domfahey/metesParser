@@ -383,6 +383,22 @@ _MARKER_CASES = [
         ["Tract 1", "Tract 2"],
     ),
     ("word-not-id", "TRACT ADJOINING the lands of Smith", []),
+    (
+        "paren-then-newline",
+        "...to the point of beginning.\nPARCEL 2 (Tax ID 12-34)\nBEGINNING at a pin",
+        ["Parcel 2"],
+    ),
+    (
+        "paren-then-beginning",
+        "...to the point of beginning.\nPARCEL 2 (Tax ID 12-34) BEGINNING at a pin",
+        ["Parcel 2"],
+    ),
+    ("comma-beginning", "TRACT 2, BEGINNING at a pin", ["Tract 2"]),
+    ("paren-comma-beginning", "TRACT 2 (Lot 5), BEGINNING at a pin", ["Tract 2"]),
+    ("comma-thence-ref", "of Parcel 2, thence N 10 E 100 feet", []),
+    ("comma-on-a-plan", "BEGINNING at Lot 5, Tract 4567, on a plan of lots", []),
+    ("paren-prose-ref", "corner of Parcel 2 (see plan) thence N 10 E", []),
+    ("paren-then-prose", "...beginning.\nPARCEL 2 (Tax ID 12-34) as shown on a map", []),
 ]
 
 
@@ -436,3 +452,32 @@ class TestLeadingTractBeforeFirstMarker:
         _flat, tracts = extract_calls(f"{_LEADING}\n{_TRACT2}")
         assert [t.label for t in tracts] == ["Unlabelled tract", "Tract 2"]
         assert len(tracts[0].calls) == 4
+
+    @pytest.mark.parametrize(
+        "pre",
+        [
+            "THENCE with said line S 10\u00b0 W 50 feet to a pin",
+            "THENCE along a curve to the right having a radius of 50 feet",
+            "THENCE along the line of Smith by a curve to the left, radius 40 feet",
+            "THENCE by lands of Jones N 10 E 50 feet to a pin",
+        ],
+    )
+    def test_broader_thence_courses_kept_as_unlabelled(self, pre):
+        result = split_into_tracts(f"{pre}\n{_TRACT2}")
+        assert [label for _t, label, _k in result] == ["Unlabelled tract", "Tract 2"]
+
+    @pytest.mark.parametrize(
+        "pre",
+        [
+            "Grantor thence colspan=3 First Party",
+            "thence in Southeasterly direction",
+            "thence along colspan=3 rowspan=2",
+        ],
+    )
+    def test_dropped_thence_text_logs_warning(self, pre):
+        from structlog.testing import capture_logs
+
+        with capture_logs() as logs:
+            result = split_into_tracts(f"{pre}\n{_TRACT2}")
+        assert [label for _t, label, _k in result] == ["Tract 2"]
+        assert any(e["log_level"] == "warning" and "dropping" in e["event"].lower() for e in logs)
