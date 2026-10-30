@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from mp_bearing import bearing_to_azimuth
 from mp_models import DeedCall, Point
 
-from .tangents import curve_sweep, curve_tangents
+from .tangents import curve_sweep, curve_tangents, is_circular_curve
 
 _TOL = 1e-7  # Feet: construction roundoff, not the traverse closure tolerance.
 XY = tuple[float, float]
@@ -58,7 +58,7 @@ class _Arc:
 
 
 def _make_arc(call: DeedCall, start: XY, end: XY) -> _Arc:
-    if call.curve_type == "spiral":
+    if not is_circular_curve(call):
         raise ValueError("spiral geometry is not a circular arc")
     radius = call.radius_ft
     if radius is None or radius <= 0 or call.curve_dir not in ("left", "right"):
