@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 
 class TestExtractPlssMetadata:
     def test_basic_plss(self) -> None:
@@ -312,6 +314,20 @@ class TestSplitIntoCalls:
 
 
 class TestExtractDistance:
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "10 chains and 50 links, 3 rods from the corner",
+            "10 chains and 50 links 3 rods from the corner",
+        ],
+    )
+    def test_and_compound_not_merged_with_trailing_measurement(self, text: str) -> None:
+        from mp_parse.metadata import extract_distance
+
+        value, unit = extract_distance(text)
+        assert value == pytest.approx(693.0)
+        assert unit == "feet"
+
     def test_feet(self) -> None:
         from mp_parse.metadata import extract_distance
 

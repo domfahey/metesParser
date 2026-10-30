@@ -1,5 +1,7 @@
 """Tests for text_parser.py - Text normalization and OCR fixes."""
 
+import pytest
+
 from metesparser.text_parser import TextParser
 
 
@@ -521,3 +523,17 @@ class TestNormalizeLegalDescription:
         assert "N 33°20' E" in result
         assert "60 feet" in result
         assert "to a point" in result
+
+
+class TestExtractDistanceAndCompoundTrailing:
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "10 chains and 50 links, 3 rods from the corner",
+            "10 chains and 50 links 3 rods from the corner",
+        ],
+    )
+    def test_and_compound_not_merged_with_trailing_measurement(self, text: str) -> None:
+        value, unit = TextParser.extract_distance(text)
+        assert value == pytest.approx(693.0)
+        assert unit == "feet"
