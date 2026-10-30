@@ -24,6 +24,11 @@ from pydantic import ValidationError, field_validator
 logger = structlog.get_logger(__name__)
 
 
+def _misclosure_text(result: ClosureResult) -> str:
+    """Misclosure for messages; an undetermined misclosure is never shown as 0.0."""
+    return f"{result.misclosure_ft:.4f} ft" if result.misclosure_available else "not determined"
+
+
 def _format_float(value: float, decimal_places: int) -> str:
     """Keep familiar formatting when exact, otherwise retain roundtrip precision."""
     formatted = f"{value:.{decimal_places}f}"
@@ -170,7 +175,7 @@ def _validate_export_geometry(
     if not fresh_result.is_fully_verified():
         raise ValueError(
             "Cannot export verified CSV: selected calls failed fresh verification. "
-            f"Misclosure: {fresh_result.misclosure_ft:.4f} ft, "
+            f"Misclosure: {_misclosure_text(fresh_result)}, "
             f"Warnings: {len(fresh_result.warnings)}"
         )
     # Source review is an explicit human assessment, independent of fresh geometry.
@@ -348,7 +353,7 @@ def export_verified_csv(
     elif not closure_result.is_fully_verified():
         raise ValueError(
             "Cannot export verified CSV: verification checks failed. "
-            f"Misclosure: {closure_result.misclosure_ft:.4f} ft, "
+            f"Misclosure: {_misclosure_text(closure_result)}, "
             f"Warnings: {len(closure_result.warnings)}"
         )
 
@@ -372,7 +377,9 @@ def export_verified_csv(
                 logger.warning(
                     "Skipping unverified tract",
                     tract=tract.label,
-                    misclosure_ft=tract_result.misclosure_ft,
+                    misclosure_ft=(
+                        tract_result.misclosure_ft if tract_result.misclosure_available else None
+                    ),
                     warnings_count=len(tract_result.warnings),
                 )
                 continue
@@ -409,7 +416,7 @@ def export_verified_csv(
             for tract, tract_result in unverified:
                 reasons = "; ".join(tract_result.warnings) or "verification checks did not pass"
                 summaries.append(
-                    f"{tract.label}: misclosure {tract_result.misclosure_ft:.4f} ft; {reasons}"
+                    f"{tract.label}: misclosure {_misclosure_text(tract_result)}; {reasons}"
                 )
             summaries.append("")
         with open(summary_path, "w") as f:
