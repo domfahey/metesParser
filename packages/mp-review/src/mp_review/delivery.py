@@ -961,6 +961,7 @@ def publish_delivery(
         # discard files that a concurrent publish found present and referenced.
         with _claim(directory) as locked:
             try:
+                _clear_unpublished(directory, manifest_path)
                 write_new(
                     directory / "pending.json",
                     _json(
@@ -1055,6 +1056,51 @@ def _claim(directory: Path) -> Iterator[bool]:
                 return
         finally:
             os.close(descriptor)
+
+
+_DELIVERY_FILES = frozenset(
+    {
+        "pending.json",
+        "snapshot.json",
+        "request.json",
+        "revision-calls.json",
+        "metrics.json",
+        "calls.json",
+        "drawing.svg",
+        "drawing.pdf",
+        "drawing.dxf",
+        "drawing.geojson",
+        "full-source.json",
+    }
+)
+
+
+def _clear_unpublished(directory: Path, manifest_path: Path) -> None:
+    """Remove files a crashed earlier publish left in a manifest-less directory.
+
+    Runs under the delivery claim. Without a manifest the directory is an
+    incomplete prior publish (a completed one is immutable and untouched). Only
+    regular files named by the delivery layout are removed, never following
+    symlinks; anything else raises ``ValueError`` and nothing is removed.
+    """
+    if os.path.lexists(manifest_path):
+        return
+    entries = list(directory.iterdir())
+    for entry in entries:
+        if entry.name not in _DELIVERY_FILES or not _present_regular(entry):
+            raise ValueError(
+                f"Incomplete delivery directory holds unexpected entry {entry.name!r}; "
+                "refusing to clear it"
+            )
+    for entry in entries:
+        entry.unlink()
+
+
+def _present_regular(path: Path) -> bool:
+    try:
+        return stat.S_ISREG(os.stat(path, follow_symlinks=False).st_mode)
+    except OSError:
+        return False
 
 
 def _discard_incomplete(created: list[Path], manifest_path: Path) -> None:
