@@ -331,6 +331,26 @@ _MARKER_CASES = [
     ),
     ("inline-reference-then", "of Parcel 2 then N 10 ft", []),
     (
+        "caps-area-sentence-after-tract",
+        "TRACT 1: BEGINNING AT A PIN; THENCE N 10\u00b0 E 100 FEET; THENCE S 80\u00b0 E 100 FEET TO THE PLACE OF BEGINNING. TRACT 1 CONTAINING 0.23 ACRES. TRACT 2: BEGINNING AT A PIN; THENCE N 10\u00b0 E 50 FEET TO THE PLACE OF BEGINNING.",
+        ["Tract 1", "Tract 2"],
+    ),
+    (
+        "caps-parcel-excepted",
+        f"PARCEL 1: BEGINNING AT A PIN{_SQ} PARCEL 2 IS EXCEPTED THEREFROM.",
+        ["Parcel 1"],
+    ),
+    (
+        "caps-tract-containing",
+        f"TRACT 1: BEGINNING at a pin{_SQ} TRACT 1 CONTAINING 0.23 ACRES",
+        ["Tract 1"],
+    ),
+    (
+        "caps-tract-herein",
+        f"TRACT 1: BEGINNING at a pin{_SQ} TRACT 2 HEREIN DESCRIBED",
+        ["Tract 1"],
+    ),
+    (
         "pob-opener-stays-open",
         "TRACT 1\nPOINT OF BEGINNING at a stake; thence N 10 E 100 feet along the line of\nTract 4567\nthence S 10 W 100 feet",
         ["Tract 1"],
@@ -580,3 +600,28 @@ class TestLeadingTractBeforeFirstMarker:
             result = split_into_tracts(f"{pre}\n{_TRACT2}")
         assert [label for _t, label, _k in result] == ["Tract 2"]
         assert any(e["log_level"] == "warning" and "dropping" in e["event"].lower() for e in logs)
+
+
+def test_extract_calls_all_caps_area_sentence_does_not_add_tract():
+    from mp_parse.calls import extract_calls
+
+    text = (
+        "TRACT 1: BEGINNING AT A PIN; THENCE N 10\u00b0 E 100 FEET; THENCE S 80\u00b0 E 100 FEET "
+        "TO THE PLACE OF BEGINNING. TRACT 1 CONTAINING 0.23 ACRES. "
+        "TRACT 2: BEGINNING AT A PIN; THENCE N 10\u00b0 E 50 FEET; THENCE S 80\u00b0 E 50 FEET "
+        "TO THE PLACE OF BEGINNING."
+    )
+    _flat, tracts = extract_calls(text)
+    assert [t.label for t in tracts] == ["Tract 1", "Tract 2"]
+
+
+def test_repeated_label_without_calls_folds_into_previous_tract():
+    # A same-label marker the word list does not recognise must not split.
+    text = (
+        "TRACT 1: BEGINNING at a pin; THENCE N 10 E 100 feet to the POINT OF BEGINNING. "
+        "TRACT 1 WHOSEVER 0.23 ACRES. "
+        "TRACT 2: BEGINNING at a pin; THENCE N 10 E 50 feet to the POINT OF BEGINNING."
+    )
+    result = split_into_tracts(text)
+    assert [label for _t, label, _k in result] == ["Tract 1", "Tract 2"]
+    assert "WHOSEVER" in result[0][0]
