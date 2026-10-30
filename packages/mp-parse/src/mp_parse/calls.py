@@ -2062,6 +2062,8 @@ def _extract_call(
         tangent_notes.append("tangent bearing not stated - chord bearing only")
     if positioned_by_chord and tangent_and_chord:
         tangent_notes.append("curve positioned by stated tangent and chord; arc not stated")
+    elif positioned_by_chord and is_spiral:
+        tangent_notes.append("spiral positioned by its stated chord only")
     elif positioned_by_chord:
         tangent_notes.append("curve delta/arc not stated - positioned by chord only")
     if is_spiral and positioned_by_chord and not isinstance(stated_radius, float):
