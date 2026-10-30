@@ -51,20 +51,54 @@ _METADATA_BOUNDARY = re.compile(
     re.IGNORECASE,
 )
 
-_CLAUSE_ABBREVIATIONS = {"ave", "blvd", "dr", "ft", "in", "no", "rd", "st"}
+# Words whose trailing period abbreviates them ("Main St.", "Acme Co.", "Deed Bk. 12").
+_ABBREVIATIONS = frozenset(
+    {
+        "ave", "blvd", "dr", "ft", "in", "no", "rd", "st",
+        "bk", "co", "corp", "inc", "jr", "ltd", "mr", "mrs", "ms", "pg", "sr", "vol", "wm",
+    }
+)  # fmt: skip
+# A word opening a new deed clause or description; a period before it ends a sentence
+# even after an initial or abbreviation ("Lot B. Subject to ...", "Acme Inc. ALSO ...").
+_CLAUSE_OPENING_WORD = re.compile(
+    r"\s+(?:ALSO|BEING|BEGINNING|COMMENCING|CONTAINING|EXCEPT\w*|INCLUDING|LESS|RESERVING"
+    r"|SAVE|SAVING|SUBJECT|THENCE|TOGETHER|UNDER|PARCEL|TRACT)\b",
+    re.IGNORECASE,
+)
+
+
+def is_abbreviation_period(text: str, index: int) -> bool:
+    """Return whether the period at ``text[index]`` belongs to a word, not a sentence.
+
+    A decimal point ("1.5"), a single-letter initial or acronym letter ("John A.
+    Smith", "U.S."), or a known abbreviation ("Co.", "Bk.", "Jr.") keeps its period.
+    """
+    if text[index + 1 : index + 2].isdigit():
+        return True
+    word = re.search(r"(?<![A-Za-z])([A-Za-z]+)$", text[:index])
+    return word is not None and (len(word.group(1)) == 1 or word.group(1).lower() in _ABBREVIATIONS)
+
+
+def ends_sentence(text: str, index: int) -> bool:
+    """Return whether the period at ``text[index]`` ends a sentence.
+
+    It ends one before the end of ``text`` or before whitespace and a capital or "(",
+    unless it is an initial, acronym, abbreviation or decimal point. Before a clause
+    opening word ("Subject to", "ALSO", "Being") a period always ends the sentence.
+    """
+    rest = text[index + 1 :]
+    if not rest.strip():
+        return True
+    if not re.match(r"\s+[A-Z(]", rest):
+        return False
+    return bool(_CLAUSE_OPENING_WORD.match(rest)) or not is_abbreviation_period(text, index)
 
 
 def _before_clause_delimiter(text: str) -> str:
     """Trim a call at sentence punctuation without splitting decimals or abbreviations."""
-    acronym_periods = [match.span() for match in re.finditer(r"\b[A-Za-z](?:\.[A-Za-z])+\.", text)]
-    for match in re.finditer(r";|\.(?!\d)", text):
-        if match.group() == ".":
-            prefix = text[: match.start()]
-            word = re.search(r"([A-Za-z]+)$", prefix)
-            if word and word.group(1).lower() in _CLAUSE_ABBREVIATIONS:
-                continue
-            if any(start <= match.start() < end for start, end in acronym_periods):
-                continue
+    for match in re.finditer(r"[;.]", text):
+        if match.group() == "." and is_abbreviation_period(text, match.start()):
+            continue
         return text[: match.start()]
     return text
 
