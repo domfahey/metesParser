@@ -89,21 +89,23 @@ See [TESTING.md](TESTING.md) for suites, markers and acceptance gates.
 
 ## CSV Schema
 
-21 fields; order matters. Defined in `mp_export.csv_writer` (`FIELDNAMES`) and monolith `csv_builder.py`.
+22 fields; order matters. Defined in `mp_export.csv_writer` (`FIELDNAMES`) and monolith `csv_builder.py`. `curve_type` was appended last, so the first 21 columns keep their historical order; import also accepts a legacy 21-field CSV (`curve_type` then reads as null) via `LEGACY_FIELDNAMES`.
 
 ```csv
 course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,
 curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,
 along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,
-non_tangent,radial_bearing,notes
+non_tangent,radial_bearing,notes,curve_type
 ```
 
-- `distance_ft`: blank only for a spiral stated without an arc, chord or course length (`DeedCall.distance_ft=None`, length not determined; verification treats the course as unpositioned). Because `curve_type` is not exported, CSV import rejects such a row rather than reading it as a circular arc
+- `distance_ft`: blank only for a spiral stated without an arc, chord or course length (`DeedCall.distance_ft=None`, length not determined; verification treats the course as unpositioned). CSV import reads a blank distance back only when `curve_type` is `spiral` and no arc or chord length is stated; any other blank distance is rejected
 - `monument_type`: auto-classified from the `to` field (20 types)
 - `monument_status`: `"found"`, `"set"`, or null
 - `is_exception` / `is_meander` / `is_tie_in` / `non_tangent`: booleans (CSV `"true"`/`"false"`)
 - `radial_bearing`: string for non-tangent curves, empty string if N/A
-- `is_indefinite`, `curve_type`, `quality`: model-only fields, not exported
+- `curve_type`: `simple`, `compound`, `reverse`, `spiral`, or empty; exported so a spiral is never read back as a circular arc
+- `is_indefinite`, `quality`: model-only fields, not exported
+- Import: strict (default) raises on any invalid row; non-strict import records each rejected row as `(row_number, error)` in a caller-supplied `rejected_rows` list and raises when none is supplied, so a course is never dropped silently
 - `precision_ratio`, `confidence_score`: on `ClosureResult`, not `DeedCall`; not exported
 - `AuditContext`: separate `.audit.json` sidecar, not part of the CSV
 
@@ -142,7 +144,7 @@ non_tangent,radial_bearing,notes
 | 12 | Prior conveyance | `mp-parse` | `extract_prior_conveyance()` | "BEING the same premises", "Deed Book" |
 | 13 | Extended distance units | `mp-parse` | `extract_distance()` | varas, arpents, toises, furlongs, meters, miles |
 | 14 | Unit-inference heuristics | `mp-parse` | `infer_distance_unit()` | Advisory only — TX→varas, LA→arpents |
-| 15 | CSV schema (21 fields) | `mp-export` | `FIELDNAMES`, `export_verified_csv()` | See CSV Schema above |
+| 15 | CSV schema (22 fields) | `mp-export` | `FIELDNAMES`, `export_verified_csv()` | See CSV Schema above |
 | 16 | Area statement extraction | `mp-parse` | `extract_area_statement()` | "CONTAINING X sq ft", "X acres more or less" |
 | 17 | Abbreviation expansion | `mp-parse` | `expand_abbreviations()` | IPF, IPS, IRF, IRS, CIP, R/W, N/F, PK |
 | 18 | Monument status (found/set) | `mp-parse` | `classify_monument_status()` | found/FD/FND → "found", set/placed → "set" |

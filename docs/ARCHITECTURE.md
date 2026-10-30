@@ -448,9 +448,9 @@ Deltas: dx = dist * sin(az), dy = dist * cos(az)
 - `generate_html()`, `write_report()` - Audit HTML report
 - `plot_html.py`, `plot_svg.py`, `dashboard_html.py`, `revision_html.py`, `delivery.py`, `raster_picker.py`, `online_map_html.py` - Display and delivery renderers
 
-**CSV Schema** (21 fields):
+**CSV Schema** (22 fields; legacy 21-field files without the trailing `curve_type` still import):
 ```csv
-course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,non_tangent,radial_bearing,notes
+course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,non_tangent,radial_bearing,notes,curve_type
 ```
 
 ### mp-review

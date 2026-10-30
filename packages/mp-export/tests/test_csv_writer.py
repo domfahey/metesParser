@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 
+import pytest
+
 
 def _make_closure_result(*, closure_passed=True, misclosure_ft=0.0, area_sq_ft=10000.0, **kw):
     """Create a ClosureResult with all required fields populated."""
@@ -26,10 +28,10 @@ def _make_closure_result(*, closure_passed=True, misclosure_ft=0.0, area_sq_ft=1
 
 
 def test_csv_fieldnames_count():
-    """FIELDNAMES should have exactly 21 fields matching the CSV schema."""
+    """FIELDNAMES should have exactly 22 fields matching the CSV schema."""
     from mp_export.csv_writer import FIELDNAMES
 
-    assert len(FIELDNAMES) == 21
+    assert len(FIELDNAMES) == 22
 
 
 def test_fieldnames_order():
@@ -39,7 +41,8 @@ def test_fieldnames_order():
     assert FIELDNAMES[0] == "course"
     assert FIELDNAMES[1] == "direction_text"
     assert FIELDNAMES[4] == "distance_ft"
-    assert FIELDNAMES[-1] == "notes"
+    assert FIELDNAMES[20] == "notes"
+    assert FIELDNAMES[-1] == "curve_type"
 
 
 def test_calls_to_csv_creates_file(tmp_path):
@@ -140,7 +143,7 @@ def test_csv_to_calls_roundtrip(tmp_path):
 
 
 def test_csv_to_calls_skips_invalid_rows(tmp_path):
-    """csv_to_calls should skip rows that fail validation."""
+    """Non-strict csv_to_calls records rejected rows; it never drops them silently."""
     from mp_export.csv_writer import FIELDNAMES, csv_to_calls
 
     out = tmp_path / "bad.csv"
@@ -150,8 +153,12 @@ def test_csv_to_calls_skips_invalid_rows(tmp_path):
         # Write a row with missing required fields
         writer.writerow(dict.fromkeys(FIELDNAMES, ""))
 
-    loaded = csv_to_calls(str(out), strict=False)
+    with pytest.raises(ValueError, match="rejected_rows"):
+        csv_to_calls(str(out), strict=False)
+    rejected: list[tuple[int, str]] = []
+    loaded = csv_to_calls(str(out), strict=False, rejected_rows=rejected)
     assert len(loaded) == 0
+    assert [row for row, _ in rejected] == [2]
 
 
 def test_call_to_row_empty_optional_fields():

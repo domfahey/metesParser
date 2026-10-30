@@ -40,9 +40,9 @@ class TestPipelineWiring:
         assert "white oak" in metadata_content
         assert "RESERVING mineral rights" in metadata_content
 
-    def test_csv_schema_still_21_fields(self) -> None:
-        """CSV schema must remain at 21 fields."""
-        assert len(CSVBuilder.FIELDNAMES) == 21
+    def test_csv_schema_has_22_fields(self) -> None:
+        """CSV schema is 21 historical fields plus curve_type."""
+        assert len(CSVBuilder.FIELDNAMES) == 22
 
     def test_metadata_without_new_fields(self, tmp_path: Path) -> None:
         """When new fields are None/empty, metadata file should still be valid."""

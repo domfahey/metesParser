@@ -102,16 +102,23 @@ def _request(source: bytes, name: str, input_format: str) -> tuple[PlotRequest, 
             ),
         ), "txt"
     if is_csv:
-        from mp_export.csv_writer import FIELDNAMES, _row_to_call  # type: ignore[import-untyped]
+        from mp_export.csv_writer import (  # type: ignore[import-untyped]
+            _row_to_call,
+            is_supported_csv_header,
+        )
 
         reader = csv.reader(io.StringIO(text), strict=True)
-        if next(reader, None) != FIELDNAMES:
-            raise ValueError("CSV requires the exact ordered 21-field call schema")
+        header = next(reader, None)
+        if header is None or not is_supported_csv_header(header):
+            raise ValueError(
+                "CSV requires the exact ordered 22-field call schema "
+                "(or the legacy 21-field schema without curve_type)"
+            )
         csv_calls = []
         for number, values in enumerate(reader, 2):
-            if len(values) != len(FIELDNAMES):
+            if len(values) != len(header):
                 raise ValueError(f"Malformed CSV row {number}")
-            call = _row_to_call(dict(zip(FIELDNAMES, values, strict=True)), row_number=number)
+            call = _row_to_call(dict(zip(header, values, strict=True)), row_number=number)
             if call is None:
                 raise ValueError(f"Invalid CSV call at row {number}")
             csv_calls.append(call)
