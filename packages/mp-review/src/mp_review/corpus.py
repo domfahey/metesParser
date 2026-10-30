@@ -64,7 +64,9 @@ def _assertions(result: dict[str, Any], expected: dict[str, Any]) -> list[dict[s
     verification = result.get("verification") or {}
     for key in ("misclosure_ft", "area_sq_ft"):
         if key in expected:
-            check(key, verification.get(key), expected[key], expected.get(f"{key}_tolerance", 0.01))
+            flag = "misclosure_available" if key == "misclosure_ft" else "area_available"
+            actual = None if verification.get(flag) is False else verification.get(key)
+            check(key, actual, expected[key], expected.get(f"{key}_tolerance", 0.01))
     for index, fields in enumerate(expected.get("selected_calls", [])):
         calls = result.get("calls", [])
         actual_call = calls[index] if index < len(calls) else {}
