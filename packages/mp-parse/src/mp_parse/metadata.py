@@ -921,7 +921,9 @@ _TIE_CLAUSE = re.compile(
     r"(?:being|lying|located|situated|distant)\b",
     re.IGNORECASE,
 )
-_WIDTH_AFTER = re.compile(r"\s*(?:wide|in\s+width)\b", re.IGNORECASE)
+# "80 feet in width or breadth" is the lot-dimension idiom (paired with "in length
+# or depth"): the stated breadth along the line is the course length, not a width.
+_WIDTH_AFTER = re.compile(r"\s*(?:wide|in\s+width(?!\s+or\s+breadth))\b", re.IGNORECASE)
 # "a 50 foot road", "a 16.5 foot right of way": a length used as an adjective
 # before a way or strip noun is that way's width, not a course length.
 _WAY_NOUN = (
@@ -934,10 +936,25 @@ _ADJECTIVE_WIDTH_AFTER = re.compile(
     re.IGNORECASE,
 )
 _ARTICLE_JUST_BEFORE = re.compile(r"\b(?:an?|the)\s+$", re.IGNORECASE)
-# "... 0.5 feet below grade", "set 2 feet back", "3 feet deep": a monument's
-# depth, height or position, never a course length.
+# "pipe found 0.5 feet below grade", "a stake set 2 feet back", "a stone 4 feet
+# high": a monument's depth, height or position, never a course length. Only with
+# monument context: a monument noun (at most three words before) or "found"/"set"
+# just before the length (``_MONUMENT_BEFORE``), or a grade/surface/ground
+# reference after "below" or "above" (``_GRADE_DEPTH_AFTER``). Otherwise "100 feet back to the place of
+# beginning" and "150 feet deep" (a lot depth) are course lengths.
 _MONUMENT_DEPTH_AFTER = re.compile(
     r"\s*,?\s*(?:(?:below|above|beneath)\b|(?:deep|high|back)\b|in\s+(?:depth|height)\b)",
+    re.IGNORECASE,
+)
+_GRADE_DEPTH_AFTER = re.compile(
+    r"\s*,?\s*(?:below|above|beneath)\s+(?:the\s+)?(?:(?:existing|finished|natural)\s+)?"
+    r"(?:grade|surface|ground)\b",
+    re.IGNORECASE,
+)
+_MONUMENT_BEFORE = re.compile(
+    r"\b(?:pipe|pin|rod|rebar|bar|spike|nail|stake|hub|monument|post|marker|cap|tack"
+    r"|stone|bolt)s?\b(?:\s*,?\s*(?!(?:to|along|thence|from|of)\b)[A-Za-z]+){0,3}\s*,?\s*$"
+    r"|\b(?:found|set)\s*,?\s*$",
     re.IGNORECASE,
 )
 # A curve element's own label ("the radius is 100 feet"); never the course length.
@@ -947,6 +964,10 @@ _ELEMENT_BEFORE = re.compile(
     re.IGNORECASE,
 )
 _STATION_BEFORE = re.compile(r"(?<![A-Za-z])at\s+(?:a\s+distance\s+of\s+)?$", re.IGNORECASE)
+# "N 45 E at a distance of 100 feet to a pin": as the first length, and not
+# measured "from"/"of" an object, "at a distance of" states the course length.
+_AT_DISTANCE_OF_BEFORE = re.compile(r"(?<![A-Za-z])at\s+a\s+distance\s+of\s+$", re.IGNORECASE)
+_MEASURED_FROM_AFTER = re.compile(r"\s*,?\s*(?:from|of|beyond|past|short\s+of)\b", re.IGNORECASE)
 _TOTAL_BEFORE = re.compile(
     r"(?<![A-Za-z])(?:in\s+all|in\s+total|altogether"
     r"|total(?:\s+(?:distance|length))?(?:\s+of)?)\s*[:,]?\s*$",
@@ -1159,11 +1180,15 @@ def _length_role(text: str, start: int, end: int, *, first: bool, tie_from: int)
         return "width"
     if _ARTICLE_JUST_BEFORE.search(before) and _ADJECTIVE_WIDTH_AFTER.match(after):
         return "width"
-    if _MONUMENT_DEPTH_AFTER.match(after):
+    if _GRADE_DEPTH_AFTER.match(after) or (
+        _MONUMENT_DEPTH_AFTER.match(after) and _MONUMENT_BEFORE.search(before)
+    ):
         return "tie"
     if _ELEMENT_BEFORE.search(before):
         return "element"
-    if _STATION_BEFORE.search(before):
+    if _STATION_BEFORE.search(before) and not (
+        first and _AT_DISTANCE_OF_BEFORE.search(before) and not _MEASURED_FROM_AFTER.match(after)
+    ):
         return "station"
     if _PARTIAL_BEFORE.search(before) or _PARTIAL_AFTER.match(after):
         return "partial"
