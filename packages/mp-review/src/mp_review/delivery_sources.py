@@ -29,10 +29,11 @@ from mp_verify.corridor import validate_corridor_result
 from mp_verify.dashboard import _hash
 from mp_verify.plot import transform_point, unit_factor, validate_plot_placement
 from mp_verify.scene import validate_scene
+from mp_verify.webmap import bounds_of
 
 from .corridor import replay_corridor
 from .plss import replay_plss
-from .webmap import _Budget, _primitive_point, _sample, _vector_feature, bounds_of
+from .webmap import _Budget, _primitive_point, _sample, _vector_feature
 from .webmap_projection import WebMapProjection
 
 
