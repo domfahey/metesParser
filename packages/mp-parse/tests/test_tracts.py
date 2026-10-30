@@ -3,71 +3,8 @@
 import pytest
 from mp_models import TractType
 from mp_parse.calls import extract_calls
+from mp_parse.normalizer import normalize_legal_description
 from mp_parse.tracts import find_tract_markers, split_into_tracts
-
-
-class TestExplicitTractMarkers:
-    """Priority 1: TRACT #N, TRACT A, PARCEL N markers."""
-
-    def test_tract_numbered(self):
-        text = (
-            "TRACT #1: BEGINNING at a point... THENCE N 45\u00b000' E 100 feet "
-            "to the POINT OF BEGINNING. "
-            "TRACT #2: BEGINNING at a point... THENCE S 45\u00b000' E 200 feet "
-            "to the POINT OF BEGINNING."
-        )
-        result = split_into_tracts(text)
-        assert len(result) == 2
-        assert result[0][1] == "Tract 1"
-        assert result[0][2] == TractType.MAIN
-        assert result[1][1] == "Tract 2"
-        assert result[1][2] == TractType.MAIN
-
-    def test_tract_lettered(self):
-        text = (
-            "TRACT A: BEGINNING at a point... THENCE N 45\u00b000' E 100 feet "
-            "to the POINT OF BEGINNING. "
-            "TRACT B: BEGINNING at a point... THENCE S 45\u00b000' E 200 feet "
-            "to the POINT OF BEGINNING."
-        )
-        result = split_into_tracts(text)
-        assert len(result) == 2
-        assert result[0][1] == "Tract A"
-        assert result[1][1] == "Tract B"
-
-    def test_parcel_numbered(self):
-        text = (
-            "PARCEL 1: BEGINNING at a point... THENCE N 45\u00b000' E 100 feet "
-            "to the POINT OF BEGINNING. "
-            "PARCEL 2: BEGINNING at a point... THENCE S 45\u00b000' E 200 feet "
-            "to the POINT OF BEGINNING."
-        )
-        result = split_into_tracts(text)
-        assert len(result) == 2
-        assert result[0][1] == "Parcel 1"
-        assert result[1][1] == "Parcel 2"
-
-    def test_tract_roman_numerals(self):
-        text = (
-            "TRACT III: BEGINNING at a point... THENCE N 45\u00b000' E 100 feet "
-            "to the POINT OF BEGINNING. "
-            "TRACT IV: BEGINNING at a point... THENCE S 45\u00b000' E 200 feet "
-            "to the POINT OF BEGINNING."
-        )
-        result = split_into_tracts(text)
-        assert len(result) == 2
-        assert result[0][1] == "Tract III"
-        assert result[1][1] == "Tract IV"
-
-    def test_tract_without_hash(self):
-        text = (
-            "TRACT 1 BEGINNING at a point... THENCE N 45\u00b000' E 100 feet "
-            "to the POINT OF BEGINNING. "
-            "TRACT 2 BEGINNING at a point... THENCE S 45\u00b000' E 200 feet "
-            "to the POINT OF BEGINNING."
-        )
-        result = split_into_tracts(text)
-        assert len(result) == 2
 
 
 class TestMultipleBeginningBlocks:
@@ -138,64 +75,6 @@ class TestSingleTract:
         assert isinstance(text_val, str)
         assert isinstance(label, str)
         assert isinstance(tract_type, TractType)
-
-    def test_tract_or_parcel_of_land_no_false_split(self):
-        """Common preamble 'TRACT OR PARCEL OF LAND' must NOT trigger splitting."""
-        text = (
-            "ALL THAT CERTAIN TRACT OR PARCEL OF LAND SITUATE IN THE TOWNSHIP "
-            "BEGINNING at an iron pin THENCE N 45\u00b000' E 100 feet; "
-            "THENCE S 45\u00b000' E 100 feet; "
-            "THENCE S 45\u00b000' W 100 feet; "
-            "THENCE N 45\u00b000' W 100 feet to the POINT OF BEGINNING."
-        )
-        result = split_into_tracts(text)
-        assert len(result) == 1
-
-    def test_being_all_that_tract_no_false_split(self):
-        """Preamble 'BEING ALL THAT TRACT' must NOT trigger splitting."""
-        text = (
-            "BEING ALL THAT TRACT IN THE TOWNSHIP "
-            "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
-        )
-        result = split_into_tracts(text)
-        assert len(result) == 1
-
-    def test_tract_situate_no_false_split(self):
-        """'TRACT SITUATE IN THE TOWNSHIP' must NOT trigger splitting."""
-        text = (
-            "ALL THAT CERTAIN TRACT SITUATE IN THE TOWNSHIP OF HADDONFIELD "
-            "BEGINNING at an iron pin THENCE N 45\u00b000' E 100 feet; "
-            "THENCE S 45\u00b000' E 100 feet to the POINT OF BEGINNING."
-        )
-        result = split_into_tracts(text)
-        assert len(result) == 1
-
-    def test_tract_is_described_no_false_split(self):
-        """'TRACT IS DESCRIBED AS' must NOT trigger splitting."""
-        text = (
-            "SAID TRACT IS DESCRIBED AS FOLLOWS "
-            "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
-        )
-        result = split_into_tracts(text)
-        assert len(result) == 1
-
-    def test_parcel_of_land_no_false_split(self):
-        """'PARCEL OF LAND SITUATE' must NOT trigger splitting."""
-        text = (
-            "ALL THAT CERTAIN PARCEL OF LAND SITUATE IN THE COUNTY "
-            "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
-        )
-        result = split_into_tracts(text)
-        assert len(result) == 1
-
-    def test_tract_conveyed_no_false_split(self):
-        """'TRACT CONVEYED BY' must NOT trigger splitting."""
-        text = (
-            "THE TRACT CONVEYED BY DEED BOOK 1234 PAGE 567 "
-            "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
-        )
-        result = split_into_tracts(text)
-        assert len(result) == 1
 
 
 class TestSplitOnMarkersExceptDetection:
@@ -292,101 +171,223 @@ class TestNeighbourReferencesAreNotMarkers:
         assert tracts == []
         assert len(calls) == 4
 
-    def test_lot_of_tract_references_do_not_split(self):
-        text = (
-            "BEGINNING at the corner of Lot 5 of Tract 4567; "
-            "THENCE N 100 ft along Lot 6 of Tract 4567; THENCE E 100 ft; "
-            "THENCE S 100 ft; THENCE W 100 ft to the POINT OF BEGINNING."
-        )
-        _calls, tracts = extract_calls(text)
-        assert tracts == []
 
-    def test_heading_markers_after_sentence_or_newline_still_split(self):
-        text = (
-            "PARCEL A BEGINNING at a point THENCE N 100 ft to the POINT OF BEGINNING.\n"
-            "PARCEL B BEGINNING at a point THENCE S 100 ft to the POINT OF BEGINNING."
-        )
-        assert [label for _t, label, _k in split_into_tracts(text)] == ["Parcel A", "Parcel B"]
+_PT = " THENCE N 45°00' E 100 feet to the POINT OF BEGINNING. "
+_SQ = "; thence N 10 E 100 feet to the point of beginning."
+
+# (case id, text, expected heading labels). Every marker case from earlier review
+# rounds lives here so that one structural rule is checked against all of them.
+_MARKER_CASES = [
+    # --- headings ---------------------------------------------------------
+    (
+        "tract-hash-colon",
+        f"TRACT #1: BEGINNING at a point...{_PT}TRACT #2: BEGINNING at a point...{_PT}",
+        ["Tract 1", "Tract 2"],
+    ),
+    (
+        "tract-letter",
+        f"TRACT A: BEGINNING at a point...{_PT}TRACT B: BEGINNING at a point...{_PT}",
+        ["Tract A", "Tract B"],
+    ),
+    (
+        "parcel-number",
+        f"PARCEL 1: BEGINNING at a point...{_PT}PARCEL 2: BEGINNING at a point...{_PT}",
+        ["Parcel 1", "Parcel 2"],
+    ),
+    (
+        "tract-roman",
+        f"TRACT III: BEGINNING at a point...{_PT}TRACT IV: BEGINNING at a point...{_PT}",
+        ["Tract III", "Tract IV"],
+    ),
+    (
+        "tract-no-punct",
+        f"TRACT 1 BEGINNING at a point...{_PT}TRACT 2 BEGINNING at a point...{_PT}",
+        ["Tract 1", "Tract 2"],
+    ),
+    (
+        "except-tract",
+        f"TRACT 1: BEGINNING at a point...{_PT}EXCEPT TRACT 2: BEGINNING at a point...{_PT}",
+        ["Tract 1", "Tract 2"],
+    ),
+    (
+        "newline-separated",
+        "PARCEL A BEGINNING at a point THENCE N 100 ft to the POINT OF BEGINNING.\nPARCEL B BEGINNING at a point THENCE S 100 ft to the POINT OF BEGINNING.",
+        ["Parcel A", "Parcel B"],
+    ),
+    (
+        "after-follows-colon",
+        "A tract of land described as follows: TRACT 1 BEGINNING at a point THENCE N 100 ft to the POINT OF BEGINNING. TRACT 2 BEGINNING at a point THENCE S 100 ft to the POINT OF BEGINNING.",
+        ["Tract 1", "Tract 2"],
+    ),
+    (
+        "merged-after-prose",
+        "TRACT 1 BEGINNING at a point THENCE N 100 ft to the POINT OF BEGINNING, containing 1 acre more or less PARCEL 2 BEGINNING at a point THENCE S 100 ft to the POINT OF BEGINNING.",
+        ["Tract 1", "Parcel 2"],
+    ),
+    (
+        "after-semicolon",
+        "PARCEL 1: BEGINNING at a point THENCE N 100 ft to the POINT OF BEGINNING; PARCEL 2 BEGINNING at a point THENCE S 100 ft to the POINT OF BEGINNING.",
+        ["Parcel 1", "Parcel 2"],
+    ),
+    (
+        "standalone-after-of",
+        "Schedule A description of\nPARCEL 1\nBEGINNING at a point",
+        ["Parcel 1"],
+    ),
+    ("standalone-after-being", "land being\nTRACT 2\nBEGINNING at a point", ["Tract 2"]),
+    ("standalone-after-in", "lands in\nTract 3\nBeginning at a point", ["Tract 3"]),
+    ("together-with", "TOGETHER WITH\nPARCEL 2\nBEGINNING at a point", ["Parcel 2"]),
+    (
+        "ocr-wrapped-heading-line",
+        f"PARCEL 1\nBEGINNING at a stake{_SQ} containing 1 acre\nPARCEL 2\nBEGINNING at a pin{_SQ}",
+        ["Parcel 1", "Parcel 2"],
+    ),
+    (
+        "unclosed-first-tract",
+        "TRACT 1\nBEGINNING at a stake; thence N 10 E 100 feet to the stake first mentioned.\nTRACT 2\nBEGINNING at a pin",
+        ["Tract 1", "Tract 2"],
+    ),
+    ("hyphen-id-line", "PARCEL A-1\nBEGINNING at a stake", ["Parcel A-1"]),
+    ("hyphen-id-colon", "PARCEL A-1: BEGINNING at a stake", ["Parcel A-1"]),
+    ("colon-beginning", "PARCEL 1: BEGINNING at a stake", ["Parcel 1"]),
+    ("spaced-dash", "TRACT 2 - BEGINNING at a stake", ["Tract 2"]),
+    ("em-dash", "TRACT 2 — BEGINNING at a stake", ["Tract 2"]),
+    ("roman-period-start", "Parcel II.\nBeing the same land conveyed", ["Parcel II"]),
+    (
+        "roman-period-after-sentence",
+        f"PARCEL I: BEGINNING at a stake{_SQ} Parcel II. Being the same land",
+        ["Parcel I", "Parcel II"],
+    ),
+    ("tract-no", "described as follows:\n\nTRACT NO. 1\n\nBEGINNING at a point", ["Tract 1"]),
+    ("spelled-number", "described as follows:\n\nTRACT TWO\nBeginning at a point", ["Tract TWO"]),
+    ("number-letter-id", "place of beginning.\nTRACT #2B: BEGINNING at a point", ["Tract 2B"]),
+    ("markdown-heading", "### TRACT #3\nBEGINNING at a point", ["Tract 3"]),
+    ("colon-being", "page 405.\nTRACT #2: BEING the same lands", ["Tract 2"]),
+    (
+        "ocr-displaced-colon-heading",
+        "BEGINNING at a point in the line of Kings Highway East\nTRACT #2:\n(formerly Main Street) said point",
+        ["Tract 2"],
+    ),
+    # --- references and preamble wording -----------------------------------
+    (
+        "tract-or-parcel-of-land",
+        f"ALL THAT CERTAIN TRACT OR PARCEL OF LAND SITUATE IN THE TOWNSHIP BEGINNING at an iron pin{_PT}",
+        [],
+    ),
+    ("being-all-that-tract", f"BEING ALL THAT TRACT IN THE TOWNSHIP{_PT}", []),
+    (
+        "tract-situate",
+        f"ALL THAT CERTAIN TRACT SITUATE IN THE TOWNSHIP OF HADDONFIELD BEGINNING at an iron pin{_PT}",
+        [],
+    ),
+    ("tract-is-described", f"SAID TRACT IS DESCRIBED AS FOLLOWS{_PT}", []),
+    ("parcel-of-land", f"ALL THAT CERTAIN PARCEL OF LAND SITUATE IN THE COUNTY{_PT}", []),
+    ("tract-conveyed", f"THE TRACT CONVEYED BY DEED BOOK 1234 PAGE 567{_PT}", []),
+    ("parcel-info-header", "    Parcel Info\n    Property Type  Tax Dist.", []),
+    (
+        "neighbour-parcels",
+        "BEGINNING at the northeast corner of Parcel 2; THENCE S 0 W 100 ft along the line of Parcel 3; THENCE W 100 ft to the POINT OF BEGINNING.",
+        [],
+    ),
+    (
+        "lot-of-tract",
+        "BEGINNING at the corner of Lot 5 of Tract 4567; THENCE N 100 ft along Lot 6 of Tract 4567; THENCE E 100 ft to the POINT OF BEGINNING.",
+        [],
+    ),
+    (
+        "ocr-wrapped-reference",
+        "BEGINNING at the northeast corner of\nParcel 2; THENCE S 0 W 100 ft along the line of\nParcel 3; THENCE W 100 ft to the POINT OF BEGINNING.",
+        [],
+    ),
+    (
+        "hyphen-id-reference",
+        "PARCEL 1: BEGINNING at a corner of Parcel A-1, thence N 10 ft",
+        ["Parcel 1"],
+    ),
+    (
+        "in-reference",
+        "TRACT 1: BEGINNING at a point in Tract 4567\nBEGINNING at a stake",
+        ["Tract 1"],
+    ),
+    (
+        "within-reference",
+        "TRACT 1: BEGINNING at a point within Tract 4567\nBEGINNING at a stake",
+        ["Tract 1"],
+    ),
+    (
+        "being-reference",
+        "TRACT 1: BEGINNING at a point being Tract 4567\nBEGINNING at a stake",
+        ["Tract 1"],
+    ),
+    (
+        "in-reference-line-break",
+        "TRACT 1: BEGINNING at a point lying in\nTract 4567\nBEGINNING at a stake",
+        ["Tract 1"],
+    ),
+    ("inline-reference-then", "of Parcel 2 then N 10 ft", []),
+    (
+        "pob-opener-stays-open",
+        "TRACT 1\nPOINT OF BEGINNING at a stake; thence N 10 E 100 feet along the line of\nTract 4567\nthence S 10 W 100 feet",
+        ["Tract 1"],
+    ),
+    (
+        "place-opener-stays-open",
+        "TRACT 1\nplace of BEGINNING at a stake; thence N 10 E 100 feet along the line of\nTract 4567\nthence S 10 W 100 feet",
+        ["Tract 1"],
+    ),
+    (
+        "shown-as-on-a-plan",
+        f"PARCEL 1\nBEGINNING at a corner of land shown as\nParcel 2 on a plan of lots{_SQ}",
+        ["Parcel 1"],
+    ),
+    (
+        "shown-as-before-beginning",
+        "being land shown as\nParcel 2 on a plan of lots, BEGINNING at a stake",
+        [],
+    ),
+    (
+        "known-as-on-said-map",
+        f"PARCEL 1\nBEGINNING at a corner of lands known as\nTract 4567 on said map{_SQ}\nPARCEL 2\nBEGINNING at a stake",
+        ["Parcel 1", "Parcel 2"],
+    ),
+    (
+        "smith-and-parcel-thence",
+        f"PARCEL 1\nBEGINNING at a stake in line of lands of Smith and\nParcel 2 thence N 10 E 100 feet{_SQ}",
+        ["Parcel 1"],
+    ),
+    (
+        "lot-in-tract-wrapped",
+        "BEGINNING at the corner of Lot 12, in\nTract 4567\nthence N 10 E 100 feet",
+        [],
+    ),
+    ("lot-in-tract-trailing", "being Lot 12, in\nTract 4567\n", []),
+    ("reference-period", "THENCE along the line of Parcel 3. THENCE S 10 W 100 feet", []),
+    ("known-as-period", "being the land known as Parcel 2.", []),
+    ("tract-comma-thence", "BEGINNING at Lot 5 in Block 2, Tract 4567, thence N 10 E", []),
+    ("reference-colon-open", "BEGINNING at a stake, corner to Parcel 2: thence N 10 E", []),
+    (
+        "glued-hyphen-reference",
+        "PARCEL 1: BEGINNING at a corner of Tract 2-B, thence N 10 E",
+        ["Parcel 1"],
+    ),
+    ("as-shown", "TRACT 1: BEGINNING at a point\nParcel 2 as shown on a map", ["Tract 1"]),
+    ("place-of-beginning-opener", "TRACT 1 place of BEGINNING at a stake", ["Tract 1"]),
+    (
+        "all-that-opener",
+        f"TRACT 1: BEGINNING at a stake{_SQ}\nTRACT 2\nALL THAT certain lot",
+        ["Tract 1", "Tract 2"],
+    ),
+    ("word-not-id", "TRACT ADJOINING the lands of Smith", []),
+]
 
 
-class TestHeadingDetectionAfterColonAndMergedText:
-    """PR #60 review: headings after ':'/';' or merged by the normalizer."""
-
-    @pytest.mark.parametrize(
-        "text",
-        [
-            "A tract of land described as follows: TRACT 1 BEGINNING at a point "
-            "THENCE N 100 ft to the POINT OF BEGINNING. "
-            "TRACT 2 BEGINNING at a point THENCE S 100 ft to the POINT OF BEGINNING.",
-            "TRACT 1 BEGINNING at a point THENCE N 100 ft to the POINT OF BEGINNING, "
-            "containing 1 acre more or less PARCEL 2 BEGINNING at a point "
-            "THENCE S 100 ft to the POINT OF BEGINNING.",
-            "PARCEL 1: BEGINNING at a point THENCE N 100 ft to the POINT OF BEGINNING; "
-            "PARCEL 2 BEGINNING at a point THENCE S 100 ft to the POINT OF BEGINNING.",
-        ],
-    )
-    def test_colon_semicolon_and_merged_headings_split(self, text):
-        assert len(find_tract_markers(text)) == 2
-
-    def test_ocr_wrapped_reference_is_not_a_heading(self):
-        text = (
-            "BEGINNING at the northeast corner of\nParcel 2; "
-            "THENCE S 0° W 100 ft along the line of\nParcel 3; "
-            "THENCE W 100 ft to the POINT OF BEGINNING."
-        )
-        assert find_tract_markers(text) == []
-
-
-class TestReferencePrecedenceRound2:
-    """PR #60 round 2: reference words beat dash/newline heading heuristics."""
-
-    def test_hyphenated_id_after_reference_word_is_not_a_marker(self):
-        text = "PARCEL 1: BEGINNING at a corner of Parcel A-1, thence N 10 ft"
-        assert [m[1] for m in find_tract_markers(text)] == ["Parcel 1"]
-
-    @pytest.mark.parametrize("word", ["in", "within", "being"])
-    def test_in_within_being_references_are_not_markers(self, word):
-        text = f"TRACT 1: BEGINNING at a point {word} Tract 4567\nBEGINNING at a stake"
-        assert [m[1] for m in find_tract_markers(text)] == ["Tract 1"]
-
-    def test_reference_word_across_line_break(self):
-        text = "TRACT 1: BEGINNING at a point lying in\nTract 4567\nBEGINNING at a stake"
-        assert [m[1] for m in find_tract_markers(text)] == ["Tract 1"]
-
-
-class TestStandaloneHeadingAfterReferenceWord:
-    """PR #60 round 3: a standalone heading line is not a reference."""
-
-    @pytest.mark.parametrize(
-        ("text", "label"),
-        [
-            ("Schedule A description of\nPARCEL 1\nBEGINNING at a point", "Parcel 1"),
-            ("land being\nTRACT 2\nBEGINNING at a point", "Tract 2"),
-            ("lands in\nTract 3\nBeginning at a point", "Tract 3"),
-            ("TOGETHER WITH\nPARCEL 2\nBEGINNING at a point", "Parcel 2"),
-        ],
-    )
-    def test_standalone_heading_line_is_a_marker(self, text, label):
-        assert [m[1] for m in find_tract_markers(text)] == [label]
-
-    def test_inline_reference_after_closed_description_is_not_a_marker(self):
-        text = "of Parcel 2 then N 10 ft"
-        assert find_tract_markers(text) == []
-
-
-class TestPobOpenerIsNotItsOwnClosure:
-    """A 'POINT OF BEGINNING at' or 'place of BEGINNING at' opener stays open."""
-
-    @pytest.mark.parametrize(
-        "opener",
-        [
-            "POINT OF BEGINNING at a stake",
-            "place of BEGINNING at a stake",
-        ],
-    )
-    def test_opener_with_pob_wording_keeps_description_open(self, opener):
-        text = (
-            f"TRACT 1\n{opener}; thence N 10 E 100 feet along the line of\n"
-            "Tract 4567\nthence S 10 W 100 feet"
-        )
-        assert [m[1] for m in find_tract_markers(text)] == ["Tract 1"]
+@pytest.mark.parametrize("normalize", [False, True], ids=["raw", "normalized"])
+@pytest.mark.parametrize(
+    ("text", "labels"),
+    [pytest.param(text, labels, id=case_id) for case_id, text, labels in _MARKER_CASES],
+)
+def test_tract_heading_markers(text, labels, normalize):
+    """A marker is a heading only when its own structure ends the heading unit."""
+    if normalize:
+        text = normalize_legal_description(text)
+    assert [label for _pos, label, _kind in find_tract_markers(text)] == labels
