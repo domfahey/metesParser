@@ -33,25 +33,6 @@ _CARDINAL_ONLY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-_WORD_SYMBOL_BEARING = re.compile(
-    r"\b(North|South)\s+(\d{1,3})\s*\u00b0\s*(?:(\d{1,2})\s*'\s*)?"
-    r"(?:(\d{1,2}(?:\.\d+)?)\s*\"\s*)?(East|West)\b",
-    re.IGNORECASE,
-)
-
-
-def _abbreviate_word_bearing(text: str) -> str:
-    """Abbreviate 'North 45\u00b0 East' style bearings (full words, degree symbol)."""
-
-    def _repl(m: re.Match[str]) -> str:
-        minutes = f"{m.group(3)}'" if m.group(3) else ""
-        seconds = f'{m.group(4)}"' if m.group(4) else ""
-        return (
-            f"{m.group(1)[0].upper()} {m.group(2)}\u00b0{minutes}{seconds} {m.group(5)[0].upper()}"
-        )
-
-    return _WORD_SYMBOL_BEARING.sub(_repl, text)
-
 
 _UNIT_TOKEN = (
     r"(?:US\s+survey\s+(?:feet|foot)|feet|foot|ft|poles?|rods?|perches?|chains?|links?"
@@ -168,9 +149,12 @@ def _expand_compact_dms(text: str) -> str:
 
 # Every degree/minute/second marker may be combined with any other (``North 34 degrees
 # 02' 00" West``). Each number must carry its own marker, so a unit is never guessed.
-_DEG_MARK = r"(?:\u00b0|\u00ba|\u02da|degrees?|deg\.?|d)(?![a-z])"
-_MIN_MARK = r"(?:'|\u2019|\u2032|minutes?|min\.?|m)(?![a-z])"
-_SEC_MARK = r"(?:\"|\u2033|\u201d|''|\u2019\u2019|seconds?|sec\.?|s)(?![a-z])"
+# A marker may run straight into the closing cardinal (``North 45\u00b030'East``) but
+# never into another word.
+_MARK_END = r"(?!(?!(?:East|West|E|W)\b)[a-z])"
+_DEG_MARK = rf"(?:\u00b0|\u00ba|\u02da|degrees?|deg\.?|d){_MARK_END}"
+_MIN_MARK = rf"(?:'|\u2019|\u2032|minutes?|min\.?|m){_MARK_END}"
+_SEC_MARK = rf"(?:\"|\u2033|\u201d|''|\u2019\u2019|seconds?|sec\.?|s){_MARK_END}"
 _MARKED_DMS_BEARING = re.compile(
     rf"\b(N|S|North|South)\.?\s*(\d{{1,3}})\s*{_DEG_MARK}\s*"
     rf"(?:(\d{{1,2}})\s*{_MIN_MARK}\s*)?"
@@ -194,9 +178,7 @@ def _expand_marked_dms(text: str) -> str:
 
 def _normalize_bearing_forms(text: str) -> str:
     """Rewrite every bearing form the parser accepts into abbreviated DMS."""
-    return TextParser.standardize_cardinal_directions(
-        _abbreviate_word_bearing(_expand_compact_dms(_expand_marked_dms(text)))
-    )
+    return TextParser.standardize_cardinal_directions(_expand_compact_dms(_expand_marked_dms(text)))
 
 
 _CHORD_PREFIX_PATTERN = re.compile(
