@@ -123,6 +123,7 @@ def _build_geometry(
     primitives = []
     unresolved = []
     reasons = []
+    chains: list[list[str]] = [[]]
     current = origin
     stopped = False
     for record in records:
@@ -146,6 +147,26 @@ def _build_geometry(
             "occurrence_id": record.occurrence_id,
             "page_id": record.page_id,
         }
+        if reason is None and call is not None and call.is_chord_only_curve():
+            # Radius + chord without delta/arc: minor or major arc is ambiguous, so
+            # nothing is drawn, but the stated chord fixes the next start exactly.
+            assert call.chord_bearing is not None and call.chord_length_ft is not None
+            chord = bearing_to_azimuth(call.chord_bearing)
+            if chord is None:
+                reason = "curve chord orientation unresolved"
+            else:
+                dx, dy = calculate_deltas(chord, call.chord_length_ft)
+                current = _finite((current[0] + dx, current[1] + dy))
+                unresolved.append(
+                    PlotUnresolved(
+                        call_id=record.id,
+                        reason="curve delta/arc not stated - arc not drawn; "
+                        "positioned by chord only",
+                    )
+                )
+                if chains[-1]:
+                    chains.append([])
+                continue
         if reason is None and call is not None:
             try:
                 if call.is_curve():
@@ -180,6 +201,7 @@ def _build_geometry(
                     if abs(actual - expected) > min(1e-6, primitive.length_ft * 1e-6):
                         raise ValueError("plot coordinates lose displacement precision")
                 primitives.append(primitive)
+                chains[-1].append(primitive.call_id)
                 current = primitive.end
             except (ValueError, OverflowError) as exc:
                 reason = str(exc)
@@ -202,7 +224,7 @@ def _build_geometry(
         geometry_hash=_hash(content),
         primitives=tuple(primitives),
         unresolved=tuple(unresolved),
-        chains=(tuple(p.call_id for p in primitives),) if primitives else (),
+        chains=tuple(tuple(chain) for chain in chains if chain),
         completeness="complete" if complete else "partial" if primitives else "unresolved",
         reasons=tuple(reasons),
         misclosure_ft=math.hypot(current[0] - origin[0], current[1] - origin[1])

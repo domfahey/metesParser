@@ -828,6 +828,13 @@ Ten findings plus one found while fixing, fixed red-green on `fix/code-review-20
 - **Web map extent:** omitted (unplaced) calculations no longer choose the operation; `bounds_of` lives in `mp_verify.webmap` (`ece52ec`, explicit re-export fix).
 - **Raster guard:** orientation cached per raster content (`13d9951`).
 
+### PR #60 sixth review follow-up (2026-10-30)
+Fixed red-green on `fix/pr60-r6-curve` (package and monolith):
+- **Radius + chord only (supersedes the `0089f43` derivation):** without a stated delta or arc the arc is ambiguous (minor vs major), so no delta, arc or tangent is derived. The course is kept with `bearing_azimuth_deg_from_north=None`, `is_indefinite=True` and the note `curve delta/arc not stated - positioned by chord only`; `DeedCall` accepts radius + `chord_bearing` + `chord_length_ft`. The traverse and plot place the next course at the chord endpoint, the plot draws no arc for it (unresolved, split chain), and `curve_consistency` is `blocked` (`curve_delta_not_stated`), so geometry is never eligible. A chord longer than the diameter is kept and flagged (`chord length exceeds twice the radius`) in strict and non-strict mode, like other inconsistent stated curve elements, and fails `curve_consistency`.
+- **Two-part dashed bearings:** `N 45-30 E` is 45°30' (was 45°00'30"); three parts remain degrees-minutes-seconds and an explicit seconds marker stays seconds.
+- **Verbatim `direction_text`:** the parsed bearing is mapped back to the deed's own wording (`North 45 degrees 30 minutes East`, `N 45-30 E`), skipping chord/radial clause bearings; normalization is for parsing only. Due/compass words and unparsed bearings keep their prior text.
+- **Audit:** a tangent derived from the chord bearing and delta records a `derive_tangent_azimuth` step (chord bearing, delta and its source, result, rule).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
