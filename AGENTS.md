@@ -138,12 +138,12 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 Do NOT use `strict=True` on boolean `Field()` declarations in `DeedCall` — it contradicts the `_coerce_bool_field` validator that coerces `"true"`/`"false"` strings.
 
 ### Cardinal Direction Patterns
-Cardinal-only patterns must include `(?:erly|wardly)?` suffixes AND abbreviated forms (`NE|NW|SE|SW`). All three must stay in sync:
+Cardinal-only patterns must include `(?:erly|wardly)?` suffixes AND abbreviated forms (`NE|NW|SE|SW`). The three real copies must stay in sync:
 - `packages/mp-parse/src/mp_parse/calls.py` (`_CARDINAL_ONLY_PATTERN`)
 - `packages/mp-parse/src/mp_parse/metadata.py` (`CARDINAL_ONLY_PATTERN`)
 - `scripts/audit_gt_vs_md.py` (`CARDINAL_ONLY_PATTERN`)
 
-The monolith `call_extractor._CARDINAL_ONLY_PATTERN` and `TextParser.CARDINAL_ONLY_PATTERN` re-export the package patterns.
+`src/metesparser/call_extractor.py` and `src/metesparser/text_parser.py` only alias the package patterns; do not redefine them.
 
 Bug history: missing `wardly` caused false negatives; missing abbreviations caused call rejection when LLM normalization turned "NORTHWEST" into "NW" (PR #21).
 
@@ -152,7 +152,7 @@ Bug history: missing `wardly` caused false negatives; missing abbreviations caus
 - Defaults: OpenAI `gpt-5.2`; Gemini `gemini-3-flash-preview` with fallback `gemini-2.5-flash`.
 
 ### CSV Schema
-21 fields in `mp_export.csv_writer.FIELDNAMES` (monolith `csv_builder.py`); **order matters**. Field list and notes: [DEVELOPER_REFERENCE.md](docs/DEVELOPER_REFERENCE.md#csv-schema).
+22 fields (`curve_type` last) in `mp_export.csv_writer.FIELDNAMES` (monolith `csv_builder.py`); **order matters**. Field list and notes: [DEVELOPER_REFERENCE.md](docs/DEVELOPER_REFERENCE.md#csv-schema).
 
 ## Environment Setup
 `.env` (copy from `.env.example`): `OPENAI_API_KEY` or `GEMINI_API_KEY` per provider; optional `METESPARSER_LOG_LEVEL` (default `INFO`). Never commit secrets; guard API keys when scripting against the pipeline. Document basis of bearing, datum and source metadata alongside exported CSV.

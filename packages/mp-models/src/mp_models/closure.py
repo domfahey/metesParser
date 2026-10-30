@@ -160,6 +160,7 @@ class ClosureResult(_Model):
             outcomes = {check.name: check.status for check in self.checks}
             return (
                 self.closure_passed
+                and self.misclosure_available
                 and outcomes.get("traverse_closure") == "passed"
                 and (self.angle_check_passed or outcomes.get("interior_angles") == "not_applicable")
                 and (
@@ -174,6 +175,7 @@ class ClosureResult(_Model):
         # fresh verification against the calls before accepting these results.
         return (
             self.closure_passed
+            and self.misclosure_available
             and self.angle_check_passed
             and self.curve_consistency_passed
             and not self.warnings
@@ -183,6 +185,8 @@ class ClosureResult(_Model):
         """Get human-readable closure status."""
         if self.warnings:
             return "NEEDS REVIEW"
+        if not self.misclosure_available:
+            return "NOT DETERMINED"
         if self.misclosure_ft < 0.01:
             return "EXCELLENT"
         if self.misclosure_ft < 0.1:
