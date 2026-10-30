@@ -251,43 +251,210 @@ def _boundary_course_text(call_text: str) -> str:
     return call_text[: min(starts)]
 
 
-# Distances that measure a curve element, never the course run: the radius (or the
-# distance to the radius point or center), the tangent length and a stated chord.
-# Each is removed before the course distance is read. A number directly after a
-# degree sign is a bearing's minutes, never a distance.
-_ELEMENT_DISTANCE = rf"(?<![\d.,\u00b0])(?<!\u00b0\s){COMMA_NUMBER}\s*(?:{_UNIT_TOKEN}\b|'(?!'))"
+# --- Curve length roles -----------------------------------------------------------
+# Every length in a curve call is classified by its own label (the words directly
+# before it) or, for chord and radial clauses, by the clause grammar, and is stored
+# only under that role: radius, chord, tangent (never stored), arc, or the course
+# length. An unlabelled length inside a radius-point/center clause measures that
+# element ("radial", never stored). A number directly after a degree sign is a
+# bearing's minutes, never a length.
+_LENGTH_TOKEN = re.compile(
+    rf"(?<![\d.,\u00b0])(?<!\u00b0\s)({COMMA_NUMBER})\s*({_UNIT_TOKEN}\b|'(?!'))",
+    re.IGNORECASE,
+)
+_LABEL_WINDOW = 64
+_LENGTH_LABELS = (
+    (
+        "arc",
+        re.compile(
+            r"\b(?:arc(?:\s+(?:length|distance))?|length\s+of\s+(?:(?:the|said)\s+)?(?:arc|curve)"
+            r"|distance\s+along\s+(?:(?:the|said)\s+)?(?:arc|curve)|curve\s+length)"
+            r"(?:\s+(?:of|is))?\s*=?\s*$",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "chord",
+        re.compile(
+            r"\b(?:long\s+)?chord(?:\s+(?:length|distance))?(?:\s+(?:of|is))?\s*=?\s*$",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "tangent",
+        re.compile(
+            r"\btangent(?:\s+(?:length|distance))?(?:\s+(?:of|is))?\s*=?\s*$", re.IGNORECASE
+        ),
+    ),
+    (
+        "radius",
+        re.compile(
+            r"\bradius(?:\s+(?:length|distance))?(?:\s+(?:of|is|equal\s+to))?\s*=?\s*$",
+            re.IGNORECASE,
+        ),
+    ),
+    ("course", re.compile(r"\b(?:distance|length)(?:\s+(?:of|is))?\s*$", re.IGNORECASE)),
+)
 # A "center" is a curve element only as the center point or the center of the
 # (said) curve/circle (the shared radial grammar). "center line", "centerline" and
 # "center of Route 9 / the road" describe a physical line or road, not the curve.
 _CENTER_ELEMENT = r"cent(?:er|re)(?!(?:[-\s]*line)\b)(?:\s+point\b|(?!\s+of\b)|\s+of\s+(?:the|said)\s+(?:curve|circle)\b)"
-_CURVE_ELEMENT_DISTANCE_PATTERN = re.compile(
-    rf"\bradius(?:\s+(?:length|distance))?\s+(?:(?:of|is|equal\s+to)\s+|=\s*)?{_ELEMENT_DISTANCE}"
-    r"|\b(?:radius\s+point|radial(?:\s+(?:line|bearing))?|" + _CENTER_ELEMENT + r")\b"
-    rf"[^;,]*?{_ELEMENT_DISTANCE}"
-    rf"|\btangent\s+(?:length|distance)\s+(?:of\s+)?{_ELEMENT_DISTANCE}",
+_RADIAL_ELEMENT_PATTERN = re.compile(
+    r"\b(?:radius\s+point|radial(?:\s+(?:line|bearing))?|" + _CENTER_ELEMENT + r")\b",
     re.IGNORECASE,
 )
-# A stated chord's clause runs from the chord keyword to its length.
-_CHORD_ELEMENT_DISTANCE_PATTERN = re.compile(
-    rf"\b(?:long\s+)?chord\b[^;]*?{_ELEMENT_DISTANCE}", re.IGNORECASE
-)
+# Components of one compound course length ("1 chain and 21 links").
+_COMPOUND_JOINER = re.compile(r"(?:\s+and\s+|\s*,\s*|\s+)")
+CURVE_LENGTH_AMBIGUOUS_NOTE = "curve length ambiguous: {values}"
 
 
-def _course_distance_text(call_text: str, *, is_curve: bool, has_chord_length: bool) -> str:
+class _CurveLength(NamedTuple):
+    """One length in a curve call, with the role its label gives it."""
+
+    role: str
+    feet: float
+    unit: str
+    start: int
+    end: int
+
+
+def _length_unit(token: re.Match[str]) -> str:
+    return "feet" if token.group(2) == "'" else _normalize_unit_token(token.group(2))
+
+
+def _clause_roles(text: str) -> dict[int, str]:
+    """Return token start -> role for lengths placed by the chord and radial grammar.
+
+    Mirrors ``extract_curve_info``: the chord length is the chord's lead length,
+    the length right after the chord bearing, or (without a bearing) the first
+    length in the chord clause; the radius is a length directly after a radial
+    bearing (``_RADIAL_RADIUS_AFTER_BEARING``).
+    """
+    roles: dict[int, str] = {}
+    chord = _CHORD_PREFIX_PATTERN.search(text)
+    if chord:
+        if chord.group("chord_lead_len"):
+            roles[chord.start("chord_lead_len")] = "chord"
+        else:
+            bearing, clause_end = _reference_bearing(text, chord.end(), packed=False)
+            if bearing:
+                length = _CHORD_LENGTH_AFTER_BEARING.match(text, bearing.end())
+            else:
+                length = _CHORD_LENGTH_IN_CLAUSE.search(text, chord.end(), clause_end)
+            if length:
+                roles[length.start(1)] = "chord"
+    radial = _RADIAL_PREFIX_PATTERN.search(text)
+    if radial:
+        bearing, _ = _reference_bearing(text, radial.end(), packed=False)
+        if bearing:
+            length = _RADIAL_RADIUS_AFTER_BEARING.match(text, bearing.end())
+            if length:
+                roles[length.start(1)] = "radius"
+    return roles
+
+
+def _curve_lengths(call_text: str) -> tuple[str, list[_CurveLength]]:
+    """Classify every length in a curve call's boundary course text.
+
+    Returns the normalized course text the spans refer to and the lengths in
+    order. Precedence: chord/radial clause grammar, then the label directly
+    before the length, then (unlabelled) a radius-point/center clause, else the
+    course length.
+    """
+    text = _normalize_bearing_forms(_boundary_course_text(call_text))
+    bearings = [
+        (m.start(), m.end())
+        for pattern in (QUADRANT_PATTERN, PACKED_DMS_PATTERN)
+        for m in pattern.finditer(text)
+    ]
+    clause_roles = _clause_roles(text)
+    element_starts = set()
+    for subject in _RADIAL_ELEMENT_PATTERN.finditer(text):
+        first = _LENGTH_TOKEN.search(text, subject.end())
+        if first and not _CLAUSE_END.search(text, subject.end(), first.start()):
+            element_starts.add(first.start())
+    lengths: list[_CurveLength] = []
+    previous_end = 0
+    for token in _LENGTH_TOKEN.finditer(text):
+        if any(start <= token.start() < end for start, end in bearings):
+            continue
+        role = clause_roles.get(token.start())
+        if role is None:
+            window = max(previous_end, token.start() - _LABEL_WINDOW)
+            role = next(
+                (
+                    name
+                    for name, label in _LENGTH_LABELS
+                    if label.search(text, window, token.start())
+                ),
+                None,
+            )
+            if role is None:
+                role = "radial" if token.start() in element_starts else "course"
+        unit = _length_unit(token)
+        feet = ConversionFactors.convert_to_feet(parse_comma_number(token.group(1)), unit)
+        lengths.append(_CurveLength(role, feet, unit, token.start(), token.end()))
+        previous_end = token.end()
+    return text, lengths
+
+
+def _course_length_groups(text: str, lengths: list[_CurveLength]) -> list[list[_CurveLength]]:
+    """Group course lengths; adjacent components in different units form one length."""
+    groups: list[list[_CurveLength]] = []
+    previous: _CurveLength | None = None
+    for length in lengths:
+        if length.role == "course":
+            if (
+                groups
+                and previous is groups[-1][-1]
+                and previous.unit != length.unit
+                and _COMPOUND_JOINER.fullmatch(text, previous.end, length.start)
+            ):
+                groups[-1].append(length)
+            else:
+                groups.append([length])
+        previous = length
+    return groups
+
+
+def _ambiguous_course_lengths(text: str, lengths: list[_CurveLength]) -> list[str] | None:
+    """Return the course lengths as written when several are stated and none is the arc."""
+    if any(length.role == "arc" for length in lengths):
+        return None
+    groups = _course_length_groups(text, lengths)
+    if len(groups) < 2:
+        return None
+    return [text[group[0].start : group[-1].end] for group in groups]
+
+
+def _course_distance_text(call_text: str, *, is_curve: bool) -> str:
     """Return the text a course distance is read from.
 
     Corner witnesses are cut off (``_boundary_course_text``). For a curve, every
-    curve-element distance (radius, radius point/center, tangent length and a
-    stated chord length) is also removed, so the first distance in the text,
-    usually the radius, is never taken as the course length; only an arc or a
-    stated course length remains.
+    length not classified as the course length (``_curve_lengths``) is removed,
+    so a radius, chord, tangent or radial length is never read as the course
+    length. Several course lengths without a stated arc are ambiguous and are all
+    removed, so none is chosen.
     """
-    course_text = _boundary_course_text(call_text)
     if not is_curve:
-        return course_text
-    if has_chord_length:
-        course_text = _CHORD_ELEMENT_DISTANCE_PATTERN.sub(" ", course_text)
-    return _CURVE_ELEMENT_DISTANCE_PATTERN.sub(" ", course_text)
+        return _boundary_course_text(call_text)
+    text, lengths = _curve_lengths(call_text)
+    ambiguous = _ambiguous_course_lengths(text, lengths) is not None
+    for length in reversed(lengths):
+        if length.role != "course" or ambiguous:
+            text = text[: length.start] + " " + text[length.end :]
+    return text
+
+
+# A standalone THENCE or a numbered-course header ("THENCE the following four (4)
+# courses and distances:", "along the line of lands of Smith, the following two
+# courses and distances;") introduces courses and is never a course itself.
+_COURSE_MARKER = re.compile(
+    r"\s*(?:THENCE|(?:THENCE\b[\s,]*)?(?:(?:along|with)\b[^;:\d]*?,\s*)?(?:(?:by|along)\s+)?"
+    r"the\s+following(?:\s+(?:[a-z]+|\d+|\(\d+\))){0,2}?\s+(?:courses?|calls?)"
+    r"(?:\s+and\s+distances?)?)?\s*[:;,.]?\s*",
+    re.IGNORECASE,
+)
 
 
 def _is_initial_course_prefix(prefix: str) -> bool:
@@ -362,7 +529,9 @@ def _extract_calls_from_text(
         has_numbered_course_markers = bool(
             re.search(r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+", tract_text, re.MULTILINE)
         )
-        call_texts = split_into_calls(tract_text)
+        call_texts = [
+            part for part in split_into_calls(tract_text) if not _COURSE_MARKER.fullmatch(part)
+        ]
 
         for source_course, call_text in enumerate(call_texts, start=1):
             try:
@@ -390,10 +559,7 @@ def _extract_calls_from_text(
                 continue
 
             if call is None:
-                standalone_thence = re.fullmatch(r"\s*THENCE\s*[:;,.]?\s*", call_text, re.I)
-                explicit_course = not standalone_thence and (
-                    has_thence_marker or has_numbered_course_markers
-                )
+                explicit_course = has_thence_marker or has_numbered_course_markers
                 if (
                     explicit_course
                     or extract_direction(call_text)
@@ -908,11 +1074,7 @@ def _extract_call(
             bearing_quadrant = None
             azimuth = None
 
-    course_text = _course_distance_text(
-        call_text,
-        is_curve=_describes_curve(curve_info),
-        has_chord_length=curve_info.get("chord_length_ft") is not None,
-    )
+    course_text = _course_distance_text(call_text, is_curve=_describes_curve(curve_info))
     distance, unit = extract_distance(course_text)
     if distance == 0:
         if re.search(
@@ -925,6 +1087,18 @@ def _extract_call(
         unit = distance_unit
 
     distance_ft: float | None = ConversionFactors.convert_to_feet(distance, unit)
+
+    # The one course length stated on a circular curve with a stated radius is its
+    # stated arc, kept as stated (never replaced by R * delta) so verification can
+    # cross-check radius, delta and arc. It then counts exactly as a labelled arc.
+    if (
+        curve_info.get("arc_length_ft") is None
+        and isinstance(curve_info.get("radius_ft"), float)
+        and curve_info.get("curve_type") != "spiral"
+        and distance_ft is not None
+        and distance_ft > 0.0
+    ):
+        curve_info["arc_length_ft"] = distance_ft
 
     # The tangent azimuth is only what the course text states (chord and radial
     # clauses were removed before extraction). Without one, a stated chord bearing
@@ -1036,17 +1210,6 @@ def _extract_call(
         curve_info.get("radius_ft") is not None
         and curve_info.get("delta_deg") is not None
         and not is_spiral
-        and distance_ft is not None
-        and distance_ft > 0.0
-    ):
-        # A stated course length on a radius + delta curve is the stated arc length,
-        # kept as stated (never replaced by R * delta) so verification can cross-check
-        # radius, delta and arc.
-        curve_info["arc_length_ft"] = distance_ft
-    elif (
-        curve_info.get("radius_ft") is not None
-        and curve_info.get("delta_deg") is not None
-        and not is_spiral
         and (distance_ft is None or distance_ft <= 0.0)
     ):
         radius_ft = curve_info.get("radius_ft")
@@ -1136,9 +1299,10 @@ def _extract_call(
         note_parts.append("incomplete bearing")
     if arc_computed:
         note_parts.append(ARC_COMPUTED_NOTE)
-    radius_conflict = curve_info.get("radius_conflict_note")
-    if isinstance(radius_conflict, str):
-        note_parts.append(radius_conflict)
+    for key in ("radius_conflict_note", "length_ambiguity_note"):
+        element_note = curve_info.get(key)
+        if isinstance(element_note, str):
+            note_parts.append(element_note)
     if length_not_determined:
         note_parts.append(LENGTH_NOT_DETERMINED_NOTE)
     notes = "; ".join(note_parts)
@@ -1307,9 +1471,7 @@ def _distance_audit_source(call_text: str, call: DeedCall) -> tuple[str, str | N
         )
     if call.arc_length_ft is not None and call.arc_length_ft == call.distance_ft:
         return f"{call.arc_length_ft} feet", None
-    course_text = _course_distance_text(
-        call_text, is_curve=call.is_curve(), has_chord_length=call.chord_length_ft is not None
-    )
+    course_text = _course_distance_text(call_text, is_curve=call.is_curve())
     distance, unit = extract_distance(course_text)
     if distance == 0:
         return call_text.strip(), None
@@ -1607,10 +1769,11 @@ def _is_bearing_degree(text: str, start: int) -> bool:
     return _ends_with(_BEARING_DEGREE_PREFIX, text, start)
 
 
-# "radius point bears N 10 E 500.00 feet": the length right after a radial bearing is
-# the radius (to the radius point or center).
+# "radius point bears N 10 E 500.00 feet": a length directly after a radial bearing,
+# or labelled as the radius, is the radius (to the radius point or center). Any other
+# label ("a distance of"), or a bare length after a comma, is not the radius.
 _RADIAL_RADIUS_AFTER_BEARING = re.compile(
-    r"\s*,?\s*(?:(?:and|for)\s+)?(?:(?:a|the)\s+)?(?:(?:radius|distance)\s+of\s+)?"
+    r"(?:\s*,?\s*(?:(?:and|with)\s+)?(?:(?:a|the)\s+)?radius\s+(?:of\s+)?|\s*)"
     rf"({COMMA_NUMBER})\s*({_UNIT_TOKEN})\b",
     re.IGNORECASE,
 )
@@ -1670,25 +1833,12 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
         if match.group(6):
             delta_deg += parse_comma_number(match.group(6)) / 3600.0
 
-        arc_length_match = re.search(
-            rf"(?:arc\s+(?:length|distance)|distance\s+along\s+the\s+arc|arc)(?:\s+of)?\s+({COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
-            text,
-            re.IGNORECASE,
-        )
-        arc_length: float | None = None
-        if arc_length_match:
-            arc_raw = parse_comma_number(arc_length_match.group(1))
-            arc_unit = _normalize_unit_token(arc_length_match.group(2))
-            arc_length = ConversionFactors.convert_to_feet(arc_raw, arc_unit)
-
         # Only stated elements are stored; an unstated arc or chord stays None.
         curve_info = {
             "direction": direction,
             "radius_ft": radius,
             "delta_deg": delta_deg,
         }
-        if arc_length is not None:
-            curve_info["arc_length_ft"] = arc_length
 
     else:
         dir_match = re.search(rf"{CURVE_WORD}\s+to\s+the\s+(left|right)", text, re.IGNORECASE)
@@ -1716,16 +1866,6 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
                 delta += float(delta_match.group(3)) / 3600.0
 
             curve_info["delta_deg"] = delta
-
-        arc_match = re.search(
-            rf"(?:arc\s+(?:length|distance)|distance\s+along\s+the\s+arc|arc)(?:\s+of)?\s+({COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
-            text,
-            re.IGNORECASE,
-        )
-        if arc_match:
-            arc_raw = parse_comma_number(arc_match.group(1))
-            arc_unit = _normalize_unit_token(arc_match.group(2))
-            curve_info["arc_length_ft"] = ConversionFactors.convert_to_feet(arc_raw, arc_unit)
 
         # Degree of curvature -> radius conversion
         doc_match = re.search(
@@ -1760,6 +1900,14 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
         elif chord_length:
             curve_info["chord_length_ft"] = parse_comma_number(chord_length.group(1))
 
+    # The arc, and a chord stated without the chord-bearing grammar ("a chord
+    # distance of 87.16 feet"), are read only from lengths labelled as such.
+    course_text, lengths = _curve_lengths(text)
+    for role, key in (("arc", "arc_length_ft"), ("chord", "chord_length_ft")):
+        labelled = next((length for length in lengths if length.role == role), None)
+        if labelled is not None and curve_info.get(key) is None:
+            curve_info[key] = labelled.feet
+
     if re.search(
         r"\b(?:point\s+of\s+compound\s+curvature|PCC|compound\s+curve)\b",
         text,
@@ -1784,6 +1932,12 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
     # from the course text, and stays in the verbatim call text).
     if not _describes_curve(curve_info):
         return curve_info
+
+    ambiguous = _ambiguous_course_lengths(course_text, lengths)
+    if ambiguous:
+        curve_info["length_ambiguity_note"] = CURVE_LENGTH_AMBIGUOUS_NOTE.format(
+            values=", ".join(ambiguous)
+        )
 
     if re.search(r"\b(?:non[-\s\u2010-\u2015\u2212]?tangent|not\s+tangent)\b", text, re.IGNORECASE):
         curve_info["non_tangent"] = True
