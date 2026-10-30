@@ -25,6 +25,7 @@ from mp_models.plot_request import PlotCall, PlotRequest
 
 from .diagnostics import _curve_evidence, _supported_circular_arc
 from .plot import arc_point, prepare_plot, unit_factor
+from .traverse import effective_indefinite
 
 CORRIDOR_VERSION = "corridor-1"
 _Role = Literal["left_offset", "right_offset", "join", "start_cap", "end_cap"]
@@ -460,7 +461,7 @@ def analyze_corridor(request: CorridorRequest) -> CorridorResult:
                 raise _Unavailable(
                     f"{record.id}: centerline source reference required", "incomplete"
                 )
-            if call is None or call.is_indefinite:
+            if call is None or effective_indefinite(call):
                 raise _Unavailable(f"{record.id}: incomplete centerline geometry", "incomplete")
             if call.is_tie_in or call.is_exception or call.is_meander:
                 raise _Unavailable(

@@ -55,7 +55,12 @@ from .tangents import (
     stated_sweep,
     stated_tangent,
 )
-from .traverse import analyze_courses, chord_positioned_flags, traverse_positions
+from .traverse import (
+    analyze_courses,
+    chord_positioned_flags,
+    effective_indefinite,
+    traverse_positions,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -548,7 +553,7 @@ def verify_closure(
         )
 
     indefinite_ids = {id(r.call) for r in records if r.indefinite}
-    indefinite_calls = [c for c in main_calls if id(c) in indefinite_ids or c.is_indefinite]
+    indefinite_calls = [c for c in main_calls if id(c) in indefinite_ids or effective_indefinite(c)]
     if indefinite_calls:
         course_nums = ", ".join(str(c.course) for c in indefinite_calls)
         warnings.append(

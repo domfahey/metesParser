@@ -115,6 +115,32 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
     return Point(x=current.x + dx, y=current.y + dy)
 
 
+def _direction_conflict(call: DeedCall, chord_azimuth: float | None) -> bool:
+    """Conflicting direction evidence derived from persisted fields only.
+
+    A chord-only curve whose chord exceeds the diameter, or a cardinal-only direction
+    word outside its sector around the parsed chord azimuth.
+    """
+    if call.is_chord_only_curve() and not is_spiral(call) and not chord_is_feasible(call):
+        return True
+    return bool(
+        chord_azimuth is not None
+        and not has_determined_direction(call)
+        and call.direction_text
+        and cardinal_conflicts_bearing(call.direction_text, chord_azimuth)
+    )
+
+
+def effective_indefinite(call: DeedCall) -> bool:
+    """Indefinite as stated (parser flag) or by verification's own conflict rule.
+
+    is_indefinite is not a CSV column, so every verification, plot, diagnostic,
+    comparison and confidence decision uses this one rule. The stored flag is never
+    changed.
+    """
+    return call.is_indefinite or _direction_conflict(call, parse_chord(call))
+
+
 @dataclass(frozen=True)
 class CourseAnalysis:
     """How verification treats one boundary call, decided in a single pass.
@@ -151,7 +177,7 @@ class CourseAnalysis:
         is_indefinite is not a CSV column, so verification derives the conflict from
         the persisted fields and never relies on the flag alone.
         """
-        return self.call.is_indefinite or self.direction_conflict
+        return self.call.is_indefinite or self.direction_conflict  # == effective_indefinite
 
     @property
     def chord_positioned(self) -> bool:
@@ -189,12 +215,7 @@ def analyze_courses(
         chord_only = call.is_chord_only_curve() and not is_spiral(call)
         feasible_chord = not (chord_only and not chord_is_feasible(call))
         determined = has_determined_direction(call)
-        direction_conflict = (chord_only and not feasible_chord) or (
-            chord_azimuth is not None
-            and not determined
-            and bool(call.direction_text)
-            and cardinal_conflicts_bearing(call.direction_text, chord_azimuth)
-        )
+        direction_conflict = _direction_conflict(call, chord_azimuth)
         endpoint = _advance(call, current, chord_azimuth)
         if endpoint is not None:
             current = endpoint
