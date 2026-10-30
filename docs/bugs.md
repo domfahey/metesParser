@@ -856,6 +856,15 @@ Ten findings plus one found while fixing, fixed red-green on `fix/code-review-20
 - **Replay:** `load_delivery` raises `DeliveryReplayIncomplete` when GeoJSON coordinates could not be re-verified, unless `allow_unverified_geojson=True`; an empty bound geometry is a `ValueError` (`615cdcb`).
 - **Tract headings:** same-line BEING is a heading terminator only in uppercase headings, never before "the same" / "part of" (`9d87380`).
 
+### PR #60 eighth review (2026-10-30)
+Ten findings; eight fixed red-green, one rejected, one not reproducible:
+- **Radial phrasings:** one `_RADIAL_PREFIX_PATTERN` covers radius point / radial / center-centre / "whose radius" / "the radius of which" bears; the clause is stripped from the course text and recorded in `radial_bearing` with `non_tangent=True` (`fc69e95`). Open: a straight course that mentions the next curve's radius point also gets `radial_bearing`/`non_tangent`, which the in-browser preview refuses.
+- **Normalize once:** course bearings are normalized once per call and reused for verbatim text and audit (`4bc6811`); the word-symbol pass is folded into marked-DMS expansion, which now also accepts glued cardinals (`North 45°East`) (`c6bba2f`).
+- **Tract headings:** an uppercase marker in heading position is a heading whatever prose follows, unless a reference phrase follows (of, as, on, per, in said, being the same/part of …); `NO` must stand alone (`TRACT NOW.` is not `Tract W`) (`ad07f98`). Risk: an uppercase sentence like `PARCEL 2 IS SUBJECT TO …` starts a tract without calls.
+- **Closure:** each run clears the other mode's audit; an infeasible chord-only curve is unpositioned in closure as in plot; one `block_curve_consistency` helper (failed stays failed, reasons combine) (`f788210`).
+- **Rejected:** "course-0 continuation should block parallelism" reverses #49; `f5b0c31` restores the #49 behaviour and its test.
+- **Not reproducible:** "a required raster blocks the GeoJSON-only omission" — a required raster is already rejected for GeoJSON earlier; `_required_geojson` makes the rule explicit (`64d0c8f`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
