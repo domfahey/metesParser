@@ -1490,8 +1490,13 @@ def extract_along_to_fields(call_text: str) -> tuple[str, str]:
             and not any(start <= match.start() < end for start, end in qualifier_spans)
         ]
 
+    # A "by" adjoiner belongs to the course, before the destination "to"; "by the line
+    # of ..." inside the destination wording ("to a stake bounded by lands of ...") is
+    # part of ``to``.
+    destinations = destination_tokens(call_text)
+    course_part = call_text[: destinations[-1].start()] if destinations else call_text
     along_match = re.search(r"\balong\b", call_text, re.IGNORECASE) or _BY_ADJOINER.search(
-        call_text
+        course_part
     )
     if along_match:
         segment = call_text[along_match.end() :].lstrip()
