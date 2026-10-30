@@ -552,6 +552,15 @@ class TestExtractDistanceAndCompoundTrailing:
             ("150 feet, 3 rods north of the oak", (150.0, "feet")),
             ("40 poles 2 rods", (40.0, "poles")),
             ("2 rods and 3 links", (34.98, "feet")),
+            ("N 10 E 150 feet to a stake 2 chains 20 links west of a white oak", (150.0, "feet")),
+            ("N 10 E 150 feet distant 2 chains 20 links from the oak", (150.0, "feet")),
+            ("N 10 E 150 feet from a stake 2 chains 20 links west", (150.0, "feet")),
+            ("N 10 E 150 feet to a stake 2 chains 20 links", (150.0, "feet")),
+            ("N 10 E 2 chains 20 links to a stake", (145.2, "feet")),
+            (
+                "N 10 E 2 chains 20 links to a stake 3 chains 5 links west of an oak",
+                (145.2, "feet"),
+            ),
         ],
     )
     def test_compound_table_never_drops_leading_measurement(
