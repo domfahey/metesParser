@@ -57,6 +57,7 @@ def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
                 arc_length_ft=raw.get("arc_length_ft"),
                 chord_bearing=raw.get("chord_bearing"),
                 chord_length_ft=raw.get("chord_length_ft"),
+                curve_type=raw.get("curve_type"),
             )
         )
     return calls
