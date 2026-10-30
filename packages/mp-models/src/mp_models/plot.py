@@ -5,7 +5,13 @@ import hashlib
 import math
 from typing import Annotated, Literal, Self, cast
 
-from pydantic import Field, FiniteFloat, model_validator
+from pydantic import (
+    Field,
+    FiniteFloat,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from .base import _Model
 
@@ -270,6 +276,23 @@ class PlotGeometry(_Model):
     misclosure_ft: FiniteFloat | None = None
     area_sq_ft: FiniteFloat | None = None
     perimeter_ft: FiniteFloat | None = None
+    # True traverse origin, recorded only when it differs from the first drawn
+    # primitive's start (a leading chord-only curve is positioned but not drawn).
+    point_of_beginning: XY | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_default_pob(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        data = handler(self)
+        if data.get("point_of_beginning") is None:
+            data.pop("point_of_beginning", None)
+        return cast(dict[str, object], data)
+
+
+def plot_point_of_beginning(geometry: PlotGeometry) -> XY | None:
+    """Return the traverse origin in native units, or None when nothing is positioned."""
+    if geometry.point_of_beginning is not None:
+        return geometry.point_of_beginning
+    return geometry.primitives[0].start if geometry.primitives else None
 
 
 class PointCorrespondence(_Model):
