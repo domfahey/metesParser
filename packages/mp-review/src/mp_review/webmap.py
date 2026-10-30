@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import itertools
 import math
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal, cast
 
@@ -25,7 +25,7 @@ from mp_models.webmap import (
 )
 from mp_verify.dashboard import _hash
 from mp_verify.plot import arc_point, transform_point
-from mp_verify.webmap import WebMapContext, WebMapInput, normalize_web_map_context
+from mp_verify.webmap import WebMapContext, WebMapInput, feature_vertices, normalize_web_map_context
 
 from .webmap_projection import WebMapProjection, WebMapUnavailable, build_web_map_projection
 
@@ -254,21 +254,6 @@ def _vector_feature(
     )
 
 
-def _coordinates(feature: WebMapFeature) -> Iterator[XY]:
-    geometry = feature.geometry
-    if isinstance(geometry, WebMapPoint):
-        yield geometry.coordinates
-    elif isinstance(geometry, WebMapLine):
-        yield from geometry.coordinates
-    elif isinstance(geometry, WebMapPolygon):
-        for ring in geometry.coordinates:
-            yield from ring
-    else:
-        for polygon in geometry.coordinates:
-            for ring in polygon:
-                yield from ring
-
-
 Extent = tuple[float, float, float, float]
 
 
@@ -494,7 +479,7 @@ def prepare_web_map(
                 raster_pixels += pixels
                 rasters.append(derived.record)
                 assets.append((derived.record.path, derived.data))
-    points = [p for feature in features for p in _coordinates(feature)]
+    points = [p for feature in features for p in feature_vertices(feature)]
     points.extend(p for raster in rasters for p in raster.corners)
     if points and max(p[0] for p in points) - min(p[0] for p in points) > 180:
         # Bounds spanning the dateline are unsupported even for disjoint evidence.

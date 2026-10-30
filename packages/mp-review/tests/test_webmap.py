@@ -474,3 +474,11 @@ def test_delimited_source_identifiers_cannot_collide_in_feature_ids():
     data["placements"].append(dict(data["placements"][0], id="a:x"))
     result = output(prepare_dashboard(DashboardBundle.model_validate(data)))
     assert len({f.id for f in result.artifact.features}) == len(result.artifact.features)
+
+
+def test_mp_review_reuses_mp_verify_feature_vertices():
+    import mp_review.webmap as review_webmap
+    import mp_verify.webmap as verify_webmap
+
+    assert review_webmap.feature_vertices is verify_webmap.feature_vertices
+    assert not hasattr(review_webmap, "_coordinates")
