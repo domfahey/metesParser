@@ -344,26 +344,29 @@ _ORDINAL_WORDS = {
         start=1,
     )
 }
-# Enumerator styles: "(1)", "1)", "1." and "First,". Numbers are read from group 1.
+# Enumerator styles: "(1)", "1)", "1.", "(a)" and "First,". Numbers are read from
+# group 1; a letter counts a=1, b=2, ...
 _ORDINAL_ENUMERATOR = re.compile(rf"\b({'|'.join(_ORDINAL_WORDS)})\b,?", re.IGNORECASE)
+_LETTER_ENUMERATOR = re.compile(r"(?<![\w(])\(([A-Za-z])\)(?=\s)")
 _ENUMERATOR_STYLES = (
     re.compile(r"\((\d{1,3})\)"),
     re.compile(r"(?<![\w.(])(\d{1,3})\)"),
     re.compile(r"(?<![\w.(])(\d{1,3})\.(?=\s)"),
+    _LETTER_ENUMERATOR,
     _ORDINAL_ENUMERATOR,
 )
 
 # The one course-list header grammar, shared by header removal and enumeration
 # detection:
-#   THENCE [by|along|with|running|continuing <qualifier>] the following
+#   THENCE [by|along|with|running|continuing|in <qualifier>] the following|next
 #   [N | word | (N) | word (N)] courses|calls|lines [and distances]
 #   [along|with|by ... <qualifier>] [, to wit | viz | namely] [: ; , .]
 # Qualifiers are bounded and never cross ';' or ':'. A trailing qualifier holds
 # digits only when an explicit ':' / 'to wit' / 'viz' ends it, so a course
 # ("the following course North 10 degrees East 100 feet") is never a header.
-_HEADER_QUALIFIER = r"(?:(?:by|along|with|running|continuing)\b[^;:]{0,200}?[\s,]+)?"
+_HEADER_QUALIFIER = r"(?:(?:by|along|with|running|continuing|in)\b[^;:]{0,200}?[\s,]+)?"
 _HEADER_CORE = (
-    r"the\s+following(?:\s+(?P<count>\d{1,3}|[a-z]+))?(?:\s+\((?P<count_paren>\d{1,3})\))?"
+    r"the\s+(?:following|next)(?:\s+(?P<count>\d{1,3}|[a-z]+))?(?:\s+\((?P<count_paren>\d{1,3})\))?"
     r"\s+(?:courses?|calls?|lines)(?:\s+and\s+distances?)?"
 )
 _HEADER_TAIL_WORD = r"[\s,]+(?:along|with|by|over|across|through|on|in|of|from|being)\b"
@@ -376,6 +379,7 @@ _THENCE = re.compile(r"\bTHENCE\b", re.IGNORECASE)
 _HEADER_START = re.compile(r"THENCE\b[\s,]*" + _HEADER_QUALIFIER + _HEADER_CORE, re.IGNORECASE)
 # From the end of a header's core to its first enumerator (a repeated THENCE allowed).
 _HEADER_END = re.compile(_HEADER_REST + r"(?:THENCE\b[\s,]*[:;,.]?\s*)?", re.IGNORECASE)
+_HEADER_REST_ONLY = re.compile(_HEADER_REST, re.IGNORECASE)
 _BARE_THENCE = re.compile(r"THENCE\b[\s,]*[:;,.]?\s*", re.IGNORECASE)
 # A split part that is only a THENCE or a course-list header introduces courses
 # and is never a course itself.
@@ -457,6 +461,7 @@ class CourseListAnalysis:
     text: str
     lists: tuple[CourseList, ...]
     mismatches: tuple[tuple[int, int], ...]
+    mismatch_headers: tuple[str, ...]
     item_starts: frozenset[int]
     list_starts: frozenset[int]
     has_numbered_markers: bool
@@ -464,7 +469,17 @@ class CourseListAnalysis:
 
 def _enumerator_number(match: Match[str]) -> int:
     token = match.group(1)
-    return int(token) if token.isdigit() else _ORDINAL_WORDS[token.lower()]
+    if token.isdigit():
+        return int(token)
+    if len(token) == 1:
+        return ord(token.lower()) - ord("a") + 1
+    return _ORDINAL_WORDS[token.lower()]
+
+
+def course_list_header_text(text: str, header: CourseListHeader) -> str:
+    """The header's own wording: from THENCE through its closing punctuation."""
+    rest = _HEADER_REST_ONLY.match(text, header.core_end)
+    return text[header.start : rest.end() if rest else header.core_end].strip()
 
 
 def _declared_course_count(header: Match[str]) -> int | None:
@@ -524,13 +539,15 @@ def _course_enumerations(text: str) -> tuple[list[CourseList], list[CourseListHe
     punctuation (or a line break), so parenthetical numbers elsewhere ("Lot (2)",
     "(Tax ID 12-34)", "(100.00 feet)") are never taken for course numbers. Ordinal
     words ("First,") enumerate only after a real header and as a sequence of two or
-    more, so prose such as "THENCE first North ..." keeps its wording.
+    more, so prose such as "THENCE first North ..." keeps its wording. Letters
+    ("(a)", "(b)") enumerate only as a sequence of two or more.
     """
     thence_starts = [m.start() for m in _THENCE.finditer(text)]
     headers = _course_list_headers(text, thence_starts)
     header_ends = [header.core_end for header in headers]
     styles = [list(style.finditer(text)) for style in _ENUMERATOR_STYLES]
     ordinal_style = len(styles) - 1
+    letter_style = _ENUMERATOR_STYLES.index(_LETTER_ENUMERATOR)
     cursors = [0] * len(styles)
 
     def opening(match: Match[str], ordinal: bool) -> tuple[int, CourseListHeader | None] | None:
@@ -547,6 +564,7 @@ def _course_enumerations(text: str) -> tuple[list[CourseList], list[CourseListHe
         best: CourseList | None = None
         for style_index, matches in enumerate(styles):
             ordinal = style_index == ordinal_style
+            needs_two = ordinal or style_index == letter_style
             while cursors[style_index] < len(matches) and (
                 matches[cursors[style_index]].start() < position
             ):
@@ -566,7 +584,7 @@ def _course_enumerations(text: str) -> tuple[list[CourseList], list[CourseListHe
                         text, sequence[-1].end(), candidate.start()
                     ):
                         sequence.append(candidate)
-                if ordinal and len(sequence) < 2:
+                if needs_two and len(sequence) < 2:
                     continue
                 course_list = CourseList(start_header[0], start_header[1], tuple(sequence))
                 if (
@@ -597,8 +615,8 @@ def _courses_after_header(text: str, header: CourseListHeader) -> int:
 
 def _count_mismatches(
     text: str, lists: list[CourseList], headers: list[CourseListHeader]
-) -> list[tuple[int, int]]:
-    """(declared, found) for each counted header its enumerated courses do not satisfy.
+) -> list[tuple[CourseListHeader, int, int]]:
+    """(header, declared, found) for each counted header its enumerated courses do not satisfy.
 
     A header opening a list must match its length. A header inside a deed-numbered
     list ("...; thence along X, the following two courses; thence (4) ...") needs at
@@ -624,7 +642,7 @@ def _count_mismatches(
             after = _courses_after_header(text, header)
             found = header.declared if after >= header.declared else after
         if found != header.declared:
-            mismatches.append((header.declared, found))
+            mismatches.append((header, header.declared, found))
     return mismatches
 
 
@@ -638,7 +656,7 @@ def _is_inline(text: str, match: Match[str]) -> bool:
 def analyze_course_lists(text: str) -> CourseListAnalysis:
     """Detect course-list headers and enumerations once for a tract's text."""
     lists, headers = _course_enumerations(text)
-    mismatches = _count_mismatches(text, lists, headers)
+    mismatched = _count_mismatches(text, lists, headers)
 
     pieces: list[str] = []
     length = 0
@@ -680,7 +698,10 @@ def analyze_course_lists(text: str) -> CourseListAnalysis:
         source=text,
         text=broken,
         lists=tuple(lists),
-        mismatches=tuple(mismatches),
+        mismatches=tuple((declared, found) for _header, declared, found in mismatched),
+        mismatch_headers=tuple(
+            course_list_header_text(text, header) for header, _declared, _found in mismatched
+        ),
         item_starts=frozenset(item_starts),
         list_starts=frozenset(list_starts),
         has_numbered_markers=_NUMBERED_LINE.search(broken) is not None,
