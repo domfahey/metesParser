@@ -39,8 +39,8 @@ from mp_models import (
 from pydantic import ValidationError
 
 from .metadata import (
-    break_inline_course_enumerators,
-    course_list_count_mismatches,
+    COURSE_LIST_MARKER,
+    analyze_course_lists,
     detect_meander,
     extract_along_to_fields,
     extract_distance,
@@ -453,17 +453,6 @@ def _course_distance_text(call_text: str, *, is_curve: bool) -> str:
     return text
 
 
-# A standalone THENCE or a numbered-course header ("THENCE the following four (4)
-# courses and distances:", "along the line of lands of Smith, the following two
-# courses and distances;") introduces courses and is never a course itself.
-_COURSE_MARKER = re.compile(
-    r"\s*(?:THENCE|(?:THENCE\b[\s,]*)?(?:(?:along|with)\b[^;:\d]*?,\s*)?(?:(?:by|along)\s+)?"
-    r"the\s+following(?:\s+(?:[a-z]+|\d+|\(\d+\))){0,2}?\s+(?:courses?|calls?)"
-    r"(?:\s+and\s+distances?)?)?\s*[:;,.]?\s*",
-    re.IGNORECASE,
-)
-
-
 def _is_initial_course_prefix(prefix: str) -> bool:
     """Return whether text before THENCE starts with a supported bearing."""
     candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\d+[.)])\s*)?", "", prefix)
@@ -533,22 +522,20 @@ def _extract_calls_from_text(
         if thence_match and (has_beginning_preamble or not has_initial_course):
             tract_text = tract_text[thence_match.start() :]
 
-        count_mismatches = course_list_count_mismatches(tract_text)
+        # Course-list headers and enumerations are detected once per tract.
+        course_lists = analyze_course_lists(tract_text)
+        count_mismatches = course_lists.mismatches
         if strict and count_mismatches:
             declared, found = count_mismatches[0]
             raise ValueError(
                 f"Course-list header states {declared} courses but {found} were found: "
                 f"{tract_text.strip()!r}"
             )
-        has_numbered_course_markers = bool(
-            re.search(
-                r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+",
-                break_inline_course_enumerators(tract_text),
-                re.MULTILINE,
-            )
-        )
+        has_numbered_course_markers = course_lists.has_numbered_markers
         call_texts = [
-            part for part in split_into_calls(tract_text) if not _COURSE_MARKER.fullmatch(part)
+            part
+            for part in split_into_calls(tract_text, course_lists=course_lists)
+            if not COURSE_LIST_MARKER.fullmatch(part)
         ]
 
         for source_course, call_text in enumerate(call_texts, start=1):
