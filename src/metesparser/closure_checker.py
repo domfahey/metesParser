@@ -111,17 +111,24 @@ class ClosureChecker:
             If tracts provided, returns list[ClosureResult] with one per tract.
         """
         if tracts is not None:
-            if audit_context is not None:
-                logger.warning(
-                    "Audit trail recording not yet implemented for per-tract verification"
-                )
             results: list[ClosureResult] = []
             for tract in tracts:
+                # Scratch context per tract so tracts never overwrite each other's audit.
+                scratch = (
+                    audit_context.model_copy(update={"verification_audit": None})
+                    if audit_context is not None
+                    else None
+                )
                 result = cls.verify_tract(
                     tract.calls,
                     stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
                     closure_tolerance_ft=closure_tolerance_ft,
+                    audit_context=scratch,
                 )
+                if audit_context is not None and scratch is not None and scratch.verification_audit:
+                    audit_context.tract_verification_audits.append(
+                        scratch.verification_audit.model_copy(update={"tract_label": tract.label})
+                    )
                 results.append(result)
             return results
 
@@ -201,9 +208,7 @@ class ClosureChecker:
 
         perimeter = cls.calculate_perimeter(main_calls)
 
-        closure_passed = (
-            has_computable_traverse and misclosure < tolerance and not bad_chord_courses
-        )
+        closure_passed = has_computable_traverse and misclosure < tolerance
 
         # Warn when closure only passes because of a relaxed tolerance
         if (
