@@ -184,6 +184,14 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
             geometry_status="blocked",
             warnings=warnings + ("Incomplete recorded bearings block full boundary geometry.",),
         )
+    if not verification.misclosure_available or len(verification.points) != len(boundary) + 1:
+        # A broken chain yields fewer vertices than courses; never zip misaligned lists.
+        return DashboardResult(
+            **base,
+            geometry_status="unresolved",
+            warnings=warnings
+            + ("A course could not be positioned; full boundary geometry is not determined.",),
+        )
     geometry = []
     for record, a, b in zip(boundary, verification.points, verification.points[1:], strict=False):
         assert record.call is not None
