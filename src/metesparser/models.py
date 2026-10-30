@@ -180,7 +180,7 @@ class DeedCall(_Model):
     )
     arc_length_ft: FiniteFloat | None = Field(
         default=None,
-        description="Arc length in feet",
+        description="Arc length in feet; for a spiral, the stated spiral length (never R * delta)",
         ge=0,
     )
     chord_bearing: str | None = Field(default=None, description="Chord bearing")
@@ -337,6 +337,13 @@ class DeedCall(_Model):
             and has_chord
             and self.chord_bearing is not None
         ):
+            return self
+
+        # A spiral's stated length IS its stated curve length (stored in
+        # arc_length_ft, never R * delta). A spiral stated by length (and optionally
+        # radius) needs neither direction nor chord; it is unpositioned in
+        # verification unless a chord is stated.
+        if self.curve_type == "spiral" and has_arc:
             return self
 
         if not has_curve_direction:
