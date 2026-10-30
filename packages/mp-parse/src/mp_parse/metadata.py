@@ -893,20 +893,41 @@ _ROLE_CONTEXT = 120
 # An abbreviation's period ("100 ft. 6 in.") may precede the joiner.
 _COMPOUND_GAP = re.compile(r"\.?(?:\s+and\s+|\s*,\s*|\s+)")
 # Inches are only a compound component ("100 feet 6 inches"); the doubled marks
-# '' and the double prime stay a bearing's seconds and are never inches.
-_INCH_UNIT = r"(?:inch(?:es)?\b|in\.)"
-_INCH = re.compile(_INCH_UNIT, re.IGNORECASE)
+# '' and the double prime stay a bearing's seconds and are never inches. The
+# abbreviation "in"/"in." (its period may already be stripped by call splitting)
+# is inches only where a measurement ends: before the end of the text,
+# punctuation, "to", "thence", "along" or "more or less". A preposition ("100
+# feet in a northerly direction", "in the line of") is never inches; a number
+# with "in" elsewhere is left unread and caught by ``_UNREAD_INCH_AFTER``.
+_MEASUREMENT_END = r"(?=\s*(?:$|[.,;:)]|(?:to|thence|along|more\s+or\s+less)\b))"
+_INCH_UNIT = rf"(?:inch(?:es)?\b|in\b\.?{_MEASUREMENT_END})"
+_INCH = re.compile(r"(?:inch(?:es)?|in\.?)", re.IGNORECASE)
+# A number with an inch-like token (abbreviation or marks) directly after the
+# chosen course length that was not summed into it: the length is not dropped
+# silently, the course fails closed.
+_UNREAD_INCH_AFTER = re.compile(
+    rf"\.?\s+(?:and\s+)?{COMMA_NUMBER}\s*(?:in\b\.?|\"|\u2033|'')", re.IGNORECASE
+)
 # Without "and", a later component must be a clearly smaller unit to extend a run.
 _DESCENDING_RATIO = 1.5
 _UNSUPPORTED_AND_PAIR = re.compile(
     rf"{COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
     re.IGNORECASE,
 )
+# A foot-mark length, optionally followed by an inch mark ("100' 6\"") that is
+# one measurement with it only where the measurement ends; elsewhere the inch
+# mark may be a bearing's seconds and the course fails closed (``_FOOT_INCH``).
 _FOOT_MARK_LENGTH = re.compile(
     rf"{LENGTH_NUMBER_GUARD}({COMMA_NUMBER})\s*(?:'(?!')|′(?!′))"
+    r"(?:\s*(\d+(?:\.\d+)?)\s*(?:\"|\u2033))?"
     r"(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
     re.IGNORECASE,
 )
+_FOOT_INCH = re.compile(
+    rf"{LENGTH_NUMBER_GUARD}{COMMA_NUMBER}\s*(?:'(?!')|′(?!′))\s*\d+(?:\.\d+)?\s*(?:\"|\u2033)"
+)
+# Degrees written without a sign ("N 45 30' 15\""): the marks are minutes and seconds.
+_UNSIGNED_DEGREES_BEFORE = re.compile(r"\b(?:north|south|N|S)\.?\s*\d{1,3}\s+$", re.IGNORECASE)
 
 
 class _LengthRun(NamedTuple):
@@ -1094,15 +1115,50 @@ def read_course_length(text: str) -> CourseLengthReading:
     summed reads 0.0. Foot marks (') are read only when no unit-word length is
     the course length.
     """
-    reading = _select_course_length(text, _length_runs(text))
+    runs = _length_runs(text)
+    reading = _select_course_length(text, runs)
     if reading is not None:
-        return reading
+        return _fail_closed_on_unread_inches(text, runs, reading)
     tie_from = _tie_clause_start(text)
-    runs: list[_LengthRun] = []
+    runs = []
+    read_spans: list[tuple[int, int]] = []
     for mark in _FOOT_MARK_LENGTH.finditer(text):
+        if _UNSIGNED_DEGREES_BEFORE.search(text, 0, mark.start()):
+            continue
+        components: tuple[tuple[str, str], ...] = ((mark.group(1), "feet"),)
+        if mark.group(2) is not None:
+            if parse_comma_number(mark.group(2)) >= 12:
+                continue
+            components += ((mark.group(2), "inches"),)
         role = _length_role(text, mark.start(), mark.end(), first=not runs, tie_from=tie_from)
-        runs.append(_LengthRun(mark.start(), mark.end(), ((mark.group(1), "feet"),), role))
-    return _select_course_length(text, runs) or CourseLengthReading(0.0, "feet")
+        runs.append(_LengthRun(mark.start(), mark.end(), components, role))
+        read_spans.append((mark.start(), mark.end()))
+    unread = [
+        pair.group(0)
+        for pair in _FOOT_INCH.finditer(text)
+        if (pair.start(), pair.end()) not in read_spans
+        and not _UNSIGNED_DEGREES_BEFORE.search(text, 0, pair.start())
+    ]
+    if unread:
+        return CourseLengthReading(0.0, "feet", tuple(unread))
+    reading = _select_course_length(text, runs) or CourseLengthReading(0.0, "feet")
+    return _fail_closed_on_unread_inches(text, runs, reading)
+
+
+def _fail_closed_on_unread_inches(
+    text: str, runs: list[_LengthRun], reading: CourseLengthReading
+) -> CourseLengthReading:
+    """Fail closed when an inch-like length directly after the course length was not read."""
+    if reading.ambiguous or reading.value == 0.0:
+        return reading
+    for run in runs:
+        if run.role not in ("course", "total"):
+            continue
+        unread = _UNREAD_INCH_AFTER.match(text, run.end)
+        if unread:
+            stated = text[run.start : run.end]
+            return CourseLengthReading(0.0, "feet", (stated, unread.group(0).strip(" .")))
+    return reading
 
 
 def extract_distance(text: str) -> tuple[float, str]:
