@@ -5,8 +5,9 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import importlib.metadata
+import os
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -765,7 +766,6 @@ def publish_delivery(
         if not existed:
             created.append(path)
 
-    manifest_path: Path | None = None
     try:
         snapshot = prepare_delivery(bundle, revision_dir, request)
         directory = Path(output_dir)
@@ -773,39 +773,47 @@ def publish_delivery(
             raise ValueError("Unsafe delivery store symlink")
         directory.mkdir(parents=True, exist_ok=True)
         directory = directory / snapshot.request.id
-        if directory.is_symlink():
-            raise ValueError("Unsafe delivery directory symlink")
-        directory.mkdir(exist_ok=True)
         manifest_path = directory / "delivery-manifest.json"
-        write_new(
-            directory / "pending.json",
-            _json(
-                {
-                    "request": snapshot.request.model_dump(mode="json"),
+        # Serialize publishes of one delivery id so a failing publish cannot
+        # discard files that a concurrent publish found present and referenced.
+        with _claim(directory):
+            try:
+                write_new(
+                    directory / "pending.json",
+                    _json(
+                        {
+                            "request": snapshot.request.model_dump(mode="json"),
+                            "snapshot_sha256": _hash(snapshot.model_dump(mode="json")),
+                        }
+                    ).encode("utf-8"),
+                )
+                artifacts = _components(bundle, snapshot)
+                hashes = {}
+                for name, content in artifacts.items():
+                    write_new(directory / name, content)
+                    hashes[name] = hashlib.sha256(content).hexdigest()
+                manifest = {
+                    "schema_version": "1.0",
+                    "save_state": "published",
+                    "exporter_version": snapshot.exporter_version,
+                    "request_sha256": snapshot.request_sha256,
                     "snapshot_sha256": _hash(snapshot.model_dump(mode="json")),
+                    "revision_sha256": snapshot.revision_sha256,
+                    "artifacts": hashes,
+                    "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
                 }
-            ).encode("utf-8"),
-        )
-        artifacts = _components(bundle, snapshot)
-        hashes = {}
-        for name, content in artifacts.items():
-            write_new(directory / name, content)
-            hashes[name] = hashlib.sha256(content).hexdigest()
-        manifest = {
-            "schema_version": "1.0",
-            "save_state": "published",
-            "exporter_version": snapshot.exporter_version,
-            "request_sha256": snapshot.request_sha256,
-            "snapshot_sha256": _hash(snapshot.model_dump(mode="json")),
-            "revision_sha256": snapshot.revision_sha256,
-            "artifacts": hashes,
-            "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
-        }
-        write_new(directory / "delivery-manifest.json", _json(manifest).encode("utf-8"))
+                write_new(manifest_path, _json(manifest).encode("utf-8"))
+                # Never end with a manifest referencing a missing artifact: re-assert
+                # each one (write-once: restores identical bytes, refuses differing).
+                for name, content in artifacts.items():
+                    _write_once(directory / name, content)
+            except BaseException:
+                _discard_incomplete(created, manifest_path)
+                raise
         result.update(
             status="needs_review",
             save_state="published",
-            manifest=str(directory / "delivery-manifest.json"),
+            manifest=str(manifest_path),
             revision_id=snapshot.request.revision_id,
             request_sha256=snapshot.request_sha256,
             omissions=manifest["omissions"],
@@ -815,19 +823,51 @@ def publish_delivery(
         )
     except (OSError, ValueError, TypeError, KeyError, ImportError) as exc:
         result["errors"].append(str(exc))
-        _discard_incomplete(created, manifest_path)
-    except BaseException:
-        _discard_incomplete(created, manifest_path)
-        raise
     return result
 
 
-def _discard_incomplete(created: list[Path], manifest_path: Path | None) -> None:
+@contextlib.contextmanager
+def _claim(directory: Path) -> Iterator[None]:
+    """Hold an exclusive advisory lock on the delivery directory (POSIX ``flock``).
+
+    The lock is released on exit or process death. A waiter whose directory was
+    removed by a discarding publish re-creates it and locks the new one.
+    Platforms without ``fcntl`` publish unlocked.
+    """
+    try:
+        import fcntl
+    except ImportError:  # pragma: no cover - non-POSIX
+        if directory.is_symlink():
+            raise ValueError("Unsafe delivery directory symlink") from None
+        directory.mkdir(exist_ok=True)
+        yield
+        return
+    while True:
+        if directory.is_symlink():
+            raise ValueError("Unsafe delivery directory symlink")
+        directory.mkdir(exist_ok=True)
+        descriptor = os.open(directory, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            held = os.fstat(descriptor)
+            try:
+                current = os.stat(directory, follow_symlinks=False)
+            except FileNotFoundError:
+                continue
+            if (current.st_dev, current.st_ino) == (held.st_dev, held.st_ino):
+                yield
+                return
+        finally:
+            os.close(descriptor)
+
+
+def _discard_incomplete(created: list[Path], manifest_path: Path) -> None:
     """Remove only this call's files from an unpublished package so the id can be retried.
 
-    A package with a manifest is complete and immutable; it is never touched.
+    Runs under the delivery claim. A package with a manifest is complete and
+    immutable; it is never touched.
     """
-    if manifest_path is None or manifest_path.exists():
+    if manifest_path.exists():
         return
     for path in reversed(created):
         path.unlink(missing_ok=True)
