@@ -26,7 +26,13 @@ from .models import (
     SkippedCourse,
     Transformation,
 )
-from .text_parser import _COMMA_NUMBER, TextParser, parse_comma_number
+from .text_parser import (
+    _COMMA_NUMBER,
+    TextParser,
+    break_inline_course_enumerators,
+    course_list_count_mismatches,
+    parse_comma_number,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -1030,10 +1036,17 @@ class CallExtractor:
             if thence_match and (has_beginning_preamble or not has_initial_course):
                 tract_text = tract_text[thence_match.start() :]
 
+            count_mismatches = course_list_count_mismatches(tract_text)
+            if strict and count_mismatches:
+                declared, found = count_mismatches[0]
+                raise ValueError(
+                    f"Course-list header states {declared} courses but {found} were found: "
+                    f"{tract_text.strip()!r}"
+                )
             has_numbered_course_markers = bool(
                 re.search(
                     r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+",
-                    tract_text,
+                    break_inline_course_enumerators(tract_text),
                     re.MULTILINE,
                 )
             )
@@ -1110,6 +1123,21 @@ class CallExtractor:
                         )
                     )
 
+                course_num += 1
+
+            for declared, found in count_mismatches:
+                # Not silently accepted: a missing or extra course is recorded and
+                # blocks closure, exactly as an unparsed course does.
+                _record_skipped_course(
+                    tract_text,
+                    course=course_num,
+                    source_course=len(call_texts) + 1,
+                    error_type="CourseCountMismatch",
+                    error=f"course-list header states {declared} courses but {found} were found",
+                    exc=None,
+                    audit_context=audit_context,
+                    skipped_courses=skipped_courses,
+                )
                 course_num += 1
 
         return calls
