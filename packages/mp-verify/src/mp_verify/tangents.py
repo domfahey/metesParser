@@ -12,6 +12,22 @@ from mp_bearing import bearing_to_azimuth  # type: ignore[import-untyped]
 from mp_models import DeedCall
 
 
+def is_circular_curve(call: DeedCall) -> bool:
+    """Return False for curve types whose shape is not a circular arc (spirals).
+
+    The single predicate deciding whether circular-arc geometry (chord 2R*sin(d/2),
+    circular segment area, R*delta perimeter, arc tangents) may be derived.
+    """
+    return call.curve_type != "spiral"
+
+
+def chord_is_feasible(call: DeedCall) -> bool:
+    """Return False when a stated chord exceeds the diameter 2*|radius| (no such circle)."""
+    if call.chord_length_ft is None or call.radius_ft is None:
+        return True
+    return call.chord_length_ft <= 2.0 * abs(call.radius_ft)
+
+
 def curve_sweep(call: DeedCall) -> float | None:
     """Return the stated sweep in degrees (delta, else arc / radius) when valid."""
     if call.curve_dir not in ("left", "right") or call.radius_ft is None or call.radius_ft <= 0:
@@ -31,6 +47,8 @@ def chord_positioned_delta(call: DeedCall) -> float | None:
     arc length (0 < sweep <= 360) with a parseable chord bearing. The chord is
     then 2R*sin(delta/2), computed here and never stored.
     """
+    if not is_circular_curve(call):
+        return None
     if call.chord_bearing is None or bearing_to_azimuth(call.chord_bearing) is None:
         return None
     return curve_sweep(call)
@@ -44,7 +62,7 @@ def curve_tangents(call: DeedCall) -> tuple[float, float] | None:
     topology check position the arc. Otherwise a stated tangent with a sweep is
     used. Chord-only curves (no delta or arc) and spirals return None.
     """
-    if call.curve_type == "spiral":
+    if not is_circular_curve(call):
         return None
     delta = curve_sweep(call)
     if delta is None:

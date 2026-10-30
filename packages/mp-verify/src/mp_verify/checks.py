@@ -22,7 +22,7 @@ from mp_bearing import (  # type: ignore[import-untyped]
 )
 from mp_models import CheckResult, DeedCall, Point
 
-from .tangents import has_determined_direction
+from .tangents import chord_is_feasible, has_determined_direction
 from .topology import check_curved_boundary_intersections
 from .traverse import position_courses
 
@@ -595,7 +595,7 @@ def check_curve_consistency(
                 # No delta or arc: a radius and chord alone leave the arc ambiguous,
                 # so only the chord's own feasibility (and any stated tangent) can be
                 # checked.
-                if call.chord_length_ft is not None and call.chord_length_ft > 2 * call.radius_ft:
+                if not chord_is_feasible(call):
                     warnings.append(
                         f"Course {call.course}: chord length exceeds twice the radius "
                         f"(chord: {call.chord_length_ft:.2f}, radius: {call.radius_ft:.2f})"
