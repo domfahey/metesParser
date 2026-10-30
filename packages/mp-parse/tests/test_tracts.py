@@ -625,3 +625,113 @@ def test_repeated_label_without_calls_folds_into_previous_tract():
     result = split_into_tracts(text)
     assert [label for _t, label, _k in result] == ["Tract 1", "Tract 2"]
     assert "WHOSEVER" in result[0][0]
+
+
+# --- "TRACT n: BEING the same lands ..." recitals (15 E Euclid Ave) --------------
+
+_T1 = (
+    "TRACT #1: BEGINNING in the line of Euclid Avenue; thence Southwestwardly 80 feet; "
+    "thence Northwestwardly 142 feet. "
+)
+_T1_OCR = _T1.replace("#1", "#l")
+_T2 = (
+    "TRACT #2: BEGINNING at a point; and extends thence (1) Westwardly 10 feet; "
+    "thence (2) Northwardly 142 feet to the point of beginning. "
+)
+_R1 = (
+    "TRACT #1: BEING the same lands and premises which became vested in A by deed from B "
+    "recorded in Book 2321 page 405. "
+)
+_R2 = (
+    "TRACT #2:BEING the same lands and premises which became vested in C by deed from D "
+    "in Deed Book 2427 at page 224. "
+)
+_R1_COURSE = (
+    "TRACT #1: BEING the same premises conveyed to A by deed recorded in Book 1, lying "
+    "Northerly of Euclid Avenue and thence Westerly of Turnley Avenue. "
+)
+
+# (case id, text, expected tract labels, {label: recital fragment its text keeps})
+_RECITAL_SPLIT_CASES = [
+    (
+        "recitals-after-descriptions",
+        _T1 + _T2 + _R1 + _R2,
+        ["Tract 1", "Tract 2"],
+        {"Tract 1": "Book 2321", "Tract 2": "Book 2427"},
+    ),
+    # OCR read the first heading "#l": the unmatched recital is dropped, never a tract.
+    (
+        "ocr-label-recital-dropped",
+        _T1_OCR + _T2 + _R1 + _R2,
+        ["Tract l", "Tract 2"],
+        {"Tract 2": "Book 2427"},
+    ),
+    # Course words (even "thence Westerly") inside a recital are not boundary calls.
+    (
+        "recital-with-course-words",
+        _T1 + _T2 + _R1_COURSE,
+        ["Tract 1", "Tract 2"],
+        {"Tract 1": "Turnley"},
+    ),
+    (
+        "ocr-label-recital-with-course-words-dropped",
+        _T1_OCR + _T2 + _R1_COURSE,
+        ["Tract l", "Tract 2"],
+        {},
+    ),
+    # A recital before the description with the same label folds into it.
+    (
+        "recital-before-description",
+        _R1 + _T1 + _T2,
+        ["Tract 1", "Tract 2"],
+        {"Tract 1": "Book 2321"},
+    ),
+    # A recital-only deed keeps its tract: there is no described tract to fold into.
+    ("recital-only", _R1, ["Tract 1"], {"Tract 1": "Book 2321"}),
+    (
+        "recitals-only",
+        _R1 + _R2,
+        ["Tract 1", "Tract 2"],
+        {"Tract 1": "Book 2321", "Tract 2": "Book 2427"},
+    ),
+]
+
+
+@pytest.mark.parametrize("normalize", [False, True], ids=["raw", "normalized"])
+@pytest.mark.parametrize(
+    ("text", "labels", "contains"),
+    [case[1:] for case in _RECITAL_SPLIT_CASES],
+    ids=[case[0] for case in _RECITAL_SPLIT_CASES],
+)
+def test_being_the_same_recital_never_forms_its_own_tract(text, labels, contains, normalize):
+    if normalize:
+        text = normalize_legal_description(text)
+    result = split_into_tracts(text)
+    assert [label for _t, label, _k in result] == labels
+    by_label = {label: segment for segment, label, _k in result}
+    for label, fragment in contains.items():
+        assert fragment in by_label[label]
+
+
+def test_unmatched_recital_drop_is_logged():
+    from structlog.testing import capture_logs
+
+    with capture_logs() as logs:
+        split_into_tracts(_T1_OCR + _T2 + _R1 + _R2)
+    assert any(e["log_level"] == "warning" and "recital" in e["event"].lower() for e in logs)
+
+
+def test_15_euclid_7433_sample_matches_ground_truth_tract_count():
+    # Ground truth: 2 tracts (Tract #1 with 2 calls, Tract #2 with 4 calls).
+    from pathlib import Path
+
+    md = (
+        Path(__file__).resolve().parents[3]
+        / "sample_deeds"
+        / "15 E Euclid Ave - Deed Image (7433 - 466).md"
+    )
+    if not md.exists():
+        pytest.skip("sample deed markdown not available")
+    text = md.read_text()
+    for source in (text, normalize_legal_description(text)):
+        assert len(split_into_tracts(source)) == 2

@@ -99,6 +99,38 @@ _REFERENCE_WORD_BEFORE = re.compile(
 )
 
 
+# A marker segment that is a title recital ("TRACT #1: BEING the same lands and
+# premises which became vested in ... by deed ..."), not a boundary description.
+_RECITAL_OPENER = re.compile(
+    r"^[^\n]{0,40}?\bBEING\s+(?:all\s+of\s+)?the\s+same\s+"
+    r"(?:lands?|premises|property|tract|parcel|lot)\b",
+    re.IGNORECASE,
+)
+_RECITAL_CONVEYANCE = re.compile(r"\b(?:conveyed|vested|deed|recorded)\b", re.IGNORECASE)
+# A measured distance; a recital may name directions ("lying Northerly of ...",
+# even "thence Westerly of ...") but states no course distance.
+_COURSE_DISTANCE = re.compile(
+    r"\d[\d,]*(?:\.\d+)?\s*(?:feet|foot|ft\b|chains?|rods?|perches|poles?|links?|met(?:er|re)s?)",
+    re.IGNORECASE,
+)
+
+
+def _is_title_recital(segment: str) -> bool:
+    """Return whether a marker segment is a BEING-the-same recital with no boundary call.
+
+    A boundary call needs a BEGINNING clause or a recognised THENCE course with a
+    measured distance; direction words alone in a recital are not courses.
+    """
+    if not (_RECITAL_OPENER.match(segment) and _RECITAL_CONVEYANCE.search(segment)):
+        return False
+    if _BEGINNING_PATTERN.search(segment):
+        return False
+    return not any(
+        _COURSE_DISTANCE.search(segment, course.end(), course.end() + 200)
+        for course in _THENCE_COURSE.finditer(segment)
+    )
+
+
 def _inside_open_description(prefix: str) -> bool:
     """Return whether a BEGINNING in prefix has no later point-of-beginning closure."""
     starts = list(_BEGINNING_PATTERN.finditer(prefix))
@@ -171,6 +203,7 @@ def split_on_markers(
     and assign the correct TractType.
     """
     result: list[tuple[str, str, TractType]] = []
+    recitals: list[tuple[str, str, TractType]] = []
 
     # Boundary calls before the first marker belong to a tract whose heading was
     # not found (e.g. lost by OCR). Keep them under a neutral label; recitals
@@ -205,6 +238,12 @@ def split_on_markers(
         else:
             tract_type = TractType.MAIN
 
+        # A title recital is never a tract of its own; it is resolved after all
+        # descriptions are known (a same-label description may follow it).
+        if _is_title_recital(segment):
+            recitals.append((segment, label, tract_type))
+            continue
+
         # A repeated label whose segment has no calls is prose about an earlier
         # tract (area, exception recital), not a new tract: fold it back.
         if not (_BEGINNING_PATTERN.search(segment) or _THENCE_COURSE.search(segment)):
@@ -215,6 +254,23 @@ def split_on_markers(
                 continue
 
         result.append((segment, label, tract_type))
+
+    described = bool(result)
+    for segment, label, tract_type in recitals:
+        same = next((j for j, r in enumerate(result) if r[1] == label), None)
+        if same is not None:
+            prev_text, prev_label, prev_type = result[same]
+            result[same] = (f"{prev_text} {segment}".strip(), prev_label, prev_type)
+        elif described:
+            # No described tract carries this label (e.g. its heading was OCR-garbled):
+            # the recital has no calls, so it is dropped rather than made a tract.
+            logger.warning(
+                "Dropping title recital whose label matches no described tract",
+                label=label,
+                preview=segment[:120],
+            )
+        else:
+            result.append((segment, label, tract_type))
     return result
 
 
