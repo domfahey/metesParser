@@ -812,6 +812,13 @@ _IMPLICIT_COMPOUND_PAIRS = {
 }
 
 
+_EQUIVALENT_UNITS = {"pole", "rod", "perch"}
+
+
+def _same_unit_family(first: str, second: str) -> bool:
+    return first == second or (first in _EQUIVALENT_UNITS and second in _EQUIVALENT_UNITS)
+
+
 def _singular_unit(unit: str) -> str:
     unit = " ".join(unit.lower().split())
     return unit.removesuffix("es") if unit.endswith("ches") else unit.removesuffix("s")
@@ -872,18 +879,22 @@ def extract_distance(text: str) -> tuple[float, str]:
             first_measurement is None or compound.start() != first_measurement.start()
         ):
             compound = None
-        if compound and not re.fullmatch(
-            rf"{component_pattern}(?:\s+and\s+{component_pattern})+",
-            compound.group(0),
-            re.IGNORECASE,
-        ):
+        if compound:
             comps = list(re.finditer(component_pattern, compound.group(0), re.IGNORECASE))
             keep = 1
             for prev, cur in zip(comps, comps[1:], strict=False):
                 gap = compound.group(0)[prev.end() : cur.start()]
                 pair = (_singular_unit(prev.group(2)), _singular_unit(cur.group(2)))
                 joined_by_and = re.search(r"\band\b", gap, re.IGNORECASE)
-                if not (joined_by_and or pair in _IMPLICIT_COMPOUND_PAIRS):
+                # "and" joins different units only: "100 feet and 50 feet" (or
+                # pole/rod/perch equivalents) is two measurements, never a sum.
+                if not (
+                    pair in _IMPLICIT_COMPOUND_PAIRS
+                    or (joined_by_and and not _same_unit_family(*pair))
+                    # "1 chain and 25 links and 10 links": further links extend a
+                    # chain/rod run that already holds a larger unit.
+                    or (joined_by_and and keep >= 2 and pair == ("link", "link"))
+                ):
                     break
                 keep += 1
             if keep >= 2:
@@ -893,13 +904,7 @@ def extract_distance(text: str) -> tuple[float, str]:
                     re.IGNORECASE,
                 ).match(text, compound.start())
             else:
-                # Keep a valid "and" compound only if it begins at the first
-                # measurement (never skip a leading component); otherwise the
-                # first measurement alone is used.
-                compound = re.compile(
-                    rf"{component_pattern}(?:\s+and\s+{component_pattern})+",
-                    re.IGNORECASE,
-                ).match(text, compound.start())
+                compound = None
         if compound:
             trailing_component = re.match(
                 rf"\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+", text[compound.end() :], re.IGNORECASE
@@ -950,12 +955,16 @@ def extract_distance(text: str) -> tuple[float, str]:
                 for value, unit in values
             )
             return total_ft, "feet"
-        if re.search(
+        and_pair = re.search(
             rf"{COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
             text,
             re.IGNORECASE,
-        ):
-            return 0.0, "feet"
+        )
+        if and_pair:
+            units = re.findall(rf"{COMMA_NUMBER}\s*({compound_unit})\b", and_pair.group(0), re.I)
+            # Same-unit "and" pairs are separate measurements: the first one is used.
+            if not (len(units) == 2 and _same_unit_family(*(_singular_unit(u) for u in units))):
+                return 0.0, "feet"
         match = next(
             (
                 m
