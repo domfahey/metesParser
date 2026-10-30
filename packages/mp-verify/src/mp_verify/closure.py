@@ -44,7 +44,7 @@ from .checks import (
     tangent_chord_issue,
 )
 from .confidence import calculate_confidence_score, score_call_quality
-from .tangents import chord_positioned_delta, has_determined_direction
+from .tangents import chord_positioned_delta, has_determined_direction, is_circular_curve
 from .traverse import analyze_courses, traverse_positions
 
 logger = structlog.get_logger(__name__)
@@ -88,7 +88,11 @@ def calculate_area(points: list[Point], *, calls: list[DeedCall] | None = None) 
     curved_area = 0.0
     for call in calls or []:
         tangentless = call.bearing_azimuth_deg_from_north is None
-        if (tangentless and chord_positioned_delta(call) is None) or not call.is_curve():
+        if (
+            not is_circular_curve(call)
+            or (tangentless and chord_positioned_delta(call) is None)
+            or not call.is_curve()
+        ):
             continue
         if call.radius_ft is None or call.curve_dir is None:
             continue
@@ -149,7 +153,7 @@ def _calculate_exception_area(calls: list[DeedCall]) -> float:
             raise ValueError(
                 f"Exception course {call.course} has an incomplete bearing; net area unavailable"
             )
-        if call.is_chord_only_curve():
+        if call.is_chord_only_curve() or not is_circular_curve(call):
             raise ValueError(
                 f"Exception course {call.course}: curve delta/arc not stated; net area unavailable"
             )
@@ -373,6 +377,12 @@ def verify_closure(
             "arc, area and perimeter are not determined"
         )
 
+    arc_undetermined = [r for r in records if r.arc_undetermined and not r.chord_only]
+    for record in arc_undetermined:
+        warnings.append(
+            f"Course {record.call.course}: spiral positioned by its stated chord only - "
+            "arc shape, area and perimeter are not determined"
+        )
     area_available = (
         bool(records)
         and all(
@@ -380,6 +390,7 @@ def verify_closure(
             for record in records
         )
         and not chord_only
+        and not arc_undetermined
         and not unpositioned
     )
     area_sq_ft = 0.0
@@ -411,7 +422,7 @@ def verify_closure(
             area_acres = 0.0
             warnings.append(f"Cannot calculate area: {e}")
 
-    perimeter_available = not chord_only and not unpositioned
+    perimeter_available = not chord_only and not arc_undetermined and not unpositioned
     perimeter = calculate_perimeter(main_calls) if perimeter_available else 0.0
 
     closure_passed = has_computable_traverse and misclosure < tolerance and misclosure_available
