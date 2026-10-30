@@ -16,6 +16,7 @@ from mp_models.plot import (
     PlotPlacement,
     PlotScene,
     VectorLayer,
+    plot_point_of_beginning,
 )
 from mp_models.plot_request import PlotCall
 from mp_models.raster import RasterLayer
@@ -252,7 +253,8 @@ def _validate_deed_set(geometry: PlotGeometry, features: list[WebMapFeature]) ->
         raise ValueError(
             "online display is stale: features are bound to a geometry with no courses"
         )
-    first, last = primitives[0].start, primitives[-1].end
+    pob = plot_point_of_beginning(geometry)
+    first, last = pob or primitives[0].start, primitives[-1].end
     wants_gap = geometry.completeness == "complete" and has_closure_gap(first, last)
     if (
         sorted(f.properties.call_id or "" for f in courses) != sorted(p.call_id for p in primitives)
@@ -274,7 +276,16 @@ def _validate_deed_set(geometry: PlotGeometry, features: list[WebMapFeature]) ->
         joined = math.hypot(a.end[0] - b.start[0], a.end[1] - b.start[1]) <= _NATIVE_JOIN_TOLERANCE
         if joined and not _near(ca[-1], cb[0]):
             raise ValueError("online display coordinate mismatch: chained courses do not meet")
-    if not _near(feature_vertices(pobs[0])[0], chain[0][0]):
+    # Geographic coordinates cannot be re-derived here. A drawn first course starts at
+    # the point of beginning; a leading chord-only curve is positioned but not drawn, so
+    # its chord end (where the first drawn course starts) is not the point of beginning.
+    pob_here = _near(feature_vertices(pobs[0])[0], chain[0][0])
+    pob_at_first_start = (
+        pob is None
+        or math.hypot(pob[0] - primitives[0].start[0], pob[1] - primitives[0].start[1])
+        <= _NATIVE_JOIN_TOLERANCE
+    )
+    if pob_here != pob_at_first_start:
         raise ValueError("online display coordinate mismatch: point of beginning")
     if gaps:
         gap = feature_vertices(gaps[0])

@@ -246,6 +246,7 @@ def _build_geometry(
         if complete
         else None,
         perimeter_ft=sum(p.length_ft for p in primitives) if complete else None,
+        point_of_beginning=origin if primitives and primitives[0].start != origin else None,
     )
 
 
