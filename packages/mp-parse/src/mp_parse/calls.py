@@ -53,6 +53,7 @@ from .metadata import (
     is_closure_to_pob,
     is_indefinite_call,
     read_course_length,
+    read_standalone_inch_length,
     split_exception_clauses,
     split_into_calls,
 )
@@ -962,10 +963,37 @@ def _expand_hyphen_marked_dms(text: str) -> str:
     return _HYPHEN_MARKED_DMS_BEARING.sub(_repl, text)
 
 
+# Tabular curve notation: explicit upper-case labels ("R=", "L=", "\u0394=", "CB=",
+# "CH="/"C=") are the spelled-out curve elements, read through the one shared
+# curve-element grammar. A label is a whole token followed by "=" and, for a
+# length/angle, a number (for CB, a bearing letter); "D=" (degree of curve) and
+# "A=" (arc or area) are ambiguous and stay unread, as does any unlabelled value.
+_CURVE_LABELS = (
+    (r"R", "radius of ", r"(?=\.?\d)"),
+    (r"L", "arc length of ", r"(?=\.?\d)"),
+    (r"[\u0394\u2206]|Delta", "delta of ", r"(?=\.?\d)"),
+    (r"CB", "chord bearing of ", r"(?=[NS](?![a-z]))"),
+    (r"CH|C", "chord length of ", r"(?=\.?\d)"),
+)
+_CURVE_LABEL_PATTERNS = tuple(
+    (re.compile(rf"(?<![\w.])(?-i:{label})\s*=\s*{ahead}"), words)
+    for label, words, ahead in _CURVE_LABELS
+)
+
+
+def _expand_curve_labels(text: str) -> str:
+    """Spell out tabular curve labels ("R=100'" -> "radius of 100'")."""
+    for pattern, words in _CURVE_LABEL_PATTERNS:
+        text = pattern.sub(words, text)
+    return text
+
+
 def _normalize_bearing_forms(text: str) -> str:
     """Rewrite every bearing form the parser accepts into abbreviated DMS."""
     return standardize_cardinal_directions(
-        _expand_compact_dms(_expand_marked_dms(_expand_hyphen_marked_dms(text)))
+        _expand_compact_dms(
+            _expand_marked_dms(_expand_hyphen_marked_dms(_expand_curve_labels(text)))
+        )
     )
 
 
@@ -1592,6 +1620,14 @@ def extract_single_call(
     return call
 
 
+def _inch_course_length(course_text: str, direction: str) -> float | None:
+    """Feet of a straight course stated wholly in inches directly after its bearing."""
+    position = course_text.find(direction) if direction else -1
+    if position < 0:
+        return None
+    return read_standalone_inch_length(course_text[position + len(direction) :])
+
+
 def _adjoiner_wording(along: str, course_direction: str, course_distance_ft: float | None) -> str:
     """Return ``along`` without the course's own bearing and length.
 
@@ -1698,8 +1734,12 @@ def _extract_call(
             re.IGNORECASE,
         ):
             raise ValueError("Unsupported component in compound course distance")
-        distance = extract_distance_alternate(course_text)
-        unit = distance_unit
+        inches = None if is_curve else _inch_course_length(course_text, raw_direction)
+        if inches is not None:
+            distance, unit = inches, "feet"
+        else:
+            distance = extract_distance_alternate(course_text)
+            unit = distance_unit
 
     distance_ft: float | None = ConversionFactors.convert_to_feet(distance, unit)
 
@@ -2425,9 +2465,22 @@ _CHORD_LENGTH_AFTER_BEARING = re.compile(
 _CHORD_LENGTH_IN_CLAUSE = re.compile(rf"({LENGTH_NUMBER})\s*({LENGTH_UNIT})", re.IGNORECASE)
 
 
+# "D=30\u00b0" and "degree of curve 30\u00b0" state the degree of curvature (a radius
+# measure), never the central angle.
+_DEGREE_OF_CURVE_PREFIX = re.compile(
+    r"(?:\bdegree\s+of\s+(?:curve|curvature)\s+(?:of\s+)?|(?<![\w.])D\s*=\s*)$",
+    re.IGNORECASE,
+)
+
+
 def _is_bearing_degree(text: str, start: int) -> bool:
     """Return True when the degree value at ``start`` is part of a bearing."""
     return _ends_with(_BEARING_DEGREE_PREFIX, text, start)
+
+
+def _is_degree_of_curve(text: str, start: int) -> bool:
+    """Return True when the degree value at ``start`` is a degree of curvature."""
+    return _ends_with(_DEGREE_OF_CURVE_PREFIX, text, start)
 
 
 # "radius point bears N 10 E 500.00 feet": a length directly after a radial bearing,
@@ -2477,12 +2530,15 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
         Dict with curve properties (empty if no curve)
     """
     curve_info: dict[str, float | str | None] = {}
+    text = _expand_curve_labels(text)
 
     if not CURVE_KEYWORD_PATTERN.search(text):
         return curve_info
 
     match = CURVE_PATTERN.search(text)
-    if match and _is_bearing_degree(text, match.start(4)):
+    if match and (
+        _is_bearing_degree(text, match.start(4)) or _is_degree_of_curve(text, match.start(4))
+    ):
         # The first degree value belongs to a bearing (e.g. the chord's), not
         # the central angle; only an explicitly labelled delta may be used.
         match = None
