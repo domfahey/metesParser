@@ -78,7 +78,7 @@ UNLABELLED_TRACT_LABEL = "Unlabelled tract"
 # A bearing or curve phrase: a direction word, an N/S-prefixed bearing, or a curve/arc.
 _COURSE_WORD = (
     r"(?:(?:north|south|east|west)(?:erly|wardly)?(?![A-Za-z])"
-    r"|[NS]\s*\.?\s*\d|(?:curve|arc)s?(?![A-Za-z])|curving\b)"
+    r"|[NS]\s*\.?\s*\d|(?:curve|arc)s?(?![A-Za-z])|curv(?:ed|ing)\b)"
 )
 # A THENCE that opens a real course: directly followed by a direction word or
 # letter, or by along/with/by ... then a bearing or curve phrase in the same
