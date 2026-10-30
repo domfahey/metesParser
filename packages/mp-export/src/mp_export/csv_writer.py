@@ -182,6 +182,19 @@ def _labelled_skips(
     ]
 
 
+def _known_tracts(
+    legal_desc: LegalDescription | None, tract_results: list[tuple[Tract, ClosureResult]]
+) -> list[Tract]:
+    """Every tract the caller knows, so a skip labelled with an omitted tract stays with it."""
+    known = [t for t, _ in tract_results]
+    labels = {t.label for t in known}
+    for tract in legal_desc.tracts if legal_desc is not None else []:
+        if tract.label not in labels:
+            known.append(tract)
+            labels.add(tract.label)
+    return known
+
+
 def _single_description_skips(
     legal_desc: LegalDescription | None,
     audit_context: AuditContext | None,
@@ -466,7 +479,7 @@ def export_verified_csv(
                     independent_tract=True,
                     skipped_courses=skips_for_tract(
                         tract,
-                        [t for t, _ in tract_results],
+                        _known_tracts(legal_desc, tract_results),
                         _labelled_skips(audit_context, skipped_courses),
                     ),
                 )
