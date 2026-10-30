@@ -133,6 +133,14 @@ def _is_debug_logging_enabled() -> bool:
     return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
 
 
+def _clean_validation_error(exc: ValidationError) -> ValueError:
+    """Return a ValueError carrying only the validator messages of a pydantic error."""
+    messages = [str(err.get("msg", "")).removeprefix("Value error, ") for err in exc.errors()]
+    clean = ValueError("; ".join(m for m in messages if m) or "invalid course")
+    clean.__cause__ = exc
+    return clean
+
+
 def _record_skipped_course(
     call_text: str,
     *,
@@ -629,6 +637,9 @@ def _extract_calls_from_text(
                     call_text, course=course_num, distance_unit=distance_unit
                 )
             except (ValidationError, ValueError, TypeError) as exc:
+                if isinstance(exc, ValidationError):
+                    # Never leak a raw pydantic dump: keep the validator messages only.
+                    exc = _clean_validation_error(exc)
                 if isinstance(exc, MultipleCoursesError):
                     pieces = _split_multi_course_fragment(call_text)
                     if len(pieces) > 1:
@@ -1569,7 +1580,10 @@ def extract_single_call(
             a zero or unread length, ambiguous length or an unsupported compound
             distance component); a dropped course is never reported as None.
     """
-    call = _extract_call(call_text, course, distance_unit)[0]
+    try:
+        call = _extract_call(call_text, course, distance_unit)[0]
+    except ValidationError as exc:
+        raise _clean_validation_error(exc) from exc
     if call is None and not _BEGINNING_CLAUSE.match(call_text):
         raise ValueError(
             "No usable course could be parsed (no readable direction, or a zero or "
@@ -1750,7 +1764,9 @@ def _extract_call(
     )
     positioned_by_chord = (
         tangent_delta is None
-        and stated_arc is None
+        # A spiral's stated length is its curve length, not a circular arc: a stated
+        # chord still positions it (as verification does).
+        and (stated_arc is None or is_spiral)
         and (isinstance(stated_radius, float) or is_spiral)
         and isinstance(chord_text, str)
         and isinstance(stated_chord, float)
@@ -2012,6 +2028,25 @@ def _extract_call(
             curve_type = "spiral"
     if curve_direction is not None and curve_type is None:
         curve_type = "simple"
+
+    # Concavity alone does not state left/right without the direction of travel, so a
+    # circular curve with no stated direction is rejected, never inferred.
+    if curve_direction is None and curve_type != "spiral":
+        stated = [
+            name
+            for name, value in (
+                ("radius", radius_ft),
+                ("delta", delta_deg),
+                ("arc length", arc_length_ft),
+                ("chord", chord_length_ft),
+            )
+            if value is not None
+        ]
+        if stated:
+            raise ValueError(
+                "curve direction (left/right) not stated; it cannot be inferred from "
+                f"concavity (course states {', '.join(stated)})"
+            )
 
     call = DeedCall(
         course=course,
