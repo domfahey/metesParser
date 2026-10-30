@@ -4,6 +4,10 @@ Detects multi-tract patterns in priority order:
 1. Explicit markers: TRACT #N, TRACT A, PARCEL N
 2. Multiple BEGINNING...POB blocks (text-pattern based)
 3. EXCEPT/ALSO clauses (reuses split_exception_clauses)
+
+An appurtenant easement or right of way described by its own courses ("Together
+with an easement ... BEGINNING ...; thence ...") is split from whichever tract
+holds it into an EASEMENT tract, so its legs never join a parcel boundary.
 """
 
 from __future__ import annotations
@@ -13,7 +17,7 @@ import re
 import structlog
 from mp_models import TractType
 
-from .metadata import split_exception_clauses
+from .metadata import _is_lot_qualifier_except, split_exception_clauses
 from .units import LENGTH_NUMBER, LENGTH_UNIT
 
 logger = structlog.get_logger(__name__)
@@ -114,6 +118,132 @@ _COURSE_DISTANCE = re.compile(
     rf"{LENGTH_NUMBER}\s*{LENGTH_UNIT}",
     re.IGNORECASE,
 )
+
+
+# An appurtenant easement or right of way introduced at a clause start ("Together
+# with an easement 10 feet wide, BEGINNING ...", "ALSO an easement ...", "Subject to
+# a right of way described as follows: ..."). The noun must follow in the same
+# clause, before any THENCE or EXCEPT (an excepted right of way is an exception).
+# ALSO opens one only at a sentence start: after a comma it continues a call
+# ("..., also being the Southerly right of way of Mack Avenue").
+_EASEMENT_NOUN = (
+    r"(?:(?!\bthence\b|\bexcept)[^.;\n]){0,80}?\b(?:easements?|rights?[\s-]+of[\s-]+way)\b"
+)
+_EASEMENT_INTRO = r"(?:TOGETHER\s+WITH|SUBJECT\s+TO|ALSO|RESERVING)\b" + _EASEMENT_NOUN
+_EASEMENT_OPENER = re.compile(
+    r"(?:(?:^|(?<=[.;:,\n]))\s*(?P<open>(?:TOGETHER\s+WITH|SUBJECT\s+TO|RESERVING)\b"
+    + _EASEMENT_NOUN
+    + r")|(?:^|(?<=[.;:\n]))\s*(?P<also>ALSO\b"
+    + _EASEMENT_NOUN
+    + r"))",
+    re.IGNORECASE,
+)
+# Wording right before a tract that makes it an easement description.
+_EASEMENT_BEFORE = re.compile(_EASEMENT_INTRO + r"[^.;]*$", re.IGNORECASE)
+_STRUCTURAL_EXCEPT = re.compile(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", re.IGNORECASE)
+_ADDITION_START = re.compile(r"(?:^|[;\n.])\s*(?:ALSO|INCLUDING)\b", re.IGNORECASE)
+_COMMENCING = re.compile(r"\bCOMMENCING\b", re.IGNORECASE)
+EASEMENT_LABEL = "Easement"
+
+
+def _boundary_closed_before(prefix: str) -> bool:
+    """Return whether no boundary description is still open at the end of ``prefix``.
+
+    An opener inside an open description ("BEGINNING at a pin, subject to a right of
+    way, thence ...", "Commencing at a corner, also being ...") qualifies that
+    description; it never starts an easement. A description is open from its last
+    BEGINNING, COMMENCING or THENCE until a point-of-beginning closure.
+    """
+    openings = [
+        *(m.end() for m in _beginning_starts(prefix)),
+        *(m.end() for m in _COMMENCING.finditer(prefix)),
+        *(m.end() for m in _THENCE_WORD.finditer(prefix)),
+    ]
+    return not openings or _POB_CLOSE_PATTERN.search(prefix, max(openings)) is not None
+
+
+def easement_description_spans(text: str) -> list[tuple[int, int]]:
+    """Return the spans of appurtenant easement descriptions stated by their own courses.
+
+    A span runs from its opener to the next easement opener, structural
+    EXCEPT/ALSO clause or tract heading, or the end of ``text``. An opener without a
+    THENCE course in its span is a clause (metadata), not a description.
+    """
+    openers = [
+        m.start("open") if m["open"] else m.start("also") for m in _EASEMENT_OPENER.finditer(text)
+    ]
+    if not openers:
+        return []
+    stops = sorted(
+        {
+            *openers,
+            *(
+                m.start()
+                for m in _STRUCTURAL_EXCEPT.finditer(text)
+                if not _is_lot_qualifier_except(text, m)
+            ),
+            *(m.end() - len(m.group().lstrip(";\n. \t")) for m in _ADDITION_START.finditer(text)),
+            *(position for position, _, _ in find_tract_markers(text)),
+        }
+    )
+    spans: list[tuple[int, int]] = []
+    for start in openers:
+        if spans and start < spans[-1][1]:
+            continue
+        if not _boundary_closed_before(text[:start]):
+            continue
+        end = next((stop for stop in stops if stop > start), len(text))
+        if _THENCE_COURSE.search(text, start, end):
+            spans.append((start, end))
+    return spans
+
+
+def _separate_easements(
+    segments: list[tuple[str, str, TractType]],
+) -> list[tuple[str, str, TractType]]:
+    """Split easement descriptions out of each segment into EASEMENT tracts.
+
+    Generated easement labels are numbered in order of appearance.
+    """
+    result: list[tuple[str, str, TractType]] = []
+    for segment, label, tract_type in segments:
+        spans = [] if tract_type == TractType.EASEMENT else easement_description_spans(segment)
+        if not spans:
+            result.append((segment, label, tract_type))
+            continue
+        kept: list[str] = []
+        cursor = 0
+        for start, end in spans:
+            kept.append(segment[cursor:start])
+            cursor = end
+        kept.append(segment[cursor:])
+        remainder = " ".join(part.strip() for part in kept if part.strip())
+        if remainder:
+            result.append((remainder, label, tract_type))
+        result.extend(
+            (segment[start:end].strip(), EASEMENT_LABEL, TractType.EASEMENT) for start, end in spans
+        )
+    count = 0
+    numbered: list[tuple[str, str, TractType]] = []
+    for segment, label, tract_type in result:
+        if tract_type == TractType.EASEMENT and re.fullmatch(
+            re.escape(EASEMENT_LABEL) + r"(?: \d+)?", label
+        ):
+            count += 1
+            label = f"{EASEMENT_LABEL} {count}"
+        numbered.append((segment, label, tract_type))
+    return numbered
+
+
+def _tract_type_before(preceding: str) -> TractType:
+    """Type of the tract that follows ``preceding`` (its last 80 characters)."""
+    if _EASEMENT_BEFORE.search(preceding):
+        return TractType.EASEMENT
+    if re.search(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", preceding, re.IGNORECASE):
+        return TractType.EXCEPTION
+    if re.search(r"\b(?:ALSO|INCLUDING)\b", preceding, re.IGNORECASE):
+        return TractType.ADDITION
+    return TractType.MAIN
 
 
 def _is_title_recital(segment: str) -> bool:
@@ -278,14 +408,8 @@ def split_on_markers(
         end = markers[i + 1][0] if i + 1 < len(markers) else len(text)
         segment = text[pos:end].strip()
 
-        # Check preceding text for EXCEPT/ALSO to assign correct TractType
-        preceding = text[max(0, pos - 80) : pos]
-        if re.search(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", preceding, re.IGNORECASE):
-            tract_type = TractType.EXCEPTION
-        elif re.search(r"\b(?:ALSO|INCLUDING)\b", preceding, re.IGNORECASE):
-            tract_type = TractType.ADDITION
-        else:
-            tract_type = TractType.MAIN
+        # Check preceding text for easement/EXCEPT/ALSO wording to assign the TractType
+        tract_type = _tract_type_before(text[max(0, pos - 80) : pos])
 
         # A title recital is never a tract of its own; it is resolved after all
         # descriptions are known (a same-label description may follow it).
@@ -341,14 +465,19 @@ def _beginning_starts(text: str) -> list[re.Match[str]]:
 
 
 _THENCE_WORD = re.compile(r"\bTHENCE\b", re.IGNORECASE)
+# A point of beginning reached by a tie and followed by more courses ("... to a point
+# and place of beginning, thence; (1) ...") is not the description's closure.
+_POB_CONTINUES = re.compile(r"\s*[,;]?\s*thence\b", re.IGNORECASE)
 
 
 def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
     """Find BEGINNING...POB blocks.
 
     A block closes at the first point-of-beginning mention after its first
-    THENCE: preamble wording ("said point of beginning being distant ...",
-    "from said point of beginning running thence") is not a closure.
+    THENCE that no further THENCE follows: preamble wording ("said point of
+    beginning being distant ...", "from said point of beginning running thence")
+    and a tie to the point of beginning ("to a point and place of beginning,
+    thence; (1) ...") are not closures.
 
     Returns: list of (start, end) positions
     """
@@ -363,7 +492,14 @@ def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
                 preview=text[m.start() : m.start() + 80],
             )
             continue
-        close = _POB_CLOSE_PATTERN.search(text, first_thence.end())
+        close = next(
+            (
+                mention
+                for mention in _POB_CLOSE_PATTERN.finditer(text, first_thence.end())
+                if not _POB_CONTINUES.match(text, mention.end())
+            ),
+            None,
+        )
         if not close:
             logger.warning(
                 "BEGINNING block without matching POB closure",
@@ -445,16 +581,15 @@ def label_beginning_blocks(
             result.append((segment, label, TractType.MAIN))
             continue
 
-        # Check text before this block for EXCEPT or ALSO keywords
-        preceding = text[max(0, start - 80) : start]
-        tract_type = TractType.MAIN
-
-        if re.search(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", preceding, re.IGNORECASE):
-            tract_type = TractType.EXCEPTION
+        # Check text before this block for easement/EXCEPT/ALSO wording
+        tract_type = _tract_type_before(text[max(0, start - 80) : start])
+        if tract_type == TractType.EASEMENT:
+            # Numbered with every other easement by _separate_easements.
+            label = EASEMENT_LABEL
+        elif tract_type == TractType.EXCEPTION:
             exception_count += 1
             label = f"Exception {exception_count}"
-        elif re.search(r"\b(?:ALSO|INCLUDING)\b", preceding, re.IGNORECASE):
-            tract_type = TractType.ADDITION
+        elif tract_type == TractType.ADDITION:
             addition_count += 1
             label = f"Addition {addition_count}"
         else:
@@ -474,8 +609,16 @@ def split_into_tracts(text: str) -> list[tuple[str, str, TractType]]:
     2. Multiple BEGINNING blocks
     3. EXCEPT/ALSO clauses (fallback)
 
+    An easement described by its own courses is then split from the tract holding
+    it into an EASEMENT tract ("Easement N").
+
     Returns: list of (tract_text, label, tract_type)
     """
+    return _separate_easements(_split_tract_segments(text))
+
+
+def _split_tract_segments(text: str) -> list[tuple[str, str, TractType]]:
+    """Split ``text`` by markers, BEGINNING blocks or EXCEPT/ALSO clauses."""
     # 1. Try explicit TRACT/PARCEL markers
     markers = find_tract_markers(text)
     if markers:
@@ -486,6 +629,18 @@ def split_into_tracts(text: str) -> list[tuple[str, str, TractType]]:
     if len(blocks) > 1:
         return label_beginning_blocks(blocks, text)
 
+    # Easements are separated before clause splitting, which would cut an "ALSO an
+    # easement ..." opener off its description.
+    separated = _separate_easements([(text, "Tract 1", TractType.MAIN)])
+    if len(separated) > 1:
+        easements = [segment for segment in separated if segment[2] == TractType.EASEMENT]
+        parcel = [segment[0] for segment in separated if segment[2] != TractType.EASEMENT]
+        return (_split_clauses(parcel[0]) if parcel else []) + easements
+    return _split_clauses(text)
+
+
+def _split_clauses(text: str) -> list[tuple[str, str, TractType]]:
+    """Split ``text`` by EXCEPT/ALSO clauses, or keep it as one tract."""
     # 3. Fall back to EXCEPT/ALSO splitting
     clauses = split_exception_clauses(text)
     if len(clauses) > 1:
