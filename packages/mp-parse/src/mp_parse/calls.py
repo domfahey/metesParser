@@ -504,15 +504,21 @@ def _states_complete_course(text: str) -> bool:
 def _cut_closing_sentence(text: str) -> tuple[str, str] | None:
     """Split text after the sentence holding its last return to the point of beginning.
 
+    ';'-separated wording after the closing phrase that is the closing course's own
+    (``closing_tail_end``: "; passing a monument at 30 feet") stays in the head.
+
     Returns ``(head, tail)``, or None when there is no closing phrase or sentence end.
     """
+    from .tracts import closing_tail_end
+
     closings = list(_CLOSING_PHRASE.finditer(text))
     if not closings:
         return None
     sentence_end = _SENTENCE_END.search(text, closings[-1].end())
     if not sentence_end:
         return None
-    return text[: sentence_end.end()], text[sentence_end.end() :].strip()
+    end = closing_tail_end(text, sentence_end.start()) + 1
+    return text[:end], text[end:].strip()
 
 
 def _course_region(call_texts: list[str], *, starts_with_course: bool) -> range:
@@ -1023,10 +1029,17 @@ def _set_aside_non_boundary_text(
     no course: reading it as one invents a course, and splitting on its EXCEPT makes
     it an exception traverse. A stated exception after a closed description that
     describes no traverse (``stated_exception_spans``) is likewise never read as a
-    course. An easement described by its own courses is not part of the parcel
-    boundary. Geometric exceptions are kept.
+    course. An easement clause without courses inside an open description
+    (``easement_clause_spans``: "..., subject to a right of way for ingress and egress;
+    thence ...") is noted, never read as part of a course. An easement described by
+    its own courses is not part of the parcel boundary. Geometric exceptions are kept.
     """
-    from .tracts import easement_description_spans, stated_clause_end, stated_exception_spans
+    from .tracts import (
+        easement_clause_spans,
+        easement_description_spans,
+        stated_clause_end,
+        stated_exception_spans,
+    )
 
     set_aside: list[tuple[int, int, str]] = []
     # Every strip's clause is read in the text as given; the strips are blanked after.
@@ -1050,6 +1063,9 @@ def _set_aside_non_boundary_text(
     for start, end in stated_exception_spans(text):
         set_aside.append((start, end, UNAPPLIED_EXCEPTION_NOTE_PREFIX))
         text = _blank_keeping_lines(text, start, _set_aside_stop(text, start, end))
+    for start, end in easement_clause_spans(text):
+        set_aside.append((start, end, SEPARATE_EASEMENT_NOTE_PREFIX))
+        text = _blank_keeping_lines(text, start, end)
     if easements:
         for start, end in easement_description_spans(text):
             set_aside.append((start, end, SEPARATE_EASEMENT_NOTE_PREFIX))
