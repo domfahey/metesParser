@@ -94,7 +94,7 @@ def _cardinal_conflicts_chord(cardinal_text: str, chord_text: str | None) -> boo
     if word not in _CARDINAL_CENTRES or chord_az is None:
         return False
     centre, half_width = _CARDINAL_CENTRES[word]
-    diff = abs((chord_az - centre + 180.0) % 360.0 - 180.0)
+    diff = abs((float(chord_az) - centre + 180.0) % 360.0 - 180.0)
     return diff > half_width + 1e-9
 
 
