@@ -34,7 +34,7 @@ from mp_models.plot import (
 )
 from mp_models.plot_request import PlotCall, PlotRequest, PreparedPlot
 
-from .tangents import chord_is_feasible
+from .tangents import chord_is_feasible, is_spiral
 
 if TYPE_CHECKING:
     from mp_models.dashboard import DashboardBundle, DashboardCalculation, DashboardResult
@@ -59,6 +59,11 @@ def _hash(value: object) -> str:
 # its minor/major arc is unknown, so it is listed as unresolved without stopping.
 CHORD_ONLY_UNRESOLVED_REASON = (
     "curve delta/arc not stated - arc not drawn; positioned by chord only"
+)
+# A spiral with a stated chord bearing and length: the chord fixes the next start
+# exactly (as verification positions it), but no line or circular arc is drawn.
+SPIRAL_CHORD_UNRESOLVED_REASON = (
+    "spiral geometry unsupported - not drawn; positioned by stated chord only"
 )
 
 
@@ -168,7 +173,7 @@ def _build_geometry(
             reason = "unpositioned after unresolved displacement"
         elif call is None:
             reason = "unknown source call"
-        elif call.curve_type == "spiral":
+        elif is_spiral(call) and (call.chord_bearing is None or call.chord_length_ft is None):
             reason = "spiral geometry unsupported; no line or circular arc assumed"
         elif call.is_exception or call.is_meander:
             reason = "exception/meander connectivity unsupported"
@@ -179,16 +184,22 @@ def _build_geometry(
             "occurrence_id": record.occurrence_id,
             "page_id": record.page_id,
         }
-        if reason is None and call is not None and call.is_chord_only_curve():
+        spiral = call is not None and is_spiral(call)
+        if reason is None and call is not None and (spiral or call.is_chord_only_curve()):
             # Radius + chord without delta/arc: minor or major arc is ambiguous, so
             # nothing is drawn, but the stated chord fixes the next start exactly.
+            # A spiral is positioned the same way, by its stated chord alone (never by
+            # circular rules such as chord <= 2R).
             assert call.chord_bearing is not None and call.chord_length_ft is not None
-            assert call.radius_ft is not None
             chord = bearing_to_azimuth(call.chord_bearing)
             end: XY | None = None
             if chord is None:
-                reason = "curve chord orientation unresolved"
-            elif not chord_is_feasible(call):
+                reason = (
+                    "spiral chord orientation unresolved"
+                    if spiral
+                    else ("curve chord orientation unresolved")
+                )
+            elif not spiral and not chord_is_feasible(call):
                 # No circle of this radius has such a chord; never position by it.
                 reason = "curve chord length exceeds twice the radius"
             else:
@@ -202,7 +213,9 @@ def _build_geometry(
                 unresolved.append(
                     PlotUnresolved(
                         call_id=record.id,
-                        reason=CHORD_ONLY_UNRESOLVED_REASON,
+                        reason=SPIRAL_CHORD_UNRESOLVED_REASON
+                        if spiral
+                        else CHORD_ONLY_UNRESOLVED_REASON,
                     )
                 )
                 if chains[-1]:
