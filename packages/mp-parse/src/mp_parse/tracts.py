@@ -17,26 +17,15 @@ from .metadata import split_exception_clauses
 
 logger = structlog.get_logger(__name__)
 
-# Negative lookahead for common words that follow TRACT/PARCEL in deed preambles
-# (e.g., "TRACT OF LAND", "PARCEL SITUATE IN") to prevent false positives.
-_COMMON_WORDS = (
-    r"(?!OF\b|OR\b|AND\b|IN\b|ON\b|AT\b|TO\b|THE\b|BEING\b|LAND\b"
-    r"|SITUATE\b|IS\b|DESCRIBED\b|CONVEYED\b|KNOWN\b|LYING\b"
-    r"|HEREIN\b|SAID\b|WHICH\b|THAT\b|CONTAINING\b|BOUNDED\b)"
-)
-
-# TRACT #1, TRACT 1, TRACT III, TRACT A (numbers, Roman numerals, single letters)
-# [IVX]+ must precede [A-Z] so "TRACT III" matches "III" not "I".
-_TRACT_MARKER = re.compile(
-    r"\bTRACT\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[IVX]+|[A-Z])"
-    r"\s*[:.\-\u2014]?\s*",
-    re.IGNORECASE,
-)
-
-# PARCEL 1, PARCEL A (same constraints as TRACT)
-_PARCEL_MARKER = re.compile(
-    r"\bPARCEL\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[IVX]+|[A-Z])"
-    r"\s*[:.\-\u2014]?\s*",
+# TRACT/PARCEL [#|NO.] ID, where ID is a whole token: a number with an optional
+# letter (2B), a Roman numeral, a single letter, or a spelled number, optionally
+# hyphenated (A-1). [IVX]+ precedes [A-Z] so "TRACT III" captures "III"; the
+# closing \b rejects ordinary words ("TRACT OF LAND", "Parcel Info").
+_MARKER = re.compile(
+    r"\b(?P<kind>TRACT|PARCEL)\s+(?:#\s*|NO\.?\s*)?"
+    r"(?P<id>(?:\d+[A-Z]?|[IVX]+|[A-Z]"
+    r"|ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|ELEVEN|TWELVE)"
+    r"(?:-(?:\d+|[A-Z]))?)\b",
     re.IGNORECASE,
 )
 
@@ -53,21 +42,26 @@ _POB_CLOSE_PATTERN = re.compile(
 )
 
 
-# Words that make a following TRACT/PARCEL a reference to another parcel
-# ("corner of Parcel 2", "adjoining Tract 4"), even across an OCR line break.
+# What follows the marker ID decides whether the marker is a heading.
+# Strong: the marker's own colon, or a description opener directly after it
+# (optionally across a line break or heading punctuation).
+_STRONG_TERMINATOR = re.compile(
+    r"[ \t]*:|\s*(?:[.\-\u2013\u2014]\s*)?"
+    r"(?:(?:(?:POINT(?:\s+AND\s+PLACE)?|PLACE)\s+OF\s+)?BEGINNING|COMMENCING|ALL\s+THAT)\b",
+    re.IGNORECASE,
+)
+# Weak: end of line/text, a period, a heading dash not glued to the next word,
+# or BEING. Valid only when the marker is in heading position.
+_WEAK_TERMINATOR = re.compile(
+    r"[ \t]*(?:\n|$|\.|[\-\u2013\u2014](?![A-Za-z0-9])|BEING\b)", re.IGNORECASE
+)
+# Sentence breaks that put the following marker in heading position.
+_HEADING_POSITION_BREAKS = (".", ":", ";")
+# Words that make a following marker a reference to another parcel
+# ("corner of Parcel 2", "lying in Tract 4567"), even across an OCR line break.
 _REFERENCE_WORD_BEFORE = re.compile(
     r"\b(?:of|to|said|adjoining|adjacent|along|from|with|in|within|being)\s*$", re.IGNORECASE
 )
-# Text after a marker that indicates it opens a description.
-_HEADING_CONTINUATION = re.compile(r"\s*(?:BEGINNING|COMMENCING|ALL\s+THAT)\b", re.IGNORECASE)
-
-
-def _is_standalone_line(text: str, match: re.Match[str]) -> bool:
-    """Return whether the marker starts a line and ends it or is followed by BEGINNING."""
-    prefix = text[: match.start()]
-    if "\n" not in prefix[len(prefix.rstrip()) :]:
-        return False
-    return "\n" in match.group(0) or bool(_HEADING_CONTINUATION.match(text, match.end()))
 
 
 def _inside_open_description(prefix: str) -> bool:
@@ -79,32 +73,27 @@ def _inside_open_description(prefix: str) -> bool:
 
 
 def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
-    """Return whether a TRACT/PARCEL match heads a description.
+    """Return whether a TRACT/PARCEL match is a heading rather than a reference.
 
-    Neighbour references ("corner of Parcel 2", "Lot 5 of Tract 4567") follow a
-    reference word, even when OCR wrapped the line. A heading that is not such a
-    reference starts the text, a line, or a sentence/clause (period, colon,
-    semicolon), or is followed by a description opener such as BEGINNING (which
-    also covers headings merged into the preceding sentence). A marker with its
-    own colon/dash ("Description of PARCEL 1: ...") is always a heading.
+    A heading is a whole heading unit: nothing but a terminator follows its ID.
+    A marker followed by ordinary prose ("Parcel 2 on a plan", "Tract 4567,
+    thence", "Parcel 3; THENCE") is a reference.
+
+    * Strong terminator (own colon, or BEGINNING/COMMENCING/ALL THAT next):
+      a heading anywhere, including headings the normalizer merged into the
+      preceding sentence, except a reference-word mention inside a boundary
+      description that is still open ("BEGINNING at a point lying in
+      Tract 4567 BEGINNING ...").
+    * Weak terminator (end of line, '.', spaced dash, BEING): a heading only at
+      the start of the text or after a sentence break (. : ;).
     """
-    own_punct = match.group(0).strip()[-1:]
-    # A dash glued to the next alphanumeric is part of a hyphenated ID ("A-1").
-    hyphenated_id = own_punct == "-" and text[match.end() : match.end() + 1].isalnum()
-    if own_punct in (":", "-", "\u2014") and not hyphenated_id:
-        return True
     prefix = text[: match.start()]
-    if not prefix.strip():
-        return True
-    if _REFERENCE_WORD_BEFORE.search(prefix):
-        # A marker alone on its line is a heading even after a dangling word
-        # ("description of\nPARCEL 1\nBEGINNING"), unless an earlier BEGINNING
-        # is still unclosed, where a wrapped "in\nTract 4567" is a reference.
-        return _is_standalone_line(text, match) and not _inside_open_description(prefix)
+    if _STRONG_TERMINATOR.match(text, match.end()):
+        return not (_REFERENCE_WORD_BEFORE.search(prefix) and _inside_open_description(prefix))
+    if not _WEAK_TERMINATOR.match(text, match.end()):
+        return False
     stripped = prefix.rstrip()
-    if "\n" in prefix[len(stripped) :] or stripped.endswith((".", ":", ";")):
-        return True
-    return bool(_HEADING_CONTINUATION.match(text, match.end()))
+    return not stripped or stripped.endswith(_HEADING_POSITION_BREAKS)
 
 
 def find_tract_markers(
@@ -114,15 +103,11 @@ def find_tract_markers(
 
     Returns: list of (position, label, marker_kind)
     """
-    markers: list[tuple[int, str, str]] = []
-    for m in _TRACT_MARKER.finditer(text):
-        if _is_heading_marker(text, m):
-            markers.append((m.start(), f"Tract {m.group(1)}", "tract"))
-    for m in _PARCEL_MARKER.finditer(text):
-        if _is_heading_marker(text, m):
-            markers.append((m.start(), f"Parcel {m.group(1)}", "parcel"))
-    markers.sort(key=lambda x: x[0])
-    return markers
+    return [
+        (m.start(), f"{m['kind'].capitalize()} {m['id']}", m["kind"].lower())
+        for m in _MARKER.finditer(text)
+        if _is_heading_marker(text, m)
+    ]
 
 
 def split_on_markers(
