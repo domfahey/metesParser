@@ -813,6 +813,10 @@ class TestIncompleteBearingWarning:
         result = ClosureChecker.verify_closure(calls)
 
         assert result.warnings == [
+            "Course 1: course cannot be positioned (no usable bearing or endpoint); "
+            "closure, area and perimeter are not determined",
+            "Course(s) 2 follow an unpositioned course; absolute positions and "
+            "misclosure are not determined",
             "Cannot calculate area: Cannot calculate area with 2 points (need at least 3)",
             "1 call(s) have incomplete bearings (cardinal-only or meanders)",
         ]
@@ -1203,9 +1207,10 @@ class TestDegenerateTraverseClosure:
 
         result = ClosureChecker.verify_closure(calls)
 
-        # Has at least one computable call, so closure IS computed (though it won't close)
-        assert result.misclosure_ft > 0
-        # closure_passed depends on the actual misclosure, not the degenerate check
+        # The bearingless course cannot be positioned, so the partial traverse is not
+        # reported as a misclosure: it is not determined.
+        assert result.misclosure_available is False
+        assert result.closure_passed is False
 
     def test_empty_calls_confidence_zero(self):
         """Empty traverse should have 0.0 confidence."""
