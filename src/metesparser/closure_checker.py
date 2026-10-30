@@ -149,6 +149,21 @@ class ClosureChecker:
             and BearingConverter.bearing_to_azimuth(c.chord_bearing) is None
         ]
         bad_chord_courses = [main_calls[i].course for i in bad_chord_indices]
+        # Without its chord, a curve with no delta or arc has no determinable endpoint:
+        # it is left unpositioned (no bearing), never run along its tangent.
+        unpositioned_indices = [
+            i
+            for i in bad_chord_indices
+            if main_calls[i].delta_deg is None and main_calls[i].arc_length_ft is None
+        ]
+        unpositioned_courses = [main_calls[i].course for i in unpositioned_indices]
+        bad_chord_texts = {i: main_calls[i].chord_bearing for i in bad_chord_indices}
+        main_calls = [
+            c.model_copy(update={"chord_bearing": None, "bearing_azimuth_deg_from_north": None})
+            if i in unpositioned_indices
+            else c
+            for i, c in enumerate(main_calls)
+        ]
         points = cls.compute_traverse(
             [
                 c.model_copy(update={"chord_bearing": None}) if i in bad_chord_indices else c
@@ -175,10 +190,14 @@ class ClosureChecker:
         warnings = []
 
         for i in bad_chord_indices:
-            call = main_calls[i]
             warnings.append(
-                f"Course {call.course}: unparseable chord bearing {call.chord_bearing!r}; "
+                f"Course {main_calls[i].course}: unparseable chord bearing {bad_chord_texts[i]!r}; "
                 "curve geometry blocked"
+            )
+        for course in unpositioned_courses:
+            warnings.append(
+                f"Course {course}: curve cannot be positioned (no parseable chord, delta or arc); "
+                "closure, area and perimeter are not determined"
             )
 
         if not has_computable_traverse:
@@ -221,9 +240,12 @@ class ClosureChecker:
             area_acres = 0.0
             warnings.append(f"Cannot calculate area: {e}")
 
-        perimeter = cls.calculate_perimeter(main_calls)
+        perimeter_available = not chord_only_courses and not unpositioned_courses
+        perimeter = cls.calculate_perimeter(main_calls) if perimeter_available else 0.0
 
-        closure_passed = has_computable_traverse and misclosure < tolerance
+        closure_passed = (
+            has_computable_traverse and misclosure < tolerance and not unpositioned_courses
+        )
 
         # Warn when closure only passes because of a relaxed tolerance
         if (
@@ -356,6 +378,7 @@ class ClosureChecker:
             area_sq_ft=area_sq_ft,
             area_acres=area_acres,
             perimeter_ft=perimeter,
+            perimeter_available=perimeter_available,
             closure_passed=closure_passed,
             angle_check_passed=angle_check_passed,
             curve_consistency_passed=curve_consistency_passed,
@@ -382,7 +405,7 @@ class ClosureChecker:
                     "precision_ratio": precision_ratio_str,
                     "area_sq_ft": area_sq_ft,
                     "area_acres": area_acres,
-                    "perimeter_ft": perimeter,
+                    "perimeter_ft": perimeter if perimeter_available else "not determined",
                     "confidence_score": confidence,
                     "status": closure_result.get_closure_status(),
                     "geometry_verified": closure_result.geometry_verified,
@@ -1070,7 +1093,11 @@ class ClosureChecker:
 
         summary.append("")
         summary.append(f"Area: {result.area_sq_ft:,.2f} sq ft ({result.area_acres:.4f} acres)")
-        summary.append(f"Perimeter: {result.perimeter_ft:,.2f} ft")
+        summary.append(
+            f"Perimeter: {result.perimeter_ft:,.2f} ft"
+            if result.perimeter_available
+            else "Perimeter: not determined"
+        )
 
         if result.confidence_score is not None:
             summary.append(f"Confidence: {result.confidence_score:.2f}")
