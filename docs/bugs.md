@@ -1211,6 +1211,16 @@ Nine findings (two regressions from recent rounds), fixed red-green on `fix/code
 - **CLI partial output:** an internal error lists only output directories this run created or changed, as "may contain partial output", never other runs' files (`6559d98`).
 - **Known limitations:** a strip exception inside a middle course still fails closed as an ambiguous length; a new fixed note must be added to the registry; partial-output directories are detected by top-level change only.
 
+### PR #60 forty-ninth review (2026-10-30)
+Seven findings (four regressions from rounds 47-48, none conflicting with the classification corpus), fixed red-green on `fix/code-review-2026-10-29`; the corpus grew to 133 deeds:
+- **Closure means a course's arrival (regressions):** a point-of-beginning mention closes a description only where a course arrives after the opening clause. A mention inside the BEGINNING clause ("BEGINNING at an iron pin marking the point of beginning, together with an easement …") or a COMMENCING tie to "the true point of beginning" followed by courses does not close it, so the parcel courses stay on the boundary instead of being set aside as an easement or raising; an easement clause with no courses of its own inside an open description is noted (`15e15ec`).
+- **Described excepted parcels (regression):** "EXCEPTING THEREFROM the following described parcel: PARCEL A: BEGINNING …" and "LESS AND EXCEPT that part described as follows: Tract 2: …" type the parcel EXCEPTION and keep the boundary MAIN (`main` dropped the boundary; the branch made the excepted land a second fee tract) (`15e15ec`).
+- **Wording after the closing point of beginning (regression):** ";"-separated wording after the closure stays on the closing course, so a passing call is noted and adjoiner wording fails closed as mid-traverse (`15e15ec`).
+- **Exception traverses without degree marks:** exception courses are recognised with the parser's own bearing grammar and counted per ";" clause; dashed DMS exceptions become EXCEPTION tracts, and symbol-less "S 80 E" fails closed as on `main` (`15e15ec`).
+- **Offset wording kept:** "10 feet from and parallel to the line of Smith" stays whole in `along`; a qualifier before an adjoiner is kept with it (36 sample `along` values regain qualifier wording such as "at right angles to the last course and along the line of lands now or late of Uber") (`1da3dd0`).
+- **Bracket-aware ";" cuts:** a ";" inside brackets no longer cuts `to`, the no-THENCE course split, or the calls segmenter (two of these silently dropped the text after the ";"); a bracketed passing call is noted once (`1da3dd0`).
+- **Known limitations:** a plural lead ("the following described parcels: PARCEL A … PARCEL B") types only the first parcel EXCEPTION; two ";"-separated dividing lines with bearings and distances count as a traverse (fail closed or exception tract, not a note).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
