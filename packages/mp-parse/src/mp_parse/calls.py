@@ -566,6 +566,7 @@ def _extract_calls_from_text(
     skipped_courses: list[SkippedCourse] | None = None,
     tract_label: str | None = None,
     normalize: bool = True,
+    source_text: str | None = None,
 ) -> list[DeedCall]:
     """Extract all calls from normalized legal description text.
 
@@ -584,11 +585,16 @@ def _extract_calls_from_text(
         tract_label: Tract label recorded on skipped courses.
         normalize: Normalize ``text`` first; callers passing already-normalized
             text set False so normalization runs exactly once.
+        source_text: The text before normalization; record-call notes are restored
+            to its verbatim wording (``_restore_verbatim_records``). Defaults to
+            ``text`` when ``normalize`` is True.
 
     Returns:
         List of DeedCall objects
     """
     normalized = normalize_legal_description(text) if normalize else text
+    if source_text is None and normalize:
+        source_text = text
 
     tracts = split_exception_clauses(normalized)
 
@@ -741,7 +747,44 @@ def _extract_calls_from_text(
             )
             course_num += 1
 
-    return calls
+    return _restore_verbatim_records(calls, source_text)
+
+
+def _restore_verbatim_records(calls: list[DeedCall], source_text: str | None) -> list[DeedCall]:
+    """Return ``calls`` with each noted record call in the wording of ``source_text``.
+
+    Normalization respaces bearings ("N 45° 10' E" -> "N 45°10' E"); a record call's
+    wording is kept as the deed wrote it. The wording is located in ``source_text``
+    token by token, whitespace-insensitive and in order; one that is not found
+    (rewritten by normalization) keeps its normalized wording.
+    """
+    if not source_text:
+        return calls
+    restored: list[DeedCall] = []
+    position = 0
+    for call in calls:
+        noted = _noted_record_calls(call.notes)
+        verbatim: list[str] = []
+        for wording in noted:
+            tokens = re.findall(r"[A-Za-z0-9]+|\S", wording)
+            match = (
+                re.compile(r"\s*".join(re.escape(token) for token in tokens), re.IGNORECASE).search(
+                    source_text, position
+                )
+                if tokens
+                else None
+            )
+            if match:
+                verbatim.append(match.group(0))
+                position = match.end()
+            else:
+                verbatim.append(wording)
+        if verbatim != noted and call.notes:
+            head = call.notes[: call.notes.index(RECORD_CALL_NOTE_PREFIX)]
+            notes = head + "; ".join(RECORD_CALL_NOTE_PREFIX + text for text in verbatim)
+            call = call.model_copy(update={"notes": notes})
+        restored.append(call)
+    return restored
 
 
 def extract_calls(
@@ -791,6 +834,7 @@ def extract_calls(
             strict=strict,
             skipped_courses=skipped_courses,
             normalize=False,
+            source_text=text,
         )
         return flat_calls, []
 
@@ -810,6 +854,7 @@ def extract_calls(
             skipped_courses=tract_skips if recordable else None,
             tract_label=label,
             normalize=False,
+            source_text=text,
         )
         if skipped_courses is not None:
             skipped_courses.extend(tract_skips)
@@ -1393,7 +1438,8 @@ def _bearing_pairs(text: str) -> list[_BearingPair]:
 # under the usual rules. Their wording is kept verbatim in notes.
 RECORD_CALL_NOTE_PREFIX = "record call: "
 _RECORD_BEFORE = re.compile(
-    r"(?<![A-Za-z])(?:per\s+(?:deed|record)|of\s+record|deed|record|[(\[]R[)\]])\s*[:=]?\s*$",
+    r"(?<![A-Za-z])(?:per\s+(?:deed|record)|of\s+record|(?:(?:in|from|by|as\s+in)\s+(?:the\s+|said\s+)?"
+    r"(?:prior|previous|former|earlier|original|old)\s+)?(?:deed|record)|[(\[]R[)\]])\s*[:=]?\s*$",
     re.IGNORECASE,
 )
 _RECORD_AFTER = re.compile(
@@ -1401,13 +1447,25 @@ _RECORD_AFTER = re.compile(
     + r"(?:(?:per|by)\s+(?:deed|record)\b|of\s+record\b|(?P<mark>[(\[](?:R|record|deed)[)\]]))",
     re.IGNORECASE,
 )
+# A record mark straight after a bearing, before its length ("N 45 E (R) 100 feet").
+_RECORD_MARK_AFTER = re.compile(r"\s*,?\s*[(\[](?:R|record|deed)[)\]]", re.IGNORECASE)
 _MEASURED_AFTER = re.compile(r"\s*,?\s*[(\[](?:M|(?i:meas\.?|measured))[)\]]")
 # Inside a bracketed group: a record word, or a trailing "R" ("(100 feet R)").
 _GROUP_RECORD_WORD = re.compile(
-    r"(?<![A-Za-z])(?:deeds?|record(?:ed|s)?|formerly|(?:per|by)\s+(?:plan|map))(?![A-Za-z])",
+    r"(?<![A-Za-z])(?:deeds?|rec|record(?:ed|s)?|formerly|(?:per|by)\s+(?:plan|plat|map|survey))"
+    r"(?![A-Za-z])",
     re.IGNORECASE,
 )
 _GROUP_RECORD_LABEL = re.compile(r"(?<![A-Za-z])R\.?\s*$")
+# One vocabulary for source labels: a plan, plat, map or survey word, or a lone "P"/"D",
+# labelling a value at the end of the group ("(100 feet plan)", "(100 feet, plat)",
+# "(100 feet P)") or opening it with a colon ("(plat: 100 feet)"). "see plan 12 feet"
+# refers to a plan and is not a label.
+_GROUP_SOURCE_LABEL = re.compile(
+    r"(?<![A-Za-z])(?:plan|plat|map|survey|P|D)\.?\s*$|^\s*(?:plan|plat|map|survey)\s*[:=]",
+    re.IGNORECASE,
+)
+_GROUP_SEE = re.compile(r"(?<![A-Za-z])see(?![A-Za-z])", re.IGNORECASE)
 _GROUP_MEASURED_LABEL = re.compile(
     r"^\s*(?:M|(?i:meas\.?|measured))(?![A-Za-z])|(?<![A-Za-z])(?:M|(?i:meas\.?|measured))\s*$"
 )
@@ -1510,7 +1568,11 @@ def _group_role(inner: str) -> str | None:
     lengths = _lengths_outside_bearings(inner)
     if not (has_bearing or lengths):
         return None
-    record = bool(_GROUP_RECORD_WORD.search(inner) or _GROUP_RECORD_LABEL.search(inner))
+    record = bool(
+        _GROUP_RECORD_WORD.search(inner)
+        or _GROUP_RECORD_LABEL.search(inner)
+        or (_GROUP_SOURCE_LABEL.search(inner) and not _GROUP_SEE.search(inner))
+    )
     if not record and _measured_labels(inner, lengths):
         return "measured"
     if has_bearing or (lengths and record and not _GROUP_WIDTH.search(inner)):
@@ -1583,8 +1645,11 @@ def _record_statements(text: str, limit: int) -> list[_RecordStatement]:
         record_before = _RECORD_BEFORE.search(before)
         record_after = _record_label_after(text, end, next_bearing, mark_only=length is None)
         measured = _MEASURED_AFTER.match(text, end)
+        record_mark = _RECORD_MARK_AFTER.match(text, bearing.end())
         if record_before:
             label, start = "record", start - (len(before) - record_before.start())
+        elif record_mark and record_after is None and length is not None:
+            label, end = "record", record_mark.end()
         elif record_after is not None:
             label, end = "record", record_after
         elif kind == "course" and _is_tie_or_adjoiner(text, start):
