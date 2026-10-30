@@ -50,10 +50,15 @@ _STRONG_TERMINATOR = re.compile(
     r"(?:(?:(?:POINT(?:\s+AND\s+PLACE)?|PLACE)\s+OF\s+)?BEGINNING|COMMENCING|ALL\s+THAT)\b",
     re.IGNORECASE,
 )
-# Weak: end of line/text, a period, a heading dash not glued to the next word,
-# or BEING. Valid only when the marker is in heading position.
-_WEAK_TERMINATOR = re.compile(
-    r"[ \t]*(?:\n|$|\.|[\-\u2013\u2014](?![A-Za-z0-9])|BEING\b)", re.IGNORECASE
+# Weak: end of line/text, a period, or a heading dash not glued to the next word.
+# Valid only when the marker is in heading position.
+_WEAK_TERMINATOR = re.compile(r"[ \t]*(?:\n|$|\.|[\-\u2013\u2014](?![A-Za-z0-9]))", re.IGNORECASE)
+# Uppercase BEING on the same line is heading style ("TRACT 2 BEING UNIT B") only
+# for an uppercase TRACT/PARCEL marker. Case-sensitive on purpose: a titlecase or
+# lowercase "being" after an ID is a recital ("Tract 2 being the same land ...").
+# Recital openers after an uppercase BEING are excluded as well.
+_HEADING_BEING_TERMINATOR = re.compile(
+    r"[ \t]*BEING\b(?!\s+(?:THE\s+SAME|PART\s+OF|A\s+PART\s+OF)\b)"
 )
 # Sentence breaks that put the following marker in heading position.
 _HEADING_POSITION_BREAKS = (".", ":", ";")
@@ -107,7 +112,8 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
       preceding sentence, except a reference-word mention inside a boundary
       description that is still open ("BEGINNING at a point lying in
       Tract 4567 BEGINNING ...").
-    * Weak terminator (end of line, '.', spaced dash, BEING): a heading only at
+    * Weak terminator (end of line, '.', spaced dash, or uppercase BEING after an
+      uppercase marker): a heading only at
       the start of the text, after a sentence break (. : ;) or behind a markdown
       '#' heading prefix. Leading text with calls is kept as its own tract by
       split_on_markers, so an OCR-dropped heading no longer loses data.
@@ -117,7 +123,10 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
     end = skipped.end() if skipped else match.end()
     if _STRONG_TERMINATOR.match(text, end):
         return not (_REFERENCE_WORD_BEFORE.search(prefix) and _inside_open_description(prefix))
-    if not _WEAK_TERMINATOR.match(text, end):
+    weak = _WEAK_TERMINATOR.match(text, end) or (
+        match["kind"].isupper() and _HEADING_BEING_TERMINATOR.match(text, end)
+    )
+    if not weak:
         return False
     stripped = prefix.rstrip()
     return (
