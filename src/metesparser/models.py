@@ -538,6 +538,11 @@ class ClosureResult(_Model):
         ...,
         description="Total perimeter in feet; 0.0 when perimeter_available is False",
     )
+    misclosure_available: bool = Field(
+        default=True,
+        description="False when a course could not be positioned, so later vertices are not "
+        "known in absolute terms; misclosure values are then 0.0 and not measurements",
+    )
     area_available: bool = Field(
         default=True,
         description="False when area cannot be determined (e.g. a chord-only curve, an "
@@ -606,6 +611,7 @@ class ClosureResult(_Model):
         "curve_consistency_passed",
         "perimeter_available",
         "area_available",
+        "misclosure_available",
         mode="before",
     )
     @classmethod
