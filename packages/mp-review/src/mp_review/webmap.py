@@ -26,10 +26,14 @@ from mp_models.webmap import (
 from mp_verify.dashboard import _hash
 from mp_verify.plot import arc_point, transform_point
 from mp_verify.webmap import (
+    CLOSURE_GAP_THRESHOLD as CLOSURE_GAP_THRESHOLD,
+)
+from mp_verify.webmap import (
     Extent,
     WebMapContext,
     WebMapInput,
     feature_vertices,
+    has_closure_gap,
     normalize_web_map_context,
 )
 from mp_verify.webmap import (
@@ -211,10 +215,7 @@ def _deed_features(
     )
     # Native numerical residue is not a meaningful closure annotation. A partial
     # prefix has no known full endpoint and must never acquire a closing segment.
-    if (
-        geometry.completeness == "complete"
-        and math.hypot(last[0] - first[0], last[1] - first[1]) > 1e-8
-    ):
+    if geometry.completeness == "complete" and has_closure_gap(first, last):
         features.append(
             WebMapFeature(
                 id=f"gap:{placement.id}",
