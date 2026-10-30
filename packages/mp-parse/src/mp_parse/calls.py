@@ -1405,6 +1405,15 @@ def _extract_call(
         and distance_ft > 0.0
     ):
         curve_info["arc_length_ft"] = distance_ft
+    # A spiral's own "length" is its stated curve length (not R * delta): it is kept
+    # in arc_length_ft and is the course distance; it never yields a circular value.
+    elif (
+        curve_info.get("arc_length_ft") is None
+        and curve_info.get("curve_type") == "spiral"
+        and distance_ft is not None
+        and distance_ft > 0.0
+    ):
+        curve_info["arc_length_ft"] = distance_ft
 
     # The tangent azimuth is only what the course text states (chord and radial
     # clauses were removed before extraction); it is never derived. A curve with a
