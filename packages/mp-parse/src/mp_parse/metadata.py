@@ -74,15 +74,48 @@ class _AreaStatement(TypedDict):
     approximate: bool
 
 
+_SQ_FT_UNIT = r"sq\.?\s*ft\.?|square\s+feet?"
+_AREA_LEAD_UNIT = rf"(?:{_SQ_FT_UNIT}|acres?)"
+# Later components of a compound area ("2 acres and 50 perches", "2 acres, 3 roods
+# and 10 perches"): after an area, a perch, rod or pole is a square perch.
+_SQ_PERCH_FEET = ConversionFactors.PERCH_TO_FEET**2
+_AREA_COMPONENT = re.compile(
+    rf"\s*,?\s*(?:and\s+)?(?P<value>{LENGTH_NUMBER})\s*"
+    rf"(?P<unit>{_SQ_FT_UNIT}|acres?|roods?|(?:(?:square|sq\.?)\s*)?(?:perch(?:es)?|rods?|poles?))"
+    r"(?![a-z])\.?",
+    re.IGNORECASE,
+)
+# "2 acres and 50 feet": a further joined value that is not a read area unit. The
+# area is then unavailable, never reported without it.
+_UNREAD_AREA_COMPONENT = re.compile(rf"\s*,?\s*and\s+{LENGTH_NUMBER}\s*[a-z]", re.IGNORECASE)
+
+
+def _area_sq_ft(value: str, unit: str) -> float:
+    number = parse_number(value)
+    unit = unit.lower()
+    if unit.startswith("acre"):
+        return number * ConversionFactors.ACRE_TO_SQ_FEET
+    if unit.startswith("rood"):
+        return number * ConversionFactors.ACRE_TO_SQ_FEET / 4
+    if re.search(r"perch|rod|pole", unit):
+        return number * _SQ_PERCH_FEET
+    return number
+
+
 def extract_area_statement(text: str) -> _AreaStatement | None:
     """Extract the first stated area statement from legal text.
 
     Returns a dict with:
         value_sq_ft: numeric area in square feet
-        unit: original unit label ("sq_ft" or "acres")
+        unit: original unit label ("sq_ft" or "acres"; "compound" for a sum such
+            as "2 acres and 50 perches")
         approximate: whether wording indicates approximation
 
-    If no parseable area statement exists, returns None.
+    Values use the shared length-number grammar (".5", "2 1/2", "1,234.5"). A
+    compound area sums its components (acres, roods, square perches/rods/poles,
+    square feet); a joined component that cannot be read makes the statement
+    unavailable rather than partial. If no parseable area statement exists,
+    returns None.
     """
     if not isinstance(text, str):
         return None
@@ -92,9 +125,7 @@ def extract_area_statement(text: str) -> _AreaStatement | None:
         return None
 
     area_pattern = re.compile(
-        r"(?:(?:(?:approximately|approx\.?|~)\s+)?)"
-        r"(?P<value>\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)"
-        r"\s*(?P<unit>sq\.?\s*ft\.?|square\s+feet?|acres?)",
+        rf"(?P<value>{LENGTH_NUMBER})\s*(?P<unit>{_AREA_LEAD_UNIT})(?![a-z])\.?",
         re.IGNORECASE,
     )
 
@@ -115,8 +146,8 @@ def extract_area_statement(text: str) -> _AreaStatement | None:
     # A bare area remains a supported API input, but an area embedded in a
     # legal description must be tied to the described parcel, not its parent.
     standalone = re.fullmatch(
-        r"\s*(?:(?:approximately|approx\.?|~)\s+)?"
-        r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s*(?:sq\.?\s*ft\.?|square\s+feet?|acres?)"
+        rf"\s*(?:(?:approximately|approx\.?|~)\s+)?"
+        rf"{LENGTH_NUMBER}\s*{_AREA_LEAD_UNIT}"
         r"(?:\s+more\s+or\s+less)?\s*[.]?\s*",
         normalized_text,
         re.IGNORECASE,
@@ -138,17 +169,18 @@ def extract_area_statement(text: str) -> _AreaStatement | None:
         return None
 
     for match in parcel_matches or matches[:1]:
-        unit = match.group("unit").replace(" ", "")
-        value = float(match.group("value").replace(",", ""))
+        unit = match.group("unit")
+        value_sq_ft = _area_sq_ft(match.group("value"), unit)
+        unit_key = "acres" if "acre" in unit else "sq_ft"
+        end = match.end()
+        while component := _AREA_COMPONENT.match(normalized_text, end):
+            value_sq_ft += _area_sq_ft(component.group("value"), component.group("unit"))
+            unit_key = "compound"
+            end = component.end()
+        if _UNREAD_AREA_COMPONENT.match(normalized_text, end):
+            return None
 
-        if "acre" in unit:
-            value_sq_ft = value * ConversionFactors.ACRE_TO_SQ_FEET
-            unit_key = "acres"
-        else:
-            value_sq_ft = value
-            unit_key = "sq_ft"
-
-        prefix = normalized_text[max(0, match.start() - 45) : match.end() + 45]
+        prefix = normalized_text[max(0, match.start() - 45) : end + 45]
         approximate = bool(
             "~" in prefix
             or re.search(r"\bapprox(?:imately)?\.?\b", prefix)
@@ -880,7 +912,9 @@ def _singular_unit(unit: str) -> str:
 # feet from", "said pin being 2 feet from", "3 rods north of the oak"), a WIDTH
 # describes a road ("50 feet wide"), a parenthetical length restates or describes
 # ("(100.5 feet per deed)"), and a STATION marks a point passed on the line ("passing
-# a pin at 30 feet"); none of these is the course length. A PARTIAL length ("70 feet
+# a pin at 30 feet") and a DIMENSION sizes a feature ("a fence 4 feet high"); none of
+# these is the course length. A DEPTH ("150 feet deep", "100 feet long") is the course
+# length only when no other course length is stated. A PARTIAL length ("70 feet
 # more", "a further distance of") is only part of the course. Several course lengths,
 # or a partial length without a stated total, are ambiguous: none is chosen.
 COURSE_LENGTH_AMBIGUOUS_NOTE = "course length ambiguous: {values}"
@@ -955,6 +989,20 @@ _MONUMENT_BEFORE = re.compile(
     r"\b(?:pipe|pin|rod|rebar|bar|spike|nail|stake|hub|monument|post|marker|cap|tack"
     r"|stone|bolt)s?\b(?:\s*,?\s*(?!(?:to|along|thence|from|of)\b)[A-Za-z]+){0,3}\s*,?\s*$"
     r"|\b(?:found|set)\s*,?\s*$",
+    re.IGNORECASE,
+)
+# A feature's dimension: a length directly followed by a dimension word ("a fence 4
+# feet high", "a stone 2 feet long", "a 6 foot high fence", "a 20 foot radius")
+# describes that feature, not the course. Only "long" and "deep" can describe the
+# course itself ("150 feet deep" as a lot depth): such a length is the course length
+# only when no other course length is stated (``_select_course_length``), and never
+# as an adjective after an article ("a 150 foot deep lot"). Every other dimension
+# word never states the course length. "In length" and "in depth" ("142 feet in
+# length or depth") are the deed's own course-length idiom and stay course lengths,
+# so two of them, or one beside another course length, remain ambiguous.
+_DIMENSION_AFTER = re.compile(
+    r"[\s,-]*(?:(?P<course>long|deep)"
+    r"|high|tall|thick|square|radius|diameter|in\s+(?:height|thickness|diameter))\b",
     re.IGNORECASE,
 )
 # A curve element's own label ("the radius is 100 feet"); never the course length.
@@ -1058,7 +1106,8 @@ class _LengthRun(NamedTuple):
     start: int
     end: int
     components: tuple[tuple[str, str], ...]  # (value, unit) as written
-    role: str  # course, total, partial, tie, width, element, size, station or record
+    # course, total, partial, depth, dimension, tie, width, element, size, station, record
+    role: str
     unsupported: bool = False  # holds a component that cannot be summed
 
 
@@ -1184,6 +1233,10 @@ def _length_role(text: str, start: int, end: int, *, first: bool, tie_from: int)
         _MONUMENT_DEPTH_AFTER.match(after) and _MONUMENT_BEFORE.search(before)
     ):
         return "tie"
+    dimension = _DIMENSION_AFTER.match(after)
+    if dimension:
+        course_capable = dimension.group("course") and not _ARTICLE_JUST_BEFORE.search(before)
+        return "depth" if course_capable else "dimension"
     if _ELEMENT_BEFORE.search(before):
         return "element"
     if _STATION_BEFORE.search(before) and not (
@@ -1270,7 +1323,11 @@ def _run_value(run: _LengthRun) -> tuple[float, str]:
 def _select_course_length(text: str, runs: list[_LengthRun]) -> CourseLengthReading | None:
     """Return the one course length among ``runs``, an ambiguous reading, or None."""
     totals = [run for run in runs if run.role == "total"]
-    candidates = totals or [run for run in runs if run.role in ("course", "partial")]
+    candidates = (
+        totals
+        or [run for run in runs if run.role in ("course", "partial")]
+        or [run for run in runs if run.role == "depth"]
+    )
     if not candidates:
         return None
     ambiguous = (
@@ -1333,7 +1390,7 @@ def _fail_closed_on_unread_inches(
     if reading.ambiguous or reading.value == 0.0:
         return reading
     for run in runs:
-        if run.role not in ("course", "total"):
+        if run.role not in ("course", "total", "depth"):
             continue
         unread = _UNREAD_INCH_AFTER.match(text, run.end)
         if unread:

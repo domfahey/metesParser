@@ -281,8 +281,12 @@ CASES: dict[str, Course | Fails] = {
         100.0,
         None,
     ),
+    # Not a record call, but an excluded length is never dropped: noted verbatim.
     "see-plan-length": Course(
-        "thence N 45° E 100 feet to a point (see plan 12 feet) in the road", 45.0, 100.0, None
+        "thence N 45° E 100 feet to a point (see plan 12 feet) in the road",
+        45.0,
+        100.0,
+        "parenthetical: (see plan 12 feet)",
     ),
     "tie": Course(
         "thence N 45° E 100 feet to a pin, which bears N 10° E 5 feet from a stone",
