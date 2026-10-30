@@ -25,6 +25,7 @@ from mp_models.plot_request import PlotCall
 
 from .diagnostics import _curve_evidence, _supported_circular_arc
 from .plot import prepare_plot, transform_point, unit_factor, validate_plot_placement
+from .tangents import line_distance
 
 COMPARISON_VERSION = "comparison-1.1.0"
 
@@ -113,7 +114,7 @@ def _group(
             raise ValueError("tie-in, exception, meander or indefinite boundary unsupported")
         if call.bearing_azimuth_deg_from_north is None:
             raise ValueError("unresolved bearing; no invented orientation")
-        length = call.distance_ft * factor
+        length = line_distance(call) * factor
         bearing = (call.bearing_azimuth_deg_from_north + (180 if step == -1 else 0)) % 360
         angle = math.radians(bearing)
         vector = (length * math.sin(angle), length * math.cos(angle))
@@ -474,13 +475,13 @@ def _structural(request: ComparisonRequest) -> tuple[StructuralDifference, ...]:
                             or _excluded_boundary(part)
                         ):
                             break
-                        members.append(part.distance_ft)
+                        members.append(line_distance(part))
                         try:
                             total = math.fsum(members)
                         except OverflowError:
                             break
                         if end > start and math.isclose(
-                            total, call.distance_ft, rel_tol=1e-12, abs_tol=0
+                            total, line_distance(call), rel_tol=1e-12, abs_tol=0
                         ):
                             indexes = tuple(range(start, end + 1))
                             add(
@@ -489,7 +490,7 @@ def _structural(request: ComparisonRequest) -> tuple[StructuralDifference, ...]:
                                 indexes if single_side == "left" else (i,),
                                 "contiguous same recorded azimuth and exact summed native distance; tentative notation pattern, no geographic agreement implied",
                             )
-                        if total > call.distance_ft:
+                        if total > line_distance(call):
                             break
     return tuple(results)
 

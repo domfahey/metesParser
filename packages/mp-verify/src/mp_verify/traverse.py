@@ -86,6 +86,9 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
             )
             return endpoint
 
+    if call.distance_ft is None:
+        # No determined length: the endpoint is unknown, never invented.
+        return None
     dx, dy = calculate_deltas(call.bearing_azimuth_deg_from_north, call.distance_ft)
     return Point(x=current.x + dx, y=current.y + dy)
 

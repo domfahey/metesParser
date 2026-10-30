@@ -98,6 +98,7 @@ along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,
 non_tangent,radial_bearing,notes
 ```
 
+- `distance_ft`: blank only for a spiral stated without an arc, chord or course length (`DeedCall.distance_ft=None`, length not determined; verification treats the course as unpositioned). Because `curve_type` is not exported, CSV import rejects such a row rather than reading it as a circular arc
 - `monument_type`: auto-classified from the `to` field (20 types)
 - `monument_status`: `"found"`, `"set"`, or null
 - `is_exception` / `is_meander` / `is_tie_in` / `non_tangent`: booleans (CSV `"true"`/`"false"`)
