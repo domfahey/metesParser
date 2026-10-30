@@ -977,6 +977,29 @@ class CourseLengthReading(NamedTuple):
     ambiguous: tuple[str, ...] = ()
 
 
+# A course wholly in inches ("N 45 E 12 inches", "100 in.", "12\"") is a length
+# only as the first thing after the bearing and where the measurement ends: an
+# object size ("an 8 inch oak"), a monument size ("1\" iron pipe") and the
+# preposition "in" never match, and the mark " is read only here, never as seconds
+# (the bearing has already ended).
+_STANDALONE_INCH = re.compile(
+    rf"\s*,?\s*(?:(?:a\s+)?distance\s+of\s+|for\s+)?({LENGTH_NUMBER})\s*"
+    rf"(?:inch(?:es)?\b|in\b\.?|{_INCH_MARK}){_MEASUREMENT_END}{_NOT_MONUMENT_SIZE}",
+    re.IGNORECASE,
+)
+
+
+def read_standalone_inch_length(after_bearing: str) -> float | None:
+    """Return feet for a course stated wholly in inches at the start of ``after_bearing``.
+
+    ``after_bearing`` is the text directly after the course bearing; None when it
+    does not begin with such a length (or the length is zero).
+    """
+    inches = _STANDALONE_INCH.match(after_bearing)
+    value = parse_number(inches.group(1)) / 12.0 if inches else 0.0
+    return value if value > 0.0 else None
+
+
 def _is_inch(token: str) -> bool:
     return bool(_INCH.fullmatch(token.strip()))
 
