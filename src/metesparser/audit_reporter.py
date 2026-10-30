@@ -7,7 +7,7 @@ No external dependencies (no Jinja, no JS frameworks).
 import html
 from pathlib import Path
 
-from .models import AuditContext
+from .models import AuditContext, VerificationAudit
 
 
 class AuditReporter:
@@ -52,7 +52,7 @@ class AuditReporter:
             parts.append(cls._build_calls_section(ctx))
 
         # --- Verification section ---
-        if ctx.verification_audit is not None:
+        if ctx.verification_audit is not None or ctx.tract_verification_audits:
             parts.append(cls._build_verification_section(ctx))
 
         parts.append("</body>")
@@ -272,14 +272,26 @@ class AuditReporter:
 
     @classmethod
     def _build_verification_section(cls, ctx: AuditContext) -> str:
-        """Build the verification audit section."""
-        va = ctx.verification_audit
-        if va is None:
+        """Build the verification audit section(s): one per tract when present."""
+        if ctx.tract_verification_audits:
+            return "\n".join(
+                cls._build_one_verification(va, va.tract_label)
+                for va in ctx.tract_verification_audits
+            )
+        if ctx.verification_audit is None:
             return ""
+        return cls._build_one_verification(ctx.verification_audit, None)
+
+    @classmethod
+    def _build_one_verification(cls, va: VerificationAudit, tract_label: str | None) -> str:
+        """Render a single verification audit, labelled with its tract when given."""
+        title = (
+            "Verification" if tract_label is None else f"Verification - {html.escape(tract_label)}"
+        )
         parts: list[str] = []
         parts.append("<div class='section'>")
         parts.append("<details>")
-        parts.append("<summary>Verification</summary>")
+        parts.append(f"<summary>{title}</summary>")
 
         # Checks table
         if va.checks:
