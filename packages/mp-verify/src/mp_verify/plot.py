@@ -34,7 +34,13 @@ from mp_models.plot import (
 )
 from mp_models.plot_request import PlotCall, PlotRequest, PreparedPlot
 
-from .tangents import chord_is_feasible, is_spiral, line_distance
+from .tangents import (
+    chord_is_feasible,
+    is_spiral,
+    line_distance,
+    start_tangent,
+    stated_tangent,
+)
 
 if TYPE_CHECKING:
     from mp_models.dashboard import DashboardBundle, DashboardCalculation, DashboardResult
@@ -106,13 +112,10 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
         if chord is None:
             raise ValueError("curve chord orientation unresolved")
         tangent = (chord - sign * sweep / 2) % 360
-        if call.bearing_azimuth_deg_from_north is not None and not call.non_tangent:
-            deflection = tangent_chord_deflection(
-                call.bearing_azimuth_deg_from_north, chord, call.curve_dir
-            )
-            defl_error = bearing_difference_uncertainty_rad(
-                call.bearing_azimuth_deg_from_north, chord
-            )
+        stated = stated_tangent(call)
+        if stated is not None:
+            deflection = tangent_chord_deflection(stated, chord, call.curve_dir)
+            defl_error = bearing_difference_uncertainty_rad(stated, chord)
             if deflection <= 0.0 or abs(deflection - sweep / 2) > tangent_chord_tolerance_deg(
                 delta_error, defl_error
             ):
@@ -121,10 +124,13 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
                 call.chord_length_ft - 2 * call.radius_ft * math.sin(math.radians(deflection))
             ) > deflection_chord_tolerance_ft(call.radius_ft, deflection, defl_error):
                 raise ValueError("inconsistent tangent, chord and radius")
-    elif call.bearing_azimuth_deg_from_north is not None and not call.non_tangent:
-        tangent = call.bearing_azimuth_deg_from_north
     else:
-        raise ValueError("curve starting orientation unresolved")
+        # A stated tangent, or a non-tangent curve's stated radial bearing; a
+        # non-tangent curve's course bearing never fixes its start (shared rule).
+        orientation = start_tangent(call, sweep, None)
+        if orientation is None:
+            raise ValueError("curve starting orientation unresolved")
+        tangent = orientation
     dx, dy = calculate_deltas(tangent + sign * 90, call.radius_ft)
     center = _finite((start[0] + dx, start[1] + dy))
     dx, dy = calculate_deltas(tangent + sign * sweep / 2, chord_ft)
