@@ -693,6 +693,25 @@ class TractType(str, Enum):
     EASEMENT = "easement"
 
 
+class SkippedCourse(_Model):
+    """A course non-strict extraction could not parse; recorded, never silently dropped.
+
+    Mirrors ``mp_models.SkippedCourse``: the course number stays reserved so the gap
+    is visible, and verification given a skipped course blocks traverse closure.
+    """
+
+    course: int = Field(
+        ..., ge=1, strict=True, description="Reserved course number of the skipped course"
+    )
+    source_course: int = Field(
+        ..., ge=1, strict=True, description="Position of the course text within its tract"
+    )
+    source_excerpt: str = Field(..., description="Verbatim course text that was not parsed")
+    error_type: str = Field(..., description="Why the course was not parsed (exception type)")
+    error: str = Field(..., description="Parser error message")
+    tract_label: str | None = Field(default=None, description="Tract label in a multi-tract deed")
+
+
 class Tract(_Model):
     """A single tract in a multi-tract deed."""
 
@@ -701,6 +720,9 @@ class Tract(_Model):
     )
     tract_type: TractType = Field(..., description="Type of tract")
     calls: list[DeedCall] = Field(default_factory=list, description="Calls for this tract")
+    skipped_courses: list[SkippedCourse] = Field(
+        default_factory=list, description="Courses of this tract extraction could not parse"
+    )
     pob_description: str | None = Field(default=None, description="POB for this tract")
     stated_area_sq_ft: FiniteFloat | None = Field(default=None, description="Stated area")
     closure_result: ClosureResult | None = Field(
@@ -864,6 +886,9 @@ class AuditContext(BaseModel):
     run_metadata: RunMetadata
     extraction_record: ExtractionRecord | None = Field(default=None)
     call_audits: list[CallAudit] = Field(default_factory=list)
+    skipped_courses: list[SkippedCourse] = Field(
+        default_factory=list, description="Courses non-strict extraction could not parse"
+    )
     verification_audit: VerificationAudit | None = Field(default=None)
     tract_verification_audits: list[VerificationAudit] = Field(
         default_factory=list, description="Per-tract verification audits, in tract order"

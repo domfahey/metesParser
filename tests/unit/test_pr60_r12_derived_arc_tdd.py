@@ -199,7 +199,10 @@ def test_beginning_clause_calls_skips_bearing_work(monkeypatch, impl):
 
         monkeypatch.setattr(TextParser, "split_into_calls", classmethod(lambda cls, t: pieces))
     seen = _spy(monkeypatch, impl)
-    calls = EXTRACT_CALLS[impl]("THENCE " + CURVE_TEXT, strict=False)
+    skipped: list = []
+    calls = EXTRACT_CALLS[impl]("THENCE " + CURVE_TEXT, strict=False, skipped_courses=skipped)
     assert len(calls) == 1
+    # The forced BEGINNING piece is not a course and is recorded as skipped, not dropped.
+    assert [s.source_excerpt for s in skipped] == [BEGINNING]
     assert seen["curve"] == [CURVE_TEXT]
     assert not any("BEGINNING" in segment for segment in seen["normalize"])
