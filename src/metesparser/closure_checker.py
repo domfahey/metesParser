@@ -233,6 +233,7 @@ class ClosureChecker:
             bool(main_calls)
             and all(call.is_complete_bearing() for call in main_calls)
             and not chord_only_courses
+            and not unpositioned_courses
         )
         try:
             main_area_sq_ft = cls.calculate_area(points, calls=main_calls)
@@ -388,6 +389,7 @@ class ClosureChecker:
             area_acres=area_acres,
             perimeter_ft=perimeter,
             perimeter_available=perimeter_available,
+            area_available=area_available,
             closure_passed=closure_passed,
             angle_check_passed=angle_check_passed,
             curve_consistency_passed=curve_consistency_passed,
@@ -414,8 +416,8 @@ class ClosureChecker:
                 closure_summary={
                     "misclosure_ft": misclosure,
                     "precision_ratio": precision_ratio_str,
-                    "area_sq_ft": area_sq_ft,
-                    "area_acres": area_acres,
+                    "area_sq_ft": area_sq_ft if area_available else "not determined",
+                    "area_acres": area_acres if area_available else "not determined",
                     "perimeter_ft": perimeter if perimeter_available else "not determined",
                     "confidence_score": confidence,
                     "status": closure_result.get_closure_status(),
@@ -1107,7 +1109,11 @@ class ClosureChecker:
             summary.append(f"  Precision: 1:{ratio_inv:,}")
 
         summary.append("")
-        summary.append(f"Area: {result.area_sq_ft:,.2f} sq ft ({result.area_acres:.4f} acres)")
+        summary.append(
+            f"Area: {result.area_sq_ft:,.2f} sq ft ({result.area_acres:.4f} acres)"
+            if result.area_available
+            else "Area: not determined"
+        )
         summary.append(
             f"Perimeter: {result.perimeter_ft:,.2f} ft"
             if result.perimeter_available
