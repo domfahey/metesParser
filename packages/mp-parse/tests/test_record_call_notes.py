@@ -46,8 +46,8 @@ def test_record_text_in_notes_not_in_course(name: str, strict: bool) -> None:
     fragment, record = ROWS[name]
     calls, _ = extract_calls(POB + fragment + CLOSING, strict=strict)
     first = calls[0]
-    # extract_calls first joins "45° 10'" into "45°10'"; the call text is otherwise verbatim.
-    assert first.notes == f"record call: {record.replace('° ', '°')}"
+    # The record wording is the deed's own (not the normalized text's).
+    assert first.notes == f"record call: {record}"
     assert first.bearing_azimuth_deg_from_north == pytest.approx(45.0)
     assert first.distance_ft == pytest.approx(100.0)
     assert calls[1].notes is None

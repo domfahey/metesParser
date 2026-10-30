@@ -1355,6 +1355,14 @@ _QUALIFIER_PHRASE = re.compile(
 )
 
 
+# "by the line of Smith", "by lands of Smith", "by land now or formerly of Smith": adjoiner
+# wording like "along ...". Other senses of "by" ("by deed", "by plan") are not.
+_BY_ADJOINER = re.compile(
+    r"\bby\b(?=\s+(?:the\s+)?(?:(?:lines?|lands?)\s+(?:of|now\s+or\s+formerly|n/f)\b))",
+    re.IGNORECASE,
+)
+
+
 def extract_along_to_fields(call_text: str) -> tuple[str, str]:
     """Extract along and to fields from a call description.
 
@@ -1384,7 +1392,9 @@ def extract_along_to_fields(call_text: str) -> tuple[str, str]:
             and not any(start <= match.start() < end for start, end in qualifier_spans)
         ]
 
-    along_match = re.search(r"\balong\b", call_text, re.IGNORECASE)
+    along_match = re.search(r"\balong\b", call_text, re.IGNORECASE) or _BY_ADJOINER.search(
+        call_text
+    )
     if along_match:
         segment = call_text[along_match.end() :].lstrip()
         to_tokens = destination_tokens(segment)
