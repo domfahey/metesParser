@@ -372,3 +372,21 @@ class TestStandaloneHeadingAfterReferenceWord:
     def test_inline_reference_after_closed_description_is_not_a_marker(self):
         text = "of Parcel 2 then N 10 ft"
         assert find_tract_markers(text) == []
+
+
+class TestPobOpenerIsNotItsOwnClosure:
+    """A 'POINT OF BEGINNING at' or 'place of BEGINNING at' opener stays open."""
+
+    @pytest.mark.parametrize(
+        "opener",
+        [
+            "POINT OF BEGINNING at a stake",
+            "place of BEGINNING at a stake",
+        ],
+    )
+    def test_opener_with_pob_wording_keeps_description_open(self, opener):
+        text = (
+            f"TRACT 1\n{opener}; thence N 10 E 100 feet along the line of\n"
+            "Tract 4567\nthence S 10 W 100 feet"
+        )
+        assert [m[1] for m in find_tract_markers(text)] == ["Tract 1"]

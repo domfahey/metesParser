@@ -75,7 +75,7 @@ def _inside_open_description(prefix: str) -> bool:
     starts = list(_BEGINNING_PATTERN.finditer(prefix))
     if not starts:
         return False
-    return _POB_CLOSE_PATTERN.search(prefix, starts[-1].start()) is None
+    return _POB_CLOSE_PATTERN.search(prefix, starts[-1].end()) is None
 
 
 def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
