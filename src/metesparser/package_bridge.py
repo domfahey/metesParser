@@ -9,10 +9,29 @@ field for field and each model's explicitly-set fields are preserved.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import TypeVar
 
 import mp_models
+from pydantic import BaseModel
 
-from .models import CallAudit, DeedCall, SkippedCourse
+from .models import (
+    AuditContext,
+    CallAudit,
+    ClosureResult,
+    DeedCall,
+    LegalDescription,
+    SkippedCourse,
+    Tract,
+)
+
+_PackageModel = TypeVar("_PackageModel", bound=BaseModel)
+
+
+def _mirror(model: BaseModel, target: type[_PackageModel]) -> _PackageModel:
+    """Validate a model as its counterpart, keeping its explicitly-set fields."""
+    mirrored = target.model_validate(model.model_dump())
+    object.__setattr__(mirrored, "__pydantic_fields_set__", set(model.model_fields_set))
+    return mirrored
 
 
 def package_call(call: DeedCall) -> mp_models.DeedCall:
@@ -59,3 +78,49 @@ def monolith_skips(skips: Sequence[mp_models.SkippedCourse]) -> list[SkippedCour
 
 def monolith_call_audit(audit: mp_models.CallAudit) -> CallAudit:
     return CallAudit.model_validate(audit.model_dump())
+
+
+def package_result(result: ClosureResult) -> mp_models.ClosureResult:
+    """Mirror a closure result; its set fields still mark historical results."""
+    return _mirror(result, mp_models.ClosureResult)
+
+
+def package_tract(tract: Tract) -> mp_models.Tract:
+    return mp_models.Tract.model_construct(
+        _fields_set=tract.model_fields_set,
+        **{
+            **dict(tract),
+            "calls": package_calls(tract.calls),
+            "skipped_courses": package_skips(tract.skipped_courses),
+            "closure_result": (
+                None if tract.closure_result is None else package_result(tract.closure_result)
+            ),
+        },
+    )
+
+
+def package_legal_description(legal_desc: LegalDescription) -> mp_models.LegalDescription:
+    """Mirror a legal description; its calls are mirrored without revalidation."""
+    return mp_models.LegalDescription.model_construct(
+        _fields_set=legal_desc.model_fields_set,
+        **{
+            **dict(legal_desc),
+            "calls": package_calls(legal_desc.calls),
+            "tracts": [package_tract(tract) for tract in legal_desc.tracts],
+            "clauses": [
+                mp_models.DeedClause.model_validate(clause.model_dump())
+                for clause in legal_desc.clauses
+            ],
+            "subdivision_ref": (
+                None
+                if legal_desc.subdivision_ref is None
+                else mp_models.SubdivisionReference.model_validate(
+                    legal_desc.subdivision_ref.model_dump()
+                )
+            ),
+        },
+    )
+
+
+def package_audit_context(context: AuditContext) -> mp_models.AuditContext:
+    return _mirror(context, mp_models.AuditContext)
