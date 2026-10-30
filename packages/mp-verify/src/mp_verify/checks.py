@@ -22,7 +22,13 @@ from mp_bearing import (  # type: ignore[import-untyped]
 )
 from mp_models import CheckResult, DeedCall, Point
 
-from .tangents import chord_is_feasible, has_determined_direction, is_curved_course, is_spiral
+from .tangents import (
+    chord_is_feasible,
+    has_determined_direction,
+    is_curved_course,
+    is_spiral,
+    stated_sweep,
+)
 from .topology import check_curved_boundary_intersections
 from .traverse import position_courses
 
@@ -36,6 +42,13 @@ def check_boundary_intersections(calls: list[DeedCall], coordinates: list[Point]
 
 def evaluate_interior_angles(calls: list[DeedCall]) -> CheckResult:
     """Report whether the straight-polygon angle test actually ran."""
+    if any(is_curved_course(call) for call in calls):
+        return CheckResult(
+            name="interior_angles",
+            status="not_applicable",
+            reason="curved_boundary",
+            detail="Straight-polygon angle sum does not apply to curved boundaries",
+        )
     # A curve fixed by chord bearing and sweep has determined tangents: not missing.
     missing = [str(call.course) for call in calls if not has_determined_direction(call)]
     if missing:
@@ -44,13 +57,6 @@ def evaluate_interior_angles(calls: list[DeedCall]) -> CheckResult:
             status="blocked",
             reason="missing_bearings",
             detail=f"Required bearings missing for courses {', '.join(missing)}",
-        )
-    if any(is_curved_course(call) for call in calls):
-        return CheckResult(
-            name="interior_angles",
-            status="not_applicable",
-            reason="curved_boundary",
-            detail="Straight-polygon angle sum does not apply to curved boundaries",
         )
     if len(calls) < 3:
         return CheckResult(
@@ -584,18 +590,17 @@ def check_curve_consistency(
         if call.radius_ft is None:
             continue
 
-        delta_deg = call.delta_deg
-        delta_error_rad = delta_uncertainty_rad(delta_deg=delta_deg)
+        delta_deg = stated_sweep(call)
+        delta_error_rad = delta_uncertainty_rad(delta_deg=call.delta_deg)
 
-        # Derive delta from radius + arc when delta_deg is not explicit
-        if delta_deg is None:
-            if call.arc_length_ft is not None and call.radius_ft > 0.0:
-                implied_delta_rad = call.arc_length_ft / call.radius_ft
+        # Delta derived from radius + arc when delta_deg is not explicit
+        if call.delta_deg is None:
+            if delta_deg is not None:
                 # Arc cannot exceed full circle (2*pi*radius)
-                if implied_delta_rad > 2 * math.pi:
+                if delta_deg > 360.0:
                     warnings.append(f"Course {call.course}: arc length exceeds full circle")
                     return False, warnings
-                delta_deg = math.degrees(implied_delta_rad)
+                assert call.arc_length_ft is not None
                 delta_error_rad = delta_uncertainty_rad(
                     arc_length_ft=call.arc_length_ft, radius_ft=call.radius_ft
                 )
@@ -615,6 +620,7 @@ def check_curve_consistency(
                     return False, warnings
                 continue
 
+        assert delta_deg is not None
         delta_rad = math.radians(delta_deg)
         expected_arc = call.radius_ft * delta_rad
 
