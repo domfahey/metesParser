@@ -28,7 +28,7 @@
             }
           ],
           "default": null,
-          "description": "Arc length in feet",
+          "description": "Arc length in feet; for a spiral, the stated spiral length (never R * delta)",
           "title": "Arc Length Ft"
         },
         "bearing_azimuth_deg_from_north": {
