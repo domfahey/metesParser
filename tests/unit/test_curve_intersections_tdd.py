@@ -249,7 +249,10 @@ def test_spiral_flag_without_geometry_is_not_silently_classified_as_a_line(geome
     calls = [line(call_type, i + 1, bearing, 100) for i, bearing in enumerate((0, 90, 180, 270))]
     calls[0] = calls[0].model_copy(update={"curve_type": "spiral"})
     result = verify(calls)
-    assert any("intersection check unavailable" in w and "spiral" in w for w in result.warnings)
+    # Round 18: a spiral is gated on curve type alone, so without a stated chord it is
+    # unpositioned (never run as a line) and topology is unavailable, not passed.
+    assert any("spiral cannot be positioned" in w for w in result.warnings), result.warnings
+    assert any("intersection check unavailable" in w for w in result.warnings)
     assert not result.is_fully_verified()
 
 

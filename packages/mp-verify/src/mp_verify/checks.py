@@ -22,7 +22,7 @@ from mp_bearing import (  # type: ignore[import-untyped]
 )
 from mp_models import CheckResult, DeedCall, Point
 
-from .tangents import chord_is_feasible, has_determined_direction
+from .tangents import chord_is_feasible, has_determined_direction, is_curved_course, is_spiral
 from .topology import check_curved_boundary_intersections
 from .traverse import position_courses
 
@@ -45,7 +45,7 @@ def evaluate_interior_angles(calls: list[DeedCall]) -> CheckResult:
             reason="missing_bearings",
             detail=f"Required bearings missing for courses {', '.join(missing)}",
         )
-    if any(call.is_curve() for call in calls):
+    if any(is_curved_course(call) for call in calls):
         return CheckResult(
             name="interior_angles",
             status="not_applicable",
@@ -117,7 +117,9 @@ def build_verification_checks(
         for call in unpositioned
     )
     closure_unpositioned = bool(unpositioned) or not misclosure_available
-    curves = [call for call in calls if call.is_curve()]
+    curves = [call for call in calls if is_curved_course(call)]
+    # Spirals are reported by closure as spiral_geometry_unverified, never by circular rules.
+    circular_curves = [call for call in curves if not is_spiral(call)]
 
     def outcome(
         name: str,
@@ -158,11 +160,11 @@ def build_verification_checks(
         or call.radius_ft is None
         or call.radius_ft <= 0
         or not ((call.delta_deg or 0) > 0 or (call.arc_length_ft or 0) > 0)
-        for call in curves
+        for call in circular_curves
     )
     redundant_curves = [
         call
-        for call in curves
+        for call in circular_curves
         if (call.delta_deg is not None and call.arc_length_ft is not None)
         or call.chord_length_ft is not None
     ]
@@ -182,7 +184,7 @@ def build_verification_checks(
     straight_pairs = [
         (first, second)
         for first, second in zip(calls, calls[1:], strict=False)
-        if not first.is_curve() and not second.is_curve()
+        if not is_curved_course(first) and not is_curved_course(second)
     ]
     reversals_blocked = any(
         not first.is_complete_bearing() or not second.is_complete_bearing()
@@ -226,15 +228,15 @@ def build_verification_checks(
             []
             if curve_consistency_passed
             else (curve_issues or ["Curve math inconsistency detected"]),
-            applicable=bool(curves) and len(redundant_curves) == len(curves),
+            applicable=bool(circular_curves) and len(redundant_curves) == len(circular_curves),
             blocked=curve_incomplete,
             detail=(
                 "Curve geometry requires direction, positive radius, and positive delta or arc length"
                 if curve_incomplete
                 else "No curved courses"
-                if not curves
+                if not circular_curves
                 else "Some curves lack a redundant measure for an independent consistency check"
-                if len(redundant_curves) != len(curves)
+                if len(redundant_curves) != len(circular_curves)
                 else "All supplied redundant curve elements are consistent"
             ),
         ),
@@ -376,7 +378,7 @@ def check_interior_angles(calls: list[DeedCall], coordinates: list[Point]) -> bo
     Returns:
         True if angles sum correctly (within tolerance).
     """
-    if any(not call.is_complete_bearing() or call.is_curve() for call in calls):
+    if any(not call.is_complete_bearing() or is_curved_course(call) for call in calls):
         return True
 
     n = len(calls)
@@ -433,12 +435,16 @@ def check_straight_boundary_intersections(
         < 0.01
     )
     for i, first in enumerate(calls):
-        if first.is_curve():
+        if is_curved_course(first):
             continue
         a, b = coordinates[i], coordinates[i + 1]
         for j in range(i + 1, len(calls)):
             second = calls[j]
-            if second.is_curve() or j == i + 1 or (closed and i == 0 and j == len(calls) - 1):
+            if (
+                is_curved_course(second)
+                or j == i + 1
+                or (closed and i == 0 and j == len(calls) - 1)
+            ):
                 continue
             c, d = coordinates[j], coordinates[j + 1]
             proper_crossing = (
@@ -499,7 +505,8 @@ def tangent_chord_issue(call: DeedCall) -> str | None:
     implied by arc / radius) must be twice the deflection.
     """
     if (
-        call.non_tangent
+        is_spiral(call)
+        or call.non_tangent
         or call.curve_dir not in ("left", "right")
         or call.bearing_azimuth_deg_from_north is None
         or call.chord_bearing is None
@@ -570,7 +577,8 @@ def check_curve_consistency(
         return tangent_chord_issue(call)
 
     for index, call in enumerate(calls):
-        if not call.is_curve():
+        # Circular formulas never pass or fail a spiral (verify_closure blocks it).
+        if not call.is_curve() or is_spiral(call):
             continue
 
         if call.radius_ft is None:
@@ -655,7 +663,7 @@ def check_bearing_reversals(calls: list[DeedCall]) -> list[str]:
 
     for i in range(len(calls) - 1):
         c1, c2 = calls[i], calls[i + 1]
-        if c1.is_curve() or c2.is_curve():
+        if is_curved_course(c1) or is_curved_course(c2):
             continue
         az1 = c1.bearing_azimuth_deg_from_north
         az2 = c2.bearing_azimuth_deg_from_north

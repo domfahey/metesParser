@@ -44,7 +44,12 @@ from .checks import (
     tangent_chord_issue,
 )
 from .confidence import calculate_confidence_score, score_call_quality
-from .tangents import chord_positioned_delta, has_determined_direction, is_circular_curve
+from .tangents import (
+    chord_positioned_delta,
+    has_determined_direction,
+    is_circular_curve,
+    is_spiral,
+)
 from .traverse import analyze_courses, traverse_positions
 
 logger = structlog.get_logger(__name__)
@@ -339,8 +344,14 @@ def verify_closure(
             "curve geometry blocked"
         )
     for record in unpositioned:
+        if is_spiral(record.call) and not record.bad_chord:
+            warnings.append(
+                f"Course {record.call.course}: spiral cannot be positioned (no stated chord "
+                "bearing and length; never treated as a circular arc or straight line); "
+                "closure, area and perimeter are not determined"
+            )
         # A chord longer than the diameter fits no circle of that radius.
-        if not record.bad_chord and not record.feasible_chord:
+        elif not record.bad_chord and not record.feasible_chord:
             warnings.append(
                 f"Course {record.call.course}: curve cannot be positioned (chord length "
                 "exceeds twice the radius); closure, area and perimeter are not determined"
@@ -538,6 +549,17 @@ def verify_closure(
                 "invalid_chord_bearing",
                 "Unparseable chord bearing on course(s) "
                 + ", ".join(str(record.call.course) for record in bad_chords),
+            )
+        )
+    spiral_courses = [record.call.course for record in records if is_spiral(record.call)]
+    if spiral_courses:
+        # Circular L = R*delta and chord formulas do not apply to a spiral: never
+        # passed or failed by them, its geometry is reported as unverified.
+        curve_blocks.append(
+            (
+                "spiral_geometry_unverified",
+                "Spiral geometry is not verified (circular curve formulas do not apply) "
+                "on course(s) " + ", ".join(str(c) for c in spiral_courses),
             )
         )
     if curve_blocks:
