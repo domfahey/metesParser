@@ -328,6 +328,13 @@ class TestExtractDistance:
         assert value == pytest.approx(693.0)
         assert unit == "feet"
 
+    def test_implicit_pair_followed_by_and_part_keeps_leading_component(self) -> None:
+        from mp_parse.metadata import extract_distance
+
+        value, unit = extract_distance("10 chains 50 links and 3 perches")
+        assert value == pytest.approx(742.5)
+        assert unit == "feet"
+
     def test_feet(self) -> None:
         from mp_parse.metadata import extract_distance
 
