@@ -24,6 +24,7 @@ from mp_models import CheckResult, DeedCall, Point
 
 from .tangents import (
     chord_is_feasible,
+    curve_sweep,
     curve_tangents,
     has_determined_direction,
     is_curved_course,
@@ -569,6 +570,38 @@ def tangent_chord_issue(call: DeedCall) -> str | None:
     return None
 
 
+def radial_chord_issue(call: DeedCall) -> str | None:
+    """Return why a non-tangent curve's radial and chord bearings disagree, if they do.
+
+    Both fix the starting tangent (radial -/+ 90 and chord -/+ delta/2); they must
+    agree within the rounding-aware angular tolerance.
+    """
+    radial_in = radial_tangent_in(call)
+    sweep = curve_sweep(call)
+    if radial_in is None or sweep is None or call.chord_bearing is None:
+        return None
+    chord_az = bearing_to_azimuth(call.chord_bearing)
+    if chord_az is None:
+        return None
+    sign = 1.0 if call.curve_dir == "right" else -1.0
+    chord_in = (chord_az - sign * sweep / 2.0) % 360.0
+    diff = abs(radial_in - chord_in) % 360.0
+    diff = min(diff, 360.0 - diff)
+    delta_error = delta_uncertainty_rad(delta_deg=call.delta_deg)
+    if call.delta_deg is None and call.arc_length_ft is not None and call.radius_ft:
+        delta_error = delta_uncertainty_rad(
+            arc_length_ft=call.arc_length_ft, radius_ft=call.radius_ft
+        )
+    err = bearing_difference_uncertainty_rad(radial_in, chord_in)
+    if diff > tangent_chord_tolerance_deg(delta_error, err):
+        return (
+            f"Course {call.course}: stated radial and chord bearings are inconsistent "
+            f"(tangent {radial_in:.4f}\u00b0 from radial, {chord_in:.4f}\u00b0 from chord "
+            "and sweep)"
+        )
+    return None
+
+
 def check_curve_consistency(
     calls: list[DeedCall],
     tangent_issues: Mapping[int, str | None] | None = None,
@@ -660,7 +693,7 @@ def check_curve_consistency(
                 )
                 return False, warnings
 
-        issue = _tangent_issue(index, call)
+        issue = _tangent_issue(index, call) or radial_chord_issue(call)
         if issue:
             warnings.append(issue)
             return False, warnings

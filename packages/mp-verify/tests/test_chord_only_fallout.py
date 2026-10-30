@@ -66,7 +66,7 @@ def test_unparseable_chord_on_chord_only_curve_is_not_positioned():
     assert any("cannot be positioned" in w for w in result.warnings)
 
 
-def test_unparseable_chord_with_stated_delta_still_traverses_by_tangent():
+def test_unparseable_chord_with_stated_delta_is_unpositioned_not_run_by_tangent():
     curve = DeedCall(
         course=2,
         direction_text="recorded",
@@ -78,7 +78,7 @@ def test_unparseable_chord_with_stated_delta_still_traverses_by_tangent():
         chord_bearing="northeasterly",
     )
     result = verify_closure(_square(curve))
-    assert len(result.points) == 5
+    assert result.misclosure_available is False
     assert {c.name: c.status for c in result.checks}["curve_consistency"] == "blocked"
 
 

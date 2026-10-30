@@ -64,16 +64,14 @@ def _curve_evidence(call: DeedCall) -> bool:
 def _supported_circular_arc(call: DeedCall, call_id: str) -> PlotPrimitive:
     """Reuse plotting's redundant measurement and tangent/chord checks before analysis.
 
-    Individual circular members of compound/reverse curves are supported. Radial
-    observations cannot be checked without a declared inward/outward convention.
+    Individual circular members of compound/reverse curves are supported. A stated
+    radial bearing orients a non-tangent curve through the shared tangents rule.
     Full circles lack a distinct chord orientation in the shared plot contract.
     """
     if not call.is_curve():
         raise ValueError("partial curve evidence; radius, sweep and direction required")
     if call.curve_type == "spiral":
         raise ValueError("spiral geometry unsupported; no circular arc assumed")
-    if call.radial_bearing is not None:
-        raise ValueError("radial curve orientation convention unsupported; no evidence discarded")
     if call.delta_deg == 360:
         raise ValueError("full circles unsupported; require a distinct arc endpoint")
     primitive = _arc(call, (0.0, 0.0), {"call_id": call_id, "occurrence_id": None, "page_id": None})

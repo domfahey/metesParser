@@ -281,12 +281,10 @@ def test_bad_chord_on_one_call_does_not_strip_chord_from_same_course_number():
 
     valid = curve("S 30° E")
     bad = curve("South")
-    valid_alone = verify_closure([valid])
-    bad_alone = verify_closure([curve(None)])
-    combined = verify_closure([valid, bad])
+    from mp_verify.traverse import position_courses
 
-    expected_x = valid_alone.misclosure_x_ft + bad_alone.misclosure_x_ft
-    expected_y = valid_alone.misclosure_y_ft + bad_alone.misclosure_y_ft
-    assert combined.misclosure_x_ft == pytest.approx(expected_x, abs=1e-6)
-    assert combined.misclosure_y_ft == pytest.approx(expected_y, abs=1e-6)
+    # Only the unreadable-chord call is blocked; its sibling stays positioned.
+    assert position_courses([valid, bad])[1] == [True, False]
+    combined = verify_closure([valid, bad])
+    assert combined.misclosure_available is False
     assert any("South" in w and "chord bearing" in w.lower() for w in combined.warnings)
