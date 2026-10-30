@@ -328,6 +328,17 @@ class DeedCall(_Model):
         if not has_curve_measure and not has_curve_direction:
             return self
 
+        # A spiral stated only by chord bearing and chord length is positioned by
+        # that chord; its radius and direction are not required (never invented).
+        # Circular curves still require direction and radius.
+        if (
+            self.curve_type == "spiral"
+            and not has_radius
+            and has_chord
+            and self.chord_bearing is not None
+        ):
+            return self
+
         if not has_curve_direction:
             raise ValueError("curve_dir is required when any curve field is provided")
 
