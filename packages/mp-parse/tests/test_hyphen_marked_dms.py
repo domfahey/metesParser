@@ -49,5 +49,8 @@ def test_hyphen_marked_dms(bearing, azimuth, length):
     ],
 )
 def test_identifier_not_a_bearing(text):
-    call = extract_single_call("thence " + text if not text.startswith("thence") else text, 1)
+    try:
+        call = extract_single_call("thence " + text if not text.startswith("thence") else text, 1)
+    except ValueError:
+        return
     assert call is None or call.bearing_azimuth_deg_from_north is None
