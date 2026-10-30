@@ -627,6 +627,30 @@ def test_repeated_label_without_calls_folds_into_previous_tract():
     assert "WHOSEVER" in result[0][0]
 
 
+@pytest.mark.parametrize(
+    ("text", "label", "fragment"),
+    [
+        (
+            "TRACT ONE: BEGINNING at a pin; thence N 10° E 100 feet to the point of beginning. "
+            "Tract One: 1.2 acres more or less.",
+            "Tract ONE",
+            "1.2 acres",
+        ),
+        (
+            "PARCEL TWO: BEGINNING at a pin; thence N 10° E 100 feet to the point of beginning. "
+            "Parcel Two: subject to easements of record.",
+            "Parcel TWO",
+            "subject to easements",
+        ),
+    ],
+    ids=["tract-one-titlecase-repeat", "parcel-two-titlecase-repeat"],
+)
+def test_repeated_label_differing_only_in_case_folds_into_first(text, label, fragment):
+    result = split_into_tracts(text)
+    assert [lbl for _t, lbl, _k in result] == [label]
+    assert fragment in result[0][0]
+
+
 # --- "TRACT n: BEING the same lands ..." recitals (15 E Euclid Ave) --------------
 
 _T1 = (
