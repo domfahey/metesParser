@@ -114,6 +114,21 @@ def test_parcel_outside_every_covering_operation_still_fails_closed():
     assert [(i.kind, i.item_id) for i in artifact.unavailable] == [("scene", "grid")]
 
 
+def test_omitted_unplaced_calculation_does_not_choose_the_operation():
+    data = _bundle()
+    x, y = _origin(74.0, 34.0)
+    placement_a = data["placements"][0]
+    placement_a["translation"] = [x + FAR, y]  # outside every operation
+    data["placements"].append({**placement_a, "id": "placement-b", "status": "unplaced"})
+    _vector_data(data, [("near", x, y, 500)])
+    prepared, artifact = _run(data)
+    omitted = {(i.kind, i.item_id): i.code for i in artifact.unavailable}
+    assert omitted.get(("calculation", "calc-one")) == "unplaced"
+    assert ("scene", "grid") not in omitted
+    assert {f.properties.layer_id for f in artifact.features} == {"near"}
+    assert validate_web_map_artifact(prepared, artifact) == artifact
+
+
 def test_all_inside_scene_is_unchanged():
     data = _bundle()
     x, y = _origin(74.0, 34.0)
