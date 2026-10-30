@@ -1652,6 +1652,15 @@ def _extract_call(
     )
     # Fixed by stated chord bearing, direction and delta/arc (not stored as a tangent).
     chord_positioned = False
+    # A cardinal-only direction word that conflicts with the stated chord bearing.
+    direction_conflicts_chord = bool(
+        isinstance(chord_text, str)
+        and raw_direction
+        and not parsed_bearing
+        and not is_due_cardinal
+        and _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip())
+        and _cardinal_conflicts_chord(raw_direction, chord_text)
+    )
     cardinal_conflict = False
     if (
         chord_only
@@ -1659,13 +1668,7 @@ def _extract_call(
         and curve_info.get("direction") in ("left", "right")
         and tangent_delta is not None
     ):
-        cardinal_conflict = bool(
-            raw_direction
-            and not parsed_bearing
-            and not is_due_cardinal
-            and _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip())
-            and _cardinal_conflicts_chord(raw_direction, chord_text)
-        )
+        cardinal_conflict = direction_conflicts_chord
         chord_positioned = bearing_to_azimuth(chord_text) is not None and not cardinal_conflict
 
     has_abbreviated_cardinal = bool(
@@ -1861,13 +1864,7 @@ def _extract_call(
         and not chord_exceeds_diameter
         and isinstance(chord_text, str)
         and bearing_to_azimuth(chord_text) is not None
-        and not (
-            raw_direction
-            and not parsed_bearing
-            and not is_due_cardinal
-            and _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip())
-            and _cardinal_conflicts_chord(raw_direction, chord_text)
-        )
+        and not direction_conflicts_chord
     )
     chord_only_unresolved = chord_only and not chord_positioned and not chord_states_direction
     is_indefinite = chord_only_unresolved or is_indefinite_call(

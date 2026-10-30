@@ -12,10 +12,10 @@ from mp_models import ClosureResult, DeedCall
 from mp_models.constants import PERMANENT_MONUMENTS
 
 from .tangents import has_determined_direction
-from .traverse import is_chord_positioned
+from .traverse import chord_positioned_flags, is_chord_positioned
 
 
-def score_call_quality(call: DeedCall) -> str:
+def score_call_quality(call: DeedCall, chord_positioned: bool | None = None) -> str:
     """Rate individual call quality as high/medium/low.
 
     Scoring logic:
@@ -37,7 +37,9 @@ def score_call_quality(call: DeedCall) -> str:
         return "low"
 
     if not has_determined_direction(call):
-        return "medium" if is_chord_positioned(call) else "low"
+        if chord_positioned is None:
+            chord_positioned = is_chord_positioned(call)
+        return "medium" if chord_positioned else "low"
 
     if call.is_meander:
         return "medium"
@@ -48,7 +50,11 @@ def score_call_quality(call: DeedCall) -> str:
     return "high"
 
 
-def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> float:
+def calculate_confidence_score(
+    result: ClosureResult,
+    calls: list[DeedCall],
+    chord_flags: list[bool] | None = None,
+) -> float:
     """Calculate overall confidence score (0.0-1.0) for a closure result.
 
     Weighted components:
@@ -96,11 +102,17 @@ def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> 
 
     # Bearing completeness (25%): a stated chord bearing that positions the course
     # counts as a stated direction (its lower quality is scored below).
-    complete = sum(1 for c in calls if has_determined_direction(c) or is_chord_positioned(c))
+    if chord_flags is None:
+        chord_flags = chord_positioned_flags(calls)
+    complete = sum(
+        1
+        for c, chord in zip(calls, chord_flags, strict=True)
+        if has_determined_direction(c) or chord
+    )
     bearing_score = complete / len(calls)
 
     # Call quality (15%)
-    qualities = [score_call_quality(c) for c in calls]
+    qualities = [score_call_quality(c, chord) for c, chord in zip(calls, chord_flags, strict=True)]
     quality_weights = {"high": 1.0, "medium": 0.6, "low": 0.2}
     quality_score = sum(quality_weights[q] for q in qualities) / len(calls)
 
