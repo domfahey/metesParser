@@ -78,7 +78,7 @@ def prepare_dashboard(
 
         scenes = {scene.id: scene for scene in bundle.scenes}
         for layer in bundle.raster_layers:
-            validate_raster_layer(layer, scenes[layer.scene_id])
+            validate_raster_layer(layer, scenes[layer.scene_id], allow_legacy_orientation=True)
     source = _source_data(bundle)
     directory = Path(cache_dir) if cache_dir is not None else None
     reused = False

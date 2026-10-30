@@ -33,7 +33,7 @@ from mp_models.revisions import revision_template
 from mp_verify.dashboard import validate_prepared_dashboard
 
 from .plot_svg import fitted_viewbox, primitive_svg_path
-from .raster_guard import require_upright_raster
+from .raster_guard import RASTER_ORIENTATION_REASON, raster_orientation_omission
 
 _ASSETS = Path(__file__).with_name("dashboard_assets")
 
@@ -299,7 +299,13 @@ def _raster_corners(layer: RasterLayer) -> list[XY]:
 
 
 def _raster_svg(layer: RasterLayer) -> str:
-    require_upright_raster(layer)
+    omission = raster_orientation_omission(layer)
+    if omission is not None:
+        # Legacy EXIF-rotated raster: omit with the same reason prepare_web_map reports.
+        return (
+            f'<g data-omitted-raster="{_escape(layer.id)}" data-omission-reason="{RASTER_ORIENTATION_REASON}">'
+            f"<title>{_escape(layer.label)}: omitted ({RASTER_ORIENTATION_REASON}) - {_escape(omission)}</title></g>"
+        )
     a, b, c, d, e, f = layer.registration.matrix
     matrix = " ".join(f"{value:.17g}" for value in (a, d, b, e, c, f))
     return f'<g transform="scale(1 -1)"><image data-raster-layer="{_escape(layer.id)}" x="-0.5" y="-0.5" width="{layer.width}" height="{layer.height}" transform="matrix({matrix})" href="data:{layer.mime_type};base64,{_escape(layer.data_base64)}" preserveAspectRatio="none"><title>{_escape(layer.label)}</title></image></g>'
@@ -382,7 +388,8 @@ def _plot_views(prepared: PreparedDashboard) -> str:
         for raster in bundle.raster_layers:
             if not scene or raster.scene_id != scene.id:
                 continue
-            bounds.extend(_raster_corners(raster))
+            if raster_orientation_omission(raster) is None:
+                bounds.extend(_raster_corners(raster))
             layers.append(
                 f'<g style="opacity:{opacity.get(raster.id, 0.45)}" data-map-layer="{_escape(raster.id)}">{_raster_svg(raster)}</g>'
             )
@@ -456,6 +463,12 @@ def _plot_views(prepared: PreparedDashboard) -> str:
         )
         if isinstance(layer, RasterLayer):
             registration = layer.registration
+            omission = raster_orientation_omission(layer)
+            if omission is not None:
+                parts.append(
+                    f'<p class="warning" data-omitted-raster="{_escape(layer.id)}">'
+                    f"Raster omitted ({RASTER_ORIENTATION_REASON}): {_escape(omission)}</p>"
+                )
             parts.append(
                 f"<p>Raster registration: {_escape(registration.status)} · {_escape(registration.pixel_convention)}. Fit RMS {_number(registration.fit_rms)}; Checkpoint RMS {_number(registration.checkpoint_rms)} {_escape(source_scene.units)}. Fit residuals are not independent survey accuracy.</p><pre>{_escape(registration.model_dump_json(indent=2))}</pre>"
             )

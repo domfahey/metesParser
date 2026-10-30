@@ -140,10 +140,11 @@ def test_offline_evidence_preserves_original_scan_registration_and_local_plot():
     assert "connect-src &#x27;none&#x27;" in rendered
 
 
-def test_offline_evidence_refuses_exif_oriented_raster():
+def test_offline_evidence_omits_exif_oriented_raster_with_reason():
     import io
 
     from mp_export import render_map_evidence
+    from mp_models.raster import RASTER_ORIENTATION_MESSAGE
     from PIL import Image
 
     image = Image.new("RGB", (1, 1))
@@ -163,8 +164,10 @@ def test_offline_evidence_refuses_exif_oriented_raster():
     )
     source = value.map_sources[0].model_copy(update={"sha256": digest, "filename": "scan.jpg"})
     value = value.model_copy(update={"raster_layers": (layer,), "map_sources": (source,)})
-    with pytest.raises(ValueError, match="orientation"):
-        render_map_evidence(value)
+    rendered = render_map_evidence(value)
+    assert "raster_orientation" in rendered
+    assert html.escape(RASTER_ORIENTATION_MESSAGE) in rendered
+    assert "data:image/jpeg;base64" not in rendered
 
 
 def test_offline_evidence_rejects_stale_plot_before_rendering():
