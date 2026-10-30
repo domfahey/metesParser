@@ -1504,10 +1504,19 @@ def _extract_call(
     if re.match(r"^\s*(BEGINNING|COMMENCING|POB)\b", call_text, re.IGNORECASE):
         return None, ""
 
-    # Text after the closing sentence is not part of this course (recitals, ties).
+    # Text after the closing sentence is not part of this course (recitals, ties),
+    # but a complete course there must fail closed rather than be dropped.
     cut = _cut_closing_sentence(call_text)
     if cut:
-        call_text = cut[0]
+        head, tail = cut
+        if (
+            tail
+            and _states_complete_course(tail)
+            and not _BLOCK_LEAD.match(tail)
+            and not _TRAILING_LEAD.match(tail)
+        ):
+            raise MultipleCoursesError(MULTIPLE_COURSES_ERROR)
+        call_text = head
 
     curve_info = extract_curve_info(call_text, distance_unit)
     course_bearing = _course_bearing(call_text, curve_info)
