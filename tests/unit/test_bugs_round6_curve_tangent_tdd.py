@@ -400,10 +400,10 @@ def test_curve_direction_text_skips_the_chord_bearing_verbatim(entry):
 
 @pytest.mark.parametrize("entry", ["package-single", "monolith-single"])
 def test_unparsed_bearing_keeps_its_cardinal_direction_text(entry):
-    # A mixed form the parser does not read ("degrees" with a minute symbol) stays
+    # A bearing whose numbers carry no unit markers is ambiguous and stays
     # an incomplete cardinal-only course; the verbatim lookup must not dress it up
     # as a bearing or clear its indefinite flag.
-    call = ENTRY_POINTS[entry]("THENCE North 34 degrees 02' 00\" West 129 feet to a point")
+    call = ENTRY_POINTS[entry]("THENCE North 34 02 00 West 129 feet to a point")
     assert call.bearing_azimuth_deg_from_north is None
     assert call.direction_text == "north"
     assert call.is_indefinite is True
