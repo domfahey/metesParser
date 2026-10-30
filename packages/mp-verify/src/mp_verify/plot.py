@@ -8,6 +8,8 @@ import math
 from typing import TYPE_CHECKING, TypedDict
 
 from mp_bearing import (  # type: ignore[import-untyped]
+    CURVE_ELEMENT_TOLERANCE_FT,
+    TANGENT_CHORD_TOLERANCE_DEG,
     bearing_to_azimuth,
     calculate_curve_properties,
     calculate_deltas,
@@ -59,12 +61,6 @@ def _finite(point: XY) -> XY:
     return point
 
 
-# Deeds state angles to whole arcseconds (+/-0.5" each for tangent, chord and
-# delta, i.e. up to ~1.25" combined); 1.5" absorbs that rounding while
-# arcminute-scale disagreement remains rejected.
-TANGENT_CHORD_TOLERANCE_DEG = 1.5 / 3600
-
-
 def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
     if call.radius_ft is None or call.curve_dir is None:
         raise ValueError("curve radius and direction unresolved")
@@ -78,7 +74,7 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
     for field in ("delta_deg", "arc_length_ft", "chord_length_ft"):
         supplied = getattr(call, field)
         if supplied is not None and not math.isclose(
-            supplied, props[field], rel_tol=1e-6, abs_tol=0.01
+            supplied, props[field], rel_tol=1e-6, abs_tol=CURVE_ELEMENT_TOLERANCE_FT
         ):
             raise ValueError(f"inconsistent curve element: {field}")
     sign = 1 if call.curve_dir == "right" else -1
