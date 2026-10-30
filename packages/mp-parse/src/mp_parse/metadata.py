@@ -95,12 +95,31 @@ def ends_sentence(text: str, index: int) -> bool:
 
 
 def _before_clause_delimiter(text: str) -> str:
-    """Trim a call at sentence punctuation without splitting decimals or abbreviations."""
+    """Trim a call at sentence punctuation without splitting decimals or abbreviations.
+
+    A ';' inside a closed bracketed group is part of the group, never a delimiter.
+    """
+    bracketed = [(s, e) for s, e, closed in bracket_groups(text) if closed]
     for match in re.finditer(r"[;.]", text):
         if match.group() == "." and is_abbreviation_period(text, match.start()):
             continue
+        if match.group() == ";" and any(s < match.start() < e for s, e in bracketed):
+            continue
         return text[: match.start()]
     return text
+
+
+def split_outside_brackets(text: str, separator: str = ";") -> list[str]:
+    """Split ``text`` at ``separator`` except inside a closed bracketed group."""
+    bracketed = [(s, e) for s, e, closed in bracket_groups(text) if closed]
+    pieces: list[str] = []
+    start = 0
+    for index, char in enumerate(text):
+        if char == separator and not any(s < index < e for s, e in bracketed):
+            pieces.append(text[start:index])
+            start = index + 1
+    pieces.append(text[start:])
+    return pieces
 
 
 class _AreaStatement(TypedDict):
@@ -484,7 +503,7 @@ def _split_header_led_parts(parts: list[str]) -> list[str]:
             result.append(part)
             continue
         courses: list[str] = []
-        for segment in stripped[header.end() :].split(";"):
+        for segment in split_outside_brackets(stripped[header.end() :]):
             if courses and not re.search(r"\d", segment):
                 courses[-1] += ";" + segment
             else:
@@ -889,7 +908,7 @@ def split_call_fragments(
     elif _THENCE.search(text):
         parts = _split_header_led_parts(_THENCE.split(text))
     else:
-        parts = text.split(";")
+        parts = split_outside_brackets(text)
 
     calls = []
     for part in parts:
@@ -1749,11 +1768,25 @@ def _remove_spans(text: str, spans: list[tuple[int, int]]) -> str:
     return text
 
 
+# "10 feet from and", "10 feet distant from and", "10 feet northerly of and" before a
+# qualifier ("parallel to ..."): the offset belongs to the qualifier's wording.
+_OFFSET_LEAD = (
+    rf"{LENGTH_NUMBER}\s*{UNIT_TOKEN}\b\.?\s*(?:distant\s+)?"
+    rf"(?:from|{_DIRECTION_WORD}\s+of)\s+and\s+"
+)
+_OFFSET_QUALIFIER_LEAD = re.compile(_OFFSET_LEAD + r"(?=" + _QUALIFIER_PHRASE.pattern + ")", re.I)
+_OFFSET_LEAD_BEFORE = re.compile(_OFFSET_LEAD + "$", re.IGNORECASE)
+
+
 def _opens_with_course_wording(piece: str) -> bool:
-    """Return True when ``piece`` opens with adjoiner or qualifier wording."""
+    """Return True when ``piece`` opens with adjoiner, qualifier or offset wording."""
     lead = _COURSE_WORDING_PIECE.match(piece)
     at = lead.end() if lead else 0
-    return bool(_ADJOINER_LEAD.match(piece, at) or _QUALIFIER_PHRASE.match(piece, at))
+    return bool(
+        _ADJOINER_LEAD.match(piece, at)
+        or _QUALIFIER_PHRASE.match(piece, at)
+        or _OFFSET_QUALIFIER_LEAD.match(piece, at)
+    )
 
 
 def extract_course_clause(
@@ -1831,12 +1864,35 @@ def extract_course_clause(
     dropped = [(s, min(e, course_end)) for s, e in drop_spans if start <= s < course_end]
 
     along = ""
-    lead_word = _ADJOINER_LEAD.search(course, start)
+    # "parallel with the line of Smith": the "with" belongs to the qualifier phrase.
+    lead_word = next(
+        (
+            m
+            for m in _ADJOINER_LEAD.finditer(course, start)
+            if not any(s <= m.start() < e for s, e in qualifiers)
+        ),
+        None,
+    )
     if lead_word:
-        removed = [span for span in passing_spans + dropped if span[0] >= lead_word.end()]
+        # Qualifier wording (with its offset) stated before the adjoiner is kept too:
+        # the course then reads from it through the adjoiner wording.
+        begin = lead_word.end()
+        earlier = next(
+            (
+                q
+                for q in re.finditer(_QUALIFIER_PHRASE, course[: lead_word.start()])
+                if q.start() >= start
+                and not any(s <= q.start() < e for s, e in passing_spans + dropped)
+            ),
+            None,
+        )
+        if earlier is not None:
+            offset = _OFFSET_LEAD_BEFORE.search(course[start : earlier.start()])
+            begin = start + offset.start() if offset else earlier.start()
+        removed = [span for span in passing_spans + dropped if span[0] >= begin]
         removed += [m.span() for m in _CONTINUING_COURSE.finditer(course, lead_word.end())]
         segment = _remove_spans(course, removed)
-        segment = segment[lead_word.end() :].strip()
+        segment = segment[begin:].strip()
         if destination is None:
             segment = _before_clause_delimiter(segment)
         along = segment.strip(" ,;.")
@@ -1862,6 +1918,14 @@ def extract_course_clause(
             # Only the course's own length (with "a distance of" / "more or less").
             cut_start, cut_end = course_length_phrase_span(reading[:tail_end], *span)
             cuts.append((max(cut_start, tail_start) - tail_start, cut_end - tail_start))
+        # A bracketed group after the destination that holds a passing call is the
+        # course's passing call (the whole group wording), never part of ``to``.
+        for g_start, g_end, closed in bracket_groups(clause[tail_start:tail_end]):
+            if closed and _PASSING.search(clause, tail_start + g_start, tail_start + g_end):
+                cuts.append((g_start, g_end))
+                passing += (
+                    clause[tail_start + g_start + 1 : tail_start + g_end - 1].strip(" ,;."),
+                )
         tail = _remove_spans(clause[tail_start:tail_end], cuts)
         to = _TRAILING_SEPARATOR.sub("", _CLAUSE_TRAILER.sub("", tail.strip()))
         # "to a pin; passing a monument at 30 feet": a ';'-separated passing call
@@ -1907,7 +1971,11 @@ def _qualifier_wording(text: str) -> str:
     match = _QUALIFIER_PHRASE.search(text)
     if match is None:
         return ""
-    wording = _before_clause_delimiter(text[match.start() :])
+    begin = match.start()
+    offset = _OFFSET_LEAD_BEFORE.search(text[:begin])
+    if offset is not None:
+        begin = offset.start()
+    wording = _before_clause_delimiter(text[begin:])
     # "a distance of N feet" is the course's own length, not part of the qualifier.
     wording = re.split(r"\s+(?:a\s+)?distance\s+of\b", wording, maxsplit=1, flags=re.I)[0]
     return wording.strip(" ,;.")
