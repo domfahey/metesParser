@@ -52,7 +52,10 @@ def main():
         print(
             f"  Azimuth:    {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north is not None else '(none)'}"
         )
-        print(f"  Distance:   {call.distance_ft:.2f} ft")
+        distance = (
+            f"{call.distance_ft:.2f} ft" if call.distance_ft is not None else "not determined"
+        )
+        print(f"  Distance:   {distance}")
         print(f"  Along:      {call.along[:60] if call.along else '(none)'}...")
         print(f"  Notes:      {call.notes or '(none)'}")
         print()
