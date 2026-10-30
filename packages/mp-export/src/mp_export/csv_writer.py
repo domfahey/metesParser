@@ -21,6 +21,7 @@ from mp_models import (
     Tract,
     _Model,
 )
+from mp_verify.closure import skips_for_tract
 from pydantic import ValidationError, field_validator
 
 logger = structlog.get_logger(__name__)
@@ -166,25 +167,28 @@ def _cleanup_stale_sidecars(output_file: Path, *, metadata_written: bool) -> Non
             sidecar.unlink()
 
 
-def _skips_for_tract(
-    tract: Tract,
-    audit_context: AuditContext | None,
-    tracts: list[Tract],
-    explicit: list[SkippedCourse] | None = None,
+def _labelled_skips(
+    audit_context: AuditContext | None, explicit: list[SkippedCourse] | None
 ) -> list[SkippedCourse]:
-    """Every skip that applies to one tract, mirroring ``verify_closure``."""
-    labelled = [
+    """Explicit and audit-context skip records, before tract routing."""
+    return [
         *(explicit or []),
         *(audit_context.skipped_courses if audit_context is not None else []),
     ]
-    unplaced = {skip.tract_label for skip in labelled} - {t.label for t in tracts}
-    applicable = [*tract.skipped_courses]
-    applicable.extend(
-        skip
-        for skip in labelled
-        if skip.tract_label in (tract.label, *unplaced) and skip not in applicable
-    )
-    return applicable
+
+
+def _single_description_skips(
+    legal_desc: LegalDescription | None,
+    audit_context: AuditContext | None,
+    explicit: list[SkippedCourse] | None,
+) -> list[SkippedCourse]:
+    """Every skip blocking a single-description export, including each tract's own."""
+    labelled = _labelled_skips(audit_context, explicit)
+    skips = list(labelled)
+    tracts = legal_desc.tracts if legal_desc is not None else []
+    for tract in tracts:
+        skips.extend(skip for skip in skips_for_tract(tract, tracts, labelled) if skip not in skips)
+    return skips
 
 
 def _validate_export_geometry(
@@ -451,8 +455,10 @@ def export_verified_csv(
                     result,
                     selected,
                     independent_tract=True,
-                    skipped_courses=_skips_for_tract(
-                        tract, audit_context, [t for t, _ in tract_results], skipped_courses
+                    skipped_courses=skips_for_tract(
+                        tract,
+                        [t for t, _ in tract_results],
+                        _labelled_skips(audit_context, skipped_courses),
                     ),
                 )
     else:
@@ -460,10 +466,7 @@ def export_verified_csv(
             calls,
             closure_result,
             legal_desc,
-            skipped_courses=[
-                *(skipped_courses or []),
-                *(audit_context.skipped_courses if audit_context else []),
-            ],
+            skipped_courses=_single_description_skips(legal_desc, audit_context, skipped_courses),
         )
 
     if tract_results:
