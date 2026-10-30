@@ -168,10 +168,6 @@ def _run(
         "verification": result["verification"],
         "errors": result["errors"],
     }
-    if audit.tract_verification_audits:
-        audit_payload["tract_verification_audits"] = [
-            a.model_dump(mode="json") for a in audit.tract_verification_audits
-        ]
     if include_audit:
         result["audit"] = audit_payload
     if directory is not None:
