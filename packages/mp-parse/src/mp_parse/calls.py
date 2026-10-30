@@ -2246,12 +2246,12 @@ def _extract_call(
             re.IGNORECASE,
         ):
             raise ValueError("Unsupported component in compound course distance")
+        # Only a length the course states as its own is its length: when every
+        # stated length is a tie, offset, width or monument depth (or none is
+        # stated) the course fails closed below, never taking the first "N feet".
         inches = None if is_curve else _inch_course_length(course_text, raw_direction)
         if inches is not None:
             distance, unit = inches, "feet"
-        else:
-            distance = extract_distance_alternate(course_text)
-            unit = distance_unit
 
     distance_ft: float | None = ConversionFactors.convert_to_feet(distance, unit)
 
@@ -2918,41 +2918,22 @@ def extract_direction(text: str) -> str:
 
 
 def extract_distance_alternate(text: str) -> float:
-    """Extract distance using alternate patterns.
+    """Return the course length in feet stated in ``text``, read by length role.
 
-    Some deeds use formats like "125.26' along..." instead of "125.26 feet".
+    Accepts unit-word and foot-mark lengths ("125.26' along..."), exactly as
+    ``read_course_length``: a tie, offset, width, monument depth or record length
+    is never returned, nor a choice among several course lengths.
 
     Args:
         text: Call text
 
     Returns:
-        Distance value (0.0 if not found)
+        Distance in feet (0.0 when the text states no single course length in feet)
     """
-    feet_match = re.search(rf"({LENGTH_NUMBER})\s*(?:feet|ft)\b", text, re.IGNORECASE)
-    if feet_match:
-        return parse_number(feet_match.group(1))
-
-    apostrophe_match = re.search(
-        rf"(?<!\u00b0)({LENGTH_NUMBER})\s*'(?=(?:\s+(?:along|to)\b|[.,;)]|$))",
-        text,
-        re.IGNORECASE,
-    )
-    if apostrophe_match:
-        prefix = text[: apostrophe_match.end()]
-        if re.search(
-            r"\b(?:NORTH|SOUTH|N|S)\s+\d{1,3}\s+\d+(?:\.\d+)?\s*\x27\s*$",
-            prefix,
-            re.IGNORECASE,
-        ):
-            return 0.0
-        if re.search(
-            r"\d+\u00b0\s*\d+(?:\.\d+)?\s*\x27\s*$",
-            prefix,
-        ):
-            return 0.0
-        return parse_number(apostrophe_match.group(1))
-
-    return 0.0
+    reading = read_course_length(text)
+    if reading.ambiguous or normalize_unit_token(reading.unit) != "feet":
+        return 0.0
+    return reading.value
 
 
 _BEARING_DEGREE_PREFIX = re.compile(
