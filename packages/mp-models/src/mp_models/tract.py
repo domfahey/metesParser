@@ -4,6 +4,7 @@ from enum import Enum
 
 from pydantic import Field, FiniteFloat
 
+from .audit import SkippedCourse
 from .base import _Model
 from .closure import ClosureResult
 from .deed_call import DeedCall
@@ -21,9 +22,14 @@ class TractType(str, Enum):
 class Tract(_Model):
     """A single tract within a multi-tract deed."""
 
-    label: str = Field(..., min_length=1, description="Tract label (e.g., 'Tract 1', 'Exception 1')")
+    label: str = Field(
+        ..., min_length=1, description="Tract label (e.g., 'Tract 1', 'Exception 1')"
+    )
     tract_type: TractType = Field(..., description="Type of tract")
     calls: list[DeedCall] = Field(default_factory=list, description="Calls for this tract")
+    skipped_courses: list[SkippedCourse] = Field(
+        default_factory=list, description="Courses of this tract extraction could not parse"
+    )
     pob_description: str | None = Field(default=None, description="POB for this tract")
     stated_area_sq_ft: FiniteFloat | None = Field(default=None, description="Stated area")
     closure_result: ClosureResult | None = Field(
