@@ -273,6 +273,7 @@ def test_package_extract_calls_does_not_parse_pob_tie_as_a_course():
 
 def test_monolith_extract_single_call_raises_for_unusable_course_and_none_for_beginning() -> None:
     import pytest
+
     from metesparser.call_extractor import CallExtractor
 
     with pytest.raises(ValueError, match="No usable course"):

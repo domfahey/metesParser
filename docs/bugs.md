@@ -1074,6 +1074,13 @@ Nine findings plus one follow-up, fixed red-green on `fix/code-review-2026-10-29
 - **CSV header validation:** `csv_text_to_calls` accepts only the exact 22- or legacy 21-column header, so `metesparser verify` rejects partial-column CSVs (exit 1); per-tract skip routing is computed once; `extract_single_call` docstring describes what it raises (`a4598c9`).
 - **Derived indefinite everywhere:** `effective_indefinite` (stored flag or verification-detected conflict) drives confidence, corridor, plot, diagnostics, comparison and the closure warning (`64b7d92`).
 
+### PR #60 thirty-sixth review (2026-10-30)
+Six findings, fixed red-green on `fix/code-review-2026-10-29`:
+- **CSV row width (bug):** a data row with fewer or more cells than the header was padded with None and imported (a truncated spiral became circular, an exception row became boundary). `csv_text_to_calls` reads with `csv.reader(strict=True)`, requires every row to match the header width (strict: raise; non-strict: rejected row), skips blank lines everywhere, and strips a UTF-8 BOM; `csv_to_calls` opens with `utf-8-sig`, so Excel CSVs import. `mp_review` verify and plot use it instead of their own checks (`b8063f4`).
+- **`extract_single_call` contract:** returns None only for BEGINNING/COMMENCING/P.O.B. clauses; any other course that yields no call raises `ValueError` (monolith docstring updated). An out-of-range hyphenated bearing ("N 95-30' E") becomes an incomplete-bearing call like "N 95° E" instead of being dropped (`a4c7501`).
+- **Strip-exception widths:** use the shared number grammar, so "except the East 20 1/2 feet thereof" and "except the North 1,200 feet" are detected and removed (`a4c7501`).
+- **Closure computes indefinite once:** the closure warning and confidence score use the `CourseAnalysis` records instead of re-deriving per call; identical output (`58a8366`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
