@@ -20,7 +20,7 @@ Quality and confidence scoring:
 import math
 import statistics
 from collections.abc import Mapping
-from typing import overload
+from typing import TYPE_CHECKING, overload
 
 from .bearing_converter import BearingConverter
 from .models import (
@@ -33,6 +33,9 @@ from .models import (
     Tract,
     VerificationAudit,
 )
+
+if TYPE_CHECKING:
+    from mp_models import DeedCall as PackageDeedCall
 
 
 class ClosureChecker:
@@ -378,7 +381,8 @@ class ClosureChecker:
                     f"(computed: {area_sq_ft:.1f} sq ft, stated: {stated_area_sq_ft:.1f} sq ft)"
                 )
 
-        incomplete = [c for c in main_calls if not c.is_complete_bearing()]
+        # Curves fixed by chord bearing and sweep have determined tangents, not incomplete ones.
+        incomplete = [c for c in main_calls if not cls._has_determined_direction(c)]
         if incomplete:
             warnings.append(
                 f"{len(incomplete)} call(s) have incomplete bearings (cardinal-only or meanders)"
@@ -502,24 +506,26 @@ class ClosureChecker:
     def _chord_positioned_delta(call: DeedCall) -> float | None:
         """Return the sweep (deg) when a tangent-less curve is positioned by its chord.
 
-        Mirrors mp_verify.plot._arc: radius, direction and a sweep from delta or
-        arc length (0 < sweep <= 360) with a parseable chord bearing. The chord is
-        then 2R*sin(delta/2), computed here and never stored.
+        Delegates to ``mp_verify.tangents.chord_positioned_delta`` (mirrors
+        mp_verify.plot._arc). The chord is 2R*sin(delta/2), computed and never stored.
         """
-        if (
-            call.curve_dir is None
-            or call.radius_ft is None
-            or call.radius_ft <= 0.0
-            or call.chord_bearing is None
-            or BearingConverter.bearing_to_azimuth(call.chord_bearing) is None
-        ):
-            return None
-        delta = call.delta_deg
-        if delta is None and call.arc_length_ft is not None:
-            delta = math.degrees(call.arc_length_ft / call.radius_ft)
-        if delta is None or delta <= 0.0 or delta > 360.0:
-            return None
-        return delta
+        from mp_verify.tangents import chord_positioned_delta
+
+        return chord_positioned_delta(ClosureChecker._package_call(call))
+
+    @staticmethod
+    def _package_call(call: DeedCall) -> "PackageDeedCall":
+        """Mirror a monolith call as a package call without revalidating it."""
+        from mp_models import DeedCall as PackageCall
+
+        return PackageCall.model_construct(**call.model_dump(mode="json"))
+
+    @staticmethod
+    def _has_determined_direction(call: DeedCall) -> bool:
+        """Stated bearing, or tangents fixed by chord bearing and sweep (shared helper)."""
+        from mp_verify.tangents import has_determined_direction
+
+        return has_determined_direction(ClosureChecker._package_call(call))
 
     @classmethod
     def traverse_positions(
