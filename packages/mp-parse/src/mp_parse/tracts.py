@@ -63,12 +63,23 @@ _HEADING_POSITION_BREAKS = (".", ":", ";")
 _MARKDOWN_HEADING_PREFIX = re.compile(r"(?:(?:^|\n)[ \t]*#{1,6}|\s#{2,6})[ \t]*$")
 # Label for text with boundary calls before the first marker; no heading is invented.
 UNLABELLED_TRACT_LABEL = "Unlabelled tract"
-# A THENCE that opens a real course (a BEGINNING with no course holds no calls) (direction word or bearing letter), so OCR/table
-# noise containing "thence" is not mistaken for a boundary description.
+# A bearing or curve phrase: a direction word, an N/S-prefixed bearing, or a curve/arc.
+_COURSE_WORD = (
+    r"(?:(?:north|south|east|west)(?:erly|wardly)?(?![A-Za-z])"
+    r"|[NS]\s*\.?\s*\d|(?:curve|arc)s?(?![A-Za-z])|curving\b)"
+)
+# A THENCE that opens a real course: directly followed by a direction word or
+# letter, or by along/with/by ... then a bearing or curve phrase in the same
+# clause. OCR/table noise ("thence colspan=3", "thence in Southeasterly
+# direction") is not mistaken for a boundary description.
 _THENCE_COURSE = re.compile(
-    r"\bTHENCE[\s,]+(?:(?:due|running)\s+)?(?:north|south|east|west|[NSEW]{1,2})(?:erly|wardly)?(?![A-Za-z])",
+    r"\bTHENCE[\s,]+(?:"
+    r"(?:(?:due|running)\s+)?(?:north|south|east|west|[NSEW]{1,2})(?:erly|wardly)?(?![A-Za-z])"
+    r"|(?:along|with|by)\b[^;\n]{0,100}?" + _COURSE_WORD + r")",
     re.IGNORECASE,
 )
+# Parenthetical and comma after a marker ID are transparent to the heading test.
+_TRANSPARENT_AFTER_ID = re.compile(r"(?:[ \t]*\([^()\n]*\))?(?:[ \t]*,)?")
 # Words that make a following marker a reference to another parcel
 # ("corner of Parcel 2", "lying in Tract 4567"), even across an OCR line break.
 _REFERENCE_WORD_BEFORE = re.compile(
@@ -102,9 +113,11 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
       split_on_markers, so an OCR-dropped heading no longer loses data.
     """
     prefix = text[: match.start()]
-    if _STRONG_TERMINATOR.match(text, match.end()):
+    skipped = _TRANSPARENT_AFTER_ID.match(text, match.end())
+    end = skipped.end() if skipped else match.end()
+    if _STRONG_TERMINATOR.match(text, end):
         return not (_REFERENCE_WORD_BEFORE.search(prefix) and _inside_open_description(prefix))
-    if not _WEAK_TERMINATOR.match(text, match.end()):
+    if not _WEAK_TERMINATOR.match(text, end):
         return False
     stripped = prefix.rstrip()
     return (
@@ -144,7 +157,14 @@ def split_on_markers(
     # and headers without calls are still dropped.
     if markers and markers[0][0] > 0:
         pre_text = text[: markers[0][0]].strip()
-        if _THENCE_COURSE.search(pre_text):
+        if not _THENCE_COURSE.search(pre_text):
+            if re.search(r"\bTHENCE\b", pre_text, re.IGNORECASE):
+                logger.warning(
+                    "Dropping text before first tract marker: THENCE without a recognised course",
+                    preview=pre_text[:120],
+                    characters=len(pre_text),
+                )
+        else:
             logger.warning(
                 "Tract heading not found before first marker; keeping leading text as unlabelled tract",
                 preview=pre_text[:120],
