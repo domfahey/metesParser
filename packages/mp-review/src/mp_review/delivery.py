@@ -595,8 +595,13 @@ def _geojson_context(item: DeliveryItem) -> bool:
     )
 
 
-def _required_visible(items: Sequence[DeliveryItem]) -> list[str]:
-    return [i.selection.id for i in items if i.selection.visible and i.selection.required]
+def _required_geojson(items: Sequence[DeliveryItem]) -> list[str]:
+    """Visible required selections GeoJSON would carry; rasters are never emitted."""
+    return [
+        i.selection.id
+        for i in items
+        if i.selection.kind != "raster" and i.selection.visible and i.selection.required
+    ]
 
 
 def _geojson_omissions(
@@ -625,7 +630,7 @@ def _geojson_omissions(
         # No installed operation serves the deed extent. Scene-coordinate formats
         # need no projection, so GeoJSON alone is omitted -- unless a visible
         # required layer, required appearance or a GeoJSON-only request needs it.
-        required = _required_visible(items)
+        required = _required_geojson(items)
         if required or request.required_appearance or set(request.formats) == {"geojson"}:
             raise ValueError(f"{', '.join(required)}: {exc}" if required else str(exc)) from exc
         return None, [DeliveryOmission(format="geojson", reason=str(exc))]
@@ -656,7 +661,7 @@ def _recorded_geojson_omissions(
         if len(whole) > 1 or layers:
             raise ValueError("Recorded GeoJSON omissions are inconsistent")
         if (
-            _required_visible(items)
+            _required_geojson(items)
             or request.required_appearance
             or set(request.formats) == {"geojson"}
         ):
