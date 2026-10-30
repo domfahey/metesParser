@@ -22,7 +22,7 @@ UNIT_TOKEN = (
 # Seconds ("30' 15\" E") may sit between the mark and the compass.
 _BEARING_MINUTES_TAIL = (
     r"(?!\s*(?:\d+(?:\.\d+)?\s*(?:\"|''|\u2033)\s*)?"
-    r"(?:North|South|East|West|[NSEW])\b(?!\s*\d+\s*[\u00b0\u00ba]))"
+    r"(?:North|South|East|West|[NSEW])\b(?!\s*\d+\s*(?:[\u00b0\u00ba]|deg(?:rees?)?\.?)))"
 )
 LENGTH_UNIT = (
     rf"(?:{UNIT_TOKEN}\b|metres?\b|m\b(?!\s*\d)"
