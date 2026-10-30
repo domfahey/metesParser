@@ -124,16 +124,33 @@ _DASHED_BEARING_CONTEXT = re.compile(
 )
 
 
+# Longest word any ``_ends_with`` pattern needs before its trailing whitespace.
+_TAIL_WORD_WINDOW = 24
+
+
+def _ends_with(pattern: re.Pattern[str], text: str, end: int) -> bool:
+    """Return True when ``pattern`` (ending in ``\\s*$``) matches ``text`` just before ``end``.
+
+    Equivalent to ``pattern.search(text[:end])`` for patterns whose non-space part
+    is at most ``_TAIL_WORD_WINDOW`` characters, but only a bounded tail is
+    scanned, so per-match checks stay linear in the text length. ``^`` still
+    means the real start of ``text`` and lookbehinds still see earlier text.
+    """
+    word_end = end
+    while word_end > 0 and text[word_end - 1].isspace():
+        word_end -= 1
+    return bool(pattern.search(text, max(0, word_end - _TAIL_WORD_WINDOW), end))
+
+
 def _expand_compact_dms(text: str) -> str:
     """Rewrite dashed or d/m bearings (``N 45-30-00 E``, ``N 45d30m E``) with symbols."""
 
     def _repl(m: re.Match[str]) -> str:
-        before = text[: m.start()]
-        if _IDENTIFIER_BEFORE.search(before):
+        if _ends_with(_IDENTIFIER_BEFORE, text, m.start()):
             return m.group(0)
         numbers = text[m.start(2) : m.start(6)]
         if not re.search(r"\d\s*[dms]", numbers, re.IGNORECASE) and not (
-            _DASHED_BEARING_CONTEXT.search(before)
+            _ends_with(_DASHED_BEARING_CONTEXT, text, m.start())
         ):
             return m.group(0)
         minute_value, second_value = m.group(3), m.group(4)
@@ -196,13 +213,29 @@ def _normalize_bearing_segments(segments: list[str]) -> list[str]:
     return joined.rsplit(_SEGMENT_BREAK, len(segments) - 1)
 
 
-_CHORD_PREFIX_PATTERN = re.compile(
-    r"(?:the\s+)?chord\s+(?:of\s+which\s+)?(?:bears|bearing)\s+(?:of\s+)?", re.IGNORECASE
+# Chord and radial clauses share one grammar: SUBJECT [LINK] VERB, followed by a
+# bearing in any course form (``_reference_bearing``). A stated chord is never the
+# tangent; a radial clause gives the bearing toward the curve's center, never the
+# course tangent.
+_CLAUSE_LINK = r"(?:(?:of|to)\s+which|which|that|whose)\s+"
+# "lies"/"is" are too common to open a clause unless a bearing follows directly.
+_CLAUSE_VERB = (
+    r"(?:(?:bears?|bearing)(?:\s+(?:of|is))?\s+"
+    r"|(?:lies|is)\s+(?=(?:N|S|North|South)(?![a-z])))"
 )
-# A radial clause gives the bearing toward the curve's center, never the course
-# tangent: "radius point (of which | which | that) bears", "whose radius bears",
-# "the radius of which bears", "radial (line | bearing) (of | which bears | bears)",
-# "center/centre (point) (of which | which | that) bears".
+_CHORD_SUBJECT = r"chord"
+_RADIAL_SUBJECT = (
+    r"(?:radius\s+point|radius|radial(?:\s+(?:line|bearing))?"
+    r"|cent(?:er|re)(?:\s+point)?(?:\s+of\s+(?:the|said)\s+curve)?)"
+)
+_CHORD_PREFIX_PATTERN = re.compile(
+    rf"\b{_CHORD_SUBJECT}\s+(?:{_CLAUSE_LINK})?{_CLAUSE_VERB}", re.IGNORECASE
+)
+_RADIAL_PREFIX_PATTERN = re.compile(
+    rf"\b{_RADIAL_SUBJECT}\s+(?:{_CLAUSE_LINK})?{_CLAUSE_VERB}"
+    r"|\bradial\s+(?:line|bearing)\s+of\s+",
+    re.IGNORECASE,
+)
 # Deed says the curve is tangent ("tangent to the last course", "tangent curve", "being
 # tangent"); "non-tangent"/"not tangent" is excluded.
 _TANGENT_STATEMENT_PATTERN = re.compile(
@@ -210,19 +243,37 @@ _TANGENT_STATEMENT_PATTERN = re.compile(
     r"|curve)\b|\bbeing\s+tangent\b",
     re.IGNORECASE,
 )
-_RADIAL_PREFIX_PATTERN = re.compile(
-    r"\b(?:(?:radius|center|centre)(?:\s+point)?|radial(?:\s+(?:line|bearing))?)\s+"
-    r"(?:of\s+which\s+|which\s+|that\s+)?(?:bears?|bearing)\s+(?:of\s+)?"
-    r"|\bradial\s+(?:line|bearing)\s+of\s+",
-    re.IGNORECASE,
-)
+
+
+_CLAUSE_END = re.compile(r"[,;]")
+
+
+def _reference_bearing(
+    text: str, start: int, *, packed: bool = True
+) -> tuple[re.Match[str] | None, int]:
+    """Return the bearing a clause opened at ``start`` introduces, and the clause end.
+
+    ``text`` must be normalized (``_normalize_bearing_forms``). The bearing is the
+    first course-form bearing within the clause (up to the next comma or
+    semicolon); decimal seconds are kept whole. ``packed`` also accepts packed
+    DMS ("N 45.3000\u00b0 E"), which only course stripping needs; stored chord
+    and radial bearings stay in quadrant form.
+    """
+    clause_end = _CLAUSE_END.search(text, start)
+    end = clause_end.start() if clause_end else len(text)
+    bearing = _PACKED_DMS_BEARING.search(text, start, end) if packed else None
+    if bearing is None:
+        bearing = BearingConverter.QUADRANT_PATTERN.search(text, start, end)
+    return bearing, end
+
+
 # "along (a | the | said) radial line ...": the radial line is the course itself.
 _ALONG_RADIAL_PATTERN = re.compile(r"\balong\s+(?:(?:a|the|said)\s+)?$", re.IGNORECASE)
 
 
 def _runs_along_radial(text: str, start: int) -> bool:
     """Return True when the radial clause at ``start`` names the line being run."""
-    return bool(_ALONG_RADIAL_PATTERN.search(text[:start]))
+    return _ends_with(_ALONG_RADIAL_PATTERN, text, start)
 
 
 def _without_reference_bearings(
@@ -244,14 +295,9 @@ def _without_reference_bearings(
         if keep_line_radial and _runs_along_radial(text, match.start()):
             position = match.end()
             continue
-        rest = text[match.end() :]
-        clause_end = re.search(r"[,;]", rest)
-        clause = rest[: clause_end.start()] if clause_end else rest
-        bearing = _PACKED_DMS_BEARING.search(clause) or BearingConverter.QUADRANT_PATTERN.search(
-            clause
-        )
-        cut = bearing.end() if bearing else len(clause)
-        text = text[: match.start()] + " " + rest[cut:]
+        bearing, clause_end = _reference_bearing(text, match.end())
+        cut = bearing.end() if bearing else clause_end
+        text = text[: match.start()] + " " + text[cut:]
         position = match.start()
 
 
@@ -261,9 +307,21 @@ _BEARING_DEGREE_PREFIX = re.compile(
 )
 
 
+# A chord length follows its bearing directly ("N 45\u00b0 E, 51.76 feet", "... and a
+# chord length of 100 feet"); without a recognised bearing, the first distance in the
+# chord clause is its length. An arc length is never read as the chord.
+_CHORD_LENGTH_AFTER_BEARING = re.compile(
+    r"\s*,?\s*(?:(?:and|for)\s+)?(?:(?:a|the)\s+)?"
+    r"(?:chord\s+(?:length|distance)\s+of\s+|distance\s+of\s+)?"
+    r"(\d+(?:\.\d+)?)\s*(?:feet|ft)\b",
+    re.IGNORECASE,
+)
+_CHORD_LENGTH_IN_CLAUSE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:feet|ft)\b", re.IGNORECASE)
+
+
 def _is_bearing_degree(text: str, start: int) -> bool:
     """Return True when the degree value at ``start`` is part of a bearing."""
-    return bool(_BEARING_DEGREE_PREFIX.search(text[:start]))
+    return _ends_with(_BEARING_DEGREE_PREFIX, text, start)
 
 
 def _boundary_course_text(call_text: str) -> str:
@@ -1396,19 +1454,18 @@ class CallExtractor:
                         doc_deg
                     )
 
-        chord_bearing_match = re.search(
-            r"(?:the\s+)?chord\s+(?:of\s+which\s+)?(?:bears|bearing)\s+(.+?)(?:[,\s]\s*(\d+(?:\.\d+)?)\s*(?:feet|ft))?(?:\s*$|\s*(?:to|along|;|\.))",
-            text,
-            re.IGNORECASE,
-        )
-        if chord_bearing_match:
-            raw_chord_bearing = chord_bearing_match.group(1).strip().rstrip(",")
-            normalized = _normalize_bearing_forms(raw_chord_bearing)
-            bearing_match = BearingConverter.QUADRANT_PATTERN.search(normalized)
-            if bearing_match:
-                curve_info["chord_bearing"] = bearing_match.group(0)
-            if chord_bearing_match.group(2):
-                curve_info["chord_length_ft"] = float(chord_bearing_match.group(2))
+        chord_match = _CHORD_PREFIX_PATTERN.search(text)
+        if chord_match:
+            chord_text = _normalize_bearing_forms(text[chord_match.end() :])
+            chord_bearing, chord_clause_end = _reference_bearing(chord_text, 0, packed=False)
+            if chord_bearing:
+                curve_info["chord_bearing"] = chord_bearing.group(0)
+                # The chord length is the distance stated right after the chord bearing.
+                chord_length = _CHORD_LENGTH_AFTER_BEARING.match(chord_text, chord_bearing.end())
+            else:
+                chord_length = _CHORD_LENGTH_IN_CLAUSE.search(chord_text, 0, chord_clause_end)
+            if chord_length:
+                curve_info["chord_length_ft"] = float(chord_length.group(1))
 
         if re.search(
             r"\b(?:point\s+of\s+compound\s+curvature|PCC|compound\s+curve)\b",
@@ -1444,11 +1501,8 @@ class CallExtractor:
             # does not also call the curve tangent.
             if not _TANGENT_STATEMENT_PATTERN.search(text):
                 curve_info["non_tangent"] = True
-            rest = text[radial_match.end() :]
-            clause_end = re.search(r"[,;]", rest)
-            clause = rest[: clause_end.start()] if clause_end else rest
-            radial_bearing_match = BearingConverter.QUADRANT_PATTERN.search(
-                _normalize_bearing_forms(clause)
+            radial_bearing_match, _ = _reference_bearing(
+                _normalize_bearing_forms(text[radial_match.end() :]), 0, packed=False
             )
             if radial_bearing_match:
                 curve_info["radial_bearing"] = radial_bearing_match.group(0)
