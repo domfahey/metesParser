@@ -317,7 +317,8 @@ def test_consecutive_lists_do_not_merge(impl):
 
 @pytest.mark.parametrize("impl", IMPLS)
 def test_enumeration_detection_runs_once_per_tract(impl, monkeypatch):
-    module = MODULES[impl]
+    # The monolith TextParser delegates course-list analysis to mp_parse.metadata.
+    module = package_metadata
     original = module._course_enumerations
     seen: list[str] = []
 

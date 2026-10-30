@@ -13,7 +13,6 @@ from mp_verify.closure import get_closure_summary as package_summary
 from mp_verify.closure import verify_closure as package_verify
 
 from metesparser.call_extractor import CallExtractor
-from metesparser.call_extractor import _expand_compact_dms as monolith_expand
 from metesparser.closure_checker import ClosureChecker
 from metesparser.models import DeedCall as MonolithDeedCall
 
@@ -26,7 +25,8 @@ VERIFIERS = {
         ClosureChecker.get_closure_summary,
     ),
 }
-EXPANDERS = {"package": package_expand, "monolith": monolith_expand}
+# The monolith delegates DMS expansion to the package (one implementation).
+EXPANDERS = {"package": package_expand}
 
 CHORD_ONLY_TEXT = (
     "curve to the right having a radius of 500 feet, the chord of which bears "
