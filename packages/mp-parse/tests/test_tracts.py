@@ -832,3 +832,32 @@ class TestStructuralHeadingWithoutTerminator:
         calls, tracts = extract_calls(text)
         assert len(calls) == 8
         assert [(t.label, len(t.calls)) for t in tracts] == [("Parcel 1", 4), ("Parcel 2", 4)]
+
+
+# --- Recital course distances use the shared length-unit vocabulary ----------------
+
+
+@pytest.mark.parametrize("unit", ["furlongs", "arpents", "US survey feet", "engineer chains"])
+def test_recital_with_course_in_shared_unit_matches_feet(unit):
+    def recital(distance_unit: str) -> str:
+        return (
+            "TRACT #1: BEING the same lands and premises which became vested in A by deed "
+            f"recorded in Book 2321 page 405, thence N 10 E 2 {distance_unit} to the point "
+            "of beginning. "
+        )
+
+    from mp_parse.tracts import _is_title_recital
+
+    # A course with a measured distance is a boundary call, never a title recital.
+    assert not _is_title_recital(recital("feet"))
+    assert not _is_title_recital(recital(unit))
+
+
+def test_recital_with_bearing_minutes_only_states_no_course():
+    from mp_parse.tracts import _is_title_recital
+
+    recital = (
+        "TRACT #1: BEING the same lands and premises which became vested in A by deed "
+        "recorded in Book 2321 page 405, thence N 45 30' E. "
+    )
+    assert _is_title_recital(recital)

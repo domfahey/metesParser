@@ -14,6 +14,7 @@ import structlog
 from mp_models import TractType
 
 from .metadata import split_exception_clauses
+from .units import LENGTH_NUMBER_GUARD, LENGTH_UNIT
 
 logger = structlog.get_logger(__name__)
 
@@ -110,9 +111,24 @@ _RECITAL_CONVEYANCE = re.compile(r"\b(?:conveyed|vested|deed|recorded)\b", re.IG
 # A measured distance; a recital may name directions ("lying Northerly of ...",
 # even "thence Westerly of ...") but states no course distance.
 _COURSE_DISTANCE = re.compile(
-    r"\d[\d,]*(?:\.\d+)?\s*(?:feet|foot|ft\b|chains?|rods?|perches|poles?|links?|met(?:er|re)s?)",
+    rf"{LENGTH_NUMBER_GUARD}\d[\d,.]*\s*{LENGTH_UNIT}",
     re.IGNORECASE,
 )
+
+
+# A foot mark before a compass letter is a bearing's minutes ("N 45 30' E"), not a length.
+_BEARING_MINUTES_TAIL = re.compile(r"\s*[NSEW]\b")
+
+
+def _has_course_distance(segment: str, start: int, end: int) -> bool:
+    """Return whether a measured length appears in segment[start:end], not as bearing minutes."""
+    for match in _COURSE_DISTANCE.finditer(segment, start, end):
+        is_minutes = match.group().endswith(("'", "\u2032")) and _BEARING_MINUTES_TAIL.match(
+            segment, match.end()
+        )
+        if not is_minutes:
+            return True
+    return False
 
 
 def _is_title_recital(segment: str) -> bool:
@@ -126,7 +142,7 @@ def _is_title_recital(segment: str) -> bool:
     if _BEGINNING_PATTERN.search(segment):
         return False
     return not any(
-        _COURSE_DISTANCE.search(segment, course.end(), course.end() + 200)
+        _has_course_distance(segment, course.end(), course.end() + 200)
         for course in _THENCE_COURSE.finditer(segment)
     )
 
