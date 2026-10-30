@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import mp_models
 import pytest
+from mp_verify.checks import build_verification_checks
 from mp_verify.closure import verify_closure as package_verify
 
 from metesparser import models as monolith_models
@@ -91,3 +92,48 @@ def test_exception_loop_with_unpositioned_curve_stays_unavailable(impl):
     assert not result.area_available
     assert any("Exception course 6" in warning for warning in result.warnings)
     assert "Exception tract has 1 incomplete bearing(s)" in result.warnings
+
+
+def _closure_check(checks):
+    return next(check for check in checks if check.name == "traverse_closure")
+
+
+def _build(calls):
+    return build_verification_checks(
+        calls,
+        closure_passed=True,
+        misclosure=0.0,
+        tolerance=0.01,
+        curve_consistency_passed=True,
+        parallel_warnings=[],
+        intersection_warnings=[],
+        reversal_warnings=[],
+        distance_warnings=[],
+        stated_area_sq_ft=0.0,
+        area_sq_ft=0.0,
+        area_available=True,
+        double_entry_performed=False,
+        discrepancies=[],
+    )
+
+
+def test_check_fallback_positions_tangentless_chord_and_delta_curve():
+    checks = _build(_loop(mp_models))
+    closure = _closure_check(checks)
+    assert closure.status == "passed"
+
+
+def test_check_fallback_leaves_infeasible_chord_only_curve_unpositioned():
+    calls = _square(mp_models)
+    calls[1] = mp_models.DeedCall(
+        course=2,
+        direction_text="curve",
+        distance_ft=100.0,
+        curve_dir="right",
+        radius_ft=10.0,
+        chord_bearing="N 90°00' E",
+        chord_length_ft=100.0,
+    )
+    closure = _closure_check(_build(calls))
+    assert closure.status == "blocked"
+    assert closure.reason == "unpositioned_courses"
