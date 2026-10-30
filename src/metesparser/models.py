@@ -156,9 +156,12 @@ class DeedCall(_Model):
         ge=0,
         lt=360,
     )
-    distance_ft: FiniteFloat = Field(
+    distance_ft: FiniteFloat | None = Field(
         ...,
-        description="Distance in decimal feet",
+        description=(
+            "Distance in decimal feet; None only for a spiral whose length is not "
+            "stated (not determinable without fabrication)"
+        ),
         gt=0,
     )
 
@@ -338,6 +341,27 @@ class DeedCall(_Model):
                 "or chord_bearing with chord_length_ft"
             )
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_undetermined_distance(self) -> Self:
+        """Allow an undetermined distance only for a spiral with no stated length.
+
+        A spiral's length is not R * delta, so a spiral stated by radius and delta
+        alone has no determinable course distance; any other course states one or
+        fixes it (arc, chord, or radius and delta of a circular arc).
+        """
+        if self.distance_ft is not None:
+            return self
+        if (
+            self.curve_type != "spiral"
+            or self.curve_dir is None
+            or self.arc_length_ft is not None
+            or self.chord_length_ft is not None
+        ):
+            raise ValueError(
+                "distance_ft may be None only for a spiral curve with no stated arc or chord length"
+            )
         return self
 
     def is_chord_only_curve(self) -> bool:
