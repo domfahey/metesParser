@@ -74,3 +74,14 @@ def test_multi_tract_records_per_tract_verification_audits():
     assert ctx.tract_verification_audits[0].closure_summary["perimeter_ft"] == 400.0
     assert ctx.tract_verification_audits[1].closure_summary["perimeter_ft"] == 200.0
     assert ctx.verification_audit is None
+
+
+def test_repeated_multi_tract_verification_replaces_tract_audits():
+    tracts = [
+        Tract(label="A", tract_type=TractType.MAIN, calls=_square(100.0)),
+        Tract(label="B", tract_type=TractType.MAIN, calls=_square(50.0)),
+    ]
+    ctx = _ctx()
+    verify_closure([], tracts=tracts, audit_context=ctx)
+    verify_closure([], tracts=tracts, audit_context=ctx)
+    assert [a.tract_label for a in ctx.tract_verification_audits] == ["A", "B"]
