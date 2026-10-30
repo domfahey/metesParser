@@ -30,6 +30,7 @@ from mp_models import (
     SkippedCourse,
     Tract,
     VerificationAudit,
+    unapplied_exceptions,
 )
 
 from .checks import (
@@ -416,6 +417,15 @@ def verify_closure(
         f"({skip.error_type}); closure, area and perimeter are not determined"
         for skip in skipped
     ]
+    # A stated exception without a described traverse (a strip) is not applied:
+    # the traverse is the boundary before it, never the deed's net parcel.
+    warnings.extend(
+        f"Course {call.course}: stated exception {wording!r} is not applied; closure, "
+        "area and perimeter describe the boundary before the exception, not the "
+        "deed's net parcel"
+        for call in calls
+        for wording in unapplied_exceptions(call.notes)
+    )
 
     for record in bad_chords:
         warnings.append(

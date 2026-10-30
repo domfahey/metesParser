@@ -29,6 +29,7 @@ from mp_bearing import (
     quadrant_to_azimuth,
 )
 from mp_models import (
+    UNAPPLIED_EXCEPTION_NOTE_PREFIX,
     AuditContext,
     CallAudit,
     ConversionFactors,
@@ -38,6 +39,7 @@ from mp_models import (
     DeedCall,
     SkippedCourse,
     Tract,
+    TractType,
     Transformation,
 )
 from pydantic import ValidationError
@@ -62,6 +64,7 @@ from .metadata import (
     read_standalone_inch_length,
     split_call_fragments,
     split_exception_clauses,
+    strip_exception_spans,
     unlisted_course_lists,
 )
 from .monuments import (
@@ -721,11 +724,17 @@ def _extract_calls_from_text(
     tract_label: str | None = None,
     normalize: bool = True,
     source_text: str | _SourceMap | None = None,
+    split_easements: bool = True,
+    boundary_notes: tuple[str, ...] = (),
 ) -> list[DeedCall]:
     """Extract all calls from normalized legal description text.
 
     Handles exception clauses (EXCEPT, LESS AND EXCEPT, ALSO, INCLUDING)
-    and marks calls accordingly.
+    and marks calls accordingly. Strip exceptions ("EXCEPTING the westerly 10
+    feet thereof") and easements described by their own courses are set aside
+    before courses are read (``_set_aside_non_boundary_text``): they never
+    become boundary courses, and their verbatim wording is noted on the
+    boundary's closing course.
 
     Args:
         text: Normalized legal description text (should already be normalized)
@@ -743,6 +752,10 @@ def _extract_calls_from_text(
             ``text`` is one tract of it); record-call notes are restored to its
             verbatim wording (``_restore_verbatim_records``). Defaults to ``text``
             when ``normalize`` is True.
+        split_easements: Set aside easement descriptions; callers that already
+            split them into easement tracts pass False.
+        boundary_notes: Notes (already verbatim) for the closing course, recorded
+            by a caller that set text aside before splitting tracts.
 
     Returns:
         List of DeedCall objects
@@ -750,6 +763,7 @@ def _extract_calls_from_text(
     normalized = normalize_legal_description(text) if normalize else text
     if source_text is None and normalize:
         source_text = text
+    normalized, set_aside = _set_aside_non_boundary_text(normalized, easements=split_easements)
     source_map = (
         source_text
         if isinstance(source_text, _SourceMap)
@@ -757,6 +771,8 @@ def _extract_calls_from_text(
         if source_text
         else None
     )
+    source = source_map.source if source_map is not None else normalized
+    notes = [*boundary_notes, *(_verbatim_note(note, source) for _, note in set_aside)]
 
     tracts = split_exception_clauses(normalized)
 
@@ -932,7 +948,100 @@ def _extract_calls_from_text(
             )
             course_num += 1
 
-    return _restore_verbatim_records(calls, normalized, source_map)
+    calls = _restore_verbatim_records(calls, normalized, source_map)
+    return _with_boundary_notes(calls, notes)
+
+
+# Notes prefix for an easement described by its own courses: it is its own tract
+# (``extract_calls``), never part of the boundary.
+SEPARATE_EASEMENT_NOTE_PREFIX = "easement, not part of the boundary: "
+
+
+def _blank_keeping_lines(text: str, start: int, end: int) -> str:
+    """Replace ``text[start:end]`` with spaces, keeping line breaks and offsets."""
+    return text[:start] + re.sub(r"[^\n]", " ", text[start:end]) + text[end:]
+
+
+def _set_aside_non_boundary_text(
+    text: str, *, easements: bool = True
+) -> tuple[str, list[tuple[int, str]]]:
+    """Blank strip exceptions (and easement descriptions) out of ``text``.
+
+    Returns the blanked text (same length, so offsets are kept) and, in text order,
+    each set-aside item's offset and note in the wording of ``text``. A strip
+    exception states no course: reading it as one invents a course, and splitting
+    on its EXCEPT makes it an exception traverse. An easement described by its own
+    courses is not part of the parcel boundary. Geometric exceptions are kept.
+    """
+    set_aside: list[tuple[int, str]] = []
+    for start, end, strip in strip_exception_spans(text):
+        lead = start
+        while lead > 0 and text[lead - 1] in " \t,;":
+            lead -= 1
+        stop = end
+        # "... beginning. EXCEPTING ... thereof." leaves no stray period behind.
+        gap = len(text[end:]) - len(text[end:].lstrip())
+        if text[:lead].rstrip().endswith(".") and text[end + gap : end + gap + 1] == ".":
+            stop = end + gap + 1
+        prefix = (
+            SEPARATE_EASEMENT_NOTE_PREFIX
+            if strip["original_text"].lower().startswith("subject")
+            else UNAPPLIED_EXCEPTION_NOTE_PREFIX
+        )
+        set_aside.append((start, prefix + text[start:end]))
+        text = _blank_keeping_lines(text, lead, stop)
+    if easements:
+        from .tracts import easement_description_spans
+
+        for start, end in easement_description_spans(text):
+            set_aside.append((start, SEPARATE_EASEMENT_NOTE_PREFIX + text[start:end].strip()))
+            text = _blank_keeping_lines(text, start, end)
+    return text, sorted(set_aside)
+
+
+def _verbatim_note(note: str, source: str) -> str:
+    """Return ``note`` with its wording as ``source`` states it, when found exactly once."""
+    prefix = next(
+        p
+        for p in (UNAPPLIED_EXCEPTION_NOTE_PREFIX, SEPARATE_EASEMENT_NOTE_PREFIX)
+        if note.startswith(p)
+    )
+    tokens = _WORD_TOKEN.findall(note[len(prefix) :])
+    if not tokens:
+        return note
+    pattern = re.compile(r"\s*".join(re.escape(token) for token in tokens), re.IGNORECASE)
+    found = list(pattern.finditer(source))
+    return prefix + found[0].group() if len(found) == 1 else note
+
+
+def _with_boundary_notes(calls: list[DeedCall], notes: list[str]) -> list[DeedCall]:
+    """Record ``notes`` on the boundary's closing course (the last non-exception call).
+
+    Notes go before any record-call wording, which ``_noted_record_calls`` reads
+    as the last parts of the notes.
+    """
+    if not notes:
+        return calls
+    if not calls:
+        logger.warning(
+            "Set-aside description text has no boundary course to note it on", notes=notes
+        )
+        return calls
+    index = next(
+        (i for i in range(len(calls) - 1, -1, -1) if not calls[i].is_exception), len(calls) - 1
+    )
+    existing = calls[index].notes or ""
+    marker = "; " + RECORD_CALL_NOTE_PREFIX
+    if existing.startswith(RECORD_CALL_NOTE_PREFIX):
+        head, tail = "", existing
+    elif marker in existing:
+        split = existing.index(marker)
+        head, tail = existing[:split], existing[split + 2 :]
+    else:
+        head, tail = existing, ""
+    combined = "; ".join(part for part in (head, *notes, tail) if part)
+    updated = calls[index].model_copy(update={"notes": combined})
+    return [*calls[:index], updated, *calls[index + 1 :]]
 
 
 _WORD_TOKEN = re.compile(r"[A-Za-z0-9]+|\S")
@@ -1070,8 +1179,9 @@ def extract_calls(
     from .tracts import split_into_tracts
 
     normalized = normalize_legal_description(text)
-    segments = split_into_tracts(normalized)
-    source_map = _SourceMap(text, normalized)
+    # Strip exceptions are set aside first: their EXCEPT never splits a tract.
+    working, strips = _set_aside_non_boundary_text(normalized, easements=False)
+    segments = split_into_tracts(working)
 
     # Single-tract fast path: preserve backward-compatible behavior
     if len(segments) == 1 and segments[0][2] == TractType.MAIN:
@@ -1083,15 +1193,20 @@ def extract_calls(
             strict=strict,
             skipped_courses=skipped_courses,
             normalize=False,
-            source_text=source_map,
+            source_text=text,
         )
         return flat_calls, []
+
+    source_map = _SourceMap(text, working)
+    segment_notes = _notes_by_segment(working, segments, strips, text)
 
     # Multi-tract path
     all_calls: list[DeedCall] = []
     tract_objects: list[Tract] = []
 
-    for segment_text, label, tract_type in segments:
+    for (segment_text, label, tract_type), boundary_notes in zip(
+        segments, segment_notes, strict=True
+    ):
         recordable = audit_context is not None or skipped_courses is not None
         tract_skips: list[SkippedCourse] = []
         tract_calls = _extract_calls_from_text(
@@ -1104,6 +1219,8 @@ def extract_calls(
             tract_label=label,
             normalize=False,
             source_text=source_map,
+            split_easements=False,
+            boundary_notes=boundary_notes,
         )
         if skipped_courses is not None:
             skipped_courses.extend(tract_skips)
@@ -1131,9 +1248,57 @@ def extract_calls(
             skipped_courses=tract_skips,
         )
         tract_objects.append(tract)
-        all_calls.extend(tract_calls)
+        # An easement's legs are never part of a boundary: they stay on its tract.
+        if tract_type != TractType.EASEMENT:
+            all_calls.extend(tract_calls)
 
     return all_calls, tract_objects
+
+
+def _notes_by_segment(
+    text: str,
+    segments: list[tuple[str, str, TractType]],
+    strips: list[tuple[int, str]],
+    source: str,
+) -> list[tuple[str, ...]]:
+    """Assign each set-aside strip and each easement tract to a boundary tract's notes.
+
+    A note belongs to the nearest boundary (non-easement, preferably non-exception)
+    tract starting before it, else to the first boundary tract.
+    """
+    starts: list[int] = []
+    cursor = 0
+    for segment_text, _, _ in segments:
+        head = segment_text[:64]
+        found = text.find(head, cursor)
+        if found < 0:
+            found = text.find(head)
+        starts.append(found)
+        if found >= 0:
+            cursor = found + len(head)
+
+    boundary = [i for i, (_, _, kind) in enumerate(segments) if kind != TractType.EASEMENT]
+
+    def owner(position: int) -> int | None:
+        before = [i for i in boundary if 0 <= starts[i] <= position]
+        preferred = [i for i in before if segments[i][2] != TractType.EXCEPTION]
+        if preferred or before:
+            return (preferred or before)[-1]
+        return boundary[0] if boundary else None
+
+    items = [(position, _verbatim_note(note, source)) for position, note in strips] + [
+        (starts[i], _verbatim_note(SEPARATE_EASEMENT_NOTE_PREFIX + segment_text, source))
+        for i, (segment_text, _, kind) in enumerate(segments)
+        if kind == TractType.EASEMENT
+    ]
+    notes: list[list[str]] = [[] for _ in segments]
+    for position, note in sorted(items, key=lambda item: item[0]):
+        index = owner(position)
+        if index is None:
+            logger.warning("Set-aside description text has no boundary tract", note=note)
+            continue
+        notes[index].append(note)
+    return [tuple(group) for group in notes]
 
 
 _COMPACT_DMS_BEARING = re.compile(

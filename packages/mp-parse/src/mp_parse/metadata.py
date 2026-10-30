@@ -1871,14 +1871,25 @@ _DIRECTION_ABBREV: dict[str, str] = {
     "W": "West",
 }
 
-# Full direction names (case-insensitive group).
-_DIRECTION_GROUP = r"(?P<dir>North|South|East|West|N|S|E|W)"
+# Full direction names, with an -erly/-wardly suffix ("the westerly 10 feet"), or
+# their abbreviations (case-insensitive group).
+_DIRECTION_GROUP = r"(?P<dir>(?:North|South|East|West)(?:erly|wardly)?|N|S|E|W)"
 
 # Width: any shared length number (decimal, comma-grouped, fraction or mixed).
 _WIDTH_GROUP = rf"(?P<width>{LENGTH_NUMBER})"
 
 # Unit: feet or ft.
 _UNIT_GROUP = r"(?:feet|ft)"
+
+# "thereof", "deeded for roadway", "thereof taken for road purposes": the
+# strip's own trailing wording, kept with it.
+_PURPOSE_TAIL = (
+    r"(?:\s+(?P<purpose>deeded\s+for\s+[^.;,]+?"
+    r"|thereof(?:\s+(?:taken|deeded|conveyed|used|reserved|dedicated)\s+for\s+[^.;,]+?)?))?"
+)
+# A strip ends its clause: more wording ("of said Lot in even width ...") makes it
+# part of a longer exception, which is not read as a strip.
+_STRIP_END = r"(?=\s*(?:[.;,]|and\b|$))[.\s]*"
 
 
 class _StripException(TypedDict):
@@ -1894,39 +1905,28 @@ class _StripException(TypedDict):
 _STRIP_PATTERNS: list[re.Pattern[str]] = [
     # "except the East 20 feet [deeded for roadway]"
     # "except the South 30 feet thereof"
-    # Also covers "and except the ..."
+    # Also covers "and except the ..." and "LESS AND EXCEPT the ..."
     re.compile(
-        r"(?:and\s+)?except(?:ing)?\s+(?:the\s+)"
+        r"(?:(?:less\s+)?and\s+)?except(?:ing)?\s+(?:the\s+)"
         + _DIRECTION_GROUP
         + r"\s+"
         + _WIDTH_GROUP
         + r"\s+"
         + _UNIT_GROUP
-        + r"(?:\s+(?P<purpose>deeded\s+for\s+\S+|thereof))?"
-        + r"[.\s]*",
+        + _PURPOSE_TAIL
+        + _STRIP_END,
         re.IGNORECASE,
     ),
-    # "LESS AND EXCEPT the North 15 feet thereof"
+    # "excepting therefrom the West 25 feet", "excepting thereout and therefrom the ..."
     re.compile(
-        r"less\s+and\s+except(?:ing)?\s+(?:the\s+)"
+        r"except(?:ing)?\s+(?:thereout\s+and\s+)?therefrom\s+(?:the\s+)"
         + _DIRECTION_GROUP
         + r"\s+"
         + _WIDTH_GROUP
         + r"\s+"
         + _UNIT_GROUP
-        + r"(?:\s+(?P<purpose>thereof))?"
-        + r"[.\s]*",
-        re.IGNORECASE,
-    ),
-    # "excepting therefrom the West 25 feet"
-    re.compile(
-        r"excepting\s+therefrom\s+(?:the\s+)"
-        + _DIRECTION_GROUP
-        + r"\s+"
-        + _WIDTH_GROUP
-        + r"\s+"
-        + _UNIT_GROUP
-        + r"[.\s]*",
+        + _PURPOSE_TAIL
+        + _STRIP_END,
         re.IGNORECASE,
     ),
     # "Subject to an Easement for Private Road Purposes over the West 30 Feet thereof"
@@ -1939,7 +1939,7 @@ _STRIP_PATTERNS: list[re.Pattern[str]] = [
         + r"\s+"
         + _UNIT_GROUP
         + r"(?:\s+thereof)?"
-        + r"[.\s]*",
+        + _STRIP_END,
         re.IGNORECASE,
     ),
 ]
@@ -1952,6 +1952,8 @@ _METES_INDICATOR = re.compile(
     r"\b[NS]\s+\d+\s+degree",
     re.IGNORECASE,
 )
+# The end of a sentence: a strip's clause never continues past it.
+_SENTENCE_BREAK = re.compile(r"\.\s")
 
 
 def _normalize_direction(raw: str) -> str:
@@ -1961,18 +1963,20 @@ def _normalize_direction(raw: str) -> str:
     'East'
     >>> _normalize_direction("south")
     'South'
+    >>> _normalize_direction("westerly")
+    'West'
     """
     upper = raw.upper().strip()
     if upper in _DIRECTION_ABBREV:
         return _DIRECTION_ABBREV[upper]
-    return raw.strip().capitalize()
+    return re.sub(r"(?:erly|wardly)$", "", raw.strip(), flags=re.IGNORECASE).capitalize()
 
 
 def _clean_purpose(raw: str | None) -> str | None:
     """Clean and normalize the purpose string, or return None."""
     if raw is None:
         return None
-    cleaned = raw.strip().rstrip(".")
+    cleaned = re.sub(r"^thereof\s+", "", raw.strip().rstrip("."), flags=re.IGNORECASE)
     if not cleaned or cleaned.lower() == "thereof":
         return None
     # Collapse "deeded for roadway" → "roadway"
@@ -1980,6 +1984,61 @@ def _clean_purpose(raw: str | None) -> str | None:
     if deeded_match:
         return deeded_match.group(1).lower()
     return cleaned
+
+
+def strip_exception_spans(text: str) -> list[tuple[int, int, _StripException]]:
+    """Return each uniform-width strip with its span, in text order.
+
+    The span covers the strip's wording ("except the East 20 feet deeded for
+    roadway"), not the clause punctuation after it. See ``detect_strip_exceptions``.
+    """
+    if not text:
+        return []
+
+    results: list[tuple[int, int, _StripException]] = []
+
+    for pattern in _STRIP_PATTERNS:
+        for match in pattern.finditer(text):
+            span = (match.start(), match.end())
+            # Avoid duplicate matches from overlapping patterns
+            if any(start <= span[0] < end or start < span[1] <= end for start, end, _ in results):
+                continue
+
+            original = match.group(0).strip().rstrip(".")
+
+            # Guard: a THENCE or quadrant bearing inside the strip's own clause makes
+            # it a geometric exception, not a simple strip. A later sentence (the
+            # next tract, a following description) is not part of the clause.
+            clause = match.group(0)
+            if not clause.rstrip().endswith("."):
+                following = text[match.end() : match.end() + 200]
+                sentence_end = _SENTENCE_BREAK.search(following)
+                clause += following[: sentence_end.start()] if sentence_end else following
+            if _METES_INDICATOR.search(clause):
+                continue
+
+            direction_raw = match.group("dir")
+            width = parse_number(match.group("width"))
+
+            # Extract purpose -- not all patterns define this named group
+            purpose_raw = None
+            if "purpose" in pattern.groupindex:
+                purpose_raw = match.group("purpose")
+
+            results.append(
+                (
+                    match.start(),
+                    match.start() + len(match.group(0).rstrip(". \t\n\r")),
+                    _StripException(
+                        direction=_normalize_direction(direction_raw),
+                        width_ft=width,
+                        purpose=_clean_purpose(purpose_raw),
+                        original_text=original,
+                    ),
+                )
+            )
+
+    return sorted(results, key=lambda item: item[0])
 
 
 def detect_strip_exceptions(text: str) -> list[_StripException]:
@@ -2000,53 +2059,7 @@ def detect_strip_exceptions(text: str) -> list[_StripException]:
             purpose:       Purpose string or None
             original_text: Verbatim matched text from the input
     """
-    if not text:
-        return []
-
-    results: list[_StripException] = []
-    seen_spans: set[tuple[int, int]] = set()
-
-    for pattern in _STRIP_PATTERNS:
-        for match in pattern.finditer(text):
-            span = (match.start(), match.end())
-            # Avoid duplicate matches from overlapping patterns
-            if any(s[0] <= span[0] < s[1] or s[0] < span[1] <= s[1] for s in seen_spans):
-                continue
-
-            original = match.group(0).strip().rstrip(".")
-
-            # Guard: if the matched text (or nearby context) contains metes
-            # indicators, this is a geometric exception, not a simple strip.
-            # Look at the broader exception clause context.
-            context_start = max(0, match.start() - 10)
-            context_end = min(len(text), match.end() + 200)
-            context = text[context_start:context_end]
-            if _METES_INDICATOR.search(context):
-                # Check that the THENCE/bearing is actually AFTER the
-                # exception keyword, not before it in the main description.
-                post_match_text = text[match.start() : context_end]
-                if _METES_INDICATOR.search(post_match_text):
-                    continue
-
-            direction_raw = match.group("dir")
-            width = parse_number(match.group("width"))
-
-            # Extract purpose -- not all patterns define this named group
-            purpose_raw = None
-            if "purpose" in pattern.groupindex:
-                purpose_raw = match.group("purpose")
-
-            results.append(
-                _StripException(
-                    direction=_normalize_direction(direction_raw),
-                    width_ft=width,
-                    purpose=_clean_purpose(purpose_raw),
-                    original_text=original,
-                )
-            )
-            seen_spans.add(span)
-
-    return results
+    return [strip for _, _, strip in strip_exception_spans(text)]
 
 
 def remove_strip_exceptions(text: str) -> str:

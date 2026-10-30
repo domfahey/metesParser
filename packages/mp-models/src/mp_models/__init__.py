@@ -55,6 +55,7 @@ from .dashboard import (
     PreparedDashboard,
 )
 from .deed_call import (
+    UNAPPLIED_EXCEPTION_NOTE_PREFIX,
     CurveDirection,
     CurveType,
     DeedCall,
@@ -62,6 +63,7 @@ from .deed_call import (
     MonumentStatus,
     MonumentType,
     SubdivisionReference,
+    unapplied_exceptions,
 )
 from .delivery import (
     DeliveryItem,
@@ -174,6 +176,8 @@ from .webmap import (
 __version__ = "1.0.0"
 
 __all__ = [
+    "UNAPPLIED_EXCEPTION_NOTE_PREFIX",
+    "unapplied_exceptions",
     "DeliveryItem",
     "DeliveryLayer",
     "DeliveryManifest",

@@ -37,6 +37,22 @@ MonumentType = Literal[
 ]
 MonumentStatus = Literal["found", "set"]
 CurveType = Literal["simple", "compound", "reverse", "spiral"]
+# Notes prefix for a stated exception that removes part of the parcel without a
+# described traverse ("EXCEPTING the westerly 10 feet thereof"). The boundary's
+# closing course carries it verbatim; verification reports the exception as not
+# applied, so the gross boundary is never mistaken for the deed's net parcel.
+UNAPPLIED_EXCEPTION_NOTE_PREFIX = "exception not applied: "
+
+
+def unapplied_exceptions(notes: str | None) -> list[str]:
+    """Return the verbatim stated exceptions a call's notes record as not applied."""
+    if not notes:
+        return []
+    return [
+        part[len(UNAPPLIED_EXCEPTION_NOTE_PREFIX) :]
+        for part in notes.split("; ")
+        if part.startswith(UNAPPLIED_EXCEPTION_NOTE_PREFIX)
+    ]
 
 
 class DeedClause(_Model):
