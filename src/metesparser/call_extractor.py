@@ -125,10 +125,35 @@ _COMPACT_DMS_BEARING = re.compile(
 )
 
 
+# A number group right after an identifier word ("Lot N 12-3 E", "Route N 9-1 E")
+# is a label, never a bearing.
+_IDENTIFIER_BEFORE = re.compile(
+    r"(?:(?<![A-Za-z])(?:lots?|blocks?|blk|routes?|rte|rt|highway|hwy|no|nos|number|unit"
+    r"|parcel|tract|section|sec|map|plat|book|page|pg|sheet|phase|plan|instrument|deed"
+    r"|file|exit|apt|suite|building|bldg)\.?|#)\s*$",
+    re.IGNORECASE,
+)
+# Bare dashes ("N 45-30 E") carry no degree marker, so they are read as a bearing
+# only where one is expected: text start, a clause boundary or a bearing keyword.
+_DASHED_BEARING_CONTEXT = re.compile(
+    r"(?:^|[,;:(]|(?<![A-Za-z])(?:thence|then|bears?|bearings?|courses?|running|runs?"
+    r"|and|being|is|of|line|direction))\s*$",
+    re.IGNORECASE,
+)
+
+
 def _expand_compact_dms(text: str) -> str:
     """Rewrite dashed or d/m bearings (``N 45-30-00 E``, ``N 45d30m E``) with symbols."""
 
     def _repl(m: re.Match[str]) -> str:
+        before = text[: m.start()]
+        if _IDENTIFIER_BEFORE.search(before):
+            return m.group(0)
+        numbers = text[m.start(2) : m.start(6)]
+        if not re.search(r"\d\s*[dms]", numbers, re.IGNORECASE) and not (
+            _DASHED_BEARING_CONTEXT.search(before)
+        ):
+            return m.group(0)
         minute_value, second_value = m.group(3), m.group(4)
         if minute_value is None and second_value is not None and m.group(5) is None:
             # Two parts ("N 45-30 E", "N 45d 30 E"): the trailing number is minutes,
@@ -746,6 +771,10 @@ class CallExtractor:
                 distance_ft = arc_length_ft
             curve_info.setdefault("arc_length_ft", props["arc_length_ft"])
             curve_info.setdefault("chord_length_ft", props["chord_length_ft"])
+        elif positioned_by_chord and isinstance(stated_chord, float):
+            # Chord-only curve: its course distance is the stated chord, never the
+            # radius (the first distance in the text) or a derived arc.
+            distance_ft = stated_chord
 
         if distance_ft <= 0.0:
             raise ValueError("Missing boundary course distance")
@@ -951,6 +980,11 @@ class CallExtractor:
                 step="extract_distance",
                 input=distance_input,
                 output=str(call.distance_ft),
+                rule=(
+                    "chord-only curve: distance is the stated chord length"
+                    if call.is_chord_only_curve()
+                    else None
+                ),
             )
         )
 

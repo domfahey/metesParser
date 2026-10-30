@@ -197,9 +197,10 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
             )
         )
     courses = tuple(geometry)
+    perimeter_ft = verification.perimeter_ft if verification.perimeter_available else None
     denominator = (
-        verification.perimeter_ft / verification.misclosure_ft
-        if verification.misclosure_ft > 0
+        perimeter_ft / verification.misclosure_ft
+        if perimeter_ft is not None and verification.misclosure_ft > 0
         else None
     )
     if denominator is not None and not math.isfinite(denominator):
@@ -218,7 +219,7 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
         misclosure_x_ft=verification.misclosure_x_ft,
         misclosure_y_ft=verification.misclosure_y_ft,
         area_sq_ft=verification.area_sq_ft if area_available else None,
-        perimeter_ft=verification.perimeter_ft,
+        perimeter_ft=perimeter_ft,
         precision_denominator=denominator,
         warnings=warnings,
     )
