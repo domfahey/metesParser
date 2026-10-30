@@ -76,8 +76,12 @@ PACKED_DMS_PATTERN = re.compile(
 ARC_COMPUTED_NOTE = "arc length not stated - course distance computed from radius and delta"
 ARC_COMPUTED_RULE = "curve: distance is the arc computed from the stated radius and delta"
 
+# One curve-word spelling (curve/curved/curving) shared by every curve gate in this module.
+CURVE_WORD = r"curv(?:e|ed|ing)"
+CURVE_KEYWORD_PATTERN = re.compile(rf"\b(?:{CURVE_WORD}|spiral|transition)\b", re.IGNORECASE)
+
 CURVE_PATTERN = re.compile(
-    rf"curv(?:e|ed|ing)\s+to\s+the\s+(left|right).*?radius\s+of\s+({COMMA_NUMBER})\s*({_UNIT_TOKEN})?.*?"
+    rf"{CURVE_WORD}\s+to\s+the\s+(left|right).*?radius\s+of\s+({COMMA_NUMBER})\s*({_UNIT_TOKEN})?.*?"
     rf"(?:delta\s+(?:angle\s+)?of\s+)?({COMMA_NUMBER})(?:\u00b0|\s+degrees?)(?:\s*({COMMA_NUMBER})(?:'|\s+minutes?))?(?:\s*({COMMA_NUMBER})(?:\"|\s+seconds?))?",
     re.IGNORECASE | re.DOTALL,
 )
@@ -263,7 +267,7 @@ def _extract_calls_from_text(
                     explicit_course
                     or extract_direction(call_text)
                     or re.search(r"\b(?:[NSEW])\s+\d", call_text, re.I)
-                    or re.search(r"\b(?:curve|spiral|transition)\b", call_text, re.I)
+                    or CURVE_KEYWORD_PATTERN.search(call_text)
                 ):
                     raise ValueError(f"Malformed course {source_course}: {call_text.strip()!r}")
                 continue
@@ -1274,7 +1278,7 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
     """
     curve_info: dict[str, float | str | None] = {}
 
-    if not re.search(r"\b(?:curv(?:e|ed|ing)|spiral|transition)\b", text, re.IGNORECASE):
+    if not CURVE_KEYWORD_PATTERN.search(text):
         return curve_info
 
     match = CURVE_PATTERN.search(text)
@@ -1315,7 +1319,7 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
             curve_info["arc_length_ft"] = arc_length
 
     else:
-        dir_match = re.search(r"curv(?:e|ed|ing)\s+to\s+the\s+(left|right)", text, re.IGNORECASE)
+        dir_match = re.search(rf"{CURVE_WORD}\s+to\s+the\s+(left|right)", text, re.IGNORECASE)
         if dir_match:
             curve_info["direction"] = dir_match.group(1).lower()
 
