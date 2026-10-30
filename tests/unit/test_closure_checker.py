@@ -817,7 +817,6 @@ class TestIncompleteBearingWarning:
             "closure, area and perimeter are not determined",
             "Course(s) 2 follow an unpositioned course; absolute positions and "
             "misclosure are not determined",
-            "Cannot calculate area: Cannot calculate area with 2 points (need at least 3)",
             "1 call(s) have incomplete bearings (cardinal-only or meanders)",
         ]
 
