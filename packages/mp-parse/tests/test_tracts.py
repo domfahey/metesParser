@@ -508,6 +508,62 @@ _MARKER_CASES = [
         "BEGINNING at a pin; THENCE N 10 E 100 feet to the POINT OF BEGINNING. Tract 2 situate in the Township of X",
         [],
     ),
+    # --- heading position + description opener before any course (any case) -----
+    (
+        "r15-titlecase-being-all-that-after-period",
+        "Parcel 1: BEGINNING at a stake; THENCE N 10° E 100 feet to the place of beginning. Parcel 2 being all that lot BEGINNING at a pin; THENCE S 5° E 50 feet",
+        ["Parcel 1", "Parcel 2"],
+    ),
+    (
+        "r15-titlecase-situate-after-semicolon",
+        f"Parcel 1: BEGINNING at a stake{_SQ[:-1]}; Parcel 2 Situate in the Township; BEGINNING at a pin{_SQ}",
+        ["Parcel 1", "Parcel 2"],
+    ),
+    (
+        "r15-lowercase-situate-after-period",
+        f"tract 1: BEGINNING at a stake{_SQ} tract 2 situate in the Township of X, BEGINNING at a pin{_SQ}",
+        ["Tract 1", "Tract 2"],
+    ),
+    (
+        "r15-lowercase-lying-and-being-newline",
+        f"parcel 1: BEGINNING at a stake{_SQ}\nparcel 2 lying and being in the Borough of Y, COMMENCING at a pin{_SQ}",
+        ["Parcel 1", "Parcel 2"],
+    ),
+    (
+        "r15-titlecase-being-all-that-newline",
+        f"Tract 1: BEGINNING at a stake{_SQ}\nTract 2 being all that lot BEGINNING at a pin{_SQ}",
+        ["Tract 1", "Tract 2"],
+    ),
+    (
+        "r15-titlecase-at-text-start",
+        f"Parcel 2 Situate in the Township; BEGINNING at a pin{_SQ}",
+        ["Parcel 2"],
+    ),
+    (
+        "r15-titlecase-after-colon-all-that",
+        f"described as follows: Parcel 2 lying and being in X, ALL THAT lot BEGINNING at a pin{_SQ}",
+        ["Parcel 2"],
+    ),
+    (
+        "r15-reference-of-before-opener-stays-reference",
+        f"BEGINNING at a stake{_SQ} Parcel 2 of the Smith plan, BEGINNING at a pin{_SQ}",
+        [],
+    ),
+    (
+        "r15-reference-in-said-before-opener-stays-reference",
+        f"BEGINNING at a stake{_SQ} Parcel 2 in said subdivision, BEGINNING at a pin{_SQ}",
+        [],
+    ),
+    (
+        "r15-course-before-opener-stays-reference",
+        f"BEGINNING at a stake{_SQ} Parcel 2 adjoins; thence N 10 E 5 feet to the point of beginning.",
+        [],
+    ),
+    (
+        "r15-open-description-reference-stays-reference",
+        "TRACT 1: BEGINNING at a point; thence N 10 E 5 feet; the line of. Parcel 2 situate in X, BEGINNING at a pin",
+        ["Tract 1"],
+    ),
     # --- 'NO' prefix must be a standalone token ---------------------------------
     ("no-prefix-not-word-start", "TRACT 1: Beginning x. TRACT NOW.", ["Tract 1"]),
     ("no-prefix-not-word-start-parcel", "PARCEL 1: Beginning x. PARCEL NOT.", ["Parcel 1"]),
@@ -759,3 +815,20 @@ def test_15_euclid_7433_sample_matches_ground_truth_tract_count():
     text = md.read_text()
     for source in (text, normalize_legal_description(text)):
         assert len(split_into_tracts(source)) == 2
+
+
+class TestStructuralHeadingWithoutTerminator:
+    def test_titlecase_parcel_with_prose_before_opener_is_separate_tract(self):
+        text = (
+            "Parcel 1: BEGINNING at a stake; THENCE North 10 degrees 00 minutes 00 seconds East "
+            "100.00 feet to a point; THENCE East 100.00 feet to a point; THENCE South 100.00 feet "
+            "to a point; THENCE West 100.00 feet to the place of beginning. "
+            "Parcel 2 being all that lot BEGINNING at a pin; THENCE South 5 degrees 00 minutes "
+            "00 seconds East 50.00 feet to a point; THENCE West 50.00 feet to a point; "
+            "THENCE North 50.00 feet to a point; THENCE East 50.00 feet to the place of beginning."
+        )
+        labels = [label for _t, label, _k in split_into_tracts(text)]
+        assert labels == ["Parcel 1", "Parcel 2"]
+        calls, tracts = extract_calls(text)
+        assert len(calls) == 8
+        assert [(t.label, len(t.calls)) for t in tracts] == [("Parcel 1", 4), ("Parcel 2", 4)]
