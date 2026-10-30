@@ -912,6 +912,13 @@ Five findings plus one follow-up, fixed red-green on `fix/code-review-2026-10-29
 - **Radius + delta/arc + chord bearing without a tangent:** verification positions it by its chord exactly as the plot does; perimeter uses R·δ; area includes the segment (`06e62cf`).
 - **Strict-mode curve gate:** "Malformed course" detection uses the shared curve/curved/curving keyword (`d1dcad2`).
 
+### PR #60 fourteenth review (2026-10-30)
+Four findings, fixed red-green on `fix/code-review-2026-10-29`:
+- **Minute-stated deltas:** angle precision is inferred (whole-minute values ±30″, otherwise ±0.5″) for deltas and bearings; the 0.5 ft linear cap is removed so a correctly rounded minute delta passes at large radii; gross errors still fail (`2940b7a`).
+- **Cardinal word vs chord-derived tangent:** a consistent cardinal word keeps the derived tangent with a "stated direction is cardinal only" note and `cardinal_only_direction` audit flag; a conflicting word (outside ±45° intercardinal / ±67.5° cardinal sector of the chord) derives no tangent and is flagged `cardinal_chord_conflict` (`3abde3c`, `e15964b`).
+- **Headings with prose:** a heading-position marker whose segment opens a description (BEGINNING/COMMENCING/ALL THAT) before any THENCE course, after a closed description, is a heading in any case (`258fa7d`).
+- **Topology for chord-fixed curves:** `mp_verify.tangents` computes tangent-in/out internally for curves fixed by radius, delta/arc, direction and chord; interior angles, boundary topology and the incomplete-bearings warning use them; chord-only curves stay blocked (`6ff0ece`). Interior angles stay `not_applicable` for curved boundaries, as with stated tangents.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
