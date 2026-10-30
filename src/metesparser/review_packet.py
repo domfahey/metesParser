@@ -187,8 +187,10 @@ def build_closure_section(gt: GroundTruth) -> str:
     ]
     for label, key in _closure_fields:
         val = closure.get(key)
-        if (key == "perimeter_ft" and closure.get("perimeter_available") is False) or (
-            key in ("area_sq_ft", "area_acres") and closure.get("area_available") is False
+        if (
+            (key == "misclosure_ft" and closure.get("misclosure_available") is False)
+            or (key == "perimeter_ft" and closure.get("perimeter_available") is False)
+            or (key in ("area_sq_ft", "area_acres") and closure.get("area_available") is False)
         ):
             display = "not determined"
         else:

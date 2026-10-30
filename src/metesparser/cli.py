@@ -102,14 +102,7 @@ def extract_command(
                 llm_model=getattr(getattr(processor, "client", None), "model", "unknown"),
                 cache_enabled=not no_cache,
                 prompt_versions=prompt_versions,
-                results=RunResults(
-                    call_count=len(legal_desc.calls),
-                    closure_passed=closure_result.closure_passed,
-                    misclosure_ft=closure_result.misclosure_ft,
-                    area_sq_ft=closure_result.area_sq_ft if closure_result.area_available else None,
-                    confidence_score=closure_result.confidence_score or 0.0,
-                    warnings=closure_result.warnings,
-                ),
+                results=RunResults.from_closure(closure_result, len(legal_desc.calls)),
                 parser_version=metesparser.__version__,
             )
             write_run_manifest(manifest, RUNS_DIR)
