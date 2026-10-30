@@ -1481,6 +1481,9 @@ def _split_multi_course_fragment(call_text: str) -> list[str]:
     return [piece.strip() for piece in pieces] if len(pieces) >= 2 else [call_text]
 
 
+_BEGINNING_CLAUSE = re.compile(r"^\s*(BEGINNING|COMMENCING|POB)\b", re.IGNORECASE)
+
+
 def extract_single_call(
     call_text: str,
     course: int,
@@ -1494,14 +1497,21 @@ def extract_single_call(
         distance_unit: Primary distance unit
 
     Returns:
-        The parsed DeedCall, or None for a BEGINNING/COMMENCING/POB clause (no course).
+        The parsed DeedCall, or None only for a BEGINNING/COMMENCING/POB clause (no course).
 
     Raises:
         MultipleCoursesError: The text states more than one complete course.
-        ValueError: A course is present but unusable (e.g. ambiguous length or an
-            unsupported compound distance component); parsing never returns None for it.
+        ValueError: No usable course is present (e.g. no readable bearing or direction,
+            a zero or unread length, ambiguous length or an unsupported compound
+            distance component); a dropped course is never reported as None.
     """
-    return _extract_call(call_text, course, distance_unit)[0]
+    call = _extract_call(call_text, course, distance_unit)[0]
+    if call is None and not _BEGINNING_CLAUSE.match(call_text):
+        raise ValueError(
+            "No usable course could be parsed (no readable direction, or a zero or "
+            f"unread length): {call_text.strip()!r}"
+        )
+    return call
 
 
 def _extract_call(
@@ -1512,7 +1522,7 @@ def _extract_call(
     BEGINNING/POB clauses return before any curve or bearing work; otherwise curve
     info is extracted once and shared with the course-bearing extraction.
     """
-    if re.match(r"^\s*(BEGINNING|COMMENCING|POB)\b", call_text, re.IGNORECASE):
+    if _BEGINNING_CLAUSE.match(call_text):
         return None, ""
 
     # Text after the closing sentence is not part of this course (recitals, ties),
@@ -1824,6 +1834,9 @@ def _extract_call(
         or along
         or is_meander
         or re.search(r"\b[NS]\s+\d+\u00b0", call_text)
+        # An out-of-range hyphenated bearing ("N 95-30' E") is kept as an incomplete
+        # bearing, like "N 95\u00b0 E"; in-range forms are parsed, identifiers are not.
+        or re.search(r"\b[NS]\s+(?:9[1-9]|[1-9]\d\d)\s*-\s*\d+\s*['\u2032]?\s*[EW]\b", call_text)
     )
     if not has_direction_intent:
         payload = {
