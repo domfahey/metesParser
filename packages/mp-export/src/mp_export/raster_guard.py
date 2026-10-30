@@ -3,18 +3,26 @@
 from __future__ import annotations
 
 import base64
-from functools import lru_cache
+import hashlib
 
 from mp_models.raster import RASTER_ORIENTATION_MESSAGE, RasterLayer, image_orientation
 
+_CACHE_LIMIT = 16
+# Holds only sha256 digests of the base64 payload and small orientation ints, never the payload itself.
+_ORIENTATION_BY_DIGEST: dict[str, int | None] = {}
 
-@lru_cache(maxsize=16)
-def _orientation_for(data_base64: str) -> int | None:
-    # Keyed on the embedded content so repeated renders of one raster decode it once.
-    return image_orientation(base64.b64decode(data_base64))
+
+def _orientation_for(digest: str, data_base64: str) -> int | None:
+    # Repeated renders of one raster decode it once; the payload is released after the miss.
+    if digest not in _ORIENTATION_BY_DIGEST:
+        if len(_ORIENTATION_BY_DIGEST) >= _CACHE_LIMIT:
+            _ORIENTATION_BY_DIGEST.pop(next(iter(_ORIENTATION_BY_DIGEST)))
+        _ORIENTATION_BY_DIGEST[digest] = image_orientation(base64.b64decode(data_base64))
+    return _ORIENTATION_BY_DIGEST[digest]
 
 
 def require_upright_raster(layer: RasterLayer) -> None:
     """Refuse to embed a raster whose EXIF Orientation would make browsers rotate it."""
-    if _orientation_for(layer.data_base64) not in (None, 1):
+    digest = hashlib.sha256(layer.data_base64.encode("ascii")).hexdigest()
+    if _orientation_for(digest, layer.data_base64) not in (None, 1):
         raise ValueError(RASTER_ORIENTATION_MESSAGE)
