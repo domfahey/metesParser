@@ -28,7 +28,9 @@ def test_chord_and_delta_curve_is_not_scored_as_missing_bearing() -> None:
     assert score_call_quality(unstated) == score_call_quality(stated) == "high"
 
 
-def test_chord_only_curve_still_scores_low() -> None:
+def test_chord_only_curve_scores_medium_as_chord_positioned() -> None:
     chord_only = _curve(arc_length_ft=None, chord_length_ft=100.0, distance_ft=100.0)
 
-    assert score_call_quality(chord_only) == "low"
+    # Its chord bearing is stated and positions it, but tangent and arc are not
+    # determined, so it ranks below a fully determined (high) curve (r33).
+    assert score_call_quality(chord_only) == "medium"
