@@ -876,6 +876,18 @@ Ten findings plus one follow-up, fixed red-green on `fix/code-review-2026-10-29`
 - **Delivery:** a crashed publish without a manifest no longer wedges the id; leftovers are cleared under the lock (`889a82d`). Raster extents use `outer_corners`; one `displayed_calculation_points` helper for web map and delivery (`9db01e4`).
 - **Cleanup:** dead API per-tract branch and dead strip helpers removed.
 
+### PR #60 tenth review (2026-10-30)
+Nine findings plus the three open items from the ninth review, fixed red-green on `fix/code-review-2026-10-29`:
+- **Tangent/chord/radius in verification:** `tangent_chord_issue` in `check_curve_consistency` (package; monolith delegates) fails inconsistent stated tangent/chord/radius/delta; chord-only blocks distinguish `curve_tangent_chord_inconsistent` from `curve_delta_not_stated` (`a38849a`).
+- **One curve tolerance:** `CURVE_ELEMENT_TOLERANCE_FT = 0.01` and `TANGENT_CHORD_TOLERANCE_DEG = 1.5″` in `mp_bearing.curves`, used by verify and plot (`a38849a`).
+- **No derived values in stated fields:** a tangent+chord+radius curve keeps only stated values (`arc_length_ft`/`delta_deg` None), is chord-positioned and judged by verification only; consistent ones are blocked `curve_delta_not_stated`, no longer export-eligible (`a057959`). Open: the block text still says "minor or major arc ambiguous" when a tangent is stated. Curve info is extracted once per call; BEGINNING clauses skip bearing work.
+- **Positioning:** `traverse_positions` drives `unpositioned_indices`; any unpositioned course blocks `traverse_closure` and sets `ClosureResult.misclosure_available=False` ("not determined"), including partial traverses past bearingless lines (`2ddd386`).
+- **Sentinels:** confidence scoring, verified-CSV messages, dashboard, run registry (`misclosure_available`), review packet, corpus and scripts honour the availability flags; an unavailable misclosure scores 0 (`eb91dd3`).
+- **POB:** `PlotGeometry.point_of_beginning` (only when it differs from the first drawn start) and `plot_point_of_beginning` used by web map, plot HTML, dashboard and validation (`16b3bf3`).
+- **Tracts:** title recitals ("BEING the same … conveyed/vested") fold into or are dropped beside the described tract; 15 E Euclid 7433-466 now matches ground truth (2 tracts) (`5153df0`); labels fold case-insensitively (`52d5d54`).
+- **Distance:** compounds must start at the course's first measurement; witness distances no longer replace it (`3d75c7e`).
+- **Delivery:** without `fcntl`, an exclusive `<id>.publishing` claim replaces clearing; one `_present` helper (`2dd58c0`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
