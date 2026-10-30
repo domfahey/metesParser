@@ -49,7 +49,7 @@ def test_closure_gap_rule_is_shared():
     import mp_review.webmap as renderer
     import mp_verify.webmap as verifier
 
-    assert renderer.CLOSURE_GAP_THRESHOLD is verifier.CLOSURE_GAP_THRESHOLD
+    assert renderer.has_closure_gap is verifier.has_closure_gap
     assert verifier.CLOSURE_GAP_THRESHOLD == 1e-8
     assert renderer.has_closure_gap((0.0, 0.0), (1e-7, 0.0))
     assert not renderer.has_closure_gap((0.0, 0.0), (1e-9, 0.0))
