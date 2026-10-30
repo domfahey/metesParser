@@ -432,10 +432,10 @@ def verify_closure(
                 f"Course {record.call.course}: curve cannot be positioned (chord length "
                 "exceeds twice the radius); closure, area and perimeter are not determined"
             )
-        elif record.no_endpoint:
+        elif record.bad_chord:
             warnings.append(
-                f"Course {record.call.course}: curve cannot be positioned (no parseable "
-                "chord, delta or arc); closure, area and perimeter are not determined"
+                f"Course {record.call.course}: curve cannot be positioned (unparseable "
+                "chord bearing); closure, area and perimeter are not determined"
             )
         else:
             warnings.append(

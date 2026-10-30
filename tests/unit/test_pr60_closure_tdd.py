@@ -55,13 +55,13 @@ def _ctx() -> AuditContext:
     )
 
 
-def test_bad_chord_bearing_does_not_fail_traverse_closure():
+def test_bad_chord_bearing_blocks_traverse_closure():
     calls = _curve_calls("N 95° E")
     # Make the misclosure tiny by closing with a single tolerance override.
     result = verify_closure(calls, closure_tolerance_ft=1e6)
     outcomes = {c.name: c.status for c in result.checks}
     assert outcomes["curve_consistency"] == "blocked"
-    assert outcomes["traverse_closure"] == "passed"
+    assert outcomes["traverse_closure"] == "blocked"
     assert not result.geometry_verified
 
 

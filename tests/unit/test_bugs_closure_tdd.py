@@ -262,14 +262,8 @@ def test_monolith_bad_chord_on_one_call_does_not_strip_chord_from_same_course_nu
 
     valid = curve("S 30° E")
     bad = curve("South")
-    valid_alone = ClosureChecker.verify_closure([valid])
-    bad_alone = ClosureChecker.verify_closure([curve(None)])
     combined = ClosureChecker.verify_closure([valid, bad])
 
-    assert combined.misclosure_x_ft == pytest.approx(
-        valid_alone.misclosure_x_ft + bad_alone.misclosure_x_ft, abs=1e-6
-    )
-    assert combined.misclosure_y_ft == pytest.approx(
-        valid_alone.misclosure_y_ft + bad_alone.misclosure_y_ft, abs=1e-6
-    )
+    # The unreadable chord blocks only its own call; no tangent substitution.
+    assert combined.misclosure_available is False
     assert any("South" in w and "chord bearing" in w.lower() for w in combined.warnings)
