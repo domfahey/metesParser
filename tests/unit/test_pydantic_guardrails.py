@@ -280,10 +280,12 @@ def test_csv_row_to_call_skips_invalid_curve_row(tmp_path: Path):
             }
         )
 
-    calls = CSVBuilder.csv_to_calls(str(csv_path), strict=False)
+    rejected: list[tuple[int, str]] = []
+    calls = CSVBuilder.csv_to_calls(str(csv_path), strict=False, rejected_rows=rejected)
 
     assert len(calls) == 1
     assert calls[0].course == 1
+    assert [row for row, _ in rejected] == [3]
 
 
 def test_csv_row_to_call_default_false_for_blank_exception_flag(tmp_path: Path):
@@ -346,9 +348,11 @@ def test_csv_row_to_call_skips_invalid_rows(tmp_path: Path, overrides: dict[str,
         writer.writeheader()
         writer.writerow(_base_csv_row(overrides))
 
-    calls = CSVBuilder.csv_to_calls(str(csv_path), strict=False)
+    rejected: list[tuple[int, str]] = []
+    calls = CSVBuilder.csv_to_calls(str(csv_path), strict=False, rejected_rows=rejected)
 
     assert calls == []
+    assert [row for row, _ in rejected] == [2]
 
 
 def test_legaldescription_rejects_non_int_page_number():
