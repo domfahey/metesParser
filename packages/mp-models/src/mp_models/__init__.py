@@ -55,7 +55,12 @@ from .dashboard import (
     PreparedDashboard,
 )
 from .deed_call import (
+    PARENTHETICAL_NOTE_PREFIX,
+    PASSING_CALL_NOTE_PREFIX,
+    RECORD_CALL_NOTE_PREFIX,
+    SEPARATE_EASEMENT_NOTE_PREFIX,
     UNAPPLIED_EXCEPTION_NOTE_PREFIX,
+    VERBATIM_NOTE_PREFIXES,
     CurveDirection,
     CurveType,
     DeedCall,
@@ -63,6 +68,7 @@ from .deed_call import (
     MonumentStatus,
     MonumentType,
     SubdivisionReference,
+    split_notes,
     unapplied_exceptions,
 )
 from .delivery import (
@@ -176,7 +182,13 @@ from .webmap import (
 __version__ = "1.0.0"
 
 __all__ = [
+    "PARENTHETICAL_NOTE_PREFIX",
+    "PASSING_CALL_NOTE_PREFIX",
+    "RECORD_CALL_NOTE_PREFIX",
+    "SEPARATE_EASEMENT_NOTE_PREFIX",
     "UNAPPLIED_EXCEPTION_NOTE_PREFIX",
+    "VERBATIM_NOTE_PREFIXES",
+    "split_notes",
     "unapplied_exceptions",
     "DeliveryItem",
     "DeliveryLayer",
