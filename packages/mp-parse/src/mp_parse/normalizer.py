@@ -215,7 +215,7 @@ def expand_assessor_abbreviations(text: str) -> str:
     # Match complete DMS bearing: [cardinal]<deg>(DEG|D) <min>M [<sec>(S|SEC)] [cardinal]
     # Full DMS with seconds (S or SEC)
     text = re.sub(
-        r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\s+(\d{1,2}(?:\.\d+)?)\s*(?:SEC|S)\b",
+        r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\s+(\d{1,2}(?:\.\d+)?)\s*(?:SEC\b\.?|S\b)",
         r"\1 degrees \2 minutes \3 seconds",
         text,
         flags=re.IGNORECASE,
@@ -229,7 +229,7 @@ def expand_assessor_abbreviations(text: str) -> str:
     )
     # Degrees only (DEG/D without M following)
     text = re.sub(
-        r"(\d{1,3})\s*(?:DEG|D)\b",
+        r"(\d{1,3})\s*(?:DEG\b\.?|D\b)",
         r"\1 degrees",
         text,
         flags=re.IGNORECASE,
@@ -244,7 +244,7 @@ def expand_assessor_abbreviations(text: str) -> str:
 
     # --- 3. Expand number+SEC that wasn't already caught (standalone) -------
     text = re.sub(
-        r"(\d{1,2}(?:\.\d+)?)\s*SEC\b",
+        r"(\d{1,2}(?:\.\d+)?)\s*SEC\b\.?",
         r"\1 seconds",
         text,
         flags=re.IGNORECASE,
