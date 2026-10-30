@@ -172,5 +172,5 @@ def test_shared_extent_helper_is_used_by_web_map_and_delivery():
 
     assert not hasattr(delivery, "_delivery_extent")
     assert "_primitive_point" not in inspect.getsource(delivery)
-    assert "placed_points" in inspect.getsource(webmap._display_extent)
+    assert "displayed_calculation_points" in inspect.getsource(webmap._display_extent)
     assert "operation_extent" in inspect.getsource(webmap._display_extent)
