@@ -10,10 +10,13 @@ import statistics
 from typing import Literal
 
 from mp_bearing import (  # type: ignore[import-untyped]
-    CURVE_ELEMENT_TOLERANCE_FT,
-    TANGENT_CHORD_TOLERANCE_DEG,
+    arc_length_tolerance_ft,
     bearing_to_azimuth,
+    chord_length_tolerance_ft,
+    deflection_chord_tolerance_ft,
+    delta_uncertainty_rad,
     tangent_chord_deflection,
+    tangent_chord_tolerance_deg,
 )
 from mp_models import CheckResult, DeedCall, Point
 
@@ -508,15 +511,21 @@ def tangent_chord_issue(call: DeedCall) -> str | None:
     radius = call.radius_ft
     if radius is not None and radius > 0.0 and call.chord_length_ft is not None:
         expected_chord = 2.0 * radius * math.sin(math.radians(deflection))
-        if abs(call.chord_length_ft - expected_chord) > CURVE_ELEMENT_TOLERANCE_FT:
+        if abs(call.chord_length_ft - expected_chord) > deflection_chord_tolerance_ft(
+            radius, deflection
+        ):
             return (
                 f"{prefix} (chord: {call.chord_length_ft:.2f}, expected from tangent-to-chord "
                 f"deflection {deflection:.6f}\u00b0 and radius: {expected_chord:.2f})"
             )
     delta = call.delta_deg
+    delta_error = delta_uncertainty_rad()
     if delta is None and call.arc_length_ft is not None and radius is not None and radius > 0.0:
         delta = math.degrees(call.arc_length_ft / radius)
-    if delta is not None and abs(deflection - delta / 2.0) > TANGENT_CHORD_TOLERANCE_DEG:
+        delta_error = delta_uncertainty_rad(arc_length_ft=call.arc_length_ft, radius_ft=radius)
+    if delta is not None and abs(deflection - delta / 2.0) > tangent_chord_tolerance_deg(
+        delta_error
+    ):
         return (
             f"{prefix} (delta {delta:.6f}\u00b0 is not twice the tangent-to-chord "
             f"deflection {deflection:.6f}\u00b0)"
@@ -531,8 +540,9 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
     are present, the implied delta is derived from arc/radius and used
     for consistency checks (including chord validation). A stated tangent
     azimuth with a chord bearing is cross-checked by ``tangent_chord_issue``.
-    Linear elements agree within ``CURVE_ELEMENT_TOLERANCE_FT``, the tolerance
-    the parser and plot builder also apply.
+    Elements agree within the rounding of the stated values propagated through
+    the curve formulas (``mp_bearing`` tolerance helpers, shared with the plot
+    builder so verification and plotting accept the same curves).
 
     Args:
         calls: List of DeedCall objects.
@@ -550,7 +560,7 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
             continue
 
         delta_deg = call.delta_deg
-        tolerance_ft = CURVE_ELEMENT_TOLERANCE_FT
+        delta_error_rad = delta_uncertainty_rad()
 
         # Derive delta from radius + arc when delta_deg is not explicit
         if delta_deg is None:
@@ -561,6 +571,9 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
                     warnings.append(f"Course {call.course}: arc length exceeds full circle")
                     return False, warnings
                 delta_deg = math.degrees(implied_delta_rad)
+                delta_error_rad = delta_uncertainty_rad(
+                    arc_length_ft=call.arc_length_ft, radius_ft=call.radius_ft
+                )
             else:
                 # No delta or arc: a radius and chord alone leave the arc ambiguous,
                 # so only the chord's own feasibility (and any stated tangent) can be
@@ -580,9 +593,9 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
         delta_rad = math.radians(delta_deg)
         expected_arc = call.radius_ft * delta_rad
 
-        if call.arc_length_ft is not None:
+        if call.arc_length_ft is not None and call.delta_deg is not None:
             arc_diff = abs(call.arc_length_ft - expected_arc)
-            if arc_diff > tolerance_ft:
+            if arc_diff > arc_length_tolerance_ft(call.radius_ft, delta_deg):
                 warnings.append(
                     f"Course {call.course}: arc length inconsistency "
                     f"(given: {call.arc_length_ft:.2f}, expected: {expected_arc:.2f})"
@@ -593,7 +606,7 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
 
         if call.chord_length_ft is not None:
             chord_diff = abs(call.chord_length_ft - expected_chord)
-            if chord_diff > tolerance_ft:
+            if chord_diff > chord_length_tolerance_ft(call.radius_ft, delta_deg, delta_error_rad):
                 warnings.append(
                     f"Course {call.course}: chord length inconsistency "
                     f"(given: {call.chord_length_ft:.2f}, expected: {expected_chord:.2f})"
