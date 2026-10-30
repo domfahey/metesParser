@@ -363,6 +363,52 @@ CASES: dict[str, Case] = {
         SMALL,
         legs=4,
     ),
+    # --- r51: easement grants by benefit or assignment of interest --------------------
+    "r51_benefit_of_an_easement": _easement_case(
+        "TOGETHER WITH the benefit of an easement for ingress and egress described as follows:",
+        "BEGINNING at a stake; thence N 10° E 20 feet; thence N 80° W 10 feet to the point of "
+        "beginning.",
+    ),
+    "r51_benefit_of_the_right_of_way": _easement_case(
+        "TOGETHER WITH the benefit of the right of way described as follows:"
+    ),
+    "r51_all_right_title_interest_easement": _easement_case(
+        "TOGETHER WITH all right, title and interest in and to the ingress and egress "
+        "easement described as follows:"
+    ),
+    "r51_grantors_interest_that_certain_easement": _easement_case(
+        "TOGETHER WITH all of the grantor's right, title and interest in and to that certain "
+        "easement described as follows:"
+    ),
+    "r51_interest_in_right_of_way": _easement_case(
+        "TOGETHER WITH all right, title and interest in and to the right of way described as"
+    ),
+    "r51_right_privilege_and_easement": _easement_case(
+        "TOGETHER WITH the right, privilege and easement of passage described as follows:"
+    ),
+    "r51_non_exclusive_easement_appurtenant": _easement_case(
+        "TOGETHER WITH a non-exclusive easement appurtenant described as follows:"
+    ),
+    "r51_easement_appurtenant": _easement_case(
+        "TOGETHER WITH an easement appurtenant to the premises described as follows:"
+    ),
+    "r51_also_benefit_of_easement": _easement_case("ALSO the benefit of an easement 10 feet wide,"),
+    "r51_addition_interest_in_land_within_easement_area": _addition_case(
+        "ALSO all right, title and interest in and to land within the easement area,"
+    ),
+    "r51_together_with_interest_in_land_within_easement_area": _addition_case(
+        "TOGETHER WITH all right, title and interest in and to the land lying within the "
+        "easement area, described as",
+        MAIN_T,
+    ),
+    "r51_addition_benefit_of_land_adjoining_easement": _addition_case(
+        "ALSO the benefit of the land adjoining the easement, described as"
+    ),
+    "r51_together_with_interest_in_tract_adjoining_right_of_way": _addition_case(
+        "TOGETHER WITH all right, title and interest in and to the tract of land adjoining "
+        "the right of way, described as",
+        MAIN_T,
+    ),
     "r47_easement_between_descriptions": Case(
         f"{MAIN} {DRAINAGE_EASEMENT} {LOT}",
         tracts=((MAIN_T, 4), (EAS, 2), (ADD, 4)),
