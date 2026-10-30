@@ -78,6 +78,26 @@ def is_supported_csv_header(header: list[str] | None) -> bool:
     return header in (FIELDNAMES, LEGACY_FIELDNAMES)
 
 
+def _require_supported_header(header: list[str] | None) -> None:
+    """Raise ValueError naming missing/unexpected columns unless the header is supported."""
+    if is_supported_csv_header(header):
+        return
+    got = header or []
+    missing = [c for c in FIELDNAMES if c not in got]
+    unexpected = [c for c in got if c not in FIELDNAMES]
+    detail = []
+    if missing:
+        detail.append(f"missing columns: {', '.join(missing)}")
+    if unexpected:
+        detail.append(f"unexpected columns: {', '.join(unexpected)}")
+    if not detail:
+        detail.append("columns are duplicated or out of order")
+    raise ValueError(
+        "Unsupported CSV header: expected the exact ordered 22-field call schema "
+        f"(or the legacy 21-field schema without curve_type); {'; '.join(detail)}"
+    )
+
+
 class _CSVDeedCallRow(_Model):
     """Validated CSV row shape before building a strict DeedCall."""
 
@@ -342,10 +362,13 @@ def csv_text_to_calls(
 
     A rejected row is never dropped silently: strict import raises, and non-strict
     import records it in ``rejected_rows`` (raising when no list is supplied), since
-    omitting a course would join its neighbours into a different boundary.
+    omitting a course would join its neighbours into a different boundary. The header
+    must be the exact current or legacy schema; anything else raises ValueError.
     """
     calls: list[DeedCall] = []
-    for row_number, row in enumerate(csv.DictReader(io.StringIO(text)), start=2):
+    reader = csv.DictReader(io.StringIO(text))
+    _require_supported_header(None if reader.fieldnames is None else list(reader.fieldnames))
+    for row_number, row in enumerate(reader, start=2):
         try:
             calls.append(_validate_row(row))
         except _ROW_ERRORS as e:
@@ -467,6 +490,8 @@ def export_verified_csv(
 
     # Validate every selected successful result before writing any output.
     if tract_results:
+        known_tracts = _known_tracts(legal_desc, tract_results)
+        labelled_skips = _labelled_skips(audit_context, skipped_courses)
         for tract, result in tract_results:
             if result.is_fully_verified():
                 selected = LegalDescription(
@@ -477,11 +502,7 @@ def export_verified_csv(
                     result,
                     selected,
                     independent_tract=True,
-                    skipped_courses=skips_for_tract(
-                        tract,
-                        _known_tracts(legal_desc, tract_results),
-                        _labelled_skips(audit_context, skipped_courses),
-                    ),
+                    skipped_courses=skips_for_tract(tract, known_tracts, labelled_skips),
                 )
     else:
         _validate_export_geometry(
