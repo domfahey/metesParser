@@ -1852,10 +1852,27 @@ def _extract_call(
     radial_bearing_value = curve_info.get("radial_bearing")
 
     # A tangent-less curve not fixed by its chord bearing and delta is indefinite.
-    chord_only_unresolved = chord_only and not chord_positioned
+    # A stated, readable, non-conflicting chord bearing and length that positions the
+    # course (chord-only curve within its diameter, or spiral) states its direction.
+    # is_indefinite is not a CSV field, so it must stay False for such a course for the
+    # text and CSV-import paths to agree.
+    chord_states_direction = (
+        positioned_by_chord
+        and not chord_exceeds_diameter
+        and isinstance(chord_text, str)
+        and bearing_to_azimuth(chord_text) is not None
+        and not (
+            raw_direction
+            and not parsed_bearing
+            and not is_due_cardinal
+            and _CARDINAL_ONLY_PATTERN.fullmatch(raw_direction.strip())
+            and _cardinal_conflicts_chord(raw_direction, chord_text)
+        )
+    )
+    chord_only_unresolved = chord_only and not chord_positioned and not chord_states_direction
     is_indefinite = chord_only_unresolved or is_indefinite_call(
         direction_text,
-        has_bearing=has_stated_tangent or chord_positioned,
+        has_bearing=has_stated_tangent or chord_positioned or chord_states_direction,
     )
 
     curve_type_value = curve_info.get("curve_type")
