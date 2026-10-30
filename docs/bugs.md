@@ -1185,6 +1185,19 @@ Ten findings (four regressions from recent rounds), fixed red-green on `fix/code
 - **Dashboard calculator version:** `dashboard-1.2.0`, since round 44 changed stored local azimuths; older dashboards inspect as `algorithm_version_mismatch` (`b596f7f`).
 - **Known limitations:** a non-boundary reservation after the description ("EXCEPTING AND RESERVING unto the Grantor all oil, gas and minerals") is flagged as an unapplied exception and blocks verified export; "Subject to easements of record, except as noted." still raises in strict mode.
 
+### PR #60 forty-seventh review (2026-10-30)
+Ten findings (two regressions from recent rounds), fixed red-green on `fix/code-review-2026-10-29`:
+- **Addition parcels that mention a right of way (regression):** an easement opener must grant, reserve or subject an easement or right of way as its object; "ALSO all that tract of land adjoining the railroad right of way, BEGINNING …" stays an Addition with its courses on the boundary (as on `main`). When unsure, a parcel is kept as an addition rather than set aside (`1d5edd7`).
+- **Sentence ends skip initials and abbreviations:** one `ends_sentence` rule (initials, acronyms, common abbreviations, decimals; a clause-opening word always ends the sentence) replaces two copies. Exception notes keep "conveyed to John A. Smith by deed dated May 1, 1950", and `to` fields no longer stop at a middle initial ("Samuel N. Rhoads", "Henry E. Uber and wife"; only `to` values change in the samples) (`1d5edd7`).
+- **Bearing-only exceptions:** an EXCEPT clause that names a bearing but states no measured course is noted as not applied instead of failing strict extraction (`1d5edd7`).
+- **One closure rule and one stop list** for strip, stated-exception and easement spans (`1d5edd7`).
+- **Notes read by prefix:** record-call audit values, verbatim restoration and set-aside notes use `split_notes` instead of assuming record calls are last; audited record calls equal the noted wording exactly (`1a54c79`).
+- **Record and alternative wording leave `to`:** "to a pin (deed 99 feet)" gives `to='a pin'` with the record only in notes; alternative-length parentheticals and measured groups are removed from `to` as from `along` (`1a54c79`).
+- **Offsets (regression):** "parallel to/with and N feet (distant) from X", "N feet from and parallel to X" and "(measured) at right angles from" are offsets; "parallel to and 10 feet from Main Street 100 feet" reads 100 (`main` read 10) (`1a54c79`).
+- **Passing calls after ";":** attached to the preceding course in every split path; an unattachable adjoiner/qualifier tail after ";" fails closed (`1a54c79`).
+- **CLI input recursion by phase:** each JSON-input command loads and depth-checks its input inside an input boundary first, so recursion there is `invalid_input_json` on every platform; output tracking records only this run's paths, without walking the output directory (`8b209ce`).
+- **Known limitations:** three other ". "+capital splitters (`calls._SENTENCE_END`, `metadata._SENTENCE_BREAK`, the RESERVING/SUBJECT TO clause text) do not yet use `ends_sentence`; a measured group after the destination keeps its value in `distance_ft` but the word "measured" is in no field; "Lot B. Next …" can over-capture into an exception note.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
