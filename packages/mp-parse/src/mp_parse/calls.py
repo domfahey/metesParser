@@ -524,12 +524,14 @@ def _extract_calls_from_text(
 
         # Course-list headers and enumerations are detected once per tract.
         course_lists = analyze_course_lists(tract_text)
-        count_mismatches = course_lists.mismatches
+        count_mismatches = list(
+            zip(course_lists.mismatches, course_lists.mismatch_headers, strict=True)
+        )
         if strict and count_mismatches:
-            declared, found = count_mismatches[0]
+            (declared, found), header_text = count_mismatches[0]
             raise ValueError(
-                f"Course-list header states {declared} courses but {found} were found: "
-                f"{tract_text.strip()!r}"
+                f"Course-list header {header_text!r} states {declared} courses "
+                f"but {found} were found"
             )
         has_numbered_course_markers = course_lists.has_numbered_markers
         call_texts = [
@@ -538,12 +540,22 @@ def _extract_calls_from_text(
             if not COURSE_LIST_MARKER.fullmatch(part)
         ]
 
-        for source_course, call_text in enumerate(call_texts, start=1):
+        source_course = 0
+        while source_course < len(call_texts):
+            call_text = call_texts[source_course]
+            source_course += 1
             try:
                 call, raw_direction = _extract_call(
                     call_text, course=course_num, distance_unit=distance_unit
                 )
             except (ValidationError, ValueError, TypeError) as exc:
+                if isinstance(exc, MultipleCoursesError):
+                    pieces = _split_multi_course_fragment(call_text)
+                    if len(pieces) > 1:
+                        # Each piece is one complete course; extract them in turn.
+                        call_texts[source_course - 1 : source_course] = pieces
+                        source_course -= 1
+                        continue
                 if strict:
                     raise ValueError(
                         f"Malformed course {source_course}: {call_text.strip()!r}: {exc}"
@@ -607,15 +619,20 @@ def _extract_calls_from_text(
 
             course_num += 1
 
-        for declared, found in count_mismatches:
+        for (declared, found), header_text in count_mismatches:
             # Not silently accepted: a missing or extra course is recorded and
-            # blocks closure, exactly as an unparsed course does.
+            # blocks closure, exactly as an unparsed course does. The record names
+            # the header (its excerpt), not a course; its number is reserved after
+            # the tract's courses.
             _record_skipped_course(
-                tract_text,
+                header_text,
                 course=course_num,
                 source_course=len(call_texts) + 1,
                 error_type="CourseCountMismatch",
-                error=f"course-list header states {declared} courses but {found} were found",
+                error=(
+                    f"course-list header {header_text!r} states {declared} courses "
+                    f"but {found} were found"
+                ),
                 exc=None,
                 tract_label=tract_label,
                 audit_context=audit_context,
@@ -732,19 +749,24 @@ _COMPACT_DMS_BEARING = re.compile(
 
 # A number group right after an identifier word ("Lot N 12-3 E", "Route N 9-1 E")
 # is a label, never a bearing.
-_IDENTIFIER_BEFORE = re.compile(
-    r"(?:(?<![A-Za-z])(?:lots?|blocks?|blk|routes?|rte|rt|highway|hwy|no|nos|number|unit"
+_IDENTIFIER_WORDS = (
+    r"(?:lots?|blocks?|blk|routes?|rte|rt|highway|hwy|no|nos|number|unit"
     r"|parcel|tract|section|sec|map|plat|book|page|pg|sheet|phase|plan|instrument|deed"
-    r"|file|exit|apt|suite|building|bldg)\.?|#)\s*$",
+    r"|file|exit|apt|suite|building|bldg)"
+)
+_IDENTIFIER_BEFORE = re.compile(
+    r"(?:(?<![A-Za-z])" + _IDENTIFIER_WORDS + r"\.?|#)\s*$",
     re.IGNORECASE,
 )
-# Bare dashes ("N 45-30 E") carry no degree marker, so they are read as a bearing
-# only where one is expected: text start, a clause boundary or a bearing keyword.
-_DASHED_BEARING_CONTEXT = re.compile(
-    r"(?:^|[,;:(]|(?<![A-Za-z])(?:thence|then|bears?|bearings?|courses?|running|runs?"
-    r"|and|being|is|of|line|direction))\s*$",
+# Bare dashes ("N 45-30 E") carry no degree marker. They are a bearing after any
+# word except an identifier and its label ("Parcel A N 12-3 E", "Section 12 N 1-2 E",
+# "Book 1234 Page N 12-3 E"), which is a number group, never a bearing.
+_DASHED_LABEL_BEFORE = re.compile(
+    r"(?:(?<![A-Za-z])" + _IDENTIFIER_WORDS + r"\.?|#)[ \t]{0,3}(?:[A-Z]|\d{1,6}[A-Za-z]?)\s*$",
     re.IGNORECASE,
 )
+# Historical name: the dashed-group context check is now this identifier denylist.
+_DASHED_BEARING_CONTEXT = _DASHED_LABEL_BEFORE
 
 
 # Longest word any ``_ends_with`` pattern needs before its trailing whitespace.
@@ -772,8 +794,8 @@ def _expand_compact_dms(text: str) -> str:
         if _ends_with(_IDENTIFIER_BEFORE, text, m.start()):
             return m.group(0)
         numbers = text[m.start(2) : m.start(6)]
-        if not re.search(r"\d\s*[dms]", numbers, re.IGNORECASE) and not (
-            _ends_with(_DASHED_BEARING_CONTEXT, text, m.start())
+        if not re.search(r"\d\s*[dms]", numbers, re.IGNORECASE) and (
+            _ends_with(_DASHED_LABEL_BEFORE, text, m.start())
         ):
             return m.group(0)
         minute_value, second_value = m.group(3), m.group(4)
@@ -948,6 +970,7 @@ class _CourseBearing(NamedTuple):
 
     direction: str
     text: str
+    complete_courses: int = 0
 
 
 def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -> _CourseBearing:
@@ -972,7 +995,9 @@ def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -
     )
     direction = extract_direction(normalized)
     return _CourseBearing(
-        direction, _verbatim_course_direction(direction, candidates, normalized_candidates)
+        direction,
+        _verbatim_course_direction(direction, candidates, normalized_candidates),
+        _complete_courses(normalized)[0],
     )
 
 
@@ -1032,6 +1057,144 @@ def _verbatim_course_direction(
     return direction
 
 
+class MultipleCoursesError(ValueError):
+    """One call fragment states more than one complete boundary course."""
+
+
+MULTIPLE_COURSES_ERROR = "fragment contains multiple courses"
+_DUE_COURSE_BEARING = re.compile(r"\bdue\s+(?:north|south|east|west|[NSEW])\b", re.IGNORECASE)
+_LEADING_ENUMERATOR = re.compile(r"^\s*(?:\((?:\d{1,3}|[A-Za-z])\)|\d{1,3}[.)])\s")
+# Two courses written back to back ("N 45 E 100 feet S 45 W 100 feet", one per line
+# before normalization): a course length followed, with only whitespace between,
+# by the next course's bearing.
+_JUXTAPOSED_COURSE_BOUNDARY = re.compile(
+    rf"(?<=\d)(\s*{_UNIT_TOKEN}\b\.?)\s+(?=(?:N|S|North|South)\.?\s*\d|due\s+(?:north|south|east|west)\b)",
+    re.IGNORECASE,
+)
+
+
+_LATER_BEGINNING = re.compile(r"\b(?:BEGINNING|COMMENCING)\s+(?:at|on|in)\b", re.IGNORECASE)
+
+
+def _course_bearing_spans(text: str) -> list[tuple[int, int]]:
+    """Non-overlapping course-form bearings (quadrant, packed DMS, due) in normalized text."""
+    spans = sorted(
+        (m.start(), m.end())
+        for pattern in (QUADRANT_PATTERN, PACKED_DMS_PATTERN, _DUE_COURSE_BEARING)
+        for m in pattern.finditer(text)
+    )
+    merged: list[tuple[int, int]] = []
+    for start, end in spans:
+        if merged and start < merged[-1][1]:
+            continue
+        merged.append((start, end))
+    return merged
+
+
+def _boundary_course_reading(call_text: str) -> tuple[int, bool]:
+    """Return (complete boundary courses, has any course bearing) in one call fragment.
+
+    The text is read exactly as for the course bearing (``_course_bearing``):
+    corner witnesses are cut off and chord and radial clauses (bearing and its
+    clause) are removed, so a curve's chord or radial bearing and length never
+    count as a second course.
+    """
+    keep_line_radial = not _describes_curve(extract_curve_info(call_text))
+    text = _normalize_bearing_forms(_boundary_course_text(call_text))
+    text = _without_reference_bearings(text, _CHORD_PREFIX_PATTERN)
+    text = _without_reference_bearings(
+        text, _RADIAL_PREFIX_PATTERN, keep_line_radial=keep_line_radial
+    )
+    return _complete_courses(text)
+
+
+def _complete_courses(text: str) -> tuple[int, bool]:
+    """Return (complete courses, has any course bearing) in normalized course text.
+
+    A complete course is a course-form bearing followed by a length before the
+    next bearing. ``text`` has had its chord and radial clauses removed. A later
+    BEGINNING/COMMENCING clause opens another description, whose bearings are ties
+    to its point of beginning, so counting stops there.
+    """
+    preamble = _LATER_BEGINNING.search(text, 1)
+    if preamble:
+        text = text[: preamble.start()]
+    bearings = _course_bearing_spans(text)
+    if not bearings:
+        return 0, False
+    ends = [start for start, _ in bearings[1:]] + [len(text)]
+    complete = sum(
+        1
+        for (_, bearing_end), segment_end in zip(bearings, ends, strict=True)
+        if _LENGTH_TOKEN.search(text, bearing_end, segment_end)
+    )
+    return complete, bool(bearings)
+
+
+def _split_juxtaposed_courses(segment: str) -> list[str]:
+    """Split ``segment`` where one course's length runs straight into the next bearing.
+
+    Only bare courses split: every piece must state exactly one length, so a
+    length belonging to a tie ("distant 10 feet S 27 E running ... 158 feet") is
+    never taken for the end of a course.
+    """
+    pieces = []
+    start = 0
+    for boundary in _JUXTAPOSED_COURSE_BOUNDARY.finditer(segment):
+        pieces.append(segment[start : boundary.end(1)])
+        start = boundary.end()
+    pieces.append(segment[start:])
+    if len(pieces) > 1 and any(_length_count(piece) != 1 for piece in pieces):
+        return [segment]
+    return pieces
+
+
+def _length_count(text: str) -> int:
+    """Lengths stated in ``text`` outside its bearings."""
+    normalized = _normalize_bearing_forms(text)
+    bearings = _course_bearing_spans(normalized)
+    return sum(
+        1
+        for token in _LENGTH_TOKEN.finditer(normalized)
+        if not any(start <= token.start() < end for start, end in bearings)
+    )
+
+
+def _split_multi_course_fragment(call_text: str) -> list[str]:
+    """Split a fragment holding several complete courses when that is safe.
+
+    Called only for a fragment ``_extract_call`` rejected with
+    ``MultipleCoursesError``. Pieces are cut at ';' and where one course's length runs straight into the
+    next bearing (``_JUXTAPOSED_COURSE_BOUNDARY``). Safe means every piece is
+    itself exactly one complete course, apart from
+    pieces with no bearing and no length (descriptive wording, kept with the
+    course before it). A piece opening with an enumerator the course-list
+    detector did not accept (out of sequence), or one with a bearing but no
+    complete course, is never split off; the fragment is then returned whole and
+    stays rejected.
+    """
+    segments = [
+        piece for segment in call_text.split(";") for piece in _split_juxtaposed_courses(segment)
+    ]
+    pieces: list[str] = []
+    pending = ""  # descriptive wording before the first course
+    for segment in segments:
+        if not segment.strip():
+            continue
+        complete, has_bearing = _boundary_course_reading(segment)
+        if complete == 0 and not has_bearing and not _LENGTH_TOKEN.search(segment):
+            if pieces:
+                pieces[-1] += ";" + segment
+            else:
+                pending += segment + ";"
+            continue
+        if complete != 1 or _LEADING_ENUMERATOR.match(segment):
+            return [call_text]
+        pieces.append(pending + segment if not pieces else segment.strip())
+        pending = ""
+    return [piece.strip() for piece in pieces] if len(pieces) >= 2 else [call_text]
+
+
 def extract_single_call(
     call_text: str,
     course: int,
@@ -1063,6 +1226,9 @@ def _extract_call(
 
     curve_info = extract_curve_info(call_text)
     course_bearing = _course_bearing(call_text, curve_info)
+    if course_bearing.complete_courses >= 2:
+        # Never keep only the first of several courses.
+        raise MultipleCoursesError(MULTIPLE_COURSES_ERROR)
     raw_direction = course_bearing.direction
     # direction_text keeps the deed's wording; the normalized form is for parsing only.
     direction_text = course_bearing.text if raw_direction else call_text.strip()
