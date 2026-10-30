@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import io
+import re
 
 import pytest
 from mp_export import raster_guard
@@ -34,7 +35,7 @@ def _layer(orientation):
 
 def test_require_upright_raster_decodes_once_for_repeated_renders(monkeypatch):
     layer = _layer(1)
-    raster_guard._orientation_for.cache_clear()
+    raster_guard._ORIENTATION_BY_DIGEST.clear()
     decodes = []
     real_b64decode = base64.b64decode
 
@@ -46,6 +47,16 @@ def test_require_upright_raster_decodes_once_for_repeated_renders(monkeypatch):
     require_upright_raster(layer)
     require_upright_raster(layer)
     assert len(decodes) == 1
+
+
+def test_orientation_cache_holds_digests_not_base64_payload():
+    layer = _layer(1)
+    raster_guard._ORIENTATION_BY_DIGEST.clear()
+    require_upright_raster(layer)
+    keys = list(raster_guard._ORIENTATION_BY_DIGEST)
+    assert keys
+    assert all(key != layer.data_base64 for key in keys)
+    assert all(re.fullmatch(r"[0-9a-f]{64}", key) for key in keys)
 
 
 def test_rotated_raster_is_refused_on_every_repeated_render():
