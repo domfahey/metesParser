@@ -251,8 +251,8 @@ def test_check_parallelism_no_warnings():
     assert len(warnings) == 0
 
 
-def test_first_course_continuing_along_without_predecessor_blocks_parallelism():
-    """A course-0 'continuing' has no predecessor: blocked, never silently not_applicable."""
+def test_first_course_continuing_along_does_not_block_parallelism():
+    """#49: course 0 has no predecessor, so a 'continuing' along must not block."""
     from mp_models import DeedCall
     from mp_verify import verify_closure
 
@@ -269,6 +269,5 @@ def test_first_course_continuing_along_without_predecessor_blocks_parallelism():
     ]
     result = verify_closure(calls)
     parallel = next(c for c in result.checks if c.name == "parallelism")
-    assert parallel.status == "blocked"
-    assert parallel.reason == "continuation_without_predecessor"
-    assert not result.geometry_verified
+    assert parallel.status != "blocked"
+    assert result.geometry_verified
