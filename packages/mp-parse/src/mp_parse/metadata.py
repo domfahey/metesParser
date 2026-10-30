@@ -1449,24 +1449,199 @@ _QUALIFIER_PHRASE = re.compile(
 # The separator before the next course ("to a pin and thence ...", "to a pin, and
 # running thence ..."): a trailing conjunction, never wording inside the destination.
 _TRAILING_SEPARATOR = re.compile(
-    r"(?:[\s,]+(?:and|&)(?:\s+(?:running|proceeding))?)+[\s,]*$", re.IGNORECASE
-)
-
-
-# "by the line of Smith", "by lands of Smith", "by land now or formerly of Smith": adjoiner
-# wording like "along ...". Other senses of "by" ("by deed", "by plan") are not.
-_BY_ADJOINER = re.compile(
-    r"\bby\b(?=\s+(?:the\s+)?(?:(?:lines?|lands?)\s+(?:of|now\s+or\s+formerly|n/f)\b))",
+    r"(?:[\s,]+(?:and|&)(?:\s+(?:running|proceeding|continuing|extend(?:s|ing)))?)+[\s,]*$",
     re.IGNORECASE,
 )
+
+
+# Adjoiner wording that introduces what the course runs along: "along Main Street",
+# "by and with the line of Lot 6", "with the line of ...", "binding on Main Street",
+# "bounding on ...", "adjoining lands of ...", "following the creek". "by"/"with" only
+# before a line or lands ("by the line of Smith", "by land now or formerly of Smith");
+# other senses ("by deed", "with a radius of") are not adjoiners.
+_LINE_OR_LANDS = r"(?=\s+(?:(?:the|said)\s+)?(?:lines?|lands?)\s+(?:of|now\s+or\s+formerly|n/f)\b)"
+_ADJOINER_LEAD = re.compile(
+    r"\b(?:binding\s+(?:on|upon|along|with)|bounding\s+(?:on|upon|along)|along"
+    rf"|by\s+and\s+with|by{_LINE_OR_LANDS}|with{_LINE_OR_LANDS}|adjoining"
+    r"|(?<!the\s)following(?=\s+(?:the|said|an?|lands?|lines?)\s))\b",
+    re.IGNORECASE,
+)
+# "to" related to the word before it ("conveyed to Smith", "belonging to", "opposite
+# to", "subject to"): never the destination "to".
+_RELATED_TO_BEFORE = re.compile(
+    r"\b(?:conveyed|granted|deeded|sold|transferred|devised|leased|belonging|belongs"
+    r"|belonged|opposite|adjacent|adjoining|close|near|nearest|common|corner|similar|equal"
+    r"|according|prior|subject|due|thereto)\s+$",
+    re.IGNORECASE,
+)
+# Wording after the destination that ends the course clause: a later course, the area,
+# or a deed clause ("containing 0.23 acres", "subject to", "being the same ...").
+_COURSE_CLAUSE_END = re.compile(
+    r"\b(?:thence"
+    r"|containing\b(?=[^;]*?\b(?:acres?|square|sq\b|perches|hectares?)\b)"
+    r"|(?:under\s+and\s+)?subject\s+to|being\s+(?:the\s+same|a\s+part|part|a\s+portion|known)"
+    r"|together\s+with|(?:saving\s+and\s+)?excepting|reserving)\b",
+    re.IGNORECASE,
+)
+# The fragment's own leading "thence" ("THENCE N 45 E", "and running thence along ...").
+_LEADING_THENCE = re.compile(
+    r"\W*(?:(?:and|then|running|continuing|proceeding)\s+)*thence\b", re.IGNORECASE
+)
+# A passing call ("passing a pipe at 50 feet"): a point passed on the line, ending at a
+# comma, a semicolon, adjoiner wording, the destination or the rest of the course
+# ("in all", "and continuing", "a total distance of").
+_PASSING = re.compile(r"\bpassing\b", re.IGNORECASE)
+_PASSING_END = re.compile(
+    r"[,;]|\b(?:in\s+all|and\s+continuing|(?:a\s+)?total\s+distance)\b", re.IGNORECASE
+)
+# Wording of the course's own length when it follows the destination ("to a 5/8\"
+# rebar a distance of 100 feet", "to a pipe 100 feet, more or less").
+_LENGTH_LEAD_BEFORE = re.compile(
+    r"[\s,]*(?:\b(?:for\s+)?(?:(?:a|the)\s+)?(?:total\s+)?distance\s+of|\bfor)?\s*$",
+    re.IGNORECASE,
+)
+# "and continuing said course": the course continued, not what it runs along.
+_CONTINUING_COURSE = re.compile(
+    r"[\s,]*\band\s+continuing\s+(?:on\s+)?(?:said|the\s+same|same|this)\s+course\b",
+    re.IGNORECASE,
+)
+_LENGTH_TAIL_AFTER = re.compile(r"\s*,?\s*more\s+or\s+less\b", re.IGNORECASE)
+
+
+def course_length_phrase_span(text: str, start: int, end: int) -> tuple[int, int]:
+    """Widen the course length ``text[start:end]`` to its wording.
+
+    The wording is the length with a leading "a distance of" / "for" and a trailing
+    "more or less"; nothing else (a monument size before it stays).
+    """
+    lead = _LENGTH_LEAD_BEFORE.search(text, 0, start)
+    tail = _LENGTH_TAIL_AFTER.match(text, end)
+    return (lead.start() if lead else start, tail.end() if tail else end)
+
+
+# Punctuation left before the clause end ("to a pin, thence", "beginning -- BEING").
+_CLAUSE_TRAILER = re.compile(r"[\s,;\u2013\u2014-]+$")
+
+
+class CourseClause(NamedTuple):
+    """Verbatim along/to wording of one course, read from its clause spans."""
+
+    along: str
+    to: str
+    passing: tuple[str, ...] = ()  # passing calls, verbatim
+    course_end: int = 0  # end of the course part (the destination "to", or the clause end)
+    clause_end: int = 0  # end of this course's clause (before a later "thence")
+
+
+def _course_length_span(text: str) -> tuple[int, int] | None:
+    """Span of the length ``read_course_length`` reads as the course length, if one."""
+    reading = read_course_length(text)
+    if reading.ambiguous or reading.value <= 0:
+        return None
+    runs = _length_runs(text)
+    if _select_course_length(text, runs) is None:
+        # Foot-mark lengths are read only when no unit-word length is the course length.
+        tie_from = _tie_clause_start(text)
+        runs = []
+        for mark in _FOOT_MARK_LENGTH.finditer(text):
+            if _UNSIGNED_DEGREES_BEFORE.search(text, 0, mark.start()):
+                continue
+            if mark.group(2) is not None and parse_number(mark.group(2)) >= 12:
+                continue
+            role = _length_role(text, mark.start(), mark.end(), first=not runs, tie_from=tie_from)
+            runs.append(_LengthRun(mark.start(), mark.end(), (), role))
+    totals = [run for run in runs if run.role == "total"]
+    candidates = totals or [run for run in runs if run.role in ("course", "partial")]
+    return (candidates[0].start, candidates[0].end) if candidates else None
+
+
+def _is_destination_to(text: str, match: Match[str], qualifiers: list[tuple[int, int]]) -> bool:
+    after = text[match.end() :].lstrip()
+    if re.match(r"the\s+(?:left|right)(?!\s+of)\b", after, re.IGNORECASE):
+        return False  # "a curve to the left"
+    if any(start <= match.start() < end for start, end in qualifiers):
+        return False  # "parallel to", "at right angles to"
+    return not _RELATED_TO_BEFORE.search(text, 0, match.start())
+
+
+def extract_course_clause(call_text: str) -> CourseClause:
+    """Read along/to of one course from the spans of its clause.
+
+    The spans are computed once: the course clause runs from the fragment's leading
+    "thence" to a later "thence"; the destination starts at the FIRST destination
+    "to" ("to" in a qualifier, a curve direction or a relation such as "conveyed to"
+    is not one) and runs verbatim to the end of the course clause ("containing ...
+    acres", "subject to", "being the same ..."). ``along`` comes only from the
+    course part before the destination: the wording after adjoiner wording ("along",
+    "by and with", "binding on" ...) or, without one, a qualifier phrase ("parallel
+    to"). Passing calls are returned verbatim, never dropped. The course's own
+    length is removed from ``to`` (a monument size is kept).
+    """
+    lead = _LEADING_THENCE.match(call_text)
+    start = lead.end() if lead else 0
+    later = re.search(r"\bthence\b", call_text[start:], re.IGNORECASE)
+    clause_end = start + later.start() if later else len(call_text)
+    clause = call_text[:clause_end]
+
+    qualifiers = [m.span() for m in _QUALIFIER_PHRASE.finditer(clause)]
+    destination = next(
+        (
+            m
+            for m in re.finditer(r"\bto\b", clause, re.IGNORECASE)
+            if m.start() >= start and _is_destination_to(clause, m, qualifiers)
+        ),
+        None,
+    )
+    course_end = destination.start() if destination else clause_end
+    course = clause[:course_end]
+
+    passing_spans: list[tuple[int, int]] = []
+    for match in _PASSING.finditer(course, start):
+        ends = [m.start() for m in (_PASSING_END.search(course, match.end()),) if m]
+        ends += [m.start() for m in (_ADJOINER_LEAD.search(course, match.end()),) if m]
+        passing_spans.append((match.start(), min(ends, default=len(course))))
+    passing = tuple(course[s:e].strip(" ,;.") for s, e in passing_spans)
+
+    along = ""
+    lead_word = _ADJOINER_LEAD.search(course, start)
+    if lead_word:
+        segment = course
+        removed = [span for span in passing_spans if span[0] >= lead_word.end()]
+        removed += [m.span() for m in _CONTINUING_COURSE.finditer(course, lead_word.end())]
+        for s, e in sorted(removed, reverse=True):
+            segment = segment[:s].rstrip() + " " + segment[e:].lstrip()
+        segment = segment[lead_word.end() :].strip()
+        if destination is None:
+            segment = _before_clause_delimiter(segment)
+        along = segment.strip(" ,;.")
+    else:
+        along = _qualifier_wording(course)
+
+    to = ""
+    if destination is not None:
+        tail_start = destination.end()
+        end = _COURSE_CLAUSE_END.search(clause, tail_start)
+        tail_end = end.start() if end else clause_end
+        tail_end = tail_start + len(_before_clause_delimiter(clause[tail_start:tail_end]))
+        tail = clause[tail_start:tail_end]
+        span = _course_length_span(clause)
+        if span is not None and tail_start <= span[0] and span[1] <= tail_end:
+            # Only the course's own length (with "a distance of" / "more or less").
+            cut_start, cut_end = course_length_phrase_span(clause[:tail_end], *span)
+            cut_start = max(cut_start, tail_start)
+            tail = clause[tail_start:cut_start].rstrip() + " " + clause[cut_end:tail_end].lstrip()
+        to = _TRAILING_SEPARATOR.sub("", _CLAUSE_TRAILER.sub("", tail.strip()))
+
+    return CourseClause(along, to, passing, course_end, clause_end)
 
 
 def extract_along_to_fields(call_text: str) -> tuple[str, str]:
     """Extract along and to fields from a call description.
 
     Qualifier phrases ("parallel to", "at right angles to", "tangent to" ...) are
-    kept verbatim in ``along`` and never supply ``to``; ``to`` comes only from a
-    destination "to" ("to a pin", "to the point of beginning").
+    kept verbatim in ``along`` and never supply ``to``; ``to`` comes only from the
+    destination "to" ("to a pin", "to the point of beginning"). See
+    ``extract_course_clause``.
 
     Args:
         call_text: Single call text
@@ -1474,54 +1649,8 @@ def extract_along_to_fields(call_text: str) -> tuple[str, str]:
     Returns:
         Tuple of (along, to) descriptions
     """
-    along = ""
-    to = ""
-
-    def is_curve_direction_to(segment: str, token_end: int) -> bool:
-        after = segment[token_end:].lstrip()
-        return bool(re.match(r"the\s+(?:left|right)(?!\s+of)\b", after, re.IGNORECASE))
-
-    def destination_tokens(segment: str) -> list[re.Match[str]]:
-        qualifier_spans = [m.span() for m in _QUALIFIER_PHRASE.finditer(segment)]
-        return [
-            match
-            for match in re.finditer(r"\bto\b", segment, re.IGNORECASE)
-            if not is_curve_direction_to(segment, match.end())
-            and not any(start <= match.start() < end for start, end in qualifier_spans)
-        ]
-
-    # A "by" adjoiner belongs to the course, before the destination "to"; "by the line
-    # of ..." inside the destination wording ("to a stake bounded by lands of ...") is
-    # part of ``to``.
-    destinations = destination_tokens(call_text)
-    course_part = call_text[: destinations[-1].start()] if destinations else call_text
-    along_match = re.search(r"\balong\b", call_text, re.IGNORECASE) or _BY_ADJOINER.search(
-        course_part
-    )
-    if along_match:
-        segment = call_text[along_match.end() :].lstrip()
-        to_tokens = destination_tokens(segment)
-
-        if to_tokens:
-            last_to = to_tokens[-1]
-            along = segment[: last_to.start()].strip(" ,;.")
-            to_section = segment[last_to.end() :].strip()
-            to = _before_clause_delimiter(to_section).strip(" ,")
-        else:
-            along = _before_clause_delimiter(segment).strip(" ,")
-
-    if not to:
-        to_tokens = destination_tokens(call_text)
-        if to_tokens:
-            last = to_tokens[-1]
-            to_candidate = call_text[last.end() :].strip()
-            to = _before_clause_delimiter(to_candidate).strip(" ,")
-            if not along:
-                along = _qualifier_wording(call_text[: last.start()])
-        elif not along:
-            along = _qualifier_wording(call_text)
-
-    return (along, _TRAILING_SEPARATOR.sub("", to))
+    clause = extract_course_clause(call_text)
+    return (clause.along, clause.to)
 
 
 def _qualifier_wording(text: str) -> str:
