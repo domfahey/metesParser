@@ -878,7 +878,11 @@ def split_call_fragments(
 
         cleaned = re.sub(r"[;,\.\s]+$", "", cleaned)
 
-        if cleaned:
+        if cleaned and calls and not calls[-1].preamble and _PASSING_PIECE.match(cleaned):
+            # A ';'-separated passing call belongs to the course before it; with no
+            # course before it, it stays a fragment of its own and fails closed.
+            calls[-1] = CallFragment(f"{calls[-1].text}; {cleaned}")
+        elif cleaned:
             calls.append(CallFragment(cleaned))
 
     return calls
@@ -940,15 +944,20 @@ _DIRECTED_TIE_AFTER = re.compile(
     + r"(?:\s+direction)?\s*,?\s+(?:from|of)\b",
     re.IGNORECASE,
 )
-# "... 50 feet distant from|off <object>", "50 feet (measured) at right angles from":
-# a separation from an object, even when it is the first length stated.
+# "... 50 feet distant from|off <object>", "50 feet (measured) at right angles from",
+# "10 feet from and parallel to|with <object>": a separation from an object, even
+# when it is the first length stated.
 _OFFSET_AFTER = re.compile(
     r"\s*,?\s*(?:more\s+or\s+less\s*,?\s*)?(?:"
     r"(?:distant|distance)\s+(?:from|of)\b"
     r"|off\b(?!\s+(?:to|at)\b)"
-    r"|(?:measured\s+)?at\s+(?:a\s+)?right\s+angles?\s+(?:from|to)\b)",
+    r"|(?:\(?\s*measured\s*\)?\s*)?at\s+(?:a\s+)?right\s+angles?\s+(?:from|to)\b"
+    r"|(?:distant\s+)?from\s+and\s+parallel\s+(?:to|with)\b)",
     re.IGNORECASE,
 )
+# "parallel to|with and 10 feet (distant) from <object>": the length is the offset.
+_PARALLEL_AND_BEFORE = re.compile(r"\bparallel\s+(?:to|with)\s+and\s*$", re.IGNORECASE)
+_OFFSET_FROM_AFTER = re.compile(r"\s*,?\s*(?:distant\s+)?(?:from|of)\b", re.IGNORECASE)
 _LENGTH_JUST_BEFORE = re.compile(rf"{LENGTH_NUMBER}\s*{UNIT_TOKEN}\b\.?\s*,?\s*$", re.IGNORECASE)
 # "said point (also) being ...": every later length locates that point.
 _TIE_CLAUSE = re.compile(
@@ -1222,6 +1231,8 @@ def _length_role(text: str, start: int, end: int, *, first: bool, tie_from: int)
     if start >= tie_from or TIE_BEFORE_PATTERN.search(before) or _DIRECTED_TIE_AFTER.match(after):
         return "tie"
     if not first and TIE_AFTER_PATTERN.match(after):
+        return "tie"
+    if _PARALLEL_AND_BEFORE.search(before) and _OFFSET_FROM_AFTER.match(after):
         return "tie"
     if _OFFSET_AFTER.match(after) and not _LENGTH_JUST_BEFORE.search(before):
         # An offset directly after another unjoined length is not told apart: both stay.
@@ -1549,6 +1560,11 @@ _LEADING_THENCE = re.compile(
 # comma, a semicolon, adjoiner wording, the destination or the rest of the course
 # ("in all", "and continuing", "a total distance of").
 _PASSING = re.compile(r"\bpassing\b", re.IGNORECASE)
+# A ';'-separated piece that is only a passing call ("; passing a pipe at 30 feet").
+_PASSING_PIECE = re.compile(r"\s*(?:and\s+)?passing\b", re.IGNORECASE)
+# A ';'-separated piece opening with course wording: an adjoiner ("along ...") or a
+# qualifier ("parallel to ..."). A witness or tie ("; a hickory bears ...") is not.
+_COURSE_WORDING_PIECE = re.compile(r"\s*(?:and\s+)?(?:running\s+)?(?=\w)", re.IGNORECASE)
 _PASSING_END = re.compile(
     r"[,;]|\b(?:in\s+all|and\s+continuing|(?:a\s+)?total\s+distance)\b", re.IGNORECASE
 )
@@ -1589,6 +1605,9 @@ class CourseClause(NamedTuple):
     passing: tuple[str, ...] = ()  # passing calls, verbatim
     course_end: int = 0  # end of the course part (the destination "to", or the clause end)
     clause_end: int = 0  # end of this course's clause (before a later "thence")
+    # ';'-separated course wording (adjoiner or qualifier) after the destination:
+    # it belongs to no field, so the course fails closed on it.
+    unattached: tuple[str, ...] = ()
 
 
 def _course_length_span(text: str) -> tuple[int, int] | None:
@@ -1672,6 +1691,13 @@ def _remove_spans(text: str, spans: list[tuple[int, int]]) -> str:
     return text
 
 
+def _opens_with_course_wording(piece: str) -> bool:
+    """Return True when ``piece`` opens with adjoiner or qualifier wording."""
+    lead = _COURSE_WORDING_PIECE.match(piece)
+    at = lead.end() if lead else 0
+    return bool(_ADJOINER_LEAD.match(piece, at) or _QUALIFIER_PHRASE.match(piece, at))
+
+
 def extract_course_clause(
     call_text: str, drop_spans: Sequence[tuple[int, int]] = ()
 ) -> CourseClause:
@@ -1687,9 +1713,12 @@ def extract_course_clause(
     to"). Passing calls are returned verbatim, never dropped. The course's own
     length is removed from ``to`` (a monument size is kept).
 
-    ``drop_spans`` are spans of ``call_text`` that are not the adjoiner (the record
-    scan's record calls and measured course lengths); they are left out of ``along``
-    wherever the adjoiner wording sits, so the result does not depend on word order.
+    ``drop_spans`` are spans of ``call_text`` kept in notes, never in along/to (the
+    record scan's record calls, measured course lengths and alternative-length
+    parentheticals); they are left out of ``along`` and ``to`` wherever they sit, so
+    the result does not depend on word order. A ';'-separated passing call after the
+    destination is this course's passing call; ';'-separated adjoiner or qualifier
+    wording there is ``unattached`` (the caller fails the course closed).
     A passing call in brackets is the whole bracketed group and ends at its closing
     bracket; unbracketed, it never runs past an unmatched closing bracket.
     """
@@ -1747,21 +1776,47 @@ def extract_course_clause(
         along = _qualifier_wording(_remove_spans(course, passing_spans + dropped))
 
     to = ""
+    unattached: tuple[str, ...] = ()
     if destination is not None:
         tail_start = destination.end()
         end = _COURSE_CLAUSE_END.search(clause, tail_start)
         tail_end = end.start() if end else clause_end
         tail_end = tail_start + len(_before_clause_delimiter(clause[tail_start:tail_end]))
-        tail = clause[tail_start:tail_end]
-        span = _course_length_span(clause)
+        # Record calls, measured groups and alternative lengths after the destination
+        # are kept in notes (``drop_spans``): never part of ``to``.
+        cuts = [
+            (max(s, tail_start) - tail_start, min(e, tail_end) - tail_start)
+            for s, e in drop_spans
+            if s < tail_end and e > tail_start
+        ]
+        reading = clause
+        for s, e in drop_spans:
+            reading = reading[:s] + " " * (min(e, len(reading)) - s) + reading[e:]
+        span = _course_length_span(reading)
         if span is not None and tail_start <= span[0] and span[1] <= tail_end:
             # Only the course's own length (with "a distance of" / "more or less").
-            cut_start, cut_end = course_length_phrase_span(clause[:tail_end], *span)
-            cut_start = max(cut_start, tail_start)
-            tail = clause[tail_start:cut_start].rstrip() + " " + clause[cut_end:tail_end].lstrip()
+            cut_start, cut_end = course_length_phrase_span(reading[:tail_end], *span)
+            cuts.append((max(cut_start, tail_start) - tail_start, cut_end - tail_start))
+        tail = _remove_spans(clause[tail_start:tail_end], cuts)
         to = _TRAILING_SEPARATOR.sub("", _CLAUSE_TRAILER.sub("", tail.strip()))
+        # "to a pin; passing a monument at 30 feet": a ';'-separated passing call
+        # after the destination belongs to this course; kept verbatim, never dropped.
+        # Course wording there ("; along a line 10 feet from ...") cannot be
+        # attached: it is returned so the course fails closed.
+        # Wording in ``drop_spans`` there is blanked: it is already in notes.
+        stop = end.start() if end else clause_end
+        semicolons = [i + 1 for i in range(tail_end, stop) if reading[i] == ";"]
+        piece_ends = [i - 1 for i in semicolons[1:]] + [stop] * bool(semicolons)
+        for piece_start, piece_end in zip(semicolons, piece_ends, strict=True):
+            piece = reading[piece_start:piece_end]
+            kept = _before_clause_delimiter(piece)
+            wording = clause[piece_start : piece_start + len(kept)].strip(" ,;.")
+            if _PASSING_PIECE.match(piece):
+                passing += (wording,)
+            elif _opens_with_course_wording(piece):
+                unattached += (wording,)
 
-    return CourseClause(along, to, passing, course_end, clause_end)
+    return CourseClause(along, to, passing, course_end, clause_end, unattached)
 
 
 def extract_along_to_fields(call_text: str) -> tuple[str, str]:
