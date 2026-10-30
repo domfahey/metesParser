@@ -51,6 +51,29 @@ logger = structlog.get_logger(__name__)
 CLOSURE_TOLERANCE_FT = 0.01
 
 
+def _chord_positioned_delta(call: DeedCall) -> float | None:
+    """Return the sweep (deg) when a tangent-less curve is positioned by its chord.
+
+    Mirrors mp_verify.plot._arc: radius, direction and a sweep from delta or
+    arc length (0 < sweep <= 360) with a parseable chord bearing. The chord is
+    then 2R*sin(delta/2), computed here and never stored.
+    """
+    if (
+        call.curve_dir is None
+        or call.radius_ft is None
+        or call.radius_ft <= 0.0
+        or call.chord_bearing is None
+        or bearing_to_azimuth(call.chord_bearing) is None
+    ):
+        return None
+    delta = call.delta_deg
+    if delta is None and call.arc_length_ft is not None:
+        delta = math.degrees(call.arc_length_ft / call.radius_ft)
+    if delta is None or delta <= 0.0 or delta > 360.0:
+        return None
+    return delta
+
+
 def traverse_positions(
     calls: list[DeedCall],
     start_point: Point | None = None,
@@ -91,7 +114,22 @@ def traverse_positions(
             continue
 
         if call.bearing_azimuth_deg_from_north is None:
-            positioned.append(False)
+            # A curve without a tangent is positioned by its chord bearing and the
+            # deterministic chord 2R*sin(delta/2): exactly what plotting accepts.
+            delta = _chord_positioned_delta(call)
+            chord_azimuth = (
+                bearing_to_azimuth(call.chord_bearing)
+                if delta is not None and call.chord_bearing is not None
+                else None
+            )
+            if delta is None or chord_azimuth is None or call.radius_ft is None:
+                positioned.append(False)
+                continue
+            chord_length = 2 * call.radius_ft * math.sin(math.radians(delta) / 2)
+            dx, dy = calculate_deltas(chord_azimuth, chord_length)
+            current = Point(x=current.x + dx, y=current.y + dy)
+            points.append(current)
+            positioned.append(True)
             continue
 
         if call.is_curve():
@@ -176,7 +214,8 @@ def calculate_area(points: list[Point], *, calls: list[DeedCall] | None = None) 
     area /= 2.0
     curved_area = 0.0
     for call in calls or []:
-        if call.bearing_azimuth_deg_from_north is None or not call.is_curve():
+        tangentless = call.bearing_azimuth_deg_from_north is None
+        if (tangentless and _chord_positioned_delta(call) is None) or not call.is_curve():
             continue
         if call.radius_ft is None or call.curve_dir is None:
             continue
@@ -207,6 +246,13 @@ def calculate_perimeter(calls: list[DeedCall]) -> float:
     for call in calls:
         if call.is_curve() and call.arc_length_ft is not None and call.arc_length_ft > 0.0:
             perimeter += call.arc_length_ft
+        elif (
+            call.bearing_azimuth_deg_from_north is None
+            and (delta := _chord_positioned_delta(call)) is not None
+            and call.radius_ft is not None
+        ):
+            # Tangent-less curve positioned by its chord: arc = R * delta is determined.
+            perimeter += call.radius_ft * math.radians(delta)
         else:
             perimeter += call.distance_ft
     return perimeter
@@ -485,7 +531,10 @@ def verify_closure(
 
     area_available = (
         bool(main_calls)
-        and all(call.is_complete_bearing() for call in main_calls)
+        and all(
+            call.is_complete_bearing() or _chord_positioned_delta(call) is not None
+            for call in main_calls
+        )
         and not chord_only_courses
         and not unpositioned_courses
     )
