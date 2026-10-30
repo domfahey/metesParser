@@ -152,6 +152,9 @@ def _run(
         "normalized_text": normalized,
         "source_encoding": "utf-8" if text else "unavailable or empty",
         "call_audits": [a.model_dump(mode="json") for a in audit.call_audits],
+        # Courses extraction could not parse stay auditable (empty under strict text
+        # extraction); verify_closure already blocks on them via audit_context.
+        "skipped_courses": [s.model_dump(mode="json") for s in audit.skipped_courses],
         "verification_audit": audit.verification_audit.model_dump(mode="json")
         if audit.verification_audit
         else None,
@@ -192,7 +195,8 @@ def _run(
                     verification,
                     str(directory / "calls.csv"),
                     legal,
-                    skipped_courses=audit.skipped_courses,
+                    # Re-blocks a fresh export check on any recorded skip.
+                    skipped_courses=list(audit.skipped_courses),
                 )
                 result["artifacts"]["calls_verified.csv"] = str(directory / "calls_verified.csv")
             body = html.escape(json.dumps(result, indent=2, allow_nan=False))
