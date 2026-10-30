@@ -997,6 +997,19 @@ def _blank_keeping_lines(text: str, start: int, end: int) -> str:
     return text[:start] + re.sub(r"[^\n]", " ", text[start:end]) + text[end:]
 
 
+def _set_aside_stop(text: str, lead: int, end: int) -> int:
+    """Return where blanking set-aside wording ``text[lead:end]`` stops.
+
+    After a sentence ("... beginning. EXCEPTING ... thereof.") the wording's own
+    period goes with it, so no stray period is left behind to join the sentences
+    around it.
+    """
+    gap = len(text[end:]) - len(text[end:].lstrip())
+    if text[:lead].rstrip().endswith(".") and text[end + gap : end + gap + 1] == ".":
+        return end + gap + 1
+    return end
+
+
 def _set_aside_non_boundary_text(
     text: str, *, easements: bool = True
 ) -> tuple[str, list[tuple[int, int, str]]]:
@@ -1013,26 +1026,27 @@ def _set_aside_non_boundary_text(
     from .tracts import easement_description_spans, stated_clause_end, stated_exception_spans
 
     set_aside: list[tuple[int, int, str]] = []
+    # Every strip's clause is read in the text as given; the strips are blanked after.
+    blanks: list[tuple[int, int]] = []
     for start, strip_end, strip in strip_exception_spans(text):
-        end = stated_clause_end(text, strip_end)
+        # A strip inside a course never takes the course's destination with it.
+        end = stated_clause_end(text, strip_end, start)
         lead = start
         while lead > 0 and text[lead - 1] in " \t,;":
             lead -= 1
-        stop = end
-        # "... beginning. EXCEPTING ... thereof." leaves no stray period behind.
-        gap = len(text[end:]) - len(text[end:].lstrip())
-        if text[:lead].rstrip().endswith(".") and text[end + gap : end + gap + 1] == ".":
-            stop = end + gap + 1
+        stop = _set_aside_stop(text, lead, end)
         prefix = (
             SEPARATE_EASEMENT_NOTE_PREFIX
             if strip["original_text"].lower().startswith("subject")
             else UNAPPLIED_EXCEPTION_NOTE_PREFIX
         )
         set_aside.append((start, end, prefix))
+        blanks.append((lead, stop))
+    for lead, stop in blanks:
         text = _blank_keeping_lines(text, lead, stop)
     for start, end in stated_exception_spans(text):
         set_aside.append((start, end, UNAPPLIED_EXCEPTION_NOTE_PREFIX))
-        text = _blank_keeping_lines(text, start, end)
+        text = _blank_keeping_lines(text, start, _set_aside_stop(text, start, end))
     if easements:
         for start, end in easement_description_spans(text):
             set_aside.append((start, end, SEPARATE_EASEMENT_NOTE_PREFIX))
