@@ -23,7 +23,7 @@ SURVEY_ABBREVIATIONS: list[tuple[str, str]] = [
     (r"\bR/W\b", "right-of-way"),
     (r"\bROW\b", "right-of-way"),
     (r"\bN/F\b", "now or formerly"),
-    (r"\bPK\b", "pk nail"),
+    (r"\bPK\b(?!\s+nail\b)", "pk nail"),
 ]
 
 
@@ -154,6 +154,14 @@ def clean_ocr_errors(text: str) -> str:
     )
 
     return text
+
+
+_AND_BEARING_RE = re.compile(
+    r"(?<=\S)\s+(?:&|and)\s+(?=(?:[NS]|North|South)\s*\d{1,3}\s*(?:°|degrees?\b))",
+    re.IGNORECASE,
+)
+_POB_START = re.compile(r"\b(?:beginning|commencing|beg\.?)\b", re.IGNORECASE)
+_COURSE_START = re.compile(r"\b(?:thence|then|th\.?|proceeding)\b", re.IGNORECASE)
 
 
 def expand_assessor_abbreviations(text: str) -> str:
@@ -290,12 +298,18 @@ def expand_assessor_abbreviations(text: str) -> str:
     # when followed by a quadrant bearing pattern ([NS] <digits>°).
     # Note: Only [NS] because standard quadrant bearings always start with
     # North or South.  E/W-initial bearings need different handling.
-    text = re.sub(
-        r"(?<=\S)\s+(?:&|and)\s+(?=[NS]\s*\d{1,3}\s*°)",
-        " thence ",
-        text,
-        flags=re.IGNORECASE,
-    )
+    # The lookahead accepts symbol and word-form bearings so a first pass rewrites
+    # exactly what a second pass would (idempotence).  A tie from the point of
+    # beginning ("Beginning at a point distant N .. and S .. from ...") is not a
+    # course: no `thence` has started a course since the last Beginning/Commencing.
+    def _and_separator(m: Match[str]) -> str:
+        before = m.string[: m.start()]
+        starts = list(_POB_START.finditer(before))
+        if starts and not _COURSE_START.search(before, starts[-1].end()):
+            return m.group(0)
+        return " thence "
+
+    text = _AND_BEARING_RE.sub(_and_separator, text)
 
     # --- 10. Bare cardinal + distance → due Cardinal + distance ---------------
     # "thence S 289.81 feet" → "thence due South 289.81 feet"

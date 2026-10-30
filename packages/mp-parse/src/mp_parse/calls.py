@@ -480,6 +480,7 @@ def _extract_calls_from_text(
     course_start: int = 1,
     skipped_courses: list[SkippedCourse] | None = None,
     tract_label: str | None = None,
+    normalize: bool = True,
 ) -> list[DeedCall]:
     """Extract all calls from normalized legal description text.
 
@@ -496,11 +497,13 @@ def _extract_calls_from_text(
             reserved; with neither supplied it raises as in strict mode.
         skipped_courses: Optional list receiving non-strict skipped courses.
         tract_label: Tract label recorded on skipped courses.
+        normalize: Normalize ``text`` first; callers passing already-normalized
+            text set False so normalization runs exactly once.
 
     Returns:
         List of DeedCall objects
     """
-    normalized = normalize_legal_description(text)
+    normalized = normalize_legal_description(text) if normalize else text
 
     tracts = split_exception_clauses(normalized)
 
@@ -689,6 +692,7 @@ def extract_calls(
             course_start=1,
             strict=strict,
             skipped_courses=skipped_courses,
+            normalize=False,
         )
         return flat_calls, []
 
@@ -707,6 +711,7 @@ def extract_calls(
             strict=strict,
             skipped_courses=tract_skips if recordable else None,
             tract_label=label,
+            normalize=False,
         )
         if skipped_courses is not None:
             skipped_courses.extend(tract_skips)
