@@ -20,38 +20,65 @@ from .deltas import calculate_deltas
 # accepted by one is never rejected by the other. The parser does not compare
 # curve elements.
 #
-# DeedCall carries floats, so the stated precision is not known: lengths are taken
-# as stated to the hundredth (+/-0.005 ft) and angles to the second (+/-0.5").
+# DeedCall carries decimal degrees, so the stated precision is inferred from the
+# value: lengths are taken as stated to the hundredth (+/-0.005 ft); an angle whose
+# seconds component is zero and whose minutes are not (e.g. 12 deg 34') is taken as
+# stated to the minute (+/-30"); any other angle, including a whole degree, to the
+# second (+/-0.5"). A whole degree is not widened: +/-30' would be far too lenient,
+# and the whole-degree fixtures (N 90 deg E, delta 12 deg) are generated to the second.
 STATED_LENGTH_HALF_UNIT_FT = 0.005
 STATED_ANGLE_HALF_UNIT_RAD = math.radians(0.5 / 3600)
+STATED_MINUTE_HALF_UNIT_RAD = math.radians(30.0 / 3600)
+_WHOLE_MINUTE_SECONDS_EPS = 1e-6
 
-# Floor so small curves keep a usable tolerance; cap so propagation never
-# accepts a gross discrepancy (e.g. a 1 ft arc error) however large the radius.
+# Floor so small curves keep a usable tolerance. There is no linear cap: the
+# propagated tolerance (R*d(delta), up to ~0.7 ft at R=5000 for a minute-stated
+# delta) already bounds gross errors, and a fixed cap would reject correctly
+# rounded minute-stated curves at large radii. The angular cap only guards tiny
+# radii where an arc's rounding would otherwise dominate.
 CURVE_ELEMENT_TOLERANCE_FT = 0.01
-CURVE_ELEMENT_TOLERANCE_CAP_FT = 0.5
 TANGENT_CHORD_TOLERANCE_DEG = 1.5 / 3600
 TANGENT_CHORD_TOLERANCE_CAP_DEG = 0.1
 
 
-def _bounded(value: float, floor: float, cap: float) -> float:
-    return min(max(value, floor), cap)
+def angle_half_unit_rad(angle_deg: float) -> float:
+    """Return the rounding half-unit of a stated angle, inferred from its value."""
+    total_seconds = abs(angle_deg) * 3600.0
+    seconds = total_seconds % 60.0
+    on_whole_minute = min(seconds, 60.0 - seconds) <= _WHOLE_MINUTE_SECONDS_EPS
+    on_whole_degree = min(total_seconds % 3600.0, 3600.0 - total_seconds % 3600.0) <= (
+        _WHOLE_MINUTE_SECONDS_EPS
+    )
+    if on_whole_minute and not on_whole_degree:
+        return STATED_MINUTE_HALF_UNIT_RAD
+    return STATED_ANGLE_HALF_UNIT_RAD
 
 
 def delta_uncertainty_rad(
-    *, arc_length_ft: float | None = None, radius_ft: float | None = None
+    *,
+    delta_deg: float | None = None,
+    arc_length_ft: float | None = None,
+    radius_ft: float | None = None,
 ) -> float:
     """Return the rounding uncertainty of a curve's delta, in radians.
 
-    A stated delta (no arc and radius given) carries half a second. A delta
-    derived as arc / R carries the stated arc's and radius's rounding:
-    d(delta) = d(arc)/R + arc*d(R)/R**2.
+    A stated delta (no arc and radius given) carries its inferred half-unit
+    (30" for a whole minute that is not a whole degree, else 0.5"). A delta derived as arc / R carries the
+    stated arc's and radius's rounding: d(delta) = d(arc)/R + arc*d(R)/R**2.
     """
     if arc_length_ft is None or radius_ft is None or radius_ft <= 0.0:
-        return STATED_ANGLE_HALF_UNIT_RAD
+        if delta_deg is None:
+            return STATED_ANGLE_HALF_UNIT_RAD
+        return angle_half_unit_rad(delta_deg)
     return (
         STATED_LENGTH_HALF_UNIT_FT / radius_ft
         + abs(arc_length_ft) * STATED_LENGTH_HALF_UNIT_FT / radius_ft**2
     )
+
+
+def bearing_difference_uncertainty_rad(*angles_deg: float) -> float:
+    """Return the combined rounding of stated bearings/azimuths that are differenced."""
+    return sum(angle_half_unit_rad(angle) for angle in angles_deg)
 
 
 def arc_length_tolerance_ft(radius_ft: float, delta_deg: float) -> float:
@@ -60,11 +87,11 @@ def arc_length_tolerance_ft(radius_ft: float, delta_deg: float) -> float:
     d(arc) = R*d(delta) + d(R)*delta + rounding of the stated arc itself.
     """
     tolerance = (
-        radius_ft * STATED_ANGLE_HALF_UNIT_RAD
+        radius_ft * angle_half_unit_rad(delta_deg)
         + STATED_LENGTH_HALF_UNIT_FT * abs(math.radians(delta_deg))
         + STATED_LENGTH_HALF_UNIT_FT
     )
-    return _bounded(tolerance, CURVE_ELEMENT_TOLERANCE_FT, CURVE_ELEMENT_TOLERANCE_CAP_FT)
+    return max(tolerance, CURVE_ELEMENT_TOLERANCE_FT)
 
 
 def chord_length_tolerance_ft(radius_ft: float, delta_deg: float, delta_error_rad: float) -> float:
@@ -79,28 +106,35 @@ def chord_length_tolerance_ft(radius_ft: float, delta_deg: float, delta_error_ra
         + 2.0 * abs(math.sin(half)) * STATED_LENGTH_HALF_UNIT_FT
         + STATED_LENGTH_HALF_UNIT_FT
     )
-    return _bounded(tolerance, CURVE_ELEMENT_TOLERANCE_FT, CURVE_ELEMENT_TOLERANCE_CAP_FT)
+    return max(tolerance, CURVE_ELEMENT_TOLERANCE_FT)
 
 
-def tangent_chord_tolerance_deg(delta_error_rad: float) -> float:
+def tangent_chord_tolerance_deg(
+    delta_error_rad: float, deflection_error_rad: float | None = None
+) -> float:
     """Return the tolerance for tangent-to-chord deflection against delta / 2.
 
-    The deflection differences two stated bearings (half a second each); half the
-    delta carries half the delta's uncertainty.
+    The deflection differences two stated bearings (``deflection_error_rad``,
+    default half a second each); half the delta carries half the delta's
+    uncertainty.
     """
-    tolerance = 2.0 * math.degrees(STATED_ANGLE_HALF_UNIT_RAD) + math.degrees(delta_error_rad) / 2
-    return _bounded(tolerance, TANGENT_CHORD_TOLERANCE_DEG, TANGENT_CHORD_TOLERANCE_CAP_DEG)
+    if deflection_error_rad is None:
+        deflection_error_rad = 2.0 * STATED_ANGLE_HALF_UNIT_RAD
+    tolerance = math.degrees(deflection_error_rad) + math.degrees(delta_error_rad) / 2
+    return min(max(tolerance, TANGENT_CHORD_TOLERANCE_DEG), TANGENT_CHORD_TOLERANCE_CAP_DEG)
 
 
-def deflection_chord_tolerance_ft(radius_ft: float, deflection_deg: float) -> float:
+def deflection_chord_tolerance_ft(
+    radius_ft: float, deflection_deg: float, deflection_error_rad: float | None = None
+) -> float:
     """Return the tolerance for a stated chord against 2R*sin(deflection).
 
     The deflection differences two stated bearings, so the equivalent delta
-    (twice the deflection) carries four half-seconds.
+    (twice the deflection) carries twice their combined rounding.
     """
-    return chord_length_tolerance_ft(
-        radius_ft, 2.0 * deflection_deg, 4.0 * STATED_ANGLE_HALF_UNIT_RAD
-    )
+    if deflection_error_rad is None:
+        deflection_error_rad = 2.0 * STATED_ANGLE_HALF_UNIT_RAD
+    return chord_length_tolerance_ft(radius_ft, 2.0 * deflection_deg, 2.0 * deflection_error_rad)
 
 
 def tangent_chord_deflection(tangent_az: float, chord_az: float, curve_dir: str) -> float:

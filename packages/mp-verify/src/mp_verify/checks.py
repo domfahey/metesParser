@@ -12,6 +12,7 @@ from typing import Literal
 
 from mp_bearing import (  # type: ignore[import-untyped]
     arc_length_tolerance_ft,
+    bearing_difference_uncertainty_rad,
     bearing_to_azimuth,
     chord_length_tolerance_ft,
     deflection_chord_tolerance_ft,
@@ -507,25 +508,26 @@ def tangent_chord_issue(call: DeedCall) -> str | None:
         call.bearing_azimuth_deg_from_north, chord_az, call.curve_dir
     )
     prefix = f"Course {call.course}: stated tangent, chord and radius are inconsistent"
+    defl_error = bearing_difference_uncertainty_rad(call.bearing_azimuth_deg_from_north, chord_az)
     if deflection <= 0.0:
         return f"{prefix} (chord bearing is not on the {call.curve_dir} side of the tangent)"
     radius = call.radius_ft
     if radius is not None and radius > 0.0 and call.chord_length_ft is not None:
         expected_chord = 2.0 * radius * math.sin(math.radians(deflection))
         if abs(call.chord_length_ft - expected_chord) > deflection_chord_tolerance_ft(
-            radius, deflection
+            radius, deflection, defl_error
         ):
             return (
                 f"{prefix} (chord: {call.chord_length_ft:.2f}, expected from tangent-to-chord "
                 f"deflection {deflection:.6f}\u00b0 and radius: {expected_chord:.2f})"
             )
     delta = call.delta_deg
-    delta_error = delta_uncertainty_rad()
+    delta_error = delta_uncertainty_rad(delta_deg=delta)
     if delta is None and call.arc_length_ft is not None and radius is not None and radius > 0.0:
         delta = math.degrees(call.arc_length_ft / radius)
         delta_error = delta_uncertainty_rad(arc_length_ft=call.arc_length_ft, radius_ft=radius)
     if delta is not None and abs(deflection - delta / 2.0) > tangent_chord_tolerance_deg(
-        delta_error
+        delta_error, defl_error
     ):
         return (
             f"{prefix} (delta {delta:.6f}\u00b0 is not twice the tangent-to-chord "
@@ -571,7 +573,7 @@ def check_curve_consistency(
             continue
 
         delta_deg = call.delta_deg
-        delta_error_rad = delta_uncertainty_rad()
+        delta_error_rad = delta_uncertainty_rad(delta_deg=delta_deg)
 
         # Derive delta from radius + arc when delta_deg is not explicit
         if delta_deg is None:
