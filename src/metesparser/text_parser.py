@@ -822,7 +822,7 @@ class TextParser:
         # --- 2. Expand DMS bearing notation (DEG/D, M, S/SEC) --------------
         # Full DMS with seconds (S or SEC)
         text = re.sub(
-            r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\s+(\d{1,2}(?:\.\d+)?)\s*(?:SEC|S)\b",
+            r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\s+(\d{1,2}(?:\.\d+)?)\s*(?:SEC\b\.?|S\b)",
             r"\1 degrees \2 minutes \3 seconds",
             text,
             flags=re.IGNORECASE,
@@ -836,7 +836,7 @@ class TextParser:
         )
         # Degrees only (DEG/D without M following)
         text = re.sub(
-            r"(\d{1,3})\s*(?:DEG|D)\b",
+            r"(\d{1,3})\s*(?:DEG\b\.?|D\b)",
             r"\1 degrees",
             text,
             flags=re.IGNORECASE,
@@ -851,7 +851,7 @@ class TextParser:
 
         # --- 3. Expand number+SEC that wasn't already caught ----------------
         text = re.sub(
-            r"(\d{1,2}(?:\.\d+)?)\s*SEC\b",
+            r"(\d{1,2}(?:\.\d+)?)\s*SEC\b\.?",
             r"\1 seconds",
             text,
             flags=re.IGNORECASE,
