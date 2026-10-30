@@ -10,7 +10,15 @@ from pathlib import Path
 import structlog
 from pydantic import ValidationError, field_validator
 
-from .models import AuditContext, ClosureResult, DeedCall, LegalDescription, Tract, _Model
+from .models import (
+    AuditContext,
+    ClosureResult,
+    DeedCall,
+    LegalDescription,
+    SkippedCourse,
+    Tract,
+    _Model,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -107,12 +115,34 @@ class CSVBuilder:
     ]
 
     @staticmethod
+    def _skips_for_tract(
+        tract: Tract,
+        audit_context: AuditContext | None,
+        tracts: list[Tract],
+        explicit: list[SkippedCourse] | None = None,
+    ) -> list[SkippedCourse]:
+        """Every skip that applies to one tract, mirroring ``verify_closure``."""
+        labelled = [
+            *(explicit or []),
+            *(audit_context.skipped_courses if audit_context is not None else []),
+        ]
+        unplaced = {skip.tract_label for skip in labelled} - {t.label for t in tracts}
+        applicable = [*tract.skipped_courses]
+        applicable.extend(
+            skip
+            for skip in labelled
+            if skip.tract_label in (tract.label, *unplaced) and skip not in applicable
+        )
+        return applicable
+
+    @staticmethod
     def _validate_export_geometry(
         calls: list[DeedCall],
         closure_result: ClosureResult,
         legal_desc: LegalDescription | None,
         *,
         independent_tract: bool = False,
+        skipped_courses: list[SkippedCourse] | None = None,
     ) -> list[DeedCall]:
         """Require the supplied verification to describe the calls actually exported."""
         selected_calls = legal_desc.calls if legal_desc is not None else calls
@@ -131,7 +161,9 @@ class CSVBuilder:
         verifier = (
             ClosureChecker.verify_tract if independent_tract else ClosureChecker.verify_closure
         )
-        fresh_result = verifier(selected_calls, stated_area_sq_ft=stated_area)
+        fresh_result = verifier(
+            selected_calls, stated_area_sq_ft=stated_area, skipped_courses=skipped_courses
+        )
         if not fresh_result.is_fully_verified():
             raise ValueError(
                 "Cannot export verified CSV: selected calls failed fresh verification. "
@@ -387,6 +419,7 @@ class CSVBuilder:
         *,
         tract_results: list[tuple[Tract, ClosureResult]] | None = None,
         audit_context: AuditContext | None = None,
+        skipped_courses: list[SkippedCourse] | None = None,
     ) -> list[Path]:
         """Export verified CSV(s).
 
@@ -398,7 +431,13 @@ class CSVBuilder:
             output_path: Base output file path
             legal_desc: Optional LegalDescription for metadata
             tract_results: Optional list of (Tract, ClosureResult) for multi-tract
-            audit_context: Optional AuditContext for audit trail output
+            audit_context: Optional AuditContext for audit trail output. Its
+                ``skipped_courses`` and each ``Tract.skipped_courses`` block export,
+                as does the explicit ``skipped_courses`` list. The exporter cannot
+                see skips it is not given: callers that extracted non-strictly must
+                pass the audit context (or tracts) used for extraction.
+            skipped_courses: Optional explicit skip records applied to the fresh
+                re-check, in addition to those above.
 
         Returns:
             List of written file paths.
@@ -431,10 +470,24 @@ class CSVBuilder:
                         calls=tract.calls, stated_area_sq_ft=tract.stated_area_sq_ft
                     )
                     cls._validate_export_geometry(
-                        tract.calls, result, selected, independent_tract=True
+                        tract.calls,
+                        result,
+                        selected,
+                        independent_tract=True,
+                        skipped_courses=cls._skips_for_tract(
+                            tract, audit_context, [t for t, _ in tract_results], skipped_courses
+                        ),
                     )
         else:
-            cls._validate_export_geometry(calls, closure_result, legal_desc)
+            cls._validate_export_geometry(
+                calls,
+                closure_result,
+                legal_desc,
+                skipped_courses=[
+                    *(skipped_courses or []),
+                    *(audit_context.skipped_courses if audit_context else []),
+                ],
+            )
 
         if tract_results:
             for i, (tract, tract_result) in enumerate(tract_results, start=1):
