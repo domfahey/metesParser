@@ -67,8 +67,9 @@ def test_tangentless_curve_positioned_by_chord_and_delta_reaches_dashboard():
     assert records[1].call.bearing_azimuth_deg_from_north is None
 
 
-def test_chord_only_curve_stays_blocked():
+def test_chord_only_curve_is_drawn_as_its_chord_not_blocked():
     bundle = _bundle_with_curve(chord_length_ft=50.0)
     result = calculate_dashboard(bundle).calculations[0]
-    assert result.geometry_status == "blocked"
-    assert result.courses == ()
+    assert result.geometry_status == "analyzed"
+    assert not any("Incomplete recorded bearings" in w for w in result.warnings)
+    assert result.courses[1].local_azimuth_deg == 90.0

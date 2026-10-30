@@ -233,7 +233,6 @@ CASES: dict[str, Case] = {
         ),
         chord_bearing="N 45° E",
         no_arc=True,
-        indefinite=True,
         notes_in=(BY_CHORD,),
         notes_out=(DERIVED, FROM_CHORD, ARC_FROM_CHORD),
         extra={"chord_length_ft": 100.0, "radius_ft": 500.0},
@@ -492,7 +491,8 @@ def test_chord_only_curve_is_positioned_by_its_chord_but_not_verified(extract, v
     assert len(calls) == 4
     curve = calls[1]
     assert curve.bearing_azimuth_deg_from_north is None
-    assert curve.is_indefinite is True
+    # The stated chord positions the course: not indefinite (r33).
+    assert curve.is_indefinite is False
     result = verify(calls)
     # The chord fixes the endpoint exactly, so the traverse still returns home ...
     assert result.misclosure_ft == pytest.approx(0.0, abs=1e-9)

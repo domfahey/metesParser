@@ -190,3 +190,15 @@ def traverse_positions(
     """
     points, records = analyze_courses(calls, start_point)
     return points, [record.positioned for record in records]
+
+
+def is_chord_positioned(call: DeedCall) -> bool:
+    """Return True when a stated chord alone positions a course with no known tangent.
+
+    A chord-only circular curve or spiral whose chord bearing and length the traverse
+    uses: its direction is stated (by the chord) although its tangent direction and
+    arc are not determined. Decided by the traverse itself, never predicted.
+    """
+    _, records = analyze_courses([call])
+    record = records[0]
+    return record.positioned and record.arc_undetermined and not record.determined_direction
