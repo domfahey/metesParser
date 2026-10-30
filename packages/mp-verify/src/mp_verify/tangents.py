@@ -92,13 +92,69 @@ def chord_positioned_delta(call: DeedCall) -> float | None:
     return chord_delta(call, chord)
 
 
+def is_non_tangent_curve(call: DeedCall) -> bool:
+    """Return True for a circular curve the deed states is not tangent to the prior course."""
+    return call.non_tangent and call.is_curve() and is_circular_curve(call)
+
+
+def stated_tangent(call: DeedCall) -> float | None:
+    """Return the course bearing when it states the course's starting direction.
+
+    A non-tangent curve's course bearing does not establish its starting tangent:
+    the deed says only that the curve is not tangent to the previous line, so the
+    role of the stated bearing is ambiguous and it is never used as the tangent.
+    """
+    if is_non_tangent_curve(call):
+        return None
+    return call.bearing_azimuth_deg_from_north
+
+
+def radial_tangent_in(call: DeedCall) -> float | None:
+    """Return the tangent-in fixed by a non-tangent curve's stated radial bearing.
+
+    The parser stores the radial bearing as the bearing from the curve's start
+    toward its centre (radius point), and the centre lies to the curve's side of
+    the tangent, so tangent-in = radial - dir * 90 (right = +1).
+    """
+    if not is_non_tangent_curve(call) or call.radial_bearing is None:
+        return None
+    if call.curve_dir not in ("left", "right"):
+        return None
+    radial: float | None = bearing_to_azimuth(call.radial_bearing)
+    if radial is None or not math.isfinite(radial):
+        return None
+    sign = 1.0 if call.curve_dir == "right" else -1.0
+    return (radial - sign * 90.0) % 360.0
+
+
+def start_tangent(call: DeedCall, delta: float, chord_azimuth: float | None) -> float | None:
+    """Return the azimuth at which a circular curve of sweep ``delta`` starts.
+
+    A chord bearing with the sweep fixes it (chord - dir * delta / 2, right = +1);
+    otherwise a non-tangent curve needs a stated radial bearing, and any other
+    curve its stated tangent bearing. Shared by traverse, plotting and topology.
+    """
+    sign = 1.0 if call.curve_dir == "right" else -1.0
+    if chord_azimuth is not None:
+        tangent_in: float | None = chord_azimuth - sign * delta / 2.0
+    elif is_non_tangent_curve(call):
+        tangent_in = radial_tangent_in(call)
+    else:
+        tangent_in = call.bearing_azimuth_deg_from_north
+    if tangent_in is None or not math.isfinite(tangent_in):
+        return None
+    return tangent_in
+
+
 def curve_tangents(call: DeedCall) -> tuple[float, float] | None:
     """Return (tangent-in, tangent-out) azimuths for a fully determined circular curve.
 
     A parseable chord bearing with a sweep fixes both tangents
     (chord -/+ dir * delta / 2, right = +1), matching how the traverse and the
     topology check position the arc. Otherwise a stated tangent with a sweep is
-    used. Chord-only curves (no delta or arc) and spirals return None.
+    used; a non-tangent curve's course bearing is never its tangent, so it needs a
+    stated radial bearing instead. Chord-only curves (no delta or arc) and spirals
+    return None.
     """
     if not is_circular_curve(call):
         return None
@@ -107,17 +163,12 @@ def curve_tangents(call: DeedCall) -> tuple[float, float] | None:
         return None
     sign = 1.0 if call.curve_dir == "right" else -1.0
     chord = bearing_to_azimuth(call.chord_bearing) if call.chord_bearing is not None else None
-    if chord is not None:
-        tangent_in = chord - sign * delta / 2.0
-    elif call.bearing_azimuth_deg_from_north is not None:
-        tangent_in = call.bearing_azimuth_deg_from_north
-    else:
-        return None
-    if not math.isfinite(tangent_in):
+    tangent_in = start_tangent(call, delta, chord)
+    if tangent_in is None:
         return None
     return tangent_in % 360.0, (tangent_in + sign * delta) % 360.0
 
 
 def has_determined_direction(call: DeedCall) -> bool:
     """Return True when the course direction is stated or fixed by stated curve elements."""
-    return call.is_complete_bearing() or curve_tangents(call) is not None
+    return stated_tangent(call) is not None or curve_tangents(call) is not None
