@@ -22,6 +22,7 @@ from mp_bearing import (  # type: ignore[import-untyped]
 )
 from mp_models import CheckResult, DeedCall, Point
 
+from .tangents import has_determined_direction
 from .topology import check_curved_boundary_intersections
 
 
@@ -34,7 +35,8 @@ def check_boundary_intersections(calls: list[DeedCall], coordinates: list[Point]
 
 def evaluate_interior_angles(calls: list[DeedCall]) -> CheckResult:
     """Report whether the straight-polygon angle test actually ran."""
-    missing = [str(call.course) for call in calls if not call.is_complete_bearing()]
+    # A curve fixed by chord bearing and sweep has determined tangents: not missing.
+    missing = [str(call.course) for call in calls if not has_determined_direction(call)]
     if missing:
         return CheckResult(
             name="interior_angles",
@@ -102,7 +104,7 @@ def build_verification_checks(
     a course positioned by its chord is not missing, and a course with a stated
     bearing that still cannot be positioned is unpositioned, not missing.
     """
-    incomplete = any(not call.is_complete_bearing() for call in calls)
+    incomplete = any(not has_determined_direction(call) for call in calls)
     missing = incomplete or not calls
     if positioned is None:
         positioned = [call.is_complete_bearing() or call.is_chord_only_curve() for call in calls]
