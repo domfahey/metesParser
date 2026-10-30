@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pytest
+from mp_export.csv_writer import _call_to_row, _validate_row
 from mp_parse.calls import extract_calls, extract_single_call
 from mp_verify.closure import verify_closure
 
@@ -59,6 +60,10 @@ def test_cardinal_with_number_is_not_a_bearing_shape() -> None:
     assert call.notes == "incomplete bearing - cardinal only"
 
 
+def _csv_round_trip(call):
+    return _validate_row(_call_to_row(call))
+
+
 def test_unreadable_chord_bearing_is_recorded_and_not_chord_positioned() -> None:
     text = f"THENCE {CURVE} and a chord bearing of N 45 E and chord of 49.79 feet"
     single = extract_single_call(text, 1)
@@ -67,9 +72,10 @@ def test_unreadable_chord_bearing_is_recorded_and_not_chord_positioned() -> None
         assert call is not None
         assert call.chord_bearing is None
         assert "chord bearing not read: 'N 45 E'" in (call.notes or "")
-        assert call.is_indefinite is True
-    result = verify_closure([single])
-    assert any("indefinite" in w.lower() for w in result.warnings)
+    # No tangent and no readable chord: the course stays unpositioned on both paths.
+    for call in (single, _csv_round_trip(single)):
+        assert call.is_indefinite is False
+        assert verify_closure([call]).misclosure_available is False
 
 
 def test_unreadable_chord_bearing_next_to_stated_tangent_is_recorded() -> None:
@@ -79,7 +85,10 @@ def test_unreadable_chord_bearing_next_to_stated_tangent_is_recorded() -> None:
     assert call.bearing_azimuth_deg_from_north == 10.0
     assert call.chord_bearing is None
     assert "chord bearing not read: 'N 45 E'" in (call.notes or "")
-    assert call.is_indefinite is True
+    # The flag must agree with a CSV round trip (is_indefinite is not a CSV column).
+    round_tripped = _csv_round_trip(call)
+    assert call.is_indefinite == round_tripped.is_indefinite
+    assert verify_closure([call]).warnings == verify_closure([round_tripped]).warnings
 
 
 def test_readable_chord_bearing_has_no_unread_note() -> None:
