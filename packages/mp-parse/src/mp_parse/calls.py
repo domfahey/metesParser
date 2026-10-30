@@ -1417,6 +1417,47 @@ def _complete_courses(text: str) -> tuple[int, bool]:
     return sum(1 for pair in pairs if pair.complete and pair.boundary), bool(pairs)
 
 
+_COURSE_SEPARATOR = re.compile(r";|(?<=\S)\s+(?=THENCE\b)|,\s*(?=thence\b)", re.IGNORECASE)
+
+
+def _course_segments(call_text: str) -> list[str]:
+    """Cut a fragment at ';' and at a later THENCE into its candidate course segments."""
+    return [piece.strip() for piece in _COURSE_SEPARATOR.split(call_text) if piece.strip()]
+
+
+def _is_curve_segment(segment: str) -> bool:
+    """Return True when a segment states a curve's own direction or radius."""
+    info = extract_curve_info(segment)
+    return info.get("direction") in ("left", "right") or info.get("radius_ft") is not None
+
+
+def _segment_course_count(segment: str) -> int:
+    """Complete courses in one segment: a curve counts as one even without a bearing."""
+    complete = _boundary_course_reading(segment)[0]
+    return max(complete, 1) if _is_curve_segment(segment) else complete
+
+
+def _has_second_course(call_text: str) -> bool:
+    """Return True when a curve fragment also holds a separate complete course.
+
+    A curve states no bearing of its own course, so the bearing of a following
+    straight course (a complete bearing and length in a segment without curve
+    wording) or a further THENCE curve must not be read as its tangent.
+    """
+    segments = _course_segments(call_text)
+    if len(segments) < 2:
+        return False
+    curves = [segment for segment in segments if _is_curve_segment(segment)]
+    if not curves:
+        return False
+    if any(
+        not CURVE_KEYWORD_PATTERN.search(segment) and _boundary_course_reading(segment)[0] >= 1
+        for segment in segments
+    ):
+        return True
+    return sum(1 for segment in curves[1:] if re.match(r"thence\b", segment, re.I)) >= 1
+
+
 def _split_juxtaposed_courses(segment: str) -> list[str]:
     """Split ``segment`` where one course's length runs straight into the next bearing.
 
@@ -1460,7 +1501,9 @@ def _split_multi_course_fragment(call_text: str) -> list[str]:
     stays rejected.
     """
     segments = [
-        piece for segment in call_text.split(";") for piece in _split_juxtaposed_courses(segment)
+        piece
+        for segment in _course_segments(call_text)
+        for piece in _split_juxtaposed_courses(segment)
     ]
     pieces: list[str] = []
     pending = ""  # descriptive wording before the first course
@@ -1468,6 +1511,7 @@ def _split_multi_course_fragment(call_text: str) -> list[str]:
         if not segment.strip():
             continue
         complete, has_bearing = _boundary_course_reading(segment)
+        complete = _segment_course_count(segment)
         if complete == 0 and not has_bearing and not _LENGTH_TOKEN.search(segment):
             if pieces:
                 pieces[-1] += ";" + segment
@@ -1514,6 +1558,39 @@ def extract_single_call(
     return call
 
 
+def _adjoiner_wording(along: str, course_direction: str, course_distance_ft: float | None) -> str:
+    """Return ``along`` without the course's own bearing and length.
+
+    ``along`` is the deed's wording after "along"; on a straight course it can
+    run on into the course itself ("Main Street (50 feet wide) N 45 E 100 feet").
+    The course's own verbatim bearing and the length read as its distance are
+    removed; everything else, parentheticals included, stays as written.
+    """
+    if course_direction:
+        position = along.find(course_direction)
+        while position >= 0 and _in_parentheses(along, position):
+            position = along.find(course_direction, position + 1)
+        if position >= 0:
+            end = position + len(course_direction)
+            gap = len(along[end:]) - len(along[end:].lstrip())
+            length = _LENGTH_TOKEN.match(along, end + gap)
+            if length:
+                end = length.end()
+            along = along[:position] + " " + along[end:]
+    if course_distance_ft is not None:
+        for token in reversed(list(_LENGTH_TOKEN.finditer(along))):
+            if _in_parentheses(along, token.start()):
+                continue
+            reading = read_course_length(token.group(0))
+            if reading.ambiguous or reading.value <= 0:
+                continue
+            converted = ConversionFactors.convert_to_feet(reading.value, reading.unit)
+            if converted is not None and abs(converted - course_distance_ft) < 1e-6:
+                along = along[: token.start()] + " " + along[token.end() :]
+                break
+    return re.sub(r"\s{2,}", " ", along).strip(" ,;.")
+
+
 def _extract_call(
     call_text: str, course: int, distance_unit: str = "feet"
 ) -> tuple[DeedCall | None, str]:
@@ -1540,6 +1617,8 @@ def _extract_call(
         call_text = head
 
     curve_info = extract_curve_info(call_text, distance_unit)
+    if _describes_curve(curve_info) and _has_second_course(call_text):
+        raise MultipleCoursesError(MULTIPLE_COURSES_ERROR)
     course_bearing = _course_bearing(call_text, curve_info)
     if course_bearing.complete_courses >= 2:
         # Never keep only the first of several courses.
@@ -1692,7 +1771,7 @@ def _extract_call(
         chord_positioned = chord_azimuth is not None and not direction_conflicts_chord
 
     has_abbreviated_cardinal = bool(
-        re.match(r"^\s*(?:N|S|E|W|NE|NW|SE|SW)\b", call_text, re.IGNORECASE)
+        re.match(r"^\s*(?:THENCE\s+)?(?:N|S|E|W|NE|NW|SE|SW)\b", call_text, re.IGNORECASE)
     )
     has_curve_geometry = any(
         curve_info.get(key) is not None
@@ -1760,6 +1839,8 @@ def _extract_call(
         raise ValueError("Missing boundary course distance")
 
     along, to = extract_along_to_fields(call_text)
+    if along and not is_curve:
+        along = _adjoiner_wording(along, direction_text if raw_direction else "", distance_ft)
 
     monument_type = classify_monument(to) if to else None
     monument_status = classify_monument_status(to or call_text)
@@ -1836,7 +1917,15 @@ def _extract_call(
         or re.search(r"\b[NS]\s+\d+\u00b0", call_text)
         # An out-of-range hyphenated bearing ("N 95-30' E") is kept as an incomplete
         # bearing, like "N 95\u00b0 E"; in-range forms are parsed, identifiers are not.
-        or re.search(r"\b[NS]\s+(?:9[1-9]|[1-9]\d\d)\s*-\s*\d+\s*['\u2032]?\s*[EW]\b", call_text)
+        or re.search(
+            r"\b[NS]\s+(?:9[1-9]|[1-9]\d\d)(?:\s*-\s*\d+){1,2}\s*['\u2032\"\u2033]*\s*[EW]\b",
+            call_text,
+        )
+        # ... and so are the same out-of-range degrees written as words.
+        or re.search(
+            r"\b[NS]\s+(?:9[1-9]|[1-9]\d\d)\s*(?:degrees?|deg\b\.?)[^EW;]{0,30}?[EW]\b",
+            call_text,
+        )
     )
     if not has_direction_intent:
         payload = {
@@ -2186,16 +2275,6 @@ def extract_direction(text: str) -> str:
         if seconds < 10:
             seconds_text = f"0{seconds_text}"
         return f"{cardinal1} {int(degree)}\u00b0{int(minutes):02d}'{seconds_text}\" {cardinal2}"
-
-    # "due {cardinal}" check -- must come before simple cardinal so "due North"
-    # is captured as the full phrase, not truncated to "north".
-    due_cardinal_match = re.search(
-        r"\bdue\s+(north|south|east|west|N|S|E|W)\b",
-        text,
-        re.IGNORECASE,
-    )
-    if due_cardinal_match:
-        return due_cardinal_match.group(0).lower()
 
     # "due {cardinal}" check -- must come before simple cardinal so "due North"
     # is captured as the full phrase, not truncated to "north".
