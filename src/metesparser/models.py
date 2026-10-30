@@ -328,12 +328,28 @@ class DeedCall(_Model):
         if not has_curve_direction:
             raise ValueError("curve_dir is required when any curve field is provided")
 
-        if not has_radius or not (has_delta or has_arc):
+        # Radius + chord (bearing and length) without a delta or arc is ambiguous
+        # (minor vs major arc); it is accepted so the course can be positioned by
+        # its chord, but verification never treats its arc as determined.
+        has_full_chord = has_chord and self.chord_bearing is not None
+        if not has_radius or not (has_delta or has_arc or has_full_chord):
             raise ValueError(
-                "Curve geometry requires radius_ft and either delta_deg or arc_length_ft"
+                "Curve geometry requires radius_ft and either delta_deg, arc_length_ft, "
+                "or chord_bearing with chord_length_ft"
             )
 
         return self
+
+    def is_chord_only_curve(self) -> bool:
+        """Return True for a curve stated by radius and chord without delta or arc."""
+        return (
+            self.curve_dir is not None
+            and self.radius_ft is not None
+            and self.delta_deg is None
+            and self.arc_length_ft is None
+            and self.chord_bearing is not None
+            and self.chord_length_ft is not None
+        )
 
     def is_curve(self) -> bool:
         """Check if this call represents a curve."""
