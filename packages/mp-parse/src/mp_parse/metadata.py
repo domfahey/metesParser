@@ -31,6 +31,7 @@ _METADATA_BOUNDARY = re.compile(
     r"|BEING (?:the same|all that|lot|part)"
     r"|CONTAINING"
     r"|SUBJECT TO"
+    r"|UNDER AND SUBJECT"
     r"|TOGETHER WITH"
     r"|RESERVING"
     r"|Said premises"
