@@ -93,3 +93,63 @@ def test_structured_seed_of_chord_only_call_is_accepted_unchanged(bundle):
     assert call.chord_length_ft == pytest.approx(50.0)
     assert call.distance_ft == pytest.approx(50.0)
     assert call.delta_deg is None and call.arc_length_ft is None
+
+
+SPIRAL_CHORD = {
+    "course": 2,
+    "direction_text": "spiral curve",
+    "curve_type": "spiral",
+    "chord_bearing": "N 90°00' E",
+    "chord_length_ft": 50,
+    "distance_ft": 50,
+}
+
+
+def test_unrelated_edit_on_deed_with_chord_stated_spiral_parses():
+    data = json.loads((Path(__file__).parent / "fixtures/dashboard-absolute.json").read_text())
+    data["calls"][1]["call"] = SPIRAL_CHORD
+    spiral_bundle = DashboardBundle.model_validate(data)
+    prepared = import_revision(
+        spiral_bundle, _revision(spiral_bundle, "call-one", raw_fields={"notes": "annotation"})
+    )
+    assert prepared.errors == ()
+    assert prepared.state == "parsed"
+    plot = prepared.current_geometry[0].plot.geometry
+    assert [(u.call_id, u.positioned) for u in plot.unresolved] == [("call-two", True)]
+
+
+def _supplied_chord_only(bearing):
+    return {
+        "geometry_type": "circular_arc",
+        "role": "boundary",
+        "orientation": "supplied",
+        "bearing_format": "decimal_azimuth",
+        "bearing_value": bearing,
+        "distance_unit": "feet",
+        "radius_value": "100",
+        "chord_length_value": "50",
+        "chord_bearing_value": "N 90°00' E",
+        "chord_bearing_format": "quadrant_dms",
+        "curve_dir": "right",
+    }
+
+
+@pytest.mark.parametrize("bearing", ["0", "90", "270"])
+def test_chord_only_supplied_tangent_contradicting_chord_is_rejected(bundle, bearing):
+    prepared = import_revision(
+        bundle, _revision(bundle, "call-two", structured_input=_supplied_chord_only(bearing))
+    )
+    assert prepared.state != "parsed"
+    assert any("tangent" in e.message for e in prepared.errors)
+
+
+@pytest.mark.parametrize("bearing", ["75.5225", "284.4775"])
+def test_chord_only_supplied_tangent_consistent_with_chord_is_accepted(bundle, bearing):
+    prepared = import_revision(
+        bundle, _revision(bundle, "call-two", structured_input=_supplied_chord_only(bearing))
+    )
+    assert prepared.errors == ()
+    assert prepared.state == "parsed"
+    assert _chord_only_prepared(prepared).bearing_azimuth_deg_from_north == pytest.approx(
+        float(bearing)
+    )

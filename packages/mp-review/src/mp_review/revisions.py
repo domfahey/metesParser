@@ -42,10 +42,10 @@ from mp_models.revisions import (
     RevisionSourceChange,
     bind_baseline,
 )
+from mp_verify.checks import tangent_chord_issue
 from mp_verify.comparison import compare_descriptions
 from mp_verify.dashboard import _hash, _json
 from mp_verify.plot import (
-    CHORD_ONLY_UNRESOLVED_REASON,
     prepare_plot,
     unit_factor,
     validate_prepared_plot,
@@ -322,9 +322,13 @@ def _structured_call(
                 chord_bearing=_quadrant_text(_angle(raw, "chord_bearing")),
                 distance_ft=chord_length,
             )
-            return DeedCall.model_validate(data), cast(
-                Literal["boundary", "tie_in", "reference", "omitted"], role
-            )
+            chord_call = DeedCall.model_validate(data)
+            # A supplied start tangent must agree with the chord bearing, radius and
+            # chord length (shared rounding-aware rule); never store a contradiction.
+            issue = tangent_chord_issue(chord_call)
+            if issue is not None:
+                raise ValueError(issue)
+            return chord_call, cast(Literal["boundary", "tie_in", "reference", "omitted"], role)
         properties = calculate_curve_properties(radius, delta_deg=sweep, arc_length_ft=arc)
         if not 0 < properties["delta_deg"] < 360:
             raise ValueError("Full circles and multiple revolutions unsupported in call editor")
@@ -351,11 +355,10 @@ def _structured_call(
 
 
 def _supported_geometry(geometry: RevisionGeometry) -> bool:
-    """Complete geometry, or every course positioned with only chord-only arcs undrawn."""
+    """Complete geometry, or every course positioned with only chord-positioned courses undrawn."""
     plot = geometry.plot.geometry
     return plot.completeness == "complete" or (
-        bool(plot.primitives)
-        and all(u.reason == CHORD_ONLY_UNRESOLVED_REASON for u in plot.unresolved)
+        bool(plot.primitives) and all(u.positioned for u in plot.unresolved)
     )
 
 
