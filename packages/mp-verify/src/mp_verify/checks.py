@@ -787,6 +787,21 @@ def check_double_entry(calls: list[DeedCall]) -> list[str]:
     return []
 
 
+def _has_curve_fields(call: DeedCall) -> bool:
+    """True when the call states any curve measurement, even without a full curve."""
+    return any(
+        value is not None
+        for value in (
+            call.curve_dir,
+            call.radius_ft,
+            call.delta_deg,
+            call.arc_length_ft,
+            call.chord_length_ft,
+            call.chord_bearing,
+        )
+    )
+
+
 def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list[str]:
     """Compare two entry sets for discrepancies (double-entry validation).
 
@@ -841,7 +856,13 @@ def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list
         if curve1 != curve2:
             discrepancies.append(f"Course {i}: Curve geometry presence mismatch")
 
-        if not (curve1 or curve2):
+        if c1.curve_type != c2.curve_type:
+            discrepancies.append(
+                f"Course {i}: Curve type mismatch - '{c1.curve_type}' vs '{c2.curve_type}'"
+            )
+
+        # A chord-only spiral is not is_curve() but still states curve fields.
+        if not (curve1 or curve2 or _has_curve_fields(c1) or _has_curve_fields(c2)):
             continue
 
         if c1.curve_dir != c2.curve_dir:
