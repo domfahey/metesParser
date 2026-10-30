@@ -1611,6 +1611,49 @@ def _adjoiner_wording(along: str, course_direction: str, course_distance_ft: flo
     return re.sub(r"\s{2,}", " ", along).strip(" ,;.")
 
 
+_N = r"(?:N|S|(?i:north|south))"
+_EW = r"(?:E|W|(?i:east|west))"
+_OUT_OF_RANGE_BEARING = re.compile(
+    rf"\b{_N}\.?\s*(?P<deg>\d{{1,3}}(?:\.\d+)?)\s*(?P<sep>\u00b0|\u00ba|-|(?i:degrees?|deg\b\.?))"
+    rf"(?P<rest>[^;,]{{0,40}}?)\s*(?<![A-Za-z]){_EW}(?![A-Za-z])"
+)
+_BEARING_PART = re.compile(
+    r"\s*(?P<num>\d+(?:\.\d+)?)\s*(?P<mark>['\u2032\u2019]|\"|\u2033|\u201d|(?i:minutes?|min\b\.?"
+    r"|seconds?|sec\b\.?))?\s*-?"
+)
+
+
+def _has_out_of_range_bearing(text: str) -> bool:
+    """Return True when ``text`` holds a quadrant bearing with an out-of-range component.
+
+    One recogniser for letter or spelled cardinals, degree mark, hyphen or words, and
+    any component: degrees above 90, or marked minutes or seconds of 60 or more. Bearing
+    shape is required (cardinal, degrees with a mark, word or hyphen, optional minutes
+    and seconds, cardinal), so "North 91 feet" and identifiers are not bearings, and an
+    unmarked hyphen component alone never makes an identifier a bearing.
+    """
+    for match in _OUT_OF_RANGE_BEARING.finditer(text):
+        rest = match.group("rest")
+        parts: list[re.Match[str]] = []
+        position = 0
+        while position < len(rest.rstrip()):
+            part = _BEARING_PART.match(rest, position)
+            if part is None or part.end() == position:
+                parts = []
+                break
+            parts.append(part)
+            position = part.end()
+        else:
+            if len(parts) > 2:
+                continue
+            if float(match.group("deg")) > 90.0:
+                return True
+            for part in parts:
+                if part.group("mark") and float(part.group("num")) >= 60.0:
+                    return True
+    return False
+
+
 def _extract_call(
     call_text: str, course: int, distance_unit: str = "feet"
 ) -> tuple[DeedCall | None, str]:
@@ -1799,6 +1842,7 @@ def _extract_call(
     if (
         not raw_direction
         and not has_abbreviated_cardinal
+        and not _has_out_of_range_bearing(call_text)
         and not has_curve_geometry
         and not has_boundary_endpoint
         and not detect_meander(call_text)
@@ -1904,6 +1948,14 @@ def _extract_call(
             note_parts.append(AMBIGUOUS_DECIMAL_DEGREES_NOTE)
         else:
             note_parts.append("incomplete bearing")
+    # A stated chord or radial bearing that cannot be read is recorded verbatim, never
+    # dropped; the course is then not cross-checked or chord-positioned.
+    unread_chord = curve_info.get("chord_bearing_unread") if is_curve else None
+    if isinstance(unread_chord, str):
+        note_parts.append(f"chord bearing not read: {unread_chord!r}")
+    unread_radial = curve_info.get("radial_bearing_unread") if is_curve else None
+    if isinstance(unread_radial, str):
+        note_parts.append(f"radial bearing not read: {unread_radial!r}")
     if arc_computed:
         note_parts.append(ARC_COMPUTED_NOTE)
     for key in ("radius_conflict_note", "length_ambiguity_note"):
@@ -1930,17 +1982,9 @@ def _extract_call(
         or along
         or is_meander
         or re.search(r"\b[NS]\s+\d+\u00b0", call_text)
-        # An out-of-range hyphenated bearing ("N 95-30' E") is kept as an incomplete
-        # bearing, like "N 95\u00b0 E"; in-range forms are parsed, identifiers are not.
-        or re.search(
-            r"\b[NS]\s+(?:9[1-9]|[1-9]\d\d)(?:\s*-\s*\d+){1,2}\s*['\u2032\"\u2033]*\s*[EW]\b",
-            call_text,
-        )
-        # ... and so are the same out-of-range degrees written as words.
-        or re.search(
-            r"\b[NS]\s+(?:9[1-9]|[1-9]\d\d)\s*(?:degrees?|deg\b\.?)[^EW;]{0,30}?[EW]\b",
-            call_text,
-        )
+        # An out-of-range bearing (letter or spelled cardinals, degree mark, hyphen or
+        # words, any component) is an incomplete bearing; in-range forms are parsed.
+        or _has_out_of_range_bearing(call_text)
     )
     if not has_direction_intent:
         payload = {
@@ -1993,9 +2037,16 @@ def _extract_call(
         and not direction_conflicts_chord
     )
     chord_only_unresolved = chord_only and not chord_positioned and not chord_states_direction
-    is_indefinite = chord_only_unresolved or is_indefinite_call(
-        direction_text,
-        has_bearing=has_stated_tangent or chord_positioned or chord_states_direction,
+    # A stated chord bearing that was not read leaves the course's geometry unverifiable
+    # (verification would otherwise position it by tangent or radial instead).
+    chord_unread = is_curve and isinstance(curve_info.get("chord_bearing_unread"), str)
+    is_indefinite = (
+        chord_unread
+        or chord_only_unresolved
+        or is_indefinite_call(
+            direction_text,
+            has_bearing=has_stated_tangent or chord_positioned or chord_states_direction,
+        )
     )
 
     curve_type_value = curve_info.get("curve_type")
@@ -2428,6 +2479,19 @@ def _apply_radial_length(
         )
 
 
+_UNREAD_QUADRANT = re.compile(
+    r"\s*((?:N|S|(?i:north|south))\b[^,;]{0,40}?\b(?:E|W|(?i:east|west))\b)"
+)
+_UNREAD_CLAUSE = re.compile(r"\s*([^,;]{1,60}?)\s*(?:\s+and\b|[,;]|$)", re.IGNORECASE)
+
+
+def _stated_unread_bearing(clause: str) -> str | None:
+    """Return the verbatim bearing wording a chord or radial clause states but is unread."""
+    match = _UNREAD_QUADRANT.match(clause) or _UNREAD_CLAUSE.match(clause)
+    text = match.group(1).strip() if match else ""
+    return text or None
+
+
 def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, float | str | None]:
     """Extract curve information from call text.
 
@@ -2525,6 +2589,9 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
             chord_length = _CHORD_LENGTH_AFTER_BEARING.match(chord_text, chord_bearing.end())
         else:
             chord_length = _CHORD_LENGTH_IN_CLAUSE.search(chord_text, 0, chord_clause_end)
+            unread = _stated_unread_bearing(text[chord_match.end() :])
+            if unread:
+                curve_info["chord_bearing_unread"] = unread
         if chord_match.group("chord_lead_len"):
             curve_info["chord_length_ft"] = ConversionFactors.convert_to_feet(
                 parse_number(chord_match.group("chord_lead_len")),
@@ -2589,6 +2656,10 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
         if radial_bearing_match:
             curve_info["radial_bearing"] = radial_bearing_match.group(0)
             _apply_radial_length(curve_info, radial_text, radial_bearing_match.end())
+        else:
+            unread = _stated_unread_bearing(text[radial_match.end() :])
+            if unread:
+                curve_info["radial_bearing_unread"] = unread
 
     return curve_info
 
