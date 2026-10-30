@@ -791,6 +791,8 @@ def _extract_calls_from_text(
     tracts = split_exception_clauses(normalized)
 
     calls: list[DeedCall] = []
+    # Index in ``audit_context.call_audits`` of each call's audit, by call index.
+    audit_index: dict[int, int] = {}
     course_num = course_start
 
     for tract_text, is_exception_tract in tracts:
@@ -925,6 +927,7 @@ def _extract_calls_from_text(
                 transformations, decisions, flags = _audit_single_call(
                     call_text, call, raw_direction
                 )
+                audit_index[len(calls) - 1] = len(audit_context.call_audits)
                 audit_context.call_audits.append(
                     CallAudit(
                         course=course_num,
@@ -963,7 +966,30 @@ def _extract_calls_from_text(
             course_num += 1
 
     calls = _restore_verbatim_records(calls, normalized, source_map)
+    if audit_context is not None:
+        _audit_restored_records(audit_context, audit_index, calls)
     return _with_boundary_notes(calls, notes)
+
+
+def _audit_restored_records(
+    audit_context: AuditContext, audit_index: dict[int, int], calls: list[DeedCall]
+) -> None:
+    """Name each call's record calls in its audit exactly as its notes keep them.
+
+    Record wording is restored to the source wording after the call is audited
+    (``_restore_verbatim_records``); the audit's record-call decisions follow it.
+    """
+    for call_index, position in audit_index.items():
+        audit = audit_context.call_audits[position]
+        noted = iter(_noted_record_calls(calls[call_index].notes))
+        decisions = [
+            decision.model_copy(update={"value": next(noted, decision.value)})
+            if decision.field == "record_call"
+            else decision
+            for decision in audit.decisions
+        ]
+        if decisions != audit.decisions:
+            audit_context.call_audits[position] = audit.model_copy(update={"decisions": decisions})
 
 
 def _blank_keeping_lines(text: str, start: int, end: int) -> str:
@@ -1055,8 +1081,8 @@ def _verbatim_note(note: str, source: str) -> str:
 def _with_boundary_notes(calls: list[DeedCall], notes: list[str]) -> list[DeedCall]:
     """Record ``notes`` on the boundary's closing course (the last non-exception call).
 
-    Notes go before any record-call wording, which ``_noted_record_calls`` reads
-    as the last parts of the notes.
+    Notes go before the course's record-call notes; notes are read by prefix
+    (``split_notes``), so their order is presentation only.
     """
     if not notes:
         return calls
@@ -1068,16 +1094,14 @@ def _with_boundary_notes(calls: list[DeedCall], notes: list[str]) -> list[DeedCa
     index = next(
         (i for i in range(len(calls) - 1, -1, -1) if not calls[i].is_exception), len(calls) - 1
     )
-    existing = calls[index].notes or ""
-    marker = "; " + RECORD_CALL_NOTE_PREFIX
-    if existing.startswith(RECORD_CALL_NOTE_PREFIX):
-        head, tail = "", existing
-    elif marker in existing:
-        split = existing.index(marker)
-        head, tail = existing[:split], existing[split + 2 :]
-    else:
-        head, tail = existing, ""
-    combined = "; ".join(part for part in (head, *notes, tail) if part)
+    # Set-aside notes go before the course's own record-call notes; every note is
+    # read by its prefix (``split_notes``), never by its position.
+    parts = split_notes(calls[index].notes)
+    at = next(
+        (i for i, part in enumerate(parts) if part.startswith(RECORD_CALL_NOTE_PREFIX)),
+        len(parts),
+    )
+    combined = "; ".join([*parts[:at], *notes, *parts[at:]])
     updated = calls[index].model_copy(update={"notes": combined})
     return [*calls[:index], updated, *calls[index + 1 :]]
 
@@ -1174,10 +1198,16 @@ def _restore_verbatim_records(
             if match:
                 position = match.end()
             verbatim.append(source if source is not None else wording)
-        if verbatim != noted and call.notes:
-            head = call.notes[: call.notes.index(RECORD_CALL_NOTE_PREFIX)]
-            notes = head + "; ".join(RECORD_CALL_NOTE_PREFIX + text for text in verbatim)
-            call = call.model_copy(update={"notes": notes})
+        if verbatim != noted:
+            # Replace each record-call note in place; every other note is kept as is.
+            replacements = iter(verbatim)
+            parts = [
+                RECORD_CALL_NOTE_PREFIX + next(replacements)
+                if part.startswith(RECORD_CALL_NOTE_PREFIX)
+                else part
+                for part in split_notes(call.notes)
+            ]
+            call = call.model_copy(update={"notes": "; ".join(parts)})
         restored.append(call)
     return restored
 
@@ -1963,8 +1993,9 @@ class _RecordScan(NamedTuple):
     # Each other bracketed group holding a length, verbatim, and whether it only
     # describes a feature (states no course-capable length: "(50 feet wide)").
     parentheticals: tuple[tuple[str, bool], ...] = ()
-    # Spans of ``call_text`` that are the course's own readings, not an adjoiner: the
-    # record calls and the measured groups, so ``along`` is built without them.
+    # Spans of ``call_text`` that are not along/to wording: the course's own readings
+    # (record calls, measured groups) and the alternative-length parentheticals, which
+    # are kept in notes; ``along`` and ``to`` are built without them.
     drop_spans: tuple[tuple[int, int], ...] = ()
 
 
@@ -2231,6 +2262,7 @@ def _scan_record_calls(call_text: str) -> _RecordScan:
     spans: list[tuple[int, int]] = []
     measured_groups: list[tuple[int, int]] = []
     parentheticals: list[tuple[str, bool]] = []
+    alternatives: list[tuple[int, int]] = []
     for start, end, closed in _bracket_groups(course_text):
         inner_start = start + 1
         inner = course_text[inner_start : end - 1 if closed else end]
@@ -2239,6 +2271,9 @@ def _scan_record_calls(call_text: str) -> _RecordScan:
             stated = read_course_length(inner)
             describes = stated.value == 0.0 and not stated.ambiguous
             parentheticals.append((call_text[start:end].strip(), describes))
+            if not describes:
+                # An alternative length is noted verbatim, so it is not along/to wording.
+                alternatives.append((start, end))
         if role == "record":
             spans.append((start, end))
             text = _blank(text, start, end)
@@ -2278,7 +2313,7 @@ def _scan_record_calls(call_text: str) -> _RecordScan:
         text + call_text[len(course_text) :],
         records,
         tuple(parentheticals),
-        tuple(sorted(merged + measured_groups)),
+        tuple(sorted(merged + measured_groups + alternatives)),
     )
 
 
@@ -2306,17 +2341,12 @@ def _parenthetical_notes(
 
 
 def _noted_record_calls(notes: str | None) -> list[str]:
-    """Return the record-call wording kept in ``notes`` (always its last parts)."""
-    if not notes:
-        return []
-    marker = "; " + RECORD_CALL_NOTE_PREFIX
-    if notes.startswith(RECORD_CALL_NOTE_PREFIX):
-        rest = notes[len(RECORD_CALL_NOTE_PREFIX) :]
-    elif marker in notes:
-        rest = notes[notes.index(marker) + len(marker) :]
-    else:
-        return []
-    return rest.split(marker)
+    """Return the record-call wording kept in ``notes``, in order, wherever noted."""
+    return [
+        part[len(RECORD_CALL_NOTE_PREFIX) :]
+        for part in split_notes(notes)
+        if part.startswith(RECORD_CALL_NOTE_PREFIX)
+    ]
 
 
 def _without_pairs(text: str, pairs: list[_BearingPair]) -> str:
@@ -2406,6 +2436,9 @@ def _length_count(text: str) -> int:
     )
 
 
+_PASSING_SEGMENT = re.compile(r"\s*(?:and\s+)?passing\b", re.IGNORECASE)
+
+
 def _split_multi_course_fragment(call_text: str) -> list[str]:
     """Split a fragment holding several complete courses when that is safe.
 
@@ -2413,8 +2446,8 @@ def _split_multi_course_fragment(call_text: str) -> list[str]:
     ``MultipleCoursesError``. Pieces are cut at ';' and where one course's length runs straight into the
     next bearing (``_JUXTAPOSED_COURSE_BOUNDARY``). Safe means every piece is
     itself exactly one complete course, apart from
-    pieces with no bearing and no length (descriptive wording, kept with the
-    course before it). A piece opening with an enumerator the course-list
+    pieces with no bearing and no length (descriptive wording) and passing calls
+    with no bearing, both kept with the course before it. A piece opening with an enumerator the course-list
     detector did not accept (out of sequence), or one with a bearing but no
     complete course, is never split off; the fragment is then returned whole and
     stays rejected.
@@ -2431,7 +2464,12 @@ def _split_multi_course_fragment(call_text: str) -> list[str]:
             continue
         complete, has_bearing = _boundary_course_reading(segment)
         complete = _segment_course_count(segment)
-        if complete == 0 and not has_bearing and not _LENGTH_TOKEN.search(segment):
+        # Descriptive wording, or a passing call ("; passing a pipe at 30 feet"),
+        # stays with the course before it.
+        passing = _PASSING_SEGMENT.match(segment) is not None
+        if complete == 0 and not has_bearing and (passing or not _LENGTH_TOKEN.search(segment)):
+            if passing and not pieces:
+                return [call_text]
             if pieces:
                 pieces[-1] += ";" + segment
             else:
@@ -2842,6 +2880,9 @@ def _extract_call(
         raise ValueError("Missing boundary course distance")
 
     clause = extract_course_clause(call_text, record_scan.drop_spans)
+    if clause.unattached:
+        # Stated wording that no field keeps is never dropped silently.
+        raise ValueError(f"course wording after ';' not attached: {clause.unattached[0]!r}")
     along, to = clause.along, clause.to
     if along and not is_curve:
         along = _adjoiner_wording(
@@ -2919,7 +2960,7 @@ def _extract_call(
     if length_not_determined:
         note_parts.append(LENGTH_NOT_DETERMINED_NOTE)
     note_parts.extend(_parenthetical_notes(record_scan.parentheticals, along, to, clause.passing))
-    # A record call is never read as the course; keep its wording (always last).
+    # A record call is never read as the course; keep its wording verbatim.
     note_parts.extend(RECORD_CALL_NOTE_PREFIX + text for text in record_scan.records)
     # A passing call locates a point on the line; it is kept verbatim, never dropped.
     note_parts.extend(PASSING_CALL_NOTE_PREFIX + text for text in clause.passing)
