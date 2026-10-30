@@ -302,3 +302,32 @@ class TestEnrichCallsWithAzimuths:
         ]
         result = enrich_calls_with_azimuths(calls)
         assert result[0].bearing_azimuth_deg_from_north == 45.0
+
+
+class TestChordBearingNotTangent:
+    CURVE = (
+        "thence along a curve to the right having a radius of 100.00 feet, "
+        "a delta of 90°00'00\", an arc length of 157.08 feet, chord bears {chord} 141.42 feet"
+    )
+
+    def test_abbreviated_and_spelled_chord_agree(self) -> None:
+        from mp_parse.calls import extract_single_call
+
+        a = extract_single_call(self.CURVE.format(chord="N 45°00'00\" E"), 1)
+        b = extract_single_call(self.CURVE.format(chord="North 45°00'00\" East"), 1)
+        assert a is not None and b is not None
+        assert a.bearing_azimuth_deg_from_north == b.bearing_azimuth_deg_from_north
+        assert abs(a.bearing_azimuth_deg_from_north) < 1e-6
+        assert a.bearing_quadrant is None
+        assert "derived from chord bearing" in (a.notes or "")
+
+    def test_separate_tangent_bearing_kept(self) -> None:
+        from mp_parse.calls import extract_single_call
+
+        text = (
+            "thence N 10°00'00\" E along a curve to the right having a radius of 100.00 feet, "
+            "a delta of 90°00'00\", an arc length of 157.08 feet, chord bears N 55°00'00\" E 141.42 feet"
+        )
+        c = extract_single_call(text, 1)
+        assert c is not None
+        assert c.bearing_azimuth_deg_from_north == 10.0
