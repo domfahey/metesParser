@@ -141,7 +141,7 @@ def _near(a: tuple[float, float], b: tuple[float, float]) -> bool:
     )
 
 
-def _vertices(feature: WebMapFeature) -> list[tuple[float, float]]:
+def feature_vertices(feature: WebMapFeature) -> list[tuple[float, float]]:
     geometry = feature.geometry
     if isinstance(geometry, WebMapPoint):
         return [geometry.coordinates]
@@ -211,7 +211,7 @@ def _validate_completeness(context: WebMapContext, artifact: WebMapArtifact, sce
                 and ("raster", raster.id) not in omitted
             ):
                 raise ValueError("online display is incomplete: raster neither shown nor omitted")
-    points = [p for f in artifact.features for p in _vertices(f)]
+    points = [p for f in artifact.features for p in feature_vertices(f)]
     points.extend(p for r in artifact.rasters for p in r.corners)
     if points:
         expected = (
@@ -246,7 +246,7 @@ def _validate_deed_set(geometry: PlotGeometry, features: list[WebMapFeature]) ->
             "online display is incomplete: expected courses, point of beginning or closure gap"
         )
     by_call = {f.properties.call_id: f for f in courses}
-    chain = [_vertices(by_call[p.call_id]) for p in primitives]
+    chain = [feature_vertices(by_call[p.call_id]) for p in primitives]
     if any(len(c) < 2 for c in chain):
         raise ValueError("online display coordinate mismatch: course has no extent")
     for (a, b), (ca, cb) in zip(
@@ -257,10 +257,10 @@ def _validate_deed_set(geometry: PlotGeometry, features: list[WebMapFeature]) ->
         joined = math.hypot(a.end[0] - b.start[0], a.end[1] - b.start[1]) <= _NATIVE_JOIN_TOLERANCE
         if joined and not _near(ca[-1], cb[0]):
             raise ValueError("online display coordinate mismatch: chained courses do not meet")
-    if not _near(_vertices(pobs[0])[0], chain[0][0]):
+    if not _near(feature_vertices(pobs[0])[0], chain[0][0]):
         raise ValueError("online display coordinate mismatch: point of beginning")
     if gaps:
-        gap = _vertices(gaps[0])
+        gap = feature_vertices(gaps[0])
         if not (_near(gap[0], chain[-1][-1]) and _near(gap[-1], chain[0][0])):
             raise ValueError("online display coordinate mismatch: closure gap endpoints")
 
