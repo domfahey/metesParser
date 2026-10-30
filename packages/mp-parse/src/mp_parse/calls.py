@@ -1479,7 +1479,12 @@ def extract_single_call(
         distance_unit: Primary distance unit
 
     Returns:
-        DeedCall object or None if parsing fails
+        The parsed DeedCall, or None for a BEGINNING/COMMENCING/POB clause (no course).
+
+    Raises:
+        MultipleCoursesError: The text states more than one complete course.
+        ValueError: A course is present but unusable (e.g. ambiguous length or an
+            unsupported compound distance component); parsing never returns None for it.
     """
     return _extract_call(call_text, course, distance_unit)[0]
 
