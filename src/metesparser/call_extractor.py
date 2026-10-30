@@ -701,6 +701,38 @@ def _distance_audit_source(call_text: str, call: DeedCall) -> tuple[str, str | N
     return f"{distance} {unit}", None
 
 
+# "radius point bears N 10 E 500.00 feet": the length right after a radial bearing is
+# the radius (to the radius point or center).
+_RADIAL_RADIUS_AFTER_BEARING = re.compile(
+    r"\s*,?\s*(?:(?:and|for)\s+)?(?:(?:a|the)\s+)?(?:(?:radius|distance)\s+of\s+)?"
+    rf"({_COMMA_NUMBER})\s*({_UNIT_TOKEN})\b",
+    re.IGNORECASE,
+)
+RADIUS_CONFLICT_NOTE = (
+    "radius conflict: radius of {stated:g} ft stated; radial bearing clause gives "
+    "{radial:g} ft (stated radius kept)"
+)
+
+
+def _apply_radial_length(
+    curve_info: dict[str, float | str | None], radial_text: str, bearing_end: int
+) -> None:
+    """Read the radius from the length following a radial bearing (never overrides)."""
+    length = _RADIAL_RADIUS_AFTER_BEARING.match(radial_text, bearing_end)
+    if not length:
+        return
+    radial_radius = ConversionFactors.convert_to_feet(
+        parse_comma_number(length.group(1)), _normalize_unit_token(length.group(2))
+    )
+    stated = curve_info.get("radius_ft")
+    if not isinstance(stated, float):
+        curve_info["radius_ft"] = radial_radius
+    elif abs(stated - radial_radius) > max(0.01, 1e-3 * abs(stated)):
+        curve_info["radius_conflict_note"] = RADIUS_CONFLICT_NOTE.format(
+            stated=stated, radial=radial_radius
+        )
+
+
 class CallExtractor:
     """Extract and structure deed calls from legal description text."""
 
@@ -1134,6 +1166,9 @@ class CallExtractor:
             note_parts.append("incomplete bearing")
         if arc_computed:
             note_parts.append(_ARC_COMPUTED_NOTE)
+        radius_conflict = curve_info.get("radius_conflict_note")
+        if isinstance(radius_conflict, str):
+            note_parts.append(radius_conflict)
         if length_not_determined:
             note_parts.append(_LENGTH_NOT_DETERMINED_NOTE)
         notes = "; ".join(note_parts)
@@ -1680,11 +1715,11 @@ class CallExtractor:
             # does not also call the curve tangent.
             if not _TANGENT_STATEMENT_PATTERN.search(text):
                 curve_info["non_tangent"] = True
-            radial_bearing_match, _ = _reference_bearing(
-                _normalize_bearing_forms(text[radial_match.end() :]), 0, packed=False
-            )
+            radial_text = _normalize_bearing_forms(text[radial_match.end() :])
+            radial_bearing_match, _ = _reference_bearing(radial_text, 0, packed=False)
             if radial_bearing_match:
                 curve_info["radial_bearing"] = radial_bearing_match.group(0)
+                _apply_radial_length(curve_info, radial_text, radial_bearing_match.end())
 
         return curve_info
 
