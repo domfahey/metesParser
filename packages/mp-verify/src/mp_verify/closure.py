@@ -287,6 +287,9 @@ def verify_closure(
         list[ClosureResult] when tracts is provided (one per tract).
     """
     if tracts is not None:
+        if audit_context is not None:
+            # Reflect only the latest multi-tract run (mirrors verification_audit overwrite).
+            audit_context.tract_verification_audits = []
         results: list[ClosureResult] = []
         for tract in tracts:
             # Scratch context per tract so tracts never overwrite each other's audit.
