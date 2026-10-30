@@ -9,6 +9,7 @@ from mp_models.webmap import StandaloneWebMapInput
 from mp_verify.webmap import normalize_web_map_context
 
 from .plot_html import render_plot
+from .raster_guard import require_upright_raster
 
 
 def _escape(value: object) -> str:
@@ -33,6 +34,8 @@ def render_map_evidence(prepared: StandaloneWebMapInput) -> str:
         f'sandbox="allow-scripts" srcdoc="{_escape(render_plot(plot))}"></iframe></section>'
         for plot in prepared.plots
     )
+    for layer in context.raster_layers:
+        require_upright_raster(layer)
     rasters = "".join(
         f"<section><h3>{_escape(raster.label)}</h3>"
         f'<img alt="Original supplied scan: {_escape(raster.label)}" '
