@@ -2,9 +2,67 @@
 
 from __future__ import annotations
 
+import re
+import unicodedata
+
 # A number directly after a degree sign (or digit/point/comma) is a bearing's
-# minutes or part of a larger number, never a length.
-LENGTH_NUMBER_GUARD = r"(?<![\d.,\u00b0])(?<!\u00b0\s)"
+# minutes or part of a larger number, never a length; after a fraction slash it
+# is a fraction's denominator.
+LENGTH_NUMBER_GUARD = r"(?<![\d.,\u00b0/\u2044])(?<!\u00b0\s)"
+
+# --- The one length-number grammar -------------------------------------------------
+# Every length, curve-element, compound and inch value is read with LENGTH_NUMBER
+# and converted with ``parse_number``: an integer or decimal with comma grouping
+# ("1,200.50"), a mixed fraction ("100 1/2", "100-1/2", "6\u00bd", "6 \u00bd"), a
+# plain fraction ("3/4") or a Unicode vulgar fraction ("\u00bd"). A match never
+# starts inside a fraction (after its slash, or at its numerator when a whole
+# number precedes it) and never stops before one, so a half-read number ("100.5
+# 1/2", "1/2/3", "1/0") is no length at all rather than a fragment of one.
+VULGAR_FRACTIONS = (
+    "\u00bc\u00bd\u00be\u2150\u2151\u2152\u2153\u2154\u2155"
+    "\u2156\u2157\u2158\u2159\u215a\u215b\u215c\u215d\u215e"
+)
+_VULGAR = f"[{VULGAR_FRACTIONS}]"
+_FRACTION_SLASH = r"[/\u2044]"
+_FRACTION = rf"\d+{_FRACTION_SLASH}0*[1-9]\d*"
+_WHOLE = r"\d(?:[\d,]*\d)?"
+_MIXED_GAP = r"(?:\s*-\s*|\s+)"
+# A fraction (or lone vulgar fraction) never starts after a whole number and a gap
+# (it would be read without the whole number).
+_NO_WHOLE_BEFORE = r"(?<!\d\s)(?<!\d\s\s)(?<!\d,\s)(?<!\d-)(?<!\d\s-)(?<!\d-\s)"
+_NUMBER_END = rf"(?!\d|[.,]\d|{_FRACTION_SLASH}|{_VULGAR}|\s*-?\s*\d+{_FRACTION_SLASH}\d)"
+LENGTH_NUMBER = (
+    rf"{LENGTH_NUMBER_GUARD}(?:{_WHOLE}{_MIXED_GAP}{_FRACTION}|{_WHOLE}\s*{_VULGAR}"
+    rf"|{_WHOLE}(?:\.\d+)?|{_NO_WHOLE_BEFORE}{_FRACTION}|{_NO_WHOLE_BEFORE}{_VULGAR})"
+    rf"{_NUMBER_END}"
+)
+_NUMBER_FORM = re.compile(
+    rf"(?P<decimal>{_WHOLE}(?:\.\d+)?)"
+    rf"|(?:(?P<whole>{_WHOLE})(?:{_MIXED_GAP}(?=\d)|\s*(?={_VULGAR})))?"
+    rf"(?:(?P<num>\d+){_FRACTION_SLASH}(?P<den>\d+)|(?P<vulgar>{_VULGAR}))"
+)
+
+
+def parse_number(text: str) -> float:
+    """Convert one LENGTH_NUMBER match to a float ("100 1/2" -> 100.5, "\u00be" -> 0.75).
+
+    Raises ValueError for anything that is not exactly one such number, so a
+    fragment is never read.
+    """
+    form = _NUMBER_FORM.fullmatch(text.strip())
+    if form is None:
+        raise ValueError(f"not a length number: {text!r}")
+    if form.group("decimal") is not None:
+        return float(form.group("decimal").replace(",", ""))
+    value = float(form.group("whole").replace(",", "")) if form.group("whole") else 0.0
+    if form.group("vulgar") is not None:
+        return value + unicodedata.numeric(form.group("vulgar"))
+    denominator = int(form.group("den"))
+    if denominator == 0:
+        raise ValueError(f"zero denominator: {text!r}")
+    return value + int(form.group("num")) / denominator
+
+
 FOOT_MARKS = ("'", "\u2032")
 
 UNIT_TOKEN = (
