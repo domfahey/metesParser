@@ -2067,7 +2067,7 @@ def _extract_call(
     elif positioned_by_chord:
         tangent_notes.append("curve delta/arc not stated - positioned by chord only")
     if is_spiral and positioned_by_chord and not isinstance(stated_radius, float):
-        tangent_notes.append("spiral positioned by stated chord; radius not stated")
+        tangent_notes.append("radius not stated")
     if direction_conflicts_chord and raw_direction:
         tangent_notes.append(
             f"stated direction ({raw_direction.strip().lower()}) conflicts with "

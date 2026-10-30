@@ -26,7 +26,7 @@ DEED = (
     + COURSE
     + " to a point; thence S 0° E 100 feet; thence S 90° W 100 feet to the point of beginning."
 )
-NOTE = "spiral positioned by stated chord; radius not stated"
+NOTE = "spiral positioned by its stated chord only; radius not stated"
 
 MODELS = {"package": mp_models, "monolith": monolith_models}
 EXTRACT_SINGLE = {
@@ -90,6 +90,7 @@ def test_single_call_parses_chord_only_spiral(impl):
     assert call.chord_length_ft == pytest.approx(100.0)
     assert call.distance_ft == pytest.approx(100.0)
     assert NOTE in (call.notes or "")
+    assert (call.notes or "").count("positioned by") == 1
 
 
 @pytest.mark.parametrize("strict", [True, False], ids=["strict", "non-strict"])
