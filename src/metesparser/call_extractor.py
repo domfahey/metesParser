@@ -523,7 +523,7 @@ class CallExtractor:
     """Extract and structure deed calls from legal description text."""
 
     CURVE_PATTERN = re.compile(
-        rf"curve\s+to\s+the\s+(left|right).*?radius\s+of\s+({_COMMA_NUMBER})\s*({_UNIT_TOKEN})?.*?"
+        rf"curv(?:e|ed|ing)\s+to\s+the\s+(left|right).*?radius\s+of\s+({_COMMA_NUMBER})\s*({_UNIT_TOKEN})?.*?"
         rf"(?:delta\s+(?:angle\s+)?of\s+)?({_COMMA_NUMBER})(?:°|\s+degrees?)(?:\s*({_COMMA_NUMBER})(?:'|\s+minutes?))?(?:\s*({_COMMA_NUMBER})(?:\"|\s+seconds?))?",
         re.IGNORECASE | re.DOTALL,
     )
@@ -1294,7 +1294,7 @@ class CallExtractor:
         """
         curve_info: dict[str, float | str | None] = {}
 
-        if not re.search(r"\b(?:curve|spiral|transition)\b", text, re.IGNORECASE):
+        if not re.search(r"\b(?:curv(?:e|ed|ing)|spiral|transition)\b", text, re.IGNORECASE):
             return curve_info
 
         match = cls.CURVE_PATTERN.search(text)
@@ -1315,7 +1315,7 @@ class CallExtractor:
                 delta_deg += parse_comma_number(match.group(6)) / 3600.0
 
             arc_length_match = re.search(
-                rf"arc\s+(?:length|distance)\s+(?:of\s+)?({_COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
+                rf"(?:arc\s+(?:length|distance)|distance\s+along\s+the\s+arc|arc)(?:\s+of)?\s+({_COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
                 text,
                 re.IGNORECASE,
             )
@@ -1335,7 +1335,9 @@ class CallExtractor:
                 curve_info["arc_length_ft"] = arc_length
 
         else:
-            dir_match = re.search(r"curve\s+to\s+the\s+(left|right)", text, re.IGNORECASE)
+            dir_match = re.search(
+                r"curv(?:e|ed|ing)\s+to\s+the\s+(left|right)", text, re.IGNORECASE
+            )
             if dir_match:
                 curve_info["direction"] = dir_match.group(1).lower()
 
@@ -1362,7 +1364,7 @@ class CallExtractor:
                 curve_info["delta_deg"] = delta
 
             arc_match = re.search(
-                rf"arc\s+(?:length|distance)\s+(?:of\s+)?({_COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
+                rf"(?:arc\s+(?:length|distance)|distance\s+along\s+the\s+arc|arc)(?:\s+of)?\s+({_COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
                 text,
                 re.IGNORECASE,
             )
