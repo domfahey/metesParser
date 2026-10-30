@@ -77,7 +77,7 @@ ARC_COMPUTED_NOTE = "arc length not stated - course distance computed from radiu
 ARC_COMPUTED_RULE = "curve: distance is the arc computed from the stated radius and delta"
 
 CURVE_PATTERN = re.compile(
-    rf"curve\s+to\s+the\s+(left|right).*?radius\s+of\s+({COMMA_NUMBER})\s*({_UNIT_TOKEN})?.*?"
+    rf"curv(?:e|ed|ing)\s+to\s+the\s+(left|right).*?radius\s+of\s+({COMMA_NUMBER})\s*({_UNIT_TOKEN})?.*?"
     rf"(?:delta\s+(?:angle\s+)?of\s+)?({COMMA_NUMBER})(?:\u00b0|\s+degrees?)(?:\s*({COMMA_NUMBER})(?:'|\s+minutes?))?(?:\s*({COMMA_NUMBER})(?:\"|\s+seconds?))?",
     re.IGNORECASE | re.DOTALL,
 )
@@ -1274,7 +1274,7 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
     """
     curve_info: dict[str, float | str | None] = {}
 
-    if not re.search(r"\b(?:curve|spiral|transition)\b", text, re.IGNORECASE):
+    if not re.search(r"\b(?:curv(?:e|ed|ing)|spiral|transition)\b", text, re.IGNORECASE):
         return curve_info
 
     match = CURVE_PATTERN.search(text)
@@ -1295,7 +1295,7 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
             delta_deg += parse_comma_number(match.group(6)) / 3600.0
 
         arc_length_match = re.search(
-            rf"arc\s+(?:length|distance)\s+(?:of\s+)?({COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
+            rf"(?:arc\s+(?:length|distance)|distance\s+along\s+the\s+arc|arc)(?:\s+of)?\s+({COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
             text,
             re.IGNORECASE,
         )
@@ -1315,7 +1315,7 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
             curve_info["arc_length_ft"] = arc_length
 
     else:
-        dir_match = re.search(r"curve\s+to\s+the\s+(left|right)", text, re.IGNORECASE)
+        dir_match = re.search(r"curv(?:e|ed|ing)\s+to\s+the\s+(left|right)", text, re.IGNORECASE)
         if dir_match:
             curve_info["direction"] = dir_match.group(1).lower()
 
@@ -1342,7 +1342,7 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
             curve_info["delta_deg"] = delta
 
         arc_match = re.search(
-            rf"arc\s+(?:length|distance)\s+(?:of\s+)?({COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
+            rf"(?:arc\s+(?:length|distance)|distance\s+along\s+the\s+arc|arc)(?:\s+of)?\s+({COMMA_NUMBER})\s*({_UNIT_TOKEN})?",
             text,
             re.IGNORECASE,
         )
