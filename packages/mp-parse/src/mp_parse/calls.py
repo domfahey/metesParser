@@ -57,7 +57,7 @@ from .monuments import (
 )
 from .normalizer import normalize_legal_description, standardize_cardinal_directions
 from .numbers import COMMA_NUMBER, parse_comma_number
-from .units import LENGTH_UNIT, UNIT_TOKEN, normalize_unit_token
+from .units import LENGTH_NUMBER_GUARD, LENGTH_UNIT, UNIT_TOKEN, normalize_unit_token
 
 logger = structlog.get_logger(__name__)
 
@@ -447,53 +447,95 @@ _TRAILING_LEAD = re.compile(
     r"|the\s+above\s+described|containing|excepting|reserving|said\s+premises)\b",
     re.IGNORECASE,
 )
+# A return to the point of beginning, wherever it stands in a fragment.
 _CLOSING_PHRASE = re.compile(
-    r"\bto\s+(?:the\s+)?(?:first\s+mentioned\s+)?(?:point|place)(?:\s+(?:and|or)\s+place)?"
-    r"\s+of\s+beginning\b",
+    r"\bto\s+(?:the\s+)?(?:(?:first\s+mentioned|true|remote)\s+)?"
+    r"(?:(?:point|place)(?:\s+(?:and|or)\s+place)?\s+of\s+)?beginning\b"
+    r"|\bto\s+(?:the\s+)?(?:[TR]?POB\b|[TR]\.P\.O\.B\.)",
     re.IGNORECASE,
 )
+_SENTENCE_END = re.compile(r"\.(?=\s|$)|;")
+_BLOCK_LEAD = re.compile(r"(?:BEGINNING|COMMENCING|POB|POINT)", re.IGNORECASE)
+_BEGINNING_BLOCK = re.compile(r"\b(?:BEGINNING|COMMENCING)\s+(?:at|in|on|for|from)\b", re.I)
 _COURSE_DISTANCE = re.compile(
-    r"\d[\d,.]*\s*(?:'|feet|foot|ft\b|rods?|poles?|chains?|links?|perch(?:es)?|miles?|"
-    r"meters?|metres?|varas?|m\b)",
+    rf"{LENGTH_NUMBER_GUARD}\d[\d,.]*\s*{LENGTH_UNIT}",
     re.IGNORECASE,
 )
-
-
-def _trailing_start(call_texts: list[str]) -> int:
-    """Return the index of the first fragment after the description's last course.
-
-    The description ends at its closing course (the last fragment returning to
-    the point of beginning) or, failing that, where a metadata boundary
-    ("Subject to", "BEING the same", ...) leads a fragment after a course.
-    """
-    end = len(call_texts)
-    for index, text in enumerate(call_texts):
-        if index > 0 and _TRAILING_LEAD.match(text.lstrip()):
-            end = index
-            break
-    for index in range(end - 1, -1, -1):
-        if is_closure_to_pob(call_texts[index]) or _CLOSING_PHRASE.search(call_texts[index][-80:]):
-            return index + 1
-    return end
 
 
 def _states_complete_course(text: str) -> bool:
-    """Return whether text states a bearing (or curve) together with a distance."""
-    has_bearing = bool(
-        extract_direction(text)
-        or re.search(r"\b(?:[NSEW])\s+\d", text, re.I)
-        or CURVE_KEYWORD_PATTERN.search(text)
+    """Return whether text states a bearing (or curve) together with a distance.
+
+    A bearing too malformed to read still counts as stated, so its course fails closed.
+    """
+    if not _COURSE_DISTANCE.search(text):
+        return False
+    if re.search(r"\b(?:[NSEW])\s+\d", text, re.I) or CURVE_KEYWORD_PATTERN.search(text):
+        return True
+    try:
+        return bool(extract_direction(text))
+    except ValueError:
+        return True
+
+
+def _course_region(call_texts: list[str], *, starts_with_course: bool) -> range:
+    """Return the indices of a tract's course fragments, cutting its closing course.
+
+    The region starts at the first fragment (``starts_with_course``: the text
+    begins with its first course or right after its BEGINNING/COMMENCING block),
+    otherwise at the first fragment stating a complete course or following a
+    BEGINNING/COMMENCING block. It ends at the closing course: the last fragment
+    returning to the point of beginning anywhere in it, before any metadata lead
+    ("Subject to", "BEING the same", ...); failing that, at that lead.
+
+    The closing fragment is cut in place at the end of its closing sentence; a
+    cut-off remainder stating a complete course (not a BEGINNING/COMMENCING tie)
+    is kept as the next fragment.
+    Fragments outside the region are not course material unless they state a
+    complete course.
+    """
+    start = 0
+    if not starts_with_course:
+        start = next(
+            (
+                index + 1
+                if _BEGINNING_BLOCK.search(text) and index + 1 < len(call_texts)
+                else index
+                for index, text in enumerate(call_texts)
+                if _states_complete_course(text) or _BEGINNING_BLOCK.search(text)
+            ),
+            0,
+        )
+    lead_end = next(
+        (
+            index
+            for index in range(start + 1, len(call_texts))
+            if _TRAILING_LEAD.match(call_texts[index].lstrip())
+        ),
+        len(call_texts),
     )
-    return has_bearing and bool(_COURSE_DISTANCE.search(text))
+    for index in range(lead_end - 1, start - 1, -1):
+        text = call_texts[index]
+        closings = list(_CLOSING_PHRASE.finditer(text))
+        if not closings:
+            continue
+        sentence_end = _SENTENCE_END.search(text, closings[-1].end())
+        if sentence_end:
+            head, tail = text[: sentence_end.end()], text[sentence_end.end() :].strip()
+            # As in split_into_calls, a BEGINNING/COMMENCING tie is not a course.
+            keep_tail = tail and _states_complete_course(tail) and not _BLOCK_LEAD.match(tail)
+            call_texts[index : index + 1] = [head, tail] if keep_tail else [head]
+        return range(start, index + 1)
+    return range(start, lead_end)
 
 
-def _is_trailing_text(call_texts: list[str], source_course: int, call_text: str) -> bool:
-    """Return whether a fragment is non-course text after the description's end.
+def _is_outside_region(region: range, index: int, call_text: str) -> bool:
+    """Return whether a fragment is non-course text outside the course region.
 
     Text that states a complete course (bearing or curve plus distance) is never
-    trailing text: it stays a recorded or raised course.
+    outside: it stays a recorded or raised course.
     """
-    return source_course > _trailing_start(call_texts) and not _states_complete_course(call_text)
+    return index not in region and not _states_complete_course(call_text)
 
 
 def _extract_calls_from_text(
@@ -567,6 +609,8 @@ def _extract_calls_from_text(
             for part in split_into_calls(tract_text, course_lists=course_lists)
             if not COURSE_LIST_MARKER.fullmatch(part)
         ]
+        starts_with_course = bool(has_beginning_preamble) or has_initial_course
+        region = _course_region(call_texts, starts_with_course=starts_with_course)
 
         source_course = 0
         while source_course < len(call_texts):
@@ -582,9 +626,10 @@ def _extract_calls_from_text(
                     if len(pieces) > 1:
                         # Each piece is one complete course; extract them in turn.
                         call_texts[source_course - 1 : source_course] = pieces
+                        region = _course_region(call_texts, starts_with_course=starts_with_course)
                         source_course -= 1
                         continue
-                if _is_trailing_text(call_texts, source_course, call_text):
+                if _is_outside_region(region, source_course - 1, call_text):
                     continue
                 if strict:
                     raise ValueError(
@@ -606,9 +651,10 @@ def _extract_calls_from_text(
                 continue
 
             if call is None:
-                # Text after the closing course (exception lists, form text) is
-                # not course material, unless it states a complete course.
-                if _is_trailing_text(call_texts, source_course, call_text):
+                # Text before the first or after the closing course (cover sheets,
+                # exception lists, form text) is not course material, unless it
+                # states a complete course.
+                if _is_outside_region(region, source_course - 1, call_text):
                     continue
                 explicit_course = has_thence_marker or has_numbered_course_markers
                 if (
