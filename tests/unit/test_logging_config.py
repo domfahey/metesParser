@@ -214,3 +214,40 @@ def test_configure_logging_rejects_invalid_settings() -> None:
 
     with pytest.raises(ValueError, match="Invalid log format"):
         configure_logging(log_format="yaml", stream=io.StringIO())
+
+
+_PACKAGE_LOGGER_NAMES = (
+    "mp_models",
+    "mp_bearing",
+    "mp_ocr",
+    "mp_parse",
+    "mp_verify",
+    "mp_export",
+    "mp_review",
+)
+
+
+def test_library_mode_routes_package_warnings_to_configured_handler() -> None:
+    stream = io.StringIO()
+    configure_logging(level="INFO", log_format="json", stream=stream)
+
+    structlog.get_logger("mp_parse.calls").warning("Skipping malformed call", course=3)
+
+    lines = _json_lines(stream)
+
+    assert lines[0]["event"] == "Skipping malformed call"
+    assert lines[0]["level"] == "warning"
+    assert lines[0]["logger"] == "mp_parse.calls"
+    assert lines[0]["course"] == 3
+
+
+def test_library_mode_reconfigure_does_not_duplicate_package_output() -> None:
+    stream = io.StringIO()
+    configure_logging(level="INFO", log_format="json", stream=stream)
+    configure_logging(level="INFO", log_format="json", stream=stream)
+
+    structlog.get_logger("mp_verify.closure").warning("closure warning")
+
+    assert [line["event"] for line in _json_lines(stream)] == ["closure warning"]
+    for name in _PACKAGE_LOGGER_NAMES:
+        assert len(logging.getLogger(name).handlers) == 1
