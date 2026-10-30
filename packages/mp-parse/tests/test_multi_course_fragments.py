@@ -59,11 +59,11 @@ CASES = {
         POB + "THENCE N 45° E 100 feet S 45° E 100 feet; THENCE S 45° W 100 feet",
         [45.0, 135.0, 225.0],
     ),
-    "tie-text-between-courses-fails-closed": Case(
+    # A tie to a point is not a second course (test_course_roles.py).
+    "tie-to-a-point-is-not-a-course": Case(
         POB + "THENCE N 45° E 100 feet to a point which is S 10° E 25 feet from a stone; "
         "THENCE S 45° W 100 feet",
-        None,
-        ["MultipleCoursesError"],
+        [45.0, 225.0],
     ),
     "juxtaposed-after-a-tie-length-fails-closed": Case(
         POB + "THENCE N 61° E 10 feet to a point distant 10 feet S 27° E running parallel "
