@@ -49,14 +49,21 @@ def test_require_upright_raster_decodes_once_for_repeated_renders(monkeypatch):
     assert len(decodes) == 1
 
 
-def test_orientation_cache_holds_digests_not_base64_payload():
+def test_orientation_cache_is_keyed_on_layer_sha256_without_hashing_payload(monkeypatch):
     layer = _layer(1)
     raster_guard._ORIENTATION_BY_DIGEST.clear()
+    hashed = []
+    real_sha256 = hashlib.sha256
+
+    def spy(*args, **kwargs):
+        hashed.append(args)
+        return real_sha256(*args, **kwargs)
+
+    monkeypatch.setattr(hashlib, "sha256", spy)
     require_upright_raster(layer)
-    keys = list(raster_guard._ORIENTATION_BY_DIGEST)
-    assert keys
-    assert all(key != layer.data_base64 for key in keys)
-    assert all(re.fullmatch(r"[0-9a-f]{64}", key) for key in keys)
+    assert list(raster_guard._ORIENTATION_BY_DIGEST) == [layer.sha256]
+    assert re.fullmatch(r"[0-9a-f]{64}", layer.sha256)
+    assert hashed == []
 
 
 def test_rotated_raster_is_refused_on_every_repeated_render():
