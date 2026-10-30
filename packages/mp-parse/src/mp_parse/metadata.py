@@ -912,7 +912,7 @@ def split_call_fragments(
 
         cleaned = re.sub(r"[;,\.\s]+$", "", cleaned)
 
-        if cleaned and calls and not calls[-1].preamble and _PASSING_PIECE.match(cleaned):
+        if cleaned and calls and not calls[-1].preamble and PASSING_PIECE.match(cleaned):
             # A ';'-separated passing call belongs to the course before it; with no
             # course before it, it stays a fragment of its own and fails closed.
             calls[-1] = CallFragment(f"{calls[-1].text}; {cleaned}")
@@ -1590,12 +1590,24 @@ _COURSE_CLAUSE_END = re.compile(
 _LEADING_THENCE = re.compile(
     r"\W*(?:(?:and|then|running|continuing|proceeding)\s+)*thence\b", re.IGNORECASE
 )
+# Any bearing form in the deed's own wording (symbols, words, dashes, d/m units).
+# Possessive quantifiers keep long digit runs from backtracking.
+VERBATIM_BEARING = re.compile(
+    r"(?<![A-Za-z])(?:North|South|N|S)\.?(?![A-Za-z])\s*+\d++(?:\.\d++)?"
+    r"(?:\s*+(?:[\u00b0\u00ba'\u2032\u2019\"\u2033\u201d-]|degrees?(?![a-z])|deg(?![a-z])\.?"
+    r"|d(?![a-z])|minutes?(?![a-z])|min(?![a-z])\.?|m(?![a-z])|seconds?(?![a-z])"
+    r"|sec(?![a-z])\.?|s(?![a-z])|\d++(?:\.\d++)?))*+"
+    r"\s*+,?\s*+(?:East|West|E|W)(?![A-Za-z])",
+    re.IGNORECASE,
+)
+
+
 # A passing call ("passing a pipe at 50 feet"): a point passed on the line, ending at a
 # comma, a semicolon, adjoiner wording, the destination or the rest of the course
 # ("in all", "and continuing", "a total distance of").
 _PASSING = re.compile(r"\bpassing\b", re.IGNORECASE)
 # A ';'-separated piece that is only a passing call ("; passing a pipe at 30 feet").
-_PASSING_PIECE = re.compile(r"\s*(?:and\s+)?passing\b", re.IGNORECASE)
+PASSING_PIECE = re.compile(r"\s*(?:and\s+)?passing\b", re.IGNORECASE)
 # A ';'-separated piece opening with course wording: an adjoiner ("along ...") or a
 # qualifier ("parallel to ..."). A witness or tie ("; a hickory bears ...") is not.
 _COURSE_WORDING_PIECE = re.compile(r"\s*(?:and\s+)?(?:running\s+)?(?=\w)", re.IGNORECASE)
@@ -1675,41 +1687,53 @@ def _is_destination_to(text: str, match: Match[str], qualifiers: list[tuple[int,
     return not _RELATED_TO_BEFORE.search(text, 0, match.start())
 
 
+def _scan_brackets(text: str) -> tuple[list[tuple[int, int, bool]], list[int]]:
+    """Scan ``text`` once: top-level bracketed groups and stray closing brackets.
+
+    Groups are (start, end, closed), nested-aware; an unclosed group runs to the end
+    of ``text``. A stray closer is a closing bracket with no opener in ``text``.
+    """
+    groups: list[tuple[int, int, bool]] = []
+    strays: list[int] = []
+    depth = 0
+    start = 0
+    for index, char in enumerate(text):
+        if char in "([":
+            if depth == 0:
+                start = index
+            depth += 1
+        elif char in ")]":
+            if depth:
+                depth -= 1
+                if depth == 0:
+                    groups.append((start, index + 1, True))
+            else:
+                strays.append(index)
+    if depth:
+        groups.append((start, len(text), False))
+    return groups, strays
+
+
+def bracket_groups(text: str) -> list[tuple[int, int, bool]]:
+    """Return top-level bracketed groups (nested-aware) as (start, end, closed)."""
+    return _scan_brackets(text)[0]
+
+
 def _enclosing_bracket(text: str, position: int, floor: int) -> tuple[int, int] | None:
     """Span of the bracketed group around ``position`` (``floor`` on), or None.
 
     An unclosed group runs to the end of ``text``; the span includes both brackets.
     """
-    openers: list[int] = []
-    for index in range(floor, position):
-        if text[index] in "([":
-            openers.append(index)
-        elif text[index] in ")]" and openers:
-            openers.pop()
-    if not openers:
-        return None
-    depth = 0
-    for index in range(position, len(text)):
-        if text[index] in "([":
-            depth += 1
-        elif text[index] in ")]":
-            if not depth:
-                return (openers[0], index + 1)
-            depth -= 1
-    return (openers[0], len(text))
+    for start, end, _closed in bracket_groups(text[floor:]):
+        if start <= position - floor < end:
+            return (start + floor, end + floor)
+    return None
 
 
 def _unmatched_close(text: str, start: int) -> int | None:
     """Index of the first closing bracket after ``start`` that closes an earlier bracket."""
-    depth = 0
-    for index in range(start, len(text)):
-        if text[index] in "([":
-            depth += 1
-        elif text[index] in ")]":
-            if not depth:
-                return index
-            depth -= 1
-    return None
+    strays = _scan_brackets(text[start:])[1]
+    return start + strays[0] if strays else None
 
 
 def _remove_spans(text: str, spans: list[tuple[int, int]]) -> str:
@@ -1774,6 +1798,15 @@ def extract_course_clause(
     course_end = destination.start() if destination else clause_end
     course = clause[:course_end]
 
+    # The course's own bearing and length are never part of a passing call.
+    reading = clause
+    for s, e in drop_spans:
+        reading = reading[:s] + " " * (min(e, len(reading)) - s) + reading[e:]
+    length_span = _course_length_span(reading)
+    own_starts = [m.start() for m in VERBATIM_BEARING.finditer(course, start)]
+    if length_span is not None and length_span[0] < course_end:
+        own_starts.append(length_span[0])
+
     passing_spans: list[tuple[int, int]] = []
     passing_texts: list[str] = []
     for match in _PASSING.finditer(course, start):
@@ -1790,6 +1823,7 @@ def extract_course_clause(
         ends += [m.start() for m in (_ADJOINER_LEAD.search(course, match.end()),) if m]
         close = _unmatched_close(course, match.end())
         ends += [close] if close is not None else []
+        ends += [pos for pos in own_starts if pos >= match.end()]
         stop = min(ends, default=len(course))
         passing_spans.append((match.start(), stop))
         passing_texts.append(course[match.start() : stop].strip(" ,;."))
@@ -1823,10 +1857,7 @@ def extract_course_clause(
             for s, e in drop_spans
             if s < tail_end and e > tail_start
         ]
-        reading = clause
-        for s, e in drop_spans:
-            reading = reading[:s] + " " * (min(e, len(reading)) - s) + reading[e:]
-        span = _course_length_span(reading)
+        span = length_span
         if span is not None and tail_start <= span[0] and span[1] <= tail_end:
             # Only the course's own length (with "a distance of" / "more or less").
             cut_start, cut_end = course_length_phrase_span(reading[:tail_end], *span)
@@ -1845,7 +1876,7 @@ def extract_course_clause(
             piece = reading[piece_start:piece_end]
             kept = _before_clause_delimiter(piece)
             wording = clause[piece_start : piece_start + len(kept)].strip(" ,;.")
-            if _PASSING_PIECE.match(piece):
+            if PASSING_PIECE.match(piece):
                 passing += (wording,)
             elif _opens_with_course_wording(piece):
                 unattached += (wording,)
