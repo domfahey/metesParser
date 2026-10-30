@@ -12,8 +12,10 @@ def test_audit_payload_includes_tract_verification_audits(monkeypatch):
     real = api.verify_closure
 
     def fake(calls, *, audit_context=None, **kw):
+        result = real(calls, audit_context=audit_context, **kw)
+        # Simulate a multi-tract run: a single-tract run now clears these first.
         audit_context.tract_verification_audits.append(VerificationAudit(tract_label="A"))
-        return real(calls, audit_context=audit_context, **kw)
+        return result
 
     monkeypatch.setattr(api, "verify_closure", fake)
     out = (
