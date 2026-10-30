@@ -878,6 +878,24 @@ _TIE_CLAUSE = re.compile(
     re.IGNORECASE,
 )
 _WIDTH_AFTER = re.compile(r"\s*(?:wide|in\s+width)\b", re.IGNORECASE)
+# "a 50 foot road", "a 16.5 foot right of way": a length used as an adjective
+# before a way or strip noun is that way's width, not a course length.
+_WAY_NOUN = (
+    r"(?:road|street|avenue|alley|lane|right[\s-]+of[\s-]+way|easement|strip|drive|driveway"
+    r"|way|path|highway|roadway|walkway|boulevard|trail)s?"
+)
+_ADJECTIVE_WIDTH_AFTER = re.compile(
+    r"[\s.-]*(?:wide[\s,-]+)?(?:(?!(?:to|along|thence|from|of|and|then|in|on|at|by|with|the|a|an)\b)"
+    r"[A-Za-z]+\s+){0,2}?" + _WAY_NOUN + r"\b",
+    re.IGNORECASE,
+)
+_ARTICLE_JUST_BEFORE = re.compile(r"\b(?:an?|the)\s+$", re.IGNORECASE)
+# "... 0.5 feet below grade", "set 2 feet back", "3 feet deep": a monument's
+# depth, height or position, never a course length.
+_MONUMENT_DEPTH_AFTER = re.compile(
+    r"\s*,?\s*(?:(?:below|above|beneath)\b|(?:deep|high|back)\b|in\s+(?:depth|height)\b)",
+    re.IGNORECASE,
+)
 # A curve element's own label ("the radius is 100 feet"); never the course length.
 _ELEMENT_BEFORE = re.compile(
     r"\b(?:radius|(?:long\s+)?chord|tangent|arc)(?:\s+(?:length|distance))?"
@@ -1095,6 +1113,10 @@ def _length_role(text: str, start: int, end: int, *, first: bool, tie_from: int)
         return "tie"
     if _WIDTH_AFTER.match(after):
         return "width"
+    if _ARTICLE_JUST_BEFORE.search(before) and _ADJECTIVE_WIDTH_AFTER.match(after):
+        return "width"
+    if _MONUMENT_DEPTH_AFTER.match(after):
+        return "tie"
     if _ELEMENT_BEFORE.search(before):
         return "element"
     if _STATION_BEFORE.search(before):
