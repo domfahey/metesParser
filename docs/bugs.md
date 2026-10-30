@@ -919,6 +919,14 @@ Four findings, fixed red-green on `fix/code-review-2026-10-29`:
 - **Headings with prose:** a heading-position marker whose segment opens a description (BEGINNING/COMMENCING/ALL THAT) before any THENCE course, after a closed description, is a heading in any case (`258fa7d`).
 - **Topology for chord-fixed curves:** `mp_verify.tangents` computes tangent-in/out internally for curves fixed by radius, delta/arc, direction and chord; interior angles, boundary topology and the incomplete-bearings warning use them; chord-only curves stay blocked (`6ff0ece`). Interior angles stay `not_applicable` for curved boundaries, as with stated tangents.
 
+### PR #60 fifteenth review (2026-10-30)
+Five findings, fixed red-green on `fix/code-review-2026-10-29`:
+- **Exception loops:** `_calculate_exception_area` positions exception courses with the shared traverse and `has_determined_direction`, so a tangentless chord+delta exception curve no longer makes net area unavailable (`817be67`).
+- **Check fallback:** `build_verification_checks` without `positioned` derives positioning from the shared traverse (`position_courses`), not from bearings (`5e9ceab`).
+- **Audit sources:** the `extract_distance` audit step records where the stored distance came from (chord length, radius+delta, stated arc), not the first distance in the text (`eb2d8a7`).
+- **One verification implementation:** the monolith `ClosureChecker` is a facade over `mp_verify.verify_closure` (1304 → 329 lines); behaviour change: the monolith now also adds curve-consistency issues to `warnings`, as the package does (`e6772db`).
+- **Per-call analysis:** a frozen `CourseAnalysis` record per course replaces parallel index lists; each chord bearing is parsed once (`aa1d0cb`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
