@@ -12,12 +12,12 @@ import itertools
 import pytest
 from mp_models import DeedCall
 from mp_models.plot_request import PlotCall, PlotRequest
-from mp_verify.checks import check_parallelism
+from mp_verify.checks import check_curve_consistency, check_parallelism
 from mp_verify.closure import verify_closure
 from mp_verify.confidence import score_call_quality
 from mp_verify.plot import prepare_plot
 from mp_verify.tangents import curve_tangents, has_determined_direction
-from mp_verify.traverse import position_courses
+from mp_verify.traverse import traverse_positions
 
 
 def _curve(**overrides: object) -> DeedCall:
@@ -50,7 +50,7 @@ def _plot_end(call: DeedCall) -> tuple[float, float] | None:
 
 
 def _verify_end(call: DeedCall) -> tuple[float, float] | None:
-    points, positioned = position_courses([call])
+    points, positioned = traverse_positions([call])
     return (points[-1].x, points[-1].y) if positioned[0] else None
 
 
@@ -142,6 +142,10 @@ def test_verify_and_plot_position_the_same_non_tangent_cases(
         }
     )
     plotted, verified = _plot_end(call), _verify_end(call)
+    if not check_curve_consistency([call])[0]:
+        # Verification rejects contradictory radial/chord evidence; plot never draws it.
+        assert plotted is None
+        return
     assert (plotted is None) == (verified is None)
     assert (plotted is not None) == has_determined_direction(call)
     if plotted is not None:
