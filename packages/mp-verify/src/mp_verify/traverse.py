@@ -119,13 +119,16 @@ def _direction_conflict(call: DeedCall, chord_azimuth: float | None) -> bool:
     """Conflicting direction evidence derived from persisted fields only.
 
     A chord-only curve whose chord exceeds the diameter, or a cardinal-only direction
-    word outside its sector around the parsed chord azimuth.
+    word outside its sector around the parsed chord azimuth. The cardinal rule is the
+    parser's: it applies whenever a chord bearing is stated and no numeric course
+    bearing was parsed, even if chord and sweep otherwise fix the direction, so the
+    text and CSV paths agree.
     """
     if call.is_chord_only_curve() and not is_spiral(call) and not chord_is_feasible(call):
         return True
     return bool(
         chord_azimuth is not None
-        and not has_determined_direction(call)
+        and call.bearing_azimuth_deg_from_north is None
         and call.direction_text
         and cardinal_conflicts_bearing(call.direction_text, chord_azimuth)
     )
