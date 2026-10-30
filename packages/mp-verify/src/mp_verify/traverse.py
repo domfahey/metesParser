@@ -10,7 +10,6 @@ import math
 from dataclasses import dataclass
 
 from mp_bearing import (  # type: ignore[import-untyped]
-    bearing_to_azimuth,
     calculate_deltas,
     compute_curve_endpoint,
 )
@@ -23,15 +22,11 @@ from .tangents import (
     has_determined_direction,
     is_curved_course,
     is_spiral,
+    parse_chord,
     radial_tangent_in,
     stated_sweep,
     stated_tangent,
 )
-
-
-def _parse_chord(call: DeedCall) -> float | None:
-    """Chord azimuth, or None when no chord bearing is stated or it cannot be parsed."""
-    return bearing_to_azimuth(call.chord_bearing) if call.chord_bearing is not None else None
 
 
 def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Point | None:
@@ -141,7 +136,7 @@ def traverse_positions(
     points = [current]
     positioned: list[bool] = []
     for call in calls:
-        endpoint = _advance(call, current, _parse_chord(call))
+        endpoint = _advance(call, current, parse_chord(call))
         positioned.append(endpoint is not None)
         if endpoint is not None:
             current = endpoint
@@ -192,7 +187,7 @@ def analyze_courses(calls: list[DeedCall]) -> tuple[list[Point], list[CourseAnal
     points = [current]
     records: list[CourseAnalysis] = []
     for index, call in enumerate(calls):
-        chord_azimuth = _parse_chord(call)
+        chord_azimuth = parse_chord(call)
         bad_chord = (
             is_curved_course(call) and call.chord_bearing is not None and chord_azimuth is None
         )

@@ -13,7 +13,6 @@ from typing import Literal
 from mp_bearing import (  # type: ignore[import-untyped]
     arc_length_tolerance_ft,
     bearing_difference_uncertainty_rad,
-    bearing_to_azimuth,
     chord_length_tolerance_ft,
     deflection_chord_tolerance_ft,
     delta_uncertainty_rad,
@@ -29,6 +28,7 @@ from .tangents import (
     has_determined_direction,
     is_curved_course,
     is_spiral,
+    parse_chord,
     radial_implied_tangent,
     radial_tangent_in,
     stated_sweep,
@@ -126,7 +126,7 @@ def build_verification_checks(
     closure_missing = not calls or any(
         stated_tangent(call) is None
         and radial_tangent_in(call) is None
-        and (call.chord_bearing is None or bearing_to_azimuth(call.chord_bearing) is None)
+        and parse_chord(call) is None
         for call in unpositioned
     )
     closure_unpositioned = bool(unpositioned) or not misclosure_available
@@ -536,7 +536,7 @@ def tangent_chord_issue(call: DeedCall) -> str | None:
         or call.chord_bearing is None
     ):
         return None
-    chord_az = bearing_to_azimuth(call.chord_bearing)
+    chord_az = parse_chord(call)
     if chord_az is None:
         return None
     deflection = tangent_chord_deflection(
@@ -581,7 +581,7 @@ def radial_chord_issue(call: DeedCall) -> str | None:
     sweep = curve_sweep(call)
     if radial_in is None or sweep is None or call.chord_bearing is None:
         return None
-    chord_az = bearing_to_azimuth(call.chord_bearing)
+    chord_az = parse_chord(call)
     if chord_az is None:
         return None
     sign = 1.0 if call.curve_dir == "right" else -1.0
