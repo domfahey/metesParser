@@ -193,11 +193,11 @@ def test_beginning_clause_calls_skips_bearing_work(monkeypatch, impl):
     # per-call loop must reach extract_single_call's early return.
     pieces = [BEGINNING, CURVE_TEXT]
     if impl == "package":
-        monkeypatch.setattr(package_calls, "split_into_calls", lambda text: list(pieces))
+        monkeypatch.setattr(package_calls, "split_into_calls", lambda text, **_: list(pieces))
     else:
         from metesparser.text_parser import TextParser
 
-        monkeypatch.setattr(TextParser, "split_into_calls", classmethod(lambda cls, t: pieces))
+        monkeypatch.setattr(TextParser, "split_into_calls", classmethod(lambda cls, t, **_: pieces))
     seen = _spy(monkeypatch, impl)
     skipped: list = []
     calls = EXTRACT_CALLS[impl]("THENCE " + CURVE_TEXT, strict=False, skipped_courses=skipped)

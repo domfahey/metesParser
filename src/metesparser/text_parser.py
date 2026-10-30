@@ -6,6 +6,8 @@ Handles cleaning up OCR errors, standardizing DMS notation, merging line breaks,
 from __future__ import annotations
 
 import re
+from bisect import bisect_right
+from dataclasses import dataclass
 from re import Match
 from typing import TYPE_CHECKING, Callable, Literal, TypedDict
 
@@ -98,20 +100,89 @@ _ORDINAL_WORDS = {
     )
 }
 # Enumerator styles: "(1)", "1)", "1." and "First,". Numbers are read from group 1.
+_ORDINAL_ENUMERATOR = re.compile(rf"\b({'|'.join(_ORDINAL_WORDS)})\b,?", re.IGNORECASE)
 _ENUMERATOR_STYLES = (
     re.compile(r"\((\d{1,3})\)"),
     re.compile(r"(?<![\w.(])(\d{1,3})\)"),
     re.compile(r"(?<![\w.(])(\d{1,3})\.(?=\s)"),
-    re.compile(rf"\b({'|'.join(_ORDINAL_WORDS)})\b,?", re.IGNORECASE),
+    _ORDINAL_ENUMERATOR,
 )
-# A course-list header (or a bare THENCE) immediately before the first enumerator;
-# group 1 is the optional declared count ("four", "4" or "four (4)").
-_COURSE_LIST_HEADER_END = re.compile(
-    r"(?:\bTHENCE"
-    r"|the\s+following(?:\s+(\d+|[a-z]+)(?:\s+\((\d+)\))?)?\s+(?:courses?|calls?)"
-    r"(?:\s+and\s+distances?)?)\s*[:;,.]?\s*$",
+
+# The one course-list header grammar, shared by header removal and enumeration
+# detection:
+#   THENCE [by|along|with|running|continuing <qualifier>] the following
+#   [N | word | (N) | word (N)] courses|calls|lines [and distances]
+#   [along|with|by ... <qualifier>] [, to wit | viz | namely] [: ; , .]
+# Qualifiers are bounded and never cross ';' or ':'. A trailing qualifier holds
+# digits only when an explicit ':' / 'to wit' / 'viz' ends it, so a course
+# ("the following course North 10 degrees East 100 feet") is never a header.
+_HEADER_QUALIFIER = r"(?:(?:by|along|with|running|continuing)\b[^;:]{0,200}?[\s,]+)?"
+_HEADER_CORE = (
+    r"the\s+following(?:\s+(?P<count>\d{1,3}|[a-z]+))?(?:\s+\((?P<count_paren>\d{1,3})\))?"
+    r"\s+(?:courses?|calls?|lines)(?:\s+and\s+distances?)?"
+)
+_HEADER_TAIL_WORD = r"[\s,]+(?:along|with|by|over|across|through|on|in|of|from|being)\b"
+_HEADER_WIT = r"\s*,?\s*(?:to\s+wit|viz\.?|namely)"
+_HEADER_REST = (
+    rf"(?:{_HEADER_TAIL_WORD}[^;:]{{0,200}}?(?:{_HEADER_WIT}\s*[:;,.]?|\s*:)"
+    rf"|(?:{_HEADER_TAIL_WORD}[^;:\d]{{0,200}}?)?(?:{_HEADER_WIT})?\s*[:;,.]?)\s*"
+)
+_THENCE = re.compile(r"\bTHENCE\b", re.IGNORECASE)
+_HEADER_START = re.compile(r"THENCE\b[\s,]*" + _HEADER_QUALIFIER + _HEADER_CORE, re.IGNORECASE)
+# From the end of a header's core to its first enumerator (a repeated THENCE allowed).
+_HEADER_END = re.compile(_HEADER_REST + r"(?:THENCE\b[\s,]*[:;,.]?\s*)?", re.IGNORECASE)
+_BARE_THENCE = re.compile(r"THENCE\b[\s,]*[:;,.]?\s*", re.IGNORECASE)
+# A split part that is only a THENCE or a course-list header introduces courses
+# and is never a course itself.
+COURSE_LIST_MARKER = re.compile(
+    r"\s*(?:THENCE\b[\s,]*|(?:THENCE\b[\s,]*)?"
+    + _HEADER_QUALIFIER
+    + _HEADER_CORE
+    + _HEADER_REST
+    + r")?[:;,.]?\s*",
     re.IGNORECASE,
 )
+_NUMBERED_LINE = re.compile(r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+", re.MULTILINE)
+_NUMBERED_SPLIT = re.compile(r"(?:^|\n)\s*(?=(?:\(\d+\)|\d+[.)])\s+)", re.MULTILINE)
+_TRAILING_THENCE = re.compile(r"\bTHENCE\b[\s,]*$", re.IGNORECASE)
+_GAP_END = re.compile(r"(?:[;:,.]|\band|\bthen(?:ce)?)$", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class CourseListHeader:
+    """A 'THENCE ... the following [N] courses' header; ``declared`` is its stated count."""
+
+    start: int
+    core_end: int
+    declared: int | None
+
+
+@dataclass(frozen=True)
+class CourseList:
+    """An enumerated course list: 1, 2, 3, ... after a header or a bare THENCE."""
+
+    start: int
+    header: CourseListHeader | None
+    enumerators: tuple[Match[str], ...]
+
+
+@dataclass(frozen=True)
+class CourseListAnalysis:
+    """Course-list structure of one text, computed once and passed through.
+
+    ``text`` has every enumerator of a list run inline (one with any enumerator not
+    starting its own line) rewritten onto its own '(n)' line; ``item_starts`` are
+    the offsets of those lines in ``text`` and ``list_starts`` the offsets of the
+    lines that open a list.
+    """
+
+    source: str
+    text: str
+    lists: tuple[CourseList, ...]
+    mismatches: tuple[tuple[int, int], ...]
+    item_starts: frozenset[int]
+    list_starts: frozenset[int]
+    has_numbered_markers: bool
 
 
 def _enumerator_number(match: Match[str]) -> int:
@@ -120,7 +191,7 @@ def _enumerator_number(match: Match[str]) -> int:
 
 
 def _declared_course_count(header: Match[str]) -> int | None:
-    for token in (header.group(2), header.group(1)):
+    for token in (header.group("count_paren"), header.group("count")):
         if token is None:
             continue
         if token.isdigit():
@@ -130,51 +201,198 @@ def _declared_course_count(header: Match[str]) -> int | None:
     return None
 
 
-def _course_enumerations(text: str) -> list[tuple[list[Match[str]], int | None]]:
+def _course_list_headers(text: str, thence_starts: list[int]) -> list[CourseListHeader]:
+    headers = []
+    for start in thence_starts:
+        match = _HEADER_START.match(text, start)
+        if match is not None:
+            headers.append(CourseListHeader(start, match.end(), _declared_course_count(match)))
+    return headers
+
+
+def _list_opening(
+    text: str,
+    position: int,
+    headers: list[CourseListHeader],
+    header_ends: list[int],
+    thence_starts: list[int],
+) -> tuple[int, CourseListHeader | None] | None:
+    """Return (start, header) when a header or bare THENCE runs right up to ``position``."""
+    index = bisect_right(header_ends, position) - 1
+    if index >= 0:
+        header = headers[index]
+        if _HEADER_END.fullmatch(text, header.core_end, position):
+            return header.start, header
+    index = bisect_right(thence_starts, position) - 1
+    if index >= 0 and _BARE_THENCE.fullmatch(text, thence_starts[index], position):
+        return thence_starts[index], None
+    return None
+
+
+def _continues_list(text: str, previous_end: int, position: int) -> bool:
+    """Whether an enumerator at ``position`` directly follows the previous course's
+    punctuation, 'and', THENCE or a line break (bounded look-back, no full-gap scan)."""
+    end = position
+    while end > previous_end and text[end - 1].isspace():
+        end -= 1
+    if "\n" in text[end:position]:
+        return True
+    return bool(_GAP_END.search(text, max(previous_end, end - 8), end))
+
+
+def _course_enumerations(text: str) -> tuple[list[CourseList], list[CourseListHeader]]:
     """Find each enumerated course list: a header or THENCE, then 1, 2, 3, ... in order.
 
     Each enumerator after the first must directly follow the previous course's
     punctuation (or a line break), so parenthetical numbers elsewhere ("Lot (2)",
-    "(Tax ID 12-34)", "(100.00 feet)") are never taken for course numbers.
+    "(Tax ID 12-34)", "(100.00 feet)") are never taken for course numbers. Ordinal
+    words ("First,") enumerate only after a real header and as a sequence of two or
+    more, so prose such as "THENCE first North ..." keeps its wording.
     """
-    found: list[tuple[list[Match[str]], int | None]] = []
+    thence_starts = [m.start() for m in _THENCE.finditer(text)]
+    headers = _course_list_headers(text, thence_starts)
+    header_ends = [header.core_end for header in headers]
+    styles = [list(style.finditer(text)) for style in _ENUMERATOR_STYLES]
+    ordinal_style = len(styles) - 1
+    cursors = [0] * len(styles)
+
+    def opening(match: Match[str], ordinal: bool) -> tuple[int, CourseListHeader | None] | None:
+        if _enumerator_number(match) != 1:
+            return None
+        found = _list_opening(text, match.start(), headers, header_ends, thence_starts)
+        if found is None or (ordinal and found[1] is None):
+            return None
+        return found
+
+    found_lists: list[CourseList] = []
     position = 0
     while True:
-        best: tuple[list[Match[str]], int | None] | None = None
-        for style in _ENUMERATOR_STYLES:
-            matches = [m for m in style.finditer(text) if m.start() >= position]
-            for index, first in enumerate(matches):
-                if _enumerator_number(first) != 1:
-                    continue
-                header = _COURSE_LIST_HEADER_END.search(text[: first.start()])
-                if header is None:
+        best: CourseList | None = None
+        for style_index, matches in enumerate(styles):
+            ordinal = style_index == ordinal_style
+            while cursors[style_index] < len(matches) and (
+                matches[cursors[style_index]].start() < position
+            ):
+                cursors[style_index] += 1
+            for index in range(cursors[style_index], len(matches)):
+                first = matches[index]
+                if best is not None and first.start() > best.enumerators[0].start():
+                    break
+                start_header = opening(first, ordinal)
+                if start_header is None:
                     continue
                 sequence = [first]
                 for candidate in matches[index + 1 :]:
-                    if _enumerator_number(candidate) != len(sequence) + 1:
-                        continue
-                    gap = text[sequence[-1].end() : candidate.start()]
-                    if re.search(r"(?:[;:,.]|\band|\bthen(?:ce)?)\s*$|\n\s*$", gap, re.IGNORECASE):
+                    if opening(candidate, ordinal) is not None:
+                        break  # the next list begins
+                    if _enumerator_number(candidate) == len(sequence) + 1 and _continues_list(
+                        text, sequence[-1].end(), candidate.start()
+                    ):
                         sequence.append(candidate)
-                if best is None or sequence[0].start() < best[0][0].start():
-                    best = (sequence, _declared_course_count(header))
-                elif sequence[0].start() == best[0][0].start() and len(sequence) > len(best[0]):
-                    best = (sequence, _declared_course_count(header))
+                if ordinal and len(sequence) < 2:
+                    continue
+                course_list = CourseList(start_header[0], start_header[1], tuple(sequence))
+                if (
+                    best is None
+                    or first.start() < best.enumerators[0].start()
+                    or len(sequence) > len(best.enumerators)
+                ):
+                    best = course_list
                 break
         if best is None:
-            return found
-        found.append(best)
-        position = best[0][-1].end()
+            return found_lists, headers
+        found_lists.append(best)
+        position = best.enumerators[-1].end()
 
 
-def _inline_enumerators(text: str) -> list[Match[str]]:
-    """Enumerators of course lists that do not already start their own line."""
-    return [
-        m
-        for sequence, _ in _course_enumerations(text)
-        for m in sequence
-        if text[: m.start()].rstrip(" \t") and not text[: m.start()].rstrip(" \t").endswith("\n")
-    ]
+def _count_mismatches(
+    lists: list[CourseList], headers: list[CourseListHeader]
+) -> list[tuple[int, int]]:
+    """(declared, found) for each counted header its enumerated courses do not satisfy.
+
+    A header opening a list must match its length. A header inside a deed-numbered
+    list ("...; thence along X, the following two courses; thence (4) ...") needs at
+    least that many enumerated courses after it. A counted header with no
+    enumeration at all is reported with 0 found, never silently accepted.
+    """
+    mismatches = []
+    for header in headers:
+        if header.declared is None:
+            continue
+        found: int | None = None
+        for course_list in lists:
+            if course_list.header == header:
+                found = len(course_list.enumerators)
+                break
+            enumerators = course_list.enumerators
+            if enumerators[0].start() < header.start < enumerators[-1].start():
+                after = sum(1 for m in enumerators if m.start() > header.start)
+                found = header.declared if after >= header.declared else after
+                break
+        if found is None:
+            found = 0
+        if found != header.declared:
+            mismatches.append((header.declared, found))
+    return mismatches
+
+
+def _is_inline(text: str, match: Match[str]) -> bool:
+    position = match.start()
+    while position > 0 and text[position - 1] in " \t":
+        position -= 1
+    return position > 0 and text[position - 1] != "\n"
+
+
+def analyze_course_lists(text: str) -> CourseListAnalysis:
+    """Detect course-list headers and enumerations once for a tract's text."""
+    lists, headers = _course_enumerations(text)
+    mismatches = _count_mismatches(lists, headers)
+
+    pieces: list[str] = []
+    length = 0
+    cursor = 0
+    item_starts: set[int] = set()
+    list_starts: set[int] = set()
+    for course_list in lists:
+        if not course_list.enumerators[0].group(1).isdigit():
+            pass  # ordinal words never split as numbered lines, so always rewrite them
+        elif not any(_is_inline(text, match) for match in course_list.enumerators):
+            continue  # a digit list already one course per line splits as numbered lines
+        for match in course_list.enumerators:
+            head_end = match.start()
+            while head_end > cursor and text[head_end - 1] in " \t":
+                head_end -= 1
+            # The enumerator replaces a THENCE keyword it follows ("thence (2) ...").
+            thence = _TRAILING_THENCE.search(text, max(cursor, head_end - 40), head_end)
+            if thence is not None:
+                head_end = thence.start()
+                while head_end > cursor and text[head_end - 1] in " \t":
+                    head_end -= 1
+            line = text[cursor:head_end]
+            if head_end > 0 and text[head_end - 1] != "\n":
+                line += "\n"
+            pieces.append(line)
+            length += len(line)
+            item_starts.add(length)
+            if match is course_list.enumerators[0]:
+                list_starts.add(length)
+            marker = f"({_enumerator_number(match)}) "
+            pieces.append(marker)
+            length += len(marker)
+            cursor = match.end()
+            while cursor < len(text) and text[cursor] == " ":
+                cursor += 1
+    pieces.append(text[cursor:])
+    broken = "".join(pieces)
+    return CourseListAnalysis(
+        source=text,
+        text=broken,
+        lists=tuple(lists),
+        mismatches=tuple(mismatches),
+        item_starts=frozenset(item_starts),
+        list_starts=frozenset(list_starts),
+        has_numbered_markers=_NUMBERED_LINE.search(broken) is not None,
+    )
 
 
 def break_inline_course_enumerators(text: str) -> str:
@@ -183,21 +401,38 @@ def break_inline_course_enumerators(text: str) -> str:
     Only a sequence 1, 2, 3, ... that follows a course-list header or THENCE is
     rewritten; the enumerator is not deed language about the course itself.
     """
-    for match in reversed(_inline_enumerators(text)):
-        head = text[: match.start()].rstrip(" \t")
-        # The enumerator replaces a THENCE keyword it follows ("thence (2) ...").
-        head = re.sub(r"\bTHENCE\b[\s,]*$", "", head, flags=re.IGNORECASE).rstrip(" \t")
-        text = f"{head}\n({_enumerator_number(match)}) {text[match.end() :].lstrip(' ')}"
-    return text
+    return analyze_course_lists(text).text
 
 
 def course_list_count_mismatches(text: str) -> list[tuple[int, int]]:
-    """Return (declared, found) for each header whose stated count differs from the courses found."""
-    return [
-        (declared, len(sequence))
-        for sequence, declared in _course_enumerations(text)
-        if declared is not None and declared != len(sequence)
-    ]
+    """Return (declared, found) for each header whose stated count is not satisfied."""
+    return list(analyze_course_lists(text).mismatches)
+
+
+def _enumerated_parts(analysis: CourseListAnalysis) -> list[str]:
+    """Split text holding course lists; re-split on THENCE only within lists.
+
+    The leading text, the text holding a list's header, and the list's courses are
+    THENCE-split; a course numbered on its own line outside any list keeps its
+    wording whole ("to a point, thence running with said line").
+    """
+    text = analysis.text
+    bounds = []
+    previous = 0
+    for match in _NUMBERED_SPLIT.finditer(text):
+        bounds.append((previous, match.start()))
+        previous = match.end()
+    bounds.append((previous, len(text)))
+    parts: list[str] = []
+    for index, (start, end) in enumerate(bounds):
+        part = text[start:end]
+        following = bounds[index + 1][0] if index + 1 < len(bounds) else None
+        within = index == 0 or start in analysis.item_starts or following in analysis.list_starts
+        if within:
+            parts.extend(_THENCE.split(part))
+        else:
+            parts.append(part)
+    return parts
 
 
 class TextParser:
@@ -565,7 +800,9 @@ class TextParser:
         return (poc, pob)
 
     @classmethod
-    def split_into_calls(cls, text: str) -> list[str]:
+    def split_into_calls(
+        cls, text: str, *, course_lists: CourseListAnalysis | None = None
+    ) -> list[str]:
         """Split text into individual THENCE calls.
 
         Handles multiple formats:
@@ -575,28 +812,20 @@ class TextParser:
 
         Args:
             text: Legal description text
+            course_lists: The text's precomputed ``analyze_course_lists`` result
 
         Returns:
             List of call strings
         """
-        enumerated = bool(_inline_enumerators(text))
-        text = break_inline_course_enumerators(text)
-        numbered_pattern = r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+"
-
-        if re.search(numbered_pattern, text, re.MULTILINE):
-            parts = re.split(
-                r"(?:^|\n)\s*(?=(?:\(\d+\)|\d+[.)])\s+)",
-                text,
-                flags=re.MULTILINE,
-            )
-        elif re.search(r"\bTHENCE\b", text, re.IGNORECASE):
-            parts = re.split(r"\bTHENCE\b", text, flags=re.IGNORECASE)
+        analysis = course_lists if course_lists is not None else analyze_course_lists(text)
+        if analysis.item_starts:
+            parts = _enumerated_parts(analysis)
+        elif _NUMBERED_LINE.search(text):
+            parts = _NUMBERED_SPLIT.split(text)
+        elif _THENCE.search(text):
+            parts = _THENCE.split(text)
         else:
             parts = text.split(";")
-
-        if enumerated:
-            # An enumerated course may still hold THENCE-separated courses.
-            parts = [piece for part in parts for piece in re.split(r"\bTHENCE\b", part, flags=re.IGNORECASE)]
 
         calls = []
         for part in parts:
