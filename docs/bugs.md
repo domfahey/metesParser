@@ -922,7 +922,7 @@ Four findings, fixed red-green on `fix/code-review-2026-10-29`:
 ### PR #60 fifteenth review (2026-10-30)
 Five findings, fixed red-green on `fix/code-review-2026-10-29`:
 - **Exception loops:** `_calculate_exception_area` positions exception courses with the shared traverse and `has_determined_direction`, so a tangentless chord+delta exception curve no longer makes net area unavailable (`817be67`).
-- **Check fallback:** `build_verification_checks` without `positioned` derives positioning from the shared traverse (`position_courses`), not from bearings (`5e9ceab`).
+- **Check fallback:** `build_verification_checks` without `positioned` derives positioning from the shared traverse (`analyze_courses` (formerly `position_courses`)), not from bearings (`5e9ceab`).
 - **Audit sources:** the `extract_distance` audit step records where the stored distance came from (chord length, radius+delta, stated arc), not the first distance in the text (`eb2d8a7`).
 - **One verification implementation:** the monolith `ClosureChecker` is a facade over `mp_verify.verify_closure` (1304 → 329 lines); behaviour change: the monolith now also adds curve-consistency issues to `warnings`, as the package does (`e6772db`).
 - **Per-call analysis:** a frozen `CourseAnalysis` record per course replaces parallel index lists; each chord bearing is parsed once (`aa1d0cb`).
@@ -1031,6 +1031,15 @@ Five findings (two regressions against main), fixed red-green on `fix/code-revie
 - **Course region per tract:** `_course_region` bounds course material from the first course (or BEGINNING block) to the fragment containing the closing "point/place of beginning" phrase anywhere in it, cut at the closing sentence. Cover-sheet preambles and trailing affidavit/form text are not courses unless they state a complete course. 20 E Redman Ave (8214-294, 12427-01665) and 17 Kings Highway W (10394-9), which verified on main and regressed, verify again (`d1b17eb`).
 - **Main-parity guard:** `tests/unit/test_sample_verification_parity.py` with a recorded main baseline fails if any sample deed that verified on main stops verifying (now 37 vs 36 on main; none lost) (`d1b17eb`).
 - **Shared units:** the course-distance check and `extract_distance` read `mp_parse.units` (US survey feet, engineer chains/links, arpents, toises, furlongs; singular "perch") instead of hand-written lists; the region is computed once per tract (`d1b17eb`, `f301c50`).
+
+### PR #60 thirtieth review (2026-10-30)
+Nine findings plus two follow-ups; fixed red-green on `fix/code-review-2026-10-29` (the straight-course length ambiguity fix lands separately):
+- **Plot and diagnosis apply verification's curve checks:** `plot._arc` (and diagnostics through it) call the shared `tangent_chord_issue`, `radial_chord_issue` and `radial_tangent_issue`, so a curve verification rejects is never drawn or diagnosed (`fe85e28`).
+- **Traverse cleanup:** unreachable invalid-chord raises, unused `CourseAnalysis` fields and the duplicate positioning loop removed; `traverse_positions` wraps `analyze_courses` (`6a8b1bb`).
+- **Multi-tract export skip routing:** skips are routed against every known tract, so a skip on an omitted tract no longer blocks an exported one (`778cef1`).
+- **Undetermined misclosure status:** `get_closure_status()` returns "NOT DETERMINED" and `is_fully_verified()` is False when `misclosure_available` is False (`778cef1`).
+- **AGENTS.md:** 22 CSV fields; cardinal-only patterns live in mp_parse and the audit script, with monolith aliases (`778cef1`).
+- **Bearing minutes are not lengths:** the shared `LENGTH_UNIT` foot-mark branches refuse a mark followed by a compass direction ("N 45 30' E"), for calls, tracts and curve lengths (`f9b31c2`); tracts.py uses the shared units (`56998f7`).
 
 ## Known Limitations
 
