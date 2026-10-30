@@ -39,7 +39,11 @@ from mp_models import (
 from pydantic import ValidationError
 
 from .metadata import (
+    COURSE_LENGTH_AMBIGUOUS_NOTE,
     COURSE_LIST_MARKER,
+    LENGTH_RUN,
+    TIE_AFTER_PATTERN,
+    TIE_BEFORE_PATTERN,
     analyze_course_lists,
     detect_meander,
     extract_along_to_fields,
@@ -47,6 +51,7 @@ from .metadata import (
     extract_witness_trees,
     is_closure_to_pob,
     is_indefinite_call,
+    read_course_length,
     split_exception_clauses,
     split_into_calls,
 )
@@ -412,7 +417,8 @@ def _course_distance_text(call_text: str, *, is_curve: bool) -> str:
     length not classified as the course length (``_curve_lengths``) is removed,
     so a radius, chord, tangent or radial length is never read as the course
     length. Several course lengths without a stated arc are ambiguous and are all
-    removed, so none is chosen.
+    removed, so none is chosen. A straight course is extracted from
+    ``_course_bearing``'s ``distance_text``; this raw text serves its audit only.
     """
     if not is_curve:
         return _boundary_course_text(call_text)
@@ -1057,9 +1063,9 @@ class _CourseBearing(NamedTuple):
     direction: str
     text: str
     complete_courses: int = 0
-    # Set only when a tie/record/adjoiner pair precedes the measured course: the
-    # normalized course text without those pairs, read for the course length.
-    distance_text: str | None = None
+    # The normalized course text without tie/record/adjoiner pairs, read for a
+    # straight course's length (``read_course_length``).
+    distance_text: str = ""
 
 
 class _PreparedCourse(NamedTuple):
@@ -1116,18 +1122,19 @@ def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -
     pairs = _bearing_pairs(prepared.normalized)
     courses = [pair for pair in pairs if pair.complete and pair.boundary]
     text = prepared.normalized
-    distance_text = None
+    others = [pair for pair in pairs if not pair.boundary]
     if courses:
-        text = _without_pairs(text, [pair for pair in pairs if not pair.boundary])
-        if any(pair.complete and pair.start < courses[0].start for pair in pairs):
-            distance_text = text
+        text = _without_pairs(text, others)
     # Concavity wording names the side of the curve's centre, never the travel direction.
     direction = extract_direction(_CONCAVITY_CLAUSE.sub(" ", text))
     return _CourseBearing(
         direction,
         _verbatim_course_direction(direction, prepared.candidates, prepared.normalized_candidates),
         len(courses),
-        distance_text,
+        # Read with bearings normalized (a bearing's "30m" minutes is never a
+        # length), without tie/record/adjoiner pairs, whose lengths are never
+        # course lengths.
+        _without_pairs(prepared.normalized, others),
     )
 
 
@@ -1245,18 +1252,12 @@ def _boundary_course_reading(call_text: str) -> tuple[int, bool]:
 # ADJOINER pair describes a neighbouring line ("which line bears S 45 E 300 feet").
 # Their wording stays in the call text; they are only excluded from course reading.
 _ROLE_WINDOW = 120
-_TIE_BEFORE = re.compile(
-    r"(?<![A-Za-z])(?:distant|being(?:\s+also)?|which\s+(?:is|lies)|that\s+is|lying"
-    r"|located|situated)\s*,?\s*$",
-    re.IGNORECASE,
-)
-# Lengths (possibly compound) and an optional "more or less" before a suffix label.
-_LENGTH_RUN = rf"(?:\s*,?\s*(?:and\s+)?{COMMA_NUMBER}\s*{UNIT_TOKEN}\b\.?)*\s*,?\s*"
-# "... 2 feet from|of <object>". Applied only to a pair after the first: a
-# fragment's first pair is its course unless a prefix or label marks it.
-_TIE_AFTER = re.compile(
-    _LENGTH_RUN + r"(?:more\s+or\s+less\s*,?\s*)?(?:from|of)\s+\S", re.IGNORECASE
-)
+# Shared with the course-length roles (``read_course_length``). "... 2 feet
+# from|of <object>" is applied only to a pair after the first: a fragment's first
+# pair is its course unless a prefix or label marks it.
+_TIE_BEFORE = TIE_BEFORE_PATTERN
+_LENGTH_RUN = LENGTH_RUN
+_TIE_AFTER = TIE_AFTER_PATTERN
 _RECORD_BEFORE = re.compile(
     r"(?<![A-Za-z])(?:per\s+(?:deed|record)|of\s+record|deed|record|\(R\))\s*[:=]?\s*$",
     re.IGNORECASE,
@@ -1528,12 +1529,15 @@ def _extract_call(
             azimuth = None
 
     is_curve = _describes_curve(curve_info)
-    if course_bearing.distance_text is not None and not is_curve:
-        # A record or tie pair precedes the measured course; its length is not read.
-        course_text = course_bearing.distance_text
+    if is_curve:
+        course_text = _course_distance_text(call_text, is_curve=True)
     else:
-        course_text = _course_distance_text(call_text, is_curve=is_curve)
-    distance, unit = extract_distance(course_text)
+        course_text = course_bearing.distance_text
+    length = read_course_length(course_text)
+    if length.ambiguous:
+        # Several course lengths: none is chosen, so the course fails closed.
+        raise ValueError(COURSE_LENGTH_AMBIGUOUS_NOTE.format(values=", ".join(length.ambiguous)))
+    distance, unit = length.value, length.unit
     if distance == 0:
         if re.search(
             rf"{COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",

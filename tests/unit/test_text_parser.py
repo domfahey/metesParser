@@ -550,12 +550,13 @@ class TestExtractDistanceAndCompoundTrailing:
             ("10 chains 50 links and 3 perches", (742.5, "feet")),
             ("10 chains and 50 links, 3 rods from the corner", (693.0, "feet")),
             ("150 feet, 3 rods north of the oak", (150.0, "feet")),
-            ("40 poles 2 rods", (40.0, "poles")),
+            ("40 poles 2 rods", (0.0, "feet")),
             ("2 rods and 3 links", (34.98, "feet")),
             ("N 10 E 150 feet to a stake 2 chains 20 links west of a white oak", (150.0, "feet")),
             ("N 10 E 150 feet distant 2 chains 20 links from the oak", (150.0, "feet")),
-            ("N 10 E 150 feet from a stake 2 chains 20 links west", (150.0, "feet")),
-            ("N 10 E 150 feet to a stake 2 chains 20 links", (150.0, "feet")),
+            # An unlabelled second length is ambiguous: none is chosen.
+            ("N 10 E 150 feet from a stake 2 chains 20 links west", (0.0, "feet")),
+            ("N 10 E 150 feet to a stake 2 chains 20 links", (0.0, "feet")),
             ("N 10 E 2 chains 20 links to a stake", (145.2, "feet")),
             (
                 "N 10 E 2 chains 20 links to a stake 3 chains 5 links west of an oak",
