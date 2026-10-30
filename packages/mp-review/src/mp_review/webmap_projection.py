@@ -64,7 +64,7 @@ class WebMapProjection:
     )
 
     def covers(self, extent: tuple[float, float, float, float]) -> bool:
-        """Whether the selected operation's area of use contains a scene-XY extent."""
+        """Whether the operation's and source CRS's areas of use both contain a scene-XY extent."""
         return self._covers_extent is not None and self._covers_extent(extent)
 
     def to_mercator(self, point: XY) -> XY:
@@ -136,6 +136,20 @@ def _covers(area: Any, bounds: tuple[float, float, float, float]) -> bool:
         return bool(area.west <= west and east <= area.east)
     # Areas of use crossing the antimeridian list west > east.
     return bool(west >= area.west or east <= area.east)
+
+
+def _covers_both(
+    operation_area: Any, source_area: Any, bounds: tuple[float, float, float, float]
+) -> bool:
+    """Inside the operation's area of use and, when known, the source CRS's own.
+
+    Broad operations (NAD83 North America, UTM "World") say nothing about where
+    the source CRS is valid. A CRS without an area of use falls back to the
+    operation area alone.
+    """
+    if not _covers(operation_area, bounds):
+        return False
+    return source_area is None or _covers(source_area, bounds)
 
 
 def projection_from_pipeline(
@@ -245,7 +259,11 @@ def build_web_map_projection(
         if extent is None:
             selected = group.transformers[0]
         else:
-            covering = [t for t in group.transformers if _covers(t.area_of_use, bounds)]
+            covering = [
+                t
+                for t in group.transformers
+                if _covers_both(t.area_of_use, source.area_of_use, bounds)
+            ]
             if not covering:
                 raise WebMapUnavailable(
                     "operation_unavailable",
@@ -271,7 +289,11 @@ def build_web_map_projection(
 
         def covers_extent(item: tuple[float, float, float, float]) -> bool:
             try:
-                return _covers(selected.area_of_use, _geographic_bounds(to_geographic(), item))
+                return _covers_both(
+                    selected.area_of_use,
+                    source.area_of_use,
+                    _geographic_bounds(to_geographic(), item),
+                )
             except Exception:
                 return False
 
