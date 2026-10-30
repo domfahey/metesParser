@@ -11,12 +11,15 @@ from __future__ import annotations
 from mp_models import ClosureResult, DeedCall
 from mp_models.constants import PERMANENT_MONUMENTS
 
+from .tangents import has_determined_direction
+
 
 def score_call_quality(call: DeedCall) -> str:
     """Rate individual call quality as high/medium/low.
 
     Scoring logic:
-    - low: incomplete bearing (no azimuth) OR indefinite call
+    - low: direction not determined (no stated bearing and not fixed by stated
+      curve elements) OR indefinite call
     - medium: complete bearing but has meander flag or non-permanent monument
     - high: complete bearing with permanent or no monument, no flags
 
@@ -26,7 +29,7 @@ def score_call_quality(call: DeedCall) -> str:
     Returns:
         "high", "medium", or "low".
     """
-    if not call.is_complete_bearing() or call.is_indefinite:
+    if not has_determined_direction(call) or call.is_indefinite:
         return "low"
 
     if call.is_meander:
@@ -85,7 +88,7 @@ def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> 
     checks_score = checks_passed / 2.0
 
     # Bearing completeness (25%)
-    complete = sum(1 for c in calls if c.is_complete_bearing())
+    complete = sum(1 for c in calls if has_determined_direction(c))
     bearing_score = complete / len(calls)
 
     # Call quality (15%)
