@@ -1094,6 +1094,17 @@ Nine findings, fixed red-green on `fix/code-review-2026-10-29` (findings 3-8 als
 - **Cleanup:** duplicate "due {cardinal}" block removed from `extract_direction` (`4fb7dfb`).
 - **Known limitations:** two-decimal degree values ("N 45.50° E") are still read as packed minutes; a comma list "100, 200 feet" reads 200.
 
+### PR #60 thirty-eighth review (2026-10-30)
+Seven findings, fixed red-green on `fix/code-review-2026-10-29`:
+- **Spelled-out out-of-range bearings:** one shared recogniser makes every quadrant-bearing form with an out-of-range component ("North 91° East", "South 45° 30' 75\" West", "N 45 degrees 61 minutes E") an incomplete-bearing call in both `extract_single_call` and `extract_calls`; identifiers such as "Lot N 12-70 E" stay non-bearings (`470fbea`).
+- **Unread chord and radial bearings:** a stated bearing that cannot be read is kept verbatim in notes ("chord bearing not read: 'N 45 E'") instead of disappearing. It does not set `is_indefinite`, which is not a CSV column, so text and CSV verification agree; a tangentless curve with an unread chord stays unpositioned on both paths (`470fbea`, `fe02cfa`).
+- **Chord-stated spirals:** the parser treats a spiral with a stated length and chord as chord-positioned, matching verification and the CSV round trip (`ea44a6d`).
+- **Curve direction not stated:** a curve stated only by concavity fails closed with "curve direction (left/right) not stated" (never inferred); any `DeedCall` validation error from parser input becomes a clean malformed-course message or skip (`ea44a6d`).
+- **Leading-decimal lengths:** ".5 feet" reads 0.5; "1.2.3", "100 .5" and similar fail closed (`40eb6af`).
+- **Inch-only courses:** "12 inches", "6 in.", "24\"" right after the bearing read as feet; monument sizes, prepositions and seconds marks are unaffected (`40eb6af`).
+- **Tabular curve labels:** R=, L=, Δ=, CB=, CH=/C= are read like the spelled-out wording; A= and D= are not read; a degree-of-curve value is no longer taken as the delta (`40eb6af`).
+- **Known limitation:** "along an arc to the right" is not recognised as a curve and fails closed.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
