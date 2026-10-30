@@ -770,8 +770,6 @@ _DASHED_LABEL_BEFORE = re.compile(
     r"(?:(?<![A-Za-z])" + _IDENTIFIER_WORDS + r"\.?|#)[ \t]{0,3}(?:[A-Z]|\d{1,6}[A-Za-z]?)\s*$",
     re.IGNORECASE,
 )
-# Historical name: the dashed-group context check is now this identifier denylist.
-_DASHED_BEARING_CONTEXT = _DASHED_LABEL_BEFORE
 
 
 # Longest word any ``_ends_with`` pattern needs before its trailing whitespace.
@@ -873,20 +871,26 @@ _CLAUSE_VERB = (
     r"(?:(?:bears?|bearing)(?:\s+(?:of|is))?\s+"
     r"|(?:lies|is)\s+(?=(?:N|S|North|South)(?![a-z])))"
 )
-_CHORD_SUBJECT = r"chord"
+# "C.B." (chord bearing) is the dotted abbreviation only; it opens a clause only
+# when a bearing follows (``_CHORD_BEARING_LEAD``).
+_CHORD_SUBJECT = r"(?:chord|C\.\s?B\.)"
 _RADIAL_SUBJECT = (
     r"(?:radius\s+point|radius|radial(?:\s+(?:line|bearing))?"
     r"|cent(?:er|re)(?:\s+point)?(?:\s+of\s+(?:the|said)\s+curve)?)"
 )
 # The chord may state its length before the bearing ("a chord of 51.76 feet bearing
 # N 45 E"), say "on a bearing of", and drop the verb when a quadrant bearing follows
-# the subject (or the length phrase) directly ("chord N 45 E, 51.76 feet").
+# the subject (or the length phrase) directly ("chord N 45 E, 51.76 feet"). Without
+# a bearing verb, a link ("of", "direction of", "brg.", "runs", ":" or "=") opens
+# the clause only when a quadrant bearing follows it directly.
+_BEARING_AHEAD = r"(?=(?:N|S|North|South)(?![a-z]))"
 _CHORD_BEARING_LEAD = (
     rf"(?:{_CLAUSE_VERB}|on\s+(?:a\s+)?bearing\s+(?:of\s+)?"
-    r"|(?=(?:N|S|North|South)(?![a-z])))"
+    rf"|(?:direction|brgs?\.?)(?:\s+(?:of|is))?\s*{_BEARING_AHEAD}"
+    rf"|(?:runs?|running)\s+{_BEARING_AHEAD}|of\s+{_BEARING_AHEAD}|{_BEARING_AHEAD})"
 )
 _CHORD_PREFIX_PATTERN = re.compile(
-    rf"\b{_CHORD_SUBJECT}(?:\s+(?:length|distance))?\s+"
+    rf"\b{_CHORD_SUBJECT}(?:\s+(?:length|distance))?(?:\s*[:=]\s*|\s+)"
     rf"(?:(?:of\s+)?(?P<chord_lead_len>{COMMA_NUMBER})\s*(?:feet|ft)\b\s*,?\s*"
     r"(?:and\s+)?(?:(?:an?|the)\s+)?)?"
     rf"(?:{_CLAUSE_LINK})?{_CHORD_BEARING_LEAD}",
@@ -976,19 +980,32 @@ class _CourseBearing(NamedTuple):
     direction: str
     text: str
     complete_courses: int = 0
+    # Set only when a tie/record/adjoiner pair precedes the measured course: the
+    # normalized course text without those pairs, read for the course length.
+    distance_text: str | None = None
 
 
-def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -> _CourseBearing:
-    """Return the course (tangent) direction stated in the boundary course text.
+class _PreparedCourse(NamedTuple):
+    """Boundary course text normalized for bearing reading, with its verbatim candidates."""
+
+    normalized: str
+    candidates: list[str]
+    normalized_candidates: list[str]
+
+
+def _prepare_course_text(
+    call_text: str, curve_info: dict[str, float | str | None]
+) -> _PreparedCourse:
+    """Prepare the text every course bearing reading uses.
 
     Corner witnesses are cut off, and the course text and its verbatim bearing
     candidates are normalized together in one pass. Chord and
-    radial/radius-point/center bearings are then removed *before* extraction, so
-    only a bearing describing the course itself can be returned. On a straight
-    course, a radial clause naming the line being run ("along a radial line
-    bearing ...") states the course bearing and is kept; one describing the radius
-    point of a curve reached at the end of the line is removed. ``curve_info`` is
-    ``extract_curve_info(call_text)``, computed once by the caller.
+    radial/radius-point/center clauses (with their bearings) are then removed, so
+    only a bearing describing the course itself remains. On a straight course, a
+    radial clause naming the line being run ("along a radial line bearing ...")
+    states the course bearing and is kept; one describing the radius point of a
+    curve reached at the end of the line is removed. ``curve_info`` is
+    ``extract_curve_info(call_text)``.
     """
     keep_line_radial = not _describes_curve(curve_info)
     course_text = _boundary_course_text(call_text)
@@ -998,11 +1015,32 @@ def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -
     normalized = _without_reference_bearings(
         normalized, _RADIAL_PREFIX_PATTERN, keep_line_radial=keep_line_radial
     )
-    direction = extract_direction(normalized)
+    return _PreparedCourse(normalized, candidates, normalized_candidates)
+
+
+def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -> _CourseBearing:
+    """Return the course (tangent) direction stated in the boundary course text.
+
+    The text is prepared by ``_prepare_course_text``. When the fragment states a
+    complete boundary course, tie, record and adjoiner pairs (``_bearing_pairs``)
+    are removed before extraction, so they never replace the measured course.
+    ``curve_info`` is ``extract_curve_info(call_text)``, computed once by the caller.
+    """
+    prepared = _prepare_course_text(call_text, curve_info)
+    pairs = _bearing_pairs(prepared.normalized)
+    courses = [pair for pair in pairs if pair.complete and pair.boundary]
+    text = prepared.normalized
+    distance_text = None
+    if courses:
+        text = _without_pairs(text, [pair for pair in pairs if not pair.boundary])
+        if any(pair.complete and pair.start < courses[0].start for pair in pairs):
+            distance_text = text
+    direction = extract_direction(text)
     return _CourseBearing(
         direction,
-        _verbatim_course_direction(direction, candidates, normalized_candidates),
-        _complete_courses(normalized)[0],
+        _verbatim_course_direction(direction, prepared.candidates, prepared.normalized_candidates),
+        len(courses),
+        distance_text,
     )
 
 
@@ -1099,41 +1137,112 @@ def _course_bearing_spans(text: str) -> list[tuple[int, int]]:
 def _boundary_course_reading(call_text: str) -> tuple[int, bool]:
     """Return (complete boundary courses, has any course bearing) in one call fragment.
 
-    The text is read exactly as for the course bearing (``_course_bearing``):
-    corner witnesses are cut off and chord and radial clauses (bearing and its
-    clause) are removed, so a curve's chord or radial bearing and length never
-    count as a second course.
+    The text is read exactly as for the course bearing (``_prepare_course_text``),
+    so a curve's chord or radial bearing and length never count as a second course.
     """
-    keep_line_radial = not _describes_curve(extract_curve_info(call_text))
-    text = _normalize_bearing_forms(_boundary_course_text(call_text))
-    text = _without_reference_bearings(text, _CHORD_PREFIX_PATTERN)
-    text = _without_reference_bearings(
-        text, _RADIAL_PREFIX_PATTERN, keep_line_radial=keep_line_radial
+    return _complete_courses(
+        _prepare_course_text(call_text, extract_curve_info(call_text)).normalized
     )
-    return _complete_courses(text)
 
 
-def _complete_courses(text: str) -> tuple[int, bool]:
-    """Return (complete courses, has any course bearing) in normalized course text.
+# --- Bearing + distance pair roles ----------------------------------------------------
+# Only a BOUNDARY pair is a course. A TIE locates a point ("said pin being N 30 E
+# 2 feet from a stone", "a point distant S 10 W 50 feet from a monument"); a RECORD
+# call restates the course ("(N 45 10 E 100.5 feet per deed)", "... (R)"); an
+# ADJOINER pair describes a neighbouring line ("which line bears S 45 E 300 feet").
+# Their wording stays in the call text; they are only excluded from course reading.
+_ROLE_WINDOW = 120
+_TIE_BEFORE = re.compile(
+    r"(?<![A-Za-z])(?:distant|being(?:\s+also)?|which\s+(?:is|lies)|that\s+is|lying"
+    r"|located|situated)\s*,?\s*$",
+    re.IGNORECASE,
+)
+# Lengths (possibly compound) and an optional "more or less" before a suffix label.
+_LENGTH_RUN = rf"(?:\s*,?\s*(?:and\s+)?{COMMA_NUMBER}\s*{_UNIT_TOKEN}\b\.?)*\s*,?\s*"
+# "... 2 feet from|of <object>". Applied only to a pair after the first: a
+# fragment's first pair is its course unless a prefix or label marks it.
+_TIE_AFTER = re.compile(
+    _LENGTH_RUN + r"(?:more\s+or\s+less\s*,?\s*)?(?:from|of)\s+\S", re.IGNORECASE
+)
+_RECORD_BEFORE = re.compile(
+    r"(?<![A-Za-z])(?:per\s+(?:deed|record)|of\s+record|deed|record|\(R\))\s*[:=]?\s*$",
+    re.IGNORECASE,
+)
+_RECORD_AFTER = re.compile(
+    _LENGTH_RUN + r"(?:(?:per|by)\s+(?:deed|record)\b|of\s+record\b|\((?:R|record|deed)\))",
+    re.IGNORECASE,
+)
+_ADJOINER_BEFORE = re.compile(
+    r"(?:(?<![A-Za-z])(?:which|said|whose)\s+line\s+|\bthe\s+line\s+of\s+[^,;()]{1,80}?\s+)"
+    r"(?:bears?|bearing|runs?)\s+(?:of\s+)?$",
+    re.IGNORECASE,
+)
 
-    A complete course is a course-form bearing followed by a length before the
-    next bearing. ``text`` has had its chord and radial clauses removed. A later
+
+class _BearingPair(NamedTuple):
+    """A course-form bearing, the length stated after it (if any) and its role."""
+
+    start: int
+    end: int  # end of its length, or of the bearing without one
+    complete: bool
+    boundary: bool
+
+
+def _in_parentheses(text: str, position: int) -> bool:
+    return text.rfind("(", 0, position) > text.rfind(")", 0, position)
+
+
+def _is_boundary_pair(text: str, start: int, end: int, *, first: bool, complete: bool) -> bool:
+    """Return False for a tie, record or adjoiner pair (``_TIE_BEFORE`` and following)."""
+    before = text[max(0, start - _ROLE_WINDOW) : start]
+    after = text[end : end + _ROLE_WINDOW]
+    if _in_parentheses(text, start):
+        return False  # a parenthetical bearing restates the course (record)
+    if _RECORD_BEFORE.search(before) or (complete and _RECORD_AFTER.match(after)):
+        return False
+    if _ADJOINER_BEFORE.search(before) or _TIE_BEFORE.search(before):
+        return False
+    return first or not (complete and _TIE_AFTER.match(after))
+
+
+def _bearing_pairs(text: str) -> list[_BearingPair]:
+    """Return every course-form bearing in normalized course text with its role.
+
+    A pair is complete when a length follows the bearing before the next bearing.
+    ``text`` has had its chord and radial clauses removed. A later
     BEGINNING/COMMENCING clause opens another description, whose bearings are ties
-    to its point of beginning, so counting stops there.
+    to its point of beginning, so reading stops there.
     """
     preamble = _LATER_BEGINNING.search(text, 1)
     if preamble:
         text = text[: preamble.start()]
     bearings = _course_bearing_spans(text)
-    if not bearings:
-        return 0, False
-    ends = [start for start, _ in bearings[1:]] + [len(text)]
-    complete = sum(
-        1
-        for (_, bearing_end), segment_end in zip(bearings, ends, strict=True)
-        if _LENGTH_TOKEN.search(text, bearing_end, segment_end)
-    )
-    return complete, bool(bearings)
+    ends = [start for start, _ in bearings[1:]] + [len(text)] if bearings else []
+    pairs = []
+    for index, ((start, bearing_end), segment_end) in enumerate(zip(bearings, ends, strict=True)):
+        length = _LENGTH_TOKEN.search(text, bearing_end, segment_end)
+        end = length.end() if length else bearing_end
+        complete = length is not None
+        boundary = _is_boundary_pair(text, start, end, first=index == 0, complete=complete)
+        pairs.append(_BearingPair(start, end, complete, boundary))
+    return pairs
+
+
+def _without_pairs(text: str, pairs: list[_BearingPair]) -> str:
+    """Blank out ``pairs`` (bearing through length) in ``text``."""
+    for pair in reversed(pairs):
+        text = text[: pair.start] + " " + text[pair.end :]
+    return text
+
+
+def _complete_courses(text: str) -> tuple[int, bool]:
+    """Return (complete boundary courses, has any course bearing) in normalized text.
+
+    A complete course is a complete boundary pair (``_bearing_pairs``): a
+    course-form bearing and its length that are not a tie, record or adjoiner call.
+    """
+    pairs = _bearing_pairs(text)
+    return sum(1 for pair in pairs if pair.complete and pair.boundary), bool(pairs)
 
 
 def _split_juxtaposed_courses(segment: str) -> list[str]:
@@ -1266,7 +1375,12 @@ def _extract_call(
             bearing_quadrant = None
             azimuth = None
 
-    course_text = _course_distance_text(call_text, is_curve=_describes_curve(curve_info))
+    is_curve = _describes_curve(curve_info)
+    if course_bearing.distance_text is not None and not is_curve:
+        # A record or tie pair precedes the measured course; its length is not read.
+        course_text = course_bearing.distance_text
+    else:
+        course_text = _course_distance_text(call_text, is_curve=is_curve)
     distance, unit = extract_distance(course_text)
     if distance == 0:
         if re.search(
