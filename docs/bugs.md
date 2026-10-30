@@ -1018,6 +1018,14 @@ Six findings plus two follow-ups, fixed red-green on `fix/code-review-2026-10-29
 - **Chord parsed once:** `tangents.parse_chord` caches the chord azimuth, so verification parses each chord string once (8 → 1) (`280401c`).
 - **Curve orientation follow-ups:** unreadable chords leave a curve unpositioned in verify and plot; radial vs chord and radial vs stated tangent are cross-checked; diagnostics uses the shared rule (`b52aa1a`, `7cda88a`).
 
+### PR #60 twenty-eighth review (2026-10-30)
+Four findings plus one follow-up, fixed red-green on `fix/code-review-2026-10-29`:
+- **No silently dropped parcels:** a block's closing point of beginning must follow its first THENCE ("said point of beginning being …" in the preamble is not a closure); unassigned text containing courses is kept as an unlabelled tract or fails closed. 219 Berlin Rd (12799-00118) legal text: 9 → 29 calls matching all 29 ground-truth courses; 07105-00834 and 08256-00635 split into tract + easement (`d8f0daa`).
+- **Trailing text after the closing course:** encumbrance lists, "Subject to", "Together with", "Under and subject to", "BEING the same" etc. after the course that returns to the point of beginning are not courses; a trailing complete course still fails closed. Sample skips 432 → 331 (1 Walnut St 37 → 1, 1350 Brace Rd 19 → 0) with no change in parsed calls (`77131bc`).
+- **Concavity is not a direction:** "concave to the southeast" and similar clauses are stripped before cardinal detection (`db2e11a`).
+- **Same-unit "and" pairs are not summed:** "100.00 feet and 50.00 feet" gives the first measurement; different-unit compounds still sum (`db2e11a`).
+- **Metric course lengths:** `extract_distance` reads metres/meters/m, foot marks and "ft." via the shared `mp_parse.units` module (`b4d83c2`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
