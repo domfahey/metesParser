@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import itertools
 import math
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 from typing import Literal, cast
 
@@ -272,7 +272,8 @@ def _coordinates(feature: WebMapFeature) -> Iterator[XY]:
 Extent = tuple[float, float, float, float]
 
 
-def _bounds_of(points: list[XY]) -> Extent | None:
+def bounds_of(points: list[XY]) -> Extent | None:
+    """Scene-XY bounds of the finite points, or ``None``."""
     finite = [p for p in points if all(math.isfinite(v) for v in p)]
     if not finite:
         return None
@@ -284,28 +285,58 @@ def _bounds_of(points: list[XY]) -> Extent | None:
     )
 
 
-def _vector_extent(layer: VectorLayer) -> Extent | None:
+def vector_extent(layer: VectorLayer) -> Extent | None:
+    """Scene-XY bounds of a context vector layer."""
     polygons = (layer.coordinates,) if layer.geometry_type == "Polygon" else layer.coordinates
-    return _bounds_of([cast(XY, p) for polygon in polygons for ring in polygon for p in ring])
+    return bounds_of([cast(XY, p) for polygon in polygons for ring in polygon for p in ring])
 
 
 def _raster_extent(raster: RasterLayer) -> Extent | None:
     a, b, c, d, e, f = raster.registration.matrix
     corners = itertools.product((-0.5, raster.width - 0.5), (-0.5, raster.height - 0.5))
-    return _bounds_of([(a * col + b * row + c, d * col + e * row + f) for col, row in corners])
+    return bounds_of([(a * col + b * row + c, d * col + e * row + f) for col, row in corners])
+
+
+def placed_points(
+    primitives: Iterable[PlotPrimitive],
+    placement: PlotPlacement,
+    native_units: LinearUnit,
+    scene_units: LinearUnit,
+) -> list[XY]:
+    """Placed scene-XY samples of primitives (arcs at five parameters) for extents."""
+    return [
+        transform_point(
+            _primitive_point(primitive, t),
+            placement,
+            native_units=native_units,
+            scene_units=scene_units,
+        )
+        for primitive in primitives
+        for t in (0, 0.25, 0.5, 0.75, 1)
+    ]
+
+
+def operation_extent(
+    primary_points: list[XY], context_extents: Iterable[Extent | None]
+) -> Extent | None:
+    """Extent that selects the coordinate operation (shared by web map and delivery).
+
+    Deed (primary) evidence alone chooses the operation. Context evidence is
+    checked against it later with :func:`require_area` and omitted individually
+    if outside. Only with no displayable deed geometry do the context extents
+    choose the operation.
+    """
+    deed = bounds_of(primary_points)
+    if deed is not None:
+        return deed
+    extents = [e for e in context_extents if e is not None]
+    return bounds_of([p for e in extents for p in ((e[0], e[1]), (e[2], e[3]))])
 
 
 def _display_extent(
     context: WebMapContext, scene_id: str, scene_units: LinearUnit
 ) -> Extent | None:
-    """Scene-XY bounds of the deed (primary) evidence, or ``None``.
-
-    Used only to select and check a coordinate operation's area of use, so it
-    samples generously (arcs at five parameters) and skips what cannot display.
-    Context vector layers and rasters do not choose the operation: each is
-    checked against it later and omitted individually if outside. Only a scene
-    with no displayable deed geometry falls back to its context layers.
-    """
+    """Scene-XY operation-selection extent of the web-map context, or ``None``."""
     points: list[XY] = []
     foot = dict(context.foot_definitions)
     for geometry in context.geometries:
@@ -319,31 +350,17 @@ def _display_extent(
                 or placement.status == "unplaced"
             ):
                 continue
-            for primitive in geometry.primitives:
-                for t in (0, 0.25, 0.5, 0.75, 1):
-                    points.append(
-                        transform_point(
-                            _primitive_point(primitive, t),
-                            placement,
-                            native_units=native,
-                            scene_units=scene_units,
-                        )
-                    )
-    deed = _bounds_of(points)
-    if deed is not None:
-        return deed
-    extents = [
-        e
-        for e in (
-            *(_vector_extent(v) for v in context.vector_layers if v.scene_id == scene_id),
+            points.extend(placed_points(geometry.primitives, placement, native, scene_units))
+    return operation_extent(
+        points,
+        (
+            *(vector_extent(v) for v in context.vector_layers if v.scene_id == scene_id),
             *(_raster_extent(r) for r in context.raster_layers if r.scene_id == scene_id),
-        )
-        if e is not None
-    ]
-    return _bounds_of([p for e in extents for p in ((e[0], e[1]), (e[2], e[3]))])
+        ),
+    )
 
 
-def _require_area(projection: WebMapProjection, extent: Extent | None) -> None:
+def require_area(projection: WebMapProjection, extent: Extent | None) -> None:
     """Omit context evidence that the deed-selected operation does not cover."""
     if projection.extent is not None and (extent is None or not projection.covers(extent)):
         raise WebMapUnavailable(
@@ -459,7 +476,7 @@ def prepare_web_map(
                 continue
             before = budget.remaining
             try:
-                _require_area(projection, _vector_extent(layer))
+                require_area(projection, vector_extent(layer))
                 feature = _vector_feature(layer, projection, options, budget)
             except WebMapUnavailable as exc:
                 budget.remaining = before
@@ -473,7 +490,7 @@ def prepare_web_map(
             from .webmap_raster import prepare_web_map_raster
 
             try:
-                _require_area(projection, _raster_extent(raster))
+                require_area(projection, _raster_extent(raster))
                 remaining = options.max_raster_pixels - raster_pixels
                 if remaining <= 0:
                     raise WebMapUnavailable(
