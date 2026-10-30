@@ -120,7 +120,12 @@ def create_extraction_report(legal_desc, closure_result, output_file):
 
         f.write(f"Calculated Area:    {closure_result.area_sq_ft:10.2f} sq ft\n")
         f.write(f"                    {closure_result.area_acres:10.4f} acres\n")
-        f.write(f"Perimeter:          {closure_result.perimeter_ft:10.2f} ft\n\n")
+        perimeter = (
+            f"{closure_result.perimeter_ft:10.2f} ft"
+            if closure_result.perimeter_available
+            else "not determined"
+        )
+        f.write(f"Perimeter:          {perimeter}\n\n")
 
         f.write(
             f"Angle Check:        {'✓ PASSED' if closure_result.angle_check_passed else '✗ FAILED'}\n"

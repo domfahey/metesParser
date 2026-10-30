@@ -534,7 +534,15 @@ class ClosureResult(_Model):
         description="Area in square feet (shoelace formula)",
     )
     area_acres: FiniteFloat = Field(..., description="Area in acres")
-    perimeter_ft: FiniteFloat = Field(..., description="Total perimeter in feet")
+    perimeter_ft: FiniteFloat = Field(
+        ...,
+        description="Total perimeter in feet; 0.0 when perimeter_available is False",
+    )
+    perimeter_available: bool = Field(
+        default=True,
+        description="False when a course length is not determined (e.g. a chord-only curve "
+        "or an unpositioned course); perimeter_ft is then not a measurement",
+    )
 
     closure_passed: bool = Field(
         ...,
@@ -590,6 +598,7 @@ class ClosureResult(_Model):
         "closure_passed",
         "angle_check_passed",
         "curve_consistency_passed",
+        "perimeter_available",
         mode="before",
     )
     @classmethod
