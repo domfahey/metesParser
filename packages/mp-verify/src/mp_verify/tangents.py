@@ -7,6 +7,7 @@ Values computed here are internal to verification and are never stored on a
 from __future__ import annotations
 
 import math
+from functools import lru_cache
 
 from mp_bearing import bearing_to_azimuth  # type: ignore[import-untyped]
 from mp_models import DeedCall
@@ -73,6 +74,19 @@ def curve_sweep(call: DeedCall) -> float | None:
     return delta
 
 
+@lru_cache(maxsize=4096)
+def _chord_azimuth(chord_bearing: str) -> float | None:
+    return bearing_to_azimuth(chord_bearing)  # type: ignore[no-any-return]
+
+
+def parse_chord(call: DeedCall) -> float | None:
+    """Chord azimuth, or None when no chord bearing is stated or it cannot be parsed.
+
+    The single place the chord string is parsed; memoized per distinct string.
+    """
+    return _chord_azimuth(call.chord_bearing) if call.chord_bearing is not None else None
+
+
 def chord_delta(call: DeedCall, chord_azimuth: float | None) -> float | None:
     """Return the sweep (deg) positioning a tangent-less circular curve by its chord.
 
@@ -88,7 +102,7 @@ def chord_delta(call: DeedCall, chord_azimuth: float | None) -> float | None:
 
 def chord_positioned_delta(call: DeedCall) -> float | None:
     """Return the chord-positioning sweep, parsing the call's chord bearing."""
-    chord = bearing_to_azimuth(call.chord_bearing) if call.chord_bearing is not None else None
+    chord = parse_chord(call)
     return chord_delta(call, chord)
 
 
@@ -167,7 +181,7 @@ def curve_tangents(call: DeedCall) -> tuple[float, float] | None:
     if delta is None:
         return None
     sign = 1.0 if call.curve_dir == "right" else -1.0
-    chord = bearing_to_azimuth(call.chord_bearing) if call.chord_bearing is not None else None
+    chord = parse_chord(call)
     tangent_in = start_tangent(call, delta, chord)
     if tangent_in is None:
         return None
