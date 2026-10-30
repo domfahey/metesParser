@@ -121,7 +121,8 @@ def generate_ground_truth(pdf_path: Path, processor: PDFProcessor) -> dict:
             "misclosure_ft": round(result.misclosure_ft, 4),
             "area_sq_ft": round(result.area_sq_ft, 2),
             "area_acres": round(result.area_acres, 4),
-            "perimeter_ft": round(result.perimeter_ft, 2),
+            "perimeter_ft": round(result.perimeter_ft, 2) if result.perimeter_available else None,
+            "perimeter_available": result.perimeter_available,
             "closure_passed": result.closure_passed,
         }
         print(f"  ✓ Misclosure: {result.misclosure_ft:.4f} ft")
