@@ -29,9 +29,11 @@ from mp_verify.webmap import (
     Extent,
     WebMapContext,
     WebMapInput,
-    bounds_of,
     feature_vertices,
     normalize_web_map_context,
+)
+from mp_verify.webmap import (
+    bounds_of as bounds_of,
 )
 
 from .webmap_projection import WebMapProjection, WebMapUnavailable, build_web_map_projection
