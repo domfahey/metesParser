@@ -235,11 +235,12 @@ def test_one_complete_circle_is_a_valid_boundary(geometry, direction):
 
 
 def test_unsupported_spiral_requires_review_instead_of_circular_certification(geometry):
+    # Round 17: a spiral without a stated chord length is unpositioned, never a circle.
     call_type, verify, _ = geometry
     calls = capped_semicircle(call_type, 150)
     calls[0] = calls[0].model_copy(update={"curve_type": "spiral"})
     result = verify(calls)
-    assert any("intersection check unavailable" in w and "spiral" in w for w in result.warnings)
+    assert any("cannot be positioned" in w for w in result.warnings), result.warnings
     assert not result.is_fully_verified()
 
 
