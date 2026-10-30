@@ -5,10 +5,10 @@
    the radius point of the curve reached at the end of a line are removed. A
    radial clause without a comma ends at its bearing.
 2. A curve stating its tangent, chord bearing, chord length and radius (no delta
-   or arc) has a determined delta: twice the tangent-to-chord deflection, whose
-   sign must match the curve direction. Consistent elements derive the delta (for
-   the arc only; ``delta_deg`` stays None) and the arc; inconsistent ones are kept,
-   flagged and positioned by the chord only, so the curve check never passes.
+   or arc) keeps only its stated values: no delta or arc is derived into
+   ``delta_deg``/``arc_length_ft`` (round 12). It is positioned by its chord, and
+   the tangent/chord/radius cross-check is left to verification, so the curve
+   check never passes on derived values.
 3. The unused ``_without_chord_bearing``/``_without_radial_bearing`` helpers are gone.
 """
 
@@ -123,34 +123,33 @@ TANGENT_CHORD = (
     "thence N 10°00'00\" E along a curve to the {side} having a radius of 500.00 feet, "
     "the chord of which bears N {chord_deg}°00'00\" E {chord} feet to a point"
 )
-DELTA_RAD = math.radians(70.0)
-DERIVED_ARC = 500.0 * DELTA_RAD
+POSITIONED_NOTE = "curve positioned by stated tangent and chord; arc not stated"
 INCONSISTENT_NOTE = "stated tangent, chord and radius are inconsistent"
 
 
-def test_consistent_tangent_and_chord_derive_delta_and_arc(parse):
+def test_consistent_tangent_and_chord_store_no_derived_arc(parse):
     call = parse(TANGENT_CHORD.format(side="right", chord_deg=45, chord="573.58"))
     assert call is not None
     assert call.bearing_azimuth_deg_from_north == pytest.approx(10.0)
-    assert call.delta_deg is None  # only an explicitly stated delta is stored
-    assert call.arc_length_ft == pytest.approx(DERIVED_ARC)
-    assert call.distance_ft == pytest.approx(DERIVED_ARC)
+    assert call.delta_deg is None
+    assert call.arc_length_ft is None  # a derived arc is never stored as stated
+    assert call.distance_ft == pytest.approx(573.58)
     assert call.chord_length_ft == pytest.approx(573.58)
-    assert not call.is_chord_only_curve()
+    assert call.is_chord_only_curve()
     notes = call.notes or ""
-    assert "delta derived from tangent and chord bearings" in notes
-    assert "positioned by chord only" not in notes
+    assert POSITIONED_NOTE in notes
+    assert "derived" not in notes
     assert INCONSISTENT_NOTE not in notes
 
 
 def test_consistent_left_curve(parse):
-    # Left curve: chord = tangent - delta/2.
+    # Left curve: chord = tangent - delta/2; still nothing derived is stored.
     call = parse(
         "thence N 80°00'00\" E along a curve to the left having a radius of 500.00 feet, "
         "the chord of which bears N 45°00'00\" E 573.58 feet to a point"
     )
-    assert call.arc_length_ft == pytest.approx(DERIVED_ARC)
-    assert not call.is_chord_only_curve()
+    assert call.arc_length_ft is None
+    assert call.is_chord_only_curve()
 
 
 @pytest.mark.parametrize(
@@ -161,7 +160,8 @@ def test_consistent_left_curve(parse):
         ("right", 10, "100.00"),  # zero deflection
     ],
 )
-def test_inconsistent_tangent_chord_radius_is_flagged(parse, side, chord_deg, chord):
+def test_inconsistent_tangent_chord_radius_is_kept_as_stated(parse, side, chord_deg, chord):
+    # The parser does not judge consistency; verification's tangent_chord_issue does.
     call = parse(TANGENT_CHORD.format(side=side, chord_deg=chord_deg, chord=chord))
     assert call is not None
     assert call.bearing_azimuth_deg_from_north == pytest.approx(10.0)
@@ -169,7 +169,7 @@ def test_inconsistent_tangent_chord_radius_is_flagged(parse, side, chord_deg, ch
     assert call.arc_length_ft is None
     assert call.is_chord_only_curve()
     assert call.distance_ft == pytest.approx(float(chord))
-    assert INCONSISTENT_NOTE in (call.notes or "")
+    assert POSITIONED_NOTE in (call.notes or "")
 
 
 def test_non_tangent_curve_does_not_derive_delta_from_its_bearing(parse):
@@ -202,11 +202,12 @@ def _curve_check(result) -> CheckResult:
 
 
 @pytest.mark.parametrize("impl", PARSE_VERIFY)
-def test_consistent_tangent_chord_curve_passes_curve_check(impl):
+def test_consistent_tangent_chord_curve_is_blocked_not_passed(impl):
+    # Positioned by chord only: no derived arc lets the curve check pass.
     result = _triangle(impl, "573.58")
-    assert result.curve_consistency_passed is True
-    assert _curve_check(result).status == "passed"
-    assert not any("positioned by chord only" in w for w in result.warnings)
+    assert result.curve_consistency_passed is False
+    assert _curve_check(result).status == "blocked"
+    assert any("positioned by chord only" in w for w in result.warnings)
 
 
 @pytest.mark.parametrize("impl", PARSE_VERIFY)

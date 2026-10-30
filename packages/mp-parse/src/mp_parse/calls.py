@@ -15,7 +15,6 @@ from typing import NamedTuple
 import structlog
 from mp_bearing import (
     COMPASS_POINTS,
-    CURVE_ELEMENT_TOLERANCE_FT,
     QUADRANT_PATTERN,
     bearing_to_azimuth,
     calculate_curve_properties,
@@ -24,7 +23,6 @@ from mp_bearing import (
     parse_packed_dms,
     parse_quadrant_bearing,
     quadrant_to_azimuth,
-    tangent_chord_deflection,
 )
 from mp_models import (
     AuditContext,
@@ -227,12 +225,8 @@ def _extract_calls_from_text(
 
         for source_course, call_text in enumerate(call_texts, start=1):
             try:
-                course_bearing = _course_bearing(call_text)
-                call = extract_single_call(
-                    call_text,
-                    course=course_num,
-                    distance_unit=distance_unit,
-                    course_bearing=course_bearing,
+                call, raw_direction = _extract_call(
+                    call_text, course=course_num, distance_unit=distance_unit
                 )
             except (ValidationError, ValueError, TypeError) as exc:
                 if strict:
@@ -277,7 +271,7 @@ def _extract_calls_from_text(
 
             if audit_context is not None:
                 transformations, decisions, flags = _audit_single_call(
-                    call_text, call, course_bearing.direction
+                    call_text, call, raw_direction
                 )
                 audit_context.call_audits.append(
                     CallAudit(
@@ -522,25 +516,6 @@ def _describes_curve(curve_info: dict[str, float | str | None]) -> bool:
     return any(curve_info.get(key) is not None for key in _CURVE_GEOMETRY_KEYS)
 
 
-def _tangent_chord_delta(
-    tangent_az: float, chord_az: float, curve_dir: str, radius_ft: float, chord_ft: float
-) -> float | None:
-    """Return the central angle fixed by a curve's stated tangent and chord bearings.
-
-    The chord deflects from the tangent by half the delta, toward the curve
-    (clockwise for a right curve). None when the deflection turns the other way
-    (or is zero) or the stated chord is not 2R*sin(delta/2) within the shared
-    ``CURVE_ELEMENT_TOLERANCE_FT`` that verification and plotting also apply.
-    """
-    deflection: float = tangent_chord_deflection(tangent_az, chord_az, curve_dir)
-    if deflection <= 0.0:
-        return None
-    expected_chord = 2.0 * radius_ft * math.sin(math.radians(deflection))
-    if abs(expected_chord - chord_ft) > CURVE_ELEMENT_TOLERANCE_FT:
-        return None
-    return 2.0 * deflection
-
-
 class _CourseBearing(NamedTuple):
     """The course direction of one call: ``direction`` parses, ``text`` is the deed's."""
 
@@ -548,7 +523,7 @@ class _CourseBearing(NamedTuple):
     text: str
 
 
-def _course_bearing(call_text: str) -> _CourseBearing:
+def _course_bearing(call_text: str, curve_info: dict[str, float | str | None]) -> _CourseBearing:
     """Return the course (tangent) direction stated in the boundary course text.
 
     Corner witnesses are cut off, and the course text and its verbatim bearing
@@ -557,9 +532,10 @@ def _course_bearing(call_text: str) -> _CourseBearing:
     only a bearing describing the course itself can be returned. On a straight
     course, a radial clause naming the line being run ("along a radial line
     bearing ...") states the course bearing and is kept; one describing the radius
-    point of a curve reached at the end of the line is removed.
+    point of a curve reached at the end of the line is removed. ``curve_info`` is
+    ``extract_curve_info(call_text)``, computed once by the caller.
     """
-    keep_line_radial = not _describes_curve(extract_curve_info(call_text))
+    keep_line_radial = not _describes_curve(curve_info)
     course_text = _boundary_course_text(call_text)
     candidates = _verbatim_candidates(course_text, keep_line_radial=keep_line_radial)
     normalized, *normalized_candidates = _normalize_bearing_segments([course_text, *candidates])
@@ -633,8 +609,6 @@ def extract_single_call(
     call_text: str,
     course: int,
     distance_unit: str = "feet",
-    *,
-    course_bearing: _CourseBearing | None = None,
 ) -> DeedCall | None:
     """Extract a single call from text.
 
@@ -642,16 +616,26 @@ def extract_single_call(
         call_text: Text for one call
         course: Course number
         distance_unit: Primary distance unit
-        course_bearing: ``_course_bearing(call_text)`` when already computed
 
     Returns:
         DeedCall object or None if parsing fails
     """
-    if re.match(r"^\s*(BEGINNING|COMMENCING|POB)\b", call_text, re.IGNORECASE):
-        return None
+    return _extract_call(call_text, course, distance_unit)[0]
 
-    if course_bearing is None:
-        course_bearing = _course_bearing(call_text)
+
+def _extract_call(
+    call_text: str, course: int, distance_unit: str = "feet"
+) -> tuple[DeedCall | None, str]:
+    """Return ``extract_single_call``'s result with the parsed course direction.
+
+    BEGINNING/POB clauses return before any curve or bearing work; otherwise curve
+    info is extracted once and shared with the course-bearing extraction.
+    """
+    if re.match(r"^\s*(BEGINNING|COMMENCING|POB)\b", call_text, re.IGNORECASE):
+        return None, ""
+
+    curve_info = extract_curve_info(call_text)
+    course_bearing = _course_bearing(call_text, curve_info)
     raw_direction = course_bearing.direction
     # direction_text keeps the deed's wording; the normalized form is for parsing only.
     direction_text = course_bearing.text if raw_direction else call_text.strip()
@@ -698,16 +682,14 @@ def extract_single_call(
 
     distance_ft = ConversionFactors.convert_to_feet(distance, unit)
 
-    curve_info = extract_curve_info(call_text)
-
     # The tangent azimuth is only what the course text states (chord and radial
     # clauses were removed before extraction). Without one, a stated chord bearing
     # plus curve direction and delta yields it deterministically (right: chord -
     # delta/2; left: chord + delta/2). Only an explicitly stated delta is stored as
     # delta_deg; otherwise the stated arc length and radius define it exactly
     # (delta = arc / R), used for the tangent only and disclosed in the notes.
-    # Radius + chord without a stated delta, arc or tangent is ambiguous (minor or major
-    # arc): no delta, arc or tangent is derived; the course is positioned by its
+    # Radius + chord without a stated delta or arc: no delta, arc or tangent is
+    # derived (a stated tangent is kept as stated); the course is positioned by its
     # chord only.
     has_stated_tangent = parsed_bearing is not None or is_due_cardinal
     chord_text = curve_info.get("chord_bearing")
@@ -727,38 +709,15 @@ def extract_single_call(
     ):
         tangent_delta = math.degrees(stated_arc / stated_radius)
         delta_source = "arc length"
-    # A stated tangent with the chord bearing fixes the delta (twice their
-    # deflection); the stated chord and radius must agree with it. Consistent: the
-    # delta is used for the arc only (delta_deg stays unset) and the arc
-    # is derived. Inconsistent: the call is kept, flagged and positioned by chord.
-    delta_from_tangent_chord = False
-    tangent_chord_inconsistent = False
-    curve_side = curve_info.get("direction")
-    if (
-        tangent_delta is None
-        and stated_arc is None
+    # A stated tangent, chord bearing, chord and radius (no delta or arc) are kept as
+    # stated: nothing is derived into delta_deg/arc_length_ft. The chord positions the
+    # course; verification cross-checks the stated tangent, chord and radius.
+    tangent_and_chord = (
+        has_stated_tangent
         and azimuth is not None
-        and has_stated_tangent
         and not curve_info.get("non_tangent")
-        and isinstance(curve_side, str)
-        and curve_side in ("left", "right")
-        and isinstance(stated_radius, float)
-        and stated_radius > 0.0
         and isinstance(chord_text, str)
-        and isinstance(stated_chord, float)
-        and stated_chord > 0.0
-    ):
-        stated_chord_az = bearing_to_azimuth(chord_text)
-        if stated_chord_az is not None:
-            tangent_chord = _tangent_chord_delta(
-                azimuth, stated_chord_az, curve_side, stated_radius, stated_chord
-            )
-            if tangent_chord is None:
-                tangent_chord_inconsistent = True
-            else:
-                tangent_delta = tangent_chord
-                delta_from_tangent_chord = True
-                curve_info["arc_length_ft"] = stated_radius * math.radians(tangent_chord)
+    )
     positioned_by_chord = (
         tangent_delta is None
         and stated_arc is None
@@ -809,7 +768,7 @@ def extract_single_call(
         and not has_boundary_endpoint
         and not detect_meander(call_text)
     ):
-        return None
+        return None, raw_direction
 
     arc_length_ft = curve_info.get("arc_length_ft")
     if isinstance(arc_length_ft, float) and arc_length_ft > 0.0:
@@ -856,15 +815,10 @@ def extract_single_call(
         tangent_notes.append(note)
     elif chord_only and not positioned_by_chord:
         tangent_notes.append("tangent bearing not stated - chord bearing only")
-    if positioned_by_chord:
+    if positioned_by_chord and tangent_and_chord:
+        tangent_notes.append("curve positioned by stated tangent and chord; arc not stated")
+    elif positioned_by_chord:
         tangent_notes.append("curve delta/arc not stated - positioned by chord only")
-    if delta_from_tangent_chord:
-        tangent_notes.append(
-            "curve delta derived from tangent and chord bearings "
-            "(arc computed from delta and radius)"
-        )
-    if tangent_chord_inconsistent:
-        tangent_notes.append("stated tangent, chord and radius are inconsistent")
     if chord_exceeds_diameter:
         tangent_notes.append("chord length exceeds twice the radius")
     tangent_note = "; ".join(tangent_notes)
@@ -879,7 +833,7 @@ def extract_single_call(
         notes = "incomplete bearing - cardinal only" if cardinal_only else "incomplete bearing"
 
     if distance_ft <= 0.0:
-        return None
+        return None, raw_direction
 
     has_curve = bool(curve_info.get("direction") or curve_info.get("radius_ft"))
     has_direction_intent = bool(
@@ -901,7 +855,7 @@ def extract_single_call(
             logger.warning("Rejecting bearingless non-curve call", **payload, call_text=call_text)
         else:
             logger.warning("Rejecting bearingless non-curve call", **payload)
-        return None
+        return None, raw_direction
 
     curve_dir = curve_info.get("direction")
     curve_direction: CurveDirection | None
@@ -977,7 +931,7 @@ def extract_single_call(
         notes=notes if notes else None,
     )
 
-    return call
+    return call, raw_direction
 
 
 def _is_derived_tangent(call: DeedCall, raw_direction: str) -> bool:
