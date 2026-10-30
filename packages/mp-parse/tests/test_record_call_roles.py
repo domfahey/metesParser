@@ -187,21 +187,21 @@ CASES: dict[str, Course | Fails] = {
         100.0,
         "record call: per record N 45°10' E 100.5 feet",
     ),
-    # A record pair inside "along" is kept whole there: the course's own length is
-    # never stripped out of it.
+    # A record pair inside "along" is noted as a record call, never kept in "along"
+    # too: wording appears once, and the course's own length is read first.
     "record-in-along-same-length": Course(
         "thence N 45° E 100 feet along Main Street, N 44° E 100 feet per deed, to a pin",
         45.0,
         100.0,
         "record call: N 44° E 100 feet per deed",
-        along="Main Street, N 44° E 100 feet per deed",
+        along="Main Street",
     ),
     "record-in-along-same-bearing": Course(
         "thence N 45° E 100 feet along Main Street, N 45° E 99.5 feet per deed, to a pin",
         45.0,
         100.0,
         "record call: N 45° E 99.5 feet per deed",
-        along="Main Street, N 45° E 99.5 feet per deed",
+        along="Main Street",
     ),
     # --- Finding 2: a cardinal-only course never takes the record bearing ---
     "cardinal-paren-deed": Course(

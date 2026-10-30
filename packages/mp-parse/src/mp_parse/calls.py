@@ -1920,6 +1920,9 @@ class _RecordScan(NamedTuple):
     # Each other bracketed group holding a length, verbatim, and whether it only
     # describes a feature (states no course-capable length: "(50 feet wide)").
     parentheticals: tuple[tuple[str, bool], ...] = ()
+    # Spans of ``call_text`` that are the course's own readings, not an adjoiner: the
+    # record calls and the measured groups, so ``along`` is built without them.
+    drop_spans: tuple[tuple[int, int], ...] = ()
 
 
 def _bracket_groups(text: str) -> list[tuple[int, int, bool]]:
@@ -2228,11 +2231,19 @@ def _scan_record_calls(call_text: str) -> _RecordScan:
         else:
             merged.append((start, end))
     records = tuple(call_text[start:end].strip() for start, end in merged)
-    return _RecordScan(text + call_text[len(course_text) :], records, tuple(parentheticals))
+    return _RecordScan(
+        text + call_text[len(course_text) :],
+        records,
+        tuple(parentheticals),
+        tuple(sorted(merged + measured_groups)),
+    )
 
 
 def _parenthetical_notes(
-    parentheticals: tuple[tuple[str, bool], ...], along: str | None, to: str | None
+    parentheticals: tuple[tuple[str, bool], ...],
+    along: str | None,
+    to: str | None,
+    passing: tuple[str, ...] = (),
 ) -> list[str]:
     """Return the notes keeping each bracketed non-record length verbatim.
 
@@ -2246,7 +2257,8 @@ def _parenthetical_notes(
     return [
         PARENTHETICAL_NOTE_PREFIX + wording
         for wording, describes in parentheticals
-        if not (describes and wording in kept)
+        # A bracketed passing call is noted once, as the passing call.
+        if wording[1:-1].strip(" ,;.") not in passing and not (describes and wording in kept)
     ]
 
 
@@ -2786,7 +2798,7 @@ def _extract_call(
     elif distance_ft is None or distance_ft <= 0.0:
         raise ValueError("Missing boundary course distance")
 
-    clause = extract_course_clause(call_text)
+    clause = extract_course_clause(call_text, record_scan.drop_spans)
     along, to = clause.along, clause.to
     if along and not is_curve:
         along = _adjoiner_wording(
@@ -2863,7 +2875,7 @@ def _extract_call(
             note_parts.append(element_note)
     if length_not_determined:
         note_parts.append(LENGTH_NOT_DETERMINED_NOTE)
-    note_parts.extend(_parenthetical_notes(record_scan.parentheticals, along, to))
+    note_parts.extend(_parenthetical_notes(record_scan.parentheticals, along, to, clause.passing))
     # A record call is never read as the course; keep its wording (always last).
     note_parts.extend(RECORD_CALL_NOTE_PREFIX + text for text in record_scan.records)
     # A passing call locates a point on the line; it is kept verbatim, never dropped.
