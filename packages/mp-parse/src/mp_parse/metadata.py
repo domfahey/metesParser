@@ -8,6 +8,7 @@ subdivision references, witness trees, coordinate systems, and more.
 from __future__ import annotations
 
 import re
+from re import Match
 from typing import TYPE_CHECKING, Literal, TypedDict
 
 from mp_models import ConversionFactors
@@ -324,6 +325,126 @@ def extract_poc_and_pob(text: str) -> tuple[str, str]:
     return (poc, pob)
 
 
+_COUNT_WORDS = {
+    word: number
+    for number, word in enumerate(
+        "one two three four five six seven eight nine ten eleven twelve thirteen fourteen "
+        "fifteen sixteen seventeen eighteen nineteen twenty".split(),
+        start=1,
+    )
+}
+_ORDINAL_WORDS = {
+    word: number
+    for number, word in enumerate(
+        "first second third fourth fifth sixth seventh eighth ninth tenth eleventh twelfth "
+        "thirteenth fourteenth fifteenth sixteenth seventeenth eighteenth nineteenth "
+        "twentieth".split(),
+        start=1,
+    )
+}
+# Enumerator styles: "(1)", "1)", "1." and "First,". Numbers are read from group 1.
+_ENUMERATOR_STYLES = (
+    re.compile(r"\((\d{1,3})\)"),
+    re.compile(r"(?<![\w.(])(\d{1,3})\)"),
+    re.compile(r"(?<![\w.(])(\d{1,3})\.(?=\s)"),
+    re.compile(rf"\b({'|'.join(_ORDINAL_WORDS)})\b,?", re.IGNORECASE),
+)
+# A course-list header (or a bare THENCE) immediately before the first enumerator;
+# group 1 is the optional declared count ("four", "4" or "four (4)").
+_COURSE_LIST_HEADER_END = re.compile(
+    r"(?:\bTHENCE"
+    r"|the\s+following(?:\s+(\d+|[a-z]+)(?:\s+\((\d+)\))?)?\s+(?:courses?|calls?)"
+    r"(?:\s+and\s+distances?)?)\s*[:;,.]?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _enumerator_number(match: Match[str]) -> int:
+    token = match.group(1)
+    return int(token) if token.isdigit() else _ORDINAL_WORDS[token.lower()]
+
+
+def _declared_course_count(header: Match[str]) -> int | None:
+    for token in (header.group(2), header.group(1)):
+        if token is None:
+            continue
+        if token.isdigit():
+            return int(token)
+        if token.lower() in _COUNT_WORDS:
+            return _COUNT_WORDS[token.lower()]
+    return None
+
+
+def _course_enumerations(text: str) -> list[tuple[list[Match[str]], int | None]]:
+    """Find each enumerated course list: a header or THENCE, then 1, 2, 3, ... in order.
+
+    Each enumerator after the first must directly follow the previous course's
+    punctuation (or a line break), so parenthetical numbers elsewhere ("Lot (2)",
+    "(Tax ID 12-34)", "(100.00 feet)") are never taken for course numbers.
+    """
+    found: list[tuple[list[Match[str]], int | None]] = []
+    position = 0
+    while True:
+        best: tuple[list[Match[str]], int | None] | None = None
+        for style in _ENUMERATOR_STYLES:
+            matches = [m for m in style.finditer(text) if m.start() >= position]
+            for index, first in enumerate(matches):
+                if _enumerator_number(first) != 1:
+                    continue
+                header = _COURSE_LIST_HEADER_END.search(text[: first.start()])
+                if header is None:
+                    continue
+                sequence = [first]
+                for candidate in matches[index + 1 :]:
+                    if _enumerator_number(candidate) != len(sequence) + 1:
+                        continue
+                    gap = text[sequence[-1].end() : candidate.start()]
+                    if re.search(r"(?:[;:,.]|\band|\bthen(?:ce)?)\s*$|\n\s*$", gap, re.IGNORECASE):
+                        sequence.append(candidate)
+                if best is None or sequence[0].start() < best[0][0].start():
+                    best = (sequence, _declared_course_count(header))
+                elif sequence[0].start() == best[0][0].start() and len(sequence) > len(best[0]):
+                    best = (sequence, _declared_course_count(header))
+                break
+        if best is None:
+            return found
+        found.append(best)
+        position = best[0][-1].end()
+
+
+def _inline_enumerators(text: str) -> list[Match[str]]:
+    """Enumerators of course lists that do not already start their own line."""
+    return [
+        m
+        for sequence, _ in _course_enumerations(text)
+        for m in sequence
+        if text[: m.start()].rstrip(" \t") and not text[: m.start()].rstrip(" \t").endswith("\n")
+    ]
+
+
+def break_inline_course_enumerators(text: str) -> str:
+    """Put each enumerated course of a course list on its own '(n)' line.
+
+    Only a sequence 1, 2, 3, ... that follows a course-list header or THENCE is
+    rewritten; the enumerator is not deed language about the course itself.
+    """
+    for match in reversed(_inline_enumerators(text)):
+        head = text[: match.start()].rstrip(" \t")
+        # The enumerator replaces a THENCE keyword it follows ("thence (2) ...").
+        head = re.sub(r"\bTHENCE\b[\s,]*$", "", head, flags=re.IGNORECASE).rstrip(" \t")
+        text = f"{head}\n({_enumerator_number(match)}) {text[match.end() :].lstrip(' ')}"
+    return text
+
+
+def course_list_count_mismatches(text: str) -> list[tuple[int, int]]:
+    """Return (declared, found) for each header whose stated count differs from the courses found."""
+    return [
+        (declared, len(sequence))
+        for sequence, declared in _course_enumerations(text)
+        if declared is not None and declared != len(sequence)
+    ]
+
+
 def split_into_calls(text: str) -> list[str]:
     """Split text into individual THENCE calls.
 
@@ -338,6 +459,8 @@ def split_into_calls(text: str) -> list[str]:
     Returns:
         List of call strings
     """
+    enumerated = bool(_inline_enumerators(text))
+    text = break_inline_course_enumerators(text)
     numbered_pattern = r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+"
 
     if re.search(numbered_pattern, text, re.MULTILINE):
@@ -350,6 +473,12 @@ def split_into_calls(text: str) -> list[str]:
         parts = re.split(r"\bTHENCE\b", text, flags=re.IGNORECASE)
     else:
         parts = text.split(";")
+
+    if enumerated:
+        # An enumerated course may still hold THENCE-separated courses.
+        parts = [
+            piece for part in parts for piece in re.split(r"\bTHENCE\b", part, flags=re.IGNORECASE)
+        ]
 
     calls = []
     for part in parts:
