@@ -61,3 +61,73 @@ def test_completed_delivery_stays_write_once(tmp_path):
     changed = request.model_copy(update={"formats": ("svg",)})
     assert publish_delivery(bundle, revision, changed, store)["status"] == "error"
     load_delivery(bundle, revision, store / request.id)
+
+
+def _no_fcntl(monkeypatch):
+    import sys
+
+    monkeypatch.setitem(sys.modules, "fcntl", None)
+
+
+def test_unlocked_publish_never_clears_leftovers(tmp_path, monkeypatch):
+    _no_fcntl(monkeypatch)
+    bundle, revision, request = _setup(tmp_path)
+    directory = tmp_path / "deliveries" / request.id
+    _crashed_files(directory)
+    result = publish_delivery(bundle, revision, request, tmp_path / "deliveries")
+    # Differing leftovers are refused by write-once, never unlinked.
+    assert result["status"] == "error"
+    assert (directory / "drawing.svg").read_bytes() == b"<svg>old</svg>"
+    assert not (directory / "delivery-manifest.json").exists()
+
+
+def test_unlocked_concurrent_publish_is_refused_without_deleting(tmp_path, monkeypatch):
+    _no_fcntl(monkeypatch)
+    bundle, revision, request = _setup(tmp_path)
+    store = tmp_path / "deliveries"
+    directory = store / request.id
+    inner = {}
+    import mp_review.delivery as delivery
+
+    real = delivery._components
+
+    def components(*args, **kwargs):
+        # A second publish of the same id starts while the first is mid-flight.
+        (directory / "pending.json").write_bytes((directory / "pending.json").read_bytes())
+        before = sorted(p.name for p in directory.iterdir())
+        inner["result"] = publish_delivery(bundle, revision, request, store)
+        inner["unchanged"] = before == sorted(p.name for p in directory.iterdir())
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(delivery, "_components", components)
+    outer = publish_delivery(bundle, revision, request, store)
+    assert inner["result"]["status"] == "error"
+    assert inner["unchanged"]
+    assert outer["status"] == "needs_review", outer
+    load_delivery(bundle, revision, directory)
+    assert not [p for p in store.iterdir() if p.name != request.id]
+
+
+def test_unlocked_crashed_publish_gives_clear_error(tmp_path, monkeypatch):
+    _no_fcntl(monkeypatch)
+    bundle, revision, request = _setup(tmp_path)
+    store = tmp_path / "deliveries"
+    import mp_review.delivery as delivery
+
+    def boom(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(delivery, "_components", boom)
+    try:
+        publish_delivery(bundle, revision, request, store)
+    except KeyboardInterrupt:
+        pass
+    monkeypatch.undo()
+    _no_fcntl(monkeypatch)
+    # Simulate a hard crash: a claim file survives.
+    claim = store / f"{request.id}.publishing"
+    claim.write_text("")
+    result = publish_delivery(bundle, revision, request, store)
+    assert result["status"] == "error"
+    assert "remove" in result["errors"][0] and str(claim) in result["errors"][0]
+    assert claim.exists()
