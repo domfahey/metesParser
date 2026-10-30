@@ -21,7 +21,6 @@ import math
 from typing import overload
 
 import structlog
-from mp_bearing import bearing_to_azimuth
 from mp_models import (
     AuditContext,
     ClosureResult,
@@ -46,7 +45,7 @@ from .checks import (
 )
 from .confidence import calculate_confidence_score, score_call_quality
 from .tangents import chord_positioned_delta, has_determined_direction
-from .traverse import traverse_positions
+from .traverse import analyze_courses, traverse_positions
 
 logger = structlog.get_logger(__name__)
 
@@ -280,82 +279,41 @@ def verify_closure(
     main_calls = [c for c in calls if not c.is_exception and not c.is_tie_in]
     exception_calls = [c for c in calls if c.is_exception]
 
-    # An unparseable chord bearing is never guessed: block the curve check and
-    # traverse the course without its chord so the result is reported, not raised.
-    # Tracked by position: course numbers may repeat, and only the offending call loses its chord.
-    bad_chord_indices = [
-        i
-        for i, c in enumerate(main_calls)
-        if c.is_curve()
-        and c.chord_bearing is not None
-        and bearing_to_azimuth(c.chord_bearing) is None
-    ]
-    bad_chord_courses = [main_calls[i].course for i in bad_chord_indices]
-    # Without its chord, a curve with no delta or arc has no determinable endpoint:
-    # the traverse gets no bearing for it, so it is never run along its tangent.
-    # The stated bearing itself is kept for every check.
-    no_endpoint_indices = [
-        i
-        for i in bad_chord_indices
-        if main_calls[i].delta_deg is None and main_calls[i].arc_length_ft is None
-    ]
-    # A chord longer than the diameter fits no circle of that radius: never positioned by it.
-    infeasible_chord_indices = [
-        i
-        for i, c in enumerate(main_calls)
-        if i not in bad_chord_indices
-        and c.is_chord_only_curve()
-        and c.chord_length_ft is not None
-        and c.radius_ft is not None
-        and c.chord_length_ft > 2.0 * abs(c.radius_ft)
-    ]
-    points, positioned = traverse_positions(
-        [
-            c.model_copy(
-                update={"chord_bearing": None, "bearing_azimuth_deg_from_north": None}
-                if i in no_endpoint_indices
-                else {"chord_bearing": None}
-            )
-            if i in bad_chord_indices
-            else c
-            for i, c in enumerate(main_calls)
-        ]
-    )
-    # Unpositioned courses come from the traverse's own outcome, never a separate prediction.
-    unpositioned_indices = [i for i, ok in enumerate(positioned) if not ok]
-    unpositioned_courses = [main_calls[i].course for i in unpositioned_indices]
+    # One pass decides each call's chord, positioning and direction. Records are
+    # tracked by position: course numbers may repeat, and only the offending call
+    # loses its chord. Stated bearings are never erased to express positioning:
+    # the traverse outcome is passed to the checks instead.
+    points, records = analyze_courses(main_calls)
+    positioned = [record.positioned for record in records]
+    bad_chords = [record for record in records if record.bad_chord]
+    unpositioned = [record for record in records if not record.positioned]
     # Once a course is unpositioned, every later vertex is relative to an unknown start.
     downstream_courses = (
-        [main_calls[i].course for i in range(unpositioned_indices[0] + 1, len(main_calls))]
-        if unpositioned_indices
+        [record.call.course for record in records[unpositioned[0].index + 1 :]]
+        if unpositioned
         else []
     )
-    bad_chord_texts = {i: main_calls[i].chord_bearing for i in bad_chord_indices}
-    # Stated bearings are never erased to express positioning: the traverse outcome
-    # is passed to the checks instead.
 
-    chord_only_indices = [
-        i
-        for i, c in enumerate(main_calls)
-        if c.is_chord_only_curve() and i not in bad_chord_indices and i not in unpositioned_indices
+    chord_only = [
+        record
+        for record in records
+        if record.chord_only and not record.bad_chord and record.positioned
     ]
     # A chord-only curve whose stated tangent disagrees with its chord and radius
     # is reported as inconsistent, not merely as lacking a delta/arc.
-    tangent_issues = {i: tangent_chord_issue(main_calls[i]) for i in chord_only_indices}
+    tangent_issues = {record.index: tangent_chord_issue(record.call) for record in chord_only}
     inconsistent_chord_indices = {i for i, issue in tangent_issues.items() if issue is not None}
-    chord_only_courses = [main_calls[i].course for i in chord_only_indices]
     inconsistent_chord_courses = [
-        main_calls[i].course for i in chord_only_indices if i in inconsistent_chord_indices
+        record.call.course for record in chord_only if record.index in inconsistent_chord_indices
     ]
     # (course, tangent stated): a stated tangent fixes the arc; without one it is ambiguous.
     delta_not_stated_courses = [
         (
-            main_calls[i].course,
-            main_calls[i].bearing_azimuth_deg_from_north is not None
-            and not main_calls[i].non_tangent,
+            record.call.course,
+            record.call.bearing_azimuth_deg_from_north is not None and not record.call.non_tangent,
         )
-        for i in chord_only_indices
-        if i not in inconsistent_chord_indices
+        for record in chord_only
+        if record.index not in inconsistent_chord_indices
     ]
 
     # Degenerate traverse: no course was positioned (bearings or chord endpoints).
@@ -364,32 +322,33 @@ def verify_closure(
     misclosure_x = points[-1].x - points[0].x
     misclosure_y = points[-1].y - points[0].y
     misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
-    misclosure_available = not unpositioned_indices
+    misclosure_available = not unpositioned
     if not misclosure_available:
         # A broken chain gives no absolute positions: report no misclosure, not a wrong one.
         misclosure_x = misclosure_y = misclosure = 0.0
 
     warnings: list[str] = []
 
-    for i in bad_chord_indices:
+    for record in bad_chords:
         warnings.append(
-            f"Course {main_calls[i].course}: unparseable chord bearing {bad_chord_texts[i]!r}; "
+            f"Course {record.call.course}: unparseable chord bearing {record.call.chord_bearing!r}; "
             "curve geometry blocked"
         )
-    for i in unpositioned_indices:
-        if i in infeasible_chord_indices:
+    for record in unpositioned:
+        # A chord longer than the diameter fits no circle of that radius.
+        if not record.bad_chord and not record.feasible_chord:
             warnings.append(
-                f"Course {main_calls[i].course}: curve cannot be positioned (chord length "
+                f"Course {record.call.course}: curve cannot be positioned (chord length "
                 "exceeds twice the radius); closure, area and perimeter are not determined"
             )
-        elif i in no_endpoint_indices:
+        elif record.no_endpoint:
             warnings.append(
-                f"Course {main_calls[i].course}: curve cannot be positioned (no parseable "
+                f"Course {record.call.course}: curve cannot be positioned (no parseable "
                 "chord, delta or arc); closure, area and perimeter are not determined"
             )
         else:
             warnings.append(
-                f"Course {main_calls[i].course}: course cannot be positioned (no usable "
+                f"Course {record.call.course}: course cannot be positioned (no usable "
                 "bearing or endpoint); closure, area and perimeter are not determined"
             )
     if downstream_courses:
@@ -403,25 +362,25 @@ def verify_closure(
             "No computable traverse \u2014 all calls lack bearings (cardinal-only or empty)"
         )
 
-    for i in chord_only_indices:
+    for record in chord_only:
         reason = (
             "stated tangent, chord and radius are inconsistent"
-            if i in inconsistent_chord_indices
+            if record.index in inconsistent_chord_indices
             else "curve delta/arc not stated"
         )
         warnings.append(
-            f"Course {main_calls[i].course}: {reason} - positioned by chord only; "
+            f"Course {record.call.course}: {reason} - positioned by chord only; "
             "arc, area and perimeter are not determined"
         )
 
     area_available = (
-        bool(main_calls)
+        bool(records)
         and all(
-            call.is_complete_bearing() or chord_positioned_delta(call) is not None
-            for call in main_calls
+            record.call.is_complete_bearing() or record.chord_positioned_delta is not None
+            for record in records
         )
-        and not chord_only_courses
-        and not unpositioned_courses
+        and not chord_only
+        and not unpositioned
     )
     area_sq_ft = 0.0
     area_acres = 0.0
@@ -452,7 +411,7 @@ def verify_closure(
             area_acres = 0.0
             warnings.append(f"Cannot calculate area: {e}")
 
-    perimeter_available = not chord_only_courses and not unpositioned_courses
+    perimeter_available = not chord_only and not unpositioned
     perimeter = calculate_perimeter(main_calls) if perimeter_available else 0.0
 
     closure_passed = has_computable_traverse and misclosure < tolerance and misclosure_available
@@ -512,7 +471,7 @@ def verify_closure(
             )
 
     # Curves fixed by chord bearing and sweep have determined tangents, not incomplete ones.
-    incomplete = [c for c in main_calls if not has_determined_direction(c)]
+    incomplete = [record for record in records if not record.determined_direction]
     if incomplete:
         warnings.append(
             f"{len(incomplete)} call(s) have incomplete bearings (cardinal-only or meanders)"
@@ -562,12 +521,12 @@ def verify_closure(
                 chord_only_delta_detail(delta_not_stated_courses),
             )
         )
-    if bad_chord_courses:
+    if bad_chords:
         curve_blocks.append(
             (
                 "invalid_chord_bearing",
                 "Unparseable chord bearing on course(s) "
-                + ", ".join(str(c) for c in bad_chord_courses),
+                + ", ".join(str(record.call.course) for record in bad_chords),
             )
         )
     if curve_blocks:
