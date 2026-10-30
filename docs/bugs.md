@@ -817,6 +817,17 @@ Ten findings from a fourth review of PR #60, fixed red-green on `fix/code-review
 - **Per-tract audits (#73):** audit HTML (monolith and package) renders one labelled verification section per tract; the review API payload includes them; the list is reset on each multi-tract run (`d0d7cc4`). Unused monolith logger removed.
 - **Chord-only curves:** a chord-only curve whose tangent cannot be derived is `is_indefinite`; radius-point/radial/centre-point bearings no longer count as a stated tangent; one packed-DMS regex in the monolith (`9ac4fd6`).
 
+### PR #60 fifth review (2026-10-29)
+Ten findings plus one found while fixing, fixed red-green on `fix/code-review-2026-10-29`:
+- **Curve tangent at the root:** `_course_direction` normalizes every accepted bearing form, then removes witness, chord and radial/radius-point/center-point clauses before `extract_direction` runs, so a chord or radial bearing can only reach `chord_bearing`. The after-the-fact patches are gone. A stated tangent in any accepted form (word, dashed, d/m) is kept (`0089f43`, package and monolith).
+- **Radius + chord only:** delta = 2·asin(c/2R); `delta_deg` stays None, the computed arc is stored in `arc_length_ft`/`distance_ft` and noted; c > 2R is a malformed course (`0089f43`). Note: `arc_length_ft` then holds a derived value, distinguished only by the note.
+- **Normalizer fabrication:** the "bare cardinal + number → due Cardinal" rewrite no longer turns `N 45-30-00 E`, `N 45d30m E` or `S 90 E` into due North/South (`0089f43`, package and monolith). Two test fixtures that only closed because of this bug were corrected.
+- **Tract headings (#69):** one structural rule — what follows the ID decides (strong terminators anywhere, weak ones only at text/sentence start, prose means reference); one 62-case table run on raw and normalized text (`2672447`). Round-3 standalone headings never worked after normalization; they do now. Sample deeds: 6 of 89 changed, all toward ground truth.
+- **Text before the first marker:** kept as an `Unlabelled tract` when it has a real THENCE course, instead of being discarded; markdown `#` now marks heading position (`b4b166a`).
+- **Replay coordinates:** replay re-renders GeoJSON with the recorded pipeline (`Transformer.from_pipeline`) and the recorded omissions and compares bytes; if the pipeline cannot be built it reports `geojson_coordinates: not_verified` (`07df335`). New `replay_delivery`, exported from the monolith facade (`4177b54`). Dead delivery-1 branch removed; post-manifest check is a cheap size check under flock.
+- **Web map extent:** omitted (unplaced) calculations no longer choose the operation; `bounds_of` lives in `mp_verify.webmap` (`ece52ec`, explicit re-export fix).
+- **Raster guard:** orientation cached per raster content (`13d9951`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
