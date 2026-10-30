@@ -9,7 +9,7 @@ FOOT_MARKS = ("'", "\u2032")
 
 UNIT_TOKEN = (
     r"(?:US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?"
-    r"|feet|foot|ft|poles?|rods?|perches?|chains?|links?"
+    r"|feet|foot|ft|poles?|rods?|perch(?:es)?|chains?|links?"
     r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
 )
 # The one unit grammar of every curve-element length (radius, chord, arc, radial):

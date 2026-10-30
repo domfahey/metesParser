@@ -71,15 +71,29 @@ TEXT_PARSER_PROBES = (
 CALL_PROBES = ("extract_direction", "extract_curve_info", "extract_distance_alternate")
 
 
-def _sample_texts() -> Iterator[str]:
+def keyed_sample_texts() -> Iterator[tuple[str, str]]:
+    """Yield ``(key, text)`` for every sample deed text.
+
+    Keys are ``<file>.md`` for LlamaParse markdown and ``<deed>::legal`` or
+    ``<deed>::normalized`` for the ground-truth legal description and normalized text.
+    """
     for path in sorted(SAMPLE_DEEDS.glob("*.md")):
-        yield path.read_text(encoding="utf-8")
+        yield path.name, path.read_text(encoding="utf-8")
     for path in sorted(SAMPLE_DEEDS.glob("*.ground_truth.json")):
         data = json.loads(path.read_text(encoding="utf-8"))
-        for key in ("expected_legal_description", "expected_normalized_text"):
+        deed = path.name.removesuffix(".ground_truth.json")
+        for key, tag in (
+            ("expected_legal_description", "legal"),
+            ("expected_normalized_text", "normalized"),
+        ):
             value = data.get(key)
             if isinstance(value, str) and value:
-                yield value
+                yield f"{deed}::{tag}", value
+
+
+def _sample_texts() -> Iterator[str]:
+    for _key, text in keyed_sample_texts():
+        yield text
 
 
 def _table_texts() -> Iterator[str]:
