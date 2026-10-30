@@ -808,6 +808,15 @@ Ten findings from a third review of PR #60, fixed red-green on `fix/code-review-
 - **Per-tract audits (#73):** `AuditContext.tract_verification_audits` records one labelled `VerificationAudit` per tract in package and monolith (`e58c9bb`).
 - **Cleanup:** one projection build per publish and per replay; `prepare_web_map` uses `bounds_of` (`7e0b10c`, `523bf0b`).
 
+### PR #60 fourth review (2026-10-29)
+Ten findings from a fourth review of PR #60, fixed red-green on `fix/code-review-2026-10-29`:
+- **POB opener (#69):** an opener written `POINT OF BEGINNING at` / `place of BEGINNING at` no longer counts as its own closure (`e3694ef`).
+- **Replay portability (decision):** `load_delivery` trusts the omissions recorded in the hash-checked snapshot instead of re-running the environment-dependent area-of-use check, and checks `drawing.geojson` against the snapshot (identity, recorded projection pipeline, exact layer set) instead of regenerating it. Publishing stays fail-closed (`6948102`). Residual gap: without a signature, a fully consistent rewrite that adds a whole-format omission and drops `drawing.geojson` is indistinguishable from a publish on a host without the grid.
+- **Scene guard:** the `assert scene is not None` is now a `ValueError` (exit 2) (`6948102`).
+- **Corridor sampling:** each corridor is sampled once per publish and the ring reused for the area check and export (`6948102`).
+- **Per-tract audits (#73):** audit HTML (monolith and package) renders one labelled verification section per tract; the review API payload includes them; the list is reset on each multi-tract run (`d0d7cc4`). Unused monolith logger removed.
+- **Chord-only curves:** a chord-only curve whose tangent cannot be derived is `is_indefinite`; radius-point/radial/centre-point bearings no longer count as a stated tangent; one packed-DMS regex in the monolith (`9ac4fd6`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
