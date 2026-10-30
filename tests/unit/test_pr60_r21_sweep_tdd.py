@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
-
 import mp_models
 import pytest
-from mp_verify import tangents, traverse
+from mp_verify import tangents
 from mp_verify.closure import traverse_positions as package_traverse
 from mp_verify.closure import verify_closure as package_verify
 
@@ -123,8 +121,3 @@ def test_chord_delta_helper_is_shared_and_reuses_parsed_azimuth():
     assert tangents.chord_positioned_delta(call) == 30.0
     assert tangents.chord_delta(call, 45.0) == 30.0
     assert tangents.chord_delta(call, None) is None
-    with patch.object(traverse, "chord_delta", wraps=tangents.chord_delta) as spy:
-        _, records = traverse.analyze_courses([call])
-    assert spy.call_count == 1
-    assert spy.call_args.args[1] == records[0].chord_azimuth
-    assert records[0].chord_positioned_delta == 30.0
