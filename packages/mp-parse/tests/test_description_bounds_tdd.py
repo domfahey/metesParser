@@ -65,7 +65,7 @@ class TestClosingFragmentWithTrailingText:
         text = (
             BEGINNING
             + THENCE_COURSES.rstrip()
-            + " The drive then runs N 45°00'00\" E 50.00 feet and 20.00 feet beyond."
+            + " The drive then runs N 45°00'00\" E 50.00 feet beyond."
         )
         # The cut-off remainder is kept as a fifth course, so the tract fails closure.
         calls, _, skips = _extract(text, strict)
@@ -89,10 +89,7 @@ class TestPreambleBeforeTheFirstCourse:
         assert _closes(calls, skips)
 
     def test_preamble_stating_a_complete_course_still_fails_closed(self, strict):
-        text = (
-            "Recital thence the lot fronts N 45°00'00\" E 50.00 feet and 20.00 feet on "
-            "Main Street\n" + COURSES
-        )
+        text = "Recital thence the lot fronts N 45°00'00\" E 50.00 feet on Main Street\n" + COURSES
         # Stated before the first course, it is still course material: kept as a
         # course (or a skip) so the description does not verify.
         calls, _, skips = _extract(text, strict)

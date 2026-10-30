@@ -164,15 +164,22 @@ def test_compound_distance_without_and_sums_every_component(parse, course, expec
     ("course", "expected_ft"),
     [
         ("THENCE N 10° E 150 feet, 3 rods north of the oak to an iron pin", 150.0),
-        ("THENCE N 10° E 40 poles 2 rods to an iron pin", 660.0),
-        ("THENCE N 10° E 40 poles 5 feet to an iron pin", 660.0),
         ("THENCE N 10° E 40 poles and 5 feet to an iron pin", 665.0),
+        ("THENCE N 10° E 40 poles 5 feet to an iron pin", 665.0),
         ("THENCE N 10° E 3 poles 4 links to an iron pin", 52.14),
     ],
 )
 def test_unrelated_adjacent_units_are_not_summed_without_and(parse, course, expected_ft):
-    # PR #60 review: only genuine descending sub-unit pairs join without "and".
+    # PR #60 review: without "and" only descending units join (one measurement).
     assert parse(course)[0].distance_ft == pytest.approx(expected_ft)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize("course", ["THENCE N 10° E 40 poles 2 rods to an iron pin"])
+def test_unsummed_adjacent_lengths_are_ambiguous_and_never_chosen(parse, course):
+    # Equivalent units are two course lengths: neither is chosen (never the first).
+    with pytest.raises(ValueError, match="course length ambiguous"):
+        parse(course)
 
 
 @pytest.mark.parametrize("parse", PARSERS)

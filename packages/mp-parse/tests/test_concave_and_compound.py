@@ -35,9 +35,10 @@ def test_concavity_clause_is_not_a_travel_direction(concave):
     ("text", "expected"),
     [
         ("100.00 feet and 50.00 feet from the line of Smith", (100.0, "feet")),
-        ("North 45 degrees East a distance of 100.00 feet and 50.00 feet", (100.0, "feet")),
-        ("2 rods and 3 poles", (2.0, "rods")),
-        ("2 chains and 3 chains", (2.0, "chains")),
+        # Two same-unit course lengths are ambiguous: neither is chosen (0.0).
+        ("North 45 degrees East a distance of 100.00 feet and 50.00 feet", (0.0, "feet")),
+        ("2 rods and 3 poles", (0.0, "feet")),
+        ("2 chains and 3 chains", (0.0, "feet")),
         ("2 chains and 3 links", (None, "feet")),
         ("2 rods and 3 links", (34.98, "feet")),
         ("2 poles and 3 links", (None, "feet")),

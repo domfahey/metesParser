@@ -11,7 +11,7 @@ import re
 from bisect import bisect_right
 from dataclasses import dataclass
 from re import Match
-from typing import TYPE_CHECKING, Literal, TypedDict
+from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict
 
 from mp_models import ConversionFactors
 
@@ -830,126 +830,293 @@ def _singular_unit(unit: str) -> str:
     return unit.removesuffix("es") if unit.endswith("ches") else unit.removesuffix("s")
 
 
+# --- Straight-course length roles ----------------------------------------------------
+# Every length on a course is classified by its context. Only a COURSE length (or a
+# stated TOTAL, which wins) measures the course. A TIE locates a point ("distant 10
+# feet from", "said pin being 2 feet from", "3 rods north of the oak"), a WIDTH
+# describes a road ("50 feet wide"), a parenthetical length restates or describes
+# ("(100.5 feet per deed)"), and a STATION marks a point passed on the line ("passing
+# a pin at 30 feet"); none of these is the course length. A PARTIAL length ("70 feet
+# more", "a further distance of") is only part of the course. Several course lengths,
+# or a partial length without a stated total, are ambiguous: none is chosen.
+COURSE_LENGTH_AMBIGUOUS_NOTE = "course length ambiguous: {values}"
+TIE_BEFORE_PATTERN = re.compile(
+    r"(?<![A-Za-z])(?:distant|being(?:\s+also)?|which\s+(?:is|lies)|that\s+is|lying"
+    r"|located|situated)\s*,?\s*$",
+    re.IGNORECASE,
+)
+# Lengths (possibly compound) and an optional "more or less" before a suffix label.
+LENGTH_RUN = rf"(?:\s*,?\s*(?:and\s+)?{COMMA_NUMBER}\s*{UNIT_TOKEN}\b\.?)*\s*,?\s*"
+# "... 2 feet from|of <object>": a tie, unless it is the first length stated.
+TIE_AFTER_PATTERN = re.compile(
+    LENGTH_RUN + r"(?:more\s+or\s+less\s*,?\s*)?(?:from|of)\s+\S", re.IGNORECASE
+)
+_DIRECTION_WORD = (
+    r"(?:(?:north|south)(?:[\s-]*(?:east|west))?|east|west|[NS][EW])(?:erly|wardly|wards?)?"
+)
+# "... 68 feet Southeastwardly from <object>", "3 rods north of the oak".
+_DIRECTED_TIE_AFTER = re.compile(
+    r"\s*,?\s*(?:more\s+or\s+less\s*,?\s*)?(?:in\s+an?\s+)?"
+    + _DIRECTION_WORD
+    + r"(?:\s+direction)?\s*,?\s+(?:from|of)\b",
+    re.IGNORECASE,
+)
+# "said point (also) being ...": every later length locates that point.
+_TIE_CLAUSE = re.compile(
+    r"\b(?:said|which)\s+(?:[A-Za-z-]+\s+){0,3}?(?:also\s+)?"
+    r"(?:being|lying|located|situated|distant)\b",
+    re.IGNORECASE,
+)
+_WIDTH_AFTER = re.compile(r"\s*(?:wide|in\s+width)\b", re.IGNORECASE)
+# A curve element's own label ("the radius is 100 feet"); never the course length.
+_ELEMENT_BEFORE = re.compile(
+    r"\b(?:radius|(?:long\s+)?chord|tangent|arc)(?:\s+(?:length|distance))?"
+    r"(?:\s+(?:of|is|equal\s+to))?\s*[:=]?\s*$",
+    re.IGNORECASE,
+)
+_STATION_BEFORE = re.compile(r"(?<![A-Za-z])at\s+(?:a\s+distance\s+of\s+)?$", re.IGNORECASE)
+_TOTAL_BEFORE = re.compile(
+    r"(?<![A-Za-z])(?:in\s+all|in\s+total|altogether"
+    r"|total(?:\s+(?:distance|length))?(?:\s+of)?)\s*[:,]?\s*$",
+    re.IGNORECASE,
+)
+_TOTAL_AFTER = re.compile(
+    r"\s*,?\s*(?:in\s+all|in\s+total|altogether)\b(?!\s*[:,]?\s*\d)", re.IGNORECASE
+)
+_PARTIAL_BEFORE = re.compile(
+    r"(?<![A-Za-z])(?:further|additional)\s+(?:distance\s+(?:of\s+)?)?$", re.IGNORECASE
+)
+_PARTIAL_AFTER = re.compile(
+    r"\s*(?:more(?!\s+or\s+less)|further|farther|additional)\b", re.IGNORECASE
+)
+_ROLE_CONTEXT = 120
+# An abbreviation's period ("100 ft. 6 in.") may precede the joiner.
+_COMPOUND_GAP = re.compile(r"\.?(?:\s+and\s+|\s*,\s*|\s+)")
+# Inches are only a compound component ("100 feet 6 inches"); the doubled marks
+# '' and the double prime stay a bearing's seconds and are never inches.
+_INCH_UNIT = r"(?:inch(?:es)?\b|in\.)"
+_INCH = re.compile(_INCH_UNIT, re.IGNORECASE)
+# Without "and", a later component must be a clearly smaller unit to extend a run.
+_DESCENDING_RATIO = 1.5
+_UNSUPPORTED_AND_PAIR = re.compile(
+    rf"{COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
+    re.IGNORECASE,
+)
+_FOOT_MARK_LENGTH = re.compile(
+    rf"{LENGTH_NUMBER_GUARD}({COMMA_NUMBER})\s*(?:'(?!')|′(?!′))"
+    r"(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
+    re.IGNORECASE,
+)
+
+
+class _LengthRun(NamedTuple):
+    """One stated length (a compound counts once) with the role its context gives it."""
+
+    start: int
+    end: int
+    components: tuple[tuple[str, str], ...]  # (value, unit) as written
+    role: str  # course, total, partial, tie, width, element, size, station or record
+    unsupported: bool = False  # holds a component that cannot be summed
+
+
+class CourseLengthReading(NamedTuple):
+    """The course length read from text, or every course length when ambiguous."""
+
+    value: float
+    unit: str
+    ambiguous: tuple[str, ...] = ()
+
+
+def _is_inch(token: str) -> bool:
+    return bool(_INCH.fullmatch(token.strip()))
+
+
+def _unit_key(token: str) -> str:
+    return "inch" if _is_inch(token) else _singular_unit(token)
+
+
+def _component_feet(value: str, token: str) -> float:
+    if _is_inch(token):
+        return parse_comma_number(value) / 12.0
+    return ConversionFactors.convert_to_feet(parse_comma_number(value), normalize_unit_token(token))
+
+
+def _compound_size(text: str, tokens: list[Match[str]], index: int) -> int:
+    """Return how many tokens from ``index`` form one compound length.
+
+    Components join with "and" (different units only: "100 feet and 50 feet",
+    or pole/rod/perch equivalents, is two measurements, never a sum). Without
+    "and", a run of descending units separated only by spaces is one measurement
+    ("100 feet 6 inches", "2 rods 3 feet", "1 mile 20 feet"), as is a sub-unit
+    pair (``_IMPLICIT_COMPOUND_PAIRS``, also after a comma). In "1 chain and 25
+    links and 10 links" further links extend a run that already holds a larger
+    unit. Ascending or equivalent adjacent units never join.
+    """
+    keep = 1
+    for prev, cur in zip(tokens[index:], tokens[index + 1 :], strict=False):
+        gap = text[prev.end() : cur.start()]
+        if not (
+            _COMPOUND_GAP.fullmatch(gap)
+            and all(
+                re.fullmatch(UNIT_TOKEN, unit, re.IGNORECASE) or _is_inch(unit)
+                for unit in (prev.group(2), cur.group(2))
+            )
+        ):
+            break
+        pair = (_unit_key(prev.group(2)), _unit_key(cur.group(2)))
+        joined_by_and = re.search(r"\band\b", gap, re.IGNORECASE)
+        descending = (
+            not joined_by_and
+            and "," not in gap
+            and _component_feet("1", prev.group(2))
+            > _DESCENDING_RATIO * _component_feet("1", cur.group(2))
+        )
+        if not (
+            pair in _IMPLICIT_COMPOUND_PAIRS
+            or descending
+            or (joined_by_and and not _same_unit_family(*pair))
+            or (joined_by_and and keep >= 2 and pair == ("link", "link"))
+        ):
+            break
+        keep += 1
+    return keep
+
+
+def _unsupported_and_pair(text: str, start: int) -> bool:
+    """Return True for "<n> <word> and <n> <word>" at ``start`` that cannot be summed.
+
+    A same-unit pair is two measurements (each read as a length); any other pair
+    that did not form a compound has a component that is not a supported unit.
+    """
+    pair = _UNSUPPORTED_AND_PAIR.match(text, start)
+    if not pair:
+        return False
+    units = re.findall(rf"{COMMA_NUMBER}\s*({UNIT_TOKEN})\b", pair.group(0), re.IGNORECASE)
+    return not (len(units) == 2 and _same_unit_family(*(_singular_unit(u) for u in units)))
+
+
+def _length_role(text: str, start: int, end: int, *, first: bool, tie_from: int) -> str:
+    """Return the role of the length spanning ``start``-``end`` from its context."""
+    before = text[max(0, start - _ROLE_CONTEXT) : start]
+    after = text[end : end + _ROLE_CONTEXT]
+    if text.rfind("(", 0, start) > text.rfind(")", 0, start):
+        return "record"
+    if _TOTAL_BEFORE.search(before) or _TOTAL_AFTER.match(after):
+        return "total"
+    if start >= tie_from or TIE_BEFORE_PATTERN.search(before) or _DIRECTED_TIE_AFTER.match(after):
+        return "tie"
+    if not first and TIE_AFTER_PATTERN.match(after):
+        return "tie"
+    if _WIDTH_AFTER.match(after):
+        return "width"
+    if _ELEMENT_BEFORE.search(before):
+        return "element"
+    if _STATION_BEFORE.search(before):
+        return "station"
+    if _PARTIAL_BEFORE.search(before) or _PARTIAL_AFTER.match(after):
+        return "partial"
+    return "course"
+
+
+def _tie_clause_start(text: str) -> int:
+    clause = _TIE_CLAUSE.search(text)
+    return clause.end() if clause else len(text) + 1
+
+
+def _length_runs(text: str) -> list[_LengthRun]:
+    """Group the unit-word lengths in ``text`` into stated lengths, each with its role."""
+    tokens = [
+        m
+        for m in re.finditer(
+            rf"{LENGTH_NUMBER_GUARD}({COMMA_NUMBER})\s*({LENGTH_UNIT}|{_INCH_UNIT})",
+            text,
+            re.IGNORECASE,
+        )
+        if not is_foot_mark(m.group(2))
+    ]
+    tie_from = _tie_clause_start(text)
+    runs: list[_LengthRun] = []
+    index = 0
+    while index < len(tokens):
+        size = _compound_size(text, tokens, index)
+        group = tokens[index : index + size]
+        start, end = group[0].start(), group[-1].end()
+        unsupported = bool(
+            re.match(rf"\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+", text[end:], re.IGNORECASE)
+            if size >= 2
+            else _unsupported_and_pair(text, start)
+        )
+        # Inches alone size an object ("a 1.5 inch iron pipe"); never a course length.
+        role = (
+            "size"
+            if _is_inch(group[0].group(2))
+            else _length_role(text, start, end, first=not runs, tie_from=tie_from)
+        )
+        components = tuple((m.group(1), m.group(2)) for m in group)
+        runs.append(_LengthRun(start, end, components, role, unsupported))
+        index += size
+    return runs
+
+
+def _run_value(run: _LengthRun) -> tuple[float, str]:
+    if len(run.components) == 1 and not _is_inch(run.components[0][1]):
+        value, unit = run.components[0]
+        return parse_comma_number(value), normalize_unit_token(unit)
+    return sum(_component_feet(value, unit) for value, unit in run.components), "feet"
+
+
+def _select_course_length(text: str, runs: list[_LengthRun]) -> CourseLengthReading | None:
+    """Return the one course length among ``runs``, an ambiguous reading, or None."""
+    totals = [run for run in runs if run.role == "total"]
+    candidates = totals or [run for run in runs if run.role in ("course", "partial")]
+    if not candidates:
+        return None
+    ambiguous = (
+        len({_run_value(run) for run in totals}) > 1
+        if totals
+        else len(candidates) > 1 or candidates[0].role == "partial"
+    )
+    if ambiguous:
+        return CourseLengthReading(0.0, "feet", tuple(text[r.start : r.end] for r in candidates))
+    if candidates[0].unsupported:
+        return CourseLengthReading(0.0, "feet")
+    return CourseLengthReading(*_run_value(candidates[0]))
+
+
+def read_course_length(text: str) -> CourseLengthReading:
+    """Read the one course length stated in ``text`` from the role of each length.
+
+    Tie, width, parenthetical and station lengths are not the course length; a
+    stated total is. The one remaining course length (a compound counts once) is
+    the reading. Several remaining course lengths, or a partial length without a
+    stated total, are ambiguous: the reading is 0.0 and ``ambiguous`` lists each
+    as written, so none is chosen. A compound with a component that cannot be
+    summed reads 0.0. Foot marks (') are read only when no unit-word length is
+    the course length.
+    """
+    reading = _select_course_length(text, _length_runs(text))
+    if reading is not None:
+        return reading
+    tie_from = _tie_clause_start(text)
+    runs: list[_LengthRun] = []
+    for mark in _FOOT_MARK_LENGTH.finditer(text):
+        role = _length_role(text, mark.start(), mark.end(), first=not runs, tie_from=tie_from)
+        runs.append(_LengthRun(mark.start(), mark.end(), ((mark.group(1), "feet"),), role))
+    return _select_course_length(text, runs) or CourseLengthReading(0.0, "feet")
+
+
 def extract_distance(text: str) -> tuple[float, str]:
-    """Extract distance value and unit from text.
+    """Extract the course distance value and unit from text.
 
     Args:
         text: Text containing distance (e.g., "125.26 feet" or "258 poles")
 
     Returns:
-        Tuple of (distance_value, unit)
+        Tuple of (distance_value, unit). (0.0, "feet") when no course length is
+        stated, or when several are and none is chosen (``read_course_length``).
     """
-    pattern = rf"({COMMA_NUMBER})\s*({UNIT_TOKEN})"
-
-    total_match = re.search(
-        rf"\b(?:for\s+)?a\s+total\s+distance\s+(?:of\s+)?({COMMA_NUMBER})\s*({UNIT_TOKEN})",
-        text,
-        re.IGNORECASE,
-    )
-    total_has_additional_component = bool(
-        total_match
-        and re.match(
-            rf"\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
-            text[total_match.end() :],
-            re.IGNORECASE,
-        )
-    )
-    match: re.Match[str] | None = None
-    if total_match and not total_has_additional_component:
-        match = total_match
-    else:
-        component_pattern = rf"({COMMA_NUMBER})\s*({UNIT_TOKEN})"
-        # Components join with "and"; without it only genuine descending
-        # sub-unit pairs (_IMPLICIT_COMPOUND_PAIRS) are summed.
-        joiner = r"(?:\s+and\s+|\s*,\s*|\s+)"
-        compound = re.search(
-            rf"{component_pattern}(?:{joiner}{component_pattern})+",
-            text,
-            re.IGNORECASE,
-        )
-        # A compound counts only if it starts at the first measurement; a later
-        # pair (e.g. a witness distance after "to a stake") never replaces it.
-        first_measurement = re.search(pattern, text, re.IGNORECASE)
-        if compound and (
-            first_measurement is None or compound.start() != first_measurement.start()
-        ):
-            compound = None
-        if compound:
-            comps = list(re.finditer(component_pattern, compound.group(0), re.IGNORECASE))
-            keep = 1
-            for prev, cur in zip(comps, comps[1:], strict=False):
-                gap = compound.group(0)[prev.end() : cur.start()]
-                pair = (_singular_unit(prev.group(2)), _singular_unit(cur.group(2)))
-                joined_by_and = re.search(r"\band\b", gap, re.IGNORECASE)
-                # "and" joins different units only: "100 feet and 50 feet" (or
-                # pole/rod/perch equivalents) is two measurements, never a sum.
-                if not (
-                    pair in _IMPLICIT_COMPOUND_PAIRS
-                    or (joined_by_and and not _same_unit_family(*pair))
-                    # "1 chain and 25 links and 10 links": further links extend a
-                    # chain/rod run that already holds a larger unit.
-                    or (joined_by_and and keep >= 2 and pair == ("link", "link"))
-                ):
-                    break
-                keep += 1
-            if keep >= 2:
-                # Sum the full valid run so no leading component is dropped.
-                compound = re.compile(
-                    rf"{component_pattern}(?:{joiner}{component_pattern}){{{keep - 1}}}",
-                    re.IGNORECASE,
-                ).match(text, compound.start())
-            else:
-                compound = None
-        if compound:
-            trailing_component = re.match(
-                rf"\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+", text[compound.end() :], re.IGNORECASE
-            )
-            if trailing_component:
-                return 0.0, "feet"
-            values = [
-                (component.group(1), component.group(2))
-                for component in re.finditer(component_pattern, compound.group(0), re.IGNORECASE)
-            ]
-            total_ft = sum(
-                ConversionFactors.convert_to_feet(
-                    parse_comma_number(value), normalize_unit_token(unit)
-                )
-                for value, unit in values
-            )
-            return total_ft, "feet"
-        and_pair = re.search(
-            rf"{COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
-            text,
-            re.IGNORECASE,
-        )
-        if and_pair:
-            units = re.findall(rf"{COMMA_NUMBER}\s*({UNIT_TOKEN})\b", and_pair.group(0), re.I)
-            # Same-unit "and" pairs are separate measurements: the first one is used.
-            if not (len(units) == 2 and _same_unit_family(*(_singular_unit(u) for u in units))):
-                return 0.0, "feet"
-        match = next(
-            (
-                m
-                for m in re.finditer(
-                    rf"{LENGTH_NUMBER_GUARD}({COMMA_NUMBER})\s*({LENGTH_UNIT})", text, re.IGNORECASE
-                )
-                if not is_foot_mark(m.group(2))
-            ),
-            None,
-        )
-    if match:
-        value = parse_comma_number(match.group(1))
-        return (value, normalize_unit_token(match.group(2)))
-
-    apostrophe_feet = re.search(
-        rf"{LENGTH_NUMBER_GUARD}({COMMA_NUMBER})\s*(?:'(?!')|\u2032(?!\u2032))(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
-        text,
-        re.IGNORECASE,
-    )
-    if apostrophe_feet:
-        return (parse_comma_number(apostrophe_feet.group(1)), "feet")
-
-    return (0.0, "feet")
+    reading = read_course_length(text)
+    return (reading.value, reading.unit)
 
 
 def _is_lot_qualifier_except(text: str, match: re.Match[str]) -> bool:
