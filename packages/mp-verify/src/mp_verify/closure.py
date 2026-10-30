@@ -47,11 +47,13 @@ from .checks import (
 )
 from .confidence import calculate_confidence_score, score_call_quality
 from .tangents import (
-    chord_positioned_delta,
+    curve_sweep,
+    curve_tangents,
     has_determined_direction,
     is_circular_curve,
     is_spiral,
     stated_sweep,
+    stated_tangent,
 )
 from .traverse import analyze_courses, traverse_positions
 
@@ -95,10 +97,12 @@ def calculate_area(points: list[Point], *, calls: list[DeedCall] | None = None) 
     area /= 2.0
     curved_area = 0.0
     for call in calls or []:
-        tangentless = call.bearing_azimuth_deg_from_north is None
+        # Only an arc whose start is fixed (stated tangent, chord and sweep, or a
+        # non-tangent curve's radial bearing) contributes a segment.
+        tangentless = stated_tangent(call) is None
         if (
             not is_circular_curve(call)
-            or (tangentless and chord_positioned_delta(call) is None)
+            or (tangentless and curve_tangents(call) is None)
             or not call.is_curve()
         ):
             continue
@@ -130,11 +134,13 @@ def calculate_perimeter(calls: list[DeedCall]) -> float:
         if call.is_curve() and call.arc_length_ft is not None and call.arc_length_ft > 0.0:
             perimeter += call.arc_length_ft
         elif (
-            call.bearing_azimuth_deg_from_north is None
-            and (delta := chord_positioned_delta(call)) is not None
+            stated_tangent(call) is None
+            and curve_tangents(call) is not None
+            and (delta := curve_sweep(call)) is not None
             and call.radius_ft is not None
         ):
-            # Tangent-less curve positioned by its chord: arc = R * delta is determined.
+            # Tangent-less curve positioned by its chord (or a non-tangent curve by its
+            # radial bearing): arc = R * delta is determined.
             perimeter += call.radius_ft * math.radians(delta)
         elif call.distance_ft is None:
             raise ValueError(f"Course {call.course}: distance not determined")
@@ -385,7 +391,7 @@ def verify_closure(
     delta_not_stated_courses = [
         (
             record.call.course,
-            record.call.bearing_azimuth_deg_from_north is not None and not record.call.non_tangent,
+            stated_tangent(record.call) is not None,
         )
         for record in chord_only
         if record.index not in inconsistent_chord_indices
@@ -466,10 +472,7 @@ def verify_closure(
         )
     area_available = (
         bool(records)
-        and all(
-            record.call.is_complete_bearing() or record.chord_positioned_delta is not None
-            for record in records
-        )
+        and all(record.determined_direction for record in records)
         and not chord_only
         and not arc_undetermined
         and not unpositioned

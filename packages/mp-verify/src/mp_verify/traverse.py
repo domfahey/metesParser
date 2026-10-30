@@ -23,7 +23,9 @@ from .tangents import (
     has_determined_direction,
     is_curved_course,
     is_spiral,
+    radial_tangent_in,
     stated_sweep,
+    stated_tangent,
 )
 
 
@@ -62,15 +64,28 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
         dx, dy = calculate_deltas(chord_azimuth, call.chord_length_ft)
         return Point(x=current.x + dx, y=current.y + dy)
 
-    if call.bearing_azimuth_deg_from_north is None:
-        # A curve without a tangent is positioned by its chord bearing and the
-        # deterministic chord 2R*sin(delta/2): exactly what plotting accepts.
-        delta = curve_sweep(call) if chord_azimuth is not None else None
-        if delta is None or chord_azimuth is None or call.radius_ft is None:
+    tangent = stated_tangent(call)
+    if tangent is None:
+        # A curve without a stated tangent (none given, or a non-tangent curve whose
+        # course bearing is not its tangent) is positioned by its chord bearing and
+        # the deterministic chord 2R*sin(delta/2), else by a non-tangent curve's
+        # stated radial bearing: exactly what plotting accepts.
+        delta = curve_sweep(call)
+        if delta is None or call.radius_ft is None:
             return None
-        chord_length = 2 * call.radius_ft * math.sin(math.radians(delta) / 2)
-        dx, dy = calculate_deltas(chord_azimuth, chord_length)
-        return Point(x=current.x + dx, y=current.y + dy)
+        if chord_azimuth is not None:
+            chord_length = 2 * call.radius_ft * math.sin(math.radians(delta) / 2)
+            dx, dy = calculate_deltas(chord_azimuth, chord_length)
+            return Point(x=current.x + dx, y=current.y + dy)
+        if call.chord_bearing is not None:
+            return None
+        radial_in = radial_tangent_in(call)
+        if radial_in is None:
+            return None
+        radial_end: Point = compute_curve_endpoint(
+            current, radial_in, call.radius_ft, delta, call.curve_dir
+        )
+        return radial_end
 
     if call.is_curve() and call.radius_ft is not None and call.curve_dir is not None:
         stated = stated_sweep(call)
@@ -89,7 +104,7 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
                 return Point(x=current.x + dx, y=current.y + dy)
             endpoint: Point = compute_curve_endpoint(
                 current,
-                call.bearing_azimuth_deg_from_north,
+                tangent,
                 call.radius_ft,
                 delta_deg,
                 call.curve_dir,
@@ -99,7 +114,7 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
     if call.distance_ft is None:
         # No determined length: the endpoint is unknown, never invented.
         return None
-    dx, dy = calculate_deltas(call.bearing_azimuth_deg_from_north, call.distance_ft)
+    dx, dy = calculate_deltas(tangent, call.distance_ft)
     return Point(x=current.x + dx, y=current.y + dy)
 
 
