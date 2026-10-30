@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -45,6 +46,98 @@ ENTRY_POINTS = {
 @pytest.fixture(params=sorted(ENTRY_POINTS))
 def parse(request):
     return ENTRY_POINTS[request.param]
+
+
+# --- 1. Radial phrasings ------------------------------------------------------
+
+# Curve with no stated tangent and no chord: the radial bearing must not become the
+# tangent, so the course has no azimuth (never fabricated).
+NO_CHORD = (
+    "thence along a curve to the right having a radius of 50.00 feet, {clause} N 10° W, "
+    "an arc length of 30.00 feet to a point"
+)
+# Same with a chord: the tangent follows the existing chord/arc rule
+# (left curve: chord + delta / 2, delta = arc / radius).
+WITH_CHORD = (
+    "thence along a curve to the left, {clause} S 10° W, having a radius of 500 feet, "
+    "an arc length of 50 feet, chord bears N 80° E 49.9 feet to a point"
+)
+CHORD_TANGENT_AZ = 80.0 + math.degrees(50 / 500) / 2
+
+RADIAL_PHRASINGS = [
+    # radius point (of which | which | that)? bears
+    "the radius point of which bears",
+    "the radius point which bears",
+    "the radius point that bears",
+    "whose radius point bears",
+    "the radius point bearing",
+    # radial (line | bearing)? (of | which bears | bears)
+    "the radial line of",
+    "radial bearing of",
+    "the radial line which bears",
+    "the radial bearing which bears",
+    "radial line bears",
+    "radial line bearing",
+    "radial bears",
+    # center/centre (point)? (of which | which | that)? bears
+    "the center of which bears",
+    "the center point of which bears",
+    "the centre of which bears",
+    "the centre which bears",
+    "the center point that bears",
+    "center bears",
+    "the centre point bears",
+    # radius (of which)? bears
+    "to a point whose radius bears",
+    "the radius of which bears",
+]
+
+
+@pytest.mark.parametrize("clause", RADIAL_PHRASINGS)
+def test_radial_phrasing_is_recorded_and_not_the_tangent(parse, clause):
+    call = parse(NO_CHORD.format(clause=clause))
+    assert call is not None
+    assert call.bearing_azimuth_deg_from_north is None
+    assert call.bearing_quadrant is None
+    assert call.radial_bearing == "N 10° W"
+    assert call.non_tangent is True
+    assert "incomplete bearing" in (call.notes or "")
+
+
+@pytest.mark.parametrize("clause", RADIAL_PHRASINGS)
+def test_radial_phrasing_with_chord_uses_chord_rule_for_tangent(parse, clause):
+    call = parse(WITH_CHORD.format(clause=clause))
+    assert call is not None
+    assert call.bearing_azimuth_deg_from_north == pytest.approx(CHORD_TANGENT_AZ, abs=1e-9)
+    assert call.radial_bearing == "S 10° W"
+    assert call.chord_bearing == "N 80° E"
+    assert call.non_tangent is True
+
+
+# Course bearings near center/radius/radial words that are not radial clauses.
+NON_RADIAL_PHRASINGS = [
+    "thence N 10° W along the center of Main Street 100.00 feet to a point",
+    "thence along the centerline bearing N 10° W 100.00 feet to a point",
+    "thence along the center line of Main Street N 10° W 100.00 feet to a point",
+    "thence N 10° W 100.00 feet to the radius point of a curve",
+    "thence N 10° W 100.00 feet to the center of a cul-de-sac",
+    "thence radially N 10° W 30.00 feet to a point",
+    "thence N 10° W along the radius of a curve 50.00 feet to the radius point",
+    (
+        "thence N 10° W along a curve to the right having a radius of 500.00 feet, an arc "
+        "length of 50.00 feet, the chord of which bears N 7° W 49.9 feet to a point"
+    ),
+]
+
+
+@pytest.mark.parametrize("text", NON_RADIAL_PHRASINGS)
+def test_non_radial_phrasing_keeps_course_bearing(parse, text):
+    call = parse(text)
+    assert call is not None
+    assert call.bearing_azimuth_deg_from_north == pytest.approx(350.0)
+    assert call.direction_text == "N 10° W"
+    assert call.radial_bearing is None
+    assert call.non_tangent is False
 
 
 # --- 2. Normalization runs once per call --------------------------------------
