@@ -151,11 +151,17 @@ class ClosureChecker:
         ]
         bad_chord_courses = [main_calls[i].course for i in bad_chord_indices]
         # Without its chord, a curve with no delta or arc has no determinable endpoint:
-        # it is left unpositioned (no bearing), never run along its tangent.
-        unpositioned_indices = [
+        # it gets no bearing, so it is never run along its tangent.
+        no_endpoint_indices = [
             i
             for i in bad_chord_indices
             if main_calls[i].delta_deg is None and main_calls[i].arc_length_ft is None
+        ]
+        main_calls = [
+            c.model_copy(update={"bearing_azimuth_deg_from_north": None})
+            if i in no_endpoint_indices
+            else c
+            for i, c in enumerate(main_calls)
         ]
         # A chord longer than the diameter fits no circle of that radius: never positioned by it.
         infeasible_chord_indices = [
@@ -167,8 +173,21 @@ class ClosureChecker:
             and c.radius_ft is not None
             and c.chord_length_ft > 2.0 * abs(c.radius_ft)
         ]
-        unpositioned_indices = unpositioned_indices + infeasible_chord_indices
+        points, positioned = cls.traverse_positions(
+            [
+                c.model_copy(update={"chord_bearing": None}) if i in bad_chord_indices else c
+                for i, c in enumerate(main_calls)
+            ]
+        )
+        # Unpositioned courses come from the traverse's own outcome, never a separate prediction.
+        unpositioned_indices = [i for i, ok in enumerate(positioned) if not ok]
         unpositioned_courses = [main_calls[i].course for i in unpositioned_indices]
+        # Once a course is unpositioned, every later vertex is relative to an unknown start.
+        downstream_courses = (
+            [main_calls[i].course for i in range(unpositioned_indices[0] + 1, len(main_calls))]
+            if unpositioned_indices
+            else []
+        )
         bad_chord_texts = {i: main_calls[i].chord_bearing for i in bad_chord_indices}
         main_calls = [
             c.model_copy(update={"chord_bearing": None, "bearing_azimuth_deg_from_north": None})
@@ -176,12 +195,6 @@ class ClosureChecker:
             else c
             for i, c in enumerate(main_calls)
         ]
-        points = cls.compute_traverse(
-            [
-                c.model_copy(update={"chord_bearing": None}) if i in bad_chord_indices else c
-                for i, c in enumerate(main_calls)
-            ]
-        )
 
         chord_only_indices = [
             i
@@ -210,6 +223,10 @@ class ClosureChecker:
         misclosure_x = points[-1].x - points[0].x
         misclosure_y = points[-1].y - points[0].y
         misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
+        misclosure_available = not unpositioned_indices
+        if not misclosure_available:
+            # A broken chain gives no absolute positions: report no misclosure, not a wrong one.
+            misclosure_x = misclosure_y = misclosure = 0.0
 
         warnings = []
 
@@ -224,11 +241,21 @@ class ClosureChecker:
                     f"Course {main_calls[i].course}: curve cannot be positioned (chord length "
                     "exceeds twice the radius); closure, area and perimeter are not determined"
                 )
-            else:
+            elif i in no_endpoint_indices:
                 warnings.append(
                     f"Course {main_calls[i].course}: curve cannot be positioned (no parseable "
                     "chord, delta or arc); closure, area and perimeter are not determined"
                 )
+            else:
+                warnings.append(
+                    f"Course {main_calls[i].course}: course cannot be positioned (no usable "
+                    "bearing or endpoint); closure, area and perimeter are not determined"
+                )
+        if downstream_courses:
+            warnings.append(
+                f"Course(s) {', '.join(str(c) for c in downstream_courses)} follow an unpositioned "
+                "course; absolute positions and misclosure are not determined"
+            )
 
         if not has_computable_traverse:
             warnings.append(
@@ -279,9 +306,7 @@ class ClosureChecker:
         perimeter_available = not chord_only_courses and not unpositioned_courses
         perimeter = cls.calculate_perimeter(main_calls) if perimeter_available else 0.0
 
-        closure_passed = (
-            has_computable_traverse and misclosure < tolerance and not unpositioned_courses
-        )
+        closure_passed = has_computable_traverse and misclosure < tolerance and misclosure_available
 
         # Warn when closure only passes because of a relaxed tolerance
         if (
@@ -371,6 +396,7 @@ class ClosureChecker:
             stated_area_sq_ft=stated_area_sq_ft,
             area_sq_ft=area_sq_ft,
             area_available=area_available,
+            misclosure_available=misclosure_available,
             double_entry_performed=double_entry_calls is not None,
             discrepancies=discrepancies,
             curve_issues=curve_issues,
@@ -413,6 +439,7 @@ class ClosureChecker:
             misclosure_x_ft=misclosure_x,
             misclosure_y_ft=misclosure_y,
             misclosure_ft=misclosure,
+            misclosure_available=misclosure_available,
             area_sq_ft=area_sq_ft,
             area_acres=area_acres,
             perimeter_ft=perimeter,
@@ -442,7 +469,7 @@ class ClosureChecker:
             audit_context.verification_audit = VerificationAudit(
                 checks=check_results,
                 closure_summary={
-                    "misclosure_ft": misclosure,
+                    "misclosure_ft": misclosure if misclosure_available else "not determined",
                     "precision_ratio": precision_ratio_str,
                     "area_sq_ft": area_sq_ft if area_available else "not determined",
                     "area_acres": area_acres if area_available else "not determined",
@@ -457,22 +484,24 @@ class ClosureChecker:
         return closure_result
 
     @classmethod
-    def compute_traverse(
+    def traverse_positions(
         cls, calls: list[DeedCall], start_point: Point | None = None
-    ) -> list[Point]:
-        """Compute the traverse path from calls.
+    ) -> tuple[list[Point], list[bool]]:
+        """Compute the traverse path and which calls it actually advanced through.
 
         Args:
             calls: List of DeedCall objects
             start_point: Starting point (default: origin)
 
         Returns:
-            List of Point objects representing vertices
+            (vertices, positioned) where positioned[i] is True only when calls[i]
+            produced a vertex. Callers derive unpositioned courses from this outcome.
         """
         if start_point is None:
             start_point = Point(x=0, y=0)
         points = [start_point]
         current = start_point
+        positioned: list[bool] = []
 
         for call in calls:
             if call.is_chord_only_curve():
@@ -482,6 +511,7 @@ class ClosureChecker:
                 assert call.radius_ft is not None
                 if call.chord_length_ft > 2.0 * abs(call.radius_ft):
                     # No circle of this radius has such a chord; leave it unpositioned.
+                    positioned.append(False)
                     continue
                 chord_azimuth = BearingConverter.bearing_to_azimuth(call.chord_bearing)
                 if chord_azimuth is None:
@@ -489,9 +519,11 @@ class ClosureChecker:
                 dx, dy = BearingConverter.calculate_deltas(chord_azimuth, call.chord_length_ft)
                 current = Point(x=current.x + dx, y=current.y + dy)
                 points.append(current)
+                positioned.append(True)
                 continue
 
             if call.bearing_azimuth_deg_from_north is None:
+                positioned.append(False)
                 continue
 
             if call.is_curve():
@@ -541,9 +573,17 @@ class ClosureChecker:
                 next_point = Point(x=current.x + dx, y=current.y + dy)
 
             points.append(next_point)
+            positioned.append(True)
             current = next_point
 
-        return points
+        return points, positioned
+
+    @classmethod
+    def compute_traverse(
+        cls, calls: list[DeedCall], start_point: Point | None = None
+    ) -> list[Point]:
+        """Compute the traverse path from calls (vertices only)."""
+        return cls.traverse_positions(calls, start_point)[0]
 
     @classmethod
     def calculate_area(cls, points: list[Point], *, calls: list[DeedCall] | None = None) -> float:
@@ -1100,9 +1140,14 @@ class ClosureChecker:
         summary.append("=" * 60)
         summary.append("CLOSURE VERIFICATION SUMMARY")
         summary.append("=" * 60)
-        summary.append(f"Misclosure: {result.misclosure_ft:.4f} ft ({result.get_closure_status()})")
-        summary.append(f"  X: {result.misclosure_x_ft:.4f} ft")
-        summary.append(f"  Y: {result.misclosure_y_ft:.4f} ft")
+        if result.misclosure_available:
+            summary.append(
+                f"Misclosure: {result.misclosure_ft:.4f} ft ({result.get_closure_status()})"
+            )
+            summary.append(f"  X: {result.misclosure_x_ft:.4f} ft")
+            summary.append(f"  Y: {result.misclosure_y_ft:.4f} ft")
+        else:
+            summary.append(f"Misclosure: not determined ({result.get_closure_status()})")
 
         if result.precision_ratio is not None and result.precision_ratio > 1e-10:
             ratio_inv = round(1.0 / result.precision_ratio)
