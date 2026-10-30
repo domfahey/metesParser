@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from bisect import bisect_right
+from collections.abc import Sequence
 from dataclasses import dataclass
 from re import Match
 from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict
@@ -1621,7 +1622,59 @@ def _is_destination_to(text: str, match: Match[str], qualifiers: list[tuple[int,
     return not _RELATED_TO_BEFORE.search(text, 0, match.start())
 
 
-def extract_course_clause(call_text: str) -> CourseClause:
+def _enclosing_bracket(text: str, position: int, floor: int) -> tuple[int, int] | None:
+    """Span of the bracketed group around ``position`` (``floor`` on), or None.
+
+    An unclosed group runs to the end of ``text``; the span includes both brackets.
+    """
+    openers: list[int] = []
+    for index in range(floor, position):
+        if text[index] in "([":
+            openers.append(index)
+        elif text[index] in ")]" and openers:
+            openers.pop()
+    if not openers:
+        return None
+    depth = 0
+    for index in range(position, len(text)):
+        if text[index] in "([":
+            depth += 1
+        elif text[index] in ")]":
+            if not depth:
+                return (openers[0], index + 1)
+            depth -= 1
+    return (openers[0], len(text))
+
+
+def _unmatched_close(text: str, start: int) -> int | None:
+    """Index of the first closing bracket after ``start`` that closes an earlier bracket."""
+    depth = 0
+    for index in range(start, len(text)):
+        if text[index] in "([":
+            depth += 1
+        elif text[index] in ")]":
+            if not depth:
+                return index
+            depth -= 1
+    return None
+
+
+def _remove_spans(text: str, spans: list[tuple[int, int]]) -> str:
+    """Return ``text`` with ``spans`` replaced by one space each (later spans first)."""
+    merged: list[tuple[int, int]] = []
+    for s, e in sorted(spans):
+        if merged and s <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(e, merged[-1][1]))
+        else:
+            merged.append((s, e))
+    for s, e in reversed(merged):
+        text = text[:s].rstrip() + " " + text[e:].lstrip()
+    return text
+
+
+def extract_course_clause(
+    call_text: str, drop_spans: Sequence[tuple[int, int]] = ()
+) -> CourseClause:
     """Read along/to of one course from the spans of its clause.
 
     The spans are computed once: the course clause runs from the fragment's leading
@@ -1633,6 +1686,12 @@ def extract_course_clause(call_text: str) -> CourseClause:
     "by and with", "binding on" ...) or, without one, a qualifier phrase ("parallel
     to"). Passing calls are returned verbatim, never dropped. The course's own
     length is removed from ``to`` (a monument size is kept).
+
+    ``drop_spans`` are spans of ``call_text`` that are not the adjoiner (the record
+    scan's record calls and measured course lengths); they are left out of ``along``
+    wherever the adjoiner wording sits, so the result does not depend on word order.
+    A passing call in brackets is the whole bracketed group and ends at its closing
+    bracket; unbracketed, it never runs past an unmatched closing bracket.
     """
     lead = _LEADING_THENCE.match(call_text)
     start = lead.end() if lead else 0
@@ -1653,26 +1712,39 @@ def extract_course_clause(call_text: str) -> CourseClause:
     course = clause[:course_end]
 
     passing_spans: list[tuple[int, int]] = []
+    passing_texts: list[str] = []
     for match in _PASSING.finditer(course, start):
+        if any(s <= match.start() < e for s, e in passing_spans):
+            continue
+        group = _enclosing_bracket(course, match.start(), start)
+        if group is not None:
+            closed = course[group[1] - 1] in ")]"
+            inner = course[group[0] + 1 : group[1] - 1 if closed else group[1]]
+            passing_spans.append(group)
+            passing_texts.append(inner.strip(" ,;."))
+            continue
         ends = [m.start() for m in (_PASSING_END.search(course, match.end()),) if m]
         ends += [m.start() for m in (_ADJOINER_LEAD.search(course, match.end()),) if m]
-        passing_spans.append((match.start(), min(ends, default=len(course))))
-    passing = tuple(course[s:e].strip(" ,;.") for s, e in passing_spans)
+        close = _unmatched_close(course, match.end())
+        ends += [close] if close is not None else []
+        stop = min(ends, default=len(course))
+        passing_spans.append((match.start(), stop))
+        passing_texts.append(course[match.start() : stop].strip(" ,;."))
+    passing = tuple(passing_texts)
+    dropped = [(s, min(e, course_end)) for s, e in drop_spans if start <= s < course_end]
 
     along = ""
     lead_word = _ADJOINER_LEAD.search(course, start)
     if lead_word:
-        segment = course
-        removed = [span for span in passing_spans if span[0] >= lead_word.end()]
+        removed = [span for span in passing_spans + dropped if span[0] >= lead_word.end()]
         removed += [m.span() for m in _CONTINUING_COURSE.finditer(course, lead_word.end())]
-        for s, e in sorted(removed, reverse=True):
-            segment = segment[:s].rstrip() + " " + segment[e:].lstrip()
+        segment = _remove_spans(course, removed)
         segment = segment[lead_word.end() :].strip()
         if destination is None:
             segment = _before_clause_delimiter(segment)
         along = segment.strip(" ,;.")
     else:
-        along = _qualifier_wording(course)
+        along = _qualifier_wording(_remove_spans(course, passing_spans + dropped))
 
     to = ""
     if destination is not None:
