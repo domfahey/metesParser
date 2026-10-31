@@ -3,6 +3,7 @@ name = "mp-verify"
 version = "1.0.0"
 requires-python = ">=3.11"
 description = "Geometric verification for metes and bounds traverses"
+license = "MIT"
 dependencies = [
     "mp-models>=1.0.0",
     "mp-bearing>=1.0.0",
