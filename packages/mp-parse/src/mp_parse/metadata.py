@@ -74,6 +74,26 @@ _LABEL_BEFORE = re.compile(
 )
 _SENTENCE_START = re.compile(r"\s+[A-Z(]")
 _BLANK_REST = re.compile(r"\s*$")
+# Document structure that ends any wording before it, with or without a period: a
+# paragraph break (blank line), a markdown heading ("#" at a line start, "##"+ after
+# whitespace: normalization flattens line breaks), a markdown bullet at a line start
+# or a checkbox bullet ("- [ ]"), a markdown table cell border ("|") or an HTML tag
+# ("</td>", "<tr>").
+STRUCTURE_BREAK = re.compile(
+    r"\n[ \t]*\n|\|"
+    r"|(?:^|\n)[ \t]*(?:#{1,6}|[-*+])[ \t]"
+    r"|(?<=\s)#{2,6}[ \t]"
+    r"|(?<=\s)[-*+][ \t]+\[[ xX]?\]"
+    r"|</?[A-Za-z][A-Za-z0-9]*(?:\s[^<>\n]*)?/?>",
+    re.MULTILINE,
+)
+_SPACES = re.compile(r"[ \t]*")
+
+
+def _structure_follows(text: str, index: int) -> bool:
+    """Return whether document structure (``STRUCTURE_BREAK``) follows ``text[index]``."""
+    after = _SPACES.match(text, index + 1)
+    return after is not None and STRUCTURE_BREAK.match(text, after.end()) is not None
 
 
 def is_abbreviation_period(text: str, index: int) -> bool:
@@ -101,11 +121,13 @@ def is_abbreviation_period(text: str, index: int) -> bool:
 def ends_sentence(text: str, index: int) -> bool:
     """Return whether the period at ``text[index]`` ends a sentence.
 
-    It ends one before the end of ``text`` or before whitespace and a capital or "(",
-    unless it is an initial, acronym, abbreviation or decimal point. Before a clause
-    opening word ("Subject to", "ALSO", "Being") a period always ends the sentence.
+    It ends one before the end of ``text``, before document structure (a paragraph
+    break, a markdown heading, bullet or table border, an HTML tag: ``STRUCTURE_BREAK``),
+    or before whitespace and a capital or "(", unless it is an initial, acronym,
+    abbreviation or decimal point. Before a clause opening word ("Subject to", "ALSO",
+    "Being") a period always ends the sentence.
     """
-    if _BLANK_REST.match(text, index + 1):
+    if _BLANK_REST.match(text, index + 1) or _structure_follows(text, index):
         return True
     if not _SENTENCE_START.match(text, index + 1):
         return False
@@ -121,7 +143,7 @@ def breaks_at_period(text: str, index: int) -> bool:
     sentence follows (``ends_sentence``: "Main St. Subject to ..."). At the end of
     ``text`` an abbreviation keeps its period ("to a point on Main St.").
     """
-    if not is_abbreviation_period(text, index):
+    if not is_abbreviation_period(text, index) or _structure_follows(text, index):
         return True
     return bool(_SENTENCE_START.match(text, index + 1)) and ends_sentence(text, index)
 
@@ -1644,13 +1666,28 @@ _TRAILING_SEPARATOR = re.compile(
 # before a line or lands ("by the line of Smith", "by land now or formerly of Smith");
 # other senses ("by deed", "with a radius of") are not adjoiners.
 _LINE_OR_LANDS = r"(?=\s+(?:(?:the|said)\s+)?(?:lines?|lands?)\s+(?:of|now\s+or\s+formerly|n/f)\b)"
+# What "along with" conveys when it is the conveyancing phrase (like "together with"):
+# "all (the) improvements", "the hereditaments", "appurtenances", "all rights", "the
+# right to ...", "the privilege", "all and singular", "the buildings". A right of way
+# is a line a course runs along ("along with the right of way of Route 70").
+_CONVEYANCING_OBJECT = (
+    r"(?:(?:all|any)\s+and\s+(?:all|singular)\b"
+    r"|(?:(?:all|any)\s+(?:of\s+)?(?:the\s+)?|(?:the|its|their|said)\s+)?"
+    r"(?:improvements?|hereditaments?|appurtenances?|buildings?|tenements?|fixtures?"
+    r"|privileges?|rights?(?![\s-]+of[\s-]+way)|benefits?)\b(?![\s-]+lines?\b))"
+)
 # "along with all improvements", "along with the right to use ...": the conveyancing
-# phrase (like "together with"), never adjoiner wording. "along with the line of
-# Smith" runs along the line.
-CONVEYANCING_ALONG_WITH = rf"along\s+with\b(?!{_LINE_OR_LANDS})"
+# phrase. Before anything else inside a course ("THENCE along with the Northerly side
+# of Main Street ...", "... 100 feet along with said road to a pin") it is adjoiner
+# wording: the course runs along that line.
+CONVEYANCING_ALONG_WITH = rf"along\s+with\s+(?={_CONVEYANCING_OBJECT})"
+# "along with" opening wording after the closing course ("...; along with a shared
+# driveway"): conveyancing unless it names a line or lands ("along with the line of
+# Smith"), which is adjoiner wording that fails closed.
+CLOSING_ALONG_WITH = rf"along\s+with\b(?!{_LINE_OR_LANDS})"
 _ADJOINER_LEAD = re.compile(
     rf"\b(?:binding\s+(?:on|upon|along|with)|bounding\s+(?:on|upon|along)"
-    rf"|along\s+with{_LINE_OR_LANDS}|along(?!\s+with\b)"
+    rf"|along\s+with(?!\s+(?:{_CONVEYANCING_OBJECT}))|along(?!\s+with\b)"
     rf"|by\s+and\s+with|by{_LINE_OR_LANDS}|with{_LINE_OR_LANDS}|adjoining"
     r"|(?<!the\s)following(?=\s+(?:the|said|an?|lands?|lines?)\s))\b",
     re.IGNORECASE,
@@ -2161,12 +2198,16 @@ def extract_deed_clauses(text: str) -> list[DeedClause]:
     ClauseType = Literal["reservation", "subject_to", "together_with"]
 
     # Each clause runs to its sentence end (``ends_sentence``: never at an initial,
-    # abbreviation or decimal point). "along with" is the conveyancing phrase, not
-    # adjoiner wording along a line or lands.
+    # abbreviation or decimal point); a together-with clause also ends at a THENCE.
+    # "along with" is the conveyancing phrase before a conveyancing object or opening a
+    # sentence (``CLOSING_ALONG_WITH``); inside a course it is adjoiner wording.
     patterns: list[tuple[str, ClauseType]] = [
         (r"RESERVING\b", "reservation"),
         (r"SUBJECT\s+TO\b", "subject_to"),
-        (rf"TOGETHER\s+WITH\b|{CONVEYANCING_ALONG_WITH}", "together_with"),
+        (
+            rf"TOGETHER\s+WITH\b|{CONVEYANCING_ALONG_WITH}|(?:^|(?<=[.\n]))\s*{CLOSING_ALONG_WITH}",
+            "together_with",
+        ),
     ]
 
     for pattern, clause_type in patterns:
@@ -2177,8 +2218,13 @@ def extract_deed_clauses(text: str) -> list[DeedClause]:
             end = next(
                 (i for i in _periods(text, match.end()) if ends_sentence(text, i)), len(text)
             )
+            if clause_type == "together_with":
+                course = _THENCE.search(text, match.end(), end)
+                end = end if course is None else course.start()
             position = end
             clause_text = text[match.start() : end].strip().rstrip(".")
+            if clause_type == "together_with":
+                clause_text = clause_text.rstrip(" \t\n,;:")
             if clause_text:
                 clauses.append(DeedClause(clause_type=clause_type, text=clause_text))
 
