@@ -130,6 +130,8 @@ print(summary)
 
 ### CSVBuilder
 
+The export decision order is drawn in the [verified-export gate diagram](ARCHITECTURE.md#verified-export-gate).
+
 Export/import CSV files.
 
 `csv_to_calls()` rejects invalid rows by default. Use `strict=False` with a

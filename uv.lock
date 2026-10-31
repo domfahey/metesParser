@@ -900,6 +900,7 @@ name = "mp-review"
 version = "1.0.0"
 source = { editable = "packages/mp-review" }
 dependencies = [
+    { name = "mp-bearing" },
     { name = "mp-export" },
     { name = "mp-models" },
     { name = "mp-parse" },
@@ -927,6 +928,7 @@ web-map = [
 
 [package.metadata]
 requires-dist = [
+    { name = "mp-bearing", editable = "packages/mp-bearing" },
     { name = "mp-export", editable = "packages/mp-export" },
     { name = "mp-export", extras = ["delivery"], marker = "extra == 'delivery'", editable = "packages/mp-export" },
     { name = "mp-models", editable = "packages/mp-models" },

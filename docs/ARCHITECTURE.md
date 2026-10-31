@@ -159,6 +159,7 @@ graph TD
     bearing --> models
     ocr --> models
     review --> models
+    review --> bearing
 
     classDef llm stroke-width:3px,stroke-dasharray:6 3
     class ocr llm

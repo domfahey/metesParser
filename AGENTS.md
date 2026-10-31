@@ -18,7 +18,7 @@ Versions are declared in each package's `pyproject.toml`. Test counts and covera
 **Most Important Rule**: If a bearing is incomplete (e.g., "southwesterly" without degrees), leave `bearing_azimuth_deg_from_north` as `None` and set `notes="incomplete bearing - cardinal only"`. Never invent numerical bearings.
 
 ### 2. Verification Before Export
-Use `verify_closure()` before `export_verified_csv()`. Geometry eligibility requires closure below 0.01 ft, applicable checks passing (explicit `not_applicable` is distinct from `passed`), and no warnings; failed or blocked checks prevent eligibility. The exporter freshly verifies the selected calls and validates the supplied result against them. `source_review_status` remains an explicit, separate assessment; geometry eligibility does not establish source completeness or legal validity.
+Use `verify_closure()` before `export_verified_csv()`. Geometry eligibility requires closure below 0.01 ft, applicable checks passing (explicit `not_applicable` is distinct from `passed`), and no warnings; failed or blocked checks prevent eligibility. The exporter freshly verifies the selected calls and validates the supplied result against them. `source_review_status` remains an explicit, separate assessment; geometry eligibility does not establish source completeness or legal validity. The decision order is drawn in the [verified-export gate diagram](docs/ARCHITECTURE.md#verified-export-gate).
 
 Role policy:
 - **Rule:** fail closed on guessed description roles. If a deed has more than one description and any role (main/addition/exception/easement) was inferred from wording rather than an explicit TRACT/PARCEL heading (`Tract.role_basis`), nothing in the deed is verified or exported.
@@ -42,7 +42,7 @@ mp-ocr      → LLM boundary: PDF → text (mp-models)
 mp-parse    → Rule-based parsing: text → calls (mp-models, mp-bearing)
 mp-verify   → Canonical geometry checks (mp-models, mp-bearing)
 mp-export   → CSV/JSON/HTML rendering (mp-models, mp-verify)
-mp-review   → Deterministic `metes-review` CLI/adapters; no OCR/provider dependency (mp-models, mp-parse, mp-verify, mp-export)
+mp-review   → Deterministic `metes-review` CLI/adapters; no OCR/provider dependency (mp-models, mp-bearing, mp-parse, mp-verify, mp-export)
 metesparser → Orchestrator (`Pipeline`) + backward-compat monolith
 ```
 
