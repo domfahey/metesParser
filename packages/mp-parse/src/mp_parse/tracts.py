@@ -173,8 +173,20 @@ _EASEMENT_WORD = (
     r"(?:easements?|rights?[\s-]+of[\s-]+way)\b"
     r"(?![\s-]+(?:areas?|lines?|lands?|tracts?|parcels?|lots?|premises|portions?|parts?)\b)"
 )
+# A grant of the easement's benefit or of an interest in it ("the benefit of an
+# easement", "all (of the grantor's) right, title and interest in and to the ...
+# easement"). The object that follows is still the easement noun, so "all right,
+# title and interest in and to the land lying within the easement area" stays a parcel.
+_EASEMENT_INTEREST = (
+    r"(?:(?:the\s+)?benefits?\s+of\b"
+    r"|all\s+(?:of\s+)?(?:(?:the|its|his|her|their)\s+|(?:the\s+)?[\w]+'s?\s+)?"
+    r"(?:right|title|interest)[\w\s,]{0,40}?interests?\s+(?:in\s+and\s+to|in|to)\b)"
+)
 _EASEMENT_NOUN = (
     _EASEMENT_GRANTEE
+    + r"(?:\s*,?\s*"
+    + _EASEMENT_INTEREST
+    + r")?"
     + _EASEMENT_DETERMINER
     + r"(?:free\s+and\s+uninterrupted\s+(?:use|rights?|passage)\b|"
     + _EASEMENT_MODIFIER
