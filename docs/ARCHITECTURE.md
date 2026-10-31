@@ -6,6 +6,7 @@ System design and data flow for metesParser.
 
 - [System Overview](#system-overview)
 - [Core Principles](#core-principles)
+- [Description roles and verified export](#description-roles-and-verified-export)
 - [Composable Package Architecture](#composable-package-architecture)
 - [Skill Composition](#skill-composition)
 - [Advisory Operations and Artifact Reuse](#advisory-operations-and-artifact-reuse)
@@ -30,14 +31,14 @@ metesParser combines source acquisition with deterministic metes-and-bounds pars
 - **Deterministic analysis** - The same prepared calls and explicit parameters produce the same numerical results; model reading is a separate source-evidence stage
 - **Verification-first** - `_verified.csv` requires fresh canonical verification of the actual exported calls
 - **Never fabricates** - Flags incomplete data rather than guessing
-- **Composable** - 8 independently installable packages, each does one thing well
+- **Composable** - 7 `mp-*` packages plus the root `metesparser` package, each doing one thing well
 
 ### Technology Stack
 
 - **Python 3.11+** - Modern Python with type hints (`|` unions)
 - **Pydantic v2** - Data validation and schema enforcement
 - **OpenAI + optional Gemini** - Configurable LLM providers for PDF extraction
-- **UV workspace monorepo** - 8 composable packages (no pip/conda/poetry)
+- **UV workspace monorepo** - 7 `mp-*` packages plus the root `metesparser` package (no pip/conda/poetry)
 - **pytest** - Root, package/plugin, and opt-in browser suites; scope and commands are in [TESTING.md](TESTING.md)
 
 ## Core Principles
@@ -68,6 +69,10 @@ else:
     print(f"Cannot export verified CSV: {result.misclosure_ft:.4f} ft misclosure")
 ```
 
+For a deed with independent tracts, `verify_closure(calls, tracts=tracts)` returns one result per tract. Pass them as `tract_results=[(tract, result), ...]` (the first `result` also fills the positional `closure_result`). The exporter re-verifies each selected tract, skips any that is not an eligible main/addition boundary, and writes one CSV per verified tract. Courses that extraction could not parse block export, but only if the exporter can see them: pass the `skipped_courses` list or the `audit_context` (or tracts) used for extraction.
+
+The exporter also fails closed on description roles: when a deed has more than one description and any role was inferred from wording, nothing is exported, whatever the supplied results claim. See [Description roles and verified export](#description-roles-and-verified-export).
+
 ### 3. Preserve Original Wording
 
 ```python
@@ -86,9 +91,33 @@ call = DeedCall(
 
 Parsing, bearing math, verification, diagnosis, and comparison are deterministic. Provider settings do not guarantee repeatable or accurate model extraction. Enable extraction audit (for example, `Pipeline(audit=True)`) to retain provider prompts/responses and processing context; retain acquisition/selection evidence when using native Claude reading. Cached responses preserve a particular extraction, not proof of its truth.
 
+## Description roles and verified export
+
+This section is the single source of truth for the fail-closed role policy; other documents link here.
+
+**What a description role is.** A deed can contain several legal descriptions, and each has a tract role: main (parcel), addition, exception or easement. Main and addition tracts are parcel boundaries. Easement and exception tracts describe land that is not the conveyed parcel.
+
+**Where a role comes from** (`Tract.role_basis`):
+
+- `heading`: an explicit `PARCEL ONE:` / `TRACT 2:` style heading, typed main or addition, with no role wording (easement, except, less, reserving, subject to) in it or before it.
+- `single`: the deed's only description, read as the parcel (main).
+- `inferred`: guessed from wording such as EXCEPT or ALSO leads, easement grants, or a default main with no heading. A sole addition, exception or easement description is also `inferred`.
+
+**The rule.** The one gate is `mp_models.roles_need_review(tracts, calls)`:
+
+- A deed with more than one description and any `inferred` role gets no verified export through any path. Verification adds a blocked `description_roles_inferred` check to every tract (geometry is still computed for review), `export_verified_csv` raises, and review output never reports `checks_passed`. A stored multi-tract artifact with no recorded basis fails closed the same way.
+- Easement and exception tracts are never eligible for verified export, whatever their geometry or supplied results. Verification reports a blocked `non_boundary_tract` check for them and the exporter skips them.
+- Text review (`mp_review`) refuses text with more than one parcel (main/addition) description and asks for one parcel per review. A parcel with its own exception or easement is still one review.
+
+**Unaffected.** A deed with a single description, and a deed whose parcel roles all come from plain headings, verify and export as before.
+
+**How to unblock.** Supply plain `PARCEL ONE:` / `TRACT 2:` headings with no role wording, or review one parcel at a time.
+
+**The block travels with the calls.** In a blocked deed every call (the flat list and each tract's) carries the registered `DESCRIPTION_ROLES_NOTE` ("description roles need review - not eligible for verified export"), and every easement or exception call a registered non-boundary note. The notes survive CSV and JSON round trips, so verification blocks and export refuses those calls with or without their tracts, and re-reviewing a blocked review's `calls.csv` or `calls.json` stays blocked. The role gate establishes only that roles are explicit; like geometry eligibility, it does not establish source accuracy or legal validity.
+
 ## Composable Package Architecture
 
-The codebase is a **uv workspace monorepo** with 8 independently installable packages: seven `mp-*` packages and the root `metesparser` package:
+The codebase is a **uv workspace monorepo**: 7 `mp-*` packages under `packages/` plus the root `metesparser` package:
 
 ```
 packages/
@@ -133,18 +162,19 @@ graph TD
 
 ### Package-to-Monolith Mapping
 
-The original monolith in `src/metesparser/` is preserved for backward compatibility. Corresponding legacy implementations must stay in sync. New review capabilities use thin facades rather than duplicate engines.
+The original monolith in `src/metesparser/` is preserved for backward compatibility. Each module is either a **facade** (a thin wrapper over the package, converting models through `package_bridge.py`) or a **duplicate** (its own implementation). Only duplicates are mirrored by hand and must stay in sync with the package; facades pick up package changes automatically. New review capabilities use thin facades rather than duplicate engines.
 
-| Package | Monolith Module(s) |
-|---------|-------------------|
-| `mp-models` | `models.py` |
-| `mp-bearing` | `bearing_converter.py` |
-| `mp-ocr` | `pdf_processor.py`, `llm_clients.py`, `llm_cache.py` |
-| `mp-parse` | `call_extractor.py`, `text_parser.py` (facades over `mp_parse`; `package_bridge.py` converts models) |
-| `mp-verify` | `closure_checker.py` |
-| `mp-export` | `csv_builder.py`, `audit_reporter.py` (legacy CSV/audit functionality) |
-| Shared review/analysis APIs | `plot.py`, `dashboard.py`, `source_handoff.py`, `artifact_inspect.py`, `diagnostics.py`, `comparison.py`, `corridor.py`, `plss.py`, `revisions.py`, `delivery.py`, and `raster_picker.py` re-export package implementations/contracts |
-| `metesparser` | `pipeline.py`, `cli.py`, `run_registry.py`, `review_packet.py` |
+| Package | Monolith Module(s) | Facade / Duplicate |
+|---------|-------------------|--------------------|
+| `mp-models` | `models.py` | Duplicate (own Pydantic models) |
+| `mp-bearing` | `bearing_converter.py` | Duplicate |
+| `mp-ocr` | `pdf_processor.py`, `llm_clients.py`, `llm_cache.py` | Duplicate |
+| `mp-parse` | `call_extractor.py`, `text_parser.py` | Facade (over `mp_parse`; `package_bridge.py` converts models) |
+| `mp-verify` | `closure_checker.py` | Facade (over `mp_verify`) |
+| `mp-export` | `csv_builder.py` | Facade (over `mp_export.csv_writer`) |
+| `mp-export` | `audit_reporter.py` | Duplicate (legacy audit HTML) |
+| Shared review/analysis APIs | `plot.py`, `dashboard.py`, `source_handoff.py`, `artifact_inspect.py`, `diagnostics.py`, `comparison.py`, `corridor.py`, `plss.py`, `revisions.py`, `delivery.py`, and `raster_picker.py` | Facade (re-export package implementations/contracts) |
+| `metesparser` | `pipeline.py`, `cli.py`, `run_registry.py`, `review_packet.py` | Orchestrator (not a mirror of a package) |
 
 ### Pipeline Orchestrator
 
@@ -482,7 +512,7 @@ class DeedCall:
     direction_text: str                            # Raw direction text
     bearing_quadrant: str | None                   # "S 56 40' W"
     bearing_azimuth_deg_from_north: float | None   # 236.667 (degrees from N)
-    distance_ft: float                             # Distance in feet (must be > 0)
+    distance_ft: float | None                      # Feet, > 0 and finite; None only for a spiral with no stated length
 
     # Curve fields (all None for straight lines)
     curve_dir: str | None                          # "left" or "right"
@@ -554,12 +584,14 @@ Pydantic enforces constraints at construction:
 
 ```python
 class DeedCall(BaseModel):
-    distance_ft: float = Field(gt=0)  # Must be > 0
+    distance_ft: FiniteFloat | None = Field(..., gt=0)  # > 0 when present
 
 # This raises ValidationError:
 DeedCall(course=1, direction_text="North", distance_ft=0.0)
 DeedCall(course=1, direction_text="North", distance_ft=-10.0)
 ```
+
+`distance_ft` may be `None` only for a spiral curve with no stated arc or chord length, whose course length cannot be determined without fabrication (verification treats that course as unpositioned); any other `None` raises. See [DEVELOPER_REFERENCE.md](DEVELOPER_REFERENCE.md#csv-schema) for the CSV rule.
 
 ### Graceful Degradation
 
@@ -666,12 +698,6 @@ For a concrete, request-by-request walkthrough with actual object snapshots from
 
 - [pennbrook_sample_workflow_diagrams.md](archive/pennbrook_sample_workflow_diagrams.md)
 
----
-
-For more information:
-- [TESTING.md](TESTING.md) - Test suite architecture
-- [API.md](API.md) - Python API reference
-- [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines
 
 ## Optional geographic display architecture
 
@@ -684,3 +710,10 @@ Each scan has independent opacity, visibility and raise/lower controls. Raster o
 For a requested in-chat preview, `mp_review.mapbox_mcp` reads intact standalone-map or legacy dashboard stages and `mp_export.mapbox_mcp` serializes their prepared vectors as Mapbox MCP tool arguments. Both online renderers share `mp_verify.webmap` provenance validation. The MCP adapter performs no reprojection, raster warp, or provider call; it retains a local omission report and refuses oversized payloads. The `render-online-map` skill invokes a compatible connected tool only within the requested preview scope. See the [MCP handoff procedure](../plugins/metesparser/skills/render-online-map/references/mapbox-mcp.md) for the separate external data path and host acceptance checks.
 
 Local deterministic engine tests, browser/SDK checks and extracted-plugin smoke tests do not establish native document reading, equivalent paired-model behavior, live-provider pixels or native-client display. Those outstanding gates and dated observations are recorded in the [implementation ledger](implementation/2026-10-28-evidence-review-ledger.md); see [TESTING.md](TESTING.md) for the separate execution lanes.
+
+---
+
+For more information:
+- [TESTING.md](TESTING.md) - Test suite architecture
+- [API.md](API.md) - Python API reference
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Development guidelines
