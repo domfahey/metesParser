@@ -13,8 +13,14 @@ import mp_models
 import mp_parse.calls as package_calls
 import mp_parse.monuments as package_monuments
 
-from .models import AuditContext, DeedCall, MonumentStatus, MonumentType, SkippedCourse
-from .package_bridge import monolith_call, monolith_call_audit, monolith_calls_from, monolith_skip
+from .models import AuditContext, DeedCall, MonumentStatus, MonumentType, SkippedCourse, Tract
+from .package_bridge import (
+    monolith_call,
+    monolith_call_audit,
+    monolith_calls_from,
+    monolith_skip,
+    monolith_tract,
+)
 from .package_bridge import package_calls as to_package_calls
 
 # Canonical cardinal-only pattern (shared with the package; see AGENTS.md).
@@ -57,12 +63,17 @@ class CallExtractor:
         audit_context: AuditContext | None = None,
         strict: bool = True,
         skipped_courses: list[SkippedCourse] | None = None,
+        tracts: list[Tract] | None = None,
     ) -> list[DeedCall]:
         """Extract all calls from normalized legal description text.
 
         Handles exception clauses (EXCEPT, LESS AND EXCEPT, ALSO, INCLUDING)
-        and marks calls accordingly. Unlike ``mp_parse.extract_calls`` the text is
-        treated as one description: tract markers are not split into ``Tract``s.
+        and marks calls accordingly. Without ``tracts`` the text is treated as one
+        description: tract markers are not split into ``Tract``s. With ``tracts``
+        the description is split exactly as ``mp_parse.extract_calls`` splits it, in
+        that one extraction: the flat calls returned are its flat calls (marked by
+        ``mp_models.mark_roles_review`` when the deed's description roles need
+        review) and ``tracts`` receives its tracts, role bases included.
 
         Args:
             text: Normalized legal description text (should already be normalized)
@@ -74,6 +85,8 @@ class CallExtractor:
                 number reserved, and blocks verification given that record. With
                 neither supplied it raises as in strict mode.
             skipped_courses: Optional list receiving non-strict skipped courses.
+            tracts: Optional list receiving the tracts of a deed the package splits
+                into tracts (left empty for a single description).
 
         Returns:
             List of DeedCall objects
@@ -89,14 +102,24 @@ class CallExtractor:
             [] if skipped_courses is not None else None
         )
         try:
-            calls = package_calls._extract_calls_from_text(
-                text,
-                distance_unit,
-                audit_context=scratch,
-                strict=strict,
-                course_start=1,
-                skipped_courses=scratch_skips,
-            )
+            if tracts is not None:
+                calls, package_tracts = package_calls.extract_calls(
+                    text,
+                    distance_unit,
+                    audit_context=scratch,
+                    strict=strict,
+                    skipped_courses=scratch_skips,
+                )
+                tracts.extend(monolith_tract(tract) for tract in package_tracts)
+            else:
+                calls = package_calls._extract_calls_from_text(
+                    text,
+                    distance_unit,
+                    audit_context=scratch,
+                    strict=strict,
+                    course_start=1,
+                    skipped_courses=scratch_skips,
+                )
         finally:
             # One monolith record per package record, shared by both destinations.
             converted: dict[int, SkippedCourse] = {}

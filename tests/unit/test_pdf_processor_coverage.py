@@ -333,7 +333,6 @@ def test_process_deed_pdf_logs_progress_without_print(monkeypatch, tmp_path):
         "Extracting subdivision reference",
         "Extracting witness trees",
         "Extracting coordinate system",
-        "Splitting descriptions into tracts",
         "Extracted calls",
     ]
     assert captured_events[-1][1]["count"] == 0

@@ -20,6 +20,7 @@ from mp_models import (
     DeedCall,
     LegalDescription,
     RunMetadata,
+    mark_roles_review,
     roles_need_review,
     roles_review_detail,
 )
@@ -80,7 +81,6 @@ def _run(
     legal = None
     text = ""
     normalized = None
-    role_review: list[str] = []
     audit = AuditContext(
         run_metadata=RunMetadata(
             parser_version=ENGINE_VERSION,
@@ -101,7 +101,6 @@ def _run(
             raise ValueError("Stated area must be finite and positive.")
         if kind == "text":
             prepared = prepare_text(text, audit_context=audit)
-            role_review = list(prepared.role_review)
             normalized = prepared.normalized_text
             legal = prepared.legal_description
             calls = legal.calls
@@ -134,11 +133,14 @@ def _run(
             )
         if stated_area_sq_ft is not None:
             legal = legal.model_copy(update={"stated_area_sq_ft": stated_area_sq_ft})
-        # Fail closed on guessed description roles: flat calls of a deed with several
-        # descriptions and an inferred role never reach checks_passed or export.
-        if kind != "text":
-            role_review = roles_need_review(legal.tracts)
+        # Fail closed on guessed description roles (the one gate, for every input
+        # kind): flat calls of a deed with several descriptions and an inferred role,
+        # or calls a blocked review marked, never reach checks_passed or export.
+        role_review = roles_need_review(legal.tracts, calls)
         if role_review:
+            # Marked, every artifact written below stays blocked when re-reviewed.
+            calls = mark_roles_review(calls)
+            legal = legal.model_copy(update={"calls": calls})
             result["errors"].append(
                 {"code": "description_roles_inferred", "message": roles_review_detail(role_review)}
             )
