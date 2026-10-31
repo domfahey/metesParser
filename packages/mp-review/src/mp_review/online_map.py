@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +10,7 @@ from mp_models.webmap import StandaloneWebMapInput, WebMapRequest
 from mp_verify.dashboard import _hash, _json
 
 from .dashboard import _atomic
+from .json_input import parse_json
 from .relative import _invalid_number, _unique_object
 
 
@@ -49,7 +49,7 @@ def render_map_file(
         source_hash = hashlib.sha256(source).hexdigest()
         result["input"] = {"name": source_path.name, "sha256": source_hash}
         prepared = StandaloneWebMapInput.model_validate(
-            json.loads(
+            parse_json(
                 source.decode("utf-8"),
                 object_pairs_hook=_unique_object,
                 parse_constant=_invalid_number,

@@ -9,6 +9,8 @@ from typing import Any
 from mp_models.plss import PLSSDerivationRequest, PLSSDerivationResult
 from mp_verify.plss import derive_plss
 
+from .json_input import parse_json
+
 
 def _unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
@@ -83,7 +85,7 @@ def prepare_plss_file(input: Path | str, output_dir: Path | str) -> dict[str, An
         if output.exists() or output.is_symlink():
             raise ValueError("output must be a new directory")
         raw = source.read_bytes()
-        data = json.loads(raw, object_pairs_hook=_unique)
+        data = parse_json(raw, object_pairs_hook=_unique)
         request = PLSSDerivationRequest.model_validate(data)
         result = derive_plss(request)
         files = _artifacts(raw, result)
@@ -119,10 +121,10 @@ def replay_plss(directory: Path | str) -> PLSSDerivationResult:
         return path.read_bytes()
 
     raw = read("request.json")
-    request = PLSSDerivationRequest.model_validate(json.loads(raw, object_pairs_hook=_unique))
+    request = PLSSDerivationRequest.model_validate(parse_json(raw, object_pairs_hook=_unique))
     result = derive_plss(request)
     expected = _artifacts(raw, result)
-    manifest = json.loads(read("plss-manifest.json"), object_pairs_hook=_unique)
+    manifest = parse_json(read("plss-manifest.json"), object_pairs_hook=_unique)
     if manifest != _manifest(request, result, expected):
         raise ValueError("PLSS manifest differs from fresh source/reference derivation")
     for name, data in expected.items():
