@@ -46,6 +46,8 @@ EXCLUDED_FILES = {
 EXCLUDED_PATTERNS = (re.compile(r"skills/[^/]+/README\.md"),)
 # Engine bundle and launcher files are executed or hashed, never navigated from Markdown.
 UNLINKED_ALLOWED = ("runtime/", "scripts/")
+# Shipped for licensing, not navigation; it need not be linked.
+UNLINKED_ALLOWED_FILES = frozenset({"LICENSE"})
 FIXED_DATE = (1980, 1, 1, 0, 0, 0)
 MAX_DESCRIPTION = 200
 # Plugin-only or source-checkout phrasing that must not survive adaptation (case-insensitive).
@@ -409,7 +411,11 @@ def _validate(files: dict[str, bytes]) -> None:
                 reached.add(target)
                 pending.append(target)
     unlinked = sorted(
-        name for name in files if name not in reached and not name.startswith(UNLINKED_ALLOWED)
+        name
+        for name in files
+        if name not in reached
+        and name not in UNLINKED_ALLOWED_FILES
+        and not name.startswith(UNLINKED_ALLOWED)
     )
     if unlinked:
         raise ValueError(f"archive files not linked from SKILL.md: {', '.join(unlinked)}")
