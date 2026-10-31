@@ -19,21 +19,30 @@ Classification keeps three invariants, whatever the wording:
   (``_described_after``; with none, the lead is the sole description's preamble, such
   as a mineral reservation), and an easement deed whose document opens with
   its own grant (``_is_easement_deed_grant``). A deed title alone ("GRANT OF
-  EASEMENT") is not recognised.
+  EASEMENT") is not recognised. A recital is a preamble only when it does not
+  introduce the description: a description introduced by an EXCEPT / LESS / SAVE /
+  RESERVING lead or a grant of one easement whose own clause runs on into it ("the
+  following described parcel:", "described as follows:", a colon) is that lead's
+  EXCEPTION or EASEMENT, even as the only traverse (``_introduced_role``); the
+  parcel's own lead ("ALL THAT ...", "..., bounded and described as follows:")
+  introduces it otherwise.
 * INV-2: only a description after a closed MAIN (or ADDITION) boundary is typed
   EASEMENT (by the grant rule, ``_grant_takes``) or EXCEPTION (by an EXCEPT lead
-  introducing it). An EXCEPT inside a description still open keeps typing the
-  description it introduces (``_except_may_type``): it is no preamble, and joining the
-  exception's courses to the boundary would invent boundary courses.
+  introducing it), besides a description its lead introduces (INV-1). An EXCEPT
+  inside a description still open keeps typing the description it introduces
+  (``_except_may_type``): it is no preamble, and joining the exception's courses to
+  the boundary would invent boundary courses. An easement clause whose courses are no
+  traverse (one course not closing) is noted, never a description.
 * INV-3: whether a boundary closed is decided from the parser's own course reading
   (``_course_count``: THENCE courses and enumerated course lists), never from THENCE
-  words alone.
+  words alone; a separate description after a closure is a traverse, never a tie line.
 
 Each segment also records its role basis (``split_into_tracts_with_basis``):
-"heading" for a TRACT/PARCEL heading typed MAIN or ADDITION, "inferred" for every
-role decided by the wording rules above (or assumed from position). The rules are
-heuristics, so a deed with several descriptions and any inferred role is never
-eligible for verified export (``mp_models.roles_need_review``, fail closed).
+"heading" for a TRACT/PARCEL heading typed MAIN or ADDITION with no role wording in
+it or before its opening (``_heading_basis``), "inferred" for every role decided by
+the wording rules above (or assumed from position). The rules are heuristics, so a
+deed with several descriptions and any inferred role is never eligible for verified
+export (``mp_models.roles_need_review``, fail closed).
 """
 
 from __future__ import annotations
@@ -404,6 +413,36 @@ _FROM_LANDS_DESCRIBED_LATER = re.compile(
     re.IGNORECASE,
 )
 _COMMENCING = re.compile(r"\bCOMMENCING\b", re.IGNORECASE)
+# A lead taking land out of the grant that is no stated EXCEPT lead: LESS, SAVE or
+# RESERVING at a clause start ("LESS PARCEL B:", "RESERVING unto the Grantor the
+# following described tract:"); "more or less" is never one.
+_TAKING_LEAD = re.compile(
+    r"(?:^|(?<=[.;:,\n]))[ \t]*(?P<lead>(?:(?:ALSO|AND|BUT)\s+)?(?:LESS|SAVE|RESERVING)\b)",
+    re.IGNORECASE,
+)
+# The parcel's own lead: from it on, wording introduces the parcel, not a recital's object.
+_PARCEL_LEAD = re.compile(r"\bALL\s+(?:THAT|THOSE)\b", re.IGNORECASE)
+# The parcel's description intro after a recital set off by commas inside the parcel's
+# sentence ("ALL THAT lot, SUBJECT to ..., bounded and described as follows:", "...,
+# being more particularly described as follows:").
+_PARCEL_INTRO = re.compile(
+    r",\s*(?:and\s+)?(?:(?:being|which\s+is|that\s+is)\s+)?(?:more\s+)?(?:particularly\s+)?"
+    r"(?:bounded\s+and\s+described|described|bounded)\b",
+    re.IGNORECASE,
+)
+# Role wording (r57): words that can give a description a role other than the parcel's.
+# A TRACT/PARCEL heading establishes a role only with none of them in the heading or
+# between the previous description and its own opening (``_heading_basis``).
+_ROLE_WORDING = re.compile(
+    r"\b(?:easements?|rights?[\s-]+of[\s-]+way|except\w*|less|save|reserv\w*|subject\s+to"
+    r"|together\s+with|access|utilit(?:y|ies)|drainage|ingress|egress|sewer|excluding)\b",
+    re.IGNORECASE,
+)
+# "more or less" qualifies a quantity; its "less" is no role wording.
+_MORE_OR_LESS = re.compile(r"\bmore\s+or\s+less\b", re.IGNORECASE)
+# A BEING recital ("BEING known as Block 91 Lot 32", "being the same premises ...").
+_BEING_RECITAL = re.compile(r"\s*BEING\b", re.IGNORECASE)
+_OPENING_WORD = re.compile(r"\b(?:BEGINNING|COMMENCING)\b", re.IGNORECASE)
 EASEMENT_LABEL = "Easement"
 # The whole lead of a stated exception ("SAVE AND EXCEPT", "ALSO EXCEPTING").
 _STATED_EXCEPT_LEAD = re.compile(
@@ -477,7 +516,16 @@ class _TextIndex:
     opener_ends: tuple[int, ...]
     # Where an easement deed's own grant starts (``_is_easement_deed_grant``), if any.
     deed_grant: int | None
+    # Leads that can introduce a description as an exception (stated EXCEPT leads and
+    # ``_TAKING_LEAD``) or an easement (openers granting one easement, never plural
+    # "easements"): (start, end).
+    taking: tuple[tuple[int, int], ...]
+    grants: tuple[tuple[int, int], ...]
+    # Per closure: whether a separate description (a traverse) opens after it.
+    follows: tuple[bool, ...]
     easements: tuple[tuple[int, int], ...]
+    # Easement clauses after a closed description whose courses are no traverse.
+    easement_clauses: tuple[tuple[int, int], ...] = ()
 
     def next_stop(self, position: int) -> int:
         """Return the first clause stop after ``position``, or the end of the text."""
@@ -495,6 +543,119 @@ class _TextIndex:
         first boundary any other opener is the parcel's preamble (INV-1).
         """
         return self.after_boundary(opener) or opener == self.deed_grant
+
+    def introduced(self, description: int, floor: int = 0) -> tuple[int, TractType] | None:
+        """Return the lead introducing the description at ``description`` and its role.
+
+        ``_introduced_role`` with this text's leads after ``floor``.
+        """
+        return _introduced_role(self.text, description, floor, self.taking, self.grants)
+
+
+def _starts_clause(text: str, position: int) -> bool:
+    """Return whether ``position`` starts a sentence or clause of its own.
+
+    Only whitespace or markdown separates it from the start of the text, a colon, a
+    semicolon, a line break or a sentence-ending period. A lead after other wording
+    ("ALL THAT lot, SUBJECT to ...") is a recital inside that wording's sentence.
+    """
+    i = position
+    while i > 0 and text[i - 1] in " \t*_#":
+        i -= 1
+    if i == 0 or text[i - 1] in ":;\n":
+        return True
+    return text[i - 1] == "." and ends_sentence(text, i - 1)
+
+
+def _lead_introduces(text: str, lead_start: int, lead_end: int, description: int) -> bool:
+    """Return whether the lead ``text[lead_start:lead_end]`` introduces ``description``.
+
+    Its clause must run on into the description: no sentence break
+    (``_sentence_break``), semicolon, THENCE or course between. Then the description is
+    the lead's object when the lead's own clause introduces it ("EXCEPTING THEREFROM
+    the following described parcel:", "LESS AND EXCEPT that part described as follows:",
+    "over the following described strip:", a colon), or when the lead starts its own
+    sentence and runs on into the description with no parcel lead (ALL THAT) between.
+
+    The parcel's own lead introduces the description otherwise: a parcel lead (ALL
+    THAT) after the lead, or, for a recital inside the parcel's sentence ("ALL THAT
+    CERTAIN lot, SUBJECT to easements as shown on the plan, bounded and described as
+    follows:"), the parcel's intro after the recital's comma (``_PARCEL_INTRO``) ends
+    the lead's own clause.
+    """
+    # The break test reads the description's own opening word (a line break before a
+    # BEGINNING breaks the sentence only when that BEGINNING is in view).
+    brk = _sentence_break(text, lead_end, min(len(text), description + _OPENING_LOOKAHEAD))
+    if (
+        (brk is not None and brk < description)
+        or _OPENER_CLAUSE_BREAK.search(text, lead_end, description)
+        or _TRAVERSE_WORDING.search(text, lead_end, description)
+    ):
+        return False
+    parcel = _PARCEL_LEAD.search(text, lead_end, description)
+    own_end = description if parcel is None else parcel.start()
+    own_sentence = _starts_clause(text, lead_start)
+    if not own_sentence:
+        intro = _PARCEL_INTRO.search(text, lead_end, own_end)
+        if intro is not None:
+            own_end = intro.start()
+    if _DESCRIPTION_INTRO.search(text, lead_end, own_end) or ":" in text[lead_end:own_end]:
+        return True
+    return own_sentence and parcel is None
+
+
+def _introduced_role(
+    text: str,
+    description: int,
+    floor: int,
+    taking: Sequence[tuple[int, int]],
+    grants: Sequence[tuple[int, int]],
+) -> tuple[int, TractType] | None:
+    """Return where the lead introducing the description at ``description`` starts, and its role.
+
+    The nearest lead after ``floor`` whose own clause introduces the description
+    (``_lead_introduces``): an EXCEPT / LESS / SAVE / RESERVING lead (``taking``) makes
+    it an EXCEPTION, a grant of one easement (``grants``) an EASEMENT. Such a
+    description is never the parcel (INV-1 covers only preamble recitals the parcel's
+    own lead introduces), even when it is the deed's only traverse. None when no lead
+    introduces it.
+    """
+    candidates = [(start, end, TractType.EXCEPTION) for start, end in taking]
+    candidates += [(start, end, TractType.EASEMENT) for start, end in grants]
+    for start, end, role in sorted(
+        (c for c in candidates if floor <= c[0] < description),
+        key=lambda c: (c[0], c[2] == TractType.EASEMENT),
+        reverse=True,
+    ):
+        if _lead_introduces(text, start, end, description):
+            return start, role
+    return None
+
+
+def _opening_after(text: str, start: int, end: int | None = None) -> int | None:
+    """Return where the first description after ``start`` (before ``end``) opens.
+
+    Its BEGINNING at/in or COMMENCING (never a point of beginning reached: "to the point
+    of beginning at ..."), or else its first THENCE course; None without one.
+    """
+    end = len(text) if end is None else end
+    found = [
+        match.start()
+        for match in (
+            next(
+                (
+                    m
+                    for m in _BEGINNING_PATTERN.finditer(text, start, end)
+                    if not _REACHED_BEFORE.search(text, max(0, m.start() - 40), m.start())
+                ),
+                None,
+            ),
+            _COMMENCING.search(text, start, end),
+            _THENCE_COURSE.search(text, start, end),
+        )
+        if match is not None
+    ]
+    return min(found, default=None)
 
 
 def _after_boundary(boundary_ends: Sequence[int], position: int) -> bool:
@@ -532,21 +693,45 @@ def _index(text: str) -> _TextIndex:
     )
     closures = _course_closures(text, beginnings, commencings, structural)
     described_ends = _described_ends(text, closures)
+    # Read only for an EXCEPT lead taking land "from the lands hereinafter described"
+    # (course lists are then read once more per later description).
+    follows = (
+        _traverses_after(text, closures, [*beginnings, *commencings])
+        if _FROM_LANDS_DESCRIBED_LATER.search(text)
+        else (False,) * len(closures)
+    )
     # A BEGINNING opening alone starts none: recording references read as one
     # ("recorded in Deed Book 5264, beginning at Page 849").
     description_starts = tuple(m.start() for m in _THENCE_COURSE.finditer(text))
+    opener_matches = list(_EASEMENT_OPENER.finditer(text))
+    # A RESERVING that opens an easement grant ("RESERVING to the grantor the right of
+    # way ...") is that grant, never an exception lead.
+    grant_words = {_opener_start(m) for m in opener_matches}
+    taking = tuple(
+        sorted(
+            {
+                *(m.span() for m in structural_leads),
+                *(
+                    m.span("lead")
+                    for m in _TAKING_LEAD.finditer(text)
+                    if m.start("lead") not in grant_words
+                ),
+            }
+        )
+    )
     # One pass in text order: whether an opener is a generic recital depends on the
     # boundaries closed before it, and whether a closure closes a boundary on the
     # openers before it.
     openers: list[re.Match[str]] = []
+    grants: list[tuple[int, int]] = []
     boundary_ends: list[int] = []
-    pending = list(closures)
+    pending = list(enumerate(closures))
     floor = 0
 
     def settle(position: int) -> None:
         nonlocal floor
-        while pending and pending[0].start < position:
-            closure = pending.pop(0)
+        while pending and pending[0][1].start < position:
+            number, closure = pending.pop(0)
             if _closes_boundary(
                 text,
                 closure,
@@ -555,17 +740,23 @@ def _index(text: str) -> _TextIndex:
                 openers,
                 boundary_ends,
                 (described_ends, description_starts),
+                (taking, grants),
+                follows[number],
             ):
                 boundary_ends.append(closure.end)
             floor = closure.end
 
-    for match in _EASEMENT_OPENER.finditer(text):
+    for match in opener_matches:
         start = _opener_start(match)
         settle(start)
         if not _is_generic_encumbrance(
             text, match, after_boundary=_after_boundary(boundary_ends, start)
         ):
             openers.append(match)
+            # One easement can introduce a description; plural ones ("all easements
+            # appurtenant thereto") describe none.
+            if not _PLURAL_EASEMENT_END.search(match.group("open") or match.group("also")):
+                grants.append((start, match.end()))
     settle(len(text) + 1)
     opener_starts = tuple(_opener_start(m) for m in openers)
     stops = sorted({*structural, *opener_starts})
@@ -585,9 +776,36 @@ def _index(text: str) -> _TextIndex:
         deed_grant=(
             opener_starts[0] if openers and _is_easement_deed_grant(text, openers[0]) else None
         ),
+        taking=taking,
+        grants=tuple(grants),
+        follows=follows,
         easements=(),
     )
-    return replace(index, easements=tuple(_easement_spans(index)))
+    easements, clauses = _easement_spans(index)
+    return replace(index, easements=tuple(easements), easement_clauses=tuple(clauses))
+
+
+def _traverses_after(
+    text: str, closures: Sequence[_Closure], openings: Sequence[tuple[int, int]]
+) -> tuple[bool, ...]:
+    """Return, per closure, whether a separate description opens after it.
+
+    A separate description is a traverse (``_describes_traverse``: two or more courses,
+    or one reaching a point of beginning) after a BEGINNING or COMMENCING opening. A tie
+    line or one-course clause after the closure ("The said point of beginning being
+    located from the monument as follows: thence N 10° E 50 feet.") is none.
+    """
+    ends = [closure.end for closure in closures]
+    traverses = sorted(
+        start
+        for start, end in openings
+        if _describes_traverse(
+            text,
+            end,
+            next((e for e in ends if e > end), len(text)),
+        )
+    )
+    return tuple(bisect_left(traverses, end) < len(traverses) for end in ends)
 
 
 # Fewest courses of a closed boundary: two (a curve and its chord line); a description
@@ -622,6 +840,8 @@ def _closes_boundary(
     openers: Sequence[re.Match[str]],
     boundary_ends: Sequence[int],
     descriptions: tuple[Sequence[int], Sequence[int]] = ((), ()),
+    leads: tuple[Sequence[tuple[int, int]], Sequence[tuple[int, int]]] = ((), ()),
+    follows: bool = False,
 ) -> bool:
     """Return whether ``closure`` closes a MAIN or ADDITION boundary description.
 
@@ -631,6 +851,9 @@ def _closes_boundary(
       at the point of beginning hereinafter described"): no courses reach it;
     * a tie: a COMMENCING description (or one reaching "the true point of beginning")
       with fewer than three courses (``_TIE_BOUNDARY_COURSES``);
+    * a description its lead introduces (``_introduced_role`` over ``leads``: the taking
+      leads and specific grants): the lead's exception or easement, before or after
+      any boundary;
     * an exception description: an EXCEPT lead runs on into its opening with no
       sentence end or course between ("EXCEPTING from the lands hereinafter described
       the following: BEGINNING ...");
@@ -638,13 +861,12 @@ def _closes_boundary(
       it (``_grant_takes``).
 
     Before any boundary has closed (INV-1) neither a preamble EXCEPT lead nor a grant
-    makes a description no boundary: only an EXCEPT lead that is no preamble (after a
-    closed BEGINNING description or inside one still open, ``descriptions``: the
-    ``_described_ends`` and the description starts, as ``_except_may_type`` reads
-    them) or that takes its exception from lands described later
-    (``_FROM_LANDS_DESCRIBED_LATER``, when a description does follow this one), or an
-    easement deed's own grant
-    (``_is_easement_deed_grant``).
+    makes a description no boundary: only a lead introducing it, an EXCEPT lead that is
+    no preamble (after a closed BEGINNING description or inside one still open,
+    ``descriptions``: the ``_described_ends`` and the description starts, as
+    ``_except_may_type`` reads them) or that takes its exception from lands described
+    later (``_FROM_LANDS_DESCRIBED_LATER``, when a separate description ``follows``
+    this one), or an easement deed's own grant (``_is_easement_deed_grant``).
     """
     described_ends, starts = descriptions
     opening = closure.opening
@@ -655,6 +877,8 @@ def _closes_boundary(
     if opening is None:
         return True
     description = opening[0]
+    if _introduced_role(text, description, floor, *leads) is not None:
+        return False
     for lead in except_leads:
         if (
             floor <= lead.start() < description
@@ -667,7 +891,7 @@ def _closes_boundary(
                 or bisect_left(starts, floor) < bisect_left(starts, lead.start())
                 or (
                     _FROM_LANDS_DESCRIBED_LATER.search(text, lead.start(), description) is not None
-                    and bisect_right(starts, closure.end) < len(starts)
+                    and follows
                 )
             )
         ):
@@ -808,7 +1032,7 @@ def _last_closure_end(
     return None
 
 
-def _easement_spans(index: _TextIndex) -> list[tuple[int, int]]:
+def _easement_spans(index: _TextIndex) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
     """Return the spans of appurtenant easement descriptions stated by their own courses.
 
     An opener inside an open description ("BEGINNING at a pin, subject to a right of
@@ -818,27 +1042,44 @@ def _easement_spans(index: _TextIndex) -> list[tuple[int, int]]:
     (metadata), not a description. The description after the opener (its opening, or
     its first course) is the easement's only when the grant takes it (``_grant_takes``,
     the rule every path shares), and only after a closed boundary (INV-1, INV-2): an
-    opener before the first boundary is that parcel's preamble. A span ends with the
-    sentence of its last course when
-    only wording without a course follows it before the stop (wording already set
-    aside, a recital); otherwise at the stop, so no course is ever left behind on a
-    boundary.
+    opener before the first boundary is that parcel's preamble, unless its own clause
+    introduces the description (``_introduced_role``: "TOGETHER WITH a perpetual
+    easement over the following described strip: BEGINNING ..."), whose span then ends
+    with that description's closing sentence. A span ends with the sentence of its last
+    course when only wording without a course follows it before the stop (wording
+    already set aside, a recital); otherwise at the stop, so no course is ever left
+    behind on a boundary.
+
+    Returns the spans and, separately, the easement clauses whose courses describe no
+    traverse (``_describes_traverse``: "SUBJECT TO a sewer easement which begins at the
+    northeast corner and runs thence South 10 feet."): such a clause is no description,
+    so it is noted (``easement_clause_spans``), never an easement tract or a course.
     """
     text = index.text
     spans: list[tuple[int, int]] = []
+    clauses: list[tuple[int, int]] = []
     for start, opener_end in zip(index.openers, index.opener_ends, strict=True):
-        if (spans and start < spans[-1][1]) or not index.may_grant(start):
+        if spans and start < spans[-1][1]:
             continue
         # An earlier easement description closes where it ends.
         if _last_closure_end(index, start, spans) is None:
             continue
         stop = index.next_stop(start)
+        introduced = not index.may_grant(start)
+        if introduced:
+            opening = _opening_after(text, opener_end)
+            if opening is None:
+                continue
+            found = index.introduced(opening, start)
+            if found is None or found[0] != start:
+                continue
+            stop = _closing_sentence_end(index, opening)
         courses = list(_THENCE_COURSE.finditer(text, start, stop))
         if not courses:
             continue
         first = courses[0].start()
         description = _DESCRIPTION_OPENER.search(text, opener_end, first)
-        if not _grant_takes(
+        if not introduced and not _grant_takes(
             text,
             start,
             first if description is None else description.start(),
@@ -853,8 +1094,26 @@ def _easement_spans(index: _TextIndex) -> list[tuple[int, int]]:
             or _COURSE_DISTANCE.search(text, sentence_end, stop)
         ):
             end = sentence_end + (text[sentence_end] == ".")
+        if not _describes_traverse(text, opener_end, end):
+            clauses.append((start, start + len(text[start:end].rstrip(" \t\n,;:."))))
+            continue
         spans.append((start, start + len(text[start:end].rstrip())))
-    return spans
+    return spans, clauses
+
+
+def _closing_sentence_end(index: _TextIndex, opening: int) -> int:
+    """Return where the sentence closing the description opened at ``opening`` ends.
+
+    After its period when the closing course's sentence ends with one; the next clause
+    stop when the description never closes.
+    """
+    text = index.text
+    j = bisect_right(index.closure_ends, opening)
+    if j == len(index.closure_ends):
+        return index.next_stop(opening)
+    closed = index.closure_ends[j]
+    end = _sentence_limit(text, closed, len(text))
+    return end + 1 if text[end : end + 1] == "." else end
 
 
 # A sentence introducing the easement's description after its grant sentence ("The
@@ -946,9 +1205,14 @@ def easement_clause_spans(text: str) -> list[tuple[int, int]]:
     A clause stating a course or an opening of its own, or followed after a comma by
     its course's destination or length ("..., subject to a right of way, to a pin"), is
     left to its course.
+
+    An easement clause after a closed description whose THENCE courses describe no
+    traverse ("SUBJECT TO a sewer easement which begins at the northeast corner of
+    said lot and runs thence South 10 feet.": one course, not closing) is returned too
+    (``_easement_spans``): it is never an easement tract, nor a course of the boundary.
     """
     index = _index(text)
-    spans: list[tuple[int, int]] = []
+    spans: list[tuple[int, int]] = list(index.easement_clauses)
     for start in index.openers:
         if _last_closure_end(index, start, index.easements) is not None:
             continue
@@ -962,7 +1226,7 @@ def easement_clause_spans(text: str) -> list[tuple[int, int]]:
         ):
             continue
         spans.append((start, start + len(clause.rstrip(" \t\n,;:."))))
-    return spans
+    return sorted(spans)
 
 
 def _course_count(text: str, start: int, end: int) -> int:
@@ -1149,7 +1413,8 @@ def _easement_lead(text: str, position: int, floor: int = 0) -> int | None:
     ("RESERVING unto the grantor, its successors and assigns, a perpetual non-exclusive
     easement ... as follows: BEGINNING ..."), or it follows a closed boundary with
     nothing but punctuation or structure after the grant's sentence end. An opener
-    before the first closed boundary types nothing (INV-1).
+    before the first closed boundary types nothing (INV-1) unless its own clause
+    introduces the description (``_introduced_role``).
     """
     index = _index(text)
     # A description the easement spans claim (one introduced as the easement's
@@ -1158,14 +1423,14 @@ def _easement_lead(text: str, position: int, floor: int = 0) -> int | None:
         if floor <= span_start < position < span_end:
             return span_start
     i = bisect_left(index.openers, position)
-    if not i or index.openers[i - 1] < floor:
-        return None
-    opener = index.openers[i - 1]
-    if index.may_grant(opener) and _grant_takes(
-        text, opener, position, index.after_boundary(opener), index.headings
-    ):
-        return opener
-    return None
+    if i and index.openers[i - 1] >= floor:
+        opener = index.openers[i - 1]
+        if index.may_grant(opener) and _grant_takes(
+            text, opener, position, index.after_boundary(opener), index.headings
+        ):
+            return opener
+    found = index.introduced(position, floor)
+    return found[0] if found is not None and found[1] == TractType.EASEMENT else None
 
 
 def _except_may_type(index: _TextIndex, position: int) -> bool:
@@ -1195,12 +1460,11 @@ def _described_after(index: _TextIndex, position: int) -> bool:
     """Return whether a separate description follows the one at ``position``.
 
     The description at ``position`` ends at the first point-of-beginning closure after
-    it; a THENCE course after that closure starts another description.
+    it; another description is a traverse opened by BEGINNING or COMMENCING after that
+    closure (``_traverses_after``), never a tie line or one-course clause.
     """
     j = bisect_right(index.closure_ends, position)
-    return j < len(index.closure_ends) and bisect_right(
-        index.description_starts, index.closure_ends[j]
-    ) < len(index.description_starts)
+    return j < len(index.closure_ends) and index.follows[j]
 
 
 def _excepts_from_later_description(index: _TextIndex, lead: int, end: int, position: int) -> bool:
@@ -1227,9 +1491,14 @@ def _except_lead(text: str, position: int, floor: int = 0) -> int | None:
     parcel: PARCEL A: ...", "LESS AND EXCEPT that part described as follows: Tract 2:
     ..."). Elsewhere only a lead taking its exception from lands described later
     (``_FROM_LANDS_DESCRIBED_LATER``) introduces an exception, and only when a
-    separate description follows (``_described_after``).
+    separate description follows (``_described_after``), or a lead whose own clause
+    introduces the description (``_introduced_role``: "EXCEPTING THEREFROM the
+    following described parcel:", "LESS PARCEL B:"), before or after any boundary.
     """
     index = _index(text)
+    found = index.introduced(position, floor)
+    if found is not None and found[1] == TractType.EXCEPTION:
+        return found[0]
     leads = [
         lead
         for lead in index.except_leads
@@ -1410,8 +1679,16 @@ def split_on_markers(
     Inspects text preceding each marker to detect EXCEPT/ALSO keywords
     and assign the correct TractType.
     """
-    result: list[tuple[str, str, TractType]] = []
-    recitals: list[tuple[str, str, TractType]] = []
+    return [segment[:3] for segment in _split_on_markers(text, markers)]
+
+
+def _split_on_markers(
+    text: str, markers: list[tuple[int, str, str]]
+) -> list[tuple[str, str, TractType, int]]:
+    """``split_on_markers`` with the position of each segment's marker (0 for text before
+    the first marker)."""
+    result: list[tuple[str, str, TractType, int]] = []
+    recitals: list[tuple[str, str, TractType, int]] = []
     # A tract introduced by an EXCEPT lead ("EXCEPTING THEREFROM the following
     # described parcel: PARCEL A: ...") starts at its lead: the lead types it and is
     # never left on the tract before it.
@@ -1438,7 +1715,7 @@ def split_on_markers(
                 preview=pre_text[:120],
                 characters=len(pre_text),
             )
-            result.append((pre_text, UNLABELLED_TRACT_LABEL, TractType.MAIN))
+            result.append((pre_text, UNLABELLED_TRACT_LABEL, TractType.MAIN, 0))
 
     for i, (pos, label, _kind) in enumerate(markers):
         end = starts[i + 1] if i + 1 < len(markers) else len(text)
@@ -1450,7 +1727,7 @@ def split_on_markers(
         # A title recital is never a tract of its own; it is resolved after all
         # descriptions are known (a same-label description may follow it).
         if _is_title_recital(segment):
-            recitals.append((segment, label, tract_type))
+            recitals.append((segment, label, tract_type, pos))
             continue
 
         # A repeated label whose segment has no calls is prose about an earlier
@@ -1460,20 +1737,25 @@ def split_on_markers(
                 (j for j, r in enumerate(result) if _label_key(r[1]) == _label_key(label)), None
             )
             if earlier is not None:
-                prev_text, prev_label, prev_type = result[earlier]
-                result[earlier] = (f"{prev_text} {segment}".strip(), prev_label, prev_type)
+                prev_text, prev_label, prev_type, prev_pos = result[earlier]
+                result[earlier] = (
+                    f"{prev_text} {segment}".strip(),
+                    prev_label,
+                    prev_type,
+                    prev_pos,
+                )
                 continue
 
-        result.append((segment, label, tract_type))
+        result.append((segment, label, tract_type, pos))
 
     described = bool(result)
-    for segment, label, tract_type in recitals:
+    for segment, label, tract_type, pos in recitals:
         same = next(
             (j for j, r in enumerate(result) if _label_key(r[1]) == _label_key(label)), None
         )
         if same is not None:
-            prev_text, prev_label, prev_type = result[same]
-            result[same] = (f"{prev_text} {segment}".strip(), prev_label, prev_type)
+            prev_text, prev_label, prev_type, prev_pos = result[same]
+            result[same] = (f"{prev_text} {segment}".strip(), prev_label, prev_type, prev_pos)
         elif described:
             # No described tract carries this label (e.g. its heading was OCR-garbled):
             # the recital has no calls, so it is dropped rather than made a tract.
@@ -1483,8 +1765,14 @@ def split_on_markers(
                 preview=segment[:120],
             )
         else:
-            result.append((segment, label, tract_type))
+            result.append((segment, label, tract_type, pos))
     return result
+
+
+# A point of beginning reached ("to the point of beginning at ..."), not an opening.
+_REACHED_BEFORE = re.compile(
+    r"\b(?:to|being)\s+(?:(?:a|the|said|aforesaid|original|true|initial)\s+)*$", re.IGNORECASE
+)
 
 
 def _beginning_starts(text: str) -> list[re.Match[str]]:
@@ -1492,11 +1780,7 @@ def _beginning_starts(text: str) -> list[re.Match[str]]:
     return [
         match
         for match in _BEGINNING_PATTERN.finditer(text)
-        if not re.search(
-            r"\b(?:to|being)\s+(?:(?:a|the|said|aforesaid|original|true|initial)\s+)*$",
-            text[: match.start()],
-            re.IGNORECASE,
-        )
+        if not _REACHED_BEFORE.search(text[: match.start()])
     ]
 
 
@@ -1747,21 +2031,55 @@ def split_into_tracts(text: str) -> list[tuple[str, str, TractType]]:
 def split_into_tracts_with_basis(text: str) -> list[BasedSegment]:
     """``split_into_tracts`` with each segment's role basis.
 
-    "heading" when an explicit TRACT/PARCEL heading (``find_tract_markers``) starts the
-    segment and no wording before it retypes it as an EXCEPTION or EASEMENT; every
-    other role is "inferred" from wording or position. (A deed's sole description is
-    "single", decided by ``extract_calls`` once segments without calls are dropped.)
+    "heading" when an explicit TRACT/PARCEL heading (``find_tract_markers``) starts a
+    MAIN or ADDITION segment with no role wording in the heading or before its opening
+    (``_heading_basis``); every other role is "inferred" from wording or position. (A
+    deed's sole MAIN description is "single", decided by ``extract_calls`` once
+    segments without calls are dropped.)
 
     Returns: list of (tract_text, label, tract_type, role_basis)
     """
     return _separate_easements(_split_tract_segments(text))
 
 
-def _heading_basis(label: str, tract_type: TractType) -> RoleBasis:
-    """Role basis of a segment split on tract markers."""
+def _heading_basis(
+    index: _TextIndex,
+    label: str,
+    tract_type: TractType,
+    position: int,
+    markers: Sequence[int],
+) -> RoleBasis:
+    """Role basis of a segment split on tract markers, its heading at ``position``.
+
+    A heading proves a description exists, not its role. It is "heading" only for a
+    MAIN or ADDITION tract when neither the heading itself nor the text between the
+    previous description's end and this description's opening has role wording
+    (``_ROLE_WORDING``: "TRACT 2: A non-exclusive easement ...", "PARCEL B (ACCESS
+    EASEMENT):", "LESS PARCEL B:", "Said Parcel A is subject to the following
+    easement:", "PARCEL TWO: ALL THAT tract, EXCEPTING AND RESERVING the oil and gas
+    rights, ..."). Otherwise the role is "inferred" (fail closed), whatever typing
+    made of the wording. The previous description ends at its first closure after the
+    previous heading (``markers``), or, unclosed, at that heading. Before the first
+    heading there is no previous description: its window starts with the sentence
+    running on into it (``_sentence_start``: "Said premises are subject to the
+    following easement: PARCEL A: ..."), never in a recording cover sheet or a
+    warranty clause before it. Wording already set aside (stated exceptions, easement
+    clauses) is blank in ``index.text``.
+    """
     if label == UNLABELLED_TRACT_LABEL or not is_boundary_tract(tract_type):
         return "inferred"
-    return "heading"
+    text = index.text
+    k = bisect_left(markers, position)
+    floor = _sentence_start(text, position)
+    if k:
+        previous = markers[k - 1]
+        j = bisect_right(index.closure_ends, previous)
+        closed = index.closure_ends[j] if j < len(index.closure_ends) else None
+        floor = closed if closed is not None and closed <= position else previous
+    following = markers[k + 1] if k + 1 < len(markers) else len(text)
+    opening = _opening_after(text, position, following)
+    window = text[floor : following if opening is None else opening]
+    return "inferred" if _ROLE_WORDING.search(_MORE_OR_LESS.sub(" ", window)) else "heading"
 
 
 def _inferred(segments: list[tuple[str, str, TractType]]) -> list[BasedSegment]:
@@ -1773,9 +2091,16 @@ def _split_tract_segments(text: str) -> list[BasedSegment]:
     # 1. Try explicit TRACT/PARCEL markers
     markers = find_tract_markers(text)
     if markers:
+        index = _index(text)
+        positions = [position for position, _, _ in markers]
         return [
-            (segment, label, tract_type, _heading_basis(label, tract_type))
-            for segment, label, tract_type in split_on_markers(text, markers)
+            (
+                segment,
+                label,
+                tract_type,
+                _heading_basis(index, label, tract_type, position, positions),
+            )
+            for segment, label, tract_type, position in _split_on_markers(text, markers)
         ]
 
     # 2. Try multiple BEGINNING blocks
@@ -1802,14 +2127,21 @@ def split_boundary_clauses(text: str) -> list[tuple[str, bool]]:
     oil and gas rights, BEGINNING ..."): it never makes that description an exception
     (INV-1). Its wording, lead included, is joined to the clause before it, unless its
     lead takes the exception from lands described later and a separate description
-    does follow (``_excepts_from_later_description``).
+    does follow (``_excepts_from_later_description``), or its own clause introduces the
+    clause's description (``_introduced_role``: "EXCEPTING THEREFROM the following
+    described parcel: BEGINNING ..."). A text whose one description a LESS / SAVE /
+    RESERVING lead introduces (no EXCEPT to split on) is one exception clause.
     """
     clauses = split_exception_clauses(text)
     if len(clauses) < 2:
+        if clauses and not clauses[0][1] and _introduced_text_role(text) == TractType.EXCEPTION:
+            return [(clauses[0][0], True)]
         return clauses
     index = _index(text)
     # (start, end, is_exception) of each clause in ``text``, in order.
     spans: list[tuple[int, int, bool]] = []
+    # Where a recital before the first kept clause starts (it joins that clause).
+    pending: int | None = None
     cursor = 0
     for clause, is_exception in clauses:
         start = text.find(clause, cursor)
@@ -1818,10 +2150,12 @@ def split_boundary_clauses(text: str) -> list[tuple[str, bool]]:
         previous_end, cursor = cursor, start + len(clause)
         leads = list(_PRECEDING_EXCEPT.finditer(text, previous_end, start))
         lead = leads[-1].start() if leads else start
+        opening = _opening_after(text, start, cursor)
         preamble = (
             is_exception
             and not _except_may_type(index, lead)
             and not _excepts_from_later_description(index, lead, cursor, start)
+            and (opening is None or index.introduced(opening, previous_end) is None)
         )
         if preamble:
             if spans:
@@ -1829,9 +2163,52 @@ def split_boundary_clauses(text: str) -> list[tuple[str, bool]]:
                 spans.append((first, cursor, kind))
             else:
                 spans.append((0, cursor, False))
+                pending = None
             continue
-        spans.append((start, cursor, is_exception))
+        # A course-free BEING recital split off by ALSO / INCLUDING ("ALSO BEING known
+        # as Block 91 Lot 32 ...", "Also being the same premises ...") describes no land:
+        # it stays with the clause before it (or the first clause after it). Any THENCE,
+        # course or BEGINNING / COMMENCING word keeps the clause (an OCR-scrambled
+        # description is never folded away).
+        if (
+            not is_exception
+            and _BEING_RECITAL.match(text, start)
+            and not _TRAVERSE_WORDING.search(text, start, cursor)
+            and not _OPENING_WORD.search(text, start, cursor)
+        ):
+            if spans:
+                first, _, kind = spans.pop()
+                spans.append((first, cursor, kind))
+            elif pending is None:
+                pending = start
+            continue
+        spans.append((start if pending is None else pending, cursor, is_exception))
+        pending = None
+    if pending is not None:
+        spans.append((pending, cursor, False))
     return [(text[start:end].strip(), kind) for start, end, kind in spans]
+
+
+def _sentence_start(text: str, position: int) -> int:
+    """Return where the sentence holding ``position`` starts.
+
+    After the last document structure (``STRUCTURE_BREAK``: a paragraph break, a
+    markdown heading, a table border, an HTML tag) or sentence-ending period before it.
+    """
+    start = 0
+    for brk in STRUCTURE_BREAK.finditer(text, 0, position):
+        start = brk.end()
+    period = text.rfind(".", start, position)
+    while period >= 0 and not ends_sentence(text, period):
+        period = text.rfind(".", start, period)
+    return max(start, period + 1)
+
+
+def _introduced_text_role(text: str) -> TractType | None:
+    """Role of the first description of ``text`` when a lead introduces it (``_introduced_role``)."""
+    opening = _opening_after(text, 0)
+    found = None if opening is None else _index(text).introduced(opening)
+    return None if found is None else found[1]
 
 
 def _split_clauses(text: str) -> list[tuple[str, str, TractType]]:
@@ -1850,6 +2227,12 @@ def _split_clauses(text: str) -> list[tuple[str, str, TractType]]:
                 main_idx += 1
                 result.append((clause_text, f"Tract {main_idx}", TractType.MAIN))
         return result
+
+    # The one description introduced by its own lead is that lead's, never the parcel.
+    role = _introduced_text_role(text)
+    if role is not None:
+        label = "Exception 1" if role == TractType.EXCEPTION else EASEMENT_LABEL
+        return [(text, label, role)]
 
     # Single tract — pass through (log if multiple BEGINNINGs detected but unmatched)
     beginning_count = len(_beginning_starts(text))
