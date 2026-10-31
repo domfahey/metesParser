@@ -327,9 +327,14 @@ def test_enumeration_detection_runs_once_per_tract(impl, monkeypatch):
         return original(text)
 
     monkeypatch.setattr(module, "_course_enumerations", spy)
-    calls, _ = _run(impl, _inline(HEADERS["plain"], STYLES["paren"]), True)
+    text = _inline(HEADERS["plain"], STYLES["paren"])
+    calls, _ = _run(impl, text, True)
     assert len(calls) == 4
-    assert len(seen) == 1
+    # The course parser reads the tract once. r55 (INV-3): tract classification reads
+    # the closed description's course list once more (a list with fewer than three
+    # THENCE words); no text is analysed twice.
+    assert 1 <= len(seen) <= 2
+    assert len(seen) == len(set(seen))
 
 
 def _long_text(courses: int) -> str:

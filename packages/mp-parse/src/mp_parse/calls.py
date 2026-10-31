@@ -73,7 +73,6 @@ from .metadata import (
     read_course_length,
     read_standalone_inch_length,
     split_call_fragments,
-    split_exception_clauses,
     split_outside_brackets,
     strip_exception_spans,
     unlisted_course_lists,
@@ -809,7 +808,10 @@ def _extract_calls_from_text(
         notes_found = _set_aside_notes(set_aside, unblanked, source_text)
     notes = [*boundary_notes, *(note for _, note in notes_found)]
 
-    tracts = split_exception_clauses(normalized)
+    from .tracts import split_boundary_clauses
+
+    # A preamble EXCEPT before any closed boundary never makes the parcel an exception.
+    tracts = split_boundary_clauses(normalized)
 
     calls: list[DeedCall] = []
     # Index in ``audit_context.call_audits`` of each call's audit, by call index.
