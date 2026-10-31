@@ -7,6 +7,8 @@ metadata:
 
 # Locate and extract metes and bounds
 
+Plugin root: `${CLAUDE_PLUGIN_ROOT}`
+
 Inspect the supplied document text and its page map. If only an image or PDF is available, first use [Convert Document to Text](../convert-document-to-text/SKILL.md). Use Claude's native reading and reasoning to locate the description; do not introduce a separate LLM provider or claim a regex parser has established the section's boundaries.
 
 Reuse a matching selection record and selected text when source identity/content is unchanged. Do not repeat native reading or selection just because a later stage is requested.

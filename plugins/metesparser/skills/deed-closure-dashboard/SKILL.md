@@ -7,6 +7,8 @@ metadata:
 
 # Deed closure dashboard
 
+Plugin root: `${CLAUDE_PLUGIN_ROOT}`
+
 Build only the dashboard and stages needed for the user's requested view. Use the [dashboard playbook](references/playbook.md) for source evidence, records, calculations, workbench, and delivery guidance, and the [bundle contract](references/dashboard-bundle.md) for accepted bundle versions and outputs.
 
 ## Checklist

@@ -7,6 +7,8 @@ metadata:
 
 # Convert a document to text
 
+Plugin root: `${CLAUDE_PLUGIN_ROOT}`
+
 Use Claude's native document and image reading capabilities for the supplied document. Handle native PDFs, scanned PDFs, photographs, image attachments, and other document formats supported in the current session through that native capability. The source may be a survey, plat, exhibit, report, correspondence, deed, or another document. Do not invoke a separate OCR service, conversion API, provider client, or custom extraction pipeline.
 
 Read the complete supplied source once. If a matching full transcription and acquisition record already exist for the unchanged source, reuse them instead of reading it again.
