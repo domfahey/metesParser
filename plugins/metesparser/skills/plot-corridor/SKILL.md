@@ -7,6 +7,8 @@ metadata:
 
 # Plot a centerline corridor
 
+Plugin root: `${CLAUDE_PLUGIN_ROOT}`
+
 Use this capability for a requested corridor from an identified centerline and width instructions. A document classified as an easement alone does not supply its construction. If the intended centerline or width passage is unresolved, use [description selection](../extract-metes-and-bounds/SKILL.md) and retain uncertainty before constructing anything. Stop at corridor artifacts; a dashboard, provider map or tract verification needs its own request.
 
 Check [runtime prerequisites](../../references/usage.md#runtime-prerequisites). Start from the [complete synthetic example](references/example.json); consult the generated [`CorridorRequest` schema](references/request.schema.json) (about 1,000 lines) only for specific field definitions, for example with `grep` or `jq`, rather than reading it through. Author the request from actual supplied evidence:

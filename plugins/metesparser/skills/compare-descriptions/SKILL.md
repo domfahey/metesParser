@@ -7,6 +7,8 @@ metadata:
 
 # Compare descriptions
 
+Plugin root: `${CLAUDE_PLUGIN_ROOT}`
+
 Use this capability only when two intended descriptions or versions have been identified. If either description is inside a document and the intended tract or occurrence is unclear, route through [Extract Metes and Bounds](../extract-metes-and-bounds/SKILL.md) first. Do not compare an entire deed or silently pair the first matching-looking section.
 
 Start from the [synthetic complete request](references/comparison-example.json). The [`ComparisonRequest` JSON schema](references/comparison-request.schema.json) is large (about 1,200 lines); consult it only for specific field definitions, for example with `grep` or `jq`, rather than reading it through. It is generated from `mp_models.comparison.ComparisonRequest`, and the packaged runtime also enforces cross-field identities and geometric rules. Supply separate left/right `PlotRequest` values with stable call IDs, source references, exact quotations, and occurrence identity where available; retain verbatim text. Add explicit call pairs only when the correspondence is supplied or otherwise unambiguous. Structural anchors, changed/unmatched calls, reordering, and split/merge candidates remain tentative; repeated motifs can be ambiguous.
