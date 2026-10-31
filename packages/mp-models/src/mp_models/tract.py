@@ -2,14 +2,14 @@
 
 from collections.abc import Sequence
 from enum import Enum
-from typing import Literal, Protocol
+from typing import Literal, Protocol, TypeVar
 
-from pydantic import Field, FiniteFloat
+from pydantic import BaseModel, Field, FiniteFloat
 
 from .audit import SkippedCourse
 from .base import _Model
 from .closure import ClosureResult
-from .deed_call import DeedCall
+from .deed_call import DESCRIPTION_ROLES_NOTE, DeedCall, split_notes
 
 
 class TractType(str, Enum):
@@ -81,15 +81,46 @@ _INFERRED_WHY = {
 }
 
 
-def roles_need_review(tracts: Sequence[_RoleBearing]) -> list[str]:
+_Call = TypeVar("_Call", bound=BaseModel)
+
+
+def _has_roles_mark(call: BaseModel) -> bool:
+    return DESCRIPTION_ROLES_NOTE in split_notes(getattr(call, "notes", None))
+
+
+def mark_roles_review(calls: Sequence[_Call]) -> list[_Call]:
+    """Mark each call with ``DESCRIPTION_ROLES_NOTE`` (idempotent; any DeedCall model).
+
+    Applied to the flat calls of a deed whose description roles need review, so every
+    artifact written from them stays blocked from verified export when re-imported
+    without the deed's tracts (notes survive CSV and JSON round trips).
+    """
+    return [
+        call
+        if _has_roles_mark(call)
+        else call.model_copy(
+            update={
+                "notes": "; ".join(
+                    filter(None, (getattr(call, "notes", None), DESCRIPTION_ROLES_NOTE))
+                )
+            }
+        )
+        for call in calls
+    ]
+
+
+def roles_need_review(tracts: Sequence[_RoleBearing], calls: Sequence[BaseModel] = ()) -> list[str]:
     """Why a deed's description roles must be reviewed before any verified export.
 
-    Fail closed: land whose role was guessed from wording is never exported. A tract
-    whose ``role_basis`` is "inferred" always needs review (the parser infers roles
-    only among several descriptions, so this holds when a caller passes that tract
-    alone too). With more than one tract every tract needs a "heading" basis; a
-    "single" or unrecorded (None) basis there needs review as well. A deed's sole
-    tract with a "single", "heading" or unrecorded basis needs none.
+    The one role gate: verification, verified export, review and the monolith
+    pipeline/CLI all consult it. Fail closed: land whose role was guessed from wording
+    is never exported. A tract whose ``role_basis`` is "inferred" always needs review
+    (the parser infers roles only among several descriptions, so this holds when a
+    caller passes that tract alone too). With more than one tract every tract needs a
+    "heading" basis; a "single" or unrecorded (None) basis there needs review as
+    well. A deed's sole tract with a "single", "heading" or unrecorded basis needs
+    none. Calls carried without their tracts (``calls``, or a tract's own) that bear
+    the role-review mark (``mark_roles_review``) need review too.
     """
     several = len(tracts) > 1
     reasons: list[str] = []
@@ -105,6 +136,12 @@ def roles_need_review(tracts: Sequence[_RoleBearing]) -> list[str]:
         else:
             why = "role basis not recorded, so no explicit tract heading is established"
         reasons.append(f"{tract.label} ({kind}): {why}")
+    marked = [*calls, *(c for t in tracts for c in getattr(t, "calls", ()))]
+    if not reasons and any(_has_roles_mark(call) for call in marked):
+        reasons.append(
+            f"calls marked {DESCRIPTION_ROLES_NOTE!r} come from a deed whose description "
+            "roles were not established"
+        )
     return reasons
 
 
