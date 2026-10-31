@@ -32,6 +32,7 @@ from mp_models import (
     PARENTHETICAL_NOTE_PREFIX,
     PASSING_CALL_NOTE_PREFIX,
     RECORD_CALL_NOTE_PREFIX,
+    RIGHTS_RESERVED_NOTE_PREFIX,
     SEPARATE_EASEMENT_NOTE_PREFIX,
     UNAPPLIED_EXCEPTION_NOTE_PREFIX,
     AuditContext,
@@ -1051,6 +1052,7 @@ def _set_aside_non_boundary_text(
     thence ...") is noted, never read as part of a course. An easement described by
     its own courses is not part of the parcel boundary. Geometric exceptions are kept.
     """
+    from .rights import is_rights_reservation
     from .tracts import (
         easement_clause_spans,
         easement_description_spans,
@@ -1078,7 +1080,14 @@ def _set_aside_non_boundary_text(
     for lead, stop in blanks:
         text = _blank_keeping_lines(text, lead, stop)
     for start, end in stated_exception_spans(text):
-        set_aside.append((start, end, UNAPPLIED_EXCEPTION_NOTE_PREFIX))
+        # A reservation of rights removes no land: noted verbatim, no unapplied-exception
+        # warning (``is_rights_reservation``, the predicate the tract roles share).
+        prefix = (
+            RIGHTS_RESERVED_NOTE_PREFIX
+            if is_rights_reservation(text[start:end])
+            else UNAPPLIED_EXCEPTION_NOTE_PREFIX
+        )
+        set_aside.append((start, end, prefix))
         text = _blank_keeping_lines(text, start, _set_aside_stop(text, start, end))
     for start, end in easement_clause_spans(text):
         set_aside.append((start, end, SEPARATE_EASEMENT_NOTE_PREFIX))
@@ -1117,7 +1126,11 @@ def _verbatim_note(note: str, source: str) -> str:
     """Return ``note`` with its wording as ``source`` states it, when found exactly once."""
     prefix = next(
         p
-        for p in (UNAPPLIED_EXCEPTION_NOTE_PREFIX, SEPARATE_EASEMENT_NOTE_PREFIX)
+        for p in (
+            UNAPPLIED_EXCEPTION_NOTE_PREFIX,
+            RIGHTS_RESERVED_NOTE_PREFIX,
+            SEPARATE_EASEMENT_NOTE_PREFIX,
+        )
         if note.startswith(p)
     )
     tokens = _WORD_TOKEN.findall(note[len(prefix) :])
