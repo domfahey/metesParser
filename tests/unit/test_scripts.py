@@ -213,6 +213,65 @@ class TestAuditTotalDistance:
         assert [call["distance_ft"] for call in calls] == [307.52, 336.25]
 
 
+class TestAuditMultiTract:
+    """101-111 Kings Highway E: marked tracts, exceptions, tie lines and mixed bearings."""
+
+    def test_comma_separated_dms_bearing(self) -> None:
+        mod = _load_audit_module()
+        match = mod.BEARING_PATTERN.search("North 29 degrees, 23 minutes, 50 seconds West")
+        assert match is not None
+        assert match.groups() == ("N", "29", "23", "50", "W")
+
+    def test_distance_includes_inches_and_skips_widths_and_offsets(self) -> None:
+        mod = _load_audit_module()
+        assert mod.extract_distance("Southeastwardly 92 feet, 4 inches to a point") == (92 + 4 / 12)
+        assert mod.extract_distance(
+            "along the aforesaid 10 feet wide alley, a distance of 148.10 feet"
+        ) == (148.10)
+        assert mod.extract_distance(
+            "distant 10 feet Northeastwardly therefrom measured at right angles thereto "
+            "158 feet 8 inches, more or less"
+        ) == (158 + 8 / 12)
+
+    def test_restated_place_of_beginning_does_not_close_the_block(self) -> None:
+        mod = _load_audit_module()
+        md_text = (
+            "STARTING at a point; thence in a Northwesterly direction a distance of 148.10 "
+            "feet to a point which last mentioned point is the place of beginning on the lands "
+            "hereby being described; and continuing thence in a Northwesterly direction a "
+            "distance of 12 feet; thence in a Northeasterly direction a distance of 50 feet "
+            "to the place of beginning."
+        )
+        calls = mod.extract_calls_from_md(md_text)
+        assert [call["distance_ft"] for call in calls] == [148.10, 12, 50]
+
+    def test_marked_tracts_keep_cardinal_only_blocks_and_exceptions(self) -> None:
+        mod = _load_audit_module()
+        md_text = (
+            "TRACT #1: BEGINNING at a point; thence (1) North 29 degrees, 23 minutes West "
+            "72.64 feet; thence (2) Southwestwardly 107.03 feet to the place of beginning.\n"
+            "TRACT #2: BEGINNING at a point; thence Southwestwardly 117.61 feet; thence "
+            "Northwestwardly 138.43 feet to the place of beginning.\n"
+            "EXCEPTING THEREOUT: BEGINNING on the Northwesterly side of Main Street; thence "
+            "South 61 degrees 5 minutes West 50 feet; thence Northwardly 147.60 feet to "
+            "beginning."
+        )
+        calls = mod.extract_calls_from_md(md_text, n_gt=7)
+        assert [call["distance_ft"] for call in calls] == [
+            72.64,
+            107.03,
+            117.61,
+            138.43,
+            50,
+            147.60,
+        ]
+
+    def test_place_of_beginning_on_the_lands_is_not_a_block_start(self) -> None:
+        mod = _load_audit_module()
+        assert not mod.BLOCK_START_PATTERN.search("is the place of beginning on the lands")
+        assert mod.BLOCK_START_PATTERN.search("BEGINNING on the Northwesterly side")
+
+
 class TestAuditMain:
     def test_main_reports_skipped_deeds(self, tmp_path, monkeypatch, capsys) -> None:
         """A PDF without its md/ground-truth pair is reported as SKIP, not a crash."""
