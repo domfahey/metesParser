@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from mp_models import UNAPPLIED_EXCEPTION_NOTE_PREFIX
+from mp_models import DESCRIPTION_ROLES_NOTE, UNAPPLIED_EXCEPTION_NOTE_PREFIX, split_notes
 
 from metesparser.call_extractor import CallExtractor
 from metesparser.closure_checker import ClosureChecker
@@ -27,7 +27,11 @@ LOT = (
 def test_monolith_easement_between_descriptions_is_strict_and_verbatim() -> None:
     calls = CallExtractor.extract_calls(f"{MAIN} {EASEMENT} {LOT}")
     assert [c.distance_ft for c in calls] == [100.0] * 4 + [50.0] * 4
-    assert [c.notes for c in calls if c.notes] == [
+    # Round 58: the facade's default extraction is the split one, whose roles (a parcel,
+    # an ALSO addition) were inferred: every call carries the role-review mark.
+    notes = [split_notes(c.notes) for c in calls]
+    assert all(DESCRIPTION_ROLES_NOTE in parts for parts in notes)
+    assert [n for parts in notes for n in parts if n != DESCRIPTION_ROLES_NOTE] == [
         "easement, not part of the boundary: " + EASEMENT
     ]
 

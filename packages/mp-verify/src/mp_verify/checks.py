@@ -20,6 +20,7 @@ from mp_bearing import (  # type: ignore[import-untyped]
 )
 from mp_models import (
     DESCRIPTION_ROLES_CHECK,
+    NON_BOUNDARY_CHECK,
     CheckResult,
     DeedCall,
     Point,
@@ -27,6 +28,8 @@ from mp_models import (
     TractType,
     is_boundary_tract,
     non_boundary_detail,
+    non_boundary_marks,
+    non_boundary_marks_detail,
     roles_need_review,
     roles_review_detail,
     tract_kind,
@@ -65,11 +68,30 @@ def evaluate_tract_role(label: str, tract_type: TractType | str) -> CheckResult 
         return None
     kind = tract_kind(tract_type)
     return CheckResult(
-        name="non_boundary_tract",
+        name=NON_BOUNDARY_CHECK,
         status="blocked",
         reason=kind,
         detail=non_boundary_detail(label, tract_type),
         inputs={"tract_type": kind},
+    )
+
+
+def evaluate_non_boundary_marks(calls: Sequence[DeedCall]) -> CheckResult | None:
+    """Block calls bearing an easement/exception tract's note, with or without the tract.
+
+    Every call of a non-boundary tract carries its kind's note
+    (``mp_models.mark_non_boundary``), so the calls are never verified as a parcel
+    boundary however they are selected or re-imported. ``None`` when no call bears one.
+    """
+    kinds = non_boundary_marks(calls)
+    if not kinds:
+        return None
+    return CheckResult(
+        name=NON_BOUNDARY_CHECK,
+        status="blocked",
+        reason="/".join(kinds),
+        detail=non_boundary_marks_detail(kinds),
+        inputs={"tract_type": "/".join(kinds)},
     )
 
 
