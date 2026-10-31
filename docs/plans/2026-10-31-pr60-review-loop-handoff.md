@@ -1,5 +1,7 @@
 # PR #60 review loop: handoff (paused 2026-10-31)
 
+This handoff is superseded once PR #60 merges; durable decisions live in [docs/ARCHITECTURE.md](../ARCHITECTURE.md#description-roles-and-verified-export) (description roles) and [docs/bugs.md](../bugs.md).
+
 Status: **PAUSED** at `6db71e4` on `fix/code-review-2026-10-29` (PR #60, "fix: resolve code-review bugs #49-#73 and 57 follow-up review rounds"). All local gates pass at that commit. Nothing is running and no worktrees are open.
 
 ## What the loop was
@@ -46,6 +48,6 @@ Native Claude/Cowork acceptance and live Mapbox acceptance were not run.
 
 ## Notes for a fresh session
 
-- The sample-comparison scripts used during the loop lived in the session scratchpad and are not in the repository; rebuild them from the method above (run every sample text on two worktrees and diff course values, misclosure, area, verification status and export eligibility).
+- The sample comparison is `scripts/compare_samples.py` once merged (it is on another branch and not yet on `main`). Until then, rebuild it from the method above: run every sample text on two worktrees and diff course values, misclosure, area, verification status and export eligibility.
 - Agent briefs started with `git merge --ff-only fix/code-review-2026-10-29`, worked on `fix/pr60-rNN-*`, and never stashed, reset or cleaned. Integration happened in a separate worktree so the main checkout stayed on `docs/code-review-2026-10-29`.
 - Package mypy needs zsh word splitting when the package paths are held in one variable (`${=P}`).

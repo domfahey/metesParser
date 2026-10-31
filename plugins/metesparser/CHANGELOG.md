@@ -8,6 +8,10 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 - A separate standalone Claude chat Skill build reuses this plugin's engine and capability procedures. The plugin archive and launcher remain unchanged; the chat adapter adds its own entrypoint, paths and explicit runtime setup. Native chat acceptance is pending.
 
+### Changed
+
+- `review-deed` now follows the description-role export policy: a multi-description deed with inferred roles cannot produce a verified export, and text review refuses deeds with more than one parcel description. Add explicit PARCEL/TRACT headings or review one parcel at a time. See [description roles and verified export](../../docs/ARCHITECTURE.md#description-roles-and-verified-export).
+
 ### Fixed
 
 - Simplify the shared overlay launcher guidance so it remains accurate in the plugin and adapted chat procedure. Chat setup and resume guidance now explicitly distinguish bootstrapping, extraction and artifact inspection.
