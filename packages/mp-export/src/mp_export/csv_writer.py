@@ -22,6 +22,7 @@ from mp_models import (
     SkippedCourse,
     Tract,
     _Model,
+    is_boundary_tract,
 )
 from mp_verify.closure import skips_for_tract
 from pydantic import ValidationError, field_validator
@@ -200,6 +201,22 @@ def _labelled_skips(
         *(explicit or []),
         *(audit_context.skipped_courses if audit_context is not None else []),
     ]
+
+
+def _exportable(tract: Tract, result: ClosureResult) -> bool:
+    """A verified parcel-boundary tract; easement/exception tracts never qualify."""
+    return is_boundary_tract(tract.tract_type) and result.is_fully_verified()
+
+
+def _not_exported_reason(tract: Tract, result: ClosureResult) -> str:
+    """Why a tract got no verified CSV, for the verification summary."""
+    reasons = [w for w in result.warnings if not w.startswith("non_boundary_tract:")]
+    if not is_boundary_tract(tract.tract_type):
+        kind = getattr(tract.tract_type, "value", tract.tract_type)
+        reasons.insert(
+            0, f"{kind} tract is not a parcel boundary and is never eligible for verified export"
+        )
+    return "; ".join(reasons) or "verification checks did not pass"
 
 
 def _known_tracts(
@@ -480,13 +497,25 @@ def export_verified_csv(
     Returns:
         List of written file paths.
 
+    Only MAIN/ADDITION tracts are export candidates: easement and exception
+    tracts describe land that is not the conveyed parcel, so they never get a
+    verified CSV, whatever their supplied result claims. They are listed in the
+    verification summary instead.
+
     Raises:
         ValueError: If verification checks did not pass (single-tract only).
-            For multi-tract, individual unverified tracts are skipped with warnings.
+            For multi-tract, if no parcel-boundary tract is supplied or none
+            verifies; individual unverified or non-boundary tracts are skipped.
     """
-    # Multi-tract mode gates per tract, but at least one tract must verify.
+    # Multi-tract mode gates per tract, but at least one boundary tract must verify.
     if tract_results:
-        if not any(result.is_fully_verified() for _, result in tract_results):
+        if not any(is_boundary_tract(tract.tract_type) for tract, _ in tract_results):
+            raise ValueError(
+                "Cannot export verified CSV: no parcel boundary tract (main or addition) "
+                "was supplied; easement and exception tracts are never eligible for "
+                f"verified export. Tracts checked: {len(tract_results)}"
+            )
+        if not any(_exportable(tract, result) for tract, result in tract_results):
             raise ValueError(
                 "Cannot export verified CSV: no tract passed verification. "
                 f"Tracts checked: {len(tract_results)}"
@@ -506,7 +535,7 @@ def export_verified_csv(
         known_tracts = _known_tracts(legal_desc, tract_results)
         labelled_skips = _labelled_skips(audit_context, skipped_courses)
         for tract, result in tract_results:
-            if result.is_fully_verified():
+            if _exportable(tract, result):
                 selected = LegalDescription(
                     calls=tract.calls, stated_area_sq_ft=tract.stated_area_sq_ft
                 )
@@ -527,6 +556,13 @@ def export_verified_csv(
 
     if tract_results:
         for i, (tract, tract_result) in enumerate(tract_results, start=1):
+            if not is_boundary_tract(tract.tract_type):
+                logger.warning(
+                    "Skipping non-boundary tract",
+                    tract=tract.label,
+                    tract_type=getattr(tract.tract_type, "value", tract.tract_type),
+                )
+                continue
             if not tract_result.is_fully_verified():
                 logger.warning(
                     "Skipping unverified tract",
@@ -559,16 +595,16 @@ def export_verified_csv(
     if tract_results:
         summaries: list[str] = []
         for tract, tract_result in tract_results:
-            if not tract_result.is_fully_verified():
+            if not _exportable(tract, tract_result):
                 continue
             summaries.append(f"--- {tract.label} ---")
             summaries.append(get_closure_summary(tract_result))
             summaries.append("")
-        unverified = [(t, r) for t, r in tract_results if not r.is_fully_verified()]
+        unverified = [(t, r) for t, r in tract_results if not _exportable(t, r)]
         if unverified:
             summaries.append("Not verified (no CSV written):")
             for tract, tract_result in unverified:
-                reasons = "; ".join(tract_result.warnings) or "verification checks did not pass"
+                reasons = _not_exported_reason(tract, tract_result)
                 summaries.append(
                     f"{tract.label}: misclosure {_misclosure_text(tract_result)}; {reasons}"
                 )
