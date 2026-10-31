@@ -17,6 +17,33 @@ if TYPE_CHECKING:
 # Regex fragment for numbers with optional comma grouping (e.g., "1,200" or "3,500.00")
 _COMMA_NUMBER = r"\d[\d,]*(?:\.\d+)?"
 
+# "N <unit> and N <unit>" the compound parser cannot sum. Angles ("15 minutes and
+# 40 seconds") and feet-and-inches are not unsupported distance components.
+_UNSUPPORTED_COMPOUND_PATTERN = re.compile(
+    rf"{_COMMA_NUMBER}\s+(?!(?:degrees?|minutes?|seconds?)\b)[A-Za-z]+(?:\s+[A-Za-z]+)?"
+    rf"\s+and\s+{_COMMA_NUMBER}\s+(?!inch(?:es)?\b)[A-Za-z]+",
+    re.IGNORECASE,
+)
+
+_INCHES_AFTER_FEET = re.compile(
+    r"\s*,?\s*(?:and\s+)?(\d+(?:\.\d+)?)\s*inch(?:es)?\b", re.IGNORECASE
+)
+
+
+def _is_reference_distance(text: str, match: Match[str]) -> bool:
+    """Return whether a distance sizes or locates something other than the course.
+
+    "10 feet wide alley" is a width and "distant 10 feet Northeastwardly therefrom"
+    is an offset; neither is the length of the course.
+    """
+    after = text[match.end() :]
+    if re.match(r"\s+wide\b", after, re.IGNORECASE):
+        return True
+    return bool(
+        re.search(r"\bdistant\s+$", text[: match.start()], re.IGNORECASE)
+        and re.match(r"\s+(?:north|south|east|west)", after, re.IGNORECASE)
+    )
+
 # Sentence-boundary markers where the legal description ends and post-description
 # metadata begins.  The pattern requires ". " before the keyword so that phrases
 # embedded *within* a call (e.g., "subject to easement rights") are not matched.
@@ -293,11 +320,11 @@ class TextParser:
         """
         patterns: list[tuple[str, str | Callable[[Match[str]], str]]] = [
             (
-                r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
+                r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?,?\s+(\d{1,2})\s+minutes?,?\s+(?:and\s+)?(\d{1,2}(?:\.\d+)?)\s+seconds?,?\s+(North|South|East|West)\b",
                 lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0]}",
             ),
             (
-                r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(North|South|East|West)\b",
+                r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?,?\s+(\d{1,2})\s+minutes?,?\s+(North|South|East|West)\b",
                 lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}' {m.group(4)[0]}",
             ),
             (
@@ -558,12 +585,19 @@ class TextParser:
                     for value, unit in values
                 )
                 return total_ft, "feet"
-            if re.search(rf"{_COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{_COMMA_NUMBER}\s+[A-Za-z]+", text, re.IGNORECASE):
+            if _UNSUPPORTED_COMPOUND_PATTERN.search(text):
                 return 0.0, "feet"
-            match = re.search(pattern, text, re.IGNORECASE)
+            candidates = list(re.finditer(pattern, text, re.IGNORECASE))
+            match = next(
+                (m for m in candidates if not _is_reference_distance(text, m)),
+                candidates[0] if candidates else None,
+            )
         if match:
             value = parse_comma_number(match.group(1))
             unit = " ".join(match.group(2).lower().split())
+            inches = _INCHES_AFTER_FEET.match(text, match.end())
+            if inches and unit in ("ft", "feet", "foot"):
+                value += float(inches.group(1)) / 12
 
             if unit in ("us survey feet", "us survey foot"):
                 unit = "us_survey_feet"
