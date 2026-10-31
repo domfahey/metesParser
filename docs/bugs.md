@@ -1251,6 +1251,15 @@ Result-level comparison of all 227 sample texts (extraction, verification with t
 - **One export-eligibility helper** and one source for the non-boundary reason text (`mp_models.tract_kind`, `non_boundary_detail`) (`6a2cdcf`).
 - **Known limitations:** after a closed boundary, "SUBJECT to a right of way over the driveway. BEGINNING …" now types the next description as an easement (conservative: never exported as verified); a heading between such a grant and the description leaves it a fee tract.
 
+### PR #60 fifty-third review (2026-10-31)
+Sample texts unchanged from round 52 (byte-identical result-level output). Nine findings from synthetic probes, four of them regressions from `e6dfda8` that changed classification and so verification and verified export. Fixed red-green on `fix/code-review-2026-10-29` by consolidating the classification logic rather than patching each case:
+- **One sentence-break rule and one grant decision:** `_sentence_break` replaces three diverging sentence-end helpers, and `_grant_takes` decides for every path whether an opener's grant takes a description (the divergence between `_easement_spans` and the `_easement_lead` fallback caused the regressions and the five-round oscillation) (`f01f50d`).
+- **Common "subject to … of record, bounded and described as follows" form (regression):** a generic recital before any boundary never claims the parcel; "lying within" / "being a portion of" a right of way is a location, not a grant (`f01f50d`).
+- **"After the boundary" means a closed MAIN/ADDITION description:** an exception description, a COMMENCING or true-point-of-beginning tie, or a recital mention no longer makes a later recital claim the real parcel (`f01f50d`).
+- **Numbered courses (regression, unsafe):** "thence (1) North …" is recognised by the parser's own enumerator grammar, so an easement after the boundary is an easement whatever the numbering; the corpus re-runs every case in four numbering forms and requires identical classification, calls, verification and export (186 cases, 1425 tests) (`f01f50d`).
+- **`role_check` private:** `verify_closure` no longer accepts a caller-supplied role check (which could strip verification from a closed parcel); export reasons derive from the exported tract, and a result belonging to another tract blocks that tract's export (`91cb313`).
+- **Known limitations:** after a closed boundary, an easement grant followed by an explicit tract heading ("PARCEL B: BEGINNING …") is typed as a fee tract; "Said easement is described as follows" before the parcel types the next description as an easement.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
