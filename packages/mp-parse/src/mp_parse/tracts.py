@@ -22,6 +22,7 @@ import structlog
 from mp_models import TractType
 
 from .metadata import (
+    _ENUMERATOR_STYLES,
     CLOSING_ALONG_WITH,
     STRUCTURE_BREAK,
     VERBATIM_BEARING,
@@ -96,12 +97,17 @@ _COURSE_WORD = (
     r"(?:(?:north|south|east|west)(?:erly|wardly)?(?![A-Za-z])"
     r"|[NS]\s*\.?\s*\d|(?:curve|arc)s?(?![A-Za-z])|curv(?:ed|ing)\b)"
 )
-# A THENCE that opens a real course: directly followed by a direction word or
-# letter, or by along/with/by ... then a bearing or curve phrase in the same
-# clause. OCR/table noise ("thence colspan=3", "thence in Southeasterly
-# direction") is not mistaken for a boundary description.
+# A course's enumerator in the course parser's own grammar (``_ENUMERATOR_STYLES``:
+# "(1)", "1)", "1.", "(a)", "First,").
+_COURSE_ENUMERATOR = r"(?:(?:" + "|".join(style.pattern for style in _ENUMERATOR_STYLES) + r")\s*)?"
+# A THENCE that opens a real course: directly followed (after a comma or the course's
+# enumerator: "thence, N ...", "thence (1) North ...", "thence 1) N ...") by a
+# direction word or letter, or by along/with/by ... then a bearing or curve phrase in
+# the same clause. OCR/table noise ("thence colspan=3", "thence in Southeasterly
+# direction") is not mistaken for a boundary description. Numbering never changes
+# which courses are recognised.
 _THENCE_COURSE = re.compile(
-    r"\bTHENCE[\s,]+(?:"
+    r"\bTHENCE[\s,]+" + _COURSE_ENUMERATOR + r"(?:"
     r"(?:(?:due|running)\s+)?(?:north|south|east|west|[NSEW]{1,2})(?:erly|wardly)?(?![A-Za-z])"
     r"|(?:along|with|by)\b[^;\n]{0,100}?" + _COURSE_WORD + r")",
     re.IGNORECASE,
@@ -171,10 +177,10 @@ _EASEMENT_MODIFIER = (
     r"|subject|except\w*|thence|tracts?|lots?|parcels?|lands?|pieces?|premises|portions?"
     r"|parts?|strips?|areas?)\b)[\w'%°-]+,?\s+){0,6}"
 )
-_EASEMENT_WORD = (
-    r"(?:easements?|rights?[\s-]+of[\s-]+way)\b"
-    r"(?![\s-]+(?:areas?|lines?|lands?|tracts?|parcels?|lots?|premises|portions?|parts?)\b)"
-)
+# An area or line noun after the easement noun makes it part of another object
+# ("the easement area", "the right of way line").
+_NOT_AREA = r"(?![\s-]+(?:areas?|lines?|lands?|tracts?|parcels?|lots?|premises|portions?|parts?)\b)"
+_EASEMENT_WORD = r"(?:easements?|rights?[\s-]+of[\s-]+way)\b" + _NOT_AREA
 # A grant of the easement's benefit or of an interest in it ("the benefit of an
 # easement", "all (of the grantor's) right, title and interest in and to the ...
 # easement"). The object that follows is still the easement noun, so "all right,
@@ -218,14 +224,34 @@ _OF_RECORD = re.compile(r"\b(?:of\s+record|if\s+any)\b", re.IGNORECASE)
 _RECITAL_CLAUSE_END = re.compile(r"[;:]|\b(?:THENCE|BEGINNING|COMMENCING)\b", re.IGNORECASE)
 # How far a recital's clause is read for "of record".
 _RECITAL_WINDOW = 300
-# A specific easement named in a recital: a singular easement or right of way ("and to
-# an easement for drainage", "including a drainage easement", "a right of way 20 feet
-# wide").
+# A specific easement named in a recital: a singular easement or right of way as the
+# grant's object ("and to an easement for drainage", "including a drainage easement",
+# "a right of way 20 feet wide"), with the grant grammar's modifiers
+# (``_EASEMENT_MODIFIER``). Land located by one is no grant object ("that portion
+# lying within a right of way", "a portion of the former right of way"): a locating
+# word before it (``_LOCATING_BEFORE``) or a parcel word among its modifiers.
 _SPECIFIC_EASEMENT = re.compile(
-    r"\b(?:an?|that\s+certain|said)\s+(?:[\w'%°-]+,?\s+){0,6}?"
-    r"(?:easement|right[\s-]+of[\s-]+way)\b(?!s)",
+    r"\b(?:an?|that\s+certain|said)\s+"
+    + _EASEMENT_MODIFIER
+    + r"(?:easement|right[\s-]+of[\s-]+way)\b"
+    + _NOT_AREA,
     re.IGNORECASE,
 )
+_LOCATING_BEFORE = re.compile(
+    r"\b(?:of|in|into|within|on|upon|along|over|across|through|under|adjoining|adjacent|abutting"
+    r"|lying|being|situate|situated|near|from|by|at|between)\s+$",
+    re.IGNORECASE,
+)
+
+
+def _names_specific_easement(text: str, start: int, end: int) -> bool:
+    """Return whether ``text[start:end]`` names a specific easement as a grant object."""
+    return any(
+        not _LOCATING_BEFORE.search(text, start, match.start())
+        for match in _SPECIFIC_EASEMENT.finditer(text, start, end)
+    )
+
+
 # Wording that introduces a description ("described as follows", "the following
 # described land").
 _DESCRIPTION_INTRO = re.compile(
@@ -254,35 +280,54 @@ _LINE_DESCRIPTION = re.compile(
 )
 
 
-# How far past a description's start ``_easement_lead`` reads for the line it opens.
+# How far past a description's start ``_grant_takes`` reads for the line it opens.
 _OPENING_LOOKAHEAD = 20
+# A period closing a course's enumerator after THENCE ("thence 2. N 80° E") ends no
+# sentence.
+_ENUMERATOR_BEFORE_PERIOD = re.compile(r"\bTHENCE[\s,]+\d{1,3}$", re.IGNORECASE)
 
 
-def _clause_end(text: str, start: int, end: int) -> int:
-    """Return where the sentence from ``start`` ends, at most ``end``.
+def _sentence_break(text: str, start: int, end: int) -> int | None:
+    """Return where the sentence from ``start`` breaks before ``end``, or None.
 
-    A sentence ends at a sentence-ending period (``_sentence_end``), at document
-    structure (``STRUCTURE_BREAK``: a paragraph break, a markdown heading, ...), or at
-    a line break before a description opening its own line when the line before does
-    not run on into it (``_LINE_CONTINUES``): normalization reduces a paragraph break
-    before a BEGINNING to one line break ("SUBJECT to a right of way over the
-    driveway\nBEGINNING ...").
+    The one sentence-end rule of this module. A sentence breaks at a sentence-ending
+    period (``ends_sentence``: never at an initial, abbreviation or decimal, nor at a
+    course's enumerator: "thence 2. N 80° E"), at document structure
+    (``STRUCTURE_BREAK``: a paragraph break, a markdown heading, bullet or table
+    border, an HTML tag), or at a line break before a description opening its own line
+    when the line before does not run on into it (``_LINE_CONTINUES``): normalization
+    reduces a paragraph break before a BEGINNING to one line break ("SUBJECT to a
+    right of way over the driveway\nBEGINNING ..."). Returns the period's position, or
+    where the structure or line break starts.
     """
-    ends = [end]
-    sentence_end = _sentence_end(text, start, end)
-    if sentence_end is not None:
-        ends.append(sentence_end)
     structure = STRUCTURE_BREAK.search(text, start, end)
-    if structure is not None:
-        ends.append(structure.start())
-    for line in _LINE_DESCRIPTION.finditer(text, start, end):
+    limit = end if structure is None else structure.start()
+    for line in _LINE_DESCRIPTION.finditer(text, start, limit):
         if not _LINE_CONTINUES.search(text, start, line.start()):
-            ends.append(line.start())
+            limit = line.start()
             break
-    return min(ends)
+    period = next(
+        (
+            i
+            for i in range(start, limit)
+            if text[i] == "."
+            and ends_sentence(text, i)
+            and not _ENUMERATOR_BEFORE_PERIOD.search(text, max(0, i - 16), i)
+        ),
+        None,
+    )
+    if period is not None:
+        return period
+    return None if limit == end else limit
 
 
-def _is_generic_encumbrance(text: str, match: re.Match[str], after_description: bool) -> bool:
+def _sentence_limit(text: str, start: int, end: int) -> int:
+    """Return where the sentence from ``start`` ends (``_sentence_break``), at most ``end``."""
+    found = _sentence_break(text, start, end)
+    return end if found is None else found
+
+
+def _is_generic_encumbrance(text: str, match: re.Match[str], after_boundary: bool) -> bool:
     """Return whether an easement opener match is a generic encumbrance recital.
 
     The opener names plural easements (or rights of way) and its clause, up to its
@@ -290,20 +335,25 @@ def _is_generic_encumbrance(text: str, match: re.Match[str], after_description: 
     or "if any". A specific easement ("a right of way for ingress and egress",
     "an easement of record for utilities") is never generic, nor is a recital whose
     sentence (up to its end, document structure or a semicolon) also names a specific
-    easement ("the easements of record and an easement for drainage") or introduces a
-    description ("described as follows", "following described"). A colon running
-    on into a description ("of record: BEGINNING") introduces it only after a closed
-    description (``after_description``): before any, that description is the parcel.
+    easement as a grant object (``_names_specific_easement``: "the easements of record
+    and an easement for drainage", never "the portion lying within a right of way").
+    After a closed boundary (``after_boundary``) a recital whose sentence introduces a
+    description ("described as follows", "following described", or a colon running on
+    into a BEGINNING) introduces an easement's description. Before any boundary that
+    description is the parcel: the deed's own intro ("subject to easements of record,
+    bounded and described as follows:") makes no recital specific.
     """
     if not _PLURAL_EASEMENT_END.search(match.group("open") or match.group("also")):
         return False
-    end = _clause_end(text, match.end(), min(len(text), match.end() + _RECITAL_WINDOW))
+    end = _sentence_limit(text, match.end(), min(len(text), match.end() + _RECITAL_WINDOW))
     semicolon = text.find(";", match.end(), end)
-    sentence = text[match.end() : end if semicolon < 0 else semicolon]
-    if (
-        _SPECIFIC_EASEMENT.search(sentence)
-        or _DESCRIPTION_INTRO.search(sentence)
-        or (after_description and _COLON_DESCRIPTION.search(text, match.end(), end + 1))
+    sentence_end = end if semicolon < 0 else semicolon
+    if _names_specific_easement(text, match.end(), sentence_end) or (
+        after_boundary
+        and (
+            _DESCRIPTION_INTRO.search(text, match.end(), sentence_end)
+            or _COLON_DESCRIPTION.search(text, match.end(), end + 1)
+        )
     ):
         return False
     clause_end = _RECITAL_CLAUSE_END.search(text, match.end(), end)
@@ -346,6 +396,20 @@ _OPENER_CLAUSE_BREAK = re.compile(r";|\bTHENCE\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
+class _Closure:
+    """A point-of-beginning closure and the description opening it closes.
+
+    ``opening`` is the (start, end) of the BEGINNING or COMMENCING the description
+    opened with, None when no opening precedes it; ``commencing`` marks COMMENCING.
+    """
+
+    start: int
+    end: int
+    opening: tuple[int, int] | None
+    commencing: bool
+
+
+@dataclass(frozen=True)
 class _TextIndex:
     """The clause structure of one text, computed once per text (``_index``).
 
@@ -360,17 +424,34 @@ class _TextIndex:
     # Point-of-beginning closures (start, end) (``_course_closures``), and their ends.
     closures: tuple[tuple[int, int], ...]
     closure_ends: tuple[int, ...]
+    # Where each closed MAIN or ADDITION boundary description ends (``_closes_boundary``).
+    boundary_ends: tuple[int, ...]
     except_leads: tuple[re.Match[str], ...]
     # Where each tract heading starts.
     headings: tuple[int, ...]
-    # Where each easement opener starts, and the easement descriptions they open.
+    # Where each easement opener starts and ends, and the easement descriptions they open.
     openers: tuple[int, ...]
+    opener_ends: tuple[int, ...]
     easements: tuple[tuple[int, int], ...]
 
     def next_stop(self, position: int) -> int:
         """Return the first clause stop after ``position``, or the end of the text."""
         i = bisect_right(self.stops, position)
         return self.stops[i] if i < len(self.stops) else len(self.text)
+
+    def after_boundary(self, position: int) -> bool:
+        """Return whether a closed MAIN or ADDITION boundary ends before ``position``."""
+        return _after_boundary(self.boundary_ends, position)
+
+
+def _after_boundary(boundary_ends: Sequence[int], position: int) -> bool:
+    """Return whether any of the (sorted) ``boundary_ends`` is at or before ``position``."""
+    return bool(boundary_ends) and boundary_ends[0] <= position
+
+
+def _opener_start(match: re.Match[str]) -> int:
+    """Return where an ``_EASEMENT_OPENER`` match's opener word starts."""
+    return match.start("open") if match["open"] else match.start("also")
 
 
 @lru_cache(maxsize=32)
@@ -380,9 +461,10 @@ def _index(text: str) -> _TextIndex:
     headings = tuple(position for position, _, _ in find_tract_markers(text))
     # A structural stated-exception lead, an ALSO/INCLUDING addition, a tract heading
     # or an easement opener starts a new clause.
+    structural_leads = [m for m in except_leads if not _is_lot_qualifier_except(text, m)]
     structural = sorted(
         {
-            *(m.start() for m in except_leads if not _is_lot_qualifier_except(text, m)),
+            *(m.start() for m in structural_leads),
             *(m.end() - len(m.group().lstrip(";\n. \t")) for m in _ADDITION_START.finditer(text)),
             *headings,
         }
@@ -396,26 +478,99 @@ def _index(text: str) -> _TextIndex:
         }
     )
     closures = _course_closures(text, beginnings, commencings, structural)
-    openers = tuple(
-        m.start("open") if m["open"] else m.start("also")
-        for m in _EASEMENT_OPENER.finditer(text)
+    # One pass in text order: whether an opener is a generic recital depends on the
+    # boundaries closed before it, and whether a closure closes a boundary on the
+    # openers before it.
+    openers: list[re.Match[str]] = []
+    boundary_ends: list[int] = []
+    pending = list(closures)
+    floor = 0
+
+    def settle(position: int) -> None:
+        nonlocal floor
+        while pending and pending[0].start < position:
+            closure = pending.pop(0)
+            if _closes_boundary(text, closure, floor, structural_leads, openers, boundary_ends):
+                boundary_ends.append(closure.end)
+            floor = closure.end
+
+    for match in _EASEMENT_OPENER.finditer(text):
+        start = _opener_start(match)
+        settle(start)
         if not _is_generic_encumbrance(
-            text, m, after_description=bool(closures) and closures[0][1] <= m.start()
-        )
-    )
-    stops = sorted({*structural, *openers})
+            text, match, after_boundary=_after_boundary(boundary_ends, start)
+        ):
+            openers.append(match)
+    settle(len(text) + 1)
+    opener_starts = tuple(_opener_start(m) for m in openers)
+    stops = sorted({*structural, *opener_starts})
     index = _TextIndex(
         text=text,
         stops=tuple(stops),
         openings=tuple(openings),
-        closures=closures,
-        closure_ends=tuple(end for _, end in closures),
+        closures=tuple((c.start, c.end) for c in closures),
+        closure_ends=tuple(c.end for c in closures),
+        boundary_ends=tuple(boundary_ends),
         except_leads=except_leads,
         headings=headings,
-        openers=openers,
+        openers=opener_starts,
+        opener_ends=tuple(m.end() for m in openers),
         easements=(),
     )
     return replace(index, easements=tuple(_easement_spans(index)))
+
+
+# Fewest courses of a closed boundary: two (a curve and its chord line); a description
+# that COMMENCES, or reaches "the true point of beginning", with fewer than three is a
+# tie to the point of beginning.
+_BOUNDARY_COURSES = 2
+_TIE_BOUNDARY_COURSES = 3
+
+
+def _closes_boundary(
+    text: str,
+    closure: _Closure,
+    floor: int,
+    except_leads: Sequence[re.Match[str]],
+    openers: Sequence[re.Match[str]],
+    boundary_ends: Sequence[int],
+) -> bool:
+    """Return whether ``closure`` closes a MAIN or ADDITION boundary description.
+
+    ``floor`` is where the previous closure ended. None of these is a boundary:
+
+    * a recital mentioning the point of beginning ("Being the premises whose corner is
+      at the point of beginning hereinafter described"): no courses reach it;
+    * a tie: a COMMENCING description (or one reaching "the true point of beginning")
+      with fewer than three courses (``_TIE_BOUNDARY_COURSES``);
+    * an exception description: an EXCEPT lead runs on into its opening with no
+      sentence end or course between ("EXCEPTING from the lands hereinafter described
+      the following: BEGINNING ...");
+    * an easement description: the grant of the last opener before its opening takes
+      it (``_grant_takes``).
+    """
+    opening = closure.opening
+    courses = _course_count(text, floor if opening is None else opening[1], closure.start)
+    tie = closure.commencing or _TRUE_BEFORE.search(text, max(0, closure.start - 20), closure.start)
+    if courses < (_TIE_BOUNDARY_COURSES if tie else _BOUNDARY_COURSES):
+        return False
+    if opening is None:
+        return True
+    description = opening[0]
+    for lead in except_leads:
+        if (
+            floor <= lead.start() < description
+            and _sentence_break(text, lead.end(), description) is None
+            and _TRAVERSE_WORDING.search(text, lead.end(), description) is None
+        ):
+            return False
+    grant = next(
+        (_opener_start(m) for m in reversed(openers) if floor <= _opener_start(m) < description),
+        None,
+    )
+    return grant is None or not _grant_takes(
+        text, grant, description, _after_boundary(boundary_ends, grant)
+    )
 
 
 # A point of beginning a course leaves from ("and from said point of beginning running").
@@ -431,7 +586,7 @@ def _course_closures(
     beginnings: Sequence[tuple[int, int]],
     commencings: Sequence[tuple[int, int]],
     structural: Sequence[int],
-) -> tuple[tuple[int, int], ...]:
+) -> tuple[_Closure, ...]:
     """Return the point-of-beginning mentions that close a description, in text order.
 
     A closure is a course's destination: a point of beginning reached after the
@@ -452,6 +607,8 @@ def _course_closures(
       the true point of beginning, subject to a right of way ...; thence ..."). The tie
       opens the boundary; it never closes it. Reached with no course after it, the same
       point closes the description.
+
+    Each closure records the opening of the description it closes (``_Closure``).
     """
     starts = sorted(
         [(start, end, False) for start, end in beginnings]
@@ -459,7 +616,7 @@ def _course_closures(
         key=lambda opening: opening[1],
     )
     ends = [end for _, end, _ in starts]
-    closures: list[tuple[int, int]] = []
+    closures: list[_Closure] = []
     for mention in _POB_CLOSE_PATTERN.finditer(text):
         start, end = mention.span()
         i = bisect_right(ends, start)
@@ -470,18 +627,26 @@ def _course_closures(
         if _FROM_BEFORE.search(text, max(0, start - 60), start) or _POB_CONTINUES.match(text, end):
             continue
         commencing_tie = bool(
-            i and starts[i - 1][2] and not (closures and closures[-1][0] >= ends[i - 1])
+            i and starts[i - 1][2] and not (closures and closures[-1].start >= ends[i - 1])
         )
         if commencing_tie or _TRUE_BEFORE.search(text, max(0, start - 20), start):
             course = _THENCE_WORD.search(text, end)
             if (
                 course is not None
-                and _sentence_end(text, end, course.start()) is None
+                and _sentence_break(text, end, course.start()) is None
                 and not (i < len(ends) and ends[i] <= course.start())
                 and not any(end <= stop < course.start() for stop in structural)
             ):
                 continue
-        closures.append((start, end))
+        opening = starts[i - 1] if i else None
+        closures.append(
+            _Closure(
+                start,
+                end,
+                None if opening is None else (opening[0], opening[1]),
+                bool(opening and opening[2]),
+            )
+        )
     return tuple(closures)
 
 
@@ -518,14 +683,17 @@ def _easement_spans(index: _TextIndex) -> list[tuple[int, int]]:
     An opener inside an open description ("BEGINNING at a pin, subject to a right of
     way, thence ...", "Commencing at a corner, also being ...") qualifies that
     description; it never starts an easement. An opener without a THENCE course
-    before the next clause stop is a clause (metadata), not a description. A span
-    ends with the sentence of its last course when only wording without a course
-    follows it before the stop (wording already set aside, a recital); otherwise at
-    the stop, so no course is ever left behind on a boundary.
+    (``_THENCE_COURSE``, numbered or not) before the next clause stop is a clause
+    (metadata), not a description. The description after the opener (its opening, or
+    its first course) is the easement's only when the grant takes it (``_grant_takes``,
+    the rule every path shares). A span ends with the sentence of its last course when
+    only wording without a course follows it before the stop (wording already set
+    aside, a recital); otherwise at the stop, so no course is ever left behind on a
+    boundary.
     """
     text = index.text
     spans: list[tuple[int, int]] = []
-    for start in index.openers:
+    for start, opener_end in zip(index.openers, index.opener_ends, strict=True):
         if spans and start < spans[-1][1]:
             continue
         # An earlier easement description closes where it ends.
@@ -535,23 +703,23 @@ def _easement_spans(index: _TextIndex) -> list[tuple[int, int]]:
         courses = list(_THENCE_COURSE.finditer(text, start, stop))
         if not courses:
             continue
-        # The opener's sentence ends (a period or document structure) before a
-        # description opens: that description is not the easement's ("SUBJECT to a
-        # right of way over the driveway. BEGINNING"), unless it is introduced as the
-        # easement's (``_introduced_as_easement``).
-        opener_end = _clause_end(text, start, courses[0].start())
-        description = _DESCRIPTION_OPENER.search(text, opener_end, courses[0].start())
-        if description is not None and not _introduced_as_easement(
-            index, start, opener_end, description.start(), spans
+        first = courses[0].start()
+        description = _DESCRIPTION_OPENER.search(text, opener_end, first)
+        if not _grant_takes(
+            text,
+            start,
+            first if description is None else description.start(),
+            index.after_boundary(start),
+            index.headings,
         ):
             continue
         end = stop
-        sentence_end = _sentence_end(text, courses[-1].end(), stop)
+        sentence_end = _sentence_break(text, courses[-1].end(), stop)
         if sentence_end is not None and not (
             _TRAVERSE_WORDING.search(text, sentence_end, stop)
             or _COURSE_DISTANCE.search(text, sentence_end, stop)
         ):
-            end = sentence_end + 1
+            end = sentence_end + (text[sentence_end] == ".")
         spans.append((start, start + len(text[start:end].rstrip())))
     return spans
 
@@ -566,35 +734,51 @@ _EASEMENT_DESCRIPTION_SENTENCE = re.compile(
 )
 
 
-def _introduced_as_easement(
-    index: _TextIndex,
-    start: int,
-    opener_end: int,
+def _grant_takes(
+    text: str,
+    opener: int,
     description: int,
-    spans: Sequence[tuple[int, int]],
+    after_boundary: bool,
+    headings: Sequence[int] = (),
 ) -> bool:
-    """Return whether the description at ``description`` is introduced as the easement's.
+    """Return whether the grant opened at ``opener`` takes the description at ``description``.
 
-    The grant sentence from ``start`` ended at ``opener_end`` (a period, document
-    structure or a line break before the description) before the description opens.
-    The description is still the easement's when the wording between introduces it as
-    such ("The said easement is bounded and described as follows:", "Said right of
-    way is described as follows:"), or, after a closed boundary description, when
-    nothing but punctuation or document structure lies between ("<boundary>. TOGETHER
-    WITH an easement 10 feet wide.\nBEGINNING ..."): easement land never becomes a fee
-    tract. Before any boundary description the grant sentence never takes the
-    description after it ("TOGETHER WITH an easement for utilities. BEGINNING ..."):
-    that description is the parcel. A generic recital (``_is_generic_encumbrance``)
-    opens no easement at all.
+    The one rule deciding whether an easement opener's grant takes the description
+    after it, used by every path: easement spans, BEGINNING blocks and tract markers
+    (``_easement_lead``), and boundary closures (``_closes_boundary``). Course
+    numbering plays no part in it.
+
+    * A grant clause running on into the description (no sentence break, semicolon or
+      THENCE between: ``_sentence_break``, ``_OPENER_CLAUSE_BREAK``) takes it ("TOGETHER
+      WITH an easement 10 feet wide, BEGINNING ...", "... as follows: PARCEL B: ...").
+    * Across that break, wording introducing the description as the easement's takes it
+      ("The said easement is bounded and described as follows:").
+    * After a closed MAIN or ADDITION boundary (``after_boundary``), a description
+      with nothing but punctuation or document structure between it and the grant's
+      sentence end is the easement's ("<boundary> TOGETHER WITH an easement for
+      ingress and egress.\nBEGINNING ..."): easement land never becomes a fee tract.
+      A tract heading at ``description`` (one of ``headings``) is the heading's tract.
+    * Before any boundary the grant sentence never takes the description after it
+      ("TOGETHER WITH an easement for utilities. BEGINNING ..."): that description
+      is the parcel.
     """
-    text = index.text
-    between = text[opener_end:description]
-    if _EASEMENT_DESCRIPTION_SENTENCE.fullmatch(between.lstrip(" \t\n.")):
+    limit = min(len(text), description + _OPENING_LOOKAHEAD)
+    sentence = _sentence_break(text, opener, limit)
+    clause = _OPENER_CLAUSE_BREAK.search(text, opener, description)
+    ends = [
+        *([sentence] if sentence is not None and sentence < description else []),
+        *([clause.start()] if clause is not None else []),
+    ]
+    if not ends:
         return True
-    if STRUCTURE_BREAK.sub(" ", between).strip(_LEAD_IN_PUNCTUATION + "#"):
+    between = text[min(ends) : description]
+    if _EASEMENT_DESCRIPTION_SENTENCE.fullmatch(between.lstrip(_LEAD_IN_PUNCTUATION)):
+        return True
+    if description in headings or STRUCTURE_BREAK.sub(" ", between).strip(
+        _LEAD_IN_PUNCTUATION + "#"
+    ):
         return False
-    closed_at = _last_closure_end(index, start, spans)
-    return closed_at is not None and closed_at != _NO_DESCRIPTION
+    return after_boundary
 
 
 def easement_description_spans(text: str) -> list[tuple[int, int]]:
@@ -636,9 +820,8 @@ def easement_clause_spans(text: str) -> list[tuple[int, int]]:
         if _last_closure_end(index, start, index.easements) is not None:
             continue
         brk = _EASEMENT_CLAUSE_BREAK.search(text, start)
-        end = _note_end(text, start, min(brk.start() if brk else len(text), index.next_stop(start)))
-        sentence_end = _sentence_end(text, start, end)
-        clause = text[start : end if sentence_end is None else sentence_end]
+        limit = min(brk.start() if brk else len(text), index.next_stop(start))
+        clause = text[start : _sentence_limit(text, start, limit)]
         if (
             _DESCRIPTION_OPENER.search(clause)
             or _COMPLETE_COURSE.search(clause)
@@ -649,34 +832,13 @@ def easement_clause_spans(text: str) -> list[tuple[int, int]]:
     return spans
 
 
-def _sentence_end(text: str, start: int, end: int) -> int | None:
-    """Return the first sentence-ending period in ``text[start:end]`` (``ends_sentence``)."""
-    return next(
-        (i for i in range(start, end) if text[i] == "." and ends_sentence(text, i)),
-        None,
-    )
+def _course_count(text: str, start: int, end: int) -> int:
+    """Return how many courses ``text[start:end]`` states.
 
-
-def _note_end(text: str, start: int, end: int) -> int:
-    """Return where noted wording from ``start`` ends, at most ``end``.
-
-    A note never runs over document structure (``STRUCTURE_BREAK``: a paragraph
-    break, a markdown heading, bullet or table border, an HTML tag), period or not.
-    """
-    structure = STRUCTURE_BREAK.search(text, start, end)
-    return end if structure is None else start + len(text[start : structure.start()].rstrip())
-
-
-def _describes_traverse(text: str, start: int, end: int) -> bool:
-    """Return whether ``text[start:end]`` describes an exception traverse.
-
-    A traverse has courses: two or more, or one reaching a point of beginning. In
-    each ';'-separated clause every THENCE opens a course, and a complete course
+    In each ';'-separated clause every THENCE opens a course, and a complete course
     (bearing and distance) before its first THENCE is one more ("BEGINNING ... S 61° W
     50 feet; thence ...", "Beginning ...; S 80-00-00 E 10 feet; S 10-00-00 W 10 feet;
-    ..."). A single bearing and distance ("lying North of a line running N 80° E 100
-    feet from the pin", "a line running thence N 80° E 100 feet to the river") locates
-    a dividing line; it is no traverse.
+    ...").
     """
     courses = 0
     clause_starts = [start, *(i + 1 for i in range(start, end) if text[i] == ";")]
@@ -685,6 +847,18 @@ def _describes_traverse(text: str, start: int, end: int) -> bool:
         courses += len(_THENCE_WORD.findall(text, clause_start, clause_end)) + bool(
             _COMPLETE_COURSE.search(text, clause_start, first.start() if first else clause_end)
         )
+    return courses
+
+
+def _describes_traverse(text: str, start: int, end: int) -> bool:
+    """Return whether ``text[start:end]`` describes an exception traverse.
+
+    A traverse has courses (``_course_count``): two or more, or one reaching a point of
+    beginning. A single bearing and distance ("lying North of a line running N 80° E
+    100 feet from the pin", "a line running thence N 80° E 100 feet to the river")
+    locates a dividing line; it is no traverse.
+    """
+    courses = _course_count(text, start, end)
     return courses >= 2 or (courses == 1 and _POB_REACHED.search(text, start, end) is not None)
 
 
@@ -717,17 +891,19 @@ def stated_exception_spans(text: str) -> list[tuple[int, int]]:
         extent_end = index.next_stop(start)
         # A lead introducing a described parcel ("the following described parcel:
         # PARCEL A: BEGINNING ...") runs on over the parcel's heading.
-        while extent_end in index.headings and _sentence_end(text, lead.end(), extent_end) is None:
+        while (
+            extent_end in index.headings and _sentence_break(text, lead.end(), extent_end) is None
+        ):
             extent_end = index.next_stop(extent_end)
         if _describes_traverse(text, lead.end(), extent_end):
             continue
-        sentence_end = _sentence_end(text, lead.end(), extent_end)
+        sentence_end = _sentence_break(text, lead.end(), extent_end)
         end = (
             sentence_end
             if sentence_end is not None
             else start + len(text[start:extent_end].rstrip(" \t\n.;,:"))
         )
-        spans.append((start, _note_end(text, start, end)))
+        spans.append((start, start + len(text[start:end].rstrip())))
     return spans
 
 
@@ -741,7 +917,7 @@ def _inside_open_course(text: str, position: int) -> bool:
     if _last_closure_end(index, position, index.easements) is not None:
         return False
     i = bisect_right(index.openings, position)
-    return i > 0 and _sentence_end(text, index.openings[i - 1], position) is None
+    return i > 0 and _sentence_break(text, index.openings[i - 1], position) is None
 
 
 def stated_clause_end(text: str, end: int, start: int | None = None) -> int:
@@ -762,9 +938,9 @@ def stated_clause_end(text: str, end: int, start: int | None = None) -> int:
         return end
     if start is not None and _inside_open_course(text, start):
         return end
-    sentence_end = _sentence_end(text, end, len(text))
+    sentence_end = _sentence_break(text, end, len(text))
     stop = sentence_end if sentence_end is not None else len(text.rstrip(" \t\n.;,:"))
-    rest = text[end : _note_end(text, end, stop)]
+    rest = text[end:stop]
     if (
         _TRAVERSE_WORDING.search(rest)
         or _STATED_EXCEPT_LEAD.search(rest)
@@ -818,10 +994,12 @@ def _separate_easements(
 def _easement_lead(text: str, position: int, floor: int = 0) -> int | None:
     """Return where the easement opener of the tract starting at ``position`` starts.
 
-    The opener follows ``floor`` (the end of the previous tract) and its clause runs
-    on to ``position`` (no sentence end, semicolon or THENCE between), however long
-    its grantee wording ("RESERVING unto the grantor, its successors and assigns, a
-    perpetual non-exclusive easement ... as follows: BEGINNING ...").
+    The opener is the last one after ``floor`` (the end of the previous tract) and its
+    grant takes the description at ``position`` (``_grant_takes``, the rule the easement
+    spans share): its clause runs on to it, however long its grantee wording
+    ("RESERVING unto the grantor, its successors and assigns, a perpetual non-exclusive
+    easement ... as follows: BEGINNING ..."), or it follows a closed boundary with
+    nothing but punctuation or structure after the grant's sentence end.
     """
     index = _index(text)
     # A description the easement spans claim (one introduced as the easement's
@@ -833,10 +1011,7 @@ def _easement_lead(text: str, position: int, floor: int = 0) -> int | None:
     if not i or index.openers[i - 1] < floor:
         return None
     opener = index.openers[i - 1]
-    if (
-        _clause_end(text, opener, min(len(text), position + _OPENING_LOOKAHEAD)) >= position
-        and _OPENER_CLAUSE_BREAK.search(text, opener, position) is None
-    ):
+    if _grant_takes(text, opener, position, index.after_boundary(opener), index.headings):
         return opener
     return None
 
@@ -858,7 +1033,7 @@ def _except_lead(text: str, position: int, floor: int = 0) -> int | None:
         return None
     lead = leads[-1]
     if (
-        _sentence_end(text, lead.end(), position) is None
+        _sentence_break(text, lead.end(), position) is None
         and _TRAVERSE_WORDING.search(text, lead.end(), position) is None
     ):
         return lead.start()
@@ -1207,7 +1382,7 @@ def closing_tail_end(text: str, end: int) -> int:
     """
     while end < len(text) and text[end] == ";":
         semicolon = text.find(";", end + 1)
-        sentence_end = _sentence_end(text, end + 1, len(text) if semicolon < 0 else semicolon)
+        sentence_end = _sentence_break(text, end + 1, len(text) if semicolon < 0 else semicolon)
         piece_end = (
             sentence_end if sentence_end is not None else len(text) if semicolon < 0 else semicolon
         )
