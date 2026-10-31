@@ -5,11 +5,14 @@ from __future__ import annotations
 import argparse
 import hashlib
 import importlib.util
+import json
 import os
 import posixpath
 import re
 import tempfile
+import time
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
@@ -32,6 +35,209 @@ EXCLUDED_PARTS = {
     ".venv",
     ".uv-cache",
 }
+# Unlinked maintainer, settings and per-skill human docs: the chat entrypoint never routes to them.
+EXCLUDED_FILES = {
+    "CHANGELOG.md",
+    "README.md",
+    "references/plugin-settings.md",
+    # Compatibility stub that only points at render-online-map; nothing links to it.
+    "skills/deed-closure-dashboard/references/mapbox-mcp.md",
+}
+EXCLUDED_PATTERNS = (re.compile(r"skills/[^/]+/README\.md"),)
+# Engine bundle and launcher files are executed or hashed, never navigated from Markdown.
+UNLINKED_ALLOWED = ("runtime/", "scripts/")
+FIXED_DATE = (1980, 1, 1, 0, 0, 0)
+MAX_DESCRIPTION = 200
+# Plugin-only or source-checkout phrasing that must not survive adaptation (case-insensitive).
+FORBIDDEN = (
+    "plugin root",
+    "project root",
+    "repository root",
+    "/tmp/",
+    "claude code",
+    "claude_plugin_root",
+    ".claude/",
+    "plugin-dir",
+    "plugin-settings",
+)
+TOC_HEADING = re.compile(r"(?mi)^#{2,3}[ \t]+(?:table of[ \t]+)?contents[ \t]*$")
+TOC_MIN_LINES = 100
+
+_ROOT_VAR = r"(?:METESPARSER_SKILL_ROOT|CLAUDE_PLUGIN_ROOT)"
+_ROOT_UNSET = r"(?:unavailable|missing|unset|not set|not available|not defined)"
+_WORKDIR = "a host-writable working directory"
+_FALLBACK = (
+    "If `METESPARSER_SKILL_ROOT` is unavailable, set it as described in "
+    "[chat runtime]({runtime}); never guess the launcher location."
+)
+_NO_SETTINGS = (
+    "Chat has no project settings or configured output base, so always pass `--output-dir` "
+    "with a new directory."
+)
+
+# Explicit plugin-to-chat phrasing table: (name, pattern, replacement).  "{runtime}" expands to
+# a relative link to the chat runtime section on locating the launcher.  Rules run on every
+# adapted Markdown file; _validate fails the build if plugin-only phrasing survives, so new
+# upstream wording must be added here rather than shipped.
+TRANSFORMS: tuple[tuple[str, re.Pattern[str], Callable[[re.Match[str]], str] | str], ...] = (
+    (
+        "fallback-locate-launcher-relative-to-plugin-root",
+        re.compile(
+            rf"Locate the launcher relative to [^.\n`]*? if `[^`\n]*{_ROOT_VAR}[^`\n]*` is {_ROOT_UNSET}\."
+        ),
+        _FALLBACK,
+    ),
+    (
+        "fallback-locate-archive-root",
+        re.compile(
+            rf"If `[^`\n]*{_ROOT_VAR}[^`\n]*` is {_ROOT_UNSET},? (?:locate|find|derive|resolve)[^.\n]*\."
+        ),
+        _FALLBACK,
+    ),
+    (
+        "fallback-in-environments-without-root",
+        re.compile(rf"In environments without `[^`\n]*{_ROOT_VAR}[^`\n]*`, [^.\n]*\."),
+        _FALLBACK,
+    ),
+    ("plugin-root-announcement-line", re.compile(r"(?m)^Plugin root:[^\n]*\n\n?"), ""),
+    (
+        "substitute-plugin-root-sentence",
+        re.compile(r"Commands below use the plugin root[^\n]*?substitute it for `[^`\n]+`\.?"),
+        "Commands below use `${METESPARSER_SKILL_ROOT}`, set as described in "
+        "[chat runtime]({runtime}).",
+    ),
+    (
+        "output-base-omitted-sentence",
+        re.compile(
+            r"Use an actual new directory, or omit `--output-dir` when a configured output base "
+            r"supplies fresh folders\."
+        ),
+        "Use an actual new directory. " + _NO_SETTINGS,
+    ),
+    (
+        "output-base-with-settings-reference",
+        re.compile(
+            r"A configured output base can supply a fresh child when `--output-dir` is omitted\."
+            r"(?: See \[[^\]]*\]\([^)]*plugin-settings\.md\)[^\n]*)?"
+        ),
+        _NO_SETTINGS,
+    ),
+    (
+        "output-base-supplies-folders",
+        re.compile(
+            r"A configured output base supplies fresh folders if `--output-dir` is omitted"
+            r"(?:; see \[[^\]]*\]\([^)]*plugin-settings\.md\))?\."
+        ),
+        _NO_SETTINGS,
+    ),
+    (
+        "honor-settings-sentence",
+        re.compile(
+            r" ?Honor disabled or invalid (?:\[project settings\]\([^)]*plugin-settings\.md\)|settings)\."
+        ),
+        "",
+    ),
+    (
+        "from-repository-root",
+        re.compile(r"From the repository root, (\w)"),
+        lambda m: m[1].upper(),
+    ),
+    ("tmp-cache-dir", re.compile(r"--cache-dir /tmp/\S+"), "--cache-dir NEW_CACHE_DIR"),
+    ("tmp-output-dir", re.compile(r"--output-dir /tmp/\S+"), "--output-dir NEW_OUTPUT_DIR"),
+    (
+        "from-project-root-capitalized",
+        re.compile(r"\bFrom the (?:intended )?project root\b"),
+        f"From {_WORKDIR}",
+    ),
+    (
+        "from-project-root",
+        re.compile(r"\bfrom the (?:intended )?project root\b"),
+        f"from {_WORKDIR}",
+    ),
+    (
+        "development-workspace-duplicate",
+        re.compile(r"(?m)^# or, in the development workspace:\n[^\n]*\n"),
+        "",
+    ),
+    (
+        "duplicate-launcher-block",
+        re.compile(
+            r"The plugin launcher accepts the same arguments after `[^`\n]+`:\n\n```sh\n.*?\n```\n\n",
+            re.DOTALL,
+        ),
+        "",
+    ),
+    (
+        "launcher-or-package-cli",
+        re.compile(
+            r"Run with the plugin's launcher or the package CLI and use an unused output directory:"
+        ),
+        "Run with the packaged launcher and an unused output directory:",
+    ),
+    (
+        "claude-code-mcp-setup",
+        re.compile(
+            r"For user-requested Claude Code connection setup, follow[^\n]*?authentication flow\. "
+            r"Setup is optional;"
+        ),
+        "Connection setup is optional and belongs to the host's own connector settings;",
+    ),
+    (
+        "mcp-apps-client-list",
+        re.compile(r"Claude Desktop, Claude Code, VS Code"),
+        "Claude Desktop, VS Code",
+    ),
+    (
+        "maintainer-changelog-section",
+        re.compile(r"(?ms)^## Documentation and changes\n.*?(?=^## |\Z)"),
+        "",
+    ),
+    (
+        "changelog-link-line",
+        re.compile(r"(?m)^[^\n]*\]\((?:\.\./)*CHANGELOG\.md\)[^\n]*\n"),
+        "",
+    ),
+    (
+        "plugin-launcher",
+        re.compile(r"\b([Tt])he plugin(?:'s)? launcher"),
+        lambda m: f"{m[1]}he packaged launcher",
+    ),
+    ("plugin-runtime", re.compile(r"plugin/runtime"), "runtime"),
+    (
+        "plugin-dedicated-command",
+        re.compile(r"the plugin's dedicated command"),
+        "the dedicated command",
+    ),
+    (
+        "catalog-in-plugin-readme",
+        re.compile(r"The catalog in the \[plugin README\]"),
+        "The [skill catalog]",
+    ),
+    ("plugin-readme-link", re.compile(r"\[plugin README\]"), "[skill catalog]"),
+    (
+        "plugin-uses-native-reading",
+        re.compile(r"The plugin uses Claude's"),
+        "This skill uses Claude's",
+    ),
+    (
+        "plugin-native-reading-rules",
+        re.compile(r"the plugin's native-reading"),
+        "this skill's native-reading",
+    ),
+    ("shared-plugin-usage", re.compile(r"Shared plugin usage"), "Shared usage"),
+)
+
+
+def _apply(
+    pattern: re.Pattern[str],
+    replacement: Callable[[re.Match[str]], str] | str,
+    text: str,
+    runtime_link: str,
+) -> str:
+    if callable(replacement):
+        return pattern.sub(replacement, text)
+    literal = replacement.replace("{runtime}", runtime_link)
+    return pattern.sub(lambda _match: literal, text)
 
 
 def _adapt_markdown(text: str, source: str) -> str:
@@ -72,6 +278,11 @@ def _adapt_markdown(text: str, source: str) -> str:
             text,
         )
 
+    runtime = posixpath.relpath("references/chat-runtime.md", posixpath.dirname(source) or ".")
+    for _name, pattern, replacement in TRANSFORMS:
+        text = _apply(pattern, replacement, text, f"{runtime}#locate-the-launcher")
+    text = _add_contents(text)
+
     def rewrite(match: re.Match[str]) -> str:
         target = match[2]
         if urlsplit(target).scheme or target.startswith("#"):
@@ -85,24 +296,144 @@ def _adapt_markdown(text: str, source: str) -> str:
     return LINK.sub(rewrite, text)
 
 
+def _slug(heading: str) -> str:
+    """GitHub-style heading anchor."""
+    plain = re.sub(r"[`*_]", "", re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", heading)).strip().lower()
+    return re.sub(r"\s", "-", re.sub(r"[^\w\s-]", "", plain))
+
+
+def _add_contents(text: str) -> str:
+    """Give a long reference a short contents list so it can be previewed efficiently."""
+    lines = text.split("\n")
+    if len(lines) <= TOC_MIN_LINES or TOC_HEADING.search(text):
+        return text
+    headings: list[str] = []
+    fenced = False
+    title_index: int | None = None
+    for index, line in enumerate(lines):
+        if line.startswith("```"):
+            fenced = not fenced
+        elif not fenced and line.startswith("# ") and title_index is None:
+            title_index = index
+        elif not fenced and line.startswith("## "):
+            headings.append(line[3:].strip())
+    if title_index is None or len(headings) < 2:
+        return text
+    contents = ["", "## Contents", ""] + [f"- [{h}](#{_slug(h)})" for h in headings]
+    return "\n".join(lines[: title_index + 1] + contents + lines[title_index + 1 :])
+
+
+def _excluded(name: str) -> bool:
+    return name in EXCLUDED_FILES or any(pattern.fullmatch(name) for pattern in EXCLUDED_PATTERNS)
+
+
+def _description(skill: str) -> str:
+    match = re.match(r"---\r?\n(.*?)\r?\n---", skill, flags=re.DOTALL)
+    if match is None:
+        raise ValueError("SKILL.md must begin with YAML frontmatter")
+    found = re.search(r"(?m)^description:[ \t]*(.*)$", match[1])
+    if found is None:
+        raise ValueError("SKILL.md frontmatter must define a description")
+    return found[1].strip().strip("\"'")
+
+
+def _linked_targets(name: str, text: str) -> set[str]:
+    targets = set()
+    for match in LINK.finditer(text):
+        target = match[2].strip("<>")
+        if urlsplit(target).scheme or target.startswith("#"):
+            continue
+        path = unquote(target.split("#", 1)[0])
+        targets.add(posixpath.normpath(posixpath.join(posixpath.dirname(name), path)))
+    return targets
+
+
+def _json_path_targets(name: str, content: bytes) -> set[str]:
+    """Files an example record names with a "path" member, relative to the record itself."""
+    found: set[str] = set()
+
+    def walk(value: object) -> None:
+        if isinstance(value, dict):
+            for key, item in value.items():
+                if key == "path" and isinstance(item, str):
+                    found.add(posixpath.normpath(posixpath.join(posixpath.dirname(name), item)))
+                else:
+                    walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    try:
+        walk(json.loads(content))
+    except ValueError:
+        pass
+    return found
+
+
 def _validate(files: dict[str, bytes]) -> None:
     skills = [name for name in files if Path(name).name == "SKILL.md"]
     if skills != ["SKILL.md"]:
         raise ValueError("chat archive must contain exactly one root SKILL.md")
+    description = _description(files["SKILL.md"].decode("utf-8"))
+    if len(description) > MAX_DESCRIPTION:
+        raise ValueError(
+            f"Skill description exceeds {MAX_DESCRIPTION} characters: {len(description)}"
+        )
+    if "Use when" not in description:
+        raise ValueError("Skill description must state when to use it ('Use when ...')")
     for name, content in files.items():
         if not name.endswith(".md"):
             continue
         text = content.decode("utf-8")
-        if "CLAUDE_PLUGIN_ROOT" in text or str(ROOT) in text:
+        if str(ROOT) in text:
             raise ValueError(f"unadapted source-checkout reference in {name}")
-        for match in LINK.finditer(text):
-            target = match[2].strip("<>")
-            if urlsplit(target).scheme or target.startswith("#"):
-                continue
-            path = unquote(target.split("#", 1)[0])
-            resolved = posixpath.normpath(posixpath.join(posixpath.dirname(name), path))
-            if resolved not in files:
+        lowered = text.lower()
+        for phrase in FORBIDDEN:
+            if phrase in lowered:
+                raise ValueError(f"unadapted plugin-only phrase {phrase!r} in {name}")
+        for target in _linked_targets(name, text):
+            if target not in files:
                 raise ValueError(f"missing packaged Markdown target in {name}: {target}")
+    reached = {"SKILL.md"}
+    pending = ["SKILL.md"]
+    while pending:
+        current = pending.pop()
+        if current.endswith(".md"):
+            targets = _linked_targets(current, files[current].decode("utf-8"))
+        elif current.endswith(".json"):
+            targets = _json_path_targets(current, files[current])
+        else:
+            continue
+        for target in targets:
+            if target in files and target not in reached:
+                reached.add(target)
+                pending.append(target)
+    unlinked = sorted(
+        name for name in files if name not in reached and not name.startswith(UNLINKED_ALLOWED)
+    )
+    if unlinked:
+        raise ValueError(f"archive files not linked from SKILL.md: {', '.join(unlinked)}")
+
+
+def _zip_date() -> tuple[int, int, int, int, int, int]:
+    epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    if not epoch:
+        return FIXED_DATE
+    stamp = time.gmtime(int(epoch))[:6]
+    return stamp if stamp >= FIXED_DATE else FIXED_DATE
+
+
+def write_archive(path: Path, files: dict[str, bytes]) -> None:
+    """Write a byte-reproducible ZIP: sorted entries, fixed timestamps and permissions."""
+    date_time = _zip_date()
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, content in sorted(files.items()):
+            entry = zipfile.ZipInfo(f"{SKILL_ROOT}/{name}", date_time=date_time)
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            entry.create_system = 3
+            mode = 0o755 if name.startswith("scripts/") and name.endswith(".py") else 0o644
+            entry.external_attr = (0o100000 | mode) << 16
+            archive.writestr(entry, content)
 
 
 def build(output: Path, *, offline: bool = False, geo: bool = True, web_map: bool = False) -> Path:
@@ -123,11 +454,7 @@ def build(output: Path, *, offline: bool = False, geo: bool = True, web_map: boo
         with zipfile.ZipFile(plugin_zip) as archive:
             for name in archive.namelist():
                 path = Path(name)
-                if (
-                    name.endswith("/")
-                    or EXCLUDED_PARTS.intersection(path.parts)
-                    or name == "README.md"
-                ):
+                if name.endswith("/") or EXCLUDED_PARTS.intersection(path.parts) or _excluded(name):
                     continue
                 content = archive.read(name)
                 if name.endswith(".md") and not name.startswith("runtime/"):
@@ -146,9 +473,7 @@ def build(output: Path, *, offline: bool = False, geo: bool = True, web_map: boo
                 files[relative.as_posix()] = path.read_bytes()
         _validate(files)
         staged_zip = staging / "skill.zip"
-        with zipfile.ZipFile(staged_zip, "w", zipfile.ZIP_DEFLATED) as archive:
-            for name, content in sorted(files.items()):
-                archive.writestr(f"{SKILL_ROOT}/{name}", content)
+        write_archive(staged_zip, files)
         digest = hashlib.sha256(staged_zip.read_bytes()).hexdigest()
         sidecar = staging / "skill.zip.sha256"
         sidecar.write_text(f"{digest}  {output.name}\n", encoding="utf-8")
