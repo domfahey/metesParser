@@ -1260,6 +1260,16 @@ Sample texts unchanged from round 52 (byte-identical result-level output). Nine 
 - **`role_check` private:** `verify_closure` no longer accepts a caller-supplied role check (which could strip verification from a closed parcel); export reasons derive from the exported tract, and a result belonging to another tract blocks that tract's export (`91cb313`).
 - **Known limitations:** after a closed boundary, an easement grant followed by an explicit tract heading ("PARCEL B: BEGINNING …") is typed as a fee tract; "Said easement is described as follows" before the parcel types the next description as an easement.
 
+### PR #60 fifty-fourth review (2026-10-31)
+Sample texts unchanged by round 53. Five result-changing findings from synthetic probes, three of them regressions against `main` on ordinary single-parcel deeds whose preamble recited an easement or exception. Instead of recognising more grant wording, classification now rests on invariants (`1a40419`):
+- **INV-1, the first parcel is the parcel:** wording before the first description ("SUBJECT to easements … as shown on the filed plan", "subject to a 10 foot wide utility easement along the rear line", "excepting the portion within Main Street", "EXCEPTING AND RESERVING the oil and gas rights") never types it as an easement or exception; a preamble EXCEPT clause stays on the parcel text. Explicit exceptions: an EXCEPT lead taking land "from the lands hereinafter described", and a document that opens with a specific easement grant running into its description (an easement deed; nothing exported).
+- **INV-2:** only a description after a closed MAIN/ADDITION boundary can be an easement, or an exception unless introduced inside an open description.
+- **INV-3:** a boundary written as an enumerated list under one THENCE ("thence the following four courses: (1) …, (2) …, (3) … and (4) …") counts its courses, so it closes and an easement after it stays an easement.
+- A property test inserts 12 recitals in 2 frames before the first description of every corpus case and requires an identical outcome (classification, calls, verification, export files and rows).
+- On the samples, no verification or export result changed: 116 Kings Highway E `.md` is no longer typed EXCEPTION (its four cardinal-only courses are the boundary, matching ground truth) and 36 Kresson Rd `.md` (monolith one-description path) no longer marks all four courses as exceptions because of boilerplate "except as set forth in this Deed".
+- **`verify_tract` role binding:** the public `verify_tract` no longer accepts a caller-supplied role check; it takes an optional `tract` and derives the check from its type (`da093bc`).
+- **Known limitations:** a "GRANT OF EASEMENT" title alone does not mark an easement deed; preamble recitals are left on the parcel text rather than noted.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
