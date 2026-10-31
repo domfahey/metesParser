@@ -106,17 +106,18 @@ This section is the single source of truth for the fail-closed role policy; othe
 
 **Where a role comes from** (`Tract.role_basis`):
 
-- `heading`: an explicit `PARCEL ONE:` / `TRACT 2:` style heading, typed main or addition, with no role wording (easement, except, less, reserving, subject to) in it or before it.
-- `single`: the deed's only description, read as the parcel (main).
+- `heading`: a plain `PARCEL ONE:` / `TRACT 2:` style label (nothing after the colon, or the parcel's own intro such as "ALL THAT …"), typed main or addition, with only plain sentences or harmless recitals since the previous description and no role statement after the last one.
+- `single`: the deed's only description, read as the parcel (main), when nothing before it grants, excepts, excludes, reserves or saves land other than harmless or rights-only recitals ("SUBJECT to easements of record", "EXCEPTING AND RESERVING all oil, gas and mineral rights").
 - `inferred`: guessed from wording such as EXCEPT or ALSO leads, easement grants, or a default main with no heading. A sole addition, exception or easement description is also `inferred`.
 
 **The rule.** The one gate is `mp_models.roles_need_review(tracts, calls)`:
 
 - A deed with more than one description and any `inferred` role gets no verified export through any path. Verification adds a blocked `description_roles_inferred` check to every tract (geometry is still computed for review), `export_verified_csv` raises, and review output never reports `checks_passed`. A stored multi-tract artifact with no recorded basis fails closed the same way.
+- A sole description whose parcel role is not established (basis `inferred`) is blocked the same way.
 - Easement and exception tracts are never eligible for verified export, whatever their geometry or supplied results. Verification reports a blocked `non_boundary_tract` check for them and the exporter skips them.
 - Text review (`mp_review`) refuses text with more than one parcel (main/addition) description and asks for one parcel per review. A parcel with its own exception or easement is still one review.
 
-**Unaffected.** A deed with a single description, and a deed whose parcel roles all come from plain headings, verify and export as before.
+**Unaffected.** An ordinary single description (basis `single`) and a deed whose parcel roles all come from plain headings verify and export as before. Rights-only reservations (mineral, oil and gas, public rights, a reserved easement not described by courses) are noted, not treated as land exceptions.
 
 **How to unblock.** Supply plain `PARCEL ONE:` / `TRACT 2:` headings with no role wording, or review one parcel at a time.
 
@@ -689,7 +690,7 @@ For a supported straight course, `delta E = distance × sin(azimuth)` and `delta
 
 ```mermaid
 flowchart TD
-    start(["export_verified_csv"]) --> roles{"roles_need_review?<br/>several descriptions with an inferred role,<br/>or a call with the role-review mark"}
+    start(["export_verified_csv"]) --> roles{"roles_need_review?<br/>an inferred role (several descriptions,<br/>or a sole unestablished one),<br/>or a call with the role-review mark"}
     roles -- yes --> refuse["Refuse: raise ValueError, write nothing"]
     roles -- no --> shape{"Per-tract results supplied?"}
 
