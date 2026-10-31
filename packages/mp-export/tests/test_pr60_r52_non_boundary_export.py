@@ -29,7 +29,7 @@ def _square(side: float = 100.0) -> list[DeedCall]:
 @pytest.mark.parametrize("kind", [TractType.EASEMENT, TractType.EXCEPTION])
 @pytest.mark.parametrize("forged", [False, True])
 def test_non_boundary_only_export_is_refused(tmp_path: Path, kind: TractType, forged: bool) -> None:
-    tract = Tract(label="Other 1", tract_type=kind, calls=_square())
+    tract = Tract(label="Other 1", tract_type=kind, role_basis="heading", calls=_square())
     # A forged result comes from tract-unaware verification and claims eligibility.
     result = verify_tract(tract.calls) if forged else verify_closure([], tracts=[tract])[0]
     with pytest.raises(ValueError, match="no parcel boundary tract"):
@@ -42,8 +42,8 @@ def test_non_boundary_only_export_is_refused(tmp_path: Path, kind: TractType, fo
 def test_boundary_plus_non_boundary_exports_only_boundary(
     tmp_path: Path, kind: TractType, forged: bool
 ) -> None:
-    main = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square())
-    other = Tract(label="Other 1", tract_type=kind, calls=_square(10.0))
+    main = Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=_square())
+    other = Tract(label="Other 1", tract_type=kind, role_basis="heading", calls=_square(10.0))
     results = verify_closure([], tracts=[main, other])
     other_result = verify_tract(other.calls) if forged else results[1]
 
@@ -62,8 +62,10 @@ def test_boundary_plus_non_boundary_exports_only_boundary(
 
 
 def test_addition_tract_still_exports(tmp_path: Path) -> None:
-    main = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square())
-    addition = Tract(label="Addition 1", tract_type=TractType.ADDITION, calls=_square(10.0))
+    main = Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=_square())
+    addition = Tract(
+        label="Addition 1", tract_type=TractType.ADDITION, role_basis="heading", calls=_square(10.0)
+    )
     results = verify_closure([], tracts=[main, addition])
     written = export_verified_csv(
         [],

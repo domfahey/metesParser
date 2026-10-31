@@ -19,12 +19,16 @@ from mp_bearing import (  # type: ignore[import-untyped]
     tangent_chord_tolerance_deg,
 )
 from mp_models import (
+    DESCRIPTION_ROLES_CHECK,
     CheckResult,
     DeedCall,
     Point,
+    Tract,
     TractType,
     is_boundary_tract,
     non_boundary_detail,
+    roles_need_review,
+    roles_review_detail,
     tract_kind,
 )
 
@@ -66,6 +70,26 @@ def evaluate_tract_role(label: str, tract_type: TractType | str) -> CheckResult 
         reason=kind,
         detail=non_boundary_detail(label, tract_type),
         inputs={"tract_type": kind},
+    )
+
+
+def evaluate_description_roles(tracts: list[Tract]) -> CheckResult | None:
+    """Block every tract of a deed whose description roles were inferred, not headed.
+
+    Fail closed (``mp_models.roles_need_review``): when a deed has several
+    descriptions and any role came from wording rather than an explicit tract
+    heading, no tract is verified, whatever its geometry. ``None`` when every role
+    is established.
+    """
+    reasons = roles_need_review(tracts)
+    if not reasons:
+        return None
+    return CheckResult(
+        name=DESCRIPTION_ROLES_CHECK,
+        status="blocked",
+        reason="roles_need_review",
+        detail=roles_review_detail(reasons),
+        inputs={"tracts": len(tracts), "tracts_needing_review": len(reasons)},
     )
 
 

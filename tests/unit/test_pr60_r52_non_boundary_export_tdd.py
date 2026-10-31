@@ -36,12 +36,15 @@ def _export(flat, tracts, path: Path):
     )
 
 
-def test_parsed_boundary_plus_easement_exports_only_boundary(tmp_path: Path) -> None:
+def test_parsed_boundary_plus_easement_exports_nothing(tmp_path: Path) -> None:
+    # Round 56: the easement's role is inferred from its grant wording, so the whole
+    # deed is blocked (fail closed); before, the boundary tract was exported.
     flat, tracts = extract_calls(SQUARE + " " + EASEMENT)
     assert [t.tract_type for t in tracts] == [TractType.MAIN, TractType.EASEMENT]
-    results, written = _export(flat, tracts, tmp_path / "deed.csv")
-    assert [r.is_fully_verified() for r in results] == [True, False]
-    assert [p.name for p in written] == ["deed_verified_tract1.csv"]
+    with pytest.raises(ValueError, match="description roles need review"):
+        _export(flat, tracts, tmp_path / "deed.csv")
+    assert list(tmp_path.iterdir()) == []
+    assert [r.is_fully_verified() for r in verify_closure(flat, tracts=tracts)] == [False, False]
 
 
 def test_parsed_easement_only_is_refused(tmp_path: Path) -> None:
@@ -56,9 +59,14 @@ def test_parsed_easement_only_is_refused(tmp_path: Path) -> None:
 def test_facade_blocks_and_skips_non_boundary_tract_identically(tmp_path, kind):
     def scenario(impl, out):
         m = impl["m"]
-        main = m.Tract(label="Tract 1", tract_type=m.TractType.MAIN, calls=_square(m))
+        main = m.Tract(
+            label="Tract 1", tract_type=m.TractType.MAIN, role_basis="heading", calls=_square(m)
+        )
         other = m.Tract(
-            label="Other 1", tract_type=getattr(m.TractType, kind), calls=_square(m, side=10.0)
+            label="Other 1",
+            tract_type=getattr(m.TractType, kind),
+            role_basis="heading",
+            calls=_square(m, side=10.0),
         )
         results = impl["verify"]([], tracts=[main, other])
         assert [r.is_fully_verified() for r in results] == [True, False]

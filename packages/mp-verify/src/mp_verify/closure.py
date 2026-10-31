@@ -18,10 +18,12 @@ Quality and confidence scoring:
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from typing import overload
 
 import structlog
 from mp_models import (
+    DESCRIPTION_ROLES_CHECK,
     AuditContext,
     CheckResult,
     ClosureResult,
@@ -44,6 +46,7 @@ from .checks import (
     check_parallelism,
     chord_only_delta_detail,
     compare_double_entry,
+    evaluate_description_roles,
     evaluate_tract_role,
     tangent_chord_issue,
 )
@@ -204,10 +207,40 @@ def verify_tract(
 ) -> ClosureResult:
     """Check one independent tract using every standard verification guardrail.
 
-    When ``tract`` is supplied, its role check is derived from ``tract.tract_type``
-    so the check can never be omitted or mismatched by the caller.
+    When ``tract`` is supplied, its role checks are derived from the tract itself
+    (``tract_type`` and ``role_basis``) so they can never be omitted or mismatched by
+    the caller: a tract whose role was inferred from wording is blocked even alone.
     """
-    role_check = evaluate_tract_role(tract.label, tract.tract_type) if tract is not None else None
+    return _verify_tract(
+        calls,
+        stated_area_sq_ft=stated_area_sq_ft,
+        closure_tolerance_ft=closure_tolerance_ft,
+        audit_context=audit_context,
+        skipped_courses=skipped_courses,
+        tract=tract,
+        deed_roles=evaluate_description_roles([tract]) if tract is not None else None,
+    )
+
+
+def _verify_tract(
+    calls: list[DeedCall],
+    *,
+    stated_area_sq_ft: float,
+    closure_tolerance_ft: float | None,
+    audit_context: AuditContext | None,
+    skipped_courses: list[SkippedCourse] | None,
+    tract: Tract | None,
+    deed_roles: CheckResult | None,
+) -> ClosureResult:
+    """``verify_tract`` with the deed-level role check computed over all its tracts."""
+    role_checks = [
+        check
+        for check in (
+            evaluate_tract_role(tract.label, tract.tract_type) if tract is not None else None,
+            deed_roles,
+        )
+        if check is not None
+    ]
     boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
     return _verify_single(
         boundary,
@@ -215,7 +248,7 @@ def verify_tract(
         closure_tolerance_ft=closure_tolerance_ft,
         audit_context=audit_context,
         skipped_courses=skipped_courses,
-        role_check=role_check,
+        role_checks=role_checks,
     )
 
 
@@ -306,7 +339,11 @@ def verify_closure(
         calls: List of DeedCall objects.
         tracts: Optional list of Tract objects for multi-tract verification.
             Easement/exception tracts keep their computed geometry but a blocked
-            ``non_boundary_tract`` check keeps them from geometry eligibility.
+            ``non_boundary_tract`` check keeps them from geometry eligibility. When
+            any tract's role needs review (``mp_models.roles_need_review``: several
+            descriptions and a role inferred from wording rather than an explicit
+            tract heading), every tract gets a blocked ``description_roles_inferred``
+            check; geometry is still computed for review.
         stated_area_sq_ft: Stated area from deed (optional, for comparison).
         closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft).
         double_entry_calls: Optional independently-entered call set for guardrail F.
@@ -329,6 +366,8 @@ def verify_closure(
         labelled = _merge_skips(
             skipped_courses or [], audit_context.skipped_courses if audit_context else []
         )
+        # Deed level: inferred roles among several descriptions block every tract.
+        deed_roles = evaluate_description_roles(tracts)
         for tract in tracts:
             # Scratch context per tract so tracts never overwrite each other's audit.
             scratch = (
@@ -336,13 +375,14 @@ def verify_closure(
                 if audit_context is not None
                 else None
             )
-            result = verify_tract(
+            result = _verify_tract(
                 tract.calls,
                 stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
                 closure_tolerance_ft=closure_tolerance_ft,
                 audit_context=scratch,
                 skipped_courses=skips_for_tract(tract, tracts, labelled),
                 tract=tract,
+                deed_roles=deed_roles,
             )
             tract_audit = scratch.verification_audit if scratch is not None else None
             if audit_context is not None and tract_audit is not None:
@@ -359,8 +399,12 @@ def verify_closure(
         double_entry_calls=double_entry_calls,
         audit_context=audit_context,
         skipped_courses=skipped_courses,
-        role_check=None,
+        role_checks=(),
     )
+
+
+# The role checks ``verify_tract`` derives from a tract; each only ever blocks.
+_ROLE_CHECK_NAMES = frozenset({"non_boundary_tract", DESCRIPTION_ROLES_CHECK})
 
 
 def _verify_single(
@@ -371,13 +415,13 @@ def _verify_single(
     double_entry_calls: list[DeedCall] | None = None,
     audit_context: AuditContext | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
-    role_check: CheckResult | None = None,
+    role_checks: Sequence[CheckResult] = (),
 ) -> ClosureResult:
-    """Single-tract verification; ``role_check`` is internal (set by ``verify_tract``)."""
-    if role_check is not None and (
-        role_check.name != "non_boundary_tract" or role_check.status != "blocked"
-    ):
-        raise ValueError("role_check must be a blocked non_boundary_tract check")
+    """Single-tract verification; ``role_checks`` are internal (set by ``verify_tract``)."""
+    if any(c.name not in _ROLE_CHECK_NAMES or c.status != "blocked" for c in role_checks):
+        raise ValueError(
+            "role_checks must be blocked non_boundary_tract or description_roles_inferred checks"
+        )
     tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
     # Courses the extractor skipped are missing from ``calls``: a traverse of the
     # rest is not the deed's boundary, so nothing derived from it is determined.
@@ -682,7 +726,7 @@ def _verify_single(
         curve_consistency_passed_val = False
     if skipped:
         check_results = _block_skipped_closure(check_results, skipped)
-    if role_check is not None:
+    for role_check in role_checks:
         check_results = [*check_results, role_check]
         warnings.append(role_check.detail)
 

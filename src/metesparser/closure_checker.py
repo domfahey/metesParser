@@ -139,7 +139,8 @@ class ClosureChecker:
             ClosureResult with all checks, computed values, and confidence_score.
             If tracts provided, returns list[ClosureResult] with one per tract.
             Easement and exception tracts keep their computed geometry but are
-            blocked (``non_boundary_tract``) from geometry eligibility.
+            blocked (``non_boundary_tract``) from geometry eligibility; inferred
+            description roles block every tract (``description_roles_inferred``).
         """
         # The package records audits on a scratch context holding only those fields;
         # they are copied back so the caller's context reflects the latest run alone.
@@ -165,6 +166,7 @@ class ClosureChecker:
                     calls=_package_calls(tract.calls),
                     skipped_courses=_package_skips(tract.skipped_courses),
                     stated_area_sq_ft=tract.stated_area_sq_ft,
+                    role_basis=tract.role_basis,
                 )
                 for tract in tracts
             ]

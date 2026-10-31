@@ -24,6 +24,8 @@ from mp_models import (
     _Model,
     is_boundary_tract,
     non_boundary_detail,
+    roles_need_review,
+    roles_review_detail,
     tract_kind,
 )
 from mp_verify.closure import skips_for_tract
@@ -522,11 +524,22 @@ def export_verified_csv(
     verified CSV, whatever their supplied result claims. They are listed in the
     verification summary instead.
 
+    Nothing is exported when any known tract's role needs review
+    (``mp_models.roles_need_review``: several descriptions, and a role inferred from
+    wording rather than an explicit tract heading), whatever the supplied results
+    claim: land whose role was guessed is never exported.
+
     Raises:
         ValueError: If verification checks did not pass (single-tract only).
             For multi-tract, if no parcel-boundary tract is supplied or none
             verifies; individual unverified or non-boundary tracts are skipped.
+            In both modes, if description roles need review.
     """
+    # Deed level, before anything else: the supplied tracts and the description's own.
+    known_tracts = _known_tracts(legal_desc, tract_results or [])
+    role_reasons = roles_need_review(known_tracts)
+    if role_reasons:
+        raise ValueError("Cannot export verified CSV: " + roles_review_detail(role_reasons))
     # Multi-tract mode gates per tract, but at least one boundary tract must verify.
     if tract_results:
         if not any(is_boundary_tract(tract.tract_type) for tract, _ in tract_results):
@@ -552,7 +565,6 @@ def export_verified_csv(
 
     # Validate every selected successful result before writing any output.
     if tract_results:
-        known_tracts = _known_tracts(legal_desc, tract_results)
         labelled_skips = _labelled_skips(audit_context, skipped_courses)
         for tract, result in tract_results:
             if _exportable(tract, result):
