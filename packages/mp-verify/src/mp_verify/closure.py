@@ -200,9 +200,14 @@ def verify_tract(
     closure_tolerance_ft: float | None = None,
     audit_context: AuditContext | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
-    role_check: CheckResult | None = None,
+    tract: Tract | None = None,
 ) -> ClosureResult:
-    """Check one independent tract using every standard verification guardrail."""
+    """Check one independent tract using every standard verification guardrail.
+
+    When ``tract`` is supplied, its role check is derived from ``tract.tract_type``
+    so the check can never be omitted or mismatched by the caller.
+    """
+    role_check = evaluate_tract_role(tract.label, tract.tract_type) if tract is not None else None
     boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
     return _verify_single(
         boundary,
@@ -337,7 +342,7 @@ def verify_closure(
                 closure_tolerance_ft=closure_tolerance_ft,
                 audit_context=scratch,
                 skipped_courses=skips_for_tract(tract, tracts, labelled),
-                role_check=evaluate_tract_role(tract.label, tract.tract_type),
+                tract=tract,
             )
             tract_audit = scratch.verification_audit if scratch is not None else None
             if audit_context is not None and tract_audit is not None:
