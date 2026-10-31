@@ -124,7 +124,8 @@ class CSVBuilder:
     ) -> list[Path]:
         """Export verified CSV(s) through the canonical package gate.
 
-        For multi-tract deeds (tract_results provided), writes one CSV per tract.
+        For multi-tract deeds (tract_results provided), writes one CSV per verified
+        main/addition tract; easement and exception tracts are never exported.
 
         Args:
             calls: List of DeedCall objects
@@ -144,7 +145,8 @@ class CSVBuilder:
             List of written file paths.
 
         Raises:
-            ValueError: If verification checks did not pass
+            ValueError: If verification checks did not pass, or (multi-tract) no
+                main/addition tract was supplied or verified
         """
         return package_writer.export_verified_csv(
             package_calls(calls),
