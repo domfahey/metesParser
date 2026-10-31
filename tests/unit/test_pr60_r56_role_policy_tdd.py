@@ -489,9 +489,11 @@ def test_role_review_rules() -> None:
     # A sole tract with a single, heading or unrecorded basis is established.
     for basis in ("single", "heading", None):
         assert roles_need_review([_tract("T", basis=basis)]) == []
-    # An inferred role always needs review, even passed alone.
+    # An inferred role always needs review, even passed alone (r59: a deed's sole
+    # description whose wording does not establish it as the parcel).
     assert roles_need_review([_tract("Tract 1", basis="inferred")]) == [
-        "Tract 1 (main): main role assumed from its position, without a tract heading"
+        "Tract 1 (main): the sole description's parcel role is not established: easement, "
+        "exception or reservation wording introduces, labels or follows it"
     ]
     # Several tracts: every one needs a heading; unrecorded (stored artifacts that
     # predate the field) and "single" bases fail closed.
