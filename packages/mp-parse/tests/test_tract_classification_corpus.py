@@ -147,15 +147,17 @@ Round 57 tightens where a role is not a wording guess (fail closed):
 
 Round 58 keeps ordinary single parcels verified while still failing closed:
 
-* The parcel's own intro ("ALL THAT ...", "The land referred to herein", "Being Lot ...",
-  "(more particularly) (bounded and) described as follows", "the premises / said lot
-  being described") anywhere in the lead's sentence, before or after the lead, gives
-  the description to the parcel; a rights recital (mineral, oil and gas rights, rights
-  of way of record, portions within a right of way) never introduces one. Only a lead
-  whose own clause names its object as the one described ("the following described
-  parcel", "an easement ... described as follows") claims it against a parcel intro
-  (fail closed: never exported as the parcel). ``R58_RIGHTS_RECITALS`` inserted in a
-  single parcel's intro sentence never change its outcome.
+* A rights recital (mineral, oil and gas rights, rights of way of record, any portion
+  within a right of way, a public road's right of way under SUBJECT TO) never
+  introduces a description, and a lead followed by the parcel's own intro ("the
+  premises / said lot being described", "..., bounded and described as follows:") is a
+  recital inside the parcel's sentence. Otherwise a lead whose clause runs on to the
+  description (a colon, or its own sentence) claims it even after the parcel's intro
+  ("ALL THAT CERTAIN lot known as Lot 5, EXCEPTING THEREFROM a strip 10 feet wide
+  along Main Street:"), and so does a lead whose own clause names its object as the
+  one described ("the following described parcel"): two claims fail closed, never
+  exported as the parcel. ``R58_RIGHTS_RECITALS`` inserted in a single parcel's intro
+  sentence, before or after its "described as follows", never change its outcome.
 * A heading's role is "inferred" only for a role lead in its window (EXCEPT / LESS / SAVE
   / RESERVING, a grant of one specific easement or right of way) or an easement named
   in its label; bare words, place names ("Access Road", "Sewer Authority"), generic
@@ -1248,7 +1250,8 @@ R58_RIGHTS_RECITALS = (
     "SAVE AND EXCEPT any portion lying within the right of way of Main Street",
     "EXCEPTING AND RESERVING all oil, gas and minerals",
     "SUBJECT TO easements and restrictions of record",
-    "EXCEPTING the portion within Main Street",
+    # "the/that portion ...:" may be the excepted land described next (fail closed).
+    "EXCEPTING any portion within Main Street",
     "RESERVING the coal and mining rights",
     "EXCEPT the rights of the public in and to Main Street",
     "TOGETHER WITH all rights of way and easements appurtenant thereto",
@@ -1263,6 +1266,7 @@ R58_INTRO_FRAMES = (
     "Lot 5, Block 3, {}, said lot being described as follows: ",
 )
 LOT_PLAN = "Lot 5, Block 3 on the Plan of Smithfield."
+LOT_KNOWN = "ALL THAT CERTAIN lot known as Lot 5"
 
 
 def _easement_deed(text: str) -> Case:
@@ -1272,9 +1276,8 @@ def _easement_deed(text: str) -> Case:
 
 CASES.update(
     {
-        # Item 1 (regressions from be62f68, exported on main): the parcel's intro in the
-        # lead's sentence, before or after a rights recital, makes the description the
-        # parcel's.
+        # Item 1 (regressions from be62f68, exported on main): a rights recital, or a lead
+        # followed by the parcel's own intro, leaves the description the parcel's.
         "r58_described_as_follows_then_subject_to_street_right_of_way": Case(
             "ALL THAT CERTAIN lot more particularly described as follows, SUBJECT TO the "
             f"right of way of Main Street: {SQUARE}"
@@ -1298,6 +1301,11 @@ CASES.update(
         # A rights recital introduces nothing even in a sentence of its own.
         "r58_lot_then_less_rights_of_way_of_record": Case(
             f"{LOT_PLAN} LESS the rights of way of record: {SQUARE}"
+        ),
+        # A public street's right of way recited as an encumbrance (SUBJECT TO) is a
+        # rights recital, so it introduces nothing after a parcel reference either.
+        "r58_lot_known_subject_to_street_right_of_way_colon": Case(
+            f"{LOT_KNOWN}, SUBJECT TO the right of way of Main Street: {SQUARE}"
         ),
         # Item 2: no role lead before the heading's description, so both headings stand.
         "r58_heading_lot_fronting_on_access_road": Case(
@@ -1416,6 +1424,7 @@ R56_EXPORTS = {
     "r58_lot_less_and_except_oil_and_gas_said_lot_being_described": ["deed_verified.csv"],
     "r58_described_as_follows_then_save_and_except_portion_within_street": ["deed_verified.csv"],
     "r58_lot_then_less_rights_of_way_of_record": ["deed_verified.csv"],
+    "r58_lot_known_subject_to_street_right_of_way_colon": ["deed_verified.csv"],
     "r58_all_that_lot_subject_to_easement_bounded_and_described": ["deed_verified.csv"],
     "r58_heading_lot_fronting_on_access_road": BOTH_TRACTS,
     "r58_heading_after_sewer_authority_plan_recital": BOTH_TRACTS,
@@ -1514,6 +1523,39 @@ R58_INTRODUCED = {
     "parcel_intro_and_easement_described_as_follows": (
         "ALL THAT CERTAIN lot more particularly described as follows, SUBJECT TO an easement "
         f"for drainage described as follows: {EXCEPTED_PARCEL}",
+        [(EAS, 4, "Easement 1")],
+    ),
+    # A lead taking land (no rights recital) or granting one easement whose clause runs
+    # on to the description with a colon, after the parcel's own intro: the described
+    # land is most likely the lead's strip or easement. Two claims on one description
+    # fail closed. The parcel keeps it only with its intro after the lead (the lead is
+    # then a recital inside the parcel's sentence) or for a rights recital.
+    "naming_intro_then_excepting_strip_colon": (
+        f"{LOT_KNOWN}, EXCEPTING THEREFROM a strip 10 feet wide along Main Street: "
+        f"{EXCEPTED_PARCEL}",
+        [(EXC, 4, "Exception 1")],
+    ),
+    "naming_intro_then_less_strip_colon": (
+        f"{LOT_KNOWN}, LESS a 10 foot strip along the rear line: {EXCEPTED_PARCEL}",
+        [(EXC, 4, "Exception 1")],
+    ),
+    "naming_intro_then_save_and_except_portion_colon": (
+        f"{LOT_KNOWN}, SAVE AND EXCEPT that portion along the creek: {EXCEPTED_PARCEL}",
+        [(EXC, 4, "Exception 1")],
+    ),
+    "being_lot_then_reserving_strip_colon": (
+        "Being Lot 5, Block 3 on the Plan of Smithfield, RESERVING a strip 20 feet wide along "
+        f"the north line: {EXCEPTED_PARCEL}",
+        [(EXC, 4, "Exception 1")],
+    ),
+    "described_intro_then_excepting_strip_colon": (
+        "ALL THAT CERTAIN lot more particularly described as follows, EXCEPTING THEREFROM a "
+        f"strip 10 feet wide along Main Street: {EXCEPTED_PARCEL}",
+        [(EXC, 4, "Exception 1")],
+    ),
+    "naming_intro_then_easement_grant_colon": (
+        f"{LOT_KNOWN}, TOGETHER WITH an easement for ingress and egress over the driveway: "
+        f"{EXCEPTED_PARCEL}",
         [(EAS, 4, "Easement 1")],
     ),
 }

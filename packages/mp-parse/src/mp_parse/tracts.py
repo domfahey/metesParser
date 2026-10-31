@@ -27,12 +27,14 @@ Classification keeps three invariants, whatever the wording:
   GRANTEE a perpetual easement over the following described land:") whose own
   clause runs on into it is that lead's EXCEPTION or EASEMENT, even as the only
   traverse (``_introduced_role``, ``_lead_introduces``); such a document is an
-  easement deed. The parcel's own intro anywhere in the lead's sentence ("ALL THAT
-  CERTAIN lot", "The land referred to herein", "Being Lot 5", "described as follows",
-  "said lot being described") gives the description to the parcel, and a rights
-  recital ("the mineral rights", "the rights of way of record") introduces nothing
-  (r58); only a lead whose own clause names its object as the one described ("the
-  following described parcel") claims it against the parcel's intro (fail closed).
+  easement deed. The parcel keeps the description only when its own intro follows
+  the lead ("ALL THAT CERTAIN lot, EXCEPTING the mineral rights, bounded and described
+  as follows:", "..., said lot being described as follows:") or the lead recites
+  rights ("the mineral rights", "the rights of way of record", "SUBJECT TO the right
+  of way of Main Street"); a lead taking land or granting one easement that runs on
+  to the description after the parcel's intro ("ALL THAT CERTAIN lot known as Lot 5,
+  EXCEPTING THEREFROM a strip 10 feet wide along Main Street: BEGINNING") claims it
+  too, and two claims fail closed (r58).
 * INV-2: only a description after a closed MAIN (or ADDITION) boundary is typed
   EASEMENT (by the grant rule, ``_grant_takes``) or EXCEPTION (by an EXCEPT lead
   introducing it), besides a description its lead introduces (INV-1). An EXCEPT
@@ -503,21 +505,6 @@ _PARCEL_INTRO = re.compile(
     r"(?:bounded\s+and\s+described|described|bounded)\b",
     re.IGNORECASE,
 )
-# The parcel's own intro before a lead in its sentence (r58): its parcel lead
-# (``_PARCEL_LAND_LEAD``) or the conveyed land named ("The land referred to herein",
-# "Being Lot 5"), or wording introducing its description ("(more particularly)
-# described as follows", "bounded and described").
-_PARCEL_NAMING = re.compile(
-    r"\b(?:the|said)\s+(?:lands?|premises|property|real\s+(?:estate|property))\s+"
-    r"(?:(?:herein|hereby)\s+)?(?:referred\s+to|conveyed|(?:herein\s*)?(?:after\s+)?described)\b"
-    r"|\bBEING\s+(?:known\s+as\s+)?(?:all\s+(?:of\s+)?)?(?:that\s+certain\s+)?(?:lots?|units?)\s+\w",
-    re.IGNORECASE,
-)
-_DESCRIBING_INTRO = re.compile(
-    r"\b(?:described\s+as\s+follows|as\s+follows|following\s+described|bounded\s+and\s+described"
-    r"|particularly\s+described)\b",
-    re.IGNORECASE,
-)
 # The conveyed land named as the one described after a lead ("..., the premises being
 # described as follows:", "..., said lot being described as follows:"); never a lead's
 # own object ("the parcel described as follows"). The same noun in the lead's own
@@ -569,6 +556,30 @@ _LAND_NOUN = re.compile(
     r"\b(?:parcels?|tracts?|lots?|strips?|pieces?|lands?|premises|portions?|parts?|areas?)\b",
     re.IGNORECASE,
 )
+# A public road's right of way recited as an encumbrance ("SUBJECT TO the right of way
+# of Main Street:"): a rights recital. Taken out of the grant ("EXCEPTING the right of
+# way of Route 30:") it may be the strip described next, so only SUBJECT TO recites it.
+_STREET_RIGHT_OF_WAY = re.compile(
+    r"SUBJECT\s+TO\s+(?:the\s+)?(?:(?:existing|public|legal)\s+)?rights?[\s-]+of[\s-]+way\s+"
+    r"(?:of|in)\s+(?:the\s+)?(?:[\w'.-]+\s+){0,4}?(?:streets?|roads?|avenues?|highways?|lanes?"
+    r"|drives?|boulevards?|pikes?|turnpikes?|routes?)\b(?:\s+(?:no\.?\s*)?\d+[A-Z]?)?[\s,:]*",
+    re.IGNORECASE,
+)
+
+
+def _rights_recital(text: str, lead_start: int, lead_end: int, own_end: int) -> bool:
+    """Return whether the lead ``text[lead_start:lead_end]`` with its clause recites rights.
+
+    ``_RIGHTS_RECITAL`` for the clause (naming no land after it), or a public road's
+    right of way under SUBJECT TO (``_STREET_RIGHT_OF_WAY``).
+    """
+    clause = text[lead_end:own_end]
+    rights = _RIGHTS_RECITAL.match(clause)
+    if rights is not None and not _LAND_NOUN.search(clause, rights.end()):
+        return True
+    return _STREET_RIGHT_OF_WAY.fullmatch(text, lead_start, own_end) is not None
+
+
 # A tract heading's own label naming a role ("PARCEL B (ACCESS EASEMENT):", "PARCEL B -
 # ACCESS EASEMENT:", "ACCESS EASEMENT PARCEL B:"): ``_heading_label``.
 _LABEL_ROLE = re.compile(
@@ -715,18 +726,6 @@ def _starts_clause(text: str, position: int) -> bool:
     return text[i - 1] == "." and ends_sentence(text, i - 1)
 
 
-def _lead_sentence_start(text: str, position: int) -> int:
-    """Return where the sentence holding the lead at ``position`` starts.
-
-    ``_sentence_start``, but never before the last semicolon or THENCE before it: wording
-    of an earlier course or clause is no intro of the lead's sentence.
-    """
-    start = _sentence_start(text, position)
-    for brk in _OPENER_CLAUSE_BREAK.finditer(text, start, position):
-        start = brk.end()
-    return start
-
-
 _OBJECT_PHRASE_END = re.compile(r"[,;:]")
 # Where a lead's object phrase names land a later "said <noun>" refers back to: its
 # direct object ("EXCEPTING THEREFROM Lot 5A", "a tract of land") or land after a
@@ -782,16 +781,23 @@ def _lead_introduces(text: str, lead_start: int, lead_end: int, description: int
        described as follows:", "EXCEPTING THEREFROM:", "LESS PARCEL B:"): the
        description is the lead's, even against the parcel's own intro in the sentence
        (two claims on one description fail closed: never the parcel).
-    2. The parcel's own intro anywhere in the lead's sentence, before the lead ("ALL
-       THAT ...", "The land referred to herein", "Being Lot ...", "described as
-       follows", ``_PARCEL_NAMING`` / ``_DESCRIBING_INTRO``) or after it ("the premises
-       being described", "..., bounded and described as follows:"): the description is
-       the parcel's ("ALL THAT CERTAIN lot more particularly described as follows,
-       SUBJECT TO the right of way of Main Street: BEGINNING ...").
-    3. A rights recital (``_RIGHTS_RECITAL``: mineral, oil and gas rights, rights of way
-       of record, a portion within a right of way) introduces no description.
+    2. The parcel's own intro after the lead ("ALL THAT CERTAIN lot", "the premises
+       being described", "..., bounded and described as follows:"): the lead is a
+       recital inside the parcel's sentence and the description is the parcel's
+       ("Being Lot 5, RESERVING unto the Grantor the mineral rights, the premises being
+       described as follows: BEGINNING ...").
+    3. A rights recital (``_rights_recital``: mineral, oil and gas rights, rights of way
+       of record, any portion within a right of way, a public road's right of way under
+       SUBJECT TO) introduces no description ("ALL THAT CERTAIN lot more particularly
+       described as follows, SUBJECT TO the right of way of Main Street: BEGINNING ...").
     4. Otherwise a colon in the lead's clause, or the lead starting its own sentence and
-       running on into the description, introduces it.
+       running on into the description, introduces it, whatever parcel intro precedes
+       the lead: "ALL THAT CERTAIN lot known as Lot 5, EXCEPTING THEREFROM a strip 10
+       feet wide along Main Street: BEGINNING ..." most likely describes the strip, so
+       the two claims fail closed (r58) and the description is never the parcel. A lead
+       inside the parcel's sentence that neither has a colon nor starts its own sentence
+       ("ALL THAT CERTAIN lot, TOGETHER WITH an easement for access, BEGINNING ...")
+       introduces nothing (INV-1).
     """
     # The break test reads the description's own opening word (a line break before a
     # BEGINNING breaks the sentence only when that BEGINNING is in view).
@@ -810,16 +816,7 @@ def _lead_introduces(text: str, lead_start: int, lead_end: int, description: int
         _LEAD_ALONE.fullmatch(clause) and (":" in clause or _MARKER.match(text, own_end))
     ):
         return True
-    sentence = _lead_sentence_start(text, lead_start)
-    if (
-        intro is not None
-        or _parcel_lead_between(text, sentence, lead_start) is not None
-        or _PARCEL_NAMING.search(text, sentence, lead_start)
-        or _DESCRIBING_INTRO.search(text, sentence, lead_start)
-    ):
-        return False
-    rights = _RIGHTS_RECITAL.match(clause)
-    if rights is not None and not _LAND_NOUN.search(clause, rights.end()):
+    if intro is not None or _rights_recital(text, lead_start, lead_end, own_end):
         return False
     return ":" in clause or own_sentence
 
@@ -2509,11 +2506,16 @@ def _boundary_clauses(index: _TextIndex) -> list[tuple[str, bool]]:
         leads = list(_PRECEDING_EXCEPT.finditer(text, previous_end, start))
         lead = leads[-1].start() if leads else start
         opening = _opening_after(text, start, cursor)
+        # The clause split cuts a lead in two ("SAVE AND | EXCEPT"): its whole wording
+        # may introduce the clause's description.
+        floor = min(
+            (s for s, e in index.taking if s < previous_end and lead < e), default=previous_end
+        )
         preamble = (
             is_exception
             and not _except_may_type(index, lead)
             and not _excepts_from_later_description(index, lead, cursor, start)
-            and (opening is None or index.introduced(opening, previous_end) is None)
+            and (opening is None or index.introduced(opening, floor) is None)
         )
         if preamble:
             if spans:
