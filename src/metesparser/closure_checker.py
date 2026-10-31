@@ -285,6 +285,11 @@ class ClosureChecker:
         return package_checks.check_parallelism(_package_calls(calls))
 
     @staticmethod
+    def evaluate_tract_role(label: str, tract_type: object) -> mp_models.CheckResult | None:
+        """Blocked ``non_boundary_tract`` check for an easement/exception tract, else None."""
+        return package_checks.evaluate_tract_role(label, tract_type)  # type: ignore[arg-type]
+
+    @staticmethod
     def _tangent_chord_issue(call: DeedCall) -> str | None:
         """Canonical stated-tangent vs chord/radius issue for one call (package check)."""
         return package_checks.tangent_chord_issue(ClosureChecker._package_call(call))
