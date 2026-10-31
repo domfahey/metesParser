@@ -10,7 +10,7 @@ Boundary intersection checks include straight segments and circular arcs, using 
 
 ## Multiple descriptions
 
-Each description in a deed becomes a tract with a role: main (parcel), addition, exception, or easement. Verified export of a multi-description deed requires every tract's role to come from an explicit plain heading such as `PARCEL ONE:` or `TRACT 2:`. A role inferred from wording blocks verified export for every tract in that deed. Easement and exception tracts are never eligible for verified export. Single-description deeds are not affected.
+Each description in a deed becomes a tract with a role: main (parcel), addition, exception, or easement. Verified export of a multi-description deed requires every tract's role to come from an explicit plain heading such as `PARCEL ONE:` or `TRACT 2:`. A role inferred from wording blocks verified export for every tract in that deed. Easement and exception tracts are never eligible for verified export. An ordinary single description is not affected, but one introduced by grant, exception or reservation wording (other than rights-only reservations such as mineral rights) is treated as an inferred role and blocked.
 
 Text review accepts one description per review. A text that contains several descriptions, whether or not they are headed, returns `error` (exit 2); plain headings do not lift this rule. Ask the user which tract to review, or have them supply one description per run.
 

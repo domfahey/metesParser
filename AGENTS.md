@@ -23,7 +23,7 @@ Use `verify_closure()` before `export_verified_csv()`. Geometry eligibility requ
 Role policy:
 - **Rule:** fail closed on guessed description roles. If a deed has more than one description and any role (main/addition/exception/easement) was inferred from wording rather than an explicit TRACT/PARCEL heading (`Tract.role_basis`), nothing in the deed is verified or exported.
 - **Enforcement:** one gate, `mp_models.roles_need_review` (check `description_roles_inferred`). Every call of such a deed carries the registered `DESCRIPTION_ROLES_NOTE` blocking note; easement/exception tract calls also carry a non-boundary note (`mp_models.mark_non_boundary`, check `non_boundary_tract`). No subset of calls, and no CSV/JSON written from them, verifies or exports through any API.
-- **Unaffected:** a single description. Details: [ARCHITECTURE.md](docs/ARCHITECTURE.md#description-roles-and-verified-export).
+- **Unaffected:** an ordinary single description (basis `single`); a sole description whose role is not established is blocked too. Details: [ARCHITECTURE.md](docs/ARCHITECTURE.md#description-roles-and-verified-export).
 
 ### 3. Preserve Verbatim Deed Language
 Keep original wording in `along` and `to` fields. Example: Keep "Southerly line of Pennbrook Drive" exactly as written in the deed.
