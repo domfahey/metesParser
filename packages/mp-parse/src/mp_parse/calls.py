@@ -50,6 +50,7 @@ from mp_models import (
 from pydantic import ValidationError
 
 from .metadata import (
+    CONVEYANCING_ALONG_WITH,
     COURSE_LENGTH_AMBIGUOUS_NOTE,
     COURSE_LIST_MARKER,
     LENGTH_RUN,
@@ -61,7 +62,7 @@ from .metadata import (
     _tie_clause_start,
     analyze_course_lists,
     bracket_groups,
-    course_length_phrase_span,
+    breaks_at_period,
     detect_meander,
     extract_course_clause,
     extract_distance,
@@ -468,7 +469,8 @@ def _is_initial_course_prefix(prefix: str) -> bool:
 
 _TRAILING_LEAD = re.compile(
     r"(?:subject\s+to|under\s+and\s+subject|being\s+(?:the\s+same|all\s+that)|together\s+with"
-    r"|the\s+above\s+described|containing|excepting|reserving|said\s+premises)\b",
+    rf"|{CONVEYANCING_ALONG_WITH}|the\s+above\s+described|containing|excepting|reserving"
+    r"|said\s+premises)\b",
     re.IGNORECASE,
 )
 # A return to the point of beginning, wherever it stands in a fragment.
@@ -478,6 +480,8 @@ _CLOSING_PHRASE = re.compile(
     r"|\bto\s+(?:the\s+)?(?:[TR]\.?)?P\.?O\.?B\b",
     re.IGNORECASE,
 )
+# A ';' or a period before whitespace that ends the wording before it
+# (``breaks_at_period``: never an initial or abbreviation inside a sentence).
 _SENTENCE_END = re.compile(r"\.(?=\s|$)|;")
 _BLOCK_LEAD = re.compile(r"(?:BEGINNING|COMMENCING|POB|POINT)", re.IGNORECASE)
 _BEGINNING_BLOCK = re.compile(r"\b(?:BEGINNING|COMMENCING)\s+(?:at|in|on|for|from)\b", re.I)
@@ -515,7 +519,14 @@ def _cut_closing_sentence(text: str) -> tuple[str, str] | None:
     closings = list(_CLOSING_PHRASE.finditer(text))
     if not closings:
         return None
-    sentence_end = _SENTENCE_END.search(text, closings[-1].end())
+    sentence_end = next(
+        (
+            match
+            for match in _SENTENCE_END.finditer(text, closings[-1].end())
+            if match.group() == ";" or breaks_at_period(text, match.start())
+        ),
+        None,
+    )
     if not sentence_end:
         return None
     end = closing_tail_end(text, sentence_end.start()) + 1
@@ -1146,6 +1157,49 @@ _WORD_TOKEN = re.compile(r"[A-Za-z0-9]+|\S")
 _MAX_ALIGNED_TOKENS = 40000
 
 
+# Up to this many changed tokens are matched at once; a longer changed stretch is
+# matched window by window, so alignment stays linear in the description length
+# (one match of repetitive course wording is quadratic, its recursion worse).
+_ALIGN_WINDOW = 256
+
+
+def _match_blocks(words: list[str], source_words: list[str]) -> list[tuple[int, int, int]]:
+    """Matching blocks (a, b, size) of two token lists (``SequenceMatcher``)."""
+    matcher = SequenceMatcher(None, words, source_words, autojunk=False)
+    return [(blk.a, blk.b, blk.size) for blk in matcher.get_matching_blocks() if blk.size]
+
+
+def _align_tokens(words: list[str], source_words: list[str]) -> dict[int, int]:
+    """Map each normalized token index to its source token index, where aligned.
+
+    Tokens left alone by normalization run one to one; a stretch of changed tokens
+    is matched within a window of ``_ALIGN_WINDOW`` tokens, committing the blocks
+    in the window's first half (or its first block) before moving on.
+    """
+    aligned: dict[int, int] = {}
+    i = j = 0
+    while i < len(words) and j < len(source_words):
+        if words[i] == source_words[j]:
+            aligned[i] = j
+            i += 1
+            j += 1
+            continue
+        window_a = words[i : i + _ALIGN_WINDOW]
+        window_b = source_words[j : j + _ALIGN_WINDOW]
+        blocks = _match_blocks(window_a, window_b)
+        if not blocks:
+            break
+        whole = len(window_a) < _ALIGN_WINDOW and len(window_b) < _ALIGN_WINDOW
+        half = _ALIGN_WINDOW // 2
+        kept = blocks if whole else [blk for blk in blocks if blk[0] < half and blk[1] < half]
+        for block_a, block_b, size in kept or blocks[:1]:
+            for offset in range(size):
+                aligned[i + block_a + offset] = j + block_b + offset
+        last_a, last_b, last_size = (kept or blocks[:1])[-1]
+        i, j = i + last_a + last_size, j + last_b + last_size
+    return aligned
+
+
 class _SourceMap:
     """The source text of a description, aligned token by token with its normalized text.
 
@@ -1163,15 +1217,10 @@ class _SourceMap:
         self._ends = [token.end() for token in self._tokens]
         self._to_source: dict[int, int] = {}
         if max(len(self._tokens), len(self._source_tokens)) <= _MAX_ALIGNED_TOKENS:
-            matcher = SequenceMatcher(
-                None,
+            self._to_source = _align_tokens(
                 [token.group().lower() for token in self._tokens],
                 [token.group().lower() for token in self._source_tokens],
-                autojunk=False,
             )
-            for block in matcher.get_matching_blocks():
-                for offset in range(block.size):
-                    self._to_source[block.a + offset] = block.b + offset
         self._next_tract = 0
 
     def locate_tract(self, tract_text: str) -> int | None:
@@ -2537,32 +2586,17 @@ def _inch_course_length(course_text: str, direction: str) -> float | None:
     return read_standalone_inch_length(course_text[position + len(direction) :])
 
 
-def _is_course_length(token: str, course_distance_ft: float | None) -> bool:
-    """Return True when length ``token`` reads as the course distance (or none is known)."""
-    if course_distance_ft is None:
-        return True
-    reading = read_course_length(token)
-    if reading.ambiguous or reading.value <= 0:
-        return False
-    converted = ConversionFactors.convert_to_feet(reading.value, reading.unit)
-    return converted is not None and abs(converted - course_distance_ft) < 1e-6
-
-
-def _adjoiner_wording(
-    along: str,
-    course_direction: str,
-    course_distance_ft: float | None,
-    records: tuple[str, ...] = (),
-) -> str:
-    """Return ``along`` without the course's own bearing and length.
+def _adjoiner_wording(along: str, course_direction: str, records: tuple[str, ...] = ()) -> str:
+    """Return ``along`` without the course's own bearing.
 
     ``along`` is the deed's wording after "along"; on a straight course it can
     run on into the course itself ("Main Street (50 feet wide) N 45 E 100 feet").
-    The course's own verbatim bearing and the length read as its distance are
-    removed; everything else, parentheticals and record calls (``records``)
-    included, stays as written.
+    The course's own length has already left it whole (``extract_course_clause``
+    with ``trim_course_length``: the span the course-length reading selects); the
+    course's own verbatim bearing is removed here. Everything else, parentheticals
+    and record calls (``records``) included, stays as written.
     """
-    # Record wording is never taken for the course's own bearing or length.
+    # Record wording is never taken for the course's own bearing.
     located = along
     for record in records:
         position = located.find(record)
@@ -2573,28 +2607,7 @@ def _adjoiner_wording(
         while position >= 0 and _in_parentheses(along, position):
             position = located.find(course_direction, position + 1)
         if position >= 0:
-            end = position + len(course_direction)
-            gap = len(along[end:]) - len(along[end:].lstrip())
-            length = _LENGTH_TOKEN.match(along, end + gap)
-            # Only the course's own length goes with its bearing: a length right
-            # after it that is not the course length (an offset) stays in ``along``.
-            if length and _is_course_length(length.group(0), course_distance_ft):
-                end = length.end()
-            along = _blank(along, position, end)
-            located = _blank(located, position, end)
-    if course_distance_ft is not None:
-        for token in reversed(list(_LENGTH_TOKEN.finditer(located))):
-            if _in_parentheses(along, token.start()):
-                continue
-            reading = read_course_length(token.group(0))
-            if reading.ambiguous or reading.value <= 0:
-                continue
-            converted = ConversionFactors.convert_to_feet(reading.value, reading.unit)
-            if converted is not None and abs(converted - course_distance_ft) < 1e-6:
-                # The length goes with its wording ("a distance of", "more or less").
-                start, end = course_length_phrase_span(along, token.start(), token.end())
-                along = along[:start] + " " + along[end:]
-                break
+            along = _blank(along, position, position + len(course_direction))
     return re.sub(r"\s{2,}", " ", along).strip(" ,;.")
 
 
@@ -2892,14 +2905,16 @@ def _extract_call(
     elif distance_ft is None or distance_ft <= 0.0:
         raise ValueError("Missing boundary course distance")
 
-    clause = extract_course_clause(call_text, record_scan.drop_spans)
+    clause = extract_course_clause(
+        call_text, record_scan.drop_spans, trim_course_length=not is_curve
+    )
     if clause.unattached:
         # Stated wording that no field keeps is never dropped silently.
         raise ValueError(f"course wording after ';' not attached: {clause.unattached[0]!r}")
     along, to = clause.along, clause.to
     if along and not is_curve:
         along = _adjoiner_wording(
-            along, direction_text if raw_direction else "", distance_ft, record_scan.records
+            along, direction_text if raw_direction else "", record_scan.records
         )
 
     monument_type = classify_monument(to) if to else None
