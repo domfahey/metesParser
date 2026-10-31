@@ -21,11 +21,18 @@ Classification keeps three invariants, whatever the wording:
   its own grant (``_is_easement_deed_grant``). A deed title alone ("GRANT OF
   EASEMENT") is not recognised. A recital is a preamble only when it does not
   introduce the description: a description introduced by an EXCEPT / LESS / SAVE /
-  RESERVING lead or a grant of one easement whose own clause runs on into it ("the
-  following described parcel:", "described as follows:", a colon) is that lead's
-  EXCEPTION or EASEMENT, even as the only traverse (``_introduced_role``); the
-  parcel's own lead ("ALL THAT ...", "..., bounded and described as follows:")
-  introduces it otherwise.
+  RESERVING lead (or "Excepted from the above is", "There is excepted",
+  ``_EXCEPTED_LEAD``) or a grant of one easement (an opener, or ``_OBJECT_GRANT``: "An
+  easement for ingress and egress described as follows:", "GRANTOR grants unto
+  GRANTEE a perpetual easement over the following described land:") whose own
+  clause runs on into it is that lead's EXCEPTION or EASEMENT, even as the only
+  traverse (``_introduced_role``, ``_lead_introduces``); such a document is an
+  easement deed. The parcel's own intro anywhere in the lead's sentence ("ALL THAT
+  CERTAIN lot", "The land referred to herein", "Being Lot 5", "described as follows",
+  "said lot being described") gives the description to the parcel, and a rights
+  recital ("the mineral rights", "the rights of way of record") introduces nothing
+  (r58); only a lead whose own clause names its object as the one described ("the
+  following described parcel") claims it against the parcel's intro (fail closed).
 * INV-2: only a description after a closed MAIN (or ADDITION) boundary is typed
   EASEMENT (by the grant rule, ``_grant_takes``) or EXCEPTION (by an EXCEPT lead
   introducing it), besides a description its lead introduces (INV-1). An EXCEPT
@@ -38,11 +45,12 @@ Classification keeps three invariants, whatever the wording:
   words alone; a separate description after a closure is a traverse, never a tie line.
 
 Each segment also records its role basis (``split_into_tracts_with_basis``):
-"heading" for a TRACT/PARCEL heading typed MAIN or ADDITION with no role wording in
-it or before its opening (``_heading_basis``), "inferred" for every role decided by
-the wording rules above (or assumed from position). The rules are heuristics, so a
-deed with several descriptions and any inferred role is never eligible for verified
-export (``mp_models.roles_need_review``, fail closed).
+"heading" for a TRACT/PARCEL heading typed MAIN or ADDITION with no role lead (the
+lead grammar typing uses, never bare words, place names or generic recitals) before
+its opening and no role named in its label (``_heading_basis``), "inferred" for every
+role decided by the wording rules above (or assumed from position). The rules are
+heuristics, so a deed with several descriptions and any inferred role is never
+eligible for verified export (``mp_models.roles_need_review``, fail closed).
 """
 
 from __future__ import annotations
@@ -51,7 +59,7 @@ import re
 from bisect import bisect_left, bisect_right
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
-from functools import lru_cache
+from functools import cached_property, lru_cache
 
 import structlog
 from mp_models import RoleBasis, TractType, is_boundary_tract
@@ -290,6 +298,39 @@ def _names_specific_easement(text: str, start: int, end: int) -> bool:
     )
 
 
+# A grant of one easement or right of way named without an opener word (r58): the
+# object at a clause start ("An easement for ingress and egress described as follows:",
+# "A 20 foot wide right of way ...", "TRACT 2: A non-exclusive easement ..."), after a
+# grant verb ("GRANTOR hereby grants and conveys unto GRANTEE a perpetual non-exclusive
+# easement ...", "The Grantor grants a sanitary sewer easement ...") or after SUBJECT TO
+# / TOGETHER WITH / RESERVING inside a sentence ("Said Parcel A is subject to the
+# following easement:"). Like an opener's grant, it types a description only when its
+# own clause introduces it (``_lead_introduces``); an easement deed is a document whose
+# only description such a grant introduces.
+_GRANT_VERB = (
+    r"\b(?:grants?|conveys?|releases?|dedicates?)(?:\s*,?\s*(?:and\s+)?"
+    r"(?:grants?|conveys?|releases?|bargains?|sells?|confirms?|warrants?|dedicates?)\b)*"
+)
+_GRANT_VERB_GRANTEE = (
+    r"(?:\s*,?\s*(?:unto|to)\s+(?:the\s+)?(?:said\s+)?\w+(?:\s*,?\s*(?:and\s+)?(?:its|his|her"
+    r"|their)\s+"
+    + _EASEMENT_SUCCESSORS
+    + r"(?:\s*,?\s*(?:and\s+)?"
+    + _EASEMENT_SUCCESSORS
+    + r")*)?\s*,?)?"
+)
+_OBJECT_GRANT = re.compile(
+    r"(?:(?:^|(?<=[.;:\n]))[ \t*_#>]*|" + _GRANT_VERB + _GRANT_VERB_GRANTEE + r"\s*"
+    r"|\b(?:subject\s+to|together\s+with|reserving)\s+)"
+    r"(?P<grant>(?:an?|that\s+certain|the\s+following)\s+"
+    + _EASEMENT_MODIFIER
+    + r"(?:easement|right[\s-]+of[\s-]+way)\b"
+    + _NOT_AREA
+    + r")",
+    re.IGNORECASE,
+)
+
+
 # Wording that introduces a description ("described as follows", "the following
 # described land").
 _DESCRIPTION_INTRO = re.compile(
@@ -420,8 +461,40 @@ _TAKING_LEAD = re.compile(
     r"(?:^|(?<=[.;:,\n]))[ \t]*(?P<lead>(?:(?:ALSO|AND|BUT)\s+)?(?:LESS|SAVE|RESERVING)\b)",
     re.IGNORECASE,
 )
-# The parcel's own lead: from it on, wording introduces the parcel, not a recital's object.
-_PARCEL_LEAD = re.compile(r"\bALL\s+(?:THAT|THOSE)\b", re.IGNORECASE)
+# Exception leads with no EXCEPT verb lead (r58): "Excepted from the above is ...",
+# "There is (also) excepted therefrom ...", "The following is excepted: ...". They take
+# land out of the grant like a stated EXCEPT lead ("Excepting out of", "Less and
+# excepting" already are).
+_EXCEPTED_LEAD = re.compile(
+    r"(?:^|(?<=[.;:,\n]))[ \t]*(?P<lead>(?:(?:ALSO|AND|BUT)\s+)?(?:"
+    r"THERE\s+(?:IS|ARE)\s+(?:ALSO\s+)?(?:HEREBY\s+)?EXCEPTED"
+    r"|EXCEPTED\s+(?:THEREFROM|HEREFROM|FROM|OUT\s+OF)"
+    r"|THE\s+FOLLOWING\s+(?:IS|ARE)\s+(?:ALSO\s+)?(?:HEREBY\s+)?EXCEPTED)\b)",
+    re.IGNORECASE,
+)
+# The parcel's own lead naming conveyed land ("ALL THAT CERTAIN lot", "ALL THOSE TWO
+# tracts", "ALL THAT PORTION of ..."), never land a grant runs over ("an easement over
+# all that strip": ``_LOCATING_BEFORE``). From it on, wording introduces the parcel,
+# not a lead's object, and no grant takes the description it introduces (r58).
+_PARCEL_LAND_LEAD = re.compile(
+    r"\bALL\s+(?:THAT|THOSE)\s+(?:[\w-]+,?\s+){0,3}?(?:lots?|tracts?|parcels?|pieces?|lands?"
+    r"|premises|property|real\s+(?:estate|property)|units?|portions?|parts?)\b",
+    re.IGNORECASE,
+)
+
+
+def _parcel_lead_between(text: str, start: int, end: int) -> int | None:
+    """Return where the parcel's own lead (``_PARCEL_LAND_LEAD``) in ``text[start:end]`` starts."""
+    return next(
+        (
+            match.start()
+            for match in _PARCEL_LAND_LEAD.finditer(text, start, end)
+            if not _LOCATING_BEFORE.search(text, max(start, match.start() - 20), match.start())
+        ),
+        None,
+    )
+
+
 # The parcel's description intro after a recital set off by commas inside the parcel's
 # sentence ("ALL THAT lot, SUBJECT to ..., bounded and described as follows:", "...,
 # being more particularly described as follows:").
@@ -430,16 +503,78 @@ _PARCEL_INTRO = re.compile(
     r"(?:bounded\s+and\s+described|described|bounded)\b",
     re.IGNORECASE,
 )
-# Role wording (r57): words that can give a description a role other than the parcel's.
-# A TRACT/PARCEL heading establishes a role only with none of them in the heading or
-# between the previous description and its own opening (``_heading_basis``).
-_ROLE_WORDING = re.compile(
-    r"\b(?:easements?|rights?[\s-]+of[\s-]+way|except\w*|less|save|reserv\w*|subject\s+to"
-    r"|together\s+with|access|utilit(?:y|ies)|drainage|ingress|egress|sewer|excluding)\b",
+# The parcel's own intro before a lead in its sentence (r58): its parcel lead
+# (``_PARCEL_LAND_LEAD``) or the conveyed land named ("The land referred to herein",
+# "Being Lot 5"), or wording introducing its description ("(more particularly)
+# described as follows", "bounded and described").
+_PARCEL_NAMING = re.compile(
+    r"\b(?:the|said)\s+(?:lands?|premises|property|real\s+(?:estate|property))\s+"
+    r"(?:(?:herein|hereby)\s+)?(?:referred\s+to|conveyed|(?:herein\s*)?(?:after\s+)?described)\b"
+    r"|\bBEING\s+(?:known\s+as\s+)?(?:all\s+(?:of\s+)?)?(?:that\s+certain\s+)?(?:lots?|units?)\s+\w",
     re.IGNORECASE,
 )
-# "more or less" qualifies a quantity; its "less" is no role wording.
-_MORE_OR_LESS = re.compile(r"\bmore\s+or\s+less\b", re.IGNORECASE)
+_DESCRIBING_INTRO = re.compile(
+    r"\b(?:described\s+as\s+follows|as\s+follows|following\s+described|bounded\s+and\s+described"
+    r"|particularly\s+described)\b",
+    re.IGNORECASE,
+)
+# The conveyed land named as the one described after a lead ("..., the premises being
+# described as follows:", "..., said lot being described as follows:"); never a lead's
+# own object ("the parcel described as follows"). The same noun in the lead's own
+# clause ("EXCEPTING a tract of land, said tract being described ...") refers back to
+# the lead's object, so it is no parcel intro there.
+_NAMED_PARCEL_DESCRIBED = re.compile(
+    r"\b(?:the|said)\s+(?P<noun>premises|lot|land|tract|parcel|property)s?\s+"
+    r"(?:(?:referred\s+to\s+herein|herein\s+referred\s+to|herein|aforesaid)\s+)?"
+    r"(?:is|are|being|which\s+(?:is|are))\s+(?:more\s+)?(?:particularly\s+)?"
+    r"(?:bounded\s+and\s+)?described\b",
+    re.IGNORECASE,
+)
+# A lead's own clause naming its object as the one described ("the following described
+# parcel", "that part described as follows", "an easement ... described as follows",
+# "the following:"): the description is the lead's even against a parcel intro in the
+# same sentence (two claims on one description fail closed). So is a lead running
+# straight into it ("EXCEPTING THEREFROM:", "LESS PARCEL B:").
+_OBJECT_DESCRIBED = re.compile(
+    r"\b(?:described\s+as\s+follows|as\s+follows|following\s+described|the\s+following)\b",
+    re.IGNORECASE,
+)
+_LEAD_ALONE = re.compile(
+    r"\s*(?:(?:there|here)(?:from|out|of)\b\s*)?(?::\s*)?(?:(?:TRACT|PARCEL)\b[^:\n]{0,20}:\s*)?",
+    re.IGNORECASE,
+)
+# A rights recital (r58): a lead's object that is rights, never land that is described:
+# mineral, oil and gas rights, plural easements or rights of way, rights of the public,
+# or any portion lying within a right of way, street or bed ("RESERVING unto the Grantor
+# the mineral rights", "LESS the rights of way of record", "SAVE AND EXCEPT any portion
+# lying within the right of way of Main Street"). It never introduces a description,
+# unless its clause goes on to name land (``_LAND_NOUN``: "... and the parcel conveyed
+# to Smith:"). "That portion lying within ..." may be the excepted strip described next,
+# so only "any" or "all" portions are rights.
+_RIGHTS_RECITAL = re.compile(
+    r"[\s,]*(?:(?:unto|to|for)\s+[^,:;]{0,80}?(?:,\s*|\s+(?=(?:all|any|the|its|their)\b)))?"
+    r"(?:(?:there|here)(?:from|out|of)\s+)?(?:"
+    r"(?:(?:all|any)\s+(?:(?:and|or)\s+(?:all|any)\s+)?(?:of\s+)?)?(?:(?:the|its|their|such|said)\s+)?"
+    r"(?:(?:[\w-]+,?\s+(?:(?:and|or|&)\s+)?){0,4}?(?:minerals?|oil|gas|coal|timber|petroleum"
+    r"|hydrocarbons?)\b"
+    r"|(?:[\w-]+\s+){0,2}?(?:easements|rights[\s-]+of[\s-]+way)\b"
+    r"|rights?\s+of\s+the\s+public\b)"
+    r"|(?:all|any)\s+(?:(?:and|or)\s+(?:all|any)\s+)?(?:portions?|parts?)\s+(?:thereof\s+)?"
+    r"(?:(?:lying|being|located|situated?|falling)\s+)?(?:with)?in\s+(?:(?:the|a|any)\s+)?"
+    r"(?:[\w-]+\s+){0,3}?(?:rights?[\s-]+of[\s-]+way|streets?|roads?|highways?|avenues?|lanes?"
+    r"|alleys?|beds?)\b)",
+    re.IGNORECASE,
+)
+_LAND_NOUN = re.compile(
+    r"\b(?:parcels?|tracts?|lots?|strips?|pieces?|lands?|premises|portions?|parts?|areas?)\b",
+    re.IGNORECASE,
+)
+# A tract heading's own label naming a role ("PARCEL B (ACCESS EASEMENT):", "PARCEL B -
+# ACCESS EASEMENT:", "ACCESS EASEMENT PARCEL B:"): ``_heading_label``.
+_LABEL_ROLE = re.compile(
+    r"\b(?:easements?|rights?[\s-]+of[\s-]+way|except\w*|reserv\w*)\b", re.IGNORECASE
+)
+_UPPERCASE_WORD_BEFORE = re.compile(r"[A-Z0-9'&-]+[ \t]+$")
 # A BEING recital ("BEING known as Block 91 Lot 32", "being the same premises ...").
 _BEING_RECITAL = re.compile(r"\s*BEING\b", re.IGNORECASE)
 _OPENING_WORD = re.compile(r"\b(?:BEGINNING|COMMENCING)\b", re.IGNORECASE)
@@ -516,9 +651,9 @@ class _TextIndex:
     opener_ends: tuple[int, ...]
     # Where an easement deed's own grant starts (``_is_easement_deed_grant``), if any.
     deed_grant: int | None
-    # Leads that can introduce a description as an exception (stated EXCEPT leads and
-    # ``_TAKING_LEAD``) or an easement (openers granting one easement, never plural
-    # "easements"): (start, end).
+    # Leads that can introduce a description as an exception (stated EXCEPT leads,
+    # ``_TAKING_LEAD`` and ``_EXCEPTED_LEAD``) or an easement (openers granting one
+    # easement, never plural "easements", and ``_OBJECT_GRANT`` grants): (start, end).
     taking: tuple[tuple[int, int], ...]
     grants: tuple[tuple[int, int], ...]
     # Per closure: whether a separate description (a traverse) opens after it.
@@ -526,6 +661,19 @@ class _TextIndex:
     easements: tuple[tuple[int, int], ...]
     # Easement clauses after a closed description whose courses are no traverse.
     easement_clauses: tuple[tuple[int, int], ...] = ()
+    # Grants of one easement named without an opener word (``_OBJECT_GRANT``).
+    object_grants: tuple[tuple[int, int], ...] = ()
+
+    @cached_property
+    def text_role(self) -> TractType | None:
+        """Role of the text's first description when a lead introduces it, computed once.
+
+        ``_introduced_role`` of the first description (``_opening_after``): EXCEPTION or
+        EASEMENT, or None when no lead introduces it (the parcel's own).
+        """
+        opening = _opening_after(self.text, 0)
+        found = None if opening is None else self.introduced(opening)
+        return None if found is None else found[1]
 
     def next_stop(self, position: int) -> int:
         """Return the first clause stop after ``position``, or the end of the text."""
@@ -567,21 +715,83 @@ def _starts_clause(text: str, position: int) -> bool:
     return text[i - 1] == "." and ends_sentence(text, i - 1)
 
 
+def _lead_sentence_start(text: str, position: int) -> int:
+    """Return where the sentence holding the lead at ``position`` starts.
+
+    ``_sentence_start``, but never before the last semicolon or THENCE before it: wording
+    of an earlier course or clause is no intro of the lead's sentence.
+    """
+    start = _sentence_start(text, position)
+    for brk in _OPENER_CLAUSE_BREAK.finditer(text, start, position):
+        start = brk.end()
+    return start
+
+
+_OBJECT_PHRASE_END = re.compile(r"[,;:]")
+# Where a lead's object phrase names land a later "said <noun>" refers back to: its
+# direct object ("EXCEPTING THEREFROM Lot 5A", "a tract of land") or land after a
+# preposition of the object ("a strip of land", "an easement over a tract"); never land
+# the lead takes something from ("from the premises hereinafter described").
+_REFERS_BACK = (
+    r"(?:^[\s,]*(?:(?:there|here)(?:from|out|of)\b[\s,]*)?"
+    r"(?:(?:an?|that|those|the(?:\s+following)?|one|certain)\s+)?"
+    r"(?:(?!(?:of|from|in|on|to|for|by|at|with|over|across|upon|through|along|within|under)\b)"
+    r"[\w-]+\s+){0,3}?"
+    r"|\b(?:of|over|across|upon|through|along|in|within)\s+(?:(?:an?|the|that|said)\s+)?"
+    r"(?:[\w-]+\s+){0,2}?)"
+)
+
+
+def _parcel_intro_after(text: str, lead_end: int, end: int, own_sentence: bool) -> int | None:
+    """Return where the parcel's own intro after a lead starts, before ``end``, or None.
+
+    The parcel lead (``_PARCEL_LAND_LEAD``: "ALL THAT CERTAIN lot"), the conveyed land
+    named as the one described ("the premises being described", "said lot being
+    described", "The land referred to herein is described": ``_NAMED_PARCEL_DESCRIBED``,
+    unless the lead's own object phrase, up to its first comma or colon, names the same
+    land, which it then refers back to (``_REFERS_BACK``: "EXCEPTING THEREFROM a strip
+    of land, said land being described"), or, for a recital inside the parcel's sentence
+    (not ``own_sentence``), the comma intro (``_PARCEL_INTRO``: "..., bounded and
+    described as follows:"). Wording from it on is the parcel's.
+    """
+    lead = _parcel_lead_between(text, lead_end, end)
+    found = [] if lead is None else [lead]
+    for named in _NAMED_PARCEL_DESCRIBED.finditer(text, lead_end, end):
+        phrase_end = _OBJECT_PHRASE_END.search(text, lead_end, named.start())
+        phrase = text[lead_end : named.start() if phrase_end is None else phrase_end.start()]
+        if not re.search(_REFERS_BACK + rf"{named['noun']}s?\b", phrase, re.IGNORECASE):
+            found.append(named.start())
+            break
+    if not own_sentence:
+        intro = _PARCEL_INTRO.search(text, lead_end, end)
+        if intro is not None:
+            found.append(intro.start())
+    return min(found, default=None)
+
+
 def _lead_introduces(text: str, lead_start: int, lead_end: int, description: int) -> bool:
     """Return whether the lead ``text[lead_start:lead_end]`` introduces ``description``.
 
     Its clause must run on into the description: no sentence break
-    (``_sentence_break``), semicolon, THENCE or course between. Then the description is
-    the lead's object when the lead's own clause introduces it ("EXCEPTING THEREFROM
-    the following described parcel:", "LESS AND EXCEPT that part described as follows:",
-    "over the following described strip:", a colon), or when the lead starts its own
-    sentence and runs on into the description with no parcel lead (ALL THAT) between.
+    (``_sentence_break``), semicolon, THENCE or course between. Then, in order:
 
-    The parcel's own lead introduces the description otherwise: a parcel lead (ALL
-    THAT) after the lead, or, for a recital inside the parcel's sentence ("ALL THAT
-    CERTAIN lot, SUBJECT to easements as shown on the plan, bounded and described as
-    follows:"), the parcel's intro after the recital's comma (``_PARCEL_INTRO``) ends
-    the lead's own clause.
+    1. The lead's own clause (up to the parcel's intro after it,
+       ``_parcel_intro_after``) names its object as the one described ("EXCEPTING
+       THEREFROM the following described parcel:", "LESS AND EXCEPT that part described
+       as follows:", "over the following described strip:", "an easement for drainage
+       described as follows:", "EXCEPTING THEREFROM:", "LESS PARCEL B:"): the
+       description is the lead's, even against the parcel's own intro in the sentence
+       (two claims on one description fail closed: never the parcel).
+    2. The parcel's own intro anywhere in the lead's sentence, before the lead ("ALL
+       THAT ...", "The land referred to herein", "Being Lot ...", "described as
+       follows", ``_PARCEL_NAMING`` / ``_DESCRIBING_INTRO``) or after it ("the premises
+       being described", "..., bounded and described as follows:"): the description is
+       the parcel's ("ALL THAT CERTAIN lot more particularly described as follows,
+       SUBJECT TO the right of way of Main Street: BEGINNING ...").
+    3. A rights recital (``_RIGHTS_RECITAL``: mineral, oil and gas rights, rights of way
+       of record, a portion within a right of way) introduces no description.
+    4. Otherwise a colon in the lead's clause, or the lead starting its own sentence and
+       running on into the description, introduces it.
     """
     # The break test reads the description's own opening word (a line break before a
     # BEGINNING breaks the sentence only when that BEGINNING is in view).
@@ -592,16 +802,26 @@ def _lead_introduces(text: str, lead_start: int, lead_end: int, description: int
         or _TRAVERSE_WORDING.search(text, lead_end, description)
     ):
         return False
-    parcel = _PARCEL_LEAD.search(text, lead_end, description)
-    own_end = description if parcel is None else parcel.start()
     own_sentence = _starts_clause(text, lead_start)
-    if not own_sentence:
-        intro = _PARCEL_INTRO.search(text, lead_end, own_end)
-        if intro is not None:
-            own_end = intro.start()
-    if _DESCRIPTION_INTRO.search(text, lead_end, own_end) or ":" in text[lead_end:own_end]:
+    intro = _parcel_intro_after(text, lead_end, description, own_sentence)
+    own_end = description if intro is None else intro
+    clause = text[lead_end:own_end]
+    if _OBJECT_DESCRIBED.search(clause) or (
+        _LEAD_ALONE.fullmatch(clause) and (":" in clause or _MARKER.match(text, own_end))
+    ):
         return True
-    return own_sentence and parcel is None
+    sentence = _lead_sentence_start(text, lead_start)
+    if (
+        intro is not None
+        or _parcel_lead_between(text, sentence, lead_start) is not None
+        or _PARCEL_NAMING.search(text, sentence, lead_start)
+        or _DESCRIBING_INTRO.search(text, sentence, lead_start)
+    ):
+        return False
+    rights = _RIGHTS_RECITAL.match(clause)
+    if rights is not None and not _LAND_NOUN.search(clause, rights.end()):
+        return False
+    return ":" in clause or own_sentence
 
 
 def _introduced_role(
@@ -707,23 +927,31 @@ def _index(text: str) -> _TextIndex:
     # A RESERVING that opens an easement grant ("RESERVING to the grantor the right of
     # way ...") is that grant, never an exception lead.
     grant_words = {_opener_start(m) for m in opener_matches}
-    taking = tuple(
-        sorted(
-            {
-                *(m.span() for m in structural_leads),
-                *(
-                    m.span("lead")
-                    for m in _TAKING_LEAD.finditer(text)
-                    if m.start("lead") not in grant_words
-                ),
-            }
-        )
+    # One lead per start, its whole wording ("SAVE AND EXCEPT", never "SAVE" alone).
+    leads: dict[int, int] = {}
+    for start, end in (
+        *(m.span() for m in structural_leads),
+        *(
+            m.span("lead")
+            for m in _TAKING_LEAD.finditer(text)
+            if m.start("lead") not in grant_words
+        ),
+        *(m.span("lead") for m in _EXCEPTED_LEAD.finditer(text)),
+    ):
+        leads[start] = max(end, leads.get(start, end))
+    taking = tuple(sorted(leads.items()))
+    # A grant named without an opener word, unless an opener already grants it.
+    opener_spans = [(_opener_start(m), m.end()) for m in opener_matches]
+    object_grants = tuple(
+        m.span("grant")
+        for m in _OBJECT_GRANT.finditer(text)
+        if not any(start <= m.start("grant") < end for start, end in opener_spans)
     )
     # One pass in text order: whether an opener is a generic recital depends on the
     # boundaries closed before it, and whether a closure closes a boundary on the
     # openers before it.
     openers: list[re.Match[str]] = []
-    grants: list[tuple[int, int]] = []
+    grants: list[tuple[int, int]] = list(object_grants)
     boundary_ends: list[int] = []
     pending = list(enumerate(closures))
     floor = 0
@@ -777,9 +1005,10 @@ def _index(text: str) -> _TextIndex:
             opener_starts[0] if openers and _is_easement_deed_grant(text, openers[0]) else None
         ),
         taking=taking,
-        grants=tuple(grants),
+        grants=tuple(sorted(grants)),
         follows=follows,
         easements=(),
+        object_grants=object_grants,
     )
     easements, clauses = _easement_spans(index)
     return replace(index, easements=tuple(easements), easement_clauses=tuple(clauses))
@@ -914,11 +1143,13 @@ _TOGETHER_WITH = re.compile(r"TOGETHER\s+WITH\b", re.IGNORECASE)
 def _is_easement_deed_grant(text: str, opener: re.Match[str]) -> bool:
     """Return whether ``opener`` is the operative grant of an easement deed.
 
-    The one explicit easement-deed signal (INV-1's exception): the document itself
-    opens with a TOGETHER WITH grant naming a specific easement ("TOGETHER WITH an
-    easement for access as follows: BEGINNING ..."), with no parcel wording before it.
-    Its grant then takes the first description when its clause runs on into it
-    (``_grant_takes``). A deed title alone ("GRANT OF EASEMENT") is not recognised.
+    An opener-word easement-deed signal (INV-1's exception): the document itself opens
+    with a TOGETHER WITH grant naming a specific easement ("TOGETHER WITH an easement
+    for access as follows: BEGINNING ..."), with no parcel wording before it. Its grant
+    then takes the first description when its clause runs on into it (``_grant_takes``)
+    and no parcel intro lies between. A grant of one easement introducing the first
+    description in any other form (``_OBJECT_GRANT``, ``_lead_introduces``) makes an
+    easement deed too (r58). A deed title alone ("GRANT OF EASEMENT") is not recognised.
     """
     start = _opener_start(opener)
     return (
@@ -1045,10 +1276,12 @@ def _easement_spans(index: _TextIndex) -> tuple[list[tuple[int, int]], list[tupl
     opener before the first boundary is that parcel's preamble, unless its own clause
     introduces the description (``_introduced_role``: "TOGETHER WITH a perpetual
     easement over the following described strip: BEGINNING ..."), whose span then ends
-    with that description's closing sentence. A span ends with the sentence of its last
-    course when only wording without a course follows it before the stop (wording
-    already set aside, a recital); otherwise at the stop, so no course is ever left
-    behind on a boundary.
+    with that description's closing sentence. A grant named without an opener word
+    (``_OBJECT_GRANT``: "An easement for ingress and egress described as follows:")
+    takes a description only that way, wherever it stands. A span ends with the
+    sentence of its last course when only wording without a course follows it before
+    the stop (wording already set aside, a recital); otherwise at the stop, so no course
+    is ever left behind on a boundary.
 
     Returns the spans and, separately, the easement clauses whose courses describe no
     traverse (``_describes_traverse``: "SUBJECT TO a sewer easement which begins at the
@@ -1058,14 +1291,20 @@ def _easement_spans(index: _TextIndex) -> tuple[list[tuple[int, int]], list[tupl
     text = index.text
     spans: list[tuple[int, int]] = []
     clauses: list[tuple[int, int]] = []
-    for start, opener_end in zip(index.openers, index.opener_ends, strict=True):
+    # Openers, and grants named without an opener word (r58: ``_OBJECT_GRANT``), which
+    # take a description only when their own clause introduces it.
+    leads = sorted(
+        [*((s, e, True) for s, e in zip(index.openers, index.opener_ends, strict=True))]
+        + [(s, e, False) for s, e in index.object_grants]
+    )
+    for start, opener_end, is_opener in leads:
         if spans and start < spans[-1][1]:
             continue
         # An earlier easement description closes where it ends.
         if _last_closure_end(index, start, spans) is None:
             continue
         stop = index.next_stop(start)
-        introduced = not index.may_grant(start)
+        introduced = not (is_opener and index.may_grant(start))
         if introduced:
             opening = _opening_after(text, opener_end)
             if opening is None:
@@ -1074,6 +1313,9 @@ def _easement_spans(index: _TextIndex) -> tuple[list[tuple[int, int]], list[tupl
             if found is None or found[0] != start:
                 continue
             stop = _closing_sentence_end(index, opening)
+            # A tract heading directly before the grant labels the easement ("TRACT 2: A
+            # non-exclusive easement ... described as follows:"), as on its own segment.
+            start = _heading_before(index, start)
         courses = list(_THENCE_COURSE.finditer(text, start, stop))
         if not courses:
             continue
@@ -1099,6 +1341,29 @@ def _easement_spans(index: _TextIndex) -> tuple[list[tuple[int, int]], list[tupl
             continue
         spans.append((start, start + len(text[start:end].rstrip())))
     return spans, clauses
+
+
+# What may separate a tract heading's ID (and parenthetical) from the wording it labels.
+_HEADING_GAP = re.compile(r"[\s:.\-–—]*")
+
+
+def _heading_before(index: _TextIndex, position: int) -> int:
+    """Return where a tract heading directly before ``position`` starts, else ``position``.
+
+    Directly before: only its terminator (a colon, period, dash) and whitespace lie
+    between the heading's ID (and parenthetical) and ``position`` ("TRACT 2: A ...").
+    """
+    i = bisect_left(index.headings, position)
+    if not i:
+        return position
+    heading = index.headings[i - 1]
+    marker = _MARKER.match(index.text, heading)
+    if marker is None:
+        return position
+    skipped = _TRANSPARENT_AFTER_ID.match(index.text, marker.end())
+    end = marker.end() if skipped is None else skipped.end()
+    gap = _HEADING_GAP.match(index.text, end, position)
+    return heading if gap is not None and gap.end() == position else position
 
 
 def _closing_sentence_end(index: _TextIndex, opening: int) -> int:
@@ -1153,7 +1418,17 @@ def _grant_takes(
     * Before any boundary the grant sentence never takes the description after it
       ("TOGETHER WITH an easement for utilities. BEGINNING ..."): that description
       is the parcel.
+    * The parcel's own intro between the grant and the description, or opening it
+      ("TOGETHER WITH an easement 10 feet wide ALL THAT CERTAIN lot, ... described as
+      follows: BEGINNING ...", "... The land referred to herein is described as
+      follows:", ``_parcel_intro_after``), gives the description to the parcel (r58),
+      wherever the grant stands.
     """
+    intro = _parcel_intro_after(
+        text, opener, min(len(text), description + _LABEL_LOOKAHEAD), own_sentence=True
+    )
+    if intro is not None and intro <= description:
+        return False
     limit = min(len(text), description + _OPENING_LOOKAHEAD)
     sentence = _sentence_break(text, opener, limit)
     clause = _OPENER_CLAUSE_BREAK.search(text, opener, description)
@@ -1366,16 +1641,25 @@ def stated_clause_end(text: str, end: int, start: int | None = None) -> int:
     return end + len(rest.rstrip(" \t\n;,:"))
 
 
-def _separate_easements(segments: list[BasedSegment]) -> list[BasedSegment]:
+def _separate_easements(
+    segments: list[BasedSegment], indexes: dict[str, _TextIndex] | None = None
+) -> list[BasedSegment]:
     """Split easement descriptions out of each segment into EASEMENT tracts.
 
     Generated easement labels are numbered in order of appearance. A split-out
     easement's role is inferred (from its grant wording); the remainder keeps the
-    segment's own role basis.
+    segment's own role basis. ``indexes`` are clause structures already built for some
+    segment texts; the others are built here.
     """
+    known = indexes or {}
     result: list[BasedSegment] = []
     for segment, label, tract_type, basis in segments:
-        spans = [] if tract_type == TractType.EASEMENT else easement_description_spans(segment)
+        index = known.get(segment)
+        spans = (
+            []
+            if tract_type == TractType.EASEMENT
+            else list((_index(segment) if index is None else index).easements)
+        )
         if not spans:
             result.append((segment, label, tract_type, basis))
             continue
@@ -1690,11 +1974,17 @@ def _split_on_markers(
     result: list[tuple[str, str, TractType, int]] = []
     recitals: list[tuple[str, str, TractType, int]] = []
     # A tract introduced by an EXCEPT lead ("EXCEPTING THEREFROM the following
-    # described parcel: PARCEL A: ...") starts at its lead: the lead types it and is
-    # never left on the tract before it.
+    # described parcel: PARCEL A: ...") or by the grant of one easement whose own clause
+    # introduces it ("subject to the following easement: PARCEL B: ...", r58) starts at
+    # its lead: the lead types it and is never left on the tract before it.
+    index = _index(text)
     starts: list[int] = []
     for i, (pos, _, _) in enumerate(markers):
-        lead = _except_lead(text, pos, markers[i - 1][0] if i else 0)
+        floor = markers[i - 1][0] if i else 0
+        lead = _except_lead(text, pos, floor)
+        if lead is None:
+            found = index.introduced(pos, floor)
+            lead = found[0] if found is not None and found[1] == TractType.EASEMENT else None
         starts.append(pos if lead is None else lead)
 
     # Boundary calls before the first marker belong to a tract whose heading was
@@ -1723,6 +2013,13 @@ def _split_on_markers(
 
         # Check preceding text for easement/EXCEPT/ALSO wording to assign the TractType
         tract_type = _tract_type_at(text, pos, markers[i - 1][0] if i else 0)
+        if is_boundary_tract(tract_type):
+            # A lead in the heading's own text introducing its description ("TRACT 2: A
+            # non-exclusive easement ... described as follows:") types it (r58).
+            opening = _opening_after(text, pos, end)
+            found = None if opening is None else index.introduced(opening, pos)
+            if found is not None:
+                tract_type = found[1]
 
         # A title recital is never a tract of its own; it is resolved after all
         # descriptions are known (a same-label description may follow it).
@@ -2032,14 +2329,17 @@ def split_into_tracts_with_basis(text: str) -> list[BasedSegment]:
     """``split_into_tracts`` with each segment's role basis.
 
     "heading" when an explicit TRACT/PARCEL heading (``find_tract_markers``) starts a
-    MAIN or ADDITION segment with no role wording in the heading or before its opening
-    (``_heading_basis``); every other role is "inferred" from wording or position. (A
+    MAIN or ADDITION segment with no role lead before its opening and no role named in
+    its label (``_heading_basis``); every other role is "inferred" from wording or
+    position. (A
     deed's sole MAIN description is "single", decided by ``extract_calls`` once
     segments without calls are dropped.)
 
     Returns: list of (tract_text, label, tract_type, role_basis)
     """
-    return _separate_easements(_split_tract_segments(text))
+    # The text's clause structure is built once and passed to every step (r58).
+    index = _index(text)
+    return _separate_easements(_split_tract_segments(index), {text: index})
 
 
 def _heading_basis(
@@ -2052,19 +2352,26 @@ def _heading_basis(
     """Role basis of a segment split on tract markers, its heading at ``position``.
 
     A heading proves a description exists, not its role. It is "heading" only for a
-    MAIN or ADDITION tract when neither the heading itself nor the text between the
-    previous description's end and this description's opening has role wording
-    (``_ROLE_WORDING``: "TRACT 2: A non-exclusive easement ...", "PARCEL B (ACCESS
-    EASEMENT):", "LESS PARCEL B:", "Said Parcel A is subject to the following
-    easement:", "PARCEL TWO: ALL THAT tract, EXCEPTING AND RESERVING the oil and gas
-    rights, ..."). Otherwise the role is "inferred" (fail closed), whatever typing
-    made of the wording. The previous description ends at its first closure after the
-    previous heading (``markers``), or, unclosed, at that heading. Before the first
-    heading there is no previous description: its window starts with the sentence
-    running on into it (``_sentence_start``: "Said premises are subject to the
-    following easement: PARCEL A: ..."), never in a recording cover sheet or a
-    warranty clause before it. Wording already set aside (stated exceptions, easement
-    clauses) is blank in ``index.text``.
+    MAIN or ADDITION tract when no role lead lies between the previous description's
+    end and this description's opening, and the heading's own label names no role.
+    A role lead is the lead grammar typing uses (r58), never a bare word: an EXCEPT /
+    LESS / SAVE / RESERVING lead or another exception lead (``index.except_leads``,
+    ``index.taking``: "LESS PARCEL B:", "PARCEL TWO: ALL THAT tract, EXCEPTING AND
+    RESERVING the oil and gas rights, ..."), or a grant of one specific easement or
+    right of way (``index.grants``: "TRACT 2: A non-exclusive easement ...", "Said
+    Parcel A is subject to the following easement:"). A label names a role with an
+    easement, right of way, exception or reservation in it ("PARCEL B (ACCESS
+    EASEMENT):", ``_heading_label``). Place names ("Access Road", "the Sewer
+    Authority"), generic recitals ("SUBJECT to easements and restrictions of record")
+    and conveyancing boilerplate ("TOGETHER WITH all improvements thereon") are none.
+    Otherwise the role is "inferred" (fail closed), whatever typing made of the
+    wording. The previous description ends at its first closure after the previous
+    heading (``markers``), or, unclosed, at that heading. Before the first heading
+    there is no previous description: its window starts with the sentence running on
+    into it (``_sentence_start``: "Said premises are subject to the following easement:
+    PARCEL A: ..."), never in a recording cover sheet or a warranty clause before it.
+    Wording already set aside (stated exceptions, easement clauses) is blank in
+    ``index.text``.
     """
     if label == UNLABELLED_TRACT_LABEL or not is_boundary_tract(tract_type):
         return "inferred"
@@ -2078,20 +2385,54 @@ def _heading_basis(
         floor = closed if closed is not None and closed <= position else previous
     following = markers[k + 1] if k + 1 < len(markers) else len(text)
     opening = _opening_after(text, position, following)
-    window = text[floor : following if opening is None else opening]
-    return "inferred" if _ROLE_WORDING.search(_MORE_OR_LESS.sub(" ", window)) else "heading"
+    end = following if opening is None else opening
+    leads = (
+        *(lead.start() for lead in index.except_leads),
+        *(start for start, _ in index.taking),
+        *(start for start, _ in index.grants),
+    )
+    if any(floor <= start < end for start in leads):
+        return "inferred"
+    label_text = _heading_label(text, position, floor, end)
+    return "inferred" if _LABEL_ROLE.search(label_text) else "heading"
+
+
+# How far past a heading's ID its label is read (``_heading_label``).
+_LABEL_LOOKAHEAD = 40
+
+
+def _heading_label(text: str, position: int, floor: int, end: int) -> str:
+    """Return the label of the tract heading at ``position`` (between ``floor`` and ``end``).
+
+    The heading from its marker to its colon, line end or period, at most
+    ``_LABEL_LOOKAHEAD`` characters past its ID ("PARCEL B (ACCESS EASEMENT)", "PARCEL
+    B - ACCESS EASEMENT"), with up to four uppercase words directly before the marker
+    ("ACCESS EASEMENT PARCEL B").
+    """
+    marker = _MARKER.match(text, position)
+    after_id = position if marker is None else marker.end()
+    limit = max(after_id, min(end, after_id + _LABEL_LOOKAHEAD))
+    found = [i for i in (text.find(c, after_id, limit) for c in ":\n.") if i >= 0]
+    stop = min(found, default=limit)
+    start = position
+    for _ in range(4):
+        word = _UPPERCASE_WORD_BEFORE.search(text, max(floor, start - _LABEL_LOOKAHEAD), start)
+        if word is None:
+            break
+        start = word.start()
+    return text[start:stop]
 
 
 def _inferred(segments: list[tuple[str, str, TractType]]) -> list[BasedSegment]:
     return [(text, label, tract_type, "inferred") for text, label, tract_type in segments]
 
 
-def _split_tract_segments(text: str) -> list[BasedSegment]:
-    """Split ``text`` by markers, BEGINNING blocks or EXCEPT/ALSO clauses."""
+def _split_tract_segments(index: _TextIndex) -> list[BasedSegment]:
+    """Split ``index.text`` by markers, BEGINNING blocks or EXCEPT/ALSO clauses."""
+    text = index.text
     # 1. Try explicit TRACT/PARCEL markers
     markers = find_tract_markers(text)
     if markers:
-        index = _index(text)
         positions = [position for position, _, _ in markers]
         return [
             (
@@ -2110,12 +2451,24 @@ def _split_tract_segments(text: str) -> list[BasedSegment]:
 
     # Easements are separated before clause splitting, which would cut an "ALSO an
     # easement ..." opener off its description.
-    separated = _separate_easements([(text, "Tract 1", TractType.MAIN, "inferred")])
+    separated = _separate_easements([(text, "Tract 1", TractType.MAIN, "inferred")], {text: index})
     if len(separated) > 1:
         easements = [segment for segment in separated if segment[2] == TractType.EASEMENT]
         parcel = [segment[0] for segment in separated if segment[2] != TractType.EASEMENT]
-        return (_inferred(_split_clauses(parcel[0])) if parcel else []) + easements
-    return _inferred(_split_clauses(text))
+        # An easement deed's grant words or title left with no course and naming no land
+        # ("GRANTOR hereby grants and conveys unto GRANTEE") describe no tract. A parcel
+        # named by reference only stays a tract (strict extraction refuses it).
+        if not parcel or not (_COURSE_TEXT.search(parcel[0]) or _LAND_NOUN.search(parcel[0])):
+            return easements
+        return _inferred(_split_clauses(parcel[0])) + easements
+    return _inferred(_split_clauses(text, index))
+
+
+# Any course wording: a THENCE course, a complete course or a description opening.
+_COURSE_TEXT = re.compile(
+    _THENCE_COURSE.pattern + "|" + _COMPLETE_COURSE.pattern + r"|\b(?:BEGINNING|COMMENCING)\b",
+    re.IGNORECASE,
+)
 
 
 def split_boundary_clauses(text: str) -> list[tuple[str, bool]]:
@@ -2132,12 +2485,17 @@ def split_boundary_clauses(text: str) -> list[tuple[str, bool]]:
     described parcel: BEGINNING ..."). A text whose one description a LESS / SAVE /
     RESERVING lead introduces (no EXCEPT to split on) is one exception clause.
     """
+    return _boundary_clauses(_index(text))
+
+
+def _boundary_clauses(index: _TextIndex) -> list[tuple[str, bool]]:
+    """``split_boundary_clauses`` of ``index.text``, with its clause structure built."""
+    text = index.text
     clauses = split_exception_clauses(text)
     if len(clauses) < 2:
-        if clauses and not clauses[0][1] and _introduced_text_role(text) == TractType.EXCEPTION:
+        if clauses and not clauses[0][1] and index.text_role == TractType.EXCEPTION:
             return [(clauses[0][0], True)]
         return clauses
-    index = _index(text)
     # (start, end, is_exception) of each clause in ``text``, in order.
     spans: list[tuple[int, int, bool]] = []
     # Where a recital before the first kept clause starts (it joins that clause).
@@ -2204,17 +2562,14 @@ def _sentence_start(text: str, position: int) -> int:
     return max(start, period + 1)
 
 
-def _introduced_text_role(text: str) -> TractType | None:
-    """Role of the first description of ``text`` when a lead introduces it (``_introduced_role``)."""
-    opening = _opening_after(text, 0)
-    found = None if opening is None else _index(text).introduced(opening)
-    return None if found is None else found[1]
+def _split_clauses(text: str, index: _TextIndex | None = None) -> list[tuple[str, str, TractType]]:
+    """Split ``text`` by EXCEPT/ALSO clauses, or keep it as one tract.
 
-
-def _split_clauses(text: str) -> list[tuple[str, str, TractType]]:
-    """Split ``text`` by EXCEPT/ALSO clauses, or keep it as one tract."""
+    ``index`` is the text's clause structure when already built.
+    """
+    index = _index(text) if index is None else index
     # 3. Fall back to EXCEPT/ALSO splitting
-    clauses = split_boundary_clauses(text)
+    clauses = _boundary_clauses(index)
     if len(clauses) > 1:
         result: list[tuple[str, str, TractType]] = []
         main_idx = 0
@@ -2229,7 +2584,7 @@ def _split_clauses(text: str) -> list[tuple[str, str, TractType]]:
         return result
 
     # The one description introduced by its own lead is that lead's, never the parcel.
-    role = _introduced_text_role(text)
+    role = index.text_role
     if role is not None:
         label = "Exception 1" if role == TractType.EXCEPTION else EASEMENT_LABEL
         return [(text, label, role)]

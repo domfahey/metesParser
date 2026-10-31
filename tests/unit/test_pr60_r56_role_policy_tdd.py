@@ -12,6 +12,12 @@ Round 57 (the round-56 reviewer probes) tightens the bases: a description introd
 by its own EXCEPT/RESERVING/LESS or easement-grant lead is never the parcel; a heading
 with role wording in it or before its BEGINNING is "inferred"; a one-course easement
 clause is noted, never a tract; a tie line after the closure is no separate description.
+
+Round 58 (the round-57 reviewer probes): the parcel's own intro in the lead's sentence
+keeps a single parcel MAIN whatever rights it recites; a heading is "inferred" only for
+a role lead (not bare words, place names or generic recitals); an easement deed is any
+document whose operative grant of one easement introduces its description; "Excepted
+from the above is" and similar are EXCEPT leads.
 """
 
 from __future__ import annotations
@@ -201,12 +207,98 @@ PROBES["r57_mineral_parcel_then_tie_line"] = (
     "50 feet."
 )
 
+# The round-57 reviewer probes (PR #60 round 58).
+# Item 1: a rights recital inside the parcel's own intro sentence (before or after its
+# "described as follows") never makes the one description an exception or easement.
+RIGHTS_IN_INTRO = {
+    "r58_described_then_subject_to_street": (
+        "ALL THAT CERTAIN lot more particularly described as follows, SUBJECT TO the right "
+        f"of way of Main Street: {P}"
+    ),
+    "r58_land_referred_to_less_rights_of_way": (
+        "The land referred to herein is described as follows, LESS the rights of way of "
+        f"record: {P}"
+    ),
+    "r58_being_lot_reserving_mineral_rights": (
+        "Being Lot 5, Block 3 on the Plan of Smithfield, RESERVING unto the Grantor the "
+        f"mineral rights, the premises being described as follows: {P}"
+    ),
+    "r58_lot_less_and_except_oil_and_gas": (
+        "Lot 5, Block 3, LESS AND EXCEPT the oil and gas rights, said lot being described as "
+        f"follows: {P}"
+    ),
+    "r58_described_then_save_and_except_portion": (
+        "ALL THAT CERTAIN lot more particularly described as follows, SAVE AND EXCEPT any "
+        f"portion lying within the right of way of Main Street: {P}"
+    ),
+}
+PROBES.update(RIGHTS_IN_INTRO)
+# Item 2: no role lead before PARCEL TWO's description, so its heading stands.
+PLAIN_HEADINGS = {
+    "r58_access_road": (
+        f"PARCEL ONE: {P} PARCEL TWO: ALL THAT CERTAIN lot fronting on Access Road described "
+        f"as follows: {E2}"
+    ),
+    "r58_sewer_authority": (
+        f"PARCEL ONE: {P} Being Lot 1 on the plan of the Sewer Authority. PARCEL TWO: {E2}"
+    ),
+    "r58_utility_building": (
+        f"PARCEL ONE: {P} PARCEL TWO: Being known as the Utility Building lot. {E2}"
+    ),
+    "r58_generic_subject_to": (
+        f"PARCEL ONE: {P} SUBJECT to easements and restrictions of record. PARCEL TWO: {E2}"
+    ),
+    "r58_together_with_improvements": (
+        f"PARCEL ONE: {P} TOGETHER WITH all improvements thereon. PARCEL TWO: {E2}"
+    ),
+    "r58_excluding_the_street": (
+        f"PARCEL ONE: {P} PARCEL TWO: ALL THAT lot, excluding the street, described as "
+        f"follows: {E2}"
+    ),
+    "r58_generic_preamble": f"SUBJECT to easements of record, PARCEL ONE: {P} PARCEL TWO: {E2}",
+}
+PROBES.update(PLAIN_HEADINGS)
+# Item 3: the document's operative grant is one easement introducing its description.
+# No parcel boundary is described, so there are no flat calls (kept out of ``PROBES``,
+# whose blocked reviews carry the role mark on their flat calls).
+EASEMENT_DEEDS = {
+    "r58_an_easement": f"An easement for ingress and egress described as follows: {P}",
+    "r58_grantor_grants": (
+        "GRANTOR hereby grants and conveys unto GRANTEE a perpetual non-exclusive easement "
+        f"over the following described land: {P}"
+    ),
+    "r58_right_of_way": f"A 20 foot wide right of way described as follows: {P}",
+    "r58_deed_of_easement": (
+        "DEED OF EASEMENT\n\nThe Grantor grants a sanitary sewer easement over the lands of "
+        f"the Grantor described as follows: {P}"
+    ),
+}
+# Item 4: other exception leads introduce the only traverse.
+EXCEPTED_LEADS = {
+    "r58_excepted_from_the_above": (
+        f"Lot 5, Block 3 on the Plan of Smithfield. Excepted from the above is the parcel "
+        f"described as follows: {E}"
+    ),
+    "r58_there_is_excepted": (
+        f"Lot 5, Block 3 on the Plan of Smithfield. There is excepted therefrom the parcel "
+        f"described as follows: {E}"
+    ),
+    "r58_following_is_excepted": (
+        f"Lot 5, Block 3 on the Plan of Smithfield. The following is excepted: {E}"
+    ),
+}
+PROBES.update(EXCEPTED_LEADS)
+
 BOTH_TRACTS = ["deed_verified_tract1.csv", "deed_verified_tract2.csv"]
 # Only these probes export: one description, or every role from a heading with no role
-# wording (r57: the second_parcel*_headed probes recite a reservation or an easement
-# before PARCEL TWO's BEGINNING, so its heading no longer establishes its role).
+# lead (r57: the second_parcel*_headed probes recite a reservation or an easement before
+# PARCEL TWO's BEGINNING, so its heading no longer establishes its role; r58: a generic
+# recital of easements of record is no role lead).
 EXPORTS = {
     **{f"close{i}_two_headed_parcels": BOTH_TRACTS for i in range(len(CLOSINGS))},
+    "second_parcel3_headed": BOTH_TRACTS,
+    **{name: ["deed_verified.csv"] for name in RIGHTS_IN_INTRO},
+    **dict.fromkeys(PLAIN_HEADINGS, BOTH_TRACTS),
     "plain": ["deed_verified.csv"],
     "mineral_single_parcel": ["deed_verified.csv"],
     "mineral_single_parcel_running_on": ["deed_verified.csv"],
@@ -331,6 +423,52 @@ def test_one_course_easement_clause_is_noted_not_a_tract(name: str, clause: str)
     assert [c.distance_ft for c in calls if c.distance_ft != 100.0] in ([], [20.0] * 4)
     notes = [part for c in calls for part in mp_models.split_notes(c.notes)]
     assert mp_models.SEPARATE_EASEMENT_NOTE_PREFIX + clause.rstrip(".") in notes
+
+
+@pytest.mark.parametrize("name", list(RIGHTS_IN_INTRO))
+def test_rights_recital_in_parcel_intro_is_one_verified_parcel(name: str, tmp_path: Path) -> None:
+    # r58 item 1: one MAIN parcel, verified through every path (as on main).
+    calls, tracts = extract_calls(PROBES[name], strict=True)
+    assert tracts == []
+    assert [(c.distance_ft, c.is_exception) for c in calls] == [(100.0, False)] * 4
+    assert verify_closure(calls).is_fully_verified()
+    assert [(c.distance_ft, c.is_exception) for c in CallExtractor.extract_calls(PROBES[name])] == [
+        (100.0, False)
+    ] * 4
+    result = review_text(PROBES[name], output_dir=tmp_path / "review")
+    assert result["status"] == "checks_passed"
+
+
+@pytest.mark.parametrize("name", list(PLAIN_HEADINGS))
+def test_heading_without_role_lead_is_heading(name: str) -> None:
+    _, tracts = extract_calls(PROBES[name], strict=True)
+    assert [(t.tract_type, t.role_basis) for t in tracts] == [(TractType.MAIN, "heading")] * 2
+    assert all(r.is_fully_verified() for r in verify_closure([], tracts=tracts))
+
+
+@pytest.mark.parametrize("name", [*EASEMENT_DEEDS, *EXCEPTED_LEADS])
+def test_easement_deed_or_excepted_description_is_never_the_parcel(
+    name: str, tmp_path: Path
+) -> None:
+    # r58 items 3-4: the only traverse is the grant's easement or the lead's exception:
+    # inferred, never verified or exported on any path, and no boundary course anywhere.
+    text = EASEMENT_DEEDS.get(name) or PROBES[name]
+    calls, tracts = extract_calls(text, strict=True)
+    assert [(t.tract_type, t.role_basis, len(t.calls)) for t in tracts] == [
+        (
+            TractType.EASEMENT if name in EASEMENT_DEEDS else TractType.EXCEPTION,
+            "inferred",
+            4,
+        )
+    ]
+    assert not [c for c in calls if not c.is_exception]
+    assert not [c for c in CallExtractor.extract_calls(text) if not c.is_exception]
+    assert not verify_closure(calls, tracts=tracts)[0].is_fully_verified()
+    written, refusal = _export(text, tmp_path / "out")
+    assert written == [] and DESCRIPTION_ROLES_PREFIX in refusal
+    result = review_text(text, output_dir=tmp_path / "review")
+    assert result["status"] != "checks_passed"
+    assert not (tmp_path / "review" / "calls_verified.csv").exists()
 
 
 def test_tie_line_after_closure_is_no_separate_description() -> None:
