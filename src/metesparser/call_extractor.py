@@ -23,7 +23,12 @@ from .models import (
     MonumentType,
     Transformation,
 )
-from .text_parser import _COMMA_NUMBER, TextParser, parse_comma_number
+from .text_parser import (
+    _COMMA_NUMBER,
+    _UNSUPPORTED_COMPOUND_PATTERN,
+    TextParser,
+    parse_comma_number,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -75,6 +80,37 @@ def _normalize_unit_token(token: str | None) -> str:
     if t in ("mile", "miles"):
         return "miles"
     return "feet"
+
+
+# "...to a point corner to X, which last mentioned point is the place of beginning":
+# the course ends at the true POB, so it and the courses before it (back to the
+# previous closing course) are tie lines.
+_RESTATED_POB_PATTERN = re.compile(
+    r"\blast\s+mentioned\s+point\s+is\s+the\s+(?:place|point)\s+of\s+beginning\b",
+    re.IGNORECASE,
+)
+_CLOSES_TO_POB_PATTERN = re.compile(
+    r"\bto\s+(?:the\s+)?(?:(?:point|place)\s+(?:and\s+place\s+)?of\s+)?beginning\b",
+    re.IGNORECASE,
+)
+
+
+def _mark_restated_pob_tie_lines(calls: list[DeedCall], call_texts: list[str]) -> list[DeedCall]:
+    """Mark courses leading to a restated place of beginning as tie lines."""
+    segment_start = 0
+    tie_end: tuple[int, int] | None = None
+    for i, call_text in enumerate(call_texts):
+        if _CLOSES_TO_POB_PATTERN.search(call_text):
+            segment_start = i + 1
+        elif _RESTATED_POB_PATTERN.search(call_text):
+            tie_end = (segment_start, i)
+    if tie_end is None:
+        return calls
+    start, end = tie_end
+    return [
+        call.model_copy(update={"is_tie_in": True}) if start <= i <= end else call
+        for i, call in enumerate(calls)
+    ]
 
 
 def _call_preview(call_text: str, max_len: int = 120) -> str:
@@ -268,6 +304,8 @@ class CallExtractor:
         course_num = 1
 
         for tract_text, is_exception_tract in tracts:
+            tract_calls: list[DeedCall] = []
+            tract_call_texts: list[str] = []
             # Remove a recognized commencement/POB preamble. A description may
             # legitimately begin with its first course and introduce THENCE later.
             thence_match = re.search(r"\bTHENCE\b", tract_text, re.IGNORECASE)
@@ -335,7 +373,8 @@ class CallExtractor:
 
                 if is_exception_tract:
                     call = call.model_copy(update={"is_exception": True})
-                calls.append(call)
+                tract_calls.append(call)
+                tract_call_texts.append(call_text)
 
                 if audit_context is not None:
                     transformations, decisions, flags = cls._audit_single_call(call_text, call)
@@ -350,6 +389,8 @@ class CallExtractor:
                     )
 
                 course_num += 1
+
+            calls.extend(_mark_restated_pob_tie_lines(tract_calls, tract_call_texts))
 
         return calls
 
@@ -408,11 +449,7 @@ class CallExtractor:
         course_text = _boundary_course_text(call_text)
         distance, unit = TextParser.extract_distance(course_text)
         if distance == 0:
-            if re.search(
-                rf"{_COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{_COMMA_NUMBER}\s+[A-Za-z]+",
-                course_text,
-                re.IGNORECASE,
-            ):
+            if _UNSUPPORTED_COMPOUND_PATTERN.search(course_text):
                 raise ValueError("Unsupported component in compound course distance")
             distance = cls.extract_distance_alternate(course_text)
             unit = distance_unit
