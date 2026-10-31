@@ -34,10 +34,14 @@ def is_boundary_tract(tract_type: TractType | str) -> bool:
     return tract_kind(tract_type) in BOUNDARY_TRACT_TYPES
 
 
+def _article(word: str) -> str:
+    return "an" if word[:1].lower() in "aeiou" else "a"
+
+
 def non_boundary_detail(label: str, tract_type: TractType | str) -> str:
     """The one wording for why an easement/exception tract is never verified or exported."""
     return (
-        f"non_boundary_tract: {label} is a {tract_kind(tract_type)} tract, not a parcel "
+        f"non_boundary_tract: {label} is {_article(tract_kind(tract_type))} {tract_kind(tract_type)} tract, not a parcel "
         "boundary, and is never eligible for verified export; its closure, area and "
         "perimeter are for review only"
     )
