@@ -30,6 +30,7 @@ from mp_models import (
     SkippedCourse,
     Tract,
     VerificationAudit,
+    is_boundary_tract,
     unapplied_exceptions,
 )
 
@@ -211,6 +212,39 @@ def verify_tract(
     )
 
 
+def _block_non_boundary(
+    result: ClosureResult, tract: Tract, audit: VerificationAudit | None
+) -> tuple[ClosureResult, VerificationAudit | None]:
+    """Block eligibility of an easement/exception tract, keeping its computed geometry."""
+    kind = getattr(tract.tract_type, "value", tract.tract_type)
+    detail = (
+        f"non_boundary_tract: {tract.label} is a {kind} tract, not a parcel boundary, and is "
+        "never eligible for verified export; its closure, area and perimeter are for review only"
+    )
+    check = CheckResult(
+        name="non_boundary_tract",
+        status="blocked",
+        reason=kind,
+        detail=detail,
+        inputs={"tract_type": kind},
+    )
+    blocked = result.model_copy(
+        update={"checks": [*result.checks, check], "warnings": [*result.warnings, detail]}
+    )
+    if audit is not None:
+        audit = audit.model_copy(
+            update={
+                "checks": [*audit.checks, check],
+                "closure_summary": {
+                    **audit.closure_summary,
+                    "status": blocked.get_closure_status(),
+                    "geometry_verified": blocked.geometry_verified,
+                },
+            }
+        )
+    return blocked, audit
+
+
 def _merge_skips(*groups: list[SkippedCourse]) -> list[SkippedCourse]:
     """Combine skip records from every source once, preserving order."""
     merged: list[SkippedCourse] = []
@@ -297,6 +331,8 @@ def verify_closure(
     Args:
         calls: List of DeedCall objects.
         tracts: Optional list of Tract objects for multi-tract verification.
+            Easement/exception tracts keep their computed geometry but a blocked
+            ``non_boundary_tract`` check keeps them from geometry eligibility.
         stated_area_sq_ft: Stated area from deed (optional, for comparison).
         closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft).
         double_entry_calls: Optional independently-entered call set for guardrail F.
@@ -333,9 +369,12 @@ def verify_closure(
                 audit_context=scratch,
                 skipped_courses=skips_for_tract(tract, tracts, labelled),
             )
-            if audit_context is not None and scratch is not None and scratch.verification_audit:
+            tract_audit = scratch.verification_audit if scratch is not None else None
+            if not is_boundary_tract(tract.tract_type):
+                result, tract_audit = _block_non_boundary(result, tract, tract_audit)
+            if audit_context is not None and tract_audit is not None:
                 audit_context.tract_verification_audits.append(
-                    scratch.verification_audit.model_copy(update={"tract_label": tract.label})
+                    tract_audit.model_copy(update={"tract_label": tract.label})
                 )
             results.append(result)
         return results

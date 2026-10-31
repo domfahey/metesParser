@@ -58,7 +58,8 @@ class TestMultiTractExport:
 
     def test_multi_tract_returns_multiple_paths(self, tmp_path: Path):
         t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
-        t2 = Tract(label="Exception 1", tract_type=TractType.EXCEPTION, calls=_square_calls(50.0))
+        # Exception/easement tracts are never exported (see test_pr60_r52_*).
+        t2 = Tract(label="Addition 1", tract_type=TractType.ADDITION, calls=_square_calls(50.0))
         result = export_verified_csv(
             _square_calls(),
             _good_closure(),

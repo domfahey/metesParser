@@ -19,6 +19,16 @@ class TractType(str, Enum):
     EASEMENT = "easement"
 
 
+# Only these tracts describe the conveyed parcel's boundary. An easement or an
+# excepted parcel can close as a traverse, but is never the deed's parcel.
+BOUNDARY_TRACT_TYPES: frozenset[str] = frozenset({TractType.MAIN.value, TractType.ADDITION.value})
+
+
+def is_boundary_tract(tract_type: TractType | str) -> bool:
+    """Whether a tract of this type is part of the conveyed parcel's boundary."""
+    return getattr(tract_type, "value", tract_type) in BOUNDARY_TRACT_TYPES
+
+
 class Tract(_Model):
     """A single tract within a multi-tract deed."""
 
