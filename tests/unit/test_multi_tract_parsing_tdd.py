@@ -11,10 +11,11 @@ from tests.fixtures.package_parser import extract_calls as package_extract_calls
 
 PARSERS = (package_extract_calls, CallExtractor.extract_calls)
 
-KINGS_HIGHWAY_GT = (
-    Path(__file__).resolve().parents[2]
-    / "sample_deeds"
-    / "101-111 Kings Highway E - Deed Image (7683 - 1295).ground_truth.json"
+SAMPLE_DEEDS = Path(__file__).resolve().parents[2] / "sample_deeds"
+# Both recorded deeds carry the same legal-description rider.
+KINGS_HIGHWAY_GTS = (
+    SAMPLE_DEEDS / "101-111 Kings Highway E - Deed Image (7683 - 1295).ground_truth.json",
+    SAMPLE_DEEDS / "101-111 Kings Highway E - Deed Image (11030 - 763).ground_truth.json",
 )
 
 
@@ -91,8 +92,8 @@ def test_closing_course_to_place_of_beginning_is_not_a_tie_line(parse):
     assert [call.is_tie_in for call in calls] == [False, False]
 
 
-def _kings_highway() -> dict:
-    return json.loads(KINGS_HIGHWAY_GT.read_text(encoding="utf-8"))
+def _load(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _course_fields(call) -> tuple:
@@ -105,9 +106,10 @@ def _course_fields(call) -> tuple:
     )
 
 
+@pytest.mark.parametrize("gt_path", KINGS_HIGHWAY_GTS, ids=lambda p: p.stem)
 @pytest.mark.parametrize("parse", PARSERS)
-def test_kings_highway_multi_tract_courses_match_ground_truth(parse):
-    gt = _kings_highway()
+def test_kings_highway_multi_tract_courses_match_ground_truth(parse, gt_path):
+    gt = _load(gt_path)
     calls = parse(gt["expected_legal_description"], strict=True)
     expected = [
         (
@@ -123,8 +125,9 @@ def test_kings_highway_multi_tract_courses_match_ground_truth(parse):
     assert [_course_fields(call) for call in calls] == expected
 
 
-def test_kings_highway_tracts_and_exceptions_match_ground_truth():
-    gt = _kings_highway()
+@pytest.mark.parametrize("gt_path", KINGS_HIGHWAY_GTS, ids=lambda p: p.stem)
+def test_kings_highway_tracts_and_exceptions_match_ground_truth(gt_path):
+    gt = _load(gt_path)
     _calls, tracts = package_extract_with_tracts(gt["expected_legal_description"], strict=True)
     assert [(t.label, t.tract_type.value) for t in tracts] == [
         (t["label"], t["tract_type"]) for t in gt["expected_tracts"]
