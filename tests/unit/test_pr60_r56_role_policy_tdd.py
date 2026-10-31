@@ -7,6 +7,11 @@ TRACT/PARCEL heading, nothing in the deed is verified or exported, through any p
 the facade), the ``review_text`` API and the monolith Pipeline. A single description
 is unaffected, and a deed whose every role comes from a heading still exports its
 verified MAIN/ADDITION tracts. The round-55 reviewer probes are replayed here.
+
+Round 57 (the round-56 reviewer probes) tightens the bases: a description introduced
+by its own EXCEPT/RESERVING/LESS or easement-grant lead is never the parcel; a heading
+with role wording in it or before its BEGINNING is "inferred"; a one-course easement
+clause is noted, never a tract; a tie line after the closure is no separate description.
 """
 
 from __future__ import annotations
@@ -135,15 +140,80 @@ PROBES["mineral_parcel_then_exception"] = (
     f"ALL THAT tract of land, {MINERAL} bounded and described as follows: {P} {EXCEPT_AFTER} {E}"
 )
 
+# The round-56 reviewer probes (PR #60 round 57).
+LOT_REFERENCE = "ALL THAT CERTAIN lot known as Lot 5, Block 3 on the Plan of Smithfield."
+# Item 1: a description introduced by its lead's own clause is not the parcel.
+INTRODUCED = {
+    "r57_lot_then_excepted_parcel_a": (
+        f"{LOT_REFERENCE} EXCEPTING THEREFROM the following described parcel: PARCEL A: {E}"
+    ),
+    "r57_lot_then_less_and_except": (
+        f"{LOT_REFERENCE} LESS AND EXCEPT that part described as follows: {E}"
+    ),
+    "r57_lot_then_excepting_therefrom_colon": f"{LOT_REFERENCE} EXCEPTING THEREFROM:\n\n{E}",
+    "r57_lot_then_excepting_and_reserving": (
+        f"{LOT_REFERENCE} EXCEPTING AND RESERVING the following described tract: {E}"
+    ),
+    "r57_lot_then_easement_strip": (
+        f"{LOT_REFERENCE} TOGETHER WITH a perpetual easement for ingress and egress over the "
+        f"following described strip: {E}"
+    ),
+}
+PROBES.update(INTRODUCED)
+PROBES["r57_recital_inside_parcel_sentence"] = (
+    "ALL THAT CERTAIN lot, SUBJECT to easements as shown on the plan, bounded and described "
+    f"as follows: {P}"
+)
+# Item 2: a heading proves a description exists, not its role.
+WORDED_HEADINGS = {
+    "r57_tract_2_easement": (
+        f"TRACT 1: {P} TRACT 2: A non-exclusive easement for ingress and egress described as "
+        f"follows: {E}"
+    ),
+    "r57_parcel_b_access_easement": f"PARCEL A: {P} PARCEL B (ACCESS EASEMENT): {E}",
+    "r57_less_parcel_b": f"PARCEL A: {P} LESS PARCEL B: {E}",
+    "r57_reserving_parcel_b": (
+        f"PARCEL A: {P} RESERVING unto the Grantor the following: PARCEL B: {E}"
+    ),
+    "r57_parcel_a_subject_to_parcel_b": (
+        f"PARCEL A: {P} Said Parcel A is subject to the following easement: PARCEL B: {E}"
+    ),
+}
+PROBES.update(WORDED_HEADINGS)
+# Item 3: a one-course easement clause is noted, never a tract blocking the parcel.
+SEWER = (
+    "SUBJECT TO a sewer easement which begins at the northeast corner of said lot and runs "
+    "thence South 10 feet."
+)
+UTILITY = (
+    "SUBJECT TO a 10 foot wide utility easement over the rear of said lot, which easement "
+    "begins at the Northeast corner thereof and runs thence South 10 feet."
+)
+PROBES["r57_headed_parcels_then_sewer_clause"] = f"PARCEL ONE: {P} PARCEL TWO: {E2} {SEWER}"
+PROBES["r57_parcel_then_utility_clause"] = (
+    f"ALL THAT CERTAIN lot, EXCEPTING the mineral rights, bounded and described as follows: "
+    f"{P} {UTILITY}"
+)
+# Item 4: a tie line after the closure is no separate description.
+PROBES["r57_mineral_parcel_then_tie_line"] = (
+    f"ALL THAT tract, {MINERAL} bounded and described as follows: {P} The said point of "
+    "beginning being located from the monument at Main Street as follows: thence N 10° E "
+    "50 feet."
+)
+
 BOTH_TRACTS = ["deed_verified_tract1.csv", "deed_verified_tract2.csv"]
-# Only these probes export: one description, or every role from a heading.
+# Only these probes export: one description, or every role from a heading with no role
+# wording (r57: the second_parcel*_headed probes recite a reservation or an easement
+# before PARCEL TWO's BEGINNING, so its heading no longer establishes its role).
 EXPORTS = {
     **{f"close{i}_two_headed_parcels": BOTH_TRACTS for i in range(len(CLOSINGS))},
-    **{f"second_parcel{i}_headed": BOTH_TRACTS for i in range(len(RECITALS))},
     "plain": ["deed_verified.csv"],
     "mineral_single_parcel": ["deed_verified.csv"],
     "mineral_single_parcel_running_on": ["deed_verified.csv"],
     "creek_bed_single_parcel": ["deed_verified.csv"],
+    "r57_recital_inside_parcel_sentence": ["deed_verified.csv"],
+    "r57_headed_parcels_then_sewer_clause": BOTH_TRACTS,
+    "r57_parcel_then_utility_clause": ["deed_verified.csv"],
 }
 
 
@@ -183,7 +253,13 @@ def test_probe_exports_only_single_or_headed_descriptions(name: str, tmp_path: P
 
 
 @pytest.mark.parametrize(
-    "name", ["mineral_single_parcel", "mineral_single_parcel_running_on", "creek_bed_single_parcel"]
+    "name",
+    [
+        "mineral_single_parcel",
+        "mineral_single_parcel_running_on",
+        "creek_bed_single_parcel",
+        "r57_recital_inside_parcel_sentence",
+    ],
 )
 def test_reservation_in_single_parcel_is_one_main_parcel(name: str) -> None:
     calls, tracts = extract_calls(PROBES[name], strict=True)
@@ -192,13 +268,15 @@ def test_reservation_in_single_parcel_is_one_main_parcel(name: str) -> None:
     assert verify_closure(calls).is_fully_verified()
 
 
-def test_second_fee_parcel_with_mineral_reservation_exports_only_under_headings() -> None:
+def test_second_fee_parcel_with_mineral_reservation_is_never_exported() -> None:
+    # r57: the reservation recited before PARCEL TWO's BEGINNING is role wording, so its
+    # heading does not establish its role; the deed is blocked, headed or not.
     _, headed = extract_calls(PROBES["second_parcel0_headed"], strict=True)
     assert [(t.tract_type, t.role_basis) for t in headed] == [
         (TractType.MAIN, "heading"),
-        (TractType.MAIN, "heading"),
+        (TractType.MAIN, "inferred"),
     ]
-    assert all(r.is_fully_verified() for r in verify_closure([], tracts=headed))
+    assert not any(r.is_fully_verified() for r in verify_closure([], tracts=headed))
     # Unheaded, the reservation types the second parcel EXCEPTION (a wrong guess): the
     # policy blocks the deed rather than exporting the first parcel alone.
     _, unheaded = extract_calls(PROBES["second_parcel0_also"], strict=True)
@@ -207,6 +285,59 @@ def test_second_fee_parcel_with_mineral_reservation_exports_only_under_headings(
         (TractType.EXCEPTION, "inferred"),
     ]
     assert not any(r.is_fully_verified() for r in verify_closure([], tracts=unheaded))
+
+
+# --- r57: the round-56 reviewer probes ------------------------------------------------
+
+
+@pytest.mark.parametrize("name", list(INTRODUCED))
+def test_description_introduced_by_its_lead_is_not_the_parcel(name: str, tmp_path: Path) -> None:
+    # The parcel is described by reference only; its one traverse is the exception or
+    # easement its lead introduces. No tract is MAIN, every role is inferred (never
+    # "single"), and nothing is verified or exported on any path. (Strict extraction
+    # fails on the reference-only parcel, which has no computable calls.)
+    skips: list = []
+    calls, tracts = extract_calls(PROBES[name], strict=False, skipped_courses=skips)
+    assert skips == [] and len(tracts) == 1
+    assert tracts[0].tract_type in (TractType.EXCEPTION, TractType.EASEMENT)
+    assert tracts[0].role_basis == "inferred" and roles_need_review(tracts)
+    assert len(tracts[0].calls) == 4 and not [c for c in calls if not c.is_exception]
+    assert not verify_closure(calls, tracts=tracts)[0].is_fully_verified()
+    result = review_text(PROBES[name], output_dir=tmp_path / "review")
+    assert result["status"] != "checks_passed"
+    assert not (tmp_path / "review" / "calls_verified.csv").exists()
+
+
+@pytest.mark.parametrize("name", list(WORDED_HEADINGS))
+def test_heading_with_role_wording_is_inferred(name: str) -> None:
+    calls, tracts = extract_calls(PROBES[name], strict=True)
+    assert [t.role_basis for t in tracts] == ["heading", "inferred"]
+    assert tracts[0].tract_type == TractType.MAIN
+    results = verify_closure(calls, tracts=tracts)
+    assert not any(r.is_fully_verified() for r in results)
+    assert all(r.closure_passed for r in results)
+
+
+@pytest.mark.parametrize(
+    ("name", "clause"),
+    [
+        ("r57_headed_parcels_then_sewer_clause", SEWER),
+        ("r57_parcel_then_utility_clause", UTILITY),
+    ],
+)
+def test_one_course_easement_clause_is_noted_not_a_tract(name: str, clause: str) -> None:
+    calls, tracts = extract_calls(PROBES[name], strict=True)
+    assert TractType.EASEMENT not in [t.tract_type for t in tracts]
+    assert [c.distance_ft for c in calls if c.distance_ft != 100.0] in ([], [20.0] * 4)
+    notes = [part for c in calls for part in mp_models.split_notes(c.notes)]
+    assert mp_models.SEPARATE_EASEMENT_NOTE_PREFIX + clause.rstrip(".") in notes
+
+
+def test_tie_line_after_closure_is_no_separate_description() -> None:
+    calls, tracts = extract_calls(PROBES["r57_mineral_parcel_then_tie_line"], strict=True)
+    # One description: the reservation is its preamble, never an EXCEPTION tract.
+    assert tracts == [] and not any(c.is_exception for c in calls)
+    assert [c.distance_ft for c in calls[:4]] == [100.0] * 4
 
 
 # --- roles_need_review ---------------------------------------------------------------

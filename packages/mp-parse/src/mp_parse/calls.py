@@ -1326,7 +1326,7 @@ def extract_calls(
         - For single-tract deeds: flat_calls populated, tracts is empty list.
         - For multi-tract deeds: flat_calls is the merged list, tracts has
           per-tract Tract objects with independent call lists. Each tract records
-          its ``role_basis`` ("heading", "inferred", or "single" for a sole tract);
+          its ``role_basis`` ("heading", "inferred", or "single" for a sole MAIN tract);
           verification and verified export block the whole deed when several
           tracts include an inferred role (``mp_models.roles_need_review``).
     """
@@ -1410,13 +1410,12 @@ def extract_calls(
         if tract_type != TractType.EASEMENT:
             all_calls.extend(tract_calls)
 
-    # The deed's one described tract: the parcel, or an easement deed's easement. An
-    # EXCEPTION or ADDITION left alone (its parcel described by reference only) keeps
-    # its basis: its role still depends on wording.
-    if len(tract_objects) == 1 and tract_objects[0].tract_type in (
-        TractType.MAIN,
-        TractType.EASEMENT,
-    ):
+    # The deed's one described tract is "single" only as the parcel (MAIN by position).
+    # An EXCEPTION, EASEMENT or ADDITION left alone keeps its "inferred" basis: its type
+    # came from the lead or grant introducing it (an easement deed's grant, "EXCEPTING
+    # THEREFROM the following described parcel:"), so its parcel is described by
+    # reference only and its role still depends on wording (fail closed).
+    if len(tract_objects) == 1 and tract_objects[0].tract_type == TractType.MAIN:
         tract_objects[0] = tract_objects[0].model_copy(update={"role_basis": "single"})
 
     return all_calls, tract_objects

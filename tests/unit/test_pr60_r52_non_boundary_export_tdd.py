@@ -50,8 +50,14 @@ def test_parsed_boundary_plus_easement_exports_nothing(tmp_path: Path) -> None:
 def test_parsed_easement_only_is_refused(tmp_path: Path) -> None:
     flat, tracts = extract_calls(EASEMENT)
     assert [t.tract_type for t in tracts] == [TractType.EASEMENT]
-    with pytest.raises(ValueError, match="no parcel boundary tract"):
+    # Round 57: the easement's role came from its grant ("inferred", never "single"),
+    # so the role review refuses it first; trusted, it is still no parcel boundary.
+    assert [t.role_basis for t in tracts] == ["inferred"]
+    with pytest.raises(ValueError, match="description roles need review"):
         _export(flat, tracts, tmp_path / "deed.csv")
+    trusted = [t.model_copy(update={"role_basis": "single"}) for t in tracts]
+    with pytest.raises(ValueError, match="no parcel boundary tract"):
+        _export(flat, trusted, tmp_path / "deed.csv")
     assert list(tmp_path.iterdir()) == []
 
 

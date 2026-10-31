@@ -128,6 +128,22 @@ Round 56 (user decision) fails closed on guessed roles instead of adding wording
 * An EXCEPT lead taking land "from the lands hereinafter described" types a description
   only when a separate description follows it; on a deed's only description it is that
   description's preamble (a mineral reservation, a creek bed), so the parcel exports.
+
+Round 57 tightens where a role is not a wording guess (fail closed):
+
+* A description introduced by an EXCEPT / LESS / SAVE / RESERVING lead or a specific
+  easement grant whose own clause runs on into it ("the following described parcel:",
+  "described as follows:", a colon) is that lead's EXCEPTION or EASEMENT, never the
+  parcel, even when it is the only traverse (``R57_INTRODUCED``). A recital inside the
+  parcel's own sentence ("ALL THAT CERTAIN lot, SUBJECT to easements ..., bounded and
+  described as follows:") introduces nothing (INV-1 kept).
+* "heading" only when neither the heading nor the text between the previous
+  description and this one's BEGINNING has role wording (easement, right of way,
+  except, less, save, reserving, subject to, together with, access, utility, drainage
+  ...); a sole tract is "single" only as the parcel (MAIN).
+* An easement clause whose THENCE states no traverse (one course not closing) is noted
+  on the boundary, never an easement tract; a tie line after the closure is no
+  separate description.
 """
 
 from __future__ import annotations
@@ -968,18 +984,20 @@ CASES: dict[str, Case] = {
 # typed EXCEPTION because of its own mineral reservation); export is decided by the
 # role policy below (``R56_EXPORTS``).
 R56_SECOND = SMALL.replace("BEGINNING at a stake", "BEGINNING at an iron")
+# r57: every lead's own clause runs on into the first description, so each types it
+# EXCEPTION (round 56 read the first three as the parcel).
 _R56_EXCEPT_LEADS = {
     "following_described_land": (
         "EXCEPTING from the following described land the parcel described as follows:",
-        MAIN_T,
+        EXC,
     ),
     "lands_hereinafter_more_particularly": (
         "EXCEPTING from the lands hereinafter more particularly described the following:",
-        MAIN_T,
+        EXC,
     ),
     "save_and_except_premises_hereinafter": (
         "SAVE AND EXCEPT out of the premises hereinafter described the following parcel:",
-        MAIN_T,
+        EXC,
     ),
     "lands_described_below": ("EXCEPTING from the lands described below the following:", EXC),
     "less_and_except_tract_hereinafter": (
@@ -1003,12 +1021,17 @@ R56_EXCEPTION_FIRST = {
 }
 CASES.update(
     {
-        # An easement described by its own courses before the parcel.
+        # An easement described by its own courses before the parcel. r57: the grant's
+        # own clause introduces the first description, so it is the easement's (the
+        # parcel is the one after it); both roles are inferred, so nothing exports.
         "r56_easement_courses_first": Case(
             "SUBJECT to a drainage easement more particularly described as follows: "
             f"{SMALL} ALL THAT tract of land described as follows: {SQUARE}",
-            tracts=((MAIN_T, 4), (MAIN_T, 4)),
-            flat=8,
+            tracts=((EAS, 4), (MAIN_T, 4)),
+            easements=(
+                f"SUBJECT to a drainage easement more particularly described as follows: {SMALL}",
+            ),
+            labels=("Easement 1", "Tract 1"),
         ),
         # A reservation in a single parcel: the one description is the parcel.
         "r56_mineral_reservation_single_parcel": Case(
@@ -1065,20 +1088,207 @@ CASES.update(
         ),
     }
 )
+
+# --- r57: which lead introduces a description; heading bases; one-course clauses -------
+
+# A parcel described by reference only, with no traverse of its own.
+LOT_REFERENCE = "ALL THAT CERTAIN lot known as Lot 5, Block 3 on the Plan of Smithfield."
+SEWER_CLAUSE = (
+    "SUBJECT TO a sewer easement which begins at the northeast corner of said lot and runs "
+    "thence South 10 feet"
+)
+UTILITY_CLAUSE = (
+    "SUBJECT TO a 10 foot wide utility easement over the rear of said lot, which easement "
+    "begins at the Northeast corner thereof and runs thence South 10 feet"
+)
+CASES.update(
+    {
+        # INV-1 kept: a recital inside the parcel's own sentence introduces nothing; the
+        # parcel's lead ("bounded and described", "more particularly described", ALL
+        # THAT) introduces the description.
+        "r57_recital_then_parcel_bounded_and_described": Case(
+            "ALL THAT CERTAIN lot, SUBJECT to easements as shown on the plan, bounded and "
+            f"described as follows: {SQUARE}"
+        ),
+        "r57_specific_easement_recital_then_more_particularly_described": Case(
+            "ALL THAT CERTAIN lot, SUBJECT to a 10 foot wide utility easement along the rear "
+            f"line, being more particularly described as follows: {SQUARE}"
+        ),
+        "r57_mineral_rights_recital_then_bounded_and_described": Case(
+            "ALL THAT CERTAIN lot, EXCEPTING the mineral rights, bounded and described as "
+            f"follows: {SQUARE}"
+        ),
+        "r57_lot_reference_recital_then_bounded_and_described": Case(
+            "Lot 5 on the Plan of Smithfield, SUBJECT to easements as shown on the plan, "
+            f"bounded and described as follows: {SQUARE}"
+        ),
+        # Item 2: a heading proves a description exists, not its role. Role wording in
+        # the heading or between the previous description and this one leaves the role
+        # inferred (typing may still read an EXCEPTION), so the deed exports nothing.
+        "r57_tract_heading_then_easement_wording": Case(
+            f"TRACT 1: {SQUARE} TRACT 2: A non-exclusive easement for ingress and egress "
+            f"described as follows: {SMALL}",
+            tracts=((MAIN_T, 4), (MAIN_T, 4)),
+            flat=8,
+            labels=("Tract 1", "Tract 2"),
+        ),
+        "r57_parcel_heading_labelled_access_easement": Case(
+            f"PARCEL A: {SQUARE} PARCEL B (ACCESS EASEMENT): {SMALL}",
+            tracts=((MAIN_T, 4), (MAIN_T, 4)),
+            flat=8,
+            labels=("Parcel A", "Parcel B"),
+        ),
+        "r57_less_parcel_heading": Case(
+            f"PARCEL A: {SQUARE} LESS PARCEL B: {SMALL}",
+            tracts=((MAIN_T, 4), (EXC, 4)),
+            flat=8,
+            labels=("Parcel A", "Parcel B"),
+        ),
+        "r57_reserving_the_following_parcel_heading": Case(
+            f"PARCEL A: {SQUARE} RESERVING unto the Grantor the following: PARCEL B: {SMALL}",
+            tracts=((MAIN_T, 4), (EXC, 4)),
+            flat=8,
+            labels=("Parcel A", "Parcel B"),
+        ),
+        "r57_subject_to_the_following_easement_heading": Case(
+            f"PARCEL A: {SQUARE} Said Parcel A is subject to the following easement: "
+            f"PARCEL B: {SMALL}",
+            tracts=((MAIN_T, 4), (MAIN_T, 4)),
+            flat=8,
+            labels=("Parcel A", "Parcel B"),
+        ),
+        # "more or less" is no role wording: both headings stay explicit.
+        "r57_headed_parcels_more_or_less": Case(
+            f"PARCEL ONE: {SQUARE} Containing 10,000 square feet, more or less. "
+            f"PARCEL TWO: {SMALL}",
+            tracts=((MAIN_T, 4), (MAIN_T, 4)),
+            flat=8,
+            labels=("Parcel ONE", "Parcel TWO"),
+        ),
+        # Item 3: an easement clause whose THENCE states one course is no traverse: it
+        # is noted on the boundary, never an easement tract or a boundary course.
+        "r57_headed_parcels_then_one_course_sewer_easement": Case(
+            f"PARCEL ONE: {SQUARE} PARCEL TWO: {SMALL} {SEWER_CLAUSE}.",
+            tracts=((MAIN_T, 4), (MAIN_T, 4)),
+            flat=8,
+            easements=(SEWER_CLAUSE,),
+            labels=("Parcel ONE", "Parcel TWO"),
+        ),
+        "r57_single_parcel_then_one_course_utility_easement": Case(
+            "ALL THAT CERTAIN lot, EXCEPTING the mineral rights, bounded and described as "
+            f"follows: {SQUARE} {UTILITY_CLAUSE}.",
+            easements=(UTILITY_CLAUSE,),
+        ),
+        "r57_single_parcel_then_one_course_driveway_easement": Case(
+            f"{SQUARE} TOGETHER WITH an easement for a driveway which runs thence North 20 "
+            "feet from the street.",
+            easements=(
+                "TOGETHER WITH an easement for a driveway which runs thence North 20 feet from "
+                "the street",
+            ),
+        ),
+        # A course-free BEING recital split off by ALSO is no tract of its own (strict
+        # extraction failed with "Tract 'Tract 2' has no computable calls").
+        "r57_also_being_known_as_block_recital": Case(
+            f"{SQUARE} ALSO BEING known as Block 91.11 Lot 32 on the Tax Map of the Borough "
+            "of Haddonfield."
+        ),
+        "r57_also_being_the_same_premises_recital": Case(
+            f"{SQUARE} Also being the same premises which John Smith by deed dated May 1, "
+            "1950 granted and conveyed unto the grantor herein."
+        ),
+        # Item 4: a tie line after the closure is no separate description, so the
+        # forward-referencing mineral reservation stays the parcel's preamble. The tie
+        # is read as a fifth course, so the parcel does not close (fail closed).
+        "r57_mineral_reservation_then_tie_line": Case(
+            "ALL THAT tract, EXCEPTING AND RESERVING from the premises hereinafter described "
+            f"all oil, gas and minerals, bounded and described as follows: {SQUARE} The said "
+            "point of beginning being located from the monument at Main Street as follows: "
+            "thence N 10° E 50 feet.",
+            flat=5,
+            closing_to=None,
+        ),
+    }
+)
 # r55: easement deeds, which describe no parcel boundary.
 EASEMENT_DEED_CASES = sorted(name for name in CASES if name.startswith("r55_easement_deed_grant"))
 # r56: the cases still exporting under the role policy, and what they write. A deed
 # with one description exports it as before; a deed whose every role comes from an
-# explicit TRACT/PARCEL heading exports its verified MAIN/ADDITION tracts. Every other
-# deed with several descriptions exports nothing (``ROLE_POLICY_EXPORT_LOSSES``).
+# explicit TRACT/PARCEL heading with no role wording (r57) exports its verified
+# MAIN/ADDITION tracts. Every other deed with several descriptions exports nothing
+# (``ROLE_POLICY_EXPORT_LOSSES``).
+BOTH_TRACTS = ["deed_verified_tract1.csv", "deed_verified_tract2.csv"]
 R56_EXPORTS = {
     "r56_mineral_reservation_single_parcel": ["deed_verified.csv"],
     "r56_mineral_reservation_running_on": ["deed_verified.csv"],
     "r56_creek_bed_excepted_single_parcel": ["deed_verified.csv"],
-    "r56_second_parcel_mineral_headed": ["deed_verified_tract1.csv", "deed_verified_tract2.csv"],
-    "r56_headed_parcels": ["deed_verified_tract1.csv", "deed_verified_tract2.csv"],
+    "r56_headed_parcels": BOTH_TRACTS,
     # Tract 1 notes an unapplied exception, so only TRACT 2 verifies.
     "r50_stated_exception_before_next_tract": ["deed_verified_tract2.csv"],
+    "r57_recital_then_parcel_bounded_and_described": ["deed_verified.csv"],
+    "r57_specific_easement_recital_then_more_particularly_described": ["deed_verified.csv"],
+    "r57_mineral_rights_recital_then_bounded_and_described": ["deed_verified.csv"],
+    "r57_lot_reference_recital_then_bounded_and_described": ["deed_verified.csv"],
+    "r57_headed_parcels_more_or_less": BOTH_TRACTS,
+    "r57_headed_parcels_then_one_course_sewer_easement": BOTH_TRACTS,
+    "r57_single_parcel_then_one_course_utility_easement": ["deed_verified.csv"],
+    "r57_single_parcel_then_one_course_driveway_easement": ["deed_verified.csv"],
+    "r57_also_being_known_as_block_recital": ["deed_verified.csv"],
+    "r57_also_being_the_same_premises_recital": ["deed_verified.csv"],
+}
+# r57 item 2: the explicit heading of a second parcel whose own preamble recites a
+# reservation is no longer trusted (role wording before its BEGINNING), so the deed
+# that exported both tracts in round 56 exports nothing.
+R57_HEADING_EXPORT_LOSSES = frozenset({"r56_second_parcel_mineral_headed"})
+
+# r57 item 1: a description introduced by an EXCEPT / LESS / SAVE / RESERVING lead or a
+# specific easement grant whose own clause runs on into it ("the following described
+# parcel:", "described as follows:", a colon) is that lead's exception or easement,
+# never the parcel, even when it is the only traverse. Here the parcel is described by
+# reference only, so no parcel boundary is described and nothing is verified or
+# exported. Each entry: text, expected (type, calls, label) per tract.
+R57_INTRODUCED = {
+    "except_following_described_parcel_heading": (
+        f"{LOT_REFERENCE} EXCEPTING THEREFROM the following described parcel: PARCEL A: "
+        f"{EXCEPTED_PARCEL}",
+        [(EXC, 4, "Parcel A")],
+    ),
+    "less_and_except_part_described_as_follows": (
+        f"{LOT_REFERENCE} LESS AND EXCEPT that part described as follows: {EXCEPTED_PARCEL}",
+        [(EXC, 4, "Exception 1")],
+    ),
+    "excepting_therefrom_colon_paragraph": (
+        f"{LOT_REFERENCE} EXCEPTING THEREFROM:\n\n{EXCEPTED_PARCEL}",
+        [(EXC, 4, "Exception 1")],
+    ),
+    "excepting_and_reserving_following_described_tract": (
+        f"{LOT_REFERENCE} EXCEPTING AND RESERVING the following described tract: {EXCEPTED_PARCEL}",
+        [(EXC, 4, "Exception 1")],
+    ),
+    "easement_over_following_described_strip": (
+        f"{LOT_REFERENCE} TOGETHER WITH a perpetual easement for ingress and egress over the "
+        f"following described strip: {EXCEPTED_PARCEL}",
+        [(EAS, 4, "Easement 1")],
+    ),
+    "parenthetical_except_following_described_parcel": (
+        "ALL THAT CERTAIN lot known as Lot 5, EXCEPTING THEREFROM the following described "
+        f"parcel: {EXCEPTED_PARCEL}",
+        [(EXC, 4, "Exception 1")],
+    ),
+    "less_heading_alone": (
+        f"{LOT_REFERENCE} LESS PARCEL B: {EXCEPTED_PARCEL}",
+        [(EXC, 4, "Parcel B")],
+    ),
+    "reserving_following_described_tract": (
+        f"{LOT_REFERENCE} RESERVING unto the Grantor the following described tract: "
+        f"{EXCEPTED_PARCEL}",
+        [(EXC, 4, "Exception 1")],
+    ),
+    "drainage_easement_more_particularly_described": (
+        f"{LOT_REFERENCE} SUBJECT to a drainage easement more particularly described as "
+        f"follows: {EXCEPTED_PARCEL}",
+        [(EAS, 4, "Easement 1")],
+    ),
 }
 
 # --- generated deeds (r48 invariant, r49 clauses) ------------------------------------
@@ -1146,6 +1356,54 @@ def _kresson_case() -> Case | None:
 _KRESSON = _kresson_case()
 if _KRESSON is not None:
     CASES["r44_kresson_tie_to_pob_then_courses"] = _KRESSON
+
+# r57: sample texts whose course-free "ALSO BEING known as ..." recital was split into
+# an empty tract, so strict extraction failed with "has no computable calls".
+_SAMPLES = Path(__file__).resolve().parents[3] / "sample_deeds"
+BEING_RECITAL_SAMPLES = [
+    *(
+        (name, "md")
+        for name in (
+            "32 Birchall Dr - Deed Image (5070 - 937)",
+            "38 Birchall Dr - Deed Image (12100 - 00503)",
+            "89 Haddon Ave - Deed Image (4732 - 544)",
+        )
+    ),
+    *(
+        (name, field)
+        for name in (
+            "89 Haddon Ave - Deed Image (05143 - 00225)",
+            "89 Haddon Ave - Deed Image (4732 - 548)",
+            "89 Haddon Ave - Deed Image (4732 - 560)",
+        )
+        for field in ("expected_legal_description", "expected_normalized_text")
+    ),
+]
+
+
+@pytest.mark.parametrize(("name", "field"), BEING_RECITAL_SAMPLES)
+def test_being_recital_is_never_an_empty_tract(name: str, field: str) -> None:
+    if field == "md":
+        path = _SAMPLES / f"{name}.md"
+        if not path.exists():
+            pytest.skip(f"sample not present: {path.name}")
+        text = path.read_text(encoding="utf-8")
+    else:
+        path = _SAMPLES / f"{name}.ground_truth.json"
+        if not path.exists():
+            pytest.skip(f"sample not present: {path.name}")
+        text = json.loads(path.read_text())[field]
+    # One description (or a unit with none): the recital joins it, never a tract.
+    _, tracts = extract_calls(text, strict=True)
+    assert tracts == []
+
+
+def test_course_free_being_recital_alone_extracts_nothing() -> None:
+    text = (
+        "ALL THAT CERTAIN unit known as Unit A in The 89 Haddon Avenue Condominium. "
+        "ALSO BEING known and designated a portion of Lot 2, Block 11, on the Current Tax Map."
+    )
+    assert extract_calls(text, strict=True) == ([], [])
 
 
 # --- helpers ---------------------------------------------------------------------------
@@ -1358,10 +1616,12 @@ def test_closure_is_a_course_reaching_the_point_of_beginning() -> None:
 SINGLE_EXPORT_CASES = sorted(
     name
     for name, case in CASES.items()
-    if name.startswith(("r53_", "r54_", "r55_", "r56_"))
+    if name.startswith(("r53_", "r54_", "r55_", "r56_", "r57_"))
     and not case.tracts
     and case.error is None
     and name not in EASEMENT_DEED_CASES
+    # Its tie line is read as a fifth course, so the parcel does not close.
+    and name != "r57_mineral_reservation_then_tie_line"
 )
 
 
@@ -1516,7 +1776,10 @@ def test_verified_export_follows_role_policy(name: str, tmp_path: Path) -> None:
         assert written == trusted_written and name not in ROLE_POLICY_EXPORT_LOSSES
         assert all(t.role_basis == ("heading" if len(tracts) > 1 else "single") for t in tracts)
         return
-    assert len(tracts) > 1 and written == []
+    # Several descriptions, or a sole description whose role came from the lead or
+    # grant introducing it (r57: an easement deed's easement is "inferred", not "single").
+    assert written == []
+    assert len(tracts) > 1 or tracts[0].tract_type != MAIN_T
     assert refusal.startswith("Cannot export verified CSV: " + DESCRIPTION_ROLES_PREFIX)
     for tract in tracts:
         assert (f"{tract.label} ({tract.tract_type.value})" in refusal) == (
@@ -1527,15 +1790,19 @@ def test_verified_export_follows_role_policy(name: str, tmp_path: Path) -> None:
         roles = [c for c in result.checks if c.name == DESCRIPTION_ROLES_CHECK]
         assert [c.status for c in roles] == ["blocked"] and not result.is_fully_verified()
         assert result.misclosure_available == verify_tract(tract.calls).misclosure_available
-    if not name.startswith("r56_"):
+    if name in R57_HEADING_EXPORT_LOSSES:
+        assert trusted_written and len(tracts) > 1
+    if not name.startswith(("r56_", "r57_")) and name not in EASEMENT_DEED_CASES:
         assert (name in ROLE_POLICY_EXPORT_LOSSES) == bool(trusted_written)
 
 
 @pytest.mark.parametrize("name", list(R56_EXCEPTION_FIRST))
 def test_exception_described_first_exports_nothing(name: str, tmp_path: Path) -> None:
-    # Whether the lead is read (EXCEPTION, MAIN) or not (MAIN, MAIN), both roles come
-    # from wording: no description is verified or exported, numbered or not.
+    # r57: each lead's own clause introduces the first description, so it is the
+    # EXCEPTION; both roles come from wording: no description is verified or exported,
+    # numbered or not.
     text, first = R56_EXCEPTION_FIRST[name]
+    assert first == EXC
     for i, candidate in enumerate((text, _number_courses(text))):
         calls, tracts = extract_calls(candidate, strict=True)
         assert [(t.tract_type, len(t.calls), t.role_basis) for t in tracts] == [
@@ -1548,6 +1815,35 @@ def test_exception_described_first_exports_nothing(name: str, tmp_path: Path) ->
         results = verify_closure([], tracts=tracts)
         assert not any(r.is_fully_verified() for r in results)
         assert all(r.closure_passed for r in results)
+
+
+@pytest.mark.parametrize("name", list(R57_INTRODUCED))
+def test_description_introduced_by_its_lead_is_never_the_parcel(name: str, tmp_path: Path) -> None:
+    # r57 item 1: the parcel is described by reference only; the one traverse is the
+    # lead's exception or easement. Its role came from the lead, so it is "inferred",
+    # never "single"; nothing is verified or exported, numbered or not, and the
+    # one-description extraction (the monolith's flat calls) reads no boundary course.
+    # (Strict extraction fails on the reference-only parcel, which has no computable
+    # calls; the pipeline drops it and keeps the introduced description.)
+    text, expected = R57_INTRODUCED[name]
+    for i, candidate in enumerate((text, _number_courses(text))):
+        skips: list = []
+        calls, tracts = extract_calls(candidate, strict=False, skipped_courses=skips)
+        assert skips == []
+        assert [(t.tract_type, len(t.calls), t.label) for t in tracts] == expected
+        assert [t.role_basis for t in tracts] == ["inferred"] * len(tracts)
+        assert roles_need_review(tracts)
+        assert not [c for c in calls if not c.is_exception]
+        results = verify_closure([], tracts=tracts)
+        assert not any(r.is_fully_verified() for r in results)
+        assert all(r.closure_passed for r in results)
+        written, refusal = _verified_export(calls, tracts, tmp_path / str(i))
+        assert written == [] and DESCRIPTION_ROLES_PREFIX in refusal
+        for flat in (
+            _extract_calls_from_text(candidate, strict=True),
+            CallExtractor.extract_calls(candidate),
+        ):
+            assert not [c for c in flat if not c.is_exception]
 
 
 # --- r54: course numbering never changes a classification or an export -----------------
@@ -1709,16 +2005,30 @@ _OUTCOMES: dict[str, tuple] = {}
 def test_preamble_recital_never_changes_outcome(name: str, frame: int, tmp_path: Path) -> None:
     # Every case whose first description is a parcel (an easement deed has none): the
     # parcel stays MAIN with the same courses, verification and verified export.
+    #
+    # r57 item 2 (fail closed): every recital names an easement, exception or
+    # reservation, so before a TRACT/PARCEL heading it is role wording and that heading
+    # no longer establishes the description's role. In a deed with several descriptions
+    # the deed is then blocked: classification, calls and geometry are unchanged, and
+    # only verification and the export may be lost, never changed.
     text = CASES[name].text
     if name not in _OUTCOMES:
         (tmp_path / "plain").mkdir()
         _OUTCOMES[name] = _outcome(text, tmp_path / "plain")
     expected = _OUTCOMES[name]
+    plain_bases = [t.role_basis for t in extract_calls(text, strict=False, skipped_courses=[])[1]]
     for i, recital in enumerate(PREAMBLE_RECITALS):
         directory = tmp_path / f"r{i}"
         directory.mkdir()
         prefixed = _with_preamble(text, recital, PREAMBLE_FRAMES[frame])
-        assert _outcome(prefixed, directory) == expected, recital
+        got = _outcome(prefixed, directory)
+        if got == expected or plain_bases[:1] != ["heading"]:
+            assert got == expected, recital
+            continue
+        tracts = extract_calls(prefixed, strict=False, skipped_courses=[])[1]
+        assert got[:2] == expected[:2], recital
+        assert len(tracts) > 1 and tracts[0].role_basis == "inferred", recital
+        assert got[2] == [False] * len(tracts) and got[3:] == ([], []), recital
 
 
 @pytest.mark.parametrize("name", EASEMENT_DEED_CASES)
@@ -1726,7 +2036,9 @@ def test_easement_deed_is_never_exported_as_a_parcel(name: str, tmp_path: Path) 
     calls, tracts = extract_calls(CASES[name].text, strict=True)
     assert calls == [] and [t.tract_type for t in tracts] == [EAS]
     results = verify_closure([], tracts=tracts)
-    with pytest.raises(ValueError, match="no parcel boundary tract"):
+    # r57: the easement's role came from its grant ("inferred"), so the role review
+    # refuses it first; it is no parcel boundary either way.
+    with pytest.raises(ValueError, match=DESCRIPTION_ROLES_PREFIX):
         export_verified_csv(
             [],
             results[0],
@@ -1796,6 +2108,26 @@ def test_parse_marks_role_basis_at_each_typing_path() -> None:
         ("Unlabelled tract", "inferred"),
         ("Parcel A", "inferred"),
     ]
-    # The sole described tract (an easement deed) is "single".
+    # r57: a sole tract is "single" only as the parcel (MAIN by position); an easement
+    # deed's easement was typed by its grant, so its role is inferred.
     for name in EASEMENT_DEED_CASES:
-        assert bases(CASES[name].text) == [("Easement 1", "single")]
+        assert bases(CASES[name].text) == [("Easement 1", "inferred")]
+    # r57 item 2: a heading is "heading" only with no role wording in it or between the
+    # previous description and its BEGINNING.
+    for name, second in (
+        ("r56_second_parcel_mineral_headed", ("Parcel TWO", "inferred")),
+        ("r57_tract_heading_then_easement_wording", ("Tract 2", "inferred")),
+        ("r57_parcel_heading_labelled_access_easement", ("Parcel B", "inferred")),
+        ("r57_less_parcel_heading", ("Parcel B", "inferred")),
+        ("r57_reserving_the_following_parcel_heading", ("Parcel B", "inferred")),
+        ("r57_subject_to_the_following_easement_heading", ("Parcel B", "inferred")),
+        ("r57_headed_parcels_more_or_less", ("Parcel TWO", "heading")),
+        ("r57_headed_parcels_then_one_course_sewer_easement", ("Parcel TWO", "heading")),
+    ):
+        got = bases(CASES[name].text)
+        assert got[0][1] == "heading" and got[1:] == [second], name
+    first_recited = "PARCEL ONE: ALL THAT tract, SUBJECT to easements of record, "
+    assert bases(f"{first_recited}{SQUARE} PARCEL TWO: {SMALL}") == [
+        ("Parcel ONE", "inferred"),
+        ("Parcel TWO", "heading"),
+    ]
