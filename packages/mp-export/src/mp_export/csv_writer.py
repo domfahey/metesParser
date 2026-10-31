@@ -205,19 +205,37 @@ def _labelled_skips(
     ]
 
 
+_ROLE_CHECK = "non_boundary_tract"
+
+
+def _role_mismatch(tract: Tract, result: ClosureResult) -> bool:
+    """Whether the result carries a tract-role verdict that is not this tract's own."""
+    expected = (
+        None
+        if is_boundary_tract(tract.tract_type)
+        else non_boundary_detail(tract.label, tract.tract_type)
+    )
+    role_details = [c.detail for c in result.checks if c.name == _ROLE_CHECK]
+    role_details += [w for w in result.warnings if w.startswith(f"{_ROLE_CHECK}:")]
+    return any(detail != expected for detail in role_details)
+
+
 def _exportable(tract: Tract, result: ClosureResult) -> bool:
     """A verified parcel-boundary tract; easement/exception tracts never qualify."""
-    return is_boundary_tract(tract.tract_type) and result.is_fully_verified()
+    return (
+        is_boundary_tract(tract.tract_type)
+        and not _role_mismatch(tract, result)
+        and result.is_fully_verified()
+    )
 
 
 def _not_exported_reason(tract: Tract, result: ClosureResult) -> str:
-    """Why a tract got no verified CSV, for the verification summary."""
-    reasons = list(result.warnings)
+    """Why a tract got no verified CSV, derived from the tract itself."""
+    if _role_mismatch(tract, result):
+        return "supplied verification result does not belong to this tract"
+    reasons = [w for w in result.warnings if not w.startswith(f"{_ROLE_CHECK}:")]
     if not is_boundary_tract(tract.tract_type):
-        # A supplied result may lack the verifier's own blocked role warning.
-        detail = non_boundary_detail(tract.label, tract.tract_type)
-        if detail not in reasons:
-            reasons.insert(0, detail)
+        reasons.insert(0, non_boundary_detail(tract.label, tract.tract_type))
     return "; ".join(reasons) or "verification checks did not pass"
 
 
