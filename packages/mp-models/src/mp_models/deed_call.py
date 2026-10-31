@@ -42,6 +42,11 @@ CurveType = Literal["simple", "compound", "reverse", "spiral"]
 # closing course carries it verbatim; verification reports the exception as not
 # applied, so the gross boundary is never mistaken for the deed's net parcel.
 UNAPPLIED_EXCEPTION_NOTE_PREFIX = "exception not applied: "
+# Notes prefix for a reservation or exception of rights (mineral, oil and gas rights,
+# an easement or right of way not described by courses, rights of the public, water
+# and air rights) stated after the boundary. It removes no land from the parcel, so
+# the wording is kept verbatim and raises no verification warning.
+RIGHTS_RESERVED_NOTE_PREFIX = "rights reserved, not a land exception: "
 # Notes prefix for an easement described by its own courses: it is its own tract,
 # never part of the boundary.
 SEPARATE_EASEMENT_NOTE_PREFIX = "easement, not part of the boundary: "
@@ -58,6 +63,7 @@ VERBATIM_NOTE_PREFIXES: tuple[str, ...] = (
     PASSING_CALL_NOTE_PREFIX,
     PARENTHETICAL_NOTE_PREFIX,
     UNAPPLIED_EXCEPTION_NOTE_PREFIX,
+    RIGHTS_RESERVED_NOTE_PREFIX,
     SEPARATE_EASEMENT_NOTE_PREFIX,
 )
 # Fixed notes the system writes (exact text; some hold "; "). Every fixed note is
