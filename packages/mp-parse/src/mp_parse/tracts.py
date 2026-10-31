@@ -22,6 +22,8 @@ import structlog
 from mp_models import TractType
 
 from .metadata import (
+    CLOSING_ALONG_WITH,
+    STRUCTURE_BREAK,
     VERBATIM_BEARING,
     _is_lot_qualifier_except,
     ends_sentence,
@@ -207,6 +209,37 @@ _EASEMENT_OPENER = re.compile(
     + r"))",
     re.IGNORECASE,
 )
+# A generic encumbrance recital ("SUBJECT to easements of record", "subject to
+# easements and restrictions of record, if any", "SUBJECT to zoning ordinances,
+# easements, conditions and restrictions of record"): plural easements of record
+# describe no easement, so the recital opens none (it is a deed clause).
+_PLURAL_EASEMENT_END = re.compile(r"(?:easements|rights[\s-]+of[\s-]+way)$", re.IGNORECASE)
+_OF_RECORD = re.compile(r"\b(?:of\s+record|if\s+any)\b", re.IGNORECASE)
+_RECITAL_CLAUSE_END = re.compile(r"[;:]|\b(?:THENCE|BEGINNING|COMMENCING)\b", re.IGNORECASE)
+# How far a recital's clause is read for "of record".
+_RECITAL_WINDOW = 300
+
+
+def _is_generic_encumbrance(text: str, match: re.Match[str]) -> bool:
+    """Return whether an easement opener match is a generic encumbrance recital.
+
+    The opener names plural easements (or rights of way) and its clause, up to its
+    sentence end, a semicolon, colon, THENCE or description opening, says "of record"
+    or "if any". A specific easement ("a right of way for ingress and egress",
+    "an easement of record for utilities") is never generic.
+    """
+    if not _PLURAL_EASEMENT_END.search(match.group("open") or match.group("also")):
+        return False
+    stop = min(len(text), match.end() + _RECITAL_WINDOW)
+    sentence_end = _sentence_end(text, match.end(), stop)
+    end = stop if sentence_end is None else sentence_end
+    clause_end = _RECITAL_CLAUSE_END.search(text, match.end(), end)
+    return (
+        _OF_RECORD.search(text, match.end(), end if clause_end is None else clause_end.start())
+        is not None
+    )
+
+
 _ADDITION_START = re.compile(r"(?:^|[;\n.])\s*(?:ALSO|INCLUDING)\b", re.IGNORECASE)
 _COMMENCING = re.compile(r"\bCOMMENCING\b", re.IGNORECASE)
 EASEMENT_LABEL = "Easement"
@@ -273,7 +306,9 @@ def _index(text: str) -> _TextIndex:
     except_leads = tuple(_STATED_EXCEPT_LEAD.finditer(text))
     headings = tuple(position for position, _, _ in find_tract_markers(text))
     openers = tuple(
-        m.start("open") if m["open"] else m.start("also") for m in _EASEMENT_OPENER.finditer(text)
+        m.start("open") if m["open"] else m.start("also")
+        for m in _EASEMENT_OPENER.finditer(text)
+        if not _is_generic_encumbrance(text, m)
     )
     # A structural stated-exception lead, an ALSO/INCLUDING addition, a tract heading
     # or an easement opener starts a new clause.
@@ -425,6 +460,13 @@ def _easement_spans(index: _TextIndex) -> list[tuple[int, int]]:
         courses = list(_THENCE_COURSE.finditer(text, start, stop))
         if not courses:
             continue
+        # The opener's sentence ends before a description opens: that description is
+        # not the easement's ("SUBJECT to a right of way over the driveway. BEGINNING").
+        opener_end = _sentence_end(text, start, courses[0].start())
+        if opener_end is not None and _DESCRIPTION_OPENER.search(
+            text, opener_end, courses[0].start()
+        ):
+            continue
         end = stop
         sentence_end = _sentence_end(text, courses[-1].end(), stop)
         if sentence_end is not None and not (
@@ -475,7 +517,7 @@ def easement_clause_spans(text: str) -> list[tuple[int, int]]:
         if _last_closure_end(index, start, index.easements) is not None:
             continue
         brk = _EASEMENT_CLAUSE_BREAK.search(text, start)
-        end = min(brk.start() if brk else len(text), index.next_stop(start))
+        end = _note_end(text, start, min(brk.start() if brk else len(text), index.next_stop(start)))
         sentence_end = _sentence_end(text, start, end)
         clause = text[start : end if sentence_end is None else sentence_end]
         if (
@@ -494,6 +536,16 @@ def _sentence_end(text: str, start: int, end: int) -> int | None:
         (i for i in range(start, end) if text[i] == "." and ends_sentence(text, i)),
         None,
     )
+
+
+def _note_end(text: str, start: int, end: int) -> int:
+    """Return where noted wording from ``start`` ends, at most ``end``.
+
+    A note never runs over document structure (``STRUCTURE_BREAK``: a paragraph
+    break, a markdown heading, bullet or table border, an HTML tag), period or not.
+    """
+    structure = STRUCTURE_BREAK.search(text, start, end)
+    return end if structure is None else start + len(text[start : structure.start()].rstrip())
 
 
 def _describes_traverse(text: str, start: int, end: int) -> bool:
@@ -556,7 +608,7 @@ def stated_exception_spans(text: str) -> list[tuple[int, int]]:
             if sentence_end is not None
             else start + len(text[start:extent_end].rstrip(" \t\n.;,:"))
         )
-        spans.append((start, end))
+        spans.append((start, _note_end(text, start, end)))
     return spans
 
 
@@ -593,7 +645,7 @@ def stated_clause_end(text: str, end: int, start: int | None = None) -> int:
         return end
     sentence_end = _sentence_end(text, end, len(text))
     stop = sentence_end if sentence_end is not None else len(text.rstrip(" \t\n.;,:"))
-    rest = text[end:stop]
+    rest = text[end : _note_end(text, end, stop)]
     if (
         _TRAVERSE_WORDING.search(rest)
         or _STATED_EXCEPT_LEAD.search(rest)
@@ -1008,7 +1060,10 @@ _CLAUSE_BREAK_CHARACTER = re.compile(r"[;.]")
 _CLAUSE_AFTER_CLOSING = re.compile(
     r"\s*(?:(?:AND|BUT)\s+)?(?:ALSO|INCLUDING|(?:LESS|SAVE)\s+AND|EXCEPT\w*|TRACTS?|PARCELS?|LOTS?"
     r"|TOGETHER|SUBJECT|UNDER|RESERVING|BEING|CONTAINING|BEGINNING|COMMENCING|POINT|PLACE|POB"
-    r"|THE\s+ABOVE|SAID\s+PREMISES)\b",
+    r"|THE\s+ABOVE|SAID\s+PREMISES)\b"
+    # "along with" opening the wording is conveyancing, not adjoiner wording, unless
+    # it names a line or lands.
+    rf"|\s*{CLOSING_ALONG_WITH}",
     re.IGNORECASE,
 )
 
