@@ -23,9 +23,18 @@ CASES = {
     "save-revision-revision": ["save-revision", BUNDLE, "--revision", "D", "--output-dir", "OUT"],
     "compose-map-layer": ["compose-map", "PLOT", "--layer", "D", "--output-dir", "OUT"],
     "compose-dashboard-layer": ["compose-dashboard", BUNDLE, "--layer", "D", "--output-dir", "OUT"],
-    "validate-source-acquisition": ["validate-source", "DIR_D", "--acquisition", "D"],
-    "validate-source-selection": ["validate-source", "DIR_D", "--selection", "D"],
-    "validate-source-default-records": ["validate-source", "DIR_D"],
+    "validate-source-acquisition": [
+        "validate-source",
+        "DIR_D",
+        "--acquisition",
+        "source-acquisition.json",
+    ],
+    "validate-source-selection": [
+        "validate-source",
+        "DIR_D",
+        "--selection",
+        "description-selection.json",
+    ],
     "mapbox-mcp-manifest": ["mapbox-mcp", "DIR_D", "--output-dir", "OUT"],
     "serve-map-manifest": ["serve-map", "DIR_D"],
 }
@@ -93,3 +102,21 @@ def test_inspect_artifacts_reports_deep_json_without_internal_recursion(
     with pytest.raises(SystemExit):
         cli.main()
     assert "internal_recursion_error" not in capsys.readouterr().out
+
+
+def test_validate_source_reports_deep_file_in_root_as_finding(tmp_path, monkeypatch, capsys):
+    (tmp_path / "source-acquisition.json").write_text(DEEP)
+    (tmp_path / "description-selection.json").write_text("{}")
+    monkeypatch.setattr("sys.argv", ["metes-review", "validate-source", str(tmp_path)])
+    with pytest.raises(SystemExit) as exit_info:
+        cli.main()
+    result = json.loads(capsys.readouterr().out)
+    # Same as before the JSON boundary: an unusable record is an error-severity finding.
+    assert exit_info.value.code == 2, result
+    assert "invalid_input_json" not in json.dumps(result)
+    assert result["acquisition"]["status"] == "invalid"
+    # The other file was still read and validated (reported against its own schema).
+    assert result["selection"]["status"] == "invalid"
+    codes = [(f["code"], f.get("path")) for f in result["findings"]]
+    assert any(c == "invalid_json" and "source-acquisition" in str(p) for c, p in codes)
+    assert not any("internal_recursion" in c for c, _ in codes)
