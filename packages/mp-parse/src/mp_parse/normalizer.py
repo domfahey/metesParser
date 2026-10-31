@@ -103,11 +103,11 @@ def standardize_cardinal_directions(text: str) -> str:
     """
     patterns: list[tuple[str, str | Callable[[Match[str]], str]]] = [
         (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
+            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?,?\s+(\d{1,2})\s+minutes?,?\s+(?:and\s+)?(\d{1,2}(?:\.\d+)?)\s+seconds?,?\s+(North|South|East|West)\b",
             lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0]}",
         ),
         (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(North|South|East|West)\b",
+            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?,?\s+(\d{1,2})\s+minutes?,?\s+(North|South|East|West)\b",
             lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}' {m.group(4)[0]}",
         ),
         (

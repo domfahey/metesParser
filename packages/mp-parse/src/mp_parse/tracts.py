@@ -25,18 +25,19 @@ _COMMON_WORDS = (
     r"|HEREIN\b|SAID\b|WHICH\b|THAT\b|CONTAINING\b|BOUNDED\b)"
 )
 
-# TRACT #1, TRACT 1, TRACT III, TRACT A (numbers, Roman numerals, single letters)
-# [IVX]+ must precede [A-Z] so "TRACT III" matches "III" not "I".
+# TRACT #1, TRACT #2B, TRACT III, TRACT A (numbers with an optional letter suffix,
+# Roman numerals, single letters). [IVX]+ must precede [A-Z] so "TRACT III" matches
+# "III" not "I"; the suffix must end the label so "TRACT 12th" stays "12".
+_MARKER_LABEL = r"(\d+(?:[A-Z](?![A-Z]))?|[IVX]+|[A-Z])"
+
 _TRACT_MARKER = re.compile(
-    r"\bTRACT\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[IVX]+|[A-Z])"
-    r"\s*[:.\-\u2014]?\s*",
+    r"\bTRACT\s+(?:#\s*)?" + _COMMON_WORDS + _MARKER_LABEL + r"\s*[:.\-\u2014]?\s*",
     re.IGNORECASE,
 )
 
 # PARCEL 1, PARCEL A (same constraints as TRACT)
 _PARCEL_MARKER = re.compile(
-    r"\bPARCEL\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[IVX]+|[A-Z])"
-    r"\s*[:.\-\u2014]?\s*",
+    r"\bPARCEL\s+(?:#\s*)?" + _COMMON_WORDS + _MARKER_LABEL + r"\s*[:.\-\u2014]?\s*",
     re.IGNORECASE,
 )
 
@@ -90,6 +91,7 @@ def split_on_markers(
                 characters=len(pre_text),
             )
 
+    exception_count = 0
     for i, (pos, label, _kind) in enumerate(markers):
         end = markers[i + 1][0] if i + 1 < len(markers) else len(text)
         segment = text[pos:end].strip()
@@ -103,7 +105,17 @@ def split_on_markers(
         else:
             tract_type = TractType.MAIN
 
-        result.append((segment, label, tract_type))
+        # EXCEPT clauses inside a main tract describe separate exception parcels.
+        clauses = split_exception_clauses(segment) if tract_type == TractType.MAIN else []
+        if any(is_exception for _, is_exception in clauses):
+            main_text = " ".join(part for part, is_exception in clauses if not is_exception)
+            result.append((main_text, label, tract_type))
+            for part, is_exception in clauses:
+                if is_exception:
+                    exception_count += 1
+                    result.append((part, f"Exception {exception_count}", TractType.EXCEPTION))
+        else:
+            result.append((segment, label, tract_type))
     return result
 
 

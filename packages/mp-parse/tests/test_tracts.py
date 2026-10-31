@@ -274,3 +274,47 @@ class TestExtractCallsMultiTract:
         for exc_tract in exception_tracts:
             for call in exc_tract.calls:
                 assert call.is_exception is True
+
+
+class TestTractMarkerSuffix:
+    def test_numbered_tract_with_letter_suffix(self):
+        text = (
+            "TRACT #2: BEGINNING at a point THENCE N 45°00' E 100 feet to a point. "
+            "TRACT #2B: BEGINNING at a point THENCE S 45°00' E 50 feet to a point."
+        )
+        result = split_into_tracts(text)
+        assert [label for _, label, _ in result] == ["Tract 2", "Tract 2B"]
+
+    def test_ordinal_suffix_is_not_a_tract_letter(self):
+        text = "TRACT 12th: BEGINNING at a point THENCE N 45°00' E 100 feet to a point."
+        assert split_into_tracts(text)[0][1] == "Tract 12"
+
+
+class TestExceptionsWithinMarkedTracts:
+    def test_except_clause_after_last_tract_becomes_exception_tracts(self):
+        text = (
+            "TRACT #1: BEGINNING at a point THENCE N 45°00' E 100 feet to a point; "
+            "THENCE S 45°00' W 100 feet to the point of beginning. "
+            "EXCEPTING THEREOUT that part described as follows: BEGINNING at a stake; "
+            "THENCE N 10°00' E 20 feet to beginning. "
+            "ALSO EXCEPTING THEREOUT that part described as follows: STARTING at a stake; "
+            "THENCE S 10°00' W 30 feet to beginning."
+        )
+        result = split_into_tracts(text)
+        assert [(label, tract_type) for _, label, tract_type in result] == [
+            ("Tract 1", TractType.MAIN),
+            ("Exception 1", TractType.EXCEPTION),
+            ("Exception 2", TractType.EXCEPTION),
+        ]
+        assert "EXCEPTING" not in result[0][0]
+
+    def test_exception_tract_calls_are_separate_from_main_tract(self):
+        text = (
+            "TRACT #1: BEGINNING at a point THENCE N 45°00' E 100 feet to a point; "
+            "THENCE S 45°00' W 100 feet to the point of beginning. "
+            "EXCEPTING THEREOUT that part described as follows: BEGINNING at a stake; "
+            "THENCE N 10°00' E 20 feet to beginning."
+        )
+        calls, tracts = extract_calls(text)
+        assert [(t.label, len(t.calls)) for t in tracts] == [("Tract 1", 2), ("Exception 1", 1)]
+        assert [c.is_exception for c in calls] == [False, False, True]
