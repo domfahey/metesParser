@@ -394,7 +394,7 @@ def extract_distance(text: str) -> tuple[float, str]:
     )
 
     total_match = re.search(
-        rf"\b(?:for\s+)?a\s+total\s+distance\s+(?:of\s+)?({COMMA_NUMBER})\s*"
+        rf"\b(?:for\s+)?(?:a\s+)?total\s+distance\s+(?:of\s+)?({COMMA_NUMBER})\s*"
         r"(US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?|foot|feet|ft|poles?|rods?|perches?|chains?|links?|varas?|arpents?|toises?|furlongs?|meters?|miles?)",
         text,
         re.IGNORECASE,
