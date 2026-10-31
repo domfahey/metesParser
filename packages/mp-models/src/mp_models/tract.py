@@ -67,10 +67,13 @@ _NON_BOUNDARY_NOTE_BY_KIND = {
 
 # Where a tract's role (its TractType) came from:
 # * "heading": an explicit TRACT/PARCEL heading the parser recognises as a tract
-#   marker, typed MAIN or ADDITION, with no role wording (easement, except, less,
-#   reserving, subject to, ...) in it or before its opening (otherwise "inferred");
-# * "single": the deed's one description, the parcel (MAIN); a sole EXCEPTION,
-#   EASEMENT or ADDITION (an easement deed's easement) keeps "inferred";
+#   marker, typed MAIN or ADDITION, whose plain label is followed by nothing or the
+#   parcel's own intro, with only harmless recitals before it and no role statement
+#   after the last description (r59: an allow-list; otherwise "inferred");
+# * "single": the deed's one description, the parcel (MAIN), when no easement,
+#   exception or reservation wording introduces, titles or follows it outside harmless
+#   recitals (r59); otherwise, and for a sole EXCEPTION, EASEMENT or ADDITION (an
+#   easement deed's easement), "inferred";
 # * "inferred": typed from wording heuristics (EXCEPT/ALSO leads, easement grants,
 #   preamble rules, closed-boundary order, a default MAIN without a heading).
 # None means the basis was not recorded (a stored artifact or caller-built tract
@@ -95,6 +98,13 @@ _INFERRED_WHY = {
     TractType.EXCEPTION.value: "exception role inferred from EXCEPT wording",
     TractType.EASEMENT.value: "easement role inferred from easement-grant wording",
 }
+
+
+# r59: a deed's only description whose parcel role its wording does not establish.
+_SOLE_INFERRED_WHY = (
+    "the sole description's parcel role is not established: easement, exception or "
+    "reservation wording introduces, labels or follows it"
+)
 
 
 _Call = TypeVar("_Call", bound=BaseModel)
@@ -166,9 +176,10 @@ def roles_need_review(tracts: Sequence[_RoleBearing], calls: Sequence[BaseModel]
 
     The one role gate: verification, verified export, review and the monolith
     pipeline/CLI all consult it. Fail closed: land whose role was guessed from wording
-    is never exported. A tract whose ``role_basis`` is "inferred" always needs review
-    (the parser infers roles only among several descriptions, so this holds when a
-    caller passes that tract alone too). With more than one tract every tract needs a
+    is never exported. A tract whose ``role_basis`` is "inferred" always needs review,
+    a deed's sole description too (r59: easement, exception or reservation wording
+    introduces, labels or follows it), and so does a tract taken from a deed of several
+    passed alone. With more than one tract every tract needs a
     "heading" basis; a "single" or unrecorded (None) basis there needs review as
     well. A deed's sole tract with a "single", "heading" or unrecorded basis needs
     none. Calls carried without their tracts (``calls``, or a tract's own) that bear
@@ -181,7 +192,9 @@ def roles_need_review(tracts: Sequence[_RoleBearing], calls: Sequence[BaseModel]
         kind = tract_kind(tract.tract_type)
         if basis == "heading" or (not several and basis in ("single", None)):
             continue
-        if basis == "inferred":
+        if basis == "inferred" and not several and kind == TractType.MAIN.value:
+            why = _SOLE_INFERRED_WHY
+        elif basis == "inferred":
             why = _INFERRED_WHY.get(kind, "role inferred from wording")
         elif basis == "single":
             why = f"marked the sole description, but the deed has {len(tracts)} descriptions"
