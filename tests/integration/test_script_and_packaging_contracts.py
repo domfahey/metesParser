@@ -138,20 +138,16 @@ def test_31_pennbrook_script_prints_zero_azimuth(monkeypatch, capsys) -> None:
     assert any(line.startswith("Closure Status: ") for line in output_lines)
 
 
-def test_wheel_build_config_force_includes_packaged_prompts() -> None:
-    pyproject_path = Path(__file__).resolve().parents[2] / "pyproject.toml"
-    pyproject = tomllib.loads(pyproject_path.read_text())
+def test_wheel_build_ships_packaged_prompts_once() -> None:
+    root = Path(__file__).resolve().parents[2]
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text())
+    wheel = pyproject.get("tool", {}).get("hatch", {}).get("build", {}).get("targets", {})
+    force_include = wheel.get("wheel", {}).get("force-include", {})
 
-    force_include = (
-        pyproject.get("tool", {})
-        .get("hatch", {})
-        .get("build", {})
-        .get("targets", {})
-        .get("wheel", {})
-        .get("force-include", {})
-    )
-
-    assert force_include.get("src/metesparser/prompts") == "metesparser/prompts"
+    # The prompts live inside the packaged source tree, so the wheel already ships them;
+    # force-including them again adds duplicate archive entries and aborts the build.
+    assert sorted((root / "src/metesparser/prompts").glob("*.yaml"))
+    assert "src/metesparser/prompts" not in force_include
 
 
 def test_root_package_exports_documented_public_classes() -> None:
