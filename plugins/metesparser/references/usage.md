@@ -23,7 +23,7 @@ Start a closure request by locating the intended metes-and-bounds description. A
 | Source material and explicit interactive dashboard/workbench request | `deed-closure-dashboard`; reuse valid acquisition, selection, and calculation handoffs. | Return local dashboard and stage artifacts. |
 | Prepared geographically placed evidence and “Show this on a Mapbox basemap.” | `render-online-map` uses the [local viewer](../skills/render-online-map/references/local-viewer.md). | Return local map/display provenance; no dashboard, acquisition, verification, or inferred alignment. |
 | Existing online-prepared map and “Show these vectors in chat using Mapbox MCP.” | `render-online-map` uses the [MCP handoff](../skills/render-online-map/references/mapbox-mcp.md). | Prepare exact vector arguments, inspect the connected tool schema, and call only if compatible; retain local raster/source review and report acceptance separately. |
-| Several descriptions and “Does this property close?” without a tract selected | `review-metes-and-bounds` identifies candidates. | Ask which boundary to review before calculation. |
+| Several descriptions and “Does this property close?” without a tract selected | `review-metes-and-bounds` identifies candidates. | Ask which boundary to review before calculation. Multi-description deeds need one parcel per review or plain role headings; see [multiple descriptions](review-limits.md#multiple-descriptions). |
 
 `review-deed` remains an entrypoint for deed-specific requests and follows the same shared workflow.
 
@@ -85,7 +85,7 @@ Return the [compact intake and coverage accounting](source-preparation.md#intake
 
 ## Interpret the result
 
-`checks_passed` (exit 0) means implemented deterministic checks passed; `needs_review` (exit 1) identifies unresolved checks; `error` (exit 2) reports a processing or configuration failure. The selected source and any uncertainty remain part of the result, even when geometry closes.
+Statuses and exit codes are listed in [review limits](review-limits.md#status-and-exit-codes). A multi-description deed without plain role headings is blocked from verified export; see [multiple descriptions](review-limits.md#multiple-descriptions). The selected source and any uncertainty remain part of the result, even when geometry closes.
 
 For a processing error, inspect the diagnostic, correct supported configuration or source-grounded input formatting, and rerun in a fresh directory. For `needs_review`, retain the issue and consult the source; do not change a recorded value merely to obtain a passing result.
 
