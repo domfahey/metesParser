@@ -5,7 +5,6 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-import math
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -15,6 +14,7 @@ from mp_models.plot_request import PlotCall, PlotRequest
 from mp_verify.plot import prepare_plot
 
 from .dashboard import _atomic
+from .json_input import parse_json
 from .relative import _invalid_number, _unique_object
 from .text import prepare_text
 
@@ -27,17 +27,6 @@ def _json(value: object) -> str:
 
 def _sha(data: str | bytes) -> str:
     return hashlib.sha256(data.encode("utf-8") if isinstance(data, str) else data).hexdigest()
-
-
-def _finite_json(value: Any) -> None:
-    if isinstance(value, float) and not math.isfinite(value):
-        raise ValueError("Nonfinite JSON number")
-    if isinstance(value, dict):
-        for item in value.values():
-            _finite_json(item)
-    elif isinstance(value, list):
-        for item in value:
-            _finite_json(item)
 
 
 def _calls_request(calls: Sequence[DeedCall | None], title: str, reference: str) -> PlotRequest:
@@ -106,8 +95,7 @@ def _request(source: bytes, name: str, input_format: str) -> tuple[PlotRequest, 
         csv_calls = csv_text_to_calls(text, strict=True)
         request = _calls_request(csv_calls, name, f"{name}: data row")
         return request, "csv"
-    data = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_invalid_number)
-    _finite_json(data)
+    data = parse_json(text, object_pairs_hook=_unique_object, parse_constant=_invalid_number)
     if input_format == "auto":
         if isinstance(data, dict) and "title" in data:
             input_format = "plot"

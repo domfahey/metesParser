@@ -18,6 +18,7 @@ from mp_export.csv_writer import (  # type: ignore[import-untyped]
 from mp_models import AuditContext, DeedCall, LegalDescription, RunMetadata
 from mp_verify import verify_closure
 
+from .json_input import parse_json
 from .text import prepare_text
 
 ENGINE_VERSION = "1.0.0"
@@ -103,7 +104,7 @@ def _run(
                     }
                 )
         elif kind == "json":
-            data = json.loads(
+            data = parse_json(
                 text,
                 parse_constant=lambda x: (_ for _ in ()).throw(ValueError(f"Invalid number {x}")),
             )

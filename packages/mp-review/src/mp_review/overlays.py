@@ -14,6 +14,8 @@ from typing import Any, Literal
 from mp_models.plot import LinearUnit, MapSource, PlotScene, VectorLayer
 from mp_verify.scene import projected_crs_unit, validate_scene
 
+from .json_input import parse_json
+
 MAX_IMPORT_BYTES = 20 * 1024 * 1024
 
 
@@ -83,7 +85,7 @@ def import_overlay(
     if len(data) > MAX_IMPORT_BYTES:
         raise ValueError("Overlay exceeds 20 MiB import limit")
     try:
-        value = json.loads(data)
+        value = parse_json(data)
     except (ValueError, UnicodeError) as exc:
         raise ValueError("Overlay must contain JSON") from exc
     if not isinstance(value, dict):
