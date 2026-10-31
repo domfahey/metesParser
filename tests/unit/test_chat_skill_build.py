@@ -309,6 +309,7 @@ def test_validate_rejects_unlinked_files_but_not_engine_files(builder):
         "references/next.md": b"# Next\n",
         "runtime/engine.json": b"{}",
         "scripts/run-chat.py": b"",
+        "LICENSE": b"MIT License\n",
     }
     builder._validate(files)
     files["references/orphan.md"] = b"# Orphan\n"
@@ -348,8 +349,17 @@ def test_real_archive_ships_only_linked_navigation_files(real, tmp_path):
     for record in [n for n in names if n.endswith(".json") and n in reached]:
         for item in re.findall(r'"path":\s*"([^"]+)"', files[record].decode()):
             reached.add(posixpath.normpath(posixpath.join(posixpath.dirname(record), item)))
-    unlinked = {n for n in names if n not in reached and not n.startswith(("runtime/", "scripts/"))}
+    unlinked = {
+        n
+        for n in names
+        if n not in reached and n != "LICENSE" and not n.startswith(("runtime/", "scripts/"))
+    }
     assert not unlinked
+
+
+def test_real_archive_ships_the_license(real, tmp_path):
+    files = _read(real.build(tmp_path / "skill.zip"))
+    assert files["LICENSE"] == (Path(__file__).resolve().parents[2] / "LICENSE").read_bytes()
 
 
 def test_real_references_over_100_lines_have_a_contents_list(real, tmp_path):
