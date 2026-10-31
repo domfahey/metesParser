@@ -24,9 +24,23 @@ class TractType(str, Enum):
 BOUNDARY_TRACT_TYPES: frozenset[str] = frozenset({TractType.MAIN.value, TractType.ADDITION.value})
 
 
+def tract_kind(tract_type: TractType | str) -> str:
+    """The tract type's string value (also for a different TractType enum, e.g. the monolith's)."""
+    return str(getattr(tract_type, "value", tract_type))
+
+
 def is_boundary_tract(tract_type: TractType | str) -> bool:
     """Whether a tract of this type is part of the conveyed parcel's boundary."""
-    return getattr(tract_type, "value", tract_type) in BOUNDARY_TRACT_TYPES
+    return tract_kind(tract_type) in BOUNDARY_TRACT_TYPES
+
+
+def non_boundary_detail(label: str, tract_type: TractType | str) -> str:
+    """The one wording for why an easement/exception tract is never verified or exported."""
+    return (
+        f"non_boundary_tract: {label} is a {tract_kind(tract_type)} tract, not a parcel "
+        "boundary, and is never eligible for verified export; its closure, area and "
+        "perimeter are for review only"
+    )
 
 
 class Tract(_Model):

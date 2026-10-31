@@ -78,4 +78,38 @@ def test_non_boundary_block_is_audited_per_tract() -> None:
     assert not any(c.name == "non_boundary_tract" for c in main_audit.checks)
     assert any(c.name == "non_boundary_tract" for c in easement_audit.checks)
     assert easement_audit.closure_summary["status"] == "NEEDS REVIEW"
-    assert easement_audit.closure_summary["geometry_verified"] is False
+    # Audit summaries coerce booleans to numbers for every tract.
+    assert easement_audit.closure_summary["geometry_verified"] == 0
+
+
+def test_non_boundary_confidence_includes_the_block_penalty() -> None:
+    from datetime import UTC, datetime
+
+    from mp_verify import calculate_confidence_score, get_closure_summary
+
+    audit = AuditContext(
+        run_metadata=RunMetadata(
+            parser_version="0",
+            llm_provider="none",
+            llm_model="none",
+            prompt_hash="",
+            timestamp_utc=datetime(2026, 10, 30, tzinfo=UTC),
+            source_pdf="x",
+            cache_enabled=False,
+        )
+    )
+    main = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square())
+    easement = Tract(label="Easement 1", tract_type=TractType.EASEMENT, calls=_square())
+    main_result, easement_result = verify_closure([], tracts=[main, easement], audit_context=audit)
+
+    assert easement_result.confidence_score is not None
+    assert main_result.confidence_score is not None
+    assert easement_result.confidence_score < main_result.confidence_score
+    assert easement_result.confidence_score == pytest.approx(
+        calculate_confidence_score(easement_result, easement.calls)
+    )
+    assert f"Confidence: {easement_result.confidence_score:.2f}" in get_closure_summary(
+        easement_result
+    )
+    summary = audit.tract_verification_audits[1].closure_summary
+    assert summary["confidence_score"] == easement_result.confidence_score
