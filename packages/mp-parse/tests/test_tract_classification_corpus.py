@@ -94,6 +94,29 @@ Round 54 adds:
 * Only a closed MAIN or ADDITION boundary puts an opener after the boundary: never
   an exception description, a COMMENCING tie reaching the point of beginning or a
   recital mentioning the point of beginning.
+
+Round 55 replaces wording rules with invariants:
+
+* INV-1: the first described parcel (and any description before a closed MAIN
+  boundary) is never an EASEMENT or EXCEPTION because of its own preamble. SUBJECT
+  TO / TOGETHER WITH / EXCEPTING recitals before it, whatever their wording, never
+  retype it or set its courses aside. Two explicit signals are kept: an EXCEPT lead
+  taking the exception from lands described later ("EXCEPTING from the lands
+  hereinafter described the following: ..."), and an easement deed whose document
+  opens with its own TOGETHER WITH grant of a specific easement running on into its
+  description ("TOGETHER WITH an easement for access as follows: BEGINNING ..."): no
+  parcel is described, so nothing is exported. A deed title alone ("GRANT OF
+  EASEMENT") is not recognised.
+* INV-2: only a description after a closed MAIN boundary is typed EASEMENT (by the
+  grant rule) or EXCEPTION (by an EXCEPT lead introducing it). An EXCEPT inside a
+  description still open ("THENCE ...; THENCE ... EXCEPT THENCE ...") is no preamble
+  and keeps typing the description it introduces, so its courses never join the
+  boundary.
+* INV-3: whether a boundary closed is decided from the parser's own course reading,
+  course lists included ("thence the following four courses: (1) ..., (2) ..., (3)
+  ... and (4) ... to the point of beginning" is a closed four-course boundary).
+* Prefixing the first description with any preamble recital changes no
+  classification and no verified export (``test_preamble_recital_never_changes_outcome``).
 """
 
 from __future__ import annotations
@@ -174,6 +197,17 @@ SMALL_NUMBERED = (
     "thence (3) S 0° W 50 feet; thence (4) N 90° W 50 feet to the point of beginning."
 )
 DRIVEWAY_GRANT = "TOGETHER WITH an easement for ingress and egress over the driveway"
+# r55: the square as a comma-separated numbered course list, and a later description.
+SQUARE_LIST = (
+    "BEGINNING at a pin; thence the following four courses: (1) N 0° E 100 feet, "
+    "(2) S 90° E 100 feet, (3) S 0° W 100 feet, (4) N 90° W 100 feet to the point of beginning."
+)
+SQUARE_LIST_AND = SQUARE_LIST.replace(", (4)", " and (4)")
+JONES = (
+    "BEGINNING at a pin in the line of Jones; thence N 0° E 50 feet; thence S 90° E 50 feet; "
+    "thence S 0° W 50 feet; thence N 90° W 50 feet to the point of beginning."
+)
+INGRESS_GRANT = "TOGETHER WITH an easement for ingress and egress."
 
 
 @dataclass(frozen=True)
@@ -810,9 +844,118 @@ CASES: dict[str, Case] = {
     "r54_numbered_grant_period_then_description": _easement_case(
         f"{DRIVEWAY_GRANT}.", SMALL_NUMBERED, legs=4
     ),
+    # --- r55 #1, #4 (INV-1): a preamble recital never retypes the first description --
+    **{
+        f"r55_preamble_{name}": Case(text)
+        for name, text in {
+            "subject_to_easements_as_shown_on_filed_plan": (
+                "ALL THAT CERTAIN lot, SUBJECT to easements, restrictions and covenants as "
+                f"shown on the filed plan, bounded and described as follows: {SQUARE}"
+            ),
+            "utility_easements_as_shown_on_recorded_plat": (
+                "Subject to utility easements as shown on the recorded plat, described as "
+                f"follows: {SQUARE}"
+            ),
+            "easements_shown_on_plan_of_lots": (
+                "SUBJECT to the easements shown on the plan of lots, more particularly "
+                f"described as follows: {SQUARE}"
+            ),
+            "together_with_easements_appurtenant": (
+                "TOGETHER with all easements and rights of way appurtenant thereto, bounded "
+                f"and described as follows: {SQUARE}"
+            ),
+            "ten_foot_utility_easement_along_rear_line": (
+                "ALL THAT CERTAIN lot of land situate in the Borough of Haddonfield, SUBJECT to "
+                "a 10 foot wide utility easement along the rear line, more particularly bounded "
+                f"and described as follows: {SQUARE}"
+            ),
+            "right_of_way_for_the_township": (
+                f"ALL THAT CERTAIN lot, subject to a right of way for the Township, {SQUARE}"
+            ),
+            "right_of_way_over_driveway_in_common": (
+                "ALL THAT CERTAIN lot, TOGETHER WITH the right of way over the driveway in "
+                f"common with others, bounded and described as follows: {SQUARE}"
+            ),
+            "easements_of_record_and_sewer_easement": (
+                "ALL THAT CERTAIN lot, SUBJECT to easements of record and to a sewer easement in "
+                f"favor of the Township, bounded and described as follows: {SQUARE}"
+            ),
+            "excepting_and_reserving_oil_and_gas": (
+                f"ALL THAT tract, EXCEPTING AND RESERVING the oil and gas rights, {SQUARE}"
+            ),
+            "excepting_portion_within_street": (
+                f"ALL that certain lot, excepting the portion within Main Street, {SQUARE}"
+            ),
+            # A deed title alone is no easement-deed signal: the description is the parcel.
+            "easement_deed_title_only": (
+                "GRANT OF EASEMENT\n\nThe Grantor grants to the Grantee a perpetual easement "
+                f"over the land described as follows: {SQUARE}"
+            ),
+        }.items()
+    },
+    # --- r55: the one easement-deed signal (INV-1's exception) ------------------------
+    # The document opens with its own grant of a specific easement, running on into the
+    # description: no fee parcel is described, so nothing is a parcel boundary.
+    "r55_easement_deed_grant_opens_document": Case(
+        f"TOGETHER WITH an easement for access as follows: {SQUARE}",
+        tracts=((EAS, 4),),
+        flat=0,
+        closing_to=None,
+        labels=("Easement 1",),
+    ),
+    "r55_easement_deed_grant_after_blank_lines": Case(
+        f"\n\n  TOGETHER WITH a right of way 20 feet wide, {SQUARE}",
+        tracts=((EAS, 4),),
+        flat=0,
+        closing_to=None,
+        labels=("Easement 1",),
+    ),
+    # Plural easements are no deed's own grant, nor is a grant after parcel wording.
+    "r55_together_with_all_easements_opens_document": Case(
+        f"TOGETHER WITH all easements appurtenant thereto, described as follows: {SQUARE}"
+    ),
+    "r55_lot_together_with_easement": Case(
+        f"ALL THAT CERTAIN lot, TOGETHER WITH an easement for access, {SQUARE}"
+    ),
+    # --- r55 #3 (INV-1, INV-2): the parcel after a preamble, then a granted easement --
+    "r55_excepting_portion_within_street_then_easement": Case(
+        f"ALL that certain lot, excepting the portion within Main Street, {SQUARE} "
+        f"{INGRESS_GRANT}\n{JONES}",
+        tracts=((MAIN_T, 4), (EAS, 4)),
+        easements=(f"{INGRESS_GRANT}\n{JONES}",),
+        labels=("Tract 1", "Easement 1"),
+    ),
+    "r55_excepting_and_reserving_oil_and_gas_then_easement": Case(
+        f"ALL THAT tract, EXCEPTING AND RESERVING the oil and gas rights, {SQUARE} "
+        f"{INGRESS_GRANT}\n{JONES}",
+        tracts=((MAIN_T, 4), (EAS, 4)),
+        easements=(f"{INGRESS_GRANT}\n{JONES}",),
+        labels=("Tract 1", "Easement 1"),
+    ),
+    # --- r55 #2 (INV-3): a numbered comma-list boundary closes -------------------------
+    **{
+        f"r55_course_list_{name}": Case(
+            f"{boundary} {lead}\n{JONES}",
+            tracts=((MAIN_T, 4), (EAS, 4)),
+            easements=(f"{lead}\n{JONES}",),
+            labels=("Tract 1", "Easement 1"),
+        )
+        for name, boundary, lead in (
+            ("comma_then_grant", SQUARE_LIST, INGRESS_GRANT),
+            ("and_then_grant", SQUARE_LIST_AND, INGRESS_GRANT),
+            ("comma_then_generic_recital", SQUARE_LIST, "SUBJECT to easements of record:"),
+            ("and_then_generic_recital", SQUARE_LIST_AND, "SUBJECT to easements of record:"),
+        )
+    },
 }
-# r53, r54: cases whose verified export must write only the boundary tract.
-R53_EXPORT_CASES = sorted(name for name in CASES if name.startswith(("r53_", "r54_")))
+# r55: easement deeds, which describe no parcel boundary.
+EASEMENT_DEED_CASES = sorted(name for name in CASES if name.startswith("r55_easement_deed_grant"))
+# r53-r55: cases whose verified export must write only the boundary tract.
+R53_EXPORT_CASES = sorted(
+    name
+    for name in CASES
+    if name.startswith(("r53_", "r54_", "r55_")) and name not in EASEMENT_DEED_CASES
+)
 
 # --- generated deeds (r48 invariant, r49 clauses) ------------------------------------
 
@@ -1113,8 +1256,10 @@ def test_verified_export_writes_only_the_boundary(name: str, tmp_path: Path) -> 
 
 # --- r54: course numbering never changes a classification or an export -----------------
 
+# A THENCE opening a course list ("thence the following four courses: (1) ...") is
+# already numbered.
 _THENCE_TO_NUMBER = re.compile(
-    r"\b(?:BEGINNING|COMMENCING)\b|\b(thence)\s+(?![(\d])", re.IGNORECASE
+    r"\b(?:BEGINNING|COMMENCING)\b|\b(thence)\s+(?![(\d]|the\s+following\b)", re.IGNORECASE
 )
 
 
@@ -1219,3 +1364,81 @@ def test_exception_description_first_leaves_the_parcel_main() -> None:
         results = verify_closure([], tracts=tracts)
         assert results[1].is_fully_verified()
         assert [c.distance_ft for c in tracts[1].calls] == [100.0] * 4
+
+
+# --- r55: a preamble recital never changes the first description's outcome -------------
+
+# Preamble recitals before the first description, in every form the reviewer probed:
+# plural, singular, "as shown on the plan", a portion within a street, mineral rights.
+PREAMBLE_RECITALS = (
+    "SUBJECT to easements, restrictions and covenants as shown on the filed plan",
+    "subject to utility easements as shown on the recorded plat",
+    "SUBJECT to the easements shown on the plan of lots",
+    "TOGETHER with all easements and rights of way appurtenant thereto",
+    "SUBJECT to a 10 foot wide utility easement along the rear line",
+    "subject to a right of way for the Township",
+    "TOGETHER WITH the right of way over the driveway in common with others",
+    "SUBJECT to easements of record and to a sewer easement in favor of the Township",
+    "TOGETHER WITH an easement for ingress and egress",
+    "RESERVING unto the grantor, its successors and assigns, a perpetual easement",
+    "excepting the portion within Main Street",
+    "EXCEPTING AND RESERVING the oil and gas rights",
+)
+# The recital's frame: with the deed's own description intro, or running on into it.
+PREAMBLE_FRAMES = (
+    "ALL THAT CERTAIN lot, {}, bounded and described as follows: ",
+    "ALL THAT CERTAIN lot, {}, ",
+)
+_FIRST_DESCRIPTION = re.compile(
+    r"\b(?:(?:POINT(?:\s+AND\s+PLACE)?|PLACE)\s+OF\s+)?(?:BEGINNING|COMMENCING)\b", re.IGNORECASE
+)
+
+
+def _with_preamble(text: str, recital: str, frame: str) -> str:
+    """Return ``text`` with the framed ``recital`` directly before its first description."""
+    first = _FIRST_DESCRIPTION.search(text)
+    assert first is not None
+    return text[: first.start()] + frame.format(recital) + text[first.start() :]
+
+
+_OUTCOMES: dict[str, tuple] = {}
+
+
+@pytest.mark.parametrize("frame", range(len(PREAMBLE_FRAMES)))
+@pytest.mark.parametrize("name", [name for name in CASES if name not in EASEMENT_DEED_CASES])
+def test_preamble_recital_never_changes_outcome(name: str, frame: int, tmp_path: Path) -> None:
+    # Every case whose first description is a parcel (an easement deed has none): the
+    # parcel stays MAIN with the same courses, verification and verified export.
+    text = CASES[name].text
+    if name not in _OUTCOMES:
+        (tmp_path / "plain").mkdir()
+        _OUTCOMES[name] = _outcome(text, tmp_path / "plain")
+    expected = _OUTCOMES[name]
+    for i, recital in enumerate(PREAMBLE_RECITALS):
+        directory = tmp_path / f"r{i}"
+        directory.mkdir()
+        prefixed = _with_preamble(text, recital, PREAMBLE_FRAMES[frame])
+        assert _outcome(prefixed, directory) == expected, recital
+
+
+@pytest.mark.parametrize("name", EASEMENT_DEED_CASES)
+def test_easement_deed_is_never_exported_as_a_parcel(name: str, tmp_path: Path) -> None:
+    calls, tracts = extract_calls(CASES[name].text, strict=True)
+    assert calls == [] and [t.tract_type for t in tracts] == [EAS]
+    results = verify_closure([], tracts=tracts)
+    with pytest.raises(ValueError, match="no parcel boundary tract"):
+        export_verified_csv(
+            [],
+            results[0],
+            str(tmp_path / "deed.csv"),
+            tract_results=list(zip(tracts, results, strict=True)),
+        )
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_exception_lead_from_lands_hereinafter_described_types_the_first_description() -> None:
+    # The one EXCEPT lead kept before any boundary: it takes the exception from lands
+    # described later, so the first description cannot be the parcel.
+    text = f"EXCEPTING from the lands hereinafter described the following: {SMALL} {SQUARE}"
+    _, tracts = extract_calls(text, strict=True)
+    assert [(t.tract_type, len(t.calls)) for t in tracts] == [(EXC, 4), (MAIN_T, 4)]
