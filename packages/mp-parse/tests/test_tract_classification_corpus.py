@@ -117,6 +117,17 @@ Round 55 replaces wording rules with invariants:
   ... and (4) ... to the point of beginning" is a closed four-course boundary).
 * Prefixing the first description with any preamble recital changes no
   classification and no verified export (``test_preamble_recital_never_changes_outcome``).
+
+Round 56 (user decision) fails closed on guessed roles instead of adding wording rules:
+
+* Every tract records its role basis: "heading" (a TRACT/PARCEL heading typed MAIN or
+  ADDITION), "single" (the deed's sole described tract) or "inferred" (any wording or
+  position rule). A deed with several descriptions and any inferred role exports
+  nothing (``test_verified_export_follows_role_policy``; the cases that lost their
+  export are ``ROLE_POLICY_EXPORT_LOSSES``). Classification itself is unchanged.
+* An EXCEPT lead taking land "from the lands hereinafter described" types a description
+  only when a separate description follows it; on a deed's only description it is that
+  description's preamble (a mineral reservation, a creek bed), so the parcel exports.
 """
 
 from __future__ import annotations
@@ -131,15 +142,18 @@ from pathlib import Path
 import pytest
 from mp_export.csv_writer import export_verified_csv
 from mp_models import (
+    DESCRIPTION_ROLES_CHECK,
+    DESCRIPTION_ROLES_PREFIX,
     PASSING_CALL_NOTE_PREFIX,
     SEPARATE_EASEMENT_NOTE_PREFIX,
     TractType,
+    roles_need_review,
     split_notes,
     unapplied_exceptions,
 )
 from mp_parse.calls import _extract_calls_from_text, extract_calls
 from mp_parse.metadata import detect_strip_exceptions
-from mp_verify import verify_closure
+from mp_verify import verify_closure, verify_tract
 
 from metesparser.call_extractor import CallExtractor
 
@@ -948,14 +962,124 @@ CASES: dict[str, Case] = {
         )
     },
 }
+
+# --- r56: the round-55 reviewer probes under the fail-closed role policy ---------------
+# Classification stays as the rules read it (some of it wrong, e.g. a second fee parcel
+# typed EXCEPTION because of its own mineral reservation); export is decided by the
+# role policy below (``R56_EXPORTS``).
+R56_SECOND = SMALL.replace("BEGINNING at a stake", "BEGINNING at an iron")
+_R56_EXCEPT_LEADS = {
+    "following_described_land": (
+        "EXCEPTING from the following described land the parcel described as follows:",
+        MAIN_T,
+    ),
+    "lands_hereinafter_more_particularly": (
+        "EXCEPTING from the lands hereinafter more particularly described the following:",
+        MAIN_T,
+    ),
+    "save_and_except_premises_hereinafter": (
+        "SAVE AND EXCEPT out of the premises hereinafter described the following parcel:",
+        MAIN_T,
+    ),
+    "lands_described_below": ("EXCEPTING from the lands described below the following:", EXC),
+    "less_and_except_tract_hereinafter": (
+        "LESS AND EXCEPT from the tract hereinafter described the following:",
+        EXC,
+    ),
+}
+_R56_RECITALS = {
+    "mineral": "EXCEPTING AND RESERVING the oil and gas rights,",
+    "easement": "SUBJECT to a 10 foot wide utility easement along the rear line,",
+}
+# An exception described before the parcel, under various leads: its first description
+# is no parcel, so these stay out of CASES (whose invariants read the first description
+# as the parcel) and are checked by ``test_exception_described_first_exports_nothing``.
+R56_EXCEPTION_FIRST = {
+    f"r56_exception_first_{name}": (
+        f"{lead} {SMALL} The said lands being described as follows: {SQUARE}",
+        first,
+    )
+    for name, (lead, first) in _R56_EXCEPT_LEADS.items()
+}
+CASES.update(
+    {
+        # An easement described by its own courses before the parcel.
+        "r56_easement_courses_first": Case(
+            "SUBJECT to a drainage easement more particularly described as follows: "
+            f"{SMALL} ALL THAT tract of land described as follows: {SQUARE}",
+            tracts=((MAIN_T, 4), (MAIN_T, 4)),
+            flat=8,
+        ),
+        # A reservation in a single parcel: the one description is the parcel.
+        "r56_mineral_reservation_single_parcel": Case(
+            "ALL THAT tract of land, EXCEPTING AND RESERVING from the premises hereinafter "
+            f"described all oil, gas and minerals, bounded and described as follows: {SQUARE}"
+        ),
+        "r56_mineral_reservation_running_on": Case(
+            "ALL THAT tract of land, EXCEPTING AND RESERVING from the premises hereinafter "
+            f"described all oil, gas and minerals, {SQUARE}"
+        ),
+        "r56_creek_bed_excepted_single_parcel": Case(
+            "ALL THAT tract of land, excepting from the land described below the bed of Cooper "
+            f"Creek, bounded and described as follows: {SQUARE}"
+        ),
+        # A second fee parcel whose own preamble recites a reservation or an easement.
+        "r56_second_parcel_mineral_headed": Case(
+            f"PARCEL ONE: {SQUARE} PARCEL TWO: ALL THAT tract, {_R56_RECITALS['mineral']} "
+            f"{R56_SECOND}",
+            tracts=((MAIN_T, 4), (MAIN_T, 4)),
+            flat=8,
+            labels=("Parcel ONE", "Parcel TWO"),
+        ),
+        "r56_second_parcel_mineral_also": Case(
+            f"{SQUARE} ALSO all that tract of land, {_R56_RECITALS['mineral']} {R56_SECOND}",
+            tracts=((MAIN_T, 4), (EXC, 4)),
+            flat=8,
+        ),
+        "r56_second_parcel_mineral_paragraph": Case(
+            f"{SQUARE}\n\nALL THAT other tract of land, {_R56_RECITALS['mineral']} bounded and "
+            f"described as follows: {R56_SECOND}",
+            tracts=((MAIN_T, 4), (EXC, 4)),
+            flat=8,
+        ),
+        "r56_second_parcel_easement_also": Case(
+            f"{SQUARE} ALSO all that tract of land, {_R56_RECITALS['easement']} {R56_SECOND}",
+            tracts=((MAIN_T, 4), (EAS, 4)),
+            easements=(f"{_R56_RECITALS['easement']} {R56_SECOND}",),
+            labels=("Tract 1", "Easement 1"),
+        ),
+        # Roles from explicit headings only.
+        "r56_headed_parcels": Case(
+            f"PARCEL ONE: {SQUARE} PARCEL TWO: {R56_SECOND}",
+            tracts=((MAIN_T, 4), (MAIN_T, 4)),
+            flat=8,
+            labels=("Parcel ONE", "Parcel TWO"),
+        ),
+        # A headed description typed EXCEPTION by the EXCEPT lead before its heading.
+        "r56_headed_parcel_with_headed_exception": Case(
+            f"PARCEL ONE: {SQUARE} EXCEPTING THEREFROM the following described parcel: "
+            f"PARCEL A: {SMALL}",
+            tracts=((MAIN_T, 4), (EXC, 4)),
+            flat=8,
+            labels=("Parcel ONE", "Parcel A"),
+        ),
+    }
+)
 # r55: easement deeds, which describe no parcel boundary.
 EASEMENT_DEED_CASES = sorted(name for name in CASES if name.startswith("r55_easement_deed_grant"))
-# r53-r55: cases whose verified export must write only the boundary tract.
-R53_EXPORT_CASES = sorted(
-    name
-    for name in CASES
-    if name.startswith(("r53_", "r54_", "r55_")) and name not in EASEMENT_DEED_CASES
-)
+# r56: the cases still exporting under the role policy, and what they write. A deed
+# with one description exports it as before; a deed whose every role comes from an
+# explicit TRACT/PARCEL heading exports its verified MAIN/ADDITION tracts. Every other
+# deed with several descriptions exports nothing (``ROLE_POLICY_EXPORT_LOSSES``).
+R56_EXPORTS = {
+    "r56_mineral_reservation_single_parcel": ["deed_verified.csv"],
+    "r56_mineral_reservation_running_on": ["deed_verified.csv"],
+    "r56_creek_bed_excepted_single_parcel": ["deed_verified.csv"],
+    "r56_second_parcel_mineral_headed": ["deed_verified_tract1.csv", "deed_verified_tract2.csv"],
+    "r56_headed_parcels": ["deed_verified_tract1.csv", "deed_verified_tract2.csv"],
+    # Tract 1 notes an unapplied exception, so only TRACT 2 verifies.
+    "r50_stated_exception_before_next_tract": ["deed_verified_tract2.csv"],
+}
 
 # --- generated deeds (r48 invariant, r49 clauses) ------------------------------------
 
@@ -1227,31 +1351,203 @@ def test_closure_is_a_course_reaching_the_point_of_beginning() -> None:
     assert [e for _, e in _index(commencing).closures] == [len(commencing) - 1]
 
 
-# --- r53: verified export writes only the boundary tract ----------------------------------
+# --- r53/r56: verified export writes only the boundary ------------------------------------
+
+# r53-r56 cases with one description (their boundary tracts' exports under several
+# descriptions are now decided by the role policy below).
+SINGLE_EXPORT_CASES = sorted(
+    name
+    for name, case in CASES.items()
+    if name.startswith(("r53_", "r54_", "r55_", "r56_"))
+    and not case.tracts
+    and case.error is None
+    and name not in EASEMENT_DEED_CASES
+)
 
 
-@pytest.mark.parametrize("name", R53_EXPORT_CASES)
+@pytest.mark.parametrize("name", SINGLE_EXPORT_CASES)
 def test_verified_export_writes_only_the_boundary(name: str, tmp_path: Path) -> None:
     case = CASES[name]
     calls, tracts = extract_calls(case.text, strict=True)
-    output = str(tmp_path / "deed.csv")
-    if tracts:
-        results = verify_closure([], tracts=tracts)
-        written = export_verified_csv(
-            [], results[0], output, tract_results=list(zip(tracts, results, strict=True))
-        )
-        boundaries = [i for i, t in enumerate(tracts) if t.tract_type in (MAIN_T, ADD)]
-        assert boundaries == [0]
-        assert [p.name for p in written] == ["deed_verified_tract1.csv"]
-    else:
-        written = export_verified_csv(calls, verify_closure(calls), output)
-        assert len(written) == 1
+    assert tracts == []
+    written = export_verified_csv(calls, verify_closure(calls), str(tmp_path / "deed.csv"))
+    assert [p.name for p in written] == ["deed_verified.csv"]
     # The one CSV written is the 100-foot square boundary (after any tie to it).
     with written[0].open(newline="") as handle:
         rows = list(csv.DictReader(handle))
     boundary_rows = [row for row in rows if row["is_tie_in"].lower() != "true"]
     assert [float(row["distance_ft"]) for row in boundary_rows] == [100.0] * 4
     assert len(rows) - len(boundary_rows) == (case.tie_ins or 0)
+
+
+# r56 (user decision, fail closed): a deed with several descriptions and any role
+# inferred from wording rather than an explicit TRACT/PARCEL heading exports nothing.
+# Each case below exported at least one verified tract before round 56 and exports
+# nothing now; every one has several descriptions whose roles the wording rules
+# inferred (easement grants, EXCEPT leads, ALSO additions, unheaded BEGINNING blocks).
+ROLE_POLICY_EXPORT_LOSSES = frozenset(
+    {
+        "r44_geometric_exception",
+        "r44_excepted_right_of_way",
+        "r48_exception_traverse",
+        "r49_exception_traverse_after_containing",
+        "r44_together_with_easement",
+        "r44_also_easement",
+        "r44_subject_to_right_of_way",
+        "r48_together_with_right_of_way",
+        "r48_subject_to_easement",
+        "r48_reserving_grantee_commas",
+        "r48_together_with_modifiers",
+        "r49_use_of_an_easement",
+        "r49_right_to_use",
+        "r49_use_of_right_of_way",
+        "r49_reserving_right_of_way_no_comma",
+        "r49_right_of_ingress_and_egress",
+        "r49_free_and_uninterrupted_use",
+        "r49_grantee_heirs_no_commas",
+        "r49_long_grantee_closed_easement",
+        "r51_benefit_of_an_easement",
+        "r51_benefit_of_the_right_of_way",
+        "r51_all_right_title_interest_easement",
+        "r51_grantors_interest_that_certain_easement",
+        "r51_interest_in_right_of_way",
+        "r51_right_privilege_and_easement",
+        "r51_non_exclusive_easement_appurtenant",
+        "r51_easement_appurtenant",
+        "r51_also_benefit_of_easement",
+        "r51_addition_interest_in_land_within_easement_area",
+        "r51_together_with_interest_in_land_within_easement_area",
+        "r51_addition_benefit_of_land_adjoining_easement",
+        "r51_together_with_interest_in_tract_adjoining_right_of_way",
+        "r47_easement_between_descriptions",
+        "r48_addition_adjoining_right_of_way",
+        "r48_addition_former_easement_area",
+        "r48_addition_subject_to_right_of_way",
+        "r48_together_with_lot_along_right_of_way",
+        "r49_strip_of_land_for_right_of_way",
+        "r50_except_following_described_parcel_heading",
+        "r50_less_and_except_part_described_heading",
+        "r50_headed_boundary_except_following_described_parcel",
+        "r50_except_following_described_parcel_no_heading",
+        "r50_passing_after_closure_then_addition",
+        "r50_adjoiner_after_closure_then_addition_fails_closed",
+        "r50_exception_traverse_dashed_dms",
+        "r50_exception_traverse_symbolless_fails_closed",
+        "r53_easements_of_record_and_specific_easement_described",
+        "r53_easements_of_record_including_drainage_easement",
+        "r53_rights_of_way_of_record_and_right_of_way_over_following",
+        "r53_easements_if_any_over_following_described_land",
+        "r53_generic_recital_colon_after_boundary",
+        "r53_easement_line_runs_on_to_description",
+        "r53_after_boundary_grant_line_break_then_description",
+        "r53_after_boundary_grant_blank_line_then_description",
+        "r53_after_boundary_grant_period_then_description",
+        "r53_easement_described_as_follows_paragraph",
+        "r53_easement_described_as_follows_period",
+        "r53_said_easement_bounded_and_described",
+        "r53_said_right_of_way_described",
+        "r53_also_easement_over_following_described_land_period",
+        "r54_numbered_grant_line_break_then_description",
+        "r54_numbered_grant_blank_line_then_description",
+        "r54_numbered_markdown_heading_then_description",
+        "r54_numbered_said_easement_bounded_and_described",
+        "r54_numbered_grant_period_then_description",
+        "r55_excepting_portion_within_street_then_easement",
+        "r55_excepting_and_reserving_oil_and_gas_then_easement",
+        "r55_course_list_comma_then_grant",
+        "r55_course_list_and_then_grant",
+        "r55_course_list_comma_then_generic_recital",
+        "r55_course_list_and_then_generic_recital",
+        "gen:addition",
+        "gen:easement",
+        "gen:use_easement",
+        "gen:addition+easement",
+        "gen:addition+use_easement",
+        "gen:addition+strip",
+        "gen:addition+non_traverse",
+        "gen:addition+bearing_only",
+        "gen:addition+dividing_line",
+        "gen:easement+addition",
+        "gen:easement+use_easement",
+        "gen:use_easement+addition",
+        "gen:use_easement+easement",
+        "gen:strip+addition",
+        "gen:non_traverse+addition",
+        "gen:bearing_only+addition",
+        "gen:dividing_line+addition",
+        "gen:addition+easement+use_easement+strip+non_traverse+bearing_only+dividing_line",
+        "gen:easement+use_easement+strip+non_traverse+bearing_only+dividing_line+addition",
+        "gen:use_easement+strip+non_traverse+bearing_only+dividing_line+addition+easement",
+        "gen:strip+non_traverse+bearing_only+dividing_line+addition+easement+use_easement",
+    }
+)
+
+
+def _verified_export(calls, tracts, directory: Path) -> tuple[list[str], str]:
+    """Verify and export like the pipeline; return the files written and any refusal."""
+    directory.mkdir()
+    output = str(directory / "deed.csv")
+    try:
+        if tracts:
+            results = verify_closure([], tracts=tracts)
+            written = export_verified_csv(
+                [], results[0], output, tract_results=list(zip(tracts, results, strict=True))
+            )
+        else:
+            written = export_verified_csv(calls, verify_closure(calls), output)
+    except ValueError as error:
+        assert not any(directory.iterdir())
+        return [], str(error)
+    return [p.name for p in written], ""
+
+
+@pytest.mark.parametrize("name", [name for name, case in CASES.items() if case.error is None])
+def test_verified_export_follows_role_policy(name: str, tmp_path: Path) -> None:
+    calls, tracts = extract_calls(CASES[name].text, strict=True)
+    reasons = roles_need_review(tracts)
+    written, refusal = _verified_export(calls, tracts, tmp_path / "policy")
+    # What the deed would export if every role were trusted (the pre-round-56 outcome).
+    trusted = [t.model_copy(update={"role_basis": "heading"}) for t in tracts]
+    trusted_written, _ = _verified_export(calls, trusted, tmp_path / "trusted")
+    if name in R56_EXPORTS:
+        assert not reasons and written == R56_EXPORTS[name]
+    if not reasons:
+        # One description, or every role from an explicit heading: nothing changes.
+        assert written == trusted_written and name not in ROLE_POLICY_EXPORT_LOSSES
+        assert all(t.role_basis == ("heading" if len(tracts) > 1 else "single") for t in tracts)
+        return
+    assert len(tracts) > 1 and written == []
+    assert refusal.startswith("Cannot export verified CSV: " + DESCRIPTION_ROLES_PREFIX)
+    for tract in tracts:
+        assert (f"{tract.label} ({tract.tract_type.value})" in refusal) == (
+            tract.role_basis != "heading"
+        )
+    # Geometry is still computed for review; no tract is verified.
+    for tract, result in zip(tracts, verify_closure([], tracts=tracts), strict=True):
+        roles = [c for c in result.checks if c.name == DESCRIPTION_ROLES_CHECK]
+        assert [c.status for c in roles] == ["blocked"] and not result.is_fully_verified()
+        assert result.misclosure_available == verify_tract(tract.calls).misclosure_available
+    if not name.startswith("r56_"):
+        assert (name in ROLE_POLICY_EXPORT_LOSSES) == bool(trusted_written)
+
+
+@pytest.mark.parametrize("name", list(R56_EXCEPTION_FIRST))
+def test_exception_described_first_exports_nothing(name: str, tmp_path: Path) -> None:
+    # Whether the lead is read (EXCEPTION, MAIN) or not (MAIN, MAIN), both roles come
+    # from wording: no description is verified or exported, numbered or not.
+    text, first = R56_EXCEPTION_FIRST[name]
+    for i, candidate in enumerate((text, _number_courses(text))):
+        calls, tracts = extract_calls(candidate, strict=True)
+        assert [(t.tract_type, len(t.calls), t.role_basis) for t in tracts] == [
+            (first, 4, "inferred"),
+            (MAIN_T, 4, "inferred"),
+        ]
+        assert [c.distance_ft for c in tracts[1].calls] == [100.0] * 4
+        written, refusal = _verified_export(calls, tracts, tmp_path / str(i))
+        assert written == [] and DESCRIPTION_ROLES_PREFIX in refusal
+        results = verify_closure([], tracts=tracts)
+        assert not any(r.is_fully_verified() for r in results)
+        assert all(r.closure_passed for r in results)
 
 
 # --- r54: course numbering never changes a classification or an export -----------------
@@ -1361,8 +1657,12 @@ def test_exception_description_first_leaves_the_parcel_main() -> None:
     for candidate in (text, _number_courses(text)):
         _, tracts = extract_calls(candidate, strict=True)
         assert [(t.tract_type, len(t.calls)) for t in tracts] == [(EXC, 4), (MAIN_T, 4)]
+        assert [t.role_basis for t in tracts] == ["inferred", "inferred"]
+        # r56: both roles come from wording, so neither tract is verified (fail
+        # closed); the parcel's own geometry still closes.
         results = verify_closure([], tracts=tracts)
-        assert results[1].is_fully_verified()
+        assert not any(r.is_fully_verified() for r in results)
+        assert results[1].closure_passed
         assert [c.distance_ft for c in tracts[1].calls] == [100.0] * 4
 
 
@@ -1442,3 +1742,60 @@ def test_exception_lead_from_lands_hereinafter_described_types_the_first_descrip
     text = f"EXCEPTING from the lands hereinafter described the following: {SMALL} {SQUARE}"
     _, tracts = extract_calls(text, strict=True)
     assert [(t.tract_type, len(t.calls)) for t in tracts] == [(EXC, 4), (MAIN_T, 4)]
+
+
+# --- r56: an EXCEPT lead "from the lands hereinafter described" needs a later description
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        "ALL THAT tract of land, EXCEPTING AND RESERVING from the premises hereinafter "
+        "described all oil, gas and minerals, bounded and described as follows:",
+        "ALL THAT tract of land, EXCEPTING AND RESERVING from the premises hereinafter "
+        "described all oil, gas and minerals,",
+        "ALL THAT tract of land, excepting from the land described below the bed of Cooper "
+        "Creek, bounded and described as follows:",
+    ],
+)
+def test_lands_described_later_lead_on_the_only_description_is_its_preamble(
+    lead: str, tmp_path: Path
+) -> None:
+    # The lands described later are the one description itself: it is the parcel,
+    # verified and exported (as on main), never an EXCEPTION tract.
+    text = f"{lead} {SQUARE}"
+    for i, candidate in enumerate((text, _number_courses(text))):
+        calls, tracts = extract_calls(candidate, strict=True)
+        assert tracts == [] and not any(c.is_exception for c in calls)
+        assert [c.distance_ft for c in calls] == [100.0] * 4
+        assert _verified_export(calls, tracts, tmp_path / str(i)) == (["deed_verified.csv"], "")
+        flat = _extract_calls_from_text(candidate, strict=True)
+        assert not any(c.is_exception for c in flat)
+        assert not any(c.is_exception for c in CallExtractor.extract_calls(candidate))
+
+
+def test_parse_marks_role_basis_at_each_typing_path() -> None:
+    def bases(text: str) -> list[tuple[str, str | None]]:
+        return [(t.label, t.role_basis) for t in extract_calls(text, strict=True)[1]]
+
+    # Headings: MAIN/ADDITION typed under a TRACT/PARCEL heading.
+    assert bases(CASES["r56_headed_parcels"].text) == [
+        ("Parcel ONE", "heading"),
+        ("Parcel TWO", "heading"),
+    ]
+    # A heading retyped EXCEPTION by the lead before it is inferred.
+    assert bases(CASES["r56_headed_parcel_with_headed_exception"].text) == [
+        ("Parcel ONE", "heading"),
+        ("Parcel A", "inferred"),
+    ]
+    # BEGINNING blocks, EXCEPT/ALSO clauses and separated easements are inferred.
+    for name in ("r44_geometric_exception", "gen:addition", "r44_together_with_easement"):
+        assert {basis for _, basis in bases(CASES[name].text)} == {"inferred"}, name
+    # Text before the first heading keeps no heading.
+    assert bases(CASES["r50_except_following_described_parcel_heading"].text) == [
+        ("Unlabelled tract", "inferred"),
+        ("Parcel A", "inferred"),
+    ]
+    # The sole described tract (an easement deed) is "single".
+    for name in EASEMENT_DEED_CASES:
+        assert bases(CASES[name].text) == [("Easement 1", "single")]

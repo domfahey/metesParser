@@ -15,7 +15,14 @@ from mp_export.csv_writer import (  # type: ignore[import-untyped]
     csv_text_to_calls,
     export_verified_csv,
 )
-from mp_models import AuditContext, DeedCall, LegalDescription, RunMetadata
+from mp_models import (
+    AuditContext,
+    DeedCall,
+    LegalDescription,
+    RunMetadata,
+    roles_need_review,
+    roles_review_detail,
+)
 from mp_verify import verify_closure
 
 from .json_input import parse_json
@@ -73,6 +80,7 @@ def _run(
     legal = None
     text = ""
     normalized = None
+    role_review: list[str] = []
     audit = AuditContext(
         run_metadata=RunMetadata(
             parser_version=ENGINE_VERSION,
@@ -93,6 +101,7 @@ def _run(
             raise ValueError("Stated area must be finite and positive.")
         if kind == "text":
             prepared = prepare_text(text, audit_context=audit)
+            role_review = list(prepared.role_review)
             normalized = prepared.normalized_text
             legal = prepared.legal_description
             calls = legal.calls
@@ -125,6 +134,14 @@ def _run(
             )
         if stated_area_sq_ft is not None:
             legal = legal.model_copy(update={"stated_area_sq_ft": stated_area_sq_ft})
+        # Fail closed on guessed description roles: flat calls of a deed with several
+        # descriptions and an inferred role never reach checks_passed or export.
+        if kind != "text":
+            role_review = roles_need_review(legal.tracts)
+        if role_review:
+            result["errors"].append(
+                {"code": "description_roles_inferred", "message": roles_review_detail(role_review)}
+            )
         result["calls"] = [c.model_dump(mode="json") for c in calls]
         if not calls:
             result["errors"].append({"code": "no_calls", "message": "No calls could be parsed."})

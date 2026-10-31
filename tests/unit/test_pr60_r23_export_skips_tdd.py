@@ -99,8 +99,14 @@ def test_multi_tract_skipped_course_blocks_export(impl, tmp_path):
     sink: list = []
     calls = extract(TRACT_DEED, strict=False, skipped_courses=sink)
     tracts = [
-        models.Tract(label="Tract 1", tract_type="main", calls=calls[:4], skipped_courses=sink),
-        models.Tract(label="Tract 2", tract_type="main", calls=calls[4:]),
+        models.Tract(
+            label="Tract 1",
+            tract_type="main",
+            role_basis="heading",
+            calls=calls[:4],
+            skipped_courses=sink,
+        ),
+        models.Tract(label="Tract 2", tract_type="main", role_basis="heading", calls=calls[4:]),
     ]
     # Stale results ignorant of the skip must not export tract 1.
     results = [(t, verify(t.calls)) for t in tracts]
@@ -114,8 +120,8 @@ def test_multi_tract_audit_context_skip_blocks_export(impl, tmp_path):
     ctx = _ctx(models)
     calls = extract(TRACT_DEED, strict=False, audit_context=ctx)
     tracts = [
-        models.Tract(label="Tract 1", tract_type="main", calls=calls[:4]),
-        models.Tract(label="Tract 2", tract_type="main", calls=calls[4:]),
+        models.Tract(label="Tract 1", tract_type="main", role_basis="heading", calls=calls[:4]),
+        models.Tract(label="Tract 2", tract_type="main", role_basis="heading", calls=calls[4:]),
     ]
     results = [(t, verify(t.calls)) for t in tracts]
     with pytest.raises(ValueError, match="fresh verification"):

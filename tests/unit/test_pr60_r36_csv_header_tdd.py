@@ -85,7 +85,10 @@ def test_known_tracts_and_skips_computed_once(monkeypatch, tmp_path):
             )
         ]
 
-    tracts = [Tract(label=f"T{i}", tract_type="main", calls=square()) for i in (1, 2)]
+    tracts = [
+        Tract(label=f"T{i}", tract_type="main", role_basis="heading", calls=square())
+        for i in (1, 2)
+    ]
     legal = LegalDescription(calls=tracts[0].calls, tracts=tracts)
     results = [(t, verify_closure(t.calls)) for t in tracts]
     n = {"known": 0, "skips": 0}

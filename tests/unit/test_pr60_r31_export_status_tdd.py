@@ -45,8 +45,8 @@ def _setup(impl, label):
     models, extract, verify, export = impl
     calls = extract(TWO_SQUARES)
     tracts = [
-        models.Tract(label="Tract 1", tract_type="main", calls=calls[:4]),
-        models.Tract(label="Tract 2", tract_type="main", calls=calls[4:]),
+        models.Tract(label="Tract 1", tract_type="main", role_basis="heading", calls=calls[:4]),
+        models.Tract(label="Tract 2", tract_type="main", role_basis="heading", calls=calls[4:]),
     ]
     skip = models.SkippedCourse(
         course=5,

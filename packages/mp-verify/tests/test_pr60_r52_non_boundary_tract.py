@@ -26,8 +26,8 @@ def _square(side: float = 100.0) -> list[DeedCall]:
 
 @pytest.mark.parametrize("kind", [TractType.EASEMENT, TractType.EXCEPTION])
 def test_non_boundary_tract_is_blocked_but_keeps_geometry(kind: TractType) -> None:
-    main = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square())
-    other = Tract(label="Other 1", tract_type=kind, calls=_square(10.0))
+    main = Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=_square())
+    other = Tract(label="Other 1", tract_type=kind, role_basis="heading", calls=_square(10.0))
 
     main_result, other_result = verify_closure([], tracts=[main, other])
 
@@ -43,14 +43,18 @@ def test_non_boundary_tract_is_blocked_but_keeps_geometry(kind: TractType) -> No
 
 
 def test_easement_only_tracts_never_verify() -> None:
-    easement = Tract(label="Easement 1", tract_type=TractType.EASEMENT, calls=_square())
+    easement = Tract(
+        label="Easement 1", tract_type=TractType.EASEMENT, role_basis="heading", calls=_square()
+    )
     (result,) = verify_closure([], tracts=[easement])
     assert not result.is_fully_verified()
     assert result.get_closure_status() == "NEEDS REVIEW"
 
 
 def test_addition_tract_still_verifies() -> None:
-    addition = Tract(label="Addition 1", tract_type=TractType.ADDITION, calls=_square())
+    addition = Tract(
+        label="Addition 1", tract_type=TractType.ADDITION, role_basis="heading", calls=_square()
+    )
     (result,) = verify_closure([], tracts=[addition])
     assert result.is_fully_verified()
 
@@ -70,8 +74,13 @@ def test_non_boundary_block_is_audited_per_tract() -> None:
         )
     )
     tracts = [
-        Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square()),
-        Tract(label="Easement 1", tract_type=TractType.EASEMENT, calls=_square(10.0)),
+        Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=_square()),
+        Tract(
+            label="Easement 1",
+            tract_type=TractType.EASEMENT,
+            role_basis="heading",
+            calls=_square(10.0),
+        ),
     ]
     verify_closure([], tracts=tracts, audit_context=audit)
     main_audit, easement_audit = audit.tract_verification_audits
@@ -98,8 +107,10 @@ def test_non_boundary_confidence_includes_the_block_penalty() -> None:
             cache_enabled=False,
         )
     )
-    main = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square())
-    easement = Tract(label="Easement 1", tract_type=TractType.EASEMENT, calls=_square())
+    main = Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=_square())
+    easement = Tract(
+        label="Easement 1", tract_type=TractType.EASEMENT, role_basis="heading", calls=_square()
+    )
     main_result, easement_result = verify_closure([], tracts=[main, easement], audit_context=audit)
 
     assert easement_result.confidence_score is not None

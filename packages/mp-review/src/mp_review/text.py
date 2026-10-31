@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from mp_models import AuditContext, LegalDescription, RunMetadata
+from mp_models import AuditContext, LegalDescription, RunMetadata, roles_need_review
 from mp_parse import (  # type: ignore[import-untyped]
     enrich_calls_with_azimuths,
     extract_calls,
@@ -28,6 +28,9 @@ class PreparedText:
     quotes: tuple[str, ...]
     multiple_tracts: bool
     unresolved_commencement: bool
+    # Why the description roles need review (``mp_models.roles_need_review``); the
+    # flat calls of such a deed are never eligible for checks_passed or export.
+    role_review: tuple[str, ...] = ()
 
 
 def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> PreparedText:
@@ -88,4 +91,5 @@ def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> Pre
         multiple_tracts=bool(tracts),
         unresolved_commencement=has_commencement
         and (not poc or not any(c.is_tie_in for c in calls) or all(c.is_tie_in for c in calls)),
+        role_review=tuple(roles_need_review(tracts)),
     )

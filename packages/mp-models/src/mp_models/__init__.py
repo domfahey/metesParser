@@ -174,10 +174,15 @@ from .source_handoff import (
 )
 from .tract import (
     BOUNDARY_TRACT_TYPES,
+    DESCRIPTION_ROLES_CHECK,
+    DESCRIPTION_ROLES_PREFIX,
+    RoleBasis,
     Tract,
     TractType,
     is_boundary_tract,
     non_boundary_detail,
+    roles_need_review,
+    roles_review_detail,
     tract_kind,
 )
 from .units import ConversionFactors, DistanceUnit
@@ -345,10 +350,15 @@ __all__ = [
     "SkippedCourse",
     "SubdivisionReference",
     "BOUNDARY_TRACT_TYPES",
+    "DESCRIPTION_ROLES_CHECK",
+    "DESCRIPTION_ROLES_PREFIX",
+    "RoleBasis",
     "Tract",
     "TractType",
     "is_boundary_tract",
     "non_boundary_detail",
+    "roles_need_review",
+    "roles_review_detail",
     "tract_kind",
     "Transformation",
     "VerificationAudit",

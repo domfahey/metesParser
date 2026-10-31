@@ -22,7 +22,14 @@ BASELINE = ROOT / "tests" / "fixtures" / "sample_verification_baseline_main.json
 
 # key -> one-line justification against ground truth. Keep empty unless main's
 # verification of that deed was itself wrong.
-ALLOWED_LOSSES: dict[str, str] = {}
+ALLOWED_LOSSES: dict[str, str] = {
+    # Round 56 fail-closed role policy (user decision): two BEGINNING descriptions with
+    # no TRACT/PARCEL heading, so both MAIN roles are inferred from position and the
+    # deed is blocked for role review even though each description closes.
+    "8 Kings Highway W - Deed Image (7535 - 929).md": (
+        "two unheaded descriptions; roles inferred, blocked by the role policy"
+    ),
+}
 
 
 def is_fully_verified(text: str) -> bool:

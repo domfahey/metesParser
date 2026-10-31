@@ -1325,16 +1325,20 @@ def extract_calls(
         Tuple of (flat_calls, tracts).
         - For single-tract deeds: flat_calls populated, tracts is empty list.
         - For multi-tract deeds: flat_calls is the merged list, tracts has
-          per-tract Tract objects with independent call lists.
+          per-tract Tract objects with independent call lists. Each tract records
+          its ``role_basis`` ("heading", "inferred", or "single" for a sole tract);
+          verification and verified export block the whole deed when several
+          tracts include an inferred role (``mp_models.roles_need_review``).
     """
     from mp_models import Tract, TractType
 
-    from .tracts import split_into_tracts
+    from .tracts import split_into_tracts_with_basis
 
     normalized = normalize_legal_description(text)
     # Strip exceptions are set aside first: their EXCEPT never splits a tract.
     working, strips = _set_aside_non_boundary_text(normalized, easements=False)
-    segments = split_into_tracts(working)
+    based = split_into_tracts_with_basis(working)
+    segments = [segment[:3] for segment in based]
 
     # Single-tract fast path: preserve backward-compatible behavior
     if len(segments) == 1 and segments[0][2] == TractType.MAIN:
@@ -1357,8 +1361,8 @@ def extract_calls(
     all_calls: list[DeedCall] = []
     tract_objects: list[Tract] = []
 
-    for (segment_text, label, tract_type), boundary_notes in zip(
-        segments, segment_notes, strict=True
+    for (segment_text, label, tract_type, role_basis), boundary_notes in zip(
+        based, segment_notes, strict=True
     ):
         recordable = audit_context is not None or skipped_courses is not None
         tract_skips: list[SkippedCourse] = []
@@ -1399,11 +1403,21 @@ def extract_calls(
             tract_type=tract_type,
             calls=tract_calls,
             skipped_courses=tract_skips,
+            role_basis=role_basis,
         )
         tract_objects.append(tract)
         # An easement's legs are never part of a boundary: they stay on its tract.
         if tract_type != TractType.EASEMENT:
             all_calls.extend(tract_calls)
+
+    # The deed's one described tract: the parcel, or an easement deed's easement. An
+    # EXCEPTION or ADDITION left alone (its parcel described by reference only) keeps
+    # its basis: its role still depends on wording.
+    if len(tract_objects) == 1 and tract_objects[0].tract_type in (
+        TractType.MAIN,
+        TractType.EASEMENT,
+    ):
+        tract_objects[0] = tract_objects[0].model_copy(update={"role_basis": "single"})
 
     return all_calls, tract_objects
 

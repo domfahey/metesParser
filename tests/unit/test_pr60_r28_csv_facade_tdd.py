@@ -180,10 +180,14 @@ def test_verified_export_without_legal_description_is_identical(tmp_path):
 def test_multi_tract_export_with_unverified_tract_is_identical(tmp_path):
     def scenario(impl, out):
         m = impl["m"]
-        good = m.Tract(label="Tract A", tract_type=m.TractType.MAIN, calls=_square(m))
+        good = m.Tract(
+            label="Tract A", tract_type=m.TractType.MAIN, role_basis="heading", calls=_square(m)
+        )
         broken = _square(m, start=5)
         broken[3] = broken[3].model_copy(update={"distance_ft": 90.0})
-        bad = m.Tract(label="Tract B", tract_type=m.TractType.EXCEPTION, calls=broken)
+        bad = m.Tract(
+            label="Tract B", tract_type=m.TractType.EXCEPTION, role_basis="heading", calls=broken
+        )
         results = impl["verify"]([], tracts=[good, bad])
         pairs = [(good, results[0]), (bad, results[1])]
         return impl["export"]([], results[0], str(out / "deed.csv"), tract_results=pairs)
@@ -238,7 +242,9 @@ def test_export_gate_rejects_identically(tmp_path, tamper):
             ld = m.LegalDescription(calls=_square(m, side=50.0))
         else:
             bad = result.model_copy(update={"warnings": ["bad"]})
-            tract = m.Tract(label="A", tract_type=m.TractType.MAIN, calls=calls)
+            tract = m.Tract(
+                label="A", tract_type=m.TractType.MAIN, role_basis="heading", calls=calls
+            )
             return impl["export"](calls, bad, str(out / "d.csv"), tract_results=[(tract, bad)])
         return impl["export"](calls, result, str(out / "d.csv"), ld)
 

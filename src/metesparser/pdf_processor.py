@@ -24,9 +24,27 @@ from .models import (
     LegalDescription,
     LLMStageRecord,
     RunMetadata,
+    Tract,
 )
 
 logger = structlog.get_logger(__name__)
+
+
+def description_tracts(text: str, distance_unit: str = "feet") -> list[Tract]:
+    """Tracts of a deed with several descriptions; empty for a one-description deed.
+
+    The monolith's flat calls treat the text as one description. These tracts
+    (``mp_parse.extract_calls``, each with its role basis) let verification and
+    verified export block a deed whose description roles were inferred from wording
+    (``mp_models.roles_need_review``). Unparsed courses stay on their tract and block it.
+    """
+    from mp_parse.calls import extract_calls
+
+    from .package_bridge import monolith_tract
+
+    _, tracts = extract_calls(text, distance_unit, strict=False, skipped_courses=[])
+    return [monolith_tract(tract) for tract in tracts] if len(tracts) > 1 else []
+
 
 _PRIOR_CONVEYANCE_PATTERNS: list[re.Pattern[str]] = [
     re.compile(signal, re.IGNORECASE) for signal in PRIOR_CONVEYANCE_SIGNALS
@@ -293,10 +311,14 @@ class PDFProcessor:
         processing_logger.info("Extracting coordinate system")
         coordinate_system, fips_code = TextParser.extract_coordinate_system(normalized_text)
 
+        processing_logger.info("Splitting descriptions into tracts")
+        tracts = description_tracts(normalized_text, distance_unit)
+
         legal_desc = LegalDescription(
             poc_description=poc if poc else None,
             pob_description=pob,
             calls=calls,
+            tracts=tracts,
             source_doc=Path(pdf_path).name,
             exhibit=None,
             page=None,

@@ -15,7 +15,9 @@ Classification keeps three invariants, whatever the wording:
   boundary, is never an EASEMENT or EXCEPTION because of its own preamble (SUBJECT
   TO / TOGETHER WITH / EXCEPTING recitals before it). Two explicit signals are kept:
   an EXCEPT lead taking its exception from lands described later
-  (``_FROM_LANDS_DESCRIBED_LATER``), and an easement deed whose document opens with
+  (``_FROM_LANDS_DESCRIBED_LATER``) when a separate description does follow
+  (``_described_after``; with none, the lead is the sole description's preamble, such
+  as a mineral reservation), and an easement deed whose document opens with
   its own grant (``_is_easement_deed_grant``). A deed title alone ("GRANT OF
   EASEMENT") is not recognised.
 * INV-2: only a description after a closed MAIN (or ADDITION) boundary is typed
@@ -26,6 +28,12 @@ Classification keeps three invariants, whatever the wording:
 * INV-3: whether a boundary closed is decided from the parser's own course reading
   (``_course_count``: THENCE courses and enumerated course lists), never from THENCE
   words alone.
+
+Each segment also records its role basis (``split_into_tracts_with_basis``):
+"heading" for a TRACT/PARCEL heading typed MAIN or ADDITION, "inferred" for every
+role decided by the wording rules above (or assumed from position). The rules are
+heuristics, so a deed with several descriptions and any inferred role is never
+eligible for verified export (``mp_models.roles_need_review``, fail closed).
 """
 
 from __future__ import annotations
@@ -37,7 +45,7 @@ from dataclasses import dataclass, replace
 from functools import lru_cache
 
 import structlog
-from mp_models import TractType
+from mp_models import RoleBasis, TractType, is_boundary_tract
 
 from .metadata import (
     _ENUMERATOR_STYLES,
@@ -111,6 +119,8 @@ _HEADING_POSITION_BREAKS = (".", ":", ";")
 _MARKDOWN_HEADING_PREFIX = re.compile(r"(?:(?:^|\n)[ \t]*#{1,6}|\s#{2,6})[ \t]*$")
 # Label for text with boundary calls before the first marker; no heading is invented.
 UNLABELLED_TRACT_LABEL = "Unlabelled tract"
+# (tract_text, label, tract_type, role_basis): ``split_into_tracts_with_basis``.
+BasedSegment = tuple[str, str, TractType, RoleBasis]
 # A bearing or curve phrase: a direction word, an N/S-prefixed bearing, or a curve/arc.
 _COURSE_WORD = (
     r"(?:(?:north|south|east|west)(?:erly|wardly)?(?![A-Za-z])"
@@ -632,7 +642,8 @@ def _closes_boundary(
     closed BEGINNING description or inside one still open, ``descriptions``: the
     ``_described_ends`` and the description starts, as ``_except_may_type`` reads
     them) or that takes its exception from lands described later
-    (``_FROM_LANDS_DESCRIBED_LATER``), or an easement deed's own grant
+    (``_FROM_LANDS_DESCRIBED_LATER``, when a description does follow this one), or an
+    easement deed's own grant
     (``_is_easement_deed_grant``).
     """
     described_ends, starts = descriptions
@@ -654,7 +665,10 @@ def _closes_boundary(
                 or _after_boundary(described_ends, lead.start())
                 # A description opened since the last closure is still open.
                 or bisect_left(starts, floor) < bisect_left(starts, lead.start())
-                or _FROM_LANDS_DESCRIBED_LATER.search(text, lead.start(), description) is not None
+                or (
+                    _FROM_LANDS_DESCRIBED_LATER.search(text, lead.start(), description) is not None
+                    and bisect_right(starts, closure.end) < len(starts)
+                )
             )
         ):
             return False
@@ -1088,18 +1102,18 @@ def stated_clause_end(text: str, end: int, start: int | None = None) -> int:
     return end + len(rest.rstrip(" \t\n;,:"))
 
 
-def _separate_easements(
-    segments: list[tuple[str, str, TractType]],
-) -> list[tuple[str, str, TractType]]:
+def _separate_easements(segments: list[BasedSegment]) -> list[BasedSegment]:
     """Split easement descriptions out of each segment into EASEMENT tracts.
 
-    Generated easement labels are numbered in order of appearance.
+    Generated easement labels are numbered in order of appearance. A split-out
+    easement's role is inferred (from its grant wording); the remainder keeps the
+    segment's own role basis.
     """
-    result: list[tuple[str, str, TractType]] = []
-    for segment, label, tract_type in segments:
+    result: list[BasedSegment] = []
+    for segment, label, tract_type, basis in segments:
         spans = [] if tract_type == TractType.EASEMENT else easement_description_spans(segment)
         if not spans:
-            result.append((segment, label, tract_type))
+            result.append((segment, label, tract_type, basis))
             continue
         kept: list[str] = []
         cursor = 0
@@ -1109,19 +1123,20 @@ def _separate_easements(
         kept.append(segment[cursor:])
         remainder = " ".join(part.strip() for part in kept if part.strip())
         if remainder:
-            result.append((remainder, label, tract_type))
+            result.append((remainder, label, tract_type, basis))
         result.extend(
-            (segment[start:end].strip(), EASEMENT_LABEL, TractType.EASEMENT) for start, end in spans
+            (segment[start:end].strip(), EASEMENT_LABEL, TractType.EASEMENT, "inferred")
+            for start, end in spans
         )
     count = 0
-    numbered: list[tuple[str, str, TractType]] = []
-    for segment, label, tract_type in result:
+    numbered: list[BasedSegment] = []
+    for segment, label, tract_type, basis in result:
         if tract_type == TractType.EASEMENT and re.fullmatch(
             re.escape(EASEMENT_LABEL) + r"(?: \d+)?", label
         ):
             count += 1
             label = f"{EASEMENT_LABEL} {count}"
-        numbered.append((segment, label, tract_type))
+        numbered.append((segment, label, tract_type, basis))
     return numbered
 
 
@@ -1176,6 +1191,33 @@ def _except_may_type(index: _TextIndex, position: int) -> bool:
     return not (j and index.closure_ends[j - 1] > index.description_starts[i - 1])
 
 
+def _described_after(index: _TextIndex, position: int) -> bool:
+    """Return whether a separate description follows the one at ``position``.
+
+    The description at ``position`` ends at the first point-of-beginning closure after
+    it; a THENCE course after that closure starts another description.
+    """
+    j = bisect_right(index.closure_ends, position)
+    return j < len(index.closure_ends) and bisect_right(
+        index.description_starts, index.closure_ends[j]
+    ) < len(index.description_starts)
+
+
+def _excepts_from_later_description(index: _TextIndex, lead: int, end: int, position: int) -> bool:
+    """Return whether the EXCEPT lead at ``lead`` excepts land from a later description.
+
+    Its wording (up to ``end``) takes the exception "from the lands hereinafter
+    described" and a separate description does follow the one at ``position``. With
+    none after it, the lands described later are that description itself: the lead is
+    its preamble ("ALL THAT tract, EXCEPTING AND RESERVING from the premises
+    hereinafter described all oil, gas and minerals, BEGINNING ...") and types nothing
+    (INV-1).
+    """
+    return _FROM_LANDS_DESCRIBED_LATER.search(
+        index.text, lead, end
+    ) is not None and _described_after(index, position)
+
+
 def _except_lead(text: str, position: int, floor: int = 0) -> int | None:
     """Return where the EXCEPT lead introducing the tract starting at ``position`` starts.
 
@@ -1184,7 +1226,8 @@ def _except_lead(text: str, position: int, floor: int = 0) -> int | None:
     with no sentence end and no course ("EXCEPTING THEREFROM the following described
     parcel: PARCEL A: ...", "LESS AND EXCEPT that part described as follows: Tract 2:
     ..."). Elsewhere only a lead taking its exception from lands described later
-    (``_FROM_LANDS_DESCRIBED_LATER``) introduces an exception.
+    (``_FROM_LANDS_DESCRIBED_LATER``) introduces an exception, and only when a
+    separate description follows (``_described_after``).
     """
     index = _index(text)
     leads = [
@@ -1200,7 +1243,7 @@ def _except_lead(text: str, position: int, floor: int = 0) -> int | None:
         and _TRAVERSE_WORDING.search(text, lead.end(), position) is None
         and (
             _except_may_type(index, lead.start())
-            or _FROM_LANDS_DESCRIBED_LATER.search(text, lead.start(), position) is not None
+            or _excepts_from_later_description(index, lead.start(), position, position)
         )
     ):
         return lead.start()
@@ -1698,29 +1741,56 @@ def split_into_tracts(text: str) -> list[tuple[str, str, TractType]]:
 
     Returns: list of (tract_text, label, tract_type)
     """
+    return [segment[:3] for segment in split_into_tracts_with_basis(text)]
+
+
+def split_into_tracts_with_basis(text: str) -> list[BasedSegment]:
+    """``split_into_tracts`` with each segment's role basis.
+
+    "heading" when an explicit TRACT/PARCEL heading (``find_tract_markers``) starts the
+    segment and no wording before it retypes it as an EXCEPTION or EASEMENT; every
+    other role is "inferred" from wording or position. (A deed's sole description is
+    "single", decided by ``extract_calls`` once segments without calls are dropped.)
+
+    Returns: list of (tract_text, label, tract_type, role_basis)
+    """
     return _separate_easements(_split_tract_segments(text))
 
 
-def _split_tract_segments(text: str) -> list[tuple[str, str, TractType]]:
+def _heading_basis(label: str, tract_type: TractType) -> RoleBasis:
+    """Role basis of a segment split on tract markers."""
+    if label == UNLABELLED_TRACT_LABEL or not is_boundary_tract(tract_type):
+        return "inferred"
+    return "heading"
+
+
+def _inferred(segments: list[tuple[str, str, TractType]]) -> list[BasedSegment]:
+    return [(text, label, tract_type, "inferred") for text, label, tract_type in segments]
+
+
+def _split_tract_segments(text: str) -> list[BasedSegment]:
     """Split ``text`` by markers, BEGINNING blocks or EXCEPT/ALSO clauses."""
     # 1. Try explicit TRACT/PARCEL markers
     markers = find_tract_markers(text)
     if markers:
-        return split_on_markers(text, markers)
+        return [
+            (segment, label, tract_type, _heading_basis(label, tract_type))
+            for segment, label, tract_type in split_on_markers(text, markers)
+        ]
 
     # 2. Try multiple BEGINNING blocks
     blocks = find_beginning_blocks(text)
     if len(blocks) > 1:
-        return label_beginning_blocks(blocks, text)
+        return _inferred(label_beginning_blocks(blocks, text))
 
     # Easements are separated before clause splitting, which would cut an "ALSO an
     # easement ..." opener off its description.
-    separated = _separate_easements([(text, "Tract 1", TractType.MAIN)])
+    separated = _separate_easements([(text, "Tract 1", TractType.MAIN, "inferred")])
     if len(separated) > 1:
         easements = [segment for segment in separated if segment[2] == TractType.EASEMENT]
         parcel = [segment[0] for segment in separated if segment[2] != TractType.EASEMENT]
-        return (_split_clauses(parcel[0]) if parcel else []) + easements
-    return _split_clauses(text)
+        return (_inferred(_split_clauses(parcel[0])) if parcel else []) + easements
+    return _inferred(_split_clauses(text))
 
 
 def split_boundary_clauses(text: str) -> list[tuple[str, bool]]:
@@ -1731,7 +1801,8 @@ def split_boundary_clauses(text: str) -> list[tuple[str, bool]]:
     is the first description's preamble ("ALL THAT tract, EXCEPTING AND RESERVING the
     oil and gas rights, BEGINNING ..."): it never makes that description an exception
     (INV-1). Its wording, lead included, is joined to the clause before it, unless its
-    lead takes the exception from lands described later (``_FROM_LANDS_DESCRIBED_LATER``).
+    lead takes the exception from lands described later and a separate description
+    does follow (``_excepts_from_later_description``).
     """
     clauses = split_exception_clauses(text)
     if len(clauses) < 2:
@@ -1750,7 +1821,7 @@ def split_boundary_clauses(text: str) -> list[tuple[str, bool]]:
         preamble = (
             is_exception
             and not _except_may_type(index, lead)
-            and _FROM_LANDS_DESCRIBED_LATER.search(text, lead, cursor) is None
+            and not _excepts_from_later_description(index, lead, cursor, start)
         )
         if preamble:
             if spans:

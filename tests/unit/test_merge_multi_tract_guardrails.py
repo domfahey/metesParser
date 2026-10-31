@@ -46,9 +46,13 @@ def test_multi_tract_export_rechecks_result_against_selected_calls(export, tmp_p
         calls = [LegacyCall.model_validate(c.model_dump()) for c in calls]
         changed = [LegacyCall.model_validate(c.model_dump()) for c in changed]
         result = ClosureChecker.verify_closure(calls)
-        tract = LegacyTract(label="Tract A", tract_type=LegacyTractType.MAIN, calls=changed)
+        tract = LegacyTract(
+            label="Tract A", tract_type=LegacyTractType.MAIN, role_basis="heading", calls=changed
+        )
     else:
-        tract = Tract(label="Tract A", tract_type=TractType.MAIN, calls=changed)
+        tract = Tract(
+            label="Tract A", tract_type=TractType.MAIN, role_basis="heading", calls=changed
+        )
     with pytest.raises(ValueError, match="fresh verification|does not match"):
         export(calls, result, str(tmp_path / "calls.csv"), tract_results=[(tract, result)])
     assert not list(tmp_path.iterdir())
@@ -66,9 +70,13 @@ def test_multi_tract_export_requires_a_verified_tract(export, tmp_path):
 
         legacy = [LegacyCall.model_validate(c.model_dump()) for c in open_calls]
         result = ClosureChecker.verify_tract(legacy)
-        tract = LegacyTract(label="Tract A", tract_type=LegacyTractType.MAIN, calls=legacy)
+        tract = LegacyTract(
+            label="Tract A", tract_type=LegacyTractType.MAIN, role_basis="heading", calls=legacy
+        )
     else:
-        tract = Tract(label="Tract A", tract_type=TractType.MAIN, calls=open_calls)
+        tract = Tract(
+            label="Tract A", tract_type=TractType.MAIN, role_basis="heading", calls=open_calls
+        )
     with pytest.raises(ValueError, match="no tract passed verification"):
         export(open_calls, result, str(tmp_path / "calls.csv"), tract_results=[(tract, result)])
     assert not list(tmp_path.iterdir())
@@ -89,12 +97,21 @@ def test_multi_tract_summary_lists_unverified_tracts_as_not_verified(export, tmp
         good_result = ClosureChecker.verify_closure(good)
         legacy_open = [LegacyCall.model_validate(c.model_dump()) for c in open_calls]
         bad_result = ClosureChecker.verify_tract(legacy_open)
-        t1 = LegacyTract(label="Tract 1", tract_type=LegacyTractType.MAIN, calls=good)
-        t2 = LegacyTract(label="Tract 2", tract_type=LegacyTractType.MAIN, calls=legacy_open)
+        t1 = LegacyTract(
+            label="Tract 1", tract_type=LegacyTractType.MAIN, role_basis="heading", calls=good
+        )
+        t2 = LegacyTract(
+            label="Tract 2",
+            tract_type=LegacyTractType.MAIN,
+            role_basis="heading",
+            calls=legacy_open,
+        )
     else:
         bad_result = verify_tract(open_calls)
-        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=good)
-        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=open_calls)
+        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=good)
+        t2 = Tract(
+            label="Tract 2", tract_type=TractType.MAIN, role_basis="heading", calls=open_calls
+        )
     assert not bad_result.is_fully_verified()
 
     export(
