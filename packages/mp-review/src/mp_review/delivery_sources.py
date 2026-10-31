@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import json
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +31,7 @@ from mp_verify.scene import validate_scene
 from mp_verify.webmap import bounds_of
 
 from .corridor import replay_corridor
+from .json_input import parse_json
 from .plss import replay_plss
 from .webmap import _Budget, _primitive_point, _sample, _vector_feature
 from .webmap_projection import WebMapProjection
@@ -124,7 +124,7 @@ def prepare_delivery_source(
             ):
                 raise ValueError("Corridor input/geometry hash differs from explicit binding")
             if binding.revision_corridor_id is None:
-                manifest = json.loads(manifest_bytes)
+                manifest = parse_json(manifest_bytes)
                 if _sha(raw) != manifest["source_sha256"]:
                     raise ValueError("Corridor source request changed during replay")
             elif result.request.id != binding.revision_corridor_id:
@@ -273,7 +273,7 @@ def prepare_delivery_source(
                     "PLSS selected scene differs from original supplied reference scene"
                 )
             raw = _read(directory / "request.json")
-            manifest = json.loads(manifest_bytes)
+            manifest = parse_json(manifest_bytes)
             if _sha(raw) != manifest["sha256"]["request.json"]:
                 raise ValueError("PLSS source request changed during replay")
             original = PLSSDerivationRequest.model_validate_json(raw)

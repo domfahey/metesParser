@@ -11,6 +11,7 @@ from mp_models import RelativeDescription
 from mp_verify import analyze_relative
 
 from .api import _base, _error
+from .json_input import parse_json
 
 RELATIVE_LIMITATIONS = [
     "Local headings use the declared frame; they are not recorded compass bearings.",
@@ -116,7 +117,7 @@ def review_relative_file(path: Path | str, *, output_dir: Path | None = None) ->
         text = source.decode("utf-8")
         if path.suffix.lower() != ".json":
             raise ValueError("Relative analysis requires a RelativeDescription JSON file.")
-        data = json.loads(text, object_pairs_hook=_unique_object, parse_constant=_invalid_number)
+        data = parse_json(text, object_pairs_hook=_unique_object, parse_constant=_invalid_number)
         description = RelativeDescription.model_validate(data)
         result["analysis"] = analyze_relative(description).model_dump(mode="json")
     except (ValueError, TypeError, ArithmeticError) as exc:

@@ -15,6 +15,7 @@ from mp_verify.scene import validate_scene
 from mp_verify.webmap import normalize_web_map_context
 
 from .dashboard import _atomic, prepare_dashboard
+from .json_input import parse_json
 from .plot import _json
 
 _MAP_FIELDS = ("scenes", "map_sources", "vector_layers", "raster_layers")
@@ -26,16 +27,13 @@ def _sha(data: bytes) -> str:
 
 def _retain(path: Path, name: str, files: dict[str, bytes]) -> Any:
     # Read once: the retained bytes must be exactly the bytes being validated.
-    import json
 
-    from .plot import _finite_json
     from .relative import _invalid_number, _unique_object
 
     content = path.read_bytes()
-    value = json.loads(
+    value = parse_json(
         content.decode("utf-8"), object_pairs_hook=_unique_object, parse_constant=_invalid_number
     )
-    _finite_json(value)
     files[name] = content
     return value
 
