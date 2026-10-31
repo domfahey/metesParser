@@ -24,7 +24,7 @@ All IDs are unique across record groups and references must resolve within the s
 
 Version 1.1 plot and optional map behavior is detailed in [plot-and-overlays.md](plot-and-overlays.md). In brief, the renderer derives source-linked line/arc geometry and unresolved-call notices; it does not infer missing bearings. A deed-only version 1.0 bundle remains useful without maps. A scene name is not a coordinate transformation, and a supplied vector layer must already be represented in its declared scene coordinates. Use explicit foot definitions and a placement hash tied to the freshly prepared deed geometry before adding a placement. Overlay/source status is contextual evidence, never a deed geometry status or verification result.
 
-For `canonical`, use `frame.basis: "recorded_bearings"` and source bearings. For `relative`, provide `relative` constraints, use `frame.basis: "arbitrary_local"`, and match its frame name. See [relative-analysis.md](relative-analysis.md) for its structured contract. Relative calculations accept straight courses with source-linked known distances and preserve the record's bearing values; a local frame does not create a recorded bearing.
+For `canonical`, use `frame.basis: "recorded_bearings"` and source bearings. For `relative`, provide `relative` constraints, use `frame.basis: "arbitrary_local"`, and match its frame name. See [relative-analysis.md](../../../references/relative-analysis.md) for its structured contract. Relative calculations accept straight courses with source-linked known distances and preserve the record's bearing values; a local frame does not create a recorded bearing.
 
 ## Compose existing plot and map artifacts
 

@@ -27,7 +27,7 @@ The equivalent package command is `uv run metes-review dashboard bundle.json --o
 - [Skill instructions](SKILL.md)
 - [Source review and dashboard playbook](references/playbook.md)
 - [Bundle schema and stage semantics](references/dashboard-bundle.md)
-- [Relative-angle input reference](references/relative-analysis.md)
+- [Relative-angle input reference](../../references/relative-analysis.md)
 - [Plot and placement reference](references/plot-and-overlays.md)
 - [Artifact handoffs](../../references/artifact-handoffs.md)
 - [Prepare parcel overlay](../prepare-parcel-overlay/SKILL.md)

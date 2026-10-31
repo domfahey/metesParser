@@ -1,5 +1,7 @@
 # Optional Mapbox MCP preview
 
+Commands below use the plugin root that the invoking skill printed; substitute it for `${CLAUDE_PLUGIN_ROOT}`.
+
 Use this mode only when an in-chat Mapbox preview is requested. It is a mode of `render-online-map`; it does not perform document reading or prepare new geographic evidence. The local GL JS companion supports registered raster overlays and source/course review; this MCP preview carries prepared vectors only.
 
 ## Prepare the handoff

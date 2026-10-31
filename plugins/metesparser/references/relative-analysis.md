@@ -1,10 +1,12 @@
 # Relative-angle analysis
 
+Commands below use the plugin root that the invoking skill printed; substitute it for `${CLAUDE_PLUGIN_ROOT}`.
+
 Use this deterministic analysis when straight courses have relative angles but lack recorded compass bearings. Prepare the input after reviewing the source; the module does not transcribe documents or infer angles from prose. Canonical review and its export gate remain separate.
 
 ## Run a reproducible example
 
-The [synthetic rectangle](relative-rectangle.json) describes a clockwise 100 × 50 ft rectangle with four stated 90° interior angles. Its expected perimeter is 300 ft, area 5,000 sq ft, and gap zero within floating-point precision. It contains no property records.
+The [synthetic rectangle](../skills/deed-closure-dashboard/references/relative-rectangle.json) describes a clockwise 100 × 50 ft rectangle with four stated 90° interior angles. Its expected perimeter is 300 ft, area 5,000 sq ft, and gap zero within floating-point precision. It contains no property records.
 
 ```sh
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" analyze-relative "${CLAUDE_PLUGIN_ROOT}/skills/deed-closure-dashboard/references/relative-rectangle.json" --output-dir relative-demo
@@ -37,7 +39,7 @@ Supply one ordered boundary ring, with at least three straight courses. Distance
 | Every `source` | Nonblank `reference` and verbatim `quote`. Include document, page, occurrence, and course/corner identity in the reference. Whitespace in source text is preserved. |
 | Optional constraint `interpretation` | Explain a chosen turn, inferred relationship, or exterior convention separately from the original quotation. |
 
-Unknown fields and malformed geometry fail validation. No curves, disconnected parcels, tie calls, or exceptions may be silently flattened into this ring. Analyze each selected boundary separately.
+Unknown fields and malformed geometry fail validation. No curves, disconnected tracts, tie calls, or exceptions may be silently flattened into this ring. Analyze each selected boundary separately.
 
 | Constraint `kind` | Additional fields and meaning |
 | --- | --- |

@@ -10,7 +10,8 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ### Changed
 
-- `review-deed` now follows the description-role export policy: a multi-description deed with inferred roles cannot produce a verified export, and text review refuses deeds with more than one parcel description. Add explicit PARCEL/TRACT headings or review one parcel at a time. See [description roles and verified export](../../docs/ARCHITECTURE.md#description-roles-and-verified-export).
+- `review-deed` and `review-metes-and-bounds` follow the description-role export policy: a deed with more than one description cannot produce a verified export unless every description's role comes from a plain `PARCEL`/`TRACT` heading, easement and exception tracts are never eligible, and text review takes one description per review. See [multiple descriptions](references/review-limits.md#multiple-descriptions).
+- Skill descriptions for `plot-plss-reference`, `prepare-parcel-overlay`, `render-online-map`, `review-deed`, `review-metes-and-bounds` and `verify-traverse` now state what each does, when to use it and which sibling to use instead. `review-deed` is a manual slash alias (`disable-model-invocation`). The shared references state the multiple-description and verified-export rules and the status table once, and the relative-analysis reference moved to `references/relative-analysis.md`.
 
 ### Fixed
 

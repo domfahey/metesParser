@@ -1,5 +1,7 @@
 # Source preparation and handoff
 
+Commands below use the plugin root that the invoking skill printed; substitute it for `${CLAUDE_PLUGIN_ROOT}`.
+
 Acquisition and description-selection records preserve what was supplied, read, selected, and left uncertain. They are separate from the deterministic engine's `audit.json`, which records parsing and geometry. Neither record attests that a transcription or selection is accurate.
 
 Keep the original document and exact UTF-8 transcript. A common working folder is:
@@ -8,9 +10,9 @@ Keep the original document and exact UTF-8 transcript. A common working folder i
 original.pdf
 source-text.txt
 source-acquisition.json
-description-parcel-a.txt
+description-tract-a.txt
 description-selection.json
-review-parcel-a/          # fresh deterministic review output
+review-tract-a/          # fresh deterministic review output
 ```
 
 ## Schema 1.1
