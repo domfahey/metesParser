@@ -1,8 +1,10 @@
 # Deed Closure Dashboard Playbook
 
-Build an interactive closure check, like the 2 Walnut Street example, for a chain of title or any set of source documents. This playbook adapts the supplied Walnut Street workflow to the plugin's native-reading, source-preservation, and verification rules. Its historical figures are examples to verify against actual sources, never defaults for another property.
+Build an interactive closure check for a chain of title or any set of source documents, following the plugin's native-reading, source-preservation, and verification rules. A worked case study and its historical figures are in [example patterns](example-patterns.md#case-study-2-walnut-street); treat them as examples to verify against actual sources, never defaults for another property.
 
-Contents: [Quick start](#1-quick-start) · [Inputs and data contract](#2-inputs-and-data-contract) · [Workflow](#3-workflow) · [Page specification](#4-page-specification) · [Walnut Street lessons](#5-walnut-street-lessons) · [QA before delivery or publication](#6-qa-before-delivery-or-publication) · [Current controls and delivery](#current-controls-and-delivery)
+Contents: [Quick start](#1-quick-start) · [Inputs and data contract](#2-inputs-and-data-contract) · [Workflow](#3-workflow) · [Page specification](#4-page-specification) · [Common pitfalls](#5-common-pitfalls) · [QA before delivery or publication](#6-qa-before-delivery-or-publication) · [Current controls and delivery](#current-controls-and-delivery)
+
+Commands below use the plugin root that the invoking skill printed; substitute it for `${CLAUDE_PLUGIN_ROOT}`.
 
 The finished page has six parts:
 
@@ -17,7 +19,7 @@ The finished page has six parts:
 
 Upload the source PDFs or images to a Claude/Cowork session with native document reading and ask:
 
-> Check the metes and bounds in these deeds for [property address, block/lot, municipality]. Compare the descriptions across the chain. Then build an interactive dashboard like the 2 Walnut Street one: findings, crops of the disputed figures, a workbench with a plot and editable call sheet, transcripts of each description with extracted courses, and copies of every deed page. Follow the deed-closure-dashboard playbook.
+> Check the metes and bounds in these deeds for [property address, block/lot, municipality]. Compare the descriptions across the chain. Then build an interactive dashboard: findings, crops of the disputed figures, a workbench with a plot and editable call sheet, transcripts of each description with extracted courses, and copies of every deed page. Follow the deed-closure-dashboard playbook.
 
 When delegating evidence, calculation, interface, or QA work, keep ownership separate and reconcile outputs against a common record ledger. Report only delegation that actually occurred.
 
@@ -94,7 +96,7 @@ Check each result:
 
 1. **Angle sum:** include the recorded closing angle at the POB and compare with `(n − 2) × 180°`. Missing or inferred angles make this conditional. A matching sum is necessary, not sufficient: compensating angle errors can still create misclosure. Do not conclude that all remaining error must be in distances.
 2. **Gap vector:** show ΔE, ΔN, magnitude, and frame basis. A gap aligned with one course suggests a hypothesis to test, not proof that the distance is wrong.
-3. **Direction words:** use an explicitly labeled display rotation consistent with available street/direction evidence. The Walnut example used a 45° rotation for “northwesterly”; do not treat that word as an exact recorded azimuth. The proposed within-67.5° direction-word check is a heuristic, not a bearing measurement or a substitute for resolving turn ambiguity.
+3. **Direction words:** use an explicitly labeled display rotation consistent with available street/direction evidence. Do not treat a direction word such as “northwesterly” as an exact recorded azimuth. The proposed within-67.5° direction-word check is a heuristic, not a bearing measurement or a substitute for resolving turn ambiguity.
 4. **Earlier versions:** rerun each source's own values, including corrective instruments and repeated copies. A closing older version is evidence of a difference, not automatic authority to replace the newer record.
 5. **Digit scenarios:** try transpositions such as 177.27/177.72 or alternate obscured readings such as 8.52/81.52 in the workbench only. Label the edited field and its source or rationale.
 
@@ -106,7 +108,7 @@ When a map comparison is requested, place each deed only from explicit evidence 
 
 Identify shared lines through supported lengths, adjoiner names, corners, and angles. Compare only explicitly named point correspondences in a common supported linear scene and report residual vectors, RMS, and maximum residual separately from deed misclosure. A residual fit is not survey accuracy. Do not pick a closing scenario silently or use closure as evidence that a reading is legally correct.
 
-The Walnut example reported a 0.44 ft offset using 35.37 and a 0.24 ft offset using 35.57. Those figures require their own source confirmation. Approximate strip area as offset × shared-side length and label the approximation. Record whether parcels are conveyed together or separately when supported; do not infer title consequences from geometry alone.
+Approximate strip area as offset × shared-side length and label the approximation. Record whether parcels are conveyed together or separately when supported; do not infer title consequences from geometry alone.
 
 ### Step 6: Prepare evidence and page assets
 
@@ -145,16 +147,15 @@ Keep delivery local unless the user requested sharing and the host's actual acce
 
 Copy buttons must fall back to a visible selected textarea when clipboard APIs are blocked. Do not depend on download links in Artifact views that block them. Escape quotes and source text for HTML/CSV correctly and retain Unicode surveying symbols. Display full-size source images without omitting sensitive pages silently; obtain an appropriate sharing decision instead.
 
-## 5. Walnut Street lessons
+## 5. Common pitfalls
 
-The supplied HTML is an example only. See [example patterns](example-patterns.md) for optional extensions and [plot-and-overlays.md](plot-and-overlays.md) for map/plot evidence; build from the current source documents rather than copying its data, assets, or host runtime.
+See [example patterns](example-patterns.md) for optional extensions and [plot-and-overlays.md](plot-and-overlays.md) for map/plot evidence. Build from the current source documents rather than copying any example's data, assets, or host runtime; a [worked case study](example-patterns.md#case-study-2-walnut-street) shows these pitfalls in a real chain.
 
-- A corrective deed may introduce a new discrepancy. The supplied example says a 2010 corrective instrument changed 35.37 to 35.57 and 2015 instruments repeated it; confirm this from the provided chain before stating it as a finding.
-- Watermarks can obscure digits. The supplied example says a stamp covered the first digit of 81.52; show the crop and keep alternate readings visible.
-- Faint 1999 figures included 58.28, 130.48, and 248.31 in the example. A clearer later copy can corroborate a reading, but disclose where each adopted or hypothetical number came from.
+- A corrective deed may introduce a new discrepancy, and later instruments may repeat it. Confirm the change from the provided chain before stating it as a finding.
+- Watermarks and faint type can obscure digits. Show the crop and keep alternate readings visible. A clearer later copy can corroborate a reading, but disclose where each adopted or hypothetical number came from.
 - Repeated descriptions in trust certifications and exhibits are separate comparison evidence.
 - A rigid local-frame rotation changes neither closure magnitude nor area. It changes displayed components/headings and helps orient the plot; it does not establish a recorded basis of bearing.
-- RTF-1 and GIT/REP-3 pages can contain tax IDs. Flag those pages before sharing.
+- Transfer-tax and similar forms can contain tax IDs. Flag those pages before sharing.
 - Neither the engine's `checks_passed` result nor a dashboard is a survey, title opinion, or boundary certification.
 
 ## 6. QA before delivery or publication
