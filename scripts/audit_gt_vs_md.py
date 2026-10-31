@@ -27,6 +27,12 @@ DISTANCE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# "passing over stone 15.83 feet ... total distance of 336.25 feet": the total is the course length
+TOTAL_DISTANCE_PATTERN = re.compile(
+    r"\b(?:a\s+)?total\s+distance\s+(?:of\s+)?(\d+(?:\.\d+)?)\s*(?:feet|ft\.?|foot)",
+    re.IGNORECASE,
+)
+
 THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
 BEGINNING_PATTERN = re.compile(r"\*{0,2}\bBEGINNING\b\*{0,2}\s+(?:at|in)\b", re.IGNORECASE)
 
@@ -158,7 +164,7 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
 
     for i, segment in enumerate(segments, 1):
         bearing_match = BEARING_PATTERN.search(segment)
-        distance_match = DISTANCE_PATTERN.search(segment)
+        distance_match = TOTAL_DISTANCE_PATTERN.search(segment) or DISTANCE_PATTERN.search(segment)
 
         call_data = {"call_num": i, "segment": segment[:200].strip()}
 
@@ -421,16 +427,17 @@ def main() -> None:
     for r in results:
         parts = r["name"].split(" - Deed Image")
         prop = parts[0] if parts else r["name"]
-        properties.setdefault(prop, {"pass": 0, "fail": 0, "total": 0})
+        properties.setdefault(prop, {"pass": 0, "fail": 0, "skip": 0, "total": 0})
         properties[prop]["total"] += 1
         properties[prop][r["status"].lower()] += 1
 
     for prop, counts in sorted(properties.items()):
-        p = counts.get("pass", 0)
+        p = counts["pass"]
         t = counts["total"]
-        f = counts.get("fail", 0)
+        f = counts["fail"]
+        s = counts["skip"]
         pct = p / t * 100 if t > 0 else 0
-        print(f"  {prop}: {p}/{t} pass ({pct:.0f}%) | {f} fail")
+        print(f"  {prop}: {p}/{t} pass ({pct:.0f}%) | {f} fail | {s} skip")
 
 
 if __name__ == "__main__":
