@@ -172,7 +172,7 @@ from .source_handoff import (
     SourceUncertainty,
     TranscriptReference,
 )
-from .tract import Tract, TractType
+from .tract import BOUNDARY_TRACT_TYPES, Tract, TractType, is_boundary_tract
 from .units import ConversionFactors, DistanceUnit
 from .webmap import (
     MapboxViewOptions,
@@ -337,8 +337,10 @@ __all__ = [
     "RunMetadata",
     "SkippedCourse",
     "SubdivisionReference",
+    "BOUNDARY_TRACT_TYPES",
     "Tract",
     "TractType",
+    "is_boundary_tract",
     "Transformation",
     "VerificationAudit",
     "_Model",
