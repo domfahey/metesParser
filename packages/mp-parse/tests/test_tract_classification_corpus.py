@@ -49,6 +49,13 @@ Round 50 adds:
 * A described exception traverse is recognised with the parser's bearing grammar
   (dashed DMS, symbol-less bearings), counting each ';'-separated course; one the
   parser cannot read fails closed, never set aside as a note.
+
+Round 52 adds:
+
+* A generic encumbrance recital ("subject to easements (and restrictions) of record,
+  if any") names no easement: it never opens an easement description or clause, so
+  the boundary after it is never set aside.
+* An easement span never crosses its opener's sentence end into a description.
 """
 
 from __future__ import annotations
@@ -552,6 +559,40 @@ CASES: dict[str, Case] = {
         f"{SQUARE} EXCEPTING therefrom: Beginning at the northwest corner; S 80 E 10 feet; "
         "S 10 W 10 feet; N 80 W 10 feet; N 10 E 10 feet to the point of beginning.",
         error="Malformed course",
+    ),
+    # --- r52 #1: a generic encumbrance recital never opens an easement --------------
+    # "subject to easements (and restrictions) of record" names no easement: it is a
+    # deed clause, never an easement description, so the boundary after it is kept.
+    "r52_subject_to_easements_of_record_before_description": Case(
+        f"SUBJECT to easements of record.\n\n{SQUARE}"
+    ),
+    "r52_lot_subject_to_easements_and_restrictions_if_any": Case(
+        "Being Lot 5, Block 3, subject to easements and restrictions of record, if any.\n\n"
+        f"ALL THAT CERTAIN lot of land described as follows: {SQUARE}"
+    ),
+    "r52_subject_to_zoning_and_easements_of_record_before_description": Case(
+        "SUBJECT to zoning ordinances, easements, conditions and restrictions of record, and "
+        f"such state of facts as an accurate survey would disclose. {SQUARE}"
+    ),
+    # The same recital after the closing point of beginning is no note.
+    "r52_subject_to_boilerplate_after_closing_pob": Case(
+        f"{SQUARE} SUBJECT to zoning ordinances, easements, conditions and restrictions of "
+        "record, and such state of facts as an accurate survey would disclose."
+    ),
+    # 219 Berlin Rd (12799-00118): an OCR table tag read as THENCE leaves no description
+    # open, so the recital before the description is never an easement clause note.
+    "r52_generic_recital_after_ocr_thence_tag": Case(
+        '<tr> <thence colspan="3">Additional Information</thence> </tr> Being the same '
+        "premises conveyed to the grantor. SUBJECT to zoning ordinances, easements, "
+        f"conditions and restrictions of record. {SQUARE}"
+    ),
+    # A specific easement whose sentence ends before the BEGINNING never takes the
+    # description after it: an easement span never crosses a sentence end into one.
+    "r52_specific_easement_sentence_then_description": Case(
+        f"SUBJECT to a right of way for ingress and egress over the driveway.\n\n{SQUARE}"
+    ),
+    "r52_together_with_easement_sentence_then_description": Case(
+        f"TOGETHER WITH an easement for utilities. {SQUARE}"
     ),
 }
 
