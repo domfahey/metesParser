@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from bisect import bisect_right
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from re import Match
 from typing import TYPE_CHECKING, Literal, NamedTuple, TypedDict
@@ -67,16 +67,35 @@ _CLAUSE_OPENING_WORD = re.compile(
 )
 
 
+# A lot/block/section label before a single letter ("Lot B", "Tract C"): the letter is
+# the label, not an initial, so a period after it is not an abbreviation period.
+_LABEL_BEFORE = re.compile(
+    r"(?<![A-Za-z])(?:lots?|blocks?|sections?|parcels?|tracts?|units?)\s+$", re.IGNORECASE
+)
+_SENTENCE_START = re.compile(r"\s+[A-Z(]")
+_BLANK_REST = re.compile(r"\s*$")
+
+
 def is_abbreviation_period(text: str, index: int) -> bool:
     """Return whether the period at ``text[index]`` belongs to a word, not a sentence.
 
     A decimal point ("1.5"), a single-letter initial or acronym letter ("John A.
     Smith", "U.S."), or a known abbreviation ("Co.", "Bk.", "Jr.") keeps its period.
+    A single letter labelled by "Lot", "Block", "Section", "Parcel", "Tract" or
+    "Unit" ("Lot B.") is a label, not an initial. Only the word before ``index``
+    is read, so the check costs the same anywhere in a long text.
     """
     if text[index + 1 : index + 2].isdigit():
         return True
-    word = re.search(r"(?<![A-Za-z])([A-Za-z]+)$", text[:index])
-    return word is not None and (len(word.group(1)) == 1 or word.group(1).lower() in _ABBREVIATIONS)
+    start = index
+    while start > 0 and text[start - 1].isascii() and text[start - 1].isalpha():
+        start -= 1
+    word = text[start:index]
+    if not word:
+        return False
+    if len(word) == 1:
+        return not _LABEL_BEFORE.search(text, max(0, start - 12), start)
+    return word.lower() in _ABBREVIATIONS
 
 
 def ends_sentence(text: str, index: int) -> bool:
@@ -86,38 +105,81 @@ def ends_sentence(text: str, index: int) -> bool:
     unless it is an initial, acronym, abbreviation or decimal point. Before a clause
     opening word ("Subject to", "ALSO", "Being") a period always ends the sentence.
     """
-    rest = text[index + 1 :]
-    if not rest.strip():
+    if _BLANK_REST.match(text, index + 1):
         return True
-    if not re.match(r"\s+[A-Z(]", rest):
+    if not _SENTENCE_START.match(text, index + 1):
         return False
-    return bool(_CLAUSE_OPENING_WORD.match(rest)) or not is_abbreviation_period(text, index)
+    return bool(_CLAUSE_OPENING_WORD.match(text, index + 1)) or not is_abbreviation_period(
+        text, index
+    )
+
+
+def breaks_at_period(text: str, index: int) -> bool:
+    """Return whether the period at ``text[index]`` ends the wording before it.
+
+    It does unless it is part of a word (``is_abbreviation_period``) that no new
+    sentence follows (``ends_sentence``: "Main St. Subject to ..."). At the end of
+    ``text`` an abbreviation keeps its period ("to a point on Main St.").
+    """
+    if not is_abbreviation_period(text, index):
+        return True
+    return bool(_SENTENCE_START.match(text, index + 1)) and ends_sentence(text, index)
+
+
+def _periods(text: str, start: int = 0) -> Iterator[int]:
+    """Yield the index of each period in ``text`` from ``start`` on."""
+    index = text.find(".", start)
+    while index >= 0:
+        yield index
+        index = text.find(".", index + 1)
+
+
+def _closed_bracket_spans(text: str) -> tuple[list[int], list[int]]:
+    """Starts and ends of the closed top-level bracketed groups, for ``_in_spans``."""
+    closed = [(s, e) for s, e, is_closed in bracket_groups(text) if is_closed]
+    return [s for s, _ in closed], [e for _, e in closed]
+
+
+def _in_spans(spans: tuple[list[int], list[int]], position: int) -> bool:
+    """Return whether ``position`` lies strictly inside one of the sorted ``spans``."""
+    starts, ends = spans
+    index = bisect_right(starts, position - 1) - 1
+    return index >= 0 and position < ends[index]
 
 
 def _before_clause_delimiter(text: str) -> str:
     """Trim a call at sentence punctuation without splitting decimals or abbreviations.
 
-    A ';' inside a closed bracketed group is part of the group, never a delimiter.
+    A period ends the wording unless it belongs to a word ("John A. Smith", "Main
+    St.") that no sentence follows (``breaks_at_period``). A ';' inside a closed
+    bracketed group is part of the group, never a delimiter.
     """
-    bracketed = [(s, e) for s, e, closed in bracket_groups(text) if closed]
+    bracketed: tuple[list[int], list[int]] | None = None
     for match in re.finditer(r"[;.]", text):
-        if match.group() == "." and is_abbreviation_period(text, match.start()):
+        if match.group() == "." and not breaks_at_period(text, match.start()):
             continue
-        if match.group() == ";" and any(s < match.start() < e for s, e in bracketed):
-            continue
+        if match.group() == ";":
+            if bracketed is None:
+                bracketed = _closed_bracket_spans(text)
+            if _in_spans(bracketed, match.start()):
+                continue
         return text[: match.start()]
     return text
 
 
 def split_outside_brackets(text: str, separator: str = ";") -> list[str]:
     """Split ``text`` at ``separator`` except inside a closed bracketed group."""
-    bracketed = [(s, e) for s, e, closed in bracket_groups(text) if closed]
+    if separator not in text:
+        return [text]
+    bracketed = _closed_bracket_spans(text)
     pieces: list[str] = []
     start = 0
-    for index, char in enumerate(text):
-        if char == separator and not any(s < index < e for s, e in bracketed):
+    index = text.find(separator)
+    while index >= 0:
+        if not _in_spans(bracketed, index):
             pieces.append(text[start:index])
             start = index + 1
+        index = text.find(separator, index + 1)
     pieces.append(text[start:])
     return pieces
 
@@ -1582,8 +1644,13 @@ _TRAILING_SEPARATOR = re.compile(
 # before a line or lands ("by the line of Smith", "by land now or formerly of Smith");
 # other senses ("by deed", "with a radius of") are not adjoiners.
 _LINE_OR_LANDS = r"(?=\s+(?:(?:the|said)\s+)?(?:lines?|lands?)\s+(?:of|now\s+or\s+formerly|n/f)\b)"
+# "along with all improvements", "along with the right to use ...": the conveyancing
+# phrase (like "together with"), never adjoiner wording. "along with the line of
+# Smith" runs along the line.
+CONVEYANCING_ALONG_WITH = rf"along\s+with\b(?!{_LINE_OR_LANDS})"
 _ADJOINER_LEAD = re.compile(
-    r"\b(?:binding\s+(?:on|upon|along|with)|bounding\s+(?:on|upon|along)|along"
+    rf"\b(?:binding\s+(?:on|upon|along|with)|bounding\s+(?:on|upon|along)"
+    rf"|along\s+with{_LINE_OR_LANDS}|along(?!\s+with\b)"
     rf"|by\s+and\s+with|by{_LINE_OR_LANDS}|with{_LINE_OR_LANDS}|adjoining"
     r"|(?<!the\s)following(?=\s+(?:the|said|an?|lands?|lines?)\s))\b",
     re.IGNORECASE,
@@ -1602,7 +1669,7 @@ _COURSE_CLAUSE_END = re.compile(
     r"\b(?:thence"
     r"|containing\b(?=[^;]*?\b(?:acres?|square|sq\b|perches|hectares?)\b)"
     r"|(?:under\s+and\s+)?subject\s+to|being\s+(?:the\s+same|a\s+part|part|a\s+portion|known)"
-    r"|together\s+with|(?:saving\s+and\s+)?excepting|reserving)\b",
+    rf"|together\s+with|{CONVEYANCING_ALONG_WITH}|(?:saving\s+and\s+)?excepting|reserving)\b",
     re.IGNORECASE,
 )
 # The fragment's own leading "thence" ("THENCE N 45 E", "and running thence along ...").
@@ -1645,6 +1712,7 @@ _CONTINUING_COURSE = re.compile(
     re.IGNORECASE,
 )
 _LENGTH_TAIL_AFTER = re.compile(r"\s*,?\s*more\s+or\s+less\b", re.IGNORECASE)
+_COMMA_GAP = re.compile(r"[\s,]*")
 
 
 def course_length_phrase_span(text: str, start: int, end: int) -> tuple[int, int]:
@@ -1738,17 +1806,6 @@ def bracket_groups(text: str) -> list[tuple[int, int, bool]]:
     return _scan_brackets(text)[0]
 
 
-def _enclosing_bracket(text: str, position: int, floor: int) -> tuple[int, int] | None:
-    """Span of the bracketed group around ``position`` (``floor`` on), or None.
-
-    An unclosed group runs to the end of ``text``; the span includes both brackets.
-    """
-    for start, end, _closed in bracket_groups(text[floor:]):
-        if start <= position - floor < end:
-            return (start + floor, end + floor)
-    return None
-
-
 def _unmatched_close(text: str, start: int) -> int | None:
     """Index of the first closing bracket after ``start`` that closes an earlier bracket."""
     strays = _scan_brackets(text[start:])[1]
@@ -1790,7 +1847,10 @@ def _opens_with_course_wording(piece: str) -> bool:
 
 
 def extract_course_clause(
-    call_text: str, drop_spans: Sequence[tuple[int, int]] = ()
+    call_text: str,
+    drop_spans: Sequence[tuple[int, int]] = (),
+    *,
+    trim_course_length: bool = False,
 ) -> CourseClause:
     """Read along/to of one course from the spans of its clause.
 
@@ -1812,6 +1872,12 @@ def extract_course_clause(
     wording there is ``unattached`` (the caller fails the course closed).
     A passing call in brackets is the whole bracketed group and ends at its closing
     bracket; unbracketed, it never runs past an unmatched closing bracket.
+
+    A course length stated after the destination ends it: adjoiner wording right
+    after that length ("to a pin 100 feet, more or less, along the line of Jones")
+    is ``along``, not destination wording. ``trim_course_length`` (a straight
+    course) also leaves the course length's whole wording out of ``along``: the span
+    ``read_course_length`` selects, with "a distance of" / "more or less".
     """
     lead = _LEADING_THENCE.match(call_text)
     start = lead.end() if lead else 0
@@ -1842,10 +1908,11 @@ def extract_course_clause(
 
     passing_spans: list[tuple[int, int]] = []
     passing_texts: list[str] = []
+    groups = [(s + start, e + start) for s, e, _closed in bracket_groups(course[start:])]
     for match in _PASSING.finditer(course, start):
         if any(s <= match.start() < e for s, e in passing_spans):
             continue
-        group = _enclosing_bracket(course, match.start(), start)
+        group = next((g for g in groups if g[0] <= match.start() < g[1]), None)
         if group is not None:
             closed = course[group[1] - 1] in ")]"
             inner = course[group[0] + 1 : group[1] - 1 if closed else group[1]]
@@ -1862,6 +1929,8 @@ def extract_course_clause(
         passing_texts.append(course[match.start() : stop].strip(" ,;."))
     passing = tuple(passing_texts)
     dropped = [(s, min(e, course_end)) for s, e in drop_spans if start <= s < course_end]
+    if trim_course_length and length_span is not None and start <= length_span[0] < course_end:
+        dropped.append(course_length_phrase_span(reading[:course_end], *length_span))
 
     along = ""
     # "parallel with the line of Smith": the "with" belongs to the qualifier phrase.
@@ -1926,7 +1995,21 @@ def extract_course_clause(
                 passing += (
                     clause[tail_start + g_start + 1 : tail_start + g_end - 1].strip(" ,;."),
                 )
-        tail = _remove_spans(clause[tail_start:tail_end], cuts)
+        to_end = tail_end
+        if span is not None and tail_start <= span[0] and span[1] <= tail_end and not along:
+            # "to a pin 100 feet more or less along the line of Jones": the course
+            # length ends the destination; the adjoiner wording after it is along.
+            length_end = _COMMA_GAP.match(reading, course_length_phrase_span(reading, *span)[1])
+            adjoiner = _ADJOINER_LEAD.match(reading, length_end.end()) if length_end else None
+            if adjoiner is not None:
+                to_end = span[0]
+                shift = adjoiner.end() - tail_start
+                along_cuts = [(max(s - shift, 0), e - shift) for s, e in cuts if e > shift]
+                wording = _remove_spans(clause[adjoiner.end() : tail_end], along_cuts)
+                along = _TRAILING_SEPARATOR.sub("", _CLAUSE_TRAILER.sub("", wording.strip()))
+                along = along.strip(" ,;.")
+        to_cuts = [(s, min(e, to_end - tail_start)) for s, e in cuts if s < to_end - tail_start]
+        tail = _remove_spans(clause[tail_start:to_end], to_cuts)
         to = _TRAILING_SEPARATOR.sub("", _CLAUSE_TRAILER.sub("", tail.strip()))
         # "to a pin; passing a monument at 30 feet": a ';'-separated passing call
         # after the destination belongs to this course; kept verbatim, never dropped.
@@ -2077,15 +2160,25 @@ def extract_deed_clauses(text: str) -> list[DeedClause]:
     clauses: list[DeedClause] = []
     ClauseType = Literal["reservation", "subject_to", "together_with"]
 
+    # Each clause runs to its sentence end (``ends_sentence``: never at an initial,
+    # abbreviation or decimal point). "along with" is the conveyancing phrase, not
+    # adjoiner wording along a line or lands.
     patterns: list[tuple[str, ClauseType]] = [
-        (r"(RESERVING\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "reservation"),
-        (r"(SUBJECT\s+TO\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "subject_to"),
-        (r"(TOGETHER\s+WITH\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "together_with"),
+        (r"RESERVING\b", "reservation"),
+        (r"SUBJECT\s+TO\b", "subject_to"),
+        (rf"TOGETHER\s+WITH\b|{CONVEYANCING_ALONG_WITH}", "together_with"),
     ]
 
     for pattern, clause_type in patterns:
-        for match in re.finditer(pattern, text, re.IGNORECASE | re.DOTALL):
-            clause_text = match.group(1).strip().rstrip(".")
+        position = 0
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            if match.start() < position:
+                continue
+            end = next(
+                (i for i in _periods(text, match.end()) if ends_sentence(text, i)), len(text)
+            )
+            position = end
+            clause_text = text[match.start() : end].strip().rstrip(".")
             if clause_text:
                 clauses.append(DeedClause(clause_type=clause_type, text=clause_text))
 
@@ -2406,7 +2499,6 @@ _METES_INDICATOR = re.compile(
     re.IGNORECASE,
 )
 # The end of a sentence: a strip's clause never continues past it.
-_SENTENCE_BREAK = re.compile(r"\.\s")
 
 
 def _normalize_direction(raw: str) -> str:
@@ -2465,8 +2557,15 @@ def strip_exception_spans(text: str) -> list[tuple[int, int, _StripException]]:
             clause = match.group(0)
             if not clause.rstrip().endswith("."):
                 following = text[match.end() : match.end() + 200]
-                sentence_end = _SENTENCE_BREAK.search(following)
-                clause += following[: sentence_end.start()] if sentence_end else following
+                sentence_end = next(
+                    (
+                        i
+                        for i in _periods(following)
+                        if following[i + 1 : i + 2].isspace() and breaks_at_period(following, i)
+                    ),
+                    None,
+                )
+                clause += following[:sentence_end] if sentence_end is not None else following
             if _METES_INDICATOR.search(clause):
                 continue
 
