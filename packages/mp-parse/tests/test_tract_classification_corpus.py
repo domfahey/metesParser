@@ -77,6 +77,23 @@ Round 53 adds:
   same grant ("TOGETHER WITH an easement for utilities. BEGINNING ...") never takes
   the description after it: that description is the parcel.
 * Each of these deeds exports a verified CSV for the boundary tract only.
+
+Round 54 adds:
+
+* One function decides whether an opener's grant takes a description, on every
+  path (easement spans, BEGINNING blocks, tract markers), and course numbering
+  ("thence (1) ...", "thence 1) ...") never changes a classification or an export:
+  every corpus case is also run with its courses numbered.
+* Before any boundary, a generic recital stays generic even when the deed's own
+  description intro follows it ("subject to easements of record, bounded and
+  described as follows:", "all that following described land:"): the introduced
+  description is the parcel.
+* A recital names a specific easement only as a grant object ("an easement for
+  drainage"), never as land located by one ("that portion lying within a right of
+  way", "a portion of the former right of way").
+* Only a closed MAIN or ADDITION boundary puts an opener after the boundary: never
+  an exception description, a COMMENCING tie reaching the point of beginning or a
+  recital mentioning the point of beginning.
 """
 
 from __future__ import annotations
@@ -84,6 +101,7 @@ from __future__ import annotations
 import csv
 import itertools
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -150,6 +168,12 @@ EXCEPTED_PARCEL = (
     "BEGINNING at the northwest corner; thence S 80° E 10 feet; thence S 10° W 10 feet; "
     "thence N 80° W 10 feet; thence N 10° E 10 feet to the point of beginning."
 )
+# r54: the same small description with numbered courses.
+SMALL_NUMBERED = (
+    "BEGINNING at a stake; thence (1) N 0° E 50 feet; thence (2) S 90° E 50 feet; "
+    "thence (3) S 0° W 50 feet; thence (4) N 90° W 50 feet to the point of beginning."
+)
+DRIVEWAY_GRANT = "TOGETHER WITH an easement for ingress and egress over the driveway"
 
 
 @dataclass(frozen=True)
@@ -723,9 +747,72 @@ CASES: dict[str, Case] = {
         SMALL,
         legs=4,
     ),
+    # --- r54 #1: the deed's own description intro after a generic recital ----------
+    "r54_lot_subject_to_easements_bounded_and_described": Case(
+        "ALL THAT CERTAIN lot situate in the Township of Haddon, subject to easements and "
+        f"restrictions of record, bounded and described as follows: {SQUARE}"
+    ),
+    "r54_lot_subject_to_easements_more_particularly_described_line": Case(
+        "ALL THAT CERTAIN lot situate in Haddon,\nsubject to easements of record, more "
+        f"particularly described as follows:\n{SQUARE}"
+    ),
+    "r54_subject_to_easements_following_described_land": Case(
+        f"Subject to easements of record, if any, all that following described land: {SQUARE}"
+    ),
+    # --- r54 #2: land located by a right of way is no specific easement -------------
+    "r54_rights_of_public_in_portion_within_right_of_way": Case(
+        "ALL THAT lot in Haddon, subject to easements of record and to the rights of the public "
+        f"in that portion lying within a right of way, {SQUARE}"
+    ),
+    "r54_premises_portion_of_former_right_of_way": Case(
+        "Subject to easements of record, said premises being a portion of the former right of "
+        f"way of the railroad, {SQUARE}"
+    ),
+    # --- r54 #3: only a closed MAIN/ADDITION boundary is "after the boundary" -------
+    "r54_recital_mentions_point_of_beginning": Case(
+        "Being the premises whose corner is at the point of beginning hereinafter described. "
+        f"SUBJECT to easements of record: {SQUARE}"
+    ),
+    "r54_commencing_tie_then_generic_recital_colon": Case(
+        "COMMENCING at the corner of Main and Oak; thence North 10 degrees East 50.00 feet to "
+        f"the point of beginning. SUBJECT to easements of record: {SQUARE}",
+        flat=5,
+        tie_ins=1,
+    ),
+    # --- r54 #4, #5: numbered easement courses stay an easement ---------------------
+    "r54_numbered_grant_line_break_then_description": Case(
+        f"{SQUARE} {DRIVEWAY_GRANT}\n{SMALL_NUMBERED}",
+        tracts=((MAIN_T, 4), (EAS, 4)),
+        easements=(f"{DRIVEWAY_GRANT}\n{SMALL_NUMBERED}",),
+        labels=("Tract 1", "Easement 1"),
+    ),
+    "r54_numbered_grant_blank_line_then_description": Case(
+        f"{SQUARE} {DRIVEWAY_GRANT}\n\n{SMALL_NUMBERED}",
+        tracts=((MAIN_T, 4), (EAS, 4)),
+        easements=(f"{DRIVEWAY_GRANT}\n\n{SMALL_NUMBERED}",),
+        labels=("Tract 1", "Easement 1"),
+    ),
+    "r54_numbered_markdown_heading_then_description": Case(
+        f"{SQUARE} TOGETHER WITH an easement for drainage, described as follows:\n\n"
+        f"**Easement Area**\n\n{SMALL_NUMBERED}",
+        tracts=((MAIN_T, 4), (EAS, 4)),
+        easements=(
+            "TOGETHER WITH an easement for drainage, described as follows:\n\n**Easement Area**"
+            f"\n\n{SMALL_NUMBERED}",
+        ),
+        labels=("Tract 1", "Easement 1"),
+    ),
+    "r54_numbered_said_easement_bounded_and_described": _easement_case(
+        f"{DRIVEWAY_GRANT}. The said easement is bounded and described as follows:",
+        SMALL_NUMBERED,
+        legs=4,
+    ),
+    "r54_numbered_grant_period_then_description": _easement_case(
+        f"{DRIVEWAY_GRANT}.", SMALL_NUMBERED, legs=4
+    ),
 }
-# r53: cases whose verified export must write only the boundary tract.
-R53_EXPORT_CASES = sorted(name for name in CASES if name.startswith("r53_"))
+# r53, r54: cases whose verified export must write only the boundary tract.
+R53_EXPORT_CASES = sorted(name for name in CASES if name.startswith(("r53_", "r54_")))
 
 # --- generated deeds (r48 invariant, r49 clauses) ------------------------------------
 
@@ -1016,7 +1103,119 @@ def test_verified_export_writes_only_the_boundary(name: str, tmp_path: Path) -> 
     else:
         written = export_verified_csv(calls, verify_closure(calls), output)
         assert len(written) == 1
-    # The one CSV written is the 100-foot square boundary.
+    # The one CSV written is the 100-foot square boundary (after any tie to it).
     with written[0].open(newline="") as handle:
         rows = list(csv.DictReader(handle))
-    assert [float(row["distance_ft"]) for row in rows] == [100.0] * 4
+    boundary_rows = [row for row in rows if row["is_tie_in"].lower() != "true"]
+    assert [float(row["distance_ft"]) for row in boundary_rows] == [100.0] * 4
+    assert len(rows) - len(boundary_rows) == (case.tie_ins or 0)
+
+
+# --- r54: course numbering never changes a classification or an export -----------------
+
+_THENCE_TO_NUMBER = re.compile(
+    r"\b(?:BEGINNING|COMMENCING)\b|\b(thence)\s+(?![(\d])", re.IGNORECASE
+)
+
+
+def _number_courses(text: str, style: str = "({})", restart: bool = True) -> str:
+    """Rewrite each "thence " as "thence (n) " (or ``style``), numbering from 1.
+
+    Numbering restarts in each description (BEGINNING, COMMENCING) unless ``restart``
+    is False.
+    """
+    count = 0
+
+    def number(match: re.Match[str]) -> str:
+        nonlocal count
+        if match.group(1) is None:
+            count = 0 if restart else count
+            return match.group()
+        count += 1
+        return f"{match.group(1)} {style.format(count)} "
+
+    return _THENCE_TO_NUMBER.sub(number, text)
+
+
+def _outcome(text: str, directory: Path) -> tuple:
+    """Return the classification and the verified export of ``text``."""
+    try:
+        calls, tracts = extract_calls(text, strict=True)
+    except ValueError as error:
+        return ("error", str(error).split(":")[0])
+    output = str(directory / "deed.csv")
+    if tracts:
+        results = verify_closure([], tracts=tracts)
+        try:
+            written = export_verified_csv(
+                [], results[0], output, tract_results=list(zip(tracts, results, strict=True))
+            )
+        except ValueError:
+            written = []
+    else:
+        results = [verify_closure(calls)]
+        try:
+            written = export_verified_csv(calls, results[0], output)
+        except ValueError:
+            written = []
+    rows = []
+    for path in written:
+        with path.open(newline="") as handle:
+            rows.append(
+                [
+                    (r["bearing_azimuth_deg_from_north"], r["distance_ft"])
+                    for r in csv.DictReader(handle)
+                ]
+            )
+    return (
+        [(t.label, t.tract_type, len(t.calls)) for t in tracts],
+        [
+            (c.bearing_azimuth_deg_from_north, c.distance_ft, c.is_exception, c.is_tie_in)
+            for c in calls
+        ],
+        [r.is_fully_verified() for r in results],
+        [p.name for p in written],
+        rows,
+    )
+
+
+def test_number_courses_rewrites_each_thence() -> None:
+    assert _number_courses(SMALL) == SMALL_NUMBERED
+
+
+# The course parser's enumerator styles ("(1)", "1)", "1."), and one numbering that runs
+# on across descriptions.
+NUMBERING_STYLES = {
+    "parenthesized": ("({})", True),
+    "closing_parenthesis": ("{})", True),
+    "period": ("{}.", True),
+    "parenthesized_running_on": ("({})", False),
+}
+
+
+@pytest.mark.parametrize("style", list(NUMBERING_STYLES))
+@pytest.mark.parametrize("name", list(CASES))
+def test_course_numbering_never_changes_classification(
+    name: str, style: str, tmp_path: Path
+) -> None:
+    text = CASES[name].text
+    numbered = _number_courses(text, *NUMBERING_STYLES[style])
+    (tmp_path / "plain").mkdir()
+    (tmp_path / "numbered").mkdir()
+    assert _outcome(numbered, tmp_path / "numbered") == _outcome(text, tmp_path / "plain")
+
+
+# --- r54 #3: an exception description or a tie is no boundary --------------------------
+
+
+def test_exception_description_first_leaves_the_parcel_main() -> None:
+    text = (
+        f"EXCEPTING from the lands hereinafter described the following: {SMALL} "
+        f"SUBJECT to easements of record: {SQUARE}"
+    )
+    for candidate in (text, _number_courses(text)):
+        _, tracts = extract_calls(candidate, strict=True)
+        assert [(t.tract_type, len(t.calls)) for t in tracts] == [(EXC, 4), (MAIN_T, 4)]
+        results = verify_closure([], tracts=tracts)
+        assert results[1].is_fully_verified()
+        assert [c.distance_ft for c in tracts[1].calls] == [100.0] * 4
