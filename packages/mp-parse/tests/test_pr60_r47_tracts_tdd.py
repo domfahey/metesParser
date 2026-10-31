@@ -14,7 +14,13 @@
 from __future__ import annotations
 
 import pytest
-from mp_models import UNAPPLIED_EXCEPTION_NOTE_PREFIX, TractType, unapplied_exceptions
+from mp_models import (
+    DESCRIPTION_ROLES_NOTE,
+    UNAPPLIED_EXCEPTION_NOTE_PREFIX,
+    TractType,
+    split_notes,
+    unapplied_exceptions,
+)
 from mp_parse.calls import _extract_calls_from_text, extract_calls
 from mp_parse.metadata import detect_strip_exceptions
 from mp_parse.tracts import UNLABELLED_TRACT_LABEL, split_into_tracts
@@ -79,8 +85,12 @@ def test_easement_between_descriptions_extracts_strictly(main_calls) -> None:
     assert _boundary(tracts[0].calls)[:3] == _boundary(main_calls)[:3]
     assert verify_closure(tracts[0].calls).closure_passed
     assert verify_closure(tracts[2].calls).closure_passed
-    # The easement is noted verbatim on the boundary that precedes it.
-    assert tracts[0].calls[-1].notes == "easement, not part of the boundary: " + EASEMENT
+    # The easement is noted verbatim on the boundary that precedes it; the inferred
+    # roles (round 58) mark every tract's calls too.
+    assert split_notes(tracts[0].calls[-1].notes) == [
+        "easement, not part of the boundary: " + EASEMENT,
+        DESCRIPTION_ROLES_NOTE,
+    ]
 
 
 def test_flat_extraction_notes_easement_verbatim() -> None:

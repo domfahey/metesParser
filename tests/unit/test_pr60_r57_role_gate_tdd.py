@@ -113,7 +113,7 @@ def test_gate_reads_the_mark_when_tracts_are_absent() -> None:
     assert len(reasons) == 1 and DESCRIPTION_ROLES_NOTE in reasons[0]
 
 
-# --- parse: the flat calls of a blocked deed carry the mark; tract calls do not -------
+# --- parse: every call of a blocked deed carries the mark (round 58: tracts' too) -----
 
 
 @pytest.mark.parametrize("name", BLOCKED)
@@ -123,7 +123,8 @@ def test_flat_calls_of_a_blocked_deed_are_marked(name: str) -> None:
     # boundary calls at all; whatever flat calls exist carry the mark.
     assert all(_marked(c) for c in calls)
     assert calls or not any(t.tract_type.value == "main" for t in tracts)
-    assert not any(_marked(c) for t in tracts for c in t.calls)
+    # Round 58: a tract's own calls carry it too, so no tract verifies on its own.
+    assert all(_marked(c) for t in tracts for c in t.calls)
 
 
 @pytest.mark.parametrize("name", ["plain", "mineral_single_parcel", "close0_two_headed_parcels"])
@@ -381,7 +382,13 @@ def test_cli_marks_a_hand_built_description_whose_roles_need_review(
     from metesparser import models as monolith
 
     _, tracts = extract_calls(EASEMENT_AFTER, strict=True)
-    legacy = [monolith.Tract.model_validate(t.model_dump()) for t in tracts]
+    # Hand-built: the parser's tracts, their calls without its marks (round 58).
+    legacy = [
+        monolith.Tract.model_validate(
+            t.model_dump() | {"calls": [c.model_dump() | {"notes": None} for c in t.calls]}
+        )
+        for t in tracts
+    ]
     legal = monolith.LegalDescription(calls=legacy[0].calls, tracts=legacy)
     assert not any(_marked(c) for c in legal.calls)
     monkeypatch.setattr(cli, "RUNS_DIR", tmp_path / "runs")
