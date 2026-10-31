@@ -34,9 +34,9 @@ from mp_review.api import review_text
 from mp_verify import verify_closure, verify_tract
 
 from metesparser import models as monolith
+from metesparser.call_extractor import CallExtractor
 from metesparser.closure_checker import ClosureChecker
 from metesparser.csv_builder import CSVBuilder
-from metesparser.pdf_processor import description_tracts
 
 
 def _square(
@@ -456,6 +456,13 @@ def test_review_json_with_stored_tracts_needs_review(tmp_path: Path) -> None:
     assert result["status"] == "needs_review"
     assert "description_roles_inferred" in [e["code"] for e in result["errors"]]
     assert calls
+
+
+def description_tracts(text: str) -> list[monolith.Tract]:
+    """The monolith's tracts, from its one extraction (round 57: no second parse)."""
+    tracts: list[monolith.Tract] = []
+    CallExtractor.extract_calls(text, strict=False, skipped_courses=[], tracts=tracts)
+    return tracts
 
 
 def test_monolith_description_tracts_carry_role_bases() -> None:

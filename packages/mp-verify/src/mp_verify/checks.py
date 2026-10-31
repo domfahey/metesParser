@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import math
 import statistics
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Literal
 
 from mp_bearing import (  # type: ignore[import-untyped]
@@ -73,15 +73,18 @@ def evaluate_tract_role(label: str, tract_type: TractType | str) -> CheckResult 
     )
 
 
-def evaluate_description_roles(tracts: list[Tract]) -> CheckResult | None:
+def evaluate_description_roles(
+    tracts: Sequence[Tract], calls: Sequence[DeedCall] = ()
+) -> CheckResult | None:
     """Block every tract of a deed whose description roles were inferred, not headed.
 
     Fail closed (``mp_models.roles_need_review``): when a deed has several
     descriptions and any role came from wording rather than an explicit tract
-    heading, no tract is verified, whatever its geometry. ``None`` when every role
+    heading, no tract is verified, whatever its geometry; neither are calls bearing
+    the role-review mark a blocked deed's flat calls carry. ``None`` when every role
     is established.
     """
-    reasons = roles_need_review(tracts)
+    reasons = roles_need_review(tracts, calls)
     if not reasons:
         return None
     return CheckResult(

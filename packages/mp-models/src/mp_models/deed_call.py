@@ -63,6 +63,10 @@ VERBATIM_NOTE_PREFIXES: tuple[str, ...] = (
 # Fixed notes the system writes (exact text; some hold "; "). Every fixed note is
 # registered here so a verbatim note never swallows the note that follows it.
 LEGACY_CURVE_NOTE = "curve type not recorded (legacy CSV); treated as circular"
+# The role-review mark (``mp_models.roles_need_review``): every flat call of a deed
+# whose description roles need review carries it, so the calls stay blocked from
+# verified export when re-imported from CSV or JSON without their tracts.
+DESCRIPTION_ROLES_NOTE = "description roles need review - not eligible for verified export"
 FIXED_NOTES: tuple[str, ...] = (
     "incomplete bearing",
     "incomplete bearing - cardinal only",
@@ -79,6 +83,7 @@ FIXED_NOTES: tuple[str, ...] = (
     "radius not stated",
     "chord length exceeds twice the radius",
     LEGACY_CURVE_NOTE,
+    DESCRIPTION_ROLES_NOTE,
 )
 # Fixed notes that carry a measured or quoted value after the prefix.
 FIXED_NOTE_PREFIXES: tuple[str, ...] = (
