@@ -30,7 +30,6 @@ from mp_models import (
     SkippedCourse,
     Tract,
     VerificationAudit,
-    is_boundary_tract,
     unapplied_exceptions,
 )
 
@@ -45,6 +44,7 @@ from .checks import (
     check_parallelism,
     chord_only_delta_detail,
     compare_double_entry,
+    evaluate_tract_role,
     tangent_chord_issue,
 )
 from .confidence import calculate_confidence_score, score_call_quality
@@ -200,6 +200,7 @@ def verify_tract(
     closure_tolerance_ft: float | None = None,
     audit_context: AuditContext | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
+    role_check: CheckResult | None = None,
 ) -> ClosureResult:
     """Check one independent tract using every standard verification guardrail."""
     boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
@@ -209,40 +210,8 @@ def verify_tract(
         closure_tolerance_ft=closure_tolerance_ft,
         audit_context=audit_context,
         skipped_courses=skipped_courses,
+        role_check=role_check,
     )
-
-
-def _block_non_boundary(
-    result: ClosureResult, tract: Tract, audit: VerificationAudit | None
-) -> tuple[ClosureResult, VerificationAudit | None]:
-    """Block eligibility of an easement/exception tract, keeping its computed geometry."""
-    kind = getattr(tract.tract_type, "value", tract.tract_type)
-    detail = (
-        f"non_boundary_tract: {tract.label} is a {kind} tract, not a parcel boundary, and is "
-        "never eligible for verified export; its closure, area and perimeter are for review only"
-    )
-    check = CheckResult(
-        name="non_boundary_tract",
-        status="blocked",
-        reason=kind,
-        detail=detail,
-        inputs={"tract_type": kind},
-    )
-    blocked = result.model_copy(
-        update={"checks": [*result.checks, check], "warnings": [*result.warnings, detail]}
-    )
-    if audit is not None:
-        audit = audit.model_copy(
-            update={
-                "checks": [*audit.checks, check],
-                "closure_summary": {
-                    **audit.closure_summary,
-                    "status": blocked.get_closure_status(),
-                    "geometry_verified": blocked.geometry_verified,
-                },
-            }
-        )
-    return blocked, audit
 
 
 def _merge_skips(*groups: list[SkippedCourse]) -> list[SkippedCourse]:
@@ -300,6 +269,7 @@ def verify_closure(
     double_entry_calls: list[DeedCall] | None = ...,
     audit_context: AuditContext | None = ...,
     skipped_courses: list[SkippedCourse] | None = ...,
+    role_check: CheckResult | None = ...,
 ) -> ClosureResult: ...
 
 
@@ -313,6 +283,7 @@ def verify_closure(
     double_entry_calls: list[DeedCall] | None = ...,
     audit_context: AuditContext | None = ...,
     skipped_courses: list[SkippedCourse] | None = ...,
+    role_check: CheckResult | None = ...,
 ) -> list[ClosureResult]: ...
 
 
@@ -325,6 +296,7 @@ def verify_closure(
     double_entry_calls: list[DeedCall] | None = None,
     audit_context: AuditContext | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
+    role_check: CheckResult | None = None,
 ) -> ClosureResult | list[ClosureResult]:
     """Verify traverse closure and perform all validation checks.
 
@@ -341,6 +313,8 @@ def verify_closure(
         skipped_courses: Courses extraction could not parse. Any skip blocks
             traverse closure and leaves misclosure, area and perimeter undetermined;
             per tract, a tract's own skips and those labelled with it apply.
+        role_check: Blocked tract-role check from ``evaluate_tract_role`` for a
+            single tract; recorded as a check and warning before confidence is scored.
 
     Returns:
         ClosureResult when tracts is None (single-tract).
@@ -368,10 +342,9 @@ def verify_closure(
                 closure_tolerance_ft=closure_tolerance_ft,
                 audit_context=scratch,
                 skipped_courses=skips_for_tract(tract, tracts, labelled),
+                role_check=evaluate_tract_role(tract.label, tract.tract_type),
             )
             tract_audit = scratch.verification_audit if scratch is not None else None
-            if not is_boundary_tract(tract.tract_type):
-                result, tract_audit = _block_non_boundary(result, tract, tract_audit)
             if audit_context is not None and tract_audit is not None:
                 audit_context.tract_verification_audits.append(
                     tract_audit.model_copy(update={"tract_label": tract.label})
@@ -683,6 +656,9 @@ def verify_closure(
         curve_consistency_passed_val = False
     if skipped:
         check_results = _block_skipped_closure(check_results, skipped)
+    if role_check is not None:
+        check_results = [*check_results, role_check]
+        warnings.append(role_check.detail)
 
     closure_result = ClosureResult(
         misclosure_x_ft=misclosure_x,

@@ -23,6 +23,8 @@ from mp_models import (
     Tract,
     _Model,
     is_boundary_tract,
+    non_boundary_detail,
+    tract_kind,
 )
 from mp_verify.closure import skips_for_tract
 from pydantic import ValidationError, field_validator
@@ -210,12 +212,12 @@ def _exportable(tract: Tract, result: ClosureResult) -> bool:
 
 def _not_exported_reason(tract: Tract, result: ClosureResult) -> str:
     """Why a tract got no verified CSV, for the verification summary."""
-    reasons = [w for w in result.warnings if not w.startswith("non_boundary_tract:")]
+    reasons = list(result.warnings)
     if not is_boundary_tract(tract.tract_type):
-        kind = getattr(tract.tract_type, "value", tract.tract_type)
-        reasons.insert(
-            0, f"{kind} tract is not a parcel boundary and is never eligible for verified export"
-        )
+        # A supplied result may lack the verifier's own blocked role warning.
+        detail = non_boundary_detail(tract.label, tract.tract_type)
+        if detail not in reasons:
+            reasons.insert(0, detail)
     return "; ".join(reasons) or "verification checks did not pass"
 
 
@@ -556,17 +558,12 @@ def export_verified_csv(
 
     if tract_results:
         for i, (tract, tract_result) in enumerate(tract_results, start=1):
-            if not is_boundary_tract(tract.tract_type):
+            if not _exportable(tract, tract_result):
                 logger.warning(
-                    "Skipping non-boundary tract",
+                    "Skipping tract that is not an exportable verified boundary",
                     tract=tract.label,
-                    tract_type=getattr(tract.tract_type, "value", tract.tract_type),
-                )
-                continue
-            if not tract_result.is_fully_verified():
-                logger.warning(
-                    "Skipping unverified tract",
-                    tract=tract.label,
+                    tract_type=tract_kind(tract.tract_type),
+                    boundary=is_boundary_tract(tract.tract_type),
                     misclosure_ft=(
                         tract_result.misclosure_ft if tract_result.misclosure_available else None
                     ),
