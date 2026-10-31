@@ -756,6 +756,14 @@ class Tract(_Model):
     closure_result: ClosureResult | None = Field(
         default=None, description="Closure result (populated by mp-verify)"
     )
+    # Mirrors ``mp_models.Tract.role_basis`` (see ``mp_models.tract.RoleBasis``).
+    role_basis: Literal["heading", "single", "inferred"] | None = Field(
+        default=None,
+        description=(
+            "Where tract_type came from: an explicit tract heading, the deed's single "
+            "description, or wording heuristics (None: not recorded)"
+        ),
+    )
 
 
 class ConversionFactors:

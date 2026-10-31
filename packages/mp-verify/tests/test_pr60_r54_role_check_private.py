@@ -32,7 +32,7 @@ def test_verify_closure_rejects_role_check() -> None:
 def test_internal_helper_only_accepts_blocked_role_check() -> None:
     fake = CheckResult(name="non_boundary_tract", status="passed", detail="ok")
     with pytest.raises(ValueError):
-        _verify_single(_square(), role_check=fake)
+        _verify_single(_square(), role_checks=[fake])
 
 
 def test_article_grammar() -> None:

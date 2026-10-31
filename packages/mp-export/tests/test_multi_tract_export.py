@@ -57,9 +57,19 @@ class TestMultiTractExport:
         assert "_verified" in result[0].stem
 
     def test_multi_tract_returns_multiple_paths(self, tmp_path: Path):
-        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
         # Exception/easement tracts are never exported (see test_pr60_r52_*).
-        t2 = Tract(label="Addition 1", tract_type=TractType.ADDITION, calls=_square_calls(50.0))
+        t2 = Tract(
+            label="Addition 1",
+            tract_type=TractType.ADDITION,
+            role_basis="heading",
+            calls=_square_calls(50.0),
+        )
         result = export_verified_csv(
             _square_calls(),
             _good_closure(),
@@ -72,8 +82,18 @@ class TestMultiTractExport:
         assert "tract2" in result[1].stem
 
     def test_multi_tract_files_exist(self, tmp_path: Path):
-        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
-        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square_calls(50.0))
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
+        t2 = Tract(
+            label="Tract 2",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(50.0),
+        )
         paths = export_verified_csv(
             _square_calls(),
             _good_closure(),
@@ -96,8 +116,18 @@ class TestMultiTractExport:
 
     def test_failed_tract_skipped(self, tmp_path: Path):
         """Tracts that fail verification are NOT exported."""
-        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
-        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square_calls(50.0))
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
+        t2 = Tract(
+            label="Tract 2",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(50.0),
+        )
         bad_closure = ClosureResult(
             misclosure_x_ft=5.0,
             misclosure_y_ft=5.0,
@@ -139,7 +169,12 @@ class TestMultiTractGate:
     def test_no_verified_tract_raises_and_writes_nothing(self, tmp_path: Path):
         import pytest
 
-        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
         with pytest.raises(ValueError, match="Cannot export verified CSV"):
             export_verified_csv(
                 _square_calls(),
@@ -150,8 +185,18 @@ class TestMultiTractGate:
         assert list(tmp_path.iterdir()) == []
 
     def test_mixed_summary_lists_unverified_tracts_separately(self, tmp_path: Path):
-        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
-        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square_calls(50.0))
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
+        t2 = Tract(
+            label="Tract 2",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(50.0),
+        )
         export_verified_csv(
             _square_calls(),
             _good_closure(),
@@ -167,8 +212,18 @@ class TestMultiTractGate:
 
 class TestUnverifiedTractSummary:
     def test_unverified_tract_listed_in_not_verified_section(self, tmp_path: Path):
-        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
-        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square_calls(50.0))
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
+        t2 = Tract(
+            label="Tract 2",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(50.0),
+        )
         export_verified_csv(
             _square_calls(),
             _good_closure(),

@@ -21,9 +21,13 @@ def _summary(tmp_path: Path) -> str:
 
 
 def test_foreign_easement_result_is_a_mismatch_not_a_duplicate(tmp_path: Path) -> None:
-    main = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square())
-    e1 = Tract(label="Easement 1", tract_type=TractType.EASEMENT, calls=_square(10.0))
-    e2 = Tract(label="Easement 2", tract_type=TractType.EASEMENT, calls=_square(20.0))
+    main = Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=_square())
+    e1 = Tract(
+        label="Easement 1", tract_type=TractType.EASEMENT, role_basis="heading", calls=_square(10.0)
+    )
+    e2 = Tract(
+        label="Easement 2", tract_type=TractType.EASEMENT, role_basis="heading", calls=_square(20.0)
+    )
     results = verify_closure([], tracts=[main, e1, e2])
     export_verified_csv(
         [],
@@ -37,9 +41,13 @@ def test_foreign_easement_result_is_a_mismatch_not_a_duplicate(tmp_path: Path) -
 
 
 def test_main_tract_with_easement_result_is_blocked_as_mismatch(tmp_path: Path) -> None:
-    main = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square())
-    main2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square(50.0))
-    e1 = Tract(label="Easement 1", tract_type=TractType.EASEMENT, calls=_square(10.0))
+    main = Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=_square())
+    main2 = Tract(
+        label="Tract 2", tract_type=TractType.MAIN, role_basis="heading", calls=_square(50.0)
+    )
+    e1 = Tract(
+        label="Easement 1", tract_type=TractType.EASEMENT, role_basis="heading", calls=_square(10.0)
+    )
     results = verify_closure([], tracts=[main, main2, e1])
     written = export_verified_csv(
         [],
@@ -54,8 +62,10 @@ def test_main_tract_with_easement_result_is_blocked_as_mismatch(tmp_path: Path) 
 
 
 def test_own_result_reason_is_single_and_grammatical(tmp_path: Path) -> None:
-    main = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square())
-    e1 = Tract(label="Easement 1", tract_type=TractType.EASEMENT, calls=_square(10.0))
+    main = Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=_square())
+    e1 = Tract(
+        label="Easement 1", tract_type=TractType.EASEMENT, role_basis="heading", calls=_square(10.0)
+    )
     results = verify_closure([], tracts=[main, e1])
     export_verified_csv(
         [],

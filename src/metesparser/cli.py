@@ -40,6 +40,8 @@ def extract_command(
         output: Output CSV path (default: derived from input filename)
         llm_provider: Optional LLM provider override
     """
+    from mp_models import roles_need_review, roles_review_detail
+
     from .closure_checker import ClosureChecker
     from .csv_builder import CSVBuilder
     from .pdf_processor import PDFProcessor
@@ -72,7 +74,12 @@ def extract_command(
         summary = ClosureChecker.get_closure_summary(closure_result)
         _emit_closure_summary(summary, command_logger)
 
-        if closure_result.is_fully_verified():
+        # Guessed description roles (several descriptions, a role inferred from
+        # wording) are never exported as verified, whatever the flat geometry.
+        role_review = roles_need_review(legal_desc.tracts)
+        if role_review:
+            command_logger.warning(roles_review_detail(role_review))
+        if closure_result.is_fully_verified() and not role_review:
             command_logger.info("Exporting verified CSV")
             CSVBuilder.export_verified_csv(legal_desc.calls, closure_result, output, legal_desc)
         else:

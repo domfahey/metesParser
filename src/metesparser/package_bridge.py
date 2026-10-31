@@ -99,6 +99,11 @@ def package_tract(tract: Tract) -> mp_models.Tract:
     )
 
 
+def monolith_tract(tract: mp_models.Tract) -> Tract:
+    """Validate a package tract (role basis included) as a monolith tract."""
+    return Tract.model_validate(tract.model_dump(exclude_unset=True))
+
+
 def package_legal_description(legal_desc: LegalDescription) -> mp_models.LegalDescription:
     """Mirror a legal description; its calls are mirrored without revalidation."""
     return mp_models.LegalDescription.model_construct(

@@ -104,8 +104,14 @@ def test_tract_summary_does_not_print_sentinel(impl, tmp_path):
     m, verify, export = IMPLS[impl]
     good_calls, bad_calls = _square(m), _square(m, broken=True)
     tracts = [
-        (m.Tract(label="Good", tract_type="main", calls=good_calls), verify(good_calls)),
-        (m.Tract(label="Bad", tract_type="main", calls=bad_calls), verify(bad_calls)),
+        (
+            m.Tract(label="Good", tract_type="main", role_basis="heading", calls=good_calls),
+            verify(good_calls),
+        ),
+        (
+            m.Tract(label="Bad", tract_type="main", role_basis="heading", calls=bad_calls),
+            verify(bad_calls),
+        ),
     ]
     assert not tracts[1][1].misclosure_available
     export(good_calls, tracts[0][1], str(tmp_path / "d.csv"), tract_results=tracts)

@@ -404,8 +404,10 @@ def test_closure_checker_blocks_non_boundary_tract_with_scored_confidence():
             for i, (d, a) in enumerate((("N", 0.0), ("E", 90.0), ("S", 180.0), ("W", 270.0)))
         ]
 
-    main = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=square())
-    easement = Tract(label="Easement 1", tract_type=TractType.EASEMENT, calls=square())
+    main = Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=square())
+    easement = Tract(
+        label="Easement 1", tract_type=TractType.EASEMENT, role_basis="heading", calls=square()
+    )
     main_result, easement_result = ClosureChecker.verify_closure([], tracts=[main, easement])
     assert main_result.is_fully_verified()
     assert not easement_result.is_fully_verified()
