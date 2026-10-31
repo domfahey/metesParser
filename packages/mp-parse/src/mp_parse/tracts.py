@@ -218,21 +218,94 @@ _OF_RECORD = re.compile(r"\b(?:of\s+record|if\s+any)\b", re.IGNORECASE)
 _RECITAL_CLAUSE_END = re.compile(r"[;:]|\b(?:THENCE|BEGINNING|COMMENCING)\b", re.IGNORECASE)
 # How far a recital's clause is read for "of record".
 _RECITAL_WINDOW = 300
+# A specific easement named in a recital: a singular easement or right of way ("and to
+# an easement for drainage", "including a drainage easement", "a right of way 20 feet
+# wide").
+_SPECIFIC_EASEMENT = re.compile(
+    r"\b(?:an?|that\s+certain|said)\s+(?:[\w'%°-]+,?\s+){0,6}?"
+    r"(?:easement|right[\s-]+of[\s-]+way)\b(?!s)",
+    re.IGNORECASE,
+)
+# Wording that introduces a description ("described as follows", "the following
+# described land").
+_DESCRIPTION_INTRO = re.compile(
+    r"\b(?:described\s+as\s+follows|as\s+follows|following\s+described)\b", re.IGNORECASE
+)
+# A colon directly before a description ("of record: BEGINNING").
+_COLON_DESCRIPTION = re.compile(
+    r":\s*(?:(?:POINT(?:\s+AND\s+PLACE)?|PLACE)\s+OF\s+)?(?:BEGINNING|COMMENCING)\b",
+    re.IGNORECASE,
+)
 
 
-def _is_generic_encumbrance(text: str, match: re.Match[str]) -> bool:
+# A line that runs on into a description on the next line: it ends with continuing
+# punctuation, a forward-pointing phrase or a connective word ("described as follows:",
+# "10 feet wide,", "over the following", "described as").
+_LINE_CONTINUES = re.compile(
+    r"(?:[,:;\-\u2013\u2014]|\b(?:as|of|to|over|across|through|upon|along|and|in|on|by"
+    r"|the|an?|being|follows|following|described|viz))\s*$",
+    re.IGNORECASE,
+)
+# A description opening its own line (normalization keeps a line break before a
+# BEGINNING but flattens the paragraph break before it).
+_LINE_DESCRIPTION = re.compile(
+    r"\n[ \t]*(?:(?:POINT(?:\s+AND\s+PLACE)?|PLACE)\s+OF\s+)?(?:BEGINNING|COMMENCING)\b",
+    re.IGNORECASE,
+)
+
+
+# How far past a description's start ``_easement_lead`` reads for the line it opens.
+_OPENING_LOOKAHEAD = 20
+
+
+def _clause_end(text: str, start: int, end: int) -> int:
+    """Return where the sentence from ``start`` ends, at most ``end``.
+
+    A sentence ends at a sentence-ending period (``_sentence_end``), at document
+    structure (``STRUCTURE_BREAK``: a paragraph break, a markdown heading, ...), or at
+    a line break before a description opening its own line when the line before does
+    not run on into it (``_LINE_CONTINUES``): normalization reduces a paragraph break
+    before a BEGINNING to one line break ("SUBJECT to a right of way over the
+    driveway\nBEGINNING ...").
+    """
+    ends = [end]
+    sentence_end = _sentence_end(text, start, end)
+    if sentence_end is not None:
+        ends.append(sentence_end)
+    structure = STRUCTURE_BREAK.search(text, start, end)
+    if structure is not None:
+        ends.append(structure.start())
+    for line in _LINE_DESCRIPTION.finditer(text, start, end):
+        if not _LINE_CONTINUES.search(text, start, line.start()):
+            ends.append(line.start())
+            break
+    return min(ends)
+
+
+def _is_generic_encumbrance(text: str, match: re.Match[str], after_description: bool) -> bool:
     """Return whether an easement opener match is a generic encumbrance recital.
 
     The opener names plural easements (or rights of way) and its clause, up to its
     sentence end, a semicolon, colon, THENCE or description opening, says "of record"
     or "if any". A specific easement ("a right of way for ingress and egress",
-    "an easement of record for utilities") is never generic.
+    "an easement of record for utilities") is never generic, nor is a recital whose
+    sentence (up to its end, document structure or a semicolon) also names a specific
+    easement ("the easements of record and an easement for drainage") or introduces a
+    description ("described as follows", "following described"). A colon running
+    on into a description ("of record: BEGINNING") introduces it only after a closed
+    description (``after_description``): before any, that description is the parcel.
     """
     if not _PLURAL_EASEMENT_END.search(match.group("open") or match.group("also")):
         return False
-    stop = min(len(text), match.end() + _RECITAL_WINDOW)
-    sentence_end = _sentence_end(text, match.end(), stop)
-    end = stop if sentence_end is None else sentence_end
+    end = _clause_end(text, match.end(), min(len(text), match.end() + _RECITAL_WINDOW))
+    semicolon = text.find(";", match.end(), end)
+    sentence = text[match.end() : end if semicolon < 0 else semicolon]
+    if (
+        _SPECIFIC_EASEMENT.search(sentence)
+        or _DESCRIPTION_INTRO.search(sentence)
+        or (after_description and _COLON_DESCRIPTION.search(text, match.end(), end + 1))
+    ):
+        return False
     clause_end = _RECITAL_CLAUSE_END.search(text, match.end(), end)
     return (
         _OF_RECORD.search(text, match.end(), end if clause_end is None else clause_end.start())
@@ -305,11 +378,6 @@ def _index(text: str) -> _TextIndex:
     """Return the clause structure of ``text`` (cached: one computation per text)."""
     except_leads = tuple(_STATED_EXCEPT_LEAD.finditer(text))
     headings = tuple(position for position, _, _ in find_tract_markers(text))
-    openers = tuple(
-        m.start("open") if m["open"] else m.start("also")
-        for m in _EASEMENT_OPENER.finditer(text)
-        if not _is_generic_encumbrance(text, m)
-    )
     # A structural stated-exception lead, an ALSO/INCLUDING addition, a tract heading
     # or an easement opener starts a new clause.
     structural = sorted(
@@ -319,7 +387,6 @@ def _index(text: str) -> _TextIndex:
             *headings,
         }
     )
-    stops = sorted({*structural, *openers})
     beginnings = [m.span() for m in _beginning_starts(text)]
     commencings = [m.span() for m in _COMMENCING.finditer(text)]
     openings = sorted(
@@ -329,6 +396,14 @@ def _index(text: str) -> _TextIndex:
         }
     )
     closures = _course_closures(text, beginnings, commencings, structural)
+    openers = tuple(
+        m.start("open") if m["open"] else m.start("also")
+        for m in _EASEMENT_OPENER.finditer(text)
+        if not _is_generic_encumbrance(
+            text, m, after_description=bool(closures) and closures[0][1] <= m.start()
+        )
+    )
+    stops = sorted({*structural, *openers})
     index = _TextIndex(
         text=text,
         stops=tuple(stops),
@@ -460,11 +535,14 @@ def _easement_spans(index: _TextIndex) -> list[tuple[int, int]]:
         courses = list(_THENCE_COURSE.finditer(text, start, stop))
         if not courses:
             continue
-        # The opener's sentence ends before a description opens: that description is
-        # not the easement's ("SUBJECT to a right of way over the driveway. BEGINNING").
-        opener_end = _sentence_end(text, start, courses[0].start())
-        if opener_end is not None and _DESCRIPTION_OPENER.search(
-            text, opener_end, courses[0].start()
+        # The opener's sentence ends (a period or document structure) before a
+        # description opens: that description is not the easement's ("SUBJECT to a
+        # right of way over the driveway. BEGINNING"), unless it is introduced as the
+        # easement's (``_introduced_as_easement``).
+        opener_end = _clause_end(text, start, courses[0].start())
+        description = _DESCRIPTION_OPENER.search(text, opener_end, courses[0].start())
+        if description is not None and not _introduced_as_easement(
+            index, start, opener_end, description.start(), spans
         ):
             continue
         end = stop
@@ -476,6 +554,53 @@ def _easement_spans(index: _TextIndex) -> list[tuple[int, int]]:
             end = sentence_end + 1
         spans.append((start, start + len(text[start:end].rstrip())))
     return spans
+
+
+# A sentence introducing the easement's description after its grant sentence ("The
+# said easement is bounded and described as follows:", "Said right of way is
+# described as follows:", "which easement being more particularly described as").
+_EASEMENT_DESCRIPTION_SENTENCE = re.compile(
+    r"\s*(?:the\s+)?(?:said|such|this|which)\s+(?:easements?|rights?[\s-]+of[\s-]+way)\b"
+    r"[^.;]{0,120}?\bdescribed\b[^.;]{0,60}?[:,.]?\s*",
+    re.IGNORECASE,
+)
+# A grant sentence pointing forward to a description ("described as follows.",
+# "over the following described land.").
+_FORWARD_DESCRIPTION = re.compile(
+    r"\b(?:described\s+as\s+follows|as\s+follows|following\s+described|the\s+following)\b",
+    re.IGNORECASE,
+)
+
+
+def _introduced_as_easement(
+    index: _TextIndex,
+    start: int,
+    opener_end: int,
+    description: int,
+    spans: Sequence[tuple[int, int]],
+) -> bool:
+    """Return whether the description at ``description`` is introduced as the easement's.
+
+    The grant sentence from ``start`` ended at ``opener_end`` (a period or document
+    structure) before the description opens. The description is still the easement's
+    when the wording between introduces it as such ("The said easement is bounded and
+    described as follows:", "Said right of way is described as follows:"), or when the
+    grant sentence itself points forward to it ("an easement ... described as follows.",
+    "over the following described land.") with nothing but punctuation or document
+    structure between, after a closed boundary description. A grant sentence that
+    points nowhere ("TOGETHER WITH an easement for utilities. BEGINNING ...") never
+    takes the description after it.
+    """
+    text = index.text
+    between = text[opener_end:description]
+    if _EASEMENT_DESCRIPTION_SENTENCE.fullmatch(between.lstrip(" \t\n.")):
+        return True
+    if not _FORWARD_DESCRIPTION.search(text, start, opener_end):
+        return False
+    if STRUCTURE_BREAK.sub(" ", between).strip(_LEAD_IN_PUNCTUATION + "#"):
+        return False
+    closed_at = _last_closure_end(index, start, spans)
+    return closed_at is not None and closed_at != _NO_DESCRIPTION
 
 
 def easement_description_spans(text: str) -> list[tuple[int, int]]:
@@ -705,12 +830,17 @@ def _easement_lead(text: str, position: int, floor: int = 0) -> int | None:
     perpetual non-exclusive easement ... as follows: BEGINNING ...").
     """
     index = _index(text)
+    # A description the easement spans claim (one introduced as the easement's
+    # across its grant sentence's end) is the easement's.
+    for span_start, span_end in index.easements:
+        if floor <= span_start < position < span_end:
+            return span_start
     i = bisect_left(index.openers, position)
     if not i or index.openers[i - 1] < floor:
         return None
     opener = index.openers[i - 1]
     if (
-        _sentence_end(text, opener, position) is None
+        _clause_end(text, opener, min(len(text), position + _OPENING_LOOKAHEAD)) >= position
         and _OPENER_CLAUSE_BREAK.search(text, opener, position) is None
     ):
         return opener
