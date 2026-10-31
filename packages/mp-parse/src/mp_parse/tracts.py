@@ -25,19 +25,20 @@ _COMMON_WORDS = (
     r"|HEREIN\b|SAID\b|WHICH\b|THAT\b|CONTAINING\b|BOUNDED\b)"
 )
 
-# TRACT #1, TRACT #2B, TRACT III, TRACT A (numbers with an optional letter suffix,
+# TRACT #1, TRACT NO. 1, TRACT #2B, TRACT III, TRACT A (numbers with an optional letter suffix,
 # Roman numerals, single letters). [IVX]+ must precede [A-Z] so "TRACT III" matches
-# "III" not "I"; the suffix must end the label so "TRACT 12th" stays "12".
-_MARKER_LABEL = r"(\d+(?:[A-Z](?![A-Z]))?|[IVX]+|[A-Z])"
+# "III" not "I"; the suffix must end the label so "TRACT 12th" stays "12". Letter labels
+# must be whole words so "tract number 1" is not "Tract n".
+_MARKER_LABEL = r"(\d+(?:[A-Z](?![A-Z]))?|(?:[IVX]+|[A-Z])\b)"
 
 _TRACT_MARKER = re.compile(
-    r"\bTRACT\s+(?:#\s*)?" + _COMMON_WORDS + _MARKER_LABEL + r"\s*[:.\-\u2014]?\s*",
+    r"\bTRACT\s+(?:(?:#|NO\.?)\s*)?" + _COMMON_WORDS + _MARKER_LABEL + r"\s*[:.\-\u2014]?\s*",
     re.IGNORECASE,
 )
 
 # PARCEL 1, PARCEL A (same constraints as TRACT)
 _PARCEL_MARKER = re.compile(
-    r"\bPARCEL\s+(?:#\s*)?" + _COMMON_WORDS + _MARKER_LABEL + r"\s*[:.\-\u2014]?\s*",
+    r"\bPARCEL\s+(?:(?:#|NO\.?)\s*)?" + _COMMON_WORDS + _MARKER_LABEL + r"\s*[:.\-\u2014]?\s*",
     re.IGNORECASE,
 )
 
