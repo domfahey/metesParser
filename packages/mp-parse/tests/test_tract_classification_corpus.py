@@ -56,16 +56,38 @@ Round 52 adds:
   if any") names no easement: it never opens an easement description or clause, so
   the boundary after it is never set aside.
 * An easement span never crosses its opener's sentence end into a description.
+
+Round 53 adds:
+
+* A recital is generic only if its sentence names no specific easement ("and to an
+  easement for drainage", "including a drainage easement", "a right of way 20 feet
+  wide") and introduces no description ("described as follows", "following
+  described"; after a closed description also a colon running on into a BEGINNING).
+  Otherwise the opener stands and the description it introduces is an easement.
+* Document structure (a paragraph break, a heading) ends the opener's sentence like
+  a period. Normalization reduces a paragraph break before a BEGINNING to a line
+  break, so a line break before a BEGINNING ends it too unless the line runs on
+  (a comma, colon, "as follows", a connective word). A grant clause running on to a
+  BEGINNING with no such end, ';' or THENCE stays an easement.
+* A description introduced as the easement's belongs to it across its grant
+  sentence's end: after "The said easement is ... described as follows:" or "Said
+  right of way is described as follows:", or, after a closed boundary, directly
+  after a grant sentence pointing forward ("described as follows.", "over the
+  following described land."). A grant sentence pointing nowhere ("TOGETHER WITH an
+  easement for utilities. BEGINNING ...") never takes the description after it.
+* Each of these deeds exports a verified CSV for the boundary tract only.
 """
 
 from __future__ import annotations
 
+import csv
 import itertools
 import json
 from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from mp_export.csv_writer import export_verified_csv
 from mp_models import (
     PASSING_CALL_NOTE_PREFIX,
     SEPARATE_EASEMENT_NOTE_PREFIX,
@@ -594,7 +616,88 @@ CASES: dict[str, Case] = {
     "r52_together_with_easement_sentence_then_description": Case(
         f"TOGETHER WITH an easement for utilities. {SQUARE}"
     ),
+    # --- r53 #1: a recital naming a specific easement or a description is no generic one
+    "r53_easements_of_record_and_specific_easement_described": _easement_case(
+        "SUBJECT to the easements of record and to an easement for drainage described as follows:",
+        SMALL,
+        legs=4,
+    ),
+    "r53_easements_of_record_including_drainage_easement": _easement_case(
+        "SUBJECT to the easements of record, including a drainage easement described as follows:",
+        SMALL,
+        legs=4,
+    ),
+    "r53_rights_of_way_of_record_and_right_of_way_over_following": _easement_case(
+        "TOGETHER WITH the rights of way of record and a right of way 20 feet wide over the "
+        "following:",
+        SMALL,
+        legs=4,
+    ),
+    "r53_easements_if_any_over_following_described_land": _easement_case(
+        "TOGETHER WITH easements for ingress and egress, if any, over the following described "
+        "land:",
+        SMALL,
+        legs=4,
+    ),
+    # A colon running on into a description introduces it only after a closed
+    # description; before any, "of record:" names no easement and the parcel is kept.
+    "r53_generic_recital_colon_before_description": Case(
+        f"SUBJECT to easements of record: {SQUARE}"
+    ),
+    "r53_generic_recital_colon_after_boundary": _easement_case(
+        "SUBJECT to the easements of record:", SMALL, legs=4
+    ),
+    # --- r53 #2: document structure ends the opener's sentence ----------------------
+    "r53_specific_easement_paragraph_then_description": Case(
+        f"SUBJECT to a right of way for ingress and egress over the driveway\n\n{SQUARE}"
+    ),
+    "r53_specific_easement_heading_then_description": Case(
+        "SUBJECT to a right of way for ingress and egress over the driveway\n\n## Schedule A"
+        f"\n\n{SQUARE}"
+    ),
+    "r53_easement_of_record_paragraph_then_description": Case(
+        f"SUBJECT to an easement of record\n\n{SQUARE}"
+    ),
+    # A grant line running on into its description (a comma) stays the easement's.
+    "r53_easement_line_runs_on_to_description": Case(
+        f"{SQUARE} TOGETHER WITH an easement 10 feet wide,\n{SMALL}",
+        tracts=((MAIN_T, 4), (EAS, 4)),
+        easements=(f"TOGETHER WITH an easement 10 feet wide,\n{SMALL}",),
+        labels=("Tract 1", "Easement 1"),
+    ),
+    # --- r53 #3: a description introduced as the easement's belongs to the easement --
+    "r53_easement_described_as_follows_paragraph": Case(
+        f"{SQUARE} TOGETHER WITH an easement for ingress and egress described as follows\n\n"
+        f"{SMALL}",
+        tracts=((MAIN_T, 4), (EAS, 4)),
+        easements=(
+            f"TOGETHER WITH an easement for ingress and egress described as follows\n\n{SMALL}",
+        ),
+        labels=("Tract 1", "Easement 1"),
+    ),
+    "r53_easement_described_as_follows_period": _easement_case(
+        "TOGETHER WITH an easement for ingress and egress described as follows.", SMALL, legs=4
+    ),
+    "r53_said_easement_bounded_and_described": _easement_case(
+        "SUBJECT TO a drainage easement in favor of the Township. The said easement is bounded "
+        "and described as follows:",
+        SMALL,
+        legs=4,
+    ),
+    "r53_said_right_of_way_described": _easement_case(
+        "RESERVING unto the grantor a right of way 20 feet wide. Said right of way is described "
+        "as follows:",
+        SMALL,
+        legs=4,
+    ),
+    "r53_also_easement_over_following_described_land_period": _easement_case(
+        "ALSO an easement for ingress and egress over the following described land.",
+        SMALL,
+        legs=4,
+    ),
 }
+# r53: cases whose verified export must write only the boundary tract.
+R53_EXPORT_CASES = sorted(name for name in CASES if name.startswith("r53_"))
 
 # --- generated deeds (r48 invariant, r49 clauses) ------------------------------------
 
@@ -864,3 +967,28 @@ def test_closure_is_a_course_reaching_the_point_of_beginning() -> None:
     assert [marking[s:e] for s, e in _index(marking).closures] == ["point of beginning"]
     assert _index(marking).closures[0][1] == len(marking) - 1
     assert [e for _, e in _index(commencing).closures] == [len(commencing) - 1]
+
+
+# --- r53: verified export writes only the boundary tract ----------------------------------
+
+
+@pytest.mark.parametrize("name", R53_EXPORT_CASES)
+def test_verified_export_writes_only_the_boundary(name: str, tmp_path: Path) -> None:
+    case = CASES[name]
+    calls, tracts = extract_calls(case.text, strict=True)
+    output = str(tmp_path / "deed.csv")
+    if tracts:
+        results = verify_closure([], tracts=tracts)
+        written = export_verified_csv(
+            [], results[0], output, tract_results=list(zip(tracts, results, strict=True))
+        )
+        boundaries = [i for i, t in enumerate(tracts) if t.tract_type in (MAIN_T, ADD)]
+        assert boundaries == [0]
+        assert [p.name for p in written] == ["deed_verified_tract1.csv"]
+    else:
+        written = export_verified_csv(calls, verify_closure(calls), output)
+        assert len(written) == 1
+    # The one CSV written is the 100-foot square boundary.
+    with written[0].open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [float(row["distance_ft"]) for row in rows] == [100.0] * 4
