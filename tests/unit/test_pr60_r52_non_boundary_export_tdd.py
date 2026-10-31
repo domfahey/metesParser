@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from mp_models import LegalDescription, TractType
+from mp_models import DESCRIPTION_ROLES_NOTE, LegalDescription, TractType, split_notes
 from mp_parse.calls import extract_calls
 from mp_verify import verify_closure
 
@@ -55,7 +55,25 @@ def test_parsed_easement_only_is_refused(tmp_path: Path) -> None:
     assert [t.role_basis for t in tracts] == ["inferred"]
     with pytest.raises(ValueError, match="description roles need review"):
         _export(flat, tracts, tmp_path / "deed.csv")
-    trusted = [t.model_copy(update={"role_basis": "single"}) for t in tracts]
+    # Trusted: its basis and (round 58) its calls without the role-review mark.
+    trusted = [
+        t.model_copy(
+            update={
+                "role_basis": "single",
+                "calls": [
+                    c.model_copy(
+                        update={
+                            "notes": "; ".join(
+                                n for n in split_notes(c.notes) if n != DESCRIPTION_ROLES_NOTE
+                            )
+                        }
+                    )
+                    for c in t.calls
+                ],
+            }
+        )
+        for t in tracts
+    ]
     with pytest.raises(ValueError, match="no parcel boundary tract"):
         _export(flat, trusted, tmp_path / "deed.csv")
     assert list(tmp_path.iterdir()) == []
