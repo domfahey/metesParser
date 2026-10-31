@@ -193,3 +193,35 @@ class TestAuditFallbackExtraction:
         assert len(calls) > 0
         # BEGINNING_PATTERN should NOT match the garbled text
         assert not mod.BEGINNING_PATTERN.search(md_text)
+
+
+class TestAuditTotalDistance:
+    """A course that passes a monument records the full course length as its distance."""
+
+    def test_total_distance_beats_intermediate_distance(self) -> None:
+        mod = _load_audit_module()
+        md_text = (
+            "BEGINNING at a stone; thence "
+            "North 53 degrees 41 minutes 15 seconds East, passing over stone 292.51 feet "
+            "from Haddon Avenue and continuing said course a total distance of 307.52 feet "
+            "to a stake; thence "
+            "South 53 degrees 41 minutes 15 seconds West, passing over stone 15.83 feet "
+            "from beginning of this course total distance of 336.25 feet "
+            "to place of beginning."
+        )
+        calls = mod.extract_calls_from_md(md_text)
+        assert [call["distance_ft"] for call in calls] == [307.52, 336.25]
+
+
+class TestAuditMain:
+    def test_main_reports_skipped_deeds(self, tmp_path, monkeypatch, capsys) -> None:
+        """A PDF without its md/ground-truth pair is reported as SKIP, not a crash."""
+        mod = _load_audit_module()
+        (tmp_path / "1 Main St - Deed Image (1 - 1).pdf").write_bytes(b"")
+        monkeypatch.setattr(mod, "SAMPLE_DIR", tmp_path)
+
+        mod.main()
+
+        out = capsys.readouterr().out
+        assert "GT AUDIT: 0 PASS / 0 FAIL / 1 SKIP out of 1" in out
+        assert "1 Main St: 0/1 pass (0%) | 0 fail | 1 skip" in out
