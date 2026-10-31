@@ -97,6 +97,7 @@ def build(output: Path, *, offline: bool = False, geo: bool = True, web_map: boo
             plugin,
             ignore=shutil.ignore_patterns("__pycache__", ".DS_Store", "runtime", "tests", "evals"),
         )
+        shutil.copyfile(ROOT / "LICENSE", plugin / "LICENSE")
         runtime = plugin / "runtime"
         wheel_dir = runtime / "wheels"
         wheel_dir.mkdir(parents=True)
