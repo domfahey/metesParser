@@ -3,6 +3,8 @@ name = "metesparser"
 version = "0.6.0"
 description = "Parse metes and bounds legal descriptions from deed PDFs into structured CSV format"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [
     { name = "Dominic Fahey", email = "dominic@example.com" }
