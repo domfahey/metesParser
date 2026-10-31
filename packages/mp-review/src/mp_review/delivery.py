@@ -29,7 +29,7 @@ from mp_verify.plot import prepare_plot, transform_point, unit_factor, validate_
 from mp_verify.scene import validate_scene
 
 from .dashboard import _load
-from .json_input import parse_json
+from .json_input import InvalidInputJson, parse_json
 from .revisions import _write_once, load_revision
 
 if TYPE_CHECKING:
@@ -1015,11 +1015,13 @@ _STAGING_PREFIX = ".publishing-"
 # Everything a pre-staging publisher could leave in a crashed, manifest-less directory.
 _LEGACY_NAMES = re.compile(
     r"(?:(?:pending|snapshot|request|metrics|calls|revision-calls|full-source)\.json"
-    r"|drawing\.(?:svg|pdf|dxf|geojson)|\.DS_Store|Thumbs\.db|desktop\.ini|\._.*"
-    # tempfile.NamedTemporaryFile default name ("tmp" + 8 of [a-z0-9_]) used by the legacy
-    # atomic writer, left behind when a publisher was killed mid-write.
-    r"|tmp[a-z0-9_]{8})"
+    r"|drawing\.(?:svg|pdf|dxf|geojson)|\.DS_Store|Thumbs\.db|desktop\.ini|\._.*)"
 )
+# tempfile.NamedTemporaryFile default names ("tmp" + 8 of [a-z0-9_]) were used by the legacy
+# atomic writer and may be left behind by a killed publisher. The name cannot prove
+# provenance ("tmp20261030", "tmpnotes_01" are plausible user files), so such files are never
+# deleted: the publish is refused and the files are listed for manual cleanup.
+_TEMP_LOOKALIKE = re.compile(r"tmp[a-z0-9_]{8}")
 
 
 def _id_tag(delivery_id: str) -> str:
@@ -1060,6 +1062,15 @@ def _clear_legacy_incomplete(directory: Path, delivery_id: str) -> None:
     if os.path.lexists(directory / "delivery-manifest.json"):
         raise ValueError(_already_published(delivery_id))
     entries = list(directory.iterdir())
+    lookalikes = sorted(
+        e.name for e in entries if _TEMP_LOOKALIKE.fullmatch(e.name) and not e.is_symlink()
+    )
+    if lookalikes:
+        raise ValueError(
+            f"Delivery directory {delivery_id!r} holds temporary-looking files "
+            f"({', '.join(lookalikes)}) that cannot be proven to be publisher residue; "
+            "refusing to modify it. Inspect and remove them manually, then retry"
+        )
     for entry in entries:
         if _LEGACY_NAMES.fullmatch(entry.name) is None or entry.is_symlink() or not entry.is_file():
             raise refusal
@@ -1142,6 +1153,16 @@ class DeliveryReplayIncomplete(ValueError):
     """Replay succeeded but GeoJSON coordinates could not be re-verified on this host."""
 
 
+def _load_package_artifact(path: Path) -> Any:
+    """Load a package JSON artifact; too-deep nesting is a malformed package naming it."""
+    try:
+        return _load(path)
+    except InvalidInputJson as exc:
+        raise ValueError(
+            f"Delivery artifact {path.name} is nested too deeply to load (malformed package)"
+        ) from exc
+
+
 def load_delivery(
     bundle: DashboardBundle,
     revision_dir: Path | str,
@@ -1163,7 +1184,22 @@ def load_delivery(
 def replay_delivery(
     bundle: DashboardBundle, revision_dir: Path | str, directory: Path | str
 ) -> DeliveryReplay:
-    """Replay a published package read-only and report how fully it was re-verified."""
+    """Replay a published package read-only and report how fully it was re-verified.
+
+    A package artifact too deeply nested to load is a malformed package (ValueError), not
+    an invocation input error.
+    """
+    try:
+        return _replay_delivery(bundle, revision_dir, directory)
+    except InvalidInputJson as exc:
+        raise ValueError(
+            "Delivery package artifact is nested too deeply to load (malformed package)"
+        ) from exc
+
+
+def _replay_delivery(
+    bundle: DashboardBundle, revision_dir: Path | str, directory: Path | str
+) -> DeliveryReplay:
     path = Path(directory)
     if path.is_symlink():
         raise ValueError("Unsafe delivery directory")
@@ -1172,7 +1208,7 @@ def replay_delivery(
         raise ValueError("Delivery publication incomplete")
     if manifest_path.is_symlink():
         raise ValueError("Unsafe delivery manifest")
-    manifest = _load(manifest_path)
+    manifest = _load_package_artifact(manifest_path)
     manifest = DeliveryManifest.model_validate(manifest).model_dump(mode="json")
     for name, digest in manifest["artifacts"].items():
         if (
@@ -1196,8 +1232,8 @@ def replay_delivery(
         "revision-calls.json",
     } <= set(manifest["artifacts"]):
         raise ValueError("Delivery manifest artifact inventory incomplete")
-    request = DeliveryRequest.model_validate(_load(path / "request.json"))
-    recorded = _load(path / "snapshot.json")
+    request = DeliveryRequest.model_validate(_load_package_artifact(path / "request.json"))
+    recorded = _load_package_artifact(path / "snapshot.json")
     if not isinstance(recorded, dict) or not isinstance(recorded.get("omissions"), list):
         raise ValueError("Delivery snapshot artifact is malformed")
     # Replay with the exporter that published the package (recorded in the manifest),
@@ -1332,8 +1368,8 @@ def _check_recorded_geojson(content: bytes, snapshot: DeliverySnapshot) -> dict[
     """
     try:
         data = parse_json(content)
-    except ValueError as exc:
-        raise ValueError("Recorded GeoJSON artifact is malformed") from exc
+    except (ValueError, InvalidInputJson) as exc:
+        raise ValueError("Recorded GeoJSON artifact drawing.geojson is malformed") from exc
     meta = data.get("metesparser") if isinstance(data, dict) else None
     projection = meta.get("projection") if isinstance(meta, dict) else None
     features = data.get("features") if isinstance(data, dict) else None
