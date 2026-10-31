@@ -51,9 +51,10 @@ def non_boundary_detail(label: str, tract_type: TractType | str) -> str:
 
 # Where a tract's role (its TractType) came from:
 # * "heading": an explicit TRACT/PARCEL heading the parser recognises as a tract
-#   marker, typed MAIN or ADDITION (a heading tract that wording before it types
-#   EXCEPTION or EASEMENT is "inferred");
-# * "single": the deed's one description (the parcel, or an easement deed's easement);
+#   marker, typed MAIN or ADDITION, with no role wording (easement, except, less,
+#   reserving, subject to, ...) in it or before its opening (otherwise "inferred");
+# * "single": the deed's one description, the parcel (MAIN); a sole EXCEPTION,
+#   EASEMENT or ADDITION (an easement deed's easement) keeps "inferred";
 # * "inferred": typed from wording heuristics (EXCEPT/ALSO leads, easement grants,
 #   preamble rules, closed-boundary order, a default MAIN without a heading).
 # None means the basis was not recorded (a stored artifact or caller-built tract
