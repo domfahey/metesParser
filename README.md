@@ -42,7 +42,7 @@ The plugin has ten capabilities, two workflows and the `review-deed` compatibili
 
 Skills can contain instructions, references and executable code. Our plugin packages those skills with one shared deterministic engine. Cowork adds convenient project-file access and task coordination; the calculations do not depend on Cowork. Claude Code is another host for the same plugin.
 
-Claude chat supports skill scripts in its code-execution environment. The standalone chat Skill ZIP reuses the same engine and returns downloadable results, without requiring Cowork. Native chat testing is pending. Individual plugin skill folders are not standalone installations. See the [chat functionality gaps](docs/CLAUDE_PLUGIN.md#functional-gaps-for-claude-chat) and [two-distribution design](docs/CLAUDE_PLUGIN.md#two-distributions-one-engine).
+Claude chat supports skill scripts in its code-execution environment. The standalone chat Skill ZIP reuses the same engine and returns downloadable results, without requiring Cowork. Native chat testing is pending. Individual plugin skill folders are not standalone installations. See the [chat functionality gaps](docs/CLAUDE_PLUGIN.md#functional-gaps-for-claude-chat) and [two-distribution design](docs/CLAUDE_PLUGIN.md#two-distributions-one-engine). For a side-by-side view of the Cowork plugin, chat Skill and CLI, see [plugin, chat Skill and CLI compared](docs/CLAUDE_PLUGIN.md#plugin-chat-skill-and-cli-compared).
 
 ## Install the standalone Claude chat Skill
 

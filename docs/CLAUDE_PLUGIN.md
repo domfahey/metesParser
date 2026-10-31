@@ -62,6 +62,31 @@ These are distribution and host adaptations, not separate numerical implementati
 
 Acceptance for each distribution must include a clean install in the actual host, skill discovery, dependency provisioning, a sample deed, a deterministic plot/report, revision save/reopen and retrievable deliverables. Test interactive HTML and online maps separately. Local extracted-runtime tests have passed; native-host acceptance is still pending in the [evidence ledger](implementation/2026-10-28-cowork-workflow-ledger.md).
 
+### Plugin, chat Skill and CLI compared
+
+The same deterministic engine sits behind all three ways of running MetesParser. They differ in how they are installed, how they read documents, and what files they can reach. "Pending" means native acceptance in that host has not been run.
+
+| Feature | Cowork plugin | Claude chat Skill | CLI |
+| --- | --- | --- | --- |
+| What you install | Plugin ZIP (`metesparser-plugin.zip`) through Customize → Plugins | Skill ZIP (`metesparser-chat-skill.zip`) through Customize → Skills | A source checkout, then `uv sync --all-extras --dev` |
+| Entry points | 13 discoverable skills: 10 capabilities, 2 workflows and the manual `review-deed` alias | 1 skill, `metesparser-review`, routing to 13 procedures | `metes-review` subcommands and `metesparser` (`extract`, `verify`, `compare-runs`) |
+| Reading PDFs and images | Claude's native document reading | Claude's native document reading | `metesparser extract` calls an OpenAI or Gemini API (`mp-ocr`) and needs a key; `metes-review` accepts text, JSON or CSV only |
+| Parsing, closure, plots, corridors, PLSS, comparison | Shared engine through the bundled launcher | Shared engine through the bundled `run-chat.py` | Shared engine, run directly |
+| Python runtime | Locked runtime bundled in the ZIP, provisioned by `uv` in Cowork's execution environment | Bundled runtime; uses a host `uv` if present, otherwise a pinned, hash-checked `uv` download (first run needs `files.pythonhosted.org` and `pypi.org`) | Local Python 3.11+ and `uv` |
+| Offline | With a warm cache; a cold offline run returns a structured error | Offline setup never downloads; needs a cached runtime | Yes after `uv sync`, except `extract` |
+| File access | Granted local project folders through the desktop app; results written beside sources | Uploaded files only; results returned as downloadable ZIPs | Full local filesystem |
+| Resume later | Project files persist; reopening still needs native testing | Re-upload the result ZIP and run `inspect-artifacts`; no chat cache is assumed | Files persist; `inspect-artifacts` gives restart guidance |
+| Many deeds | Task coordination and local folders | One upload at a time with a per-tract summary | `metes-review corpus`, `make review-corpus` and scripts |
+| Verified CSV export | Same gate everywhere, including the [description-role policy](ARCHITECTURE.md#description-roles-and-verified-export) | Same gate | Same gate |
+| Dashboard and raster picker | Offline HTML opened in a browser; host interaction untested | Generated HTML downloaded and opened in an external browser | Offline HTML in a local browser |
+| Mapbox map and MCP preview | Local viewer and in-chat MCP preview; cloud-to-browser reachability untested | A generated localhost URL may be unreachable; a connector is not guaranteed | `render-map` and `serve-map` on localhost |
+| Settings | `.claude/metesparser.local.md` in the project | None; always pass a new `--output-dir` | `--settings` or the project settings file |
+| Credentials | Mapbox token entered at runtime only; never laptop `.env` | Same; never a repository `.env` | `.env` with an OpenAI or Gemini key, for `extract` only |
+| Reproducible build | Not yet: built from the working tree | Yes: fixed timestamps and permissions, SHA-256 sidecar | Not applicable |
+| Validation status | `claude plugin validate --strict` passes; native Cowork acceptance pending | Local packaging and launcher checks pass; native chat acceptance pending | Repository test suites |
+
+Use the Cowork plugin for multi-file local projects and repeated work, the chat Skill for the same engine in Claude chat through uploads and downloads, and the CLI for automation, batch runs and development. Only the CLI's `extract` reads PDFs through a provider API instead of Claude's native reading.
+
 ## Skills and engine commands
 
 The plugin has ten capability skills, two composing workflows, and one compatibility alias. The [skill catalog](../plugins/metesparser/README.md#skills) is the inventory; the [artifact handoff contract](../plugins/metesparser/references/artifact-handoffs.md) defines accepted inputs, outputs, stopping points, status boundaries, and invalidation. Skills guide the agent's task selection and evidence handling. Python packages own schemas, parsing, geometry, and rendering; a skill is not a separate numerical implementation or a one-to-one wrapper for a CLI command.
