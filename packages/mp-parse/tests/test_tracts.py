@@ -289,6 +289,26 @@ class TestTractMarkerSuffix:
         text = "TRACT 12th: BEGINNING at a point THENCE N 45°00' E 100 feet to a point."
         assert split_into_tracts(text)[0][1] == "Tract 12"
 
+    def test_tract_no_marker(self):
+        text = (
+            "TRACT NO. 1\n\nBEGINNING at a point THENCE N 45°00' E 100 feet to a point.\n\n"
+            "Tract No. 2\n\nBEGINNING at a point THENCE S 45°00' E 50 feet to a point."
+        )
+        result = split_into_tracts(text)
+        assert [label for _, label, _ in result] == ["Tract 1", "Tract 2"]
+
+    def test_tract_number_reference_is_not_a_marker(self):
+        """219 Berlin Rd: "tract number 1" mid-description used to become "Tract n"
+        and drop every course before it."""
+        text = (
+            "BEGINNING at a point; thence N 45°00' E 100 feet to a point; thence "
+            "S 45°00' E 50 feet along a line common with tract number 2 herein described; "
+            "thence N 10°00' W 35 feet thru tract numbered 1 to the point of beginning."
+        )
+        calls, tracts = extract_calls(text)
+        assert [call.distance_ft for call in calls] == [100, 50, 35]
+        assert [tract.label for tract in tracts] == []
+
 
 class TestExceptionsWithinMarkedTracts:
     def test_except_clause_after_last_tract_becomes_exception_tracts(self):
