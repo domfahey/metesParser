@@ -4,5 +4,9 @@
   "description": "Locate metes-and-bounds descriptions in any document using Claude native reading, then verify the selected boundary deterministically.",
   "author": {
     "name": "MetesParser"
-  }
+  },
+  "homepage": "https://github.com/domfahey/metesParser",
+  "repository": "https://github.com/domfahey/metesParser",
+  "license": "MIT",
+  "keywords": ["deed", "metes-and-bounds", "survey", "legal-description", "closure"]
 }
