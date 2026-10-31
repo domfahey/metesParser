@@ -67,6 +67,16 @@ LEGACY_CURVE_NOTE = "curve type not recorded (legacy CSV); treated as circular"
 # whose description roles need review carries it, so the calls stay blocked from
 # verified export when re-imported from CSV or JSON without their tracts.
 DESCRIPTION_ROLES_NOTE = "description roles need review - not eligible for verified export"
+# The non-boundary marks (``mp_models.mark_non_boundary``): every call of an easement or
+# exception tract carries its kind's note, so verification blocks the calls as a parcel
+# boundary with or without their tract, also when re-imported from CSV or JSON.
+EASEMENT_TRACT_NOTE = (
+    "not part of the parcel boundary (easement tract) - not eligible for verified export"
+)
+EXCEPTION_TRACT_NOTE = (
+    "not part of the parcel boundary (exception tract) - not eligible for verified export"
+)
+NON_BOUNDARY_NOTES: tuple[str, ...] = (EASEMENT_TRACT_NOTE, EXCEPTION_TRACT_NOTE)
 FIXED_NOTES: tuple[str, ...] = (
     "incomplete bearing",
     "incomplete bearing - cardinal only",
@@ -84,6 +94,7 @@ FIXED_NOTES: tuple[str, ...] = (
     "chord length exceeds twice the radius",
     LEGACY_CURVE_NOTE,
     DESCRIPTION_ROLES_NOTE,
+    *NON_BOUNDARY_NOTES,
 )
 # Fixed notes that carry a measured or quoted value after the prefix.
 FIXED_NOTE_PREFIXES: tuple[str, ...] = (

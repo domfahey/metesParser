@@ -24,6 +24,7 @@ from typing import overload
 import structlog
 from mp_models import (
     DESCRIPTION_ROLES_CHECK,
+    NON_BOUNDARY_CHECK,
     AuditContext,
     CheckResult,
     ClosureResult,
@@ -47,6 +48,7 @@ from .checks import (
     chord_only_delta_detail,
     compare_double_entry,
     evaluate_description_roles,
+    evaluate_non_boundary_marks,
     evaluate_tract_role,
     tangent_chord_issue,
 )
@@ -210,6 +212,8 @@ def verify_tract(
     When ``tract`` is supplied, its role checks are derived from the tract itself
     (``tract_type`` and ``role_basis``) so they can never be omitted or mismatched by
     the caller: a tract whose role was inferred from wording is blocked even alone.
+    Without it, the calls' own marks block them: the role-review mark every call of a
+    blocked deed carries, and the note every easement/exception tract's call carries.
     """
     return _verify_tract(
         calls,
@@ -343,9 +347,11 @@ def verify_closure(
             any tract's role needs review (``mp_models.roles_need_review``: several
             descriptions and a role inferred from wording rather than an explicit
             tract heading), every tract gets a blocked ``description_roles_inferred``
-            check; geometry is still computed for review. Without tracts, calls
-            bearing the role-review mark (``mp_models.mark_roles_review``) get the
-            same blocked check.
+            check; geometry is still computed for review. With or without tracts,
+            calls bearing the role-review mark (``mp_models.mark_roles_review``) get
+            the same blocked check, and calls bearing an easement/exception tract's
+            note (``mp_models.mark_non_boundary``) a blocked ``non_boundary_tract``
+            check, each once.
         stated_area_sq_ft: Stated area from deed (optional, for comparison).
         closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft).
         double_entry_calls: Optional independently-entered call set for guardrail F.
@@ -407,7 +413,7 @@ def verify_closure(
 
 
 # The role checks ``verify_tract`` derives from a tract; each only ever blocks.
-_ROLE_CHECK_NAMES = frozenset({"non_boundary_tract", DESCRIPTION_ROLES_CHECK})
+_ROLE_CHECK_NAMES = frozenset({NON_BOUNDARY_CHECK, DESCRIPTION_ROLES_CHECK})
 
 
 def _verify_single(
@@ -425,12 +431,16 @@ def _verify_single(
         raise ValueError(
             "role_checks must be blocked non_boundary_tract or description_roles_inferred checks"
         )
-    # Calls bearing the role-review mark (a blocked deed's flat calls, re-imported
-    # without their tracts) are never verified, whichever entry point verifies them.
-    if not any(c.name == DESCRIPTION_ROLES_CHECK for c in role_checks):
-        marked = evaluate_description_roles((), calls)
-        if marked is not None:
-            role_checks = [*role_checks, marked]
+    # Calls bearing the role-review mark (any call of a blocked deed) or an easement/
+    # exception tract's note are never verified, whichever entry point verifies them
+    # and however they were selected or re-imported. A check the tract already gave
+    # (``verify_tract``) is not repeated.
+    present = {c.name for c in role_checks}
+    derived = (
+        evaluate_non_boundary_marks(calls) if NON_BOUNDARY_CHECK not in present else None,
+        evaluate_description_roles((), calls) if DESCRIPTION_ROLES_CHECK not in present else None,
+    )
+    role_checks = [*role_checks, *(check for check in derived if check is not None)]
     tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
     # Courses the extractor skipped are missing from ``calls``: a traverse of the
     # rest is not the deed's boundary, so nothing derived from it is determined.
