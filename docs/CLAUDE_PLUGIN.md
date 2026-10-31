@@ -54,6 +54,8 @@ The file-access and orchestration differences follow [Cowork's documented capabi
 
 ### Two distributions, one engine
 
+The [one engine, three ways to run it](ARCHITECTURE.md#one-engine-three-ways-to-run-it) diagram shows how the plugin, chat Skill and CLI reach the same runtime.
+
 For users without Cowork, the chat distribution is one self-contained Skill ZIP with a root dispatcher, the relevant workflow references and the same deterministic engine. It operates on uploaded documents or prepared inputs and instructs Claude to return downloadable reports, plots, revisions and delivery bundles. The build adapter reuses authoritative capability instructions and one runtime. A custom Skill ZIP has a different layout from a plugin ZIP, so renaming the plugin archive is insufficient.
 
 The existing plugin ZIP retains thirteen discoverable entrypoints and shared resources. Anthropic supports plugins in chat, Cowork and Claude Code; MetesParser's launcher/runtime flow has been exercised locally, while native-host tests remain pending. The separate Skill ZIP offers a chat-focused installation option without requiring Cowork. Cowork executes in the cloud, so validate tools, writable storage and dependency access there. Neither distribution should silently use laptop credentials, rely on an inherited `.env`, or claim that a laptop installation provisions Cowork.
