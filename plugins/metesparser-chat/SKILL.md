@@ -1,6 +1,6 @@
 ---
 name: metesparser-review
-description: Routes uploaded deeds and prepared inputs through deterministic, source-linked metes-and-bounds review procedures.
+description: Reviews uploaded deeds and metes-and-bounds descriptions with source-linked extraction, closure checks, plots and exports. Use when the user asks to check, plot, verify or export a legal description.
 ---
 
 # MetesParser review
@@ -9,9 +9,9 @@ Use the shared deterministic MetesParser engine for parsing, geometry, verificat
 
 ## Runtime
 
-This archive includes `scripts/run-chat.py` and the pinned MetesParser runtime files. The host must provide Python 3.11+, permission to run Python, writable temporary/output storage, and either network access to pinned dependencies or a warm compatible cache. Setup uses an available host/cached `uv` or downloads a pinned verified copy; users do not need to preinstall `uv`. Do not assume laptop tools, repository `.env`, credentials, a persistent shell, or a cache shared with another session.
+This archive includes `scripts/run-chat.py` and the pinned MetesParser runtime files. The host must provide Python 3.11+, permission to run Python, writable temporary/output storage, and either network access to pinned dependencies or a warm compatible cache. Setup uses a `uv` already on `PATH` (used as found, not verified against the pin), otherwise a cached pinned `uv` 0.9.6 whose hash is verified, otherwise downloads that pinned copy and verifies it; users do not need to preinstall `uv`. Do not assume laptop tools, repository `.env`, credentials, a persistent shell, or a cache shared with another session.
 
-Before each run, obtain the actual absolute path of this loaded `SKILL.md` from the host's skill/resource metadata. Set `METESPARSER_SKILL_ROOT` to the directory containing that file; do not use an inherited or guessed root variable. In the same execution request, invoke the launcher through its full path, for example:
+Before each run, set `METESPARSER_SKILL_ROOT` to the absolute path of the directory from which you read this `SKILL.md`; do not use an inherited or guessed root variable. In the same execution request, invoke the launcher through its full path, for example:
 
 ```sh
 METESPARSER_SKILL_ROOT="/actual/extracted/path"
@@ -19,7 +19,9 @@ python3 "$METESPARSER_SKILL_ROOT/scripts/run-chat.py" --setup
 python3 "$METESPARSER_SKILL_ROOT/scripts/run-chat.py" COMMAND INPUT --output-dir NEW_OUTPUT_DIRECTORY
 ```
 
-On first use in a host session, run setup and confirm it succeeds before requesting an engine operation. If offline, use `--setup --offline`; this works only when `uv` and pinned dependencies are already cached or available on the host. If the host cannot expose the loaded file's actual path or cannot run Python, report that runtime limitation instead of substituting another engine. See [chat runtime](references/chat-runtime.md) for setup behavior.
+Run commands from a host-writable working directory and use absolute input and output paths. Chat has no project settings: always pass `--output-dir` with a new directory in host-writable storage.
+
+On first use in a host session, run setup and confirm it succeeds before requesting an engine operation. If offline, use `--setup --offline`; this works only when `uv` and pinned dependencies are already cached or available on the host. If you cannot determine the directory from which you read this file or the host cannot run Python, report that runtime limitation instead of substituting another engine. See [chat runtime](references/chat-runtime.md) for setup behavior and the network hosts to allow.
 
 ## Route to one procedure
 
