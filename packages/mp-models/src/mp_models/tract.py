@@ -9,7 +9,13 @@ from pydantic import BaseModel, Field, FiniteFloat
 from .audit import SkippedCourse
 from .base import _Model
 from .closure import ClosureResult
-from .deed_call import DESCRIPTION_ROLES_NOTE, DeedCall, split_notes
+from .deed_call import (
+    DESCRIPTION_ROLES_NOTE,
+    EASEMENT_TRACT_NOTE,
+    EXCEPTION_TRACT_NOTE,
+    DeedCall,
+    split_notes,
+)
 
 
 class TractType(str, Enum):
@@ -40,13 +46,23 @@ def _article(word: str) -> str:
     return "an" if word[:1].lower() in "aeiou" else "a"
 
 
+NON_BOUNDARY_CHECK = "non_boundary_tract"
+
+
 def non_boundary_detail(label: str, tract_type: TractType | str) -> str:
     """The one wording for why an easement/exception tract is never verified or exported."""
     return (
-        f"non_boundary_tract: {label} is {_article(tract_kind(tract_type))} {tract_kind(tract_type)} tract, not a parcel "
+        f"{NON_BOUNDARY_CHECK}: {label} is {_article(tract_kind(tract_type))} {tract_kind(tract_type)} tract, not a parcel "
         "boundary, and is never eligible for verified export; its closure, area and "
         "perimeter are for review only"
     )
+
+
+# The note each non-boundary tract kind's calls carry (``mark_non_boundary``).
+_NON_BOUNDARY_NOTE_BY_KIND = {
+    TractType.EASEMENT.value: EASEMENT_TRACT_NOTE,
+    TractType.EXCEPTION.value: EXCEPTION_TRACT_NOTE,
+}
 
 
 # Where a tract's role (its TractType) came from:
@@ -84,29 +100,65 @@ _INFERRED_WHY = {
 _Call = TypeVar("_Call", bound=BaseModel)
 
 
+def _has_note(call: BaseModel, note: str) -> bool:
+    return note in split_notes(getattr(call, "notes", None))
+
+
 def _has_roles_mark(call: BaseModel) -> bool:
-    return DESCRIPTION_ROLES_NOTE in split_notes(getattr(call, "notes", None))
+    return _has_note(call, DESCRIPTION_ROLES_NOTE)
+
+
+def _with_note(calls: Sequence[_Call], note: str) -> list[_Call]:
+    """Each call with ``note`` appended to its notes (idempotent; any DeedCall model)."""
+    return [
+        call
+        if _has_note(call, note)
+        else call.model_copy(
+            update={"notes": "; ".join(filter(None, (getattr(call, "notes", None), note)))}
+        )
+        for call in calls
+    ]
 
 
 def mark_roles_review(calls: Sequence[_Call]) -> list[_Call]:
     """Mark each call with ``DESCRIPTION_ROLES_NOTE`` (idempotent; any DeedCall model).
 
-    Applied to the flat calls of a deed whose description roles need review, so every
-    artifact written from them stays blocked from verified export when re-imported
-    without the deed's tracts (notes survive CSV and JSON round trips).
+    Applied to every call of a deed whose description roles need review (its flat calls
+    and each tract's own), so no subset of them verifies, and every artifact written
+    from them stays blocked from verified export when re-imported without the deed's
+    tracts (notes survive CSV and JSON round trips).
     """
+    return _with_note(calls, DESCRIPTION_ROLES_NOTE)
+
+
+def mark_non_boundary(calls: Sequence[_Call], tract_type: TractType | str) -> list[_Call]:
+    """Mark each call of an easement/exception tract with its kind's non-boundary note.
+
+    The calls then never verify as a parcel boundary, with or without their tract,
+    including once written and re-imported. Calls of a boundary tract (main, addition)
+    are returned unchanged. Idempotent; any DeedCall model.
+    """
+    note = _NON_BOUNDARY_NOTE_BY_KIND.get(tract_kind(tract_type))
+    return list(calls) if note is None else _with_note(calls, note)
+
+
+def non_boundary_marks(calls: Sequence[BaseModel]) -> list[str]:
+    """The non-boundary tract kinds whose note any of ``calls`` bears (easement first)."""
     return [
-        call
-        if _has_roles_mark(call)
-        else call.model_copy(
-            update={
-                "notes": "; ".join(
-                    filter(None, (getattr(call, "notes", None), DESCRIPTION_ROLES_NOTE))
-                )
-            }
-        )
-        for call in calls
+        kind
+        for kind, note in _NON_BOUNDARY_NOTE_BY_KIND.items()
+        if any(_has_note(call, note) for call in calls)
     ]
+
+
+def non_boundary_marks_detail(kinds: Sequence[str]) -> str:
+    """Why calls bearing a non-boundary note (``non_boundary_marks``) are never verified."""
+    tracts = " and ".join(f"{_article(kind)} {kind} tract" for kind in kinds)
+    return (
+        f"{NON_BOUNDARY_CHECK}: calls marked as land of {tracts} are not a parcel boundary "
+        "and are never eligible for verified export; their closure, area and perimeter "
+        "are for review only"
+    )
 
 
 def roles_need_review(tracts: Sequence[_RoleBearing], calls: Sequence[BaseModel] = ()) -> list[str]:

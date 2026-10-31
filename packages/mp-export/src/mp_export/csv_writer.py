@@ -24,6 +24,8 @@ from mp_models import (
     _Model,
     is_boundary_tract,
     non_boundary_detail,
+    non_boundary_marks,
+    non_boundary_marks_detail,
     roles_need_review,
     roles_review_detail,
     tract_kind,
@@ -213,19 +215,25 @@ _ROLE_CHECK = "non_boundary_tract"
 def _role_mismatch(tract: Tract, result: ClosureResult) -> bool:
     """Whether the result carries a tract-role verdict that is not this tract's own."""
     expected = (
-        None
+        set()
         if is_boundary_tract(tract.tract_type)
-        else non_boundary_detail(tract.label, tract.tract_type)
+        else {non_boundary_detail(tract.label, tract.tract_type)}
     )
+    # A result computed from the calls alone carries their non-boundary notes' verdict.
+    kinds = non_boundary_marks(tract.calls)
+    if kinds:
+        expected.add(non_boundary_marks_detail(kinds))
     role_details = [c.detail for c in result.checks if c.name == _ROLE_CHECK]
     role_details += [w for w in result.warnings if w.startswith(f"{_ROLE_CHECK}:")]
-    return any(detail != expected for detail in role_details)
+    return any(detail not in expected for detail in role_details)
 
 
 def _exportable(tract: Tract, result: ClosureResult) -> bool:
-    """A verified parcel-boundary tract; easement/exception tracts never qualify."""
+    """A verified parcel-boundary tract; easement/exception tracts never qualify,
+    nor do calls bearing an easement/exception tract's note, whatever tract holds them."""
     return (
         is_boundary_tract(tract.tract_type)
+        and not non_boundary_marks(tract.calls)
         and not _role_mismatch(tract, result)
         and result.is_fully_verified()
     )
@@ -236,8 +244,11 @@ def _not_exported_reason(tract: Tract, result: ClosureResult) -> str:
     if _role_mismatch(tract, result):
         return "supplied verification result does not belong to this tract"
     reasons = [w for w in result.warnings if not w.startswith(f"{_ROLE_CHECK}:")]
+    kinds = non_boundary_marks(tract.calls)
     if not is_boundary_tract(tract.tract_type):
         reasons.insert(0, non_boundary_detail(tract.label, tract.tract_type))
+    elif kinds:
+        reasons.insert(0, non_boundary_marks_detail(kinds))
     return "; ".join(reasons) or "verification checks did not pass"
 
 
@@ -528,7 +539,9 @@ def export_verified_csv(
     (``mp_models.roles_need_review``: several descriptions, and a role inferred from
     wording rather than an explicit tract heading) or any supplied call bears the
     role-review mark, whatever the supplied results claim: land whose role was
-    guessed is never exported.
+    guessed is never exported. Calls bearing an easement/exception tract's note
+    (``mp_models.mark_non_boundary``) are never exported either, whichever tract or
+    selection supplies them.
 
     Raises:
         ValueError: If verification checks did not pass (single-tract only).
@@ -544,6 +557,10 @@ def export_verified_csv(
     )
     if role_reasons:
         raise ValueError("Cannot export verified CSV: " + roles_review_detail(role_reasons))
+    if not tract_results:
+        kinds = non_boundary_marks([*calls, *(legal_desc.calls if legal_desc is not None else [])])
+        if kinds:
+            raise ValueError("Cannot export verified CSV: " + non_boundary_marks_detail(kinds))
     # Multi-tract mode gates per tract, but at least one boundary tract must verify.
     if tract_results:
         if not any(is_boundary_tract(tract.tract_type) for tract, _ in tract_results):

@@ -69,16 +69,53 @@ class ClosureChecker:
         closure_tolerance_ft: float | None = None,
         audit_context: AuditContext | None = None,
         skipped_courses: list[SkippedCourse] | None = None,
+        tract: Tract | None = None,
     ) -> ClosureResult:
-        """Check one independent tract using every standard verification guardrail."""
-        boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
-        return cls.verify_closure(
-            boundary,
+        """Check one independent tract using every standard verification guardrail.
+
+        Delegates to ``mp_verify.closure.verify_tract``: with ``tract``, its role checks
+        come from the tract itself (an easement/exception tract, or a role inferred from
+        wording, is blocked); without it, the calls' own role-review and non-boundary
+        marks block them.
+        """
+        scratch = (
+            mp_models.AuditContext.model_construct(
+                verification_audit=None, tract_verification_audits=[]
+            )
+            if audit_context is not None
+            else None
+        )
+        result = package_closure.verify_tract(
+            _package_calls(calls),
             stated_area_sq_ft=stated_area_sq_ft,
             closure_tolerance_ft=closure_tolerance_ft,
-            audit_context=audit_context,
-            skipped_courses=skipped_courses,
+            audit_context=scratch,
+            skipped_courses=_package_skips(
+                [
+                    *(skipped_courses or []),
+                    *(audit_context.skipped_courses if audit_context else []),
+                ]
+            ),
+            tract=package_bridge.package_tract(tract) if tract is not None else None,
         )
+        cls._copy_audits(audit_context, scratch)
+        return _monolith_result(result)
+
+    @staticmethod
+    def _copy_audits(
+        audit_context: AuditContext | None, scratch: mp_models.AuditContext | None
+    ) -> None:
+        """Copy the package run's audits back: the caller's context reflects it alone."""
+        if audit_context is None or scratch is None:
+            return
+        audit_context.verification_audit = (
+            _monolith_audit(scratch.verification_audit)
+            if scratch.verification_audit is not None
+            else None
+        )
+        audit_context.tract_verification_audits = [
+            _monolith_audit(audit) for audit in scratch.tract_verification_audits
+        ]
 
     @overload
     @classmethod
@@ -195,15 +232,7 @@ class ClosureChecker:
                     )
                 )
             ]
-        if audit_context is not None and scratch is not None:
-            audit_context.verification_audit = (
-                _monolith_audit(scratch.verification_audit)
-                if scratch.verification_audit is not None
-                else None
-            )
-            audit_context.tract_verification_audits = [
-                _monolith_audit(audit) for audit in scratch.tract_verification_audits
-            ]
+        cls._copy_audits(audit_context, scratch)
         return results if tracts is not None else results[0]
 
     @staticmethod

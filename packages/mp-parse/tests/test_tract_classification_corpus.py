@@ -159,6 +159,7 @@ import pytest
 from mp_export.csv_writer import export_verified_csv
 from mp_models import (
     DESCRIPTION_ROLES_CHECK,
+    DESCRIPTION_ROLES_NOTE,
     DESCRIPTION_ROLES_PREFIX,
     PASSING_CALL_NOTE_PREFIX,
     SEPARATE_EASEMENT_NOTE_PREFIX,
@@ -1494,10 +1495,15 @@ def test_monolith_facade_matches_package(name: str) -> None:
     def row(c):
         return (c.course, c.bearing_azimuth_deg_from_north, c.distance_ft, c.to, c.notes)
 
+    # r58: the facade's default extraction is the package's one split extraction (its
+    # flat calls, marked when roles need review), never a second, unsplit parse.
     skips: list = []
-    package = _extract_calls_from_text(text, strict=False, skipped_courses=skips)
-    monolith = CallExtractor.extract_calls(text, strict=False, skipped_courses=[])
-    assert bool(skips) == (CASES[name].error is not None)
+    package, _ = extract_calls(text, strict=False, skipped_courses=skips)
+    facade_skips: list = []
+    monolith = CallExtractor.extract_calls(text, strict=False, skipped_courses=facade_skips)
+    assert [(s.course, s.tract_label) for s in facade_skips] == [
+        (s.course, s.tract_label) for s in skips
+    ]
     assert [row(c) + (c.is_exception,) for c in monolith] == [
         row(c) + (c.is_exception,) for c in package
     ]
@@ -1766,8 +1772,27 @@ def test_verified_export_follows_role_policy(name: str, tmp_path: Path) -> None:
     calls, tracts = extract_calls(CASES[name].text, strict=True)
     reasons = roles_need_review(tracts)
     written, refusal = _verified_export(calls, tracts, tmp_path / "policy")
-    # What the deed would export if every role were trusted (the pre-round-56 outcome).
-    trusted = [t.model_copy(update={"role_basis": "heading"}) for t in tracts]
+    # What the deed would export if every role were trusted (the pre-round-56 outcome):
+    # headed, and (r58) without the role-review mark its calls carry.
+    trusted = [
+        t.model_copy(
+            update={
+                "role_basis": "heading",
+                "calls": [
+                    c.model_copy(
+                        update={
+                            "notes": "; ".join(
+                                n for n in split_notes(c.notes) if n != DESCRIPTION_ROLES_NOTE
+                            )
+                            or None
+                        }
+                    )
+                    for c in t.calls
+                ],
+            }
+        )
+        for t in tracts
+    ]
     trusted_written, _ = _verified_export(calls, trusted, tmp_path / "trusted")
     if name in R56_EXPORTS:
         assert not reasons and written == R56_EXPORTS[name]
@@ -1839,9 +1864,17 @@ def test_description_introduced_by_its_lead_is_never_the_parcel(name: str, tmp_p
         assert all(r.closure_passed for r in results)
         written, refusal = _verified_export(calls, tracts, tmp_path / str(i))
         assert written == [] and DESCRIPTION_ROLES_PREFIX in refusal
+        # r58: the facade's default extraction is the split one: strictly it fails on a
+        # reference-only parcel tract like the package; non-strictly it is the package's.
+        try:
+            strict_facade = CallExtractor.extract_calls(candidate)
+        except ValueError as error:
+            assert "no computable calls" in str(error)
+            strict_facade = []
         for flat in (
             _extract_calls_from_text(candidate, strict=True),
-            CallExtractor.extract_calls(candidate),
+            strict_facade,
+            CallExtractor.extract_calls(candidate, strict=False, skipped_courses=[]),
         ):
             assert not [c for c in flat if not c.is_exception]
 

@@ -30,8 +30,9 @@ from tests.fixtures.parser_corpus import CALL_PROBES, TEXT_PARSER_PROBES, corpus
 
 
 def _package_flat(text: str, distance_unit: str = "feet", **kwargs: Any) -> Any:
-    """The package's single-description extraction (no tract split), as the monolith's."""
-    return package_calls._extract_calls_from_text(text, distance_unit, **kwargs)
+    """The package extraction's flat calls, as the monolith's default (round 58: the one
+    split extraction, marked when roles need review; no second, unsplit parse)."""
+    return package_calls.extract_calls(text, distance_unit, **kwargs)[0]
 
 
 def _extras(module: Any, text_fns: Any) -> dict[str, Any]:
