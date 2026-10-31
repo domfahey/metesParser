@@ -204,7 +204,7 @@ def verify_tract(
 ) -> ClosureResult:
     """Check one independent tract using every standard verification guardrail."""
     boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
-    return verify_closure(
+    return _verify_single(
         boundary,
         stated_area_sq_ft=stated_area_sq_ft,
         closure_tolerance_ft=closure_tolerance_ft,
@@ -269,7 +269,6 @@ def verify_closure(
     double_entry_calls: list[DeedCall] | None = ...,
     audit_context: AuditContext | None = ...,
     skipped_courses: list[SkippedCourse] | None = ...,
-    role_check: CheckResult | None = ...,
 ) -> ClosureResult: ...
 
 
@@ -283,7 +282,6 @@ def verify_closure(
     double_entry_calls: list[DeedCall] | None = ...,
     audit_context: AuditContext | None = ...,
     skipped_courses: list[SkippedCourse] | None = ...,
-    role_check: CheckResult | None = ...,
 ) -> list[ClosureResult]: ...
 
 
@@ -296,7 +294,6 @@ def verify_closure(
     double_entry_calls: list[DeedCall] | None = None,
     audit_context: AuditContext | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
-    role_check: CheckResult | None = None,
 ) -> ClosureResult | list[ClosureResult]:
     """Verify traverse closure and perform all validation checks.
 
@@ -313,8 +310,6 @@ def verify_closure(
         skipped_courses: Courses extraction could not parse. Any skip blocks
             traverse closure and leaves misclosure, area and perimeter undetermined;
             per tract, a tract's own skips and those labelled with it apply.
-        role_check: Blocked tract-role check from ``evaluate_tract_role`` for a
-            single tract; recorded as a check and warning before confidence is scored.
 
     Returns:
         ClosureResult when tracts is None (single-tract).
@@ -352,6 +347,32 @@ def verify_closure(
             results.append(result)
         return results
 
+    return _verify_single(
+        calls,
+        stated_area_sq_ft=stated_area_sq_ft,
+        closure_tolerance_ft=closure_tolerance_ft,
+        double_entry_calls=double_entry_calls,
+        audit_context=audit_context,
+        skipped_courses=skipped_courses,
+        role_check=None,
+    )
+
+
+def _verify_single(
+    calls: list[DeedCall],
+    *,
+    stated_area_sq_ft: float = 0.0,
+    closure_tolerance_ft: float | None = None,
+    double_entry_calls: list[DeedCall] | None = None,
+    audit_context: AuditContext | None = None,
+    skipped_courses: list[SkippedCourse] | None = None,
+    role_check: CheckResult | None = None,
+) -> ClosureResult:
+    """Single-tract verification; ``role_check`` is internal (set by ``verify_tract``)."""
+    if role_check is not None and (
+        role_check.name != "non_boundary_tract" or role_check.status != "blocked"
+    ):
+        raise ValueError("role_check must be a blocked non_boundary_tract check")
     tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
     # Courses the extractor skipped are missing from ``calls``: a traverse of the
     # rest is not the deed's boundary, so nothing derived from it is determined.
