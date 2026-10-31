@@ -12,7 +12,7 @@ Deliver with the short [current controls guide](references/playbook.md#current-c
 Read additional procedures only for the requested features:
 
 - Source reading or selection: [source preparation](../../references/source-preparation.md).
-- Relative-angle calculations: [contract and example](references/relative-analysis.md).
+- Relative-angle calculations: [contract and example](../../references/relative-analysis.md).
 - Map placement or comparison: [plot and overlays](references/plot-and-overlays.md).
 - Presentation choices: [example patterns](references/example-patterns.md).
 - Saved alternatives, recovery and supported source corrections: [revision workflow](../../references/revisions.md).
