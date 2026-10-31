@@ -564,12 +564,6 @@ _EASEMENT_DESCRIPTION_SENTENCE = re.compile(
     r"[^.;]{0,120}?\bdescribed\b[^.;]{0,60}?[:,.]?\s*",
     re.IGNORECASE,
 )
-# A grant sentence pointing forward to a description ("described as follows.",
-# "over the following described land.").
-_FORWARD_DESCRIPTION = re.compile(
-    r"\b(?:described\s+as\s+follows|as\s+follows|following\s+described|the\s+following)\b",
-    re.IGNORECASE,
-)
 
 
 def _introduced_as_easement(
@@ -581,22 +575,22 @@ def _introduced_as_easement(
 ) -> bool:
     """Return whether the description at ``description`` is introduced as the easement's.
 
-    The grant sentence from ``start`` ended at ``opener_end`` (a period or document
-    structure) before the description opens. The description is still the easement's
-    when the wording between introduces it as such ("The said easement is bounded and
-    described as follows:", "Said right of way is described as follows:"), or when the
-    grant sentence itself points forward to it ("an easement ... described as follows.",
-    "over the following described land.") with nothing but punctuation or document
-    structure between, after a closed boundary description. A grant sentence that
-    points nowhere ("TOGETHER WITH an easement for utilities. BEGINNING ...") never
-    takes the description after it.
+    The grant sentence from ``start`` ended at ``opener_end`` (a period, document
+    structure or a line break before the description) before the description opens.
+    The description is still the easement's when the wording between introduces it as
+    such ("The said easement is bounded and described as follows:", "Said right of
+    way is described as follows:"), or, after a closed boundary description, when
+    nothing but punctuation or document structure lies between ("<boundary>. TOGETHER
+    WITH an easement 10 feet wide.\nBEGINNING ..."): easement land never becomes a fee
+    tract. Before any boundary description the grant sentence never takes the
+    description after it ("TOGETHER WITH an easement for utilities. BEGINNING ..."):
+    that description is the parcel. A generic recital (``_is_generic_encumbrance``)
+    opens no easement at all.
     """
     text = index.text
     between = text[opener_end:description]
     if _EASEMENT_DESCRIPTION_SENTENCE.fullmatch(between.lstrip(" \t\n.")):
         return True
-    if not _FORWARD_DESCRIPTION.search(text, start, opener_end):
-        return False
     if STRUCTURE_BREAK.sub(" ", between).strip(_LEAD_IN_PUNCTUATION + "#"):
         return False
     closed_at = _last_closure_end(index, start, spans)
