@@ -18,7 +18,15 @@ from mp_bearing import (  # type: ignore[import-untyped]
     tangent_chord_deflection,
     tangent_chord_tolerance_deg,
 )
-from mp_models import CheckResult, DeedCall, Point
+from mp_models import (
+    CheckResult,
+    DeedCall,
+    Point,
+    TractType,
+    is_boundary_tract,
+    non_boundary_detail,
+    tract_kind,
+)
 
 from .tangents import (
     chord_is_feasible,
@@ -42,6 +50,23 @@ def check_boundary_intersections(calls: list[DeedCall], coordinates: list[Point]
     return check_straight_boundary_intersections(
         calls, coordinates
     ) + check_curved_boundary_intersections(calls, coordinates)
+
+
+def evaluate_tract_role(label: str, tract_type: TractType | str) -> CheckResult | None:
+    """Block an easement/exception tract: it can close, but is never the parcel boundary.
+
+    Boundary tracts (main, addition) return ``None``: no role check applies.
+    """
+    if is_boundary_tract(tract_type):
+        return None
+    kind = tract_kind(tract_type)
+    return CheckResult(
+        name="non_boundary_tract",
+        status="blocked",
+        reason=kind,
+        detail=non_boundary_detail(label, tract_type),
+        inputs={"tract_type": kind},
+    )
 
 
 def evaluate_interior_angles(calls: list[DeedCall], positioned: list[bool]) -> CheckResult:
