@@ -8,9 +8,9 @@ MetesParser is a Claude plugin and shared Python engine for source-traceable met
 
 Use deterministic code wherever possible, AI only where needed, and deterministic validation of AI-prepared inputs wherever applicable. Keep source review distinct from computational checks.
 
-Versions are declared in each package's `pyproject.toml` (root `metesparser`: 0.6.0; `mp-*`: 1.0.0). Test counts and coverage depend on the selected suite; consult the [workflow evidence](docs/implementation/2026-10-28-cowork-workflow-ledger.md) and [chat distribution validation](docs/implementation/2026-10-29-claude-chat-skill.md), not a fixed count in this guide.
+Versions are declared in each package's `pyproject.toml`. Test counts and coverage depend on the selected suite; consult the [workflow evidence](docs/implementation/2026-10-28-cowork-workflow-ledger.md) and [chat distribution validation](docs/implementation/2026-10-29-claude-chat-skill.md), not a fixed count in this guide.
 
-**Further reading:** [ARCHITECTURE.md](docs/ARCHITECTURE.md) (packages, data flow, module mapping) · [DEVELOPER_REFERENCE.md](docs/DEVELOPER_REFERENCE.md) (CLI commands, Makefile targets, CSV schema, units, feature table) · [TESTING.md](docs/TESTING.md) · [CLAUDE_PLUGIN.md](docs/CLAUDE_PLUGIN.md)
+**Further reading:** [ARCHITECTURE.md](docs/ARCHITECTURE.md) (packages, data flow, module mapping) · [DEVELOPER_REFERENCE.md](docs/DEVELOPER_REFERENCE.md) (CLI commands, Makefile targets, CSV schema, units, feature table) · [API.md](docs/API.md) · [TESTING.md](docs/TESTING.md) · [CLAUDE_PLUGIN.md](docs/CLAUDE_PLUGIN.md) · [plugin README](plugins/metesparser/README.md) · [CONTRIBUTING.md](docs/CONTRIBUTING.md)
 
 ## Critical Architecture Principles
 
@@ -18,7 +18,12 @@ Versions are declared in each package's `pyproject.toml` (root `metesparser`: 0.
 **Most Important Rule**: If a bearing is incomplete (e.g., "southwesterly" without degrees), leave `bearing_azimuth_deg_from_north` as `None` and set `notes="incomplete bearing - cardinal only"`. Never invent numerical bearings.
 
 ### 2. Verification Before Export
-Use `verify_closure()` before `export_verified_csv()`. Geometry eligibility requires closure below 0.01 ft, applicable checks passing (explicit `not_applicable` is distinct from `passed`), and no warnings; failed or blocked checks prevent eligibility. The exporter freshly verifies the selected calls and validates the supplied result against them. Fail closed on guessed roles: when a deed has more than one description and any description's role (main/addition/exception/easement) was inferred from wording rather than an explicit TRACT/PARCEL heading (`Tract.role_basis`), nothing in the deed is verified or exported (`mp_models.roles_need_review`, the one gate; check `description_roles_inferred`); every call of such a deed (flat and each tract's) carries the registered `DESCRIPTION_ROLES_NOTE` mark, and every easement/exception tract's call a registered non-boundary note (`mp_models.mark_non_boundary`, check `non_boundary_tract`), so no subset of the calls, and no CSV/JSON artifact written from them, verifies or exports through any API. A single description is unaffected. `source_review_status` remains an explicit, separate assessment; geometry eligibility does not establish source completeness or legal validity.
+Use `verify_closure()` before `export_verified_csv()`. Geometry eligibility requires closure below 0.01 ft, applicable checks passing (explicit `not_applicable` is distinct from `passed`), and no warnings; failed or blocked checks prevent eligibility. The exporter freshly verifies the selected calls and validates the supplied result against them. `source_review_status` remains an explicit, separate assessment; geometry eligibility does not establish source completeness or legal validity.
+
+Role policy:
+- **Rule:** fail closed on guessed description roles. If a deed has more than one description and any role (main/addition/exception/easement) was inferred from wording rather than an explicit TRACT/PARCEL heading (`Tract.role_basis`), nothing in the deed is verified or exported.
+- **Enforcement:** one gate, `mp_models.roles_need_review` (check `description_roles_inferred`). Every call of such a deed carries the registered `DESCRIPTION_ROLES_NOTE` blocking note; easement/exception tract calls also carry a non-boundary note (`mp_models.mark_non_boundary`, check `non_boundary_tract`). No subset of calls, and no CSV/JSON written from them, verifies or exports through any API.
+- **Unaffected:** a single description. Details: [ARCHITECTURE.md](docs/ARCHITECTURE.md#description-roles-and-verified-export).
 
 ### 3. Preserve Verbatim Deed Language
 Keep original wording in `along` and `to` fields. Example: Keep "Southerly line of Pennbrook Drive" exactly as written in the deed.
@@ -55,7 +60,7 @@ Other directories:
 
 ### When Modifying Code
 1. Modify the package code (e.g., `packages/mp-parse/`)
-2. Keep duplicated monolith behavior in sync; for shared review features, maintain the compatibility facade rather than duplicating the implementation
+2. In `src/metesparser/`, `call_extractor.py`, `closure_checker.py`, `csv_builder.py` and `text_parser.py` are facades over the packages via `package_bridge.py` (no manual sync). Only `models.py` (vs `mp_models`), `bearing_converter.py` (vs `mp_bearing`), `audit_reporter.py` (vs `mp_export`), and `pdf_processor.py`/`llm_clients.py`/`llm_cache.py` (vs `mp_ocr`) hold their own logic; mirror changes there by hand. For shared review features, extend the facade rather than duplicating the implementation
 3. Run per-package tests: `uv run pytest packages/mp-parse/tests/ -v --no-cov`
 4. Run cross-package import verification: `uv run pytest tests/unit/test_cross_package_imports.py -v`
 
@@ -72,7 +77,7 @@ The Claude plugin is an instruction layer over the shared packages. Its [catalog
 
 **Status separation (never promote verification)**
 - Plotting, overlay preparation, dashboards, maps, revisions, diagnoses, scenarios, tentative matches and comparisons must not modify canonical calls, verification or verified-export eligibility.
-- Completed advisory commands return `needs_review` (exit 1), including completed findings; invocation/schema errors return `error` (exit 2).
+- Completed advisory commands return `needs_review` (exit 1); invocation/schema errors return `error` (exit 2). Full exit-code and status contract: [review-limits](plugins/metesparser/references/review-limits.md).
 - `validate-source` checks source records (schema 1.1, exact UTF-8 bytes, page/span identities, uncertainties); it does not establish source accuracy. `inspect-artifacts` inventories and replays artifacts read-only, reporting dependencies and restart guidance without executing a workflow. `diagnose-closure` and `compare-descriptions` retain the explicit request alongside their advisory results. See the [source](plugins/metesparser/references/source-preparation.md), [diagnosis](plugins/metesparser/references/closure-diagnostics.md) and [comparison](plugins/metesparser/references/comparison-limits.md) references.
 
 **Revisions** — [contract](plugins/metesparser/references/revisions.md)
@@ -126,13 +131,10 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 
 ## Testing
 - TDD order: bearing conversions first; known parcels (18 Pennbrook parallelogram, 24 Pennbrook, square fixture); near-zero closure cases; incomplete bearings (flag, don't fabricate).
-- Mock LLM calls; store sanitized inputs and expected outputs under `tests/fixtures/`. Name tests after behaviors (`test_parse_curve_segments`).
+- Mock LLM calls; store sanitized inputs and expected outputs under `tests/fixtures/`. Name new tests after behaviours (`test_parse_curve_segments`); the round-named `tests/unit/test_pr60_r*_tdd.py` files from PR #60 are kept as a historical regression corpus, not a naming model.
 - Required checks must pass. Investigate failures and unexpected warnings or skips before committing; a skipped optional browser/provider suite establishes nothing. Record the exact command, result and scope rather than a fixed test count.
 
 ## Known Issues & Workarounds
-
-### text_parser.py Linting
-`src/metesparser/text_parser.py` is excluded under `[tool.ruff] exclude`. Preserve that scope unless deliberately changing it. A lint exclusion does not establish functional correctness; verify changes with focused parsing tests.
 
 ### Boolean Field Validation
 Do NOT use `strict=True` on boolean `Field()` declarations in `DeedCall` — it contradicts the `_coerce_bool_field` validator that coerces `"true"`/`"false"` strings.
@@ -144,7 +146,7 @@ Cardinal-only patterns must include `(?:erly|wardly)?` suffixes AND abbreviated 
 - `scripts/audit_gt_vs_md.py` (`CARDINAL_ONLY_PATTERN`)
 - `packages/mp-bearing/src/mp_bearing/azimuth.py` (`normalize_cardinal_word`; mp-bearing cannot import mp-parse, so it keeps its own copy)
 
-`src/metesparser/call_extractor.py` and `src/metesparser/text_parser.py` only alias the package patterns; do not redefine them. `tests/unit/test_pr60_r40_cardinal_sync_tdd.py` checks that all six accept and reject the same words.
+`src/metesparser/call_extractor.py` and `src/metesparser/text_parser.py` only alias the package patterns; do not redefine them. The PR #60 regression test `tests/unit/test_pr60_r40_cardinal_sync_tdd.py` checks that all six accept and reject the same words.
 
 Bug history: missing `wardly` caused false negatives; missing abbreviations caused call rejection when LLM normalization turned "NORTHWEST" into "NW" (PR #21).
 
@@ -183,14 +185,14 @@ Bug history: missing `wardly` caused false negatives; missing abbreviations caus
 2. Call from `verify_closure()` in `closure.py` and add to warnings list
 3. Update `ClosureResult` model in `mp-models` if needed
 4. Write test in `packages/mp-verify/tests/` and `tests/unit/test_phase3_verification.py`
-5. Keep monolith `closure_checker.py` in sync
+5. No monolith edit needed: `closure_checker.py` is a facade over `mp_verify` (via `package_bridge.py`)
 
 ### Adding a New DeedCall Field
 1. Add field to `DeedCall` in `packages/mp-models/src/mp_models/deed_call.py` (with `Field()` default, no `strict=True` on bools)
 2. Add to `FIELDNAMES` in `packages/mp-export/src/mp_export/csv_writer.py` (order matters)
 3. Add to `_CSVDeedCallRow` in `csv_writer.py`
 4. Wire extraction into `packages/mp-parse/src/mp_parse/calls.py` or `metadata.py`
-5. Keep monolith `models.py` and `csv_builder.py` in sync (`call_extractor.py` delegates to `mp_parse`)
+5. Mirror the field by hand in monolith `models.py`; `csv_builder.py` and `call_extractor.py` are facades, but if the field must cross the boundary, copy it in the `package_bridge.py` conversion
 6. Update fieldnames count test in `test_phase2_enhanced_parsing.py`
 7. Add feature tests in appropriate phase test file
 
