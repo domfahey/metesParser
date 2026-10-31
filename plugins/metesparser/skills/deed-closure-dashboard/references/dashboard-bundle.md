@@ -99,4 +99,4 @@ uv run metes-review dashboard plugins/metesparser/skills/deed-closure-dashboard/
 
 ## Optional Mapbox companion
 
-Online rendering is owned by [render-online-map](../../render-online-map/SKILL.md). The dashboard workflow owns source/bundle assembly and delegates the requested provider view. Follow the [local viewer procedure](../../render-online-map/references/local-viewer.md) for configuration, optional dependencies, rendering, runtime tokens, preview, and fallback. The existing `dashboard --online-map-config` command remains a compatibility path.
+Online rendering is owned by [render-online-map](../../render-online-map/SKILL.md). The dashboard workflow owns source/bundle assembly and delegates the requested provider view. Follow the [local viewer procedure](../../render-online-map/references/local-viewer.md) for configuration, optional dependencies, rendering, runtime tokens, preview, and fallback; for an in-chat vector preview follow the [Mapbox MCP procedure](../../render-online-map/references/mapbox-mcp.md). The existing `dashboard --online-map-config` command remains a compatibility path.

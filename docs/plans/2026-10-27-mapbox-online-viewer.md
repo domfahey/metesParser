@@ -514,7 +514,7 @@ Execution notes:
 
 ## Optional Mapbox MCP handoff follow-up
 
-Implemented on 2026-10-27 through three subagents, retaining the existing eight skills. The dashboard skill links to [the MCP procedure](../../plugins/metesparser/skills/deed-closure-dashboard/references/mapbox-mcp.md). `metes-review mapbox-mcp EXISTING_DASHBOARD_DIR --output-dir NEW_DIR` validates retained source/request/artifact hashes and local fallback files, then emits exact vector arguments plus a local provenance/omission report. Shared identity validation lives in `mp_verify.webmap`; `mp_export.mapbox_mcp` performs only serialization. The handoff never projects, warps, calls a provider, or grants verified status. CRS/unit validation still requires the geo runtime.
+Implemented on 2026-10-27 through three subagents, retaining the existing eight skills. The procedure lives in [the MCP procedure](../../plugins/metesparser/skills/render-online-map/references/mapbox-mcp.md). `metes-review mapbox-mcp EXISTING_DASHBOARD_DIR --output-dir NEW_DIR` validates retained source/request/artifact hashes and local fallback files, then emits exact vector arguments plus a local provenance/omission report. Shared identity validation lives in `mp_verify.webmap`; `mp_export.mapbox_mcp` performs only serialization. The handoff never projects, warps, calls a provider, or grants verified status. CRS/unit validation still requires the geo runtime.
 
 The adapter pins the upstream contract to commit `6ee4589df5433234969bc525d9342bb7210a529f`, preserves coordinates and feature IDs, keeps closure annotations separate, omits rasters explicitly, and refuses requests over a conservative 48 KiB budget without simplifying geometry. Existing local views retain scans and source-page review.
 

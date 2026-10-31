@@ -1,15 +1,15 @@
 ---
 name: plot-corridor
-description: Constructs an advisory easement or right-of-way corridor when supplied centerline calls and explicit left/right widths, tapers, joins and caps define the requested ribbon. Retains source-linked construction inputs and reports approximation and topology limits without parcel verification or inferred map placement.
+description: Constructs an advisory corridor polygon around a supplied centerline from explicit left/right widths, tapers, joins and caps, retaining source-linked construction inputs and reporting approximation and topology limits. Use when the user asks to plot an easement strip, right-of-way, pipeline or road corridor, or a centerline with a width, offset or taper. Not for a closed tract boundary (use plot-metes-and-bounds), closure verification, or a map (use render-online-map); a document classified as an easement does not by itself supply the centerline or widths.
 metadata:
   version: "0.1.0"
 ---
 
 # Plot a centerline corridor
 
-Use this capability for a requested corridor from an identified centerline and width instructions. A document classified as an easement alone does not supply its construction. If the intended centerline or width passage is unresolved, use [description selection](../extract-metes-and-bounds/SKILL.md) and retain uncertainty before constructing anything. Stop at corridor artifacts; a dashboard, provider map or parcel verification needs its own request.
+Use this capability for a requested corridor from an identified centerline and width instructions. A document classified as an easement alone does not supply its construction. If the intended centerline or width passage is unresolved, use [description selection](../extract-metes-and-bounds/SKILL.md) and retain uncertainty before constructing anything. Stop at corridor artifacts; a dashboard, provider map or tract verification needs its own request.
 
-Check [runtime prerequisites](../../references/usage.md#runtime-prerequisites), then read the generated [`CorridorRequest` schema](references/request.schema.json) and [complete synthetic example](references/example.json). Author the request from actual supplied evidence:
+Check [runtime prerequisites](../../references/usage.md#runtime-prerequisites). Start from the [complete synthetic example](references/example.json); consult the generated [`CorridorRequest` schema](references/request.schema.json) (about 1,000 lines) only for specific field definitions, for example with `grep` or `jq`, rather than reading it through. Author the request from actual supplied evidence:
 
 - Keep the original source-linked line/circular-arc `PlotRequest`, stable call IDs, verbatim quotes and known foot definition. Relative-only, indefinite, tie-in, exception and meander geometry needs separate selection or an explicit unavailable outcome.
 - Address width ranges by exact call ID and fractional station. Preserve ordered intervals, both left/right start/end widths, their declared units and source references. Sides follow stored forward centerline traversal. `step` is constant within its interval; adjacent rows can define an explicit jump. `linear_taper` varies with centerline arc length. Never average endpoint widths or choose precedence among overlapping rows.
