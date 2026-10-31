@@ -40,7 +40,7 @@ def extract_command(
         output: Output CSV path (default: derived from input filename)
         llm_provider: Optional LLM provider override
     """
-    from mp_models import roles_need_review, roles_review_detail
+    from mp_models import mark_roles_review, roles_need_review, roles_review_detail
 
     from .closure_checker import ClosureChecker
     from .csv_builder import CSVBuilder
@@ -66,6 +66,16 @@ def extract_command(
         assert not isinstance(result, tuple)  # audit=False (default)
         legal_desc = result
 
+        # Guessed description roles (several descriptions, a role inferred from
+        # wording) are never verified or exported, whatever the flat geometry: the
+        # calls carry the role-review mark, so the unverified CSV fails `verify` too.
+        role_review = roles_need_review(legal_desc.tracts, legal_desc.calls)
+        if role_review:
+            command_logger.warning(roles_review_detail(role_review))
+            legal_desc = legal_desc.model_copy(
+                update={"calls": mark_roles_review(legal_desc.calls)}
+            )
+
         command_logger.info("Verifying closure")
         closure_result = ClosureChecker.verify_closure(
             legal_desc.calls, legal_desc.stated_area_sq_ft or 0.0
@@ -74,11 +84,6 @@ def extract_command(
         summary = ClosureChecker.get_closure_summary(closure_result)
         _emit_closure_summary(summary, command_logger)
 
-        # Guessed description roles (several descriptions, a role inferred from
-        # wording) are never exported as verified, whatever the flat geometry.
-        role_review = roles_need_review(legal_desc.tracts)
-        if role_review:
-            command_logger.warning(roles_review_detail(role_review))
         if closure_result.is_fully_verified() and not role_review:
             command_logger.info("Exporting verified CSV")
             CSVBuilder.export_verified_csv(legal_desc.calls, closure_result, output, legal_desc)

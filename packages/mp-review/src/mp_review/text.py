@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from mp_models import AuditContext, LegalDescription, RunMetadata, roles_need_review
+from mp_models import AuditContext, LegalDescription, RunMetadata
 from mp_parse import (  # type: ignore[import-untyped]
     enrich_calls_with_azimuths,
     extract_calls,
@@ -28,9 +28,6 @@ class PreparedText:
     quotes: tuple[str, ...]
     multiple_tracts: bool
     unresolved_commencement: bool
-    # Why the description roles need review (``mp_models.roles_need_review``); the
-    # flat calls of such a deed are never eligible for checks_passed or export.
-    role_review: tuple[str, ...] = ()
 
 
 def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> PreparedText:
@@ -60,8 +57,11 @@ def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> Pre
     extracted, tracts = extract_calls(normalized, audit_context=audit)
     calls = mark_tie_in_calls(enrich_calls_with_azimuths(extracted), poc)
     area = extract_area_statement(normalized)
+    # The tracts (with role bases) travel with the description, so the role gate
+    # (``mp_models.roles_need_review``) reads the same extraction its calls came from.
     legal = LegalDescription(
         calls=calls,
+        tracts=tracts,
         poc_description=poc or None,
         pob_description=pob or None,
         stated_area_sq_ft=area["value_sq_ft"] if area else None,
@@ -91,5 +91,4 @@ def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> Pre
         multiple_tracts=bool(tracts),
         unresolved_commencement=has_commencement
         and (not poc or not any(c.is_tie_in for c in calls) or all(c.is_tie_in for c in calls)),
-        role_review=tuple(roles_need_review(tracts)),
     )

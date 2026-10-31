@@ -343,7 +343,9 @@ def verify_closure(
             any tract's role needs review (``mp_models.roles_need_review``: several
             descriptions and a role inferred from wording rather than an explicit
             tract heading), every tract gets a blocked ``description_roles_inferred``
-            check; geometry is still computed for review.
+            check; geometry is still computed for review. Without tracts, calls
+            bearing the role-review mark (``mp_models.mark_roles_review``) get the
+            same blocked check.
         stated_area_sq_ft: Stated area from deed (optional, for comparison).
         closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft).
         double_entry_calls: Optional independently-entered call set for guardrail F.
@@ -366,8 +368,9 @@ def verify_closure(
         labelled = _merge_skips(
             skipped_courses or [], audit_context.skipped_courses if audit_context else []
         )
-        # Deed level: inferred roles among several descriptions block every tract.
-        deed_roles = evaluate_description_roles(tracts)
+        # Deed level: inferred roles among several descriptions (or the role-review
+        # mark on the deed's calls) block every tract.
+        deed_roles = evaluate_description_roles(tracts, calls)
         for tract in tracts:
             # Scratch context per tract so tracts never overwrite each other's audit.
             scratch = (
@@ -422,6 +425,12 @@ def _verify_single(
         raise ValueError(
             "role_checks must be blocked non_boundary_tract or description_roles_inferred checks"
         )
+    # Calls bearing the role-review mark (a blocked deed's flat calls, re-imported
+    # without their tracts) are never verified, whichever entry point verifies them.
+    if not any(c.name == DESCRIPTION_ROLES_CHECK for c in role_checks):
+        marked = evaluate_description_roles((), calls)
+        if marked is not None:
+            role_checks = [*role_checks, marked]
     tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
     # Courses the extractor skipped are missing from ``calls``: a traverse of the
     # rest is not the deed's boundary, so nothing derived from it is determined.

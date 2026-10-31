@@ -526,8 +526,9 @@ def export_verified_csv(
 
     Nothing is exported when any known tract's role needs review
     (``mp_models.roles_need_review``: several descriptions, and a role inferred from
-    wording rather than an explicit tract heading), whatever the supplied results
-    claim: land whose role was guessed is never exported.
+    wording rather than an explicit tract heading) or any supplied call bears the
+    role-review mark, whatever the supplied results claim: land whose role was
+    guessed is never exported.
 
     Raises:
         ValueError: If verification checks did not pass (single-tract only).
@@ -535,9 +536,12 @@ def export_verified_csv(
             verifies; individual unverified or non-boundary tracts are skipped.
             In both modes, if description roles need review.
     """
-    # Deed level, before anything else: the supplied tracts and the description's own.
+    # Deed level, before anything else: the supplied tracts and the description's own,
+    # and the role-review mark on any supplied call.
     known_tracts = _known_tracts(legal_desc, tract_results or [])
-    role_reasons = roles_need_review(known_tracts)
+    role_reasons = roles_need_review(
+        known_tracts, [*calls, *(legal_desc.calls if legal_desc is not None else [])]
+    )
     if role_reasons:
         raise ValueError("Cannot export verified CSV: " + roles_review_detail(role_reasons))
     # Multi-tract mode gates per tract, but at least one boundary tract must verify.
