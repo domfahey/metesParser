@@ -62,30 +62,86 @@ These are distribution and host adaptations, not separate numerical implementati
 
 Acceptance for each distribution must include a clean install in the actual host, skill discovery, dependency provisioning, a sample deed, a deterministic plot/report, revision save/reopen and retrievable deliverables. Test interactive HTML and online maps separately. Local extracted-runtime tests have passed; native-host acceptance is still pending in the [evidence ledger](implementation/2026-10-28-cowork-workflow-ledger.md).
 
-### Plugin, chat Skill and CLI compared
+### Cowork, Claude Code, chat Skill and CLI compared
 
-The same deterministic engine sits behind all three ways of running MetesParser. They differ in how they are installed, how they read documents, and what files they can reach. "Pending" means native acceptance in that host has not been run.
+One deterministic engine sits behind four ways of running MetesParser: the plugin in Cowork, the same plugin in Claude Code, the standalone chat Skill, and the command line. They differ in how you install them, who reads the document, where the engine runs and what files it can reach. "Untested" means no run was recorded; "not documented" means neither this repository nor Anthropic's help articles (checked 2026-10-31) state it. Native acceptance has not been run in Cowork, in a Claude Code session or in chat (see the [evidence ledger](implementation/2026-10-28-cowork-workflow-ledger.md)). Anthropic also lists skills-only plugin support in chat; MetesParser does not use or test that route.
 
-| Feature | Cowork plugin | Claude chat Skill | CLI |
-| --- | --- | --- | --- |
-| What you install | Plugin ZIP (`metesparser-plugin.zip`) through Customize → Plugins | Skill ZIP (`metesparser-chat-skill.zip`) through Customize → Skills | A source checkout, then `uv sync --all-extras --dev` |
-| Entry points | 13 discoverable skills: 10 capabilities, 2 workflows and the manual `review-deed` alias | 1 skill, `metesparser-review`, routing to 13 procedures | `metes-review` subcommands and `metesparser` (`extract`, `verify`, `compare-runs`) |
-| Reading PDFs and images | Claude's native document reading | Claude's native document reading | `metesparser extract` calls an OpenAI or Gemini API (`mp-ocr`) and needs a key; `metes-review` accepts text, JSON or CSV only |
-| Parsing, closure, plots, corridors, PLSS, comparison | Shared engine through the bundled launcher | Shared engine through the bundled `run-chat.py` | Shared engine, run directly |
-| Python runtime | Locked runtime bundled in the ZIP, provisioned by `uv` in Cowork's execution environment | Bundled runtime; uses a host `uv` if present, otherwise a pinned, hash-checked `uv` download (first run needs `files.pythonhosted.org` and `pypi.org`) | Local Python 3.11+ and `uv` |
-| Offline | With a warm cache; a cold offline run returns a structured error | Offline setup never downloads; needs a cached runtime | Yes after `uv sync`, except `extract` |
-| File access | Granted local project folders through the desktop app; results written beside sources | Uploaded files only; results returned as downloadable ZIPs | Full local filesystem |
-| Resume later | Project files persist; reopening still needs native testing | Re-upload the result ZIP and run `inspect-artifacts`; no chat cache is assumed | Files persist; `inspect-artifacts` gives restart guidance |
-| Many deeds | Task coordination and local folders | One upload at a time with a per-tract summary | `metes-review corpus`, `make review-corpus` and scripts |
-| Verified CSV export | Same gate everywhere, including the [description-role policy](ARCHITECTURE.md#description-roles-and-verified-export) | Same gate | Same gate |
-| Dashboard and raster picker | Offline HTML opened in a browser; host interaction untested | Generated HTML downloaded and opened in an external browser | Offline HTML in a local browser |
-| Mapbox map and MCP preview | Local viewer and in-chat MCP preview; cloud-to-browser reachability untested | A generated localhost URL may be unreachable; a connector is not guaranteed | `render-map` and `serve-map` on localhost |
-| Settings | `.claude/metesparser.local.md` in the project | None; always pass a new `--output-dir` | `--settings` or the project settings file |
-| Credentials | Mapbox token entered at runtime only; never laptop `.env` | Same; never a repository `.env` | `.env` with an OpenAI or Gemini key, for `extract` only |
-| Reproducible build | Not yet: built from the working tree | Yes: fixed timestamps and permissions, SHA-256 sidecar | Not applicable |
-| Validation status | `claude plugin validate --strict` passes; native Cowork acceptance pending | Local packaging and launcher checks pass; native chat acceptance pending | Repository test suites |
+| | Cowork plugin | Claude Code plugin | Claude chat Skill | CLI |
+| --- | --- | --- | --- | --- |
+| **Setup** | | | | |
+| Where you get it | `metesparser-plugin.zip` from [GitHub Releases](https://github.com/domfahey/metesParser/releases) | Same ZIP | Not a release asset: build `metesparser-chat-skill.zip` from a source checkout (`make chat-skill-build`) | Source checkout |
+| Install | Customize → Plugins, upload the ZIP (Anthropic's article does not name the upload format) | Extract the ZIP, then `claude --plugin-dir /absolute/path/to/extracted-plugin`; no marketplace | Customize → Skills → **+** → upload a skill; code execution must be on | `uv sync --all-extras --dev` |
+| Needed on your computer | Claude Desktop app, open and connected, for local folders | Python 3.11+ and `uv` on `PATH` | Nothing; the chat host needs Python 3.11+ | Python 3.11+ and `uv` |
+| Claude plan or account | Paid plan (Pro, Max, Ultra, Team, Enterprise) | Claude Code access; plan requirements not documented here | Any plan with Skills (Free to Enterprise) and code execution; Team and Enterprise owners must enable it | None for local commands; `metesparser extract` needs an OpenAI or Gemini API key and is billed by that provider (rates not documented here) |
+| Entry points | 13 skills: 10 capabilities, 2 workflows, and `review-deed`, a manual alias Claude never selects itself | Same 13 skills | 1 skill, `metesparser-review`, routing to 13 procedures | `metes-review` (27 subcommands); `metesparser` (`extract`, `verify`, `compare-runs`) |
+| Operating systems | Desktop app on macOS, Windows, Linux (Anthropic: beta); the engine runs in Cowork's cloud environment | macOS used in development; Linux and Windows untested | Bootstrap supports Linux and macOS, x86_64 and ARM64; other hosts need `uv` on `PATH` | macOS used in development; Linux and Windows not documented |
+| Updating | Download a newer ZIP and upload it again; no marketplace | Download, extract and point `--plugin-dir` at the new folder | Rebuild from the newer commit and upload again | `git pull`, then `uv sync` |
+| **Working with documents** | | | | |
+| Reading PDFs and images | Claude's native reading | Claude's native reading, when the session supports it | Claude's native reading | `metes-review` reads UTF-8 text, CSV or JSON only; `metesparser extract` reads a PDF through an OpenAI or Gemini API |
+| Choosing the tract | Claude asks which tract, keeps page references and uncertainty, and explains results | Same | Same | You supply one description per run; text containing several returns `error` (exit 2) |
+| File access | Folders you connect through the Desktop app; results written beside the sources | Local filesystem under Claude Code's permissions | Uploaded files only; results come back as a downloadable ZIP | Full local filesystem |
+| Many deeds | Several tracts of one deed in one session; folder-wide batches untested (the plugin bundles no subagents or schedules) | Same | Upload limits for many files untested | One input per run, so script a loop; `metes-review corpus` is a regression runner for a reviewed manifest, not a deed batch tool |
+| Resume later | Saved files persist; reopening is untested | Saved files persist; reopening is untested | Download the result ZIP, upload it later and run `inspect-artifacts`; no chat cache is assumed | Files persist; `inspect-artifacts` gives restart guidance |
+| **Engine and verification** | | | | |
+| How the engine starts | Bundled launcher (`scripts/run-review.py`) with a locked runtime, provisioned by `uv` in Cowork's environment (untested) | Same launcher on your computer | Bundled `run-chat.py`; run `--setup` first. Uses `uv` from `PATH` as found, else a pinned, hash-checked download | Run directly with `uv run` |
+| First run and offline | Needs network once to fetch locked dependencies (a 200 MB cache after one macOS run); without a warm cache and network it returns a structured `launcher_error` | Same; the engine then runs offline with a warm cache | Needs `files.pythonhosted.org` and `pypi.org` on first use; `--setup --offline` never downloads and fails with `chat_runtime_error` if nothing is cached | Offline after `uv sync`, except `extract`, `fetch-parcel` and Mapbox |
+| Verified CSV export | One gate: closure below 0.01 ft, passing checks, no warnings and an eligible tract role, per [description roles](ARCHITECTURE.md#description-roles-and-verified-export). The v0.6.0 release ZIP predates the role policy and the 22-column CSV | Same | Same | Same for `metes-review review`/`verify` and `metesparser extract`; `metesparser verify` only checks |
+| **Outputs** | | | | |
+| What you can produce | CSV, review and plot HTML, dashboards, saved revisions, and SVG, PDF, DXF and GeoJSON packages | Same | Same, returned as downloads | Same through `metes-review`; `extract` writes a CSV only |
+| Dashboard and raster picker | Offline HTML; opening it from Cowork is untested | Offline HTML in a local browser | Download and open in an external browser | Offline HTML in a local browser |
+| Mapbox map and MCP preview | Local viewer and MCP preview; browser reachability untested | `serve-map` on `127.0.0.1`; a configured Mapbox MCP connection is also needed for the preview (untested) | A localhost URL may be unreachable; a connector is not guaranteed | `render-map` and `serve-map` on localhost |
+| Machine-readable results | JSON with exit codes 0, 1 and 2 | Same | Same | Same for `metes-review`; `metesparser` logs and exits 1 on failure |
+| **Operations and limits** | | | | |
+| Settings | `.claude/metesparser.local.md` in the working directory (`enabled`, `output_dir`) | Same | None; always pass a new `--output-dir` | `--settings PATH` on every `metes-review` subcommand; not read automatically; `metesparser` has none |
+| Credentials | Mapbox public token typed into the page at runtime; no `.env` | Same | Same | `.env` is read only by `metesparser`, for the provider key; `metes-review` never reads it |
+| Where data is processed | Cloud execution; connected local files reach it through the Desktop app | The engine runs locally; Claude reads the document | Claude's code-execution container | Local; `extract` sends the whole PDF to the provider and caches the response |
+| Automation | Launcher is scriptable (needs `uv`); Claude-guided steps are not | Same | Not designed for it | Best fit: JSON and exit codes, no Claude session |
+| Size limits | Anthropic states no ZIP limit; our ZIP is about 0.7 MB | Same ZIP | Anthropic states no ZIP limit; our ZIP is about 0.7 MB; code-execution and download limits may constrain large deeds (not documented) | None documented |
+| Reproducible build | No: entries carry file times and it builds from the working tree, including uncommitted changes | Same ZIP | Yes: fixed timestamps and modes plus a SHA-256 sidecar; two builds were byte-identical | Not applicable |
+| Validation status | `claude plugin validate --strict` passes; native Cowork acceptance not run | Same validation; no recorded Claude Code session | Local archive and launcher checks pass; native chat acceptance not run | Repository test suites |
 
-Use the Cowork plugin for multi-file local projects and repeated work, the chat Skill for the same engine in Claude chat through uploads and downloads, and the CLI for automation, batch runs and development. Only the CLI's `extract` reads PDFs through a provider API instead of Claude's native reading.
+#### Limitations
+
+All four:
+
+- This is a proof-of-concept plugin. Closure and `checks_passed` do not establish source accuracy, completeness or legal validity.
+- A deed with more than one description gets a verified export only when every role comes from a plain `PARCEL` or `TRACT` heading; inferred roles block it, and easement and exception tracts are never eligible.
+- Plots, dashboards, maps, revisions, diagnoses and comparisons are advisory and never grant verification.
+
+Cowork plugin:
+
+- Native Cowork acceptance has not been run; the runtime was tested locally from the extracted ZIP, not in Cowork.
+- Whether Cowork's cloud environment provides `uv`, Python 3.11+ and network access for the first-run dependency download is untested.
+- Local-folder access needs the Desktop app open and connected, and only the folders you grant.
+- Whether a generated dashboard or localhost map can be opened from a Cowork session is untested. Custom connectors, such as a Mapbox MCP server, must be reachable from Anthropic's IP ranges.
+- No marketplace listing, so updates are manual. The plugin bundles no subagents, hooks or schedules.
+- Multi-step tasks use more of your plan's usage than short questions.
+
+Claude Code plugin:
+
+- Pointing `--plugin-dir` at the git checkout (`plugins/metesparser`) fails with "The plugin's locked runtime is incomplete"; use the extracted release ZIP.
+- Needs local Python 3.11+ and `uv`, and network access on first use unless the cache is warm.
+- No recorded Claude Code session; only `claude plugin validate --strict` (passes, with an advisory about a missing icon) and the local launcher checks have run.
+- Native document reading depends on the session; if it is unavailable, supply prepared text or calls. Windows is untested.
+
+Claude chat Skill:
+
+- Native chat acceptance has not been run.
+- No project-folder access and no project settings. Upload inputs, download the result ZIP, and upload it again to resume; nothing persists in the chat.
+- Run `--setup` in each session; a host `uv` on `PATH` is used without checking it against the pin.
+- First use needs `files.pythonhosted.org` and `pypi.org`; the bootstrap download is limited to Linux and macOS on x86_64 and ARM64.
+- Dashboards and maps must be downloaded and opened in an external browser. Localhost reachability and MCP connectors are not guaranteed.
+- Upload size and batch limits are not documented. The ZIP must be built from source; it is not in the v0.6.0 release.
+
+CLI:
+
+- Needs a source checkout, Python 3.11+ and `uv`; there is no Claude-guided reading or tract selection.
+- `metes-review` does not read PDFs or images. `metesparser extract` needs an OpenAI or Gemini key, sends the PDF to that provider at its cost, and produces model output that is not guaranteed repeatable.
+- When verification fails, `extract` still writes an unverified CSV to the same output path; read the log before using it.
+- `metesparser verify` checks a CSV but writes no verified export.
+- `fetch-parcel` and Mapbox viewing need network access, and only when you ask for them.
+
+Choose the Cowork plugin for multi-file local projects, repeated work and Claude-guided review from the Desktop app. Choose the Claude Code plugin for the same skills on your own computer, with local files and browser. Choose the chat Skill when you have neither and can work through uploads and downloads, accepting the setup and persistence limits above. Choose the CLI for automation, batch runs and development: it needs no Claude session, but you supply the selected description or calls yourself. Only `metesparser extract` reads a PDF through a provider API instead of Claude's native reading.
 
 ## Skills and engine commands
 
