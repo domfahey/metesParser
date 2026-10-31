@@ -1,5 +1,9 @@
 # Using the metes-and-bounds skills
 
+Contents: [Choose the entrypoint](#choose-the-entrypoint) · [Examples of composition](#examples-of-composition) · [Use in Claude](#use-in-claude) · [Source handoff](#source-handoff) · [Runtime prerequisites](#runtime-prerequisites) · [Run the selected text directly](#run-the-selected-text-directly) · [Intake, controls and resuming](#intake-controls-and-resuming) · [Interpret the result](#interpret-the-result) · [Documentation and changes](#documentation-and-changes) · [Requested Mapbox companion](#requested-mapbox-companion)
+
+Commands below use the plugin root that the invoking skill printed; substitute it for `${CLAUDE_PLUGIN_ROOT}`.
+
 Use a capability for one requested stage and stop at its deliverable. Use a workflow when the user requested the full review sequence or an interactive dashboard. The catalog in the [plugin README](../README.md#skills) links each skill and summarizes its purpose and output.
 
 Start a closure request by locating the intended metes-and-bounds description. Any supplied source can contain it: a survey, plat, report, exhibit, title document, deed, email, image, or PDF.
@@ -23,11 +27,11 @@ Start a closure request by locating the intended metes-and-bounds description. A
 | Source material and explicit interactive dashboard/workbench request | `deed-closure-dashboard`; reuse valid acquisition, selection, and calculation handoffs. | Return local dashboard and stage artifacts. |
 | Prepared geographically placed evidence and “Show this on a Mapbox basemap.” | `render-online-map` uses the [local viewer](../skills/render-online-map/references/local-viewer.md). | Return local map/display provenance; no dashboard, acquisition, verification, or inferred alignment. |
 | Existing online-prepared map and “Show these vectors in chat using Mapbox MCP.” | `render-online-map` uses the [MCP handoff](../skills/render-online-map/references/mapbox-mcp.md). | Prepare exact vector arguments, inspect the connected tool schema, and call only if compatible; retain local raster/source review and report acceptance separately. |
-| Several descriptions and “Does this property close?” without a tract selected | `review-metes-and-bounds` identifies candidates. | Ask which boundary to review before calculation. |
+| Several descriptions and “Does this property close?” without a tract selected | `review-metes-and-bounds` identifies candidates. | Ask which boundary to review before calculation. Text review takes one description per run; plain role headings matter only for verified export; see [multiple descriptions](review-limits.md#multiple-descriptions). |
 
-`review-deed` remains an entrypoint for deed-specific requests and follows the same shared workflow.
+`review-deed` is a manual slash-command alias for deed-specific requests (it is not selected automatically) and applies the same `review-metes-and-bounds` workflow.
 
-Transcription, description extraction, traverse verification, plotting, overlay preparation, online map rendering, and description comparison are capabilities with separate deliverables. Stop after the requested capability; do not continue automatically to another stage. If a later stage is requested, reuse valid handoff artifacts for unchanged sources, conditionally using read-only `inspect-artifacts` when freshness or dependencies are unclear. Dashboard discovery is limited to explicit interactive dashboard/workbench requests; a request for a plot alone uses the plot capability. A two-description comparison uses `compare-descriptions` after the intended versions have been identified. `review-deed` is an alias for deed-specific requests and routes to `review-metes-and-bounds`.
+Transcription, description extraction, traverse verification, plotting, overlay preparation, online map rendering, and description comparison are capabilities with separate deliverables. Stop after the requested capability; do not continue automatically to another stage. If a later stage is requested, reuse valid handoff artifacts for unchanged sources, conditionally using read-only `inspect-artifacts` when freshness or dependencies are unclear. Dashboard discovery is limited to explicit interactive dashboard/workbench requests; a request for a plot alone uses the plot capability. A two-description comparison uses `compare-descriptions` after the intended versions have been identified.
 
 ## Examples of composition
 
@@ -70,14 +74,14 @@ The Python launcher requires Python 3.11+ and `uv`; check `python3 --version` an
 Run from the intended project root:
 
 ```sh
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" review description-parcel-a.txt --output-dir reviews/parcel-a-new
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" review description-tract-a.txt --output-dir reviews/tract-a-new
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" verify calls.csv --output-dir reviews/calls-new
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" analyze-relative angles.json --output-dir reviews/angles-new
 ```
 
 These commands accept prepared descriptions or identified call sets; they do not locate a description inside a PDF or arbitrary whole document. Output directories must be new. A configured output base can supply a fresh child when `--output-dir` is omitted. See [project settings](plugin-settings.md) for `.claude/metesparser.local.md`, CLI precedence, and per-run reload behavior.
 
-For straight descriptions defined by relative angles, `analyze-relative` accepts a [source-linked JSON constraint description](../skills/deed-closure-dashboard/references/relative-analysis.md). It calculates local geometry separately from canonical verification and always retains `needs_review` (exit 1) for valid inputs, including successful analysis. It preserves unknown recorded bearings and produces no verified CSV. Check `analysis.status` for `analyzed`, `unresolved`, or `inconsistent`.
+For straight descriptions defined by relative angles, `analyze-relative` accepts a [source-linked JSON constraint description](relative-analysis.md). It calculates local geometry separately from canonical verification and always retains `needs_review` (exit 1) for valid inputs, including successful analysis. It preserves unknown recorded bearings and produces no verified CSV. Check `analysis.status` for `analyzed`, `unresolved`, or `inconsistent`.
 
 ## Intake, controls and resuming
 
@@ -85,7 +89,7 @@ Return the [compact intake and coverage accounting](source-preparation.md#intake
 
 ## Interpret the result
 
-`checks_passed` (exit 0) means implemented deterministic checks passed; `needs_review` (exit 1) identifies unresolved checks; `error` (exit 2) reports a processing or configuration failure. The selected source and any uncertainty remain part of the result, even when geometry closes.
+Statuses and exit codes are listed in [review limits](review-limits.md#status-and-exit-codes). A multi-description deed without plain role headings is blocked from verified export; see [multiple descriptions](review-limits.md#multiple-descriptions). The selected source and any uncertainty remain part of the result, even when geometry closes.
 
 For a processing error, inspect the diagnostic, correct supported configuration or source-grounded input formatting, and rerun in a fresh directory. For `needs_review`, retain the issue and consult the source; do not change a recorded value merely to obtain a passing result.
 

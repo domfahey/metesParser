@@ -72,7 +72,7 @@ Start by locating the boundary description requested, whether it appears in a su
 
 Native conversion and description selection depend on Claude's reading of the source; closure cannot prove those stages were complete or accurate. Retain the acquisition and selection records described in [source preparation](references/source-preparation.md). Native reading must be available in the current Claude session; disclose unsupported or unreadable sources rather than silently substituting another provider.
 
-The engine uses exit code 0 for `checks_passed`, 1 for `needs_review`, and 2 for `error`. A passing status describes the implemented deterministic checks; source review remains a separate step. See the [review limits](references/review-limits.md).
+Statuses and exit codes (`checks_passed` 0, `needs_review` 1, `error` 2) are listed in the [review limits](references/review-limits.md#status-and-exit-codes). A passing status describes the implemented deterministic checks; source review remains a separate step. Multi-description deeds need plain role headings for verified export, or one parcel per review; see [multiple descriptions](references/review-limits.md#multiple-descriptions).
 
 ## Project settings
 

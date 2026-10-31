@@ -1,5 +1,7 @@
 # Mapbox local viewer
 
+Commands below use the plugin root that the invoking skill printed; substitute it for `${CLAUDE_PLUGIN_ROOT}`.
+
 Use this mode for a requested local online map. The default dashboard remains offline. Read the [online handoff](../../../references/artifact-handoffs.md#optional-online-map-handoff) for inputs, status, accuracy, and invalidation. The companion is a read-only, baseline-only 2D Mercator view; it does not support online scenario edits, terrain, or globe placement.
 
 In a source checkout, install optional dependencies with `uv sync --extra web-map`. To build a distributable plugin from that checkout, run `uv run python scripts/build_claude_plugin.py --with-web-map --output dist/metesparser-plugin-web-map.zip`; this includes geo support and cannot be combined with `--without-geo`. With an already extracted web-map distribution, use its `scripts/run-review.py` launcher directly; the repository build script is not bundled. Default and minimal distributions retain their offline purpose.
