@@ -55,8 +55,15 @@ def _strictly_parsed(text: str) -> bool:
     return True
 
 
-# Text review extracts strictly: a probe with a malformed course is an input error there.
-BLOCKED_REVIEWS = [name for name in BLOCKED if _strictly_parsed(PROBES[name])]
+def _reviewed(text: str) -> bool:
+    """Whether text review accepts the probe at all (it refuses strict-parse errors and
+    multiple headed parcels, which need separate reviews); refusals write no artifacts."""
+    return _strictly_parsed(text) and review_text(text)["status"] != "error"
+
+
+# Text review extracts strictly and refuses multiple headed parcels: those probes are
+# input errors there, which fail closed without writing any artifact.
+BLOCKED_REVIEWS = [name for name in BLOCKED if _reviewed(PROBES[name])]
 # The round-56 re-review bypass: the flat calls of these blocked deeds close alone.
 BYPASSED = [
     "close0_easement_after",
@@ -112,7 +119,10 @@ def test_gate_reads_the_mark_when_tracts_are_absent() -> None:
 @pytest.mark.parametrize("name", BLOCKED)
 def test_flat_calls_of_a_blocked_deed_are_marked(name: str) -> None:
     calls, tracts = extract_calls(PROBES[name], strict=False, skipped_courses=[])
-    assert calls and all(_marked(c) for c in calls)
+    # A deed whose only described land is introduced as an exception or easement has no
+    # boundary calls at all; whatever flat calls exist carry the mark.
+    assert all(_marked(c) for c in calls)
+    assert calls or not any(t.tract_type.value == "main" for t in tracts)
     assert not any(_marked(c) for t in tracts for c in t.calls)
 
 
@@ -173,9 +183,14 @@ def test_dashboard_calculation_is_blocked_by_the_mark() -> None:
 # --- review: a blocked review's artifacts stay blocked when re-reviewed ----------------
 
 
-def test_strict_parse_errors_are_the_only_blocked_probes_not_reviewed() -> None:
-    assert sorted(set(BLOCKED) - set(BLOCKED_REVIEWS)) == ["running_exception_after"]
-    assert review_text(PROBES["running_exception_after"])["status"] == "error"
+@pytest.mark.parametrize("name", sorted(set(BLOCKED) - set(BLOCKED_REVIEWS)))
+def test_blocked_probes_text_review_refuses_write_nothing_verified(
+    name: str, tmp_path: Path
+) -> None:
+    result = review_text(PROBES[name], output_dir=tmp_path / "r")
+    assert result["status"] == "error"
+    assert "calls_verified.csv" not in result.get("artifacts", {})
+    assert not (tmp_path / "r" / "calls_verified.csv").exists()
 
 
 @pytest.mark.parametrize("name", BLOCKED_REVIEWS)
