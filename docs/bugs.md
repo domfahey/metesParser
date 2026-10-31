@@ -1221,6 +1221,18 @@ Seven findings (four regressions from rounds 47-48, none conflicting with the cl
 - **Bracket-aware ";" cuts:** a ";" inside brackets no longer cuts `to`, the no-THENCE course split, or the calls segmenter (two of these silently dropped the text after the ";"); a bracketed passing call is noted once (`1da3dd0`).
 - **Known limitations:** a plural lead ("the following described parcels: PARCEL A … PARCEL B") types only the first parcel EXCEPTION; two ";"-separated dividing lines with bearings and distances count as a traverse (fail closed or exception tract, not a note).
 
+### PR #60 fiftieth review (2026-10-30)
+Ten findings (four regressions from rounds 48-49, one performance regression), fixed red-green on `fix/code-review-2026-10-29`:
+- **Performance (regression, worse than reported):** besides per-character bracket and sentence-end rescans (400 courses 0.38 s vs 0.07 s on `main`), `_SourceMap`'s `difflib` alignment was cubic when normalization rewrote every course (a 400-course description did not finish in 120 s). Unchanged tokens now align one to one and changed stretches in 256-token windows; bracket spans are bisected; sentence-end checks read only the adjacent word. Time now grows linearly (400 courses 0.13 s; normalizing variant 0.19 s), guarded by a growth-ratio test (`08caf24`).
+- **Course length removed from `along` (regression):** the whole selected course-length span ("1 chain 50 links", "25 feet 6 inches", "the distance of 142 feet", "more or less") is cut, not a re-matched token; 22 sample `along` values lose a dangling "the" (`08caf24`).
+- **"along with" (regression):** conveyancing "along with all improvements thereon" is not adjoiner wording, never fails a course closed, and is recorded as a deed clause; "along with the line of Smith" is still an adjoiner (`08caf24`).
+- **Adjoiner after the destination and length (regression):** "to a pin 100 feet more or less along the line of Jones" gives `along='the line of Jones'` again (`08caf24`).
+- **"Lot B." (regression):** a single letter after Lot/Block/Section/Parcel/Tract/Unit is a label, so `along` stops at "Lot B"; the remaining ". "+capital splitters (closing-sentence cut, strip scan, RESERVING/SUBJECT TO clauses) use the shared rule (`08caf24`).
+- **Easement grants:** "the benefit of an easement" and "all right, title and interest in and to the … easement" are easements; land within or adjoining an easement stays an addition (corpus +13 cases) (`c51dd0d`).
+- **One JSON reader:** every CLI-reachable JSON input decodes once and is depth-checked inside the input boundary (`mp_review.json_input`), so deep JSON in any input or option is `invalid_input_json` and the double parse is gone; a deep record inside a `validate-source` root stays a per-file `invalid_json` finding (`f3671a3`, `32f8fa2`).
+- **Partial output:** an internal error lists every path handed to the run that exists afterwards (`f3671a3`).
+- **Legacy temp files:** `NamedTemporaryFile` residue (`tmp` + 8 characters) in a manifest-less legacy delivery directory no longer blocks the id (`f3671a3`).
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
