@@ -15,9 +15,9 @@ SAMPLE_DIR = Path(__file__).resolve().parent.parent / "sample_deeds"
 
 # Regex patterns for extracting metes & bounds data from markdown text
 BEARING_PATTERN = re.compile(
-    r"([NS])\s*(?:orth|outh)?\s*(\d{1,3})\s*(?:degrees?|°|deg\.?)\s*"
+    r"([NS])\s*(?:orth|outh)?\s*(\d{1,3})\s*(?:degrees?|°|deg\.?)[,\s]*"
     r"(\d{1,2})\s*(?:minutes?|\'|min\.?)[,\s]*"
-    r"(?:(\d{1,2})\s*(?:seconds?|\"|sec\.?)\s*)?"
+    r"(?:(\d{1,2})\s*(?:seconds?|\"|sec\.?)[,\s]*)?"
     r"([EW])\s*(?:ast|est)?",
     re.IGNORECASE,
 )
@@ -33,8 +33,25 @@ TOTAL_DISTANCE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# "158 feet 8 inches", "92 feet, 4 inches"
+INCHES_AFTER_FEET_PATTERN = re.compile(
+    r"\s*,?\s*(?:and\s+)?(\d+(?:\.\d+)?)\s*inch(?:es)?\b", re.IGNORECASE
+)
+
+# "10 feet wide alley" or "distant 10 feet Northeastwardly": not the course length
+WIDTH_AFTER_PATTERN = re.compile(r"\s+wide\b", re.IGNORECASE)
+OFFSET_BEFORE_PATTERN = re.compile(r"\bdistant\s+$", re.IGNORECASE)
+OFFSET_AFTER_PATTERN = re.compile(r"\s+(?:north|south|east|west)", re.IGNORECASE)
+
 THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
 BEGINNING_PATTERN = re.compile(r"\*{0,2}\bBEGINNING\b\*{0,2}\s+(?:at|in)\b", re.IGNORECASE)
+# Block openings also include "BEGINNING on" (not "place of beginning on the lands") and
+# "STARTING at" (a tie line precedes the POB)
+BLOCK_START_PATTERN = re.compile(
+    r"\*{0,2}\b(?:BEGINNING\b\*{0,2}\s+(?:at|in)|(?<!of\s)BEGINNING\b\*{0,2}\s+on"
+    r"|STARTING\b\*{0,2}\s+at)\b",
+    re.IGNORECASE,
+)
 
 # Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from call_extractor.py
 CARDINAL_ONLY_PATTERN = re.compile(
@@ -63,6 +80,9 @@ def bearing_to_azimuth(quadrant1: str, angle_decimal: float, quadrant2: str) -> 
     return None
 
 
+# "TRACT #1", "TRACT #2B": two or more mark separate tracts, not duplicate descriptions
+TRACT_MARKER_PATTERN = re.compile(r"\bTRACT\s*#?\s*\d+[A-Z]?\b", re.IGNORECASE)
+
 # Exhibit A / Schedule C section markers
 EXHIBIT_PATTERN = re.compile(
     r"(?:EXHIBIT\s*[\"']?\s*[\"']?A[\"']?|SCHEDULE\s+C)",
@@ -71,8 +91,13 @@ EXHIBIT_PATTERN = re.compile(
 
 # "place of BEGINNING" or "point of beginning" closure marker
 POB_CLOSE_PATTERN = re.compile(
-    r"(?:point|place)\s+(?:and\s+place\s+)?of\s+BEGINNING",
+    r"(?:point|place)\s+(?:and\s+place\s+)?of\s+BEGINNING|\bto\s+BEGINNING\b",
     re.IGNORECASE,
+)
+
+# "which last mentioned point is the place of beginning": a tie line ends here, the description goes on
+RESTATED_POB_BEFORE_PATTERN = re.compile(
+    r"\blast\s+mentioned\s+point\s+is\s+(?:the\s+)?$", re.IGNORECASE
 )
 
 # Numbered call starters: "1. " or "(1) " at start of line OR inline
@@ -94,18 +119,53 @@ def find_preferred_text(md_text: str) -> str:
     return md_text
 
 
+def find_block_close(text: str, start: int) -> re.Match[str] | None:
+    """Find the closure ending a block, skipping restated points of beginning."""
+    for match in POB_CLOSE_PATTERN.finditer(text, start):
+        if not RESTATED_POB_BEFORE_PATTERN.search(text, 0, match.start()):
+            return match
+    return None
+
+
+def extract_distance(segment: str) -> float | None:
+    """Return the course length in feet, preferring a stated total over widths and offsets."""
+    total = TOTAL_DISTANCE_PATTERN.search(segment)
+    if total:
+        return float(total.group(1))
+    matches = list(DISTANCE_PATTERN.finditer(segment))
+    if not matches:
+        return None
+
+    def is_reference(m: re.Match[str]) -> bool:
+        after = segment[m.end() :]
+        return bool(
+            WIDTH_AFTER_PATTERN.match(after)
+            or (
+                OFFSET_BEFORE_PATTERN.search(segment, 0, m.start(1))
+                and OFFSET_AFTER_PATTERN.match(after)
+            )
+        )
+
+    match = next((m for m in matches if not is_reference(m)), matches[0])
+    value = float(match.group(1))
+    inches = INCHES_AFTER_FEET_PATTERN.match(segment, match.end())
+    if inches:
+        value += float(inches.group(1)) / 12
+    return value
+
+
 def extract_all_legal_blocks(text: str) -> list[str]:
     """Extract all BEGINNING...point/place of BEGINNING blocks from text."""
     blocks = []
     search_start = 0
 
     while True:
-        begin_match = BEGINNING_PATTERN.search(text, search_start)
+        begin_match = BLOCK_START_PATTERN.search(text, search_start)
         if not begin_match:
             break
 
         start = begin_match.start()
-        close_match = POB_CLOSE_PATTERN.search(text, start + 10)
+        close_match = find_block_close(text, start + 10)
         if close_match:
             blocks.append(text[start : close_match.end()])
             search_start = close_match.end()
@@ -164,7 +224,7 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
 
     for i, segment in enumerate(segments, 1):
         bearing_match = BEARING_PATTERN.search(segment)
-        distance_match = TOTAL_DISTANCE_PATTERN.search(segment) or DISTANCE_PATTERN.search(segment)
+        distance_ft = extract_distance(segment)
 
         call_data = {"call_num": i, "segment": segment[:200].strip()}
 
@@ -180,8 +240,8 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
                 call_data["bearing"] = f"cardinal-only: {cardinal_match.group()}"
                 call_data["azimuth"] = None
 
-        if distance_match:
-            call_data["distance_ft"] = float(distance_match.group(1))
+        if distance_ft is not None:
+            call_data["distance_ft"] = distance_ft
 
         if "bearing" in call_data or "distance_ft" in call_data:
             calls.append(call_data)
@@ -236,11 +296,14 @@ def extract_calls_from_md(
     block_calls = [extract_calls_from_block(block) for block in blocks]
 
     # Step 4: If some blocks have DMS bearings and others are cardinal-only,
-    # drop the cardinal-only blocks (duplicate descriptions of the same parcel).
+    # drop the cardinal-only blocks (duplicate descriptions of the same parcel),
+    # unless the deed is multi-tract: marked tracts, or all blocks together match the GT count.
     dms_blocks = [
         calls for calls in block_calls if any(c.get("azimuth") is not None for c in calls)
     ]
-    if dms_blocks and len(dms_blocks) < len(block_calls):
+    total_calls = sum(len(calls) for calls in block_calls)
+    multi_tract = len(TRACT_MARKER_PATTERN.findall(search_text)) >= 2 or total_calls == n_gt
+    if dms_blocks and len(dms_blocks) < len(block_calls) and not multi_tract:
         block_calls = dms_blocks
 
     all_calls = []
