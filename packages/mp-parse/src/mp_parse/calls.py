@@ -1339,12 +1339,16 @@ def extract_calls(
 
     Returns:
         Tuple of (flat_calls, tracts).
-        - For single-tract deeds: flat_calls populated, tracts is empty list.
+        - For single-tract deeds: flat_calls populated, tracts is empty list, when
+          the one description is the parcel ("single": ``sole_description_basis``).
+          A sole description whose role is not established (r59: easement,
+          exception or reservation wording introduces, titles or follows it) is one
+          tract with an "inferred" basis instead, its calls marked as below.
         - For multi-tract deeds: flat_calls is the merged list, tracts has
           per-tract Tract objects with independent call lists. Each tract records
           its ``role_basis`` ("heading", "inferred", or "single" for a sole MAIN tract);
-          verification and verified export block the whole deed when several
-          tracts include an inferred role (``mp_models.roles_need_review``), and
+          verification and verified export block the whole deed when any tract's
+          role is inferred (``mp_models.roles_need_review``), and
           every call then carries the role-review mark
           (``mp_models.mark_roles_review``), the flat calls and each tract's own,
           so no subset of them verifies on its own. Every call of an easement or
@@ -1354,16 +1358,24 @@ def extract_calls(
     """
     from mp_models import Tract, TractType
 
-    from .tracts import split_into_tracts_with_basis
+    from .tracts import sole_description_basis, split_into_tracts_with_basis
 
     normalized = normalize_legal_description(text)
     # Strip exceptions are set aside first: their EXCEPT never splits a tract.
     working, strips = _set_aside_non_boundary_text(normalized, easements=False)
-    based = split_into_tracts_with_basis(working)
+    # The wording around each description is read before anything was set aside.
+    based = split_into_tracts_with_basis(working, unblanked=normalized)
     segments = [segment[:3] for segment in based]
 
-    # Single-tract fast path: preserve backward-compatible behavior
-    if len(segments) == 1 and segments[0][2] == TractType.MAIN:
+    # Single-tract fast path: preserve backward-compatible behavior for the parcel. A sole
+    # description whose role is not established (r59: easement or exception wording
+    # introduces, titles or follows it) takes the tract path below: one "inferred" tract.
+    sole_basis = (
+        sole_description_basis(working, based[0][3], normalized)
+        if len(segments) == 1 and segments[0][2] == TractType.MAIN
+        else None
+    )
+    if sole_basis == "single":
         flat_calls = _extract_calls_from_text(
             normalized,
             distance_unit,
@@ -1435,13 +1447,18 @@ def extract_calls(
         if tract_type != TractType.EASEMENT:
             all_calls.extend(tract_calls)
 
-    # The deed's one described tract is "single" only as the parcel (MAIN by position).
-    # An EXCEPTION, EASEMENT or ADDITION left alone keeps its "inferred" basis: its type
+    # The deed's one described tract is "single" only as the parcel (MAIN by position)
+    # whose wording establishes it (r59: ``sole_description_basis``, an allow-list). An
+    # EXCEPTION, EASEMENT or ADDITION left alone keeps its "inferred" basis: its type
     # came from the lead or grant introducing it (an easement deed's grant, "EXCEPTING
     # THEREFROM the following described parcel:"), so its parcel is described by
     # reference only and its role still depends on wording (fail closed).
     if len(tract_objects) == 1 and tract_objects[0].tract_type == TractType.MAIN:
-        tract_objects[0] = tract_objects[0].model_copy(update={"role_basis": "single"})
+        sole = tract_objects[0]
+        basis = sole_basis or sole_description_basis(
+            working, sole.role_basis or "inferred", normalized
+        )
+        tract_objects[0] = sole.model_copy(update={"role_basis": basis})
 
     if roles_need_review(tract_objects):
         # Roles were guessed: every call is marked, each tract's and so the flat list
