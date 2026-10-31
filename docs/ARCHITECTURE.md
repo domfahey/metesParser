@@ -20,6 +20,13 @@ System design and data flow for metesParser.
 - [Design Decisions](#design-decisions)
 - [Concrete Sample Workflow](#concrete-sample-workflow)
 - [Optional Geographic Display Architecture](#optional-geographic-display-architecture)
+- Diagrams
+  - [Package dependencies](#dependency-graph)
+  - [Provider-backed data flow](#provider-backed-pdf-pipeline)
+  - [Verified-export gate](#verified-export-gate)
+  - [One engine, three ways to run it](#one-engine-three-ways-to-run-it)
+  - [Monolith facade map](#package-to-monolith-mapping)
+  - [Skill composition](#skill-composition)
 
 ## System Overview
 
@@ -117,48 +124,47 @@ This section is the single source of truth for the fail-closed role policy; othe
 
 ## Composable Package Architecture
 
-The codebase is a **uv workspace monorepo**: 7 `mp-*` packages under `packages/` plus the root `metesparser` package:
-
-```
-packages/
-  mp-models/    -> Shared schemas, evidence/analysis contracts, units, logging
-                  (no workspace package dependencies)
-  mp-bearing/   -> Pure math: azimuth, curves, deltas (depends: mp-models)
-  mp-ocr/       -> LLM boundary: PDF -> text (depends: mp-models)
-  mp-parse/     -> Rule-based parsing: text -> calls (depends: mp-models, mp-bearing)
-  mp-verify/    -> Canonical checks + plot/relative/diagnosis/comparison math
-                  (depends: mp-models, mp-bearing)
-  mp-export/    -> CSV, audit, plot/dashboard rendering (depends: mp-models, mp-verify)
-  mp-review/    -> File/CLI adapters, evidence validation/replay, analysis and views
-                  (depends: mp-models, mp-parse, mp-verify, mp-export)
-src/metesparser/ -> Orchestrator + backward-compat monolith
-```
+The codebase is a **uv workspace monorepo**: 7 `mp-*` packages under `packages/` plus the root `metesparser` package (`src/metesparser/`, the orchestrator and backward-compatible monolith).
 
 ### Dependency Graph
 
-Arrows show workspace dependencies (external libraries omitted):
+Each arrow points from a package to a workspace package it declares in its `pyproject.toml` `dependencies` (external libraries omitted); the label under each name is the package's single responsibility. `mp-ocr` is the only package that calls an LLM provider.
 
 ```mermaid
 graph TD
-    bearing[mp-bearing] --> models[mp-models]
-    ocr[mp-ocr] --> models
-    parse[mp-parse] --> models
-    parse --> bearing
-    verify[mp-verify] --> models
-    verify --> bearing
-    export[mp-export] --> models
-    export --> verify
-    review[mp-review] --> models
-    review --> parse
-    review --> verify
-    review --> export
-    root[metesparser] --> ocr
+    root["metesparser<br/>Pipeline + compatibility monolith"]
+    review["mp-review<br/>file/CLI adapters, replay, views"]
+    export["mp-export<br/>CSV, audit, plot/dashboard rendering"]
+    verify["mp-verify<br/>canonical checks, plot/diagnosis math"]
+    parse["mp-parse<br/>rule-based text to calls"]
+    ocr["mp-ocr<br/>PDF to text via LLM provider"]
+    bearing["mp-bearing<br/>azimuth, curve, delta math"]
+    models["mp-models<br/>schemas, units, logging"]
+
+    root --> ocr
     root --> bearing
     root --> parse
     root --> verify
     root --> export
     root --> review
+    review --> parse
+    review --> verify
+    review --> export
+    export --> verify
+    export --> models
+    verify --> bearing
+    verify --> models
+    parse --> bearing
+    parse --> models
+    bearing --> models
+    ocr --> models
+    review --> models
+
+    classDef llm stroke-width:3px,stroke-dasharray:6 3
+    class ocr llm
 ```
+
+The dashed node is the LLM boundary. `mp-review`, `mp-parse`, `mp-verify` and `mp-export` make no provider calls. The root package reaches `mp-models` through its dependencies, and its compatibility monolith keeps its own provider clients in `src/metesparser/llm_clients.py`. The plugin and chat Skill runtimes bundle every package except `mp-ocr`.
 
 ### Package-to-Monolith Mapping
 
@@ -175,6 +181,43 @@ The original monolith in `src/metesparser/` is preserved for backward compatibil
 | `mp-export` | `audit_reporter.py` | Duplicate (legacy audit HTML) |
 | Shared review/analysis APIs | `plot.py`, `dashboard.py`, `source_handoff.py`, `artifact_inspect.py`, `diagnostics.py`, `comparison.py`, `corridor.py`, `plss.py`, `revisions.py`, `delivery.py`, and `raster_picker.py` | Facade (re-export package implementations/contracts) |
 | `metesparser` | `pipeline.py`, `cli.py`, `run_registry.py`, `review_packet.py` | Orchestrator (not a mirror of a package) |
+
+The map below shows the same split from the monolith side: arrows are the real imports. Facades reach the package through `package_bridge.py` (which converts monolith models to and from `mp_models`) or import the package module directly; duplicates import no package module.
+
+```mermaid
+graph LR
+    subgraph facades["Facades in src/metesparser"]
+        ce[call_extractor.py]
+        tp[text_parser.py]
+        cc[closure_checker.py]
+        cb[csv_builder.py]
+        rf["plot, dashboard, delivery,<br/>revisions, source_handoff, ..."]
+    end
+    bridge["package_bridge.py<br/>model conversion"]
+    subgraph pkgs["Workspace packages"]
+        parse[mp_parse]
+        verify[mp_verify]
+        export[mp_export]
+        review[mp_review]
+        models[mp_models]
+    end
+    subgraph dups["Duplicates, hand-synced"]
+        d1["models.py"]
+        d2["bearing_converter.py"]
+        d3["audit_reporter.py"]
+        d4["pdf_processor.py, llm_clients.py, llm_cache.py"]
+    end
+
+    ce --> bridge
+    cc --> bridge
+    cb --> bridge
+    bridge --> models
+    ce --> parse
+    tp --> parse
+    cc --> verify
+    cb --> export
+    rf --> review
+```
 
 ### Pipeline Orchestrator
 
@@ -253,6 +296,42 @@ Claude's native reading and selection are source-preparation stages outside the 
 
 Browser edits are recoverable working copies. The straight-course scenario calculator is a preview; the structured editor retains exact raw line/arc inputs, but shared-engine geometry is refreshed only after publishing and rendering a revision. A browser preview, saved raw draft, or last-valid parent plot is not the current geometry for an unresolved revision.
 
+### One engine, three ways to run it
+
+The plugin ZIP, the chat Skill ZIP and a source checkout all end in `mp_review`. The chat build calls the plugin build and re-packages its output, so both ZIPs carry the same locked runtime and `engine.json` fingerprint, and the chat wrapper delegates to the unchanged plugin launcher. The bundled runtime contains six wheels (`mp-models`, `mp-bearing`, `mp-parse`, `mp-verify`, `mp-export`, `mp-review`) and no `mp-ocr`.
+
+```mermaid
+flowchart LR
+    subgraph build["Build, from the repository"]
+        pb["build_claude_plugin.py<br/>make plugin-build"]
+        cb["build_claude_skill.py<br/>make chat-skill-build"]
+        rt[("runtime/<br/>6 wheels, pyproject.toml,<br/>uv.lock, engine.json")]
+        cb -- calls --> pb
+        pb --> rt
+    end
+
+    subgraph plugin["Plugin ZIP"]
+        ps["13 skills/NAME/SKILL.md"]
+    end
+    subgraph chat["Chat Skill ZIP"]
+        cs["metesparser-review SKILL.md,<br/>13 skills/NAME/WORKFLOW.md"]
+        rc["scripts/run-chat.py<br/>find or install pinned uv,<br/>uv sync --locked"]
+        cs --> rc
+    end
+    launcher["scripts/run-review.py<br/>verify engine.json,<br/>uv run --locked python -m mp_review"]
+    cli["Source checkout, uv<br/>uv run metes-review"]
+    mr["mp_review"]
+
+    rt -. bundled in .-> plugin
+    rt -. bundled in .-> chat
+    ps --> launcher
+    rc --> launcher
+    launcher --> mr
+    cli --> mr
+```
+
+The separate Python `metesparser` CLI (`uv run metesparser extract`) uses the root package and its provider-backed `PDFProcessor`; it is not part of either ZIP. See [distribution layout and setup](CLAUDE_PLUGIN.md#standalone-claude-chat-skill) for host-specific paths and prerequisites.
+
 ## Advisory Operations and Artifact Reuse
 
 | Operation | Contract and responsibility | Meaning and limits |
@@ -316,12 +395,43 @@ The plugin launcher has matching subcommands. A complete local/extracted runtime
 
 ### Provider-Backed PDF Pipeline
 
+Source reading is the only non-deterministic stage; everything after it is deterministic package code. The plugin and chat Skill read the document natively (they bundle no `mp-ocr`); the Python `Pipeline` and `metesparser extract` use a provider. Only `export_verified_csv` is gated: display and delivery outputs are advisory (`needs_review`) and never promote verification.
+
+```mermaid
+flowchart LR
+    doc["PDF or image"]
+    subgraph read["Source reading"]
+        native["Claude native reading<br/>plugin and chat Skill"]
+        ocr["PDFProcessor, OpenAI or Gemini<br/>Python Pipeline, CLI extract"]
+    end
+    text["Description text"]
+    subgraph parse["mp_parse"]
+        norm["normalize_legal_description"]
+        extract["extract_calls<br/>tract split with role_basis,<br/>record-call scan, call parsing"]
+        enrich["enrich_calls_with_azimuths<br/>mark_tie_in_calls"]
+    end
+    subgraph verify["mp_verify"]
+        vc["verify_closure<br/>traverse, closure, area"]
+        chk["build_verification_checks<br/>incl. description_roles_inferred,<br/>non_boundary_tract"]
+    end
+    subgraph exp["mp_export"]
+        gate{"export_verified_csv<br/>fresh re-verification"}
+        csv["_verified.csv<br/>+ .verification.txt, audit sidecars"]
+        views["Display and delivery<br/>plot, dashboard, map HTML,<br/>SVG, PDF, DXF, GeoJSON"]
+    end
+
+    doc --> native --> text
+    doc --> ocr --> text
+    text --> norm --> extract --> enrich
+    enrich --> vc
+    chk --> vc
+    vc -- ClosureResult --> gate
+    enrich -- exact calls --> gate
+    gate --> csv
+    enrich -. independent, advisory .-> views
 ```
-PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
-       LLM       Rules       Checks      _verified.csv
-       extract    extract     closure     .audit.json
-                  calls       area        .audit.html
-```
+
+GeoJSON is built in `mp_review.delivery` and the other delivery formats in `mp_export.delivery`, from a published revision rather than directly from this flow. The gate itself is detailed in [Verified-export gate](#verified-export-gate).
 
 ### Detailed Flow
 
@@ -571,6 +681,40 @@ class ClosureResult:
 Use `mp_verify.verify_closure()` for canonical results and `mp_verify.plot.prepare_plot()` for source-linked display geometry. Both use shared bearing/curve math; their outputs have different meanings. Tie-in calls are explicitly excluded from boundary geometry. Missing orientations and unsupported connectivity remain blocked/unresolved rather than proving a complete boundary from known calls alone. Plotting may retain a valid prefix, but it cannot authorize verified export.
 
 For a supported straight course, `delta E = distance × sin(azimuth)` and `delta N = distance × cos(azimuth)`, with azimuth clockwise from north. Supported circular arcs use radius, sweep and explicit orientation evidence. The exporter re-runs canonical verification on the exact calls and rejects stale/mismatched results. Closure below 0.01 ft is necessary, but eligible applicable outcomes and no warnings are also required; `not_applicable` never means a check was performed.
+
+### Verified-Export Gate
+
+`mp_export.export_verified_csv` refuses (raises `ValueError`, writes nothing) unless every step below passes. Role checks run first, per-tract results are filtered next, and the exact selected calls are then re-verified from scratch. The roles rule is defined once in [Description roles and verified export](#description-roles-and-verified-export).
+
+```mermaid
+flowchart TD
+    start(["export_verified_csv"]) --> roles{"roles_need_review?<br/>several descriptions with an inferred role,<br/>or a call with the role-review mark"}
+    roles -- yes --> refuse["Refuse: raise ValueError, write nothing"]
+    roles -- no --> shape{"Per-tract results supplied?"}
+
+    shape -- "no, one description" --> marks{"Calls carry an<br/>easement or exception note?"}
+    marks -- yes --> refuse
+    marks -- no --> sup{"Supplied result<br/>is_fully_verified?"}
+    sup -- no --> refuse
+    sup -- yes --> fresh
+
+    shape -- yes --> tracts{"Any main or addition tract,<br/>no non-boundary note,<br/>result is_fully_verified?"}
+    tracts -- no --> refuse
+    tracts -- yes --> fresh
+    tracts -. "easement, exception or<br/>unverified tracts" .-> skipped["Skipped, reason listed in<br/>.verification.txt"]
+
+    subgraph fresh["Fresh verification of the exact calls"]
+        direction TD
+        f1{"Misclosure under 0.01 ft,<br/>no skipped courses?"} -- yes --> f2{"Every check passed or<br/>not_applicable, no warnings?"}
+        f2 -- yes --> f3{"Equals the supplied result?<br/>source_review_status ignored"}
+    end
+    f1 -- no --> refuse
+    f2 -- no --> refuse
+    f3 -- no --> refuse
+    f3 -- yes --> write["Write _verified CSV per eligible tract"]
+```
+
+A skipped course makes `traverse_closure` blocked (`_block_skipped_closure`), and the blocked `description_roles_inferred` and `non_boundary_tract` checks add warnings, so each fails the `is_fully_verified()` conditions in the fresh step as well as the earlier role steps. Passing the gate establishes geometry eligibility only, not source completeness or legal validity.
 
 ### Area Calculation
 
