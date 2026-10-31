@@ -4,6 +4,8 @@ Build an interactive closure check for a chain of title or any set of source doc
 
 Contents: [Quick start](#1-quick-start) · [Inputs and data contract](#2-inputs-and-data-contract) · [Workflow](#3-workflow) · [Page specification](#4-page-specification) · [Common pitfalls](#5-common-pitfalls) · [QA before delivery or publication](#6-qa-before-delivery-or-publication) · [Current controls and delivery](#current-controls-and-delivery)
 
+Commands below use the plugin root that the invoking skill printed; substitute it for `${CLAUDE_PLUGIN_ROOT}`.
+
 The finished page has six parts:
 
 1. **Findings:** one card per description occurrence/version, showing closure, misclosure, precision, and uncertainty from record values only.

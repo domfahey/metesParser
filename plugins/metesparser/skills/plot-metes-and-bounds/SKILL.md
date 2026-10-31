@@ -7,6 +7,8 @@ metadata:
 
 # Plot metes and bounds
 
+Plugin root: `${CLAUDE_PLUGIN_ROOT}`
+
 For "Plot the boundary in this deed" or "Can this description be plotted?", work through these steps:
 
 1. Identify the requested tract. Reuse unchanged acquisition and selection artifacts.

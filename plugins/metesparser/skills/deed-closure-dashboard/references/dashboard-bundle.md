@@ -4,6 +4,8 @@ The offline dashboard accepts `schema_version: "1.0"` deed-only bundles and `"1.
 
 Contents: [Top-level fields](#top-level-fields) · [Compose existing plot and map artifacts](#compose-existing-plot-and-map-artifacts) · [Status fields](#status-fields) · [Output, cache, and invalidation](#output-cache-and-invalidation) · [Runnable example](#runnable-example) · [Optional Mapbox companion](#optional-mapbox-companion)
 
+Commands below use the plugin root that the invoking skill printed; substitute it for `${CLAUDE_PLUGIN_ROOT}`.
+
 ## Top-level fields
 
 | Field | Purpose |

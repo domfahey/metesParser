@@ -7,6 +7,8 @@ metadata:
 
 # Export a review package
 
+Plugin root: `${CLAUDE_PLUGIN_ROOT}`
+
 Use this capability for an explicitly requested delivery of existing review work. It does not acquire sources, select a tract, verify calls or publish/share files externally. Require the identified source bundle, intended published revision directory and explicit export choices. A partly entered or unsaved current draft must not be replaced by a convenient older revision. Retain and resolve/save the intended draft through the [review workflow](../deed-closure-dashboard/SKILL.md) when requested before exporting it.
 
 Read [runtime prerequisites](../../references/usage.md#runtime-prerequisites). Start from the [synthetic request](references/example.json); consult the generated [`DeliveryRequest` schema](references/request.schema.json) (about 560 lines) only for specific field definitions, for example with `grep` or `jq`. The [matching bundle](references/bundle-example.json) and [revision definition](references/revision-example.json) are software examples; the revision definition alone is not a published store. Use the supplied real published revision/baseline identities, not copied example hashes.
