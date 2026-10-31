@@ -72,9 +72,10 @@ Round 53 adds:
 * A description introduced as the easement's belongs to it across its grant
   sentence's end: after "The said easement is ... described as follows:" or "Said
   right of way is described as follows:", or, after a closed boundary, directly
-  after a grant sentence pointing forward ("described as follows.", "over the
-  following described land."). A grant sentence pointing nowhere ("TOGETHER WITH an
-  easement for utilities. BEGINNING ...") never takes the description after it.
+  after a specific grant's sentence end (a period, blank line or line break, nothing
+  else between): easement land never becomes a fee tract. Before any boundary the
+  same grant ("TOGETHER WITH an easement for utilities. BEGINNING ...") never takes
+  the description after it: that description is the parcel.
 * Each of these deeds exports a verified CSV for the boundary tract only.
 """
 
@@ -664,6 +665,33 @@ CASES: dict[str, Case] = {
         tracts=((MAIN_T, 4), (EAS, 4)),
         easements=(f"TOGETHER WITH an easement 10 feet wide,\n{SMALL}",),
         labels=("Tract 1", "Easement 1"),
+    ),
+    # A specific grant after a closed boundary takes the description directly after
+    # its sentence end (line break, blank line, period); before any boundary the
+    # same grant leaves the description to the parcel.
+    "r53_after_boundary_grant_line_break_then_description": Case(
+        f"{SQUARE} TOGETHER WITH an easement 10 feet wide\n{SMALL}",
+        tracts=((MAIN_T, 4), (EAS, 4)),
+        easements=(f"TOGETHER WITH an easement 10 feet wide\n{SMALL}",),
+        labels=("Tract 1", "Easement 1"),
+    ),
+    "r53_after_boundary_grant_blank_line_then_description": Case(
+        f"{SQUARE} TOGETHER WITH an easement 10 feet wide\n\n{SMALL}",
+        tracts=((MAIN_T, 4), (EAS, 4)),
+        easements=(f"TOGETHER WITH an easement 10 feet wide\n\n{SMALL}",),
+        labels=("Tract 1", "Easement 1"),
+    ),
+    "r53_after_boundary_grant_period_then_description": _easement_case(
+        "TOGETHER WITH an easement 10 feet wide.", SMALL, legs=4
+    ),
+    "r53_before_boundary_grant_line_break_then_description": Case(
+        f"TOGETHER WITH an easement 10 feet wide\n{SQUARE}"
+    ),
+    "r53_before_boundary_grant_blank_line_then_description": Case(
+        f"TOGETHER WITH an easement 10 feet wide\n\n{SQUARE}"
+    ),
+    "r53_before_boundary_grant_period_then_description": Case(
+        f"TOGETHER WITH an easement 10 feet wide. {SQUARE}"
     ),
     # --- r53 #3: a description introduced as the easement's belongs to the easement --
     "r53_easement_described_as_follows_paragraph": Case(
