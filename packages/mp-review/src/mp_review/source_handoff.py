@@ -14,7 +14,7 @@ from mp_models.source_handoff import (
 )
 from pydantic import ValidationError
 
-from .json_input import parse_json
+from .json_input import InvalidInputJson, parse_json
 
 SCHEMA_VERSION = "1.1"
 LIMITATIONS = [
@@ -255,7 +255,9 @@ class _Validator:
             )
             return None
 
-    def record(self, reference: Path, kind: str) -> tuple[Any, bytes | None]:
+    def record(
+        self, reference: Path, kind: str, *, explicit: bool = False
+    ) -> tuple[Any, bytes | None]:
         raw = self.read(reference, None, record=True)
         if raw is None:
             self.result[kind] = {"status": "invalid", "path": str(reference)}
@@ -285,13 +287,20 @@ class _Validator:
             )
             if not isinstance(data, dict):
                 raise ValueError("Record must be a JSON object.")
-        except ValueError as exc:
+        except (ValueError, InvalidInputJson) as exc:
+            if explicit and isinstance(exc, InvalidInputJson):
+                raise  # the command's own option: an invocation error, not a finding
+            message = (
+                "Record JSON is nested too deeply to process."
+                if isinstance(exc, InvalidInputJson)
+                else str(exc)
+            )
             self.result[kind] = {
                 "status": "invalid",
                 "path": str(reference),
                 "sha256": _digest(raw),
             }
-            self.finding("invalid_json", str(exc), path=str(reference), error=True)
+            self.finding("invalid_json", message, path=str(reference), error=True)
             return None, raw
         version = data.get("schema_version")
         metadata = {
@@ -576,6 +585,7 @@ def validate_source_bundle(
     validator.root = resolved
     validator.result["bundle_root"] = str(resolved)
     references: dict[str, Path] = {}
+    explicit_kinds = {k for k, v in (("acquisition", acquisition), ("selection", selection)) if v}
     for kind, override, default in (
         ("acquisition", acquisition, "source-acquisition.json"),
         ("selection", selection, "description-selection.json"),
@@ -594,7 +604,9 @@ def validate_source_bundle(
     records: dict[str, Any] = {}
     raw_records: dict[str, bytes | None] = {}
     for kind, reference in references.items():
-        records[kind], raw_records[kind] = validator.record(reference, kind)
+        records[kind], raw_records[kind] = validator.record(
+            reference, kind, explicit=kind in explicit_kinds
+        )
     acquisition_record = records.get("acquisition")
     selection_record = records.get("selection")
     transcript = (
