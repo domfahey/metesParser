@@ -55,6 +55,7 @@ from .dashboard import (
     PreparedDashboard,
 )
 from .deed_call import (
+    DESCRIPTION_ROLES_NOTE,
     FIXED_NOTE_PREFIXES,
     FIXED_NOTES,
     LEGACY_CURVE_NOTE,
@@ -180,6 +181,7 @@ from .tract import (
     Tract,
     TractType,
     is_boundary_tract,
+    mark_roles_review,
     non_boundary_detail,
     roles_need_review,
     roles_review_detail,
@@ -206,6 +208,7 @@ __all__ = [
     "FIXED_NOTES",
     "FIXED_NOTE_PREFIXES",
     "LEGACY_CURVE_NOTE",
+    "DESCRIPTION_ROLES_NOTE",
     "split_notes",
     "unapplied_exceptions",
     "DeliveryItem",
@@ -356,6 +359,7 @@ __all__ = [
     "Tract",
     "TractType",
     "is_boundary_tract",
+    "mark_roles_review",
     "non_boundary_detail",
     "roles_need_review",
     "roles_review_detail",

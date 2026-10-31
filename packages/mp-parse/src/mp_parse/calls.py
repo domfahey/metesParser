@@ -45,6 +45,8 @@ from mp_models import (
     Tract,
     TractType,
     Transformation,
+    mark_roles_review,
+    roles_need_review,
     split_notes,
 )
 from pydantic import ValidationError
@@ -1328,7 +1330,9 @@ def extract_calls(
           per-tract Tract objects with independent call lists. Each tract records
           its ``role_basis`` ("heading", "inferred", or "single" for a sole tract);
           verification and verified export block the whole deed when several
-          tracts include an inferred role (``mp_models.roles_need_review``).
+          tracts include an inferred role (``mp_models.roles_need_review``), and
+          its flat calls then carry the role-review mark
+          (``mp_models.mark_roles_review``) so they never verify on their own.
     """
     from mp_models import Tract, TractType
 
@@ -1419,6 +1423,10 @@ def extract_calls(
     ):
         tract_objects[0] = tract_objects[0].model_copy(update={"role_basis": "single"})
 
+    if roles_need_review(tract_objects):
+        # The flat list merges descriptions whose roles were guessed: marked, it is
+        # never verified or exported on its own, nor once written and re-imported.
+        all_calls = mark_roles_review(all_calls)
     return all_calls, tract_objects
 
 
