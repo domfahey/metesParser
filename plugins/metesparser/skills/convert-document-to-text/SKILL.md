@@ -1,11 +1,13 @@
 ---
 name: convert-document-to-text
-description: This skill should be used when a document arrives as an image, scanned PDF, or native PDF and the user asks to "read this document", "convert this document to text", or "extract text from this document". Uses Claude's native image and document reading before locating a legal description.
+description: Transcribes a deed, survey, plat, exhibit or other land-record document supplied as a scanned PDF, native PDF or photograph into verbatim text with a page map and uncertainty list, using Claude's native image and document reading. Use when the user supplies a deed, survey or plat image or PDF and asks to read it, transcribe it, get the text of the deed, or OCR a scanned deed before any description is located. Not for choosing the legal description or tract within the text (use extract-metes-and-bounds), plotting or closure review.
 metadata:
   version: "0.1.0"
 ---
 
 # Convert a document to text
+
+Plugin root: `${CLAUDE_PLUGIN_ROOT}`
 
 Use Claude's native document and image reading capabilities for the supplied document. Handle native PDFs, scanned PDFs, photographs, image attachments, and other document formats supported in the current session through that native capability. The source may be a survey, plat, exhibit, report, correspondence, deed, or another document. Do not invoke a separate OCR service, conversion API, provider client, or custom extraction pipeline.
 
