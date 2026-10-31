@@ -68,7 +68,7 @@ Full recorded bearings allow direct deterministic verification. Direction-only r
 
 Carry local headings forward from the first course using explicit source angles. If the initial compass bearing is absent, choose an arbitrary local axis for computation and label it as such. Do not represent it as a numeric bearing recorded in the document. Declare traversal orientation and every inferred/reflex turn. If the wording cannot resolve a turn, analyze labeled alternatives or leave the record finding indeterminate.
 
-Use the tested `mp_verify.analyze_relative()` module through the plugin's dedicated command. Prepare a source-linked JSON description using the [relative-angle input contract](relative-analysis.md). The [synthetic rectangle](relative-rectangle.json) is a runnable schema example, not property evidence.
+Use the tested `mp_verify.analyze_relative()` module through the plugin's dedicated command. Prepare a source-linked JSON description using the [relative-angle input contract](../../../references/relative-analysis.md). The [synthetic rectangle](relative-rectangle.json) is a runnable schema example, not property evidence.
 
 ```sh
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" analyze-relative lot_X_angles.json --output-dir rev_lot_X_angles

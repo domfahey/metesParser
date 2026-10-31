@@ -27,9 +27,7 @@ Structural/API validation confirms that an artifact matches an accepted input co
 
 ## Statuses and identity
 
-The canonical deterministic review uses `checks_passed` (exit 0), `needs_review` (exit 1), and `error` (exit 2). Relative analysis reports its own `analysis.status` (`analyzed`, `unresolved`, or `inconsistent`) while the command's top-level review status remains `needs_review`; successful relative analysis is not canonical verification. Plot and online-map preparation also return top-level `needs_review`, because a display plot is not verification. Overlay preparation reports preparation/validation outcomes and does not change any deed status. Dashboard calculation, source-review, placement, and map-comparison statuses remain separate. Never translate one stage's status into another's.
-
-The advisory commands `validate-source`, `inspect-artifacts`, and `diagnose-closure` use `needs_review` (exit 1) for every completed result, including structurally valid/matching source records or supported diagnosis. `error` (exit 2) means the command could not produce a result. Read their operation-specific status/details; do not interpret exit 1 as an error or as canonical verification. See [closure diagnosis](closure-diagnostics.md) and [source preparation](source-preparation.md).
+Statuses and exit codes are defined once in [review limits](review-limits.md#status-and-exit-codes) (advisory → `needs_review`). Plot and online-map preparation return top-level `needs_review` because a display plot is not verification. Overlay preparation reports preparation/validation outcomes and does not change any deed status. Dashboard calculation, source-review, placement, and map-comparison statuses remain separate. Never translate one stage's status into another's. See [closure diagnosis](closure-diagnostics.md) and [source preparation](source-preparation.md) for operation-specific details.
 
 ## Artifact inspection and resume
 

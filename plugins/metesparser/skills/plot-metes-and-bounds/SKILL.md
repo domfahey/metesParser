@@ -19,7 +19,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/run-review.py" plot INPUT --output-dir NE
 
 `--input-format` accepts `auto`, `calls`, `relative`, `plot`, or explicit `text`. The package command is `uv run metes-review plot INPUT --output-dir NEW_DIR --input-format auto`; use `--input-format text` for an already-isolated description. The Python entry point is `mp_review.plot_file(INPUT, NEW_DIR, input_format="text")`. Accepted structured data are strict CSV, a calls-list or `LegalDescription` JSON object, `RelativeDescription` JSON, or `PlotRequest` JSON. For PlotRequest fields, see [artifact handoffs](../../references/artifact-handoffs.md) and the authoritative `mp_models`/`mp_review` APIs.
 
-For relative-angle inputs, read the [relative-analysis contract and example](../deed-closure-dashboard/references/relative-analysis.md). Keep computed local headings separate from recorded bearings.
+For relative-angle inputs, read the [relative-analysis contract and example](../../references/relative-analysis.md). Keep computed local headings separate from recorded bearings.
 
 Preserve every source value and verbatim call; leave cardinal-only or otherwise incomplete bearings unresolved. The plot command creates `source.csv`, `source.json`, or `source.txt` as an exact-byte source copy, `plot-input.json`, `plot-geometry.json`, `plot.html`, and `plot-manifest.json`. Text plots retain all parsed calls, including tie-ins, and actual source quotations; geometry excludes tie-ins. If normalization prevents confident matching to an individual verbatim call, the quotation retains the full supplied description. Its top-level status is `needs_review`: the plot is a display deliverable, not verification, and it does not create a verified CSV or claim document reading.
 
