@@ -45,6 +45,7 @@ from mp_models import (
     Tract,
     TractType,
     Transformation,
+    mark_non_boundary,
     mark_roles_review,
     roles_need_review,
     split_notes,
@@ -1331,8 +1332,12 @@ def extract_calls(
           its ``role_basis`` ("heading", "inferred", or "single" for a sole MAIN tract);
           verification and verified export block the whole deed when several
           tracts include an inferred role (``mp_models.roles_need_review``), and
-          its flat calls then carry the role-review mark
-          (``mp_models.mark_roles_review``) so they never verify on their own.
+          every call then carries the role-review mark
+          (``mp_models.mark_roles_review``), the flat calls and each tract's own,
+          so no subset of them verifies on its own. Every call of an easement or
+          exception tract carries its kind's non-boundary note
+          (``mp_models.mark_non_boundary``), so it never verifies as a parcel
+          boundary, with or without its tract.
     """
     from mp_models import Tract, TractType
 
@@ -1401,6 +1406,9 @@ def extract_calls(
 
         if tract_type == TractType.EXCEPTION:
             tract_calls = [c.model_copy(update={"is_exception": True}) for c in tract_calls]
+        # An easement's or exception's calls are never a parcel boundary, wherever
+        # they are taken: the note travels with them (with or without this tract).
+        tract_calls = mark_non_boundary(tract_calls, tract_type)
 
         tract = Tract(
             label=label,
@@ -1423,9 +1431,19 @@ def extract_calls(
         tract_objects[0] = tract_objects[0].model_copy(update={"role_basis": "single"})
 
     if roles_need_review(tract_objects):
-        # The flat list merges descriptions whose roles were guessed: marked, it is
-        # never verified or exported on its own, nor once written and re-imported.
-        all_calls = mark_roles_review(all_calls)
+        # Roles were guessed: every call is marked, each tract's and so the flat list
+        # merged from them, so no subset is ever verified or exported on its own, nor
+        # once written and re-imported.
+        tract_objects = [
+            tract.model_copy(update={"calls": mark_roles_review(tract.calls)})
+            for tract in tract_objects
+        ]
+        all_calls = [
+            call
+            for tract in tract_objects
+            if tract.tract_type != TractType.EASEMENT
+            for call in tract.calls
+        ]
     return all_calls, tract_objects
 
 

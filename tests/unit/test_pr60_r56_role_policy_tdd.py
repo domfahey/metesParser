@@ -536,8 +536,12 @@ def test_verify_tract_blocks_an_inferred_tract_passed_alone(tmp_path: Path) -> N
     alone = verify_tract(main.calls, tract=main)
     assert not alone.is_fully_verified()
     assert any(c.name == DESCRIPTION_ROLES_CHECK for c in alone.checks)
-    # A forged tract-unaware result for the same calls is refused by the exporter.
-    forged = verify_tract(main.calls)
+    # Round 58: the tract's calls carry the role-review mark, so they are blocked even
+    # without the tract.
+    assert not verify_tract(main.calls).is_fully_verified()
+    # A forged tract-unaware result for the same geometry (its mark removed) is refused
+    # by the exporter.
+    forged = verify_tract([c.model_copy(update={"notes": None}) for c in main.calls])
     assert forged.is_fully_verified()
     with pytest.raises(ValueError, match="description roles need review"):
         export_verified_csv([], forged, str(tmp_path / "deed.csv"), tract_results=[(main, forged)])
@@ -566,12 +570,24 @@ def test_monolith_facades_block_and_refuse_identically(tmp_path: Path) -> None:
         CSVBuilder.export_verified_csv(
             [], forged, str(tmp_path / "deed.csv"), tract_results=[(legacy[0], forged)]
         )
+    # Round 58: the tracts' calls carry the role-review mark, so relabelling the roles
+    # alone stays blocked; a deed whose roles are established has unmarked calls.
     headed = [t.model_copy(update={"role_basis": "heading"}) for t in legacy]
-    assert ClosureChecker.verify_closure([], tracts=headed)[0].is_fully_verified()
+    assert not ClosureChecker.verify_closure([], tracts=headed)[0].is_fully_verified()
+    reviewed = [
+        t.model_copy(update={"calls": [c.model_copy(update={"notes": None}) for c in t.calls]})
+        for t in headed
+    ]
+    assert ClosureChecker.verify_closure([], tracts=reviewed)[0].is_fully_verified()
 
 
 def test_review_text_never_passes_inferred_roles(tmp_path: Path) -> None:
-    result = review_text(PROBES["plain_also"], output_dir=tmp_path / "review")
+    # Round 58: two parcel boundaries ("plain_also") are refused for separate reviews;
+    # a parcel and its excepted land are reviewed together, and blocked.
+    refused = review_text(PROBES["plain_also"], output_dir=tmp_path / "refused")
+    assert refused["status"] == "error"
+    assert "calls_verified.csv" not in refused["artifacts"]
+    result = review_text(TWO_UNHEADED, output_dir=tmp_path / "review")
     assert result["status"] == "needs_review"
     codes = [e["code"] for e in result["errors"]]
     assert "description_roles_inferred" in codes

@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from mp_models import AuditContext, LegalDescription, RunMetadata
+from mp_models import AuditContext, LegalDescription, RunMetadata, is_boundary_tract
 from mp_parse import (  # type: ignore[import-untyped]
     enrich_calls_with_azimuths,
     extract_calls,
@@ -19,6 +19,8 @@ from mp_parse.metadata import (  # type: ignore[import-untyped]
 )
 from mp_parse.normalizer import normalize_legal_description  # type: ignore[import-untyped]
 from mp_parse.parcels import detect_parcel_markers  # type: ignore[import-untyped]
+
+MULTIPLE_PARCELS = "Multiple parcel descriptions require separate reviews."
 
 
 @dataclass(frozen=True)
@@ -36,9 +38,15 @@ def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> Pre
     This stage neither verifies geometry nor establishes source completeness. A quote
     falls back to the complete supplied description if a verbatim call span cannot
     be matched confidently after normalization.
+
+    Several parcels are refused for separate reviews, so no artifact presents them as
+    one boundary: labelled parcels or a combined restatement (``detect_parcel_markers``
+    on the source), or more than one parcel boundary (main/addition tract) in the
+    parser's own tract split, headed ("PARCEL ONE:", "TRACT 1:") or not. A parcel and
+    its excepted or easement land stay one review.
     """
     if len(detect_parcel_markers(text)) > 1:
-        raise ValueError("Multiple parcel descriptions require separate reviews.")
+        raise ValueError(MULTIPLE_PARCELS)
     normalized = normalize_legal_description(text)
     poc, pob = extract_poc_and_pob(normalized)
     audit = audit_context or AuditContext(
@@ -55,6 +63,8 @@ def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> Pre
     )
     audit_start = len(audit.call_audits)
     extracted, tracts = extract_calls(normalized, audit_context=audit)
+    if sum(is_boundary_tract(tract.tract_type) for tract in tracts) > 1:
+        raise ValueError(MULTIPLE_PARCELS)
     calls = mark_tie_in_calls(enrich_calls_with_azimuths(extracted), poc)
     area = extract_area_statement(normalized)
     # The tracts (with role bases) travel with the description, so the role gate

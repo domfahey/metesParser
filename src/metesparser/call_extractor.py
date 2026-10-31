@@ -68,12 +68,13 @@ class CallExtractor:
         """Extract all calls from normalized legal description text.
 
         Handles exception clauses (EXCEPT, LESS AND EXCEPT, ALSO, INCLUDING)
-        and marks calls accordingly. Without ``tracts`` the text is treated as one
-        description: tract markers are not split into ``Tract``s. With ``tracts``
-        the description is split exactly as ``mp_parse.extract_calls`` splits it, in
-        that one extraction: the flat calls returned are its flat calls (marked by
+        and marks calls accordingly. The description is split exactly as
+        ``mp_parse.extract_calls`` splits it, in that one extraction, with or without
+        ``tracts``: the flat calls returned are its flat calls (marked by
         ``mp_models.mark_roles_review`` when the deed's description roles need
-        review) and ``tracts`` receives its tracts, role bases included.
+        review; an easement's calls are never among them, an exception's carry its
+        non-boundary note) and ``tracts``, when supplied, receives its tracts, role
+        bases and marks included.
 
         Args:
             text: Normalized legal description text (should already be normalized)
@@ -102,24 +103,17 @@ class CallExtractor:
             [] if skipped_courses is not None else None
         )
         try:
+            # One path for every caller: a blocked deed's calls are always marked, never
+            # a second, unsplit parse whose calls would verify on their own.
+            calls, package_tracts = package_calls.extract_calls(
+                text,
+                distance_unit,
+                audit_context=scratch,
+                strict=strict,
+                skipped_courses=scratch_skips,
+            )
             if tracts is not None:
-                calls, package_tracts = package_calls.extract_calls(
-                    text,
-                    distance_unit,
-                    audit_context=scratch,
-                    strict=strict,
-                    skipped_courses=scratch_skips,
-                )
                 tracts.extend(monolith_tract(tract) for tract in package_tracts)
-            else:
-                calls = package_calls._extract_calls_from_text(
-                    text,
-                    distance_unit,
-                    audit_context=scratch,
-                    strict=strict,
-                    course_start=1,
-                    skipped_courses=scratch_skips,
-                )
         finally:
             # One monolith record per package record, shared by both destinations.
             converted: dict[int, SkippedCourse] = {}
