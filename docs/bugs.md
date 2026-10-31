@@ -1242,6 +1242,15 @@ First round run as a result-level comparison: every sample `.md`, `::legal` and 
 - **Error envelopes kept:** `diagnose_closure_file` returns `invalid_diagnostics_input` for deep JSON again; a malformed or too-deep artifact inside a delivery package is an invalid delivery naming the artifact, not `invalid_input_json` (`9292ce7`).
 - **Legacy temp files refused, not deleted:** a `tmp` + 8-character name cannot prove it is publisher residue, so such files in a manifest-less legacy directory are refused untouched and listed for manual removal (reverses the round-50 auto-clear) (`9292ce7`).
 
+### PR #60 fifty-second review (2026-10-30)
+Result-level comparison of all 227 sample texts (extraction, verification with tracts, verified export) on `origin/main`, the pre-round-51 head and the head: no course value, misclosure, area, verification status or export eligibility regressed. Six findings from synthetic probes, three of them changing classification and therefore verified export, fixed red-green on `fix/code-review-2026-10-29`; the classification corpus grew to 174 cases, and every new case also asserts that verified export writes only the boundary:
+- **Generic recital beside a specific easement (regression from `aa22b89`):** a recital is generic only when its clause names no single easement or right of way and introduces no description; "SUBJECT to the easements of record and to an easement for drainage described as follows: BEGINNING …" keeps its easement tract instead of becoming a verified fee tract (`e6dfda8`).
+- **Document breaks end an easement opener:** a blank line, heading or line break before BEGINNING ends the opener's sentence before any boundary, so a recital before the parcel never swallows it (`e6dfda8`).
+- **Easements by position:** after a closed boundary, a specific grant followed only by its sentence end (period, blank line or line break) and then a new BEGINNING/COMMENCING description is an easement; "The said easement is … described as follows:" gives the description to the easement in either position. Previously such descriptions became second fee tracts and bypassed the non-boundary export block (also on `main`) (`e6dfda8`, `ab67639`).
+- **Blocked tracts scored after the block:** the non-boundary check (`checks.evaluate_tract_role`) runs before confidence is computed, so a blocked easement or exception reports a lower confidence than a verified boundary; tests live where AGENTS.md says (`6a2cdcf`).
+- **One export-eligibility helper** and one source for the non-boundary reason text (`mp_models.tract_kind`, `non_boundary_detail`) (`6a2cdcf`).
+- **Known limitations:** after a closed boundary, "SUBJECT to a right of way over the driveway. BEGINNING …" now types the next description as an easement (conservative: never exported as verified); a heading between such a grant and the description leaves it a fee tract.
+
 ## Known Limitations
 
 ### E4) OCR bearing misread in scanned PDF (31 Pennbrook Book 11191, Call 3)
