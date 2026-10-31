@@ -11,7 +11,7 @@ from mp_models.diagnostics import ClosureDiagnosticRequest
 from mp_verify.diagnostics import diagnose_closure
 
 from .dashboard import _atomic
-from .json_input import parse_json
+from .json_input import InvalidInputJson, parse_json
 from .relative import _invalid_number, _unique_object
 
 
@@ -77,7 +77,7 @@ def diagnose_closure_file(input: Path | str, output_dir: Path | str) -> dict[str
             _atomic(directory / name, content)
             result["artifacts"][name] = str(directory / name)
         result.update(diagnostics=diagnostics.model_dump(mode="json"), manifest=manifest)
-    except (OSError, ValueError, TypeError, ArithmeticError, RecursionError):
+    except (OSError, ValueError, TypeError, ArithmeticError, RecursionError, InvalidInputJson):
         result["status"] = "error"
         result["errors"] = [
             {
