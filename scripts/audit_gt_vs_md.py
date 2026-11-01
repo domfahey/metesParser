@@ -92,6 +92,11 @@ def bearing_to_azimuth(quadrant1: str, angle_decimal: float, quadrant2: str) -> 
 # "TRACT #1", "TRACT #2B": two or more mark separate tracts, not duplicate descriptions
 TRACT_MARKER_PATTERN = re.compile(r"\bTRACT\s*#?\s*\d+[A-Z]?\b", re.IGNORECASE)
 
+# "boundary line of Tract #1 of Haddonfield Estates": a reference, not a tract heading
+TRACT_REFERENCE_BEFORE_PATTERN = re.compile(
+    r"(?:\b(?:of|to|said|with|from|by)|,)\s*$", re.IGNORECASE
+)
+
 # Exhibit A / Schedule C section markers; the letter is a whole word ("SCHEDULE City" is not)
 EXHIBIT_PATTERN = re.compile(
     r"(?:EXHIBIT\s*[\"']?\s*[\"']?A\b[\"']?|SCHEDULE\s+C\b)",
@@ -211,7 +216,14 @@ def extract_all_legal_blocks(text: str) -> list[str]:
                 blocks.append(wrapped)
             else:
                 # No closure found anywhere — take to next TRACT marker or end
-                next_tract = re.search(r"\bTRACT\s*#?\d+", text[start + 10 :], re.IGNORECASE)
+                next_tract = next(
+                    (
+                        m
+                        for m in re.finditer(r"\bTRACT\s*#?\d+", text[start + 10 :], re.IGNORECASE)
+                        if not TRACT_REFERENCE_BEFORE_PATTERN.search(text[: start + 10 + m.start()])
+                    ),
+                    None,
+                )
                 if next_tract:
                     blocks.append(text[start : start + 10 + next_tract.start()])
                 else:
