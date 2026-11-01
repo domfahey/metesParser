@@ -5,6 +5,7 @@ TDD tests for split_into_parcels() and detect_parcel_markers().
 
 from __future__ import annotations
 
+from mp_parse import extract_calls
 from mp_parse.parcels import detect_parcel_markers, split_into_parcels
 
 # ---------------------------------------------------------------------------
@@ -366,3 +367,19 @@ class TestSplitIntoParcels:
             assert "label" in p
             assert "text" in p
             assert "parcel_type" in p
+
+
+def test_combined_description_after_marked_parcels_has_its_own_ties() -> None:
+    """Parcel A, Parcel B and a combined description each commence with their own ties."""
+    calls, _tracts = extract_calls(MIWAYN_FULL_TEXT, strict=True)
+    assert len(calls) == 42
+    assert [i for i, call in enumerate(calls, 1) if call.is_tie_in] == [1, 2, 14, 15, 29, 30]
+
+
+def test_combined_description_is_its_own_tract() -> None:
+    _calls, tracts = extract_calls(MIWAYN_FULL_TEXT, strict=True)
+    assert [(tract.label, len(tract.calls)) for tract in tracts] == [
+        ("Parcel A", 13),
+        ("Parcel B", 15),
+        ("Parcel B, description 2", 14),
+    ]

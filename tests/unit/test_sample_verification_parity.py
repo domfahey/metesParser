@@ -21,13 +21,6 @@ from tests.fixtures.parser_corpus import ROOT, keyed_sample_texts
 BASELINE = ROOT / "tests" / "fixtures" / "sample_verification_baseline_main.json"
 
 _ROLE_POLICY = "two unheaded descriptions; roles inferred, blocked by the role policy"
-_EXCEPTED_PART_ONLY = (
-    "lot conveyed by plat less an excluded triangle; main verified t"
-    "he triangle, which is not the parcel"
-)
-_STRIP_NOT_APPLIED = (
-    "a stated strip exception is not applied to the boundary, so the parcel is not verified"
-)
 
 # key -> one-line justification against ground truth. Keep empty unless main's
 # verification of that deed was itself wrong.
@@ -35,20 +28,7 @@ ALLOWED_LOSSES: dict[str, str] = {
     # Round 56 fail-closed role policy (user decision): two BEGINNING descriptions with
     # no TRACT/PARCEL heading, so both MAIN roles are inferred from position and the
     # deed is blocked for role review even though each description closes.
-    # Fail-closed policies (#60): a deed whose verification on main was not the parcel's.
     "8 Kings Highway W - Deed Image (7535 - 929).md": _ROLE_POLICY,
-    "MIWAYN-50306-00349.md": _ROLE_POLICY,
-    "MIWAYN-50306-00349::legal": _ROLE_POLICY,
-    "MIWAYN-50428-01001.md": _EXCEPTED_PART_ONLY,
-    "MIWAYN-50428-01001::legal": _EXCEPTED_PART_ONLY,
-    "MIWAYN-50428-01001::normalized": _EXCEPTED_PART_ONLY,
-    "MIWAYN-50233-01191::legal": _STRIP_NOT_APPLIED,
-    "MIWAYN-50233-01191::normalized": _STRIP_NOT_APPLIED,
-    "MIWAYN-50512-00525.md": _STRIP_NOT_APPLIED,
-    "MIWAYN-50512-00525::legal": _STRIP_NOT_APPLIED,
-    "MIWAYN-50512-00525::normalized": _STRIP_NOT_APPLIED,
-    "MIWAYN-50795-01269.md": _STRIP_NOT_APPLIED,
-    "MIWAYN-50795-01269::legal": _STRIP_NOT_APPLIED,
 }
 
 
