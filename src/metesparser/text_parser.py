@@ -83,11 +83,18 @@ def _before_clause_delimiter(text: str) -> str:
     return text
 
 
+# "300,07": a single comma followed by exactly two digits is a decimal point, as some
+# deeds print it. Thousands separators are always followed by three digits.
+_DECIMAL_COMMA = re.compile(r"\d+,\d{2}")
+
+
 def parse_comma_number(s: str) -> float:
     """Convert a numeric string with optional comma grouping to float.
 
-    Examples: "1,200" -> 1200.0, "3,500.00" -> 3500.0, "42" -> 42.0
+    Examples: "1,200" -> 1200.0, "3,500.00" -> 3500.0, "42" -> 42.0, "300,07" -> 300.07
     """
+    if _DECIMAL_COMMA.fullmatch(s):
+        return float(s.replace(",", "."))
     return float(s.replace(",", ""))
 
 
