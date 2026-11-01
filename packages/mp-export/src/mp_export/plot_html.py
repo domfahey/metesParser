@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import html
+from collections.abc import Iterable
 from pathlib import Path
 
-from mp_models.plot import XY
+from mp_models.plot import XY, PlotUnresolved, plot_point_of_beginning
 from mp_models.plot_request import PreparedPlot
 from mp_verify.plot import validate_prepared_plot
 
@@ -20,6 +21,23 @@ def _escape(value: object) -> str:
 
 def _number(value: float | None) -> str:
     return "Unavailable" if value is None else f"{value:,.3f}"
+
+
+def _partial_notice(unresolved: Iterable[PlotUnresolved]) -> str:
+    items = tuple(unresolved)
+    positioned = [item for item in items if item.positioned]
+    prefix = "Full-parcel closure and area unavailable: the boundary has unresolved calls."
+    names = ", ".join(_escape(item.call_id) for item in positioned)
+    if not items or len(positioned) < len(items):
+        extra = f" Not drawn but positioned by stated chord: {names}." if positioned else ""
+        return (
+            f'<p class="notice">{prefix} Only the supported anchored prefix is plotted.{extra}</p>'
+        )
+    return (
+        f'<p class="notice">{prefix} Courses not drawn: {names}. '
+        "Each is positioned by its stated chord, so later courses are plotted from that "
+        "chord endpoint; the curve or spiral itself is not drawn.</p>"
+    )
 
 
 def render_plot(prepared: PreparedPlot) -> str:
@@ -63,10 +81,10 @@ def render_plot(prepared: PreparedPlot) -> str:
             "This plot does not establish verification or source review.</p>"
         )
     else:
-        summary = '<p class="notice">Full-parcel closure and area unavailable: the boundary has unresolved calls. Only the supported anchored prefix is plotted.</p>'
+        summary = _partial_notice(geometry.unresolved)
     pob = ""
-    if geometry.primitives:
-        origin = geometry.primitives[0].start
+    origin = plot_point_of_beginning(geometry)
+    if origin is not None:
         pob = (
             f'<circle class="pob-marker" cx="{origin[0]:.17g}" cy="{-origin[1]:.17g}" '
             f'r="{max(width, height) * 0.008:.17g}"/>'

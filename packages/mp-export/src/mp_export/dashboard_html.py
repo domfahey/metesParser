@@ -25,6 +25,7 @@ from mp_models.plot import (
     PlotScene,
     Polygon,
     VectorLayer,
+    plot_point_of_beginning,
 )
 from mp_models.plot_request import PlotCall
 from mp_models.raster import RasterLayer
@@ -32,6 +33,7 @@ from mp_models.revisions import revision_template
 from mp_verify.dashboard import validate_prepared_dashboard
 
 from .plot_svg import fitted_viewbox, primitive_svg_path
+from .raster_guard import RASTER_ORIENTATION_REASON, raster_orientation_omission
 
 _ASSETS = Path(__file__).with_name("dashboard_assets")
 
@@ -228,7 +230,7 @@ def _records(bundle: DashboardBundle) -> str:
     for occurrence in bundle.occurrences:
         transcript_id, csv_id = f"transcript-{occurrence.id}", f"courses-{occurrence.id}"
         parts.append(
-            f'<details class="panel" open><summary>{_escape(occurrence.version_label)} · {_escape(occurrence.id)}</summary><p>{_escape(occurrence.notes)}</p><div><pre id="{transcript_id}">{_escape(occurrence.transcript)}</pre>{_copy_button(transcript_id, "Copy untouched transcript")}</div><h3>Extracted courses</h3><p class="muted">Source-linked review table in feet; not the engine’s verified 21-column CSV. POB location is retained in the transcript.</p><div class="table-wrap" role="region" aria-label="Recorded courses" tabindex="0"><table><thead><tr><th>Course</th><th>Direction / source quote</th><th>Angle as written / type</th><th>Distance as written / feet</th><th>Along / to</th><th>Reading / source</th></tr></thead><tbody>'
+            f'<details class="panel" open><summary>{_escape(occurrence.version_label)} · {_escape(occurrence.id)}</summary><p>{_escape(occurrence.notes)}</p><div><pre id="{transcript_id}">{_escape(occurrence.transcript)}</pre>{_copy_button(transcript_id, "Copy untouched transcript")}</div><h3>Extracted courses</h3><p class="muted">Source-linked review table in feet; not the engine’s verified CSV. POB location is retained in the transcript.</p><div class="table-wrap" role="region" aria-label="Recorded courses" tabindex="0"><table><thead><tr><th>Course</th><th>Direction / source quote</th><th>Angle as written / type</th><th>Distance as written / feet</th><th>Along / to</th><th>Reading / source</th></tr></thead><tbody>'
         )
         for item in bundle.calls:
             if item.occurrence_id != occurrence.id:
@@ -297,6 +299,13 @@ def _raster_corners(layer: RasterLayer) -> list[XY]:
 
 
 def _raster_svg(layer: RasterLayer) -> str:
+    omission = raster_orientation_omission(layer)
+    if omission is not None:
+        # Legacy EXIF-rotated raster: omit with the same reason prepare_web_map reports.
+        return (
+            f'<g data-omitted-raster="{_escape(layer.id)}" data-omission-reason="{RASTER_ORIENTATION_REASON}">'
+            f"<title>{_escape(layer.label)}: omitted ({RASTER_ORIENTATION_REASON}) - {_escape(omission)}</title></g>"
+        )
     a, b, c, d, e, f = layer.registration.matrix
     matrix = " ".join(f"{value:.17g}" for value in (a, d, b, e, c, f))
     return f'<g transform="scale(1 -1)"><image data-raster-layer="{_escape(layer.id)}" x="-0.5" y="-0.5" width="{layer.width}" height="{layer.height}" transform="matrix({matrix})" href="data:{layer.mime_type};base64,{_escape(layer.data_base64)}" preserveAspectRatio="none"><title>{_escape(layer.label)}</title></image></g>'
@@ -379,7 +388,8 @@ def _plot_views(prepared: PreparedDashboard) -> str:
         for raster in bundle.raster_layers:
             if not scene or raster.scene_id != scene.id:
                 continue
-            bounds.extend(_raster_corners(raster))
+            if raster_orientation_omission(raster) is None:
+                bounds.extend(_raster_corners(raster))
             layers.append(
                 f'<g style="opacity:{opacity.get(raster.id, 0.45)}" data-map-layer="{_escape(raster.id)}">{_raster_svg(raster)}</g>'
             )
@@ -412,8 +422,9 @@ def _plot_views(prepared: PreparedDashboard) -> str:
             gap_box = f"{min(first[0], last[0]) - margin} {-max(first[1], last[1]) - margin} {abs(first[0] - last[0]) + 2 * margin} {abs(first[1] - last[1]) + 2 * margin}"
             gap_detail = f'<svg class="plot gap-magnifier" viewBox="{gap_box}" aria-label="Magnified endpoint to POB gap">{gap}<circle cx="{first[0]}" cy="{-first[1]}" r="{margin * 0.04}"/><circle cx="{last[0]}" cy="{-last[1]}" r="{margin * 0.04}"/></svg><p>Scene gap vector: ΔX {last[0] - first[0]:.6f}; ΔY {last[1] - first[1]:.6f} {_escape(units)}. Magnified view has its own scale.</p>'
         pob = ""
-        if geometry.primitives:
-            origin = point(geometry.primitives[0].start)
+        true_origin = plot_point_of_beginning(geometry)
+        if true_origin is not None:
+            origin = point(true_origin)
             pob = f'<circle class="pob-marker" cx="{origin[0]:.17g}" cy="{-origin[1]:.17g}" r="{max(width, height) * 0.006}"/><text class="pob-label" x="{origin[0]:.17g}" y="{-origin[1]:.17g}" dy="1.5em">POB</text>'
         scenario_id = 'id="scenario-plot-layer"' if index == 0 else ""
         parts.append(
@@ -452,6 +463,12 @@ def _plot_views(prepared: PreparedDashboard) -> str:
         )
         if isinstance(layer, RasterLayer):
             registration = layer.registration
+            omission = raster_orientation_omission(layer)
+            if omission is not None:
+                parts.append(
+                    f'<p class="warning" data-omitted-raster="{_escape(layer.id)}">'
+                    f"Raster omitted ({RASTER_ORIENTATION_REASON}): {_escape(omission)}</p>"
+                )
             parts.append(
                 f"<p>Raster registration: {_escape(registration.status)} · {_escape(registration.pixel_convention)}. Fit RMS {_number(registration.fit_rms)}; Checkpoint RMS {_number(registration.checkpoint_rms)} {_escape(source_scene.units)}. Fit residuals are not independent survey accuracy.</p><pre>{_escape(registration.model_dump_json(indent=2))}</pre>"
             )

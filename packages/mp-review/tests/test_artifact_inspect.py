@@ -110,6 +110,37 @@ def test_self_consistent_tampered_review_is_invalid_after_semantic_replay(chain,
     assert "replay_mismatch" in codes(node)
 
 
+def test_legacy_audit_without_skipped_courses_key_still_replays(chain):
+    directory = chain / "review-a"
+    payload = json.loads((directory / "audit.json").read_bytes())
+    assert payload.pop("skipped_courses") == []
+    write_json(directory / "audit.json", payload)
+    rewrite_manifest(directory, "audit.json")
+    node = nodes(inspect(chain), "review")[0]
+    assert "replay_mismatch" not in codes(node)
+    assert node["status"] == "present_valid"
+
+
+def test_audit_with_different_skipped_courses_is_replay_mismatch(chain):
+    directory = chain / "review-a"
+    payload = json.loads((directory / "audit.json").read_bytes())
+    payload["skipped_courses"] = [
+        {
+            "course": 9,
+            "source_course": 9,
+            "source_excerpt": "THENCE elsewhere",
+            "error_type": "ValueError",
+            "error": "unparsed",
+            "tract_label": None,
+        }
+    ]
+    write_json(directory / "audit.json", payload)
+    rewrite_manifest(directory, "audit.json")
+    node = nodes(inspect(chain), "review")[0]
+    assert node["status"] == "invalid"
+    assert "replay_mismatch" in codes(node)
+
+
 def test_algorithm_version_change_is_stale(chain):
     path = chain / "review-a/review-manifest.json"
     data = json.loads(path.read_bytes())
@@ -1209,3 +1240,90 @@ def test_causal_restart_ignores_unrelated_invalid_artifacts_and_is_stable(
     assert multiple["earliest_invalid_stage"] == "render-map"
     assert multiple == inspect(root, "dashboard")
     assert inspect(root, "compare-descriptions")["earliest_invalid_stage"] == "compare-descriptions"
+
+
+def test_tampered_plot_csv_source_is_reported_invalid_not_a_traceback(tmp_path):
+    from mp_export.csv_writer import calls_to_csv
+    from mp_review.plot import plot_file
+
+    calls = [
+        DeedCall(
+            course=1,
+            direction_text="East",
+            distance_ft=100,
+            bearing_azimuth_deg_from_north=90,
+        )
+    ]
+    source = tmp_path / "calls.csv"
+    calls_to_csv(calls, str(source))
+    output = tmp_path / "plot"
+    assert plot_file(source, output, input_format="auto")["status"] != "error"
+    retained = output / "source.csv"
+    retained.write_bytes(retained.read_bytes() + b'"a"b,c\n')
+    manifest_path = output / "plot-manifest.json"
+    manifest = json.loads(manifest_path.read_bytes())
+    manifest["source_sha256"] = sha(retained.read_bytes())
+    write_json(manifest_path, manifest)
+
+    result = inspect(tmp_path, "plot")
+    node = nodes(result, "plot")[0]
+    assert node["status"] in {"invalid", "stale"}
+
+
+def test_non_object_dashboard_render_manifest_is_invalid(dashboard_bundle):
+    write_json(dashboard_bundle / "dashboard" / "render-manifest.json", [])
+    result = inspect(dashboard_bundle, "dashboard")
+    node = nodes(result, "dashboard")[0]
+    assert node["status"] == "invalid"
+
+
+def test_deeply_nested_json_is_reported_invalid_json(chain):
+    path = chain / "review-a" / "calls.json"
+    depth = 100000
+    path.write_text("[" * depth + "]" * depth, encoding="utf-8")
+    result = inspect(chain, "review")
+    assert any("invalid_json" in codes(a) for a in result["artifacts"])
+
+
+def test_review_and_plot_displays_depend_on_their_producers(tmp_path):
+    from mp_review.plot import plot_file
+
+    source = tmp_path / "source.json"
+    write_json(
+        source,
+        [
+            {
+                "course": 1,
+                "direction_text": "East",
+                "distance_ft": 100,
+                "bearing_azimuth_deg_from_north": 90,
+            }
+        ],
+    )
+    assert review_file(source, output_dir=tmp_path / "review")["status"] != "error"
+    assert plot_file(source, tmp_path / "plot", input_format="calls")["status"] != "error"
+    result = inspect(tmp_path, "review")
+    for core_kind, display_kind in (("review", "review_display"), ("plot", "plot_display")):
+        core = nodes(result, core_kind)[0]
+        display = nodes(result, display_kind)[0]
+        assert core["id"] in display["dependency_ids"]
+
+
+def test_display_status_follows_invalid_producer(chain):
+    (chain / "review-a" / "calls.json").write_text("[]", encoding="utf-8")
+    result = inspect(chain, "review")
+    core = nodes(result, "review")[0]
+    display = nodes(result, "review_display")[0]
+    assert core["status"] != "present_valid"
+    assert display["status"] != "present_valid"
+
+
+def test_dashboard_saved_by_older_calculator_is_stale(dashboard_bundle):
+    path = dashboard_bundle / "dashboard/stage-manifest.json"
+    data = json.loads(path.read_bytes())
+    assert data["calculator_version"] != "dashboard-1.1.0"
+    data["calculator_version"] = "dashboard-1.1.0"
+    write_json(path, data)
+    node = nodes(inspect(dashboard_bundle, "dashboard"), "dashboard_calculations")[0]
+    assert node["status"] == "stale"
+    assert "algorithm_version_mismatch" in codes(node)

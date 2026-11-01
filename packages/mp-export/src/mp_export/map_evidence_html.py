@@ -9,6 +9,7 @@ from mp_models.webmap import StandaloneWebMapInput
 from mp_verify.webmap import normalize_web_map_context
 
 from .plot_html import render_plot
+from .raster_guard import RASTER_ORIENTATION_REASON, raster_orientation_omission
 
 
 def _escape(value: object) -> str:
@@ -33,12 +34,25 @@ def render_map_evidence(prepared: StandaloneWebMapInput) -> str:
         f'sandbox="allow-scripts" srcdoc="{_escape(render_plot(plot))}"></iframe></section>'
         for plot in prepared.plots
     )
+    omitted = {
+        layer.id: message
+        for layer in context.raster_layers
+        if (message := raster_orientation_omission(layer)) is not None
+    }
     rasters = "".join(
-        f"<section><h3>{_escape(raster.label)}</h3>"
-        f'<img alt="Original supplied scan: {_escape(raster.label)}" '
-        f'src="data:{raster.mime_type};base64,{raster.data_base64}">'
-        + _metadata(raster.model_dump(mode="json", exclude={"data_base64"}))
-        + "</section>"
+        (
+            f'<section><h3>{_escape(raster.label)}</h3><p class="warning" '
+            f'data-omitted-raster="{_escape(raster.id)}">Omitted ({RASTER_ORIENTATION_REASON}): '
+            f"{_escape(omitted[raster.id])}</p>"
+            + _metadata(raster.model_dump(mode="json", exclude={"data_base64"}))
+            + "</section>"
+            if raster.id in omitted
+            else f"<section><h3>{_escape(raster.label)}</h3>"
+            f'<img alt="Original supplied scan: {_escape(raster.label)}" '
+            f'src="data:{raster.mime_type};base64,{raster.data_base64}">'
+            + _metadata(raster.model_dump(mode="json", exclude={"data_base64"}))
+            + "</section>"
+        )
         for raster in context.raster_layers
     )
     metadata = _metadata(

@@ -179,8 +179,8 @@ class TestMonumentStatusOnDeedCall:
 class TestMonumentStatusCSV:
     """Tests for monument_status in CSV schema."""
 
-    def test_fieldnames_count_21(self) -> None:
-        assert len(CSVBuilder.FIELDNAMES) == 21
+    def test_fieldnames_count_22(self) -> None:
+        assert len(CSVBuilder.FIELDNAMES) == 22
 
     def test_monument_status_in_fieldnames(self) -> None:
         assert "monument_status" in CSVBuilder.FIELDNAMES
@@ -387,3 +387,34 @@ class TestCheckDistanceReasonableness:
         ]
         warnings = ClosureChecker.check_distance_reasonableness(calls)
         assert any("1" in w for w in warnings)
+
+
+def test_closure_checker_blocks_non_boundary_tract_with_scored_confidence():
+    from metesparser.closure_checker import ClosureChecker
+    from metesparser.models import DeedCall, Tract, TractType
+
+    def square():
+        return [
+            DeedCall(
+                course=i + 1,
+                direction_text=d,
+                bearing_azimuth_deg_from_north=a,
+                distance_ft=50.0,
+            )
+            for i, (d, a) in enumerate((("N", 0.0), ("E", 90.0), ("S", 180.0), ("W", 270.0)))
+        ]
+
+    main = Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=square())
+    easement = Tract(
+        label="Easement 1", tract_type=TractType.EASEMENT, role_basis="heading", calls=square()
+    )
+    main_result, easement_result = ClosureChecker.verify_closure([], tracts=[main, easement])
+    assert main_result.is_fully_verified()
+    assert not easement_result.is_fully_verified()
+    assert any(
+        c.name == "non_boundary_tract" and c.status == "blocked" for c in easement_result.checks
+    )
+    assert easement_result.confidence_score < main_result.confidence_score
+    assert easement_result.confidence_score == ClosureChecker.calculate_confidence_score(
+        easement_result, easement.calls
+    )

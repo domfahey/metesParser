@@ -249,3 +249,25 @@ def test_check_parallelism_no_warnings():
     ]
     warnings = check_parallelism(calls)
     assert len(warnings) == 0
+
+
+def test_first_course_continuing_along_does_not_block_parallelism():
+    """#49: course 0 has no predecessor, so a 'continuing' along must not block."""
+    from mp_models import DeedCall
+    from mp_verify import verify_closure
+
+    specs = [(0.0, "North"), (90.0, "East"), (180.0, "South"), (270.0, "West")]
+    calls = [
+        DeedCall(
+            course=i + 1,
+            direction_text=text,
+            bearing_azimuth_deg_from_north=az,
+            distance_ft=100.0,
+            along="continuing along the same line" if i == 0 else None,
+        )
+        for i, (az, text) in enumerate(specs)
+    ]
+    result = verify_closure(calls)
+    parallel = next(c for c in result.checks if c.name == "parallelism")
+    assert parallel.status != "blocked"
+    assert result.geometry_verified

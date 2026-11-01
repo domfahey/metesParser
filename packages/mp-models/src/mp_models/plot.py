@@ -5,7 +5,13 @@ import hashlib
 import math
 from typing import Annotated, Literal, Self, cast
 
-from pydantic import Field, FiniteFloat, model_validator
+from pydantic import (
+    Field,
+    FiniteFloat,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from .base import _Model
 
@@ -251,9 +257,34 @@ class PlotPrimitive(_Model):
         return self
 
 
+# A chord-only curve (radius + chord, no delta/arc) is positioned by its chord but
+# its minor/major arc is unknown, so it is listed as unresolved without stopping.
+CHORD_ONLY_UNRESOLVED_REASON = (
+    "curve delta/arc not stated - arc not drawn; positioned by chord only"
+)
+# A spiral with a stated chord bearing and length: the chord fixes the next start
+# exactly (as verification positions it), but no line or circular arc is drawn.
+SPIRAL_CHORD_UNRESOLVED_REASON = (
+    "spiral geometry unsupported - not drawn; positioned by stated chord only"
+)
+# The only unresolved outcomes the plot builder positions without drawing.
+POSITIONED_UNRESOLVED_REASONS = frozenset(
+    {CHORD_ONLY_UNRESOLVED_REASON, SPIRAL_CHORD_UNRESOLVED_REASON}
+)
+
+
 class PlotUnresolved(_Model):
     call_id: Identifier
     reason: str
+
+    @property
+    def positioned(self) -> bool:
+        """True when the course is positioned by its stated chord but not drawn.
+
+        Derived (never serialized) so stored geometry, its ``geometry_hash`` and
+        placements bound to it stay byte-identical to artifacts that predate it.
+        """
+        return self.reason in POSITIONED_UNRESOLVED_REASONS
 
 
 class PlotGeometry(_Model):
@@ -270,6 +301,23 @@ class PlotGeometry(_Model):
     misclosure_ft: FiniteFloat | None = None
     area_sq_ft: FiniteFloat | None = None
     perimeter_ft: FiniteFloat | None = None
+    # True traverse origin, recorded only when it differs from the first drawn
+    # primitive's start (a leading chord-only curve is positioned but not drawn).
+    point_of_beginning: XY | None = None
+
+    @model_serializer(mode="wrap")
+    def _omit_default_pob(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        data = handler(self)
+        if data.get("point_of_beginning") is None:
+            data.pop("point_of_beginning", None)
+        return cast(dict[str, object], data)
+
+
+def plot_point_of_beginning(geometry: PlotGeometry) -> XY | None:
+    """Return the traverse origin in native units, or None when nothing is positioned."""
+    if geometry.point_of_beginning is not None:
+        return geometry.point_of_beginning
+    return geometry.primitives[0].start if geometry.primitives else None
 
 
 class PointCorrespondence(_Model):

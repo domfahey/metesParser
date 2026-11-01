@@ -108,3 +108,18 @@ def test_standalone_validator_uses_no_dashboard_or_projection(monkeypatch):
         availability="unavailable",
     )
     assert validate_web_map_artifact(prepared, artifact) == artifact
+
+
+def test_feature_bound_to_empty_geometry_is_a_stale_binding_value_error():
+    from mp_models.plot import PlotGeometry
+    from mp_verify.webmap import _validate_deed_set
+
+    geometry = PlotGeometry(
+        id="g",
+        calculation_id="c",
+        frame_id="f",
+        geometry_hash="0" * 64,
+        completeness="unresolved",
+    )
+    with pytest.raises(ValueError, match="stale"):
+        _validate_deed_set(geometry, [])

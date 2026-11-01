@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import math
 import warnings
@@ -57,6 +58,14 @@ class WebMapProjection:
     versions: tuple[tuple[str, str], ...]
     _forward: Callable[[float, float], XY] = field(repr=False, compare=False)
     _geographic: Callable[[float, float], XY] = field(repr=False, compare=False)
+    extent: tuple[float, float, float, float] | None = None
+    _covers_extent: Callable[[tuple[float, float, float, float]], bool] | None = field(
+        default=None, repr=False, compare=False
+    )
+
+    def covers(self, extent: tuple[float, float, float, float]) -> bool:
+        """Whether the operation's and source CRS's areas of use both contain a scene-XY extent."""
+        return self._covers_extent is not None and self._covers_extent(extent)
 
     def to_mercator(self, point: XY) -> XY:
         """Transform normalized scene XY to EPSG:3857 meters, without wrapping."""
@@ -90,8 +99,112 @@ def _projection_dependencies() -> Any:
     return pyproj, TransformerGroup
 
 
-def build_web_map_projection(scene: PlotScene) -> WebMapProjection:
-    """Validate scene units and select the best locally available non-ballpark operation."""
+def _geographic_bounds(
+    to_geographic: Any, extent: tuple[float, float, float, float]
+) -> tuple[float, float, float, float]:
+    """Geographic (west, south, east, north) bounds of a source-CRS XY extent.
+
+    Ballpark transforms are acceptable here: the bounds only select and check an
+    operation's area of use; they are never used for displayed coordinates.
+    """
+    if len(extent) != 4 or not all(
+        isinstance(v, int | float) and not isinstance(v, bool) and math.isfinite(v) for v in extent
+    ):
+        raise ValueError("Extent is not finite")
+    minx, miny, maxx, maxy = extent
+    points = [
+        to_geographic.transform(
+            minx + (maxx - minx) * i / 8, miny + (maxy - miny) * j / 8, errcheck=True
+        )
+        for i in range(9)
+        for j in range(9)
+    ]
+    west, east = min(p[0] for p in points), max(p[0] for p in points)
+    south, north = min(p[1] for p in points), max(p[1] for p in points)
+    if east - west > 180 or not all(math.isfinite(v) for v in (west, south, east, north)):
+        raise ValueError("Extent spans an unsupported longitude range")
+    return west, south, east, north
+
+
+def _covers(area: Any, bounds: tuple[float, float, float, float]) -> bool:
+    if area is None:
+        return False
+    west, south, east, north = bounds
+    if not (area.south <= south and north <= area.north):
+        return False
+    if area.west <= area.east:
+        return bool(area.west <= west and east <= area.east)
+    # Areas of use crossing the antimeridian list west > east.
+    return bool(west >= area.west or east <= area.east)
+
+
+def _covers_both(
+    operation_area: Any, source_area: Any, bounds: tuple[float, float, float, float]
+) -> bool:
+    """Inside the operation's area of use and, when known, the source CRS's own.
+
+    Broad operations (NAD83 North America, UTM "World") say nothing about where
+    the source CRS is valid. A CRS without an area of use falls back to the
+    operation area alone.
+    """
+    if not _covers(operation_area, bounds):
+        return False
+    return source_area is None or _covers(source_area, bounds)
+
+
+def projection_from_pipeline(
+    pyproj: Any,
+    *,
+    source_crs_wkt: str,
+    axes: tuple[str, ...],
+    pipeline: str,
+    accuracy: float | None,
+    versions: tuple[tuple[str, str], ...],
+    extent: tuple[float, float, float, float] | None = None,
+    covers_extent: Callable[[tuple[float, float, float, float]], bool] | None = None,
+) -> WebMapProjection:
+    """Instantiate a projection from an explicit pipeline (shared by build and replay).
+
+    May raise ``pyproj.exceptions.ProjError``; callers decide how to report it.
+    """
+    transformer = pyproj.Transformer.from_pipeline(pipeline)
+    geographic = pyproj.Transformer.from_crs(
+        "EPSG:3857", "EPSG:4326", always_xy=True, allow_ballpark=False, only_best=True
+    )
+
+    def forward(x: float, y: float) -> XY:
+        ordered = (y, x) if axes == ("north", "east") else (x, y)
+        return _point(transformer.transform(*ordered, errcheck=True))
+
+    def longitude_latitude(x: float, y: float) -> XY:
+        return _point(geographic.transform(x, y, errcheck=True))
+
+    kwargs: dict[str, Any] = {}
+    if extent is not None:
+        kwargs["extent"] = (extent[0], extent[1], extent[2], extent[3])
+    if covers_extent is not None:
+        kwargs["_covers_extent"] = covers_extent
+    return WebMapProjection(
+        source_crs_wkt=source_crs_wkt,
+        pipeline=pipeline,
+        accuracy=accuracy,
+        versions=versions,
+        _forward=forward,
+        _geographic=longitude_latitude,
+        **kwargs,
+    )
+
+
+def build_web_map_projection(
+    scene: PlotScene, extent: tuple[float, float, float, float] | None = None
+) -> WebMapProjection:
+    """Validate scene units and select the best locally available non-ballpark operation.
+
+    ``extent`` is the placed display extent as scene XY ``(minx, miny, maxx, maxy)``.
+    When supplied, operation selection is area-aware and fails closed unless the
+    chosen operation's area of use contains the whole extent. Without it, the
+    operation's area of use is not checked.
+    """
     if scene.kind == "local":
         try:
             validate_scene(scene)
@@ -113,9 +226,28 @@ def build_web_map_projection(scene: PlotScene) -> WebMapProjection:
     try:
         # Missing-grid warnings contain raw URLs/paths. The typed failure below
         # reports the same condition without exposing external diagnostic text.
+        @functools.cache
+        def to_geographic() -> Any:
+            return pyproj.Transformer.from_crs(source, "EPSG:4326", always_xy=True)
+
+        aoi = None
+        if extent is not None:
+            try:
+                bounds = _geographic_bounds(to_geographic(), extent)
+            except Exception as exc:
+                raise WebMapUnavailable("projection_domain", _DOMAIN_MESSAGE) from exc
+            from pyproj.aoi import AreaOfInterest
+
+            aoi = AreaOfInterest(*bounds)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
-            group = group_type(source, "EPSG:3857", always_xy=False, allow_ballpark=False)
+            group = group_type(
+                source,
+                "EPSG:3857",
+                always_xy=False,
+                allow_ballpark=False,
+                area_of_interest=aoi,
+            )
         if not group.best_available:
             raise WebMapUnavailable(
                 "missing_grid", "Required coordinate-operation grids are unavailable locally."
@@ -124,7 +256,20 @@ def build_web_map_projection(scene: PlotScene) -> WebMapProjection:
             raise WebMapUnavailable(
                 "operation_unavailable", "No supported coordinate operation is available."
             )
-        selected = group.transformers[0]
+        if extent is None:
+            selected = group.transformers[0]
+        else:
+            covering = [
+                t
+                for t in group.transformers
+                if _covers_both(t.area_of_use, source.area_of_use, bounds)
+            ]
+            if not covering:
+                raise WebMapUnavailable(
+                    "operation_unavailable",
+                    "No coordinate operation covers the placed display extent.",
+                )
+            selected = covering[0]
         definition = selected.definition
         if not definition or "unavailable" in definition.lower():
             raise ValueError("Operation cannot be serialized")
@@ -132,10 +277,6 @@ def build_web_map_projection(scene: PlotScene) -> WebMapProjection:
             definition.replace("proj=pipeline", "proj=pipeline over", 1)
             if definition.startswith("proj=pipeline")
             else definition + " over"
-        )
-        transformer = pyproj.Transformer.from_pipeline(pipeline)
-        geographic = pyproj.Transformer.from_crs(
-            "EPSG:3857", "EPSG:4326", always_xy=True, allow_ballpark=False, only_best=True
         )
         database = Path(pyproj.datadir.get_data_dir()) / "proj.db"
         versions = (
@@ -146,20 +287,25 @@ def build_web_map_projection(scene: PlotScene) -> WebMapProjection:
         )
         accuracy = selected.accuracy
 
-        def forward(x: float, y: float) -> XY:
-            ordered = (y, x) if axes == ("north", "east") else (x, y)
-            return _point(transformer.transform(*ordered, errcheck=True))
+        def covers_extent(item: tuple[float, float, float, float]) -> bool:
+            try:
+                return _covers_both(
+                    selected.area_of_use,
+                    source.area_of_use,
+                    _geographic_bounds(to_geographic(), item),
+                )
+            except Exception:
+                return False
 
-        def longitude_latitude(x: float, y: float) -> XY:
-            return _point(geographic.transform(x, y, errcheck=True))
-
-        return WebMapProjection(
+        return projection_from_pipeline(
+            pyproj,
             source_crs_wkt=source.to_wkt(),
+            axes=axes,
             pipeline=pipeline,
             accuracy=None if accuracy < 0 or not math.isfinite(accuracy) else accuracy,
             versions=versions,
-            _forward=forward,
-            _geographic=longitude_latitude,
+            extent=extent,
+            covers_extent=covers_extent,
         )
     except WebMapUnavailable:
         raise

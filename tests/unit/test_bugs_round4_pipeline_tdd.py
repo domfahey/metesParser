@@ -82,8 +82,13 @@ def test_witness_length_cannot_fill_missing_boundary_and_cannot_export(api, tmp_
         parse(text, strict=True)
 
     # Even permissive parsing must not turn a witness measurement into a parcel edge.
-    calls = parse(text, strict=False)
-    result = verify(calls)
+    with pytest.raises(ValueError, match="skipped course not recorded"):
+        parse(text, strict=False)
+    skipped: list = []
+    calls = parse(text, strict=False, skipped_courses=skipped)
+    assert [s.course for s in skipped] == [1]
+    result = verify(calls, skipped_courses=skipped)
+    assert not result.closure_passed and not result.area_available
     output = tmp_path / "incomplete.csv"
     with pytest.raises(ValueError, match="verification checks failed"):
         export(calls, result, str(output))

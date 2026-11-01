@@ -2,14 +2,43 @@
 
 import argparse
 import contextlib
+import contextvars
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
 from .api import review_file, verify_file
+from .json_input import InvalidInputJson, read_json_input
 from .relative import review_relative_file
-from .settings import SettingsError, output_path, read_settings
+from .settings import SettingsError, read_settings
+from .settings import output_path as _output_path
+
+# Output paths handed out during the current invocation (output_path() results and explicit
+# --output targets). main() sets a fresh dict and resets it afterwards, so nothing persists
+# between in-process calls.
+_RUN_OUTPUT_PATHS: contextvars.ContextVar[dict[Path, None] | None] = contextvars.ContextVar(
+    "mp_review_run_output_paths", default=None
+)
+
+
+def output_path(settings: dict[str, Any], explicit: Path | None) -> Path:
+    path = _output_path(settings, explicit)
+    handed = _RUN_OUTPUT_PATHS.get()
+    if handed is not None:
+        handed[path] = None
+    return path
+
+
+def _partial_output_directories(handed: dict[Path, None]) -> list[str]:
+    """Output paths handed to this run whose target exists after the failure.
+
+    Conservative: a handed-out path is listed whether or not this run wrote to it (it may be
+    a pre-existing shared directory), because mtime inference misses same-second, nested and
+    in-place writes. Paths never handed to this run are never listed.
+    """
+    return [str(path) for path in handed if os.path.lexists(path)]
 
 
 def main() -> None:
@@ -172,27 +201,67 @@ def main() -> None:
     corpus.add_argument("--settings", type=Path)
     args = parser.parse_args()
     result: dict[str, Any]
-    with contextlib.redirect_stdout(sys.stderr):
-        try:
-            settings = read_settings(args.settings)
-            if not settings["enabled"]:
+    run_dirs: dict[Path, None] = {}
+    token = _RUN_OUTPUT_PATHS.set(run_dirs)
+    if isinstance(explicit_output := getattr(args, "output", None), Path):
+        run_dirs[explicit_output] = None
+    try:
+        with contextlib.redirect_stdout(sys.stderr):
+            try:
+                settings = read_settings(args.settings)
+                if not settings["enabled"]:
+                    result = {
+                        "schema_version": "1.0",
+                        "status": "error",
+                        "artifacts": {},
+                        "errors": [
+                            {
+                                "code": "plugin_disabled",
+                                "message": "Plugin disabled in local settings.",
+                            }
+                        ],
+                    }
+                else:
+                    result = _execute(args, settings)
+            except SettingsError as exc:
+                result = {
+                    "schema_version": "1.0",
+                    "status": "error",
+                    "artifacts": {},
+                    "errors": [{"code": "invalid_settings", "message": str(exc)}],
+                }
+            except InvalidInputJson:
+                # Deeply nested JSON exhausts the parser; report it as an invocation error.
                 result = {
                     "schema_version": "1.0",
                     "status": "error",
                     "artifacts": {},
                     "errors": [
-                        {"code": "plugin_disabled", "message": "Plugin disabled in local settings."}
+                        {
+                            "code": "invalid_input_json",
+                            "message": "Input JSON is nested too deeply to process.",
+                        }
                     ],
                 }
-            else:
-                result = _execute(args, settings)
-        except SettingsError as exc:
-            result = {
-                "schema_version": "1.0",
-                "status": "error",
-                "artifacts": {},
-                "errors": [{"code": "invalid_settings", "message": str(exc)}],
-            }
+            except RecursionError:
+                # Recursion outside input loading (rendering, publishing) is an internal
+                # failure; files may already be written, so name the paths that may hold them.
+                result = {
+                    "schema_version": "1.0",
+                    "status": "error",
+                    "artifacts": {},
+                    "partial_output_directories": _partial_output_directories(run_dirs),
+                    "errors": [
+                        {
+                            "code": "internal_recursion_error",
+                            "message": "Recursion limit exceeded while processing; "
+                            "paths listed under partial_output_directories "
+                            "may contain partial output.",
+                        }
+                    ],
+                }
+    finally:
+        _RUN_OUTPUT_PATHS.reset(token)
     print(json.dumps(result, allow_nan=False))
     raise SystemExit(
         {"checks_passed": 0, "needs_review": 1, "passed": 0, "failed": 1, "error": 2}.get(
@@ -354,7 +423,7 @@ def _overlay_artifact(args: argparse.Namespace) -> dict[str, Any]:
 
             from .raster_registration import fit_affine, image_layer, supplied_affine
 
-            config = json.loads(args.controls.read_bytes())
+            config = read_json_input(args.controls)
             scene = PlotScene.model_validate(config["scene"])
             controls = tuple(RasterControl.model_validate(c) for c in config.get("controls", []))
             registration = (
@@ -452,7 +521,7 @@ def _execute_delivery(args: argparse.Namespace, settings: dict[str, Any]) -> dic
     from mp_models.delivery import DeliveryRequest
 
     from .dashboard import _load
-    from .delivery import load_delivery, publish_delivery
+    from .delivery import publish_delivery, replay_delivery
     from .revision_view import render_revision_file
 
     if args.command == "render-revision":
@@ -466,12 +535,18 @@ def _execute_delivery(args: argparse.Namespace, settings: dict[str, Any]) -> dic
             return publish_delivery(
                 bundle, args.revision_dir, request, output_path(settings, args.output_dir)
             )
-        snapshot = load_delivery(bundle, args.revision_dir, args.package_dir)
+        replay = replay_delivery(bundle, args.revision_dir, args.package_dir)
+        snapshot = replay.snapshot
         return {
             "schema_version": "1.0",
             "status": "needs_review",
             "errors": [],
             "artifacts": {},
+            "omissions": [o.model_dump(mode="json") for o in snapshot.omissions],
+            "replay_verification": {
+                "geojson_coordinates": replay.geojson_coordinates,
+                "findings": list(replay.findings),
+            },
             "snapshot": snapshot.model_dump(mode="json"),
         }
     except (OSError, ValueError, KeyError, TypeError) as exc:

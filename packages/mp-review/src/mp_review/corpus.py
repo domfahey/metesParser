@@ -9,6 +9,8 @@ from typing import Any
 
 from mp_models import DeedCall
 
+from .json_input import parse_json
+
 _EXPECTATION_KEYS = {
     "status",
     "call_count",
@@ -64,7 +66,9 @@ def _assertions(result: dict[str, Any], expected: dict[str, Any]) -> list[dict[s
     verification = result.get("verification") or {}
     for key in ("misclosure_ft", "area_sq_ft"):
         if key in expected:
-            check(key, verification.get(key), expected[key], expected.get(f"{key}_tolerance", 0.01))
+            flag = "misclosure_available" if key == "misclosure_ft" else "area_available"
+            actual = None if verification.get(flag) is False else verification.get(key)
+            check(key, actual, expected[key], expected.get(f"{key}_tolerance", 0.01))
     for index, fields in enumerate(expected.get("selected_calls", [])):
         calls = result.get("calls", [])
         actual_call = calls[index] if index < len(calls) else {}
@@ -127,7 +131,7 @@ def _validate_case(case: Any) -> tuple[str, dict[str, Any]]:
 def run_corpus(manifest_path: str | Path, output_path: str | Path | None = None) -> dict[str, Any]:
     """Run manifest cases independently and compare results with reviewed expectations."""
     manifest_file = Path(manifest_path).resolve()
-    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    manifest = parse_json(manifest_file.read_text(encoding="utf-8"))
     if not isinstance(manifest, dict):
         raise ValueError("manifest must be an object")
     if manifest.get("schema_version") != "1.0" or not isinstance(manifest.get("cases"), list):

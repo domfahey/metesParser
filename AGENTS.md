@@ -18,7 +18,7 @@ Versions are declared in each package's `pyproject.toml` (root `metesparser`: 0.
 **Most Important Rule**: If a bearing is incomplete (e.g., "southwesterly" without degrees), leave `bearing_azimuth_deg_from_north` as `None` and set `notes="incomplete bearing - cardinal only"`. Never invent numerical bearings.
 
 ### 2. Verification Before Export
-Use `verify_closure()` before `export_verified_csv()`. Geometry eligibility requires closure below 0.01 ft, applicable checks passing (explicit `not_applicable` is distinct from `passed`), and no warnings; failed or blocked checks prevent eligibility. The exporter freshly verifies the selected calls and validates the supplied result against them. `source_review_status` remains an explicit, separate assessment; geometry eligibility does not establish source completeness or legal validity.
+Use `verify_closure()` before `export_verified_csv()`. Geometry eligibility requires closure below 0.01 ft, applicable checks passing (explicit `not_applicable` is distinct from `passed`), and no warnings; failed or blocked checks prevent eligibility. The exporter freshly verifies the selected calls and validates the supplied result against them. Fail closed on guessed roles: when a deed has more than one description and any description's role (main/addition/exception/easement) was inferred from wording rather than an explicit TRACT/PARCEL heading (`Tract.role_basis`), nothing in the deed is verified or exported (`mp_models.roles_need_review`, the one gate; check `description_roles_inferred`); every call of such a deed (flat and each tract's) carries the registered `DESCRIPTION_ROLES_NOTE` mark, and every easement/exception tract's call a registered non-boundary note (`mp_models.mark_non_boundary`, check `non_boundary_tract`), so no subset of the calls, and no CSV/JSON artifact written from them, verifies or exports through any API. A single description is unaffected. `source_review_status` remains an explicit, separate assessment; geometry eligibility does not establish source completeness or legal validity.
 
 ### 3. Preserve Verbatim Deed Language
 Keep original wording in `along` and `to` fields. Example: Keep "Southerly line of Pennbrook Drive" exactly as written in the deed.
@@ -138,12 +138,13 @@ DMS parsing: "S 56°40'30\" W" → (S, 56.675, W) → 236.675° azimuth
 Do NOT use `strict=True` on boolean `Field()` declarations in `DeedCall` — it contradicts the `_coerce_bool_field` validator that coerces `"true"`/`"false"` strings.
 
 ### Cardinal Direction Patterns
-Cardinal-only patterns must include `(?:erly|wardly)?` suffixes AND abbreviated forms (`NE|NW|SE|SW`). All five must stay in sync:
+Cardinal-only patterns must include `(?:erly|wardly)?` suffixes AND abbreviated forms (`NE|NW|SE|SW`). The four real copies must stay in sync (six vocabularies counting the two aliases below):
 - `packages/mp-parse/src/mp_parse/calls.py` (`_CARDINAL_ONLY_PATTERN`)
 - `packages/mp-parse/src/mp_parse/metadata.py` (`CARDINAL_ONLY_PATTERN`)
-- `src/metesparser/call_extractor.py` (`_CARDINAL_ONLY_PATTERN`)
-- `src/metesparser/text_parser.py` (`CARDINAL_ONLY_PATTERN`)
 - `scripts/audit_gt_vs_md.py` (`CARDINAL_ONLY_PATTERN`)
+- `packages/mp-bearing/src/mp_bearing/azimuth.py` (`normalize_cardinal_word`; mp-bearing cannot import mp-parse, so it keeps its own copy)
+
+`src/metesparser/call_extractor.py` and `src/metesparser/text_parser.py` only alias the package patterns; do not redefine them. `tests/unit/test_pr60_r40_cardinal_sync_tdd.py` checks that all six accept and reject the same words.
 
 Bug history: missing `wardly` caused false negatives; missing abbreviations caused call rejection when LLM normalization turned "NORTHWEST" into "NW" (PR #21).
 
@@ -152,7 +153,7 @@ Bug history: missing `wardly` caused false negatives; missing abbreviations caus
 - Defaults: OpenAI `gpt-5.2`; Gemini `gemini-3-flash-preview` with fallback `gemini-2.5-flash`.
 
 ### CSV Schema
-21 fields in `mp_export.csv_writer.FIELDNAMES` (monolith `csv_builder.py`); **order matters**. Field list and notes: [DEVELOPER_REFERENCE.md](docs/DEVELOPER_REFERENCE.md#csv-schema).
+22 fields (`curve_type` last) in `mp_export.csv_writer.FIELDNAMES` (monolith `csv_builder.py`); **order matters**. Field list and notes: [DEVELOPER_REFERENCE.md](docs/DEVELOPER_REFERENCE.md#csv-schema).
 
 ## Environment Setup
 `.env` (copy from `.env.example`): `OPENAI_API_KEY` or `GEMINI_API_KEY` per provider; optional `METESPARSER_LOG_LEVEL` (default `INFO`). Never commit secrets; guard API keys when scripting against the pipeline. Document basis of bearing, datum and source metadata alongside exported CSV.
@@ -189,7 +190,7 @@ Bug history: missing `wardly` caused false negatives; missing abbreviations caus
 2. Add to `FIELDNAMES` in `packages/mp-export/src/mp_export/csv_writer.py` (order matters)
 3. Add to `_CSVDeedCallRow` in `csv_writer.py`
 4. Wire extraction into `packages/mp-parse/src/mp_parse/calls.py` or `metadata.py`
-5. Keep monolith `models.py`, `csv_builder.py`, `call_extractor.py` in sync
+5. Keep monolith `models.py` and `csv_builder.py` in sync (`call_extractor.py` delegates to `mp_parse`)
 6. Update fieldnames count test in `test_phase2_enhanced_parsing.py`
 7. Add feature tests in appropriate phase test file
 

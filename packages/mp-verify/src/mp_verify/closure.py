@@ -18,20 +18,26 @@ Quality and confidence scoring:
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from typing import overload
 
 import structlog
-from mp_bearing import bearing_to_azimuth, calculate_deltas, compute_curve_endpoint
 from mp_models import (
+    DESCRIPTION_ROLES_CHECK,
+    NON_BOUNDARY_CHECK,
     AuditContext,
+    CheckResult,
     ClosureResult,
     DeedCall,
     Point,
+    SkippedCourse,
     Tract,
     VerificationAudit,
+    unapplied_exceptions,
 )
 
 from .checks import (
+    block_curve_consistency,
     build_verification_checks,
     check_bearing_reversals,
     check_boundary_intersections,
@@ -39,9 +45,25 @@ from .checks import (
     check_distance_reasonableness,
     check_interior_angles,
     check_parallelism,
+    chord_only_delta_detail,
     compare_double_entry,
+    evaluate_description_roles,
+    evaluate_non_boundary_marks,
+    evaluate_tract_role,
+    tangent_chord_issue,
 )
 from .confidence import calculate_confidence_score, score_call_quality
+from .tangents import (
+    determined_arc_sweep,
+    has_determined_direction,
+    is_circular_curve,
+    is_spiral,
+    stated_tangent,
+)
+from .traverse import (
+    analyze_courses,
+    traverse_positions,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -52,68 +74,8 @@ def compute_traverse(
     calls: list[DeedCall],
     start_point: Point | None = None,
 ) -> list[Point]:
-    """Compute the traverse path from calls.
-
-    Args:
-        calls: List of DeedCall objects.
-        start_point: Starting point (default: origin).
-
-    Returns:
-        List of Point objects representing vertices.
-    """
-    if start_point is None:
-        start_point = Point(x=0, y=0)
-    points = [start_point]
-    current = start_point
-
-    for call in calls:
-        if call.bearing_azimuth_deg_from_north is None:
-            continue
-
-        if call.is_curve():
-            next_point: Point | None = None
-
-            if call.radius_ft is not None and call.curve_dir is not None:
-                delta_deg = call.delta_deg
-                if delta_deg is None and call.arc_length_ft is not None and call.radius_ft > 0.0:
-                    delta_deg = math.degrees(call.arc_length_ft / call.radius_ft)
-
-                if delta_deg is not None and abs(delta_deg) > 1e-9:
-                    if call.chord_bearing is not None:
-                        chord_azimuth = bearing_to_azimuth(call.chord_bearing)
-                        if chord_azimuth is None:
-                            raise ValueError(f"Course {call.course}: invalid chord bearing")
-                        # A chord bearing already describes the endpoint vector.
-                        # Only tangent bearings need rotation by half the delta.
-                        chord_length = 2 * call.radius_ft * math.sin(math.radians(delta_deg) / 2)
-                        dx, dy = calculate_deltas(chord_azimuth, chord_length)
-                        next_point = Point(x=current.x + dx, y=current.y + dy)
-                    else:
-                        next_point = compute_curve_endpoint(
-                            current,
-                            call.bearing_azimuth_deg_from_north,
-                            call.radius_ft,
-                            delta_deg,
-                            call.curve_dir,
-                        )
-
-            if next_point is None:
-                dx, dy = calculate_deltas(
-                    call.bearing_azimuth_deg_from_north,
-                    call.distance_ft,
-                )
-                next_point = Point(x=current.x + dx, y=current.y + dy)
-        else:
-            dx, dy = calculate_deltas(
-                call.bearing_azimuth_deg_from_north,
-                call.distance_ft,
-            )
-            next_point = Point(x=current.x + dx, y=current.y + dy)
-
-        points.append(next_point)
-        current = next_point
-
-    return points
+    """Compute the traverse path from calls (vertices only)."""
+    return traverse_positions(calls, start_point)[0]
 
 
 def calculate_area(points: list[Point], *, calls: list[DeedCall] | None = None) -> float:
@@ -143,15 +105,12 @@ def calculate_area(points: list[Point], *, calls: list[DeedCall] | None = None) 
     area /= 2.0
     curved_area = 0.0
     for call in calls or []:
-        if call.bearing_azimuth_deg_from_north is None or not call.is_curve():
+        # Only an arc whose start is fixed (stated tangent, chord and sweep, or a
+        # non-tangent curve's radial bearing) contributes a segment.
+        delta = determined_arc_sweep(call)
+        if delta is None:
             continue
-        if call.radius_ft is None or call.curve_dir is None:
-            continue
-        delta = call.delta_deg
-        if delta is None and call.arc_length_ft is not None and call.radius_ft > 0:
-            delta = math.degrees(call.arc_length_ft / call.radius_ft)
-        if delta is None or abs(delta) <= 1e-9:
-            continue
+        assert call.radius_ft is not None
         theta = math.radians(delta)
         segment = call.radius_ft**2 * (theta - math.sin(theta)) / 2.0
         # Shoelace uses positive counterclockwise area; left arcs add area.
@@ -174,6 +133,13 @@ def calculate_perimeter(calls: list[DeedCall]) -> float:
     for call in calls:
         if call.is_curve() and call.arc_length_ft is not None and call.arc_length_ft > 0.0:
             perimeter += call.arc_length_ft
+        elif stated_tangent(call) is None and (delta := determined_arc_sweep(call)) is not None:
+            # Tangent-less curve positioned by its chord (or a non-tangent curve by its
+            # radial bearing): arc = R * delta is determined.
+            assert call.radius_ft is not None
+            perimeter += call.radius_ft * math.radians(delta)
+        elif call.distance_ft is None:
+            raise ValueError(f"Course {call.course}: distance not determined")
         else:
             perimeter += call.distance_ft
     return perimeter
@@ -191,11 +157,22 @@ def _calculate_exception_area(calls: list[DeedCall]) -> float:
     for call in calls:
         if call.is_tie_in:
             continue
-        if call.bearing_azimuth_deg_from_north is None:
+        # Exception loops are positioned exactly like main traverses: a tangent-less
+        # curve fixed by chord bearing and sweep is determined, not incomplete.
+        if not has_determined_direction(call):
             raise ValueError(
                 f"Exception course {call.course} has an incomplete bearing; net area unavailable"
             )
-        points.extend(compute_traverse([call], start_point=points[-1])[1:])
+        if call.is_chord_only_curve() or not is_circular_curve(call):
+            raise ValueError(
+                f"Exception course {call.course}: curve delta/arc not stated; net area unavailable"
+            )
+        vertices, positioned = traverse_positions([call], start_point=points[-1])
+        if not all(positioned):
+            raise ValueError(
+                f"Exception course {call.course} cannot be positioned; net area unavailable"
+            )
+        points.extend(vertices[1:])
         pending.append(call)
         misclosure = math.hypot(points[-1].x, points[-1].y)
         if misclosure < CLOSURE_TOLERANCE_FT:
@@ -227,15 +204,101 @@ def verify_tract(
     stated_area_sq_ft: float = 0.0,
     closure_tolerance_ft: float | None = None,
     audit_context: AuditContext | None = None,
+    skipped_courses: list[SkippedCourse] | None = None,
+    tract: Tract | None = None,
 ) -> ClosureResult:
-    """Check one independent tract using every standard verification guardrail."""
+    """Check one independent tract using every standard verification guardrail.
+
+    When ``tract`` is supplied, its role checks are derived from the tract itself
+    (``tract_type`` and ``role_basis``) so they can never be omitted or mismatched by
+    the caller: a tract whose role was inferred from wording is blocked even alone.
+    Without it, the calls' own marks block them: the role-review mark every call of a
+    blocked deed carries, and the note every easement/exception tract's call carries.
+    """
+    return _verify_tract(
+        calls,
+        stated_area_sq_ft=stated_area_sq_ft,
+        closure_tolerance_ft=closure_tolerance_ft,
+        audit_context=audit_context,
+        skipped_courses=skipped_courses,
+        tract=tract,
+        deed_roles=evaluate_description_roles([tract]) if tract is not None else None,
+    )
+
+
+def _verify_tract(
+    calls: list[DeedCall],
+    *,
+    stated_area_sq_ft: float,
+    closure_tolerance_ft: float | None,
+    audit_context: AuditContext | None,
+    skipped_courses: list[SkippedCourse] | None,
+    tract: Tract | None,
+    deed_roles: CheckResult | None,
+) -> ClosureResult:
+    """``verify_tract`` with the deed-level role check computed over all its tracts."""
+    role_checks = [
+        check
+        for check in (
+            evaluate_tract_role(tract.label, tract.tract_type) if tract is not None else None,
+            deed_roles,
+        )
+        if check is not None
+    ]
     boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
-    return verify_closure(
+    return _verify_single(
         boundary,
         stated_area_sq_ft=stated_area_sq_ft,
         closure_tolerance_ft=closure_tolerance_ft,
         audit_context=audit_context,
+        skipped_courses=skipped_courses,
+        role_checks=role_checks,
     )
+
+
+def _merge_skips(*groups: list[SkippedCourse]) -> list[SkippedCourse]:
+    """Combine skip records from every source once, preserving order."""
+    merged: list[SkippedCourse] = []
+    for group in groups:
+        merged.extend(skip for skip in group if skip not in merged)
+    return merged
+
+
+def skips_for_tract(
+    tract: Tract, all_tracts: list[Tract], extra_skips: list[SkippedCourse]
+) -> list[SkippedCourse]:
+    """Every skip that applies to one tract of a multi-tract run.
+
+    A tract's own skips apply, as do ``extra_skips`` labelled with it. A skip tied
+    to no supplied tract cannot be placed, so it applies to every tract.
+    """
+    tract_labels = {t.label for t in all_tracts}
+    unplaced = {skip.tract_label for skip in extra_skips} - tract_labels
+    return _merge_skips(
+        tract.skipped_courses,
+        [skip for skip in extra_skips if skip.tract_label in (tract.label, *unplaced)],
+    )
+
+
+def _block_skipped_closure(
+    checks: list[CheckResult], skipped: list[SkippedCourse]
+) -> list[CheckResult]:
+    """Block traverse closure: the extracted calls omit courses the deed states."""
+    detail = "Traverse closure not determined: extraction skipped course(s) " + ", ".join(
+        str(skip.course) for skip in skipped
+    )
+    return [
+        CheckResult(
+            name="traverse_closure",
+            status="blocked",
+            reason="skipped_courses",
+            detail=detail,
+            inputs={"skipped_course_count": len(skipped)},
+        )
+        if check.name == "traverse_closure"
+        else check
+        for check in checks
+    ]
 
 
 @overload
@@ -247,6 +310,7 @@ def verify_closure(
     closure_tolerance_ft: float | None = ...,
     double_entry_calls: list[DeedCall] | None = ...,
     audit_context: AuditContext | None = ...,
+    skipped_courses: list[SkippedCourse] | None = ...,
 ) -> ClosureResult: ...
 
 
@@ -259,6 +323,7 @@ def verify_closure(
     closure_tolerance_ft: float | None = ...,
     double_entry_calls: list[DeedCall] | None = ...,
     audit_context: AuditContext | None = ...,
+    skipped_courses: list[SkippedCourse] | None = ...,
 ) -> list[ClosureResult]: ...
 
 
@@ -270,16 +335,31 @@ def verify_closure(
     closure_tolerance_ft: float | None = None,
     double_entry_calls: list[DeedCall] | None = None,
     audit_context: AuditContext | None = None,
+    skipped_courses: list[SkippedCourse] | None = None,
 ) -> ClosureResult | list[ClosureResult]:
     """Verify traverse closure and perform all validation checks.
 
     Args:
         calls: List of DeedCall objects.
         tracts: Optional list of Tract objects for multi-tract verification.
+            Easement/exception tracts keep their computed geometry but a blocked
+            ``non_boundary_tract`` check keeps them from geometry eligibility. When
+            any tract's role needs review (``mp_models.roles_need_review``: several
+            descriptions and a role inferred from wording rather than an explicit
+            tract heading), every tract gets a blocked ``description_roles_inferred``
+            check; geometry is still computed for review. With or without tracts,
+            calls bearing the role-review mark (``mp_models.mark_roles_review``) get
+            the same blocked check, and calls bearing an easement/exception tract's
+            note (``mp_models.mark_non_boundary``) a blocked ``non_boundary_tract``
+            check, each once.
         stated_area_sq_ft: Stated area from deed (optional, for comparison).
         closure_tolerance_ft: Custom closure tolerance (default: 0.01 ft).
         double_entry_calls: Optional independently-entered call set for guardrail F.
-        audit_context: Optional audit context for recording check results.
+        audit_context: Optional audit context for recording check results; its
+            ``skipped_courses`` are honoured like ``skipped_courses``.
+        skipped_courses: Courses extraction could not parse. Any skip blocks
+            traverse closure and leaves misclosure, area and perimeter undetermined;
+            per tract, a tract's own skips and those labelled with it apply.
 
     Returns:
         ClosureResult when tracts is None (single-tract).
@@ -287,68 +367,252 @@ def verify_closure(
     """
     if tracts is not None:
         if audit_context is not None:
-            logger.warning("Audit trail recording not yet implemented for per-tract verification")
+            # Reflect only the latest multi-tract run: drop the single-tract audit too.
+            audit_context.verification_audit = None
+            audit_context.tract_verification_audits = []
         results: list[ClosureResult] = []
+        labelled = _merge_skips(
+            skipped_courses or [], audit_context.skipped_courses if audit_context else []
+        )
+        # Deed level: inferred roles among several descriptions (or the role-review
+        # mark on the deed's calls) block every tract.
+        deed_roles = evaluate_description_roles(tracts, calls)
         for tract in tracts:
-            result = verify_tract(
+            # Scratch context per tract so tracts never overwrite each other's audit.
+            scratch = (
+                audit_context.model_copy(update={"verification_audit": None, "skipped_courses": []})
+                if audit_context is not None
+                else None
+            )
+            result = _verify_tract(
                 tract.calls,
                 stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
                 closure_tolerance_ft=closure_tolerance_ft,
+                audit_context=scratch,
+                skipped_courses=skips_for_tract(tract, tracts, labelled),
+                tract=tract,
+                deed_roles=deed_roles,
             )
+            tract_audit = scratch.verification_audit if scratch is not None else None
+            if audit_context is not None and tract_audit is not None:
+                audit_context.tract_verification_audits.append(
+                    tract_audit.model_copy(update={"tract_label": tract.label})
+                )
             results.append(result)
         return results
 
+    return _verify_single(
+        calls,
+        stated_area_sq_ft=stated_area_sq_ft,
+        closure_tolerance_ft=closure_tolerance_ft,
+        double_entry_calls=double_entry_calls,
+        audit_context=audit_context,
+        skipped_courses=skipped_courses,
+        role_checks=(),
+    )
+
+
+# The role checks ``verify_tract`` derives from a tract; each only ever blocks.
+_ROLE_CHECK_NAMES = frozenset({NON_BOUNDARY_CHECK, DESCRIPTION_ROLES_CHECK})
+
+
+def _verify_single(
+    calls: list[DeedCall],
+    *,
+    stated_area_sq_ft: float = 0.0,
+    closure_tolerance_ft: float | None = None,
+    double_entry_calls: list[DeedCall] | None = None,
+    audit_context: AuditContext | None = None,
+    skipped_courses: list[SkippedCourse] | None = None,
+    role_checks: Sequence[CheckResult] = (),
+) -> ClosureResult:
+    """Single-tract verification; ``role_checks`` are internal (set by ``verify_tract``)."""
+    if any(c.name not in _ROLE_CHECK_NAMES or c.status != "blocked" for c in role_checks):
+        raise ValueError(
+            "role_checks must be blocked non_boundary_tract or description_roles_inferred checks"
+        )
+    # Calls bearing the role-review mark (any call of a blocked deed) or an easement/
+    # exception tract's note are never verified, whichever entry point verifies them
+    # and however they were selected or re-imported. A check the tract already gave
+    # (``verify_tract``) is not repeated.
+    present = {c.name for c in role_checks}
+    derived = (
+        evaluate_non_boundary_marks(calls) if NON_BOUNDARY_CHECK not in present else None,
+        evaluate_description_roles((), calls) if DESCRIPTION_ROLES_CHECK not in present else None,
+    )
+    role_checks = [*role_checks, *(check for check in derived if check is not None)]
     tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
+    # Courses the extractor skipped are missing from ``calls``: a traverse of the
+    # rest is not the deed's boundary, so nothing derived from it is determined.
+    skipped = _merge_skips(
+        skipped_courses or [], audit_context.skipped_courses if audit_context else []
+    )
 
     main_calls = [c for c in calls if not c.is_exception and not c.is_tie_in]
     exception_calls = [c for c in calls if c.is_exception]
 
-    points = compute_traverse(main_calls)
+    # One pass decides each call's chord, positioning and direction. Records are
+    # tracked by position: course numbers may repeat, and only the offending call
+    # loses its chord. Stated bearings are never erased to express positioning:
+    # the traverse outcome is passed to the checks instead.
+    points, records = analyze_courses(main_calls)
+    positioned = [record.positioned for record in records]
+    bad_chords = [record for record in records if record.bad_chord]
+    unpositioned = [record for record in records if not record.positioned]
+    # Once a course is unpositioned, every later vertex is relative to an unknown start.
+    downstream_courses = (
+        [record.call.course for record in records[unpositioned[0].index + 1 :]]
+        if unpositioned
+        else []
+    )
 
-    # Check for degenerate traverse: no calls contributed azimuths
-    computable_calls = sum(1 for c in main_calls if c.bearing_azimuth_deg_from_north is not None)
-    has_computable_traverse = computable_calls > 0
+    chord_only = [
+        record
+        for record in records
+        if record.chord_only and not record.bad_chord and record.positioned
+    ]
+    # A chord-only curve whose stated tangent disagrees with its chord and radius
+    # is reported as inconsistent, not merely as lacking a delta/arc.
+    tangent_issues = {record.index: tangent_chord_issue(record.call) for record in chord_only}
+    inconsistent_chord_indices = {i for i, issue in tangent_issues.items() if issue is not None}
+    inconsistent_chord_courses = [
+        record.call.course for record in chord_only if record.index in inconsistent_chord_indices
+    ]
+    # (course, tangent stated): a stated tangent fixes the arc; without one it is ambiguous.
+    delta_not_stated_courses = [
+        (
+            record.call.course,
+            stated_tangent(record.call) is not None,
+        )
+        for record in chord_only
+        if record.index not in inconsistent_chord_indices
+    ]
+
+    # Degenerate traverse: no course was positioned (bearings or chord endpoints).
+    has_computable_traverse = any(positioned)
 
     misclosure_x = points[-1].x - points[0].x
     misclosure_y = points[-1].y - points[0].y
     misclosure = math.sqrt(misclosure_x**2 + misclosure_y**2)
+    misclosure_available = not unpositioned and not skipped
+    if not misclosure_available:
+        # A broken chain gives no absolute positions: report no misclosure, not a wrong one.
+        misclosure_x = misclosure_y = misclosure = 0.0
 
-    warnings: list[str] = []
+    warnings: list[str] = [
+        f"Course {skip.course}: skipped malformed course {skip.source_excerpt.strip()!r} "
+        f"({skip.error_type}); closure, area and perimeter are not determined"
+        for skip in skipped
+    ]
+    # A stated exception without a described traverse (a strip) is not applied:
+    # the traverse is the boundary before it, never the deed's net parcel.
+    warnings.extend(
+        f"Course {call.course}: stated exception {wording!r} is not applied; closure, "
+        "area and perimeter describe the boundary before the exception, not the "
+        "deed's net parcel"
+        for call in calls
+        for wording in unapplied_exceptions(call.notes)
+    )
+
+    for record in bad_chords:
+        warnings.append(
+            f"Course {record.call.course}: unparseable chord bearing {record.call.chord_bearing!r}; "
+            "curve geometry blocked"
+        )
+    for record in unpositioned:
+        if is_spiral(record.call) and not record.bad_chord:
+            warnings.append(
+                f"Course {record.call.course}: spiral cannot be positioned (no stated chord "
+                "bearing and length; never treated as a circular arc or straight line); "
+                "closure, area and perimeter are not determined"
+            )
+        # A chord longer than the diameter fits no circle of that radius.
+        elif not record.bad_chord and not record.feasible_chord:
+            warnings.append(
+                f"Course {record.call.course}: curve cannot be positioned (chord length "
+                "exceeds twice the radius); closure, area and perimeter are not determined"
+            )
+        elif record.bad_chord:
+            warnings.append(
+                f"Course {record.call.course}: curve cannot be positioned (unparseable "
+                "chord bearing); closure, area and perimeter are not determined"
+            )
+        else:
+            warnings.append(
+                f"Course {record.call.course}: course cannot be positioned (no usable "
+                "bearing or endpoint); closure, area and perimeter are not determined"
+            )
+    if downstream_courses:
+        warnings.append(
+            f"Course(s) {', '.join(str(c) for c in downstream_courses)} follow an unpositioned "
+            "course; absolute positions and misclosure are not determined"
+        )
 
     if not has_computable_traverse:
         warnings.append(
             "No computable traverse \u2014 all calls lack bearings (cardinal-only or empty)"
         )
 
-    area_available = bool(main_calls) and all(call.is_complete_bearing() for call in main_calls)
-    try:
-        main_area_sq_ft = calculate_area(points, calls=main_calls)
+    for record in chord_only:
+        reason = (
+            "stated tangent, chord and radius are inconsistent"
+            if record.index in inconsistent_chord_indices
+            else "curve delta/arc not stated"
+        )
+        warnings.append(
+            f"Course {record.call.course}: {reason} - positioned by chord only; "
+            "arc, area and perimeter are not determined"
+        )
 
-        exception_area_sq_ft = 0.0
-        exception_area_available = True
-        if exception_calls:
-            warnings.append(
-                f"Found {len(exception_calls)} exception calls - "
-                "calculating exception area to subtract"
-            )
-            try:
-                exception_area_sq_ft = _calculate_exception_area(exception_calls)
-            except ValueError as e:
-                warnings.append(f"Cannot calculate exception area: {e}")
-                exception_area_available = False
-                area_available = False
+    arc_undetermined = [r for r in records if r.arc_undetermined and not r.chord_only]
+    for record in arc_undetermined:
+        warnings.append(
+            f"Course {record.call.course}: spiral positioned by its stated chord only - "
+            "arc shape, area and perimeter are not determined"
+        )
+    area_available = (
+        bool(records)
+        and all(record.determined_direction for record in records)
+        and not chord_only
+        and not arc_undetermined
+        and not unpositioned
+        and not skipped
+    )
+    area_sq_ft = 0.0
+    area_acres = 0.0
+    # An already-unavailable area is not computed from a partial point list.
+    if area_available:
+        try:
+            main_area_sq_ft = calculate_area(points, calls=main_calls)
 
-        area_sq_ft = main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
-        area_acres = area_sq_ft / 43560.0
-    except ValueError as e:
-        area_available = False
-        area_sq_ft = 0.0
-        area_acres = 0.0
-        warnings.append(f"Cannot calculate area: {e}")
+            exception_area_sq_ft = 0.0
+            exception_area_available = True
+            if exception_calls:
+                warnings.append(
+                    f"Found {len(exception_calls)} exception calls - "
+                    "calculating exception area to subtract"
+                )
+                try:
+                    exception_area_sq_ft = _calculate_exception_area(exception_calls)
+                except ValueError as e:
+                    warnings.append(f"Cannot calculate exception area: {e}")
+                    exception_area_available = False
+                    area_available = False
 
-    perimeter = calculate_perimeter(main_calls)
+            area_sq_ft = main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
+            area_acres = area_sq_ft / 43560.0
+        except ValueError as e:
+            area_available = False
+            area_sq_ft = 0.0
+            area_acres = 0.0
+            warnings.append(f"Cannot calculate area: {e}")
 
-    closure_passed = has_computable_traverse and misclosure < tolerance
+    perimeter_available = (
+        not chord_only and not arc_undetermined and not unpositioned and not skipped
+    )
+    perimeter = calculate_perimeter(main_calls) if perimeter_available else 0.0
+
+    closure_passed = has_computable_traverse and misclosure < tolerance and misclosure_available
 
     # Warn when closure only passes because of a relaxed tolerance
     if closure_passed and tolerance > CLOSURE_TOLERANCE_FT and misclosure >= CLOSURE_TOLERANCE_FT:
@@ -358,7 +622,9 @@ def verify_closure(
         )
 
     angle_check_passed = check_interior_angles(main_calls, points)
-    curve_consistency_passed_val, curve_warnings = check_curve_consistency(main_calls)
+    curve_consistency_passed_val, curve_warnings = check_curve_consistency(
+        main_calls, tangent_issues=tangent_issues
+    )
     warnings.extend(curve_warnings)
 
     parallel_warnings = check_parallelism(main_calls)
@@ -381,7 +647,7 @@ def verify_closure(
             f"(courses {course_nums}) may affect closure accuracy"
         )
 
-    indefinite_calls = [c for c in main_calls if c.is_indefinite]
+    indefinite_calls = [record.call for record in records if record.indefinite]
     if indefinite_calls:
         course_nums = ", ".join(str(c.course) for c in indefinite_calls)
         warnings.append(
@@ -402,14 +668,17 @@ def verify_closure(
                 f"(computed: {area_sq_ft:.1f} sq ft, stated: {stated_area_sq_ft:.1f} sq ft)"
             )
 
-    incomplete = [c for c in main_calls if not c.is_complete_bearing()]
+    # Curves fixed by chord bearing and sweep have determined tangents, not incomplete ones.
+    incomplete = [
+        record for record in records if not record.determined_direction and not record.positioned
+    ]
     if incomplete:
         warnings.append(
             f"{len(incomplete)} call(s) have incomplete bearings (cardinal-only or meanders)"
         )
 
     if exception_calls:
-        exception_incomplete = [c for c in exception_calls if not c.is_complete_bearing()]
+        exception_incomplete = [c for c in exception_calls if not has_determined_direction(c)]
         if exception_incomplete:
             warnings.append(
                 f"Exception tract has {len(exception_incomplete)} incomplete bearing(s)"
@@ -428,17 +697,68 @@ def verify_closure(
         stated_area_sq_ft=stated_area_sq_ft,
         area_sq_ft=area_sq_ft,
         area_available=area_available,
+        misclosure_available=misclosure_available,
+        positioned=positioned,
         double_entry_performed=double_entry_calls is not None,
         discrepancies=discrepancies,
+        curve_issues=curve_warnings,
     )
+
+    curve_blocks: list[tuple[str, str]] = []
+    if inconsistent_chord_courses:
+        curve_blocks.append(
+            (
+                "curve_tangent_chord_inconsistent",
+                "Stated tangent, chord and radius are inconsistent; "
+                "positioned by chord only on course(s) "
+                + ", ".join(str(c) for c in inconsistent_chord_courses),
+            )
+        )
+    if delta_not_stated_courses:
+        curve_blocks.append(
+            (
+                "curve_delta_not_stated",
+                chord_only_delta_detail(delta_not_stated_courses),
+            )
+        )
+    if bad_chords:
+        curve_blocks.append(
+            (
+                "invalid_chord_bearing",
+                "Unparseable chord bearing on course(s) "
+                + ", ".join(str(record.call.course) for record in bad_chords),
+            )
+        )
+    spiral_courses = [record.call.course for record in records if is_spiral(record.call)]
+    if spiral_courses:
+        # Circular L = R*delta and chord formulas do not apply to a spiral: never
+        # passed or failed by them, its geometry is reported as unverified.
+        curve_blocks.append(
+            (
+                "spiral_geometry_unverified",
+                "Spiral geometry is not verified (circular curve formulas do not apply) "
+                "on course(s) " + ", ".join(str(c) for c in spiral_courses),
+            )
+        )
+    if curve_blocks:
+        check_results = block_curve_consistency(check_results, curve_blocks)
+        curve_consistency_passed_val = False
+    if skipped:
+        check_results = _block_skipped_closure(check_results, skipped)
+    for role_check in role_checks:
+        check_results = [*check_results, role_check]
+        warnings.append(role_check.detail)
 
     closure_result = ClosureResult(
         misclosure_x_ft=misclosure_x,
         misclosure_y_ft=misclosure_y,
         misclosure_ft=misclosure,
+        misclosure_available=misclosure_available,
         area_sq_ft=area_sq_ft,
         area_acres=area_acres,
         perimeter_ft=perimeter,
+        perimeter_available=perimeter_available,
+        area_available=area_available,
         closure_passed=closure_passed,
         angle_check_passed=angle_check_passed,
         curve_consistency_passed=curve_consistency_passed_val,
@@ -448,10 +768,22 @@ def verify_closure(
         precision_ratio=misclosure / perimeter if perimeter else None,
     )
 
-    confidence = calculate_confidence_score(closure_result, calls)
+    # Reuse the boundary analysis already done; only exception/tie-in calls need their own.
+    analysis = {id(record.call): record for record in records}
+    others = [c for c in calls if id(c) not in analysis]
+    if others:
+        analysis.update({id(record.call): record for record in analyze_courses(others)[1]})
+    confidence = calculate_confidence_score(
+        closure_result,
+        calls,
+        [analysis[id(c)].chord_positioned for c in calls],
+        [analysis[id(c)].indefinite for c in calls],
+    )
     closure_result = closure_result.model_copy(update={"confidence_score": confidence})
 
     if audit_context is not None:
+        # Reflect only the latest single-tract run: drop any multi-tract audits.
+        audit_context.tract_verification_audits = []
         precision_ratio_str: str
         if perimeter and (misclosure / perimeter) > 1e-10:
             precision_ratio_str = f"1:{round(1.0 / (misclosure / perimeter))}"
@@ -461,11 +793,11 @@ def verify_closure(
         audit_context.verification_audit = VerificationAudit(
             checks=check_results,
             closure_summary={
-                "misclosure_ft": misclosure,
+                "misclosure_ft": misclosure if misclosure_available else "not determined",
                 "precision_ratio": precision_ratio_str,
-                "area_sq_ft": area_sq_ft,
-                "area_acres": area_acres,
-                "perimeter_ft": perimeter,
+                "area_sq_ft": area_sq_ft if area_available else "not determined",
+                "area_acres": area_acres if area_available else "not determined",
+                "perimeter_ft": perimeter if perimeter_available else "not determined",
                 "confidence_score": confidence,
                 "status": closure_result.get_closure_status(),
                 "geometry_verified": closure_result.geometry_verified,
@@ -493,17 +825,28 @@ def get_closure_summary(
     summary.append("=" * 60)
     summary.append("CLOSURE VERIFICATION SUMMARY")
     summary.append("=" * 60)
-    summary.append(f"Misclosure: {result.misclosure_ft:.4f} ft ({result.get_closure_status()})")
-    summary.append(f"  X: {result.misclosure_x_ft:.4f} ft")
-    summary.append(f"  Y: {result.misclosure_y_ft:.4f} ft")
+    if result.misclosure_available:
+        summary.append(f"Misclosure: {result.misclosure_ft:.4f} ft ({result.get_closure_status()})")
+        summary.append(f"  X: {result.misclosure_x_ft:.4f} ft")
+        summary.append(f"  Y: {result.misclosure_y_ft:.4f} ft")
+    else:
+        summary.append(f"Misclosure: not determined ({result.get_closure_status()})")
 
     if result.precision_ratio is not None and result.precision_ratio > 1e-10:
         ratio_inv = round(1.0 / result.precision_ratio)
         summary.append(f"  Precision: 1:{ratio_inv:,}")
 
     summary.append("")
-    summary.append(f"Area: {result.area_sq_ft:,.2f} sq ft ({result.area_acres:.4f} acres)")
-    summary.append(f"Perimeter: {result.perimeter_ft:,.2f} ft")
+    summary.append(
+        f"Area: {result.area_sq_ft:,.2f} sq ft ({result.area_acres:.4f} acres)"
+        if result.area_available
+        else "Area: not determined"
+    )
+    summary.append(
+        f"Perimeter: {result.perimeter_ft:,.2f} ft"
+        if result.perimeter_available
+        else "Perimeter: not determined"
+    )
 
     if result.confidence_score is not None:
         summary.append(f"Confidence: {result.confidence_score:.2f}")

@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Literal, cast
 
-from mp_models.plot import XY, LinearUnit, PlotGeometry, PlotPlacement, PlotPrimitive, VectorLayer
+from mp_models.plot import (
+    XY,
+    LinearUnit,
+    PlotGeometry,
+    PlotPlacement,
+    PlotPrimitive,
+    VectorLayer,
+    plot_point_of_beginning,
+)
+from mp_models.raster import RasterLayer
 from mp_models.webmap import (
     WebMapArtifact,
     WebMapFeature,
@@ -23,7 +32,15 @@ from mp_models.webmap import (
 )
 from mp_verify.dashboard import _hash
 from mp_verify.plot import arc_point, transform_point
-from mp_verify.webmap import WebMapInput, normalize_web_map_context
+from mp_verify.webmap import (
+    Extent,
+    WebMapContext,
+    WebMapInput,
+    bounds_of,
+    feature_vertices,
+    has_closure_gap,
+    normalize_web_map_context,
+)
 
 from .webmap_projection import WebMapProjection, WebMapUnavailable, build_web_map_projection
 
@@ -188,7 +205,9 @@ def _deed_features(
             )
         )
     budget.take()
-    first, last = geometry.primitives[0].start, geometry.primitives[-1].end
+    pob = plot_point_of_beginning(geometry)
+    assert pob is not None
+    first, last = pob, geometry.primitives[-1].end
     features.append(
         WebMapFeature(
             id=f"pob:{placement.id}",
@@ -200,10 +219,7 @@ def _deed_features(
     )
     # Native numerical residue is not a meaningful closure annotation. A partial
     # prefix has no known full endpoint and must never acquire a closing segment.
-    if (
-        geometry.completeness == "complete"
-        and math.hypot(last[0] - first[0], last[1] - first[1]) > 1e-8
-    ):
+    if geometry.completeness == "complete" and has_closure_gap(first, last):
         features.append(
             WebMapFeature(
                 id=f"gap:{placement.id}",
@@ -252,19 +268,108 @@ def _vector_feature(
     )
 
 
-def _coordinates(feature: WebMapFeature) -> Iterator[XY]:
-    geometry = feature.geometry
-    if isinstance(geometry, WebMapPoint):
-        yield geometry.coordinates
-    elif isinstance(geometry, WebMapLine):
-        yield from geometry.coordinates
-    elif isinstance(geometry, WebMapPolygon):
-        for ring in geometry.coordinates:
-            yield from ring
-    else:
-        for polygon in geometry.coordinates:
-            for ring in polygon:
-                yield from ring
+def vector_extent(layer: VectorLayer) -> Extent | None:
+    """Scene-XY bounds of a context vector layer."""
+    polygons = (layer.coordinates,) if layer.geometry_type == "Polygon" else layer.coordinates
+    return bounds_of([cast(XY, p) for polygon in polygons for ring in polygon for p in ring])
+
+
+def _raster_extent(raster: RasterLayer) -> Extent | None:
+    from .raster_registration import outer_corners
+
+    return bounds_of(outer_corners(raster.registration, raster.width, raster.height))
+
+
+def placed_points(
+    primitives: Iterable[PlotPrimitive],
+    placement: PlotPlacement,
+    native_units: LinearUnit,
+    scene_units: LinearUnit,
+) -> list[XY]:
+    """Placed scene-XY samples of primitives (arcs at five parameters) for extents."""
+    return [
+        transform_point(
+            _primitive_point(primitive, t),
+            placement,
+            native_units=native_units,
+            scene_units=scene_units,
+        )
+        for primitive in primitives
+        for t in (0, 0.25, 0.5, 0.75, 1)
+    ]
+
+
+def displayed_calculation_points(
+    primitives: Iterable[PlotPrimitive],
+    placements: Sequence[PlotPlacement],
+    native_units: LinearUnit,
+    scene_units: LinearUnit,
+) -> list[XY]:
+    """Placed samples of a calculation that the web map and delivery actually display.
+
+    A calculation with no placement, or with any unplaced one, is omitted whole
+    (``[]``); omitted geometry must not pick the coordinate operation.
+    """
+    if not placements or any(p.status == "unplaced" for p in placements):
+        return []
+    return [
+        point
+        for placement in placements
+        for point in placed_points(primitives, placement, native_units, scene_units)
+    ]
+
+
+def operation_extent(
+    primary_points: list[XY], context_extents: Iterable[Extent | None]
+) -> Extent | None:
+    """Extent that selects the coordinate operation (shared by web map and delivery).
+
+    Deed (primary) evidence alone chooses the operation. Context evidence is
+    checked against it later with :func:`require_area` and omitted individually
+    if outside. Only with no displayable deed geometry do the context extents
+    choose the operation.
+    """
+    deed = bounds_of(primary_points)
+    if deed is not None:
+        return deed
+    extents = [e for e in context_extents if e is not None]
+    return bounds_of([p for e in extents for p in ((e[0], e[1]), (e[2], e[3]))])
+
+
+def _display_extent(
+    context: WebMapContext, scene_id: str, scene_units: LinearUnit
+) -> Extent | None:
+    """Scene-XY operation-selection extent of the web-map context, or ``None``."""
+    points: list[XY] = []
+    foot = dict(context.foot_definitions)
+    for geometry in context.geometries:
+        native = foot.get(geometry.calculation_id)
+        if native is None or native == "unknown_ft":
+            continue
+        placements = [
+            p
+            for p in context.placements
+            if p.calculation_id == geometry.calculation_id and p.scene_id == scene_id
+        ]
+        points.extend(
+            displayed_calculation_points(geometry.primitives, placements, native, scene_units)
+        )
+    return operation_extent(
+        points,
+        (
+            *(vector_extent(v) for v in context.vector_layers if v.scene_id == scene_id),
+            *(_raster_extent(r) for r in context.raster_layers if r.scene_id == scene_id),
+        ),
+    )
+
+
+def require_area(projection: WebMapProjection, extent: Extent | None) -> None:
+    """Omit context evidence that the deed-selected operation does not cover."""
+    if projection.extent is not None and (extent is None or not projection.covers(extent)):
+        raise WebMapUnavailable(
+            "outside_area_of_use",
+            "Item extent is outside the selected coordinate operation's area of use.",
+        )
 
 
 def prepare_web_map(
@@ -287,7 +392,11 @@ def prepare_web_map(
         from .raster_registration import validate_raster_layer
 
         for original_raster in context.raster_layers:
-            validate_raster_layer(original_raster, scenes[original_raster.scene_id])
+            validate_raster_layer(
+                original_raster,
+                scenes[original_raster.scene_id],
+                allow_legacy_orientation=True,
+            )
     hashes = context.input_hashes
     features: list[WebMapFeature] = []
     rasters: list[WebMapRaster] = []
@@ -305,7 +414,9 @@ def prepare_web_map(
         )
 
     try:
-        projection = build_web_map_projection(scenes[scene_id])
+        projection = build_web_map_projection(
+            scenes[scene_id], extent=_display_extent(context, scene_id, scenes[scene_id].units)
+        )
     except WebMapUnavailable as exc:
         omit(scene_id, "scene", exc)
     else:
@@ -372,6 +483,7 @@ def prepare_web_map(
                 continue
             before = budget.remaining
             try:
+                require_area(projection, vector_extent(layer))
                 feature = _vector_feature(layer, projection, options, budget)
             except WebMapUnavailable as exc:
                 budget.remaining = before
@@ -385,6 +497,7 @@ def prepare_web_map(
             from .webmap_raster import prepare_web_map_raster
 
             try:
+                require_area(projection, _raster_extent(raster))
                 remaining = options.max_raster_pixels - raster_pixels
                 if remaining <= 0:
                     raise WebMapUnavailable(
@@ -405,26 +518,17 @@ def prepare_web_map(
                 raster_pixels += pixels
                 rasters.append(derived.record)
                 assets.append((derived.record.path, derived.data))
-    points = [p for feature in features for p in _coordinates(feature)]
+    points = [p for feature in features for p in feature_vertices(feature)]
     points.extend(p for raster in rasters for p in raster.corners)
-    if points and max(p[0] for p in points) - min(p[0] for p in points) > 180:
+    bounds = bounds_of(points)
+    if bounds is not None and bounds[2] - bounds[0] > 180:
         # Bounds spanning the dateline are unsupported even for disjoint evidence.
-        features, rasters, assets, points = [], [], [], []
+        features, rasters, assets, points, bounds = [], [], [], [], None
         omit(
             scene_id,
             "scene",
             WebMapUnavailable("antimeridian", "Scene evidence spans the unsupported antimeridian."),
         )
-    bounds = (
-        (
-            min(p[0] for p in points),
-            min(p[1] for p in points),
-            max(p[0] for p in points),
-            max(p[1] for p in points),
-        )
-        if points
-        else None
-    )
     return PreparedWebMap(
         artifact=WebMapArtifact(
             scene_id=scene_id,

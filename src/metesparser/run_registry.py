@@ -13,6 +13,8 @@ from pathlib import Path
 import structlog
 from pydantic import BaseModel, ConfigDict, Field
 
+from .models import ClosureResult
+
 logger = structlog.get_logger(__name__)
 
 
@@ -32,10 +34,31 @@ class RunResults(BaseModel):
 
     call_count: int = Field(..., description="Number of calls extracted")
     closure_passed: bool = Field(..., description="Whether traverse closure passed")
-    misclosure_ft: float = Field(..., description="Misclosure distance in feet")
-    area_sq_ft: float = Field(..., description="Computed area in square feet")
+    misclosure_ft: float = Field(
+        ..., description="Misclosure distance in feet; 0.0 when misclosure_available is False"
+    )
+    misclosure_available: bool = Field(
+        default=True,
+        description="False when misclosure could not be determined; misclosure_ft is then not a measurement",
+    )
+    area_sq_ft: float | None = Field(
+        ..., description="Computed area in square feet; None when area is not determined"
+    )
     confidence_score: float = Field(..., ge=0.0, le=1.0, description="Overall confidence 0-1")
     warnings: list[str] = Field(default_factory=list, description="Verification warnings")
+
+    @classmethod
+    def from_closure(cls, closure: ClosureResult, call_count: int) -> RunResults:
+        """Summarize a closure result, carrying availability flags rather than sentinels."""
+        return cls(
+            call_count=call_count,
+            closure_passed=closure.closure_passed,
+            misclosure_ft=closure.misclosure_ft,
+            misclosure_available=closure.misclosure_available,
+            area_sq_ft=closure.area_sq_ft if closure.area_available else None,
+            confidence_score=closure.confidence_score or 0.0,
+            warnings=closure.warnings,
+        )
 
 
 class RunManifest(BaseModel):
@@ -194,9 +217,14 @@ def format_comparison_table(manifests: list[RunManifest], pdf_filter: str | None
             ts = m.timestamp_utc.strftime("%Y-%m-%d %H:%M")
             prompt_sha = _short_prompt_sha(m)
             status = "PASS" if m.results.closure_passed else "FAIL"
+            misclosure = (
+                f"{m.results.misclosure_ft:>10.4f}'"
+                if m.results.misclosure_available
+                else f"{'n/d':>11}"
+            )
             lines.append(
                 f"{ts:<20} {prompt_sha:<9} {m.results.call_count:>5} "
-                f"{m.results.misclosure_ft:>10.4f}' {m.results.confidence_score:>10.2f} "
+                f"{misclosure} {m.results.confidence_score:>10.2f} "
                 f"{status:>6}"
             )
 

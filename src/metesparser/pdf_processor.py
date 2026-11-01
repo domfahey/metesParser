@@ -24,9 +24,11 @@ from .models import (
     LegalDescription,
     LLMStageRecord,
     RunMetadata,
+    Tract,
 )
 
 logger = structlog.get_logger(__name__)
+
 
 _PRIOR_CONVEYANCE_PATTERNS: list[re.Pattern[str]] = [
     re.compile(signal, re.IGNORECASE) for signal in PRIOR_CONVEYANCE_SIGNALS
@@ -272,8 +274,12 @@ class PDFProcessor:
             )
 
         processing_logger.info("Extracting calls")
+        # One extraction gives the flat calls and the tracts (with role bases) the
+        # role gate reads (``mp_models.roles_need_review``); a blocked deed's flat
+        # calls carry the role-review mark, so they never verify on their own.
+        tracts: list[Tract] = []
         calls = CallExtractor.extract_calls(
-            normalized_text, distance_unit=distance_unit, audit_context=ctx
+            normalized_text, distance_unit=distance_unit, audit_context=ctx, tracts=tracts
         )
 
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
@@ -297,6 +303,7 @@ class PDFProcessor:
             poc_description=poc if poc else None,
             pob_description=pob,
             calls=calls,
+            tracts=tracts,
             source_doc=Path(pdf_path).name,
             exhibit=None,
             page=None,

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 
 class TestExtractPlssMetadata:
     def test_basic_plss(self) -> None:
@@ -312,6 +314,27 @@ class TestSplitIntoCalls:
 
 
 class TestExtractDistance:
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "10 chains and 50 links, 3 rods from the corner",
+            "10 chains and 50 links 3 rods from the corner",
+        ],
+    )
+    def test_and_compound_not_merged_with_trailing_measurement(self, text: str) -> None:
+        from mp_parse.metadata import extract_distance
+
+        value, unit = extract_distance(text)
+        assert value == pytest.approx(693.0)
+        assert unit == "feet"
+
+    def test_implicit_pair_followed_by_and_part_keeps_leading_component(self) -> None:
+        from mp_parse.metadata import extract_distance
+
+        value, unit = extract_distance("10 chains 50 links and 3 perches")
+        assert value == pytest.approx(742.5)
+        assert unit == "feet"
+
     def test_feet(self) -> None:
         from mp_parse.metadata import extract_distance
 
@@ -358,3 +381,57 @@ class TestSplitExceptionClauses:
         # At least one should be an exception
         exceptions = [r for r in result if r[1] is True]
         assert len(exceptions) >= 1
+
+
+def test_extract_distance_compound_without_and():
+    from mp_parse.metadata import extract_distance
+
+    assert extract_distance("N 10° E 2 chains 20 links") == (145.2, "feet")
+    # Descending units form one measurement; equivalent units are two lengths
+    # (ambiguous: neither is chosen).
+    assert extract_distance("40 poles 5 feet") == (665.0, "feet")
+    assert extract_distance("40 poles 2 rods") == (0.0, "feet")
+    assert extract_distance("150 feet, 3 rods north of the oak") == (150.0, "feet")
+
+
+_DISTANCE_TABLE = [
+    # The fallback "and" compound must not skip the leading measurement. An
+    # unsummable run returns 0.0, which callers reject as an unsupported
+    # compound course distance rather than silently dropping the chain.
+    ("1 chain, 2 rods and 3 links", (0.0, "feet")),
+    ("10 chains 50 links and 3 perches", (742.5, "feet")),
+    ("10 chains and 50 links, 3 rods from the corner", (693.0, "feet")),
+    ("150 feet, 3 rods north of the oak", (150.0, "feet")),
+    ("40 poles 2 rods", (0.0, "feet")),
+    ("2 rods and 3 links", (34.98, "feet")),
+    ("N 10 E 150 feet to a stake 2 chains 20 links west of a white oak", (150.0, "feet")),
+    ("N 10 E 150 feet distant 2 chains 20 links from the oak", (150.0, "feet")),
+    # An unlabelled second length is a second course length: ambiguous, none chosen.
+    ("N 10 E 150 feet from a stake 2 chains 20 links west", (0.0, "feet")),
+    ("N 10 E 150 feet to a stake 2 chains 20 links", (0.0, "feet")),
+    ("N 10 E 2 chains 20 links to a stake", (145.2, "feet")),
+    ("N 10 E 2 chains 20 links to a stake 3 chains 5 links west of an oak", (145.2, "feet")),
+]
+
+
+@pytest.mark.parametrize(("text", "expected"), _DISTANCE_TABLE)
+def test_extract_distance_compound_table(text, expected):
+    import re
+
+    from mp_models.units import ConversionFactors
+    from mp_parse.metadata import extract_distance
+
+    value, unit = extract_distance(text)
+    assert value == pytest.approx(expected[0])
+    assert unit == expected[1]
+    # Invariant: the result never omits the first measurement in the text.
+    first = re.search(r"([\d.]+)\s*(chain|rod|pole|perch|feet|link)", text)
+    plural = "feet" if first.group(2) == "feet" else first.group(2) + "s"
+    first_ft = ConversionFactors.convert_to_feet(float(first.group(1)), plural)
+    result_ft = ConversionFactors.convert_to_feet(value, unit)
+    assert value == 0.0 or result_ft >= first_ft - 1e-9
+    # ...and a larger result is only valid as a compound that starts at the
+    # first measurement (a later chain/link pair must never replace it).
+    if value != 0.0 and result_ft > first_ft + 1e-9:
+        rest = text[first.end() :]
+        assert re.match(r"[A-Za-z]*\s*(?:,|\band\b)?\s*[\d.]+\s*[A-Za-z]", rest)

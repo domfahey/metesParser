@@ -47,7 +47,7 @@ def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
                 direction_text=raw.get("direction_text", ""),
                 bearing_quadrant=raw.get("bearing_quadrant"),
                 bearing_azimuth_deg_from_north=raw.get("bearing_azimuth_deg_from_north"),
-                distance_ft=raw.get("distance_ft", 0.0),
+                distance_ft=raw.get("distance_ft"),
                 along=raw.get("along"),
                 to=raw.get("to"),
                 notes=raw.get("notes"),
@@ -57,6 +57,7 @@ def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
                 arc_length_ft=raw.get("arc_length_ft"),
                 chord_bearing=raw.get("chord_bearing"),
                 chord_length_ft=raw.get("chord_length_ft"),
+                curve_type=raw.get("curve_type"),
             )
         )
     return calls
@@ -99,14 +100,20 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
                     call_count=0,
                     closure_passed=False,
                     misclosure_ft=0.0,
-                    area_sq_ft=0.0,
+                    misclosure_available=False,
+                    area_sq_ft=None,
                     confidence_score=0.0,
                     warnings=["No expected calls in ground truth"],
                 ),
                 parser_version=metesparser.__version__,
             )
         else:
-            calls = _build_calls(expected_calls)
+            try:
+                calls = _build_calls(expected_calls)
+            except ValueError as exc:
+                reason = " ".join(str(exc).split())
+                print(f"  NOT BACKFILLABLE: {pdf_name} — {reason}; no run entry written")
+                continue
             closure_result = ClosureChecker.verify_closure(calls)
 
             manifest = RunManifest(
@@ -117,22 +124,20 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
                 llm_model="human_verified",
                 cache_enabled=False,
                 prompt_versions=prompt_versions,
-                results=RunResults(
-                    call_count=len(calls),
-                    closure_passed=closure_result.closure_passed,
-                    misclosure_ft=closure_result.misclosure_ft,
-                    area_sq_ft=closure_result.area_sq_ft,
-                    confidence_score=closure_result.confidence_score or 0.0,
-                    warnings=closure_result.warnings,
-                ),
+                results=RunResults.from_closure(closure_result, len(calls)),
                 parser_version=metesparser.__version__,
             )
 
         if dry_run:
             status = "PASS" if manifest.results.closure_passed else "FAIL"
+            misclosure = (
+                f"{manifest.results.misclosure_ft:.4f} ft"
+                if manifest.results.misclosure_available
+                else "not determined"
+            )
             print(
                 f"  DRY RUN: {pdf_name} — {manifest.results.call_count} calls, "
-                f"misclosure={manifest.results.misclosure_ft:.4f} ft, {status}"
+                f"misclosure={misclosure}, {status}"
             )
         else:
             path = write_run_manifest(manifest, runs_dir)

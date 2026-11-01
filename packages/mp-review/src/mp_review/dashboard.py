@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import json
 import os
 import tempfile
 from pathlib import Path
@@ -28,6 +27,7 @@ from mp_verify.dashboard import (
     validate_prepared_dashboard as validate_prepared_dashboard,
 )
 
+from .json_input import parse_json
 from .relative import _invalid_number, _unique_object
 
 
@@ -51,7 +51,7 @@ def _atomic(path: Path, content: str | bytes) -> None:
 
 
 def _load(path: Path) -> Any:
-    return json.loads(
+    return parse_json(
         path.read_text(encoding="utf-8"),
         object_pairs_hook=_unique_object,
         parse_constant=_invalid_number,
@@ -78,7 +78,7 @@ def prepare_dashboard(
 
         scenes = {scene.id: scene for scene in bundle.scenes}
         for layer in bundle.raster_layers:
-            validate_raster_layer(layer, scenes[layer.scene_id])
+            validate_raster_layer(layer, scenes[layer.scene_id], allow_legacy_orientation=True)
     source = _source_data(bundle)
     directory = Path(cache_dir) if cache_dir is not None else None
     reused = False
@@ -192,7 +192,7 @@ def dashboard_file(
         source = source_path.read_bytes()
         result["input"] = {"name": source_path.name, "sha256": hashlib.sha256(source).hexdigest()}
         bundle = DashboardBundle.model_validate(
-            json.loads(
+            parse_json(
                 source.decode("utf-8"),
                 object_pairs_hook=_unique_object,
                 parse_constant=_invalid_number,
