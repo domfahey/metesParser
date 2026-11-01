@@ -113,6 +113,20 @@ def _mark_restated_pob_tie_lines(calls: list[DeedCall], call_texts: list[str]) -
     ]
 
 
+# SCHEDULE A-1: one property per schedule in a multi-property deed (mirrors
+# mp_parse.tracts._SCHEDULE_MARKER; a lone "Schedule A" names the attachment).
+_SCHEDULE_MARKER = re.compile(r"\bSCHEDULE\s+[A-Z]-?\d+\b", re.IGNORECASE)
+
+
+def _split_schedules(text: str) -> list[str]:
+    """Split a multi-property description so each schedule's courses split on their own."""
+    starts = [match.start() for match in _SCHEDULE_MARKER.finditer(text)]
+    if not starts:
+        return [text]
+    bounds = [0, *starts, len(text)]
+    return [text[a:b] for a, b in zip(bounds, bounds[1:], strict=False) if text[a:b].strip()]
+
+
 def _call_preview(call_text: str, max_len: int = 120) -> str:
     """Return a compact single-line preview suitable for warning logs."""
     compact = " ".join(call_text.split())
@@ -255,7 +269,7 @@ class CallExtractor:
     @classmethod
     def _is_initial_course_prefix(cls, prefix: str) -> bool:
         """Return whether text before THENCE starts with a supported bearing."""
-        candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\d+[.)])\s*)?", "", prefix)
+        candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s*)?", "", prefix)
         if cls.PACKED_DMS_PATTERN.match(candidate):
             return True
 
@@ -298,7 +312,11 @@ class CallExtractor:
         """
         normalized = TextParser.normalize_legal_description(text)
 
-        tracts = TextParser.split_exception_clauses(normalized)
+        tracts = [
+            clause
+            for schedule_text in _split_schedules(normalized)
+            for clause in TextParser.split_exception_clauses(schedule_text)
+        ]
 
         calls: list[DeedCall] = []
         course_num = 1
@@ -322,7 +340,7 @@ class CallExtractor:
 
             has_numbered_course_markers = bool(
                 re.search(
-                    r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+",
+                    r"(?:^|\n)\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+",
                     tract_text,
                     re.MULTILINE,
                 )

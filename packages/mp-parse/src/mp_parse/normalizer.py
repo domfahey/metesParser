@@ -71,7 +71,7 @@ def merge_line_wrapped_calls(text: str) -> str:
             continue
 
         if re.match(
-            r"^(?:(?:THENCE|BEGINNING|FROM|POB|POINT)\b|\(\d+\)|\d+[.)])(?:\s+|$)",
+            r"^(?:(?:THENCE|BEGINNING|FROM|POB|POINT)\b|\(\d+\)|\([A-Za-z]\)|\d+[.)])(?:\s+|$)",
             stripped,
             re.IGNORECASE,
         ):

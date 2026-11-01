@@ -188,7 +188,7 @@ def _boundary_course_text(call_text: str) -> str:
 
 def _is_initial_course_prefix(prefix: str) -> bool:
     """Return whether text before THENCE starts with a supported bearing."""
-    candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\d+[.)])\s*)?", "", prefix)
+    candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s*)?", "", prefix)
     if PACKED_DMS_PATTERN.match(candidate):
         return True
 
@@ -251,7 +251,7 @@ def _extract_calls_from_text(
             tract_text = tract_text[thence_match.start() :]
 
         has_numbered_course_markers = bool(
-            re.search(r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+", tract_text, re.MULTILINE)
+            re.search(r"(?:^|\n)\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+", tract_text, re.MULTILINE)
         )
         call_texts = split_into_calls(tract_text)
 
