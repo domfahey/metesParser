@@ -280,8 +280,6 @@ def test_thence_from_the_beginning_point_before_numbered_courses(parse):
 
 
 REDMAN_GT = SAMPLE_DEEDS / "15 E Redman Ave - Deed Image (04462 - 00144).ground_truth.json"
-# The deed prints "7144 feet" and "33191 feet"; the ground truth records 7.44 and 33.91.
-REDMAN_PRINTED = {7.44: 7144.0, 33.91: 33191.0}
 
 
 @pytest.mark.parametrize("key", ["expected_legal_description", "expected_normalized_text"])
@@ -291,7 +289,8 @@ def test_redman_main_tract_and_exception_match_ground_truth(parse, key):
     calls = parse(gt[key], strict=True)
     expected = [
         (
-            REDMAN_PRINTED.get(c["distance_ft"], c["distance_ft"]),
+            # The deed prints "7144 feet" and "33191 feet"; parsers read the printed value
+            c.get("printed_distance_ft", c["distance_ft"]),
             None
             if c["bearing_azimuth_deg_from_north"] is None
             else round(c["bearing_azimuth_deg_from_north"], 4),
@@ -433,3 +432,39 @@ def test_kresson_exception_is_one_tract():
     gt = _load(KRESSON_GT)
     _calls, tracts = package_extract_with_tracts(gt["expected_legal_description"], strict=True)
     assert [(t.label, len(t.calls)) for t in tracts] == [("Tract 1", 4), ("Exception 1", 6)]
+
+
+CHEWS_LANDING_GTS = tuple(
+    SAMPLE_DEEDS / f"26 Chews Landing Rd - Deed Image ({deed}).ground_truth.json"
+    for deed in (
+        "5056 - 813",
+        "7797 - 967",
+        "7797 - 972",
+        "8566 - 200",
+        "8566 - 209",
+        "9701 - 296",
+        "10965 - 1948",
+    )
+)
+
+
+@pytest.mark.parametrize("gt_path", CHEWS_LANDING_GTS, ids=lambda p: p.stem)
+@pytest.mark.parametrize("key", ["expected_legal_description", "expected_normalized_text"])
+@pytest.mark.parametrize("parse", PARSERS)
+def test_chews_landing_parsers_read_printed_values(parse, key, gt_path):
+    """Misprinted courses record intended values; parsers read what the deed prints."""
+    gt = _load(gt_path)
+    calls = parse(gt[key], strict=True)
+    expected = [
+        (
+            c.get("printed_distance_ft", c["distance_ft"]),
+            round(
+                c.get(
+                    "printed_bearing_azimuth_deg_from_north", c["bearing_azimuth_deg_from_north"]
+                ),
+                4,
+            ),
+        )
+        for c in gt["expected_calls"]
+    ]
+    assert [_course_fields(call)[:2] for call in calls] == expected

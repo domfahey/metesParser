@@ -95,7 +95,8 @@
       "monument_type": null,
       "notes": "printed \"7144 feet\" (the period printed as \"1\"); recorded as 7.44 ft: the beginning point is stated as 7.44 feet from this stake",
       "tract": "Exception 1",
-      "is_exception": true
+      "is_exception": true,
+      "printed_distance_ft": 7144.0
     },
     {
       "course": 6,
@@ -146,7 +147,8 @@
       "monument_type": null,
       "notes": "printed \"33191 feet\" (the period printed as \"1\"); recorded as 33.91 ft: with 147.74 ft it returns the 182.19 ft arc to the beginning",
       "tract": "Exception 1",
-      "is_exception": true
+      "is_exception": true,
+      "printed_distance_ft": 33191.0
     },
     {
       "course": 9,

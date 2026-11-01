@@ -26,7 +26,8 @@
       "along": "the Southeasterly line of Kings Highway West",
       "to": "a point",
       "monument_type": null,
-      "notes": "printed \"South 54 degrees 22 minutes 25 seconds West\"; recorded as S 64°22'25\" W: course (2) runs at right angles to Kings Highway West at S 25°37'35\" E, and the parcel closes with 64°"
+      "notes": "printed \"South 54 degrees 22 minutes 25 seconds West\"; recorded as S 64°22'25\" W: course (2) runs at right angles to Kings Highway West at S 25°37'35\" E, and the parcel closes with 64°",
+      "printed_bearing_azimuth_deg_from_north": 234.37361111111113
     },
     {
       "course": 2,
