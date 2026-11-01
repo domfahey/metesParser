@@ -407,3 +407,15 @@ class TestBeginningBlockClosures:
             "to said point of beginning."
         )
         assert [label for _, label, _ in split_into_tracts(text)] == ["Tract 1", "Tract 2"]
+
+    def test_parcel_and_tract_references_are_not_markers(self):
+        """15 E Redman: "corner of Parcel #69" and "D.R.P.A., Parcel #69" are references."""
+        text = (
+            "BEGINNING at a point at the Southeasterly corner of Parcel #69, conveyed to the "
+            "Port Authority; THENCE N 45°00' E 100 feet to the said stake corner to D.R.P.A., "
+            "Parcel #69; THENCE along the boundary line of Tract #1 of Haddonfield Estates "
+            "S 45°00' W 100 feet to the point of beginning."
+        )
+        calls, tracts = extract_calls(text)
+        assert [call.distance_ft for call in calls] == [100, 100]
+        assert tracts == []

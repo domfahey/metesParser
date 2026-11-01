@@ -254,3 +254,52 @@ def test_berlin_exhibit_a_lots_are_tracts():
     assert [len(t.calls) for t in tracts] == [
         sum(c["tract"] == lot for c in gt["expected_calls"]) for lot in ("Lot 17", "Lot 22")
     ]
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_curve_turning_towards_the_left_is_a_curve(parse):
+    call = parse(
+        "BEGINNING at a stake; thence Northwestwardly an arc distance of 182.19 feet along a "
+        "curve of radius 4173.79 feet turning towards the left, to a point",
+        strict=True,
+    )[0]
+    assert str(getattr(call.curve_dir, "value", call.curve_dir)) == "left"
+    assert call.radius_ft == pytest.approx(4173.79)
+    assert call.arc_length_ft == pytest.approx(182.19)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_thence_from_the_beginning_point_before_numbered_courses(parse):
+    calls = parse(
+        "BEGINNING at a point in the northerly line of Redman Avenue; thence from the "
+        "beginning point;\n\n(1) South 49 degrees 14 minutes West, 7.44 feet; thence\n\n"
+        "(2) North 49 degrees 13 minutes 55 seconds East, 5.49 feet to the point of beginning.",
+        strict=True,
+    )
+    assert [call.distance_ft for call in calls] == [7.44, 5.49]
+
+
+REDMAN_GT = SAMPLE_DEEDS / "15 E Redman Ave - Deed Image (04462 - 00144).ground_truth.json"
+# The deed prints "7144 feet" and "33191 feet"; the ground truth records 7.44 and 33.91.
+REDMAN_PRINTED = {7.44: 7144.0, 33.91: 33191.0}
+
+
+@pytest.mark.parametrize("key", ["expected_legal_description", "expected_normalized_text"])
+@pytest.mark.parametrize("parse", PARSERS)
+def test_redman_main_tract_and_exception_match_ground_truth(parse, key):
+    gt = _load(REDMAN_GT)
+    calls = parse(gt[key], strict=True)
+    expected = [
+        (
+            REDMAN_PRINTED.get(c["distance_ft"], c["distance_ft"]),
+            None
+            if c["bearing_azimuth_deg_from_north"] is None
+            else round(c["bearing_azimuth_deg_from_north"], 4),
+            c["radius_ft"],
+            c["is_exception"],
+        )
+        for c in gt["expected_calls"]
+    ]
+    assert [
+        (round(c.distance_ft, 2), _course_fields(c)[1], c.radius_ft, c.is_exception) for c in calls
+    ] == expected
