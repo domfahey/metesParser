@@ -41,8 +41,18 @@ BEARING_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# A distance number; a comma followed by exactly two digits is a decimal point
+# ("300,07 feet"), as some deeds print. Thousands separators have three digits.
+NUMBER = r"\d+(?:\.\d+|,\d{2}(?!\d))?"
+
+
+def to_float(number: str) -> float:
+    """Convert a NUMBER match, reading a two-digit comma as the decimal point."""
+    return float(number.replace(",", "."))
+
+
 DISTANCE_PATTERN = re.compile(
-    r"(?:a?\s*distance\s+of\s+|,\s*)?(\d+(?:\.\d+)?)\s*(?:feet|ft\.?|foot)",
+    rf"(?:a?\s*distance\s+of\s+|,\s*)?({NUMBER})\s*(?:feet|ft\.?|foot)",
     re.IGNORECASE,
 )
 
@@ -50,12 +60,12 @@ DISTANCE_PATTERN = re.compile(
 # "curving to the right with a radius of 5933.53 feet, an arc distance of 344.93 feet":
 # a curve's course length is its arc, not its radius
 ARC_DISTANCE_PATTERN = re.compile(
-    r"\barc\s+(?:distance|length)\s+(?:of\s+)?(\d+(?:\.\d+)?)\s*(?:feet|ft\.?|foot)",
+    rf"\barc\s+(?:distance|length)\s+(?:of\s+)?({NUMBER})\s*(?:feet|ft\.?|foot)",
     re.IGNORECASE,
 )
 
 TOTAL_DISTANCE_PATTERN = re.compile(
-    r"\b(?:a\s+)?total\s+distance\s+(?:of\s+)?(\d+(?:\.\d+)?)\s*(?:feet|ft\.?|foot)",
+    rf"\b(?:a\s+)?total\s+distance\s+(?:of\s+)?({NUMBER})\s*(?:feet|ft\.?|foot)",
     re.IGNORECASE,
 )
 
@@ -184,7 +194,7 @@ def extract_distance(segment: str) -> float | None:
     """Return the course length in feet, preferring a stated total over widths and offsets."""
     total = TOTAL_DISTANCE_PATTERN.search(segment) or ARC_DISTANCE_PATTERN.search(segment)
     if total:
-        return float(total.group(1))
+        return to_float(total.group(1))
     matches = list(DISTANCE_PATTERN.finditer(segment))
     if not matches:
         return None
@@ -200,7 +210,7 @@ def extract_distance(segment: str) -> float | None:
         )
 
     match = next((m for m in matches if not is_reference(m)), matches[0])
-    value = float(match.group(1))
+    value = to_float(match.group(1))
     inches = INCHES_AFTER_FEET_PATTERN.match(segment, match.end())
     if inches:
         value += float(inches.group(1)) / 12
