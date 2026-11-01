@@ -4,6 +4,10 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-01
+
+Included with MetesParser v0.7.0, with the review engine 2.0.0. Reviews saved by the 1.0.0 engine inspect as stale and must be re-run. This is not a marketplace publication.
+
 ### Added
 
 - A separate standalone Claude chat Skill build reuses this plugin's engine and capability procedures. The plugin archive and launcher remain unchanged; the chat adapter adds its own entrypoint, paths and explicit runtime setup. Native chat acceptance is pending.

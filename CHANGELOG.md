@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-01
+
+Versions: `metesparser` 0.7.0; `mp-models`, `mp-parse`, `mp-verify`, `mp-export` and `mp-review` 2.0.0; `mp-bearing` 1.1.0 (additions only); `mp-ocr` 1.0.1 (adds its `py.typed` marker); Claude plugin 2.0.0. The review engine is now 2.0.0, so reviews saved by the 1.0.0 engine inspect as stale and must be re-run.
+
 ### Added
 
+- The chat Skill ZIP and its checksum are attached to the GitHub release alongside the plugin ZIP.
+- Sample-deed ground-truth checks: every one of the 109 ground truths has been checked twice against its recorded PDF, and `tests/unit/test_ground_truth_consistency.py` checks each one's bearings, distances, `along`/`to` wording, course counts and stored closure against its own legal text. Misprinted values record the intended value, with the printed value in `printed_distance_ft` or `printed_bearing_azimuth_deg_from_north`.
 - Standalone Claude chat Skill archive: one discoverable entrypoint, thirteen embedded procedures and the existing deterministic engine. `make chat-skill-build` produces the ZIP and checksum. Generated instructions use paths inside the extracted archive.
 - Explicit chat runtime setup: host or cached `uv`, or a pinned, hash-checked bootstrap for Linux and macOS (x86_64/ARM64), then locked dependency provisioning. Offline setup and ordinary invocations never download the bootstrap tool. Native chat acceptance is pending.
 
@@ -31,6 +37,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep `along` and `to` verbatim: qualifiers and adjoiners are kept, the course's own length and record wording are removed, and destinations no longer stop at an initial.
 - Verification shares one rule per curve question, scales tolerances with the deed's rounding, never treats spirals as circular arcs, and records no placeholder misclosure in audits.
 - Extraction time grows linearly again on long descriptions (source alignment had become cubic).
+- Delivery replay carries the publishing host's recorded software versions, so upgrading `mp-export` or a renderer no longer makes published packages fail replay. Every artifact must still re-render byte for byte.
+- Read more bearing and length forms: bearings mixing words and symbols (`North 34 degrees 02' 00" West`, `26 deg. 00' 41"`), comma-separated word bearings, assessor shorthand (`S0DEG 49M 20S W`, `N 89D 05M 3SEC W`), and decimal commas (`100,50 feet` is 100.50 ft). A note between a number and its unit (`704.61 (surveyed as 704.60) feet`) is moved after the unit.
+- Split joined courses: courses joined only by a comma, or by a sentence break ("…to a point. S 18°05'10" W …"), become separate courses; offset preambles do not. Courses numbered before the first "thence" are kept.
+- Mark tie courses from the deed's wording: courses from a "Commencing" or "Starting" point to the point of beginning (including "for the point of beginning"), and announced tie series ("being the following two courses", "located at the following …"), are extracted and flagged as ties rather than dropped. When the point of beginning is never stated and the full traverse does not close, the fewest leading courses whose removal lets the rest close within 0.01 ft are flagged as ties, each with a note and audit decision saying so. The closing course is never a tie, and one tract's commencement no longer marks another tract's courses.
+- Split descriptions and schedules: "SCHEDULE A-2" headings start a tract, and a second complete description that follows one closing at its point of beginning becomes its own tract (its role is inferred, so the description-role policy applies).
+- Exceptions: "EXCLUDING THAT PART" introduces an exception, an exception inside a headed tract keeps its courses flagged `is_exception`, and conditional wording ("except in the case of", "except as otherwise provided", "unless") is not an exception. A lot conveyed by reference ("Lot 48 … excluding that part …") yields no parcel courses in strict mode instead of an error.
+- The curve direction in "turning to the left" and non-tangent wording ("non-tangential") are recognized, and an endpoint described as lying on the next curve no longer makes a straight course a curve.
 - **Documentation:** corrected Python API examples and chat setup steps; aligned architecture and testing guidance with both Claude distributions.
 
 ## [0.6.0] - 2026-10-29
@@ -335,13 +348,16 @@ Local implementation, browser and packaged-runtime results are recorded in the [
 
 ## Migration Guides
 
-### Migrating from 0.6.0
+### Migrating from 0.6.0 to 0.7.0
 
 **CSV Header**:
 Verified CSV now has 22 columns, with `curve_type` last. Legacy 21-column CSVs still import. Update code that reads or validates the verified CSV header to expect 22 columns.
 
 **Multi-Description Deeds**:
 Deeds with more than one description and any inferred description role no longer produce verified exports. Add explicit PARCEL/TRACT headings to each description, or review one parcel at a time. Text review refuses deeds with more than one parcel description. See [description roles and verified export](docs/ARCHITECTURE.md#description-roles-and-verified-export).
+
+**Saved Reviews**:
+The review engine is 2.0.0. `inspect-artifacts` reports reviews saved by the 1.0.0 engine as stale (`algorithm_version_mismatch`); re-run them.
 
 ### Migrating from 0.3.1 to 0.4.0
 
@@ -403,7 +419,8 @@ Update any code that reads CSV files to handle the new fields.
 **Testing**:
 Session-scoped fixtures may affect test timing. Use `pytest --cache-clear` if you encounter caching issues.
 
-[Unreleased]: https://github.com/domfahey/metesParser/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/domfahey/metesParser/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/domfahey/metesParser/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/domfahey/metesParser/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/domfahey/metesParser/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/domfahey/metesParser/compare/v0.3.1...v0.4.0

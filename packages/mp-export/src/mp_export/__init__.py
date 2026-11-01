@@ -16,7 +16,7 @@ from .mapbox_mcp import build_mapbox_mcp_handoff
 from .online_map_html import render_online_map
 from .plot_html import render_plot
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 __all__ = [
     "csv_text_to_calls",

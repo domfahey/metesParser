@@ -4,7 +4,7 @@ from .cache import CachedLLMClient
 from .clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
 from .extract import PDFProcessor, compute_llm_confidence
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 __all__ = [
     "BaseLLMClient",
