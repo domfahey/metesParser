@@ -468,3 +468,35 @@ def test_chews_landing_parsers_read_printed_values(parse, key, gt_path):
         for c in gt["expected_calls"]
     ]
     assert [_course_fields(call)[:2] for call in calls] == expected
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_preamble_before_numbered_courses_without_thence_is_not_a_course(parse):
+    calls = parse(
+        "BEGINNING at a point in the northeasterly line of Pennbrook Drive, 50' wide, a distance "
+        "of 310.00 feet southeastwardly from a point in the southeasterly line of Greenmount "
+        "Road, bounded and described as follows:\n\n"
+        "1. S 71°53'10\" E along Pennbrook Drive, a distance of 23.67 feet to an angle point;\n\n"
+        "2. N 87°07'30\" E along Pennbrook Drive, a distance of 125.26 feet to the point and "
+        "place of beginning.",
+        strict=True,
+    )
+    assert [call.distance_ft for call in calls] == [23.67, 125.26]
+
+
+PENNBROOK_NORMALIZED_GTS = tuple(
+    SAMPLE_DEEDS / f"{deed}.ground_truth.json"
+    for deed in (
+        "31 Pennbrook Dr - Deed Image (10989 - 916)",
+        "31 Pennbrook Dr - Deed Image (11191 - 01716)",
+        "24 Pennbrook Dr - Deed Image (11793 - 00217)",
+    )
+)
+
+
+@pytest.mark.parametrize("gt_path", PENNBROOK_NORMALIZED_GTS, ids=lambda p: p.stem)
+@pytest.mark.parametrize("parse", PARSERS)
+def test_pennbrook_normalized_text_has_no_preamble_course(parse, gt_path):
+    gt = _load(gt_path)
+    calls = parse(gt["expected_normalized_text"], strict=False)
+    assert [call.distance_ft for call in calls] == [c["distance_ft"] for c in gt["expected_calls"]]
