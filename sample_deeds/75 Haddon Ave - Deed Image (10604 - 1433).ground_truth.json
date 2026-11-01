@@ -1,16 +1,22 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "75 Haddon Avenue",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "10604",
+    "page": "1433",
+    "date": "March 20, 2017",
+    "grantor": "Rausch, L.L.C.",
+    "grantee": "75 Haddon Avenue, LLC",
+    "consideration": "$1,600,000.00",
+    "block": "11",
+    "lot": "14"
   },
   "raw_ocr_text": "I can’t produce a *complete, exact* text extraction from these images as provided because several areas are not fully legible at the current resolution/contrast (notably: some header stamps, barcoded recorder block text, multiple signature/name lines, notary stamp text, and parts of the RTF forms). Providing “ALL text” “exactly as shown” would require guessing in those regions, which would be inaccurate.\n\nIf you upload the original PDF (or higher‑resolution scans, ideally 300–600 DPI, straightened, not compressed), I can return a full verbatim extraction with exact line breaks.  \n\nBelow is the **verbatim text I can read with high confidence** from the images you provided, preserving line breaks and structure as closely as possible. Illegible/uncertain portions are marked **[ILLEGIBLE]**.\n\n---\n\n## Page 1 (Book10604/Page1433)\n\nDeed-Individual (Bargain and Sale, Covenant as to Grantor’s Acts)\n\nRECORD AND RETURN TO:  \nSurety Title Co., LLC  \n11 Eves Drive, Suite 150  \nMarlton, NJ 08053\n\nPr...",
-  "expected_legal_description": "ALL THAT CERTAIN tract or parcel of land and premises lying, being and situate in Haddonfield Borough, Camden County, and State of New Jersey being more particularly described as follows:\n\nBEGINNING at a stone in the Northeast line of Haddon Avenue, distant 167.66 feet North 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, said angle point being North 55 degrees 57 minutes 35 seconds West 85.39 feet along the Northeast line of Haddon Avenue from its intersections with the Northwest line of Lake Street; thence\n\nNorth 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue 87.31 feet to a stone corner to land now or late of Samuel N. Rhoads; thence\n\nAlong said North 53 degrees 41 minutes 15 seconds East, passing over stone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhoads and continuing said course a total distance of 307.52 feet to a stake in line of land now or late of Margaret N. Rhoads; thence\n\nAlong said land South 34 degrees 42 minutes 30 seconds East 2.86 feet to a stake corner to same; thence\n\nStill along said land of Margaret N. Rhoads South 54 degrees 55 minutes 50 seconds East 89.13 feet to a stake; thence\n\nSouth 53 degrees 41 minutes 15 seconds West, passing over stone 15.83 feet from beginning of this course total distance of 336.25 feet to place of BEGINNING.",
-  "expected_normalized_text": "ALL THAT CERTAIN tract or parcel of land and premises lying, being and situate in Haddonfield Borough, Camden County, and State of New Jersey being more particularly described as follows:\n\nBEGINNING at a stone in the Northeast line of Haddon Avenue, distant 167.66 feet N 36°03'35\" W along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, said angle point being N 55°57'35\" W 85.39 feet along the Northeast line of Haddon Avenue from its intersections with the Northwest line of Lake Street; thence\n\nN 36°03'35\" W along the Northeast line of Haddon Avenue 87.31 feet to a stone corner to land now or late of Samuel N. Rhoads; thence\n\nAlong said N 53°41'15\" E, passing over stone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhoads and continuing said course a total distance of 307.52 feet to a stake in line of land now or late of Margaret N. Rhoads; thence\n\nAlong said land S 34°42'30\" E 2.86 feet to a stake corner to same; thence\n\nStill along said land of Margaret N. Rhoads S 54°55'50\" E 89.13 feet to a stake; thence\n\nS 53°41'15\" W, passing over stone 15.83 feet from beginning of this course total distance of 336.25 feet to place of BEGINNING.",
+  "expected_legal_description": "ALL THAT CERTAIN tract or parcel of land and premises lying, being and situate in Haddonfield Borough, Camden County, and State of New Jersey being more particularly described as follows:\n\nBEGINNING at a stone in the Northeast line of Haddon Avenue, distant 167.66 feet North 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, said angle point being North 55 degrees 57 minutes 35 seconds West 85.39 feet along the Northeast line of Haddon Avenue from its intersections with the Northwest line of Lake Street; thence\n\nNorth 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue 87.31 feet to a stone corner to land now or late of Samuel N. Rhoads; thence\n\nAlong said North 53 degrees 41 minutes 15 seconds East, passing over stone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhoads and continuing said course a total distance of 307.52 feet to a stake in line of land now or late of Margaret N. Rhoads; thence\n\nAlong said land South 34 degrees 42 minutes 30 seconds East 2.86 feet to stake corner to same; thence\n\nStill along said land of Margaret N. Rhoads South 54 degrees 55 minutes 50 seconds East 89.13 feet to a stake; thence\n\nSouth 53 degrees 41 minutes 15 seconds West, passing over stone 15.83 feet from beginning of this course total distance of 336.25 feet to place of BEGINNING.",
+  "expected_normalized_text": "ALL THAT CERTAIN tract or parcel of land and premises lying, being and situate in Haddonfield Borough, Camden County, and State of New Jersey being more particularly described as follows:\nBEGINNING at a stone in the Northeast line of Haddon Avenue, distant 167.66 feet N 36°03'35\" W along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, said angle point being N 55°57'35\" W 85.39 feet along the Northeast line of Haddon Avenue from its intersections with the Northwest line of Lake Street; thence N 36°03'35\" W along the Northeast line of Haddon Avenue 87.31 feet to a stone corner to land now or late of Samuel N. Rhoads; thence Along said N 53°41'15\" E, passing over stone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhoads and continuing said course a total distance of 307.52 feet to a stake in line of land now or late of Margaret N. Rhoads; thence Along said land S 34°42'30\" E 2.86 feet to stake corner to same; thence Still along said land of Margaret N. Rhoads S 54°55'50\" E 89.13 feet to a stake; thence S 53°41'15\" W, passing over stone 15.83 feet from beginning of this course total distance of 336.25 feet to place of BEGINNING.",
   "expected_poc": null,
-  "expected_pob": "a stone in the Northeast line of Haddon Avenue, distant 167",
+  "expected_pob": "a stone in the Northeast line of Haddon Avenue, distant 167.66 feet North 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue from angle point in Haddon Avenue",
   "expected_calls": [
     {
       "course": 1,
@@ -22,8 +28,8 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the Northeast line of Haddon Avenue 87.31 feet to a stone corner",
-      "to": "land now or late of Samuel N",
+      "along": "the Northeast line of Haddon Avenue",
+      "to": "a stone corner to land now or late of Samuel N. Rhoads",
       "monument_type": null,
       "notes": null
     },
@@ -37,10 +43,10 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said N 53°41'15\" E, passing over stone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhoads and continuing said course a total distance of 307.52 feet",
-      "to": "a stake in line of land now or late of Margaret N",
+      "along": null,
+      "to": "a stake in line of land now or late of Margaret N. Rhoads",
       "monument_type": null,
-      "notes": null
+      "notes": "passes over stone 292.51 feet from Haddon Avenue; total distance 307.52 feet"
     },
     {
       "course": 3,
@@ -52,8 +58,8 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said land S 34°42'30\" E 2.86 feet to a stake corner",
-      "to": "same",
+      "along": "said land",
+      "to": "stake corner to same",
       "monument_type": null,
       "notes": null
     },
@@ -67,7 +73,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said land of Margaret N. Rhoads S 54°55'50\" E 89.13 feet",
+      "along": "said land of Margaret N. Rhoads",
       "to": "a stake",
       "monument_type": null,
       "notes": null
@@ -85,7 +91,7 @@
       "along": null,
       "to": "place of BEGINNING",
       "monument_type": null,
-      "notes": null
+      "notes": "passes over stone 15.83 feet from beginning of this course; total distance 336.25 feet"
     }
   ],
   "expected_closure": {
@@ -102,5 +108,5 @@
       "description": "MUST extract exactly 5 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-16T22:33:42.272293+00:00"
+  "notes": "Checked against Book 10604 Page 1435 (PDF page 3, Exhibit \"A\"): the courses and the stated totals 307.52 and 336.25 ft match the print (misclosure 0.0342 ft, same courses as 4924-452); course (3) prints \"to stake corner to same\" (no \"a\"), now verbatim. The along/to fields, which were truncated at \"N.\" and carried bearings and distances, and expected_pob (cut at \"167\") are rewritten from the print; deed_info is filled from Page 1433. Ground truth generated at 2026-02-16T22:33:42.272293+00:00"
 }

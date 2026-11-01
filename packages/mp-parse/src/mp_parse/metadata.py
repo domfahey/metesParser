@@ -352,6 +352,15 @@ def split_into_calls(text: str) -> list[str]:
             r"\bTHENCE\b", parts[0], re.IGNORECASE
         ):
             parts = parts[1:]
+        # Tie courses before the first numbered course ("thence S 71° E 122.55 feet to a point.
+        # thence S 18° W 123.00 feet to the point and place of beginning; thence (1) ...")
+        elif parts:
+            leading = re.split(r"\bTHENCE\b", parts[0], flags=re.IGNORECASE)
+            with_distance = [
+                piece for piece in leading[1:] if re.search(r"\d\s*(?:feet|foot|ft)\b", piece, re.I)
+            ]
+            if len(with_distance) >= 2:
+                parts = [*leading, *parts[1:]]
     elif re.search(r"\bTHENCE\b", text, re.IGNORECASE):
         parts = re.split(r"\bTHENCE\b", text, flags=re.IGNORECASE)
     else:

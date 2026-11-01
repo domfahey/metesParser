@@ -6,11 +6,17 @@
     "book": "10054",
     "page": "595",
     "parcel_shape": "Near-rectangle",
-    "dimensions": "95 ft x ~112.85 ft"
+    "dimensions": "95 ft x ~112.85 ft",
+    "date": "March 12, 2014",
+    "grantor": "Estate of Richard M. Wszolek, by Rosemary Grimes, Executrix",
+    "grantee": "Carolann Wszolek",
+    "consideration": "$1.00",
+    "block": "91",
+    "lot": "33"
   },
   "raw_ocr_text": "BEGINNING at a point in the Westerly line of Birchall Drive distant 576.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet, said beginning point being in the division line between Lots 6 and 7 on the plan hereinafter mentioned; thence\n\n(1) Northwardly along the Westerly line of Birchall Drive 95 feet to a point in the division line between Lots 7 and 8; thence\n\n(2) Westwardly along said division line at right angles to Birchall Drive 112.96 feet to a point in the Westerly boundary line of said plan; thence\n\n(3) Southwardly along said boundary line forming an interior angle of 89 degrees 52 minutes with the last course the distance of 95 feet to a point in the aforementioned division line between Lots 6 and 7; thence\n\n(4) Eastwardly along said last mentioned division line forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive 112.74 feet to the place of beginning.\n\nBEING Lot 7 on Plan of Country Club Estates, made by Walter H. Macnamara C.E., dated December 1956 revised January 14, 1957. Also being Block 91, Lot 33 Tax Map Borough of Haddonfield, NJ.",
-  "expected_legal_description": "BEGINNING at a point in the Westerly line of Birchall Drive distant 576.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet, said beginning point being in the division line between Lots 6 and 7 on the plan hereinafter mentioned; thence\n(1) Northwardly along the Westerly line of Birchall Drive 95 feet to a point in the division line between Lots 7 and 8; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.96 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle of 89 degrees 52 minutes with the last course the distance of 95 feet to a point in the aforementioned division line between Lots 6 and 7; thence\n(4) Eastwardly along said last mentioned division line forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive 112.74 feet to the place of beginning.",
-  "expected_normalized_text": null,
+  "expected_legal_description": "BEGINNING at a point in the Westerly line of Birchall Drive distant 576.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet, said beginning point being in the division line between Lots 6 and 7 on the plan hereinafter mentioned; thence:\n(1) Northwardly along the Westerly line of Birchall Drive 95 feet to a point in the division line between Lots 7 and 8; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.96 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle of 89 degrees 52 minutes with the last course the distance of 95 feet to a point in the aforementioned division line between Lots 6 and 7; thence\n(4) Eastwardly along said last mentioned division line forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchell Drive 112.74 feet to the place of beginning.",
+  "expected_normalized_text": "BEGINNING at a point in the Westerly line of Birchall Drive distant 576.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet, said beginning point being in the division line between Lots 6 and 7 on the plan hereinafter mentioned; thence:\n(1) Northwardly along the Westerly line of Birchall Drive 95 feet to a point in the division line between Lots 7 and 8; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.96 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle of 89 degrees 52 minutes with the last course the distance of 95 feet to a point in the aforementioned division line between Lots 6 and 7; thence\n(4) Eastwardly along said last mentioned division line forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchell Drive 112.74 feet to the place of beginning.",
   "expected_pob": "a point in the Westerly line of Birchall Drive distant 576.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet, said beginning point being in the division line between Lots 6 and 7",
   "expected_poc": null,
   "expected_calls": [
@@ -104,7 +110,7 @@
       "is_tie_in": false,
       "non_tangent": false,
       "radial_bearing": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; the deed prints \"Birchell Drive\" in this course"
     }
   ],
   "expected_closure": {
@@ -137,11 +143,6 @@
   },
   "common_failure_modes": [
     {
-      "symptom": "direction_text parsed as 'Swardly' or 'Ewardly' instead of 'Southwardly' or 'Eastwardly'",
-      "cause": "Low-resolution scanned PDF causing OCR artifacts that truncate cardinal direction prefixes",
-      "fix": "Add OCR post-processing to detect and correct truncated cardinal directions"
-    },
-    {
       "symptom": "Fabricated azimuth values (0, 90, 180, 270) assigned to cardinal-only calls",
       "cause": "System incorrectly inferring exact bearings from cardinal directions like Northwardly/Southwardly",
       "fix": "Ensure cardinal-only directions always produce null azimuth and notes='incomplete bearing - cardinal only'"
@@ -152,5 +153,5 @@
       "fix": "Ensure bearing extraction distinguishes interior angle descriptions from actual bearing notation"
     }
   ],
-  "notes": "Oldest deed in chain of title for 38 Birchall Dr (Lot 7). Same legal description as book 12673/pg 546 and book 12100/pg 503. Older scanned PDF may have OCR artifacts. Plan of Country Club Estates by Walter H. Macnamara C.E. This deed uses only cardinal directions (Northwardly, Westwardly, Southwardly, Eastwardly) without any quadrant bearings, making closure computation impossible. Interior angles are stated in the deed text (89 deg 52 min and 90 deg 08 min) but are not bearing values."
+  "notes": "Checked against Book 10054 Pages 595-596 (PDF pages 5 and 1): the preamble ends \"thence:\" and course (4) prints \"Birchell Drive\", both now verbatim; every course matches the print. The deed is dated the 12th day of March 2014 (handwritten day); the RTF-1 affidavit says March 7, 2014. Oldest deed in chain of title for 38 Birchall Dr (Lot 7). Same legal description as book 12673/pg 546 and book 12100/pg 503. Plan of Country Club Estates by Walter H. Macnamara C.E. This deed uses only cardinal directions (Northwardly, Westwardly, Southwardly, Eastwardly) without any quadrant bearings, making closure computation impossible. Interior angles are stated in the deed text (89 deg 52 min and 90 deg 08 min) but are not bearing values."
 }

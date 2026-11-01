@@ -251,7 +251,8 @@
       "direction_text": "northwesterly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
-      "distance_ft": 35.57,
+      "distance_ft": 35.37,
+      "printed_distance_ft": 35.57,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
@@ -259,7 +260,7 @@
       "along": "the line of lands now or late of Hinchman",
       "to": "a corner to the same",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only; interior angle 118°25'30\"",
+      "notes": "incomplete bearing - cardinal only; interior angle 118°25'30\"; the deed prints 35.57 feet; recorded as 35.37: walking Lot 6's stated angles and right angles, the lot closes to 0.003 ft with 35.37 and misses by 0.20 ft along this course with 35.57, and the earlier Exhibit A in Book 5030 Page 535 reads 35.37",
       "tract": "Lot 6",
       "is_exception": false,
       "is_tie_in": false
@@ -469,7 +470,7 @@
     "area_acres": null,
     "perimeter_ft": null,
     "closure_passed": false,
-    "notes": "Three lots (Lot 6: 17 courses, Lot 9.01: 4, Lot 6.01: 4); every course is cardinal-only (bearings not stated), so no closure is computed."
+    "notes": "Three lots (Lot 6: 17 courses, Lot 9.01: 4, Lot 6.01: 4); every course is cardinal-only (bearings not stated), so no closure is computed. Walking Lot 6's stated interior/exterior angles and right angles with the intended values (course 5 81.52 ft, course 14 35.37 ft) closes the lot to 0.003 ft; with the printed 35.57 it misses by 0.20 ft."
   },
   "critical_assertions": {
     "num_calls": {
@@ -478,5 +479,5 @@
       "description": "MUST extract exactly 25 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T03:01:21.130361+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF, Exhibit A (Book 10239 Pages 1284-1285, PDF pages 6-7). Special warranty deed (2015); Exhibit B (certification of trust, PDF pages 8-13) repeats the description and is not used. The Lot 6 Southeasterly course reads 81.52 feet in this deed (8.52 in Book 9217 Page 1298, 81.52 in Book 10239 Page 1279). Every course is cardinal-only; interior/exterior angles and right-angle relations are kept in notes, not converted to bearings. Typescript quirks kept: \"265.21feet\", \"81degrees\", \"along Easterly line of Centre Street\"; double spaces collapsed."
+  "notes": "Lot 6 course 14 checked at 600 dpi (Book 10239 Page 1284, PDF page 6): prints 35.57, recorded as the intended 35.37 (closure walk 0.003 ft vs 0.20 ft); course 5 prints 81.52. Ground truth generated at 2026-02-17T03:01:21.130361+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF, Exhibit A (Book 10239 Pages 1284-1285, PDF pages 6-7). Special warranty deed (2015); Exhibit B (certification of trust, PDF pages 8-13) repeats the description and is not used. The Lot 6 Southeasterly course reads 81.52 feet in this deed (8.52 in Book 9217 Page 1298, 81.52 in Book 10239 Page 1279). Every course is cardinal-only; interior/exterior angles and right-angle relations are kept in notes, not converted to bearings. Typescript quirks kept: \"265.21feet\", \"81degrees\", \"along Easterly line of Centre Street\"; double spaces collapsed."
 }
