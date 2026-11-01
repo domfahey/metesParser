@@ -377,3 +377,53 @@ def test_following_courses_introduction_is_not_a_course(parse):
         strict=True,
     )
     assert [call.distance_ft for call in calls] == [146.44, 53.75, 310.45]
+
+
+KRESSON_EXCEPTION = (
+    "BEGINNING at a point along a line common with Lot 13A, said point being the following "
+    "courses and distances from the intersection of Willard Avenue with Kresson Road\n\n"
+    "(A) Along the said row line of Kresson Road North 73 degrees 30 minutes 00 seconds West a "
+    "distance of 509.1 feet to a point common to said Lots 13 and 13B, thence;\n\n"
+    "(B) Along line common to said Lots 13 and 13A South 16 degrees 30 minutes 00 seconds West a "
+    "distance of 27.00 feet to a point and place of beginning, thence;\n\n"
+    "(1) South 73 degrees 30 minutes 00 seconds East a distance of 10.00 feet to a point, thence;\n\n"
+    "(2) North 16 degrees 30 minutes 00 seconds East a distance of 47.00 feet to a point and "
+    "place of BEGINNING."
+)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_uncounted_lettered_tie_courses_are_kept_and_flagged(parse):
+    calls = parse(KRESSON_EXCEPTION, strict=True)
+    assert [(call.distance_ft, call.is_tie_in) for call in calls] == [
+        (509.1, True),
+        (27.0, True),
+        (10.0, False),
+        (47.0, False),
+    ]
+
+
+KRESSON_GT = SAMPLE_DEEDS / "36 Kresson Rd - Deed Image (9476 - 462).ground_truth.json"
+
+
+@pytest.mark.parametrize("key", ["expected_legal_description", "expected_normalized_text"])
+@pytest.mark.parametrize("parse", PARSERS)
+def test_kresson_exception_with_tie_courses_matches_ground_truth(parse, key):
+    gt = _load(KRESSON_GT)
+    calls = parse(gt[key], strict=True)
+    expected = [
+        (
+            round(c["distance_ft"], 2),
+            round(c["bearing_azimuth_deg_from_north"], 4),
+            c["is_tie_in"],
+            c["is_exception"],
+        )
+        for c in gt["expected_calls"]
+    ]
+    assert [_course_fields(call) for call in calls] == expected
+
+
+def test_kresson_exception_is_one_tract():
+    gt = _load(KRESSON_GT)
+    _calls, tracts = package_extract_with_tracts(gt["expected_legal_description"], strict=True)
+    assert [(t.label, len(t.calls)) for t in tracts] == [("Tract 1", 4), ("Exception 1", 6)]
