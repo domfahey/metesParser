@@ -11,12 +11,12 @@ from mp_models.delivery import (
     DeliverySnapshot,
     DeliverySourceBinding,
 )
-from mp_review.delivery import (  # type: ignore[import-untyped]
+from mp_review.delivery import (
     load_delivery,
     prepare_delivery,
     publish_delivery,
 )
-from mp_review.revision_view import render_revision_file  # type: ignore[import-untyped]
+from mp_review.revision_view import render_revision_file
 
 __all__ = [
     "DeliveryItem",

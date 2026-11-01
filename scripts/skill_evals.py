@@ -231,8 +231,8 @@ def _materialize_restart_bundle(directory: Path, *, changed_transcript: bool) ->
         SourceReference,
         TranscriptReference,
     )
-    from mp_review.api import review_file  # type: ignore[import-untyped, unused-ignore]
-    from mp_review.plot import plot_file  # type: ignore[import-untyped, unused-ignore]
+    from mp_review.api import review_file
+    from mp_review.plot import plot_file
 
     original = b"SYNTHETIC DEED SOURCE - all matter is invented.\n"
     description = (
