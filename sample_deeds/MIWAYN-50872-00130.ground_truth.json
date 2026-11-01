@@ -184,5 +184,94 @@
       "Prior_Book_Normalized": "NA",
       "Prior_Page_Normalized": "NA"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "10900 Hubbell",
+    "city": "Livonia",
+    "state": "MI",
+    "book": "50872",
+    "page": "130"
+  },
+  "raw_ocr_text": "Land Situated in the City of Livonia, County of Wayne, State of Michigan:\n\nAll that part of the Northwest 1/4 of Section 35, Town 1 South, Range 9 East, City of Livonia, Wayne County, Michigan, described as: Beginning in the center line of Hubbell Ave. a Private Road 60 feet wide, at a point distant South 89 degrees 58 minutes 45 seconds East 1054.00 feet along the North line of Section 35 and Due South 1195.00 feet along said center line from the Northwest corner of Section 35; thence South 89 degrees 58 minutes 45 seconds East 256.93 feet; thence South 0 degrees 03 minutes 15 seconds East 120.64 feet; thence along the Northerly line of J.F. Ferry Subdivision No. 2, as recorded in Liber 77, page 8 of Plats, Wayne County Records. North 89 degrees 58 minutes 00 seconds West 257.04 feet; thence along the center line of said Hubbell Ave., due North 120.59 feet to the Point of Beginning. Subject to an Easement for Private Road Purposes over the West 30 Feet thereof.",
+  "expected_legal_description": "Land Situated in the City of Livonia, County of Wayne, State of Michigan\n\nAll that part of the Northwest ¼ of Section 35, Town 1 South, Range 9 East, City of Livonia, Wayne County, Michigan, described as: Beginning in the center line of Hubbell Ave. a Private Road 60 feet wide, at a point distant South 89 degrees 58 minutes 45 seconds East 1054.00 feet along the North line of Section 35 and Due South 1195.00 feet along said center line from the Northwest corner of Section 35; thence South 89 degrees 58 minutes 45 seconds East 256.93 feet; thence South 0 degrees 03 minutes 15 seconds East 120.64 feet; thence along the Northerly line of J.F. Ferry Subdivision No. 2, as recorded in Liber 77, page 8 of Plats, Wayne County Records. North 89 degrees 58 minutes 00 seconds West 257.04 feet; thence along the center line of said Hubbell Ave., due North 120.59 feet to the Point of Beginning. Subject to an Easement for Private Road Purposes over the West 30 Feet thereof.\n\nCKA: 10900 Hubbell, Livonia, MI 48150\nParcel No.: 138-99-0033-002",
+  "expected_normalized_text": "Land Situated in the City of Livonia, County of Wayne, State of Michigan\n\nAll that part of the Northwest ¼ of Section 35, Town 1 South, Range 9 East, City of Livonia, Wayne County, Michigan, described as: Beginning in the center line of Hubbell Ave. a Private Road 60 feet wide, at a point distant S 89°58'45\" E 1054.00 feet along the North line of Section 35 and Due South 1195.00 feet along said center line from the Northwest corner of Section 35; thence S 89°58'45\" E 256.93 feet; thence S 0°03'15\" E 120.64 feet; thence along the Northerly line of J.F. Ferry Subdivision No. 2, as recorded in Liber 77, page 8 of Plats, Wayne County Records. N 89°58'00\" W 257.04 feet; thence along the center line of said Hubbell Ave., due North 120.59 feet to the Point of Beginning. Subject to an Easement for Private Road Purposes over the West 30 Feet thereof.\n\nCKA: 10900 Hubbell, Livonia, MI 48150\nParcel No.: 138-99-0033-002",
+  "expected_poc": "the Northwest corner of Section 35",
+  "expected_pob": "the center line of Hubbell Ave. a Private Road 60 feet wide, at a point distant South 89 degrees 58 minutes 45 seconds East 1054.00 feet along the North line of Section 35 and Due South 1195.00 feet along said center line from the Northwest corner of Section 35",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 89°58'45\" E",
+      "bearing_quadrant": "S 89°59' E",
+      "bearing_azimuth_deg_from_north": 90.02083333333333,
+      "distance_ft": 256.93,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "S 0°03'15\" E",
+      "bearing_quadrant": "S 0°03' E",
+      "bearing_azimuth_deg_from_north": 179.94583333333333,
+      "distance_ft": 120.64,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "N 89°58'00\" W",
+      "bearing_quadrant": "N 89°58' W",
+      "bearing_azimuth_deg_from_north": 270.0333333333333,
+      "distance_ft": 257.04,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Northerly line of J.F. Ferry Subdivision No. 2, as recorded in Liber 77, page 8 of Plats, Wayne County Records",
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "due North",
+      "bearing_quadrant": "N 0°00' E",
+      "bearing_azimuth_deg_from_north": 0.0,
+      "distance_ft": 120.59,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the center line of said Hubbell Ave.",
+      "to": "the Point of Beginning",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0074,
+    "area_sq_ft": 30995.19,
+    "area_acres": 0.7116,
+    "perimeter_ft": 755.2,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    }
+  },
+  "notes": "Standard fields added 2026-10-31 from the recorded PDF (Warranty Deed, Liber 50872 Page 130, PDF page 1), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. \"Wayne County Records. North 89 degrees...\" has a period mid-course, kept as printed. Course 4 is \"due North\" (azimuth 0). The private-road easement over the West 30 feet is not an exception."
 }

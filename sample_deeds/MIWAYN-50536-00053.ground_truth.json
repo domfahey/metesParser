@@ -163,5 +163,124 @@
       "Prior_Book_Normalized": "NA",
       "Prior_Page_Normalized": "NA"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "Private Claim 32",
+    "city": "Melvindale",
+    "state": "MI",
+    "book": "50536",
+    "page": "53"
+  },
+  "raw_ocr_text": "PART OF PRIVATE CLAIM 32, CITY OF MELVINDALE, WAYNE COUNTY, MICHIGAN, DESCRIBED AS BEGINNING AT A POINT DISTANT NORTH 29 DEGREES, 01 MINUTES, 15 SECONDS EAST 492.13 FEET AND NORTH 69 DEGREES 21 MINUTES 15 SECONDS EAST 374.89 FEET FROM THE INTERSECTION OF THE CENTERLINE OF PROSPECT AVENUE, 60 FEET WIDE, AND THE CENTERLINE OF OAKWOOD BOULEVARD, 100 FEET WIDE PROCEEDING THENCE NORTH 69 DECREES 21 MINUTES 15 SECONDS EAST 348.55 FEET; THENCE SOUTH 20 DEGREES 38 MINUTES 45 SECONDS EAST 100.00 FEET; THENCE SOUTH 69 DEGREES 21 MINUTES 15 SECONDS WEST 120.00 FEET. THENCE SOUTH 20 DEGREES 38 MINUTES 45 SECONDS EAST 280.00 FEET; THENCE ALONG THE NORTHERLY LINE OF OAKWOOD BOULDEVARD SOUTH 69 DEGREES 21 MINUTES 15 SECONDS WEST 228.89 FEET; THENCE NORTH 20 DEGREES 35 MINUTES 40 SECONDS WEST 380.00 FEET TO THE POINT OF BEGINNING",
+  "expected_legal_description": "SITUATE IN THE CITY OF MELVINDALE, COUNTY OF WAYNE, STATE OF MICHIGAN:\n\nPART OF PRIVATE CLAIM 32, CITY OF MELVINDALE, WAYNE COUNTY, MICHIGAN, DESCRIBED AS BEGINNING AT A POINT DISTANT NORTH 29 DEGREES, 01 MINUTES, 15 SECONDS EAST 492.13 FEET AND NORTH 69 DEGREES 21 MINUTES 15 SECONDS EAST 374.89 FEET FROM THE INTERSECTION OF THE CENTERLINE OF PROSPECT AVENUE, 60 FEET WIDE, AND THE CENTERLINE OF OAKWOOD BOULEVARD, 100 FEET WIDE; PROCEEDING THENCE NORTH 69 DEGREES 21 MINUTES 15 SECONDS EAST 348.55 FEET; THENCE SOUTH 20 DEGREES 38 MINUTES 45 SECONDS EAST 100.00 FEET; THENCE SOUTH 69 DEGREES 21 MINUTES 15 SECONDS WEST 120.00 FEET; THENCE SOUTH 20 DEGREES 38 MINUTES 45 SECONDS EAST 280.00 FEET; THENCE ALONG THE NORTHERLY LINE OF OAKWOOD BOULDEVARD SOUTH 69 DEGREES 21 MINUTES 15 SECONDS WEST 228.89 FEET; THENCE NORTH 20 DEGREES 35 MINUTES 40 SECONDS WEST 380.00 FEET TO THE POINT OF BEGINNING.",
+  "expected_normalized_text": "SITUATE IN THE CITY OF MELVINDALE, COUNTY OF WAYNE, STATE OF MICHIGAN:\n\nPART OF PRIVATE CLAIM 32, CITY OF MELVINDALE, WAYNE COUNTY, MICHIGAN, DESCRIBED AS BEGINNING AT A POINT DISTANT N 29°01'15\" E 492.13 FEET AND N 69°21'15\" E 374.89 FEET FROM THE INTERSECTION OF THE CENTERLINE OF PROSPECT AVENUE, 60 FEET WIDE, AND THE CENTERLINE OF OAKWOOD BOULEVARD, 100 FEET WIDE; PROCEEDING THENCE N 69°21'15\" E 348.55 FEET; THENCE S 20°38'45\" E 100.00 FEET; THENCE S 69°21'15\" W 120.00 FEET; THENCE S 20°38'45\" E 280.00 FEET; THENCE ALONG THE NORTHERLY LINE OF OAKWOOD BOULDEVARD S 69°21'15\" W 228.89 FEET; THENCE N 20°35'40\" W 380.00 FEET TO THE POINT OF BEGINNING.",
+  "expected_poc": "THE INTERSECTION OF THE CENTERLINE OF PROSPECT AVENUE, 60 FEET WIDE, AND THE CENTERLINE OF OAKWOOD BOULEVARD, 100 FEET WIDE",
+  "expected_pob": "A POINT DISTANT NORTH 29 DEGREES, 01 MINUTES, 15 SECONDS EAST 492.13 FEET AND NORTH 69 DEGREES 21 MINUTES 15 SECONDS EAST 374.89 FEET FROM THE INTERSECTION OF THE CENTERLINE OF PROSPECT AVENUE, 60 FEET WIDE, AND THE CENTERLINE OF OAKWOOD BOULEVARD, 100 FEET WIDE",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 69°21'15\" E",
+      "bearing_quadrant": "N 69°21' E",
+      "bearing_azimuth_deg_from_north": 69.35416666666666,
+      "distance_ft": 348.55,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "S 20°38'45\" E",
+      "bearing_quadrant": "S 20°39' E",
+      "bearing_azimuth_deg_from_north": 159.35416666666666,
+      "distance_ft": 100.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "S 69°21'15\" W",
+      "bearing_quadrant": "S 69°21' W",
+      "bearing_azimuth_deg_from_north": 249.35416666666666,
+      "distance_ft": 120.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "S 20°38'45\" E",
+      "bearing_quadrant": "S 20°39' E",
+      "bearing_azimuth_deg_from_north": 159.35416666666666,
+      "distance_ft": 280.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "S 69°21'15\" W",
+      "bearing_quadrant": "S 69°21' W",
+      "bearing_azimuth_deg_from_north": 249.35416666666666,
+      "distance_ft": 228.89,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "THE NORTHERLY LINE OF OAKWOOD BOULDEVARD",
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 6,
+      "direction_text": "N 20°35'40\" W",
+      "bearing_quadrant": "N 20°36' W",
+      "bearing_azimuth_deg_from_north": 339.40555555555557,
+      "distance_ft": 380.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "THE POINT OF BEGINNING",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0008,
+    "area_sq_ft": 98913.44,
+    "area_acres": 2.2707,
+    "perimeter_ft": 1457.44,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 6,
+      "operator": "==",
+      "description": "MUST extract exactly 6 calls"
+    }
+  },
+  "notes": "Standard fields added 2026-10-31 from the recorded PDF (Notice of Commencement, Liber 50536 Page 53, PDF page 1 (Survey Description)), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. \"BOULDEVARD\" in course 5 kept as printed. The vendor text's \"DECREES\" and \"120.00 FEET.\" are vendor typos; the deed prints \"DEGREES\" and \"120.00 FEET;\". The two POB offsets (492.13 ft and 374.89 ft) locate the point of beginning and are not courses."
 }

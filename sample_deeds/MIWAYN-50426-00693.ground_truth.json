@@ -163,5 +163,124 @@
       "Prior_Book_Normalized": "49144",
       "Prior_Page_Normalized": "415"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "Vacant Van Horn",
+    "city": "Trenton",
+    "state": "MI",
+    "book": "50426",
+    "page": "693"
+  },
+  "raw_ocr_text": "23J1B PT OF THE SE 1/4 OF SEC 23 T4S R10E DESC AS BEG N 88D 25M 31S E 330.00 FT AND N 01D 41M 46S W 222.00 FT FROM THE S 1/4 COR OF SEC 23: TH N 01D 41M 46S W 538.05 FT TH S 89D 50M 17S E 130.07 FT TH S 01D 41M 46S E 696.11 FT TH S 88D 25M 31S W 68.00 FT TH N 01D 41M 46S W 162.00 FT TH S 88D 25M 31S W 62.00 FT 1.85 AC.",
+  "expected_legal_description": "23J1B PT OF THE SE 1/4 OF SEC 23 T4S R10E DESC AS BEG N 88D 25M 31S E 330.00 FT AND N 01D 41M 46S W 222.00 FT FROM THE S 1/4 COR OF SEC 23: TH N 01D 41M 46S W 538.05 FT TH S 89D 50M 17S E 130.07 FT TH S 01D 41M 46S E 696.11 FT TH S 88D 25M 31S W 68.00 FT TH N 01D 41M 46S W 162.00 FT TH S 88D 25M 31S W 62.00 FT 1.85 AC.",
+  "expected_normalized_text": "23J1B PT OF THE SE 1/4 OF SEC 23 T4S R10E DESC AS BEG N 88°25'31\" E 330.00 FT AND N 1°41'46\" W 222.00 FT FROM THE S 1/4 COR OF SEC 23: TH N 1°41'46\" W 538.05 FT TH S 89°50'17\" E 130.07 FT TH S 1°41'46\" E 696.11 FT TH S 88°25'31\" W 68.00 FT TH N 1°41'46\" W 162.00 FT TH S 88°25'31\" W 62.00 FT 1.85 AC.",
+  "expected_poc": "THE S 1/4 COR OF SEC 23",
+  "expected_pob": "N 88D 25M 31S E 330.00 FT AND N 01D 41M 46S W 222.00 FT FROM THE S 1/4 COR OF SEC 23",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 1°41'46\" W",
+      "bearing_quadrant": "N 1°42' W",
+      "bearing_azimuth_deg_from_north": 358.3038888888889,
+      "distance_ft": 538.05,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "S 89°50'17\" E",
+      "bearing_quadrant": "S 89°50' E",
+      "bearing_azimuth_deg_from_north": 90.16194444444444,
+      "distance_ft": 130.07,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "S 1°41'46\" E",
+      "bearing_quadrant": "S 1°42' E",
+      "bearing_azimuth_deg_from_north": 178.30388888888888,
+      "distance_ft": 696.11,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "S 88°25'31\" W",
+      "bearing_quadrant": "S 88°26' W",
+      "bearing_azimuth_deg_from_north": 268.42527777777775,
+      "distance_ft": 68.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "N 1°41'46\" W",
+      "bearing_quadrant": "N 1°42' W",
+      "bearing_azimuth_deg_from_north": 358.3038888888889,
+      "distance_ft": 162.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 6,
+      "direction_text": "S 88°25'31\" W",
+      "bearing_quadrant": "S 88°26' W",
+      "bearing_azimuth_deg_from_north": 268.42527777777775,
+      "distance_ft": 62.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0027,
+    "area_sq_ft": 80707.36,
+    "area_acres": 1.8528,
+    "perimeter_ft": 1656.23,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 6,
+      "operator": "==",
+      "description": "MUST extract exactly 6 calls"
+    }
+  },
+  "notes": "Standard fields added 2026-10-31 from the recorded PDF (Wayne County Treasurer Certificate of Redemption, Property Description, Liber 50426 Page 693, PDF page 1), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. Assessor-style metes and bounds in the SE 1/4 of Sec 23: the two offsets after BEG locate the point of beginning; 6 courses close to 0.0027 ft (the last course returns to the point of beginning without saying so). Matches the vendor text."
 }

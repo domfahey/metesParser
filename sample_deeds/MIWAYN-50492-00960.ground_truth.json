@@ -182,5 +182,115 @@
       "Prior_Book_Normalized": "38879",
       "Prior_Page_Normalized": "1060"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "49660 Judd",
+    "city": "Sumpter Township",
+    "state": "MI",
+    "book": "50492",
+    "page": "960"
+  },
+  "raw_ocr_text": "Part of the Southeast 1/4 of Section 7, Town 4 South, Range 8 East. Property Commencing 88 degrees 54 minutes 18 seconds West from the Southeast corner of said Section 7; thence along the South line of said Section 7 505.00 feet; thence continuing North 88 degrees 54 minutes 18 seconds West 159.56 feet; thence North 00 degrees 35 minutes 20 seconds East 295.05 feet; thence South 89 degrees 18 minutes 20 second East 160.75 feet; thence South 00 degrees 49 minutes 10 seconds West 296.17 feet to the point of beginning.",
+  "expected_legal_description": "The land referred to in this Commitment is located in the TOWNSHIP OF SUMPTER, County of WAYNE and the State of Michigan, and described as follows:\n\nPart of the Southeast 1/4 of Section 7, Town 4 South, Range 8 East. Property Commencing 88 degrees 54 minutes 18 seconds West from the Southeast corner of said Section 7;\nthence along the South line of said Section 7 505.00 feet;\nthence continuing North 88 degrees 54 minutes 18 seconds West 159.56 feet;\nthence North 00 degrees 35 minutes 20 seconds East 295.05 feet;\nthence South 89 degrees 18 minutes 20 second East 160.75 feet;\nthence South 00 degrees 49 minutes 10 seconds West 296.17 feet to the point of beginning.\n\n49660 JUDD, SUMPTER, MICHIGAN",
+  "expected_normalized_text": "The land referred to in this Commitment is located in the TOWNSHIP OF SUMPTER, County of WAYNE and the State of Michigan, and described as follows:\n\nPart of the Southeast 1/4 of Section 7, Town 4 South, Range 8 East. Property Commencing 88 degrees 54 minutes 18 seconds West from the Southeast corner of said Section 7;\nthence along the South line of said Section 7 505.00 feet;\nthence continuing N 88°54'18\" W 159.56 feet;\nthence N 0°35'20\" E 295.05 feet;\nthence S 89°18'20\" E 160.75 feet;\nthence S 0°49'10\" W 296.17 feet to the point of beginning.\n\n49660 JUDD, SUMPTER, MICHIGAN",
+  "expected_poc": "the Southeast corner of said Section 7",
+  "expected_pob": null,
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "along the South line of said Section 7",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 505.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the South line of said Section 7",
+      "to": null,
+      "monument_type": null,
+      "notes": "incomplete bearing - no direction stated; tie course along the South line of Section 7 from the Southeast corner to the (unstated) point of beginning",
+      "is_tie_in": true
+    },
+    {
+      "course": 2,
+      "direction_text": "N 88°54'18\" W",
+      "bearing_quadrant": "N 88°54' W",
+      "bearing_azimuth_deg_from_north": 271.095,
+      "distance_ft": 159.56,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    },
+    {
+      "course": 3,
+      "direction_text": "N 0°35'20\" E",
+      "bearing_quadrant": "N 0°35' E",
+      "bearing_azimuth_deg_from_north": 0.5888888888888889,
+      "distance_ft": 295.05,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    },
+    {
+      "course": 4,
+      "direction_text": "S 89°18'20\" E",
+      "bearing_quadrant": "S 89°18' E",
+      "bearing_azimuth_deg_from_north": 90.69444444444444,
+      "distance_ft": 160.75,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    },
+    {
+      "course": 5,
+      "direction_text": "S 0°49'10\" W",
+      "bearing_quadrant": "S 0°49' W",
+      "bearing_azimuth_deg_from_north": 180.81944444444446,
+      "distance_ft": 296.17,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "the point of beginning",
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.006,
+    "area_sq_ft": 47343.05,
+    "area_acres": 1.0868,
+    "perimeter_ft": 911.53,
+    "closure_passed": true,
+    "notes": "Closure over boundary courses 2-5; tie course 1 (505.00 ft, no direction stated) excluded."
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 5,
+      "operator": "==",
+      "description": "MUST extract exactly 5 calls"
+    }
+  },
+  "notes": "Standard fields added 2026-10-31 from the recorded PDF (commitment for title insurance, Description of Real Estate, Book 50492 Page 962, PDF page 3), transcribed verbatim; vendor fields kept. The commencement clause omits the quadrant letter and distance (\"Commencing 88 degrees 54 minutes 18 seconds West from the Southeast corner\"), and the 505.00 ft tie course along the South line states no direction, so its bearing is not recorded. The point of beginning is never named; it is the end of that tie course, and the four boundary courses close to 0.006 ft. Quirk kept: \"20 second East\"."
 }
