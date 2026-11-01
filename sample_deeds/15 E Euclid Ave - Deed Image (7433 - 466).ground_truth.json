@@ -10,16 +10,122 @@
     "grantee": "Catherine Verdi Gorman and Francis P. Verdi, Trustees of the Jo Ann Verdi Revocable Trust"
   },
   "raw_ocr_text": "Low-resolution scan. Exhibit A metes-and-bounds page is heavily garbled: '8o' for '80', 'lo' for '10', '142 rest' for '142 feet', 'io' for '10'. Distance values are not reliably extractable from this OCR quality.",
-  "expected_legal_description": "TRACT #1: BEGINNING in the Northwesterly line of Euclid Avenue 80 feet Southwesterly from the Westerly corner of Euclid and Turnley Avenues; thence Southwesterly along the Northwesterly line of Euclid Avenue 80 feet in width or breadth; thence Northwestwardly between parallel lines, parallel with Turnley Avenue 142 feet in length or depth.\n\nTRACT #2: BEGINNING at a point in the boundary line of premises owned by the party of the first part which beginning point is located on the Northerly line of Euclid Avenue, distant 160 feet Westwardly along said line from its intersection with the Westerly line of Turnley Avenue; and extends thence (1) Westwardly along said Northerly line of Euclid Avenue a distance of 10 feet to a point; and extends thence (2) Northwardly parallel with the Westerly line of Turnley Avenue making an interior angle of 89 degrees, 43 minutes 30 seconds with the preceding course the distance of 142 feet to a point; and extends thence (3) Eastwardly parallel with the first course the distance of 10 feet to an angle in the boundary line of property of the party of the first part; and extends thence (4) Southwardly parallel with the second course along a party of the first part's said boundary line the distance of 142 feet to the point of beginning.",
+  "expected_legal_description": "TRACT #1: BEGINNING in the Northwesterly line of Euclid Avenue 80 feet Southwestwardly from the Westerly corner of Euclid and Turnley Avenues; thence Southwestwardly along the Northwesterly line of Euclid Avenue 80 feet in width or breadth; thence Northwestwardly between parallel lines, parallel with Turnley Avenue 142 feet in length or depth.\n\nTRACT #2: BEGINNING at a point in the boundary line of premises owned by the party of the first part which beginning point is located on the Northerly line of Euclid Avenue, distant 160 feet Westwardly along said line from its intersection with the Westerly line of Turnley Avenue; and extends thence (1) Westwardly along said Northerly line of Euclid Avenue the distance of 10 feet to a point; and extends thence (2) Northwardly parallel with the Westerly line of Turnley Avenue making an interior angle of 89 degrees, 43 minutes 30 seconds with the preceding course the distance of 142 feet to a point; and extends thence (3) Eastwardly parallel with the first course the distance of 10 feet to an angle in the boundary line of property of the party of the first part; and extends thence (4) Southwardly parallel with the second course along party of the first part's said boundary line the distance of 142 feet to the point of beginning.",
+  "expected_normalized_text": "TRACT #1: BEGINNING in the Northwesterly line of Euclid Avenue 80 feet Southwestwardly from the Westerly corner of Euclid and Turnley Avenues; thence Southwestwardly along the Northwesterly line of Euclid Avenue 80 feet in width or breadth; thence Northwestwardly between parallel lines, parallel with Turnley Avenue 142 feet in length or depth.\n\nTRACT #2: BEGINNING at a point in the boundary line of premises owned by the party of the first part which beginning point is located on the Northerly line of Euclid Avenue, distant 160 feet Westwardly along said line from its intersection with the Westerly line of Turnley Avenue; and extends thence (1) Westwardly along said Northerly line of Euclid Avenue the distance of 10 feet to a point; and extends thence (2) Northwardly parallel with the Westerly line of Turnley Avenue making an interior angle of 89 degrees, 43 minutes 30 seconds with the preceding course the distance of 142 feet to a point; and extends thence (3) Eastwardly parallel with the first course the distance of 10 feet to an angle in the boundary line of property of the party of the first part; and extends thence (4) Southwardly parallel with the second course along party of the first part's said boundary line the distance of 142 feet to the point of beginning.",
   "expected_poc": null,
   "expected_pob": "a point in the boundary line of premises owned by the party of the first part which beginning point is located on the Northerly line of Euclid Avenue, distant 160 feet Westwardly along said line from its intersection with the Westerly line of Turnley Avenue",
-  "expected_calls": [],
-  "expected_closure": null,
-  "critical_assertions": {
-    "total_calls": 0,
-    "actual_calls_in_deed": 6,
-    "ocr_quality": "too_poor_for_extraction",
-    "note": "The deed has 2 tracts with 6 total calls (2 in Tract #1, 4 in Tract #2) but the Exhibit A page OCR is too garbled for reliable extraction. Distances render as '8o', 'lo', 'io' instead of '80', '10', '10'. Angle '43 minutes' renders as '13 minutes'. Parser correctly cannot extract accurate calls from this OCR quality."
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "Southwestwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 80.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Northwesterly line of Euclid Avenue",
+      "to": null,
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only; width or breadth of a lot described by frontage and depth",
+      "tract": "Tract 1"
+    },
+    {
+      "course": 2,
+      "direction_text": "Northwestwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 142.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "between parallel lines, parallel with Turnley Avenue",
+      "to": null,
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only; length or depth; Tract 1 is not a closed traverse",
+      "tract": "Tract 1"
+    },
+    {
+      "course": 3,
+      "direction_text": "Westwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 10.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said Northerly line of Euclid Avenue",
+      "to": "a point",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only",
+      "tract": "Tract 2"
+    },
+    {
+      "course": 4,
+      "direction_text": "Northwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 142.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "parallel with the Westerly line of Turnley Avenue",
+      "to": "a point",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only; interior angle of 89 degrees, 43 minutes 30 seconds with the preceding course (not a bearing)",
+      "tract": "Tract 2"
+    },
+    {
+      "course": 5,
+      "direction_text": "Eastwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 10.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "parallel with the first course",
+      "to": "an angle in the boundary line of property of the party of the first part",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only",
+      "tract": "Tract 2"
+    },
+    {
+      "course": 6,
+      "direction_text": "Southwardly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 142.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "party of the first part's said boundary line",
+      "to": "the point of beginning",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only; parallel with the second course",
+      "tract": "Tract 2"
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Two tracts; every course is cardinal-only and Tract 1 is a frontage-and-depth lot, not a closed traverse, so no closure is computed."
   },
-  "notes": "OCR quality too poor for automated extraction. Exhibit A page is heavily garbled. The deed has 6 calls across 2 tracts: Tract #1 (SW 80ft, NW 142ft) and Tract #2 (W 10ft, N 142ft, E 10ft, S 142ft). A higher-quality scan would be needed for accurate extraction."
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 6,
+      "operator": "==",
+      "description": "MUST extract exactly 6 calls"
+    }
+  },
+  "notes": "Rebuilt 2026-10-31 from the recorded PDF: Exhibit \"A\" (Book 7433 Page 468, PDF page 3), read at 250 dpi; the earlier ground truth had no calls because the OCR was unreadable. Transcribed verbatim with line-break hyphens joined; the interior angle's \"43\" and \"30\" are typed-over corrections. The two \"TRACT #n: BEING the same lands...\" title recitals that follow are omitted. Courses follow the other 15 E Euclid ground truths: Tract 1 as 80 ft frontage and 142 ft depth, Tract 2 as four courses. All directions are cardinal-only; the interior angle is kept in notes, not converted to a bearing."
 }

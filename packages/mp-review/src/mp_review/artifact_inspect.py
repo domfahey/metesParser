@@ -634,7 +634,7 @@ class _Inspector:
         self.run(node, operation)
 
     def dashboard(self, directory: Path) -> None:
-        from mp_export.dashboard_html import renderer_fingerprint  # type: ignore[import-untyped]
+        from mp_export.dashboard_html import renderer_fingerprint
         from mp_models.dashboard import (
             DashboardBundle,
             DashboardDescriptionComparisonSpec,
@@ -979,7 +979,7 @@ class _Inspector:
             self.run(node, operation)
 
     def online_map(self, directory: Path) -> None:
-        from mp_export.online_map_html import (  # type: ignore[import-untyped]
+        from mp_export.online_map_html import (
             online_renderer_fingerprint,
         )
         from mp_models.webmap import StandaloneWebMapInput, WebMapArtifact, WebMapRequest

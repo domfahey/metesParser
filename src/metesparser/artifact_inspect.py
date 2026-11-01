@@ -6,7 +6,7 @@ from mp_models.artifact_inspection import (
     InspectedStage,
     InspectionReason,
 )
-from mp_review.artifact_inspect import inspect_artifacts  # type: ignore[import-untyped]
+from mp_review.artifact_inspect import inspect_artifacts
 
 __all__ = [
     "ArtifactInspection",

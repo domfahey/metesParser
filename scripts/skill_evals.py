@@ -231,8 +231,8 @@ def _materialize_restart_bundle(directory: Path, *, changed_transcript: bool) ->
         SourceReference,
         TranscriptReference,
     )
-    from mp_review.api import review_file  # type: ignore[import-untyped, unused-ignore]
-    from mp_review.plot import plot_file  # type: ignore[import-untyped, unused-ignore]
+    from mp_review.api import review_file
+    from mp_review.plot import plot_file
 
     original = b"SYNTHETIC DEED SOURCE - all matter is invented.\n"
     description = (
@@ -356,7 +356,7 @@ def _fixture_json(case_id: str) -> dict[str, Any]:
         from mp_models.raster import RasterRegistration
         from mp_models.webmap import StandaloneWebMapInput
         from mp_review.raster_registration import (
-            image_layer,  # type: ignore[import-untyped, unused-ignore]
+            image_layer,
         )
 
         scene = PlotScene(
@@ -803,7 +803,7 @@ def _materialize_delivery_inputs(directory: Path) -> None:
     from mp_models.dashboard import DashboardBundle
     from mp_models.delivery import DeliveryRequest
     from mp_models.revisions import revision_template
-    from mp_review.revisions import publish_revision  # type: ignore[import-untyped, unused-ignore]
+    from mp_review.revisions import publish_revision
 
     references = CATALOG.parent.parent / "skills/export-review-package/references"
     bundle = DashboardBundle.model_validate_json((references / "bundle-example.json").read_bytes())

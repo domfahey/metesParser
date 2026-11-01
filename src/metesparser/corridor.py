@@ -10,7 +10,7 @@ from mp_models.corridor import (
     CorridorStation,
     CorridorWidthInterval,
 )
-from mp_review.corridor import (  # type: ignore[import-untyped]
+from mp_review.corridor import (
     analyze_corridor_file,
     replay_corridor,
 )

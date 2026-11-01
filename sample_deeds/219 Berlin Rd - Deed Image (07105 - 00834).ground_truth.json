@@ -14,10 +14,10 @@
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "N 50°45'00\" E",
-      "bearing_quadrant": "N 50°45' E",
-      "bearing_azimuth_deg_from_north": 50.75,
-      "distance_ft": 417.57,
+      "direction_text": "N 56°45'00\" E",
+      "bearing_quadrant": "N 56°45' E",
+      "bearing_azimuth_deg_from_north": 56.75,
+      "distance_ft": 416.57,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
@@ -25,7 +25,9 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": "printed \"North 50 degrees 45 minutes 00 seconds East\"; recorded as N 56°45'00\" E: the lot closes to 0.13 ft with it and misses by 43.6 ft as printed. Every deed carrying this description (07105-00834, 08256-00635, 12799-00118 Schedule A-2, 12941-00156) prints 50 degrees. Printed \"417.57 feet\"; recorded as 416.57 ft, as the other three deeds print it (0.13 ft closure vs 0.87 ft).",
+      "printed_bearing_azimuth_deg_from_north": 50.75,
+      "printed_distance_ft": 417.57
     },
     {
       "course": 2,
@@ -254,11 +256,12 @@
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 43.6676,
-    "area_sq_ft": 130494.86,
-    "area_acres": 2.9957,
-    "perimeter_ft": 2261.17,
-    "closure_passed": false
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Lot (courses 1-12) and an ingress/egress easement (courses 13-16); one closure across both is not meaningful. Lot closes at 0.130 ft, area 144,488.59 sq ft (course 1 recorded as N 56°45' E); easement closes at 0.000 ft, area 4,899.67 sq ft."
   },
   "critical_assertions": {
     "num_calls": {
@@ -267,5 +270,5 @@
       "description": "MUST extract exactly 16 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T03:02:47.226985+00:00"
+  "notes": "Ground truth generated at 2026-02-17T03:02:47.226985+00:00 Course 1 (N 50°45' E as printed) is recorded as N 56°45' E and 416.57 ft (printed 417.57): the 12-course lot then closes to 0.130 ft (43.6 ft as printed)."
 }
