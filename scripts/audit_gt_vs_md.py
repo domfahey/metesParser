@@ -105,7 +105,13 @@ RESTATED_POB_BEFORE_PATTERN = re.compile(
 
 # Numbered call starters: "1. " or "(1) " at start of line OR inline
 CALL_NUM_PATTERN = re.compile(
-    r"(?:^|\n)\s*(?:\d+\.\s|\(\d+\)\s)",
+    r"(?:^|\n)\s*(?:\d+\.\s|\(\d+\)\s|\([A-Za-z]\)\s)",
+)
+
+# A point of beginning reached by a tie course is followed by more courses:
+# "...to a point and place of beginning, thence;" or "...place of beginning.\n\n(1) South..."
+COURSES_FOLLOW_PATTERN = re.compile(
+    r"\s*[,;.]?\s*(?:thence\b|\(\d+\)\s|\([A-Za-z]\)\s)", re.IGNORECASE
 )
 
 # Inline numbered calls in dense paragraphs: "(1) " anywhere in text
@@ -123,10 +129,14 @@ def find_preferred_text(md_text: str) -> str:
 
 
 def find_block_close(text: str, start: int) -> re.Match[str] | None:
-    """Find the closure ending a block, skipping restated or referenced points of beginning."""
+    """Find the closure ending a block, skipping restated or referenced points of beginning
+    and points of beginning that more courses follow."""
     for match in POB_CLOSE_PATTERN.finditer(text, start):
-        if not RESTATED_POB_BEFORE_PATTERN.search(text, 0, match.start()):
-            return match
+        if RESTATED_POB_BEFORE_PATTERN.search(text, 0, match.start()):
+            continue
+        if COURSES_FOLLOW_PATTERN.match(text, match.end()):
+            continue
+        return match
     return None
 
 
