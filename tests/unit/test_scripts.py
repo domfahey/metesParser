@@ -284,3 +284,40 @@ class TestAuditMain:
         out = capsys.readouterr().out
         assert "GT AUDIT: 0 PASS / 0 FAIL / 1 SKIP out of 1" in out
         assert "1 Main St: 0/1 pass (0%) | 0 fail | 1 skip" in out
+
+
+class TestAuditSchedules:
+    """219 Berlin Rd 12799-00118: schedule attachments and trailing-thence courses."""
+
+    def test_schedule_city_is_not_a_schedule_c_section(self) -> None:
+        mod = _load_audit_module()
+        assert not mod.EXHIBIT_PATTERN.search("SEE ATTACHED SCHEDULE\n    City, Town")
+        assert mod.EXHIBIT_PATTERN.search("SCHEDULE C")
+        assert mod.EXHIBIT_PATTERN.search('EXHIBIT "A"')
+
+    def test_said_point_of_beginning_in_preamble_does_not_close_the_block(self) -> None:
+        mod = _load_audit_module()
+        md_text = (
+            "BEGINNING at a point, said point of beginning being also distant 24.75 feet "
+            "from the center line, and from said point of beginning, proceeding thence "
+            "North 50 degrees 45 minutes 00 seconds East, a distance of 416.57 feet; thence "
+            "South 32 degrees 36 minutes 00 seconds East, a distance of 300.07 feet to said "
+            "point of beginning."
+        )
+        calls = mod.extract_calls_from_md(md_text)
+        assert [call["distance_ft"] for call in calls] == [416.57, 300.07]
+
+    def test_course_ending_in_thence_after_preamble_is_kept(self) -> None:
+        mod = _load_audit_module()
+        md_text = (
+            "Beginning at a point said point being the following two courses and distances "
+            "from the intersection of White Horse Road with Burnt Mill Road.\n\n"
+            "North 40 Degrees 41 Minutes 31 Seconds East a distance of 483.13 feet to a point "
+            "thence;\n\n"
+            "North 59 Degrees 29 Minutes 19 Seconds West a distance of 17.78 feet to a point "
+            "thence;\n\n"
+            "South 59 Degrees 29 Minutes 19 Seconds East a distance of 250.44 feet to point "
+            "and place of beginning."
+        )
+        calls = mod.extract_calls_from_md(md_text)
+        assert [call["distance_ft"] for call in calls] == [483.13, 17.78, 250.44]

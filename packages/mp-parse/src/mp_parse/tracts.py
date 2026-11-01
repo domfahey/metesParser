@@ -145,9 +145,12 @@ def _beginning_starts(text: str) -> list[re.Match[str]]:
 
 
 def _find_pob_close(text: str, start: int) -> re.Match[str] | None:
-    """Find the closure after start, skipping "said point of beginning" references."""
+    """Find the closure after start, skipping "said point of beginning" references.
+
+    "to said point of beginning" still closes the block.
+    """
     for match in _POB_CLOSE_PATTERN.finditer(text, start):
-        if not re.search(r"\bsaid\s+$", text[: match.start()], re.IGNORECASE):
+        if not re.search(r"(?<!\bto\s)\bsaid\s+$", text[: match.start()], re.IGNORECASE):
             return match
     return None
 
