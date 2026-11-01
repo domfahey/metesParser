@@ -181,5 +181,94 @@
       "Prior_Book_Normalized": "NA",
       "Prior_Page_Normalized": "NA"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "1325 Will Carleton Road",
+    "city": "Flat Rock",
+    "state": "MI",
+    "book": "50745",
+    "page": "1268"
+  },
+  "raw_ocr_text": "That part of the Southwest 1/4 of Section 34, Town 4 South, Range 9 East, Described as Follows: Beginning at a point on the South line of Section 34, said point being distant North 89 degrees 32 minutes 10 seconds West 652.68 feet from the South 1/4 corner of Section 34; proceeding thence North 89 degrees 32 minutes 10 seconds West along said South line 210.00 feet; thence North 00 degrees 15 minutes 50 seconds East 1177.54 feet to a point on the Southeasterly line of the Pennsylvania Rail Road right of way; thence North 39 degrees 48 minutes 28 seconds East along said line 329.84 feet; thence South 00 degrees 15. minutes 50 seconds West 1432.62 feet to the point of beginning.",
+  "expected_legal_description": "Property located in the Township of Huron, County of Wayne, State of Michigan:\n\nThat part of the Southwest 1/4 of Section 34, Town 4 South, Range 9 East, Described as Follows: Beginning at a point on the South line of Section 34, said point being distant North 89 degrees 32 minutes 10 seconds West 652.68 feet from the South 1/4 corner of Section 34; proceeding thence North 89 degrees 32 minutes 10 seconds West along said South line 210.00 feet; thence North 00 degrees 15 minutes 50 seconds East 1177.54 feet to a point on the Southeasterly line of the Pennsylvania Rail Road right of way; thence North 39 degrees 48 minutes 28 seconds East along said line 329.84 feet; thence South 00 degrees 15 minutes 50 seconds West 1432.62 feet to the point of beginning.\n\nCommonly Known As: 1325 Will Carleton Road, Flat Rock, MI 48117\n\nTax Id: 75-135-99-0004-701",
+  "expected_normalized_text": "Property located in the Township of Huron, County of Wayne, State of Michigan:\n\nThat part of the Southwest 1/4 of Section 34, Town 4 South, Range 9 East, Described as Follows: Beginning at a point on the South line of Section 34, said point being distant N 89°32'10\" W 652.68 feet from the South 1/4 corner of Section 34; proceeding thence N 89°32'10\" W along said South line 210.00 feet; thence N 0°15'50\" E 1177.54 feet to a point on the Southeasterly line of the Pennsylvania Rail Road right of way; thence N 39°48'28\" E along said line 329.84 feet; thence S 0°15'50\" W 1432.62 feet to the point of beginning.\n\nCommonly Known As: 1325 Will Carleton Road, Flat Rock, MI 48117\n\nTax Id: 75-135-99-0004-701",
+  "expected_poc": "the South 1/4 corner of Section 34",
+  "expected_pob": "a point on the South line of Section 34, said point being distant North 89 degrees 32 minutes 10 seconds West 652.68 feet from the South 1/4 corner of Section 34",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 89°32'10\" W",
+      "bearing_quadrant": "N 89°32' W",
+      "bearing_azimuth_deg_from_north": 270.4638888888889,
+      "distance_ft": 210.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said South line",
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "N 0°15'50\" E",
+      "bearing_quadrant": "N 0°16' E",
+      "bearing_azimuth_deg_from_north": 0.2638888888888889,
+      "distance_ft": 1177.54,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "a point on the Southeasterly line of the Pennsylvania Rail Road right of way",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "N 39°48'28\" E",
+      "bearing_quadrant": "N 39°48' E",
+      "bearing_azimuth_deg_from_north": 39.80777777777777,
+      "distance_ft": 329.84,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said line",
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "S 0°15'50\" W",
+      "bearing_quadrant": "S 0°16' W",
+      "bearing_azimuth_deg_from_north": 180.26388888888889,
+      "distance_ft": 1432.62,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "the point of beginning",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0049,
+    "area_sq_ft": 274065.93,
+    "area_acres": 6.2917,
+    "perimeter_ft": 3150.0,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    }
+  },
+  "notes": "Standard fields added 2026-10-31 from the recorded PDF (Mortgage, Exhibit A, Liber 50745 Page 1268, PDF page 12), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The vendor text's \"15. minutes\" in course 4 is a scan speck; the deed prints \"15 minutes\". The exhibit gives Flat Rock; the vendor Properties field gives Carleton."
 }

@@ -36,6 +36,7 @@ from mp_models import (
 from pydantic import ValidationError
 
 from .metadata import (
+    UNSUPPORTED_COMPOUND_PATTERN,
     detect_meander,
     extract_along_to_fields,
     extract_distance,
@@ -116,6 +117,91 @@ def _normalize_unit_token(token: str | None) -> str:
     return "feet"
 
 
+# "...to a point corner to X, which last mentioned point is the place of beginning":
+# the course ends at the true POB, so it and the courses before it (back to the
+# previous closing course) are tie lines.
+_RESTATED_POB_PATTERN = re.compile(
+    r"\blast\s+mentioned\s+point\s+is\s+the\s+(?:place|point)\s+of\s+beginning\b",
+    re.IGNORECASE,
+)
+_CLOSES_TO_POB_PATTERN = re.compile(
+    r"\bto\s+(?:the\s+|a\s+)?(?:(?:point|place)\s+(?:and\s+place\s+)?of\s+)?beginning\b",
+    re.IGNORECASE,
+)
+
+
+def _mark_restated_pob_tie_lines(calls: list[DeedCall], call_texts: list[str]) -> list[DeedCall]:
+    """Mark courses leading to a restated place of beginning as tie lines."""
+    segment_start = 0
+    tie_end: tuple[int, int] | None = None
+    for i, call_text in enumerate(call_texts):
+        if _CLOSES_TO_POB_PATTERN.search(call_text):
+            segment_start = i + 1
+        elif _RESTATED_POB_PATTERN.search(call_text):
+            tie_end = (segment_start, i)
+    if tie_end is None:
+        return calls
+    start, end = tie_end
+    return [
+        call.model_copy(update={"is_tie_in": True}) if start <= i <= end else call
+        for i, call in enumerate(calls)
+    ]
+
+
+# "said point being the following two courses and distances from the intersection":
+# the first courses run from the reference point to the POB, so they are tie lines.
+_PREAMBLE_TIE_COURSES_PATTERN = re.compile(
+    r"\bbeing\s+the\s+following\s+(?:(\w+)(?:\s+\(\d+\))?\s+)?courses?\s+and\s+distances?\s+from\b",
+    re.IGNORECASE,
+)
+_COUNT_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+
+
+def _preamble_tie_course_count(preamble: str, call_texts: list[str]) -> int:
+    """Return how many leading courses the preamble says lead to the POB.
+
+    Without a count ("the following courses and distances from"), the tie courses end at
+    the first course reaching the place of beginning while more courses follow.
+    """
+    match = _PREAMBLE_TIE_COURSES_PATTERN.search(preamble)
+    if not match:
+        return 0
+    if match.group(1) is None:
+        return next(
+            (
+                i + 1
+                for i, text in enumerate(call_texts[:-1])
+                if _CLOSES_TO_POB_PATTERN.search(text)
+            ),
+            0,
+        )
+    count = match.group(1).lower()
+    return int(count) if count.isdigit() else _COUNT_WORDS.get(count, 0)
+
+
+def _mark_preamble_tie_courses(calls: list[DeedCall], count: int) -> list[DeedCall]:
+    """Mark the leading courses the preamble counts as tie lines."""
+    if not count or count >= len(calls):
+        return calls
+    return [
+        call.model_copy(update={"is_tie_in": True}) if i < count else call
+        for i, call in enumerate(calls)
+    ]
+
+
+# "thence", "thence:" or "thence from the beginning point;" before the first numbered course
+_STANDALONE_THENCE = (
+    r"\s*THENCE(?:\s+from\s+the\s+(?:beginning\s+point|point\s+of\s+beginning))?\s*[:;]?\s*"
+)
+
+# "thence along the line of lands of X, the following two courses and distances;" introduces
+# the next courses and carries none itself
+_COURSE_INTRO_PATTERN = re.compile(
+    r"\bthe\s+following\s+(?:\w+\s+)?(?:\(\d+\)\s+)?courses?(?:\s+and\s+distances?)?\s*[:;,.]?\s*$",
+    re.IGNORECASE,
+)
+
+
 def _call_preview(call_text: str, max_len: int = 120) -> str:
     """Return a compact single-line preview suitable for warning logs."""
     compact = " ".join(call_text.split())
@@ -156,7 +242,7 @@ def _boundary_course_text(call_text: str) -> str:
 
 def _is_initial_course_prefix(prefix: str) -> bool:
     """Return whether text before THENCE starts with a supported bearing."""
-    candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\d+[.)])\s*)?", "", prefix)
+    candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s*)?", "", prefix)
     if PACKED_DMS_PATTERN.match(candidate):
         return True
 
@@ -170,6 +256,29 @@ def _is_initial_course_prefix(prefix: str) -> bool:
         remainder = candidate.lstrip()[len(direction) :]
         return bool(re.match(rf"\s+{COMMA_NUMBER}(?:\s|$)", remainder))
     return bool(parse_quadrant_bearing(direction) or due_cardinal_to_azimuth(direction) is not None)
+
+
+def _trailing_thence_course(prefix: str) -> str:
+    """Return the course ending the preamble when courses end with "thence".
+
+    "...Burnt Mill Road. N 40°41'31\" E a distance of 483.13 feet to a point thence;"
+    """
+    boundaries = list(re.finditer(r"[.;:]\s+|\n", prefix))
+    tail = prefix[boundaries[-1].end() :] if boundaries else ""
+    if not tail.strip():
+        return ""
+    return tail if _is_initial_course_prefix(tail) or _is_marked_bearing_course(tail) else ""
+
+
+def _is_marked_bearing_course(text: str) -> bool:
+    """Return whether text is a lettered/numbered course stating a bearing ("(A) Along X, N 73° W")."""
+    if not re.match(r"\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s", text):
+        return False
+    try:
+        direction = extract_direction(text)
+    except ValueError:
+        return False
+    return bool(direction and parse_quadrant_bearing(direction))
 
 
 def _extract_calls_from_text(
@@ -194,14 +303,16 @@ def _extract_calls_from_text(
     Returns:
         List of DeedCall objects
     """
-    normalized = normalize_legal_description(text)
-
-    tracts = split_exception_clauses(normalized)
+    # Callers pass normalized text; normalizing again is not idempotent (the
+    # "and <bearing>" separator rule would then see already-converted bearings).
+    tracts = split_exception_clauses(text)
 
     calls: list[DeedCall] = []
     course_num = course_start
 
     for tract_text, is_exception_tract in tracts:
+        tract_calls: list[DeedCall] = []
+        tract_call_texts: list[str] = []
         # Remove a recognized commencement/POB preamble. A description may
         # legitimately begin with its first course and introduce THENCE later.
         thence_match = re.search(r"\bTHENCE\b", tract_text, re.IGNORECASE)
@@ -214,10 +325,10 @@ def _extract_calls_from_text(
         )
         has_initial_course = bool(thence_match and _is_initial_course_prefix(prefix))
         if thence_match and (has_beginning_preamble or not has_initial_course):
-            tract_text = tract_text[thence_match.start() :]
+            tract_text = _trailing_thence_course(prefix) + tract_text[thence_match.start() :]
 
         has_numbered_course_markers = bool(
-            re.search(r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+", tract_text, re.MULTILINE)
+            re.search(r"(?:^|\n)\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+", tract_text, re.MULTILINE)
         )
         call_texts = split_into_calls(tract_text)
 
@@ -250,7 +361,9 @@ def _extract_calls_from_text(
                 continue
 
             if call is None:
-                standalone_thence = re.fullmatch(r"\s*THENCE\s*", call_text, re.I)
+                standalone_thence = re.fullmatch(
+                    _STANDALONE_THENCE, call_text, re.I
+                ) or _COURSE_INTRO_PATTERN.search(call_text)
                 explicit_course = not standalone_thence and (
                     has_thence_marker or has_numbered_course_markers
                 )
@@ -258,14 +371,15 @@ def _extract_calls_from_text(
                     explicit_course
                     or extract_direction(call_text)
                     or re.search(r"\b(?:[NSEW])\s+\d", call_text, re.I)
-                    or re.search(r"\b(?:curve|spiral|transition)\b", call_text, re.I)
+                    or re.search(r"\b(?:curv(?:e|ed|ing)|spiral|transition)\b", call_text, re.I)
                 ):
                     raise ValueError(f"Malformed course {source_course}: {call_text.strip()!r}")
                 continue
 
             if is_exception_tract:
                 call = call.model_copy(update={"is_exception": True})
-            calls.append(call)
+            tract_calls.append(call)
+            tract_call_texts.append(call_text)
 
             if audit_context is not None:
                 transformations, decisions, flags = _audit_single_call(call_text, call)
@@ -280,6 +394,11 @@ def _extract_calls_from_text(
                 )
 
             course_num += 1
+
+        tract_calls = _mark_preamble_tie_courses(
+            tract_calls, _preamble_tie_course_count(prefix, tract_call_texts)
+        )
+        calls.extend(_mark_restated_pob_tie_lines(tract_calls, tract_call_texts))
 
     return calls
 
@@ -407,11 +526,7 @@ def extract_single_call(
     course_text = _boundary_course_text(call_text)
     distance, unit = extract_distance(course_text)
     if distance == 0:
-        if re.search(
-            rf"{COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
-            course_text,
-            re.IGNORECASE,
-        ):
+        if UNSUPPORTED_COMPOUND_PATTERN.search(course_text):
             raise ValueError("Unsupported component in compound course distance")
         distance = extract_distance_alternate(course_text)
         unit = distance_unit
@@ -721,7 +836,7 @@ def extract_direction(text: str) -> str:
     packed_match = PACKED_DMS_PATTERN.search(text)
     quadrant_match = QUADRANT_PATTERN.search(text)
     if quadrant_match and not packed_match:
-        return quadrant_match.group(0)
+        return str(quadrant_match.group(0))
 
     if packed_match:
         cardinal1 = packed_match.group(1).upper()
@@ -836,7 +951,7 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
     """
     curve_info: dict[str, float | str | None] = {}
 
-    if not re.search(r"\b(?:curve|spiral|transition)\b", text, re.IGNORECASE):
+    if not re.search(r"\b(?:curv(?:e|ed|ing)|spiral|transition)\b", text, re.IGNORECASE):
         return curve_info
 
     match = CURVE_PATTERN.search(text)
@@ -875,7 +990,12 @@ def extract_curve_info(text: str) -> dict[str, float | str | None]:
         }
 
     else:
-        dir_match = re.search(r"curve\s+to\s+the\s+(left|right)", text, re.IGNORECASE)
+        # "curve to the left", "curving to the right", "turning towards the left"
+        dir_match = re.search(
+            r"\b(?:curve|curving|turning)\s+(?:to|towards?)\s+the\s+(left|right)\b",
+            text,
+            re.IGNORECASE,
+        )
         if dir_match:
             curve_info["direction"] = dir_match.group(1).lower()
 

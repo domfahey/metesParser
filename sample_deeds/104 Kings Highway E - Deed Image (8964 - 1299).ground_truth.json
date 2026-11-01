@@ -1,20 +1,20 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "104 Kings Highway East",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "8964",
+    "page": "1299"
   },
   "raw_ocr_text": "I can’t reliably extract **all** text with **exact spelling, capitalization, symbols, and line breaks** from these images at the level you’re requesting—especially the **metes-and-bounds “Beginning/Thence”** legal description—because the provided pages are low-resolution and several critical lines are too blurred to read with certainty. Returning a “complete” transcription would force me to guess, which would be unsafe for a legal document.\n\nIf you upload either (a) the **original PDF** (not screenshots) or (b) higher-resolution scans (ideally **300–600 DPI**, straightened, no compression), I can produce a full, line-perfect extraction.\n\nBelow is the **verbatim text I can read confidently** from the images you provided, preserving line breaks where legible. Sections that are not fully legible are marked **[ILLEGIBLE]** rather than guessed.\n\n---\n\nCAMDEN COUNTY  \nCAMDEN COUNTY CLERK’S OFFICE  \n[ILLEGIBLE] 8964 PG 1299  \nRECORDED 01/23/2009 09:02:17  \nFILE NUMBER 2009[ILLEGIBLE]  \n[ILLEGI...",
-  "expected_legal_description": "Legal description for Lots 2, 3, 4 and 5 Block 34 Tax Map Boro.  \nof Haddonfield describing the four lots as one parcel\n\nBeginning at a point in the southeasterly line of Kings Highway  \nEast (variable width as established by ordinance passed Feb 16,  \n1932, distant 52.15 feet Northeasterly from the intersection  \nof Kings Highway East with the Northwesterly line of Chestnut  \n(60.00 feet wide), said beginning point being in the division line  \nof Lots 2.01 and 2; thence (1) Northeasterly along the Southe-  \neasterly line of Kings Highway East a distance of 119.62 feet to  \na point in the line of lands now or formerly Samuel L. Kahn and in  \nthe division line of Lots 5 and 6; thence (2) Southeasterly  \nand forming an interior angle of 90 degrees 00 minutes 55 seconds  \nwith Kings Highway East along said lands of Kahn and along a fore-  \nmentioned division line between Lots 5 and 6 a distance of 231.15  \nfeet to a point in the line of Lands now or formerly Boro. of  \nHaddonfield; thence (3) Southwesterly along said Lands Boro. of  \nHaddonfield and lot herein described and forming an interior angle  \n89 degrees 30 minutes 00 seconds with the last course a distance  \nof 81.77 feet to a point; thence (4) Southeasterly and at right  \nangles to the last course and continuing along lands n/f Boro.  \nof Haddonfield and lot herein described a distance of 73.94 feet  \nto a point; thence (5) Southwesterly and forming an interior angle  \nof 90 degrees 23 minutes 20 seconds with the last course and along  \nthe division line of lot herein described and Lot 38 a distance of 36.50  \nfeet to a point; thence (6) Northwesterly along the division line  \nof Lot herein described and Lots 40,41,43 and 45 and forming  \nan interior angle of 89 degrees 36 minutes 40 seconds with the last  \ncourse a distance of 188.74 feet to a point; thence (7) Southwest-  \nwardly and forming an exterior angle of 89 degrees 30 minutes  \nwith the last course and along the division line of lot herein  \ndescribed and Lot 45 a distance of 34.50 feet to a point; thence  \n(8) Northwestwardly continuing along said division line and  \nforming an interior angle of 89 degrees 30 minutes with the last  \ncourse a distance of 10.00 feet to a point; thence (9) Southwest-  \nwardly continuing along said division line and forming an exterior  \nangle of 89 degrees 30 minutes with the last course a distance of  \n58.96 feet to a point common to lot herein described and Lots 45  \nand 1; thence (10) Northwestwardly forming an interior angle of  \n89 degrees 30 minutes with the last course and along the division  \nline of lot herein described and Lot 1 a distance of 7.00 feet  \nto a point; thence (11) Northeastwardly forming an interior angle  \nof 90 degrees 30 minutes with the last course and along the division  \nline of Lot herein described and Lot 2.01 a distance of 27.15 feet  \nto a point; thence (12) Northwestwardly and forming an exterior  \nangle of 90 degrees 30 minutes with the last course and continuing  \nalong the division line of lot herein described and Lot 2.01 a  \ndistance of 99.14 feet to a point in the Southeasterly line of Kings  \nHighway East and place of beginning.\n\nBeing known as #108 thru #114 Kings Highway East, Haddonfield, N.J.",
-  "expected_normalized_text": "Legal description for Lots 2, 3, 4 and 5 Block 34 Tax Map Boro. of Haddonfield describing the four lots as one parcel\n\nBeginning at a point in the southeasterly line of Kings Highway East (variable width as established by ordinance passed Feb 16, 1932, distant 52.15 feet Northeasterly from the intersection of Kings Highway East with the Northwesterly line of Chestnut (60.00 feet wide), said beginning point being in the division line of Lots 2.01 and 2; thence  \n(1) Northeasterly along the Southeasterly line of Kings Highway East a distance of 119.62 feet to a point in the line of lands now or formerly Samuel L. Kahn and in the division line of Lots 5 and 6; thence  \n(2) Southeasterly and forming an interior angle of 90°00'55\" with Kings Highway East along said lands of Kahn and along a forementioned division line between Lots 5 and 6 a distance of 231.15 feet to a point in the line of Lands now or formerly Boro. of Haddonfield; thence  \n(3) Southwesterly along said Lands Boro. of Haddonfield and lot herein described and forming an interior angle 89°30'00\" with the last course a distance of 81.77 feet to a point; thence  \n(4) Southeasterly and at right angles to the last course and continuing along lands n/f Boro. of Haddonfield and lot herein described a distance of 73.94 feet to a point; thence  \n(5) Southwesterly and forming an interior angle of 90°23'20\" with the last course and along the division line of lot herein described and Lot 38 a distance of 36.50 feet to a point; thence  \n(6) Northwesterly along the division line of Lot herein described and Lots 40,41,43 and 45 and forming an interior angle of 89°36'40\" with the last course a distance of 188.74 feet to a point; thence  \n(7) Southwestwardly and forming an exterior angle of 89°30' with the last course and along the division line of lot herein described and Lot 45 a distance of 34.50 feet to a point; thence  \n(8) Northwestwardly continuing along said division line and forming an interior angle of 89°30' with the last course a distance of 10.00 feet to a point; thence  \n(9) Southwestwardly continuing along said division line and forming an exterior angle of 89°30' with the last course a distance of 58.96 feet to a point common to lot herein described and Lots 45 and 1; thence  \n(10) Northwestwardly forming an interior angle of 89°30' with the last course and along the division line of lot herein described and Lot 1 a distance of 7.00 feet to a point; thence  \n(11) Northeastwardly forming an interior angle of 90°30' with the last course and along the division line of Lot herein described and Lot 2.01 a distance of 27.15 feet to a point; thence  \n(12) Northwestwardly and forming an exterior angle of 90°30' with the last course and continuing along the division line of lot herein described and Lot 2.01 a distance of 99.14 feet to a point in the Southeasterly line of Kings Highway East and place of beginning.\n\nBeing known as #108 thru #114 Kings Highway East, Haddonfield, N.J.",
+  "expected_legal_description": "Legal description for Lots 2,3,4 and 5 Block 34 Tax Map Boro. of Haddonfield describing the four lots as one parcel\n\nBeginning at a point in the southeasterly line of Kings Highway East (variable width) as established by ordinance passed Feb.16, 1932, distant 52.15 feet Northeastwardly from the intersection of Kings Highway East with the Northeasterly line of Chestnut Street (60.00 feet wide), said beginning point being in the division line of Lots 2.01 and 2; thence (1) Northeastwardly along the South-easterly line of Kings Highway East a distance of 119.62 feet to a point in the line of lands now or formerly Samuel L. Kahn and in the division line of Lots 5 and 6; thence (2) Southeastwardly and forming an interior angle of 90 degrees 00 minutes 55 seconds with Kings Highway East along said lands of Kahn and along afore-mentioned division line between Lots 5 and 6 a distance of 231.15 feet to a point in the line of Lands now or formerly Boro. of Haddonfield; thence (3) Southwestwardly along said Lands Boro. of Haddonfield and lot herein described and forming an interior angle 89 degrees 30 minutes 00 seconds with the last course a distance of 18.77 feet to a point; thence (4) Southeastwardly and at right angles to the last course and continuing along Lands n/f of Boro. of Haddonfield and lot herein described a distance of 73.94 feet to a point; thence (5) Southwestwardly and forming an interior angle of 90 degrees 23 minutes 20 seconds with the last course and along the division line of Lot herein described and Lot 38 a distance of36.50 feet to a point; thence (6) Northwestwardly along the division line of Lot herein described and Lots 40,41,43 and 45 and forming an interior angle of 89 degrees 36 minutes 40 seconds with the last course a distance of 188.74 feet to a point; thence (7) Southwest-wardly and forming an exterior angle of 89 degrees 30 minutes with the last course and along the division line of lot herein described and Lot 45 a distance of 34.50 feet to a point; thence (8) Northwestwardly continuing along said division line and forming an interior angle of 89 degrees 30 minutes with the last course a distance of 10.00 feet to a point; thence (9) Southwest-wardly continuing along said division line and forming an exterior angle of 89 degrees 30 minute with the last course a distance of 58.96 feet to a point common to lot herein described and Lots 45 and 1; thence (10) Northwestwardly forming an interior angle of 89 degrees 30 minutes with the last course and along the division line of lot herein described and Lot 1 a distance of 7.00 feet to a point ; thence (11) Northeastwardly forming an interior angle of 90 degrees 30 minutes with the last course and along the division line of Lot herein described and Lot 2.01 a distance of 27.15 feet to a point; thence (12) Northwestwardly and forming an exterior angle of 90 degrees 30 minutes with the last course and continuing along the division line of lot herein described and Lot 2.01 a distance of 99.14 feet to a point in the Southeasterly line of Kings Highway East and place of beginning..\n\nBeing known as #108 thru #114 Kings Highway East, Haddonfield, N.J.",
+  "expected_normalized_text": "Legal description for Lots 2,3,4 and 5 Block 34 Tax Map Boro. of Haddonfield describing the four lots as one parcel\n\nBeginning at a point in the southeasterly line of Kings Highway East (variable width) as established by ordinance passed Feb.16, 1932, distant 52.15 feet Northeastwardly from the intersection of Kings Highway East with the Northeasterly line of Chestnut Street (60.00 feet wide), said beginning point being in the division line of Lots 2.01 and 2; thence (1) Northeastwardly along the South-easterly line of Kings Highway East a distance of 119.62 feet to a point in the line of lands now or formerly Samuel L. Kahn and in the division line of Lots 5 and 6; thence (2) Southeastwardly and forming an interior angle of 90 degrees 00 minutes 55 seconds with Kings Highway East along said lands of Kahn and along afore-mentioned division line between Lots 5 and 6 a distance of 231.15 feet to a point in the line of Lands now or formerly Boro. of Haddonfield; thence (3) Southwestwardly along said Lands Boro. of Haddonfield and lot herein described and forming an interior angle 89 degrees 30 minutes 00 seconds with the last course a distance of 18.77 feet to a point; thence (4) Southeastwardly and at right angles to the last course and continuing along Lands n/f of Boro. of Haddonfield and lot herein described a distance of 73.94 feet to a point; thence (5) Southwestwardly and forming an interior angle of 90 degrees 23 minutes 20 seconds with the last course and along the division line of Lot herein described and Lot 38 a distance of36.50 feet to a point; thence (6) Northwestwardly along the division line of Lot herein described and Lots 40,41,43 and 45 and forming an interior angle of 89 degrees 36 minutes 40 seconds with the last course a distance of 188.74 feet to a point; thence (7) Southwest-wardly and forming an exterior angle of 89 degrees 30 minutes with the last course and along the division line of lot herein described and Lot 45 a distance of 34.50 feet to a point; thence (8) Northwestwardly continuing along said division line and forming an interior angle of 89 degrees 30 minutes with the last course a distance of 10.00 feet to a point; thence (9) Southwest-wardly continuing along said division line and forming an exterior angle of 89 degrees 30 minute with the last course a distance of 58.96 feet to a point common to lot herein described and Lots 45 and 1; thence (10) Northwestwardly forming an interior angle of 89 degrees 30 minutes with the last course and along the division line of lot herein described and Lot 1 a distance of 7.00 feet to a point ; thence (11) Northeastwardly forming an interior angle of 90 degrees 30 minutes with the last course and along the division line of Lot herein described and Lot 2.01 a distance of 27.15 feet to a point; thence (12) Northwestwardly and forming an exterior angle of 90 degrees 30 minutes with the last course and continuing along the division line of lot herein described and Lot 2.01 a distance of 99.14 feet to a point in the Southeasterly line of Kings Highway East and place of beginning..\n\nBeing known as #108 thru #114 Kings Highway East, Haddonfield, N.J.",
   "expected_poc": null,
-  "expected_pob": "a point in the southeasterly line of Kings Highway East (variable width as established by ordinance passed Feb 16, 1932, distant 52",
+  "expected_pob": "a point in the southeasterly line of Kings Highway East (variable width) as established by ordinance passed Feb.16, 1932, distant 52.15 feet Northeastwardly from the intersection of Kings Highway East with the Northeasterly line of Chestnut Street (60.00 feet wide)",
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "northeasterly",
+      "direction_text": "Northeastwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 119.62,
@@ -22,14 +22,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the Southeasterly line of Kings Highway East a distance of 119.62 feet",
-      "to": "a point in the line of lands now or formerly Samuel L",
+      "along": "the South-easterly line of Kings Highway East",
+      "to": "a point in the line of lands now or formerly Samuel L. Kahn and in the division line of Lots 5 and 6",
       "monument_type": null,
       "notes": "incomplete bearing - cardinal only"
     },
     {
       "course": 2,
-      "direction_text": "southeasterly",
+      "direction_text": "Southeastwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 231.15,
@@ -37,29 +37,29 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said lands of Kahn and along a forementioned division line between Lots 5 and 6 a distance of 231.15 feet",
-      "to": "a point in the line of Lands now or formerly Boro",
+      "along": "said lands of Kahn and along afore-mentioned division line between Lots 5 and 6",
+      "to": "a point in the line of Lands now or formerly Boro. of Haddonfield",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 90°00'55\" with Kings Highway East"
     },
     {
       "course": 3,
-      "direction_text": "southwesterly",
+      "direction_text": "Southwestwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
-      "distance_ft": 81.77,
+      "distance_ft": 18.77,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said Lands Boro. of Haddonfield and lot herein described and forming an interior angle 89°30'00\" with the last course a distance of 81.77 feet",
+      "along": "said Lands Boro. of Haddonfield and lot herein described",
       "to": "a point",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 89°30'00\" with the last course"
     },
     {
       "course": 4,
-      "direction_text": "southeasterly",
+      "direction_text": "Southeastwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 73.94,
@@ -67,14 +67,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "lands now or formerly Boro. of Haddonfield and lot herein described a distance of 73.94 feet",
+      "along": "Lands n/f of Boro. of Haddonfield and lot herein described",
       "to": "a point",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; at right angles to the last course"
     },
     {
       "course": 5,
-      "direction_text": "southwesterly",
+      "direction_text": "Southwestwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 36.5,
@@ -82,14 +82,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the division line of lot herein described and Lot 38 a distance of 36.50 feet",
+      "along": "the division line of Lot herein described and Lot 38",
       "to": "a point",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 90°23'20\" with the last course"
     },
     {
       "course": 6,
-      "direction_text": "northwesterly",
+      "direction_text": "Northwestwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 188.74,
@@ -97,14 +97,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the division line of Lot herein described and Lots 40,41,43 and 45 and forming an interior angle of 89°36'40\" with the last course a distance of 188.74 feet",
+      "along": "the division line of Lot herein described and Lots 40,41,43 and 45",
       "to": "a point",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 89°36'40\" with the last course"
     },
     {
       "course": 7,
-      "direction_text": "southwestwardly",
+      "direction_text": "Southwestwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 34.5,
@@ -112,14 +112,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the division line of lot herein described and Lot 45 a distance of 34.50 feet",
+      "along": "the division line of lot herein described and Lot 45",
       "to": "a point",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; exterior angle 89°30' with the last course"
     },
     {
       "course": 8,
-      "direction_text": "northwestwardly",
+      "direction_text": "Northwestwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 10.0,
@@ -127,14 +127,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said division line and forming an interior angle of 89°30' with the last course a distance of 10.00 feet",
+      "along": "said division line",
       "to": "a point",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 89°30' with the last course"
     },
     {
       "course": 9,
-      "direction_text": "southwestwardly",
+      "direction_text": "Southwestwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 58.96,
@@ -142,14 +142,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said division line and forming an exterior angle of 89°30' with the last course a distance of 58.96 feet to a point common",
-      "to": "lot herein described and Lots 45 and 1",
+      "along": "said division line",
+      "to": "a point common to lot herein described and Lots 45 and 1",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; exterior angle 89°30' with the last course"
     },
     {
       "course": 10,
-      "direction_text": "northwestwardly",
+      "direction_text": "Northwestwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 7.0,
@@ -157,14 +157,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the division line of lot herein described and Lot 1 a distance of 7.00 feet",
+      "along": "the division line of lot herein described and Lot 1",
       "to": "a point",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 89°30' with the last course"
     },
     {
       "course": 11,
-      "direction_text": "northeastwardly",
+      "direction_text": "Northeastwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 27.15,
@@ -172,14 +172,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the division line of Lot herein described and Lot 2.01 a distance of 27.15 feet",
+      "along": "the division line of Lot herein described and Lot 2.01",
       "to": "a point",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 90°30' with the last course"
     },
     {
       "course": 12,
-      "direction_text": "northwestwardly",
+      "direction_text": "Northwestwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 99.14,
@@ -187,18 +187,19 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the division line of lot herein described and Lot 2.01 a distance of 99.14 feet",
+      "along": "the division line of lot herein described and Lot 2.01",
       "to": "a point in the Southeasterly line of Kings Highway East and place of beginning",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; exterior angle 90°30' with the last course"
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 0.0,
-    "area_sq_ft": 0.0,
-    "area_acres": 0.0,
-    "perimeter_ft": 968.47,
-    "closure_passed": false
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Every course is cardinal-only (bearings not stated), so no closure is computed. Walking the deed's interior/exterior angles (course (4) turns at right angles, a 270° interior angle) closes the parcel to 0.058 ft."
   },
   "critical_assertions": {
     "num_calls": {
@@ -207,5 +208,5 @@
       "description": "MUST extract exactly 12 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T02:55:31.442509+00:00"
+  "notes": "Ground truth generated at 2026-02-17T02:55:31.442509+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF (Book 8964 Page 1303, PDF page 5), transcribed verbatim (\"South-easterly\", \"of36.50\", \"89 degrees 30 minute\", \"beginning..\"). The previous ground truth had course (3) as 81.77 ft; the deed prints 18.77 ft, which closes the parcel by its angles (81.77 misses by 63 ft), and it normalized the deed's \"-wardly\" directions."
 }

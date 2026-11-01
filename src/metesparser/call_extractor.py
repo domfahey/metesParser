@@ -23,7 +23,12 @@ from .models import (
     MonumentType,
     Transformation,
 )
-from .text_parser import _COMMA_NUMBER, TextParser, parse_comma_number
+from .text_parser import (
+    _COMMA_NUMBER,
+    _UNSUPPORTED_COMPOUND_PATTERN,
+    TextParser,
+    parse_comma_number,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -75,6 +80,105 @@ def _normalize_unit_token(token: str | None) -> str:
     if t in ("mile", "miles"):
         return "miles"
     return "feet"
+
+
+# "...to a point corner to X, which last mentioned point is the place of beginning":
+# the course ends at the true POB, so it and the courses before it (back to the
+# previous closing course) are tie lines.
+_RESTATED_POB_PATTERN = re.compile(
+    r"\blast\s+mentioned\s+point\s+is\s+the\s+(?:place|point)\s+of\s+beginning\b",
+    re.IGNORECASE,
+)
+_CLOSES_TO_POB_PATTERN = re.compile(
+    r"\bto\s+(?:the\s+|a\s+)?(?:(?:point|place)\s+(?:and\s+place\s+)?of\s+)?beginning\b",
+    re.IGNORECASE,
+)
+
+
+def _mark_restated_pob_tie_lines(calls: list[DeedCall], call_texts: list[str]) -> list[DeedCall]:
+    """Mark courses leading to a restated place of beginning as tie lines."""
+    segment_start = 0
+    tie_end: tuple[int, int] | None = None
+    for i, call_text in enumerate(call_texts):
+        if _CLOSES_TO_POB_PATTERN.search(call_text):
+            segment_start = i + 1
+        elif _RESTATED_POB_PATTERN.search(call_text):
+            tie_end = (segment_start, i)
+    if tie_end is None:
+        return calls
+    start, end = tie_end
+    return [
+        call.model_copy(update={"is_tie_in": True}) if start <= i <= end else call
+        for i, call in enumerate(calls)
+    ]
+
+
+# "said point being the following two courses and distances from the intersection":
+# the first courses run from the reference point to the POB, so they are tie lines.
+_PREAMBLE_TIE_COURSES_PATTERN = re.compile(
+    r"\bbeing\s+the\s+following\s+(?:(\w+)(?:\s+\(\d+\))?\s+)?courses?\s+and\s+distances?\s+from\b",
+    re.IGNORECASE,
+)
+_COUNT_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+
+
+def _preamble_tie_course_count(preamble: str, call_texts: list[str]) -> int:
+    """Return how many leading courses the preamble says lead to the POB.
+
+    Without a count ("the following courses and distances from"), the tie courses end at
+    the first course reaching the place of beginning while more courses follow.
+    """
+    match = _PREAMBLE_TIE_COURSES_PATTERN.search(preamble)
+    if not match:
+        return 0
+    if match.group(1) is None:
+        return next(
+            (
+                i + 1
+                for i, text in enumerate(call_texts[:-1])
+                if _CLOSES_TO_POB_PATTERN.search(text)
+            ),
+            0,
+        )
+    count = match.group(1).lower()
+    return int(count) if count.isdigit() else _COUNT_WORDS.get(count, 0)
+
+
+def _mark_preamble_tie_courses(calls: list[DeedCall], count: int) -> list[DeedCall]:
+    """Mark the leading courses the preamble counts as tie lines."""
+    if not count or count >= len(calls):
+        return calls
+    return [
+        call.model_copy(update={"is_tie_in": True}) if i < count else call
+        for i, call in enumerate(calls)
+    ]
+
+
+# SCHEDULE A-1: one property per schedule in a multi-property deed (mirrors
+# mp_parse.tracts._SCHEDULE_MARKER; a lone "Schedule A" names the attachment).
+_SCHEDULE_MARKER = re.compile(r"\bSCHEDULE\s+[A-Z]-?\d+\b", re.IGNORECASE)
+
+
+def _split_schedules(text: str) -> list[str]:
+    """Split a multi-property description so each schedule's courses split on their own."""
+    starts = [match.start() for match in _SCHEDULE_MARKER.finditer(text)]
+    if not starts:
+        return [text]
+    bounds = [0, *starts, len(text)]
+    return [text[a:b] for a, b in zip(bounds, bounds[1:], strict=False) if text[a:b].strip()]
+
+
+# "thence", "thence:" or "thence from the beginning point;" before the first numbered course
+_STANDALONE_THENCE = (
+    r"\s*THENCE(?:\s+from\s+the\s+(?:beginning\s+point|point\s+of\s+beginning))?\s*[:;]?\s*"
+)
+
+# "thence along the line of lands of X, the following two courses and distances;" introduces
+# the next courses and carries none itself
+_COURSE_INTRO_PATTERN = re.compile(
+    r"\bthe\s+following\s+(?:\w+\s+)?(?:\(\d+\)\s+)?courses?(?:\s+and\s+distances?)?\s*[:;,.]?\s*$",
+    re.IGNORECASE,
+)
 
 
 def _call_preview(call_text: str, max_len: int = 120) -> str:
@@ -217,9 +321,36 @@ class CallExtractor:
     )
 
     @classmethod
+    def _trailing_thence_course(cls, prefix: str) -> str:
+        """Return the course ending the preamble when courses end with "thence".
+
+        "...Burnt Mill Road. N 40°41'31\" E a distance of 483.13 feet to a point thence;"
+        """
+        boundaries = list(re.finditer(r"[.;:]\s+|\n", prefix))
+        tail = prefix[boundaries[-1].end() :] if boundaries else ""
+        if not tail.strip():
+            return ""
+        return (
+            tail
+            if cls._is_initial_course_prefix(tail) or cls._is_marked_bearing_course(tail)
+            else ""
+        )
+
+    @classmethod
+    def _is_marked_bearing_course(cls, text: str) -> bool:
+        """Return whether text is a lettered/numbered course stating a bearing ("(A) Along X, N 73° W")."""
+        if not re.match(r"\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s", text):
+            return False
+        try:
+            direction = cls.extract_direction(text)
+        except ValueError:
+            return False
+        return bool(direction and BearingConverter.parse_quadrant_bearing(direction))
+
+    @classmethod
     def _is_initial_course_prefix(cls, prefix: str) -> bool:
         """Return whether text before THENCE starts with a supported bearing."""
-        candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\d+[.)])\s*)?", "", prefix)
+        candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s*)?", "", prefix)
         if cls.PACKED_DMS_PATTERN.match(candidate):
             return True
 
@@ -262,12 +393,18 @@ class CallExtractor:
         """
         normalized = TextParser.normalize_legal_description(text)
 
-        tracts = TextParser.split_exception_clauses(normalized)
+        tracts = [
+            clause
+            for schedule_text in _split_schedules(normalized)
+            for clause in TextParser.split_exception_clauses(schedule_text)
+        ]
 
         calls: list[DeedCall] = []
         course_num = 1
 
         for tract_text, is_exception_tract in tracts:
+            tract_calls: list[DeedCall] = []
+            tract_call_texts: list[str] = []
             # Remove a recognized commencement/POB preamble. A description may
             # legitimately begin with its first course and introduce THENCE later.
             thence_match = re.search(r"\bTHENCE\b", tract_text, re.IGNORECASE)
@@ -280,11 +417,13 @@ class CallExtractor:
             )
             has_initial_course = bool(thence_match and cls._is_initial_course_prefix(prefix))
             if thence_match and (has_beginning_preamble or not has_initial_course):
-                tract_text = tract_text[thence_match.start() :]
+                tract_text = (
+                    cls._trailing_thence_course(prefix) + tract_text[thence_match.start() :]
+                )
 
             has_numbered_course_markers = bool(
                 re.search(
-                    r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+",
+                    r"(?:^|\n)\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+",
                     tract_text,
                     re.MULTILINE,
                 )
@@ -320,7 +459,9 @@ class CallExtractor:
                     continue
 
                 if call is None:
-                    standalone_thence = re.fullmatch(r"\s*THENCE\s*", call_text, re.I)
+                    standalone_thence = re.fullmatch(
+                        _STANDALONE_THENCE, call_text, re.I
+                    ) or _COURSE_INTRO_PATTERN.search(call_text)
                     explicit_course = not standalone_thence and (
                         has_thence_marker or has_numbered_course_markers
                     )
@@ -328,14 +469,15 @@ class CallExtractor:
                         explicit_course
                         or cls.extract_direction(call_text)
                         or re.search(r"\b(?:[NSEW])\s+\d", call_text, re.I)
-                        or re.search(r"\b(?:curve|spiral|transition)\b", call_text, re.I)
+                        or re.search(r"\b(?:curv(?:e|ed|ing)|spiral|transition)\b", call_text, re.I)
                     ):
                         raise ValueError(f"Malformed course {source_course}: {call_text.strip()!r}")
                     continue
 
                 if is_exception_tract:
                     call = call.model_copy(update={"is_exception": True})
-                calls.append(call)
+                tract_calls.append(call)
+                tract_call_texts.append(call_text)
 
                 if audit_context is not None:
                     transformations, decisions, flags = cls._audit_single_call(call_text, call)
@@ -350,6 +492,11 @@ class CallExtractor:
                     )
 
                 course_num += 1
+
+            tract_calls = _mark_preamble_tie_courses(
+                tract_calls, _preamble_tie_course_count(prefix, tract_call_texts)
+            )
+            calls.extend(_mark_restated_pob_tie_lines(tract_calls, tract_call_texts))
 
         return calls
 
@@ -408,11 +555,7 @@ class CallExtractor:
         course_text = _boundary_course_text(call_text)
         distance, unit = TextParser.extract_distance(course_text)
         if distance == 0:
-            if re.search(
-                rf"{_COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{_COMMA_NUMBER}\s+[A-Za-z]+",
-                course_text,
-                re.IGNORECASE,
-            ):
+            if _UNSUPPORTED_COMPOUND_PATTERN.search(course_text):
                 raise ValueError("Unsupported component in compound course distance")
             distance = cls.extract_distance_alternate(course_text)
             unit = distance_unit
@@ -851,7 +994,7 @@ class CallExtractor:
         """
         curve_info: dict[str, float | str | None] = {}
 
-        if not re.search(r"\b(?:curve|spiral|transition)\b", text, re.IGNORECASE):
+        if not re.search(r"\b(?:curv(?:e|ed|ing)|spiral|transition)\b", text, re.IGNORECASE):
             return curve_info
 
         match = cls.CURVE_PATTERN.search(text)
@@ -890,7 +1033,12 @@ class CallExtractor:
             }
 
         else:
-            dir_match = re.search(r"curve\s+to\s+the\s+(left|right)", text, re.IGNORECASE)
+            # "curve to the left", "curving to the right", "turning towards the left"
+            dir_match = re.search(
+                r"\b(?:curve|curving|turning)\s+(?:to|towards?)\s+the\s+(left|right)\b",
+                text,
+                re.IGNORECASE,
+            )
             if dir_match:
                 curve_info["direction"] = dir_match.group(1).lower()
 

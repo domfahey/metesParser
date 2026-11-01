@@ -5,48 +5,103 @@
     "state": "NJ",
     "book": "5056",
     "page": "813",
-    "parcel_shape": "Irregular 5-sided polygon (expected)",
-    "dimensions": "Unknown - legal description not readable from scan"
+    "parcel_shape": "Irregular 5-sided polygon"
   },
   "raw_ocr_text": "",
-  "expected_legal_description": null,
-  "expected_normalized_text": null,
-  "expected_pob": null,
-  "expected_calls": [],
-  "expected_closure": {
-    "misclosure_ft": null,
-    "misclosure_tolerance_ft": 0.01,
-    "area_sq_ft": null,
-    "area_acres": null,
-    "perimeter_ft": null,
-    "closure_passed": false,
-    "closure_notes": "Cannot compute closure - OCR extracted 0 calls. The entire legal description is unreadable from the low-resolution scan. The parser reported 0.0000 ft misclosure with CLOSES status, which is an artifact of having zero calls (no traverse to measure). Based on later deeds in this chain, the description likely has 5 calls, possibly using the pre-survey version (S 64\u00b022'25\" W, 229.89 ft) since this predates the 2007 survey."
-  },
-  "critical_assertions": {
-    "ocr_completely_failed": {
-      "expected": true,
-      "description": "OCR could not extract ANY text from this scan - it is the oldest and lowest quality deed in the chain"
-    },
-    "zero_calls_expected": {
-      "expected": true,
-      "description": "0 calls is the correct result for this unreadable scan - parser should not fabricate calls"
-    },
-    "false_closure": {
-      "expected": true,
-      "description": "Parser may report CLOSES with 0.0000 misclosure, but this is a false positive from having zero calls, not actual closure"
-    }
-  },
-  "common_failure_modes": [
+  "expected_legal_description": "ALL that certain land and premises situate in the Borough of Haddonfield, County of Camden and the State of New Jersey, bounded and described as follows:\n\nBEGINNING at a point in the Southeasterly line of Kings Highway West, distant 80 feet Southwestwardly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield; thence\n\n(1) South 64 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings Highway West, 299.89 feet to a point; thence\n\n(2) South 25 degrees 37 minutes 35 seconds East at right angles to Kings Highway West 120.68 feet to corner to other land of John J. Litz and Caroline, his wife; thence\n\n(3) South 68 degrees 39 minutes 05 seconds East along said land of Litz, at right angles to Chews Landing Road, 171.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n\n(4) North 21 degrees 20 minutes 55 seconds East along the Northwesterly line of Chews Landing Road, 279.48 feet to corner to said land of the Borough of Haddonfield; thence\n\n(5) North 46 degrees 46 minutes 25 seconds West along said land of the Borough of Haddonfield, 59.30 feet to the point and place of beginning.\n\nBEING known as Lot 6, Block 79.01, as shown on the Borough of Haddonfield Tax Map.\n\nCOMMONLY known as 26 Chews Landing Road.",
+  "expected_normalized_text": "ALL that certain land and premises situate in the Borough of Haddonfield, County of Camden and the State of New Jersey, bounded and described as follows:\n\nBEGINNING at a point in the Southeasterly line of Kings Highway West, distant 80 feet Southwestwardly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield; thence\n\n(1) S 64°22'25\" W along the Southeasterly line of Kings Highway West, 299.89 feet to a point; thence\n\n(2) S 25°37'35\" E at right angles to Kings Highway West 120.68 feet to corner to other land of John J. Litz and Caroline, his wife; thence\n\n(3) S 68°39'05\" E along said land of Litz, at right angles to Chews Landing Road, 171.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n\n(4) N 21°20'55\" E along the Northwesterly line of Chews Landing Road, 279.48 feet to corner to said land of the Borough of Haddonfield; thence\n\n(5) N 46°46'25\" W along said land of the Borough of Haddonfield, 59.30 feet to the point and place of beginning.\n\nBEING known as Lot 6, Block 79.01, as shown on the Borough of Haddonfield Tax Map.\n\nCOMMONLY known as 26 Chews Landing Road.",
+  "expected_poc": null,
+  "expected_pob": "a point in the Southeasterly line of Kings Highway West, distant 80 feet Southwestwardly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield",
+  "expected_calls": [
     {
-      "symptom": "Parser reports CLOSES with 0 misclosure",
-      "cause": "Zero calls means zero traverse means zero misclosure - a mathematical tautology, not actual closure",
-      "fix": "Parser should flag 0-call results as 'no data' rather than reporting closure. Consider adding a minimum call count check before declaring closure."
+      "course": 1,
+      "direction_text": "S 64°22'25\" W",
+      "bearing_quadrant": "S 64°22' W",
+      "bearing_azimuth_deg_from_north": 244.3736111111111,
+      "distance_ft": 299.89,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Southeasterly line of Kings Highway West",
+      "to": "a point",
+      "monument_type": null,
+      "notes": null
     },
     {
-      "symptom": "No text extracted at all from the PDF",
-      "cause": "Very old scan (1990s recording) with extremely low resolution - the LLM OCR could not read any portion with confidence",
-      "fix": "Re-scan from original deed at 300+ DPI, or obtain a certified copy from the Camden County Clerk's Office"
+      "course": 2,
+      "direction_text": "S 25°37'35\" E",
+      "bearing_quadrant": "S 25°38' E",
+      "bearing_azimuth_deg_from_north": 154.3736111111111,
+      "distance_ft": 120.68,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "corner to other land of John J. Litz and Caroline, his wife",
+      "monument_type": null,
+      "notes": "at right angles to Kings Highway West"
+    },
+    {
+      "course": 3,
+      "direction_text": "S 68°39'05\" E",
+      "bearing_quadrant": "S 68°39' E",
+      "bearing_azimuth_deg_from_north": 111.34861111111111,
+      "distance_ft": 171.43,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said land of Litz",
+      "to": "a point in the Northwesterly line of said Chews Landing Road",
+      "monument_type": null,
+      "notes": "at right angles to Chews Landing Road"
+    },
+    {
+      "course": 4,
+      "direction_text": "N 21°20'55\" E",
+      "bearing_quadrant": "N 21°21' E",
+      "bearing_azimuth_deg_from_north": 21.34861111111111,
+      "distance_ft": 279.48,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Northwesterly line of Chews Landing Road",
+      "to": "corner to said land of the Borough of Haddonfield",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "N 46°46'25\" W",
+      "bearing_quadrant": "N 46°46' W",
+      "bearing_azimuth_deg_from_north": 313.2263888888889,
+      "distance_ft": 59.3,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said land of the Borough of Haddonfield",
+      "to": "the point and place of beginning",
+      "monument_type": null,
+      "notes": null
     }
   ],
-  "notes": "Oldest deed in the chain of title for 26 Chews Landing Rd. Grantor: Lillian A. Ragone (referenced as 'Lillian Pagone' in some later deeds - likely a misspelling). Grantee: William V. Furtkevic and Denise A. Furtkevic, husband and wife, and Dennis J. Lynch and Phyllis A. Lynch, husband and wife. Dated November 19, 1990 (per reference in Book 7797 Page 970). Recorded December 7, 1990. Block 79.01, Lot 6. This scan is completely unreadable by OCR. The legal description likely uses the pre-survey version (matching 7797/967 and 7797/972) since it predates the 2007 Humphries survey. Referenced in: Book 7797/967, Book 7797/970, Book 8566/200."
+  "expected_closure": {
+    "misclosure_ft": 0.0047,
+    "area_sq_ft": 51635.57,
+    "area_acres": 1.1854,
+    "perimeter_ft": 930.78,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 5,
+      "operator": "==",
+      "description": "MUST extract exactly 5 calls"
+    }
+  },
+  "notes": "Oldest deed in the chain of title for 26 Chews Landing Rd. Grantor: Lillian A. Ragone. Grantee: William V. Furtkevic and Denise A. Furtkevic, husband and wife, and Dennis J. Lynch and Phyllis A. Lynch, husband and wife. Dated November 19, 1990; recorded December 7, 1990. Block 79.01, Lot 6. Legal description and calls rebuilt 2026-10-31 from the recorded PDF: Schedule C of the Surety Title Agency commitment (Book 5056 Page 814, PDF page 2), read at 600 dpi and transcribed verbatim. Course 1 is 299.89 ft (the LlamaParse markdown reads 299.09; the 7797 ground truths record 229.89); with 299.89 the parcel closes at 0.0047 ft."
 }

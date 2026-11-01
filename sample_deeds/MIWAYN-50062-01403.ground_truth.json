@@ -159,5 +159,94 @@
       "Prior_Book_Normalized": "49124",
       "Prior_Page_Normalized": "713"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "39523 Michigan",
+    "city": "Canton",
+    "state": "MI",
+    "book": "50062",
+    "page": "1403"
+  },
+  "raw_ocr_text": "36F8B PT OF NE 1/4 SEC 36 T2S R8E BEG S0DEG 32M 50S W 401.55FT AND N80DEG 29M 20S W 480.49FT AND S0DEG 49M 20S W 142.75FT AND N89DEG 10M 40S W 2FT FROM NE COR SEC 36 TH S0DEG 49M 20S W 175FT TH N89DEG 10M 40S W 61.23FT TH NODEG 49M E 175FT TH S89DEG 10M 40S E 61.26FT POB 0.25 AC\n",
+  "expected_legal_description": "36F8B PT OF NE 1/4 SEC 36 T2S R8E BEG S0DEG 32M 50S W 401.55FT AND N80DEG 29M 20S W 480.49FT AND S0DEG 49M 20S W 142.75FT AND N89DEG 10M 40S W 2FT FROM NE COR SEC 36 TH S0DEG 49M 20S W 175FT TH N89DEG 10M 40S W 61.23FT TH N0DEG 49M E 175FT TH S89DEG 10M 40S E 61.26FT POB 0.25 AC",
+  "expected_normalized_text": "36F8B PT OF NE 1/4 SEC 36 T2S R8E BEG S 0°32'50\" W 401.55FT AND N 80°29'20\" W 480.49FT AND S 0°49'20\" W 142.75FT AND N 89°10'40\" W 2FT FROM NE COR SEC 36 TH S 0°49'20\" W 175FT TH N 89°10'40\" W 61.23FT TH N 0°49' E 175FT TH S 89°10'40\" E 61.26FT POB 0.25 AC",
+  "expected_poc": "NE COR SEC 36",
+  "expected_pob": "S0DEG 32M 50S W 401.55FT AND N80DEG 29M 20S W 480.49FT AND S0DEG 49M 20S W 142.75FT AND N89DEG 10M 40S W 2FT FROM NE COR SEC 36",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 0°49'20\" W",
+      "bearing_quadrant": "S 0°49' W",
+      "bearing_azimuth_deg_from_north": 180.82222222222222,
+      "distance_ft": 175.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "N 89°10'40\" W",
+      "bearing_quadrant": "N 89°11' W",
+      "bearing_azimuth_deg_from_north": 270.8222222222222,
+      "distance_ft": 61.23,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "N 0°49' E",
+      "bearing_quadrant": "N 0°49' E",
+      "bearing_azimuth_deg_from_north": 0.8166666666666667,
+      "distance_ft": 175.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "S 89°10'40\" E",
+      "bearing_quadrant": "S 89°11' E",
+      "bearing_azimuth_deg_from_north": 90.82222222222222,
+      "distance_ft": 61.26,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.013,
+    "area_sq_ft": 10716.73,
+    "area_acres": 0.246,
+    "perimeter_ft": 472.49,
+    "closure_passed": false
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    }
+  },
+  "notes": "Standard fields added 2026-10-31 from the recorded PDF (Wayne County Treasurer Certificate of Redemption, Property Description, Liber 50062 Page 1403, PDF page 1), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. Assessor-style metes and bounds in the NE 1/4 of Sec 36: the four offsets after BEG locate the point of beginning and are not courses; 4 courses close to 0.0130 ft. The deed prints 'N0DEG 49M E' (digit zero, no seconds); the vendor text has 'NODEG'."
 }

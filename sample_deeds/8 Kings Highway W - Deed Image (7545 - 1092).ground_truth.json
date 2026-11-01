@@ -15,34 +15,35 @@
     "consideration": "$479,000.00"
   },
   "raw_ocr_text": "ALL THAT CERTAIN tract or parcel of land and premises situate in the Borough of Haddonfield, County of Camden, State of New Jersey, bounded and described as follows:\n\nBeginning at a point in the Northwesterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12.09, Block 76, said point being North 32 degrees 22 minutes 35 seconds West, 101.35 feet from the intersection of said Northeasterly line of Lot 10 with the Southerly line of Lot 12.13, Block 76 and running; thence\n\n(1) Along said Northeasterly line of Lot 10, Block 76, North 32 degrees 22 minutes 35 seconds West, 19.87 feet to a point in the division line of Lots 12.08 and 12.09 as shown on Plan hereinafter mentioned; thence\n\n(2) Along the said division line, North 60 degrees 54 minutes 43 seconds East, 30.33 feet to a point in same; thence\n\n(3) Still along said division line, North 61 degrees 11 minutes 33 seconds East, 57.39 feet to a point in the Southwesterly line of Lot 12.03; thence\n\n(4) Along said Southwesterly line of Lot 12.03 and along the Southwesterly line of 12.04, South 28 degrees 36 minutes 51 seconds East, 19.98 feet to a point in the division line of Lots 12.09 and 12.10 as shown on Plan hereinafter mentioned; thence\n\n(5) Along said division line, South 61 degrees 11 minutes 33 seconds West, 86.41 feet to the point and place of beginning.",
-  "expected_legal_description": "Beginning at a point in the Northwesterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12.09, Block 76; thence (1) through (5) to the point and place of beginning.",
-  "expected_normalized_text": "Beginning at a point in the Northwesterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12.09, Block 76, said point being North 32 degrees 22 minutes 35 seconds West, 101.35 feet from the intersection of said Northeasterly line of Lot 10 with the Southerly line of Lot 12.13, Block 76",
-  "expected_pob": "a point in the Northwesterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12.09, Block 76",
+  "expected_legal_description": "Beginning at a point in the Northwesterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12.09, Block 76, said point being North 32 degrees 22 minutes 35 seconds West, 101.35 feet from the intersection of said Northeasterly line of Lot 10 with the Southerly line of Lot 12.13, Block 76 and running; thence\n\n(1) Along said Northeasterly line of Lot 10, Block 76, North 32 degrees 22 minutes 35 seconds West, 19.87 feet to a point in the division line of Lots 12.08 and 12.09 as shown on Plan hereinafter mentioned; thence\n\n(2) Along the said division line, North 60 degrees 54 minutes 43 seconds East, 30.33 feet to a point in same; thence\n\n(3) Still along said division line, North 61 degrees 11 minutes 33 seconds East, 57.39 feet to a point in the Southwesterly line of Lot 12.03; thence\n\n(4) Along said Southwesterly line of Lot 12.03 and along the Southwesterly line of 12.04, South 28 degrees 36 minutes 51 seconds East, 19.98 feet to a point in the division line of Lots 12.09 and 12.10 as shown on Plan hereinafter mentioned; thence\n\n(5) Along said division line, South 61 degrees 11 minutes 33 seconds West, 86.41 feet to the point and place of beginning.\n\nBeing known as Lot 12.09 on a plan prepared by JTS Engineering and Land Surveyors, Inc., entitled \"Final Plan of Lots, Willits Court, situate in the Borough of Haddonfield, County of Camden, New Jersey\", dated December 5, 2003 and filed in the Camden County Clerks Office on May 21, 2004 in Book 902, page 15.\n\nFOR INFORMATIONAL PURPOSES ONLY: Also known as Lot 12.09 in Block 76 of the Official Tax Map of the Borough of Haddonfield.",
+  "expected_normalized_text": "Beginning at a point in the Northwesterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12.09, Block 76, said point being N 32°22'35\" W, 101.35 feet from the intersection of said Northeasterly line of Lot 10 with the Southerly line of Lot 12.13, Block 76 and running; thence\n(1) Along said Northeasterly line of Lot 10, Block 76, N 32°22'35\" W, 19.87 feet to a point in the division line of Lots 12.08 and 12.09 as shown on Plan hereinafter mentioned; thence\n(2) Along the said division line, N 60°54'43\" E, 30.33 feet to a point in same; thence\n(3) Still along said division line, N 61°11'33\" E, 57.39 feet to a point in the Southwesterly line of Lot 12.03; thence\n(4) Along said Southwesterly line of Lot 12.03 and along the Southwesterly line of 12.04, S 28°36'51\" E, 19.98 feet to a point in the division line of Lots 12.09 and 12.10 as shown on Plan hereinafter mentioned; thence\n(5) Along said division line, S 61°11'33\" W, 86.41 feet to the point and place of beginning. Being known as Lot 12.09 on a plan prepared by JTS Engineering and Land Surveyors, Inc., entitled \"Final Plan of Lots, Willits Court, situate in the Borough of Haddonfield, County of Camden, New Jersey\", dated December 5, 2003 and filed in the Camden County Clerks Office on May 21, 2004 in Book 902, page 15. FOR INFORMATIONAL PURPOSES ONLY: Also known as Lot 12.09 in Block 76 of the Official Tax Map of the Borough of Haddonfield.",
+  "expected_poc": null,
+  "expected_pob": "a point in the Northwesterly line of Lot 10, Block 76, where intersected by the Southerly line of Lot 12.09, Block 76, said point being North 32 degrees 22 minutes 35 seconds West, 101.35 feet from the intersection of said Northeasterly line of Lot 10 with the Southerly line of Lot 12.13, Block 76",
   "expected_calls": [
     {
       "course": 1,
       "direction_text": "N 32 degrees 22 minutes 35 seconds W",
-      "bearing_quadrant": "N 32\u00b022'35\" W",
-      "bearing_azimuth_deg_from_north": 327.6236,
+      "bearing_quadrant": "N 32°22'35\" W",
+      "bearing_azimuth_deg_from_north": 327.623611,
       "distance_ft": 19.87,
-      "along": "Northeasterly line of Lot 10, Block 76",
-      "to": "a point in the division line of Lots 12.08 and 12.09",
+      "along": "said Northeasterly line of Lot 10, Block 76",
+      "to": "a point in the division line of Lots 12.08 and 12.09 as shown on Plan hereinafter mentioned",
       "notes": null
     },
     {
       "course": 2,
       "direction_text": "N 60 degrees 54 minutes 43 seconds E",
-      "bearing_quadrant": "N 60\u00b054'43\" E",
-      "bearing_azimuth_deg_from_north": 60.9119,
+      "bearing_quadrant": "N 60°54'43\" E",
+      "bearing_azimuth_deg_from_north": 60.911944,
       "distance_ft": 30.33,
-      "along": "said division line",
+      "along": "the said division line",
       "to": "a point in same",
       "notes": null
     },
     {
       "course": 3,
       "direction_text": "N 61 degrees 11 minutes 33 seconds E",
-      "bearing_quadrant": "N 61\u00b011'33\" E",
+      "bearing_quadrant": "N 61°11'33\" E",
       "bearing_azimuth_deg_from_north": 61.1925,
       "distance_ft": 57.39,
       "along": "said division line",
@@ -52,17 +53,17 @@
     {
       "course": 4,
       "direction_text": "S 28 degrees 36 minutes 51 seconds E",
-      "bearing_quadrant": "S 28\u00b036'51\" E",
-      "bearing_azimuth_deg_from_north": 151.3858,
+      "bearing_quadrant": "S 28°36'51\" E",
+      "bearing_azimuth_deg_from_north": 151.385833,
       "distance_ft": 19.98,
-      "along": "Southwesterly line of Lot 12.03 and along the Southwesterly line of 12.04",
-      "to": "a point in the division line of Lots 12.09 and 12.10",
+      "along": "said Southwesterly line of Lot 12.03 and along the Southwesterly line of 12.04",
+      "to": "a point in the division line of Lots 12.09 and 12.10 as shown on Plan hereinafter mentioned",
       "notes": null
     },
     {
       "course": 5,
       "direction_text": "S 61 degrees 11 minutes 33 seconds W",
-      "bearing_quadrant": "S 61\u00b011'33\" W",
+      "bearing_quadrant": "S 61°11'33\" W",
       "bearing_azimuth_deg_from_north": 241.1925,
       "distance_ft": 86.41,
       "along": "said division line",
@@ -79,16 +80,19 @@
     "closure_passed": true
   },
   "critical_assertions": {
-    "total_calls": 5,
+    "num_calls": {
+      "expected": 5,
+      "operator": "==",
+      "description": "MUST extract exactly 5 calls"
+    },
     "is_willits_court_lot": true,
     "lot_number": "12.09",
     "is_resale": true,
-    "same_legal_description_as": "7516-1812",
-    "note": "Resale of Lot 12.09 from Mussoline to Stuessy. Same legal description as deed 7516-1812. POB description says 'Northwesterly line' but call (1) says 'Northeasterly line' - likely OCR inconsistency."
+    "same_courses_as": "7516-1812"
   },
   "common_failure_modes": [
-    "OCR shows 'Northwesterly line of Lot 10' in POB but 'Northeasterly line of Lot 10' in call (1) - inconsistent",
-    "Call (4) references 'Southwesterly line of 12.04' missing 'Lot' prefix"
+    "The deed opens 'in the Northwesterly line of Lot 10' but then refers to 'said Northeasterly line of Lot 10' (the tie and course (1)); the wording is the deed's own",
+    "Course (4) reads 'the Southwesterly line of 12.04' without 'Lot', as printed"
   ],
-  "notes": "Resale of Lot 12.09 just one month after original purchase. Mussoline bought for $441,390 (deed 7516-1812) and sold to Stuessy for $479,000. Identical legal description to the original deed."
+  "notes": "Legal description transcribed verbatim from the deed body, Book 7545 Pages 1092-1093, PDF pages 1-2. Resale of Lot 12.09 from Joseph and Gail Mussoline to Ruth P. Stuessy about a month after the original purchase (deed 7516-1812); the five courses are the same as that ground truth's. The 101.35 ft tie is Lot 12.10's 81.33 ft tie plus its 20.02 ft course (1) in deed 7609-137. Closes at 0.0053 ft."
 }

@@ -11,16 +11,100 @@
     "consideration": "$725,000.00"
   },
   "raw_ocr_text": "Page 1 OCR is heavily garbled (low resolution scan). Page 2 is clear but continues from garbled page 1. BEGINNING keyword appears as 'BEGINNiNn' in OCR output.",
-  "expected_legal_description": "BEGINNING at a stone in the Northeast side of Haddon Avenue, distance 167.66 feet North 36 degrees 03 minutes 25 seconds West along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, said angle point being North 55 degrees 57 minutes 35 seconds West 85.39 feet along the Northeast line of Haddon Avenue from its intersections with Northwell line of Lake Street; thence North 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue 87.31 feet to stone corner to land now or late of Samuel N. Rhoads; thence along said North 53 degrees 41 minutes 15 seconds East, passing over stone 292.51 feet from Haddon Avenue and corner to Samuel N. Rhoads and continuing said course a total distance of 307.52 feet to stake in line of land now or late of Margaret N. Rhoads; thence along said land South 34 degrees 42 minutes 30 seconds East 2.86 feet to stake corner to same; thence still along said land of Margaret N. Rhoads South 54 degrees 55 minutes 50 seconds East 89.13 feet to stake; thence South 53 degrees 41 minutes 15 seconds West, passing over stone 15.83 feet from beginning of this course total distance of 336.25 feet to place of beginning.",
+  "expected_legal_description": "BEGINNING at a stone in the Northeast line of Haddon Avenue, distance 167.66 feet North 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, said angle point being North 55 degrees 57 minutes 35 seconds West 85.39 feet along the Northeast line of Haddon Avenue from its intersections with Northwest line of Lake Street; thence North 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue 87.31 feet to stone corner to land now or late of Samule N. Rhoads; thence along said North 53 degrees 41 minutes 15 seconds East, passing over stone 292.51 feet from Haddon Avenue and corner to Samule N. Rhoads and continuing said course a total distance of 307.52 feet to stake in line of land now or late of Margaret N. Rhoads; thence along said land South 34 degrees 42 minutes 30 seconds East 2.86 feet to stake corner to same; thence still along said land of Margaret N. Rhoads South 54 degrees 55 minutes 50 seconds East 89.13 feet to stake; thence South 53 degrees 41 minutes 15 seconds West, passing over stone 15.83 feet from beginning of this course total distance of 336.25 feet to place of beginning.",
+  "expected_normalized_text": "BEGINNING at a stone in the Northeast line of Haddon Avenue, distance 167.66 feet N 36°03'35\" W along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, said angle point being N 55°57'35\" W 85.39 feet along the Northeast line of Haddon Avenue from its intersections with Northwest line of Lake Street; thence N 36°03'35\" W along the Northeast line of Haddon Avenue 87.31 feet to stone corner to land now or late of Samule N. Rhoads; thence along said N 53°41'15\" E, passing over stone 292.51 feet from Haddon Avenue and corner to Samule N. Rhoads and continuing said course a total distance of 307.52 feet to stake in line of land now or late of Margaret N. Rhoads; thence along said land S 34°42'30\" E 2.86 feet to stake corner to same; thence still along said land of Margaret N. Rhoads S 54°55'50\" E 89.13 feet to stake; thence S 53°41'15\" W, passing over stone 15.83 feet from beginning of this course total distance of 336.25 feet to place of beginning.",
   "expected_poc": null,
-  "expected_pob": "a stone in the Northeast side of Haddon Avenue, distance 167.66 feet North 36 degrees 03 minutes 25 seconds West along the Northeast line of Haddon Avenue from angle point in Haddon Avenue",
-  "expected_calls": [],
-  "expected_closure": null,
-  "critical_assertions": {
-    "total_calls": 0,
-    "actual_calls_in_deed": 5,
-    "ocr_quality": "too_poor_for_extraction",
-    "note": "The deed actually has 5 calls but page 1 OCR is too garbled for reliable extraction. BEGINNING keyword appears as 'BEGINNiNn', bearing terms as 'minules'/'scconds'. Page 2 is clear but the first call (before the first thence) is lost due to page 1 corruption. Parser correctly cannot extract accurate calls from this OCR quality."
+  "expected_pob": "a stone in the Northeast line of Haddon Avenue, distance 167.66 feet North 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue from angle point in Haddon Avenue",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 36°03'35\" W",
+      "bearing_quadrant": "N 36°04' W",
+      "bearing_azimuth_deg_from_north": 323.9402777777778,
+      "distance_ft": 87.31,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Northeast line of Haddon Avenue",
+      "to": "stone corner to land now or late of Samule N. Rhoads",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "N 53°41'15\" E",
+      "bearing_quadrant": "N 53°41' E",
+      "bearing_azimuth_deg_from_north": 53.6875,
+      "distance_ft": 307.52,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "stake in line of land now or late of Margaret N. Rhoads",
+      "monument_type": null,
+      "notes": "passes over stone 292.51 feet from Haddon Avenue; total distance 307.52 feet"
+    },
+    {
+      "course": 3,
+      "direction_text": "S 34°42'30\" E",
+      "bearing_quadrant": "S 34°42' E",
+      "bearing_azimuth_deg_from_north": 145.29166666666666,
+      "distance_ft": 2.86,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said land",
+      "to": "stake corner to same",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "S 54°55'50\" E",
+      "bearing_quadrant": "S 54°56' E",
+      "bearing_azimuth_deg_from_north": 125.06944444444446,
+      "distance_ft": 89.13,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said land of Margaret N. Rhoads",
+      "to": "stake",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "S 53°41'15\" W",
+      "bearing_quadrant": "S 53°41' W",
+      "bearing_azimuth_deg_from_north": 233.6875,
+      "distance_ft": 336.25,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "place of beginning",
+      "monument_type": null,
+      "notes": "passes over stone 15.83 feet from beginning of this course; total distance 336.25 feet"
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0342,
+    "area_sq_ft": 28065.73,
+    "area_acres": 0.6443,
+    "perimeter_ft": 823.07,
+    "closure_passed": false
   },
-  "notes": "OCR quality too poor for automated extraction. Page 1 is heavily garbled. The deed has 5 calls: N 36\u00b003'35\" W 87.31 ft, N 53\u00b041'15\" E 307.52 ft, S 34\u00b042'30\" E 2.86 ft, S 54\u00b055'50\" E 89.13 ft, S 53\u00b041'15\" W 336.25 ft. A higher-quality scan would be needed for accurate extraction."
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 5,
+      "operator": "==",
+      "description": "MUST extract exactly 5 calls"
+    }
+  },
+  "notes": "Ground truth rebuilt 2026-10-31 from the recorded PDF (Book 4924 Pages 452-453, PDF pages 1-2), transcribed verbatim. The previous legal text had transcription errors ('Northeast side', '03 minutes 25 seconds', 'Northwell', 'Samuel'); the deed reads 'Northeast line', '35 seconds', 'Northwest' and spells 'Samule N. Rhoads' twice. Courses 2 and 5 pass over stones; the course lengths are the stated total distances. Misclosure 0.0342 ft, same courses as 4924-448."
 }

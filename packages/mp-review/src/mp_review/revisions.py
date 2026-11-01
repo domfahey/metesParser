@@ -16,13 +16,13 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Literal, cast
 
-from mp_bearing.azimuth import (  # type: ignore[import-untyped]
+from mp_bearing.azimuth import (
     azimuth_to_quadrant,
     parse_packed_dms,
     parse_quadrant_bearing,
     quadrant_to_azimuth,
 )
-from mp_bearing.curves import calculate_curve_properties  # type: ignore[import-untyped]
+from mp_bearing.curves import calculate_curve_properties
 from mp_models.comparison import ComparisonDescription, ComparisonRequest
 from mp_models.corridor import CorridorRequest
 from mp_models.dashboard import DashboardBundle, DashboardEdit

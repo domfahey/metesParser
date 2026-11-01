@@ -173,5 +173,94 @@
       "Prior_Book_Normalized": "NA",
       "Prior_Page_Normalized": "NA"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "20720 Waltz Rd",
+    "city": "New Boston (Township of Huron)",
+    "state": "MI",
+    "book": "50020",
+    "page": "1181"
+  },
+  "raw_ocr_text": "The following described property:\nPremises situated in the Township of Huron, County of Wayne, State of Michigan:\nThat part of Fractional Section 7, Town 4 South, Range 9 East, described as beginning at a point distant South 89 degrees 14 minutes 50 seconds West 1,304.76 feet along the South line of said Section, and North 0 degrees 00 minutes 30 seconds West 785.57 feet, and North 89 degrees 50 minutes East 493.11 feet from the Southeast corner of Section 7, and proceeding thence North 89 degrees 50 minutes East 439.98 feet to the Westerly line of Waltz Road, thence South 30 degrees 07 minutes 30 seconds East along said Westerly line 173.82 feet; thence South 89 degrees 50 minutes West 526.89 feet; thence North 0 degrees 10 minutes West 150.60 feet to the point of beginning.\nAssessor's Parcel Number: 75-028-99-0022-000\n",
+  "expected_legal_description": "The following described property:\n\nPremises situated in the Township of Huron, County of Wayne, State of Michigan:\n\nThat part of Fractional Section 7, Town 4 South, Range 9 East, described as beginning at a point distant South 89 degrees 14 minutes 50 seconds West 1,304.76 feet along the South line of said Section, and North 0 degrees 00 minutes 30 seconds West 785.57 feet, and North 89 degrees 50 minutes East 493.11 feet from the Southeast corner of Section 7, and proceeding thence North 89 degrees 50 minutes East 439.98 feet to the Westerly line of Waltz Road, thence South 30 degrees 07 minutes 30 seconds East along said Westerly line 173.82 feet; thence South 89 degrees 50 minutes West 526.89 feet; thence North 0 degrees 10 minutes West 150.60 feet to the point of beginning.\n\nAssessor's Parcel Number: 75-028-99-0022-000",
+  "expected_normalized_text": "The following described property:\n\nPremises situated in the Township of Huron, County of Wayne, State of Michigan:\n\nThat part of Fractional Section 7, Town 4 South, Range 9 East, described as beginning at a point distant S 89°14'50\" W 1,304.76 feet along the South line of said Section, and N 0°00'30\" W 785.57 feet, and N 89°50' E 493.11 feet from the Southeast corner of Section 7, and proceeding thence N 89°50' E 439.98 feet to the Westerly line of Waltz Road, thence S 30°07'30\" E along said Westerly line 173.82 feet; thence S 89°50' W 526.89 feet; thence N 0°10' W 150.60 feet to the point of beginning.\n\nAssessor's Parcel Number: 75-028-99-0022-000",
+  "expected_poc": null,
+  "expected_pob": "a point distant South 89 degrees 14 minutes 50 seconds West 1,304.76 feet along the South line of said Section, and North 0 degrees 00 minutes 30 seconds West 785.57 feet, and North 89 degrees 50 minutes East 493.11 feet from the Southeast corner of Section 7",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 89°50' E",
+      "bearing_quadrant": "N 89°50' E",
+      "bearing_azimuth_deg_from_north": 89.83333333333333,
+      "distance_ft": 439.98,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "the Westerly line of Waltz Road",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "S 30°07'30\" E",
+      "bearing_quadrant": "S 30°08' E",
+      "bearing_azimuth_deg_from_north": 149.875,
+      "distance_ft": 173.82,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said Westerly line",
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "S 89°50' W",
+      "bearing_quadrant": "S 89°50' W",
+      "bearing_azimuth_deg_from_north": 269.8333333333333,
+      "distance_ft": 526.89,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "N 0°10' W",
+      "bearing_quadrant": "N 0°10' W",
+      "bearing_azimuth_deg_from_north": 359.8333333333333,
+      "distance_ft": 150.6,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "the point of beginning",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.1096,
+    "area_sq_ft": 72811.48,
+    "area_acres": 1.6715,
+    "perimeter_ft": 1291.29,
+    "closure_passed": false
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    }
+  },
+  "notes": "Standard fields added 2026-10-31 from the recorded PDF: Exhibit A, Legal Description (Page 16 of 16), transcribed verbatim; the vendor keys are kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The three offsets locating the point of beginning from the Southeast corner of Section 7 are part of the beginning clause, not courses. Four boundary courses; the parcel closes to 0.110 ft."
 }

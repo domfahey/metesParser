@@ -15,21 +15,73 @@
     "consideration": "$370,000.00"
   },
   "raw_ocr_text": "SEE Schedule C attached.\n\n[Schedule C is NOT present in the scanned PDF pages. The legal description page was not included in this deed image. The Schedule C for Lot 12.04 (File No. ITA7807) physically appears in the PDF for deed 7535-929 instead.]",
-  "expected_legal_description": "",
-  "expected_pob": null,
-  "expected_calls": [],
-  "expected_closure": null,
+  "expected_legal_description": "Beginning at a point in the Southwesterly right of way line of Washington Avenue (40 feet wide) where intersected by the Northerly line of Lot 12.04, said point being South 25 degrees 06 minutes 00 seconds East, 116.51 feet from the intersection of said right of way line of Washington avenue with the Southeasterly line of Lot 12, Block 76 and running; thence\n\n(1) Along said Southwesterly right of way line of Washington Avenue, South 25 degrees 06 minutes 00 seconds East, 20.09 feet to a point in same; thence\n\n(2) Along the common line of Lots 12.04 and 12.05, Block 76, South 61 degrees 23 minutes 09 seconds West, 72.34 feet to a point in the Northeasterly line of Lot 12.10, Block 76; thence\n\n(3) Along said Northeasterly line of Lot 12.10, and Lot 12.09, North 28 degrees 36 minutes 51 seconds West, 20.05 feet to a point in same; thence\n\n(4) Along the common line of Lots 12.03 and 12.04, Block 76, North 61 degrees 23 minutes 09 seconds East, 73.57 feet to the point and place of beginning.\n\nBeing known as Lot 12.04 on a plan prepared by JTS Engineering and Land Surveyors, Inc., entitled \"Final Plan of Lots, Willits Court, situate in the Borough of Haddonfield, County of Camden, New Jersey\", dated December 5, 2003 and filed in the Camden County Clerk's Office on May 21, 2004 in Book 902, page 15.\n\nFOR INFORMATIONAL PURPOSES ONLY: Also known as Lot 12.04 in Block 76 on the Borough of Haddonfield Tax Map.",
+  "legal_description_markdown": "8 Kings Highway W - Deed Image (7535 - 929).md",
+  "expected_normalized_text": "Beginning at a point in the Southwesterly right of way line of Washington Avenue (40 feet wide) where intersected by the Northerly line of Lot 12.04, said point being S 25°06'00\" E, 116.51 feet from the intersection of said right of way line of Washington avenue with the Southeasterly line of Lot 12, Block 76 and running; thence\n(1) Along said Southwesterly right of way line of Washington Avenue, S 25°06'00\" E, 20.09 feet to a point in same; thence\n(2) Along the common line of Lots 12.04 and 12.05, Block 76, S 61°23'09\" W, 72.34 feet to a point in the Northeasterly line of Lot 12.10, Block 76; thence\n(3) Along said Northeasterly line of Lot 12.10, and Lot 12.09, N 28°36'51\" W, 20.05 feet to a point in same; thence\n(4) Along the common line of Lots 12.03 and 12.04, Block 76, N 61°23'09\" E, 73.57 feet to the point and place of beginning. Being known as Lot 12.04 on a plan prepared by JTS Engineering and Land Surveyors, Inc., entitled \"Final Plan of Lots, Willits Court, situate in the Borough of Haddonfield, County of Camden, New Jersey\", dated December 5, 2003 and filed in the Camden County Clerk's Office on May 21, 2004 in Book 902, page 15. FOR INFORMATIONAL PURPOSES ONLY: Also known as Lot 12.04 in Block 76 on the Borough of Haddonfield Tax Map.",
+  "expected_poc": null,
+  "expected_pob": "a point in the Southwesterly right of way line of Washington Avenue (40 feet wide) where intersected by the Northerly line of Lot 12.04, said point being South 25 degrees 06 minutes 00 seconds East, 116.51 feet from the intersection of said right of way line of Washington avenue with the Southeasterly line of Lot 12, Block 76",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 25 degrees 06 minutes 00 seconds E",
+      "bearing_quadrant": "S 25°06'00\" E",
+      "bearing_azimuth_deg_from_north": 154.9,
+      "distance_ft": 20.09,
+      "along": "said Southwesterly right of way line of Washington Avenue",
+      "to": "a point in same",
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "S 61 degrees 23 minutes 09 seconds W",
+      "bearing_quadrant": "S 61°23'09\" W",
+      "bearing_azimuth_deg_from_north": 241.385833,
+      "distance_ft": 72.34,
+      "along": "the common line of Lots 12.04 and 12.05, Block 76",
+      "to": "a point in the Northeasterly line of Lot 12.10, Block 76",
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "N 28 degrees 36 minutes 51 seconds W",
+      "bearing_quadrant": "N 28°36'51\" W",
+      "bearing_azimuth_deg_from_north": 331.385833,
+      "distance_ft": 20.05,
+      "along": "said Northeasterly line of Lot 12.10, and Lot 12.09",
+      "to": "a point in same",
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "N 61 degrees 23 minutes 09 seconds E",
+      "bearing_quadrant": "N 61°23'09\" E",
+      "bearing_azimuth_deg_from_north": 61.385833,
+      "distance_ft": 73.57,
+      "along": "the common line of Lots 12.03 and 12.04, Block 76",
+      "to": "the point and place of beginning",
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0026,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": 1462.76,
+    "area_acres": 0.0336,
+    "perimeter_ft": 186.05,
+    "closure_passed": true
+  },
   "critical_assertions": {
-    "total_calls": 0,
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    },
     "is_willits_court_lot": true,
     "lot_number": "12.04",
-    "schedule_c_missing_from_scan": true,
-    "note": "The Schedule C legal description page was not included in this deed's PDF scan. The county clerk's office recorded a 'Missing Page Certificate' / 'This Page Intentionally Left Blank' in its place. The actual legal description for Lot 12.04 was physically bundled with the 7535-929 deed PDF. Parser correctly reports 0 calls."
+    "schedule_c_recorded_with_7535_929": true
   },
   "common_failure_modes": [
-    "Schedule C not present in scan - parser cannot extract any calls",
-    "The Missing Page Certificate in the scan confirms the omission",
-    "Ground truth calls come from the Schedule C in deed 7535-929's PDF"
+    "This deed's own PDF has no legal description: it says \"SEE Schedule C attached\" and the recorded page is a Missing Page Certificate (Page 936); the Schedule C is recorded as Book 7535 Page 932A, PDF page 5 of deed 7535-929's PDF, so parsing this PDF alone yields 0 calls"
   ],
-  "notes": "Lot 12.04 deed is missing its Schedule C legal description page from the scanned document. GT correctly expects 0 calls since the legal description is not in this PDF."
+  "notes": "Legal description transcribed verbatim from Schedule C (File No. ITA7807), recorded as Book 7535 Page 932A, which appears as PDF page 5 of deed 7535-929's PDF. It belongs to this deed: the deed (Book 7535 Page 933) conveys Lot 12.04, Block 76, carries file number ITA# 1777807 and says \"SEE Schedule C attached\", while its own scan has a Missing Page Certificate (Page 936) where the Schedule C would be. The fax-degraded \"seconds\" in the preamble is transcribed as typed. Courses agree with the adjoining lots: the 116.51 + 20.09 ft tie equals Lot 12.05's 136.60 ft, and course (4) 73.57 ft and course (2) 72.34 ft match the common lines of Lots 12.03 and 12.05."
 }

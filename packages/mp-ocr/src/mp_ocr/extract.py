@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import structlog
-import yaml  # type: ignore[import-untyped]
+import yaml
 from mp_models import LLMStageRecord
 
 from .cache import CachedLLMClient

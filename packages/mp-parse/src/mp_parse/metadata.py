@@ -328,7 +328,7 @@ def split_into_calls(text: str) -> list[str]:
     """Split text into individual THENCE calls.
 
     Handles multiple formats:
-    - Numbered (1., 2., 3.; 1), 2); (1), (2))
+    - Numbered (1., 2., 3.; 1), 2); (1), (2); lettered (a), (b))
     - THENCE keyword separated
     - Semicolon separated
 
@@ -338,14 +338,20 @@ def split_into_calls(text: str) -> list[str]:
     Returns:
         List of call strings
     """
-    numbered_pattern = r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+"
+    numbered_pattern = r"(?:^|\n)\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+"
 
     if re.search(numbered_pattern, text, re.MULTILINE):
         parts = re.split(
-            r"(?:^|\n)\s*(?=(?:\(\d+\)|\d+[.)])\s+)",
+            r"(?:^|\n)\s*(?=(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+)",
             text,
             flags=re.MULTILINE,
         )
+        # Text before the first numbered course that opens the description ("...BEGINNING
+        # at a point ... a distance of 310.00 feet from ...") is a preamble, not a course.
+        if re.search(r"\b(?:BEGINNING|COMMENCING)\b", parts[0], re.IGNORECASE) and not re.search(
+            r"\bTHENCE\b", parts[0], re.IGNORECASE
+        ):
+            parts = parts[1:]
     elif re.search(r"\bTHENCE\b", text, re.IGNORECASE):
         parts = re.split(r"\bTHENCE\b", text, flags=re.IGNORECASE)
     else:
@@ -360,7 +366,7 @@ def split_into_calls(text: str) -> list[str]:
         if re.match(r"^\s*(?:BEGINNING|COMMENCING|POB|POINT)", cleaned, re.IGNORECASE):
             continue
 
-        cleaned = re.sub(r"^(?:\(\d+\)|\d+[.)])\s+", "", cleaned)
+        cleaned = re.sub(r"^(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+", "", cleaned)
 
         # Truncate at metadata section boundaries (e.g., "THE ABOVE DESCRIBED",
         # "CONTAINING", "BEING the same").  The pattern is sentence-boundary
@@ -375,6 +381,34 @@ def split_into_calls(text: str) -> list[str]:
             calls.append(cleaned)
 
     return calls
+
+
+# "N <unit> and N <unit>" the compound parser cannot sum. Angles ("15 minutes and
+# 40 seconds") and feet-and-inches are not unsupported distance components.
+UNSUPPORTED_COMPOUND_PATTERN = re.compile(
+    rf"{COMMA_NUMBER}\s+(?!(?:degrees?|minutes?|seconds?)\b)[A-Za-z]+(?:\s+[A-Za-z]+)?"
+    rf"\s+and\s+{COMMA_NUMBER}\s+(?!inch(?:es)?\b)[A-Za-z]+",
+    re.IGNORECASE,
+)
+
+_INCHES_AFTER_FEET = re.compile(
+    r"\s*,?\s*(?:and\s+)?(\d+(?:\.\d+)?)\s*inch(?:es)?\b", re.IGNORECASE
+)
+
+
+def _is_reference_distance(text: str, match: re.Match[str]) -> bool:
+    """Return whether a distance sizes or locates something other than the course.
+
+    "10 feet wide alley" is a width and "distant 10 feet Northeastwardly therefrom"
+    is an offset; neither is the length of the course.
+    """
+    after = text[match.end() :]
+    if re.match(r"\s+wide\b", after, re.IGNORECASE):
+        return True
+    return bool(
+        re.search(r"\bdistant\s+$", text[: match.start()], re.IGNORECASE)
+        and re.match(r"\s+(?:north|south|east|west)", after, re.IGNORECASE)
+    )
 
 
 def extract_distance(text: str) -> tuple[float, str]:
@@ -394,7 +428,7 @@ def extract_distance(text: str) -> tuple[float, str]:
     )
 
     total_match = re.search(
-        rf"\b(?:for\s+)?a\s+total\s+distance\s+(?:of\s+)?({COMMA_NUMBER})\s*"
+        rf"\b(?:for\s+)?(?:a\s+)?total\s+distance\s+(?:of\s+)?({COMMA_NUMBER})\s*"
         r"(US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?|foot|feet|ft|poles?|rods?|perches?|chains?|links?|varas?|arpents?|toises?|furlongs?|meters?|miles?)",
         text,
         re.IGNORECASE,
@@ -472,16 +506,19 @@ def extract_distance(text: str) -> tuple[float, str]:
                 for value, unit in values
             )
             return total_ft, "feet"
-        if re.search(
-            rf"{COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{COMMA_NUMBER}\s+[A-Za-z]+",
-            text,
-            re.IGNORECASE,
-        ):
+        if UNSUPPORTED_COMPOUND_PATTERN.search(text):
             return 0.0, "feet"
-        match = re.search(pattern, text, re.IGNORECASE)
+        candidates = list(re.finditer(pattern, text, re.IGNORECASE))
+        match = next(
+            (m for m in candidates if not _is_reference_distance(text, m)),
+            candidates[0] if candidates else None,
+        )
     if match:
         value = parse_comma_number(match.group(1))
         unit = " ".join(match.group(2).lower().split())
+        inches = _INCHES_AFTER_FEET.match(text, match.end())
+        if inches and unit in ("ft", "feet", "foot"):
+            value += float(inches.group(1)) / 12
 
         if unit in ("us survey feet", "us survey foot"):
             unit = "us_survey_feet"
