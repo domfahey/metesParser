@@ -568,3 +568,24 @@ def test_lot_reference_without_courses_has_no_calls_in_strict_mode(parse):
 def test_bearing_without_distance_is_still_malformed_in_strict_mode(parse):
     with pytest.raises(ValueError, match="Malformed course"):
         parse("North 45 degrees 30 minutes East to the corner of Lot 7", strict=True)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_two_tie_courses_in_one_sentence_pair_before_numbered_courses(parse):
+    """1 Walnut St 12420-00902 Tract No. 3: "...122.55 feet to a point. South 18 degrees..."."""
+    calls = parse(
+        "BEGINNING at a point which is located at the following two courses and distances from "
+        "the intersection of the Southwesterly line of Ellis Street with the Southeasterly line of "
+        "Walnut Street; thence\n\nSouth 71 degrees 54 minutes 50 seconds East along the "
+        "Southwesterly line of Ellis Street 122.55 feet to a point. South 18 degrees 05 minutes 10 "
+        "seconds West 123.00 feet to the point and place of beginning; thence\n\n(1) South 18 "
+        "degrees 05 minutes 10 seconds West 82.00 feet to a point; thence\n\n(2) North 71 degrees "
+        "54 minutes 50 seconds West 53.36 feet to a point; thence\n\n(3) North 18 degrees 17 "
+        "minutes 22 seconds East 82.00 feet to a point; thence\n\n(4) South 71 degrees 54 minutes "
+        "50 seconds East 53.19 feet to the point and place of beginning.",
+        strict=True,
+    )
+    assert [call.distance_ft for call in calls] == pytest.approx(
+        [122.55, 123.0, 82.0, 53.36, 82.0, 53.19]
+    )
+    assert [call.is_tie_in for call in calls] == [True, True, False, False, False, False]
