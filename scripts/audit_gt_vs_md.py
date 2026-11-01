@@ -370,6 +370,9 @@ def audit_deed(pdf_base: str) -> dict[str, object]:
 
     if n_gt != n_md and n_gt > 0:
         issues.append(f"CALL_COUNT: GT={n_gt}, MD extracted={n_md}, thence count={thence_count}")
+    elif n_gt == 0 and n_md > 0:
+        # An empty GT would otherwise pass every comparison below
+        issues.append(f"EMPTY_GT: GT has no calls but MD extracted={n_md}")
 
     # 2. Compare individual calls
     for i in range(min(n_gt, n_md)):
