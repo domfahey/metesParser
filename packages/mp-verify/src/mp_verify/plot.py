@@ -8,11 +8,15 @@ import math
 from typing import TYPE_CHECKING, TypedDict
 
 from mp_bearing import (
+    arc_length_tolerance_ft,
     bearing_to_azimuth,
     calculate_curve_properties,
     calculate_deltas,
+    chord_length_tolerance_ft,
 )
 from mp_models.plot import (
+    CHORD_ONLY_UNRESOLVED_REASON,
+    SPIRAL_CHORD_UNRESOLVED_REASON,
     XY,
     DashboardPlots,
     LinearUnit,
@@ -26,6 +30,16 @@ from mp_models.plot import (
     PointCorrespondence,
 )
 from mp_models.plot_request import PlotCall, PlotRequest, PreparedPlot
+
+from .checks import radial_chord_issue, radial_tangent_issue, tangent_chord_issue
+from .tangents import (
+    chord_is_feasible,
+    is_spiral,
+    line_distance,
+    start_tangent,
+    stated_sweep_with_error,
+)
+from .traverse import effective_indefinite
 
 if TYPE_CHECKING:
     from mp_models.dashboard import DashboardBundle, DashboardCalculation, DashboardResult
@@ -59,32 +73,48 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
         call.radius_ft, delta_deg=call.delta_deg, arc_length_ft=call.arc_length_ft
     )
     sweep = props["delta_deg"]
-    if sweep <= 0 or sweep > 360:
+    arc_ft = props["arc_length_ft"]
+    chord_ft = props["chord_length_ft"]
+    if sweep is None or arc_ft is None or chord_ft is None or sweep <= 0 or sweep > 360:
         raise ValueError("curve sweep unresolved or unsupported")
-    # Check every redundant supplied element before drawing an arc.
-    for field in ("delta_deg", "arc_length_ft", "chord_length_ft"):
-        supplied = getattr(call, field)
-        if supplied is not None and not math.isclose(
-            supplied, props[field], rel_tol=1e-6, abs_tol=0.01
-        ):
-            raise ValueError(f"inconsistent curve element: {field}")
+    # Check every redundant supplied element before drawing an arc, within the
+    # same rounding-aware tolerances verification applies (mp_bearing helpers).
+    _, delta_error = stated_sweep_with_error(call)
+    if (
+        call.delta_deg is not None
+        and call.arc_length_ft is not None
+        and abs(call.arc_length_ft - arc_ft) > arc_length_tolerance_ft(call.radius_ft, sweep)
+    ):
+        raise ValueError("inconsistent curve element: arc_length_ft")
+    if call.chord_length_ft is not None and abs(
+        call.chord_length_ft - chord_ft
+    ) > chord_length_tolerance_ft(call.radius_ft, sweep, delta_error):
+        raise ValueError("inconsistent curve element: chord_length_ft")
     sign = 1 if call.curve_dir == "right" else -1
+    # The same shared rules verification applies to stated tangent, chord and radial
+    # bearings: a curve they reject is unresolved here, never drawn.
+    for issue in (
+        tangent_chord_issue(call),
+        radial_chord_issue(call),
+        radial_tangent_issue(call),
+    ):
+        if issue is not None:
+            raise ValueError(issue)
     if call.chord_bearing is not None:
         chord = bearing_to_azimuth(call.chord_bearing)
         if chord is None:
             raise ValueError("curve chord orientation unresolved")
         tangent = (chord - sign * sweep / 2) % 360
-        if call.bearing_azimuth_deg_from_north is not None and not call.non_tangent:
-            residual = (tangent - call.bearing_azimuth_deg_from_north + 180) % 360 - 180
-            if abs(residual) > 1e-6:
-                raise ValueError("inconsistent tangent and chord angular evidence")
-    elif call.bearing_azimuth_deg_from_north is not None and not call.non_tangent:
-        tangent = call.bearing_azimuth_deg_from_north
     else:
-        raise ValueError("curve starting orientation unresolved")
+        # A stated tangent, or a non-tangent curve's stated radial bearing; a
+        # non-tangent curve's course bearing never fixes its start (shared rule).
+        orientation = start_tangent(call, sweep, None)
+        if orientation is None:
+            raise ValueError("curve starting orientation unresolved")
+        tangent = orientation
     dx, dy = calculate_deltas(tangent + sign * 90, call.radius_ft)
     center = _finite((start[0] + dx, start[1] + dy))
-    dx, dy = calculate_deltas(tangent + sign * sweep / 2, props["chord_length_ft"])
+    dx, dy = calculate_deltas(tangent + sign * sweep / 2, chord_ft)
     end = _finite((start[0] + dx, start[1] + dy))
     return PlotPrimitive(
         kind="arc",
@@ -96,7 +126,7 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
         sweep_deg=sweep,
         curve_dir=call.curve_dir,
         start_tangent_deg=tangent,
-        length_ft=props["arc_length_ft"],
+        length_ft=arc_ft,
     )
 
 
@@ -117,6 +147,7 @@ def _build_geometry(
     primitives = []
     unresolved = []
     reasons = []
+    chains: list[list[str]] = [[]]
     current = origin
     stopped = False
     for record in records:
@@ -129,7 +160,7 @@ def _build_geometry(
             reason = "unpositioned after unresolved displacement"
         elif call is None:
             reason = "unknown source call"
-        elif call.curve_type == "spiral":
+        elif is_spiral(call) and (call.chord_bearing is None or call.chord_length_ft is None):
             reason = "spiral geometry unsupported; no line or circular arc assumed"
         elif call.is_exception or call.is_meander:
             reason = "exception/meander connectivity unsupported"
@@ -140,6 +171,43 @@ def _build_geometry(
             "occurrence_id": record.occurrence_id,
             "page_id": record.page_id,
         }
+        spiral = call is not None and is_spiral(call)
+        if reason is None and call is not None and (spiral or call.is_chord_only_curve()):
+            # Radius + chord without delta/arc: minor or major arc is ambiguous, so
+            # nothing is drawn, but the stated chord fixes the next start exactly.
+            # A spiral is positioned the same way, by its stated chord alone (never by
+            # circular rules such as chord <= 2R).
+            assert call.chord_bearing is not None and call.chord_length_ft is not None
+            chord = bearing_to_azimuth(call.chord_bearing)
+            end: XY | None = None
+            if chord is None:
+                reason = (
+                    "spiral chord orientation unresolved"
+                    if spiral
+                    else ("curve chord orientation unresolved")
+                )
+            elif not spiral and not chord_is_feasible(call):
+                # No circle of this radius has such a chord; never position by it.
+                reason = "curve chord length exceeds twice the radius"
+            else:
+                try:
+                    dx, dy = calculate_deltas(chord, call.chord_length_ft)
+                    end = _finite((current[0] + dx, current[1] + dy))
+                except (ValueError, OverflowError) as exc:
+                    reason = str(exc)
+            if end is not None:
+                current = end
+                unresolved.append(
+                    PlotUnresolved(
+                        call_id=record.id,
+                        reason=SPIRAL_CHORD_UNRESOLVED_REASON
+                        if spiral
+                        else CHORD_ONLY_UNRESOLVED_REASON,
+                    )
+                )
+                if chains[-1]:
+                    chains.append([])
+                continue
         if reason is None and call is not None:
             try:
                 if call.is_curve():
@@ -150,14 +218,15 @@ def _build_geometry(
                         if relative is not None and record.id in relative
                         else call.bearing_azimuth_deg_from_north
                     )
-                    if bearing is None or call.is_indefinite:
+                    if bearing is None or effective_indefinite(call):
                         raise ValueError(
                             "incomplete bearing - cardinal only or unresolved orientation"
                         )
-                    dx, dy = calculate_deltas(bearing, call.distance_ft)
+                    distance = line_distance(call)
+                    dx, dy = calculate_deltas(bearing, distance)
                     end = _finite((current[0] + dx, current[1] + dy))
                     primitive = PlotPrimitive(
-                        kind="line", **source, start=current, end=end, length_ft=call.distance_ft
+                        kind="line", **source, start=current, end=end, length_ft=distance
                     )
                 if require_representable:
                     expected = primitive.length_ft
@@ -174,6 +243,7 @@ def _build_geometry(
                     if abs(actual - expected) > min(1e-6, primitive.length_ft * 1e-6):
                         raise ValueError("plot coordinates lose displacement precision")
                 primitives.append(primitive)
+                chains[-1].append(primitive.call_id)
                 current = primitive.end
             except (ValueError, OverflowError) as exc:
                 reason = str(exc)
@@ -196,7 +266,7 @@ def _build_geometry(
         geometry_hash=_hash(content),
         primitives=tuple(primitives),
         unresolved=tuple(unresolved),
-        chains=(tuple(p.call_id for p in primitives),) if primitives else (),
+        chains=tuple(tuple(chain) for chain in chains if chain),
         completeness="complete" if complete else "partial" if primitives else "unresolved",
         reasons=tuple(reasons),
         misclosure_ft=math.hypot(current[0] - origin[0], current[1] - origin[1])
@@ -206,6 +276,7 @@ def _build_geometry(
         if complete
         else None,
         perimeter_ft=sum(p.length_ft for p in primitives) if complete else None,
+        point_of_beginning=origin if primitives and primitives[0].start != origin else None,
     )
 
 

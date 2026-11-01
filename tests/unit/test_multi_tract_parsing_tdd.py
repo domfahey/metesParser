@@ -136,27 +136,45 @@ def test_kings_highway_multi_tract_courses_match_ground_truth(parse, gt_path):
 @pytest.mark.parametrize("gt_path", KINGS_HIGHWAY_GTS, ids=lambda p: p.stem)
 def test_kings_highway_tracts_and_exceptions_match_ground_truth(gt_path):
     gt = _load(gt_path)
-    _calls, tracts = package_extract_with_tracts(gt["expected_legal_description"], strict=True)
+    calls, tracts = package_extract_with_tracts(gt["expected_legal_description"], strict=True)
+    # Exceptions described inside a marked tract are that tract's flagged courses.
+    boundary = [t for t in gt["expected_tracts"] if t["tract_type"] != "exception"]
+    excepted = [t for t in gt["expected_tracts"] if t["tract_type"] == "exception"]
     assert [(t.label, t.tract_type.value) for t in tracts] == [
-        (t["label"], t["tract_type"]) for t in gt["expected_tracts"]
+        (t["label"], t["tract_type"]) for t in boundary
     ]
-    assert [len(t.calls) for t in tracts] == [len(t["courses"]) for t in gt["expected_tracts"]]
+    assert [sum(not c.is_exception for c in t.calls) for t in tracts] == [
+        len(t["courses"]) for t in boundary
+    ]
+    assert sum(c.is_exception for c in calls) == sum(len(t["courses"]) for t in excepted)
+
+
+_LETTERED_THEN_EASEMENT = (
+    "BEGINNING at a point, proceeding thence\n\n"
+    "(a) North 50 degrees 45 minutes 00 seconds East, a distance of 416.57 feet; thence\n\n"
+    "(b) South 32 degrees 36 minutes 00 seconds East, a distance of 300.07 feet to the "
+    "point and place of BEGINNING.\n\n"
+    "UNDER AND SUBJECT to an easement bounded and described as follows:\n\n"
+    "BEGINNING at a point, proceeding thence\n\n"
+    "(1) North 56 degrees 44 minutes 05 seconds East, a distance of 140.00 feet; thence\n\n"
+    "(2) North 32 degrees 36 minutes 00 seconds West, a distance of 35.00 feet to the "
+    "point and place of BEGINNING."
+)
 
 
 @pytest.mark.parametrize("parse", PARSERS)
 def test_lettered_courses_split_before_numbered_courses(parse):
-    calls = parse(
-        "BEGINNING at a point, proceeding thence\n\n"
-        "(a) North 50 degrees 45 minutes 00 seconds East, a distance of 416.57 feet; thence\n\n"
-        "(b) South 32 degrees 36 minutes 00 seconds East, a distance of 300.07 feet to the "
-        "point and place of BEGINNING.\n\n"
-        "UNDER AND SUBJECT to an easement bounded and described as follows:\n\n"
-        "BEGINNING at a point, proceeding thence\n\n"
-        "(1) North 56 degrees 44 minutes 05 seconds East, a distance of 140.00 feet; thence\n\n"
-        "(2) North 32 degrees 36 minutes 00 seconds West, a distance of 35.00 feet to the "
-        "point and place of BEGINNING."
-    )
-    assert [call.distance_ft for call in calls] == [416.57, 300.07, 140.00, 35.00]
+    # The easement's own courses are never boundary courses.
+    calls = parse(_LETTERED_THEN_EASEMENT)
+    assert [call.distance_ft for call in calls] == [416.57, 300.07]
+
+
+def test_lettered_courses_and_numbered_easement_courses_are_both_read():
+    _calls, tracts = package_extract_with_tracts(_LETTERED_THEN_EASEMENT)
+    assert [(t.tract_type.value, [c.distance_ft for c in t.calls]) for t in tracts] == [
+        ("main", [416.57, 300.07]),
+        ("easement", [140.00, 35.00]),
+    ]
 
 
 @pytest.mark.parametrize("parse", PARSERS)

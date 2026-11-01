@@ -140,7 +140,7 @@ The original monolith in `src/metesparser/` is preserved for backward compatibil
 | `mp-models` | `models.py` |
 | `mp-bearing` | `bearing_converter.py` |
 | `mp-ocr` | `pdf_processor.py`, `llm_clients.py`, `llm_cache.py` |
-| `mp-parse` | `call_extractor.py`, `text_parser.py` |
+| `mp-parse` | `call_extractor.py`, `text_parser.py` (facades over `mp_parse`; `package_bridge.py` converts models) |
 | `mp-verify` | `closure_checker.py` |
 | `mp-export` | `csv_builder.py`, `audit_reporter.py` (legacy CSV/audit functionality) |
 | Shared review/analysis APIs | `plot.py`, `dashboard.py`, `source_handoff.py`, `artifact_inspect.py`, `diagnostics.py`, `comparison.py`, `corridor.py`, `plss.py`, `revisions.py`, `delivery.py`, and `raster_picker.py` re-export package implementations/contracts |
@@ -448,9 +448,9 @@ Deltas: dx = dist * sin(az), dy = dist * cos(az)
 - `generate_html()`, `write_report()` - Audit HTML report
 - `plot_html.py`, `plot_svg.py`, `dashboard_html.py`, `revision_html.py`, `delivery.py`, `raster_picker.py`, `online_map_html.py` - Display and delivery renderers
 
-**CSV Schema** (21 fields):
+**CSV Schema** (22 fields; legacy 21-field files without the trailing `curve_type` still import):
 ```csv
-course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,non_tangent,radial_bearing,notes
+course,direction_text,bearing_quadrant,bearing_azimuth_deg_from_north,distance_ft,curve_dir,radius_ft,delta_deg,arc_length_ft,chord_bearing,chord_length_ft,along,to,monument_type,monument_status,is_exception,is_meander,is_tie_in,non_tangent,radial_bearing,notes,curve_type
 ```
 
 ### mp-review

@@ -40,6 +40,8 @@ def extract_command(
         output: Output CSV path (default: derived from input filename)
         llm_provider: Optional LLM provider override
     """
+    from mp_models import mark_roles_review, roles_need_review, roles_review_detail
+
     from .closure_checker import ClosureChecker
     from .csv_builder import CSVBuilder
     from .pdf_processor import PDFProcessor
@@ -64,6 +66,16 @@ def extract_command(
         assert not isinstance(result, tuple)  # audit=False (default)
         legal_desc = result
 
+        # Guessed description roles (several descriptions, a role inferred from
+        # wording) are never verified or exported, whatever the flat geometry: the
+        # calls carry the role-review mark, so the unverified CSV fails `verify` too.
+        role_review = roles_need_review(legal_desc.tracts, legal_desc.calls)
+        if role_review:
+            command_logger.warning(roles_review_detail(role_review))
+            legal_desc = legal_desc.model_copy(
+                update={"calls": mark_roles_review(legal_desc.calls)}
+            )
+
         command_logger.info("Verifying closure")
         closure_result = ClosureChecker.verify_closure(
             legal_desc.calls, legal_desc.stated_area_sq_ft or 0.0
@@ -72,7 +84,7 @@ def extract_command(
         summary = ClosureChecker.get_closure_summary(closure_result)
         _emit_closure_summary(summary, command_logger)
 
-        if closure_result.is_fully_verified():
+        if closure_result.is_fully_verified() and not role_review:
             command_logger.info("Exporting verified CSV")
             CSVBuilder.export_verified_csv(legal_desc.calls, closure_result, output, legal_desc)
         else:
@@ -102,14 +114,7 @@ def extract_command(
                 llm_model=getattr(getattr(processor, "client", None), "model", "unknown"),
                 cache_enabled=not no_cache,
                 prompt_versions=prompt_versions,
-                results=RunResults(
-                    call_count=len(legal_desc.calls),
-                    closure_passed=closure_result.closure_passed,
-                    misclosure_ft=closure_result.misclosure_ft,
-                    area_sq_ft=closure_result.area_sq_ft,
-                    confidence_score=closure_result.confidence_score or 0.0,
-                    warnings=closure_result.warnings,
-                ),
+                results=RunResults.from_closure(closure_result, len(legal_desc.calls)),
                 parser_version=metesparser.__version__,
             )
             write_run_manifest(manifest, RUNS_DIR)

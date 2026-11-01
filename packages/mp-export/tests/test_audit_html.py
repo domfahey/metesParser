@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from mp_export.audit_html import generate_html as _gen
+from mp_models import CheckResult as _CR
+from mp_models import VerificationAudit as _VA
+
 
 def _make_audit_context(**overrides):
     """Create a minimal AuditContext for testing."""
@@ -142,3 +146,37 @@ def test_confidence_class_thresholds():
     assert _confidence_class(0.5) == "confidence-medium"
     assert _confidence_class(0.49) == "confidence-low"
     assert _confidence_class(0.0) == "confidence-low"
+
+
+def _va(label, perimeter):
+    return _VA(
+        checks=[_CR(name="traverse_closure", status="passed", detail="ok")],
+        closure_summary={"perimeter_ft": perimeter},
+        tract_label=label,
+    )
+
+
+def test_tract_verification_audits_render_one_labelled_section_each():
+    ctx = _make_audit_context(
+        tract_verification_audits=[_va("Tract <A>", 400.0), _va("Tract B", 200.0)]
+    )
+    out = _gen(ctx)
+    assert out.count("<summary>Verification - ") == 2
+    assert "Verification - Tract &lt;A&gt;" in out
+    assert "Verification - Tract B" in out
+    assert "400.0" in out and "200.0" in out
+
+
+def test_single_verification_audit_output_unchanged():
+    ctx = _make_audit_context(verification_audit=_va(None, 400.0))
+    out = _gen(ctx)
+    assert out.count("<summary>Verification</summary>") == 1
+    assert "Verification - " not in out
+    # byte-identical to the pre-change section layout
+    assert (
+        "<div class='section'>\n<details>\n<summary>Verification</summary>\n<table>\n"
+        "<tr><th>Check</th><th>Result</th><th>Detail</th></tr>\n"
+        "<tr><td>traverse_closure</td><td class='pass'>PASS</td><td>ok</td></tr>\n</table>\n"
+        "<h4>Closure Summary</h4>\n<table>\n<tr><th>Metric</th><th>Value</th></tr>\n"
+        "<tr><td>perimeter_ft</td><td>400.0</td></tr>\n</table>\n</details>\n</div>\n</body>"
+    ) in out

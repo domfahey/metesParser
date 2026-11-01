@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from mp_models.dashboard import DashboardCall, PreparedDashboard
@@ -14,13 +16,36 @@ from mp_models.plot import (
     PlotPlacement,
     PlotScene,
     VectorLayer,
+    plot_point_of_beginning,
 )
 from mp_models.plot_request import PlotCall
 from mp_models.raster import RasterLayer
-from mp_models.webmap import StandaloneWebMapInput, WebMapArtifact
+from mp_models.webmap import (
+    StandaloneWebMapInput,
+    WebMapArtifact,
+    WebMapFeature,
+    WebMapLine,
+    WebMapPoint,
+    WebMapPolygon,
+)
 
 from mp_verify.dashboard import validate_prepared_dashboard
 from mp_verify.plot import validate_plot_placement, validate_prepared_plot
+
+Extent = tuple[float, float, float, float]
+
+
+def bounds_of(points: Sequence[tuple[float, float]]) -> Extent | None:
+    """Bounds of the finite points, or ``None``."""
+    finite = [p for p in points if all(math.isfinite(v) for v in p)]
+    if not finite:
+        return None
+    return (
+        min(p[0] for p in finite),
+        min(p[1] for p in finite),
+        max(p[0] for p in finite),
+        max(p[1] for p in finite),
+    )
 
 
 def _digest(value: object) -> str:
@@ -120,6 +145,154 @@ def normalize_web_map_context(prepared: WebMapInput) -> WebMapContext:
     )
 
 
+# Display coordinates are WGS84 degrees; 1e-9 degree is about 0.1 mm.
+_COORDINATE_TOLERANCE_DEG = 1e-9
+_NATIVE_JOIN_TOLERANCE = 1e-6
+CLOSURE_GAP_THRESHOLD = 1e-8
+
+
+def has_closure_gap(first: tuple[float, float], last: tuple[float, float]) -> bool:
+    """Whether a complete boundary's endpoints differ by more than numerical residue."""
+    return math.hypot(last[0] - first[0], last[1] - first[1]) > CLOSURE_GAP_THRESHOLD
+
+
+def _near(a: tuple[float, float], b: tuple[float, float]) -> bool:
+    return (
+        abs(a[0] - b[0]) <= _COORDINATE_TOLERANCE_DEG
+        and abs(a[1] - b[1]) <= _COORDINATE_TOLERANCE_DEG
+    )
+
+
+def feature_vertices(feature: WebMapFeature) -> list[tuple[float, float]]:
+    geometry = feature.geometry
+    if isinstance(geometry, WebMapPoint):
+        return [geometry.coordinates]
+    if isinstance(geometry, WebMapLine):
+        return list(geometry.coordinates)
+    if isinstance(geometry, WebMapPolygon):
+        return [p for ring in geometry.coordinates for p in ring]
+    return [p for polygon in geometry.coordinates for ring in polygon for p in ring]
+
+
+def _validate_completeness(context: WebMapContext, artifact: WebMapArtifact, scene_id: str) -> None:
+    """Require the complete expected feature set and internally consistent coordinates.
+
+    Geographic coordinates cannot be re-derived here (no projection library), but
+    the canonical geometry fixes which features must exist and how their endpoints
+    must coincide, so omissions and moved vertices are rejected.
+    """
+    if artifact.projection is None:
+        return  # Nothing is claimed as displayed.
+    items = artifact.unavailable
+    scene_level = any(item.kind == "scene" for item in items)
+    omitted = {(item.kind, item.item_id): item.code for item in items}
+    by_placement: dict[str, list[WebMapFeature]] = {}
+    for feature in artifact.features:
+        if feature.properties.placement_id is not None:
+            by_placement.setdefault(feature.properties.placement_id, []).append(feature)
+    if not scene_level:
+        for geometry in context.geometries:
+            placements = [
+                p
+                for p in context.placements
+                if p.calculation_id == geometry.calculation_id and p.scene_id == scene_id
+            ]
+            shown = [
+                f
+                for f in artifact.features
+                if f.properties.calculation_id == geometry.calculation_id
+            ]
+            if not shown:
+                if ("calculation", geometry.calculation_id) not in omitted:
+                    raise ValueError(
+                        "online display is incomplete: calculation neither shown nor omitted"
+                    )
+                continue
+            if (
+                geometry.completeness != "complete"
+                and omitted.get(("calculation", geometry.calculation_id)) != "partial_geometry"
+            ):
+                raise ValueError("online display is incomplete: partial geometry is not disclosed")
+            for placement in placements:
+                _validate_deed_set(geometry, by_placement.get(placement.id, []))
+        shown_layers = {f.properties.layer_id for f in artifact.features}
+        for layer in context.vector_layers:
+            if (
+                layer.scene_id == scene_id
+                and layer.id not in shown_layers
+                and ("vector", layer.id) not in omitted
+            ):
+                raise ValueError(
+                    "online display is incomplete: vector layer neither shown nor omitted"
+                )
+        shown_rasters = {r.id for r in artifact.rasters}
+        for raster in context.raster_layers:
+            if (
+                raster.scene_id == scene_id
+                and raster.id not in shown_rasters
+                and ("raster", raster.id) not in omitted
+            ):
+                raise ValueError("online display is incomplete: raster neither shown nor omitted")
+    points = [p for f in artifact.features for p in feature_vertices(f)]
+    points.extend(p for r in artifact.rasters for p in r.corners)
+    expected = bounds_of(points)
+    if expected is not None:
+        if artifact.bounds is None or any(
+            abs(a - b) > _COORDINATE_TOLERANCE_DEG
+            for a, b in zip(artifact.bounds, expected, strict=True)
+        ):
+            raise ValueError("online display bounds do not match feature coordinates")
+
+
+def _validate_deed_set(geometry: PlotGeometry, features: list[WebMapFeature]) -> None:
+    courses = [f for f in features if f.properties.kind == "recorded_course"]
+    pobs = [f for f in features if f.properties.kind == "pob"]
+    gaps = [f for f in features if f.properties.kind == "closure_gap"]
+    primitives = geometry.primitives
+    if not primitives:
+        raise ValueError(
+            "online display is stale: features are bound to a geometry with no courses"
+        )
+    pob = plot_point_of_beginning(geometry)
+    first, last = pob or primitives[0].start, primitives[-1].end
+    wants_gap = geometry.completeness == "complete" and has_closure_gap(first, last)
+    if (
+        sorted(f.properties.call_id or "" for f in courses) != sorted(p.call_id for p in primitives)
+        or len(pobs) != 1
+        or len(gaps) != (1 if wants_gap else 0)
+    ):
+        raise ValueError(
+            "online display is incomplete: expected courses, point of beginning or closure gap"
+        )
+    by_call = {f.properties.call_id: f for f in courses}
+    chain = [feature_vertices(by_call[p.call_id]) for p in primitives]
+    if any(len(c) < 2 for c in chain):
+        raise ValueError("online display coordinate mismatch: course has no extent")
+    for (a, b), (ca, cb) in zip(
+        zip(primitives, primitives[1:], strict=False),
+        zip(chain, chain[1:], strict=False),
+        strict=False,
+    ):
+        joined = math.hypot(a.end[0] - b.start[0], a.end[1] - b.start[1]) <= _NATIVE_JOIN_TOLERANCE
+        if joined and not _near(ca[-1], cb[0]):
+            raise ValueError("online display coordinate mismatch: chained courses do not meet")
+    # Geographic coordinates cannot be re-derived here. A drawn first course starts at
+    # the point of beginning; a leading chord-only curve is positioned but not drawn, so
+    # its chord end (where the first drawn course starts) is not the point of beginning.
+    pob_here = _near(feature_vertices(pobs[0])[0], chain[0][0])
+    pob_at_first_start = (
+        pob is None
+        or math.hypot(pob[0] - primitives[0].start[0], pob[1] - primitives[0].start[1])
+        <= _NATIVE_JOIN_TOLERANCE
+    )
+    if pob_here != pob_at_first_start:
+        raise ValueError("online display coordinate mismatch: point of beginning")
+    if gaps:
+        gap = feature_vertices(gaps[0])
+        if not (_near(gap[0], chain[-1][-1]) and _near(gap[-1], chain[0][0])):
+            raise ValueError("online display coordinate mismatch: closure gap endpoints")
+
+
 def _validate_bindings(context: WebMapContext, artifact: WebMapArtifact) -> None:
     """Check upstream identities without recreating geographic coordinates.
 
@@ -193,6 +366,7 @@ def _validate_bindings(context: WebMapContext, artifact: WebMapArtifact) -> None
             )
         ):
             raise ValueError("stale online marker binding")
+    _validate_completeness(context, artifact, scene.id)
     rasters = {item.id: item for item in context.raster_layers}
     projection_hash = (
         _digest(artifact.projection.model_dump(mode="json")) if artifact.projection else None

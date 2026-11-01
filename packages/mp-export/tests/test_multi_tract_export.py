@@ -57,8 +57,19 @@ class TestMultiTractExport:
         assert "_verified" in result[0].stem
 
     def test_multi_tract_returns_multiple_paths(self, tmp_path: Path):
-        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
-        t2 = Tract(label="Exception 1", tract_type=TractType.EXCEPTION, calls=_square_calls(50.0))
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
+        # Exception/easement tracts are never exported (see test_pr60_r52_*).
+        t2 = Tract(
+            label="Addition 1",
+            tract_type=TractType.ADDITION,
+            role_basis="heading",
+            calls=_square_calls(50.0),
+        )
         result = export_verified_csv(
             _square_calls(),
             _good_closure(),
@@ -71,8 +82,18 @@ class TestMultiTractExport:
         assert "tract2" in result[1].stem
 
     def test_multi_tract_files_exist(self, tmp_path: Path):
-        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
-        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square_calls(50.0))
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
+        t2 = Tract(
+            label="Tract 2",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(50.0),
+        )
         paths = export_verified_csv(
             _square_calls(),
             _good_closure(),
@@ -95,8 +116,18 @@ class TestMultiTractExport:
 
     def test_failed_tract_skipped(self, tmp_path: Path):
         """Tracts that fail verification are NOT exported."""
-        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
-        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square_calls(50.0))
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
+        t2 = Tract(
+            label="Tract 2",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(50.0),
+        )
         bad_closure = ClosureResult(
             misclosure_x_ft=5.0,
             misclosure_y_ft=5.0,
@@ -117,3 +148,97 @@ class TestMultiTractExport:
         )
         assert len(result) == 1
         assert "tract1" in result[0].stem
+
+
+def _bad_closure() -> ClosureResult:
+    return ClosureResult(
+        misclosure_x_ft=5.0,
+        misclosure_y_ft=5.0,
+        misclosure_ft=7.07,
+        area_sq_ft=2500.0,
+        area_acres=2500.0 / 43560.0,
+        perimeter_ft=200.0,
+        closure_passed=False,
+        angle_check_passed=True,
+        curve_consistency_passed=True,
+        warnings=["Closure failed"],
+    )
+
+
+class TestMultiTractGate:
+    def test_no_verified_tract_raises_and_writes_nothing(self, tmp_path: Path):
+        import pytest
+
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
+        with pytest.raises(ValueError, match="Cannot export verified CSV"):
+            export_verified_csv(
+                _square_calls(),
+                _good_closure(),
+                str(tmp_path / "deed.csv"),
+                tract_results=[(t1, _bad_closure())],
+            )
+        assert list(tmp_path.iterdir()) == []
+
+    def test_mixed_summary_lists_unverified_tracts_separately(self, tmp_path: Path):
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
+        t2 = Tract(
+            label="Tract 2",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(50.0),
+        )
+        export_verified_csv(
+            _square_calls(),
+            _good_closure(),
+            str(tmp_path / "deed.csv"),
+            tract_results=[(t1, _good_closure(10000)), (t2, _bad_closure())],
+        )
+        summary = (tmp_path / "deed_verified.verification.txt").read_text()
+        verified_part, _, not_verified_part = summary.partition("Not verified (no CSV written):")
+        assert "Tract 1" in verified_part
+        assert "Tract 2" not in verified_part
+        assert "Tract 2" in not_verified_part
+
+
+class TestUnverifiedTractSummary:
+    def test_unverified_tract_listed_in_not_verified_section(self, tmp_path: Path):
+        t1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(100.0),
+        )
+        t2 = Tract(
+            label="Tract 2",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            calls=_square_calls(50.0),
+        )
+        export_verified_csv(
+            _square_calls(),
+            _good_closure(),
+            str(tmp_path / "deed.csv"),
+            tract_results=[(t1, _good_closure(10000)), (t2, _bad_closure())],
+        )
+        assert (tmp_path / "deed_verified_tract1.csv").exists()
+        assert not (tmp_path / "deed_verified_tract2.csv").exists()
+
+        summary = (tmp_path / "deed_verified.verification.txt").read_text()
+        header = "Not verified (no CSV written):"
+        verified_part, sep, not_verified_part = summary.partition(header)
+        assert sep == header
+        assert "Tract 1" in verified_part
+        assert "Tract 2" not in verified_part
+        assert "Tract 2" in not_verified_part
+        assert "7.0700 ft" in not_verified_part
+        assert "Closure failed" in not_verified_part

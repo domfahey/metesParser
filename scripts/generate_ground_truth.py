@@ -118,14 +118,27 @@ def generate_ground_truth(pdf_path: Path, processor: PDFProcessor) -> dict:
     if calls:
         result = ClosureChecker.verify_closure(calls)
         closure_data = {
-            "misclosure_ft": round(result.misclosure_ft, 4),
-            "area_sq_ft": round(result.area_sq_ft, 2),
-            "area_acres": round(result.area_acres, 4),
-            "perimeter_ft": round(result.perimeter_ft, 2),
+            "misclosure_ft": round(result.misclosure_ft, 4)
+            if result.misclosure_available
+            else None,
+            "misclosure_available": result.misclosure_available,
+            "area_sq_ft": round(result.area_sq_ft, 2) if result.area_available else None,
+            "area_acres": round(result.area_acres, 4) if result.area_available else None,
+            "area_available": result.area_available,
+            "perimeter_ft": round(result.perimeter_ft, 2) if result.perimeter_available else None,
+            "perimeter_available": result.perimeter_available,
             "closure_passed": result.closure_passed,
         }
-        print(f"  ✓ Misclosure: {result.misclosure_ft:.4f} ft")
-        print(f"  ✓ Area: {result.area_sq_ft:.2f} sq ft ({result.area_acres:.4f} acres)")
+        misclosure_text = (
+            f"{result.misclosure_ft:.4f} ft" if result.misclosure_available else "not determined"
+        )
+        print(f"  ✓ Misclosure: {misclosure_text}")
+        area_text = (
+            f"{result.area_sq_ft:.2f} sq ft ({result.area_acres:.4f} acres)"
+            if result.area_available
+            else "not determined"
+        )
+        print(f"  ✓ Area: {area_text}")
 
     # Convert calls to dict
     expected_calls = []

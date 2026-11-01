@@ -170,6 +170,16 @@ class TestExtractCurveInfo:
         assert info.get("chord_bearing") is not None
         assert "S" in info["chord_bearing"]
 
+    def test_chord_bearing_phrasing(self) -> None:
+        from mp_parse.calls import extract_curve_info
+
+        info = extract_curve_info(
+            "a curve to the right, radius of 50 feet, delta angle of 90 degrees, "
+            "chord bearing North 45\u00b0 East 70.71 feet"
+        )
+        assert info["chord_bearing"] == "N 45\u00b0 E"
+        assert info["chord_length_ft"] == 70.71
+
     def test_non_tangent_detection(self) -> None:
         from mp_parse.calls import extract_curve_info
 
@@ -292,3 +302,72 @@ class TestEnrichCallsWithAzimuths:
         ]
         result = enrich_calls_with_azimuths(calls)
         assert result[0].bearing_azimuth_deg_from_north == 45.0
+
+
+class TestChordBearingNotTangent:
+    CURVE = (
+        "thence along a curve to the right having a radius of 100.00 feet, "
+        "a delta of 90°00'00\", an arc length of 157.08 feet, chord bears {chord} 141.42 feet"
+    )
+
+    def test_abbreviated_and_spelled_chord_agree(self) -> None:
+        from mp_parse.calls import extract_single_call
+
+        a = extract_single_call(self.CURVE.format(chord="N 45°00'00\" E"), 1)
+        b = extract_single_call(self.CURVE.format(chord="North 45°00'00\" East"), 1)
+        assert a is not None and b is not None
+        # No tangent is stated, so none is derived or stored (round 21).
+        assert a.bearing_azimuth_deg_from_north is None
+        assert b.bearing_azimuth_deg_from_north is None
+        assert a.chord_bearing is not None and b.chord_bearing is not None
+        assert a.bearing_quadrant is None
+        assert "tangent bearing not stated" in (a.notes or "")
+
+    def test_separate_tangent_bearing_kept(self) -> None:
+        from mp_parse.calls import extract_single_call
+
+        text = (
+            "thence N 10°00'00\" E along a curve to the right having a radius of 100.00 feet, "
+            "a delta of 90°00'00\", an arc length of 157.08 feet, chord bears N 55°00'00\" E 141.42 feet"
+        )
+        c = extract_single_call(text, 1)
+        assert c is not None
+        assert c.bearing_azimuth_deg_from_north == 10.0
+
+
+class TestChordDegreesNeverDelta:
+    ARC_CHORD = (
+        "thence along a curve to the right having a radius of 100.00 feet, an arc length of "
+        "50.00 feet, the chord of which bears N 45°00'00\" E 49.00 feet{along} to a point"
+    )
+
+    def test_chord_bearing_degrees_are_not_delta(self) -> None:
+        from mp_parse.calls import extract_curve_info
+
+        assert extract_curve_info(self.ARC_CHORD.format(along="")).get("delta_deg") is None
+
+    def test_arc_radius_curve_keeps_tangent_unstated_with_along_text(self) -> None:
+        from mp_parse.calls import extract_single_call
+
+        for along in ("", " along the Northerly line of Pennbrook Drive"):
+            c = extract_single_call(self.ARC_CHORD.format(along=along), 1)
+            assert c is not None
+            # No tangent is derived (round 21); chord and arc/radius stay as stated.
+            assert c.bearing_azimuth_deg_from_north is None
+            assert c.delta_deg is None
+            assert c.arc_length_ft == 50.0
+            assert "tangent bearing not stated" in (c.notes or "")
+
+
+def test_radial_bearing_clause_is_not_a_stated_tangent():
+    from mp_parse.calls import extract_single_call
+
+    call = extract_single_call(
+        "thence along a curve to the right whose radius point bears S 10° W, "
+        "radius 500 feet, an arc length of 50 feet to a point",
+        1,
+    )
+    assert call is not None
+    assert call.radial_bearing == "S 10° W"
+    assert call.bearing_azimuth_deg_from_north is None
+    assert call.radius_ft == 500.0

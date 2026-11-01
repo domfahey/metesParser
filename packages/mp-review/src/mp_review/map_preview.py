@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
+from .json_input import parse_json
 from .relative import _invalid_number, _unique_object
 
 _DISPLAY_PATH = re.compile(r"web-map-assets/[A-Za-z][A-Za-z0-9_.-]*\.png\Z")
@@ -23,7 +23,7 @@ def _display_files(directory: Path) -> dict[str, bytes]:
     if manifest_path.is_symlink() or manifest_path.stat().st_size > 1024 * 1024:
         raise ValueError("Invalid preview manifest or symlink")
     try:
-        manifest = json.loads(
+        manifest = parse_json(
             manifest_path.read_bytes(),
             object_pairs_hook=_unique_object,
             parse_constant=_invalid_number,

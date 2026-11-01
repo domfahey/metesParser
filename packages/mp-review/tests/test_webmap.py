@@ -191,7 +191,9 @@ def test_nonlinear_line_and_quarter_samples(monkeypatch):
     projection = fake_projection(
         lambda x, y: (x + 2 * math.sin(2 * math.pi * (y - 2000) / 30.48), y)
     )
-    monkeypatch.setattr("mp_review.webmap.build_web_map_projection", lambda _: projection)
+    monkeypatch.setattr(
+        "mp_review.webmap.build_web_map_projection", lambda _, extent=None: projection
+    )
     result = output(mapped(), tolerance_m=0.01)
     first = next(f for f in result.artifact.features if f.properties.call_id == "call-one")
     coords = [
@@ -211,7 +213,9 @@ def test_nonlinear_line_and_quarter_samples(monkeypatch):
 @pytest.mark.parametrize("settings", [{"max_vertices": 2}, {"max_depth": 1, "tolerance_m": 1e-8}])
 def test_limit_failure_omits_entire_calculation(monkeypatch, settings):
     projection = fake_projection(lambda x, y: (x + (y - 2000) ** 2, y))
-    monkeypatch.setattr("mp_review.webmap.build_web_map_projection", lambda _: projection)
+    monkeypatch.setattr(
+        "mp_review.webmap.build_web_map_projection", lambda _, extent=None: projection
+    )
     result = output(mapped(), **settings)
     assert not result.artifact.features
     assert result.artifact.availability == "unavailable"
@@ -281,14 +285,16 @@ def test_dateline_jump_is_explicit(monkeypatch):
     projection = fake_projection(
         lambda x, y: ((179.999 if y < 2015 else -179.999) * math.pi * R / 180, y)
     )
-    monkeypatch.setattr("mp_review.webmap.build_web_map_projection", lambda _: projection)
+    monkeypatch.setattr(
+        "mp_review.webmap.build_web_map_projection", lambda _, extent=None: projection
+    )
     result = output(mapped())
     assert not result.artifact.features
     assert result.artifact.unavailable[0].code == "antimeridian"
 
 
 def test_missing_required_grid_is_explicit(monkeypatch):
-    def unavailable(_):
+    def unavailable(_, extent=None):
         raise WebMapUnavailable("missing_grid", "Required grids unavailable.")
 
     monkeypatch.setattr("mp_review.webmap.build_web_map_projection", unavailable)
@@ -468,3 +474,11 @@ def test_delimited_source_identifiers_cannot_collide_in_feature_ids():
     data["placements"].append(dict(data["placements"][0], id="a:x"))
     result = output(prepare_dashboard(DashboardBundle.model_validate(data)))
     assert len({f.id for f in result.artifact.features}) == len(result.artifact.features)
+
+
+def test_mp_review_reuses_mp_verify_feature_vertices():
+    import mp_review.webmap as review_webmap
+    import mp_verify.webmap as verify_webmap
+
+    assert review_webmap.feature_vertices is verify_webmap.feature_vertices
+    assert not hasattr(review_webmap, "_coordinates")

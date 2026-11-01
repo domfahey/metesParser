@@ -84,7 +84,10 @@ def create_extraction_report(legal_desc, closure_result, output_file):
             f.write(
                 f"Azimuth:         {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north is not None else '(none)'}\n"
             )
-            f.write(f"Distance:        {call.distance_ft:.2f} feet\n")
+            distance = (
+                f"{call.distance_ft:.2f} feet" if call.distance_ft is not None else "not determined"
+            )
+            f.write(f"Distance:        {distance}\n")
 
             # Curve info if present
             if call.curve_dir:
@@ -111,16 +114,27 @@ def create_extraction_report(legal_desc, closure_result, output_file):
         f.write("CLOSURE VERIFICATION\n")
         f.write("=" * 80 + "\n\n")
 
-        f.write(f"Misclosure (X):     {closure_result.misclosure_x_ft:10.4f} ft\n")
-        f.write(f"Misclosure (Y):     {closure_result.misclosure_y_ft:10.4f} ft\n")
-        f.write(f"Total Misclosure:   {closure_result.misclosure_ft:10.4f} ft\n")
+        if closure_result.misclosure_available:
+            f.write(f"Misclosure (X):     {closure_result.misclosure_x_ft:10.4f} ft\n")
+            f.write(f"Misclosure (Y):     {closure_result.misclosure_y_ft:10.4f} ft\n")
+            f.write(f"Total Misclosure:   {closure_result.misclosure_ft:10.4f} ft\n")
+        else:
+            f.write("Total Misclosure:   not determined\n")
         f.write(
             f"Closure Status:     {'✓ CLOSED' if closure_result.closure_passed else '✗ OPEN'}\n\n"
         )
 
-        f.write(f"Calculated Area:    {closure_result.area_sq_ft:10.2f} sq ft\n")
-        f.write(f"                    {closure_result.area_acres:10.4f} acres\n")
-        f.write(f"Perimeter:          {closure_result.perimeter_ft:10.2f} ft\n\n")
+        if closure_result.area_available:
+            f.write(f"Calculated Area:    {closure_result.area_sq_ft:10.2f} sq ft\n")
+            f.write(f"                    {closure_result.area_acres:10.4f} acres\n")
+        else:
+            f.write("Calculated Area:    not determined\n")
+        perimeter = (
+            f"{closure_result.perimeter_ft:10.2f} ft"
+            if closure_result.perimeter_available
+            else "not determined"
+        )
+        f.write(f"Perimeter:          {perimeter}\n\n")
 
         f.write(
             f"Angle Check:        {'✓ PASSED' if closure_result.angle_check_passed else '✗ FAILED'}\n"
@@ -200,8 +214,12 @@ def main():
                     "calls": len(legal_desc.calls),
                     "closes": closure_result.closure_passed,
                     "verified": closure_result.is_fully_verified(),
-                    "area_sq_ft": closure_result.area_sq_ft,
-                    "misclosure_ft": closure_result.misclosure_ft,
+                    "area_sq_ft": closure_result.area_sq_ft
+                    if closure_result.area_available
+                    else None,
+                    "misclosure_ft": closure_result.misclosure_ft
+                    if closure_result.misclosure_available
+                    else None,
                 }
             )
 
@@ -228,9 +246,15 @@ def main():
         else:
             status = "✓ VERIFIED" if r["verified"] else ("✓ CLOSES" if r["closes"] else "⚠ OPEN")
             print(f"{status} {r['pdf']}")
-            print(
-                f"   Calls: {r['calls']}, Area: {r['area_sq_ft']:.2f} sq ft, Misclosure: {r['misclosure_ft']:.4f} ft\n"
+            area = (
+                f"{r['area_sq_ft']:.2f} sq ft" if r["area_sq_ft"] is not None else "not determined"
             )
+            misclosure = (
+                f"{r['misclosure_ft']:.4f} ft"
+                if r["misclosure_ft"] is not None
+                else "not determined"
+            )
+            print(f"   Calls: {r['calls']}, Area: {area}, Misclosure: {misclosure}\n")
 
     print(f"\nAll reports saved to: {OUTPUT_DIR}/")
     print("\nReview the *_extraction_report.txt files for detailed results.")

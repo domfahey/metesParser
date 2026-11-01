@@ -136,7 +136,15 @@ class RasterLayer(_Model):
             raise ValueError("Raster dimensions exceed 40 million pixels")
         if image_header(data) != (self.mime_type, self.width, self.height):
             raise ValueError("Raster dimensions/MIME do not match its image header")
+        # EXIF orientation is rejected at import and at use (see mp_review.raster_registration
+        # and the dashboard renderer), not here, so artifacts saved earlier still load.
         return self
+
+
+RASTER_ORIENTATION_MESSAGE = (
+    "Raster has an EXIF Orientation other than 1; browsers would rotate it and misregister "
+    "pixel controls. Supply an upright (orientation-normalized) image and re-pick controls on it."
+)
 
 
 def image_header(data: bytes) -> tuple[str, int, int]:
@@ -194,3 +202,69 @@ def image_header(data: bytes) -> tuple[str, int, int]:
             bits = int.from_bytes(data[21:25], "little")
             return "image/webp", 1 + (bits & 0x3FFF), 1 + ((bits >> 14) & 0x3FFF)
     raise ValueError("Unsupported or malformed raster image header")
+
+
+def _tiff_orientation(tiff: bytes) -> int | None:
+    """Return the EXIF Orientation tag (0x0112) from a TIFF-structured block."""
+    if len(tiff) < 8 or tiff[:2] not in (b"II", b"MM"):
+        return None
+    order: Literal["little", "big"] = "little" if tiff[:2] == b"II" else "big"
+    if int.from_bytes(tiff[2:4], order) != 42:
+        return None
+    ifd = int.from_bytes(tiff[4:8], order)
+    if ifd + 2 > len(tiff):
+        return None
+    for i in range(int.from_bytes(tiff[ifd : ifd + 2], order)):
+        entry = ifd + 2 + 12 * i
+        if entry + 12 > len(tiff):
+            return None
+        if int.from_bytes(tiff[entry : entry + 2], order) == 0x0112:
+            return int.from_bytes(tiff[entry + 8 : entry + 10], order)
+    return None
+
+
+def image_orientation(data: bytes) -> int | None:
+    """Read an embedded EXIF Orientation without optional image dependencies.
+
+    Browsers apply this tag when drawing an image, so any value other than 1
+    would misregister pixel-space controls against the stored width/height.
+    """
+    if data.startswith(b"\xff\xd8"):
+        offset = 2
+        while offset + 4 <= len(data) and data[offset] == 255:
+            marker = data[offset + 1]
+            if marker == 0xFF:
+                # Fill bytes may precede any marker; advance to the real marker byte.
+                offset += 1
+                continue
+            if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                offset += 2
+                continue
+            if marker in (0xD9, 0xDA):
+                break
+            length = int.from_bytes(data[offset + 2 : offset + 4], "big")
+            if length < 2:
+                break
+            if marker == 0xE1 and data[offset + 4 : offset + 10] == b"Exif\0\0":
+                return _tiff_orientation(data[offset + 10 : offset + 2 + length])
+            offset += 2 + length
+    elif data.startswith(b"\x89PNG\r\n\x1a\n"):
+        offset = 8
+        while offset + 8 <= len(data):
+            length = int.from_bytes(data[offset : offset + 4], "big")
+            kind = data[offset + 4 : offset + 8]
+            if kind == b"eXIf":
+                return _tiff_orientation(data[offset + 8 : offset + 8 + length])
+            if kind in (b"IDAT", b"IEND"):
+                break
+            offset += 12 + length
+    elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        offset = 12
+        while offset + 8 <= len(data):
+            kind = data[offset : offset + 4]
+            length = int.from_bytes(data[offset + 4 : offset + 8], "little")
+            if kind == b"EXIF":
+                block = data[offset + 8 : offset + 8 + length]
+                return _tiff_orientation(block[6:] if block.startswith(b"Exif\0\0") else block)
+            offset += 8 + length + (length & 1)
+    return None

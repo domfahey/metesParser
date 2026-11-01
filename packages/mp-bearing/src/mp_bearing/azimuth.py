@@ -274,3 +274,48 @@ def azimuth_to_quadrant(azimuth: float) -> str:
         return f"{cardinal1} {degrees}\u00b0{minutes:02d}' {cardinal2}"
     else:
         return f"{cardinal1} {degrees}\u00b0{minutes:02d}'{seconds:04.1f}\" {cardinal2}"
+
+
+# A cardinal-only word in a curve course describes the overall direction of travel,
+# i.e. the chord. Sector rule: northeast/southeast/southwest/northwest accept azimuths
+# within 45 degrees of their centre (the quadrant, edges inclusive); north/east/south/
+# west accept within 67.5 degrees of theirs.
+_CARDINAL_CENTRES = {
+    "north": (0.0, 67.5),
+    "northeast": (45.0, 45.0),
+    "east": (90.0, 67.5),
+    "southeast": (135.0, 45.0),
+    "south": (180.0, 67.5),
+    "southwest": (225.0, 45.0),
+    "west": (270.0, 67.5),
+    "northwest": (315.0, 45.0),
+}
+_CARDINAL_ABBREVIATIONS = {
+    "ne": "northeast",
+    "nw": "northwest",
+    "se": "southeast",
+    "sw": "southwest",
+}
+
+
+def normalize_cardinal_word(cardinal_text: str) -> str | None:
+    """Return the base cardinal word ("northerly" -> "north", "SW" -> "southwest").
+
+    None when the text is not a cardinal-only word.
+    """
+    word = re.sub(r"(?:erly|wardly)$", "", cardinal_text.strip().lower())
+    word = _CARDINAL_ABBREVIATIONS.get(word, word)
+    return word if word in _CARDINAL_CENTRES else None
+
+
+def cardinal_conflicts_bearing(cardinal_text: str, azimuth: float | None) -> bool:
+    """True when a cardinal-only word lies outside its sector around ``azimuth``.
+
+    False when the word is not a cardinal word or no azimuth is available.
+    """
+    word = normalize_cardinal_word(cardinal_text)
+    if word is None or azimuth is None:
+        return False
+    centre, half_width = _CARDINAL_CENTRES[word]
+    diff = abs((float(azimuth) - centre + 180.0) % 360.0 - 180.0)
+    return diff > half_width + 1e-9

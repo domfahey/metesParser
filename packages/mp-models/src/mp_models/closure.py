@@ -66,7 +66,26 @@ class ClosureResult(_Model):
         description="Area in square feet (shoelace formula)",
     )
     area_acres: FiniteFloat = Field(..., description="Area in acres")
-    perimeter_ft: FiniteFloat = Field(..., description="Total perimeter in feet")
+    perimeter_ft: FiniteFloat = Field(
+        ...,
+        description="Total perimeter in feet; 0.0 when perimeter_available is False",
+    )
+    misclosure_available: bool = Field(
+        default=True,
+        description="False when a course could not be positioned, so later vertices are not "
+        "known in absolute terms; misclosure values are then 0.0 and not measurements",
+    )
+    area_available: bool = Field(
+        default=True,
+        description="False when area cannot be determined (e.g. a chord-only curve, an "
+        "unpositioned course or an incomplete bearing); area_sq_ft/area_acres are then not "
+        "measurements",
+    )
+    perimeter_available: bool = Field(
+        default=True,
+        description="False when a course length is not determined (e.g. a chord-only curve "
+        "or an unpositioned course); perimeter_ft is then not a measurement",
+    )
 
     closure_passed: bool = Field(
         ...,
@@ -122,6 +141,9 @@ class ClosureResult(_Model):
         "closure_passed",
         "angle_check_passed",
         "curve_consistency_passed",
+        "perimeter_available",
+        "area_available",
+        "misclosure_available",
         mode="before",
     )
     @classmethod
@@ -138,6 +160,7 @@ class ClosureResult(_Model):
             outcomes = {check.name: check.status for check in self.checks}
             return (
                 self.closure_passed
+                and self.misclosure_available
                 and outcomes.get("traverse_closure") == "passed"
                 and (self.angle_check_passed or outcomes.get("interior_angles") == "not_applicable")
                 and (
@@ -152,6 +175,7 @@ class ClosureResult(_Model):
         # fresh verification against the calls before accepting these results.
         return (
             self.closure_passed
+            and self.misclosure_available
             and self.angle_check_passed
             and self.curve_consistency_passed
             and not self.warnings
@@ -161,6 +185,8 @@ class ClosureResult(_Model):
         """Get human-readable closure status."""
         if self.warnings:
             return "NEEDS REVIEW"
+        if not self.misclosure_available:
+            return "NOT DETERMINED"
         if self.misclosure_ft < 0.01:
             return "EXCELLENT"
         if self.misclosure_ft < 0.1:

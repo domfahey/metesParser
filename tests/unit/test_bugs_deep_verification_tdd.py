@@ -141,8 +141,12 @@ def test_csv_import_rejects_incomplete_parcel_by_default(api, tmp_path):
 def test_partial_csv_recovery_must_be_explicit(api, tmp_path):
     _, _, _, _, load, _ = api
     path = _mixed_csv(api, tmp_path)
-    calls = load(str(path), strict=False)
+    with pytest.raises(ValueError, match="rejected_rows"):
+        load(str(path), strict=False)
+    rejected: list[tuple[int, str]] = []
+    calls = load(str(path), strict=False, rejected_rows=rejected)
     assert len(calls) == 4
+    assert [row for row, _ in rejected] == [6]
 
 
 def test_cli_verification_rejects_a_csv_with_an_invalid_course(api, tmp_path):

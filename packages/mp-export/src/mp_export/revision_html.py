@@ -47,7 +47,11 @@ def _selected(record: Any) -> str:
     values = [
         f"Course {call.course}: {call.direction_text}",
         bearing,
-        f"Distance: {call.distance_ft:g} ft",
+        (
+            f"Distance: {call.distance_ft:g} ft"
+            if call.distance_ft is not None
+            else "Distance: not determined"
+        ),
     ]
     for label, field in [
         ("Radius (ft)", "radius_ft"),

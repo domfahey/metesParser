@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 
+import pytest
+
 
 def _make_closure_result(*, closure_passed=True, misclosure_ft=0.0, area_sq_ft=10000.0, **kw):
     """Create a ClosureResult with all required fields populated."""
@@ -26,10 +28,10 @@ def _make_closure_result(*, closure_passed=True, misclosure_ft=0.0, area_sq_ft=1
 
 
 def test_csv_fieldnames_count():
-    """FIELDNAMES should have exactly 21 fields matching the CSV schema."""
+    """FIELDNAMES should have exactly 22 fields matching the CSV schema."""
     from mp_export.csv_writer import FIELDNAMES
 
-    assert len(FIELDNAMES) == 21
+    assert len(FIELDNAMES) == 22
 
 
 def test_fieldnames_order():
@@ -39,7 +41,8 @@ def test_fieldnames_order():
     assert FIELDNAMES[0] == "course"
     assert FIELDNAMES[1] == "direction_text"
     assert FIELDNAMES[4] == "distance_ft"
-    assert FIELDNAMES[-1] == "notes"
+    assert FIELDNAMES[20] == "notes"
+    assert FIELDNAMES[-1] == "curve_type"
 
 
 def test_calls_to_csv_creates_file(tmp_path):
@@ -140,7 +143,7 @@ def test_csv_to_calls_roundtrip(tmp_path):
 
 
 def test_csv_to_calls_skips_invalid_rows(tmp_path):
-    """csv_to_calls should skip rows that fail validation."""
+    """Non-strict csv_to_calls records rejected rows; it never drops them silently."""
     from mp_export.csv_writer import FIELDNAMES, csv_to_calls
 
     out = tmp_path / "bad.csv"
@@ -150,8 +153,12 @@ def test_csv_to_calls_skips_invalid_rows(tmp_path):
         # Write a row with missing required fields
         writer.writerow(dict.fromkeys(FIELDNAMES, ""))
 
-    loaded = csv_to_calls(str(out), strict=False)
+    with pytest.raises(ValueError, match="rejected_rows"):
+        csv_to_calls(str(out), strict=False)
+    rejected: list[tuple[int, str]] = []
+    loaded = csv_to_calls(str(out), strict=False, rejected_rows=rejected)
     assert len(loaded) == 0
+    assert [row for row, _ in rejected] == [2]
 
 
 def test_call_to_row_empty_optional_fields():
@@ -325,3 +332,36 @@ def test_export_verified_csv_with_audit_context(tmp_path):
     assert audit_json.exists()
     audit_html = tmp_path / "deed_verified.audit.html"
     assert audit_html.exists()
+
+
+def test_legacy_curved_row_notes_circular_assumption():
+    """A 21-column row cannot state a spiral, so its circular reading is noted."""
+    from mp_export.csv_writer import (
+        LEGACY_CURVE_NOTE,
+        LEGACY_FIELDNAMES,
+        _call_to_row,
+        csv_text_to_calls,
+    )
+    from mp_models import DeedCall
+
+    curve = DeedCall(
+        course=1,
+        direction_text="along a spiral curve to the right",
+        distance_ft=49.5,
+        curve_type="spiral",
+        curve_dir="right",
+        radius_ft=100.0,
+        arc_length_ft=50.0,
+        notes="per plat",
+    )
+    line = DeedCall(
+        course=2, direction_text="N 0 E", bearing_azimuth_deg_from_north=0.0, distance_ft=10.0
+    )
+    lines = [",".join(LEGACY_FIELDNAMES)]
+    for call in (curve, line):
+        row = _call_to_row(call)
+        lines.append(",".join(f'"{row[name]}"' for name in LEGACY_FIELDNAMES))
+    loaded = csv_text_to_calls("\n".join(lines) + "\n")
+    assert loaded[0].curve_type is None
+    assert loaded[0].notes == f"per plat; {LEGACY_CURVE_NOTE}"
+    assert loaded[1].notes is None

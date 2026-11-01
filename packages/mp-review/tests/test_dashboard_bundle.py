@@ -357,3 +357,23 @@ def test_diagnostic_cache_is_revalidated_and_old_manifests_safely_miss(tmp_path)
     manifest.pop("diagnostics_output_hash")
     (tmp_path / "stage-manifest.json").write_text(json.dumps(manifest))
     assert not prepare_dashboard(bundle(), cache_dir=tmp_path).manifest.cache_reused
+
+
+def test_chord_only_curve_perimeter_is_unknown_in_dashboard():
+    value = data()
+    value["calls"][1]["call"] = {
+        "course": 2,
+        "direction_text": "curve to the right",
+        "distance_ft": 50,
+        "bearing_azimuth_deg_from_north": 90,
+        "curve_dir": "right",
+        "radius_ft": 100,
+        "chord_bearing": "N 90°00' E",
+        "chord_length_ft": 50,
+    }
+    result = prepare_dashboard(DashboardBundle.model_validate(value)).calculations[0]
+    assert result.geometry_status == "analyzed"
+    assert result.perimeter_ft is None
+    assert result.precision_denominator is None
+    assert result.area_sq_ft is None
+    assert not result.engine_verified

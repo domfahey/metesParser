@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import json
 from pathlib import Path
 from typing import Any
 
@@ -29,8 +28,10 @@ from mp_verify.corridor import validate_corridor_result
 from mp_verify.dashboard import _hash
 from mp_verify.plot import transform_point, unit_factor, validate_plot_placement
 from mp_verify.scene import validate_scene
+from mp_verify.webmap import bounds_of
 
 from .corridor import replay_corridor
+from .json_input import parse_json
 from .plss import replay_plss
 from .webmap import _Budget, _primitive_point, _sample, _vector_feature
 from .webmap_projection import WebMapProjection
@@ -123,7 +124,7 @@ def prepare_delivery_source(
             ):
                 raise ValueError("Corridor input/geometry hash differs from explicit binding")
             if binding.revision_corridor_id is None:
-                manifest = json.loads(manifest_bytes)
+                manifest = parse_json(manifest_bytes)
                 if _sha(raw) != manifest["source_sha256"]:
                     raise ValueError("Corridor source request changed during replay")
             elif result.request.id != binding.revision_corridor_id:
@@ -272,7 +273,7 @@ def prepare_delivery_source(
                     "PLSS selected scene differs from original supplied reference scene"
                 )
             raw = _read(directory / "request.json")
-            manifest = json.loads(manifest_bytes)
+            manifest = parse_json(manifest_bytes)
             if _sha(raw) != manifest["sha256"]["request.json"]:
                 raise ValueError("PLSS source request changed during replay")
             original = PLSSDerivationRequest.model_validate_json(raw)
@@ -328,6 +329,64 @@ def prepare_delivery_source(
         raise ValueError("Derived source artifact is unavailable for fresh replay") from exc
 
 
+def _corridor_ring(
+    item: DeliveryItem,
+    scene: PlotScene,
+    options: WebMapOptions,
+    budget: _Budget,
+    projection: WebMapProjection,
+    scene_points: list[XY] | None = None,
+) -> list[XY]:
+    """Sample the constructed corridor boundary exactly as GeoJSON exports it.
+
+    Returns geographic ring vertices. ``scene_points`` collects every placed
+    scene-XY point the sampler evaluates (a superset of the exported vertices'
+    sources, all on the boundary), for area-of-use checks of exported geometry.
+    """
+    if item.plot is None or item.placement is None:
+        raise ValueError("Geographic corridor requires its composed explicit placement")
+    native = item.plot.request.foot_definition
+    placement = item.placement
+    points: list[XY] = []
+    for primitive in item.plot.geometry.primitives:
+
+        def placed_point(t: float, p: PlotPrimitive = primitive) -> XY:
+            value = transform_point(
+                _primitive_point(p, t),
+                placement,
+                native_units=native,
+                scene_units=scene.units,
+            )
+            if scene_points is not None:
+                scene_points.append(value)
+            return value
+
+        sampled = _sample(
+            placed_point,
+            projection,
+            options,
+            budget,
+            count_start=not points,
+        )
+        points.extend(sampled if not points else sampled[1:])
+    return points
+
+
+def corridor_export_ring(
+    item: DeliveryItem, scene: PlotScene, options: WebMapOptions, projection: WebMapProjection
+) -> tuple[list[XY], tuple[float, float, float, float] | None]:
+    """The geographic ring GeoJSON exports and the scene-XY bounds of its samples.
+
+    Sampled once per publish: the area check uses the bounds and export reuses
+    the ring (``delivery_source_features(ring=...)``).
+    """
+    collected: list[XY] = []
+    ring = _corridor_ring(
+        item, scene, options, _Budget(options.max_vertices), projection, collected
+    )
+    return ring, bounds_of(collected)
+
+
 def delivery_source_features(
     item: DeliveryItem,
     source_record: dict[str, Any],
@@ -336,37 +395,27 @@ def delivery_source_features(
     options: WebMapOptions,
     budget: _Budget,
     projection: WebMapProjection,
+    *,
+    ring: list[XY] | None = None,
 ) -> list[dict[str, Any]]:
-    """Project explicit constructed polygons without deed-course or POB assertions."""
+    """Project explicit constructed polygons without deed-course or POB assertions.
+
+    ``ring`` is the corridor ring already sampled with ``projection`` and
+    ``options`` for the area check; its vertices are charged to ``budget``
+    exactly as sampling them here would (one take per vertex).
+    """
     if (
         source_record.get("layer_id") != item.selection.id
         or source_record.get("kind") != item.selection.kind
     ):
         raise ValueError("Derived geographic feature differs from source binding")
     if item.selection.kind == "corridor":
-        if item.plot is None or item.placement is None:
-            raise ValueError("Geographic corridor requires its composed explicit placement")
-        native = item.plot.request.foot_definition
-        placement = item.placement
-        points: list[XY] = []
-        for primitive in item.plot.geometry.primitives:
-
-            def placed_point(t: float, p: PlotPrimitive = primitive) -> XY:
-                return transform_point(
-                    _primitive_point(p, t),
-                    placement,
-                    native_units=native,
-                    scene_units=scene.units,
-                )
-
-            sampled = _sample(
-                placed_point,
-                projection,
-                options,
-                budget,
-                count_start=not points,
-            )
-            points.extend(sampled if not points else sampled[1:])
+        if ring is None:
+            points = _corridor_ring(item, scene, options, budget, projection)
+        else:
+            for _ in ring:
+                budget.take()
+            points = list(ring)
         if len(points) < 4:
             raise ValueError("Geographic corridor requires a closed boundary ring")
         if points[-1] != points[0]:

@@ -1,5 +1,7 @@
 """Tests for text_parser.py - Text normalization and OCR fixes."""
 
+import pytest
+
 from metesparser.text_parser import TextParser
 
 
@@ -521,3 +523,50 @@ class TestNormalizeLegalDescription:
         assert "N 33°20' E" in result
         assert "60 feet" in result
         assert "to a point" in result
+
+
+class TestExtractDistanceAndCompoundTrailing:
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "10 chains and 50 links, 3 rods from the corner",
+            "10 chains and 50 links 3 rods from the corner",
+        ],
+    )
+    def test_and_compound_not_merged_with_trailing_measurement(self, text: str) -> None:
+        value, unit = TextParser.extract_distance(text)
+        assert value == pytest.approx(693.0)
+        assert unit == "feet"
+
+    def test_implicit_pair_followed_by_and_part_keeps_leading_component(self) -> None:
+        value, unit = TextParser.extract_distance("10 chains 50 links and 3 perches")
+        assert value == pytest.approx(742.5)
+        assert unit == "feet"
+
+    @pytest.mark.parametrize(
+        ("text", "expected"),
+        [
+            ("1 chain, 2 rods and 3 links", (0.0, "feet")),
+            ("10 chains 50 links and 3 perches", (742.5, "feet")),
+            ("10 chains and 50 links, 3 rods from the corner", (693.0, "feet")),
+            ("150 feet, 3 rods north of the oak", (150.0, "feet")),
+            ("40 poles 2 rods", (0.0, "feet")),
+            ("2 rods and 3 links", (34.98, "feet")),
+            ("N 10 E 150 feet to a stake 2 chains 20 links west of a white oak", (150.0, "feet")),
+            ("N 10 E 150 feet distant 2 chains 20 links from the oak", (150.0, "feet")),
+            # An unlabelled second length is ambiguous: none is chosen.
+            ("N 10 E 150 feet from a stake 2 chains 20 links west", (0.0, "feet")),
+            ("N 10 E 150 feet to a stake 2 chains 20 links", (0.0, "feet")),
+            ("N 10 E 2 chains 20 links to a stake", (145.2, "feet")),
+            (
+                "N 10 E 2 chains 20 links to a stake 3 chains 5 links west of an oak",
+                (145.2, "feet"),
+            ),
+        ],
+    )
+    def test_compound_table_never_drops_leading_measurement(
+        self, text: str, expected: tuple[float, str]
+    ) -> None:
+        value, unit = TextParser.extract_distance(text)
+        assert value == pytest.approx(expected[0])
+        assert unit == expected[1]

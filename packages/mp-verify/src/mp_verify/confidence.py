@@ -11,23 +11,41 @@ from __future__ import annotations
 from mp_models import ClosureResult, DeedCall
 from mp_models.constants import PERMANENT_MONUMENTS
 
+from .tangents import has_determined_direction
+from .traverse import analyze_courses, effective_indefinite, is_chord_positioned
 
-def score_call_quality(call: DeedCall) -> str:
+
+def score_call_quality(
+    call: DeedCall, chord_positioned: bool | None = None, indefinite: bool | None = None
+) -> str:
     """Rate individual call quality as high/medium/low.
 
     Scoring logic:
-    - low: incomplete bearing (no azimuth) OR indefinite call
+    - low: direction not determined (no stated bearing and not fixed by stated
+      curve elements, and not positioned by a stated chord) OR indefinite call
+    - medium also: positioned by a stated chord only (chord-only curve or spiral):
+      the chord bearing is stated, but tangent and arc are not determined, so it
+      ranks below a fully determined course
     - medium: complete bearing but has meander flag or non-permanent monument
     - high: complete bearing with permanent or no monument, no flags
 
     Args:
         call: DeedCall to score.
+        chord_positioned: Precomputed chord-positioning flag; derived when omitted.
+        indefinite: Precomputed effective_indefinite flag; derived when omitted.
 
     Returns:
         "high", "medium", or "low".
     """
-    if not call.is_complete_bearing() or call.is_indefinite:
+    if indefinite is None:
+        indefinite = effective_indefinite(call)
+    if indefinite:
         return "low"
+
+    if not has_determined_direction(call):
+        if chord_positioned is None:
+            chord_positioned = is_chord_positioned(call)
+        return "medium" if chord_positioned else "low"
 
     if call.is_meander:
         return "medium"
@@ -38,7 +56,12 @@ def score_call_quality(call: DeedCall) -> str:
     return "high"
 
 
-def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> float:
+def calculate_confidence_score(
+    result: ClosureResult,
+    calls: list[DeedCall],
+    chord_flags: list[bool] | None = None,
+    indefinite_flags: list[bool] | None = None,
+) -> float:
     """Calculate overall confidence score (0.0-1.0) for a closure result.
 
     Weighted components:
@@ -51,6 +74,10 @@ def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> 
     Args:
         result: ClosureResult from verify_closure().
         calls: List of DeedCall objects.
+        chord_flags: Per-call chord-positioning flags aligned with calls; derived
+            from one traverse pass when omitted.
+        indefinite_flags: Per-call effective_indefinite flags aligned with calls;
+            derived from the same pass when omitted.
 
     Returns:
         Score between 0.0 and 1.0 (inclusive).
@@ -58,8 +85,10 @@ def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> 
     if not calls:
         return 0.0
 
-    # Closure quality (30%)
-    if result.closure_passed:
+    # Closure quality (30%); an undetermined misclosure earns no closure credit.
+    if not result.misclosure_available:
+        closure_score = 0.0
+    elif result.closure_passed:
         if result.misclosure_ft < 0.001:
             closure_score = 1.0
         elif result.misclosure_ft < 0.01:
@@ -82,12 +111,26 @@ def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> 
         checks_passed = sum([result.angle_check_passed, result.curve_consistency_passed])
     checks_score = checks_passed / 2.0
 
-    # Bearing completeness (25%)
-    complete = sum(1 for c in calls if c.is_complete_bearing())
+    # Bearing completeness (25%): a stated chord bearing that positions the course
+    # counts as a stated direction (its lower quality is scored below).
+    if chord_flags is None or indefinite_flags is None:
+        records = analyze_courses(calls)[1]
+        if chord_flags is None:
+            chord_flags = [record.chord_positioned for record in records]
+        if indefinite_flags is None:
+            indefinite_flags = [record.indefinite for record in records]
+    complete = sum(
+        1
+        for c, chord in zip(calls, chord_flags, strict=True)
+        if has_determined_direction(c) or chord
+    )
     bearing_score = complete / len(calls)
 
     # Call quality (15%)
-    qualities = [score_call_quality(c) for c in calls]
+    qualities = [
+        score_call_quality(c, chord, indefinite)
+        for c, chord, indefinite in zip(calls, chord_flags, indefinite_flags, strict=True)
+    ]
     quality_weights = {"high": 1.0, "medium": 0.6, "low": 0.2}
     quality_score = sum(quality_weights[q] for q in qualities) / len(calls)
 

@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from mp_bearing import bearing_to_azimuth
 from mp_models import DeedCall, Point
 
+from .tangents import curve_sweep, curve_tangents, is_circular_curve
+
 _TOL = 1e-7  # Feet: construction roundoff, not the traverse closure tolerance.
 XY = tuple[float, float]
 
@@ -56,26 +58,22 @@ class _Arc:
 
 
 def _make_arc(call: DeedCall, start: XY, end: XY) -> _Arc:
-    if call.curve_type == "spiral":
+    if not is_circular_curve(call):
         raise ValueError("spiral geometry is not a circular arc")
     radius = call.radius_ft
     if radius is None or radius <= 0 or call.curve_dir not in ("left", "right"):
         raise ValueError("missing circular radius or direction")
-    delta = call.delta_deg
-    if delta is None and call.arc_length_ft is not None:
-        delta = math.degrees(call.arc_length_ft / radius)
-    if delta is None or not math.isfinite(delta) or not 0 < delta <= 360:
+    delta = curve_sweep(call)
+    if delta is None:
         raise ValueError("missing or invalid circular sweep")
     sign = 1 if call.curve_dir == "right" else -1
-    tangent = call.bearing_azimuth_deg_from_north
-    if call.chord_bearing is not None:
-        chord = bearing_to_azimuth(call.chord_bearing)
-        if chord is None:
-            raise ValueError("invalid chord bearing")
-        tangent = chord - sign * delta / 2
-    if tangent is None or not math.isfinite(tangent):
+    if call.chord_bearing is not None and bearing_to_azimuth(call.chord_bearing) is None:
+        raise ValueError("invalid chord bearing")
+    # Stated tangent, or the tangent fixed by chord bearing and sweep (never stored).
+    tangents = curve_tangents(call)
+    if tangents is None:
         raise ValueError("missing tangent or chord bearing")
-    radians = math.radians(tangent)
+    radians = math.radians(tangents[0])
     center = (
         start[0] + sign * radius * math.cos(radians),
         start[1] - sign * radius * math.sin(radians),

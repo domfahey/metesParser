@@ -6,6 +6,7 @@ replay establishes deterministic usability. Neither establishes source accuracy.
 
 from __future__ import annotations
 
+import csv
 import hashlib
 import json
 import re
@@ -15,6 +16,7 @@ from typing import Any
 
 from mp_models.artifact_inspection import ArtifactInspection
 
+from .json_input import InvalidInputJson, parse_json
 from .source_handoff import _json_object, _Validator, validate_source_bundle
 
 STAGES = (
@@ -121,17 +123,14 @@ class _Inspector:
             ) from None
 
     def load(self, path: Path) -> Any:
-        from .plot import _finite_json
-
         try:
-            value = json.loads(
+            value = parse_json(
                 self.read(path).decode("utf-8-sig"),
                 object_pairs_hook=_json_object,
                 parse_constant=lambda x: (_ for _ in ()).throw(ValueError("Nonfinite JSON")),
             )
-            _finite_json(value)
             return value
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, UnicodeDecodeError, RecursionError, InvalidInputJson):
             raise _Issue(
                 "invalid_json",
                 "Artifact must contain strict UTF-8 JSON without duplicate keys.",
@@ -183,7 +182,7 @@ class _Inspector:
             operation()
         except _Issue as exc:
             self.issue(node, exc.code, exc.message, exc.status, exc.path)
-        except (ValueError, TypeError, KeyError, ArithmeticError):
+        except (ValueError, TypeError, KeyError, ArithmeticError, csv.Error):
             self.issue(
                 node,
                 "invalid_provenance",
@@ -406,6 +405,7 @@ class _Inspector:
             node["recorded_canonical_status"] = manifest["recorded_status"]
             declared_artifacts = manifest.get("artifacts")
             display = self.node("review_display", "review", directory / "review.html")
+            display["dependency_ids"] = [node["id"]]
             self.run(
                 display,
                 lambda: self.check_hash(
@@ -471,6 +471,10 @@ class _Inspector:
             saved_calls = self.load(directory / "calls.json")
             saved_verification = self.load(directory / "verification.json")
             saved_audit = self.load(directory / "audit.json")
+            if isinstance(saved_audit, dict) and "skipped_courses" not in saved_audit:
+                # Audits written before the key existed recorded no skips; a present
+                # but different list still mismatches.
+                saved_audit = {**saved_audit, "skipped_courses": []}
             fresh = api.replay_review(
                 raw,
                 input_kind=source["kind"],
@@ -516,6 +520,7 @@ class _Inspector:
             request_path = directory / "plot-input.json"
             geometry_path = directory / "plot-geometry.json"
             display = self.node("plot_display", "plot", directory / "plot.html")
+            display["dependency_ids"] = [node["id"]]
             self.run(
                 display,
                 lambda: self.check_hash(
@@ -927,6 +932,12 @@ class _Inspector:
                 )
             fresh = self.contexts[str(directory)]
             render = self.load(directory / "render-manifest.json")
+            if not isinstance(render, dict):
+                raise _Issue(
+                    "invalid_manifest",
+                    "Dashboard render manifest must be an object.",
+                    path=self.relative(directory / "render-manifest.json"),
+                )
             if (
                 render.get("presentation_hash") != fresh.manifest.presentation_hash
                 or render.get("renderer_sha256") != renderer_fingerprint()
@@ -1498,15 +1509,24 @@ class _Inspector:
                     ),
                     "present_valid",
                 )
+            member_ids = {n["id"] for n in members}
             dependency_ids = list(
                 dict.fromkeys(
-                    dependency for node in members for dependency in node["dependency_ids"]
+                    dependency
+                    for node in members
+                    for dependency in node["dependency_ids"]
+                    if dependency not in member_ids
                 )
             )
             reasons = []
             seen_reasons = set()
             for node in members:
                 for reason in node["reasons"]:
+                    if (
+                        reason["code"] == "upstream_invalid"
+                        and reason["dependency_id"] in member_ids
+                    ):
+                        continue  # Derived from a producer already summarized in this stage.
                     attributed = {**reason, "artifact_id": node["id"]}
                     identity = json.dumps(attributed, sort_keys=True)
                     if identity not in seen_reasons:

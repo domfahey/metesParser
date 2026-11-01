@@ -155,3 +155,91 @@ def test_conveyed_parcel_area_after_parent_tract_clause_is_selected(extract_area
     )
     assert area is not None
     assert area["value_sq_ft"] == pytest.approx(2.5 * 43560)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize(
+    ("course", "expected_ft"),
+    [
+        ("THENCE N 10° E 2 chains 20 links to an iron pin", 145.2),
+        ("THENCE N 10° E 2 chains, 20 links to an iron pin", 145.2),
+    ],
+)
+def test_compound_distance_without_and_sums_every_component(parse, course, expected_ft):
+    # Bug #70: only the first component was kept when "and" was absent.
+    assert parse(course)[0].distance_ft == pytest.approx(expected_ft)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize(
+    ("course", "expected_ft"),
+    [
+        ("THENCE N 10° E 150 feet, 3 rods north of the oak to an iron pin", 150.0),
+        ("THENCE N 10° E 40 poles and 5 feet to an iron pin", 665.0),
+        ("THENCE N 10° E 40 poles 5 feet to an iron pin", 665.0),
+        ("THENCE N 10° E 3 poles 4 links to an iron pin", 52.14),
+    ],
+)
+def test_unrelated_adjacent_units_are_not_summed_without_and(parse, course, expected_ft):
+    # PR #60 review: without "and" only descending units join (one measurement).
+    assert parse(course)[0].distance_ft == pytest.approx(expected_ft)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize("course", ["THENCE N 10° E 40 poles 2 rods to an iron pin"])
+def test_unsummed_adjacent_lengths_are_ambiguous_and_never_chosen(parse, course):
+    # Equivalent units are two course lengths: neither is chosen (never the first).
+    with pytest.raises(ValueError, match="course length ambiguous"):
+        parse(course)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_repeated_same_unit_measurements_are_not_summed_without_and(parse):
+    call = parse("THENCE N 10° E 100 feet, 50 feet from the corner to an iron pin")[0]
+    assert call.distance_ft == pytest.approx(100.0)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize("qualifier", ["approximately ", ""])
+def test_tangent_not_stated_note_survives_meander_or_approximate_note(parse, qualifier):
+    # PR #60 review: the tangent disclosure was replaced by the meander note.
+    call = parse(
+        f"THENCE a curve to the right, {qualifier}radius of 50 feet, delta angle of 90°, "
+        "chord bearing North 45° East 70.71 feet; THENCE due South 50 feet; "
+        "THENCE due West 50 feet to the point of beginning."
+    )[0]
+    assert call.bearing_azimuth_deg_from_north is None
+    assert call.bearing_quadrant is None
+    assert "tangent bearing not stated - curve positioned by chord and delta in verification" in (
+        call.notes or ""
+    )
+    if qualifier:
+        assert "meander / approximate" in call.notes
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_abbreviated_chord_bearing_is_not_used_as_tangent(parse):
+    text = (
+        "THENCE a curve to the right, radius of 100 feet, delta angle of 90°, "
+        "chord bears {chord} 141.42 feet; THENCE due South 50 feet; "
+        "THENCE due West 50 feet to the point of beginning."
+    )
+    a = parse(text.format(chord="N 45°00'00\" E"))[0]
+    b = parse(text.format(chord="North 45°00'00\" East"))[0]
+    assert a.bearing_azimuth_deg_from_north is None
+    assert b.bearing_azimuth_deg_from_north is None
+    assert a.chord_bearing is not None and b.chord_bearing is not None
+    assert a.bearing_quadrant is None
+    assert "tangent bearing not stated - curve positioned by chord and delta in verification" in (
+        a.notes or ""
+    )
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_separately_stated_tangent_bearing_is_kept_with_chord(parse):
+    text = (
+        "THENCE N 10°00'00\" E along a curve to the right, radius of 100 feet, delta angle of 90°, "
+        "chord bears N 55°00'00\" E 141.42 feet; THENCE due South 50 feet; "
+        "THENCE due West 50 feet to the point of beginning."
+    )
+    assert parse(text)[0].bearing_azimuth_deg_from_north == pytest.approx(10.0)

@@ -287,7 +287,13 @@ def test_corridor_and_plss_facades_reuse_shared_implementations():
 
 def test_delivery_facade_reuses_shared_models_and_replay():
     from mp_models import DeliveryRequest
-    from mp_review.delivery import load_delivery, publish_delivery
+    from mp_review.delivery import (
+        DeliveryReplay,
+        DeliveryReplayIncomplete,
+        load_delivery,
+        publish_delivery,
+        replay_delivery,
+    )
     from mp_review.revision_view import render_revision_file
 
     import metesparser.delivery as delivery
@@ -295,6 +301,9 @@ def test_delivery_facade_reuses_shared_models_and_replay():
     assert delivery.DeliveryRequest is DeliveryRequest
     assert delivery.load_delivery is load_delivery
     assert delivery.publish_delivery is publish_delivery
+    assert delivery.replay_delivery is replay_delivery
+    assert delivery.DeliveryReplay is DeliveryReplay
+    assert delivery.DeliveryReplayIncomplete is DeliveryReplayIncomplete
     assert delivery.render_revision_file is render_revision_file
 
 

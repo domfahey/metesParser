@@ -83,6 +83,31 @@ def prepared_and_artifact(unsafe=False):
     return prepared, artifact
 
 
+def omitted(prepared, *, calculations=True, vectors=True):
+    """Honest omission records for evidence a synthetic artifact does not display."""
+    from mp_models.webmap import WebMapUnavailableItem
+
+    items = []
+    if calculations:
+        items += [
+            WebMapUnavailableItem(
+                item_id=g.calculation_id,
+                kind="calculation",
+                code="missing_placement",
+                reason="Synthetic omission",
+            )
+            for g in prepared.plots.geometries
+        ]
+    if vectors:
+        items += [
+            WebMapUnavailableItem(
+                item_id=v.id, kind="vector", code="vertex_limit", reason="Synthetic omission"
+            )
+            for v in prepared.bundle.vector_layers
+        ]
+    return tuple(items)
+
+
 def test_safe_deterministic_shell_and_frozen_selectors():
     prepared, artifact = prepared_and_artifact(True)
     before = prepared.model_dump_json(), artifact.model_dump_json()
@@ -216,7 +241,8 @@ def test_ready_context_is_serialized_without_geographic_computation():
         update={
             "features": (feature,),
             "projection": WebMapProjectionRecord(source_crs_wkt="synthetic", pipeline="synthetic"),
-            "availability": "ready",
+            "unavailable": omitted(prepared, vectors=False),
+            "availability": "partial",
             "bounds": (1.0, 1.0, 1.01, 1.01),
         }
     )
@@ -303,36 +329,57 @@ def deed_artifact(prepared, artifact, kind="recorded_course"):
 
     geometry = prepared.plots.geometries[0]
     placement = prepared.plots.placements[0]
-    call = prepared.bundle.calls[0]
-    props = WebMapProperties(
-        kind=kind,
-        calculation_id=geometry.calculation_id,
-        occurrence_id=geometry.occurrence_id,
-        geometry_hash=geometry.geometry_hash,
-        placement_id=placement.id,
-        placement_hash=hashlib.sha256(
-            json.dumps(
-                placement.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
-            ).encode()
-        ).hexdigest(),
-        placement_status=placement.status,
-        completeness=geometry.completeness,
-        call_id=call.id if kind == "recorded_course" else None,
-        page_id=call.page_id if kind == "recorded_course" else None,
-    )
-    feature = WebMapFeature(
-        id="synthetic-feature",
-        properties=props,
-        geometry=WebMapPoint(coordinates=(1, 1))
-        if kind == "pob"
-        else WebMapLine(coordinates=((1, 1), (1.01, 1.01))),
-    )
+    calls = {c.id: c for c in prepared.bundle.calls}
+    placement_hash = hashlib.sha256(
+        json.dumps(
+            placement.model_dump(mode="json"), sort_keys=True, separators=(",", ":")
+        ).encode()
+    ).hexdigest()
+
+    def feature(name, feature_kind, call_id=None, coordinates=None):
+        call = calls[call_id] if call_id else None
+        props = WebMapProperties(
+            kind=feature_kind,
+            calculation_id=geometry.calculation_id,
+            occurrence_id=call.occurrence_id if call else geometry.occurrence_id,
+            geometry_hash=geometry.geometry_hash,
+            placement_id=placement.id,
+            placement_hash=placement_hash,
+            placement_status=placement.status,
+            completeness=geometry.completeness,
+            call_id=call_id,
+            page_id=call.page_id if call else None,
+        )
+        shape = (
+            WebMapPoint(coordinates=coordinates[0])
+            if feature_kind == "pob"
+            else WebMapLine(coordinates=coordinates)
+        )
+        return WebMapFeature(id=name, properties=props, geometry=shape)
+
+    # A complete, internally consistent synthetic set: chained courses and a point of beginning.
+    primitives = geometry.primitives
+    courses = [
+        feature(
+            "synthetic-feature" if i == 0 else f"course-{i}",
+            "recorded_course",
+            p.call_id,
+            ((1 + i * 0.01, 1 + i * 0.01), (1.01 + i * 0.01, 1.01 + i * 0.01)),
+        )
+        for i, p in enumerate(primitives)
+    ]
+    pob = feature("pob", "pob", coordinates=((1, 1),))
+    features = [*courses, pob]
+    if kind == "pob":
+        features = [pob, *courses]
+    top = 1.01 + (len(primitives) - 1) * 0.01
     return artifact.model_copy(
         update={
-            "features": (feature,),
-            "availability": "ready",
-            "bounds": (1, 1, 1.01, 1.01),
+            "features": tuple(features),
+            "availability": "partial",
+            "bounds": (1, 1, top, top),
             "projection": WebMapProjectionRecord(source_crs_wkt="synthetic", pipeline="synthetic"),
+            "unavailable": omitted(prepared, calculations=False),
         }
     )
 
@@ -482,7 +529,8 @@ def test_raster_provenance_rejects_stale_bindings(field, value):
             "rasters": (raster,),
             "input_hashes": hashes,
             "projection": projection,
-            "availability": "ready",
+            "unavailable": omitted(prepared),
+            "availability": "partial",
             "bounds": (1, 1, 2, 2),
         }
     )
