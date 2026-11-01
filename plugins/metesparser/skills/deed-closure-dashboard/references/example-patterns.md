@@ -36,3 +36,14 @@ Apply the playbook's QA to the implemented features. In particular:
 - Exercise optional source links, overlays, redline selectors, exports, and persistence fallbacks in the actual target host. Report any untested feature.
 
 Any benchmark or professional-standard comparison shown in the example needs independent verification of the current official source and applicability before reuse. A proposed yardstick is separate from the parser's verification gate.
+
+## Case study: 2 Walnut Street
+
+This section records figures from the supplied “2 Walnut Street Closure Check” chain. Each is an example to confirm against the actual sources, never a default or a finding for another property.
+
+- A 2010 corrective instrument changed 35.37 to 35.57 and 2015 instruments repeated it. A shared-line comparison reported a 0.44 ft offset using 35.37 and a 0.24 ft offset using 35.57. Each figure needs its own source confirmation.
+- A watermark covered the first digit of 81.52; the crop and alternate readings (for example 8.52) stayed visible.
+- Faint 1999 figures included 58.28, 130.48, and 248.31; a clearer later copy corroborated them, with each source named.
+- The display used a 45° rotation for “northwesterly”. That is a labeled display choice, not an exact recorded azimuth.
+- The RTF-1 and GIT/REP-3 pages contained tax IDs and were flagged before sharing.
+- Digit-transposition scenarios such as 177.27/177.72 stayed in the workbench, labeled with their source or rationale.

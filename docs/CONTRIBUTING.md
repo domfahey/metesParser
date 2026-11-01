@@ -268,7 +268,7 @@ Maintain shared capability procedures under `plugins/metesparser/` and chat-spec
 
 ### Adding a New Module
 
-1. Choose the owning package using [Architecture](ARCHITECTURE.md#composable-package-architecture).
+1. Choose the owning package using [Architecture](ARCHITECTURE.md#composable-package-architecture); the [package dependency graph](ARCHITECTURE.md#dependency-graph) shows which packages may import which.
 2. Add a failing behavior test in `packages/mp-<owner>/tests/`.
 3. Implement in that package without introducing a dependency cycle.
 4. For duplicated legacy APIs, keep `src/metesparser/` behavior in sync. For shared

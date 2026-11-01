@@ -22,6 +22,9 @@ from typing import TypedDict, cast
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "references" / "uv-bootstrap.json"
 UV_VERSION = "0.9.6"
+# Chat has no project settings. An explicit, never-created path stops the shared launcher from
+# reading a cwd-relative settings file; an absent file means defaults (output dir required).
+NO_SETTINGS = ROOT / "references" / "no-chat-settings.md"
 
 
 class WheelRecord(TypedDict):
@@ -214,6 +217,8 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
             return 0
+        if not any(arg == "--settings" or arg.startswith("--settings=") for arg in args):
+            args.extend(["--settings", str(NO_SETTINGS)])
         previous = os.environ.get("PATH")
         os.environ["PATH"] = str(Path(uv).parent) + os.pathsep + (previous or "")
         try:

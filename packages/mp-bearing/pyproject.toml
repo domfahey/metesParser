@@ -3,6 +3,7 @@ name = "mp-bearing"
 version = "1.0.0"
 requires-python = ">=3.11"
 description = "Bearing conversion and curve math for metes and bounds parsing"
+license = "MIT"
 dependencies = ["mp-models>=1.0.0"]
 
 [project.optional-dependencies]

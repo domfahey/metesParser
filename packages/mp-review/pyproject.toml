@@ -3,7 +3,8 @@ name = "mp-review"
 version = "1.0.0"
 requires-python = ">=3.11"
 description = "Deterministic text-first deed review"
-dependencies = ["mp-models>=1.0.0", "mp-parse>=1.0.0", "mp-verify>=1.0.0", "mp-export>=1.0.0", "pyyaml>=6.0.2"]
+license = "MIT"
+dependencies = ["mp-models>=1.0.0", "mp-bearing>=1.0.0", "mp-parse>=1.0.0", "mp-verify>=1.0.0", "mp-export>=1.0.0", "pyyaml>=6.0.2"]
 
 [project.optional-dependencies]
 delivery = ["mp-export[delivery]>=1.0.0"]
