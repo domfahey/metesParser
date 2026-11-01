@@ -8,6 +8,7 @@
     "parcel_shape": "L-shaped irregular polygon",
     "dimensions": "7-call L-shaped lot with frontage on Pennbrook Drive, 2 calls with DMS bearings, 4 calls with cardinal-only directions and 1 call with no direction stated",
     "date": "June 21, 2021",
+    "recorded": "07/16/2021",
     "grantor": "Brian V. Lanza, Successor Trustee of the Noreen Lanza Living Trust dated October 24, 2014",
     "grantee": "Dominic F. Fahey and Anastasia Fahey H&W (\"and Anastasia Fahey H&W\" is a typed insertion)",
     "consideration": "$548,500.00",
@@ -150,5 +151,5 @@
       "description": "MUST extract 2 calls with complete DMS bearings (calls 1-2)"
     }
   },
-  "notes": "Checked against Book 11793 Pages 217-222, PDF pages 1-6: Exhibit A (Page 221, PDF page 5) matches every course; course (2) prints \"to a. point\", the \"to\" fields now keep \"said plan\" / \"on plan hereinafter mentioned\", course (6) states no direction, and the perimeter is 554.2 ft (was 553.2). The deed body (Page 219) has no description of its own: it says \"SEE EXHIBIT 'A' ATTACHED HERETO AND MADE A PART HEREOF\". An earlier ground truth used an incorrect 5-call rectangular description from the LLM extraction; this one follows Exhibit A, a 7-call L-shaped lot with only 2 calls having complete DMS bearings (S 56°40' W and S 87°07'30\" W). The other 5 calls have no bearing (bearing_quadrant and azimuth null), so closure cannot be verified and closure_passed=false."
+  "notes": "Checked against Book 11793 Pages 217-222, PDF pages 1-6: Exhibit A (Page 221, PDF page 5) matches every course; a second check of the page images confirmed every word and figure and added the recording date (07/16/2021, summary sheet); course (2) prints \"to a. point\", the \"to\" fields now keep \"said plan\" / \"on plan hereinafter mentioned\", course (6) states no direction, and the perimeter is 554.2 ft (was 553.2). The deed body (Page 219) has no description of its own: it says \"SEE EXHIBIT 'A' ATTACHED HERETO AND MADE A PART HEREOF\". An earlier ground truth used an incorrect 5-call rectangular description from the LLM extraction; this one follows Exhibit A, a 7-call L-shaped lot with only 2 calls having complete DMS bearings (S 56°40' W and S 87°07'30\" W). The other 5 calls have no bearing (bearing_quadrant and azimuth null), so closure cannot be verified and closure_passed=false."
 }

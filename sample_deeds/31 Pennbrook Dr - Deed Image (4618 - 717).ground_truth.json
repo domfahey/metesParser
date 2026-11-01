@@ -96,12 +96,12 @@
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 208.8037,
-    "area_sq_ft": 14588.44,
-    "area_acres": 0.3349,
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
     "perimeter_ft": 597.57,
     "closure_passed": false,
-    "closure_notes": "Misclosure is expected due to cardinal-only call 4 (Northwestwardly) which contributes no dx/dy. True bearing from later surveys is N 33\u00b020'00\" W (see book 10989/11191 Exhibit A). With the correct bearing, misclosure would be ~0.0116 ft."
+    "closure_notes": "Closure not computed: course 4 states no bearing (\"Northwestwardly\"). With the later surveys' N 33\u00b020'00\" W for course 4 (book 10989/11191 Exhibit A), the five courses close to 0.0116 ft, area 18,633.81 sq ft."
   },
   "critical_assertions": {
     "num_calls": {
@@ -130,5 +130,5 @@
       "fix": "Regenerated ground truth from actual deed body text (this file)"
     }
   ],
-  "notes": "Checked against Book 4618 Page 717 (PDF page 1): all five courses match the print; the course numbers are restored to the printed \"(1)\"-\"(5)\" and the two BEING lines were added. The tax map reference reads \"Block No. 61.21\" under the watermark (64.21 in later deeds), so no block is recorded. Ground truth regenerated from GPT-5.2 extraction (2026-02-15). Previous GPT-4.1 ground truth described a completely WRONG property (Demarest Ave, City of Englewood \u2014 Lots 18-19, Block 545) instead of the actual 31 Pennbrook Drive, Haddonfield property. This is the oldest deed in the chain (1993). Same parcel as book 10989/pg 916 and book 11191/pg 01716, but this version uses 'Northwestwardly' (cardinal-only) for call 4 instead of a precise bearing. BEING Lot No. 57 on Map of Wedgewood in Haddonfield (Block 64.21, Lot 11 on tax map)."
+  "notes": "Checked against Book 4618 Page 717 (PDF page 1): all five courses match the print; the course numbers are restored to the printed \"(1)\"-\"(5)\" and the two BEING lines were added. The tax map reference reads \"Block No. 61.21\" under the watermark (64.21 in later deeds), so no block is recorded. Second check: the closure no longer reports a 208.80 ft misclosure computed as if the bearingless course 4 had no length. Ground truth regenerated from GPT-5.2 extraction (2026-02-15). Previous GPT-4.1 ground truth described a completely WRONG property (Demarest Ave, City of Englewood \u2014 Lots 18-19, Block 545) instead of the actual 31 Pennbrook Drive, Haddonfield property. This is the oldest deed in the chain (1993). Same parcel as book 10989/pg 916 and book 11191/pg 01716, but this version uses 'Northwestwardly' (cardinal-only) for call 4 instead of a precise bearing. BEING Lot No. 57 on Map of Wedgewood in Haddonfield (Block 64.21, Lot 11 on tax map)."
 }
