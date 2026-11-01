@@ -430,7 +430,7 @@ class CallExtractor:
                         explicit_course
                         or cls.extract_direction(call_text)
                         or re.search(r"\b(?:[NSEW])\s+\d", call_text, re.I)
-                        or re.search(r"\b(?:curve|spiral|transition)\b", call_text, re.I)
+                        or re.search(r"\b(?:curv(?:e|ed|ing)|spiral|transition)\b", call_text, re.I)
                     ):
                         raise ValueError(f"Malformed course {source_course}: {call_text.strip()!r}")
                     continue
@@ -955,7 +955,7 @@ class CallExtractor:
         """
         curve_info: dict[str, float | str | None] = {}
 
-        if not re.search(r"\b(?:curve|spiral|transition)\b", text, re.IGNORECASE):
+        if not re.search(r"\b(?:curv(?:e|ed|ing)|spiral|transition)\b", text, re.IGNORECASE):
             return curve_info
 
         match = cls.CURVE_PATTERN.search(text)

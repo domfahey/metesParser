@@ -303,3 +303,65 @@ def test_redman_main_tract_and_exception_match_ground_truth(parse, key):
     assert [
         (round(c.distance_ft, 2), _course_fields(c)[1], c.radius_ft, c.is_exception) for c in calls
     ] == expected
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize(
+    "curve_text",
+    [
+        "curving to the right having a radius of 565.45 feet, an arc distance of 304.57 feet",
+        "curving to the right with a radius of 565.45 feet, an arc distance of 304.57 feet",
+    ],
+)
+def test_curving_to_the_right_is_a_curve_not_a_radius_length(parse, curve_text):
+    call = parse(
+        "BEGINNING at a point; thence in a Northeastwardly direction along the curved line of "
+        f"Euclid Avenue, {curve_text} to a set iron pin",
+        strict=True,
+    )[0]
+    assert str(getattr(call.curve_dir, "value", call.curve_dir)) == "right"
+    assert call.radius_ft == pytest.approx(565.45)
+    assert call.distance_ft == pytest.approx(304.57)
+    assert call.bearing_azimuth_deg_from_north is None
+
+
+def _curve_fields(call) -> tuple:
+    return (
+        round(call.distance_ft, 2),
+        _course_fields(call)[1],
+        getattr(call.curve_dir, "value", call.curve_dir),
+        call.radius_ft,
+        call.arc_length_ft,
+    )
+
+
+def _expected_curve_fields(gt: dict) -> list[tuple]:
+    return [
+        (
+            c["distance_ft"],
+            None
+            if c["bearing_azimuth_deg_from_north"] is None
+            else round(c["bearing_azimuth_deg_from_north"], 4),
+            c["curve_dir"],
+            c["radius_ft"],
+            c["arc_length_ft"],
+        )
+        for c in gt["expected_calls"]
+    ]
+
+
+@pytest.mark.parametrize(
+    ("deed", "strict"),
+    [
+        ("One Centennial Square - Deed Image (9528 - 156)", True),
+        # Strict parsing still rejects 89 Haddon's course-less "the following two courses
+        # and distances" segment.
+        ("89 Haddon Ave - Deed Image (4732 - 544)", False),
+    ],
+)
+@pytest.mark.parametrize("key", ["expected_legal_description", "expected_normalized_text"])
+@pytest.mark.parametrize("parse", PARSERS)
+def test_curving_deeds_match_ground_truth(parse, key, deed, strict):
+    gt = _load(SAMPLE_DEEDS / f"{deed}.ground_truth.json")
+    calls = parse(gt[key], strict=strict)
+    assert [_curve_fields(call) for call in calls] == _expected_curve_fields(gt)
