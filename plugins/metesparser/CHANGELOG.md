@@ -4,6 +4,10 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ## [Unreleased]
 
+### Changed
+
+- **License:** MetesParser is now licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`), replacing MIT, with commercial licenses available from the copyright holder. No version was released publicly under MIT. See [License](../../README.md#license).
+
 ## [2.0.0] - 2026-11-01
 
 Included with MetesParser v0.7.0, with the review engine 2.0.0. Reviews saved by the 1.0.0 engine inspect as stale and must be re-run. This is not a marketplace publication.

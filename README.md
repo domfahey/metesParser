@@ -196,4 +196,12 @@ Keep only publicly available source data in the repository. Do not commit creden
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Copyright (C) 2025–2026 Dominic Fahey.
+
+MetesParser is free software: you can redistribute it and/or modify it under the terms of the [GNU Affero General Public License, version 3 only](LICENSE) (`AGPL-3.0-only`). It is distributed without any warranty. If you modify MetesParser and let others use it over a network, the AGPL requires you to offer them the complete source of your version.
+
+**Commercial licenses.** Organizations that cannot meet the AGPL's terms, for example to include MetesParser in closed-source software or services, can obtain a commercial license from the copyright holder. Contact [Dominic Fahey](https://github.com/domfahey).
+
+**Name.** As an additional term under section 7(e) of the AGPL, the license grants no rights to use the MetesParser name to identify a modified version or to suggest endorsement.
+
+Contributions are accepted under the terms in [CONTRIBUTING.md](docs/CONTRIBUTING.md#license).
