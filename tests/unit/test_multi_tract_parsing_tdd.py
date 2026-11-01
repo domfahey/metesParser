@@ -513,3 +513,58 @@ def test_two_digit_decimal_comma_is_a_decimal_point(parse):
         strict=True,
     )
     assert [call.distance_ft for call in calls] == [416.57, 300.07, 1200.5]
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_numbered_courses_before_the_first_thence_are_kept(parse):
+    """8 Kings Highway W 7489-772: course (1) ends with ";" and "thence" first follows (2)."""
+    calls = parse(
+        "BEGINNING at a point in the Northeasterly line of Lot 10, Block 76 and running;\n\n"
+        "(1) Along said Northeasterly line of Lot 10, Block 76, North 32 degrees 22 minutes "
+        "34 seconds West, 41.23 feet to a point in same;\n\n"
+        "(2) Along the common line of Lots 12.12 and 12.13, Block 76, North 61 degrees 11 "
+        "minutes 34 seconds East, 82.47 feet to a point; thence\n\n"
+        "(3) Along said Southeasterly line of Lot 12.07, South 28 degrees 36 minutes 51 seconds "
+        "East, 36.73 feet to a point; thence\n\n"
+        "(4) Along said Northerly line of Lot 13, South 58 degrees 01 minutes 30 seconds West, "
+        "79.90 feet, to the point and place of BEGINNING.",
+        strict=True,
+    )
+    assert [call.distance_ft for call in calls] == pytest.approx([41.23, 82.47, 36.73, 79.90])
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize(
+    ("heading", "second"), [("Tract #1", "Tract #2"), ("PARCEL A:", "PARCEL B:")]
+)
+def test_tract_heading_ends_the_previous_tracts_courses(parse, heading, second):
+    """15 E Euclid: Tract 1's last course is not merged into Tract 2's numbered courses."""
+    calls = parse(
+        f"{heading}\n\nBeginning in the Northwesterly line of Euclid Avenue; thence Southwestwardly "
+        "along the Northwesterly line of Euclid Avenue 80 feet in width or breadth; thence "
+        "Northwestwardly between parallel lines, parallel with Turnley Avenue 142 feet in length "
+        f"or depth.\n\n{second}\n\nBeginning at a point on the Northerly line of Euclid Avenue; "
+        "and extends thence\n\n1.  Westwardly along said Northerly line of Euclid Avenue the "
+        "distance of 10 feet to a point; and extends thence\n\n2.  Northwardly the distance of "
+        "142 feet to a point; and extends thence\n\n3.  Eastwardly the distance of 10 feet to a "
+        "point; and extends thence\n\n4.  Southwardly the distance of 142 feet to the place of "
+        "beginning."
+    )
+    assert [call.distance_ft for call in calls] == pytest.approx([80, 142, 10, 142, 10, 142])
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_lot_reference_without_courses_has_no_calls_in_strict_mode(parse):
+    """101-111 Kings Highway E 11353-01989: "Kings Highway East" is not a course."""
+    calls = parse(
+        "BEING Lot 1.01, Block 21 on the tax map of the Borough of Haddonfield.\n\n"
+        "BEING commonly known as 101-111 Kings Highway East, Haddonfield, New Jersey 08033.",
+        strict=True,
+    )
+    assert calls == []
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_bearing_without_distance_is_still_malformed_in_strict_mode(parse):
+    with pytest.raises(ValueError, match="Malformed course"):
+        parse("North 45 degrees 30 minutes East to the corner of Lot 7", strict=True)
