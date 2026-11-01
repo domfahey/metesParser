@@ -364,11 +364,15 @@ _COMMA_JOINED_COURSE = re.compile(
     r"(?<=\bfeet),\s+(?=[NS] \d{1,3}°(?:(?!\b(?:thence|from)\b)[^;])*(?:;|\bthence\b|$))",
     re.IGNORECASE,
 )
+# "122.55 feet to a point. S 18°05'10\" W 123.00 feet to the point and place of beginning":
+# two courses joined by a sentence break.
+_SENTENCE_JOINED_COURSE = re.compile(r"(?<=\bpoint)\.\s+(?=[NS] \d{1,3}°)", re.IGNORECASE)
 
 
 def split_comma_joined_courses(text: str) -> str:
-    """Insert thence between two courses joined only by a comma."""
-    return _COMMA_JOINED_COURSE.sub(" thence ", text)
+    """Insert thence between two courses joined only by a comma or a sentence break."""
+    text = _COMMA_JOINED_COURSE.sub(" thence ", text)
+    return _SENTENCE_JOINED_COURSE.sub(". thence ", text)
 
 
 # "704.61 (surveyed as 704.60) feet": the note goes after the unit so the number keeps it.
