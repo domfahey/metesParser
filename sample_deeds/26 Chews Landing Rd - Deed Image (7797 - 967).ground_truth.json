@@ -26,7 +26,8 @@
       "along": "the Southeasterly line of Kings Highway West",
       "to": "a point",
       "monument_type": null,
-      "notes": "printed \"229.89 feet\"; recorded as 299.89 ft, as in the earlier 5056-813 deed: the parcel closes to 0.005 ft with it and misses by 70 ft as printed"
+      "notes": "printed \"229.89 feet\"; recorded as 299.89 ft, as in the earlier 5056-813 deed: the parcel closes to 0.005 ft with it and misses by 70 ft as printed",
+      "printed_distance_ft": 229.89
     },
     {
       "course": 2,
