@@ -150,7 +150,7 @@ non_tangent,radial_bearing,notes
 | 21 | Meander/water boundary | `mp-parse` | `detect_meander()` | Warning-only, NOT auto-excluded from closure |
 | 22 | Compound/reverse curves | `mp-parse` | `extract_curve_info()` | PCC/PRC keywords → `curve_type` field |
 | 23 | Missing curve elements | `mp-bearing` | `calculate_missing_curve_elements()` | Any 2+ → all 5; rejects chord>diameter, zero delta |
-| 24 | Tie-in call separation | `mp-parse` | `mark_tie_in_calls()` | POC-to-POB calls filtered from closure |
+| 24 | Tie-in call separation | `mp-parse` | `mark_tie_in_calls()` | POC-to-POB calls filtered from closure; when a commencement never states its POB, the fewest leading courses whose removal closes the rest (3+ courses, < 0.01 ft) are marked, noted and flagged `tie_inferred_from_closure` in the audit |
 | 25 | Indefinite call flagging | `mp-parse` | `is_indefinite_call()` | Cardinal-only + physical references; needs `has_bearing=False` |
 | 26 | Call quality scoring | `mp-verify` | `score_call_quality()` | high/medium/low based on bearing + monument + flags |
 | 27 | Confidence scoring | `mp-verify` | `calculate_confidence_score()` | 0.0–1.0 weighted: closure 30%, checks 20%, bearings 25%, quality 15%, warnings 10% |
