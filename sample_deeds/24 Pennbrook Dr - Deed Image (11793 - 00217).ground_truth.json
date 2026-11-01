@@ -6,11 +6,17 @@
     "book": "11793",
     "page": "00217",
     "parcel_shape": "L-shaped irregular polygon",
-    "dimensions": "7-call L-shaped lot with frontage on Pennbrook Drive, 2 calls with DMS bearings, 5 calls with cardinal-only directions"
+    "dimensions": "7-call L-shaped lot with frontage on Pennbrook Drive, 2 calls with DMS bearings, 4 calls with cardinal-only directions and 1 call with no direction stated",
+    "date": "June 21, 2021",
+    "grantor": "Brian V. Lanza, Successor Trustee of the Noreen Lanza Living Trust dated October 24, 2014",
+    "grantee": "Dominic F. Fahey and Anastasia Fahey H&W (\"and Anastasia Fahey H&W\" is a typed insertion)",
+    "consideration": "$548,500.00",
+    "block": "64.23",
+    "lot": "22"
   },
   "raw_ocr_text": "NOTE: The original LLM extraction incorrectly extracted a 5-call rectangular description from the deed body, which stated 'BEGINNING at a point in the southwesterly line of Pennbrook Drive 145 feet southwesterly from the southwestern side of Concord Place; thence (1) South 53° 50' 56\" West a distance of 125 feet to a corner; thence (2) South 36° 09' 04\" East a distance of 142 feet to a corner; thence (3) North 53° 50' 56\" East a distance of 125 feet to a point in a line of Pennbrook Drive; thence (4) North 36° 09' 04\" West along and along the southwesterly line of Pennbrook Drive 142 feet to the place of BEGINNING.' However, the deed clearly states 'SEE EXHIBIT \"A\" ATTACHED HERETO AND MADE A PART HEREOF' in the Property section. The correct legal description is in Exhibit A (pages 5/6 of the deed), which describes a 7-call L-shaped lot. This ground truth now reflects the correct Exhibit A description.",
-  "expected_legal_description": "ALL that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden, State of New Jersey, and being more particularly described as follows:\n\nBEGINNING at a point in the southerly line of Pennbrook Drive 125 feet southwestwardly from the southwesterly line of Concord Drive; thence (1) south 56 degrees 40 minutes west along said southerly line of Pennbrook Drive 50 feet to an angle in same; thence (2) still along said southerly line of Pennbrook Drive south 87 degrees 7 minutes 30 seconds west 28.84 feet to a point in the division line between lots 50 and 52 on plan hereinafter mentioned; thence (3) southwestwardly along said division line 134.52 feet to a point corner common to lots 28, 29, 50 and 52 said plan; thence (4) southeastwardly along the rear line of lot number 29, 90 feet to a point in line of lot 30 said plan; thence (5) northeastwardly along said line of lot number 30, 31.47 feet to an angle in same; thence (6) still continuing along said line of Lot Number 30, 99.37 feet to a point in the rear line of Lot Number 46, said plan; thence (7) Northwestwardly partly along rear line of Lot Number 46 and all along rear line of Lot Number 47, 120 feet to a point in the Southerly line of Pennbrook Drive and place of BEGINNING.\n\nNOTE FOR INFORMATION ONLY: Mailing Address(es) is/are 24 Pennbrook Drive, Haddonfield, NJ 08033\nNOTE: Being Lot: 22, Block: 64.23; Tax Map of the Borough of Haddonfield, County of Camden, State of New Jersey.\nNOTE: Lot and Block shown for informational purposes only.",
-  "expected_normalized_text": "ALL that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden, State of New Jersey, and being more particularly described as follows:\n\nBEGINNING at a point in the southerly line of Pennbrook Drive 125 feet southwestwardly from the southwesterly line of Concord Drive;\n1. S 56°40'00\" W along said southerly line of Pennbrook Drive 50 feet to an angle in same;\n2. S 87°07'30\" W still along said southerly line of Pennbrook Drive 28.84 feet to a point in the division line between lots 50 and 52;\n3. southwestwardly along said division line 134.52 feet to a point corner common to lots 28, 29, 50 and 52;\n4. southeastwardly along the rear line of lot number 29, 90 feet to a point in line of lot 30;\n5. northeastwardly along said line of lot number 30, 31.47 feet to an angle in same;\n6. northeastwardly still continuing along said line of Lot Number 30, 99.37 feet to a point in the rear line of Lot Number 46;\n7. Northwestwardly partly along rear line of Lot Number 46 and all along rear line of Lot Number 47, 120 feet to a point in the Southerly line of Pennbrook Drive and place of BEGINNING.\n\nNOTE FOR INFORMATION ONLY: Mailing Address(es) is/are 24 Pennbrook Drive, Haddonfield, NJ 08033\nNOTE: Being Lot: 22, Block: 64.23; Tax Map of the Borough of Haddonfield, County of Camden, State of New Jersey.\nNOTE: Lot and Block shown for informational purposes only.",
+  "expected_legal_description": "ALL that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden, State of New Jersey, and being more particularly described as follows:\n\nBEGINNING at a point in the southerly line of Pennbrook Drive 125 feet southwestwardly from the southwesterly line of Concord Drive; thence (1) south 56 degrees 40 minutes west along said southerly line of Pennbrook Drive 50 feet to an angle in same; thence (2) still along said southerly line of Pennbrook Drive south 87 degrees 7 minutes 30 seconds west 28.84 feet to a. point in the division line between lots 50 and 52 on plan hereinafter mentioned; thence (3) southwestwardly along said division line 134.52 feet to a point corner common to lots 28, 29, 50 and 52 said plan; thence (4) southeastwardly along the rear line of lot number 29, 90 feet to a point in line of lot 30 said plan; thence (5) northeastwardly along said line of lot number 30, 31.47 feet to an angle in same; thence (6) still continuing along said line of Lot Number 30, 99.37 feet to a point in the rear line of Lot Number 46, said plan; thence (7) Northwestwardly partly along rear line of Lot Number 46 and all along rear line of Lot Number 47, 120 feet to a point in the Southerly line of Pennbrook Drive and place of BEGINNING.\n\nNOTE FOR INFORMATION ONLY: Mailing Address(es) is/are 24 Pennbrook Drive, Haddonfield, NJ 08033\nNOTE: Being Lot: 22, Block: 64.23; Tax Map of the Borough of Haddonfield, County of Camden, State of New Jersey.\nNOTE: Lot and Block shown for informational purposes only.",
+  "expected_normalized_text": "ALL that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden, State of New Jersey, and being more particularly described as follows:\nBEGINNING at a point in the southerly line of Pennbrook Drive 125 feet southwestwardly from the southwesterly line of Concord Drive; thence (1) S 56°40' W along said southerly line of Pennbrook Drive 50 feet to an angle in same; thence (2) still along said southerly line of Pennbrook Drive S 87°7'30\" W 28.84 feet to a. point in the division line between lots 50 and 52 on plan hereinafter mentioned; thence (3) southwestwardly along said division line 134.52 feet to a point corner common to lots 28, 29, 50 and 52 said plan; thence (4) southeastwardly along the rear line of lot number 29, 90 feet to a point in line of lot 30 said plan; thence (5) northeastwardly along said line of lot number 30, 31.47 feet to an angle in same; thence (6) still continuing along said line of Lot Number 30, 99.37 feet to a point in the rear line of Lot Number 46, said plan; thence (7) Northwestwardly partly along rear line of Lot Number 46 and all along rear line of Lot Number 47, 120 feet to a point in the Southerly line of Pennbrook Drive and place of BEGINNING. NOTE FOR INFORMATION ONLY: Mailing Address(es) is/are 24 Pennbrook Drive, Haddonfield, NJ 08033 NOTE: Being Lot: 22, Block: 64.23; Tax Map of the Borough of Haddonfield, County of Camden, State of New Jersey. NOTE: Lot and Block shown for informational purposes only.",
   "expected_poc": null,
   "expected_pob": "a point in the southerly line of Pennbrook Drive 125 feet southwestwardly from the southwesterly line of Concord Drive",
   "expected_calls": [
@@ -40,9 +46,9 @@
       "delta_deg": null,
       "arc_length_ft": null,
       "along": "said southerly line of Pennbrook Drive",
-      "to": "a point in the division line between lots 50 and 52",
+      "to": "a. point in the division line between lots 50 and 52 on plan hereinafter mentioned",
       "monument_type": null,
-      "notes": null
+      "notes": "the deed prints \"a. point\" (stray period), kept verbatim"
     },
     {
       "course": 3,
@@ -55,7 +61,7 @@
       "delta_deg": null,
       "arc_length_ft": null,
       "along": "said division line",
-      "to": "a point corner common to lots 28, 29, 50 and 52",
+      "to": "a point corner common to lots 28, 29, 50 and 52 said plan",
       "monument_type": null,
       "notes": "incomplete bearing - cardinal only"
     },
@@ -70,7 +76,7 @@
       "delta_deg": null,
       "arc_length_ft": null,
       "along": "the rear line of lot number 29",
-      "to": "a point in line of lot 30",
+      "to": "a point in line of lot 30 said plan",
       "monument_type": null,
       "notes": "incomplete bearing - cardinal only"
     },
@@ -91,7 +97,7 @@
     },
     {
       "course": 6,
-      "direction_text": "northeastwardly",
+      "direction_text": "still continuing",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 99.37,
@@ -100,9 +106,9 @@
       "delta_deg": null,
       "arc_length_ft": null,
       "along": "said line of Lot Number 30",
-      "to": "a point in the rear line of Lot Number 46",
+      "to": "a point in the rear line of Lot Number 46, said plan",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - no direction stated; the deed says only \"still continuing along said line of Lot Number 30\", and course (5) ends at an angle in that line, so its northeastwardly direction does not carry over"
     },
     {
       "course": 7,
@@ -124,7 +130,7 @@
     "misclosure_ft": null,
     "area_sq_ft": null,
     "area_acres": null,
-    "perimeter_ft": 553.2,
+    "perimeter_ft": 554.2,
     "closure_passed": false
   },
   "critical_assertions": {
@@ -133,10 +139,10 @@
       "operator": "==",
       "description": "MUST extract exactly 7 calls from Exhibit A"
     },
-    "cardinal_only_calls": {
+    "calls_without_bearings": {
       "expected": 5,
       "operator": "==",
-      "description": "MUST flag 5 calls as cardinal-only (incomplete bearings)"
+      "description": "MUST leave 5 calls without bearings: courses 3, 4, 5 and 7 are cardinal-only, course 6 states no direction"
     },
     "calls_with_bearings": {
       "expected": 2,
@@ -144,5 +150,5 @@
       "description": "MUST extract 2 calls with complete DMS bearings (calls 1-2)"
     }
   },
-  "notes": "Ground truth corrected on 2026-02-16 to reflect the actual Exhibit A legal description. The original GT was based on an incorrect 5-call rectangular description that the LLM extracted from the deed body, but the deed clearly references 'SEE EXHIBIT \"A\" ATTACHED HERETO AND MADE A PART HEREOF'. Exhibit A describes a 7-call L-shaped lot with only 2 calls having complete DMS bearings (S 56°40' W and S 87°07'30\" W). The remaining 5 calls are cardinal-only directions (southwestwardly, southeastwardly, northeastwardly, etc.) and should be flagged with bearing_quadrant=null, bearing_azimuth_deg_from_north=null, and notes='incomplete bearing - cardinal only'. Due to insufficient bearing data (only 2 of 7 calls have computable bearings), closure verification cannot be performed and closure_passed=false. The parcel is an L-shaped irregular polygon, not the rectangular parcel described in the incorrect body text."
+  "notes": "Checked against Book 11793 Pages 217-222, PDF pages 1-6: Exhibit A (Page 221, PDF page 5) matches every course; course (2) prints \"to a. point\", the \"to\" fields now keep \"said plan\" / \"on plan hereinafter mentioned\", course (6) states no direction, and the perimeter is 554.2 ft (was 553.2). The deed body (Page 219) has no description of its own: it says \"SEE EXHIBIT 'A' ATTACHED HERETO AND MADE A PART HEREOF\". An earlier ground truth used an incorrect 5-call rectangular description from the LLM extraction; this one follows Exhibit A, a 7-call L-shaped lot with only 2 calls having complete DMS bearings (S 56°40' W and S 87°07'30\" W). The other 5 calls have no bearing (bearing_quadrant and azimuth null), so closure cannot be verified and closure_passed=false."
 }

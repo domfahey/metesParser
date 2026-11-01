@@ -6,11 +6,17 @@
     "book": "10234",
     "page": "1230",
     "parcel_shape": "Near-rectangle",
-    "dimensions": "90 ft x ~112.64 ft"
+    "dimensions": "90 ft x ~112.64 ft",
+    "date": "June 19, 2015",
+    "grantor": "David W. Uris and Susannah T. Uris",
+    "grantee": "William Senatore and Kelly Miskovsky, H/W",
+    "consideration": "$480,000.00",
+    "block": "91.11",
+    "lot": "32"
   },
   "raw_ocr_text": "BEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75.00 feet; thence\n\n(1) Northwardly along the Westerly line of Birchall Drive 90.00 feet to a point in the division line between Lots 6 and 7; thence\n\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan; thence\n\n(3) Southwardly along said boundary line forming an interior angle 89 degrees 52 minutes with the last course the distance of 90.00 feet to a point; thence\n\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course at right angles to Birchall Drive 112.53 feet to the place of BEGINNING.\n\nBEING part of Lot 6, on Plan of Country Club Estates, made by Walter H. Macnamara, C.E., dated December 1956, revised January 14, 1957 and duly filed in the Camden County Register of Deeds Office on July 15, 1958 as File 121 Map 10.\n\nBEING commonly known as 32 Birchall Drive.\n\nBeing known as Block 91.11, Lot 32 as shown on the Official Tax Map of the Borough of Haddonfield.",
-  "expected_legal_description": "BEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75.00 feet; thence\n(1) Northwardly along the Westerly line of Birchall Drive 90.00 feet to a point in the division line between Lots 6 and 7; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle 89 degrees 52 minutes with the last course the distance of 90.00 feet to a point; thence\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course at right angles to Birchall Drive 112.53 feet to the place of BEGINNING.",
-  "expected_normalized_text": "BEGINNING at a point in the westerly line of Birchall Drive distant 486.81 feet northwardly from the northerly end of the curve connecting the westerly line of Birchall Drive with the northerly line of Kings Highway, said connecting curve having a radius of 75.00 feet; thence\n(1) Northwardly along the westerly line of Birchall Drive 90.00 feet to a point in the division line between Lots 6 and 7; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle 89\u00b052' with the last course the distance of 90.00 feet to a point; thence\n(4) Eastwardly forming an interior angle of 90\u00b008' with the last course at right angles to Birchall Drive 112.53 feet to the place of BEGINNING.",
+  "expected_legal_description": "BEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75.00 feet; thence\n(1) Northwardly along the Westerly line of Birchall Drive 90.00 feet to a point in the division line between Lots 6 and 7; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle 89 degrees 52 minutes with the last course the distance of 90.00 feet to a point; thence\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course at right angles to Birchall Drive 112.53 feet to the place of BEGINNING.\n\nBEING part of Lot 6, on Plan of Country Club Estates, made by Walter H. Macnamara, C.E., dated December 1956, revised January 14, 1957 and duly filed in the Camden County Register of Deeds Office on July 15, 1958 as File 121 Map 10.\n\nBEING commonly known as 32 Birchall Drive.\n\nBeing known as Block 91.11, Lot 32 as shown on the Official Tax Map of the Borough of Haddonfield.",
+  "expected_normalized_text": "BEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75.00 feet; thence\n(1) Northwardly along the Westerly line of Birchall Drive 90.00 feet to a point in the division line between Lots 6 and 7; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle 89 degrees 52 minutes with the last course the distance of 90.00 feet to a point; thence\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course at right angles to Birchall Drive 112.53 feet to the place of BEGINNING. BEING part of Lot 6, on Plan of Country Club Estates, made by Walter H. Macnamara, C.E., dated December 1956, revised January 14, 1957 and duly filed in the Camden County Register of Deeds Office on July 15, 1958 as File 121 Map 10. BEING commonly known as 32 Birchall Drive. Being known as Block 91.11, Lot 32 as shown on the Official Tax Map of the Borough of Haddonfield.",
   "expected_pob": "a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75.00 feet",
   "expected_poc": null,
   "expected_calls": [
@@ -128,11 +134,11 @@
     },
     "no_fabricated_bearings": {
       "expected": true,
-      "description": "bearing_quadrant and bearing_azimuth_deg_from_north MUST be null for all calls — never invent bearings from cardinal directions"
+      "description": "bearing_quadrant and bearing_azimuth_deg_from_north MUST be null for all calls \u2014 never invent bearings from cardinal directions"
     },
     "closure_not_computed": {
       "expected": true,
-      "description": "Closure calculation cannot proceed without numeric bearings — closure_passed MUST be false"
+      "description": "Closure calculation cannot proceed without numeric bearings \u2014 closure_passed MUST be false"
     }
   },
   "common_failure_modes": [
@@ -157,5 +163,5 @@
       "fix": "Call extractor must handle both '1.' and '(1)' numbering formats"
     }
   ],
-  "notes": "Newest deed in chain of title for 32 Birchall Dr (part of Lot 6, Block 91.11/Lot 32). Same property as book 8939/pg 350 and book 5070/pg 937. Plan of Country Club Estates by Walter H. Macnamara C.E. (Dec 1956, rev Jan 14 1957, filed Jul 15 1958 as File 121 Map 10)."
+  "notes": "Checked against Book 10234 Page 1232 (PDF page 3, deed body): the text and all four courses match the print; the three BEING lines were added. The attached Schedule C repeats the description with \"(50 feet wide)\", \"(66 feet wide)\" and 90.0 ft. Newest deed in chain of title for 32 Birchall Dr (part of Lot 6, Block 91.11/Lot 32). Same property as book 8939/pg 350 and book 5070/pg 937. Plan of Country Club Estates by Walter H. Macnamara C.E. (Dec 1956, rev Jan 14 1957, filed Jul 15 1958 as File 121 Map 10)."
 }

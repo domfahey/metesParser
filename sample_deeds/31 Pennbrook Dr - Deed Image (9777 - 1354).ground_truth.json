@@ -6,11 +6,17 @@
     "book": "9777",
     "page": "1354",
     "parcel_shape": "Polygon",
-    "dimensions": "Chain of title deed"
+    "dimensions": "Chain of title deed",
+    "date": "November 12, 2012",
+    "grantor": "Theodore L. Webster, Jr., Executor of the Estate of Theodore L. Webster, deceased, as to a one-third (1/3) ownership interest and Nancy L. Webster, by her attorney-in-fact, Theodore L. Webster, Jr., as to a two-third (2/3) ownership interest",
+    "grantee": "Dean DeCencio and Laura DeCencio",
+    "consideration": "$460,000.00",
+    "block": "64.21",
+    "lot": "11"
   },
   "raw_ocr_text": "Certainly! Here is the complete and exact text extracted from the provided document, with all formatting, capitalization, numbers, symbols, and structure preserved as shown:\n\n---\n\n**Book9777/Page1354**\n\nPREPARED BY  \nDeborah P. DeBow, Esquire  \nASTER & GOLDENBERG  \nAttorneys At Law  \nKeystone Title Services  \n29 King’s Highway West  \nHaddonfield, NJ 08033\n(856) 858-5500\n\nThis Deed is made on **Nov 12, 2012**, 2012,\n\nBETWEEN THEODORE L. WEBSTER, JR., EXECUTOR OF THE ESTATE OF  \nTHEODORE L. WEBSTER, deceased, as to a one-third (1/3) ownership interest and NANCY L.  \nWEBSTER, by her attorney-in-fact, Theodore L. Webster, Jr., as to a two-third (2/3) ownership  \ninterest, tenants in common and not as tenants by the entirety, whose address is 31 Pennbrook  \nDrive, Haddonfield, New Jersey 08033, referred to as the Grantor,  \nAnd DEAN DECENCIO and LAURA DECENCIO, whose address is to be 31  \nPennbrook Drive, Haddonfield, New Jersey 08033, referred to as the Grantee.  \n\nThe words “Grantor” and ...",
-  "expected_legal_description": "No legal description section is present in the provided document text.\n\nThere is no section labeled \"Exhibit A\", \"Legal Description\", \"DESCRIPTION OF PROPERTY\", or similar; nor is there any block of text beginning with \"BEGINNING at a point\", \"COMMENCING at\", or \"All that certain lot, parcel or tract of land\" containing bearings, distances, or metes and bounds description. The document only references that the property description is \"ATTACHED HERETO AND MADE A PART HEREOF\" but does not provide the content of any such exhibit or description within the given text.\n\n**Result:**  \n_No metes and bounds legal description is present in the above document text to extract._",
-  "expected_normalized_text": "_No metes and bounds legal description is present in the above document text to extract._",
+  "expected_legal_description": "The property consists of the land and all the buildings and structures on the land in the Borough of Haddonfield, County of Camden and State of New Jersey, more commonly known as 31 Pennbrook Drive, bounded and described as follows:\n\nSEE EXHIBIT \"A\" ATTACHED HERETO AND MADE A PART HEREOF.",
+  "expected_normalized_text": "The property consists of the land and all the buildings and structures on the land in the Borough of Haddonfield, County of Camden and State of New Jersey, more commonly known as 31 Pennbrook Drive, bounded and described as follows: SEE EXHIBIT \"A\" ATTACHED HERETO AND MADE A PART HEREOF.",
   "expected_poc": null,
   "expected_pob": "",
   "expected_calls": [],
@@ -20,7 +26,11 @@
       "expected": 0,
       "operator": "==",
       "description": "MUST extract exactly 0 calls"
+    },
+    "exhibit_a_not_in_scan": {
+      "expected": true,
+      "description": "The deed refers to Exhibit A, which is not among the recorded pages (1354-1359)"
     }
   },
-  "notes": "Ground truth generated from GPT-4.1 extraction on 1760497144.3267987"
+  "notes": "Checked against Book 9777 Pages 1354-1359 (PDF pages 1-6): the deed's description is \"SEE EXHIBIT \"A\" ATTACHED HERETO AND MADE A PART HEREOF\", and no Exhibit A is in the recorded scan (Page 1355 is the signature page, 1356-1358 are tax forms, 1359 the back cover), so 0 courses is correct. The previous legal text was an LLM's commentary, not deed text; it is replaced with the deed's own wording. The same parcel is described in deeds 4618-717, 10989-916 and 11191-01716. Originally generated from GPT-4.1 extraction on 1760497144.3267987."
 }
