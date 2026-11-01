@@ -32,11 +32,12 @@ def call_distance(call: dict[str, object]) -> float | None:
     return float(value) if isinstance(value, int | float) else None
 
 
-# Regex patterns for extracting metes & bounds data from markdown text
+# Regex patterns for extracting metes & bounds data from markdown text. Assessor
+# descriptions abbreviate the units: "S0DEG 49M 20S W", "N 01D 41M 46S W", "N 89D 05M 3SEC W".
 BEARING_PATTERN = re.compile(
-    r"([NS])\s*(?:orth|outh)?\s*(\d{1,3})\s*(?:degrees?|°|deg\.?)[,\s]*"
-    r"(\d{1,2})\s*(?:minutes?|\'|min\.?)[,\s]*"
-    r"(?:(\d{1,2})\s*(?:seconds?|\"|sec\.?)[,\s]*)?"
+    r"([NS])\s*(?:orth|outh)?\s*(\d{1,3})\s*(?:degrees?|°|deg\.?|D\b)[,\s]*"
+    r"(\d{1,2})\.?\s*(?:minutes?|\'|min\.?|M\b)[,\s]*"
+    r"(?:(\d{1,2})\s*(?:seconds?|\"|sec\.?|S\b)[,\s]*)?"
     r"([EW])\s*(?:ast|est)?",
     re.IGNORECASE,
 )
@@ -52,7 +53,7 @@ def to_float(number: str) -> float:
 
 
 DISTANCE_PATTERN = re.compile(
-    rf"(?:a?\s*distance\s+of\s+|,\s*)?({NUMBER})\s*(?:feet|ft\.?|foot)",
+    rf"(?:a?\s*distance\s+of\s+|,\s*)?({NUMBER})\s*(?:\([^()]{{0,40}}\)\s*)?(?:feet|ft\.?|foot)",
     re.IGNORECASE,
 )
 
@@ -79,15 +80,38 @@ WIDTH_AFTER_PATTERN = re.compile(r"\s+wide\b", re.IGNORECASE)
 OFFSET_BEFORE_PATTERN = re.compile(r"\bdistant\s+$", re.IGNORECASE)
 OFFSET_AFTER_PATTERN = re.compile(r"\s+(?:north|south|east|west)", re.IGNORECASE)
 
-THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
+# Assessor descriptions abbreviate thence as "TH" or "th."
+THENCE = r"\bthence\b|(?-i:\bTH\b\.?|\bth\.)"
+THENCE_PATTERN = re.compile(THENCE, re.IGNORECASE)
 BEGINNING_PATTERN = re.compile(r"\*{0,2}\bBEGINNING\b\*{0,2}\s+(?:at|in)\b", re.IGNORECASE)
 # Block openings also include "BEGINNING on" (not "place of beginning on the lands") and
 # "STARTING at" (a tie line precedes the POB)
 BLOCK_START_PATTERN = re.compile(
     r"\*{0,2}\b(?:BEGINNING\b\*{0,2}\s+(?:at|in)|(?<!of\s)BEGINNING\b\*{0,2}\s+on"
-    r"|STARTING\b\*{0,2}\s+at)\b"
+    r"|(?:STARTING|COMMENCING)\b\*{0,2}\s+at"
+    # Assessor "BEG AT NW COR ..."; an excluded part "HAVING A POINT OF BEGINNING BEING ..."
+    r"|(?-i:BEG)|HAVING\s+A\s+POINT\s+OF\s+BEGINNING)\b"
     # "...in Deed Book 4795, beginning at page 618" is a recording reference
     r"(?!\s+pages?\b)",
+    re.IGNORECASE,
+)
+
+# "thence due South 50 feet": an exact cardinal bearing, not a general direction
+DUE_CARDINAL_PATTERN = re.compile(r"\bdue\s+(north|south|east|west)\b", re.IGNORECASE)
+DUE_CARDINAL_AZIMUTH = {"north": 0.0, "east": 90.0, "south": 180.0, "west": 270.0}
+
+# "th. S 289.81 ft.": a bare cardinal letter before the distance is also exact
+BARE_CARDINAL_PATTERN = re.compile(rf"\A\s*([NSEW])\s+(?={NUMBER}\s*(?:feet|ft\b|FT\b))")
+BARE_CARDINAL_AZIMUTH = {"N": 0.0, "E": 90.0, "S": 180.0, "W": 270.0}
+
+# A description introduced by an exception ("EXCEPT ... described as follows: beginning ...")
+EXCEPTION_BEFORE_PATTERN = re.compile(r"\bEXCEPT(?:ING)?\b", re.IGNORECASE)
+
+# Two courses joined by a comma, "and" or "&" instead of "thence" ("85.33 feet, North 73
+# degrees ...", "49.18 ft. and N 48° 03' 44" E")
+COMMA_JOINED_COURSE_PATTERN = re.compile(
+    r"(?:(?<=\bfeet)|(?<=\bft\.)),?\s+(?:(?:and|&)\s+)?"
+    r"(?=(?:North|South|N|S)\s*\d{1,3}\s*(?:degrees?|°|deg\.?))",
     re.IGNORECASE,
 )
 
@@ -134,7 +158,9 @@ EXHIBIT_PATTERN = re.compile(
 
 # "place of BEGINNING" or "point of beginning" closure marker
 POB_CLOSE_PATTERN = re.compile(
-    r"(?:point|place)\s+(?:and\s+place\s+)?of\s+BEGINNING|\bto\s+BEGINNING\b",
+    r"(?:point|place)\s+(?:and\s+place\s+)?of\s+BEGINNING|\bto\s+BEGINNING\b"
+    # Assessor "POB", "TO P O B"
+    r"|(?-i:\bP ?O ?B\b)",
     re.IGNORECASE,
 )
 
@@ -154,7 +180,7 @@ CALL_NUM_PATTERN = re.compile(
 # A point of beginning reached by a tie course is followed by more courses:
 # "...to a point and place of beginning, thence;" or "...place of beginning.\n\n(1) South..."
 COURSES_FOLLOW_PATTERN = re.compile(
-    r"\s*[,;.]?\s*(?:thence\b|\(\d+\)\s|\([A-Za-z]\)\s)", re.IGNORECASE
+    rf"\s*[,;.]?\s*(?:(?:proceeding\s+)?(?:{THENCE})|\(\d+\)\s|\([A-Za-z]\)\s)", re.IGNORECASE
 )
 
 # Inline numbered calls in dense paragraphs: "(1) " anywhere in text
@@ -307,7 +333,7 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
         # Include pre-numbered text as thence-split segments
         pre_text = block_text[: num_matches[0].start()]
         if THENCE_PATTERN.search(pre_text):
-            pre_segments = re.split(r"\bthence\b", pre_text, flags=re.IGNORECASE)[1:]
+            pre_segments = THENCE_PATTERN.split(pre_text)[1:]
             segments.extend(pre_segments)
 
         for j, m in enumerate(num_matches):
@@ -317,10 +343,12 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
     else:
         # Fall back to thence splitting. When courses end with "thence" ("...483.13 feet
         # to a point thence;"), the first course is the last sentence before it.
-        preamble, *segments = re.split(r"\bthence\b", block_text, flags=re.IGNORECASE)
+        preamble, *segments = THENCE_PATTERN.split(block_text)
         last_sentence = re.split(r"[.;:]\s+|\n", preamble.strip())[-1]
         if segments and BEARING_PATTERN.match(last_sentence):
             segments.insert(0, last_sentence)
+
+    segments = [part for segment in segments for part in COMMA_JOINED_COURSE_PATTERN.split(segment)]
 
     for i, segment in enumerate(segments, 1):
         bearing_match = BEARING_PATTERN.search(segment)
@@ -334,6 +362,12 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
             azimuth = bearing_to_azimuth(q1, angle, q2)
             call_data["bearing"] = f"{q1.upper()} {deg}°{mins}'{secs or '00'}\" {q2.upper()}"
             call_data["azimuth"] = azimuth
+        elif due_match := DUE_CARDINAL_PATTERN.search(segment[:100]):
+            call_data["bearing"] = f"due {due_match.group(1).lower()}"
+            call_data["azimuth"] = DUE_CARDINAL_AZIMUTH[due_match.group(1).lower()]
+        elif bare_match := BARE_CARDINAL_PATTERN.match(segment):
+            call_data["bearing"] = bare_match.group(1)
+            call_data["azimuth"] = BARE_CARDINAL_AZIMUTH[bare_match.group(1)]
         else:
             cardinal_match = CARDINAL_ONLY_PATTERN.search(segment[:100])
             if cardinal_match:
@@ -367,10 +401,12 @@ def extract_calls_from_md(
 
     # Step 2: Find all legal description blocks (multi-tract support)
     blocks = extract_all_legal_blocks(search_text)
+    block_source = search_text
 
     if not blocks and search_text != md_text:
         # No block in exhibit section — try full text
         blocks = extract_all_legal_blocks(md_text)
+        block_source = md_text
 
     if not blocks:
         # Step 2b (fallback): If no BEGINNING block found but closure language
@@ -395,12 +431,22 @@ def extract_calls_from_md(
     # Step 3: Extract calls from all blocks. A block repeating an earlier one, word for word
     # or up to OCR noise, is a second copy of the description (e.g. inside an attached
     # certification), not a tract.
+    # An excepted parcel that the deed then conveys separately ("EXCEPT [X] ... Parcel 2: [X]")
+    # is not a repeat.
     block_calls: list[list[dict[str, object]]] = []
     kept: list[tuple[list[str], list[dict[str, object]]]] = []
+    position = 0
     for block in blocks:
+        found = block_source.find(block[:60], position)
+        position = found + 1 if found >= 0 else position
+        excepted = found >= 0 and bool(
+            EXCEPTION_BEFORE_PATTERN.search(block_source[max(0, found - 300) : found])
+        )
         words = " ".join(block.split()).lower().split()
         calls = extract_calls_from_block(block)
-        if not any(is_repeated_block(words, calls, w, c) for w, c in kept):
+        if excepted:
+            block_calls.append(calls)
+        elif not any(is_repeated_block(words, calls, w, c) for w, c in kept):
             kept.append((words, calls))
             block_calls.append(calls)
 

@@ -522,3 +522,101 @@ class TestAuditDecimalCommas:
         mod = _load_audit_module()
         assert mod.to_float("300,07") == 300.07
         assert not mod.re.fullmatch(mod.NUMBER, "1,140")
+
+
+class TestAuditMiwaynForms:
+    """Wording from the Wayne County (MIWAYN) deeds."""
+
+    def test_due_cardinal_is_an_exact_bearing(self) -> None:
+        mod = _load_audit_module()
+        calls = mod.extract_calls_from_md(
+            "BEGINNING at a point; thence South 00°44'00\" West 213.00 feet; thence due west "
+            "130.00 feet; thence North 00°44'00\" East 213.00 feet; thence due East 130.00 feet "
+            "to the point of beginning."
+        )
+        assert [call["azimuth"] for call in calls][1::2] == [270.0, 90.0]
+
+    def test_stray_period_after_minutes(self) -> None:
+        mod = _load_audit_module()
+        match = mod.BEARING_PATTERN.search("South 00 degrees 15. minutes 50 seconds West")
+        assert match is not None and match.groups() == ("S", "00", "15", "50", "W")
+
+    def test_commencing_opens_a_description_with_its_tie_course(self) -> None:
+        mod = _load_audit_module()
+        calls = mod.extract_calls_from_md(
+            "described as: Commencing at the Northwest corner of Lot 15; Thence South 26 deg. 00' "
+            '41" East, 120.00 feet for the point of beginning; Thence North 58 deg. 14\' 00" East '
+            "232.17 feet; Thence South 26 deg. 00' 41\" East 120.00 feet to the point of beginning."
+        )
+        assert [call["distance_ft"] for call in calls] == [120.0, 232.17, 120.0]
+
+    def test_comma_joined_courses_are_split(self) -> None:
+        mod = _load_audit_module()
+        calls = mod.extract_calls_from_md(
+            "beginning at a point; thence South 16 degrees, 54 minutes, 36 seconds West, 85.33 feet, "
+            "North 73 degrees, 05 minutes, 24 seconds West, 128.00 feet; thence North 16 degrees, "
+            "54 minutes, 36 seconds East, 85.33 feet to the point of beginning."
+        )
+        assert [call["distance_ft"] for call in calls] == [85.33, 128.0, 85.33]
+
+    def test_excepted_parcel_conveyed_again_is_not_a_repeat(self) -> None:
+        """MIWAYN-50306-00349: Parcel 1 excepts a parcel that Parcel 2 then conveys."""
+        mod = _load_audit_module()
+        parcel = (
+            "beginning at a point; thence South 16 degrees 54 minutes 36 seconds West 85.33 feet; "
+            "thence North 73 degrees 05 minutes 24 seconds West 128.00 feet to the point of beginning."
+        )
+        md_text = f"Parcel 1: Lot 13, EXCEPT that part described as {parcel}\n\nParcel 2: {parcel}"
+        assert len(mod.extract_calls_from_md(md_text)) == 4
+
+    def test_note_between_number_and_feet(self) -> None:
+        mod = _load_audit_module()
+        assert (
+            mod.extract_distance("North 1 degrees West, 704.61 (surveyed as 704.60) feet") == 704.61
+        )
+
+    def test_assessor_shorthand_description(self) -> None:
+        """MIWAYN-50062-01403: BEG ... TH <bearing> <distance>FT ... POB."""
+        mod = _load_audit_module()
+        calls = mod.extract_calls_from_md(
+            "PT OF NE 1/4 SEC 36 T2S R8E BEG S0DEG 32M 50S W 401.55FT FROM NE COR SEC 36 "
+            "TH S0DEG 49M 20S W 175FT TH N89DEG 10M 40S W 61.23FT TH N0DEG 49M E 175FT "
+            "TH S89DEG 10M 40S E 61.26FT POB 0.25 AC"
+        )
+        assert [call["distance_ft"] for call in calls] == [175.0, 61.23, 175.0, 61.26]
+        assert round(calls[2]["azimuth"], 4) == 0.8167
+
+    def test_assessor_d_m_sec_units(self) -> None:
+        mod = _load_audit_module()
+        match = mod.BEARING_PATTERN.search("TH N 89D 05M 3SEC W 318.12 FT")
+        assert match is not None and match.groups() == ("N", "89", "05", "3", "W")
+
+    def test_bare_cardinal_letter_and_joined_courses(self) -> None:
+        """MIWAYN-50058-00465: "th. S 289.81 ft." and courses joined by "and" / "&"."""
+        mod = _load_audit_module()
+        calls = mod.extract_calls_from_md(
+            "Commencing at the NE corner of Lot 13 and proceeding th. S 69° 53' 23\" W 82.00 ft. "
+            "to the POB, proceeding th. S 289.81 ft. th. W 199.44 ft. to a point on the easterly "
+            "line th. along said line N 15° 21' 23\" E 49.18 ft. and N 48° 03' 44\" E. 113.41 ft. "
+            "& N 69° 53' 23\" E 109.98 feet to the point of beginning."
+        )
+        assert [call["distance_ft"] for call in calls] == [
+            82.0,
+            289.81,
+            199.44,
+            49.18,
+            113.41,
+            109.98,
+        ]
+        assert [call["azimuth"] for call in calls][1:3] == [180.0, 270.0]
+
+    def test_excluded_part_with_a_point_of_beginning_being(self) -> None:
+        """MIWAYN-50428-01001: the excluded triangle is the only described figure."""
+        mod = _load_audit_module()
+        calls = mod.extract_calls_from_md(
+            "LOT 48 EXCLUDING THAT PART DESCRIBED AS TRIANGULAR PORTION HAVING A POINT OF BEGINNING "
+            "BEING THE NORTHWEST CORNER OF SAID LOT 48: THENCE SOUTH 89 DEGREES 39 MINUTES 00 SECONDS "
+            "EAST 20.00 FEET; THENCE SOUTH 22 DEGREES 53 MINUTES 15 SECONDS WEST 50.20 FEET; THENCE "
+            "NORTH 00 DEGREES 35 MINUTES 20 SECONDS WEST 46.37 FEET TO THE POINT OF BEGINNING"
+        )
+        assert [call["distance_ft"] for call in calls] == [20.0, 50.2, 46.37]
