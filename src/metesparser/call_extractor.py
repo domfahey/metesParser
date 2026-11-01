@@ -416,7 +416,7 @@ class CallExtractor:
                     continue
 
                 if call is None:
-                    standalone_thence = re.fullmatch(r"\s*THENCE\s*", call_text, re.I)
+                    standalone_thence = re.fullmatch(r"\s*THENCE\s*:?\s*", call_text, re.I)
                     explicit_course = not standalone_thence and (
                         has_thence_marker or has_numbered_course_markers
                     )

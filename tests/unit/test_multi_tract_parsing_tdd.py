@@ -230,3 +230,27 @@ def test_preamble_offset_is_not_a_course(parse):
         "degrees West 50 feet to the place of beginning."
     )
     assert [call.distance_ft for call in calls] == [50, 50]
+
+
+BERLIN_12941_GT = SAMPLE_DEEDS / "219 Berlin Rd - Deed Image (12941 - 00156).ground_truth.json"
+
+
+@pytest.mark.parametrize("key", ["expected_legal_description", "expected_normalized_text"])
+@pytest.mark.parametrize("parse", PARSERS)
+def test_berlin_exhibit_a_matches_ground_truth(parse, key):
+    """12941-00156: two lots whose preambles end "proceeding thence:"."""
+    gt = _load(BERLIN_12941_GT)
+    calls = parse(gt[key], strict=True)
+    expected = [
+        (round(c["distance_ft"], 2), round(c["bearing_azimuth_deg_from_north"], 4))
+        for c in gt["expected_calls"]
+    ]
+    assert [_course_fields(call)[:2] for call in calls] == expected
+
+
+def test_berlin_exhibit_a_lots_are_tracts():
+    gt = _load(BERLIN_12941_GT)
+    _calls, tracts = package_extract_with_tracts(gt["expected_legal_description"], strict=True)
+    assert [len(t.calls) for t in tracts] == [
+        sum(c["tract"] == lot for c in gt["expected_calls"]) for lot in ("Lot 17", "Lot 22")
+    ]
