@@ -83,5 +83,5 @@
   "common_failure_modes": [
     "The description appears twice: in the deed body (PDF page 1) and in the attached Schedule C (PDF page 2); it is one parcel of 4 courses"
   ],
-  "notes": "Legal description transcribed verbatim from the deed body, Book 7609 Page 137 (PDF page 1) and its continuation on Page 140 (PDF page 4); the attached Schedule C (File No. ITA7947, Page 138, PDF page 2) repeats the same courses. Resale of Lot 12.10 from Dorothy P. O'Donnell to Jeanne V. Llenado; the deed recites that O'Donnell took title by deed recorded in Book 7535 Page 1127. Closes at 0.0039 ft."
+  "notes": "Checked against Book 7609 Pages 137 and 140, PDF pages 1 and 4 (and the Schedule C, File No. ITA7947, Page 138, PDF page 2), at 220 dpi: the legal description, all four courses, point of beginning and deed_info match the print. Legal description transcribed verbatim from the deed body, Book 7609 Page 137 (PDF page 1) and its continuation on Page 140 (PDF page 4); the attached Schedule C (File No. ITA7947, Page 138, PDF page 2) repeats the same courses. Resale of Lot 12.10 from Dorothy P. O'Donnell to Jeanne V. Llenado; the deed recites that O'Donnell took title by deed recorded in Book 7535 Page 1127. Closes at 0.0039 ft."
 }
