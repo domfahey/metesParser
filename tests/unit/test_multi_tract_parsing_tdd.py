@@ -531,3 +531,23 @@ def test_numbered_courses_before_the_first_thence_are_kept(parse):
         strict=True,
     )
     assert [call.distance_ft for call in calls] == pytest.approx([41.23, 82.47, 36.73, 79.90])
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+@pytest.mark.parametrize(
+    ("heading", "second"), [("Tract #1", "Tract #2"), ("PARCEL A:", "PARCEL B:")]
+)
+def test_tract_heading_ends_the_previous_tracts_courses(parse, heading, second):
+    """15 E Euclid: Tract 1's last course is not merged into Tract 2's numbered courses."""
+    calls = parse(
+        f"{heading}\n\nBeginning in the Northwesterly line of Euclid Avenue; thence Southwestwardly "
+        "along the Northwesterly line of Euclid Avenue 80 feet in width or breadth; thence "
+        "Northwestwardly between parallel lines, parallel with Turnley Avenue 142 feet in length "
+        f"or depth.\n\n{second}\n\nBeginning at a point on the Northerly line of Euclid Avenue; "
+        "and extends thence\n\n1.  Westwardly along said Northerly line of Euclid Avenue the "
+        "distance of 10 feet to a point; and extends thence\n\n2.  Northwardly the distance of "
+        "142 feet to a point; and extends thence\n\n3.  Eastwardly the distance of 10 feet to a "
+        "point; and extends thence\n\n4.  Southwardly the distance of 142 feet to the place of "
+        "beginning."
+    )
+    assert [call.distance_ft for call in calls] == pytest.approx([80, 142, 10, 142, 10, 142])
