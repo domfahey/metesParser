@@ -1,5 +1,7 @@
 # Prepare map evidence
 
+Commands below use the plugin root that the invoking skill printed; substitute it for `${CLAUDE_PLUGIN_ROOT}`.
+
 Contents: [Vector layers](#vector-layers) · [Scanned map registration](#scanned-map-registration) · [Optional control picker](#optional-native-pixel-control-picker) · [Handoff boundary](#handoff-boundary) · [Later online display](#later-online-display) · [Guided registration and separate deed placement](#guided-registration-and-separate-deed-placement)
 
 This guide covers the existing `import-overlay`, `register-raster`, and `fetch-parcel` commands. Run only the operation requested and preserve its full output/provenance. A prepared layer is not yet placed against deed geometry.

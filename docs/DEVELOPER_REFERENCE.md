@@ -47,7 +47,7 @@ uv run metes-review pick-raster IMAGE --controls CONTROLS.json --output-dir NEW_
 make help          # Show all commands
 make dev-setup     # Initial setup (creates .env from .env.example)
 make install       # Install full dependency set (all extras + dev)
-make lint          # Run ruff (excludes text_parser.py)
+make lint          # Run ruff
 make lint-fix      # Auto-fix linting issues
 make format        # Run ruff formatter
 make format-check  # Check formatter compliance (no changes)

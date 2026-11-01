@@ -1,5 +1,7 @@
 # Saved alternatives and source corrections
 
+Commands below use the plugin root that the invoking skill printed; substitute it for `${CLAUDE_PLUGIN_ROOT}`.
+
 The dashboard keeps exact draft inputs separate from recorded calls. Supported fields, including incomplete bearings and draft notes, recover in the same browser when local storage is available. A storage failure is shown explicitly; download a copy before leaving. Browser recovery is local to that browser and baseline, not proof of a published revision or valid geometry.
 
 Use **Download draft** to retain the versioned JSON and the original dashboard source bundle for Cowork or another session. **Load draft JSON** checks the baseline and identities before replacing the working copy. An asynchronous load cannot replace edits made after loading started. **Reset to record** resets the selected occurrence while preserving alternatives for other occurrences. A changed baseline requires a fresh revision; do not bypass a mismatch by replacing its hash.

@@ -42,7 +42,7 @@ The plugin has ten capabilities, two workflows and the `review-deed` compatibili
 
 Skills can contain instructions, references and executable code. Our plugin packages those skills with one shared deterministic engine. Cowork adds convenient project-file access and task coordination; the calculations do not depend on Cowork. Claude Code is another host for the same plugin.
 
-Claude chat supports skill scripts in its code-execution environment. The standalone chat Skill ZIP reuses the same engine and returns downloadable results, without requiring Cowork. Native chat testing is pending. Individual plugin skill folders are not standalone installations. See the [chat functionality gaps](docs/CLAUDE_PLUGIN.md#functional-gaps-for-claude-chat) and [two-distribution design](docs/CLAUDE_PLUGIN.md#two-distributions-one-engine).
+Claude chat supports skill scripts in its code-execution environment. The standalone chat Skill ZIP reuses the same engine and returns downloadable results, without requiring Cowork. Native chat testing is pending. Individual plugin skill folders are not standalone installations. See the [chat functionality gaps](docs/CLAUDE_PLUGIN.md#functional-gaps-for-claude-chat) and [two-distribution design](docs/CLAUDE_PLUGIN.md#two-distributions-one-engine). For a side-by-side view of the Cowork plugin, Claude Code plugin, chat Skill and CLI, with limitations, see [Cowork, Claude Code, chat Skill and CLI compared](docs/CLAUDE_PLUGIN.md#cowork-claude-code-chat-skill-and-cli-compared).
 
 ## Install the standalone Claude chat Skill
 
@@ -65,6 +65,8 @@ The launcher requires **Python 3.11+** and **[uv](https://docs.astral.sh/uv/)** 
    - **Claude Code:** extract the archive, then run `claude --plugin-dir /absolute/path/to/extracted-plugin`.
    - **Claude Cowork:** upload the ZIP through Customize → Plugins. End-to-end host testing is pending.
 4. Supply a document or prepared calls and ask for the specific result you need.
+
+**Release status:** the latest release is v0.6.0. Behaviour listed under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) (the 22-column CSV and the description-role export policy) is only in a source checkout until the next release.
 
 Use the built distribution: `plugins/metesparser/` in a source checkout does not contain its bundled runtime. The standard ZIP includes geographic preparation and delivery dependencies. Online raster reprojection uses the optional web-map profile. See [installation and build profiles](docs/CLAUDE_PLUGIN.md#packaging-and-local-installation) and [project settings](plugins/metesparser/references/plugin-settings.md).
 
@@ -92,7 +94,14 @@ The deterministic `metes-review` commands report these top-level statuses:
 | `needs_review` | `1` | Review is needed, or an advisory operation completed; successful plots and comparisons also use this status |
 | `error` | `2` | Invalid input, configuration or processing failure |
 
-Verified CSV uses the ordered 22-field schema (`curve_type` is the last column; legacy 21-field CSVs still import). Its exporter freshly checks the selected calls, including closure below 0.01 ft, eligible canonical outcomes and no warnings. Closure alone is insufficient. Plots, comparisons, scenarios, corridors, PLSS references and map views cannot grant verified-export eligibility. A deed with more than one description is eligible only when every description's role comes from an explicit heading (such as `PARCEL ONE:` or `TRACT 2:`) with no exception, easement or reservation wording in the heading or the text introducing it; a heading like `PARCEL B (ACCESS EASEMENT)` or `LESS PARCEL B:` still counts as an inferred role. Easement and exception tracts are never eligible, and text review asks for one parcel per review.
+Verified CSV export:
+
+- **Schema:** 22 ordered fields; `curve_type` is the last column. Legacy 21-field CSVs still import.
+- **Gate:** the exporter freshly checks the selected calls: closure below 0.01 ft, eligible canonical outcomes and no warnings. Closure alone is insufficient.
+- **Advisory outputs:** plots, comparisons, scenarios, corridors, PLSS references and map views cannot grant verified-export eligibility.
+- **Tract roles (main (parcel), addition, exception, easement):** a deed with more than one description is eligible only when every role comes from an explicit heading. Easement and exception tracts are never eligible, and text review asks for one parcel per review. See [description roles and verified export](docs/ARCHITECTURE.md#description-roles-and-verified-export).
+
+The 22-field CSV and the role policy are described under `[Unreleased]` in the [changelog](CHANGELOG.md); they are not in the v0.6.0 release (see [install](#install-the-claude-plugin)).
 
 Read the [artifact handoff contract](plugins/metesparser/references/artifact-handoffs.md) for file shapes, reuse and invalidation, and the [review limits](plugins/metesparser/references/review-limits.md) for supported checks.
 
@@ -117,7 +126,7 @@ make dev-setup
 make review-corpus
 ```
 
-`make dev-setup` installs dependencies and creates `.env` from the sample when absent. `make review-corpus` runs the reviewed deterministic fixtures without OCR or provider calls.
+`make dev-setup` installs dependencies and creates `.env` from the sample when absent. `make review-corpus` runs the reviewed deterministic fixtures without OCR or provider calls. It prints one JSON document; check that its top-level `"status"` is `"passed"` (with `"failed": 0`).
 
 ### Review prepared input
 
@@ -129,7 +138,7 @@ uv run metes-review verify calls.json --output-dir output/verification-new
 uv run metes-review plot calls.json --output-dir output/plot-new
 ```
 
-Inspect the JSON status and artifacts. Advisory success uses exit 1, so do not chain these commands with `&&`. Whole-document text needs description selection before parsing. The [usage guide](plugins/metesparser/references/usage.md) covers revision, delivery, comparison and resume commands.
+Each command prints JSON; check its `status` (`checks_passed`, `needs_review` or `error`, as in the table above) and the listed artifacts. Advisory success uses exit 1, so do not chain these commands with `&&`. Whole-document text needs description selection before parsing. The [usage guide](plugins/metesparser/references/usage.md) covers revision, delivery, comparison and resume commands.
 
 ### Extract a PDF with a provider
 
@@ -145,21 +154,9 @@ Provider extraction remains subject to source review and deterministic checks. N
 
 ## Architecture
 
-The plugin supplies instructions and workflow routing. Shared packages own the computations and artifact contracts:
+The plugin (`plugins/metesparser/`) and standalone chat Skill (`plugins/metesparser-chat/`) supply instructions and workflow routing. Seven `mp-*` packages under `packages/` (models, bearing, parse, verify, export, review and ocr) own the schemas, computations and artifact contracts, and `src/metesparser/` provides the orchestrator, CLI and compatibility modules. `mp-ocr` is the only `mp-*` package that calls LLMs; the rest are deterministic.
 
-| Location | Responsibility |
-| --- | --- |
-| `plugins/metesparser/` | Claude skills, shared procedures and the bundled-runtime launcher |
-| `plugins/metesparser-chat/` | Standalone chat dispatcher, host setup wrapper and download guidance |
-| `packages/mp-models/` | Schemas, source identities, units and artifact contracts |
-| `packages/mp-bearing/`, `packages/mp-parse/` | Bearing math and rule-based parsing |
-| `packages/mp-verify/` | Canonical checks and advisory geometry/analysis |
-| `packages/mp-export/` | CSV, HTML, drawing and GIS/CAD serialization |
-| `packages/mp-review/` | File/CLI adapters, replay, revisions and workflow artifacts |
-| `packages/mp-ocr/` | Provider-backed PDF extraction; the only `mp-*` package that calls LLMs |
-| `src/metesparser/` | Python orchestrator, CLI and compatibility modules |
-
-The seven `mp-*` packages and root package form a uv workspace. The compatibility monolith also retains provider clients; native Claude reading is a separate source-preparation path. See [architecture and data flow](docs/ARCHITECTURE.md) for dependencies and module ownership.
+See [architecture and data flow](docs/ARCHITECTURE.md) for package dependencies and module ownership.
 
 ## Develop and contribute
 
@@ -167,7 +164,9 @@ Use uv for dependencies and Ruff for linting/formatting. Keep schema, math and r
 
 ```sh
 make check          # Root lint, formatting, mypy and tests
-make pre-commit     # Required before commits; runs lint-fix, formatting and root tests
+make quality        # Non-mutating lint and format checks (pair with make test on a dirty tree)
+make test           # Root tests with coverage
+make pre-commit     # MUTATING (lint-fix, format, tests); run only on a clean tree, else use make quality && make test
 make plugin-build   # Build dist/metesparser-plugin.zip and its SHA-256 sidecar
 make chat-skill-build # Build dist/metesparser-chat-skill.zip and its SHA-256 sidecar
 ```
@@ -178,13 +177,23 @@ Keep only publicly available source data in the repository. Do not commit creden
 
 ## Documentation
 
+- [Documentation index](docs/README.md)
 - [Plugin catalog and usage](plugins/metesparser/README.md)
 - [Plugin development and installation](docs/CLAUDE_PLUGIN.md)
+- [Architecture](docs/ARCHITECTURE.md), [developer reference](docs/DEVELOPER_REFERENCE.md), [Python API](docs/API.md) and [testing](docs/TESTING.md)
+- [Contributing](docs/CONTRIBUTING.md) and [metes-and-bounds reference](docs/METES_AND_BOUNDS_REFERENCE.md)
+- [Known limitations](docs/bugs.md#known-limitations)
 - [Implementation plans](docs/plans/README.md) and [historical extraction outputs](docs/archive/extraction-output/README.md)
-- [Architecture](docs/ARCHITECTURE.md) and [testing](docs/TESTING.md)
 - [Project changelog](CHANGELOG.md) and [plugin changelog](plugins/metesparser/CHANGELOG.md)
 - [Workflow implementation evidence](docs/implementation/2026-10-28-cowork-workflow-ledger.md) and [chat distribution validation](docs/implementation/2026-10-29-claude-chat-skill.md), including outstanding host checks
 
+## Known limitations
+
+- Proof of concept: review source readings and results before relying on them.
+- Native Claude/Cowork host acceptance and live Mapbox acceptance have not been run; local runtime checks do not establish them.
+- The description-role policy blocks verified export for a deed with more than one description when any role is inferred. See [description roles and verified export](docs/ARCHITECTURE.md#description-roles-and-verified-export).
+- The detailed list is in [docs/bugs.md](docs/bugs.md#known-limitations).
+
 ## License
 
-MIT.
+Released under the [MIT License](LICENSE).

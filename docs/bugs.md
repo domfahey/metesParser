@@ -1,5 +1,18 @@
 # Bugs
 
+Contents:
+
+- [Audit Notes (2026-02-14)](#audit-notes-2026-02-14)
+- [Status Update (2026-02-16)](#status-update-2026-02-16)
+- [Error Analysis (2026-02-15)](#error-analysis-2026-02-15)
+- [Triage Metadata Checklist](#triage-metadata-checklist)
+- [High](#high)
+- [Medium](#medium)
+- [Low (Fixed)](#low-fixed)
+- [Recent Tickets](#recent-tickets)
+- [Code Review (2026-10-29)](#code-review-2026-10-29)
+- [Known Limitations](#known-limitations)
+
 ## Audit Notes (2026-02-14)
 - Corrected the non-reproducible fallback-distance claim into a reproducible parser bug.
 - Merged duplicate `along` substring reports (old #9 and #13).

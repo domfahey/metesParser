@@ -130,6 +130,8 @@ print(summary)
 
 ### CSVBuilder
 
+The export decision order is drawn in the [verified-export gate diagram](ARCHITECTURE.md#verified-export-gate).
+
 Export/import CSV files.
 
 `csv_to_calls()` rejects invalid rows by default. Use `strict=False` with a
@@ -144,7 +146,16 @@ to `mp_export`.
 a stale result or a `LegalDescription` containing different calls. Rewriting a
 CSV also clears its old generated sidecars when replacement inputs are omitted.
 In multi-tract exports, every tract reported as verified is checked against its
-actual calls before any output is written; unsuccessful tracts are skipped.
+actual calls before any output is written; unsuccessful tracts are skipped, and
+easement and exception tracts are never exported.
+
+The exporter also fails closed on description roles: when a deed has more than one
+description and any role was inferred from wording rather than an explicit
+`PARCEL ONE:` / `TRACT 2:` heading, `export_verified_csv()` raises, whatever the
+supplied results claim. See
+[Description roles and verified export](ARCHITECTURE.md#description-roles-and-verified-export).
+Courses that extraction could not parse also block export, but only if the exporter
+can see them: pass `skipped_courses` or the `audit_context` used for extraction.
 
 ```python
 from metesparser.csv_builder import CSVBuilder
@@ -157,7 +168,19 @@ CSVBuilder.export_verified_csv(
     calls=calls,
     closure_result=result,
     output_path="output.csv",
-    legal_desc=legal_description  # Optional
+    legal_desc=legal_description,  # Optional
+    # skipped_courses=[...],       # Optional: unparsed courses block export
+    # audit_context=audit_context, # Optional: supplies its skipped_courses
+)
+
+# Multi-tract: one verified CSV per eligible main/addition tract
+results = ClosureChecker.verify_closure(calls, tracts=tracts)
+CSVBuilder.export_verified_csv(
+    calls,
+    results[0],
+    "output.csv",
+    legal_desc=legal_description,
+    tract_results=list(zip(tracts, results)),
 )
 
 # Import calls from CSV
