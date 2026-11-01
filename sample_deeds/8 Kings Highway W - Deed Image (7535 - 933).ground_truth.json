@@ -16,6 +16,8 @@
   },
   "raw_ocr_text": "SEE Schedule C attached.\n\n[Schedule C is NOT present in the scanned PDF pages. The legal description page was not included in this deed image. The Schedule C for Lot 12.04 (File No. ITA7807) physically appears in the PDF for deed 7535-929 instead.]",
   "expected_legal_description": "",
+  "expected_normalized_text": "",
+  "expected_poc": null,
   "expected_pob": null,
   "expected_calls": [],
   "expected_closure": null,
