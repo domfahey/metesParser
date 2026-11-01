@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **License:** MetesParser is now licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`), replacing MIT, with commercial licenses available from the copyright holder. No version was released publicly under MIT. See [License](README.md#license).
 
+### Removed
+
+- **Third-party sample data:** a sample dataset and the 22 sample deeds taken from it, which were not licensed for distribution. 87 sample ground truths remain. Regression tests keep short excerpts or synthetic equivalents of their wording.
+
 ## [0.7.0] - 2026-11-01
 
 Versions: `metesparser` 0.7.0; `mp-models`, `mp-parse`, `mp-verify`, `mp-export` and `mp-review` 2.0.0; `mp-bearing` 1.1.0 (additions only); `mp-ocr` 1.0.1 (adds its `py.typed` marker); Claude plugin 2.0.0. The review engine is now 2.0.0, so reviews saved by the 1.0.0 engine inspect as stale and must be re-run.
