@@ -11,7 +11,7 @@ import logging
 import re
 
 import structlog
-from mp_bearing import (  # type: ignore[import-untyped]
+from mp_bearing import (
     COMPASS_POINTS,
     QUADRANT_PATTERN,
     bearing_to_azimuth,

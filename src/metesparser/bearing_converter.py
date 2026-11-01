@@ -307,7 +307,7 @@ class BearingConverter:
         radius_ft: float,
         delta_deg: float | None = None,
         arc_length_ft: float | None = None,
-    ) -> dict[str, float | None]:
+    ) -> dict[str, float]:
         """Calculate curve properties from radius and either delta or arc length.
 
         Given R and Δ:

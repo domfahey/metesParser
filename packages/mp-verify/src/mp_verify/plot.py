@@ -7,7 +7,7 @@ import json
 import math
 from typing import TYPE_CHECKING, TypedDict
 
-from mp_bearing import (  # type: ignore[import-untyped]
+from mp_bearing import (
     bearing_to_azimuth,
     calculate_curve_properties,
     calculate_deltas,
