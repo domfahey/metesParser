@@ -259,5 +259,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Standard fields added 2026-10-31 from the recorded PDF (Exhibit \"A\", Book 50512 Page 526, PDF page 2), transcribed verbatim; vendor fields kept. Four courses; the closing 'except the East 20 feet deeded for roadway' has no courses. The beginning point's offset (1042 feet from the section corner) is not a course."
+  "notes": "Checked against Liber 50512 Page 526, PDF page 2 (Exhibit \"A\"): legal text, the beginning offset and all 4 courses match the print. Standard fields added 2026-10-31 from the recorded PDF (Exhibit \"A\", Book 50512 Page 526, PDF page 2), transcribed verbatim; vendor fields kept. Four courses; the closing 'except the East 20 feet deeded for roadway' has no courses. The beginning point's offset (1042 feet from the section corner) is not a course."
 }

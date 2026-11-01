@@ -282,5 +282,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Standard fields added 2026-10-31 from the recorded PDF: the discharge's description of the land (Page 1 of 2), transcribed verbatim; the vendor keys are kept unchanged and raw_ocr_text is the vendor Full_Legal_Description, whose sentences are out of order. Lots 199-201, the South 1/2 of Lot 202 and vacated streets of Ford Boulevard Subdivision, more fully described by four courses; the offset from the Northeast corner of Lot 206 is part of the beginning clause. The parcel closes at 0.009 ft."
+  "notes": "Checked against Liber 50248 Page 913, the discharge's description of the land, PDF page 1 (re-read at 350 dpi, 2026-11-01): text and all four courses confirmed as printed. Standard fields added 2026-10-31 from the recorded PDF: the discharge's description of the land (Page 1 of 2), transcribed verbatim; the vendor keys are kept unchanged and raw_ocr_text is the vendor Full_Legal_Description, whose sentences are out of order. Lots 199-201, the South 1/2 of Lot 202 and vacated streets of Ford Boulevard Subdivision, more fully described by four courses; the offset from the Northeast corner of Lot 206 is part of the beginning clause. The parcel closes at 0.009 ft."
 }

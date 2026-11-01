@@ -273,5 +273,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Standard fields added 2026-10-31 from the recorded PDF (Warranty Deed, Liber 50872 Page 130, PDF page 1), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. \"Wayne County Records. North 89 degrees...\" has a period mid-course, kept as printed. Course 4 is \"due North\" (azimuth 0). The private-road easement over the West 30 feet is not an exception."
+  "notes": "Checked against Liber 50872 Page 130, PDF page 1 (read at 300 dpi): legal text, the beginning offsets and all 4 courses match the print. Standard fields added 2026-10-31 from the recorded PDF (Warranty Deed, Liber 50872 Page 130, PDF page 1), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. \"Wayne County Records. North 89 degrees...\" has a period mid-course, kept as printed. Course 4 is \"due North\" (azimuth 0). The private-road easement over the West 30 feet is not an exception."
 }

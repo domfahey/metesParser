@@ -272,5 +272,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Standard fields added 2026-10-31 from the recorded PDF (Exhibit A, Book 50510 Page 81, PDF page 3), transcribed verbatim; vendor fields kept. The filing is a death certificate with Exhibit A describing the land. The scan's letter spacing (\"N orth\", \"m inutes\", \"f eet\", \"T own\") is a typeface artifact and is transcribed as whole words. The beginning point's two offsets are not courses."
+  "notes": "Checked against Liber 50510 Page 81, PDF page 3 (Exhibit A, read at 300 dpi): legal text, the beginning offsets and all 4 courses match the print. Standard fields added 2026-10-31 from the recorded PDF (Exhibit A, Book 50510 Page 81, PDF page 3), transcribed verbatim; vendor fields kept. The filing is a death certificate with Exhibit A describing the land. The scan's letter spacing (\"N orth\", \"m inutes\", \"f eet\", \"T own\") is a typeface artifact and is transcribed as whole words. The beginning point's two offsets are not courses."
 }
