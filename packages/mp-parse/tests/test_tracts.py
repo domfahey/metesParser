@@ -398,3 +398,12 @@ class TestBeginningBlockClosures:
             ("Tract 1", TractType.MAIN),
             ("Easement 1", TractType.EASEMENT),
         ]
+
+    def test_to_said_point_of_beginning_closes_the_block(self):
+        text = (
+            "BEGINNING at a point; THENCE N 45°00' E 100 feet; THENCE S 45°00' W 100 feet "
+            "to said point of beginning. "
+            "BEGINNING at a stake; THENCE N 10°00' E 20 feet; THENCE S 10°00' W 20 feet "
+            "to said point of beginning."
+        )
+        assert [label for _, label, _ in split_into_tracts(text)] == ["Tract 1", "Tract 2"]

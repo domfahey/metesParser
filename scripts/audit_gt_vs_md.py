@@ -83,9 +83,9 @@ def bearing_to_azimuth(quadrant1: str, angle_decimal: float, quadrant2: str) -> 
 # "TRACT #1", "TRACT #2B": two or more mark separate tracts, not duplicate descriptions
 TRACT_MARKER_PATTERN = re.compile(r"\bTRACT\s*#?\s*\d+[A-Z]?\b", re.IGNORECASE)
 
-# Exhibit A / Schedule C section markers
+# Exhibit A / Schedule C section markers; the letter is a whole word ("SCHEDULE City" is not)
 EXHIBIT_PATTERN = re.compile(
-    r"(?:EXHIBIT\s*[\"']?\s*[\"']?A[\"']?|SCHEDULE\s+C)",
+    r"(?:EXHIBIT\s*[\"']?\s*[\"']?A\b[\"']?|SCHEDULE\s+C\b)",
     re.IGNORECASE,
 )
 
@@ -96,8 +96,11 @@ POB_CLOSE_PATTERN = re.compile(
 )
 
 # "which last mentioned point is the place of beginning": a tie line ends here, the description goes on
+# "which last mentioned point is the place of beginning" (a tie line ends here) or
+# "said point of beginning being also distant ..." (a preamble reference): not closures.
+# "to said point of beginning" still closes.
 RESTATED_POB_BEFORE_PATTERN = re.compile(
-    r"\blast\s+mentioned\s+point\s+is\s+(?:the\s+)?$", re.IGNORECASE
+    r"(?:\blast\s+mentioned\s+point\s+is\s+(?:the\s+)?|(?<!\bto\s)\bsaid\s+)$", re.IGNORECASE
 )
 
 # Numbered call starters: "1. " or "(1) " at start of line OR inline
@@ -120,7 +123,7 @@ def find_preferred_text(md_text: str) -> str:
 
 
 def find_block_close(text: str, start: int) -> re.Match[str] | None:
-    """Find the closure ending a block, skipping restated points of beginning."""
+    """Find the closure ending a block, skipping restated or referenced points of beginning."""
     for match in POB_CLOSE_PATTERN.finditer(text, start):
         if not RESTATED_POB_BEFORE_PATTERN.search(text, 0, match.start()):
             return match
@@ -219,8 +222,12 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
             seg_end = num_matches[j + 1].start() if j + 1 < len(num_matches) else len(block_text)
             segments.append(block_text[seg_start:seg_end])
     else:
-        # Fall back to thence splitting
-        segments = re.split(r"\bthence\b", block_text, flags=re.IGNORECASE)[1:]
+        # Fall back to thence splitting. When courses end with "thence" ("...483.13 feet
+        # to a point thence;"), the first course is the last sentence before it.
+        preamble, *segments = re.split(r"\bthence\b", block_text, flags=re.IGNORECASE)
+        last_sentence = re.split(r"[.;:]\s+|\n", preamble.strip())[-1]
+        if segments and BEARING_PATTERN.match(last_sentence):
+            segments.insert(0, last_sentence)
 
     for i, segment in enumerate(segments, 1):
         bearing_match = BEARING_PATTERN.search(segment)
