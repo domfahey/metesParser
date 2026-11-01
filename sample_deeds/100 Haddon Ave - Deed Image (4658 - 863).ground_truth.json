@@ -94,5 +94,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Checked against Book 4658 Pages 863-866 (Exhibit \"A\" on Page 864, PDF page 2): legal description re-transcribed verbatim (the ground truth had course 3's angle as 16 minutes 10 seconds and its end as the NORTHEAST line of Euclid Avenue; the deed prints 30 seconds and NORTHWEST, and \"HADDON AVNEUE\" in course 1); course directions and along/to are now the printed words, and the closure is null because no bearing is stated. Ground truth regenerated (Fix 3: abbreviated cardinals) at 2026-02-16T23:31:15.708464+00:00"
+  "notes": "Checked against Book 4658 Pages 863-866 (Exhibit \"A\" on Page 864, PDF page 2): legal description re-transcribed verbatim (the ground truth had course 3's angle as 16 minutes 10 seconds and its end as the NORTHEAST line of Euclid Avenue; the deed prints 30 seconds and NORTHWEST, and \"HADDON AVNEUE\" in course 1); course directions and along/to are now the printed words, and the closure is null because no bearing is stated. Second check (Exhibit A and Page 863 at 300 dpi): wording, every figure and the deed details confirmed. Ground truth regenerated (Fix 3: abbreviated cardinals) at 2026-02-16T23:31:15.708464+00:00"
 }
