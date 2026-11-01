@@ -348,3 +348,31 @@ class TestAuditSchedules:
         )
         calls = mod.extract_calls_from_md(md_text)
         assert [call["distance_ft"] for call in calls] == [483.13, 17.78, 250.44]
+
+
+class TestAuditLetteredTieCourses:
+    """36 Kresson: tie courses (A) and (B) reach a point of beginning that more courses follow."""
+
+    EXCEPTION = (
+        "BEGINNING at a point along a line common with Lot 13A, said point being the following "
+        "courses and distances from the intersection of Willard Avenue with Kresson Road\n\n"
+        "(A) Along the said row line of Kresson Road North 73 degrees 30 minutes 00 seconds West "
+        "a distance of 509.1 feet to a point common to said Lots 13 and 13B, thence;\n\n"
+        "(B) Along line common to said Lots 13 and 13A South 16 degrees 30 minutes 00 seconds "
+        "West a distance of 27.00 feet to a point and place of beginning{after_b}\n\n"
+        "(1) South 73 degrees 30 minutes 00 seconds East a distance of 10.00 feet to a point, "
+        "thence;\n\n"
+        "(2) North 16 degrees 30 minutes 00 seconds East a distance of 47.00 feet to a point and "
+        "place of BEGINNING.\n\nNOTE: Lot and Block shown for informational purposes only."
+    )
+
+    def test_lettered_tie_courses_and_following_courses_are_extracted(self) -> None:
+        mod = _load_audit_module()
+        for after_b in (", thence;", "."):
+            calls = mod.extract_calls_from_md(self.EXCEPTION.format(after_b=after_b))
+            assert [call["distance_ft"] for call in calls] == [509.1, 27.0, 10.0, 47.0], after_b
+
+    def test_lot_s_mid_line_is_not_a_course_marker(self) -> None:
+        mod = _load_audit_module()
+        assert not mod.CALL_NUM_PATTERN.search("NOTE: Being Lot(s) 4, Block: 423.01")
+        assert mod.CALL_NUM_PATTERN.search("\n(A) Along the said row line")
