@@ -454,3 +454,18 @@ class TestAuditPrintedValues:
             {"bearing_azimuth_deg_from_north": 244.3736, "distance_ft": 299.89},
         )
         assert result["issues"] == ["DISTANCE_C1: GT=299.89ft, MD=229.89ft (diff=70.00ft)"]
+
+
+class TestAuditTractReferences:
+    def test_tract_reference_does_not_cut_an_unclosed_description(self) -> None:
+        """89 Haddon 4455-174: "boundary line of Tract #1 of Haddonfield Estates" is a reference."""
+        mod = _load_audit_module()
+        md_text = (
+            "BEGINNING at a point in the former Southeasterly boundary line of Tract #1 of "
+            "Haddonfield Estates; running thence (1) North 54 degrees 44 minutes 05 seconds East, "
+            "a distance of 141.73 feet to a point; thence (2) South 19 degrees 58 minutes 30 "
+            "seconds West, a distance of 146.44 feet to a found field stone [page unreadable]\n\n"
+            "TRACT #2: other land"
+        )
+        calls = mod.extract_calls_from_md(md_text)
+        assert [call["distance_ft"] for call in calls] == [141.73, 146.44]
