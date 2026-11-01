@@ -59,6 +59,10 @@ _POB_CLOSE_PATTERN = re.compile(
 )
 
 
+# "the Southeasterly corner of Parcel #69", "D.R.P.A., Parcel #69": references, not markers
+_REFERENCE_BEFORE = re.compile(r"(?:\b(?:of|to|said|with|from|by)|,)\s*$", re.IGNORECASE)
+
+
 def find_tract_markers(
     text: str,
 ) -> list[tuple[int, str, str]]:
@@ -73,6 +77,7 @@ def find_tract_markers(
         markers.append((m.start(), f"Parcel {m.group(1)}", "parcel"))
     for m in _SCHEDULE_MARKER.finditer(text):
         markers.append((m.start(), f"Schedule {m.group(1).upper()}", "schedule"))
+    markers = [marker for marker in markers if not _REFERENCE_BEFORE.search(text, 0, marker[0])]
     markers.sort(key=lambda x: x[0])
     return markers
 
