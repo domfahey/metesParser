@@ -274,3 +274,174 @@ class TestExtractCallsMultiTract:
         for exc_tract in exception_tracts:
             for call in exc_tract.calls:
                 assert call.is_exception is True
+
+
+class TestTractMarkerSuffix:
+    def test_numbered_tract_with_letter_suffix(self):
+        text = (
+            "TRACT #2: BEGINNING at a point THENCE N 45°00' E 100 feet to a point. "
+            "TRACT #2B: BEGINNING at a point THENCE S 45°00' E 50 feet to a point."
+        )
+        result = split_into_tracts(text)
+        assert [label for _, label, _ in result] == ["Tract 2", "Tract 2B"]
+
+    def test_ordinal_suffix_is_not_a_tract_letter(self):
+        text = "TRACT 12th: BEGINNING at a point THENCE N 45°00' E 100 feet to a point."
+        assert split_into_tracts(text)[0][1] == "Tract 12"
+
+    def test_tract_no_marker(self):
+        text = (
+            "TRACT NO. 1\n\nBEGINNING at a point THENCE N 45°00' E 100 feet to a point.\n\n"
+            "Tract No. 2\n\nBEGINNING at a point THENCE S 45°00' E 50 feet to a point."
+        )
+        result = split_into_tracts(text)
+        assert [label for _, label, _ in result] == ["Tract 1", "Tract 2"]
+
+    def test_tract_number_reference_is_not_a_marker(self):
+        """219 Berlin Rd: "tract number 1" mid-description used to become "Tract n"
+        and drop every course before it."""
+        text = (
+            "BEGINNING at a point; thence N 45°00' E 100 feet to a point; thence "
+            "S 45°00' E 50 feet along a line common with tract number 2 herein described; "
+            "thence N 10°00' W 35 feet thru tract numbered 1 to the point of beginning."
+        )
+        calls, tracts = extract_calls(text)
+        assert [call.distance_ft for call in calls] == [100, 50, 35]
+        assert [tract.label for tract in tracts] == []
+
+
+class TestExceptionsWithinMarkedTracts:
+    def test_except_clause_after_last_tract_becomes_exception_tracts(self):
+        text = (
+            "TRACT #1: BEGINNING at a point THENCE N 45°00' E 100 feet to a point; "
+            "THENCE S 45°00' W 100 feet to the point of beginning. "
+            "EXCEPTING THEREOUT that part described as follows: BEGINNING at a stake; "
+            "THENCE N 10°00' E 20 feet to beginning. "
+            "ALSO EXCEPTING THEREOUT that part described as follows: STARTING at a stake; "
+            "THENCE S 10°00' W 30 feet to beginning."
+        )
+        result = split_into_tracts(text)
+        assert [(label, tract_type) for _, label, tract_type in result] == [
+            ("Tract 1", TractType.MAIN),
+            ("Exception 1", TractType.EXCEPTION),
+            ("Exception 2", TractType.EXCEPTION),
+        ]
+        assert "EXCEPTING" not in result[0][0]
+
+    def test_exception_tract_calls_are_separate_from_main_tract(self):
+        text = (
+            "TRACT #1: BEGINNING at a point THENCE N 45°00' E 100 feet to a point; "
+            "THENCE S 45°00' W 100 feet to the point of beginning. "
+            "EXCEPTING THEREOUT that part described as follows: BEGINNING at a stake; "
+            "THENCE N 10°00' E 20 feet to beginning."
+        )
+        calls, tracts = extract_calls(text)
+        assert [(t.label, len(t.calls)) for t in tracts] == [("Tract 1", 2), ("Exception 1", 1)]
+        assert [c.is_exception for c in calls] == [False, False, True]
+
+    def test_narrative_exception_stays_in_marked_tract(self):
+        """A conveyance-only EXCEPT clause has no courses, so it is not an exception tract."""
+        text = (
+            "SCHEDULE A-3: BEGINNING at a point; THENCE N 45°00' E 100 feet; "
+            "THENCE S 45°00' W 100 feet to the point of beginning. "
+            "Excepting thereout and therefrom so much as was conveyed to the State of "
+            "New Jersey by Deed Book 3903, page 46."
+        )
+        assert [(label, tract_type) for _, label, tract_type in split_into_tracts(text)] == [
+            ("Schedule A-3", TractType.MAIN)
+        ]
+        calls, _tracts = extract_calls(text)
+        assert [c.is_exception for c in calls] == [False, False]
+
+
+class TestScheduleMarkers:
+    """219 Berlin Rd 12799-00118: one property per SCHEDULE A-n."""
+
+    def test_schedules_split_into_tracts(self):
+        text = (
+            "SCHEDULE A-1\n\nBEGINNING at a point; thence N 45°00' E 100 feet to a point; "
+            "thence S 45°00' W 100 feet to point and place of beginning.\n\n"
+            "SCHEDULE A-2\n\nBEGINNING at a point; thence\n(1) N 10°00' E 20 feet; thence\n"
+            "(2) S 10°00' W 20 feet to the point of beginning."
+        )
+        calls, tracts = extract_calls(text)
+        assert [(t.label, len(t.calls)) for t in tracts] == [
+            ("Schedule A-1", 2),
+            ("Schedule A-2", 2),
+        ]
+        assert [c.distance_ft for c in calls] == [100, 100, 20, 20]
+
+    def test_lone_schedule_a_is_not_a_marker(self):
+        text = "Schedule A\n\nBEGINNING at a point THENCE N 45°00' E 100 feet to a point."
+        assert split_into_tracts(text)[0][1] == "Tract 1"
+
+
+class TestBeginningBlockClosures:
+    def test_said_point_of_beginning_does_not_close_the_block(self):
+        text = (
+            "BEGINNING at a point, said point of beginning being also distant 24.75 feet "
+            "from the center line, and from said point of beginning, proceeding THENCE "
+            "N 45°00' E 100 feet; THENCE S 45°00' W 100 feet to the point of beginning. "
+            "BEGINNING at a stake; THENCE N 10°00' E 20 feet; THENCE S 10°00' W 20 feet "
+            "to the point of beginning."
+        )
+        assert [label for _, label, _ in split_into_tracts(text)] == ["Tract 1", "Tract 2"]
+
+    def test_easement_block_is_an_easement_tract(self):
+        text = (
+            "BEGINNING at a point; THENCE N 45°00' E 100 feet; THENCE S 45°00' W 100 feet "
+            "to the point of beginning. UNDER AND SUBJECT to an ingress and egress easement "
+            "bounded and described as follows: BEGINNING at a stake; THENCE N 10°00' E 20 "
+            "feet; THENCE S 10°00' W 20 feet to the point of beginning."
+        )
+        assert [(label, tract_type) for _, label, tract_type in split_into_tracts(text)] == [
+            ("Tract 1", TractType.MAIN),
+            ("Easement 1", TractType.EASEMENT),
+        ]
+
+    def test_to_said_point_of_beginning_closes_the_block(self):
+        text = (
+            "BEGINNING at a point; THENCE N 45°00' E 100 feet; THENCE S 45°00' W 100 feet "
+            "to said point of beginning. "
+            "BEGINNING at a stake; THENCE N 10°00' E 20 feet; THENCE S 10°00' W 20 feet "
+            "to said point of beginning."
+        )
+        assert [label for _, label, _ in split_into_tracts(text)] == ["Tract 1", "Tract 2"]
+
+    def test_parcel_and_tract_references_are_not_markers(self):
+        """15 E Redman: "corner of Parcel #69" and "D.R.P.A., Parcel #69" are references."""
+        text = (
+            "BEGINNING at a point at the Southeasterly corner of Parcel #69, conveyed to the "
+            "Port Authority; THENCE N 45°00' E 100 feet to the said stake corner to D.R.P.A., "
+            "Parcel #69; THENCE along the boundary line of Tract #1 of Haddonfield Estates "
+            "S 45°00' W 100 feet to the point of beginning."
+        )
+        calls, tracts = extract_calls(text)
+        assert [call.distance_ft for call in calls] == [100, 100]
+        assert tracts == []
+
+
+class TestCourselessClauses:
+    def test_also_being_known_as_is_not_a_tract(self):
+        """89 Haddon: "ALSO BEING known as 89 Haddon Avenue" has no courses."""
+        text = (
+            "BEGINNING at a point; THENCE N 45°00' E 100 feet; THENCE S 45°00' W 100 feet to "
+            "the point of beginning. BEING Lot 2, Block 11. ALSO BEING known as 89 Haddon "
+            "Avenue, Haddonfield, New Jersey."
+        )
+        assert [label for _, label, _ in split_into_tracts(text)] == ["Tract 1"]
+        calls, tracts = extract_calls(text)
+        assert [call.distance_ft for call in calls] == [100, 100]
+        assert tracts == []
+
+    def test_place_of_beginning_followed_by_thence_does_not_close_the_block(self):
+        """36 Kresson: a tie course reaches "a point and place of beginning, thence;"."""
+        text = (
+            "BEGINNING at a point; THENCE N 45°00' E 100 feet; THENCE S 45°00' W 100 feet to "
+            "the point of beginning. Excepting thereout and therefrom: BEGINNING at a point; "
+            "THENCE N 10°00' E 20 feet to a point and place of beginning, thence; "
+            "THENCE S 80°00' E 10 feet; THENCE S 10°00' W 5 feet to the point of beginning."
+        )
+        exception_text = split_into_tracts(text)[1][0]
+        assert "S 80°00' E 10 feet" in exception_text
+        assert exception_text.endswith("to the point of beginning")

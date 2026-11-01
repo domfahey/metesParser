@@ -1,19 +1,35 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "219 Berlin Road",
+    "city": "Cherry Hill",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "12799",
+    "page": "118"
   },
   "raw_ocr_text": "I can’t extract **all** text from this “PDF” as provided here because you uploaded **multiple low‑resolution page images** (not the original PDF text layer), and several sections—especially the **metes‑and‑bounds “BEGINNING / THENCE” calls**—are **not fully legible at this resolution**. If I tried to “fill in” unclear characters, I would risk introducing errors, which is exactly what you said to avoid.\n\nWhat I *can* do right now is:\n1) Provide a **best‑effort transcription of the clearly readable portions**, preserving line breaks; and  \n2) Tell you **exactly what pages/lines are not readable** so you can re-upload a higher-quality PDF (or 300–600 DPI scans) and I can then extract **complete, exact** text.\n\nBelow is the text I can reliably read from the images you provided (with original line breaks largely preserved). Any portion I cannot read with confidence is marked **[ILLEGIBLE]**.\n\n---\n\n## PAGE 1 (Camden County Document Summary Sheet)\n\nCamden County  \nDocument Summary Sheet\n\nCAMD...",
-  "expected_legal_description": "SCHEDULE A-1\n\n110 118 WHITE HORSE ROAD, VOORHEES:\n\nAll that tract or parcel of land and premises situate in the Township of Voorhees, County of Camden, State of New Jersey being more particularly described as follows:\n\nBeginning at a point in the Northwesterly Line of White Horse Road nominally 60 feet wide said point being the following two courses and distances from the intersection of the Northwesterly Line of White Horse Road with the Northeasterly Line of Burnt Mill Road.\n\nNorth 40 Degrees 41 Minutes 31 Seconds East a distance of 483.13 feet to a point thence;\n\nNorth 59 Degrees 29 Minutes 19 Seconds West a distance of 17.78 feet to a point in the widened Northwesterly Line of White Horse Road as widened to 47.5 feet from Center Line thence;\n\nNorth 40 Degrees 41 Minutes 31 Seconds East along the widened Northwesterly Line of White Horse Road a distance of 223.65 feet to a point and extending thence;\n\nNorth 49 Degrees 18 Minutes 29 Seconds West a distance of 246.50 feet to a point and extending thence\n\nSouth 40 Degrees 41 Minutes 31 Seconds West a distance of 267.92 feet to a point and extending thence;\n\nSouth 59 Degrees 29 Minutes 19 Seconds East a distance of 250.44 feet to point and place of beginning.\n\nSCHEDULE A-2\n\n219 BERLIN ROAD, CHERRY HILL\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide at this point), being distant 338.25 feet along said Northerly line of Haddonfield- Berlin Road on a bearing of South 32 degrees 38 minutes 00 seconds East from the intersection of said Northerly line of Haddonfield- Berlin Road with the Southeasterly line of Moore Avenue (50.00 feet wide), said point of beginning being also distant Northeasterly, a distance of 24.75 feet from the original center line of Haddonfield- Berlin Road (49.50 feet wide) and from said point of beginning, proceeding thence\n\n(a) North 50 degrees 45 minutes 00 seconds East, a distance of 416.57 feet to a point; thence\n\n(b) South 32 degrees 36 minutes 00 seconds East, a distance of 300.07 feet to a point; thence\n\n(c) South 69 degrees 03 minutes 30 seconds East, a distance of 165.42 feet to a point in the Westerly line of Brace Road (formerly Caldwell Avenue - 100.00 feet wide); thence\n\n(d) South 23 degrees 56 minutes 30 seconds West, along said Westerly line of Brace Road, a distance of 116.04 feet to a point; thence\n\n(e) North 32 degrees 53 minutes 15 seconds West, a distance of 86.75 feet to a point; thence\n\n(f) South 57 degrees 56 minutes 30 seconds West, a distance of 128.93 feet to a point; thence\n\n(g) South 56 degrees 56 minutes 56 seconds West, a distance of 47.24 feet to a point; thence\n\n(h) North 32 degrees 36 minutes 00 seconds West, a distance of 62.57 feet to a point; thence\n\n(i) South 56 degrees 44 minutes 06 seconds West, a distance of 101.58 feet to a point; thence\n\n(j) North 32 degrees 36 minutes 00 seconds West, a distance of 143.00 feet to a point; thence\n\n(k) South 56 degrees 44 minutes 05 seconds West, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide); thence\n\n(l) North 32 degrees 36 minutes 00 seconds West, a distance of 202.00 feet to the point and place of BEGINNING.\n\nUNDER. AND SUBJECT to a certain 35 feet by 140 feet Ingress and egress easement for the benefit of the above described tract number 1, said ingress and egress easement being bounded and described as follows:\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road, being distant. 540.25. feet along said Northerly line of Haddonfield-Berlin Road On a bearing of South 32 degrees 38 minutes 00 seconds East from the intersection of said Northerly line of Haddonfield-Berlin Road with the Southeasterly link of Moore Avenue, and from said point of beginning, proceeding thence\n\n(1) North 56 degrees 44 minutes 05 seconds East, along a line common to tracts numbered 1 and 2 herein described, a distance of 140.00 feet 4 a point; thence\n\n(2) North 32 degrees 36 minutes 00 seconds West, thru tract numbered 2 herein described a distance of 35.00 feet to a point; thence\n\n(3) still thru said tract numbered 2 herein described, South 56 degrees 44 minutes 05 seconds West, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road; thence\n\n(4) along said Northerly line of Haddonfield-Berlin Road, South 32 degrees 36 minutes 00 seconds East, a distance of 35.00 feet to the point and place of BEGINNING.\n\nSCHEDULE A-3\n\n225 BERLIN ROAD, CHERRY HILL\n\nALL that certain lot, tract and parcel of land and premises, situate, lying and being in the Township of Cherry Hill, County of Camden and State of New Jersey, bounded and described as follows:\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide at this point), being distant 540.25 feet along said Northerly line of Haddonfield- Berlin Road on a bearing of South 32 degrees 38 minutes 00 seconds East from the intersection of said Northerly line of Haddonfield-Berlin Road, with the southeasterly line of Moore Avenue (50.00 feet wide), said point of beginning being also distant Northeasterly, a distance of 24.75 feet from the original center line of Haddonfield- Berlin Road (49.50 feet wide) and from said point of beginning, proceeding thence\n\n(1) North 56 degrees 44 minutes 05 seconds East, along a line common with tract number 2 herein described, a distance of 140.00 feet to a point; thence\n\n(2) South 32 degrees 36 minutes 00 seconds East along another line common with tract number 2 herein described, a distance of 143.00 feet to a point; thence\n\n(3) South 56 degrees 44 minutes 05 seconds West, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road (49.50. feet wide at this point); thence\n\n(4) North 32 degrees 36 minutes 00 seconds West, a distance of 143.00 feet, along said Northerly line of Haddonfield-Berlin Road, to the point and place of BEGINNING.\n\nExcepting thereout and therefrom so much as was conveyed to the State of New Jersey by Deed Book 3903, page 46.\n\nSCHEDULE A-4\n\n501 BLACK HORSE PIKE, HADDON HEIGHTS\n\nALL THAT CERTAIN LOT, TRACT AND PARCEL OF LAND AND PREMISES SITUATE, LYING AND BEING IN THE BOROUGH OF HADDON HEIGHTS, COUNTY OF CAMDEN AND STATE OF NEW JERSEY, BOUNDED AND DESCRIBED IN ACCORDANCE WITH A SURVEY MADE BY JAMES T. SAPPIO, NJPLS DATED MAY 30, 2006, AS FOLLOWS:\n\nBEGINNING AT A POINT OF INTERSECTION OF THE SOUTHERLY LINE OF PROSPECT RIDGE BOULEVARD (70 FEET WIDE) AND THE EASTERLY LINE OF BLACK HORSE PIKE (66 FEET WIDE); THENCE\n\n(1) EASTWARDLY, ALONG THE SOUTHERLY LINE OF PROSPECT RIDGE BOULEVARD, THE DISTANCE OF 125.00 FEET TO A POINT; THENCE\n\n(2) SOUTHWARDLY, AT RIGHT ANGLES TO PROSPECT RIDGE BOULEVARD THE DISTANCE OF 250.00 FEET TO A POINT IN THE NORTHERLY LINE OF SYCAMORE STREET (50 FEET WIDE); THENCE\n\n(3) WESTWARDLY, ALONG SAME THE DISTANCE OF 125.00 FEET TO THE POINT OF INTERSECTION OF THE NORTHERLY LINE OF SYCAMORE STREET WITH THE EASTERLY LINE OF BLACK HORSE PIKE; THENCE\n\n(4) NORTHWARDLY ALONG THE EASTERLY LINE OF BLACK HORSE PIKE, THE DISTANCE OF 250.00 FEET TO THE POINT AND PLACE OF BEGINNING.",
-  "expected_normalized_text": "SCHEDULE A-1\n\n110 118 WHITE HORSE ROAD, VOORHEES:\n\nAll that tract or parcel of land and premises situate in the Township of Voorhees, County of Camden, State of New Jersey being more particularly described as follows:\n\nBeginning at a point in the Northwesterly Line of White Horse Road nominally 60 feet wide said point being the following two courses and distances from the intersection of the Northwesterly Line of White Horse Road with the Northeasterly Line of Burnt Mill Road.\n\nN 40°41'31\" E a distance of 483.13 feet to a point thence;\n\nN 59°29'19\" W a distance of 17.78 feet to a point in the widened Northwesterly Line of White Horse Road as widened to 47.5 feet from Center Line thence;\n\nN 40°41'31\" E along the widened Northwesterly Line of White Horse Road a distance of 223.65 feet to a point and extending thence;\n\nN 49°18'29\" W a distance of 246.50 feet to a point and extending thence\n\nS 40°41'31\" W a distance of 267.92 feet to a point and extending thence;\n\nS 59°29'19\" E a distance of 250.44 feet to point and place of beginning.\n\nSCHEDULE A-2\n\n219 BERLIN ROAD, CHERRY HILL\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide at this point), being distant 338.25 feet along said Northerly line of Haddonfield-Berlin Road on a bearing of S 32°38'00\" E from the intersection of said Northerly line of Haddonfield-Berlin Road with the Southeasterly line of Moore Avenue (50.00 feet wide), said point of beginning being also distant Northeasterly, a distance of 24.75 feet from the original center line of Haddonfield-Berlin Road (49.50 feet wide) and from said point of beginning, proceeding thence\n\n(a) N 50°45'00\" E, a distance of 416.57 feet to a point; thence\n\n(b) S 32°36'00\" E, a distance of 300.07 feet to a point; thence\n\n(c) S 69°03'30\" E, a distance of 165.42 feet to a point in the Westerly line of Brace Road (formerly Caldwell Avenue - 100.00 feet wide); thence\n\n(d) S 23°56'30\" W, along said Westerly line of Brace Road, a distance of 116.04 feet to a point; thence\n\n(e) N 32°53'15\" W, a distance of 86.75 feet to a point; thence\n\n(f) S 57°56'30\" W, a distance of 128.93 feet to a point; thence\n\n(g) S 56°56'56\" W, a distance of 47.24 feet to a point; thence\n\n(h) N 32°36'00\" W, a distance of 62.57 feet to a point; thence\n\n(i) S 56°44'06\" W, a distance of 101.58 feet to a point; thence\n\n(j) N 32°36'00\" W, a distance of 143.00 feet to a point; thence\n\n(k) S 56°44'05\" W, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide); thence\n\n(l) N 32°36'00\" W, a distance of 202.00 feet to the point and place of BEGINNING.\n\nUNDER. AND SUBJECT to a certain 35 feet by 140 feet Ingress and egress easement for the benefit of the above described tract number 1, said ingress and egress easement being bounded and described as follows:\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road, being distant. 540.25. feet along said Northerly line of Haddonfield-Berlin Road On a bearing of S 32°38'00\" E from the intersection of said Northerly line of Haddonfield-Berlin Road with the Southeasterly link of Moore Avenue, and from said point of beginning, proceeding thence\n\n(1) N 56°44'05\" E, along a line common to tracts numbered 1 and 2 herein described, a distance of 140.00 feet 4 a point; thence\n\n(2) N 32°36'00\" W, thru tract numbered 2 herein described a distance of 35.00 feet to a point; thence\n\n(3) still thru said tract numbered 2 herein described, S 56°44'05\" W, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road; thence\n\n(4) along said Northerly line of Haddonfield-Berlin Road, S 32°36'00\" E, a distance of 35.00 feet to the point and place of BEGINNING.\n\nSCHEDULE A-3\n\n225 BERLIN ROAD, CHERRY HILL\n\nALL that certain lot, tract and parcel of land and premises, situate, lying and being in the Township of Cherry Hill, County of Camden and State of New Jersey, bounded and described as follows:\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide at this point), being distant 540.25 feet along said Northerly line of Haddonfield-Berlin Road on a bearing of S 32°38'00\" E from the intersection of said Northerly line of Haddonfield-Berlin Road, with the southeasterly line of Moore Avenue (50.00 feet wide), said point of beginning being also distant Northeasterly, a distance of 24.75 feet from the original center line of Haddonfield-Berlin Road (49.50 feet wide) and from said point of beginning, proceeding thence\n\n(1) N 56°44'05\" E, along a line common with tract number 2 herein described, a distance of 140.00 feet to a point; thence\n\n(2) S 32°36'00\" E along another line common with tract number 2 herein described, a distance of 143.00 feet to a point; thence\n\n(3) S 56°44'05\" W, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road (49.50. feet wide at this point); thence\n\n(4) N 32°36'00\" W, a distance of 143.00 feet, along said Northerly line of Haddonfield-Berlin Road, to the point and place of BEGINNING.\n\nExcepting thereout and therefrom so much as was conveyed to the State of New Jersey by Deed Book 3903, page 46.\n\nSCHEDULE A-4\n\n501 BLACK HORSE PIKE, HADDON HEIGHTS\n\nALL THAT CERTAIN LOT, TRACT AND PARCEL OF LAND AND PREMISES SITUATE, LYING AND BEING IN THE BOROUGH OF HADDON HEIGHTS, COUNTY OF CAMDEN AND STATE OF NEW JERSEY, BOUNDED AND DESCRIBED IN ACCORDANCE WITH A SURVEY MADE BY JAMES T. SAPPIO, NJPLS DATED MAY 30, 2006, AS FOLLOWS:\n\nBEGINNING AT A POINT OF INTERSECTION OF THE SOUTHERLY LINE OF PROSPECT RIDGE BOULEVARD (70 FEET WIDE) AND THE EASTERLY LINE OF BLACK HORSE PIKE (66 FEET WIDE); THENCE\n\n(1) EASTWARDLY, ALONG THE SOUTHERLY LINE OF PROSPECT RIDGE BOULEVARD, THE DISTANCE OF 125.00 FEET TO A POINT; THENCE\n\n(2) SOUTHWARDLY, AT RIGHT ANGLES TO PROSPECT RIDGE BOULEVARD THE DISTANCE OF 250.00 FEET TO A POINT IN THE NORTHERLY LINE OF SYCAMORE STREET (50 FEET WIDE); THENCE\n\n(3) WESTWARDLY, ALONG SAME THE DISTANCE OF 125.00 FEET TO THE POINT OF INTERSECTION OF THE NORTHERLY LINE OF SYCAMORE STREET WITH THE EASTERLY LINE OF BLACK HORSE PIKE; THENCE\n\n(4) NORTHWARDLY ALONG THE EASTERLY LINE OF BLACK HORSE PIKE, THE DISTANCE OF 250.00 FEET TO THE POINT AND PLACE OF BEGINNING.",
-  "expected_poc": null,
+  "expected_legal_description": "SCHEDULE A-1\n\n110 118 WHITE HORSE ROAD, VOORHEES:\n\nAll that tract or parcel of land and premises situate in the Township of Voorhees, County of Camden, State of New Jersey being more particularly described as follows.\n\nBeginning at a point in the Northwesterly Line of White Horse Road nominally 60 feet wide said point being the following two courses and distances from the intersection of the Northwesterly Line of White Horse Road with the Northeasterly Line of Burnt Mill Road.\n\nNorth 40 Degrees 41 Minutes 31 Seconds East a distance of 483.13 feet to a point thence;\n\nNorth 59 Degrees 29 Minutes 19 Seconds West a distance of 17.78 feet to a point in the widened Northwesterly Line of White Horse Road as widened to 47.5 feet from Center Line thence;\n\nNorth 40 Degrees 41 Minutes 31 Seconds East along the widened Northwesterly Line of White Horse Road a distance of 223.65 feet to a point and extending thence;\n\nNorth 49 Degrees 18 Minutes 29 Seconds West a distance of 246.50 feet to a point and extending thence;\n\nSouth 40 Degrees 41 Minutes 31 Seconds West a distance of 267.92 feet to a point and extending thence;\n\nSouth 59 Degrees 29 Minutes 19 Seconds East a distance of 250.44 feet to point and place of beginning.\n\nSCHEDULE A-2\n\n219 BERLIN ROAD, CHERRY HILL\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide at this point), being distant 338.25 feet along said Northerly line of Haddonfield- Berlin Road on a bearing of South 32 degrees 38 minutes 00 seconds East from the intersection of said Northerly line of Haddonfield- Berlin Road with the Southeasterly line of Moore Avenue (50.00 feet wide), said point of beginning being also distant Northeasterly, a distance of 24.75 feet from the original center line of Haddonfield- Berlin Road (49.50 feet wide) and from said point of beginning, proceeding thence\n\n(a) North 50 degrees 45 minutes 00 seconds East, a distance of 416.57 feet to a point; thence\n\n(b) South 32 degrees 36 minutes 00 seconds East, a distance of 300,07 feet to a point; thence\n\n(c) South 69 degrees 03 minutes 30 seconds East, a distance of 165.42 feet to a point in the Westerly line of Brace Road (formerly Caldwell Avenue - 100.00 feet wide); thence\n\n(d) South 23 degrees 56 minutes 30 seconds West, along said Westerly line of Brace Road, a distance of 116.04 feet to a point; thence\n\n(e) North 32 degrees 53 minutes 15 seconds West, a distance of 86,75 feet to a point; thence\n\n(f) South 57 degrees 56 minutes 30 seconds West, a distance of 128,93 feet to a point; thence\n\n(g) South 56 degrees 56 minutes 56 seconds West, a distance of 47.24 feet to a point; thence\n\n(h) North 32 degrees 36 minutes 00 seconds West, a distance of 62.57 feet to a point; thence\n\n(i) South 56 degrees 44 minutes 06 seconds West, a distance of 101.58 feet to a point; thence\n\n(j) North 32 degrees 36 minutes 00 seconds West, a distance of 143.00 feet to a point; thence\n\n(k) South 56 degrees 44 minutes 05 seconds West, a distance of 140,00 feet to a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide); thence\n\n(l) North 32 degrees 36 minutes 00 seconds West, a distance of 202.00 feet to the point and place of BEGINNING.\n\nUNDER. AND SUBJECT to a certain 35 feet by 140 feet Ingress and egress easement for the benefit of the above described tract number 1, said ingress and egress easement being bounded and described as follows:\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road, being distant. 540.25. feet along said Northerly line of Haddonfield-Berlin Road On a bearing of South 32 degrees 38 minutes 00 seconds East from the intersection of said Northerly line of Haddonfield-Berlin Road with the Southeasterly link of Moore Avenue, and from said point of beginning, proceeding thence\n\n(1) North 56 degrees 44 minutes 05 seconds East, along a line common to tracts numbered 1 and 2 herein described, a distance of 140.00 feet 4 a point; thence\n\n(2) North 32 degrees 36 minutes 00 seconds West, thru tract numbered 2 herein described a distance of 35,00 feet to a point; thence\n\n(3) still thru said tract numbered 2 herein described, South 56 degrees 44 minutes 05 seconds West, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road; thence\n\n(4) along said Northerly line of Haddonfield-Berlin Road, South 32 degrees 36 minutes 00 seconds East, a distance of 35.00 feet to the point and place of BEGINNING.\n\nSCHEDULE A-3\n\n225 BERLIN ROAD, CHERRY HILL\n\nALL that certain lot, tract and parcel of land and premises, situate, lying and being in the Township of Cherry Hill, County of Camden and State of New Jersey, bounded and described as follows:\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide at this point), being distant 540.25 feet along said Northerly line of Haddonfield- Berlin Road on a bearing of South 32 degrees 38 minutes 00 seconds East from the intersection of said Northerly line of Haddonfield-Berlin Road, with the southeasterly line of Moore Avenue (50.00 feet wide), said point of beginning being also distant Northeasterly, a distance of 24.75 feet from the original center line of Haddonfield- Berlin Road (49.50 feet wide) and from said point of beginning, proceeding thence\n\n(1) North 56 degrees 44 minutes 05 seconds East, along a line common with tract number 2 herein described, a distance of 140.00 feet to a point; thence\n\n(2) South 32 degrees 36 minutes 00 seconds East along another line common with tract number 2 herein described, a distance of 143.00 feet to a point; thence\n\n(3) South 56 degrees 44 minutes 05 seconds West, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road (49.50. feet wide at this point); thence\n\n(4) North 32 degrees 36 minutes 00 seconds West, a distance of 143.00 feet, along said Northerly line of Haddonfield-Berlin Road, to the point and place of BEGINNING.\n\nExcepting thereout and therefrom so much as was conveyed to the State of New Jersey by Deed Book 3903, page 46.\n\nSCHEDULE A-4\n\n501 BLACK HORSE PIKE, HADDON HEIGHTS\n\nALL THAT CERTAIN LOT, TRACT AND PARCEL OF LAND AND PREMISES SITUATE, LYING AND BEING IN THE BOROUGH OF HADDON HEIGHTS, COUNTY OF CAMDEN AND STATE OF NEW JERSEY, BOUNDED AND DESCRIBED IN ACCORDANCE WITH A SURVEY MADE BY JAMES T. SAPPIO, NJPLS DATED MAY 30, 2006, AS FOLLOWS:\n\nBEGINNING AT A POINT OF INTERSECTION OF THE SOUTHERLY LINE OF PROSPECT RIDGE BOULEVARD (70 FEET WIDE) AND THE EASTERLY LINE OF BLACK HORSE PIKE (66 FEET WIDE); THENCE\n\n(1) EASTWARDLY, ALONG THE SOUTHERLY LINE OF PROSPECT RIDGE BOULEVARD, THE DISTANCE OF 125.00 FEET TO A POINT; THENCE\n\n(2) SOUTHWARDLY, AT RIGHT ANGLES TO PROSPECT RIDGE BOULEVARD THE DISTANCE OF 250.00 FEET TO A POINT IN THE NORTHERLY LINE OF SYCAMORE STREET (50 FEET WIDE); THENCE\n\n(3) WESTWARDLY, ALONG SAME THE DISTANCE OF 125.00 FEET TO THE POINT OF INTERSECTION OF THE NORTHERLY LINE OF SYCAMORE STREET WITH THE EASTERLY LINE OF BLACK HORSE PIKE; THENCE\n\n(4) NORTHWARDLY ALONG THE EASTERLY LINE OF BLACK HORSE PIKE, THE DISTANCE OF 250.00 FEET TO THE POINT AND PLACE OF BEGINNING.",
+  "expected_normalized_text": "SCHEDULE A-1\n\n110 118 WHITE HORSE ROAD, VOORHEES:\n\nAll that tract or parcel of land and premises situate in the Township of Voorhees, County of Camden, State of New Jersey being more particularly described as follows.\n\nBeginning at a point in the Northwesterly Line of White Horse Road nominally 60 feet wide said point being the following two courses and distances from the intersection of the Northwesterly Line of White Horse Road with the Northeasterly Line of Burnt Mill Road.\n\nN 40°41'31\" E a distance of 483.13 feet to a point thence;\n\nN 59°29'19\" W a distance of 17.78 feet to a point in the widened Northwesterly Line of White Horse Road as widened to 47.5 feet from Center Line thence;\n\nN 40°41'31\" E along the widened Northwesterly Line of White Horse Road a distance of 223.65 feet to a point and extending thence;\n\nN 49°18'29\" W a distance of 246.50 feet to a point and extending thence;\n\nS 40°41'31\" W a distance of 267.92 feet to a point and extending thence;\n\nS 59°29'19\" E a distance of 250.44 feet to point and place of beginning.\n\nSCHEDULE A-2\n\n219 BERLIN ROAD, CHERRY HILL\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide at this point), being distant 338.25 feet along said Northerly line of Haddonfield-Berlin Road on a bearing of S 32°38'00\" E from the intersection of said Northerly line of Haddonfield-Berlin Road with the Southeasterly line of Moore Avenue (50.00 feet wide), said point of beginning being also distant Northeasterly, a distance of 24.75 feet from the original center line of Haddonfield-Berlin Road (49.50 feet wide) and from said point of beginning, proceeding thence\n\n(a) N 50°45'00\" E, a distance of 416.57 feet to a point; thence\n\n(b) S 32°36'00\" E, a distance of 300,07 feet to a point; thence\n\n(c) S 69°03'30\" E, a distance of 165.42 feet to a point in the Westerly line of Brace Road (formerly Caldwell Avenue - 100.00 feet wide); thence\n\n(d) S 23°56'30\" W, along said Westerly line of Brace Road, a distance of 116.04 feet to a point; thence\n\n(e) N 32°53'15\" W, a distance of 86,75 feet to a point; thence\n\n(f) S 57°56'30\" W, a distance of 128,93 feet to a point; thence\n\n(g) S 56°56'56\" W, a distance of 47.24 feet to a point; thence\n\n(h) N 32°36'00\" W, a distance of 62.57 feet to a point; thence\n\n(i) S 56°44'06\" W, a distance of 101.58 feet to a point; thence\n\n(j) N 32°36'00\" W, a distance of 143.00 feet to a point; thence\n\n(k) S 56°44'05\" W, a distance of 140,00 feet to a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide); thence\n\n(l) N 32°36'00\" W, a distance of 202.00 feet to the point and place of BEGINNING.\n\nUNDER. AND SUBJECT to a certain 35 feet by 140 feet Ingress and egress easement for the benefit of the above described tract number 1, said ingress and egress easement being bounded and described as follows:\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road, being distant. 540.25. feet along said Northerly line of Haddonfield-Berlin Road On a bearing of S 32°38'00\" E from the intersection of said Northerly line of Haddonfield-Berlin Road with the Southeasterly link of Moore Avenue, and from said point of beginning, proceeding thence\n\n(1) N 56°44'05\" E, along a line common to tracts numbered 1 and 2 herein described, a distance of 140.00 feet 4 a point; thence\n\n(2) N 32°36'00\" W, thru tract numbered 2 herein described a distance of 35,00 feet to a point; thence\n\n(3) still thru said tract numbered 2 herein described, S 56°44'05\" W, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road; thence\n\n(4) along said Northerly line of Haddonfield-Berlin Road, S 32°36'00\" E, a distance of 35.00 feet to the point and place of BEGINNING.\n\nSCHEDULE A-3\n\n225 BERLIN ROAD, CHERRY HILL\n\nALL that certain lot, tract and parcel of land and premises, situate, lying and being in the Township of Cherry Hill, County of Camden and State of New Jersey, bounded and described as follows:\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide at this point), being distant 540.25 feet along said Northerly line of Haddonfield-Berlin Road on a bearing of S 32°38'00\" E from the intersection of said Northerly line of Haddonfield-Berlin Road, with the southeasterly line of Moore Avenue (50.00 feet wide), said point of beginning being also distant Northeasterly, a distance of 24.75 feet from the original center line of Haddonfield-Berlin Road (49.50 feet wide) and from said point of beginning, proceeding thence\n\n(1) N 56°44'05\" E, along a line common with tract number 2 herein described, a distance of 140.00 feet to a point; thence\n\n(2) S 32°36'00\" E along another line common with tract number 2 herein described, a distance of 143.00 feet to a point; thence\n\n(3) S 56°44'05\" W, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road (49.50. feet wide at this point); thence\n\n(4) N 32°36'00\" W, a distance of 143.00 feet, along said Northerly line of Haddonfield-Berlin Road, to the point and place of BEGINNING.\n\nExcepting thereout and therefrom so much as was conveyed to the State of New Jersey by Deed Book 3903, page 46.\n\nSCHEDULE A-4\n\n501 BLACK HORSE PIKE, HADDON HEIGHTS\n\nALL THAT CERTAIN LOT, TRACT AND PARCEL OF LAND AND PREMISES SITUATE, LYING AND BEING IN THE BOROUGH OF HADDON HEIGHTS, COUNTY OF CAMDEN AND STATE OF NEW JERSEY, BOUNDED AND DESCRIBED IN ACCORDANCE WITH A SURVEY MADE BY JAMES T. SAPPIO, NJPLS DATED MAY 30, 2006, AS FOLLOWS:\n\nBEGINNING AT A POINT OF INTERSECTION OF THE SOUTHERLY LINE OF PROSPECT RIDGE BOULEVARD (70 FEET WIDE) AND THE EASTERLY LINE OF BLACK HORSE PIKE (66 FEET WIDE); THENCE\n\n(1) EASTWARDLY, ALONG THE SOUTHERLY LINE OF PROSPECT RIDGE BOULEVARD, THE DISTANCE OF 125.00 FEET TO A POINT; THENCE\n\n(2) SOUTHWARDLY, AT RIGHT ANGLES TO PROSPECT RIDGE BOULEVARD THE DISTANCE OF 250.00 FEET TO A POINT IN THE NORTHERLY LINE OF SYCAMORE STREET (50 FEET WIDE); THENCE\n\n(3) WESTWARDLY, ALONG SAME THE DISTANCE OF 125.00 FEET TO THE POINT OF INTERSECTION OF THE NORTHERLY LINE OF SYCAMORE STREET WITH THE EASTERLY LINE OF BLACK HORSE PIKE; THENCE\n\n(4) NORTHWARDLY ALONG THE EASTERLY LINE OF BLACK HORSE PIKE, THE DISTANCE OF 250.00 FEET TO THE POINT AND PLACE OF BEGINNING.",
+  "expected_poc": "the intersection of the Northwesterly Line of White Horse Road with the Northeasterly Line of Burnt Mill Road",
   "expected_pob": "a point in the Northwesterly Line of White Horse Road nominally 60 feet wide said point being the following two courses and distances from the intersection of the Northwesterly Line of White Horse Road with the Northeasterly Line of Burnt Mill Road",
   "expected_calls": [
     {
       "course": 1,
+      "direction_text": "N 40°41'31\" E",
+      "bearing_quadrant": "N 40°42' E",
+      "bearing_azimuth_deg_from_north": 40.69194444444444,
+      "distance_ft": 483.13,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "a point",
+      "monument_type": null,
+      "notes": "tie course from the intersection to the point of beginning",
+      "is_tie_in": true
+    },
+    {
+      "course": 2,
       "direction_text": "N 59°29'19\" W",
       "bearing_quadrant": "N 59°29' W",
       "bearing_azimuth_deg_from_north": 300.51138888888886,
@@ -23,12 +39,13 @@
       "delta_deg": null,
       "arc_length_ft": null,
       "along": null,
-      "to": "47",
+      "to": "a point in the widened Northwesterly Line of White Horse Road as widened to 47.5 feet from Center Line",
       "monument_type": null,
-      "notes": null
+      "notes": "tie course from the intersection to the point of beginning",
+      "is_tie_in": true
     },
     {
-      "course": 2,
+      "course": 3,
       "direction_text": "N 40°41'31\" E",
       "bearing_quadrant": "N 40°42' E",
       "bearing_azimuth_deg_from_north": 40.69194444444444,
@@ -37,13 +54,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the widened Northwesterly Line of White Horse Road a distance of 223.65 feet",
-      "to": "a point and extending",
+      "along": "the widened Northwesterly Line of White Horse Road",
+      "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 3,
+      "course": 4,
       "direction_text": "N 49°18'29\" W",
       "bearing_quadrant": "N 49°18' W",
       "bearing_azimuth_deg_from_north": 310.69194444444446,
@@ -53,12 +71,13 @@
       "delta_deg": null,
       "arc_length_ft": null,
       "along": null,
-      "to": "a point and extending",
+      "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 4,
+      "course": 5,
       "direction_text": "S 40°41'31\" W",
       "bearing_quadrant": "S 40°42' W",
       "bearing_azimuth_deg_from_north": 220.69194444444443,
@@ -68,12 +87,13 @@
       "delta_deg": null,
       "arc_length_ft": null,
       "along": null,
-      "to": "a point and extending",
+      "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 5,
+      "course": 6,
       "direction_text": "S 59°29'19\" E",
       "bearing_quadrant": "S 59°29' E",
       "bearing_azimuth_deg_from_north": 120.51138888888889,
@@ -82,16 +102,17 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said Northerly line of Haddonfield-Berlin Road on a bearing of S 32°38'00\" E from the intersection of said Northerly line of Haddonfield-Berlin Road with the Southeasterly line of Moore Avenue (50",
+      "along": null,
       "to": "point and place of beginning",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 6,
-      "direction_text": "N 50°45'00\" E",
-      "bearing_quadrant": "N 50°45' E",
-      "bearing_azimuth_deg_from_north": 50.75,
+      "course": 7,
+      "direction_text": "N 56°45'00\" E",
+      "bearing_quadrant": "N 56°45' E",
+      "bearing_azimuth_deg_from_north": 56.75,
       "distance_ft": 416.57,
       "curve_dir": null,
       "radius_ft": null,
@@ -100,10 +121,12 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": "printed \"North 50 degrees 45 minutes 00 seconds East\"; recorded as N 56°45'00\" E: the lot closes to 0.13 ft with it and misses by 43.6 ft as printed. Every deed carrying this description (07105-00834, 08256-00635, 12799-00118 Schedule A-2, 12941-00156) prints 50 degrees.",
+      "is_tie_in": false,
+      "printed_bearing_azimuth_deg_from_north": 50.75
     },
     {
-      "course": 7,
+      "course": 8,
       "direction_text": "S 32°36'00\" E",
       "bearing_quadrant": "S 32°36' E",
       "bearing_azimuth_deg_from_north": 147.4,
@@ -115,10 +138,11 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 8,
+      "course": 9,
       "direction_text": "S 69°03'30\" E",
       "bearing_quadrant": "S 69°04' E",
       "bearing_azimuth_deg_from_north": 110.94166666666666,
@@ -130,10 +154,11 @@
       "along": null,
       "to": "a point in the Westerly line of Brace Road (formerly Caldwell Avenue - 100",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 9,
+      "course": 10,
       "direction_text": "S 23°56'30\" W",
       "bearing_quadrant": "S 23°56' W",
       "bearing_azimuth_deg_from_north": 203.94166666666666,
@@ -145,10 +170,11 @@
       "along": "said Westerly line of Brace Road, a distance of 116.04 feet",
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 10,
+      "course": 11,
       "direction_text": "N 32°53'15\" W",
       "bearing_quadrant": "N 32°53' W",
       "bearing_azimuth_deg_from_north": 327.1125,
@@ -160,10 +186,11 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 11,
+      "course": 12,
       "direction_text": "S 57°56'30\" W",
       "bearing_quadrant": "S 57°56' W",
       "bearing_azimuth_deg_from_north": 237.94166666666666,
@@ -175,10 +202,11 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 12,
+      "course": 13,
       "direction_text": "S 56°56'56\" W",
       "bearing_quadrant": "S 56°57' W",
       "bearing_azimuth_deg_from_north": 236.9488888888889,
@@ -190,10 +218,11 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 13,
+      "course": 14,
       "direction_text": "N 32°36'00\" W",
       "bearing_quadrant": "N 32°36' W",
       "bearing_azimuth_deg_from_north": 327.4,
@@ -205,10 +234,11 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 14,
+      "course": 15,
       "direction_text": "S 56°44'06\" W",
       "bearing_quadrant": "S 56°44' W",
       "bearing_azimuth_deg_from_north": 236.735,
@@ -220,10 +250,11 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 15,
+      "course": 16,
       "direction_text": "N 32°36'00\" W",
       "bearing_quadrant": "N 32°36' W",
       "bearing_azimuth_deg_from_north": 327.4,
@@ -235,10 +266,11 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 16,
+      "course": 17,
       "direction_text": "S 56°44'05\" W",
       "bearing_quadrant": "S 56°44' W",
       "bearing_azimuth_deg_from_north": 236.73472222222222,
@@ -250,10 +282,11 @@
       "along": null,
       "to": "a point in the Northerly line of Haddonfield-Berlin Road (60",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 17,
+      "course": 18,
       "direction_text": "N 32°36'00\" W",
       "bearing_quadrant": "N 32°36' W",
       "bearing_azimuth_deg_from_north": 327.4,
@@ -265,10 +298,11 @@
       "along": "said Northerly line of Haddonfield-Berlin Road On a bearing of S 32°38'00\" E from the intersection of said Northerly line of Haddonfield-Berlin Road with the Southeasterly link of Moore Avenue, and from said point of beginning, proceeding",
       "to": "a certain 35 feet by 140 feet Ingress and egress easement for the benefit of the above described tract number 1, said ingress and egress easement being bounded and described as follows:\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road, being distant",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 18,
+      "course": 19,
       "direction_text": "N 56°44'05\" E",
       "bearing_quadrant": "N 56°44' E",
       "bearing_azimuth_deg_from_north": 56.734722222222224,
@@ -280,10 +314,11 @@
       "along": "a line common",
       "to": "tracts numbered 1 and 2 herein described, a distance of 140",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 19,
+      "course": 20,
       "direction_text": "N 32°36'00\" W",
       "bearing_quadrant": "N 32°36' W",
       "bearing_azimuth_deg_from_north": 327.4,
@@ -295,10 +330,11 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 20,
+      "course": 21,
       "direction_text": "S 56°44'05\" W",
       "bearing_quadrant": "S 56°44' W",
       "bearing_azimuth_deg_from_north": 236.73472222222222,
@@ -310,10 +346,11 @@
       "along": null,
       "to": "a point in the Northerly line of Haddonfield-Berlin Road",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 21,
+      "course": 22,
       "direction_text": "S 32°36'00\" E",
       "bearing_quadrant": "S 32°36' E",
       "bearing_azimuth_deg_from_north": 147.4,
@@ -325,10 +362,11 @@
       "along": "said Northerly line of Haddonfield-Berlin Road, S 32°36'00\" E, a distance of 35.00 feet",
       "to": "the point and place of BEGINNING",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 22,
+      "course": 23,
       "direction_text": "N 56°44'05\" E",
       "bearing_quadrant": "N 56°44' E",
       "bearing_azimuth_deg_from_north": 56.734722222222224,
@@ -340,10 +378,11 @@
       "along": "a line common with tract number 2 herein described, a distance of 140.00 feet",
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 23,
+      "course": 24,
       "direction_text": "S 32°36'00\" E",
       "bearing_quadrant": "S 32°36' E",
       "bearing_azimuth_deg_from_north": 147.4,
@@ -355,10 +394,11 @@
       "along": "another line common with tract number 2 herein described, a distance of 143.00 feet",
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 24,
+      "course": 25,
       "direction_text": "S 56°44'05\" W",
       "bearing_quadrant": "S 56°44' W",
       "bearing_azimuth_deg_from_north": 236.73472222222222,
@@ -370,10 +410,11 @@
       "along": null,
       "to": "a point in the Northerly line of Haddonfield-Berlin Road (49",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 25,
+      "course": 26,
       "direction_text": "N 32°36'00\" W",
       "bearing_quadrant": "N 32°36' W",
       "bearing_azimuth_deg_from_north": 327.4,
@@ -385,10 +426,11 @@
       "along": "said Northerly line of Haddonfield-Berlin Road",
       "to": "the point and place of BEGINNING",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "is_tie_in": false
     },
     {
-      "course": 26,
+      "course": 27,
       "direction_text": "eastwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
@@ -400,10 +442,11 @@
       "along": "THE SOUTHERLY LINE OF PROSPECT RIDGE BOULEVARD, THE DISTANCE OF 125.00 FEET",
       "to": "A POINT",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only",
+      "is_tie_in": false
     },
     {
-      "course": 27,
+      "course": 28,
       "direction_text": "southwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
@@ -415,10 +458,11 @@
       "along": null,
       "to": "A POINT IN THE NORTHERLY LINE OF SYCAMORE STREET (50 FEET WIDE)",
       "monument_type": "tree",
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only",
+      "is_tie_in": false
     },
     {
-      "course": 28,
+      "course": 29,
       "direction_text": "westwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
@@ -430,10 +474,11 @@
       "along": "SAME THE DISTANCE OF 125.00 FEET",
       "to": "THE POINT OF INTERSECTION OF THE NORTHERLY LINE OF SYCAMORE STREET WITH THE EASTERLY LINE OF BLACK HORSE PIKE",
       "monument_type": "tree",
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only",
+      "is_tie_in": false
     },
     {
-      "course": 29,
+      "course": 30,
       "direction_text": "northwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
@@ -445,22 +490,24 @@
       "along": "THE EASTERLY LINE OF BLACK HORSE PIKE, THE DISTANCE OF 250.00 FEET",
       "to": "THE POINT AND PLACE OF BEGINNING",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only",
+      "is_tie_in": false
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 60.3711,
-    "area_sq_ft": 90100.76,
-    "area_acres": 2.0684,
-    "perimeter_ft": 3832.46,
-    "closure_passed": false
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Multi-property deed (Schedules A-1 to A-4); one closure across schedules is not meaningful. Schedule A-1 boundary (courses 3-6) closes at 0.005 ft, area 60,586.50 sq ft. Schedule A-2's lot (courses 7-18) closes at 0.130 ft with course 7 recorded as N 56°45' E (43.6 ft as printed)."
   },
   "critical_assertions": {
     "num_calls": {
-      "expected": 29,
+      "expected": 30,
       "operator": "==",
-      "description": "MUST extract exactly 29 calls"
+      "description": "MUST extract exactly 30 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T03:05:40.497923+00:00"
+  "notes": "Ground truth generated at 2026-02-17T03:05:40.497923+00:00. Schedule A-1 fixed 2026-10-31 from the recorded PDF (Book 12799 Page 118, PDF page 7): the 483.13 ft and 17.78 ft courses run from the intersection to the point of beginning and are tie courses (is_tie_in). Schedule A-1 boundary (courses 3-6) closes at 0.005 ft, area 60,586.50 sq ft. Schedule A-2 prints five distances with decimal commas (\"300,07\", \"86,75\", \"128,93\", \"140,00\" and the easement's \"35,00\"); the legal text keeps them, and the calls record the values. Course 7 (N 50°45' E as printed) is recorded as N 56°45' E: the 12-course lot then closes to 0.130 ft (43.6 ft as printed)."
 }
