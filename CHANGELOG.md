@@ -9,30 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Standalone Claude chat Skill archive with one discoverable entrypoint, thirteen embedded procedures and the existing deterministic engine. `make chat-skill-build` produces the ZIP and checksum; generated instructions use paths within the extracted archive.
-- Explicit chat runtime setup using host/cached `uv` or a pinned, hash-checked bootstrap for Linux and macOS on x86_64/ARM64, followed by locked dependency provisioning. Offline setup and ordinary invocations never download the bootstrap tool. Native chat acceptance remains pending.
+- Standalone Claude chat Skill archive: one discoverable entrypoint, thirteen embedded procedures and the existing deterministic engine. `make chat-skill-build` produces the ZIP and checksum. Generated instructions use paths inside the extracted archive.
+- Explicit chat runtime setup: host or cached `uv`, or a pinned, hash-checked bootstrap for Linux and macOS (x86_64/ARM64), then locked dependency provisioning. Offline setup and ordinary invocations never download the bootstrap tool. Native chat acceptance is pending.
 
 ### Changed
 
-- Verified CSV adds `curve_type` as a 22nd (last) column; legacy 21-column CSVs still import. CSV import requires the exact header and row width, reports rejected rows, and accepts a UTF-8 byte-order mark.
-- Verified export fails closed on description roles. Every tract records whether its role (parcel, addition, exception, easement) comes from an explicit heading, from being the deed's only description, or from wording. When a deed has more than one description and any role was inferred, verification blocks every tract and no verified CSV is written through any path; the calls carry a note that keeps CSV/JSON round trips and re-reviews blocked. Easement and exception tracts are never eligible. Text review refuses deeds with more than one parcel description. Single-description deeds are unaffected.
-- Non-strict extraction records unparseable courses as skipped (with their course number reserved), and verification and verified export block on them instead of dropping them silently.
-- Closure results expose `area_available`, `perimeter_available` and `misclosure_available`; unavailable values are reported as "not determined" rather than a placeholder 0.0.
-- Review delivery packages are `delivery-2` (`delivery-1` still replays). Publishing writes to a staging directory renamed into place, so a crashed publish never blocks the id; republishing an existing id fails. Replay reports `not_verified` when the host cannot rebuild the recorded coordinate operation or lacks a grid.
-- The dashboard calculator is `dashboard-1.2.0`; dashboards saved by 1.1.0 inspect as stale.
-- Every CLI command reads JSON input through one depth-checked reader; deeply nested input returns `invalid_input_json` (exit 2).
+- **Breaking:** Verified CSV adds `curve_type` as the 22nd (last) column. Legacy 21-column CSVs still import. CSV import requires the exact header and row width, reports rejected rows and accepts a UTF-8 byte-order mark.
+- **Breaking:** Verified export fails closed on description roles. Each tract records whether its role (parcel, addition, exception, easement) came from an explicit heading, from being the deed's only description, or from wording. If a deed has more than one description and any role is inferred, verification blocks every tract and no verified CSV is written through any path. Blocking notes survive CSV/JSON round trips and re-reviews. Easement and exception tracts are never eligible. Text review refuses deeds with more than one parcel description. An ordinary single-description deed is unaffected; a sole description introduced by grant, exception or reservation wording is blocked too. Rights-only reservations are noted rather than treated as land exceptions. See [description roles](docs/ARCHITECTURE.md#description-roles-and-verified-export).
+- Non-strict extraction records unparseable courses as skipped, with their course number reserved. Verification and verified export block on them instead of dropping them silently.
+- Closure results expose `area_available`, `perimeter_available` and `misclosure_available`. Unavailable values read "not determined" instead of 0.0.
+- **Delivery packages are `delivery-2`.** Existing `delivery-1` packages still replay. Republishing an existing delivery id now fails. A crashed publish no longer blocks its id, because output goes to a staging directory that is renamed into place. Replay reports `not_verified` when the host cannot rebuild the recorded coordinate operation or lacks a grid.
+- **Dashboard calculator is `dashboard-1.2.0`.** Dashboards saved by earlier versions show as stale and must be rebuilt.
+- Every CLI command reads JSON input through one depth-checked reader. Deeply nested input returns `invalid_input_json` (exit 2).
 
 ### Fixed
 
-- Correct Python API examples for structured PDF results, closure status and audit filenames; align architecture and testing guidance with both Claude distributions.
-- Clarify chat bootstrap prerequisites, complete skill-root setup examples and archive unpacking before inspection/reuse; remove a redundant launcher substitution from packaged overlay guidance.
-- Never fabricate deed values: derived tangents, arcs, chords and deltas stay out of stated fields; a course with no length of its own fails closed instead of borrowing an offset, width, record or monument dimension; record bearings and distances are kept verbatim in notes and never become course values.
-- Read lengths and bearings correctly: fractional and comma-grouped lengths ("100 1/2 feet" was 2 ft), compound feet/inches, leading decimals, tabular curve labels, out-of-range and spelled-out bearings, stated seconds, and ambiguous decimal degrees (flagged, not converted).
-- Stop silently losing courses: courses joined by "and" or stated inside the BEGINNING clause, merged courses in one fragment, passing calls, and wording after the closing course are extracted, noted or fail closed.
-- Classify ties, strip exceptions and easements: COMMENCING ties are tie-ins, strip exceptions are noted as unapplied with a verification warning, and appurtenant easements become their own tracts instead of boundary courses.
+- Never fabricate deed values: derived tangents, arcs, chords and deltas stay out of stated fields. A course with no length of its own fails closed instead of borrowing an offset, width, record or monument dimension. Record bearings and distances stay verbatim in notes and never become course values.
+- Read lengths and bearings correctly: fractional and comma-grouped lengths (`100 1/2 feet` was read as 2 ft), compound feet/inches, leading decimals, tabular curve labels, out-of-range and spelled-out bearings, and stated seconds. Ambiguous decimal degrees are flagged, not converted.
+- Stop silently losing courses: courses joined by "and" or stated inside the BEGINNING clause, merged courses in one fragment, passing calls and wording after the closing course are extracted, noted or fail closed.
+- Classify ties and strip exceptions and easements: COMMENCING ties are tie-ins, strip exceptions are noted as unapplied with a verification warning, and appurtenant easements become their own tracts instead of boundary courses.
 - Keep `along` and `to` verbatim: qualifiers and adjoiners are kept, the course's own length and record wording are removed, and destinations no longer stop at an initial.
 - Verification shares one rule per curve question, scales tolerances with the deed's rounding, never treats spirals as circular arcs, and records no placeholder misclosure in audits.
 - Extraction time grows linearly again on long descriptions (source alignment had become cubic).
+- **Documentation:** corrected Python API examples and chat setup steps; aligned architecture and testing guidance with both Claude distributions.
 
 ## [0.6.0] - 2026-10-29
 
@@ -335,6 +334,14 @@ Local implementation, browser and packaged-runtime results are recorded in the [
 - Basic configuration files
 
 ## Migration Guides
+
+### Migrating from 0.6.0
+
+**CSV Header**:
+Verified CSV now has 22 columns, with `curve_type` last. Legacy 21-column CSVs still import. Update code that reads or validates the verified CSV header to expect 22 columns.
+
+**Multi-Description Deeds**:
+Deeds with more than one description and any inferred description role no longer produce verified exports. Add explicit PARCEL/TRACT headings to each description, or review one parcel at a time. Text review refuses deeds with more than one parcel description. See [description roles and verified export](docs/ARCHITECTURE.md#description-roles-and-verified-export).
 
 ### Migrating from 0.3.1 to 0.4.0
 

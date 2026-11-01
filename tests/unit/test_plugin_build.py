@@ -1,6 +1,7 @@
 """Distribution regressions for the plugin's independent runtime."""
 
 import importlib.util
+import json
 import tomllib
 import zipfile
 from pathlib import Path
@@ -97,6 +98,41 @@ def test_plugin_archive_includes_standalone_online_map_capability(tmp_path, monk
         names = set(archive.namelist())
     assert "skills/render-online-map/SKILL.md" in names
     assert "skills/render-online-map/README.md" in names
+    assert "LICENSE" in names, "Plugin archive must carry the repository license at its root"
     assert not any(name.startswith("evals/") for name in names), (
         "Evaluator rubrics must not leak into packaged skills"
     )
+
+
+def test_plugin_archive_license_matches_repository_root(tmp_path, monkeypatch):
+    builder = load_builder()
+    monkeypatch.setattr(builder.shutil, "which", lambda name: "/fake/uv")
+    monkeypatch.setattr(builder, "run", lambda arguments, *, cwd: _write_fake_outputs(arguments))
+    archive_path = builder.build(tmp_path / "plugin.zip")
+
+    with zipfile.ZipFile(archive_path) as archive:
+        assert archive.read("LICENSE") == (builder.ROOT / "LICENSE").read_bytes()
+
+
+def test_plugin_manifest_declares_license_repository_and_keywords():
+    manifest_path = Path(__file__).resolve().parents[2] / (
+        "plugins/metesparser/.claude-plugin/plugin.json"
+    )
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["license"] == "MIT"
+    assert manifest["repository"] == "https://github.com/domfahey/metesParser"
+    assert manifest["homepage"] == "https://github.com/domfahey/metesParser"
+    assert {"deed", "metes-and-bounds", "survey", "legal-description", "closure"} <= set(
+        manifest["keywords"]
+    )
+
+
+def _write_fake_outputs(arguments):
+    if arguments[1] == "build":
+        output_dir = Path(arguments[arguments.index("--out-dir") + 1])
+        package = arguments[arguments.index("--package") + 1]
+        (output_dir / f"{package.replace('-', '_')}-1.0.0-py3-none-any.whl").write_bytes(b"wheel")
+    elif arguments[1] == "lock":
+        (Path(arguments[arguments.index("--project") + 1]) / "uv.lock").write_text(
+            "version = 1\n", encoding="utf-8"
+        )

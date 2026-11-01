@@ -8,6 +8,11 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 - A separate standalone Claude chat Skill build reuses this plugin's engine and capability procedures. The plugin archive and launcher remain unchanged; the chat adapter adds its own entrypoint, paths and explicit runtime setup. Native chat acceptance is pending.
 
+### Changed
+
+- `review-deed` and `review-metes-and-bounds` follow the description-role export policy: a deed with more than one description cannot produce a verified export unless every description's role comes from a plain `PARCEL`/`TRACT` heading, easement and exception tracts are never eligible, and text review takes one description per review. See [multiple descriptions](references/review-limits.md#multiple-descriptions).
+- Skill descriptions for `plot-plss-reference`, `prepare-parcel-overlay`, `render-online-map`, `review-deed`, `review-metes-and-bounds` and `verify-traverse` now state what each does, when to use it and which sibling to use instead. `review-deed` is a manual slash alias (`disable-model-invocation`). The shared references state the multiple-description and verified-export rules and the status table once, and the relative-analysis reference moved to `references/relative-analysis.md`.
+
 ### Fixed
 
 - Simplify the shared overlay launcher guidance so it remains accurate in the plugin and adapted chat procedure. Chat setup and resume guidance now explicitly distinguish bootstrapping, extraction and artifact inspection.

@@ -3,6 +3,7 @@ name = "mp-export"
 version = "1.0.0"
 requires-python = ">=3.11"
 description = "Export metes and bounds data to CSV, JSON, and audit HTML"
+license = "MIT"
 dependencies = [
     "mp-models>=1.0.0",
     "mp-verify>=1.0.0",

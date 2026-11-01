@@ -104,7 +104,7 @@ def test_explicit_setup_and_cached_delegation(chat, tmp_path, monkeypatch, capsy
     # The sibling launcher sees the prepended PATH through its own which lookup.
     launcher.main = lambda args: seen.append((args, module.os.environ["PATH"])) or 1
     assert module.main(["verify", "a file.csv"]) == 1
-    assert seen[0][0] == ["verify", "a file.csv"]
+    assert seen[0][0] == ["verify", "a file.csv", "--settings", str(module.NO_SETTINGS)]
     assert seen[0][1].split(module.os.pathsep)[0] == str(module.cached_uv().parent)
 
 
@@ -254,3 +254,29 @@ def test_offline_setup_does_not_repair_tampered_cached_uv(chat, tmp_path, monkey
     assert module.main(["--setup", "--offline"]) == 2
     assert "integrity" in json.loads(capsys.readouterr().out)["errors"][0]["message"]
     assert module.cached_uv().read_bytes() == b"changed"
+
+
+def test_chat_never_reads_cwd_relative_settings(chat, tmp_path, monkeypatch):
+    """The shared launcher defaults to cwd/.claude/metesparser.local.md; chat pins a fixed absent path."""
+    module, launcher = chat
+    monkeypatch.setattr(module.shutil, "which", lambda _: "/host/uv")
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude/metesparser.local.md").write_text("---\nenabled: false\n---\n")
+    seen = []
+    launcher.main = lambda args: seen.append(args) or 0
+    assert module.main(["verify", "calls.csv", "--output-dir", "out"]) == 0
+    assert seen[0][-2:] == ["--settings", str(module.NO_SETTINGS)]
+    assert not module.NO_SETTINGS.exists()
+    assert Path(module.NO_SETTINGS).parent == module.ROOT / "references"
+    assert tmp_path not in Path(module.NO_SETTINGS).parents
+
+
+@pytest.mark.parametrize("form", [["--settings", "mine.md"], ["--settings=mine.md"]])
+def test_explicit_settings_argument_is_preserved(chat, monkeypatch, form):
+    module, launcher = chat
+    monkeypatch.setattr(module.shutil, "which", lambda _: "/host/uv")
+    seen = []
+    launcher.main = lambda args: seen.append(args) or 0
+    assert module.main(["verify", "calls.csv", *form]) == 0
+    assert seen[0] == ["verify", "calls.csv", *form]
