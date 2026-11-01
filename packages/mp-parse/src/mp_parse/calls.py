@@ -11,7 +11,7 @@ import logging
 import re
 
 import structlog
-from mp_bearing import (
+from mp_bearing import (  # type: ignore[import-untyped]
     COMPASS_POINTS,
     QUADRANT_PATTERN,
     bearing_to_azimuth,
@@ -836,7 +836,7 @@ def extract_direction(text: str) -> str:
     packed_match = PACKED_DMS_PATTERN.search(text)
     quadrant_match = QUADRANT_PATTERN.search(text)
     if quadrant_match and not packed_match:
-        return quadrant_match.group(0)
+        return str(quadrant_match.group(0))
 
     if packed_match:
         cardinal1 = packed_match.group(1).upper()
