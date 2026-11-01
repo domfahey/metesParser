@@ -28,6 +28,13 @@ DISTANCE_PATTERN = re.compile(
 )
 
 # "passing over stone 15.83 feet ... total distance of 336.25 feet": the total is the course length
+# "curving to the right with a radius of 5933.53 feet, an arc distance of 344.93 feet":
+# a curve's course length is its arc, not its radius
+ARC_DISTANCE_PATTERN = re.compile(
+    r"\barc\s+(?:distance|length)\s+(?:of\s+)?(\d+(?:\.\d+)?)\s*(?:feet|ft\.?|foot)",
+    re.IGNORECASE,
+)
+
 TOTAL_DISTANCE_PATTERN = re.compile(
     r"\b(?:a\s+)?total\s+distance\s+(?:of\s+)?(\d+(?:\.\d+)?)\s*(?:feet|ft\.?|foot)",
     re.IGNORECASE,
@@ -49,7 +56,9 @@ BEGINNING_PATTERN = re.compile(r"\*{0,2}\bBEGINNING\b\*{0,2}\s+(?:at|in)\b", re.
 # "STARTING at" (a tie line precedes the POB)
 BLOCK_START_PATTERN = re.compile(
     r"\*{0,2}\b(?:BEGINNING\b\*{0,2}\s+(?:at|in)|(?<!of\s)BEGINNING\b\*{0,2}\s+on"
-    r"|STARTING\b\*{0,2}\s+at)\b",
+    r"|STARTING\b\*{0,2}\s+at)\b"
+    # "...in Deed Book 4795, beginning at page 618" is a recording reference
+    r"(?!\s+pages?\b)",
     re.IGNORECASE,
 )
 
@@ -121,8 +130,15 @@ INLINE_NUM_PATTERN = re.compile(
 
 
 def find_preferred_text(md_text: str) -> str:
-    """Return text from Exhibit A / Schedule C section, or full text if none."""
-    matches = list(EXHIBIT_PATTERN.finditer(md_text))
+    """Return text from Exhibit A / Schedule C section, or full text if none.
+
+    "SEE EXHIBIT "A" ATTACHED HERETO" in the deed body refers to the section; it is skipped.
+    """
+    matches = [
+        match
+        for match in EXHIBIT_PATTERN.finditer(md_text)
+        if not re.search(r"\bsee\s+$", md_text[: match.start()], re.IGNORECASE)
+    ]
     if matches:
         return md_text[matches[0].start() :]
     return md_text
@@ -142,7 +158,7 @@ def find_block_close(text: str, start: int) -> re.Match[str] | None:
 
 def extract_distance(segment: str) -> float | None:
     """Return the course length in feet, preferring a stated total over widths and offsets."""
-    total = TOTAL_DISTANCE_PATTERN.search(segment)
+    total = TOTAL_DISTANCE_PATTERN.search(segment) or ARC_DISTANCE_PATTERN.search(segment)
     if total:
         return float(total.group(1))
     matches = list(DISTANCE_PATTERN.finditer(segment))
