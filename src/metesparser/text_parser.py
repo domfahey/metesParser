@@ -501,6 +501,15 @@ class TextParser:
                 r"\bTHENCE\b", parts[0], re.IGNORECASE
             ):
                 parts = parts[1:]
+            # Tie courses before the first numbered course ("thence S 71° E 122.55 feet to a point.
+            # thence S 18° W 123.00 feet to the point and place of beginning; thence (1) ...")
+            elif parts:
+                leading = re.split(r"\bTHENCE\b", parts[0], flags=re.IGNORECASE)
+                with_distance = [
+                    piece for piece in leading[1:] if re.search(r"\d\s*(?:feet|foot|ft)\b", piece, re.I)
+                ]
+                if len(with_distance) >= 2:
+                    parts = [*leading, *parts[1:]]
         elif re.search(r"\bTHENCE\b", text, re.IGNORECASE):
             parts = re.split(r"\bTHENCE\b", text, flags=re.IGNORECASE)
         else:
@@ -964,11 +973,15 @@ class TextParser:
         r"(?<=\bfeet),\s+(?=[NS] \d{1,3}°(?:(?!\b(?:thence|from)\b)[^;])*(?:;|\bthence\b|$))",
         re.IGNORECASE,
     )
+    # "122.55 feet to a point. S 18°05'10\" W 123.00 feet to the point and place of beginning":
+    # two courses joined by a sentence break.
+    _SENTENCE_JOINED_COURSE = re.compile(r"(?<=\bpoint)\.\s+(?=[NS] \d{1,3}°)", re.IGNORECASE)
 
     @classmethod
     def split_comma_joined_courses(cls, text: str) -> str:
-        """Insert thence between two courses joined only by a comma."""
-        return cls._COMMA_JOINED_COURSE.sub(" thence ", text)
+        """Insert thence between two courses joined only by a comma or a sentence break."""
+        text = cls._COMMA_JOINED_COURSE.sub(" thence ", text)
+        return cls._SENTENCE_JOINED_COURSE.sub(". thence ", text)
 
     # "704.61 (surveyed as 704.60) feet": the note goes after the unit so the number keeps it.
     _NOTE_BEFORE_UNIT = re.compile(r"(\d)\s*(\([^()]{0,40}\))\s*(feet|foot|ft\b)", re.IGNORECASE)
