@@ -1,3 +1,4 @@
+<!-- Hand-corrected: course (1) distance. LlamaParse (agentic_plus, re-run 2026-11-01) reads the dot-matrix figure as 299.09; the recorded deed (Book 5056 Page 813) prints 299.89, verified against the page image, and the parcel closes to 0.005 ft with it. -->
 PREPARED BY:
 
 ![chemistry_structure: handwritten signature](page_1_image_1_v2.jpg)
@@ -113,7 +114,7 @@ BEGINNING at a point in the Southeasterly line of Kings Highway West, distant 80
 
 
 
-(1) South 64 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings Highway West, 299.09 feet to a point; thence
+(1) South 64 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings Highway West, 299.89 feet to a point; thence
 
 (2) South 25 degrees 37 minutes 35 seconds East at right angles to Kings Highway West 120.68 feet to corner to other land of John J. Litz and Caroline, his wife; thence
 
