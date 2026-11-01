@@ -11,8 +11,26 @@ import difflib
 import json
 import re
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 SAMPLE_DIR = Path(__file__).resolve().parent.parent / "sample_deeds"
+
+
+class AuditResult(TypedDict):
+    """One deed's audit outcome."""
+
+    name: str
+    status: str
+    issues: list[str]
+    n_gt: NotRequired[int]
+    n_md: NotRequired[int]
+
+
+def call_distance(call: dict[str, object]) -> float | None:
+    """Return a call's distance in feet, or None when it is missing or not numeric."""
+    value = call.get("distance_ft")
+    return float(value) if isinstance(value, int | float) else None
+
 
 # Regex patterns for extracting metes & bounds data from markdown text
 BEARING_PATTERN = re.compile(
@@ -401,15 +419,11 @@ def extract_calls_from_md(
             # Multiple blocks match count — pick best by distance agreement
             best, best_score = matching[0], -1
             for candidate in matching:
-                score = sum(
-                    1
-                    for i in range(n_gt)
-                    if (
-                        candidate[i].get("distance_ft") is not None
-                        and n_gt_calls[i].get("distance_ft") is not None
-                        and abs(candidate[i]["distance_ft"] - n_gt_calls[i]["distance_ft"]) < 0.1
-                    )
-                )
+                score = 0
+                for i in range(n_gt):
+                    md_dist, gt_dist = call_distance(candidate[i]), call_distance(n_gt_calls[i])
+                    if md_dist is not None and gt_dist is not None and abs(md_dist - gt_dist) < 0.1:
+                        score += 1
                 if score > best_score:
                     best, best_score = candidate, score
             return best
@@ -417,7 +431,7 @@ def extract_calls_from_md(
     return all_calls
 
 
-def audit_deed(pdf_base: str) -> dict[str, object]:
+def audit_deed(pdf_base: str) -> AuditResult:
     """Audit a single deed's GT against its markdown."""
     md_path = SAMPLE_DIR / f"{pdf_base}.md"
     gt_path = SAMPLE_DIR / f"{pdf_base}.ground_truth.json"
@@ -430,7 +444,7 @@ def audit_deed(pdf_base: str) -> dict[str, object]:
         gt = json.load(f)
 
     gt_calls = gt.get("expected_calls", [])
-    issues = []
+    issues: list[str] = []
 
     # Extract calls from markdown (pass GT for best-block selection)
     md_calls = extract_calls_from_md(md_text, n_gt=len(gt_calls), n_gt_calls=gt_calls)
@@ -523,7 +537,7 @@ def main() -> None:
     pdf_files = sorted(SAMPLE_DIR.glob("*.pdf"))
     print(f"Auditing {len(pdf_files)} deeds: GT vs Markdown\n")
 
-    results = []
+    results: list[AuditResult] = []
     for pdf_path in pdf_files:
         base = pdf_path.stem
         result = audit_deed(base)
@@ -541,7 +555,7 @@ def main() -> None:
     print("=" * 90)
 
     # Error type summary
-    error_types = {}
+    error_types: dict[str, list[tuple[str, str]]] = {}
     for r in results:
         for issue in r.get("issues", []):
             etype = issue.split(":")[0]
@@ -573,7 +587,7 @@ def main() -> None:
 
     # Property summary
     print("\n--- PROPERTY SUMMARY ---")
-    properties = {}
+    properties: dict[str, dict[str, int]] = {}
     for r in results:
         parts = r["name"].split(" - Deed Image")
         prop = parts[0] if parts else r["name"]
