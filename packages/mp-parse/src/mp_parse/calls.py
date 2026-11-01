@@ -281,6 +281,22 @@ _COURSE_INTRO_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# "BEING Lot 1.01, Block 21 on the tax map ... Kings Highway East": with no THENCE, numbered
+# course, distance, bearing or curve, a lot reference describes no courses.
+_NUMBERED_COURSE_MARKER = re.compile(
+    r"(?:^|\n)\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+", re.MULTILINE
+)
+_COURSE_EVIDENCE = re.compile(
+    rf"\bTHENCE\b|{COMMA_NUMBER}\s*(?:{_UNIT_TOKEN}\b|')"
+    r"|\b[NS]\s*\d{1,3}\s*°|\bdue\s+(?:north|south|east|west)\b|\bcurv",
+    re.IGNORECASE,
+)
+
+
+def _describes_no_courses(text: str) -> bool:
+    """Return whether text is a lot reference with nothing that could be a course."""
+    return not (_NUMBERED_COURSE_MARKER.search(text) or _COURSE_EVIDENCE.search(text))
+
 
 def _call_preview(call_text: str, max_len: int = 120) -> str:
     """Return a compact single-line preview suitable for warning logs."""
@@ -416,18 +432,7 @@ def _extract_calls_from_text(
         )
         if numbered_before_thence and first_marker:
             prefix = tract_text[: first_marker.start()]
-        # "BEING Lot 1.01, Block 21 on the tax map ... Kings Highway East": with no THENCE, numbered
-        # course, distance, bearing or curve, a lot reference describes no courses.
-        if (
-            not has_thence_marker
-            and not first_marker
-            and not re.search(rf"{COMMA_NUMBER}\s*(?:{_UNIT_TOKEN}\b|')", tract_text, re.IGNORECASE)
-            and not re.search(
-                r"\b[NS]\s*\d{1,3}\s*°|\bdue\s+(?:north|south|east|west)\b|\bcurv",
-                tract_text,
-                re.IGNORECASE,
-            )
-        ):
+        if _describes_no_courses(tract_text):
             continue
         has_beginning_preamble = re.match(
             r"\s*(?:BEGINNING|COMMENCING|POINT\s+OF\s+BEGINNING|POB|TPOB|RPOB)\b",
@@ -578,7 +583,8 @@ def extract_calls(
             segment_text, distance_unit, audit_context=audit_context, course_start=1, strict=strict
         )
 
-        if not tract_calls and strict:
+        # A lot reference ("LOT 48 EXCLUDING THAT PART ...") has no courses to compute.
+        if not tract_calls and strict and not _describes_no_courses(segment_text):
             raise ValueError(f"Tract {label!r} has no computable calls")
         if not tract_calls:
             logger.warning(
