@@ -11,7 +11,7 @@ from mp_models.source_handoff import (
     SourceUncertainty,
     TranscriptReference,
 )
-from mp_review.source_handoff import validate_source_bundle  # type: ignore[import-untyped]
+from mp_review.source_handoff import validate_source_bundle
 
 __all__ = [
     "DescriptionCandidate",

@@ -77,7 +77,7 @@ def analyze_corridor_file(input: Path | str, output_dir: Path | str) -> dict[str
             metadata["centerline_plot_sha256"] = _sha(artifacts["centerline-prepared.json"])
         if corridor.boundary is not None:
             from mp_export.plot_html import (
-                render_plot,  # type: ignore[import-untyped,unused-ignore]
+                render_plot,
             )
 
             artifacts["boundary-prepared.json"] = _json(corridor.boundary.model_dump(mode="json"))

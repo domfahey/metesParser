@@ -15,7 +15,7 @@ from mp_models.comparison import (
     DescriptionComparison,
     StructuralDifference,
 )
-from mp_review.comparison import compare_descriptions_file  # type: ignore[import-untyped]
+from mp_review.comparison import compare_descriptions_file
 from mp_verify.comparison import compare_descriptions
 
 __all__ = [
