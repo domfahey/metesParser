@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +13,8 @@ from mp_models.source_handoff import (
     SourceAcquisitionRecord,
 )
 from pydantic import ValidationError
+
+from .json_input import InvalidInputJson, parse_json
 
 SCHEMA_VERSION = "1.1"
 LIMITATIONS = [
@@ -38,6 +40,9 @@ def _json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
 class _Validator:
     def __init__(self, root: Path) -> None:
         self.root = root
+        self.given_root = root
+        # Raw transcript bytes, kept independently of UTF-8 decoding for identity checks.
+        self.transcript_bytes: bytes | None = None
         self.result: dict[str, Any] = {
             "schema_version": SCHEMA_VERSION,
             "operation": "validate-source",
@@ -96,6 +101,22 @@ class _Validator:
         else:
             self.result["source_uncertainties"]["status"] = "declared"
 
+    def _relative_to_root(self, value: Path) -> Path:
+        candidates = [
+            Path(os.path.normpath(self.given_root.absolute())),
+            self.root,
+            self.root.resolve(),
+        ]
+        if ".." in value.parts:
+            raise ValueError("parent component")
+        target = Path(os.path.normpath(value))
+        for base in candidates:
+            try:
+                return target.relative_to(base)
+            except ValueError:
+                continue
+        raise ValueError("outside root")
+
     def read(
         self, reference: str | Path, record_id: str | None, *, record: bool = False
     ) -> bytes | None:
@@ -103,7 +124,9 @@ class _Validator:
         display = str(reference)
         if value.is_absolute():
             try:
-                value = value.relative_to(self.root)
+                # Strip the root prefix lexically (as given or in resolved form) and never
+                # resolve below it, so the per-component symlink check still sees any link.
+                value = self._relative_to_root(value)
                 display = value.as_posix()
             except ValueError:
                 self.finding(
@@ -232,7 +255,9 @@ class _Validator:
             )
             return None
 
-    def record(self, reference: Path, kind: str) -> tuple[Any, bytes | None]:
+    def record(
+        self, reference: Path, kind: str, *, explicit: bool = False
+    ) -> tuple[Any, bytes | None]:
         raw = self.read(reference, None, record=True)
         if raw is None:
             self.result[kind] = {"status": "invalid", "path": str(reference)}
@@ -240,6 +265,11 @@ class _Validator:
         try:
             text = raw.decode("utf-8-sig")
         except UnicodeDecodeError:
+            self.result[kind] = {
+                "status": "invalid",
+                "path": str(reference),
+                "sha256": _digest(raw),
+            }
             self.finding(
                 "invalid_utf8",
                 "Record must contain valid UTF-8 JSON.",
@@ -248,7 +278,7 @@ class _Validator:
             )
             return None, raw
         try:
-            data = json.loads(
+            data = parse_json(
                 text,
                 object_pairs_hook=_json_object,
                 parse_constant=lambda x: (_ for _ in ()).throw(
@@ -257,8 +287,20 @@ class _Validator:
             )
             if not isinstance(data, dict):
                 raise ValueError("Record must be a JSON object.")
-        except ValueError as exc:
-            self.finding("invalid_json", str(exc), path=str(reference), error=True)
+        except (ValueError, InvalidInputJson) as exc:
+            if explicit and isinstance(exc, InvalidInputJson):
+                raise  # the command's own option: an invocation error, not a finding
+            message = (
+                "Record JSON is nested too deeply to process."
+                if isinstance(exc, InvalidInputJson)
+                else str(exc)
+            )
+            self.result[kind] = {
+                "status": "invalid",
+                "path": str(reference),
+                "sha256": _digest(raw),
+            }
+            self.finding("invalid_json", message, path=str(reference), error=True)
             return None, raw
         version = data.get("schema_version")
         metadata = {
@@ -371,6 +413,7 @@ class _Validator:
                     attachment_id=source.attachment_id,
                 )
         raw = self.read(record.transcript.path, record.id)
+        self.transcript_bytes = raw
         self.check_hash(raw, record.transcript.sha256, record.id, record.transcript.path)
         if self.utf8(raw, record.id, record.transcript.path) is not None:
             assert raw is not None
@@ -542,6 +585,7 @@ def validate_source_bundle(
     validator.root = resolved
     validator.result["bundle_root"] = str(resolved)
     references: dict[str, Path] = {}
+    explicit_kinds = {k for k, v in (("acquisition", acquisition), ("selection", selection)) if v}
     for kind, override, default in (
         ("acquisition", acquisition, "source-acquisition.json"),
         ("selection", selection, "description-selection.json"),
@@ -560,7 +604,9 @@ def validate_source_bundle(
     records: dict[str, Any] = {}
     raw_records: dict[str, bytes | None] = {}
     for kind, reference in references.items():
-        records[kind], raw_records[kind] = validator.record(reference, kind)
+        records[kind], raw_records[kind] = validator.record(
+            reference, kind, explicit=kind in explicit_kinds
+        )
     acquisition_record = records.get("acquisition")
     selection_record = records.get("selection")
     transcript = (
@@ -606,7 +652,7 @@ def validate_source_bundle(
                     path=acquisition_record.transcript.path,
                 )
             validator.check_hash(
-                transcript,
+                validator.transcript_bytes,
                 selection_record.transcript_sha256,
                 selection_record.id,
                 acquisition_record.transcript.path,

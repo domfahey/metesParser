@@ -34,8 +34,10 @@ from mp_verify.comparison import COMPARISON_VERSION, compare_descriptions
 from mp_verify.diagnostics import diagnose_closure
 from mp_verify.plot import build_dashboard_plots, prepare_plot
 from mp_verify.scene import validate_scene
+from mp_verify.tangents import entry_azimuth, has_determined_direction
+from mp_verify.traverse import chord_positioned_flags
 
-CALCULATOR_VERSION = "dashboard-1.1.0"
+CALCULATOR_VERSION = "dashboard-1.2.0"
 DIAGNOSTICS_VERSION = "closure-diagnostics-2"
 
 
@@ -163,9 +165,16 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
         for r in records
         if r.call is not None and not r.call.is_tie_in and not r.call.is_exception
     ]
-    known = bool(boundary) and all(
-        r.call is not None and r.call.bearing_azimuth_deg_from_north is not None for r in boundary
+    boundary_calls = [r.call for r in boundary if r.call is not None]
+    # Same direction rule as verification: stated or curve-element-fixed, never stored.
+    # A course positioned only by its stated chord (chord-only curve or spiral) has no
+    # known tangent but is not a missing bearing: it is drawn as its chord, arc not drawn.
+    chord_flags = chord_positioned_flags(boundary_calls)
+    known = bool(boundary_calls) and all(
+        has_determined_direction(c) or chord
+        for c, chord in zip(boundary_calls, chord_flags, strict=True)
     )
+    chord_courses = [r.id for r, chord in zip(boundary, chord_flags, strict=True) if chord]
     engine_verified = verification.is_fully_verified()
     base.update(
         engine_status="checks_passed" if engine_verified else "needs_review",
@@ -174,6 +183,12 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
         checks=tuple(verification.checks),
     )
     warnings = tuple(verification.warnings)
+    if known and chord_courses:
+        warnings += (
+            "Arc not determined; positioned by chord only (drawn as its stated chord) for "
+            + ", ".join(chord_courses)
+            + ".",
+        )
     if not complete:
         warnings += (
             "Source review incomplete or readings uncertain; numerical results remain conditional.",
@@ -184,22 +199,42 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
             geometry_status="blocked",
             warnings=warnings + ("Incomplete recorded bearings block full boundary geometry.",),
         )
+    if not verification.misclosure_available or len(verification.points) != len(boundary) + 1:
+        # A broken chain yields fewer vertices than courses; never zip misaligned lists.
+        return DashboardResult(
+            **base,
+            geometry_status="unresolved",
+            warnings=warnings
+            + ("A course could not be positioned; full boundary geometry is not determined.",),
+        )
     geometry = []
-    for record, a, b in zip(boundary, verification.points, verification.points[1:], strict=False):
-        assert record.call is not None
-        assert record.call.bearing_azimuth_deg_from_north is not None
+    for record, chord, a, b in zip(
+        boundary, chord_flags, verification.points, verification.points[1:], strict=False
+    ):
+        assert record.call is not None  # boundary holds only resolved calls
+        # The verification rule: tangent-in for a curve, else the stated bearing; a
+        # course positioned only by its stated chord is drawn as that chord.
+        azimuth = entry_azimuth(record.call, chord_positioned=chord)
+        if azimuth is None:
+            return DashboardResult(
+                **base,
+                geometry_status="unresolved",
+                warnings=warnings
+                + ("A course direction could not be determined; geometry is not determined.",),
+            )
         geometry.append(
             DashboardCourseGeometry(
                 call_id=record.id,
-                local_azimuth_deg=record.call.bearing_azimuth_deg_from_north,
+                local_azimuth_deg=azimuth,
                 delta_x_ft=b.x - a.x,
                 delta_y_ft=b.y - a.y,
             )
         )
     courses = tuple(geometry)
+    perimeter_ft = verification.perimeter_ft if verification.perimeter_available else None
     denominator = (
-        verification.perimeter_ft / verification.misclosure_ft
-        if verification.misclosure_ft > 0
+        perimeter_ft / verification.misclosure_ft
+        if perimeter_ft is not None and verification.misclosure_ft > 0
         else None
     )
     if denominator is not None and not math.isfinite(denominator):
@@ -218,7 +253,7 @@ def _calculate(bundle: DashboardBundle, spec: DashboardCalculation) -> Dashboard
         misclosure_x_ft=verification.misclosure_x_ft,
         misclosure_y_ft=verification.misclosure_y_ft,
         area_sq_ft=verification.area_sq_ft if area_available else None,
-        perimeter_ft=verification.perimeter_ft,
+        perimeter_ft=perimeter_ft,
         precision_denominator=denominator,
         warnings=warnings,
     )

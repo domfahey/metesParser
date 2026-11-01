@@ -37,6 +37,128 @@ MonumentType = Literal[
 ]
 MonumentStatus = Literal["found", "set"]
 CurveType = Literal["simple", "compound", "reverse", "spiral"]
+# Notes prefix for a stated exception that removes part of the parcel without a
+# described traverse ("EXCEPTING the westerly 10 feet thereof"). The boundary's
+# closing course carries it verbatim; verification reports the exception as not
+# applied, so the gross boundary is never mistaken for the deed's net parcel.
+UNAPPLIED_EXCEPTION_NOTE_PREFIX = "exception not applied: "
+# Notes prefix for a reservation or exception of rights (mineral, oil and gas rights,
+# an easement or right of way not described by courses, rights of the public, water
+# and air rights) stated after the boundary. It removes no land from the parcel, so
+# the wording is kept verbatim and raises no verification warning.
+RIGHTS_RESERVED_NOTE_PREFIX = "rights reserved, not a land exception: "
+# Notes prefix for an easement described by its own courses: it is its own tract,
+# never part of the boundary.
+SEPARATE_EASEMENT_NOTE_PREFIX = "easement, not part of the boundary: "
+# Notes prefixes for deed wording kept verbatim beside a course.
+RECORD_CALL_NOTE_PREFIX = "record call: "
+PASSING_CALL_NOTE_PREFIX = "passing call: "
+PARENTHETICAL_NOTE_PREFIX = "parenthetical: "
+# A note with one of these prefixes carries deed wording verbatim, which may itself
+# hold "; " ("EXCEPTING the West 10 feet thereof; conveyed to the County"). Such a
+# note runs to the next "; " that starts another verbatim note (or the fixed
+# incomplete-bearing note), never to the first "; " in its wording.
+VERBATIM_NOTE_PREFIXES: tuple[str, ...] = (
+    RECORD_CALL_NOTE_PREFIX,
+    PASSING_CALL_NOTE_PREFIX,
+    PARENTHETICAL_NOTE_PREFIX,
+    UNAPPLIED_EXCEPTION_NOTE_PREFIX,
+    RIGHTS_RESERVED_NOTE_PREFIX,
+    SEPARATE_EASEMENT_NOTE_PREFIX,
+)
+# Fixed notes the system writes (exact text; some hold "; "). Every fixed note is
+# registered here so a verbatim note never swallows the note that follows it.
+LEGACY_CURVE_NOTE = "curve type not recorded (legacy CSV); treated as circular"
+# The role-review mark (``mp_models.roles_need_review``): every flat call of a deed
+# whose description roles need review carries it, so the calls stay blocked from
+# verified export when re-imported from CSV or JSON without their tracts.
+DESCRIPTION_ROLES_NOTE = "description roles need review - not eligible for verified export"
+# The non-boundary marks (``mp_models.mark_non_boundary``): every call of an easement or
+# exception tract carries its kind's note, so verification blocks the calls as a parcel
+# boundary with or without their tract, also when re-imported from CSV or JSON.
+EASEMENT_TRACT_NOTE = (
+    "not part of the parcel boundary (easement tract) - not eligible for verified export"
+)
+EXCEPTION_TRACT_NOTE = (
+    "not part of the parcel boundary (exception tract) - not eligible for verified export"
+)
+NON_BOUNDARY_NOTES: tuple[str, ...] = (EASEMENT_TRACT_NOTE, EXCEPTION_TRACT_NOTE)
+FIXED_NOTES: tuple[str, ...] = (
+    "incomplete bearing",
+    "incomplete bearing - cardinal only",
+    "incomplete bearing - ambiguous decimal degrees",
+    "meander / approximate",
+    "arc length not stated - course distance computed from radius and delta",
+    "tangent bearing not stated - curve positioned by chord and delta in verification",
+    "spiral length not stated - course distance not determined",
+    "spiral tangent not stated - not derived",
+    "tangent bearing not stated - chord bearing only",
+    "curve positioned by stated tangent and chord; arc not stated",
+    "spiral positioned by its stated chord only",
+    "curve delta/arc not stated - positioned by chord only",
+    "radius not stated",
+    "chord length exceeds twice the radius",
+    LEGACY_CURVE_NOTE,
+    DESCRIPTION_ROLES_NOTE,
+    *NON_BOUNDARY_NOTES,
+)
+# Fixed notes that carry a measured or quoted value after the prefix.
+FIXED_NOTE_PREFIXES: tuple[str, ...] = (
+    "stated direction ",
+    "chord bearing not read: ",
+    "radial bearing not read: ",
+    "radius conflict: ",
+    "curve length ambiguous: ",
+    "course length ambiguous: ",
+)
+_FIXED_NOTES_LONGEST_FIRST = tuple(sorted(FIXED_NOTES, key=len, reverse=True))
+_NOTE_BOUNDARY_PREFIXES = (*VERBATIM_NOTE_PREFIXES, *FIXED_NOTE_PREFIXES)
+
+
+def _starts_note(text: str) -> bool:
+    return text.startswith(_NOTE_BOUNDARY_PREFIXES) or any(
+        text == note or text.startswith(f"{note}; ") for note in _FIXED_NOTES_LONGEST_FIRST
+    )
+
+
+def split_notes(notes: str | None) -> list[str]:
+    """Split a call's ``notes`` into its notes, keeping verbatim deed wording whole.
+
+    Notes are joined with "; ". A registered fixed note is taken whole; a verbatim
+    note (``VERBATIM_NOTE_PREFIXES``) ends only at a "; " followed by another
+    registered note; any other note ends at the next "; ".
+    ``"; ".join(split_notes(notes)) == notes``.
+    """
+    parts: list[str] = []
+    rest = notes or ""
+    while rest:
+        fixed = next(
+            (n for n in _FIXED_NOTES_LONGEST_FIRST if rest == n or rest.startswith(f"{n}; ")),
+            None,
+        )
+        if fixed is not None:
+            end = len(fixed)
+        else:
+            end = len(rest)
+            verbatim = rest.startswith(VERBATIM_NOTE_PREFIXES)
+            at = rest.find("; ")
+            while at != -1:
+                if not verbatim or _starts_note(rest[at + 2 :]):
+                    end = at
+                    break
+                at = rest.find("; ", at + 2)
+        parts.append(rest[:end])
+        rest = rest[end + 2 :]
+    return parts
+
+
+def unapplied_exceptions(notes: str | None) -> list[str]:
+    """Return the verbatim stated exceptions a call's notes record as not applied."""
+    return [
+        part[len(UNAPPLIED_EXCEPTION_NOTE_PREFIX) :]
+        for part in split_notes(notes)
+        if part.startswith(UNAPPLIED_EXCEPTION_NOTE_PREFIX)
+    ]
 
 
 class DeedClause(_Model):
@@ -80,9 +202,12 @@ class DeedCall(_Model):
         ge=0,
         lt=360,
     )
-    distance_ft: FiniteFloat = Field(
+    distance_ft: FiniteFloat | None = Field(
         ...,
-        description="Distance in decimal feet",
+        description=(
+            "Distance in decimal feet; None only for a spiral whose length is not "
+            "stated (not determinable without fabrication)"
+        ),
         gt=0,
     )
 
@@ -101,7 +226,7 @@ class DeedCall(_Model):
     )
     arc_length_ft: FiniteFloat | None = Field(
         default=None,
-        description="Arc length in feet",
+        description="Arc length in feet; for a spiral, the stated spiral length (never R * delta)",
         ge=0,
     )
     chord_bearing: str | None = Field(default=None, description="Chord bearing")
@@ -254,19 +379,80 @@ class DeedCall(_Model):
         if not has_curve_measure and not has_curve_direction:
             return self
 
+        # A spiral stated only by chord bearing and chord length is positioned by
+        # that chord; its radius and direction are not required (never invented).
+        # Circular curves still require direction and radius.
+        if (
+            self.curve_type == "spiral"
+            and not has_radius
+            and has_chord
+            and self.chord_bearing is not None
+        ):
+            return self
+
+        # A spiral's stated length IS its stated curve length (stored in
+        # arc_length_ft, never R * delta). A spiral stated by length (and optionally
+        # radius) needs neither direction nor chord; it is unpositioned in
+        # verification unless a chord is stated.
+        if self.curve_type == "spiral" and has_arc:
+            return self
+
         if not has_curve_direction:
             raise ValueError("curve_dir is required when any curve field is provided")
 
-        if not has_radius or not (has_delta or has_arc):
+        # Radius + chord (bearing and length) without a delta or arc is ambiguous
+        # (minor vs major arc); it is accepted so the course can be positioned by
+        # its chord, but verification never treats its arc as determined.
+        has_full_chord = has_chord and self.chord_bearing is not None
+        if not has_radius or not (has_delta or has_arc or has_full_chord):
             raise ValueError(
-                "Curve geometry requires radius_ft and either delta_deg or arc_length_ft"
+                "Curve geometry requires radius_ft and either delta_deg, arc_length_ft, "
+                "or chord_bearing with chord_length_ft"
             )
 
         return self
 
+    @model_validator(mode="after")
+    def validate_undetermined_distance(self) -> Self:
+        """Allow an undetermined distance only for a spiral with no stated length.
+
+        A spiral's length is not R * delta, so a spiral stated by radius and delta
+        alone has no determinable course distance; any other course states one or
+        fixes it (arc, chord, or radius and delta of a circular arc).
+        """
+        if self.distance_ft is not None:
+            return self
+        if (
+            self.curve_type != "spiral"
+            or self.curve_dir is None
+            or self.arc_length_ft is not None
+            or self.chord_length_ft is not None
+        ):
+            raise ValueError(
+                "distance_ft may be None only for a spiral curve with no stated arc or chord length"
+            )
+        return self
+
+    def is_chord_only_curve(self) -> bool:
+        """Return True for a curve stated by radius and chord without delta or arc."""
+        return (
+            self.curve_dir is not None
+            and self.radius_ft is not None
+            and self.delta_deg is None
+            and self.arc_length_ft is None
+            and self.chord_bearing is not None
+            and self.chord_length_ft is not None
+        )
+
     def is_curve(self) -> bool:
-        """Check if this call represents a curve."""
-        return self.curve_dir is not None or self.radius_ft is not None
+        """Check if this call is a curved (non-straight) course, spirals included.
+
+        A spiral is curved even with no radius or direction; it is never a circular
+        arc (see ``mp_verify.tangents.is_circular_curve``) and never a straight line.
+        """
+        return (
+            self.curve_dir is not None or self.radius_ft is not None or self.curve_type == "spiral"
+        )
 
     def is_complete_bearing(self) -> bool:
         """Check if bearing is fully specified (has azimuth)."""

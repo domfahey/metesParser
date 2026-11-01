@@ -15,6 +15,16 @@ _DEFAULT_FORMAT = "console"
 _VALID_FORMATS = {"console", "json"}
 _CURRENT_FORMAT = _DEFAULT_FORMAT
 _OWNS_WARNING_CAPTURE = False
+# Composable packages log via structlog with stdlib logger names (e.g. mp_parse.calls).
+_PACKAGE_LOGGER_NAMES = (
+    "mp_models",
+    "mp_bearing",
+    "mp_ocr",
+    "mp_parse",
+    "mp_verify",
+    "mp_export",
+    "mp_review",
+)
 
 
 def _normalize_level(level: str) -> str:
@@ -139,6 +149,11 @@ def configure_logging(
         _clear_handlers(package_logger)
         package_logger.setLevel(logging.NOTSET)
         package_logger.propagate = True
+        for package_name in _PACKAGE_LOGGER_NAMES:
+            stale_logger = logging.getLogger(package_name)
+            _clear_handlers(stale_logger)
+            stale_logger.setLevel(logging.NOTSET)
+            stale_logger.propagate = True
 
         logging.captureWarnings(True)
         _OWNS_WARNING_CAPTURE = True
@@ -146,6 +161,12 @@ def configure_logging(
         _replace_handlers(package_logger, handler)
         package_logger.setLevel(level_num)
         package_logger.propagate = False
+        for package_name in _PACKAGE_LOGGER_NAMES:
+            # Package loggers are not children of 'metesparser'; attach the same handler.
+            package_scoped_logger = logging.getLogger(package_name)
+            _replace_handlers(package_scoped_logger, handler)
+            package_scoped_logger.setLevel(level_num)
+            package_scoped_logger.propagate = False
 
         # If root warning capture was enabled by this module, disable it when returning
         # to package-scoped logging.

@@ -97,13 +97,16 @@ def wheel_record() -> WheelRecord:
     return {"size": size, "sha256": sha256, "binary_sha256": binary_sha256, "url": url}
 
 
-def verified_cached_uv() -> Path | None:
+def verified_cached_uv(repairable: bool = False) -> Path | None:
+    """Return the cached uv when it verifies; a repairable mismatch is a cache miss."""
     path = cached_uv()
     if not path.exists():
         return None
     if hashlib.sha256(path.read_bytes()).hexdigest() != wheel_record()[
         "binary_sha256"
     ] or not os.access(path, os.X_OK):
+        if repairable:
+            return None
         raise ValueError(f"Cached uv failed integrity validation: {path}")
     return path
 
@@ -175,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError("Usage: run-chat.py --setup [--offline]")
         uv = shutil.which("uv")
         if uv is None:
-            cached = verified_cached_uv()
+            cached = verified_cached_uv(repairable=setup and "--offline" not in args)
             if cached is not None:
                 uv = str(cached)
         if uv is None and setup and "--offline" not in args:

@@ -50,9 +50,9 @@ def capped_semicircle(call_type, height, direction="right", chord=False):
     right = direction == "right"
     curved = arc(call_type, 1, 0 if right else 180, direction)
     if chord:
-        curved = curved.model_copy(
-            update={"chord_bearing": "N 90° E", "bearing_azimuth_deg_from_north": 90}
-        )
+        # The stated tangent stays the course azimuth; the chord of the 180-degree
+        # arc deflects 90 degrees toward the curve (due east for both directions).
+        curved = curved.model_copy(update={"chord_bearing": "N 90° E"})
     return [
         curved,
         line(call_type, 2, 0 if right else 180, height),
@@ -235,11 +235,12 @@ def test_one_complete_circle_is_a_valid_boundary(geometry, direction):
 
 
 def test_unsupported_spiral_requires_review_instead_of_circular_certification(geometry):
+    # Round 17: a spiral without a stated chord length is unpositioned, never a circle.
     call_type, verify, _ = geometry
     calls = capped_semicircle(call_type, 150)
     calls[0] = calls[0].model_copy(update={"curve_type": "spiral"})
     result = verify(calls)
-    assert any("intersection check unavailable" in w and "spiral" in w for w in result.warnings)
+    assert any("cannot be positioned" in w for w in result.warnings), result.warnings
     assert not result.is_fully_verified()
 
 
@@ -248,7 +249,10 @@ def test_spiral_flag_without_geometry_is_not_silently_classified_as_a_line(geome
     calls = [line(call_type, i + 1, bearing, 100) for i, bearing in enumerate((0, 90, 180, 270))]
     calls[0] = calls[0].model_copy(update={"curve_type": "spiral"})
     result = verify(calls)
-    assert any("intersection check unavailable" in w and "spiral" in w for w in result.warnings)
+    # Round 18: a spiral is gated on curve type alone, so without a stated chord it is
+    # unpositioned (never run as a line) and topology is unavailable, not passed.
+    assert any("spiral cannot be positioned" in w for w in result.warnings), result.warnings
+    assert any("intersection check unavailable" in w for w in result.warnings)
     assert not result.is_fully_verified()
 
 

@@ -23,7 +23,7 @@ SURVEY_ABBREVIATIONS: list[tuple[str, str]] = [
     (r"\bR/W\b", "right-of-way"),
     (r"\bROW\b", "right-of-way"),
     (r"\bN/F\b", "now or formerly"),
-    (r"\bPK\b", "pk nail"),
+    (r"\bPK\b(?!\s+nail\b)", "pk nail"),
 ]
 
 
@@ -102,22 +102,12 @@ def standardize_cardinal_directions(text: str) -> str:
         Text with standardized cardinal directions
     """
     patterns: list[tuple[str, str | Callable[[Match[str]], str]]] = [
-        # Words mixed with symbols: "North 34 degrees 02' 00\" West", "South 00°44'00\" West"
         (
-            r"\b(North|South|N|S)\s*(\d{1,3})\s*(?:°|degrees?)\s*,?\s*(\d{1,2})\s*(?:'|minutes?)\s*,?\s*"
-            r"(?:(?:and\s+)?(\d{1,2}(?:\.\d+)?)\s*(?:\"|seconds?)\s*,?\s*)?(East|West|E|W)\b",
-            lambda m: (
-                f"{m.group(1)[0].upper()} {m.group(2)}°{m.group(3)}'"
-                + (f'{m.group(4)}"' if m.group(4) else "")
-                + f" {m.group(5)[0].upper()}"
-            ),
-        ),
-        (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?,?\s+(\d{1,2})\s+minutes?,?\s+(?:and\s+)?(\d{1,2}(?:\.\d+)?)\s+seconds?,?\s+(North|South|East|West)\b",
+            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
             lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0]}",
         ),
         (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?,?\s+(\d{1,2})\s+minutes?,?\s+(North|South|East|West)\b",
+            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(North|South|East|West)\b",
             lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}' {m.group(4)[0]}",
         ),
         (
@@ -153,6 +143,8 @@ def clean_ocr_errors(text: str) -> str:
     text = re.sub(r"\bNOrth\b", "North", text, flags=re.IGNORECASE)
     text = re.sub(r"\bEa5t\b", "East", text, flags=re.IGNORECASE)
     text = re.sub(r"\bWe5t\b", "West", text, flags=re.IGNORECASE)
+    # "UNDER. AND SUBJECT to" (a stray period, 219 Berlin 12799) is one recital.
+    text = re.sub(r"\b(UNDER)\.\s+(AND\s+SUBJECT)\b", r"\1 \2", text, flags=re.IGNORECASE)
 
     text = re.sub(r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4", text)
 
@@ -164,6 +156,18 @@ def clean_ocr_errors(text: str) -> str:
     )
 
     return text
+
+
+_BEARING_AHEAD = r"(?=(?:[NS]|North|South)\s*\d{1,3}\s*(?:°|degrees?\b))"
+# "and" (or "and running") directly before a quadrant bearing.
+_AND_BEARING_RE = re.compile(
+    r"(?<=\S)\s+(?:&|and)(?P<running>\s+running)?\s+" + _BEARING_AHEAD,
+    re.IGNORECASE,
+)
+# "and running <bearing>" opens a course, even right after a BEGINNING clause.
+_AND_RUNNING_RE = re.compile(r"\band\s+running\s+" + _BEARING_AHEAD, re.IGNORECASE)
+_POB_START = re.compile(r"\b(?:beginning|commencing|beg\.?)\b", re.IGNORECASE)
+_COURSE_START = re.compile(r"\b(?:thence|then|th\.?|proceeding)\b", re.IGNORECASE)
 
 
 def expand_assessor_abbreviations(text: str) -> str:
@@ -225,7 +229,7 @@ def expand_assessor_abbreviations(text: str) -> str:
     # Match complete DMS bearing: [cardinal]<deg>(DEG|D) <min>M [<sec>(S|SEC)] [cardinal]
     # Full DMS with seconds (S or SEC)
     text = re.sub(
-        r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\s+(\d{1,2}(?:\.\d+)?)\s*(?:SEC|S)\b",
+        r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\s+(\d{1,2}(?:\.\d+)?)\s*(?:SEC\b\.?|S\b)",
         r"\1 degrees \2 minutes \3 seconds",
         text,
         flags=re.IGNORECASE,
@@ -239,7 +243,7 @@ def expand_assessor_abbreviations(text: str) -> str:
     )
     # Degrees only (DEG/D without M following)
     text = re.sub(
-        r"(\d{1,3})\s*(?:DEG|D)\b(?:\.(?=\s*\d))?",
+        r"(\d{1,3})\s*(?:DEG\b\.?|D\b(?:\.(?=\s*\d))?)",
         r"\1 degrees",
         text,
         flags=re.IGNORECASE,
@@ -254,7 +258,7 @@ def expand_assessor_abbreviations(text: str) -> str:
 
     # --- 3. Expand number+SEC that wasn't already caught (standalone) -------
     text = re.sub(
-        r"(\d{1,2}(?:\.\d+)?)\s*SEC\b",
+        r"(\d{1,2}(?:\.\d+)?)\s*SEC\b\.?",
         r"\1 seconds",
         text,
         flags=re.IGNORECASE,
@@ -285,8 +289,33 @@ def expand_assessor_abbreviations(text: str) -> str:
     text = re.sub(r"\bWLY\b", "westerly", text, flags=re.IGNORECASE)
 
     # --- 7. POB variants → point of beginning ------------------------------
+    # T.P.O.B. / R.P.O.B. are whole tokens: never expand only their inner P.O.B.
+    for letter, word in (("T", "true"), ("R", "remote")):
+        text = re.sub(
+            rf"(?<![\w.]){letter}\.P\.O\.B\.(?=\s+(?!thence\b|then\b)(?-i:[A-Z\d(]))",
+            f"{word} point of beginning.",
+            text,
+            flags=re.IGNORECASE,
+        )
+        text = re.sub(
+            rf"(?<![\w.]){letter}\.P\.O\.B\.?(?!\w)",
+            f"{word} point of beginning",
+            text,
+            flags=re.IGNORECASE,
+        )
+    # A closing "to the P.O.B." that starts a new sentence keeps its period, as "POB." does.
+    text = re.sub(
+        r"(\bto\s+(?:the\s+)?)P\.O\.B\.(?=\s+(?!thence\b|then\b)(?-i:[A-Z\d(]))",
+        r"\1point of beginning.",
+        text,
+        flags=re.IGNORECASE,
+    )
     text = re.sub(r"\bP\.O\.B\.", "point of beginning", text, flags=re.IGNORECASE)
     text = re.sub(r"\bP\s+OB\b", "point of beginning", text, flags=re.IGNORECASE)
+    # "N89DEG 05M 23S W 60FT POB": a POB right after a course's distance is reached by it.
+    text = re.sub(
+        r"(\d\s*(?:FT|feet)\.?)\s+POB\b", r"\1 to the point of beginning", text, flags=re.IGNORECASE
+    )
     text = re.sub(r"\bPOB\b", "point of beginning", text, flags=re.IGNORECASE)
 
     # --- 8. Misc abbreviations ---------------------------------------------
@@ -300,12 +329,26 @@ def expand_assessor_abbreviations(text: str) -> str:
     # when followed by a quadrant bearing pattern ([NS] <digits>°).
     # Note: Only [NS] because standard quadrant bearings always start with
     # North or South.  E/W-initial bearings need different handling.
-    text = re.sub(
-        r"(?<=\S)\s+(?:&|and)\s+(?=[NS]\s*\d{1,3}\s*°)",
-        " thence ",
-        text,
-        flags=re.IGNORECASE,
-    )
+    # The lookahead accepts symbol and word-form bearings so a first pass rewrites
+    # exactly what a second pass would (idempotence).  A tie from the point of
+    # beginning ("Beginning at a point distant N .. and S .. from ...") is not a
+    # course: no `thence` has started a course since the last Beginning/Commencing.
+    # "and running <bearing>" always opens a course ("BEGINNING at a pin and running
+    # N 45° E ..."), so the courses joined to it by "and" are courses too.
+    def _and_separator(m: Match[str]) -> str:
+        if m["running"]:
+            return " thence "
+        before = m.string[: m.start()]
+        starts = list(_POB_START.finditer(before))
+        if (
+            starts
+            and not _COURSE_START.search(before, starts[-1].end())
+            and not _AND_RUNNING_RE.search(before, starts[-1].end())
+        ):
+            return m.group(0)
+        return " thence "
+
+    text = _AND_BEARING_RE.sub(_and_separator, text)
 
     # --- 10. Bare cardinal + distance → due Cardinal + distance ---------------
     # "thence S 289.81 feet" → "thence due South 289.81 feet"
@@ -339,12 +382,20 @@ def expand_assessor_abbreviations(text: str) -> str:
         re.IGNORECASE,
     )
 
+    # A dashed, spaced or d/m bearing ("N 45-30-00 E", "N 45d30m E") is a
+    # quadrant bearing too: only DMS tokens separate the number from E/W.
+    _BEARING_TAIL = re.compile(
+        r"(?:\s*(?:[-\d.°'\"′″]+|(?:d(?:eg(?:rees?)?)?|m(?:in(?:utes?)?)?"
+        r"|s(?:ec(?:onds?)?)?)\.?(?![a-z])))*?\s*(?:E|W|East|West)\b",
+        re.IGNORECASE,
+    )
+
     def _bare_cardinal_replace(m: Match[str]) -> str:
         # Check what follows the captured number in the original string.
         # If degree notation follows, this is a quadrant bearing — leave it alone.
         after_pos = m.end()
         after_text = m.string[after_pos : after_pos + 50]
-        if _DEGREE_AFTER_NUMBER.match(after_text):
+        if _DEGREE_AFTER_NUMBER.match(after_text) or _BEARING_TAIL.match(after_text):
             return m.group(0)  # no change
 
         prefix = m.group(1)  # "thence " (or "proceeding ")
@@ -358,10 +409,14 @@ def expand_assessor_abbreviations(text: str) -> str:
     return text
 
 
-# "85.33 feet, N 73°05'24\" W, 128.0 feet; thence": two courses joined by a comma. An offset
-# preamble ("distant S 10° E 100 feet, N 80° E 50 feet from the corner") names a point.
+# "85.33 feet, N 73°05'24\" W, 128.0 feet; thence": in a deed that separates each bearing
+# from its distance by a comma, a comma also separates two courses. Without that style
+# ("N 45° E 100 feet, N 50° E 80 feet") the fragment stays merged and fails closed. An
+# offset preamble ("distant S 10° E 100 feet, N 80° E 50 feet from the corner") names a point.
 _COMMA_JOINED_COURSE = re.compile(
-    r"(?<=\bfeet),\s+(?=[NS] \d{1,3}°(?:(?!\b(?:thence|from)\b)[^;])*(?:;|\bthence\b|$))",
+    r"(?<=\bfeet),\s+(?=(?:[NS] \d{1,3}°[\d'\"\s.]*[EW]"
+    r"|(?:North|South)\s+\d{1,3}\s+degrees?,[\w\s,.]*?\b(?:East|West)),\s+\d"
+    r"(?:(?!\b(?:thence|from)\b)[^;])*(?:;|\bthence\b|$))",
     re.IGNORECASE,
 )
 # "122.55 feet to a point. S 18°05'10\" W 123.00 feet to the point and place of beginning":

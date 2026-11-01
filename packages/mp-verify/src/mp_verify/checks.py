@@ -7,10 +7,48 @@ from __future__ import annotations
 
 import math
 import statistics
+from collections.abc import Mapping, Sequence
 from typing import Literal
 
-from mp_models import CheckResult, DeedCall, Point
+from mp_bearing import (
+    arc_length_tolerance_ft,
+    bearing_difference_uncertainty_rad,
+    chord_length_tolerance_ft,
+    deflection_chord_tolerance_ft,
+    tangent_chord_deflection,
+    tangent_chord_tolerance_deg,
+)
+from mp_models import (
+    DESCRIPTION_ROLES_CHECK,
+    NON_BOUNDARY_CHECK,
+    CheckResult,
+    DeedCall,
+    Point,
+    Tract,
+    TractType,
+    is_boundary_tract,
+    non_boundary_detail,
+    non_boundary_marks,
+    non_boundary_marks_detail,
+    roles_need_review,
+    roles_review_detail,
+    tract_kind,
+)
 
+from .tangents import (
+    chord_is_feasible,
+    curve_sweep,
+    entry_azimuth,
+    exit_azimuth,
+    has_determined_direction,
+    is_curved_course,
+    is_spiral,
+    parse_chord,
+    radial_implied_tangent,
+    radial_tangent_in,
+    stated_sweep_with_error,
+    stated_tangent,
+)
 from .topology import check_curved_boundary_intersections
 
 
@@ -21,9 +59,81 @@ def check_boundary_intersections(calls: list[DeedCall], coordinates: list[Point]
     ) + check_curved_boundary_intersections(calls, coordinates)
 
 
-def evaluate_interior_angles(calls: list[DeedCall]) -> CheckResult:
-    """Report whether the straight-polygon angle test actually ran."""
-    missing = [str(call.course) for call in calls if not call.is_complete_bearing()]
+def evaluate_tract_role(label: str, tract_type: TractType | str) -> CheckResult | None:
+    """Block an easement/exception tract: it can close, but is never the parcel boundary.
+
+    Boundary tracts (main, addition) return ``None``: no role check applies.
+    """
+    if is_boundary_tract(tract_type):
+        return None
+    kind = tract_kind(tract_type)
+    return CheckResult(
+        name=NON_BOUNDARY_CHECK,
+        status="blocked",
+        reason=kind,
+        detail=non_boundary_detail(label, tract_type),
+        inputs={"tract_type": kind},
+    )
+
+
+def evaluate_non_boundary_marks(calls: Sequence[DeedCall]) -> CheckResult | None:
+    """Block calls bearing an easement/exception tract's note, with or without the tract.
+
+    Every call of a non-boundary tract carries its kind's note
+    (``mp_models.mark_non_boundary``), so the calls are never verified as a parcel
+    boundary however they are selected or re-imported. ``None`` when no call bears one.
+    """
+    kinds = non_boundary_marks(calls)
+    if not kinds:
+        return None
+    return CheckResult(
+        name=NON_BOUNDARY_CHECK,
+        status="blocked",
+        reason="/".join(kinds),
+        detail=non_boundary_marks_detail(kinds),
+        inputs={"tract_type": "/".join(kinds)},
+    )
+
+
+def evaluate_description_roles(
+    tracts: Sequence[Tract], calls: Sequence[DeedCall] = ()
+) -> CheckResult | None:
+    """Block every tract of a deed whose description roles were inferred, not headed.
+
+    Fail closed (``mp_models.roles_need_review``): when a deed has several
+    descriptions and any role came from wording rather than an explicit tract
+    heading, no tract is verified, whatever its geometry; neither are calls bearing
+    the role-review mark a blocked deed's flat calls carry. ``None`` when every role
+    is established.
+    """
+    reasons = roles_need_review(tracts, calls)
+    if not reasons:
+        return None
+    return CheckResult(
+        name=DESCRIPTION_ROLES_CHECK,
+        status="blocked",
+        reason="roles_need_review",
+        detail=roles_review_detail(reasons),
+        inputs={"tracts": len(tracts), "tracts_needing_review": len(reasons)},
+    )
+
+
+def evaluate_interior_angles(calls: list[DeedCall], positioned: list[bool]) -> CheckResult:
+    """Report whether the straight-polygon angle test actually ran.
+
+    ``positioned[i]`` is the traverse outcome for ``calls[i]``. Missing bearings take
+    precedence over a curved boundary: ``not_applicable`` counts as acceptable for
+    full verification, so a curved boundary with an undetermined course is blocked,
+    never not applicable.
+    """
+    # A curve fixed by chord bearing and sweep has determined tangents, and a course
+    # positioned by its stated chord states its direction: neither is missing (the
+    # closure's incomplete-bearing rule).
+    missing = [
+        str(call.course)
+        for call, ok in zip(calls, positioned, strict=True)
+        if not has_determined_direction(call) and not ok
+    ]
     if missing:
         return CheckResult(
             name="interior_angles",
@@ -31,7 +141,7 @@ def evaluate_interior_angles(calls: list[DeedCall]) -> CheckResult:
             reason="missing_bearings",
             detail=f"Required bearings missing for courses {', '.join(missing)}",
         )
-    if any(call.is_curve() for call in calls):
+    if any(is_curved_course(call) for call in calls):
         return CheckResult(
             name="interior_angles",
             status="not_applicable",
@@ -81,11 +191,32 @@ def build_verification_checks(
     area_available: bool,
     double_entry_performed: bool,
     discrepancies: list[str],
+    curve_issues: list[str] | None = None,
+    misclosure_available: bool = True,
+    positioned: list[bool],
 ) -> list[CheckResult]:
-    """Build auditable engine outcomes without turning unavailable checks into passes."""
-    incomplete = any(not call.is_complete_bearing() for call in calls)
+    """Build auditable engine outcomes without turning unavailable checks into passes.
+
+    ``positioned[i]`` is the traverse outcome for ``calls[i]`` (required: the caller's
+    own traverse, never re-derived here). Closure follows it: a course positioned by
+    its chord is not missing, and a course with a stated bearing that still cannot be
+    positioned is unpositioned, not missing. An undetermined misclosure is never
+    recorded as a measured input.
+    """
+    incomplete = any(not has_determined_direction(call) for call in calls)
     missing = incomplete or not calls
-    curves = [call for call in calls if call.is_curve()]
+    unpositioned = [call for call, ok in zip(calls, positioned, strict=True) if not ok]
+    # A non-tangent curve's course bearing is not its orientation (stated_tangent).
+    closure_missing = not calls or any(
+        stated_tangent(call) is None
+        and radial_tangent_in(call) is None
+        and parse_chord(call) is None
+        for call in unpositioned
+    )
+    closure_unpositioned = bool(unpositioned) or not misclosure_available
+    curves = [call for call in calls if is_curved_course(call)]
+    # Spirals are reported by closure as spiral_geometry_unverified, never by circular rules.
+    circular_curves = [call for call in curves if not is_spiral(call)]
 
     def outcome(
         name: str,
@@ -126,11 +257,11 @@ def build_verification_checks(
         or call.radius_ft is None
         or call.radius_ft <= 0
         or not ((call.delta_deg or 0) > 0 or (call.arc_length_ft or 0) > 0)
-        for call in curves
+        for call in circular_curves
     )
     redundant_curves = [
         call
-        for call in curves
+        for call in circular_curves
         if (call.delta_deg is not None and call.arc_length_ft is not None)
         or call.chord_length_ft is not None
     ]
@@ -138,16 +269,18 @@ def build_verification_checks(
     continuing = [
         i
         for i, call in enumerate(calls)
-        if call.along and ("continuing" in call.along.lower() or "same line" in call.along.lower())
+        # Course 0 has no predecessor, so it cannot form a continuing-line pair.
+        if i > 0
+        and call.along
+        and ("continuing" in call.along.lower() or "same line" in call.along.lower())
     ]
     parallel_blocked = any(
-        i == 0 or not calls[i].is_complete_bearing() or not calls[i - 1].is_complete_bearing()
-        for i in continuing
+        entry_azimuth(calls[i]) is None or exit_azimuth(calls[i - 1]) is None for i in continuing
     )
     straight_pairs = [
         (first, second)
         for first, second in zip(calls, calls[1:], strict=False)
-        if not first.is_curve() and not second.is_curve()
+        if not is_curved_course(first) and not is_curved_course(second)
     ]
     reversals_blocked = any(
         not first.is_complete_bearing() or not second.is_complete_bearing()
@@ -164,32 +297,50 @@ def build_verification_checks(
     return [
         CheckResult(
             name="traverse_closure",
-            status="blocked" if missing else "passed" if closure_passed else "failed",
+            status="blocked"
+            if closure_missing or closure_unpositioned
+            else "passed"
+            if closure_passed
+            else "failed",
             reason="missing_bearings"
-            if missing
+            if closure_missing
+            else "unpositioned_courses"
+            if closure_unpositioned
             else "within_tolerance"
             if closure_passed
             else "misclosure_exceeds_tolerance",
             detail=(
                 "Traverse closure requires a bearing for every boundary course"
-                if missing
+                if closure_missing
+                else "Misclosure not determined: a course could not be positioned"
+                if closure_unpositioned
                 else f"misclosure: {misclosure:.4f} ft; tolerance: {tolerance} ft"
             ),
-            inputs={"misclosure_total_ft": misclosure, "tolerance_ft": tolerance},
+            inputs=(
+                {
+                    "misclosure_total_ft": misclosure,
+                    "misclosure_available": True,
+                    "tolerance_ft": tolerance,
+                }
+                if misclosure_available
+                else {"misclosure_available": False, "tolerance_ft": tolerance}
+            ),
         ),
-        evaluate_interior_angles(calls),
+        evaluate_interior_angles(calls, positioned),
         outcome(
             "curve_consistency",
-            [] if curve_consistency_passed else ["Curve math inconsistency detected"],
-            applicable=bool(curves) and len(redundant_curves) == len(curves),
+            []
+            if curve_consistency_passed
+            else (curve_issues or ["Curve math inconsistency detected"]),
+            applicable=bool(circular_curves) and len(redundant_curves) == len(circular_curves),
             blocked=curve_incomplete,
             detail=(
                 "Curve geometry requires direction, positive radius, and positive delta or arc length"
                 if curve_incomplete
                 else "No curved courses"
-                if not curves
+                if not circular_curves
                 else "Some curves lack a redundant measure for an independent consistency check"
-                if len(redundant_curves) != len(curves)
+                if len(redundant_curves) != len(circular_curves)
                 else "All supplied redundant curve elements are consistent"
             ),
         ),
@@ -211,10 +362,15 @@ def build_verification_checks(
             ["Straight-segment and circular-arc checks: " + "; ".join(intersection_failures)]
             if intersection_failures
             else [],
-            blocked=missing or unavailable_intersections or insufficient_topology,
+            blocked=missing
+            or closure_unpositioned
+            or unavailable_intersections
+            or insufficient_topology,
             detail=(
                 "Boundary topology requires complete bearings"
                 if missing
+                else "Boundary topology requires every course to be positioned"
+                if closure_unpositioned
                 else "At least three straight courses are required for boundary topology"
                 if insufficient_topology
                 else "; ".join(intersection_warnings)
@@ -262,6 +418,54 @@ def build_verification_checks(
     ]
 
 
+def chord_only_delta_detail(courses: list[tuple[int, bool]]) -> str:
+    """Describe chord-only curves whose delta/arc is not stated.
+
+    Each entry is (course, tangent_stated). Without a tangent, radius and chord
+    alone leave the minor or major arc ambiguous. With a stated tangent the arc is
+    determined, but its delta/arc is not stated and verification does not derive it.
+    """
+    without_tangent = [str(course) for course, tangent in courses if not tangent]
+    with_tangent = [str(course) for course, tangent in courses if tangent]
+    parts = []
+    if without_tangent:
+        parts.append(
+            "Curve delta/arc not stated (minor or major arc ambiguous); "
+            "positioned by chord only on course(s) " + ", ".join(without_tangent)
+        )
+    if with_tangent:
+        parts.append(
+            "Curve delta/arc not stated and not derived from the stated tangent and chord; "
+            "positioned by chord only on course(s) " + ", ".join(with_tangent)
+        )
+    return "; ".join(parts)
+
+
+def block_curve_consistency(
+    checks: list[CheckResult],
+    blocks: list[tuple[str, str]],
+) -> list[CheckResult]:
+    """Downgrade curve_consistency to blocked for every applicable (reason, detail) block.
+
+    A failed curve check stays failed: a detected inconsistency is stronger than a
+    missing input. Otherwise all supplied reasons and details are combined, so no
+    block silently overwrites another.
+    """
+    if not blocks:
+        return checks
+    return [
+        CheckResult(
+            name="curve_consistency",
+            status="blocked",
+            reason=",".join(reason for reason, _ in blocks),
+            detail="; ".join(detail for _, detail in blocks),
+        )
+        if check.name == "curve_consistency" and check.status != "failed"
+        else check
+        for check in checks
+    ]
+
+
 def check_interior_angles(calls: list[DeedCall], coordinates: list[Point]) -> bool:
     """Check if interior angles sum correctly: (n-2) * 180 degrees.
 
@@ -278,7 +482,7 @@ def check_interior_angles(calls: list[DeedCall], coordinates: list[Point]) -> bo
     Returns:
         True if angles sum correctly (within tolerance).
     """
-    if any(not call.is_complete_bearing() or call.is_curve() for call in calls):
+    if any(not call.is_complete_bearing() or is_curved_course(call) for call in calls):
         return True
 
     n = len(calls)
@@ -335,12 +539,16 @@ def check_straight_boundary_intersections(
         < 0.01
     )
     for i, first in enumerate(calls):
-        if first.is_curve():
+        if is_curved_course(first):
             continue
         a, b = coordinates[i], coordinates[i + 1]
         for j in range(i + 1, len(calls)):
             second = calls[j]
-            if second.is_curve() or j == i + 1 or (closed and i == 0 and j == len(calls) - 1):
+            if (
+                is_curved_course(second)
+                or j == i + 1
+                or (closed and i == 0 and j == len(calls) - 1)
+            ):
                 continue
             c, d = coordinates[j], coordinates[j + 1]
             proper_crossing = (
@@ -372,14 +580,9 @@ def check_parallelism(calls: list[DeedCall]) -> list[str]:
             continue
 
         if "continuing" in call.along.lower() or "same line" in call.along.lower():
-            if (
-                i > 0
-                and calls[i - 1].bearing_azimuth_deg_from_north is not None
-                and call.bearing_azimuth_deg_from_north is not None
-            ):
-                prev_az = calls[i - 1].bearing_azimuth_deg_from_north or 0
-                curr_az = call.bearing_azimuth_deg_from_north or 0
-
+            prev_az = exit_azimuth(calls[i - 1]) if i > 0 else None
+            curr_az = entry_azimuth(call)
+            if prev_az is not None and curr_az is not None:
                 diff = abs(curr_az - prev_az) % 360.0
                 diff = min(diff, 360.0 - diff)
                 if not (diff < 1.0 or abs(diff - 180.0) < 1.0):
@@ -391,50 +594,176 @@ def check_parallelism(calls: list[DeedCall]) -> list[str]:
     return warnings
 
 
-def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
+def tangent_chord_issue(call: DeedCall) -> str | None:
+    """Return why a curve's stated tangent, chord bearing and radius disagree, if they do.
+
+    Applies when the call states a tangent azimuth (not non-tangent), a parseable
+    chord bearing and a curve direction. The chord deflects from the tangent by
+    half the delta toward the curve, so the deflection must be on the curve's side,
+    the stated chord must equal 2R*sin(deflection), and a stated delta (or the one
+    implied by arc / radius) must be twice the deflection.
+    """
+    if (
+        is_spiral(call)
+        or call.non_tangent
+        or call.curve_dir not in ("left", "right")
+        or call.bearing_azimuth_deg_from_north is None
+        or call.chord_bearing is None
+    ):
+        return None
+    chord_az = parse_chord(call)
+    if chord_az is None:
+        return None
+    deflection = tangent_chord_deflection(
+        call.bearing_azimuth_deg_from_north, chord_az, call.curve_dir
+    )
+    prefix = f"Course {call.course}: stated tangent, chord and radius are inconsistent"
+    defl_error = bearing_difference_uncertainty_rad(call.bearing_azimuth_deg_from_north, chord_az)
+    if deflection <= 0.0:
+        return f"{prefix} (chord bearing is not on the {call.curve_dir} side of the tangent)"
+    radius = call.radius_ft
+    if radius is not None and radius > 0.0 and call.chord_length_ft is not None:
+        expected_chord = 2.0 * radius * math.sin(math.radians(deflection))
+        if abs(call.chord_length_ft - expected_chord) > deflection_chord_tolerance_ft(
+            radius, deflection, defl_error
+        ):
+            return (
+                f"{prefix} (chord: {call.chord_length_ft:.2f}, expected from tangent-to-chord "
+                f"deflection {deflection:.6f}\u00b0 and radius: {expected_chord:.2f})"
+            )
+    delta, delta_error = stated_sweep_with_error(call)
+    if delta is not None and abs(deflection - delta / 2.0) > tangent_chord_tolerance_deg(
+        delta_error, defl_error
+    ):
+        return (
+            f"{prefix} (delta {delta:.6f}\u00b0 is not twice the tangent-to-chord "
+            f"deflection {deflection:.6f}\u00b0)"
+        )
+    return None
+
+
+def radial_chord_issue(call: DeedCall) -> str | None:
+    """Return why a non-tangent curve's radial and chord bearings disagree, if they do.
+
+    Both fix the starting tangent (radial -/+ 90 and chord -/+ delta/2); they must
+    agree within the rounding-aware angular tolerance.
+    """
+    radial_in = radial_tangent_in(call)
+    sweep = curve_sweep(call)
+    if radial_in is None or sweep is None or call.chord_bearing is None:
+        return None
+    chord_az = parse_chord(call)
+    if chord_az is None:
+        return None
+    sign = 1.0 if call.curve_dir == "right" else -1.0
+    chord_in = (chord_az - sign * sweep / 2.0) % 360.0
+    diff = abs(radial_in - chord_in) % 360.0
+    diff = min(diff, 360.0 - diff)
+    _, delta_error = stated_sweep_with_error(call)
+    err = bearing_difference_uncertainty_rad(radial_in, chord_in)
+    if diff > tangent_chord_tolerance_deg(delta_error, err):
+        return (
+            f"Course {call.course}: stated radial and chord bearings are inconsistent "
+            f"(tangent {radial_in:.4f}\u00b0 from radial, {chord_in:.4f}\u00b0 from chord "
+            "and sweep)"
+        )
+    return None
+
+
+def radial_tangent_issue(call: DeedCall) -> str | None:
+    """Return why a tangent curve's stated tangent and radial bearings disagree, if they do."""
+    if (
+        is_spiral(call)
+        or call.non_tangent
+        or call.bearing_azimuth_deg_from_north is None
+        or call.curve_dir not in ("left", "right")
+    ):
+        return None
+    implied = radial_implied_tangent(call)
+    if implied is None:
+        return None
+    stated = call.bearing_azimuth_deg_from_north
+    diff = abs(implied - stated) % 360.0
+    diff = min(diff, 360.0 - diff)
+    _, delta_error = stated_sweep_with_error(call)
+    err = bearing_difference_uncertainty_rad(implied, stated)
+    if diff > tangent_chord_tolerance_deg(delta_error, err):
+        return (
+            f"Course {call.course}: stated tangent and radial bearings are inconsistent "
+            f"(tangent {stated:.4f}\u00b0 stated, {implied:.4f}\u00b0 from radial)"
+        )
+    return None
+
+
+def check_curve_consistency(
+    calls: list[DeedCall],
+    tangent_issues: Mapping[int, str | None] | None = None,
+) -> tuple[bool, list[str]]:
     """Check curve math consistency: L ~ R*delta, chord ~ 2R*sin(delta/2).
 
     When delta_deg is not provided but both radius_ft and arc_length_ft
     are present, the implied delta is derived from arc/radius and used
-    for consistency checks (including chord validation).
+    for consistency checks (including chord validation). A stated tangent
+    azimuth with a chord bearing is cross-checked by ``tangent_chord_issue``.
+    Elements agree within the rounding of the stated values propagated through
+    the curve formulas (``mp_bearing`` tolerance helpers, shared with the plot
+    builder so verification and plotting accept the same curves).
 
     Args:
         calls: List of DeedCall objects.
+        tangent_issues: Optional ``tangent_chord_issue`` results already computed
+            by the caller, keyed by index into ``calls``; avoids recomputation.
 
     Returns:
         Tuple of (passed, warnings).
     """
     warnings: list[str] = []
 
-    for call in calls:
-        if not call.is_curve():
+    def _tangent_issue(index: int, call: DeedCall) -> str | None:
+        if tangent_issues is not None and index in tangent_issues:
+            return tangent_issues[index]
+        return tangent_chord_issue(call)
+
+    for index, call in enumerate(calls):
+        # Circular formulas never pass or fail a spiral (verify_closure blocks it).
+        if not call.is_curve() or is_spiral(call):
             continue
 
         if call.radius_ft is None:
             continue
 
-        delta_deg = call.delta_deg
-        tolerance_ft = 0.1
+        delta_deg, delta_error_rad = stated_sweep_with_error(call)
 
-        # Derive delta from radius + arc when delta_deg is not explicit
-        if delta_deg is None:
-            if call.arc_length_ft is not None and call.radius_ft > 0.0:
-                implied_delta_rad = call.arc_length_ft / call.radius_ft
+        # Delta derived from radius + arc when delta_deg is not explicit
+        if call.delta_deg is None:
+            if delta_deg is not None:
                 # Arc cannot exceed full circle (2*pi*radius)
-                if implied_delta_rad > 2 * math.pi:
+                if delta_deg > 360.0:
                     warnings.append(f"Course {call.course}: arc length exceeds full circle")
                     return False, warnings
-                delta_deg = math.degrees(implied_delta_rad)
             else:
-                # No delta and insufficient data to derive one -- skip
+                # No delta or arc: a radius and chord alone leave the arc ambiguous,
+                # so only the chord's own feasibility (and any stated tangent) can be
+                # checked.
+                if not chord_is_feasible(call):
+                    warnings.append(
+                        f"Course {call.course}: chord length exceeds twice the radius "
+                        f"(chord: {call.chord_length_ft:.2f}, radius: {call.radius_ft:.2f})"
+                    )
+                    return False, warnings
+                issue = _tangent_issue(index, call) or radial_tangent_issue(call)
+                if issue:
+                    warnings.append(issue)
+                    return False, warnings
                 continue
 
+        assert delta_deg is not None
         delta_rad = math.radians(delta_deg)
         expected_arc = call.radius_ft * delta_rad
 
-        if call.arc_length_ft is not None:
+        if call.arc_length_ft is not None and call.delta_deg is not None:
             arc_diff = abs(call.arc_length_ft - expected_arc)
-            if arc_diff > tolerance_ft:
+            if arc_diff > arc_length_tolerance_ft(call.radius_ft, delta_deg):
                 warnings.append(
                     f"Course {call.course}: arc length inconsistency "
                     f"(given: {call.arc_length_ft:.2f}, expected: {expected_arc:.2f})"
@@ -445,12 +774,19 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
 
         if call.chord_length_ft is not None:
             chord_diff = abs(call.chord_length_ft - expected_chord)
-            if chord_diff > tolerance_ft:
+            if chord_diff > chord_length_tolerance_ft(call.radius_ft, delta_deg, delta_error_rad):
                 warnings.append(
                     f"Course {call.course}: chord length inconsistency "
                     f"(given: {call.chord_length_ft:.2f}, expected: {expected_chord:.2f})"
                 )
                 return False, warnings
+
+        issue = (
+            _tangent_issue(index, call) or radial_chord_issue(call) or radial_tangent_issue(call)
+        )
+        if issue:
+            warnings.append(issue)
+            return False, warnings
 
     return True, warnings
 
@@ -472,7 +808,7 @@ def check_bearing_reversals(calls: list[DeedCall]) -> list[str]:
 
     for i in range(len(calls) - 1):
         c1, c2 = calls[i], calls[i + 1]
-        if c1.is_curve() or c2.is_curve():
+        if is_curved_course(c1) or is_curved_course(c2):
             continue
         az1 = c1.bearing_azimuth_deg_from_north
         az2 = c2.bearing_azimuth_deg_from_north
@@ -507,17 +843,17 @@ def check_distance_reasonableness(calls: list[DeedCall]) -> list[str]:
     Returns:
         List of warning messages.
     """
-    if len(calls) < 2:
+    # A course whose distance is not determined has no length to compare.
+    measured = [(c, c.distance_ft) for c in calls if c.distance_ft is not None]
+    if len(measured) < 2:
         return []
 
     warnings: list[str] = []
-    distances = [c.distance_ft for c in calls]
+    distances = [dist for _, dist in measured]
     median_dist = statistics.median(distances)
     total_perimeter = sum(distances)
 
-    for call in calls:
-        dist = call.distance_ft
-
+    for call, dist in measured:
         if dist < 0.5:
             warnings.append(f"Course {call.course}: suspiciously short distance ({dist:.2f} ft)")
 
@@ -578,6 +914,21 @@ def check_double_entry(calls: list[DeedCall]) -> list[str]:
     return []
 
 
+def _has_curve_fields(call: DeedCall) -> bool:
+    """True when the call states any curve measurement, even without a full curve."""
+    return any(
+        value is not None
+        for value in (
+            call.curve_dir,
+            call.radius_ft,
+            call.delta_deg,
+            call.arc_length_ft,
+            call.chord_length_ft,
+            call.chord_bearing,
+        )
+    )
+
+
 def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list[str]:
     """Compare two entry sets for discrepancies (double-entry validation).
 
@@ -625,17 +976,20 @@ def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list
         elif abs((az1 - az2 + 180.0) % 360.0 - 180.0) > 0.0001:
             discrepancies.append(f"Course {i}: Azimuth mismatch - {az1:.6f} vs {az2:.6f}")
 
-        if abs(c1.distance_ft - c2.distance_ft) > 0.01:
-            discrepancies.append(
-                f"Course {i}: Distance mismatch - {c1.distance_ft:.2f} vs {c2.distance_ft:.2f}"
-            )
+        compare_optional_float(i, "Distance", c1.distance_ft, c2.distance_ft)
 
         curve1 = c1.is_curve()
         curve2 = c2.is_curve()
         if curve1 != curve2:
             discrepancies.append(f"Course {i}: Curve geometry presence mismatch")
 
-        if not (curve1 or curve2):
+        if c1.curve_type != c2.curve_type:
+            discrepancies.append(
+                f"Course {i}: Curve type mismatch - '{c1.curve_type}' vs '{c2.curve_type}'"
+            )
+
+        # A curve-less call may still carry stray curve fields.
+        if not (curve1 or curve2 or _has_curve_fields(c1) or _has_curve_fields(c2)):
             continue
 
         if c1.curve_dir != c2.curve_dir:

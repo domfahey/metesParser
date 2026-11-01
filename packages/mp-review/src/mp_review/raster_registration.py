@@ -10,7 +10,13 @@ from collections.abc import Sequence
 from io import BytesIO
 
 from mp_models.plot import XY, MapSource, PlotScene
-from mp_models.raster import RasterControl, RasterLayer, RasterRegistration
+from mp_models.raster import (
+    RASTER_ORIENTATION_MESSAGE,
+    RasterControl,
+    RasterLayer,
+    RasterRegistration,
+    image_orientation,
+)
 
 
 def transform_pixel(registration: RasterRegistration, pixel: XY) -> XY:
@@ -106,7 +112,12 @@ def fit_affine(controls: tuple[RasterControl, ...]) -> RasterRegistration:
 
 
 def image_layer(
-    data: bytes, *, scene: PlotScene, registration: RasterRegistration, filename: str
+    data: bytes,
+    *,
+    scene: PlotScene,
+    registration: RasterRegistration,
+    filename: str,
+    allow_legacy_orientation: bool = False,
 ) -> tuple[RasterLayer, MapSource]:
     if len(data) > 20 * 1024 * 1024:
         raise ValueError("Raster exceeds 20 MiB limit")
@@ -129,6 +140,8 @@ def image_layer(
                 width, height = image.size
                 if width > 20000 or height > 20000 or width * height > 40_000_000:
                     raise ValueError("Raster dimensions exceed import limit")
+                if not allow_legacy_orientation and image_orientation(data) not in (None, 1):
+                    raise ValueError(RASTER_ORIENTATION_MESSAGE)
                 image.load()
                 mime = {"PNG": "image/png", "JPEG": "image/jpeg", "WEBP": "image/webp"}[
                     image.format
@@ -165,8 +178,14 @@ def image_layer(
     return layer, source
 
 
-def validate_raster_layer(layer: RasterLayer, scene: PlotScene) -> None:
-    """Freshly decode a supplied layer and validate its derived registration outputs."""
+def validate_raster_layer(
+    layer: RasterLayer, scene: PlotScene, *, allow_legacy_orientation: bool = False
+) -> None:
+    """Freshly decode a supplied layer and validate its derived registration outputs.
+
+    ``allow_legacy_orientation`` lets renderers that omit EXIF-rotated rasters (saved before
+    import-time enforcement) report an omission instead of failing the whole stage.
+    """
     if layer.scene_id != scene.id:
         raise ValueError("Raster scene reference mismatch")
     registration = (
@@ -188,6 +207,7 @@ def validate_raster_layer(layer: RasterLayer, scene: PlotScene) -> None:
         scene=scene,
         registration=registration,
         filename=layer.label,
+        allow_legacy_orientation=allow_legacy_orientation,
     )
     if (decoded.width, decoded.height, decoded.mime_type, decoded.sha256) != (
         layer.width,

@@ -132,8 +132,11 @@ print(summary)
 
 Export/import CSV files.
 
-`csv_to_calls()` rejects invalid rows by default. Use `strict=False` for explicit
-partial recovery. CSV numeric fields retain the precision used in verification,
+`csv_to_calls()` rejects invalid rows by default. Use `strict=False` with a
+`rejected_rows` list for explicit partial recovery: each rejected row is recorded
+as `(row_number, error)`, and non-strict import without that list raises instead
+of dropping a course. The 22-field schema ends with `curve_type`; legacy 21-field
+CSVs still import with `curve_type` unset. CSV numeric fields retain the precision used in verification,
 including values requiring more than two decimal places. These rules also apply
 to `mp_export`.
 

@@ -1,7 +1,9 @@
 """CSV export for deed calls.
 
-Exports structured calls to the standard 21-field CSV schema.
-Reads CSV files back into DeedCall objects.
+Exports structured calls to the standard 22-field CSV schema.
+Reads CSV files back into DeedCall objects, including legacy 21-field files
+(written before ``curve_type`` was appended; it then reads back as None, and a
+curved legacy row records in its notes that it is treated as circular).
 """
 
 from __future__ import annotations
@@ -12,16 +14,31 @@ from pathlib import Path
 
 import structlog
 from mp_models import (
+    LEGACY_CURVE_NOTE,
     AuditContext,
     ClosureResult,
     DeedCall,
     LegalDescription,
+    SkippedCourse,
     Tract,
     _Model,
+    is_boundary_tract,
+    non_boundary_detail,
+    non_boundary_marks,
+    non_boundary_marks_detail,
+    roles_need_review,
+    roles_review_detail,
+    tract_kind,
 )
+from mp_verify.closure import skips_for_tract
 from pydantic import ValidationError, field_validator
 
 logger = structlog.get_logger(__name__)
+
+
+def _misclosure_text(result: ClosureResult) -> str:
+    """Misclosure for messages; an undetermined misclosure is never shown as 0.0."""
+    return f"{result.misclosure_ft:.4f} ft" if result.misclosure_available else "not determined"
 
 
 def _format_float(value: float, decimal_places: int) -> str:
@@ -52,7 +69,40 @@ FIELDNAMES: list[str] = [
     "non_tangent",
     "radial_bearing",
     "notes",
+    # Appended last so the historical 21-column order is unchanged.
+    "curve_type",
 ]
+
+# Header of CSVs written before ``curve_type`` was exported; still accepted on import.
+LEGACY_FIELDNAMES: list[str] = FIELDNAMES[:-1]
+
+
+# A legacy row cannot say whether a curve was a spiral; make the assumption visible.
+
+
+def is_supported_csv_header(header: list[str] | None) -> bool:
+    """Return True for the current exact header or the legacy 21-field header."""
+    return header in (FIELDNAMES, LEGACY_FIELDNAMES)
+
+
+def _require_supported_header(header: list[str] | None) -> None:
+    """Raise ValueError naming missing/unexpected columns unless the header is supported."""
+    if is_supported_csv_header(header):
+        return
+    got = header or []
+    missing = [c for c in FIELDNAMES if c not in got]
+    unexpected = [c for c in got if c not in FIELDNAMES]
+    detail = []
+    if missing:
+        detail.append(f"missing columns: {', '.join(missing)}")
+    if unexpected:
+        detail.append(f"unexpected columns: {', '.join(unexpected)}")
+    if not detail:
+        detail.append("columns are duplicated or out of order")
+    raise ValueError(
+        "Unsupported CSV header: expected the exact ordered 22-field call schema "
+        f"(or the legacy 21-field schema without curve_type); {'; '.join(detail)}"
+    )
 
 
 class _CSVDeedCallRow(_Model):
@@ -62,7 +112,8 @@ class _CSVDeedCallRow(_Model):
     direction_text: str
     bearing_quadrant: str | None = None
     bearing_azimuth_deg_from_north: float | None = None
-    distance_ft: float
+    # Blank only where DeedCall allows it (a spiral with no stated length).
+    distance_ft: float | None = None
     curve_dir: str | None = None
     radius_ft: float | None = None
     delta_deg: float | None = None
@@ -79,6 +130,7 @@ class _CSVDeedCallRow(_Model):
     non_tangent: bool = False
     radial_bearing: str | None = None
     notes: str | None = None
+    curve_type: str | None = None
 
     @field_validator("is_exception", "is_meander", "is_tie_in", "non_tangent", mode="before")
     @classmethod
@@ -97,7 +149,7 @@ def _call_to_row(call: DeedCall) -> dict[str, str]:
             if call.bearing_azimuth_deg_from_north is not None
             else ""
         ),
-        "distance_ft": _format_float(call.distance_ft, 2),
+        "distance_ft": (_format_float(call.distance_ft, 2) if call.distance_ft is not None else ""),
         "curve_dir": call.curve_dir or "",
         "radius_ft": _format_float(call.radius_ft, 2) if call.radius_ft is not None else "",
         "delta_deg": _format_float(call.delta_deg, 6) if call.delta_deg is not None else "",
@@ -118,6 +170,7 @@ def _call_to_row(call: DeedCall) -> dict[str, str]:
         "non_tangent": "true" if call.non_tangent else "false",
         "radial_bearing": call.radial_bearing or "",
         "notes": call.notes or "",
+        "curve_type": call.curve_type or "",
     }
 
 
@@ -146,12 +199,93 @@ def _cleanup_stale_sidecars(output_file: Path, *, metadata_written: bool) -> Non
             sidecar.unlink()
 
 
+def _labelled_skips(
+    audit_context: AuditContext | None, explicit: list[SkippedCourse] | None
+) -> list[SkippedCourse]:
+    """Explicit and audit-context skip records, before tract routing."""
+    return [
+        *(explicit or []),
+        *(audit_context.skipped_courses if audit_context is not None else []),
+    ]
+
+
+_ROLE_CHECK = "non_boundary_tract"
+
+
+def _role_mismatch(tract: Tract, result: ClosureResult) -> bool:
+    """Whether the result carries a tract-role verdict that is not this tract's own."""
+    expected = (
+        set()
+        if is_boundary_tract(tract.tract_type)
+        else {non_boundary_detail(tract.label, tract.tract_type)}
+    )
+    # A result computed from the calls alone carries their non-boundary notes' verdict.
+    kinds = non_boundary_marks(tract.calls)
+    if kinds:
+        expected.add(non_boundary_marks_detail(kinds))
+    role_details = [c.detail for c in result.checks if c.name == _ROLE_CHECK]
+    role_details += [w for w in result.warnings if w.startswith(f"{_ROLE_CHECK}:")]
+    return any(detail not in expected for detail in role_details)
+
+
+def _exportable(tract: Tract, result: ClosureResult) -> bool:
+    """A verified parcel-boundary tract; easement/exception tracts never qualify,
+    nor do calls bearing an easement/exception tract's note, whatever tract holds them."""
+    return (
+        is_boundary_tract(tract.tract_type)
+        and not non_boundary_marks(tract.calls)
+        and not _role_mismatch(tract, result)
+        and result.is_fully_verified()
+    )
+
+
+def _not_exported_reason(tract: Tract, result: ClosureResult) -> str:
+    """Why a tract got no verified CSV, derived from the tract itself."""
+    if _role_mismatch(tract, result):
+        return "supplied verification result does not belong to this tract"
+    reasons = [w for w in result.warnings if not w.startswith(f"{_ROLE_CHECK}:")]
+    kinds = non_boundary_marks(tract.calls)
+    if not is_boundary_tract(tract.tract_type):
+        reasons.insert(0, non_boundary_detail(tract.label, tract.tract_type))
+    elif kinds:
+        reasons.insert(0, non_boundary_marks_detail(kinds))
+    return "; ".join(reasons) or "verification checks did not pass"
+
+
+def _known_tracts(
+    legal_desc: LegalDescription | None, tract_results: list[tuple[Tract, ClosureResult]]
+) -> list[Tract]:
+    """Every tract the caller knows, so a skip labelled with an omitted tract stays with it."""
+    known = [t for t, _ in tract_results]
+    labels = {t.label for t in known}
+    for tract in legal_desc.tracts if legal_desc is not None else []:
+        if tract.label not in labels:
+            known.append(tract)
+            labels.add(tract.label)
+    return known
+
+
+def _single_description_skips(
+    legal_desc: LegalDescription | None,
+    audit_context: AuditContext | None,
+    explicit: list[SkippedCourse] | None,
+) -> list[SkippedCourse]:
+    """Every skip blocking a single-description export, including each tract's own."""
+    labelled = _labelled_skips(audit_context, explicit)
+    skips = list(labelled)
+    tracts = legal_desc.tracts if legal_desc is not None else []
+    for tract in tracts:
+        skips.extend(skip for skip in skips_for_tract(tract, tracts, labelled) if skip not in skips)
+    return skips
+
+
 def _validate_export_geometry(
     calls: list[DeedCall],
     closure_result: ClosureResult,
     legal_desc: LegalDescription | None,
     *,
     independent_tract: bool = False,
+    skipped_courses: list[SkippedCourse] | None = None,
 ) -> list[DeedCall]:
     """Require the supplied verification to describe the calls actually exported."""
     selected_calls = legal_desc.calls if legal_desc is not None else calls
@@ -166,11 +300,13 @@ def _validate_export_geometry(
     from mp_verify import verify_closure, verify_tract
 
     verifier = verify_tract if independent_tract else verify_closure
-    fresh_result = verifier(selected_calls, stated_area_sq_ft=stated_area)
+    fresh_result = verifier(
+        selected_calls, stated_area_sq_ft=stated_area, skipped_courses=skipped_courses
+    )
     if not fresh_result.is_fully_verified():
         raise ValueError(
             "Cannot export verified CSV: selected calls failed fresh verification. "
-            f"Misclosure: {fresh_result.misclosure_ft:.4f} ft, "
+            f"Misclosure: {_misclosure_text(fresh_result)}, "
             f"Warnings: {len(fresh_result.warnings)}"
         )
     # Source review is an explicit human assessment, independent of fresh geometry.
@@ -211,52 +347,105 @@ def calls_to_csv(
     _cleanup_stale_sidecars(output_file, metadata_written=bool(metadata))
 
 
-def _row_to_call(row: dict[str, str | None], row_number: int | None = None) -> DeedCall | None:
-    """Convert a CSV row to a DeedCall object.
-
-    Returns None if the row fails validation.
-    """
-    try:
-        normalized_row = {k: (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
-        normalized_row = {k: (None if v == "" else v) for k, v in normalized_row.items()}
-
-        csv_row = _CSVDeedCallRow.model_validate(normalized_row)
-        normalized_payload = csv_row.model_dump()
-        normalized_payload["is_exception"] = bool(csv_row.is_exception)
-        normalized_payload["is_meander"] = bool(csv_row.is_meander)
-        normalized_payload["is_tie_in"] = bool(csv_row.is_tie_in)
-        normalized_payload["non_tangent"] = bool(csv_row.non_tangent)
-        return DeedCall.model_validate(normalized_payload, strict=True)
-
-    except (KeyError, TypeError, ValueError, ValidationError) as e:
-        row_label = row_number if row_number is not None else "unknown"
-        logger.warning("Skipping invalid CSV row", row=row_label, error=str(e))
-        return None
+class _RowWidthError(ValueError):
+    """A data row whose cell count differs from the header."""
 
 
-def csv_to_calls(input_path: str, *, strict: bool = True) -> list[DeedCall]:
+_ROW_ERRORS = (KeyError, TypeError, ValueError, ValidationError)
+
+
+def _validate_row(row: dict[str, str | None]) -> DeedCall:
+    """Convert a CSV row to a strict DeedCall, raising when the row is invalid."""
+    normalized_row = {k: (v.strip() if isinstance(v, str) else v) for k, v in row.items()}
+    normalized_row = {k: (None if v == "" else v) for k, v in normalized_row.items()}
+
+    csv_row = _CSVDeedCallRow.model_validate(normalized_row)
+    normalized_payload = csv_row.model_dump()
+    normalized_payload["is_exception"] = bool(csv_row.is_exception)
+    normalized_payload["is_meander"] = bool(csv_row.is_meander)
+    normalized_payload["is_tie_in"] = bool(csv_row.is_tie_in)
+    normalized_payload["non_tangent"] = bool(csv_row.non_tangent)
+    call = DeedCall.model_validate(normalized_payload, strict=True)
+    if "curve_type" in row or not call.is_curve() or LEGACY_CURVE_NOTE in (call.notes or ""):
+        return call
+    normalized_payload["notes"] = "; ".join(filter(None, (call.notes, LEGACY_CURVE_NOTE)))
+    return DeedCall.model_validate(normalized_payload, strict=True)
+
+
+def csv_to_calls(
+    input_path: str,
+    *,
+    strict: bool = True,
+    rejected_rows: list[tuple[int, str]] | None = None,
+) -> list[DeedCall]:
     """Load calls from a CSV file.
 
     Args:
         input_path: Input CSV file path.
-        strict: Reject invalid rows; False explicitly permits partial recovery.
+        strict: Reject invalid rows; False permits partial recovery only when
+            ``rejected_rows`` is supplied to record each rejected row.
+        rejected_rows: Receives ``(row_number, error)`` for each rejected row.
 
     Returns:
         List of DeedCall objects.
     """
-    with open(input_path) as f:
-        return csv_text_to_calls(f.read(), strict=strict)
+    with open(input_path, encoding="utf-8-sig", newline="") as f:
+        return csv_text_to_calls(f.read(), strict=strict, rejected_rows=rejected_rows)
 
 
-def csv_text_to_calls(text: str, *, strict: bool = True) -> list[DeedCall]:
-    """Decode retained CSV text without requiring or reopening its original file."""
+def csv_text_to_calls(
+    text: str,
+    *,
+    strict: bool = True,
+    rejected_rows: list[tuple[int, str]] | None = None,
+) -> list[DeedCall]:
+    """Decode retained CSV text without requiring or reopening its original file.
+
+    A rejected row is never dropped silently: strict import raises, and non-strict
+    import records it in ``rejected_rows`` (raising when no list is supplied), since
+    omitting a course would join its neighbours into a different boundary. The header
+    must be the exact current or legacy schema; anything else raises ValueError.
+
+    Row numbers in errors and ``rejected_rows`` are the physical line (1-based, header
+    is line 1) on which the rejected record starts, not a record count.
+    """
     calls: list[DeedCall] = []
-    for row_number, row in enumerate(csv.DictReader(io.StringIO(text)), start=2):
-        call = _row_to_call(row, row_number=row_number)
-        if call:
-            calls.append(call)
-        elif strict:
-            raise ValueError(f"Cannot import complete parcel: invalid CSV row {row_number}")
+    text = text.removeprefix("\ufeff")
+    reader = csv.reader(io.StringIO(text), strict=True)
+    try:
+        header = next(reader, None)
+        _require_supported_header(header)
+        assert header is not None
+        while True:
+            # Physical line where the record starts (a quoted cell may span lines).
+            row_number = reader.line_num + 1
+            values = next(reader, None)
+            if values is None:
+                break
+            if not values:
+                continue  # blank lines are skipped; a row of empty cells is still malformed
+            try:
+                if len(values) != len(header):
+                    raise _RowWidthError(f"expected {len(header)} cells, got {len(values)}")
+                calls.append(_validate_row(dict(zip(header, values, strict=True))))
+            except _ROW_ERRORS as e:
+                logger.warning("Invalid CSV row", row=row_number, error=str(e))
+                if strict:
+                    raise ValueError(
+                        f"Cannot import complete parcel: invalid CSV row {row_number}: {e}"
+                        if isinstance(e, _RowWidthError)
+                        else f"Cannot import complete parcel: invalid CSV row {row_number}"
+                    ) from e
+                if rejected_rows is None:
+                    raise ValueError(
+                        f"Cannot import parcel: invalid CSV row {row_number}; non-strict import "
+                        "requires rejected_rows to record each rejected course"
+                    ) from e
+                rejected_rows.append((row_number, str(e)))
+    except csv.Error as e:
+        raise ValueError(
+            f"Cannot import parcel: malformed CSV near row {reader.line_num}: {e}"
+        ) from e
 
     return calls
 
@@ -317,6 +506,7 @@ def export_verified_csv(
     *,
     tract_results: list[tuple[Tract, ClosureResult]] | None = None,
     audit_context: AuditContext | None = None,
+    skipped_courses: list[SkippedCourse] | None = None,
 ) -> list[Path]:
     """Export verified CSV(s).
 
@@ -329,20 +519,65 @@ def export_verified_csv(
         output_path: Base output file path.
         legal_desc: Optional LegalDescription for metadata.
         tract_results: Optional list of (Tract, ClosureResult) for multi-tract.
-        audit_context: Optional AuditContext for audit trail output.
+        audit_context: Optional AuditContext for audit trail output. Its
+            ``skipped_courses`` and each ``Tract.skipped_courses`` block export,
+            as does the explicit ``skipped_courses`` list. The exporter cannot
+            see skips it is not given: callers that extracted non-strictly must
+            pass the audit context (or tracts) used for extraction.
+        skipped_courses: Optional explicit skip records applied to the fresh
+            re-check, in addition to those above.
 
     Returns:
         List of written file paths.
 
+    Only MAIN/ADDITION tracts are export candidates: easement and exception
+    tracts describe land that is not the conveyed parcel, so they never get a
+    verified CSV, whatever their supplied result claims. They are listed in the
+    verification summary instead.
+
+    Nothing is exported when any known tract's role needs review
+    (``mp_models.roles_need_review``: several descriptions, and a role inferred from
+    wording rather than an explicit tract heading) or any supplied call bears the
+    role-review mark, whatever the supplied results claim: land whose role was
+    guessed is never exported. Calls bearing an easement/exception tract's note
+    (``mp_models.mark_non_boundary``) are never exported either, whichever tract or
+    selection supplies them.
+
     Raises:
         ValueError: If verification checks did not pass (single-tract only).
-            For multi-tract, individual unverified tracts are skipped with warnings.
+            For multi-tract, if no parcel-boundary tract is supplied or none
+            verifies; individual unverified or non-boundary tracts are skipped.
+            In both modes, if description roles need review.
     """
-    # In multi-tract mode, skip global gate — each tract checked independently
-    if not tract_results and not closure_result.is_fully_verified():
+    # Deed level, before anything else: the supplied tracts and the description's own,
+    # and the role-review mark on any supplied call.
+    known_tracts = _known_tracts(legal_desc, tract_results or [])
+    role_reasons = roles_need_review(
+        known_tracts, [*calls, *(legal_desc.calls if legal_desc is not None else [])]
+    )
+    if role_reasons:
+        raise ValueError("Cannot export verified CSV: " + roles_review_detail(role_reasons))
+    if not tract_results:
+        kinds = non_boundary_marks([*calls, *(legal_desc.calls if legal_desc is not None else [])])
+        if kinds:
+            raise ValueError("Cannot export verified CSV: " + non_boundary_marks_detail(kinds))
+    # Multi-tract mode gates per tract, but at least one boundary tract must verify.
+    if tract_results:
+        if not any(is_boundary_tract(tract.tract_type) for tract, _ in tract_results):
+            raise ValueError(
+                "Cannot export verified CSV: no parcel boundary tract (main or addition) "
+                "was supplied; easement and exception tracts are never eligible for "
+                f"verified export. Tracts checked: {len(tract_results)}"
+            )
+        if not any(_exportable(tract, result) for tract, result in tract_results):
+            raise ValueError(
+                "Cannot export verified CSV: no tract passed verification. "
+                f"Tracts checked: {len(tract_results)}"
+            )
+    elif not closure_result.is_fully_verified():
         raise ValueError(
             "Cannot export verified CSV: verification checks failed. "
-            f"Misclosure: {closure_result.misclosure_ft:.4f} ft, "
+            f"Misclosure: {_misclosure_text(closure_result)}, "
             f"Warnings: {len(closure_result.warnings)}"
         )
 
@@ -351,22 +586,38 @@ def export_verified_csv(
 
     # Validate every selected successful result before writing any output.
     if tract_results:
+        labelled_skips = _labelled_skips(audit_context, skipped_courses)
         for tract, result in tract_results:
-            if result.is_fully_verified():
+            if _exportable(tract, result):
                 selected = LegalDescription(
                     calls=tract.calls, stated_area_sq_ft=tract.stated_area_sq_ft
                 )
-                _validate_export_geometry(tract.calls, result, selected, independent_tract=True)
+                _validate_export_geometry(
+                    tract.calls,
+                    result,
+                    selected,
+                    independent_tract=True,
+                    skipped_courses=skips_for_tract(tract, known_tracts, labelled_skips),
+                )
     else:
-        _validate_export_geometry(calls, closure_result, legal_desc)
+        _validate_export_geometry(
+            calls,
+            closure_result,
+            legal_desc,
+            skipped_courses=_single_description_skips(legal_desc, audit_context, skipped_courses),
+        )
 
     if tract_results:
         for i, (tract, tract_result) in enumerate(tract_results, start=1):
-            if not tract_result.is_fully_verified():
+            if not _exportable(tract, tract_result):
                 logger.warning(
-                    "Skipping unverified tract",
+                    "Skipping tract that is not an exportable verified boundary",
                     tract=tract.label,
-                    misclosure_ft=tract_result.misclosure_ft,
+                    tract_type=tract_kind(tract.tract_type),
+                    boundary=is_boundary_tract(tract.tract_type),
+                    misclosure_ft=(
+                        tract_result.misclosure_ft if tract_result.misclosure_available else None
+                    ),
                     warnings_count=len(tract_result.warnings),
                 )
                 continue
@@ -392,8 +643,19 @@ def export_verified_csv(
     if tract_results:
         summaries: list[str] = []
         for tract, tract_result in tract_results:
+            if not _exportable(tract, tract_result):
+                continue
             summaries.append(f"--- {tract.label} ---")
             summaries.append(get_closure_summary(tract_result))
+            summaries.append("")
+        unverified = [(t, r) for t, r in tract_results if not _exportable(t, r)]
+        if unverified:
+            summaries.append("Not verified (no CSV written):")
+            for tract, tract_result in unverified:
+                reasons = _not_exported_reason(tract, tract_result)
+                summaries.append(
+                    f"{tract.label}: misclosure {_misclosure_text(tract_result)}; {reasons}"
+                )
             summaries.append("")
         with open(summary_path, "w") as f:
             f.write("\n".join(summaries))

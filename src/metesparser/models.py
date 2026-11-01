@@ -156,9 +156,12 @@ class DeedCall(_Model):
         ge=0,
         lt=360,
     )
-    distance_ft: FiniteFloat = Field(
+    distance_ft: FiniteFloat | None = Field(
         ...,
-        description="Distance in decimal feet",
+        description=(
+            "Distance in decimal feet; None only for a spiral whose length is not "
+            "stated (not determinable without fabrication)"
+        ),
         gt=0,
     )
 
@@ -177,7 +180,7 @@ class DeedCall(_Model):
     )
     arc_length_ft: FiniteFloat | None = Field(
         default=None,
-        description="Arc length in feet",
+        description="Arc length in feet; for a spiral, the stated spiral length (never R * delta)",
         ge=0,
     )
     chord_bearing: str | None = Field(default=None, description="Chord bearing")
@@ -325,19 +328,80 @@ class DeedCall(_Model):
         if not has_curve_measure and not has_curve_direction:
             return self
 
+        # A spiral stated only by chord bearing and chord length is positioned by
+        # that chord; its radius and direction are not required (never invented).
+        # Circular curves still require direction and radius.
+        if (
+            self.curve_type == "spiral"
+            and not has_radius
+            and has_chord
+            and self.chord_bearing is not None
+        ):
+            return self
+
+        # A spiral's stated length IS its stated curve length (stored in
+        # arc_length_ft, never R * delta). A spiral stated by length (and optionally
+        # radius) needs neither direction nor chord; it is unpositioned in
+        # verification unless a chord is stated.
+        if self.curve_type == "spiral" and has_arc:
+            return self
+
         if not has_curve_direction:
             raise ValueError("curve_dir is required when any curve field is provided")
 
-        if not has_radius or not (has_delta or has_arc):
+        # Radius + chord (bearing and length) without a delta or arc is ambiguous
+        # (minor vs major arc); it is accepted so the course can be positioned by
+        # its chord, but verification never treats its arc as determined.
+        has_full_chord = has_chord and self.chord_bearing is not None
+        if not has_radius or not (has_delta or has_arc or has_full_chord):
             raise ValueError(
-                "Curve geometry requires radius_ft and either delta_deg or arc_length_ft"
+                "Curve geometry requires radius_ft and either delta_deg, arc_length_ft, "
+                "or chord_bearing with chord_length_ft"
             )
 
         return self
 
+    @model_validator(mode="after")
+    def validate_undetermined_distance(self) -> Self:
+        """Allow an undetermined distance only for a spiral with no stated length.
+
+        A spiral's length is not R * delta, so a spiral stated by radius and delta
+        alone has no determinable course distance; any other course states one or
+        fixes it (arc, chord, or radius and delta of a circular arc).
+        """
+        if self.distance_ft is not None:
+            return self
+        if (
+            self.curve_type != "spiral"
+            or self.curve_dir is None
+            or self.arc_length_ft is not None
+            or self.chord_length_ft is not None
+        ):
+            raise ValueError(
+                "distance_ft may be None only for a spiral curve with no stated arc or chord length"
+            )
+        return self
+
+    def is_chord_only_curve(self) -> bool:
+        """Return True for a curve stated by radius and chord without delta or arc."""
+        return (
+            self.curve_dir is not None
+            and self.radius_ft is not None
+            and self.delta_deg is None
+            and self.arc_length_ft is None
+            and self.chord_bearing is not None
+            and self.chord_length_ft is not None
+        )
+
     def is_curve(self) -> bool:
-        """Check if this call represents a curve."""
-        return self.curve_dir is not None or self.radius_ft is not None
+        """Check if this call is a curved (non-straight) course, spirals included.
+
+        A spiral is curved even with no radius or direction; it is never a circular
+        arc (see ``mp_verify.tangents.is_circular_curve``) and never a straight line.
+        """
+        return (
+            self.curve_dir is not None or self.radius_ft is not None or self.curve_type == "spiral"
+        )
 
     def is_complete_bearing(self) -> bool:
         """Check if bearing is fully specified (has azimuth)."""
@@ -518,7 +582,26 @@ class ClosureResult(_Model):
         description="Area in square feet (shoelace formula)",
     )
     area_acres: FiniteFloat = Field(..., description="Area in acres")
-    perimeter_ft: FiniteFloat = Field(..., description="Total perimeter in feet")
+    perimeter_ft: FiniteFloat = Field(
+        ...,
+        description="Total perimeter in feet; 0.0 when perimeter_available is False",
+    )
+    misclosure_available: bool = Field(
+        default=True,
+        description="False when a course could not be positioned, so later vertices are not "
+        "known in absolute terms; misclosure values are then 0.0 and not measurements",
+    )
+    area_available: bool = Field(
+        default=True,
+        description="False when area cannot be determined (e.g. a chord-only curve, an "
+        "unpositioned course or an incomplete bearing); area_sq_ft/area_acres are then not "
+        "measurements",
+    )
+    perimeter_available: bool = Field(
+        default=True,
+        description="False when a course length is not determined (e.g. a chord-only curve "
+        "or an unpositioned course); perimeter_ft is then not a measurement",
+    )
 
     closure_passed: bool = Field(
         ...,
@@ -574,6 +657,9 @@ class ClosureResult(_Model):
         "closure_passed",
         "angle_check_passed",
         "curve_consistency_passed",
+        "perimeter_available",
+        "area_available",
+        "misclosure_available",
         mode="before",
     )
     @classmethod
@@ -590,6 +676,7 @@ class ClosureResult(_Model):
             outcomes = {check.name: check.status for check in self.checks}
             return (
                 self.closure_passed
+                and self.misclosure_available
                 and outcomes.get("traverse_closure") == "passed"
                 and (self.angle_check_passed or outcomes.get("interior_angles") == "not_applicable")
                 and (
@@ -604,6 +691,7 @@ class ClosureResult(_Model):
         # fresh verification against the calls before accepting these results.
         return (
             self.closure_passed
+            and self.misclosure_available
             and self.angle_check_passed
             and self.curve_consistency_passed
             and not self.warnings
@@ -613,6 +701,8 @@ class ClosureResult(_Model):
         """Get human-readable closure status."""
         if self.warnings:
             return "NEEDS REVIEW"
+        if not self.misclosure_available:
+            return "NOT DETERMINED"
         if self.misclosure_ft < 0.01:
             return "EXCELLENT"
         if self.misclosure_ft < 0.1:
@@ -631,6 +721,25 @@ class TractType(str, Enum):
     EASEMENT = "easement"
 
 
+class SkippedCourse(_Model):
+    """A course non-strict extraction could not parse; recorded, never silently dropped.
+
+    Mirrors ``mp_models.SkippedCourse``: the course number stays reserved so the gap
+    is visible, and verification given a skipped course blocks traverse closure.
+    """
+
+    course: int = Field(
+        ..., ge=1, strict=True, description="Reserved course number of the skipped course"
+    )
+    source_course: int = Field(
+        ..., ge=1, strict=True, description="Position of the course text within its tract"
+    )
+    source_excerpt: str = Field(..., description="Verbatim course text that was not parsed")
+    error_type: str = Field(..., description="Why the course was not parsed (exception type)")
+    error: str = Field(..., description="Parser error message")
+    tract_label: str | None = Field(default=None, description="Tract label in a multi-tract deed")
+
+
 class Tract(_Model):
     """A single tract in a multi-tract deed."""
 
@@ -639,10 +748,21 @@ class Tract(_Model):
     )
     tract_type: TractType = Field(..., description="Type of tract")
     calls: list[DeedCall] = Field(default_factory=list, description="Calls for this tract")
+    skipped_courses: list[SkippedCourse] = Field(
+        default_factory=list, description="Courses of this tract extraction could not parse"
+    )
     pob_description: str | None = Field(default=None, description="POB for this tract")
     stated_area_sq_ft: FiniteFloat | None = Field(default=None, description="Stated area")
     closure_result: ClosureResult | None = Field(
         default=None, description="Closure result (populated by mp-verify)"
+    )
+    # Mirrors ``mp_models.Tract.role_basis`` (see ``mp_models.tract.RoleBasis``).
+    role_basis: Literal["heading", "single", "inferred"] | None = Field(
+        default=None,
+        description=(
+            "Where tract_type came from: an explicit tract heading, the deed's single "
+            "description, or wording heuristics (None: not recorded)"
+        ),
     )
 
 
@@ -784,6 +904,9 @@ class VerificationAudit(_Model):
 
     checks: list[CheckResult] = Field(default_factory=list)
     closure_summary: dict[str, float | str] = Field(default_factory=dict)
+    tract_label: str | None = Field(
+        default=None, description="Tract label when recorded by per-tract verification"
+    )
 
 
 class AuditContext(BaseModel):
@@ -799,4 +922,10 @@ class AuditContext(BaseModel):
     run_metadata: RunMetadata
     extraction_record: ExtractionRecord | None = Field(default=None)
     call_audits: list[CallAudit] = Field(default_factory=list)
+    skipped_courses: list[SkippedCourse] = Field(
+        default_factory=list, description="Courses non-strict extraction could not parse"
+    )
     verification_audit: VerificationAudit | None = Field(default=None)
+    tract_verification_audits: list[VerificationAudit] = Field(
+        default_factory=list, description="Per-tract verification audits, in tract order"
+    )

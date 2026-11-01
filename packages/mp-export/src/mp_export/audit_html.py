@@ -9,7 +9,7 @@ from __future__ import annotations
 import html
 from pathlib import Path
 
-from mp_models import AuditContext
+from mp_models import AuditContext, VerificationAudit
 
 
 def _confidence_class(score: float) -> str:
@@ -133,6 +133,25 @@ def _build_extraction_section(ctx: AuditContext) -> str:
     return "\n".join(parts)
 
 
+def _build_skipped_section(ctx: AuditContext) -> str:
+    """List courses non-strict extraction could not parse (they block closure)."""
+    parts = [
+        "<div class='section'>",
+        "<h2>Skipped Courses</h2>",
+        "<p>These courses were not parsed; closure, area and perimeter are not determined.</p>",
+        "<table>",
+        "<tr><th>Course</th><th>Tract</th><th>Source Excerpt</th><th>Error</th></tr>",
+    ]
+    for skip in ctx.skipped_courses:
+        parts.append(
+            f"<tr><td>{skip.course}</td><td>{html.escape(skip.tract_label or '')}</td>"
+            f"<td>{html.escape(skip.source_excerpt)}</td>"
+            f"<td>{html.escape(skip.error_type)}: {html.escape(skip.error)}</td></tr>"
+        )
+    parts.extend(["</table>", "</div>"])
+    return "\n".join(parts)
+
+
 def _build_calls_section(ctx: AuditContext) -> str:
     """Build the call-by-call audit section."""
     parts: list[str] = []
@@ -214,14 +233,23 @@ def _build_calls_section(ctx: AuditContext) -> str:
 
 
 def _build_verification_section(ctx: AuditContext) -> str:
-    """Build the verification audit section."""
-    va = ctx.verification_audit
-    if va is None:
+    """Build the verification audit section(s): one per tract when present."""
+    if ctx.tract_verification_audits:
+        return "\n".join(
+            _build_one_verification(va, va.tract_label) for va in ctx.tract_verification_audits
+        )
+    if ctx.verification_audit is None:
         return ""
+    return _build_one_verification(ctx.verification_audit, None)
+
+
+def _build_one_verification(va: VerificationAudit, tract_label: str | None) -> str:
+    """Render a single verification audit, labelled with its tract when given."""
+    title = "Verification" if tract_label is None else f"Verification - {html.escape(tract_label)}"
     parts: list[str] = []
     parts.append("<div class='section'>")
     parts.append("<details>")
-    parts.append("<summary>Verification</summary>")
+    parts.append(f"<summary>{title}</summary>")
 
     if va.checks:
         parts.append("<table>")
@@ -285,7 +313,10 @@ def generate_html(ctx: AuditContext) -> str:
     if ctx.call_audits:
         parts.append(_build_calls_section(ctx))
 
-    if ctx.verification_audit is not None:
+    if ctx.skipped_courses:
+        parts.append(_build_skipped_section(ctx))
+
+    if ctx.verification_audit is not None or ctx.tract_verification_audits:
         parts.append(_build_verification_section(ctx))
 
     parts.append("</body>")

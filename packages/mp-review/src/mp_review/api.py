@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import csv
 import hashlib
 import html
-import io
 import json
 import math
 from datetime import UTC, datetime
@@ -13,14 +11,22 @@ from pathlib import Path
 from typing import Any
 
 from mp_export.csv_writer import (
-    FIELDNAMES,
     calls_to_csv,
     csv_text_to_calls,
     export_verified_csv,
 )
-from mp_models import AuditContext, DeedCall, LegalDescription, RunMetadata
+from mp_models import (
+    AuditContext,
+    DeedCall,
+    LegalDescription,
+    RunMetadata,
+    mark_roles_review,
+    roles_need_review,
+    roles_review_detail,
+)
 from mp_verify import verify_closure
 
+from .json_input import parse_json
 from .text import prepare_text
 
 ENGINE_VERSION = "1.0.0"
@@ -106,7 +112,7 @@ def _run(
                     }
                 )
         elif kind == "json":
-            data = json.loads(
+            data = parse_json(
                 text,
                 parse_constant=lambda x: (_ for _ in ()).throw(ValueError(f"Invalid number {x}")),
             )
@@ -119,11 +125,6 @@ def _run(
             else:
                 raise ValueError("JSON must be a calls list or LegalDescription object.")
         elif kind == "csv":
-            reader = csv.reader(io.StringIO(text))
-            if next(reader, None) != FIELDNAMES:
-                raise ValueError("CSV header must match the complete 21-field schema.")
-            if any(len(row) != len(FIELDNAMES) for row in reader if row):
-                raise ValueError("CSV contains a row with incorrect field count.")
             calls = csv_text_to_calls(text, strict=True)
             legal = LegalDescription(calls=calls)
         else:
@@ -132,6 +133,17 @@ def _run(
             )
         if stated_area_sq_ft is not None:
             legal = legal.model_copy(update={"stated_area_sq_ft": stated_area_sq_ft})
+        # Fail closed on guessed description roles (the one gate, for every input
+        # kind): flat calls of a deed with several descriptions and an inferred role,
+        # or calls a blocked review marked, never reach checks_passed or export.
+        role_review = roles_need_review(legal.tracts, calls)
+        if role_review:
+            # Marked, every artifact written below stays blocked when re-reviewed.
+            calls = mark_roles_review(calls)
+            legal = legal.model_copy(update={"calls": calls})
+            result["errors"].append(
+                {"code": "description_roles_inferred", "message": roles_review_detail(role_review)}
+            )
         result["calls"] = [c.model_dump(mode="json") for c in calls]
         if not calls:
             result["errors"].append({"code": "no_calls", "message": "No calls could be parsed."})
@@ -160,6 +172,9 @@ def _run(
         "normalized_text": normalized,
         "source_encoding": "utf-8" if text else "unavailable or empty",
         "call_audits": [a.model_dump(mode="json") for a in audit.call_audits],
+        # Courses extraction could not parse stay auditable (empty under strict text
+        # extraction); verify_closure already blocks on them via audit_context.
+        "skipped_courses": [s.model_dump(mode="json") for s in audit.skipped_courses],
         "verification_audit": audit.verification_audit.model_dump(mode="json")
         if audit.verification_audit
         else None,
@@ -195,7 +210,14 @@ def _run(
             )
             if result["status"] == "checks_passed" and verification is not None:
                 # Exporter rechecks geometry before issuing the verified artifact.
-                export_verified_csv(calls, verification, str(directory / "calls.csv"), legal)
+                export_verified_csv(
+                    calls,
+                    verification,
+                    str(directory / "calls.csv"),
+                    legal,
+                    # Re-blocks a fresh export check on any recorded skip.
+                    skipped_courses=list(audit.skipped_courses),
+                )
                 result["artifacts"]["calls_verified.csv"] = str(directory / "calls_verified.csv")
             body = html.escape(json.dumps(result, indent=2, allow_nan=False))
             write(

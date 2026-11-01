@@ -52,16 +52,28 @@ def main():
         print(
             f"  Azimuth:    {f'{call.bearing_azimuth_deg_from_north:.2f}°' if call.bearing_azimuth_deg_from_north is not None else '(none)'}"
         )
-        print(f"  Distance:   {call.distance_ft:.2f} ft")
+        distance = (
+            f"{call.distance_ft:.2f} ft" if call.distance_ft is not None else "not determined"
+        )
+        print(f"  Distance:   {distance}")
         print(f"  Along:      {call.along[:60] if call.along else '(none)'}...")
         print(f"  Notes:      {call.notes or '(none)'}")
         print()
 
     print("\n--- STEP 5: CLOSURE VERIFICATION ---")
     result = ClosureChecker.verify_closure(calls)
-    print(f"Misclosure:     {result.misclosure_ft:.4f} ft")
-    print(f"Area:           {result.area_sq_ft:.2f} sq ft ({result.area_acres:.4f} acres)")
-    print(f"Perimeter:      {result.perimeter_ft:.2f} ft")
+    misclosure = (
+        f"{result.misclosure_ft:.4f} ft" if result.misclosure_available else "not determined"
+    )
+    print(f"Misclosure:     {misclosure}")
+    area = (
+        f"{result.area_sq_ft:.2f} sq ft ({result.area_acres:.4f} acres)"
+        if result.area_available
+        else "not determined"
+    )
+    print(f"Area:           {area}")
+    perimeter = f"{result.perimeter_ft:.2f} ft" if result.perimeter_available else "not determined"
+    print(f"Perimeter:      {perimeter}")
     print(f"Closure Status: {result.get_closure_status()}")
 
     if result.warnings:

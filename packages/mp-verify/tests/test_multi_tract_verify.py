@@ -113,3 +113,24 @@ class TestVerifyClosureMultiTract:
             _square_calls(), stated_area_sq_ft=10000.0, closure_tolerance_ft=0.1
         )
         assert isinstance(result, ClosureResult)
+
+
+class TestVerifyTractRoleBinding:
+    def test_role_check_argument_is_rejected(self):
+        import pytest
+        from mp_verify.checks import evaluate_tract_role
+
+        with pytest.raises(TypeError):
+            verify_tract(  # type: ignore[call-arg]
+                _square_calls(),
+                role_check=evaluate_tract_role("Tract 1", TractType.EASEMENT),
+            )
+
+    def test_easement_tract_is_blocked(self):
+        tract = Tract(label="Tract 1", tract_type=TractType.EASEMENT, calls=_square_calls())
+        result = verify_tract(tract.calls, tract=tract)
+        assert not result.is_fully_verified()
+
+    def test_main_tract_verifies(self):
+        tract = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls())
+        assert verify_tract(tract.calls, tract=tract).is_fully_verified()

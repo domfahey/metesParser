@@ -19,6 +19,8 @@ from mp_models.diagnostics import (
 from mp_models.plot import PlotPrimitive
 
 from .plot import _arc
+from .tangents import line_distance
+from .traverse import effective_indefinite
 
 ARCSECOND_RADIANS = math.pi / 648000
 _Parameter = Literal["radius_ft", "sweep_radian", "start_tangent_radian"]
@@ -63,16 +65,14 @@ def _curve_evidence(call: DeedCall) -> bool:
 def _supported_circular_arc(call: DeedCall, call_id: str) -> PlotPrimitive:
     """Reuse plotting's redundant measurement and tangent/chord checks before analysis.
 
-    Individual circular members of compound/reverse curves are supported. Radial
-    observations cannot be checked without a declared inward/outward convention.
+    Individual circular members of compound/reverse curves are supported. A stated
+    radial bearing orients a non-tangent curve through the shared tangents rule.
     Full circles lack a distinct chord orientation in the shared plot contract.
     """
     if not call.is_curve():
         raise ValueError("partial curve evidence; radius, sweep and direction required")
     if call.curve_type == "spiral":
         raise ValueError("spiral geometry unsupported; no circular arc assumed")
-    if call.radial_bearing is not None:
-        raise ValueError("radial curve orientation convention unsupported; no evidence discarded")
     if call.delta_deg == 360:
         raise ValueError("full circles unsupported; require a distinct arc endpoint")
     primitive = _arc(call, (0.0, 0.0), {"call_id": call_id, "occurrence_id": None, "page_id": None})
@@ -160,7 +160,7 @@ def diagnose_closure(request: ClosureDiagnosticRequest) -> ClosureDiagnostics:
             unsupported.append(f"{item.call_id}: meander")
         if call.is_exception:
             unsupported.append(f"{item.call_id}: exception_boundary")
-        if call.is_indefinite:
+        if effective_indefinite(call):
             incomplete.append(f"{item.call_id}: indefinite_call")
     minimum = 2 if arcs else 3
     if len(boundary) < minimum:
@@ -184,7 +184,8 @@ def diagnose_closure(request: ClosureDiagnosticRequest) -> ClosureDiagnostics:
     north = []
     try:
         perimeter = math.fsum(
-            arcs[c.call_id].length_ft if c.call_id in arcs else c.call.distance_ft for c in boundary
+            arcs[c.call_id].length_ft if c.call_id in arcs else line_distance(c.call)
+            for c in boundary
         )
         if request.precision is not None and arcs:
             limitations.append(
@@ -195,7 +196,7 @@ def diagnose_closure(request: ClosureDiagnosticRequest) -> ClosureDiagnostics:
             half_angle = request.precision.bearing_increment_arcsec * ARCSECOND_RADIANS / 2
             bound = math.fsum(
                 half_distance
-                + (item.call.distance_ft + half_distance) * 2 * math.sin(half_angle / 2)
+                + (line_distance(item.call) + half_distance) * 2 * math.sin(half_angle / 2)
                 for item in boundary
             )
             if not math.isfinite(bound):
@@ -212,11 +213,10 @@ def diagnose_closure(request: ClosureDiagnosticRequest) -> ClosureDiagnostics:
                 assert call.bearing_azimuth_deg_from_north is not None
                 theta = math.radians(call.bearing_azimuth_deg_from_north)
                 sine, cosine = math.sin(theta), math.cos(theta)
-                east.append(call.distance_ft * sine)
-                north.append(call.distance_ft * cosine)
-                derivatives.append(
-                    (sine, cosine, call.distance_ft * cosine, -call.distance_ft * sine)
-                )
+                distance = line_distance(call)
+                east.append(distance * sine)
+                north.append(distance * cosine)
+                derivatives.append((sine, cosine, distance * cosine, -distance * sine))
         e, n = math.fsum(east), math.fsum(north)
         magnitude = math.hypot(e, n)
         if not all(math.isfinite(v) for v in (perimeter, e, n, magnitude)):

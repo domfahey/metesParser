@@ -11,7 +11,7 @@ from mp_models.diagnostics import ClosureDiagnosticRequest
 from mp_verify.diagnostics import diagnose_closure
 
 from .dashboard import _atomic
-from .plot import _finite_json
+from .json_input import InvalidInputJson, parse_json
 from .relative import _invalid_number, _unique_object
 
 
@@ -46,8 +46,7 @@ def diagnose_closure_file(input: Path | str, output_dir: Path | str) -> dict[str
         if source_path.is_symlink() or not source_path.is_file():
             raise ValueError("Input must be an existing regular request file")
         data = source_path.read_bytes()
-        payload = json.loads(data, object_pairs_hook=_unique_object, parse_constant=_invalid_number)
-        _finite_json(payload)
+        payload = parse_json(data, object_pairs_hook=_unique_object, parse_constant=_invalid_number)
         request = ClosureDiagnosticRequest.model_validate(payload)
         diagnostics = diagnose_closure(request)
         rendered = _json(diagnostics.model_dump(mode="json"))
@@ -78,7 +77,7 @@ def diagnose_closure_file(input: Path | str, output_dir: Path | str) -> dict[str
             _atomic(directory / name, content)
             result["artifacts"][name] = str(directory / name)
         result.update(diagnostics=diagnostics.model_dump(mode="json"), manifest=manifest)
-    except (OSError, ValueError, TypeError, ArithmeticError):
+    except (OSError, ValueError, TypeError, ArithmeticError, RecursionError, InvalidInputJson):
         result["status"] = "error"
         result["errors"] = [
             {
