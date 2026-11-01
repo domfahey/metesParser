@@ -115,6 +115,11 @@ COMMA_JOINED_COURSE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Two courses in one sentence pair: "122.55 feet to a point. South 18 degrees 05 minutes ..."
+SENTENCE_JOINED_COURSE_PATTERN = re.compile(
+    r"(?<=\bpoint)\.\s+(?=(?:North|South)\s+\d{1,3}\s*(?:degrees?|°|deg\.?))", re.IGNORECASE
+)
+
 # Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from call_extractor.py
 CARDINAL_ONLY_PATTERN = re.compile(
     r"\b(north|south|east|west|northeast|northwest|southeast|southwest|NE|NW|SE|SW)(?:erly|wardly)?\b",
@@ -348,7 +353,12 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
         if segments and BEARING_PATTERN.match(last_sentence):
             segments.insert(0, last_sentence)
 
-    segments = [part for segment in segments for part in COMMA_JOINED_COURSE_PATTERN.split(segment)]
+    segments = [
+        part
+        for segment in segments
+        for joined in COMMA_JOINED_COURSE_PATTERN.split(segment)
+        for part in SENTENCE_JOINED_COURSE_PATTERN.split(joined)
+    ]
 
     for i, segment in enumerate(segments, 1):
         bearing_match = BEARING_PATTERN.search(segment)

@@ -153,7 +153,7 @@ def _mark_restated_pob_tie_lines(calls: list[DeedCall], call_texts: list[str]) -
 # "said point being the following two courses and distances from the intersection":
 # the first courses run from the reference point to the POB, so they are tie lines.
 _PREAMBLE_TIE_COURSES_PATTERN = re.compile(
-    r"\bbeing\s+the\s+following\s+(?:(\w+)(?:\s+\(\d+\))?\s+)?courses?\s+and\s+distances?\s+from\b",
+    r"\b(?:being|located\s+at)\s+the\s+following\s+(?:(\w+)(?:\s+\(\d+\))?\s+)?courses?\s+and\s+distances?\s+from\b",
     re.IGNORECASE,
 )
 _COUNT_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}

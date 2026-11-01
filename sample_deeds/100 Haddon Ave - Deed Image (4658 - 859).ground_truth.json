@@ -1,20 +1,26 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "100 Haddon Avenue",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "4658",
+    "page": "859",
+    "block": "130",
+    "lot": "6 and 9",
+    "date": "October 20, 1993",
+    "grantor": "Bell Service Corporation",
+    "grantee": "Sowamco V, Ltd., a Texas limited partnership",
+    "consideration": "$92,184.00"
   },
   "raw_ocr_text": "I can’t accurately extract **all** text with exact spelling/line breaks from these images as provided: the pages are too low‑resolution/blurred in key areas (especially the grantor/grantee block, consideration figures, and several lines in the legal description). Any “complete text” I returned would require guessing, which would violate your accuracy requirements.\n\nWhat I *can* do now is transcribe the portions that are clearly legible—most importantly the **BEGINNING / THENCE** legal description on “EXHIBIT ‘A’”. Below is the text I can read with high confidence, preserving line breaks and capitalization as shown.\n\n---\n\nEXHIBIT \"A\"\n\nLAND AND PREMISES SITUATE IN THE BOROUGH OF HADDONFIELD,\nCOUNTY OF CAMDEN AND STATE OF NEW JERSEY BOUNDED AND DESCRIBED\nAS FOLLOWS:\n\nBEGINNING AT THE WEST CORNER OF HADDON AND EUCLID (FORMERLY\nREDMAN STREET) AVENUES; THENCE\n\n1.  NORTHWEST ALONG THE SOUTHWEST LINE OF HADDON AVENUE 129\n    FEET; THENCE\n\n2.  SOUTHWEST, FORMING AN INTERIOR ANGLE OF 89 DEGREES ...",
-  "expected_legal_description": "LAND AND PREMISES SITUATE IN THE BOROUGH OF HADDONFIELD,\nCOUNTY OF CAMDEN AND STATE OF NEW JERSEY BOUNDED AND DESCRIBED\nAS FOLLOWS:\n\nBEGINNING AT THE WEST CORNER OF HADDON AND EUCLID (FORMERLY\nREDMAN STREET) AVENUES; THENCE\n\n1.  NORTHWEST ALONG THE SOUTHWEST LINE OF HADDON AVENUE 129\n    FEET; THENCE\n\n2.  SOUTHWEST, FORMING AN INTERIOR ANGLE OF 89 DEGREES 43\n    MINUTES 30 SECONDS, PARALLEL WITH EUCLID AVENUE, 200 FEET TO THE\n    NORTHEAST LINE OF TURNLEY AVENUE; THENCE\n\n3.  SOUTHEAST, FORMING AN INTERIOR ANGLE OF 90 DEGREES 16\n    MINUTES 10 SECONDS WITH LAST MENTIONED COURSE, AND RUNNING ALONG\n    THE NORTHEAST LINE OF TURNLEY AVENUE, 129 FEET TO THE NORTHEAST\n    LINE OF EUCLID AVENUE; AND THENCE\n\n4.  NORTHEAST FORMING AN INTERIOR ANGLE OF 89 DEGREES 43\n    MINUTES 30 SECONDS WITH TURNLEY AVENUE AND RUNNING ALONG THE\n    NORTHWEST LINE OF EUCLID AVENUE 200 FEET TO THE SOUTHWEST LINE\n    OF HADDON AVENUE AND PLACE OF BEGINNING.\n\nBEING KNOWN AS LOTS 6 AND 9, BLOCK 130 AS SHOWN ON THE\nTAX MAP.",
-  "expected_normalized_text": "LAND AND PREMISES SITUATE IN THE BOROUGH OF HADDONFIELD, COUNTY OF CAMDEN AND STATE OF NEW JERSEY BOUNDED AND DESCRIBED AS FOLLOWS:\n\nBEGINNING AT THE WEST CORNER OF HADDON AND EUCLID (FORMERLY REDMAN STREET) AVENUES; THENCE\n\n1. NW ALONG THE SW LINE OF HADDON AVENUE 129 FEET; THENCE\n\n2. SW, FORMING AN INTERIOR ANGLE OF 89°43'30\", PARALLEL WITH EUCLID AVENUE, 200 FEET TO THE NE LINE OF TURNLEY AVENUE; THENCE\n\n3. SE, FORMING AN INTERIOR ANGLE OF 90°16'10\" WITH LAST MENTIONED COURSE, AND RUNNING ALONG THE NE LINE OF TURNLEY AVENUE, 129 FEET TO THE NE LINE OF EUCLID AVENUE; AND THENCE\n\n4. NE FORMING AN INTERIOR ANGLE OF 89°43'30\" WITH TURNLEY AVENUE AND RUNNING ALONG THE NW LINE OF EUCLID AVENUE 200 FEET TO THE SW LINE OF HADDON AVENUE AND PLACE OF BEGINNING.\n\nBEING KNOWN AS LOTS 6 AND 9, BLOCK 130 AS SHOWN ON THE TAX MAP.",
+  "expected_legal_description": "LAND AND PREMISES SITUATE IN THE BOROUGH OF HADDONFIELD,\nCOUNTY OF CAMDEN AND STATE OF NEW JERSEY BOUNDED AND DESCRIBED\nAS FOLLOWS:\n\nBEGINNING AT THE WEST CORNER OF HADDON AND EUCLID (FORMERLY\nREDMAN STREET) AVENUES; THENCE\n\n1.  NORTHWEST ALONG THE SOUTHWEST LINE OF HADDON AVNEUE 129\nFEET; THENCE\n\n2.  SOUTHWEST, FORMING AN INTERIOR ANGLE OF 89 DEGREES 43\nMINUTES 30 SECONDS, PARALLEL WITH EUCLID AVENUE, 200 FEET TO THE\nNORTHEAST LINE OF TURNLEY AVENUE; THENCE\n\n3.  SOUTHEAST, FORMING AN INTERIOR ANGLE OF 90 DEGREES 16\nMINUTES 30 SECONDS WITH LAST MENTIONED COURSE, AND RUNNING ALONG\nTHE NORTHEAST LINE OF TURNLEY AVENUE, 129 FEET TO THE NORTHWEST\nLINE OF EUCLID AVENUE; AND THENCE\n\n4.  NORTHEAST FORMING AN INTERIOR ANGLE OF 89 DEGREES 43\nMINUTES 30 SECONDS WITH TURNLEY AVENUE AND RUNNING ALONG THE\nNORTHWEST LINE OF EUCLID AVENUE 200 FEET TO THE SOUTHWEST LINE\nOF HADDON AVENUE AND PLACE OF BEGINNING.\n\nBEING KNOWN AS LOTS 6 AND 9, BLOCK 130 AS SHOWN ON THE\nTAX MAP.",
+  "expected_normalized_text": "LAND AND PREMISES SITUATE IN THE BOROUGH OF HADDONFIELD, COUNTY OF CAMDEN AND STATE OF NEW JERSEY BOUNDED AND DESCRIBED AS FOLLOWS:\nBEGINNING AT THE WEST CORNER OF HADDON AND EUCLID (FORMERLY REDMAN STREET) AVENUES; THENCE\n1.  NORTHWEST ALONG THE SOUTHWEST LINE OF HADDON AVNEUE 129 FEET; THENCE\n2.  SOUTHWEST, FORMING AN INTERIOR ANGLE OF 89 DEGREES 43 MINUTES 30 SECONDS, PARALLEL WITH EUCLID AVENUE, 200 FEET TO THE NORTHEAST LINE OF TURNLEY AVENUE; THENCE\n3.  SOUTHEAST, FORMING AN INTERIOR ANGLE OF 90 DEGREES 16 MINUTES 30 SECONDS WITH LAST MENTIONED COURSE, AND RUNNING ALONG THE NORTHEAST LINE OF TURNLEY AVENUE, 129 FEET TO THE NORTHWEST LINE OF EUCLID AVENUE; AND THENCE\n4.  NORTHEAST FORMING AN INTERIOR ANGLE OF 89 DEGREES 43 MINUTES 30 SECONDS WITH TURNLEY AVENUE AND RUNNING ALONG THE NORTHWEST LINE OF EUCLID AVENUE 200 FEET TO THE SOUTHWEST LINE OF HADDON AVENUE AND PLACE OF BEGINNING. BEING KNOWN AS LOTS 6 AND 9, BLOCK 130 AS SHOWN ON THE TAX MAP.",
   "expected_poc": null,
   "expected_pob": "THE WEST CORNER OF HADDON AND EUCLID (FORMERLY REDMAN STREET) AVENUES",
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "NW",
+      "direction_text": "NORTHWEST",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 129.0,
@@ -22,14 +28,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "THE SW LINE OF HADDON AVENUE 129 FEET",
+      "along": "THE SOUTHWEST LINE OF HADDON AVNEUE",
       "to": null,
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; the deed prints \"AVNEUE\""
     },
     {
       "course": 2,
-      "direction_text": "SW",
+      "direction_text": "SOUTHWEST",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 200.0,
@@ -38,13 +44,13 @@
       "delta_deg": null,
       "arc_length_ft": null,
       "along": null,
-      "to": "THE NE LINE OF TURNLEY AVENUE",
+      "to": "THE NORTHEAST LINE OF TURNLEY AVENUE",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 89°43'30\"; parallel with Euclid Avenue"
     },
     {
       "course": 3,
-      "direction_text": "SE",
+      "direction_text": "SOUTHEAST",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 129.0,
@@ -52,14 +58,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "THE NE LINE OF TURNLEY AVENUE, 129 FEET",
-      "to": "THE NE LINE OF EUCLID AVENUE",
+      "along": "THE NORTHEAST LINE OF TURNLEY AVENUE",
+      "to": "THE NORTHWEST LINE OF EUCLID AVENUE",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 90°16'30\" with last mentioned course"
     },
     {
       "course": 4,
-      "direction_text": "NE",
+      "direction_text": "NORTHEAST",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 200.0,
@@ -67,18 +73,19 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "THE NW LINE OF EUCLID AVENUE 200 FEET",
-      "to": "THE SW LINE OF HADDON AVENUE AND PLACE OF BEGINNING",
+      "along": "THE NORTHWEST LINE OF EUCLID AVENUE",
+      "to": "THE SOUTHWEST LINE OF HADDON AVENUE AND PLACE OF BEGINNING",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 89°43'30\" with Turnley Avenue"
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 0.0,
-    "area_sq_ft": 0.0,
-    "area_acres": 0.0,
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
     "perimeter_ft": 658.0,
-    "closure_passed": false
+    "closure_passed": false,
+    "notes": "Every course is cardinal-only (no bearings stated), so no closure is computed. The interior angles (89°43'30\", 90°16'30\", 89°43'30\" and the implied 90°16'30\") describe a 129 x 200 ft parallelogram."
   },
   "critical_assertions": {
     "num_calls": {
@@ -87,5 +94,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Ground truth regenerated (Fix 3: abbreviated cardinals) at 2026-02-16T23:31:15.706429+00:00"
+  "notes": "Checked against Book 4658 Pages 859-862 (Exhibit \"A\" on Page 860, PDF page 2): legal description re-transcribed verbatim (the ground truth had course 3's angle as 16 minutes 10 seconds and its end as the NORTHEAST line of Euclid Avenue; the deed prints 30 seconds and NORTHWEST, and \"HADDON AVNEUE\" in course 1); course directions and along/to are now the printed words, and the closure is null because no bearing is stated. Ground truth regenerated (Fix 3: abbreviated cardinals) at 2026-02-16T23:31:15.706429+00:00"
 }

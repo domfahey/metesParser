@@ -5,12 +5,18 @@
     "state": "NJ",
     "book": "8494",
     "page": "812",
-    "parcel_shape": "Trapezoid (non-closing due to distance error in call 2)",
-    "dimensions": "~135 ft x ~87 ft (nominal, but traverse does not close)"
+    "parcel_shape": "Trapezoid",
+    "dimensions": "~135 ft x ~82 ft (Calls 1&3 non-parallel by ~1.04 deg; Calls 2&4 parallel)",
+    "date": "August 31, 2006",
+    "recorded": "03/09/2007",
+    "grantor": "Wachovia Bank, National Association",
+    "grantee": "First States Investors 3613, LLC",
+    "consideration": "$517,500.00",
+    "tax_map_as_printed": "Block No. 9.01, Lot No. 134"
   },
   "raw_ocr_text": "EXHIBIT \"A\"\n\nLegal Description of the Property\n\nAll that certain tract or parcel of land and premises situate in the Borough of Haddonfield, County of Camden and the State of New Jersey, bounded and described as follows:\n\nBEGINNING at the Northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n\n(1) North 32 degrees 6 minutes 30 seconds West along the Northeasterly side of Linden Avenue 135 feet to a point; thence\n\n(2) North 57 degrees 53 minutes 30 seconds East parallel with Kings Highway West, 90.72 feet to the line of land now or formerly of William G. Moore; thence\n\n(3) South 33 degrees 9 minutes East partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the Northwesterly line of Kings Highway West; thence\n\n(4) South 57 degrees 53 minutes 30 seconds West along the Northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.\n\nBeing the same lands and premises that The Howard Savings Bank, a New Jersey state chartered savings bank granted and conveyed unto the Covenant Bank For Savings, a New Jersey state chartered savings bank by Deed dated October 21, 1991, and recorded October 21, 1991, in Deed Book DB4524, Page 0015.",
-  "expected_legal_description": "BEGINNING at the Northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n(1) North 32 degrees 6 minutes 30 seconds West along the Northeasterly side of Linden Avenue 135 feet to a point; thence\n(2) North 57 degrees 53 minutes 30 seconds East parallel with Kings Highway West, 90.72 feet to the line of land now or formerly of William G. Moore; thence\n(3) South 33 degrees 9 minutes East partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the Northwesterly line of Kings Highway West; thence\n(4) South 57 degrees 53 minutes 30 seconds West along the Northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.",
-  "expected_normalized_text": "BEGINNING at the northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n(1) N 32°06'30\" W along the northeasterly side of Linden Avenue 135 feet to a point; thence\n(2) N 57°53'30\" E parallel with Kings Highway West, 90.72 feet to the line of land now or formerly of William G. Moore; thence\n(3) S 33°09' E partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the northwesterly line of Kings Highway West; thence\n(4) S 57°53'30\" W along the northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.",
+  "expected_legal_description": "All that certain tract or parcel of land and premises situate in the Borough of Haddonfield, County of Camden and the State of New Jersey, bounded and described as follows:\n\nBEGINNING at the Northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n(1) North 32 degrees 6 minutes 30 seconds West along the Northeasterly side of Linden Avenue 135 feet to a point; thence\n(2) North 57 degrees 53 minutes 30 seconds East parallel with Kings Highway West, 90.72 feet to the line of land now or formerly of William G. Moore; thence\n(3) South 33 degrees 9 minutes East partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the Northwesterly line of Kings Highway West; thence\n(4) South 57 degrees 53 minutes 30 seconds West along the Northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.\n\nBeing the same lands and premises that The Howard Savings Bank, a New Jersey state chartered savings bank granted and conveyed unto the Covenant Bank For Savings, a New Jersey state chartered savings bank by Deed dated October 21, 1991, and recorded October 21, 1991, in Deed Book DB4524, Page 0015.",
+  "expected_normalized_text": "All that certain tract or parcel of land and premises situate in the Borough of Haddonfield, County of Camden and the State of New Jersey, bounded and described as follows:\nBEGINNING at the Northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n(1) N 32°6'30\" W along the Northeasterly side of Linden Avenue 135 feet to a point; thence\n(2) N 57°53'30\" E parallel with Kings Highway West, 90.72 feet to the line of land now or formerly of William G. Moore; thence\n(3) S 33°9' E partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the Northwesterly line of Kings Highway West; thence\n(4) S 57°53'30\" W along the Northwesterly line of Kings Highway West, 83.17 feet to the place of beginning. Being the same lands and premises that The Howard Savings Bank, a New Jersey state chartered savings bank granted and conveyed unto the Covenant Bank For Savings, a New Jersey state chartered savings bank by Deed dated October 21, 1991, and recorded October 21, 1991, in Deed Book DB4524, Page 0015.",
   "expected_pob": "the Northerly corner of Kings Highway and Linden Avenue (50 feet wide)",
   "expected_calls": [
     {
@@ -31,7 +37,7 @@
       "distance_ft": 80.72,
       "along": "parallel with Kings Highway West",
       "to": "the line of land now or formerly of William G. Moore",
-      "notes": "printed \"90.72 feet\"; recorded as 80.72 ft: the corrective deeds (Book 8658 Page 1822 and Book 10394 Page 9) correct this course to 80.72 ft, which closes the parcel",
+      "notes": "printed \"90.72 feet\"; recorded as 80.72 ft: the corrective deed Book 8658 Page 1822 corrects this deed's course to 80.72 ft (Book 10394 Page 9 makes the same correction to the later deed Book 8673 Page 1087), which closes the parcel",
       "printed_distance_ft": 90.72
     },
     {
@@ -69,15 +75,15 @@
       "operator": "==",
       "description": "MUST extract exactly 4 calls"
     },
-    "erroneous_distance_call_2": {
+    "printed_distance_call_2": {
       "expected": 90.72,
       "operator": "==",
-      "description": "Call 2 distance MUST be 90.72 ft as written in this deed (known error, later corrected)"
+      "description": "Call 2 is printed 90.72 ft (printed_distance_ft); distance_ft records the corrected 80.72 ft"
     },
-    "traverse_does_not_close": {
-      "expected": false,
+    "traverse_closes_with_corrected_distance": {
+      "expected": true,
       "tolerance_ft": 0.01,
-      "description": "Traverse MUST NOT close - misclosure should be ~10 ft due to the 10 ft distance error in call 2"
+      "description": "With course 2 at the corrected 80.72 ft the traverse closes to < 0.01 ft; as printed (90.72 ft) it misses by ~10 ft"
     },
     "call_3_no_seconds": {
       "expected": true,
@@ -90,9 +96,9 @@
   },
   "common_failure_modes": [
     {
-      "symptom": "Traverse does not close (~10 ft misclosure)",
-      "cause": "This is EXPECTED behavior - the deed contains a known distance error in call 2 (90.72 ft instead of correct 80.72 ft)",
-      "fix": "No fix needed - the parser correctly identifies the non-closure. Corrective deeds 8658-1822 and 10394-9 fix this error."
+      "symptom": "Traverse misses by ~10 ft when course 2 is read as printed",
+      "cause": "The deed prints 90.72 ft for course 2; the corrective deed Book 8658 Page 1822 corrects it to 80.72 ft",
+      "fix": "Compare parser output with printed_distance_ft; closure uses the corrected 80.72 ft"
     },
     {
       "symptom": "Call 3 bearing parsed as S 33d09m30s E instead of S 33d09m E",
@@ -105,5 +111,5 @@
       "fix": "Parser should extract as written; cross-referencing with other deeds in chain of title would catch the swap"
     }
   ],
-  "notes": "2006 Original Deed (Wachovia Bank to First States Investors 3613 LLC) for $517,500. This deed contains a KNOWN distance error in call 2: 90.72 ft instead of the correct 80.72 ft. This error was identified and corrected by two subsequent corrective deeds: Book 8658 Page 1822 (2007) and Book 10394 Page 9 (2016). The ~10 ft misclosure is entirely explained by the 10 ft overstatement in call 2 (90.72 - 80.72 = 10.00 ft). Same property and legal description as deeds 8658-1822, 8673-1087, and 10394-9. Tax map reference in this deed appears to have Block/Lot swapped (says Block 9.01 Lot 134 instead of Block 134 Lot 9.01). Prior conveyance chain: Howard Savings Bank -> Covenant Bank For Savings -> Wachovia Bank (by merger). Course 2 is printed 90.72 ft and recorded as 80.72 ft (printed_distance_ft keeps 90.72), as corrected by the later corrective deeds."
+  "notes": "Checked against Book 8494 Pages 812-817, PDF pages 1-6: Exhibit A (Page 815, PDF page 5) matches every course; its opening sentence and Being clause were added. 2006 Original Deed (Wachovia Bank to First States Investors 3613 LLC) for $517,500. This deed contains a KNOWN distance error in call 2: 90.72 ft instead of the correct 80.72 ft. This deed is corrected by the corrective deed Book 8658 Page 1822 (2007, effective August 31, 2006); the 2016 corrective deed Book 10394 Page 9 makes the same correction to the later deed Book 8673 Page 1087. The ~10 ft misclosure is entirely explained by the 10 ft overstatement in call 2 (90.72 - 80.72 = 10.00 ft). Same property and legal description as deeds 8658-1822, 8673-1087, and 10394-9. Tax map reference in this deed appears to have Block/Lot swapped (says Block 9.01 Lot 134 instead of Block 134 Lot 9.01). Prior conveyance chain: Howard Savings Bank -> Covenant Bank For Savings -> Wachovia Bank (by merger). Course 2 is printed 90.72 ft and recorded as 80.72 ft (printed_distance_ft keeps 90.72), as corrected by the later corrective deeds."
 }

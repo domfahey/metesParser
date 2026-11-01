@@ -642,3 +642,19 @@ class TestAuditRecordedDeedForms:
             "NORTH 00 DEGREES 35 MINUTES 20 SECONDS WEST 46.37 FEET TO THE POINT OF BEGINNING"
         )
         assert [call["distance_ft"] for call in calls] == [20.0, 50.2, 46.37]
+
+
+class TestAuditSentenceJoinedCourses:
+    """1 Walnut St 12420-00902 Tract No. 3: "122.55 feet to a point. South 18 degrees ..."."""
+
+    def test_tie_courses_joined_by_a_sentence_break_are_split(self) -> None:
+        mod = _load_audit_module()
+        calls = mod.extract_calls_from_md(
+            "BEGINNING at a point which is located at the following two courses and distances "
+            "from the intersection; thence\n\nSouth 71 degrees 54 minutes 50 seconds East along "
+            "Ellis Street 122.55 feet to a point. South 18 degrees 05 minutes 10 seconds West "
+            "123.00 feet to the point and place of beginning; thence\n\n(1) South 18 degrees 05 "
+            "minutes 10 seconds West 82.00 feet to a point; thence\n\n(2) North 71 degrees 54 "
+            "minutes 50 seconds West 53.36 feet to the point and place of beginning."
+        )
+        assert [call["distance_ft"] for call in calls] == [122.55, 123.0, 82.0, 53.36]
