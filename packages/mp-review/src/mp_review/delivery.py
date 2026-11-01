@@ -92,13 +92,17 @@ def _prepare(
     *,
     exporter_version: str = "delivery-2",
     recorded_omissions: Sequence[DeliveryOmission] | None = None,
+    recorded_software_versions: Sequence[Sequence[str]] | None = None,
 ) -> tuple[DeliverySnapshot, _GeoJSONArea | None]:
     """``prepare_delivery`` plus the GeoJSON projection/classification it computed.
 
     Returned so one publish builds the projection group once. Replay passes the
     package's ``recorded_omissions``: its GeoJSON area-of-use omissions are then
     accepted as recorded (validated against the request) instead of re-running the
-    installation-dependent operation/area choice, and no projection is built.
+    installation-dependent operation/area choice, and no projection is built. Replay
+    also passes the package's ``recorded_software_versions``: they are publish-host
+    evidence, carried over for the same packages, while every artifact must still
+    re-render byte for byte.
     """
     if exporter_version not in ("delivery-1", "delivery-2"):
         raise ValueError("Unsupported delivery exporter version")
@@ -526,17 +530,30 @@ def _prepare(
             if revision.revision.kind == "source_correction"
             else ()
         ),
-        software_versions=tuple(
-            (name, importlib.metadata.version(name))
-            for name in ("mp-export",)
-            + (("reportlab",) if "pdf" in request.formats else ())
-            + (("ezdxf",) if "dxf" in request.formats else ())
-            + (("pyproj",) if "geojson" in request.formats else ())
-        ),
+        software_versions=_software_versions(request, recorded_software_versions),
         crs=scene.crs if scene else None,
         scene_units=scene.units if scene else None,
     )
     return snapshot, geojson_area
+
+
+def _software_versions(
+    request: DeliveryRequest, recorded: Sequence[Sequence[str]] | None
+) -> tuple[tuple[str, str], ...]:
+    names = (
+        ("mp-export",)
+        + (("reportlab",) if "pdf" in request.formats else ())
+        + (("ezdxf",) if "dxf" in request.formats else ())
+        + (("pyproj",) if "geojson" in request.formats else ())
+    )
+    if recorded is None:
+        return tuple((name, importlib.metadata.version(name)) for name in names)
+    versions = tuple(tuple(pair) for pair in recorded)
+    if not all(
+        len(pair) == 2 and all(isinstance(value, str) for value in pair) for pair in versions
+    ) or [pair[0] for pair in versions] != list(names):
+        raise ValueError("Delivery snapshot software versions mismatch")
+    return versions  # type: ignore[return-value]
 
 
 def _ring_area(ring: list[Any]) -> float:
@@ -1245,6 +1262,7 @@ def _replay_delivery(
         request,
         exporter_version=str(manifest["exporter_version"]),
         recorded_omissions=[DeliveryOmission.model_validate(o) for o in recorded["omissions"]],
+        recorded_software_versions=recorded.get("software_versions"),
     )
     if _hash(fresh.model_dump(mode="json")) != manifest.get("snapshot_sha256"):
         raise ValueError("Delivery snapshot identity mismatch")
