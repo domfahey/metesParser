@@ -23,7 +23,8 @@ def test_runtime_links_every_local_wheel_as_direct_dependency():
     project = tomllib.loads(builder.runtime_project(wheels))
     dependencies = project["project"]["dependencies"]
     for name in builder.PACKAGES:
-        assert f"{name}==1.0.0" in dependencies
+        pyproject = tomllib.loads((builder.ROOT / "packages" / name / "pyproject.toml").read_text())
+        assert f"{name}=={pyproject['project']['version']}" in dependencies
         assert name in project["tool"]["uv"]["sources"]
     assert not any("ocr" in dependency or "openai" in dependency for dependency in dependencies)
 
@@ -112,6 +113,19 @@ def test_plugin_archive_license_matches_repository_root(tmp_path, monkeypatch):
 
     with zipfile.ZipFile(archive_path) as archive:
         assert archive.read("LICENSE") == (builder.ROOT / "LICENSE").read_bytes()
+
+
+def test_plugin_archive_is_byte_reproducible(tmp_path, monkeypatch):
+    builder = load_builder()
+    monkeypatch.setattr(builder.shutil, "which", lambda name: "/fake/uv")
+    monkeypatch.setattr(builder, "run", lambda arguments, *, cwd: _write_fake_outputs(arguments))
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "1767225600")
+    first = builder.build(tmp_path / "first" / "plugin.zip").read_bytes()
+    second = builder.build(tmp_path / "second" / "plugin.zip").read_bytes()
+
+    assert first == second
+    with zipfile.ZipFile(tmp_path / "first" / "plugin.zip") as archive:
+        assert {entry.date_time for entry in archive.infolist()} == {(2026, 1, 1, 0, 0, 0)}
 
 
 def test_plugin_manifest_declares_license_repository_and_keywords():

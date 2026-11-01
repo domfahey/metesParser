@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 import tomllib
 import zipfile
 from pathlib import Path
@@ -81,6 +82,18 @@ def runtime_project(wheels: list[Path], *, geo: bool = True, web_map: bool = Fal
     )
 
 
+FIXED_DATE = (1980, 1, 1, 0, 0, 0)
+
+
+def zip_date() -> tuple[int, int, int, int, int, int]:
+    """Return the archive timestamp: SOURCE_DATE_EPOCH when set, else a fixed date."""
+    epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    if not epoch:
+        return FIXED_DATE
+    stamp = time.gmtime(int(epoch))[:6]
+    return stamp if stamp >= FIXED_DATE else FIXED_DATE
+
+
 def build(output: Path, *, offline: bool = False, geo: bool = True, web_map: bool = False) -> Path:
     if web_map and not geo:
         raise ValueError("web-map requires geo support")
@@ -118,14 +131,21 @@ def build(output: Path, *, offline: bool = False, geo: bool = True, web_map: boo
             json.dumps({"fingerprint": fingerprint, "sha256": hashes}, indent=2) + "\n"
         )
         # Publish only after every wheel and the runtime lock have been built successfully.
+        # Fixed timestamps and permissions keep the archive byte-reproducible.
         staged_zip = Path(temporary) / "plugin.zip"
+        date_time = zip_date()
         with zipfile.ZipFile(staged_zip, "w", zipfile.ZIP_DEFLATED) as archive:
             for path in sorted(plugin.rglob("*")):
                 if path.is_file() and not any(
                     part in {".uv-cache", ".venv", "__pycache__"}
                     for part in path.relative_to(plugin).parts
                 ):
-                    archive.write(path, str(path.relative_to(plugin)))
+                    entry = zipfile.ZipInfo(str(path.relative_to(plugin)), date_time=date_time)
+                    entry.compress_type = zipfile.ZIP_DEFLATED
+                    entry.create_system = 3
+                    mode = 0o755 if os.access(path, os.X_OK) else 0o644
+                    entry.external_attr = (0o100000 | mode) << 16
+                    archive.writestr(entry, path.read_bytes())
         shutil.copyfile(staged_zip, output)
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
     output.with_suffix(output.suffix + ".sha256").write_text(f"{digest}  {output.name}\n")

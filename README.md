@@ -46,7 +46,7 @@ Claude chat supports skill scripts in its code-execution environment. The standa
 
 ## Install the standalone Claude chat Skill
 
-From a source checkout, run `make chat-skill-build`. This creates `dist/metesparser-chat-skill.zip` and its `.sha256` sidecar. Verify the checksum, then upload the ZIP through **Customize → Skills** and enable code execution. The archive contains one discoverable `metesparser-review` skill with thirteen embedded procedures and one shared engine.
+Download `metesparser-chat-skill.zip` and `metesparser-chat-skill.zip.sha256` from [GitHub Releases](https://github.com/domfahey/metesParser/releases) (v0.7.0 and later), or run `make chat-skill-build` in a source checkout to create them under `dist/`. Verify the checksum, then upload the ZIP through **Customize → Skills** and enable code execution. The archive contains one discoverable `metesparser-review` skill with thirteen embedded procedures and one shared engine.
 
 The skill's explicit setup command checks the chat runtime and can install a pinned, hash-checked `uv` in its writable cache before provisioning locked dependencies. It requires Python 3.11+ and first-use network access unless tools and dependencies are already cached. It does not rely on laptop installations. See the [chat installation guide](plugins/metesparser-chat/README.md) and [build profiles](docs/CLAUDE_PLUGIN.md#standalone-claude-chat-skill).
 
@@ -66,7 +66,7 @@ The launcher requires **Python 3.11+** and **[uv](https://docs.astral.sh/uv/)** 
    - **Claude Cowork:** upload the ZIP through Customize → Plugins. End-to-end host testing is pending.
 4. Supply a document or prepared calls and ask for the specific result you need.
 
-**Release status:** the latest release is v0.6.0. Behaviour listed under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) (the 22-column CSV and the description-role export policy) is only in a source checkout until the next release.
+**Release status:** the latest release is v0.7.0 (plugin 2.0.0); see [CHANGELOG.md](CHANGELOG.md). Behaviour listed under `[Unreleased]` is only in a source checkout until the next release.
 
 Use the built distribution: `plugins/metesparser/` in a source checkout does not contain its bundled runtime. The standard ZIP includes geographic preparation and delivery dependencies. Online raster reprojection uses the optional web-map profile. See [installation and build profiles](docs/CLAUDE_PLUGIN.md#packaging-and-local-installation) and [project settings](plugins/metesparser/references/plugin-settings.md).
 
@@ -101,7 +101,7 @@ Verified CSV export:
 - **Advisory outputs:** plots, comparisons, scenarios, corridors, PLSS references and map views cannot grant verified-export eligibility.
 - **Tract roles (main (parcel), addition, exception, easement):** a deed with more than one description is eligible only when every role comes from an explicit heading. Easement and exception tracts are never eligible, and text review asks for one parcel per review. See [description roles and verified export](docs/ARCHITECTURE.md#description-roles-and-verified-export).
 
-The 22-field CSV and the role policy are described under `[Unreleased]` in the [changelog](CHANGELOG.md); they are not in the v0.6.0 release (see [install](#install-the-claude-plugin)).
+The 22-field CSV and the role policy arrived in v0.7.0; the v0.6.0 release ZIP predates them (see the [changelog](CHANGELOG.md)).
 
 Read the [artifact handoff contract](plugins/metesparser/references/artifact-handoffs.md) for file shapes, reuse and invalidation, and the [review limits](plugins/metesparser/references/review-limits.md) for supported checks.
 

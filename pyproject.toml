@@ -1,6 +1,6 @@
 [project]
 name = "metesparser"
-version = "0.6.0"
+version = "0.7.0"
 description = "Parse metes and bounds legal descriptions from deed PDFs into structured CSV format"
 readme = "README.md"
 license = "MIT"
@@ -18,18 +18,18 @@ dependencies = [
     "structlog>=24.4.0",
     "openai>=2.3.0",
     "pypdf>=6.1.1",
-    "mp-ocr>=1.0.0",
-    "mp-bearing>=1.0.0",
-    "mp-parse>=1.0.0",
-    "mp-verify>=1.0.0",
-    "mp-export>=1.0.0",
-    "mp-review>=1.0.0",
+    "mp-ocr>=1.0.1",
+    "mp-bearing>=1.1.0",
+    "mp-parse>=2.0.0",
+    "mp-verify>=2.0.0",
+    "mp-export>=2.0.0",
+    "mp-review>=2.0.0",
 ]
 
 [project.optional-dependencies]
-delivery = ["mp-review[delivery]>=1.0.0"]
-geo = ["mp-review[geo]>=1.0.0"]
-web-map = ["mp-review[web-map]>=1.0.0"]
+delivery = ["mp-review[delivery]>=2.0.0"]
+geo = ["mp-review[geo]>=2.0.0"]
+web-map = ["mp-review[web-map]>=2.0.0"]
 browser-test = ["playwright>=1.49,<2"]
 dev = [
     "pytest>=8.3.0",

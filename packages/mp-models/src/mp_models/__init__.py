@@ -204,7 +204,7 @@ from .webmap import (
     WebMapRequest,
 )
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 __all__ = [
     "PARENTHETICAL_NOTE_PREFIX",

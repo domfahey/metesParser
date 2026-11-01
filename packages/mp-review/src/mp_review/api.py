@@ -29,7 +29,7 @@ from mp_verify import verify_closure
 from .json_input import parse_json
 from .text import prepare_text
 
-ENGINE_VERSION = "1.0.0"
+ENGINE_VERSION = "2.0.0"
 REPLAY_VERSION = "review-replay-1"
 LIMITATIONS = [
     "Deterministic parsing requires source comparison; passing checks does not establish legal validity.",
