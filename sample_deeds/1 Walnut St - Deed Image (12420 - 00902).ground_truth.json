@@ -1,31 +1,40 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "1 Walnut Street",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "12420",
+    "page": "902",
+    "date": "May 15, 2023",
+    "grantor": "Bank of America, National Association",
+    "grantee": "Borough of Haddonfield",
+    "consideration": "$2,200,000.00",
+    "block": "41",
+    "lot": "1"
   },
   "raw_ocr_text": "I can’t comply with “extract the complete text from the provided PDF document” as requested because you’ve provided **images of pages**, not the original PDF, and several portions of the text (especially small-print fields, stamps, and some boundary-call numbers) are **not fully legible at this resolution**. Returning “ALL text” “exactly as shown” would require guessing, which would be inaccurate—particularly in the **BEGINNING / THENCE** metes-and-bounds sections you highlighted.\n\nIf you upload the **actual PDF** (or higher‑resolution page images, ideally 300+ DPI, straightened, no compression), I can then produce a full, line‑for‑line transcription with preserved formatting.\n\nBelow is the **verbatim text I can read with confidence** from the images you provided, preserving line breaks as best as possible. Illegible/uncertain portions are marked **[ILLEGIBLE]**.\n\n---\n\n## Page 1 of 2 — Camden County Document Summary Sheet\n\nCamden County  \nDocument Summary Sheet\n\nCAMDEN COUNTY CLERK  \n5...",
-  "expected_legal_description": "The Land referred to herein below is situated in the Borough of Haddonfield, County of Camden, State of New Jersey, and is more particularly described as follows:\n\nTRACT NO. 1\n\nBEGINNING at the point formed by the intersection of the Southerly line of Ellis Street (sixty-six (66) feet wide) with the easterly line of Walnut Street (sixty (60) feet wide); thence\n\n(1) Easterly, South 71 degrees 54 minutes 50 seconds East along said side of Ellis Street a distance of 69.80 feet to a point; thence\n\n(2) Southerly, South 18 degrees 17 minutes 22 seconds West along lands now or formerly of Beulah M. Kay and others a distance of 185.11 feet to a point; thence\n\n(3) Westerly, North 71 degrees 54 minutes [ILLEGIBLE] seconds West along lands now or late of Voight Pierce a distance of 69.17 feet to a point in said easterly line of Walnut Street; thence\n\n(4) Northerly, North 18 degrees 5 minutes 40 seconds East, along said line of Walnut Street a distance of 185.10 feet to the first mentioned point and place of Beginning.\n\nTRACT NO. 2\n\nBEGINNING at a point in the Southwesterly line of Ellis Street (66 feet wide) said point being 69.80 feet South 71 degrees 54 minutes 50 seconds East as measured along said line of Ellis Street from the point formed by the intersection of said line of Ellis Street and the Southeasterly line of Walnut Street (60 feet wide) and also being a corner of lands now or late of Robert B. Chew, Mable DeLong Chew, Harry M. Chew and Helen Chew; thence\n\n(1) Easterly, South 71 degrees 54 minutes 50 seconds East along said line of Ellis Street, a distance of 52.75 feet to a point, said point being a corner of land now or late of Mary Ann Sharp; thence\n\n(2) Southerly, South 18 degrees 05 minutes 10 seconds West, along land of said Sharp, a distance of 125 feet to a point, said point being in the northeasterly line of land now or late of George F. Everett; thence\n\n(3) Westerly, North 71 degrees 54 minutes 50 seconds West along land of said Everett, a distance of 53.19 feet, to a point in the southeasterly line of land of said Chews; thence\n\n(4) Northerly, North 18 degrees 17 minutes 22 seconds East along land of said Chews, a distance of 125 feet to the first mentioned point and place of Beginning.\n\nTract No. 3\n\nBEGINNING at a point which is located at the following two courses and distances from the intersection of the Southwesterly line of Ellis Street (66 feet wide) with the Southeasterly line of Walnut Street (60 feet wide); thence\n\nSouth 71 degrees 54 minutes 50 seconds East along the Southwesterly line of Ellis Street 122.55 feet to a point.  \npoint. South 18 degrees 05 minutes 10 seconds West 123.00 feet to the point and place of beginning; thence\n\n(1) South 18 degrees 05 minutes 10 seconds West 82.00 feet to a point, thence\n\n(2) North 71 degrees 54 minutes 50 seconds West 53.36 feet to a point, thence\n\n(3) North 18 degrees 17 minutes 22 seconds East 82.00 feet to a point; thence\n\n(4) South 71 degrees 54 minutes 50 seconds East 53.19 feet to the point and place of beginning.\n\nAddress: 1 Walnut St., Haddonfield, NJ 08033\n\nBeing Lot 1, Block 41; Tax Map of the Borough of Haddonfield, County of Camden in the State of New Jersey.",
-  "expected_normalized_text": "The Land referred to herein below is situated in the Borough of Haddonfield, County of Camden, State of New Jersey, and is more particularly described as follows:\n\nTRACT NO. 1\n\nBEGINNING at the point formed by the intersection of the Southerly line of Ellis Street (sixty-six (66) feet wide) with the easterly line of Walnut Street (sixty (60) feet wide); thence\n\n(1) Easterly, S 71°54'50\" E along said side of Ellis Street a distance of 69.80 feet to a point; thence\n\n(2) Southerly, S 18°17'22\" W along lands now or formerly of Beulah M. Kay and others a distance of 185.11 feet to a point; thence\n\n(3) Westerly, N 71°54' [ILLEGIBLE] seconds W along lands now or late of Voight Pierce a distance of 69.17 feet to a point in said easterly line of Walnut Street; thence\n\n(4) Northerly, N 18°5'40\" E, along said line of Walnut Street a distance of 185.10 feet to the first mentioned point and place of Beginning.\n\nTRACT NO. 2\n\nBEGINNING at a point in the Southwesterly line of Ellis Street (66 feet wide) said point being 69.80 feet S 71°54'50\" E as measured along said line of Ellis Street from the point formed by the intersection of said line of Ellis Street and the Southeasterly line of Walnut Street (60 feet wide) and also being a corner of lands now or late of Robert B. Chew, Mable DeLong Chew, Harry M. Chew and Helen Chew; thence\n\n(1) Easterly, S 71°54'50\" E along said line of Ellis Street, a distance of 52.75 feet to a point, said point being a corner of land now or late of Mary Ann Sharp; thence\n\n(2) Southerly, S 18°05'10\" W, along land of said Sharp, a distance of 125 feet to a point, said point being in the northeasterly line of land now or late of George F. Everett; thence\n\n(3) Westerly, N 71°54'50\" W along land of said Everett, a distance of 53.19 feet, to a point in the southeasterly line of land of said Chews; thence\n\n(4) Northerly, N 18°17'22\" E along land of said Chews, a distance of 125 feet to the first mentioned point and place of Beginning.\n\nTract No. 3\n\nBEGINNING at a point which is located at the following two courses and distances from the intersection of the Southwesterly line of Ellis Street (66 feet wide) with the Southeasterly line of Walnut Street (60 feet wide); thence\n\nS 71°54'50\" E along the Southwesterly line of Ellis Street 122.55 feet to a point.  \npoint. S 18°05'10\" W 123.00 feet to the point and place of beginning; thence\n\n(1) S 18°05'10\" W 82.00 feet to a point, thence\n\n(2) N 71°54'50\" W 53.36 feet to a point, thence\n\n(3) N 18°17'22\" E 82.00 feet to a point; thence\n\n(4) S 71°54'50\" E 53.19 feet to the point and place of beginning.\n\nAddress: 1 Walnut St., Haddonfield, NJ 08033\n\nBeing Lot 1, Block 41; Tax Map of the Borough of Haddonfield, County of Camden in the State of New Jersey.",
+  "expected_legal_description": "The Land referred to herein below is situated in the Borough of Haddonfield, County of Camden, State of New Jersey, and is more particularly described as follows:\n\nTRACT NO. 1\n\nBEGINNING at the point formed by the intersection of the Southerly line of Ellis Street (sixty-six (66) feet wide) with the easterly line of Walnut Street (sixty (60) feet wide); thence\n\n(1) Easterly, South 71 degrees 54 minutes 50 seconds East along said side of Ellis Street a distance of 69.80 feet to a point; thence\n\n(2) Southerly, South 18 degrees 17 minutes 22 seconds West along lands now or formerly of Beulah M. Kay and others a distance of 185.11 feet to a point; thence\n\n(3) Westerly, North 71 degrees 54 minutes, 20 seconds West along lands now or late of Voight Pierce a distance of 69.17 feet to a point in said easterly line of Walnut Street; thence\n\n(4) Northerly, North 18 degrees 5 minutes 40 seconds East, along said line of Walnut Street a distance of 185.10 feet to the first mentioned point and place of Beginning.\n\nTRACT NO. 2\n\nBEGINNING at a point in the Southwesterly line of Ellis Street (66 feet wide) said point being 69.80 feet South 71 degrees 54 minutes 50 seconds East as measured along said line of Ellis Street from the point formed by the intersection of said line of Ellis Street and the Southeasterly line of Walnut Street (60 feet wide) and also being a corner of lands now or late of Robert B. Chew, Mable Delong Chew, Harry M. Chew and Helen Chew; thence\n\n(1) Easterly, South 71 degrees 54 minutes 50 seconds East along said line of Ellis Street, a distance of 52.75 feet to a point, said point being a corner of land now or late of Mary Ann Sharp; thence\n\n(2) Southerly, South 18 degrees 05 minutes 10 seconds West, along land of said Sharp, a distance of 125 feet to a point, said point being in the northeasterly line of land now or late of George F. Everett; thence\n\n(3) Westerly, North 71 degrees 54 minutes 50 seconds West along land of said Everett, a distance of 53.19 feet, to a point in the southeasterly line of land of said Chews; thence\n\n(4) Northerly, North 18 degrees 17 minutes 22 seconds East along land of said Chews, a distance of 125 feet to the first mentioned point and place of Beginning.\n\nTract No. 3\n\nBEGINNING at a point which is located at the following two courses and distances from the intersection of the Southwesterly line of Ellis Street (66 feet wide) with the Southeasterly line of Walnut Street (60 feet wide); thence\n\nSouth 71 degrees 54 minutes 50 seconds East along the Southwesterly line of Ellis Street 122.55 feet to a point. South 18 degrees 05 minutes 10 seconds West 123.00 feet to the point and place of beginning; thence\n\n(1) South 18 degrees 05 minutes 10 seconds West 82.00 feet to a point; thence\n\n(2) North 71 degrees 54 minutes 50 seconds West 53.36 feet to a point; thence\n\n(3) North 18 degrees 17 minutes 22 seconds East 82.00 feet to a point; thence\n\n(4) South 71 degrees 54 minutes 50 seconds East 53.19 feet to the point and place of beginning.\n\nAddress: 1 Walnut St., Haddonfield, NJ 08033\n\nBeing Lot 1, Block 41; Tax Map of the Borough of Haddonfield, County of Camden in the State of New Jersey.",
+  "expected_normalized_text": "The Land referred to herein below is situated in the Borough of Haddonfield, County of Camden, State of New Jersey, and is more particularly described as follows: TRACT NO. 1\nBEGINNING at the point formed by the intersection of the Southerly line of Ellis Street (sixty-six (66) feet wide) with the easterly line of Walnut Street (sixty (60) feet wide); thence\n(1) Easterly, S 71°54'50\" E along said side of Ellis Street a distance of 69.80 feet to a point; thence\n(2) Southerly, S 18°17'22\" W along lands now or formerly of Beulah M. Kay and others a distance of 185.11 feet to a point; thence\n(3) Westerly, N 71°54'20\" W along lands now or late of Voight Pierce a distance of 69.17 feet to a point in said easterly line of Walnut Street; thence\n(4) Northerly, N 18°5'40\" E, along said line of Walnut Street a distance of 185.10 feet to the first mentioned point and place of Beginning. TRACT NO. 2\nBEGINNING at a point in the Southwesterly line of Ellis Street (66 feet wide) said point being 69.80 feet S 71°54'50\" E as measured along said line of Ellis Street from the point formed by the intersection of said line of Ellis Street and the Southeasterly line of Walnut Street (60 feet wide) and also being a corner of lands now or late of Robert B. Chew, Mable Delong Chew, Harry M. Chew and Helen Chew; thence\n(1) Easterly, S 71°54'50\" E along said line of Ellis Street, a distance of 52.75 feet to a point, said point being a corner of land now or late of Mary Ann Sharp; thence\n(2) Southerly, S 18°05'10\" W, along land of said Sharp, a distance of 125 feet to a point, said point being in the northeasterly line of land now or late of George F. Everett; thence\n(3) Westerly, N 71°54'50\" W along land of said Everett, a distance of 53.19 feet, to a point in the southeasterly line of land of said Chews; thence\n(4) Northerly, N 18°17'22\" E along land of said Chews, a distance of 125 feet to the first mentioned point and place of Beginning. Tract No. 3\nBEGINNING at a point which is located at the following two courses and distances from the intersection of the Southwesterly line of Ellis Street (66 feet wide) with the Southeasterly line of Walnut Street (60 feet wide); thence S 71°54'50\" E along the Southwesterly line of Ellis Street 122.55 feet to a point. S 18°05'10\" W 123.00 feet to the point and place of beginning; thence\n(1) S 18°05'10\" W 82.00 feet to a point; thence\n(2) N 71°54'50\" W 53.36 feet to a point; thence\n(3) N 18°17'22\" E 82.00 feet to a point; thence\n(4) S 71°54'50\" E 53.19 feet to the point and place of beginning. Address: 1 Walnut St., Haddonfield, NJ 08033 Being Lot 1, Block 41; Tax Map of the Borough of Haddonfield, County of Camden in the State of New Jersey.",
   "expected_poc": null,
   "expected_pob": "the point formed by the intersection of the Southerly line of Ellis Street (sixty-six (66) feet wide) with the easterly line of Walnut Street (sixty (60) feet wide)",
   "expected_calls": [
     {
       "course": 1,
       "direction_text": "S 71°54'50\" E",
-      "bearing_quadrant": "S 71°55' E",
+      "bearing_quadrant": "S 71°54' E",
       "bearing_azimuth_deg_from_north": 108.08611111111111,
       "distance_ft": 69.8,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said side of Ellis Street a distance of 69.80 feet",
+      "along": "said side of Ellis Street",
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1",
+      "is_exception": false,
+      "is_tie_in": false
     },
     {
       "course": 2,
@@ -37,55 +46,67 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "lands now or formerly of Beulah M. Kay and others a distance of 185.11 feet",
+      "along": "lands now or formerly of Beulah M. Kay and others",
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1",
+      "is_exception": false,
+      "is_tie_in": false
     },
     {
       "course": 3,
-      "direction_text": "westerly",
-      "bearing_quadrant": null,
-      "bearing_azimuth_deg_from_north": null,
+      "direction_text": "N 71°54'20\" W",
+      "bearing_quadrant": "N 71°54' W",
+      "bearing_azimuth_deg_from_north": 288.09444444444443,
       "distance_ft": 69.17,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "lands now or late of Voight Pierce a distance of 69.17 feet",
+      "along": "lands now or late of Voight Pierce",
       "to": "a point in said easterly line of Walnut Street",
-      "monument_type": "tree",
-      "notes": "incomplete bearing - cardinal only"
+      "monument_type": null,
+      "notes": null,
+      "tract": "Tract 1",
+      "is_exception": false,
+      "is_tie_in": false
     },
     {
       "course": 4,
-      "direction_text": "N 18°5'40\" E",
-      "bearing_quadrant": "N 18°06' E",
+      "direction_text": "N 18°05'40\" E",
+      "bearing_quadrant": "N 18°05' E",
       "bearing_azimuth_deg_from_north": 18.094444444444445,
       "distance_ft": 185.1,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said line of Walnut Street a distance of 185.10 feet",
+      "along": "said line of Walnut Street",
       "to": "the first mentioned point and place of Beginning",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1",
+      "is_exception": false,
+      "is_tie_in": false
     },
     {
       "course": 5,
       "direction_text": "S 71°54'50\" E",
-      "bearing_quadrant": "S 71°55' E",
+      "bearing_quadrant": "S 71°54' E",
       "bearing_azimuth_deg_from_north": 108.08611111111111,
       "distance_ft": 52.75,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said line of Ellis Street, a distance of 52.75 feet",
+      "along": "said line of Ellis Street",
       "to": "a point, said point being a corner of land now or late of Mary Ann Sharp",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 2",
+      "is_exception": false,
+      "is_tie_in": false
     },
     {
       "course": 6,
@@ -97,25 +118,31 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "land of said Sharp, a distance of 125 feet",
-      "to": "a point, said point being in the northeasterly line of land now or late of George F",
+      "along": "land of said Sharp",
+      "to": "a point, said point being in the northeasterly line of land now or late of George F. Everett",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 2",
+      "is_exception": false,
+      "is_tie_in": false
     },
     {
       "course": 7,
       "direction_text": "N 71°54'50\" W",
-      "bearing_quadrant": "N 71°55' W",
+      "bearing_quadrant": "N 71°54' W",
       "bearing_azimuth_deg_from_north": 288.0861111111111,
       "distance_ft": 53.19,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "land of said Everett, a distance of 53.19 feet",
+      "along": "land of said Everett",
       "to": "a point in the southeasterly line of land of said Chews",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 2",
+      "is_exception": false,
+      "is_tie_in": false
     },
     {
       "course": 8,
@@ -127,28 +154,52 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "land of said Chews, a distance of 125 feet",
+      "along": "land of said Chews",
       "to": "the first mentioned point and place of Beginning",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 2",
+      "is_exception": false,
+      "is_tie_in": false
     },
     {
       "course": 9,
       "direction_text": "S 71°54'50\" E",
-      "bearing_quadrant": "S 71°55' E",
+      "bearing_quadrant": "S 71°54' E",
       "bearing_azimuth_deg_from_north": 108.08611111111111,
       "distance_ft": 122.55,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the Southwesterly line of Ellis Street 122.55 feet to a point.\npoint. S 18°05'10\" W 123.00 feet",
-      "to": "the point and place of beginning",
+      "along": "the Southwesterly line of Ellis Street",
+      "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": "tie course: first of \"the following two courses and distances\" from the intersection of Ellis Street and Walnut Street",
+      "tract": "Tract 3",
+      "is_exception": false,
+      "is_tie_in": true
     },
     {
       "course": 10,
+      "direction_text": "S 18°05'10\" W",
+      "bearing_quadrant": "S 18°05' W",
+      "bearing_azimuth_deg_from_north": 198.0861111111111,
+      "distance_ft": 123.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "the point and place of beginning",
+      "monument_type": null,
+      "notes": "tie course: second of \"the following two courses and distances\"",
+      "tract": "Tract 3",
+      "is_exception": false,
+      "is_tie_in": true
+    },
+    {
+      "course": 11,
       "direction_text": "S 18°05'10\" W",
       "bearing_quadrant": "S 18°05' W",
       "bearing_azimuth_deg_from_north": 198.0861111111111,
@@ -160,12 +211,15 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 3",
+      "is_exception": false,
+      "is_tie_in": false
     },
     {
-      "course": 11,
+      "course": 12,
       "direction_text": "N 71°54'50\" W",
-      "bearing_quadrant": "N 71°55' W",
+      "bearing_quadrant": "N 71°54' W",
       "bearing_azimuth_deg_from_north": 288.0861111111111,
       "distance_ft": 53.36,
       "curve_dir": null,
@@ -175,10 +229,13 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 3",
+      "is_exception": false,
+      "is_tie_in": false
     },
     {
-      "course": 12,
+      "course": 13,
       "direction_text": "N 18°17'22\" E",
       "bearing_quadrant": "N 18°17' E",
       "bearing_azimuth_deg_from_north": 18.289444444444445,
@@ -190,12 +247,15 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 3",
+      "is_exception": false,
+      "is_tie_in": false
     },
     {
-      "course": 13,
+      "course": 14,
       "direction_text": "S 71°54'50\" E",
-      "bearing_quadrant": "S 71°55' E",
+      "bearing_quadrant": "S 71°54' E",
       "bearing_azimuth_deg_from_north": 108.08611111111111,
       "distance_ft": 53.19,
       "curve_dir": null,
@@ -205,22 +265,26 @@
       "along": null,
       "to": "the point and place of beginning",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 3",
+      "is_exception": false,
+      "is_tie_in": false
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 191.8446,
-    "area_sq_ft": 11042.69,
-    "area_acres": 0.2535,
-    "perimeter_ft": 1258.22,
-    "closure_passed": false
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Three tracts; closure is per tract (tie courses excluded): Tract 1 misses by 0.0012 ft (area 12,861.94 sq ft); Tract 2 misses by 0.0037 ft (area 6,621.02 sq ft); Tract 3 misses by 0.121 ft (area 4,363.56 sq ft). Every Tract 3 figure matches the print, so its 0.121 ft misclosure is the deed's own (its sides are not parallel: N 18°17'22\" E against S 18°05'10\" W, 53.36 against 53.19 ft)."
   },
   "critical_assertions": {
     "num_calls": {
-      "expected": 13,
+      "expected": 14,
       "operator": "==",
-      "description": "MUST extract exactly 13 calls"
+      "description": "MUST extract exactly 14 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T02:49:15.035837+00:00"
+  "notes": "Checked against Book 12420 Pages 907-908 (Exhibit A, PDF pages 6-7): legal description re-transcribed verbatim (Tract 1 course (3) prints \"54 minutes, 20 seconds\", previously marked illegible and left without a bearing; \"Mable Delong Chew\"; Tract 3's two point-of-beginning courses are separate sentences and are now two tie courses; the Address and Being lines are added); courses are tagged by tract and closure is computed per tract. Ground truth generated at 2026-02-17T02:49:15.035837+00:00"
 }

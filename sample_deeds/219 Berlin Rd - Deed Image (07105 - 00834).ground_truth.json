@@ -1,16 +1,22 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "219 Berlin Road",
+    "city": "Cherry Hill",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "7105",
+    "page": "834",
+    "date": "June 18, 2003",
+    "grantor": "Gerald K. Keller and Sharon B. Keller, husband and wife",
+    "grantee": "Gerald K. Keller and Sharon B. Keller as tenants in common",
+    "consideration": "$1.00",
+    "block": "426.01",
+    "lot": "17"
   },
   "raw_ocr_text": "DEED\n\nThis Deed is made on June 18 , 2003\n\nBETWEEN  Gerald K. Keller and Sharon B. Keller, husband and wife, having an\naddress of P.O. Box 2650, Cherry Hill, NJ 08034, referred to as the Grantors,\n\nAND  Gerald K. Keller and Sharon B. Keller as tenants in common, having\nan address of P.O. Box 2650, Cherry Hill, NJ 08034, referred to as the Grantees.\n\n1.  Transfer of Ownership.  The Grantors grant and convey (transfer ownership of)\nthe property described below to the Grantees.  This transfer is made for the sum of\nOne Dollar ($1.00).  The Grantors acknowledge receipt of this money.\n\n2.  Tax Map Reference.  (N.J.S.A. 46:15-2.1)  Block 426.01, Lot 17  of the Official\nTax Map.\n\n3.  Property.  The property consists of the land and premises located in the Township\nof Cherry Hill, County of Camden and State of New Jersey.  The legal description is:\n\nSEE SCHEDULE A ATTACHED HERETO AND MADE A PART HEREOF.\n\nBeing the same land and premises which became vested in Grantors by Deed\nfrom Centrum Prop...",
   "expected_legal_description": "BEGINNING at a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide\nat this point), being distant 338.25 feet along said Northerly line of Haddonfield-\nBerlin Road on a bearing of South 32 degrees 38 minutes 00 seconds East from the inter-\nsection of said Northerly line of Haddonfield-Berlin Road, with the Southeasterly\nline of Moore Avenue (50.00 feet wide), said point of beginning being also distant\nNortheasterly, a distance of 24.75 feet from the original center line of Haddonfield-\nBerlin Road (49.50 feet wide) and from said point of beginning, proceeding thence\n\n(1) North 50 degrees 45 minutes 00 seconds East, a distance of 417.57 feet to a point;\nthence\n\n(2) South 32 degrees 36 minutes 00 seconds East, a distance of 300.07 feet to a point;\nthence\n\n(3) South 69 degrees 03 minutes 30 seconds East, a distance of 165.42 feet to a point\nin the Westerly line of Brace Road (formerly Caldwell Avenue - 100.00 feet wide);\nthence\n\n(4) South 23 degrees 56 minutes 30 seconds West, along said Westerly line of Brace Road,\na distance of 116.04 feet to a point; thence\n\n(5) North 32 degrees 53 minutes 15 seconds West, a distance of 86.75 feet to a point;\nthence\n\n(6) South 57 degrees 56 minutes 30 seconds West, a distance of 128.93 feet to a point;\nthence\n\n(7) South 56 degrees 56 minutes 56 seconds West, a distance of 47.24 feet to a point;\nthence\n\n(8) North 32 degrees 36 minutes 00 seconds West, a distance of 62.57 feet to a point;\nthence\n\n(9) South 56 degrees 44 minutes 06 seconds West, a distance of 101.58 feet to a point;\nthence\n\n(10) along a line common with the above described tract numbered 1, North 32 degrees\n36 minutes 00 seconds West, a distance of 143.00 feet to a point; thence\n\n(11) along another line common with the above described tract numbered 1, South 56\ndegrees 44 minutes 05 seconds West, a distance of 140.00 feet to a point in the\nNortherly line of Haddonfield-Berlin Road (60.00 feet wide); thence\n\n(12) along said Northerly line of Berlin-Haddonfield Road, North 32 degrees 36 minutes\n00 seconds West, a distance of 202.00 feet to the point and place of BEGINNING.\n\nBEING shown and designated as Lot 17 in Block 426.01 on Plate 47 of the present tax\nmap of the Township of Cherry Hill.\n\nBEING No. 219 Berlin Road.\n\nUNDER AND SUBJECT to a certain 35 feet by 140 feet ingress and egress easement for the\nbenefit of the above described tract number 1, said ingress and egress easement being\nbounded and described as follows:\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road, being distant\n540.25 feet along said Northerly line of Haddonfield-Berlin Road on a bearing of\nSouth 32 degrees 38 minutes 00 seconds East from the intersection of said Northerly\nline of Haddonfield-Berlin Road with the Southeasterly line of Moore Avenue, and\nfrom said point of beginning, proceeding thence\n\n(1) North 56 degrees 44 minutes 05 seconds East, along a line common to tracts numbered\n1 and 2 herein described, a distance of 140.00 feet to a point; thence\n\n(2) North 32 degrees 36 minutes 00 seconds West, thru tract numbered 2 herein described\na distance of 35.00 feet to a point; thence\n\n(3) still thru said tract numbered 2 herein described, South 56 degrees 44 minutes\n05 seconds West, a distance of 140.00 feet to a point in the Northerly line of\nHaddonfield-Berlin Road; thence\n\n(4) along said Northerly line of Haddonfield-Berlin Road, South 32 degrees 36 minutes\n00 seconds East, a distance of 35.00 feet to the point and place of BEGINNING.\n\nBEING shown and designated as Lot 23 in Block 426.01 on Plate 47 of the present tax\nmap of the Township of Cherry Hill.\n\nNOW KNOWN ON THE OFFICIAL TAX MAP OF THE TOWNSHIP OF CHERRY HILL AS Block 426.01, Lot 17",
   "expected_normalized_text": "BEGINNING at a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide at this point), being distant 338.25 feet along said Northerly line of Haddonfield-Berlin Road on a bearing of S 32°38'00\" E from the intersection of said Northerly line of Haddonfield-Berlin Road, with the Southeasterly line of Moore Avenue (50.00 feet wide), said point of beginning being also distant Northeasterly, a distance of 24.75 feet from the original center line of Haddonfield-Berlin Road (49.50 feet wide) and from said point of beginning, proceeding thence\n\n(1) N 50°45'00\" E, a distance of 417.57 feet to a point; thence\n\n(2) S 32°36'00\" E, a distance of 300.07 feet to a point; thence\n\n(3) S 69°03'30\" E, a distance of 165.42 feet to a point in the Westerly line of Brace Road (formerly Caldwell Avenue - 100.00 feet wide); thence\n\n(4) S 23°56'30\" W, along said Westerly line of Brace Road, a distance of 116.04 feet to a point; thence\n\n(5) N 32°53'15\" W, a distance of 86.75 feet to a point; thence\n\n(6) S 57°56'30\" W, a distance of 128.93 feet to a point; thence\n\n(7) S 56°56'56\" W, a distance of 47.24 feet to a point; thence\n\n(8) N 32°36'00\" W, a distance of 62.57 feet to a point; thence\n\n(9) S 56°44'06\" W, a distance of 101.58 feet to a point; thence\n\n(10) along a line common with the above described tract numbered 1, N 32°36'00\" W, a distance of 143.00 feet to a point; thence\n\n(11) along another line common with the above described tract numbered 1, S 56°44'05\" W, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide); thence\n\n(12) along said Northerly line of Berlin-Haddonfield Road, N 32°36'00\" W, a distance of 202.00 feet to the point and place of BEGINNING.\n\nBEING shown and designated as Lot 17 in Block 426.01 on Plate 47 of the present tax map of the Township of Cherry Hill.\n\nBEING No. 219 Berlin Road.\n\nUNDER AND SUBJECT to a certain 35 feet by 140 feet ingress and egress easement for the benefit of the above described tract number 1, said ingress and egress easement being bounded and described as follows:\n\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road, being distant 540.25 feet along said Northerly line of Haddonfield-Berlin Road on a bearing of S 32°38'00\" E from the intersection of said Northerly line of Haddonfield-Berlin Road with the Southeasterly line of Moore Avenue, and from said point of beginning, proceeding thence\n\n(1) N 56°44'05\" E, along a line common to tracts numbered 1 and 2 herein described, a distance of 140.00 feet to a point; thence\n\n(2) N 32°36'00\" W, thru tract numbered 2 herein described a distance of 35.00 feet to a point; thence\n\n(3) still thru said tract numbered 2 herein described, S 56°44'05\" W, a distance of 140.00 feet to a point in the Northerly line of Haddonfield-Berlin Road; thence\n\n(4) along said Northerly line of Haddonfield-Berlin Road, S 32°36'00\" E, a distance of 35.00 feet to the point and place of BEGINNING.\n\nBEING shown and designated as Lot 23 in Block 426.01 on Plate 47 of the present tax map of the Township of Cherry Hill.\n\nNOW KNOWN ON THE OFFICIAL TAX MAP OF THE TOWNSHIP OF CHERRY HILL AS Block 426.01, Lot 17",
   "expected_poc": null,
-  "expected_pob": "a point in the Northerly line of Haddonfield-Berlin Road (60",
+  "expected_pob": "a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide at this point), being distant 338.25 feet along said Northerly line of Haddonfield-Berlin Road on a bearing of South 32 degrees 38 minutes 00 seconds East from the intersection of said Northerly line of Haddonfield-Berlin Road, with the Southeasterly line of Moore Avenue (50.00 feet wide)",
   "expected_calls": [
     {
       "course": 1,
@@ -27,7 +33,8 @@
       "monument_type": null,
       "notes": "printed \"North 50 degrees 45 minutes 00 seconds East\"; recorded as N 56°45'00\" E: the lot closes to 0.13 ft with it and misses by 43.6 ft as printed. Every deed carrying this description (07105-00834, 08256-00635, 12799-00118 Schedule A-2, 12941-00156) prints 50 degrees. Printed \"417.57 feet\"; recorded as 416.57 ft, as the other three deeds print it (0.13 ft closure vs 0.87 ft).",
       "printed_bearing_azimuth_deg_from_north": 50.75,
-      "printed_distance_ft": 417.57
+      "printed_distance_ft": 417.57,
+      "tract": "Tract 1"
     },
     {
       "course": 2,
@@ -42,7 +49,8 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1"
     },
     {
       "course": 3,
@@ -55,9 +63,10 @@
       "delta_deg": null,
       "arc_length_ft": null,
       "along": null,
-      "to": "a point in the Westerly line of Brace Road (formerly Caldwell Avenue - 100",
+      "to": "a point in the Westerly line of Brace Road (formerly Caldwell Avenue - 100.00 feet wide)",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1"
     },
     {
       "course": 4,
@@ -69,10 +78,11 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said Westerly line of Brace Road, a distance of 116.04 feet",
+      "along": "said Westerly line of Brace Road",
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1"
     },
     {
       "course": 5,
@@ -87,7 +97,8 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1"
     },
     {
       "course": 6,
@@ -102,7 +113,8 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1"
     },
     {
       "course": 7,
@@ -117,7 +129,8 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1"
     },
     {
       "course": 8,
@@ -132,7 +145,8 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1"
     },
     {
       "course": 9,
@@ -147,7 +161,8 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1"
     },
     {
       "course": 10,
@@ -159,10 +174,11 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "a line common with the above described tract numbered 1, N 32°36'00\" W, a distance of 143.00 feet",
+      "along": "a line common with the above described tract numbered 1",
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1"
     },
     {
       "course": 11,
@@ -174,10 +190,11 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "another line common with the above described tract numbered 1, S 56°44'05\" W, a distance of 140.00 feet",
-      "to": "a point in the Northerly line of Haddonfield-Berlin Road (60",
+      "along": "another line common with the above described tract numbered 1",
+      "to": "a point in the Northerly line of Haddonfield-Berlin Road (60.00 feet wide)",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1"
     },
     {
       "course": 12,
@@ -189,10 +206,11 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said Northerly line of Berlin-Haddonfield Road, N 32°36'00\" W, a distance of 202.00 feet to the point and place of BEGINNING. BEING shown and designated as Lot 17 in Block 426.01 on Plate 47 of the present tax map of the Township of Cherry Hill. BEING No. 219 Berlin Road. UNDER AND SUBJECT",
-      "to": "a certain 35 feet by 140 feet ingress and egress easement for the benefit of the above described tract number 1, said ingress and egress easement being bounded and described as follows:\nBEGINNING at a point in the Northerly line of Haddonfield-Berlin Road, being distant 540",
+      "along": "said Northerly line of Berlin-Haddonfield Road",
+      "to": "the point and place of BEGINNING",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Tract 1"
     },
     {
       "course": 13,
@@ -204,10 +222,11 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "a line common to tracts numbered 1 and 2 herein described, a distance of 140.00 feet",
+      "along": "a line common to tracts numbered 1 and 2 herein described",
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Easement 1"
     },
     {
       "course": 14,
@@ -222,7 +241,8 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Easement 1"
     },
     {
       "course": 15,
@@ -237,7 +257,8 @@
       "along": null,
       "to": "a point in the Northerly line of Haddonfield-Berlin Road",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Easement 1"
     },
     {
       "course": 16,
@@ -249,10 +270,11 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said Northerly line of Haddonfield-Berlin Road, S 32°36'00\" E, a distance of 35.00 feet",
+      "along": "said Northerly line of Haddonfield-Berlin Road",
       "to": "the point and place of BEGINNING",
       "monument_type": null,
-      "notes": null
+      "notes": null,
+      "tract": "Easement 1"
     }
   ],
   "expected_closure": {
@@ -270,5 +292,5 @@
       "description": "MUST extract exactly 16 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T03:02:47.226985+00:00 Course 1 (N 50°45' E as printed) is recorded as N 56°45' E and 416.57 ft (printed 417.57): the 12-course lot then closes to 0.130 ft (43.6 ft as printed)."
+  "notes": "Checked against Book 7105 Pages 836-837 (Schedule A), PDF pages 3-4: the legal text matches as typed (course 1 prints 417.57 and 50 degrees, as recorded in printed_*); made along/to verbatim, completed expected_pob, tagged the lot (courses 1-12, Tract 1) and the ingress and egress easement (courses 13-16, Easement 1), and filled deed_info. Ground truth generated at 2026-02-17T03:02:47.226985+00:00 Course 1 (N 50°45' E as printed) is recorded as N 56°45' E and 416.57 ft (printed 417.57): the 12-course lot then closes to 0.130 ft (43.6 ft as printed)."
 }
