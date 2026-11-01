@@ -162,17 +162,27 @@ def _mark_preamble_tie_courses(calls: list[DeedCall], count: int) -> list[DeedCa
 # SCHEDULE A-1: one property per schedule in a multi-property deed (mirrors
 # mp_parse.tracts._SCHEDULE_MARKER; a lone "Schedule A" names the attachment).
 _SCHEDULE_MARKER = re.compile(
-    # "Parcel 2:" / "TRACT #2:" headings also end the clauses before them, so an EXCEPT in
-    # Parcel 1 does not extend into Parcel 2.
-    r"\bSCHEDULE\s+[A-Z]-?\d+\b|\b(?:PARCEL|TRACT)\s+(?:#\s*|NO\.?\s*)?\d+[A-Z]?\s*:",
+    # "Parcel 2:" / "PARCEL A:" / "TRACT #2:" / "Tract #2" headings also end the clauses before
+    # them, so an EXCEPT in Parcel 1 does not extend into Parcel 2.
+    r"\bSCHEDULE\s+[A-Z]-?\d+\b"
+    r"|\b(?:PARCEL|TRACT)\s+(?:#\s*|NO\.?\s*)?(?:\d+[A-Z]?|[A-Z])\s*:"
+    r"|\b(?:PARCEL|TRACT)\s*(?:#\s*|NO\.?\s*)\d+[A-Z]?\b",
     re.IGNORECASE,
 )
+
+# "the boundary line of Tract #1 of Haddonfield Estates": a reference, not a heading
+# (mirrors mp_parse.tracts._REFERENCE_BEFORE)
+_MARKER_REFERENCE_BEFORE = re.compile(r"(?:\b(?:of|to|said|with|from|by)|,)\s*$", re.IGNORECASE)
 
 
 def _split_schedules(text: str) -> list[str]:
     """Split a multi-property description so each schedule's courses split on their own."""
     # A title or preamble before the first marker carries no courses; it stays with the first.
-    starts = [match.start() for match in _SCHEDULE_MARKER.finditer(text)]
+    starts = [
+        match.start()
+        for match in _SCHEDULE_MARKER.finditer(text)
+        if not _MARKER_REFERENCE_BEFORE.search(text, 0, match.start())
+    ]
     if starts and not re.search(r"\bTHENCE\b", text[: starts[0]], re.IGNORECASE):
         starts = starts[1:]
     bounds = [0, *starts, len(text)]
