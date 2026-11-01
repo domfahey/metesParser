@@ -500,3 +500,16 @@ def test_pennbrook_normalized_text_has_no_preamble_course(parse, gt_path):
     gt = _load(gt_path)
     calls = parse(gt["expected_normalized_text"], strict=False)
     assert [call.distance_ft for call in calls] == [c["distance_ft"] for c in gt["expected_calls"]]
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_two_digit_decimal_comma_is_a_decimal_point(parse):
+    """219 Berlin 12799-00118 prints "a distance of 300,07 feet"; it is not 30,007 feet."""
+    calls = parse(
+        "BEGINNING at a point; thence (a) North 50 degrees 45 minutes 00 seconds East, a distance "
+        "of 416.57 feet; thence\n\n(b) South 32 degrees 36 minutes 00 seconds East, a distance of "
+        "300,07 feet to a point; thence\n\n(c) North 32 degrees 36 minutes 00 seconds West, a "
+        "distance of 1,200.50 feet to the point of beginning.",
+        strict=True,
+    )
+    assert [call.distance_ft for call in calls] == [416.57, 300.07, 1200.5]
