@@ -18,8 +18,8 @@ from mp_models.revisions import (
     bind_baseline,
     revision_template,
 )
-from mp_review.revision_view import render_revision_file  # type: ignore[import-untyped]
-from mp_review.revisions import (  # type: ignore[import-untyped]
+from mp_review.revision_view import render_revision_file
+from mp_review.revisions import (
     import_revision,
     load_revision,
     publish_revision,
