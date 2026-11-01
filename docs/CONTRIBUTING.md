@@ -401,7 +401,15 @@ None
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+MetesParser is licensed under the [GNU Affero General Public License, version 3 only](../LICENSE), and the copyright holder also offers it under commercial licenses.
+
+By submitting a contribution, you:
+
+- confirm that you wrote it, or otherwise have the right to submit it under these terms;
+- license it under `AGPL-3.0-only`; and
+- grant Dominic Fahey a perpetual, worldwide, non-exclusive, royalty-free, irrevocable license to use, modify, sublicense and distribute your contribution under other terms, including commercial licenses.
+
+You keep the copyright in your contribution.
 
 ---
 

@@ -3,7 +3,7 @@ name = "mp-models"
 version = "2.0.0"
 requires-python = ">=3.11"
 description = "Pydantic schemas for metes and bounds deed parsing"
-license = "MIT"
+license = "AGPL-3.0-only"
 dependencies = [
     "pydantic>=2.10.0",
     "structlog>=24.4.0",

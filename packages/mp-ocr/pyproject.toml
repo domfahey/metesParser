@@ -3,7 +3,7 @@ name = "mp-ocr"
 version = "1.0.1"
 requires-python = ">=3.11"
 description = "LLM-based OCR extraction for deed PDFs"
-license = "MIT"
+license = "AGPL-3.0-only"
 dependencies = [
     "mp-models>=2.0.0",
     "openai>=2.3.0",
