@@ -170,11 +170,6 @@ def test_schedules_split_thence_courses_from_numbered_courses(parse):
 BERLIN_12799_GT = SAMPLE_DEEDS / "219 Berlin Rd - Deed Image (12799 - 00118).ground_truth.json"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Schedule A-1 writes 'thence' after each course: the first tie course (483.13 ft) "
-    "is stripped with the preamble and neither tie course is flagged",
-)
 @pytest.mark.parametrize("key", ["expected_legal_description", "expected_normalized_text"])
 @pytest.mark.parametrize("parse", PARSERS)
 def test_berlin_schedules_match_ground_truth(parse, key):
@@ -197,8 +192,41 @@ def test_berlin_schedules_are_tracts():
     gt = _load(BERLIN_12799_GT)
     _calls, tracts = package_extract_with_tracts(gt["expected_legal_description"], strict=True)
     assert [(t.label, len(t.calls)) for t in tracts] == [
-        ("Schedule A-1", 5),
+        ("Schedule A-1", 6),
         ("Schedule A-2", 16),
         ("Schedule A-3", 4),
         ("Schedule A-4", 4),
     ]
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_course_ending_in_thence_after_preamble_is_kept_and_counted_tie_courses_flagged(parse):
+    calls = parse(
+        "Beginning at a point in the Northwesterly Line of White Horse Road said point being "
+        "the following two courses and distances from the intersection of White Horse Road "
+        "with Burnt Mill Road.\n\n"
+        "North 40 Degrees 41 Minutes 31 Seconds East a distance of 483.13 feet to a point "
+        "thence;\n\n"
+        "North 59 Degrees 29 Minutes 19 Seconds West a distance of 17.78 feet to a point "
+        "thence;\n\n"
+        "North 40 Degrees 41 Minutes 31 Seconds East a distance of 223.65 feet to a point and "
+        "extending thence;\n\n"
+        "South 59 Degrees 29 Minutes 19 Seconds East a distance of 250.44 feet to point and "
+        "place of beginning."
+    )
+    assert [(call.distance_ft, call.is_tie_in) for call in calls] == [
+        (483.13, True),
+        (17.78, True),
+        (223.65, False),
+        (250.44, False),
+    ]
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_preamble_offset_is_not_a_course(parse):
+    calls = parse(
+        "BEGINNING at a point in the Northerly line of Main Street distant 100 feet "
+        "Westerly from Elm Street; thence North 10 degrees East 50 feet; thence South 10 "
+        "degrees West 50 feet to the place of beginning."
+    )
+    assert [call.distance_ft for call in calls] == [50, 50]
