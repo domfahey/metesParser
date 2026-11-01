@@ -346,6 +346,12 @@ def split_into_calls(text: str) -> list[str]:
             text,
             flags=re.MULTILINE,
         )
+        # Text before the first numbered course that opens the description ("...BEGINNING
+        # at a point ... a distance of 310.00 feet from ...") is a preamble, not a course.
+        if re.search(r"\b(?:BEGINNING|COMMENCING)\b", parts[0], re.IGNORECASE) and not re.search(
+            r"\bTHENCE\b", parts[0], re.IGNORECASE
+        ):
+            parts = parts[1:]
     elif re.search(r"\bTHENCE\b", text, re.IGNORECASE):
         parts = re.split(r"\bTHENCE\b", text, flags=re.IGNORECASE)
     else:
