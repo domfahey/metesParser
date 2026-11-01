@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 # Parse deed PDFs to markdown using LlamaParse via the `parse` CLI (semtools).
 #
-# Uses max quality settings:
-#   - parse_mode: parse_page_with_agent
-#   - model: openai-gpt-5
-#   - high_res_ocr: true
-#   - adaptive_long_table: true
-#   - outlined_table_extraction: true
-#   - output_tables_as_HTML: true
+# Uses max quality settings (LlamaParse v2):
+#   - tier: agentic_plus (the most accurate tier)
+#   - version: latest
+# The v1 options (parse_mode, model, high_res_ocr, adaptive_long_table,
+# outlined_table_extraction, output_tables_as_HTML) are rejected by the v2 API.
 #
 # Usage:
 #   ./scripts/parse_pdfs_to_md.sh                      # parse all PDFs missing .md files
@@ -33,12 +31,8 @@ cat > "$CONFIG_FILE" <<'CONF'
     "num_ongoing_requests": 10,
     "base_url": "https://api.cloud.llamaindex.ai",
     "parse_kwargs": {
-      "parse_mode": "parse_page_with_agent",
-      "model": "openai-gpt-5",
-      "high_res_ocr": "true",
-      "adaptive_long_table": "true",
-      "outlined_table_extraction": "true",
-      "output_tables_as_HTML": "true"
+      "tier": "agentic_plus",
+      "version": "latest"
     },
     "check_interval": 5,
     "max_timeout": 3600,
@@ -108,8 +102,8 @@ if [ ${#PDF_FILES[@]} -eq 0 ]; then
     exit 0
 fi
 
-echo "Parsing ${#PDF_FILES[@]} PDF(s) with LlamaParse (gpt-5, max settings)..."
-echo "Settings: parse_page_with_agent | high_res_ocr | adaptive_long_table | outlined_table_extraction"
+echo "Parsing ${#PDF_FILES[@]} PDF(s) with LlamaParse (agentic_plus tier, max settings)..."
+echo "Settings: tier=agentic_plus | version=latest"
 echo ""
 
 # Run parse CLI
