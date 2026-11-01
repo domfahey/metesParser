@@ -32,7 +32,7 @@ from .curves import (
 )
 from .deltas import calculate_deltas
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = [
     "COMPASS_POINTS",
