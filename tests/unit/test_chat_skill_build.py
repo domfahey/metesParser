@@ -309,7 +309,7 @@ def test_validate_rejects_unlinked_files_but_not_engine_files(builder):
         "references/next.md": b"# Next\n",
         "runtime/engine.json": b"{}",
         "scripts/run-chat.py": b"",
-        "LICENSE": b"MIT License\n",
+        "LICENSE": b"GNU AFFERO GENERAL PUBLIC LICENSE\n",
     }
     builder._validate(files)
     files["references/orphan.md"] = b"# Orphan\n"
