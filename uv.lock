@@ -679,7 +679,7 @@ wheels = [
 
 [[package]]
 name = "metesparser"
-version = "0.6.0"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
@@ -757,7 +757,7 @@ provides-extras = ["delivery", "geo", "web-map", "browser-test", "dev", "gemini"
 
 [[package]]
 name = "mp-bearing"
-version = "1.0.0"
+version = "1.1.0"
 source = { editable = "packages/mp-bearing" }
 dependencies = [
     { name = "mp-models" },
@@ -779,7 +779,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "mp-export"
-version = "1.0.0"
+version = "2.0.0"
 source = { editable = "packages/mp-export" }
 dependencies = [
     { name = "mp-models" },
@@ -811,7 +811,7 @@ provides-extras = ["delivery", "dev"]
 
 [[package]]
 name = "mp-models"
-version = "1.0.0"
+version = "2.0.0"
 source = { editable = "packages/mp-models" }
 dependencies = [
     { name = "pydantic" },
@@ -839,7 +839,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "mp-ocr"
-version = "1.0.0"
+version = "1.0.1"
 source = { editable = "packages/mp-ocr" }
 dependencies = [
     { name = "mp-models" },
@@ -873,7 +873,7 @@ provides-extras = ["gemini", "dev"]
 
 [[package]]
 name = "mp-parse"
-version = "1.0.0"
+version = "2.0.0"
 source = { editable = "packages/mp-parse" }
 dependencies = [
     { name = "mp-bearing" },
@@ -899,7 +899,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "mp-review"
-version = "1.0.0"
+version = "2.0.0"
 source = { editable = "packages/mp-review" }
 dependencies = [
     { name = "mp-bearing" },
@@ -948,7 +948,7 @@ provides-extras = ["delivery", "geo", "web-map"]
 
 [[package]]
 name = "mp-verify"
-version = "1.0.0"
+version = "2.0.0"
 source = { editable = "packages/mp-verify" }
 dependencies = [
     { name = "mp-bearing" },

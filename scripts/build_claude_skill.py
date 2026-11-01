@@ -10,7 +10,6 @@ import os
 import posixpath
 import re
 import tempfile
-import time
 import zipfile
 from collections.abc import Callable
 from pathlib import Path
@@ -48,7 +47,6 @@ EXCLUDED_PATTERNS = (re.compile(r"skills/[^/]+/README\.md"),)
 UNLINKED_ALLOWED = ("runtime/", "scripts/")
 # Shipped for licensing, not navigation; it need not be linked.
 UNLINKED_ALLOWED_FILES = frozenset({"LICENSE"})
-FIXED_DATE = (1980, 1, 1, 0, 0, 0)
 MAX_DESCRIPTION = 200
 # Plugin-only or source-checkout phrasing that must not survive adaptation (case-insensitive).
 FORBIDDEN = (
@@ -421,17 +419,9 @@ def _validate(files: dict[str, bytes]) -> None:
         raise ValueError(f"archive files not linked from SKILL.md: {', '.join(unlinked)}")
 
 
-def _zip_date() -> tuple[int, int, int, int, int, int]:
-    epoch = os.environ.get("SOURCE_DATE_EPOCH")
-    if not epoch:
-        return FIXED_DATE
-    stamp = time.gmtime(int(epoch))[:6]
-    return stamp if stamp >= FIXED_DATE else FIXED_DATE
-
-
 def write_archive(path: Path, files: dict[str, bytes]) -> None:
     """Write a byte-reproducible ZIP: sorted entries, fixed timestamps and permissions."""
-    date_time = _zip_date()
+    date_time = plugin_builder.zip_date()
     with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as archive:
         for name, content in sorted(files.items()):
             entry = zipfile.ZipInfo(f"{SKILL_ROOT}/{name}", date_time=date_time)

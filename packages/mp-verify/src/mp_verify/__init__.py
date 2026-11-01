@@ -15,7 +15,7 @@ from .plot import (
 )
 from .relative import analyze_relative
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 __all__ = [
     "compare_descriptions",

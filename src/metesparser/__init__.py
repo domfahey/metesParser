@@ -13,7 +13,7 @@ from .pipeline import Pipeline
 from .relative import analyze_relative
 from .text_parser import TextParser
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 __all__ = [
     "__version__",

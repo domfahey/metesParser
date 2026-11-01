@@ -71,7 +71,7 @@ One deterministic engine sits behind four ways of running MetesParser: the plugi
 | | Cowork plugin | Claude Code plugin | Claude chat Skill | CLI |
 | --- | --- | --- | --- | --- |
 | **Setup** | | | | |
-| Where you get it | `metesparser-plugin.zip` from [GitHub Releases](https://github.com/domfahey/metesParser/releases) | Same ZIP | Not a release asset: build `metesparser-chat-skill.zip` from a source checkout (`make chat-skill-build`) | Source checkout |
+| Where you get it | `metesparser-plugin.zip` from [GitHub Releases](https://github.com/domfahey/metesParser/releases) | Same ZIP | `metesparser-chat-skill.zip` from [GitHub Releases](https://github.com/domfahey/metesParser/releases) (v0.7.0 and later), or build it from a source checkout (`make chat-skill-build`) | Source checkout |
 | Install | Customize → Plugins, upload the ZIP (Anthropic's article does not name the upload format) | Extract the ZIP, then `claude --plugin-dir /absolute/path/to/extracted-plugin`; no marketplace | Customize → Skills → **+** → upload a skill; code execution must be on | `uv sync --all-extras --dev` |
 | Needed on your computer | Claude Desktop app, open and connected, for local folders | Python 3.11+ and `uv` on `PATH` | Nothing; the chat host needs Python 3.11+ | Python 3.11+ and `uv` |
 | Claude plan or account | Paid plan (Pro, Max, Ultra, Team, Enterprise) | Claude Code access; plan requirements not documented here | Any plan with Skills (Free to Enterprise) and code execution; Team and Enterprise owners must enable it | None for local commands; `metesparser extract` needs an OpenAI or Gemini API key and is billed by that provider (rates not documented here) |
@@ -87,7 +87,7 @@ One deterministic engine sits behind four ways of running MetesParser: the plugi
 | **Engine and verification** | | | | |
 | How the engine starts | Bundled launcher (`scripts/run-review.py`) with a locked runtime, provisioned by `uv` in Cowork's environment (untested) | Same launcher on your computer | Bundled `run-chat.py`; run `--setup` first. Uses `uv` from `PATH` as found, else a pinned, hash-checked download | Run directly with `uv run` |
 | First run and offline | Needs network once to fetch locked dependencies (a 200 MB cache after one macOS run); without a warm cache and network it returns a structured `launcher_error` | Same; the engine then runs offline with a warm cache | Needs `files.pythonhosted.org` and `pypi.org` on first use; `--setup --offline` never downloads and fails with `chat_runtime_error` if nothing is cached | Offline after `uv sync`, except `extract`, `fetch-parcel` and Mapbox |
-| Verified CSV export | One gate: closure below 0.01 ft, passing checks, no warnings and an eligible tract role, per [description roles](ARCHITECTURE.md#description-roles-and-verified-export). The v0.6.0 release ZIP predates the role policy and the 22-column CSV | Same | Same | Same for `metes-review review`/`verify` and `metesparser extract`; `metesparser verify` only checks |
+| Verified CSV export | One gate: closure below 0.01 ft, passing checks, no warnings and an eligible tract role, per [description roles](ARCHITECTURE.md#description-roles-and-verified-export). Release ZIPs before v0.7.0 predate the role policy and the 22-column CSV | Same | Same | Same for `metes-review review`/`verify` and `metesparser extract`; `metesparser verify` only checks |
 | **Outputs** | | | | |
 | What you can produce | CSV, review and plot HTML, dashboards, saved revisions, and SVG, PDF, DXF and GeoJSON packages | Same | Same, returned as downloads | Same through `metes-review`; `extract` writes a CSV only |
 | Dashboard and raster picker | Offline HTML; opening it from Cowork is untested | Offline HTML in a local browser | Download and open in an external browser | Offline HTML in a local browser |
@@ -133,7 +133,7 @@ Claude chat Skill:
 - Run `--setup` in each session; a host `uv` on `PATH` is used without checking it against the pin.
 - First use needs `files.pythonhosted.org` and `pypi.org`; the bootstrap download is limited to Linux and macOS on x86_64 and ARM64.
 - Dashboards and maps must be downloaded and opened in an external browser. Localhost reachability and MCP connectors are not guaranteed.
-- Upload size and batch limits are not documented. The ZIP must be built from source; it is not in the v0.6.0 release.
+- Upload size and batch limits are not documented. The ZIP is a release asset from v0.7.0; earlier releases require building it from source.
 
 CLI:
 
