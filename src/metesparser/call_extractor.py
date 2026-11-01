@@ -579,6 +579,21 @@ class CallExtractor:
             )
             if numbered_before_thence and first_marker:
                 prefix = tract_text[: first_marker.start()]
+            # "BEING Lot 1.01, Block 21 on the tax map ... Kings Highway East": with no THENCE, numbered
+            # course, distance, bearing or curve, a lot reference describes no courses.
+            if (
+                not has_thence_marker
+                and not first_marker
+                and not re.search(
+                    rf"{_COMMA_NUMBER}\s*(?:{_UNIT_TOKEN}\b|')", tract_text, re.IGNORECASE
+                )
+                and not re.search(
+                    r"\b[NS]\s*\d{1,3}\s*°|\bdue\s+(?:north|south|east|west)\b|\bcurv",
+                    tract_text,
+                    re.IGNORECASE,
+                )
+            ):
+                continue
             has_beginning_preamble = re.match(
                 r"\s*(?:BEGINNING|COMMENCING|POINT\s+OF\s+BEGINNING|POB|TPOB|RPOB)\b",
                 prefix,

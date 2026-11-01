@@ -551,3 +551,20 @@ def test_tract_heading_ends_the_previous_tracts_courses(parse, heading, second):
         "beginning."
     )
     assert [call.distance_ft for call in calls] == pytest.approx([80, 142, 10, 142, 10, 142])
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_lot_reference_without_courses_has_no_calls_in_strict_mode(parse):
+    """101-111 Kings Highway E 11353-01989: "Kings Highway East" is not a course."""
+    calls = parse(
+        "BEING Lot 1.01, Block 21 on the tax map of the Borough of Haddonfield.\n\n"
+        "BEING commonly known as 101-111 Kings Highway East, Haddonfield, New Jersey 08033.",
+        strict=True,
+    )
+    assert calls == []
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_bearing_without_distance_is_still_malformed_in_strict_mode(parse):
+    with pytest.raises(ValueError, match="Malformed course"):
+        parse("North 45 degrees 30 minutes East to the corner of Lot 7", strict=True)
