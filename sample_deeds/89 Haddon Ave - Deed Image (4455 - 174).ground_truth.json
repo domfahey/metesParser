@@ -1,24 +1,122 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "89 Haddon Avenue",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "4455",
+    "page": "174"
   },
   "raw_ocr_text": "I can’t reliably extract **all** text with **exact spelling, capitalization, and line breaks** from these images as provided. The pages are low-resolution/blurred in key areas (especially the dense legal description), so any “complete text” I return would risk errors—particularly in the **BEGINNING / THENCE** metes-and-bounds calls you emphasized.\n\nIf you upload either:\n1) the **original PDF** (not screenshots), or  \n2) higher-resolution scans (ideally **300–600 dpi**, straightened, no compression),  \n\nI can then produce a full, line-for-line transcription with preserved formatting.\n\n### What I can do right now\nI can attempt a **best-effort partial transcription** of the clearly legible portions, but it will not meet your “ALL text / exact” requirement. Tell me if you want that, or re-upload a clearer PDF and I’ll extract everything precisely.",
-  "expected_legal_description": "",
-  "expected_normalized_text": "",
+  "expected_legal_description": "ALL THAT CERTAIN tract or parcel of land and premises, situate in the Borough of Haddonfield, County of Camden and State of New Jersey, bounded and described according to a Survey of Lands, prepared by Walter H. MacNamara Assoc., Inc., dated July 21, 1990, as follows:\n\nBEGINNING at a point forming the intersection of the Northeasterly line of Haddon Avenue (66 feet wide) with the Southeasterly line of Euclid Avenue (60 feet wide), said beginning point also being measured in a general Southeastwardly direction along the Northeasterly line of Haddon Avenue, a distance of 60.0 feet from a point in the line of lands N/F of County Committee of YMCA of Camden County and also being the former Southeasterly boundary line of Tract #1 of Haddonfield Estates, and from said beginning point; running thence\n\n(1) North 54 degrees 44 minutes 05 seconds East, along the Southeasterly line of Euclid Avenue, a distance of 141.73 feet to a point of curve on same; thence\n\n(2) In a Northeastwardly direction along the Southeasterly and Southerly curved line of Euclid Avenue, curving to the right having a radius of 565.45 feet, an arc distance of 304.57 feet to a set iron pin in the line of lands N/F of Nicholson; thence\n\n(3) South 19 degrees 58 minutes 30 seconds West, along the line of lands N/F of Nicholson, a distance of 146.44 feet to a found field stone in the line of lands N/F of Oscar Hinski and Wife; thence along the line of lands N/F of Oscar Hinski and Wife, the following two courses and distances:\n\n(4) North 34 degrees 42 minutes 30 seconds West, a distance of 53.75 feet to a point in the same; thence\n\n(5) South 53 degrees 41 minutes 15 seconds West, still along same, a distance of 310.45 feet to a point on the Northeasterly line of Haddon Avenue, said point also being measured in a Northwestwardly direction along the Northeasterly line of Haddon Avenue, a distance of 85.39 feet to a found monument for an angle on said Haddon Avenue and continuing along said line of Haddon Avenue, a further distance of 379.79 feet from a point forming the intersection of the Northeasterly line of Haddon Avenue with the Northwesterly line of Lake Street; thence\n\n(6) North 36 degrees 03 minutes 35 seconds West, along the Northeasterly line of Haddon Avenue, a distance of 115.50 feet to the first mentioned point and place of beginning.\n\nBEING shown and designated as Lot 2 Block 11 Plate 5 on the Current Tax Map of the Borough of Haddonfield.\n\nALSO BEING known as 89 Haddon Avenue, Haddonfield, New Jersey.",
+  "expected_normalized_text": "ALL THAT CERTAIN tract or parcel of land and premises, situate in the Borough of Haddonfield, County of Camden and State of New Jersey, bounded and described according to a Survey of Lands, prepared by Walter H. MacNamara Assoc., Inc., dated July 21, 1990, as follows:\n\nBEGINNING at a point forming the intersection of the Northeasterly line of Haddon Avenue (66 feet wide) with the Southeasterly line of Euclid Avenue (60 feet wide), said beginning point also being measured in a general Southeastwardly direction along the Northeasterly line of Haddon Avenue, a distance of 60.0 feet from a point in the line of lands N/F of County Committee of YMCA of Camden County and also being the former Southeasterly boundary line of Tract #1 of Haddonfield Estates, and from said beginning point; running thence\n\n(1) N 54°44'05\" E, along the Southeasterly line of Euclid Avenue, a distance of 141.73 feet to a point of curve on same; thence\n\n(2) In a Northeastwardly direction along the Southeasterly and Southerly curved line of Euclid Avenue, curving to the right having a radius of 565.45 feet, an arc distance of 304.57 feet to a set iron pin in the line of lands N/F of Nicholson; thence\n\n(3) S 19°58'30\" W, along the line of lands N/F of Nicholson, a distance of 146.44 feet to a found field stone in the line of lands N/F of Oscar Hinski and Wife; thence along the line of lands N/F of Oscar Hinski and Wife, the following two courses and distances:\n\n(4) N 34°42'30\" W, a distance of 53.75 feet to a point in the same; thence\n\n(5) S 53°41'15\" W, still along same, a distance of 310.45 feet to a point on the Northeasterly line of Haddon Avenue, said point also being measured in a Northwestwardly direction along the Northeasterly line of Haddon Avenue, a distance of 85.39 feet to a found monument for an angle on said Haddon Avenue and continuing along said line of Haddon Avenue, a further distance of 379.79 feet from a point forming the intersection of the Northeasterly line of Haddon Avenue with the Northwesterly line of Lake Street; thence\n\n(6) N 36°03'35\" W, along the Northeasterly line of Haddon Avenue, a distance of 115.50 feet to the first mentioned point and place of beginning.\n\nBEING shown and designated as Lot 2 Block 11 Plate 5 on the Current Tax Map of the Borough of Haddonfield.\n\nALSO BEING known as 89 Haddon Avenue, Haddonfield, New Jersey.",
   "expected_poc": null,
-  "expected_pob": "",
-  "expected_calls": [],
-  "expected_closure": {},
+  "expected_pob": "a point forming the intersection of the Northeasterly line of Haddon Avenue (66 feet wide) with the Southeasterly line of Euclid Avenue (60 feet wide)",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 54°44'05\" E",
+      "bearing_quadrant": "N 54°44' E",
+      "bearing_azimuth_deg_from_north": 54.734722222222224,
+      "distance_ft": 141.73,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Southeasterly line of Euclid Avenue",
+      "to": "a point of curve on same",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "In a Northeastwardly direction, curving to the right",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 304.57,
+      "curve_dir": "right",
+      "radius_ft": 565.45,
+      "delta_deg": null,
+      "arc_length_ft": 304.57,
+      "along": "the Southeasterly and Southerly curved line of Euclid Avenue",
+      "to": "a set iron pin in the line of lands N/F of Nicholson",
+      "monument_type": null,
+      "notes": "curve; chord bearing and delta not stated"
+    },
+    {
+      "course": 3,
+      "direction_text": "S 19°58'30\" W",
+      "bearing_quadrant": "S 19°58' W",
+      "bearing_azimuth_deg_from_north": 199.975,
+      "distance_ft": 146.44,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the line of lands N/F of Nicholson",
+      "to": "a found field stone in the line of lands N/F of Oscar Hinski and Wife",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "N 34°42'30\" W",
+      "bearing_quadrant": "N 34°42' W",
+      "bearing_azimuth_deg_from_north": 325.2916666666667,
+      "distance_ft": 53.75,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "a point in the same",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "S 53°41'15\" W",
+      "bearing_quadrant": "S 53°41' W",
+      "bearing_azimuth_deg_from_north": 233.6875,
+      "distance_ft": 310.45,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "same",
+      "to": "a point on the Northeasterly line of Haddon Avenue",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 6,
+      "direction_text": "N 36°03'35\" W",
+      "bearing_quadrant": "N 36°04' W",
+      "bearing_azimuth_deg_from_north": 323.9402777777778,
+      "distance_ft": 115.5,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Northeasterly line of Haddon Avenue",
+      "to": "the first mentioned point and place of beginning",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Course 2 is a curve (radius 565.45 ft, arc 304.57 ft) with no stated chord bearing or delta, so closure is not computed. Assuming the curve is tangent to course 1, the misclosure is 0.010 ft."
+  },
   "critical_assertions": {
     "num_calls": {
-      "expected": 0,
+      "expected": 6,
       "operator": "==",
-      "description": "MUST extract exactly 0 calls"
+      "description": "MUST extract exactly 6 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-16T22:35:38.942590+00:00"
+  "notes": "Ground truth generated at 2026-02-16T22:35:38.942590+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF (deed body, Book 4455 Pages 174-175, PDF pages 1-2), transcribed verbatim from the July 21, 1990 MacNamara survey description (including \"N/F\", \"60.0 feet\" and \"Tract #1\"). The courses match the 4732-544 description; course 3 reads 146.44 feet. The \"BEING the same land...\" recital and later paragraphs are omitted."
 }
