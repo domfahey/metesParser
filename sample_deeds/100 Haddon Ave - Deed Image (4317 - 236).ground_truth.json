@@ -1,14 +1,20 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "100 Haddon Avenue",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "4317",
+    "page": "236",
+    "date": "August 23, 1988",
+    "grantor": "Frances W. Barnes, Widow",
+    "grantee": "Bell Service Corporation, a Pennsylvania Corporation",
+    "consideration": "$750,000.00",
+    "block": "130",
+    "lot": "6 and 9"
   },
   "raw_ocr_text": "I can’t accurately extract **all** text with exact spelling/line breaks from these images as provided. The pages are low-resolution and the body text (especially the legal description/“BEGINNING/THENCE” lines) is too blurred to read reliably, so a “complete text” transcription would require guessing—something I won’t do for a legal document.\n\nIf you upload either:\n- the **original PDF** (not screenshots), or  \n- higher-resolution scans (ideally **300–600 dpi**, straightened, no heavy compression),  \n\nI can then return a full, line-for-line transcription with preserved formatting.\n\n### What I *can* read with confidence from the current images (partial)\n(Everything below is only what is clearly legible; many lines are not readable.)\n\n**Page 2 (most legible)**\n```\nEstate of ALLEN M. BARNES dated 5/10/79, recorded 5/14/79, in book\n3636, page 910.\n\nAs to Lot 6, Block 130 as shown on the Tax Map.\n\nTitle of record to insured premises became vested in ALLEN M.\nBARNES and FRANCES W. BARNES, his...",
-  "expected_legal_description": "ALL THAT CERTAIN land and premises situate in the  \nBorough of Haddonfield, County of Camden and State of New Jersey, more  \nparticularly described as follows:  \n\nBEGINNING at a steel pin located at the Northwest corner of  \nHaddon and Euclid (formerly Redman Street) Avenues; thence  \n\n(1) North 34 degrees 02' 00\" West 129.00 feet to a found  \niron pipe; thence  \n\n(2) South 55 degrees 58' 00\" West 200.00 feet to a found  \niron pipe; thence  \n\n(3) South 34 degrees 02' 00\" East 129.00 feet to a point;  \nthence  \n\n(4) North 55 degrees 58' 00\" East 200.00 feet to the  \nPoint of Beginning.",
-  "expected_normalized_text": "ALL THAT CERTAIN land and premises situate in the Borough of Haddonfield, County of Camden and State of New Jersey, more particularly described as follows:\n\nBEGINNING at a steel pin located at the Northwest corner of Haddon and Euclid (formerly Redman Street) Avenues; thence\n\n(1) N 34°02'00\" W 129.00 feet to a found iron pipe; thence\n\n(2) S 55°58'00\" W 200.00 feet to a found iron pipe; thence\n\n(3) S 34°02'00\" E 129.00 feet to a point; thence\n\n(4) N 55°58'00\" E 200.00 feet to the Point of Beginning.",
+  "expected_legal_description": "ALL THAT CERTAIN land and premises situate in the\nBorough of Haddonfield, County of Camden and State of New Jersey, more\nparticularly described as follows:\n\nBEGINNING at a steel pin located at the Northwest corner of\nHaddon and Euclid (formerly Redman Street) Avenues; thence\n\n(1) North 34 degrees 02' 00\" West 129.00 feet to a found\niron pipe; thence\n\n(2) South 55 degrees 58' 00\" West 200.00 feet to a found\niron pipe; thence\n\n(3) South 34 degrees 02' 00\" East 129.00 feet to a point;\nthence\n\n(4) North 55 degrees 58' 00\" East 200.00 feet to the\nPoint of Beginning.",
+  "expected_normalized_text": "ALL THAT CERTAIN land and premises situate in the Borough of Haddonfield, County of Camden and State of New Jersey, more particularly described as follows:\nBEGINNING at a steel pin located at the Northwest corner of Haddon and Euclid (formerly Redman Street) Avenues; thence\n(1) N 34°02'00\" W 129.00 feet to a found iron pipe; thence\n(2) S 55°58'00\" W 200.00 feet to a found iron pipe; thence\n(3) S 34°02'00\" E 129.00 feet to a point;\nthence\n(4) N 55°58'00\" E 200.00 feet to the\nPoint of Beginning.",
   "expected_poc": null,
   "expected_pob": "a steel pin located at the Northwest corner of Haddon and Euclid (formerly Redman Street) Avenues",
   "expected_calls": [
@@ -87,5 +93,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-16T22:24:14.972199+00:00"
+  "notes": "Checked against Book 4317 Pages 236-237, PDF pages 1-2: the deed first gives the cardinal-only description (\"BEGINNING at the West corner of Haddon and Euclid (formerly Redman Street) Avenues\", four courses with interior angles) and then \"Also being described in accordance with a survey made by Eric I. Evers, P.L.S. and P.P. dated August 18, 1988\"; the expected legal description is that survey description, which matches the page word for word, as do its four courses (second check: confirmed at 200-400 dpi; markdown line-break spaces removed from the legal text). Ground truth generated at 2026-02-16T22:24:14.972199+00:00"
 }

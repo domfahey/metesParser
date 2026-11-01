@@ -1860,8 +1860,9 @@ def _kresson_case() -> Case | None:
     truth = json.loads(sample.read_text())
     return Case(
         truth["expected_legal_description"],
-        tracts=((MAIN_T, 4), (EXC, 5)),
-        flat=9,
+        # The exception's lettered ties (A) and (B) are both extracted and flagged.
+        tracts=((MAIN_T, 4), (EXC, 6)),
+        flat=10,
         closing_to=None,
     )
 

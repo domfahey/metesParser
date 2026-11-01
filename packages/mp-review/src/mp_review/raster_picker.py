@@ -89,7 +89,7 @@ def prepare_raster_picker_file(
             hashlib.sha256(controls_bytes).hexdigest(),
         )
         from mp_export.raster_picker import (
-            render_raster_picker,  # type: ignore[import-untyped, unused-ignore]
+            render_raster_picker,
         )
 
         html = render_raster_picker(image_bytes, config, controls_sha256=controls_sha)

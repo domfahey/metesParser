@@ -7,18 +7,18 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from mp_models import AuditContext, LegalDescription, RunMetadata, is_boundary_tract
-from mp_parse import (  # type: ignore[import-untyped]
+from mp_parse import (
     enrich_calls_with_azimuths,
     extract_calls,
     mark_tie_in_calls,
 )
-from mp_parse.metadata import (  # type: ignore[import-untyped]
+from mp_parse.metadata import (
     extract_area_statement,
     extract_poc_and_pob,
     split_into_calls,
 )
-from mp_parse.normalizer import normalize_legal_description  # type: ignore[import-untyped]
-from mp_parse.parcels import detect_parcel_markers  # type: ignore[import-untyped]
+from mp_parse.normalizer import normalize_legal_description
+from mp_parse.parcels import detect_parcel_markers
 
 MULTIPLE_PARCELS = "Multiple parcel descriptions require separate reviews."
 

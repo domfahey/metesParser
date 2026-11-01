@@ -8,7 +8,7 @@ from mp_models.plss import (
     PLSSSectionKey,
     PLSSSectionReference,
 )
-from mp_review.plss import prepare_plss_file  # type: ignore[import-untyped]
+from mp_review.plss import prepare_plss_file
 from mp_verify.plss import derive_plss
 
 __all__ = [

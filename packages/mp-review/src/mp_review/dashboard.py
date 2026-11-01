@@ -158,7 +158,7 @@ def dashboard_file(
     online_map: WebMapRequest | None = None,
 ) -> dict[str, Any]:
     """Stage an offline review and, when requested, a separate baseline online view."""
-    from mp_export.dashboard_html import (  # type: ignore[import-untyped]
+    from mp_export.dashboard_html import (
         render_dashboard,
         renderer_fingerprint,
     )
@@ -230,7 +230,7 @@ def dashboard_file(
         }
         online_manifest = None
         if online_map is not None:
-            from mp_export.online_map_html import (  # type: ignore[import-untyped]
+            from mp_export.online_map_html import (
                 online_renderer_fingerprint,
                 render_online_map,
             )

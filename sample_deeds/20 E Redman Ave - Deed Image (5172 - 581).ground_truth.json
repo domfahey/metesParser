@@ -1,16 +1,22 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "20 E. Redman Avenue",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "5172",
+    "page": "581",
+    "date": "July 18, 2001",
+    "grantor": "TCH REALTY ASSOCIATES, a partnership",
+    "grantee": "EDGEPARK DRIVE ASSOCIATES, LLC, a New Jersey Limited Liability Company",
+    "consideration": "$550,000",
+    "block": "129",
+    "lot": "2"
   },
   "raw_ocr_text": "I can’t accurately extract **all** text with exact spelling/line breaks from these images as provided: the pages are low-resolution, skewed, and several critical areas (especially signatures, stamps, and parts of the legal description) are not legible enough to guarantee a complete, exact transcription.\n\nWhat I *can* do now is:\n1) Provide a **best-effort partial transcription** of the legible portions, and  \n2) Tell you exactly what to upload to get a **complete, exact** extraction.\n\n---\n\n## Best-effort transcription (legible portions only; line breaks preserved as seen)\n\n### Page 1 (DEED – partial)\n\nPrepared by:  \nDavid A. Christie, Jr., Esq.\n\nDEED\n\nThis Deed is made on  July 18  , 2001,\n\nBETWEEN:  TCH REALTY ASSOCIATES, a partnership\n\nwhose address is  49 Grove Street, Haddonfield, New Jersey 08033  \nreferred to as the Grantor,\n\nAND:  EDGEPARK DRIVE ASSOCIATES, LLC, a New Jersey Limited  \nLiability Company\n\nwhose address is  25 Linden Street, Moorestown, New Jersey 08057  \nreferred t...",
-  "expected_legal_description": "ALL THAT CERTAIN land and premises situate in the Borough of Haddonfield, County of Camden, State  \nof New Jersey, bounded and described as follows:\n\nBEGINNING at the intersection of the Southwesterly line of Redman Avenue (60.00 feet wide) with the  \nSoutherly line of Turnley Avenue (20.00 feet wide, also known as Veterans Lane); thence\n\n(1)  Along the Southwesterly line of Turnley Avenue, South 44 degrees 49 minutes 50 seconds East, a  \ndistance of 140.00 feet to a point in the division line between Lots 2 and 3, Block 129, Tax Map; thence\n\n(2)  Along said division line, South 45 degrees 00 minutes 00 seconds West, a distance of 100.00 feet to an  \nangle point; thence\n\n(3)  Continuing along said division line, North 44 degrees 49 minutes 50 seconds West, a distance of 140.00  \nfeet to a point in the Southwesterly line of Redman Avenue; thence\n\n(4)  Along the Southwesterly line of Redman Avenue, North 45 degrees 00 minutes 00 seconds East, a  \ndistance of 100.00 feet to the point and place of beginning.\n\nBEING Lot 2, Block 129, Tax Map\n\nBEING COMMONLY KNOWN AS 20 E. Redman Avenue, Haddonfield, NJ.\n\nPREPARED from a survey prepared by Steven R. Kelly, Professional Land Surveyor, dated 6/29/01, project  \nnumber 2001302. Telephone number 1-609-433-0384.",
-  "expected_normalized_text": "ALL THAT CERTAIN land and premises situate in the Borough of Haddonfield, County of Camden, State of New Jersey, bounded and described as follows:\n\nBEGINNING at the intersection of the Southwesterly line of Redman Avenue (60.00 feet wide) with the Southerly line of Turnley Avenue (20.00 feet wide, also known as Veterans Lane); thence\n\n(1) Along the Southwesterly line of Turnley Avenue, S 44°49'50\" E, a distance of 140.00 feet to a point in the division line between Lots 2 and 3, Block 129, Tax Map; thence\n\n(2) Along said division line, S 45°00'00\" W, a distance of 100.00 feet to an angle point; thence\n\n(3) Continuing along said division line, N 44°49'50\" W, a distance of 140.00 feet to a point in the Southwesterly line of Redman Avenue; thence\n\n(4) Along the Southwesterly line of Redman Avenue, N 45°00'00\" E, a distance of 100.00 feet to the point and place of beginning.\n\nBEING Lot 2, Block 129, Tax Map\n\nBEING COMMONLY KNOWN AS 20 E. Redman Avenue, Haddonfield, NJ.\n\nPREPARED from a survey prepared by Steven R. Kelly, Professional Land Surveyor, dated 6/29/01, project number 2001302. Telephone number 1-609-433-0384.",
+  "expected_legal_description": "ALL THAT CERTAIN land and premises situated in the Borough of Haddonfield, County of Camden, State of New Jersey, bounded and described as follows:\n\nBEGINNING at the intersection of the Southeasterly line of Redman Avenue (60.00 feet wide) with the Southwesterly line of Turnley Avenue (20.00 feet wide, also known as Veterans Lane); thence\n\n(1.) Along the Southwesterly line of Turnley Avenue, South 44 degrees 49 minutes 50 seconds East, a distance of 140.00 feet to a point in the division line between Lots 2 and 3, Block 129, Tax Map; thence\n\n(2.) Along said division line, South 45 degrees 00 minutes 00 seconds West, a distance of 100.00 feet to an angle point; thence\n\n(3.) Continuing along said division line, North 44 degrees 49 minutes 50 seconds West, a distance of 140.00 feet to a point in the Southeasterly line of Redman Avenue; thence\n\n(4.) Along the Southeasterly line of Redman Avenue, North 45 degrees 00 minutes 00 seconds East, a distance of 100.00 feet to the point and place of beginning.\n\nBEING Lot 2, Block 129, Tax Map.\n\nBEING COMMONLY KNOWN AS 20 E. Redman Avenue, Haddonfield, NJ.\n\nPREPARED from a survey prepared by Steven R. Kelly, Professional Land Surveyor, dated 6/29/01, project number 2001309, Telephone number 1-800-433-0384.",
+  "expected_normalized_text": "ALL THAT CERTAIN land and premises situated in the Borough of Haddonfield, County of Camden, State of New Jersey, bounded and described as follows:\nBEGINNING at the intersection of the Southeasterly line of Redman Avenue (60.00 feet wide) with the Southwesterly line of Turnley Avenue (20.00 feet wide, also known as Veterans Lane); thence (1.) Along the Southwesterly line of Turnley Avenue, S 44°49'50\" E, a distance of 140.00 feet to a point in the division line between Lots 2 and 3, Block 129, Tax Map; thence (2.) Along said division line, S 45°00'00\" W, a distance of 100.00 feet to an angle point; thence (3.) Continuing along said division line, N 44°49'50\" W, a distance of 140.00 feet to a point in the Southeasterly line of Redman Avenue; thence (4.) Along the Southeasterly line of Redman Avenue, N 45°00'00\" E, a distance of 100.00 feet to the point and place of beginning. BEING Lot 2, Block 129, Tax Map. BEING COMMONLY KNOWN AS 20 E. Redman Avenue, Haddonfield, NJ. PREPARED from a survey prepared by Steven R. Kelly, Professional Land Surveyor, dated 6/29/01, project number 2001309, Telephone number 1-800-433-0384.",
   "expected_poc": null,
-  "expected_pob": "the intersection of the Southwesterly line of Redman Avenue (60",
+  "expected_pob": "the intersection of the Southeasterly line of Redman Avenue (60.00 feet wide) with the Southwesterly line of Turnley Avenue (20.00 feet wide, also known as Veterans Lane)",
   "expected_calls": [
     {
       "course": 1,
@@ -22,7 +28,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the Southwesterly line of Turnley Avenue, S 44°49'50\" E, a distance of 140.00 feet",
+      "along": "the Southwesterly line of Turnley Avenue",
       "to": "a point in the division line between Lots 2 and 3, Block 129, Tax Map",
       "monument_type": null,
       "notes": null
@@ -37,7 +43,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said division line, S 45°00'00\" W, a distance of 100.00 feet",
+      "along": "said division line",
       "to": "an angle point",
       "monument_type": null,
       "notes": null
@@ -52,8 +58,8 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said division line, N 44°49'50\" W, a distance of 140.00 feet",
-      "to": "a point in the Southwesterly line of Redman Avenue",
+      "along": "said division line",
+      "to": "a point in the Southeasterly line of Redman Avenue",
       "monument_type": null,
       "notes": null
     },
@@ -67,7 +73,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the Southwesterly line of Redman Avenue, N 45°00'00\" E, a distance of 100.00 feet",
+      "along": "the Southeasterly line of Redman Avenue",
       "to": "the point and place of beginning",
       "monument_type": null,
       "notes": null
@@ -87,5 +93,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-16T22:31:04.142041+00:00"
+  "notes": "Checked against Book 5172 Page 583 (Schedule \"A\", Steven R. Kelly land description 2001309, faxed), PDF page 3: fixed \"Southwesterly line of Redman Avenue\" (beginning clause, courses 3 and 4) and \"Southerly line of Turnley Avenue\" to the printed \"Southeasterly\"/\"Southwesterly\", \"situate\" to \"situated\", \"(1)\" to the printed \"(1.)\", project number 2001302 to 2001309 and telephone 1-609-433-0384 to 1-800-433-0384; the fax renders \"Turnley\" like \"Tumley\", transcribed as typed; made along/to verbatim and filled deed_info. Ground truth generated at 2026-02-16T22:31:04.142041+00:00"
 }

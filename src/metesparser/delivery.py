@@ -11,7 +11,7 @@ from mp_models.delivery import (
     DeliverySnapshot,
     DeliverySourceBinding,
 )
-from mp_review.delivery import (  # type: ignore[import-untyped]
+from mp_review.delivery import (
     DeliveryReplay,
     DeliveryReplayIncomplete,
     load_delivery,
@@ -19,7 +19,7 @@ from mp_review.delivery import (  # type: ignore[import-untyped]
     publish_delivery,
     replay_delivery,
 )
-from mp_review.revision_view import render_revision_file  # type: ignore[import-untyped]
+from mp_review.revision_view import render_revision_file
 
 __all__ = [
     "DeliveryItem",

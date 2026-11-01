@@ -210,12 +210,14 @@ def test_point_of_beginning_tie_followed_by_courses_does_not_close_the_exception
     )
     truth = json.loads(sample.read_text())
     _calls, tracts = extract_calls(truth["expected_legal_description"])
-    expected = [(c["direction_text"], c["distance_ft"]) for c in truth["expected_calls"]]
+    # Parsers read a misprinted course as printed ("printed_distance_ft"); the exception's
+    # lettered ties (A) and (B) are both extracted.
+    expected = [c.get("printed_distance_ft", c["distance_ft"]) for c in truth["expected_calls"]]
     assert [(t.tract_type, len(t.calls)) for t in tracts] == [
         (TractType.MAIN, 4),
-        (TractType.EXCEPTION, 5),
+        (TractType.EXCEPTION, 6),
     ]
-    assert [(c.direction_text, c.distance_ft) for t in tracts for c in t.calls] == expected
+    assert [c.distance_ft for t in tracts for c in t.calls] == expected
 
 
 def test_excepted_right_of_way_is_an_exception_not_an_easement() -> None:

@@ -75,6 +75,7 @@ from mp_models import RoleBasis, TractType, is_boundary_tract
 from .metadata import (
     _ENUMERATOR_STYLES,
     CLOSING_ALONG_WITH,
+    CONDITIONAL_EXCEPT_AFTER,
     STRUCTURE_BREAK,
     VERBATIM_BEARING,
     _is_lot_qualifier_except,
@@ -95,9 +96,15 @@ _MARKER = re.compile(
     r"\b(?P<kind>TRACT|PARCEL)\s+(?:#\s*|NO(?:\.|\s*#|\s)\s*)?"
     r"(?P<id>(?:\d+[A-Z]?|[IVX]+|[A-Z]"
     r"|ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|ELEVEN|TWELVE)"
-    r"(?:-(?:\d+|[A-Z]))?)\b",
+    r"(?:-(?:\d+|[A-Z]))?)"
+    # "TRACT 12th": an ordinal suffix belongs to the number, never a letter ID.
+    r"(?:(?<=\d)(?:st|nd|rd|th))?\b",
     re.IGNORECASE,
 )
+
+# SCHEDULE A-1 (one property per schedule in a multi-property deed); a lone "Schedule A"
+# names the attachment, not a tract.
+_SCHEDULE_MARKER = re.compile(r"\b(?P<kind>SCHEDULE)\s+(?P<id>[A-Z]-?\d+)\b", re.IGNORECASE)
 
 # Include the full POB opening so extracted tracts retain their original wording.
 _BEGINNING_PATTERN = re.compile(
@@ -467,8 +474,11 @@ _COMMENCING = re.compile(r"\bCOMMENCING\b", re.IGNORECASE)
 # "RESERVING unto the Grantor the following described tract:", "EXCLUDING therefrom the
 # following described parcel:", "SAVING AND EXCLUDING PARCEL B:"); "more or less" is
 # never one.
+# "LOT 48 EXCLUDING THAT PART DESCRIBED AS ...": that phrase takes a described part out
+# of the grant even mid-sentence (deed 50428).
 _TAKING_LEAD = re.compile(
-    r"(?:^|(?<=[.;:,\n]))[ \t]*(?P<lead>(?:(?:ALSO|AND|BUT)\s+)?"
+    r"(?:^|(?<=[.;:,\n])|(?<=\s)(?=EXCLUDING\s+THAT\s+PART\b))[ \t]*"
+    r"(?P<lead>(?:(?:ALSO|AND|BUT)\s+)?"
     r"(?:(?:LESS|SAVE|SAVING)(?:\s+AND\s+EXCLUDING)?|EXCLUDING|RESERVING)\b)",
     re.IGNORECASE,
 )
@@ -1592,6 +1602,8 @@ def stated_exception_spans(text: str) -> list[tuple[int, int]]:
         start = lead.start()
         if spans and start < spans[-1][1]:
             continue
+        if CONDITIONAL_EXCEPT_AFTER.match(text, lead.end()):
+            continue
         closed_at = _last_closure_end(index, start, [*index.easements, *spans])
         if closed_at is None or closed_at == _NO_DESCRIPTION:
             continue
@@ -1955,13 +1967,21 @@ def _is_heading_marker(text: str, match: re.Match[str]) -> bool:
 def find_tract_markers(
     text: str,
 ) -> list[tuple[int, str, str]]:
-    """Find explicit TRACT or PARCEL markers.
+    """Find explicit TRACT, PARCEL or SCHEDULE markers.
 
     Returns: list of (position, label, marker_kind)
     """
+    matches = sorted(
+        [*_MARKER.finditer(text), *_SCHEDULE_MARKER.finditer(text)], key=lambda m: m.start()
+    )
     return [
-        (m.start(), f"{m['kind'].capitalize()} {m['id']}", m["kind"].lower())
-        for m in _MARKER.finditer(text)
+        (
+            m.start(),
+            f"{m['kind'].capitalize()} "
+            + (m["id"].upper() if m["kind"].lower() == "schedule" else m["id"]),
+            m["kind"].lower(),
+        )
+        for m in matches
         if _is_heading_marker(text, m)
     ]
 
@@ -2107,6 +2127,55 @@ _THENCE_WORD = re.compile(r"\bTHENCE\b", re.IGNORECASE)
 # A point of beginning reached by a tie and followed by more courses ("... to a point
 # and place of beginning, thence; (1) ...") is not the description's closure.
 _POB_CONTINUES = re.compile(r"\s*[,;]?\s*thence\b", re.IGNORECASE)
+
+
+# A description opens at its commencement or point of beginning.
+_DESCRIPTION_OPENING = re.compile(r"\b(?:COMMENCING|BEGINNING)\s+at\b", re.IGNORECASE)
+_CLAUSE_KEYWORD = re.compile(
+    r"\b(?:(?:LESS\s+AND\s+)?EXCEPT(?:ING)?|EXCLUDING|ALSO|INCLUDING|EASEMENT)\b", re.IGNORECASE
+)
+
+
+def split_complete_descriptions(text: str) -> list[str]:
+    """Split text holding complete descriptions in sequence.
+
+    "...to the point of beginning. Combined Legal Description: ... Commencing at ..." opens
+    another description once the previous one has closed at its point of beginning (a point
+    of beginning followed by THENCE is a tie, not a closure). An excepted, added or easement
+    parcel ("..., EXCEPT ... beginning at ...") stays with its description.
+    """
+    parts: list[str] = []
+    start = 0
+    # The first description runs from the text's start (it may open with assessor wording,
+    # "BEG N89DEG ..."); every later one opens with BEGINNING/COMMENCING at.
+    anchor = 0
+    while first_thence := _THENCE_WORD.search(text, anchor):
+        close = next(
+            (
+                mention
+                for mention in _POB_CLOSE_PATTERN.finditer(text, first_thence.end())
+                if not _POB_CONTINUES.match(text, mention.end())
+            ),
+            None,
+        )
+        if close is None:
+            break
+        following = _DESCRIPTION_OPENING.search(text, close.end())
+        # A later opening with no courses after it ("... Beginning at a point in the line
+        # of Lot 10, said point being ...") is a recital, not another description.
+        if following is None or not _THENCE_WORD.search(text, following.end()):
+            break
+        between = text[close.end() : following.start()]
+        if _THENCE_WORD.search(between):
+            break
+        # Wording taking, granting or reciting land between them ("SUBJECT to the right of
+        # way over the following:") ties the next description to this one.
+        if not (_CLAUSE_KEYWORD.search(between) or _ROLE_WORD.search(between)):
+            parts.append(text[start : close.end()])
+            start = close.end()
+        anchor = following.end()
+    parts.append(text[start:])
+    return [part.strip() for part in parts if part.strip()]
 
 
 def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
@@ -2778,27 +2847,38 @@ def _split_tract_segments(index: _TextIndex, source: str | None = None) -> list[
     markers = find_tract_markers(text)
     if markers:
         positions = [position for position, _, _ in markers]
-        return [
-            (
-                segment,
-                label,
-                tract_type,
-                _heading_basis(
-                    index,
-                    label,
-                    tract_type,
-                    position,
-                    positions,
-                    text if source is None else source,
-                ),
+        segments: list[BasedSegment] = []
+        for segment, label, tract_type, position in _split_on_markers(text, markers):
+            basis = _heading_basis(
+                index, label, tract_type, position, positions, text if source is None else source
             )
-            for segment, label, tract_type, position in _split_on_markers(text, markers)
-        ]
+            # A further description under the same heading has no heading of its own.
+            for number, description in enumerate(split_complete_descriptions(segment), start=1):
+                if number == 1:
+                    segments.append((description, label, tract_type, basis))
+                else:
+                    segments.append(
+                        (description, f"{label}, description {number}", tract_type, "inferred")
+                    )
+        return segments
 
     # 2. Try multiple BEGINNING blocks
     blocks = find_beginning_blocks(text)
     if len(blocks) > 1:
         return _inferred(label_beginning_blocks(blocks, text))
+
+    # 3. Complete descriptions in sequence that are not both BEGINNING blocks ("BEG
+    # N89DEG ... to the point of beginning ... And 10M6B1A1 THAT PART ... DESCRIBED AS
+    # BEGINNING AT ...").
+    descriptions = split_complete_descriptions(text)
+    if len(descriptions) > 1:
+        return [
+            (segment, f"Tract {number}" if label == "Tract 1" else label, tract_type, "inferred")
+            for number, description in enumerate(descriptions, start=1)
+            for segment, label, tract_type, _basis in _split_tract_segments(
+                _index(description), None
+            )
+        ]
 
     # Easements are separated before clause splitting, which would cut an "ALSO an
     # easement ..." opener off its description.

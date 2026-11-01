@@ -31,22 +31,25 @@ VULGAR_FRACTIONS = (
 _VULGAR = f"[{VULGAR_FRACTIONS}]"
 _FRACTION_SLASH = r"[/\u2044]"
 _FRACTION = rf"\d+{_FRACTION_SLASH}0*[1-9]\d*"
-# Comma grouping is valid thousands grouping only ("1,200"); "100,50" or "1,2,3" is
-# no number, never a different value.
+# Comma grouping is valid thousands grouping only ("1,200"); "1,23" or "1,2,3" is no
+# number, never a different value.
 _WHOLE = r"(?:\d{1,3}(?:,\d{3})+|\d+)"
+# "300,07 feet": one comma after two or more digits and before exactly two is a decimal
+# point, as some deeds print it (thousands groups always have three digits).
+_DECIMAL_COMMA = r"\d{2,},\d{2}"
 _MIXED_GAP = r"(?:\s*-\s*|\s+)"
 # A fraction (or lone vulgar fraction) never starts after a whole number and a gap
 # (it would be read without the whole number).
 _NO_WHOLE_BEFORE = r"(?<!\d\s)(?<!\d\s\s)(?<!\d,\s)(?<!\d-)(?<!\d\s-)(?<!\d-\s)"
 _NUMBER_END = rf"(?!\d|[.,]\d|{_FRACTION_SLASH}|{_VULGAR}|\s*-?\s*\d+{_FRACTION_SLASH}\d)"
 LENGTH_NUMBER = (
-    rf"(?:{LENGTH_NUMBER_GUARD}(?:{_WHOLE}{_MIXED_GAP}{_FRACTION}|{_WHOLE}\s*{_VULGAR}"
+    rf"(?:{LENGTH_NUMBER_GUARD}(?:{_DECIMAL_COMMA}|{_WHOLE}{_MIXED_GAP}{_FRACTION}|{_WHOLE}\s*{_VULGAR}"
     rf"|{_WHOLE}(?:\.\d+)?|{_NO_WHOLE_BEFORE}{_FRACTION}|{_NO_WHOLE_BEFORE}{_VULGAR})"
     rf"|{_LEADING_DECIMAL_GUARD}\.\d+)"
     rf"{_NUMBER_END}"
 )
 _NUMBER_FORM = re.compile(
-    rf"(?P<decimal>{_WHOLE}(?:\.\d+)?|\.\d+)"
+    rf"(?P<decimal_comma>{_DECIMAL_COMMA})|(?P<decimal>{_WHOLE}(?:\.\d+)?|\.\d+)"
     rf"|(?:(?P<whole>{_WHOLE})(?:{_MIXED_GAP}(?=\d)|\s*(?={_VULGAR})))?"
     rf"(?:(?P<num>\d+){_FRACTION_SLASH}(?P<den>\d+)|(?P<vulgar>{_VULGAR}))"
 )
@@ -61,6 +64,8 @@ def parse_number(text: str) -> float:
     form = _NUMBER_FORM.fullmatch(text.strip())
     if form is None:
         raise ValueError(f"not a length number: {text!r}")
+    if form.group("decimal_comma") is not None:
+        return float(form.group("decimal_comma").replace(",", "."))
     if form.group("decimal") is not None:
         return float(form.group("decimal").replace(",", ""))
     value = float(form.group("whole").replace(",", "")) if form.group("whole") else 0.0

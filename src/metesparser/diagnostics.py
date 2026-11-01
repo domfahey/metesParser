@@ -14,7 +14,7 @@ from mp_models.diagnostics import (
     QuantizationBound,
     diagnostic_input_hash,
 )
-from mp_review.diagnostics import diagnose_closure_file  # type: ignore[import-untyped]
+from mp_review.diagnostics import diagnose_closure_file
 from mp_verify.diagnostics import diagnose_closure
 
 __all__ = [
