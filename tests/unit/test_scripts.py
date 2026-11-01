@@ -312,6 +312,28 @@ class TestAuditEmptyGroundTruth:
         result = mod.audit_deed(self._write(tmp_path, "See Schedule A attached hereto", []))
         assert result["status"] == "PASS"
 
+    def test_description_recorded_with_another_deed_uses_that_markdown(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """8 Kings Highway W 7535-933: its Schedule C is recorded in the 7535-929 scan."""
+        mod = _load_audit_module()
+        monkeypatch.setattr(mod, "SAMPLE_DIR", tmp_path)
+        (tmp_path / "other.md").write_text(self.MD)
+        base = "1 Main St - Deed Image (1 - 1)"
+        (tmp_path / f"{base}.md").write_text("SEE Schedule C attached.")
+        calls = mod.extract_calls_from_md(self.MD)
+        gt = {
+            "legal_description_markdown": "other.md",
+            "expected_calls": [
+                {"distance_ft": c["distance_ft"], "bearing_azimuth_deg_from_north": c["azimuth"]}
+                for c in calls
+            ],
+        }
+        (tmp_path / f"{base}.ground_truth.json").write_text(json.dumps(gt))
+        result = mod.audit_deed(base)
+        assert result["status"] == "PASS"
+        assert result["n_md"] == len(calls) == 2
+
 
 class TestAuditSchedules:
     """219 Berlin Rd 12799-00118: schedule attachments and trailing-thence courses."""
