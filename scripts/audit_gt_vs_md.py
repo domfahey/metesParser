@@ -408,13 +408,16 @@ def audit_deed(pdf_base: str) -> dict[str, object]:
         # An empty GT would otherwise pass every comparison below
         issues.append(f"EMPTY_GT: GT has no calls but MD extracted={n_md}")
 
-    # 2. Compare individual calls
+    # 2. Compare individual calls. A course the deed misprints records its intended value,
+    # plus the printed value (printed_*) that the markdown shows.
     for i in range(min(n_gt, n_md)):
         gc = gt_calls[i]
         mc = md_calls[i]
 
         # Compare azimuth
-        gt_az = gc.get("bearing_azimuth_deg_from_north")
+        gt_az = gc.get(
+            "printed_bearing_azimuth_deg_from_north", gc.get("bearing_azimuth_deg_from_north")
+        )
         md_az = mc.get("azimuth")
 
         if gt_az is not None and md_az is not None:
@@ -432,7 +435,7 @@ def audit_deed(pdf_base: str) -> dict[str, object]:
             )
 
         # Compare distance
-        gt_dist = gc.get("distance_ft")
+        gt_dist = gc.get("printed_distance_ft", gc.get("distance_ft"))
         md_dist = mc.get("distance_ft")
 
         if gt_dist is not None and md_dist is not None:

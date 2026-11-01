@@ -415,3 +415,42 @@ class TestAuditExhibitReferences:
         mod = _load_audit_module()
         calls = mod.extract_calls_from_md(self.MD)
         assert [call["distance_ft"] for call in calls] == [213.26, 344.93, 285.44]
+
+
+class TestAuditPrintedValues:
+    """A misprinted course records its intended value and the printed value the markdown shows."""
+
+    MD = (
+        "BEGINNING at a point; thence South 64 degrees 22 minutes 25 seconds West, 229.89 feet "
+        "to a point; thence North 46 degrees 46 minutes 25 seconds West, 59.30 feet to the point "
+        "and place of beginning."
+    )
+
+    def _audit(self, tmp_path, monkeypatch, first_call: dict[str, object]) -> dict[str, object]:
+        mod = _load_audit_module()
+        monkeypatch.setattr(mod, "SAMPLE_DIR", tmp_path)
+        base = "26 Chews Landing Rd - Deed Image (1 - 1)"
+        calls = [first_call, {"bearing_azimuth_deg_from_north": 313.2264, "distance_ft": 59.30}]
+        (tmp_path / f"{base}.md").write_text(self.MD)
+        (tmp_path / f"{base}.ground_truth.json").write_text(json.dumps({"expected_calls": calls}))
+        return mod.audit_deed(base)
+
+    def test_printed_value_is_compared_with_the_markdown(self, tmp_path, monkeypatch) -> None:
+        result = self._audit(
+            tmp_path,
+            monkeypatch,
+            {
+                "bearing_azimuth_deg_from_north": 244.3736,
+                "distance_ft": 299.89,
+                "printed_distance_ft": 229.89,
+            },
+        )
+        assert result["status"] == "PASS", result["issues"]
+
+    def test_intended_value_without_printed_value_fails(self, tmp_path, monkeypatch) -> None:
+        result = self._audit(
+            tmp_path,
+            monkeypatch,
+            {"bearing_azimuth_deg_from_north": 244.3736, "distance_ft": 299.89},
+        )
+        assert result["issues"] == ["DISTANCE_C1: GT=299.89ft, MD=229.89ft (diff=70.00ft)"]
