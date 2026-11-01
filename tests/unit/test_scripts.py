@@ -509,3 +509,16 @@ class TestAuditNearRepeatedDescriptions:
         lot_b = self.LOT.format(street="Ellis", d1="200.00", d5="60.00")
         calls = mod.extract_calls_from_md(f"{lot_a}\n\n{lot_b}")
         assert len(calls) == 12
+
+
+class TestAuditDecimalCommas:
+    def test_two_digit_comma_is_a_decimal_point(self) -> None:
+        """219 Berlin 12799-00118 prints "a distance of 300,07 feet"."""
+        mod = _load_audit_module()
+        assert mod.extract_distance("South 32 degrees East, a distance of 300,07 feet") == 300.07
+        assert mod.extract_distance("a distance of 35,00 feet to the point") == 35.0
+
+    def test_three_digit_comma_is_not_a_decimal_point(self) -> None:
+        mod = _load_audit_module()
+        assert mod.to_float("300,07") == 300.07
+        assert not mod.re.fullmatch(mod.NUMBER, "1,140")
