@@ -5,133 +5,103 @@
     "state": "NJ",
     "book": "9701",
     "page": "296",
-    "parcel_shape": "Irregular 5-sided polygon",
-    "dimensions": "~301 ft x 121 ft x 171 ft x 281 ft x 59 ft"
+    "parcel_shape": "Irregular 5-sided polygon"
   },
   "raw_ocr_text": "ALL THAT CERTAIN lot, tract, or parcel of land and premises, situate, lying and being in the Borough of Haddonfield, County of Camden and State of New Jersey, being more particularly described as follows:\n\nBeginning at a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwesterly from the intersection of the southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield; thence\n\n1) South 54 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings West, 300.55 feet to a point; thence\n\n2) South 25 degrees 37 minutes 35 seconds East at right angles to Kings Highway West 120.68 feet to corner to other land of John J. Litz and Caroline, his wife; thence\n\n3) South 68 degrees 39 minutes 05 seconds East along said land of Litz, at right angles to Chews Landing Road 171.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n\n4) North 21 degrees 20 minutes 55 seconds East along the Northwesterly line of Chews Landing Road 280.55 feet to corner to said land of the Borough of Haddonfield; thence\n\n5) North 47 degrees 08 minutes 20 seconds West along said land of the Borough of Haddonfield, 58.67 feet to the point and place of beginning.",
-  "expected_legal_description": "Beginning at a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwesterly from the intersection of the southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield; thence\n1) South 54 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings West, 300.55 feet to a point; thence\n2) South 25 degrees 37 minutes 35 seconds East at right angles to Kings Highway West 120.68 feet to corner to other land of John J. Litz and Caroline, his wife; thence\n3) South 68 degrees 39 minutes 05 seconds East along said land of Litz, at right angles to Chews Landing Road 171.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n4) North 21 degrees 20 minutes 55 seconds East along the Northwesterly line of Chews Landing Road 280.55 feet to corner to said land of the Borough of Haddonfield; thence\n5) North 47 degrees 08 minutes 20 seconds West along said land of the Borough of Haddonfield, 58.67 feet to the point and place of beginning.",
-  "expected_normalized_text": null,
-  "expected_pob": "a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwesterly from the intersection of the southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield",
+  "expected_legal_description": "Beginning at a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwestwardly from the intersection of the southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield; thence\n\n1) South 54 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings West, 300.55 feet to a point; thence\n\n2) South 25 degrees 37 minutes 35 seconds East at right angles to Kings Highway West 120.68 feet to corner to other land of John J. Litz and Caroline, his wife; thence\n\n3) South 68 degrees 39 minutes 05 seconds East along said land of Litz, at right angles to Chews Landing Road 171.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n\n4) North 21 degrees 20 minutes 55 seconds East along the Northwesterly line of Chews Landing Road 280.55 feet to corner to said land of the Borough of Haddonfield; thence\n\n5) North 47 degrees 08 minutes 20 seconds West along said land of the Borough of Haddonfield, 58.67 feet to the point and place of beginning.",
+  "expected_normalized_text": "Beginning at a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwestwardly from the intersection of the southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield; thence\n\n1) S 54°22'25\" W along the Southeasterly line of Kings West, 300.55 feet to a point; thence\n\n2) S 25°37'35\" E at right angles to Kings Highway West 120.68 feet to corner to other land of John J. Litz and Caroline, his wife; thence\n\n3) S 68°39'05\" E along said land of Litz, at right angles to Chews Landing Road 171.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n\n4) N 21°20'55\" E along the Northwesterly line of Chews Landing Road 280.55 feet to corner to said land of the Borough of Haddonfield; thence\n\n5) N 47°08'20\" W along said land of the Borough of Haddonfield, 58.67 feet to the point and place of beginning.",
+  "expected_poc": null,
+  "expected_pob": "a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwestwardly from the intersection of the southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield",
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "South 54 degrees 22 minutes 25 seconds West",
-      "bearing_quadrant": "S 54\u00b022'25\" W",
-      "bearing_azimuth_deg_from_north": 234.3736,
+      "direction_text": "S 64°22'25\" W",
+      "bearing_quadrant": "S 64°22' W",
+      "bearing_azimuth_deg_from_north": 244.3736111111111,
       "distance_ft": 300.55,
-      "along": "the Southeasterly line of Kings West",
-      "to": "a point",
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
+      "along": "the Southeasterly line of Kings West",
+      "to": "a point",
       "monument_type": null,
-      "notes": "Along text says 'Kings West' (missing 'Highway') - verbatim from deed"
+      "notes": "printed \"South 54 degrees 22 minutes 25 seconds West\"; recorded as S 64°22'25\" W: course (2) runs at right angles to Kings Highway West at S 25°37'35\" E, and the parcel closes with 64°"
     },
     {
       "course": 2,
-      "direction_text": "South 25 degrees 37 minutes 35 seconds East",
-      "bearing_quadrant": "S 25\u00b037'35\" E",
-      "bearing_azimuth_deg_from_north": 154.3736,
+      "direction_text": "S 25°37'35\" E",
+      "bearing_quadrant": "S 25°38' E",
+      "bearing_azimuth_deg_from_north": 154.3736111111111,
       "distance_ft": 120.68,
-      "along": "at right angles to Kings Highway West",
-      "to": "corner to other land of John J. Litz and Caroline, his wife",
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
+      "along": null,
+      "to": "corner to other land of John J. Litz and Caroline, his wife",
       "monument_type": null,
-      "notes": null
+      "notes": "at right angles to Kings Highway West"
     },
     {
       "course": 3,
-      "direction_text": "South 68 degrees 39 minutes 05 seconds East",
-      "bearing_quadrant": "S 68\u00b039'05\" E",
-      "bearing_azimuth_deg_from_north": 111.3486,
+      "direction_text": "S 68°39'05\" E",
+      "bearing_quadrant": "S 68°39' E",
+      "bearing_azimuth_deg_from_north": 111.34861111111111,
       "distance_ft": 171.43,
-      "along": "said land of Litz, at right angles to Chews Landing Road",
-      "to": "a point in the Northwesterly line of said Chews Landing Road",
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
+      "along": "said land of Litz",
+      "to": "a point in the Northwesterly line of said Chews Landing Road",
       "monument_type": null,
-      "notes": null
+      "notes": "at right angles to Chews Landing Road"
     },
     {
       "course": 4,
-      "direction_text": "North 21 degrees 20 minutes 55 seconds East",
-      "bearing_quadrant": "N 21\u00b020'55\" E",
-      "bearing_azimuth_deg_from_north": 21.3486,
+      "direction_text": "N 21°20'55\" E",
+      "bearing_quadrant": "N 21°21' E",
+      "bearing_azimuth_deg_from_north": 21.34861111111111,
       "distance_ft": 280.55,
-      "along": "the Northwesterly line of Chews Landing Road",
-      "to": "corner to said land of the Borough of Haddonfield",
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
+      "along": "the Northwesterly line of Chews Landing Road",
+      "to": "corner to said land of the Borough of Haddonfield",
       "monument_type": null,
       "notes": null
     },
     {
       "course": 5,
-      "direction_text": "North 47 degrees 08 minutes 20 seconds West",
-      "bearing_quadrant": "N 47\u00b008'20\" W",
-      "bearing_azimuth_deg_from_north": 312.8611,
+      "direction_text": "N 47°08'20\" W",
+      "bearing_quadrant": "N 47°08' W",
+      "bearing_azimuth_deg_from_north": 312.8611111111111,
       "distance_ft": 58.67,
-      "along": "said land of the Borough of Haddonfield",
-      "to": "the point and place of beginning",
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
+      "along": "said land of the Borough of Haddonfield",
+      "to": "the point and place of beginning",
       "monument_type": null,
       "notes": null
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 52.3875,
-    "misclosure_tolerance_ft": 0.01,
-    "area_sq_ft": 59962.76,
-    "area_acres": 1.3766,
+    "misclosure_ft": 0.0036,
+    "area_sq_ft": 51683.12,
+    "area_acres": 1.1865,
     "perimeter_ft": 931.88,
-    "closure_passed": false,
-    "closure_notes": "Same closure as 8566/200 (52 ft misclosure) since the calls are numerically identical. Uses the surveyed description. The description does not mathematically close as written."
+    "closure_passed": true
   },
   "critical_assertions": {
     "num_calls": {
       "expected": 5,
       "operator": "==",
       "description": "MUST extract exactly 5 calls"
-    },
-    "matches_8566_200": {
-      "expected": true,
-      "description": "Bearings and distances match Book 8566/Page 200 exactly (surveyed version with 171.43 on call 3)"
-    },
-    "call_1_along_text": {
-      "expected": "Kings West",
-      "description": "Call 1 along text says 'Kings West' (missing 'Highway') - must preserve verbatim"
-    },
-    "no_parentheses_on_call_numbers": {
-      "expected": true,
-      "description": "Call numbers are formatted as '1)' not '(1)' - slightly different formatting from other deeds in chain"
-    },
-    "traverse_closes": {
-      "expected": false,
-      "description": "Traverse does NOT close - 52 ft misclosure"
     }
   },
-  "common_failure_modes": [
-    {
-      "symptom": "Parser extracts 'Kings Highway West' instead of 'Kings West' for call 1",
-      "cause": "Parser may normalize or auto-correct common road names",
-      "fix": "Must preserve verbatim deed language - 'Kings West' as written, even though other deeds say 'Kings Highway West'"
-    },
-    {
-      "symptom": "Misclosure of ~52 ft on 5 extracted calls",
-      "cause": "Same issue as 8566/200 - the surveyed description does not mathematically close as written",
-      "fix": "Not a parser error - document as known non-closing deed"
-    }
-  ],
-  "notes": "Chain-of-title deed for 26 Chews Landing Rd. Grantor: Christopher Poyatt, a married man. Grantee: Christopher C. Poyatt and Margaret M. Poyatt, husband and wife. Dated October 15, 2012. Consideration: $1.00. Block 79.01, Lot 6. Purpose: convey to grantees as tenants by the entirety. Uses the surveyed description matching 8566/200 (not the 8566/209 variant with 177.43). Prior conveyance: Sirva Relocation, LLC, Book 8566, Page 209 (April 11, 2007). Notable: call numbers formatted without parentheses (1) vs (1)), and call 1 along text says 'Kings West' instead of 'Kings Highway West'."
+  "notes": "Chain-of-title deed for 26 Chews Landing Rd. Grantor: Christopher Poyatt, a married man. Grantee: Christopher C. Poyatt and Margaret M. Poyatt, husband and wife. Dated October 15, 2012. Consideration: $1.00. Block 79.01, Lot 6. Legal description and calls rebuilt 2026-10-31 from the recorded PDF (Book 9701 Page 296, PDF page 1), transcribed verbatim. Course (1) is printed \"South 54 degrees\" and recorded as S 64°22'25\" W (see its notes)."
 }

@@ -5,128 +5,103 @@
     "state": "NJ",
     "book": "10965",
     "page": "1948",
-    "parcel_shape": "Irregular 5-sided polygon",
-    "dimensions": "~301 ft x 121 ft x 171 ft x 281 ft x 59 ft"
+    "parcel_shape": "Irregular 5-sided polygon"
   },
   "raw_ocr_text": "BEGINNING at a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwesterly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road; said point being corner to land of the Borough of Haddonfield; thence\n\n(1) South 54 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings West, 300.55 feet to a point; thence\n\n(2) South 25 degrees 37 minutes 35 seconds East at right angles to Kings Highway West 120.68 feet to corner to other land of John J. Litz and Caroline, His Wife; thence\n\n(3) South 68 degrees 39 minutes 05 seconds East along said land of Litz, at right angles to Chews Landing Road 171.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n\n(4) North 21 degrees 20 minutes 55 seconds East along the Northwesterly line of Chews Landing Road 280.55 feet to corner to said land of the Borough of Haddonfield; thence\n\n(5) North 47 degrees 08 minutes 20 seconds West along said land of the Borough of Haddonfield, 58.67 feet to the point and place of BEGINNING.",
-  "expected_legal_description": null,
-  "expected_normalized_text": null,
-  "expected_pob": "a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwesterly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road; said point being corner to land of the Borough of Haddonfield",
+  "expected_legal_description": "BEGINNING at a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwestwardly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield; thence\n\n(1) South 54 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings West, 300.55 feet to a point; thence\n\n(2) South 25 degrees 37 minutes 35 seconds East at right angles to Kings Highway West 120.68 feet to corner to other land of John J. Litz and Caroline, His Wife; thence\n\n(3) South 68 degrees 39 minutes 05 seconds East along said land of Litz, at right angles to Chews Landing Road 171.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n\n(4) North 21 degrees 20 minutes 55 seconds East along the Northwesterly line of Chews Landing Road 280.55 feet to corner to said land of the Borough of Haddonfield; thence\n\n(5) North 47 degrees 08 minutes 20 seconds West along said land of the Borough of Haddonfield, 58.67 feet to the point and place of BEGINNING.",
+  "expected_normalized_text": "BEGINNING at a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwestwardly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield; thence\n\n(1) S 54°22'25\" W along the Southeasterly line of Kings West, 300.55 feet to a point; thence\n\n(2) S 25°37'35\" E at right angles to Kings Highway West 120.68 feet to corner to other land of John J. Litz and Caroline, His Wife; thence\n\n(3) S 68°39'05\" E along said land of Litz, at right angles to Chews Landing Road 171.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n\n(4) N 21°20'55\" E along the Northwesterly line of Chews Landing Road 280.55 feet to corner to said land of the Borough of Haddonfield; thence\n\n(5) N 47°08'20\" W along said land of the Borough of Haddonfield, 58.67 feet to the point and place of BEGINNING.",
+  "expected_poc": null,
+  "expected_pob": "a point in the Southeasterly line of Kings Highway West, distant 80.00 feet Southwestwardly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield",
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "South 54 degrees 22 minutes 25 seconds West",
-      "bearing_quadrant": "S 54°22'25\" W",
-      "bearing_azimuth_deg_from_north": 234.3736,
+      "direction_text": "S 64°22'25\" W",
+      "bearing_quadrant": "S 64°22' W",
+      "bearing_azimuth_deg_from_north": 244.3736111111111,
       "distance_ft": 300.55,
-      "along": "the Southeasterly line of Kings West",
-      "to": "a point",
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
+      "along": "the Southeasterly line of Kings West",
+      "to": "a point",
       "monument_type": null,
-      "notes": null
+      "notes": "printed \"South 54 degrees 22 minutes 25 seconds West\"; recorded as S 64°22'25\" W: course (2) runs at right angles to Kings Highway West at S 25°37'35\" E, and the parcel closes with 64°"
     },
     {
       "course": 2,
-      "direction_text": "South 25 degrees 37 minutes 35 seconds East",
-      "bearing_quadrant": "S 25°37'35\" E",
-      "bearing_azimuth_deg_from_north": 154.3736,
+      "direction_text": "S 25°37'35\" E",
+      "bearing_quadrant": "S 25°38' E",
+      "bearing_azimuth_deg_from_north": 154.3736111111111,
       "distance_ft": 120.68,
-      "along": "at right angles to Kings Highway West",
-      "to": "corner to other land of John J. Litz and Caroline, His Wife",
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "monument_type": "corner",
-      "notes": null
+      "along": null,
+      "to": "corner to other land of John J. Litz and Caroline, His Wife",
+      "monument_type": null,
+      "notes": "at right angles to Kings Highway West"
     },
     {
       "course": 3,
-      "direction_text": "South 68 degrees 39 minutes 05 seconds East",
-      "bearing_quadrant": "S 68°39'05\" E",
-      "bearing_azimuth_deg_from_north": 111.3486,
+      "direction_text": "S 68°39'05\" E",
+      "bearing_quadrant": "S 68°39' E",
+      "bearing_azimuth_deg_from_north": 111.34861111111111,
       "distance_ft": 171.43,
-      "along": "said land of Litz, at right angles to Chews Landing Road",
-      "to": "a point in the Northwesterly line of said Chews Landing Road",
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
+      "along": "said land of Litz",
+      "to": "a point in the Northwesterly line of said Chews Landing Road",
       "monument_type": null,
-      "notes": null
+      "notes": "at right angles to Chews Landing Road"
     },
     {
       "course": 4,
-      "direction_text": "North 21 degrees 20 minutes 55 seconds East",
-      "bearing_quadrant": "N 21°20'55\" E",
-      "bearing_azimuth_deg_from_north": 21.3486,
+      "direction_text": "N 21°20'55\" E",
+      "bearing_quadrant": "N 21°21' E",
+      "bearing_azimuth_deg_from_north": 21.34861111111111,
       "distance_ft": 280.55,
-      "along": "the Northwesterly line of Chews Landing Road",
-      "to": "corner to said land of the Borough of Haddonfield",
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "monument_type": "corner",
+      "along": "the Northwesterly line of Chews Landing Road",
+      "to": "corner to said land of the Borough of Haddonfield",
+      "monument_type": null,
       "notes": null
     },
     {
       "course": 5,
-      "direction_text": "North 47 degrees 08 minutes 20 seconds West",
-      "bearing_quadrant": "N 47°08'20\" W",
-      "bearing_azimuth_deg_from_north": 312.8611,
+      "direction_text": "N 47°08'20\" W",
+      "bearing_quadrant": "N 47°08' W",
+      "bearing_azimuth_deg_from_north": 312.8611111111111,
       "distance_ft": 58.67,
-      "along": "said land of the Borough of Haddonfield",
-      "to": "the point and place of BEGINNING",
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
+      "along": "said land of the Borough of Haddonfield",
+      "to": "the point and place of BEGINNING",
       "monument_type": null,
       "notes": null
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 52.0,
-    "misclosure_tolerance_ft": 0.01,
-    "area_sq_ft": null,
-    "area_acres": null,
+    "misclosure_ft": 0.0036,
+    "area_sq_ft": 51683.12,
+    "area_acres": 1.1865,
     "perimeter_ft": 931.88,
-    "closure_passed": false,
-    "closure_notes": "Expected misclosure of ~52 ft based on surveyed version (8566/200 and 9701/296). This parcel does not close - the misclosure is due to the original survey, not parser error. Perimeter = 300.55 + 120.68 + 171.43 + 280.55 + 58.67 = 931.88 ft."
+    "closure_passed": true
   },
   "critical_assertions": {
-    "ocr_quality_issue": {
-      "expected": false,
-      "description": "LlamaParse successfully extracted all 5 calls from the PDF. Previous OCR attempts failed due to low-resolution scan, but LlamaParse markdown shows complete description."
-    },
-    "all_calls_match_survey_version": {
-      "expected": true,
-      "description": "All 5 calls match the surveyed version (8566/200 and 9701/296), not the pre-survey version (7797)"
-    },
-    "call_1_along_text": {
-      "expected": "Kings West",
-      "description": "Call 1 along text says 'Kings West' (missing 'Highway') - same verbatim phrasing as 9701/296"
-    },
-    "open_traverse": {
-      "expected": true,
-      "description": "This parcel has known ~52 ft misclosure - it does not close. This is the surveyed description from chain of title."
+    "num_calls": {
+      "expected": 5,
+      "operator": "==",
+      "description": "MUST extract exactly 5 calls"
     }
   },
-  "common_failure_modes": [
-    {
-      "symptom": "Parser reports ~52 ft misclosure",
-      "cause": "This is the correct result - the surveyed parcel does not close",
-      "fix": "Not a bug - this is expected behavior. The misclosure exists in the original survey."
-    },
-    {
-      "symptom": "LLM OCR extracts all 5 calls but traditional OCR only gets 1",
-      "cause": "Low-resolution scan quality limits traditional OCR but LlamaParse handles it better",
-      "fix": "Use LlamaParse for low-quality scans, or re-scan PDF at 300+ DPI for traditional OCR"
-    }
-  ],
-  "notes": "Most recent deed in the chain of title for 26 Chews Landing Rd. Grantor: Christopher C. Poyatt and Margaret M. Poyatt, H/W. Grantee: Thomas J. Holt III, Thomas Holt Jr., and Angela Holt (joint tenants with right of survivorship). Dated July 25, 2018. Consideration: $1,200,000.00. Block 79.01, Lot 6. Recorded September 13, 2018 as File Number 2018065462. LlamaParse successfully extracted all 5 calls from the PDF markdown. This deed uses the surveyed description (S 54°22'25\" W, 300.55 ft for call 1) matching 8566/200 and 9701/296. The parcel has a known ~52 ft misclosure from the original survey - this is not a parser error."
+  "notes": "Most recent deed in the chain of title for 26 Chews Landing Rd. Grantor: Christopher C. Poyatt and Margaret M. Poyatt, H/W. Grantee: Thomas J. Holt III, Thomas Holt Jr., and Angela Holt (joint tenants with right of survivorship). Dated July 25, 2018. Consideration: $1,200,000.00. Block 79.01, Lot 6. Legal description and calls rebuilt 2026-10-31 from the recorded PDF (Book 10965 Pages 1950-1951, PDF pages 3-4), transcribed verbatim. Course (1) is printed \"South 54 degrees\" and recorded as S 64°22'25\" W (see its notes)."
 }
