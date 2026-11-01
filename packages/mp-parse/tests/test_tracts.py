@@ -338,3 +338,63 @@ class TestExceptionsWithinMarkedTracts:
         calls, tracts = extract_calls(text)
         assert [(t.label, len(t.calls)) for t in tracts] == [("Tract 1", 2), ("Exception 1", 1)]
         assert [c.is_exception for c in calls] == [False, False, True]
+
+    def test_narrative_exception_stays_in_marked_tract(self):
+        """A conveyance-only EXCEPT clause has no courses, so it is not an exception tract."""
+        text = (
+            "SCHEDULE A-3: BEGINNING at a point; THENCE N 45°00' E 100 feet; "
+            "THENCE S 45°00' W 100 feet to the point of beginning. "
+            "Excepting thereout and therefrom so much as was conveyed to the State of "
+            "New Jersey by Deed Book 3903, page 46."
+        )
+        assert [(label, tract_type) for _, label, tract_type in split_into_tracts(text)] == [
+            ("Schedule A-3", TractType.MAIN)
+        ]
+        calls, _tracts = extract_calls(text)
+        assert [c.is_exception for c in calls] == [False, False]
+
+
+class TestScheduleMarkers:
+    """219 Berlin Rd 12799-00118: one property per SCHEDULE A-n."""
+
+    def test_schedules_split_into_tracts(self):
+        text = (
+            "SCHEDULE A-1\n\nBEGINNING at a point; thence N 45°00' E 100 feet to a point; "
+            "thence S 45°00' W 100 feet to point and place of beginning.\n\n"
+            "SCHEDULE A-2\n\nBEGINNING at a point; thence\n(1) N 10°00' E 20 feet; thence\n"
+            "(2) S 10°00' W 20 feet to the point of beginning."
+        )
+        calls, tracts = extract_calls(text)
+        assert [(t.label, len(t.calls)) for t in tracts] == [
+            ("Schedule A-1", 2),
+            ("Schedule A-2", 2),
+        ]
+        assert [c.distance_ft for c in calls] == [100, 100, 20, 20]
+
+    def test_lone_schedule_a_is_not_a_marker(self):
+        text = "Schedule A\n\nBEGINNING at a point THENCE N 45°00' E 100 feet to a point."
+        assert split_into_tracts(text)[0][1] == "Tract 1"
+
+
+class TestBeginningBlockClosures:
+    def test_said_point_of_beginning_does_not_close_the_block(self):
+        text = (
+            "BEGINNING at a point, said point of beginning being also distant 24.75 feet "
+            "from the center line, and from said point of beginning, proceeding THENCE "
+            "N 45°00' E 100 feet; THENCE S 45°00' W 100 feet to the point of beginning. "
+            "BEGINNING at a stake; THENCE N 10°00' E 20 feet; THENCE S 10°00' W 20 feet "
+            "to the point of beginning."
+        )
+        assert [label for _, label, _ in split_into_tracts(text)] == ["Tract 1", "Tract 2"]
+
+    def test_easement_block_is_an_easement_tract(self):
+        text = (
+            "BEGINNING at a point; THENCE N 45°00' E 100 feet; THENCE S 45°00' W 100 feet "
+            "to the point of beginning. UNDER AND SUBJECT to an ingress and egress easement "
+            "bounded and described as follows: BEGINNING at a stake; THENCE N 10°00' E 20 "
+            "feet; THENCE S 10°00' W 20 feet to the point of beginning."
+        )
+        assert [(label, tract_type) for _, label, tract_type in split_into_tracts(text)] == [
+            ("Tract 1", TractType.MAIN),
+            ("Easement 1", TractType.EASEMENT),
+        ]

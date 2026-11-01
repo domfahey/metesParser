@@ -133,3 +133,66 @@ def test_kings_highway_tracts_and_exceptions_match_ground_truth(gt_path):
         (t["label"], t["tract_type"]) for t in gt["expected_tracts"]
     ]
     assert [len(t.calls) for t in tracts] == [len(t["courses"]) for t in gt["expected_tracts"]]
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_lettered_courses_split_before_numbered_courses(parse):
+    calls = parse(
+        "BEGINNING at a point, proceeding thence\n\n"
+        "(a) North 50 degrees 45 minutes 00 seconds East, a distance of 416.57 feet; thence\n\n"
+        "(b) South 32 degrees 36 minutes 00 seconds East, a distance of 300.07 feet to the "
+        "point and place of BEGINNING.\n\n"
+        "UNDER AND SUBJECT to an easement bounded and described as follows:\n\n"
+        "BEGINNING at a point, proceeding thence\n\n"
+        "(1) North 56 degrees 44 minutes 05 seconds East, a distance of 140.00 feet; thence\n\n"
+        "(2) North 32 degrees 36 minutes 00 seconds West, a distance of 35.00 feet to the "
+        "point and place of BEGINNING."
+    )
+    assert [call.distance_ft for call in calls] == [416.57, 300.07, 140.00, 35.00]
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_schedules_split_thence_courses_from_numbered_courses(parse):
+    calls = parse(
+        "SCHEDULE A-1\n\nBeginning at a point; thence "
+        "North 40 Degrees 41 Minutes 31 Seconds East a distance of 223.65 feet to a point "
+        "and extending thence;\n\n"
+        "South 59 Degrees 29 Minutes 19 Seconds East a distance of 250.44 feet to point and "
+        "place of beginning.\n\n"
+        "SCHEDULE A-2\n\nBEGINNING at a point, proceeding thence\n\n"
+        "(1) North 56 degrees 44 minutes 05 seconds East, a distance of 140.00 feet; thence\n\n"
+        "(2) North 32 degrees 36 minutes 00 seconds West, a distance of 35.00 feet to the "
+        "point and place of BEGINNING."
+    )
+    assert [call.distance_ft for call in calls] == [223.65, 250.44, 140.00, 35.00]
+
+
+BERLIN_12799_GT = SAMPLE_DEEDS / "219 Berlin Rd - Deed Image (12799 - 00118).ground_truth.json"
+
+
+@pytest.mark.parametrize("key", ["expected_legal_description", "expected_normalized_text"])
+@pytest.mark.parametrize("parse", PARSERS)
+def test_berlin_schedules_match_ground_truth(parse, key):
+    gt = _load(BERLIN_12799_GT)
+    calls = parse(gt[key], strict=True)
+    expected = [
+        (
+            round(c["distance_ft"], 2),
+            None
+            if c["bearing_azimuth_deg_from_north"] is None
+            else round(c["bearing_azimuth_deg_from_north"], 4),
+        )
+        for c in gt["expected_calls"]
+    ]
+    assert [_course_fields(call)[:2] for call in calls] == expected
+
+
+def test_berlin_schedules_are_tracts():
+    gt = _load(BERLIN_12799_GT)
+    _calls, tracts = package_extract_with_tracts(gt["expected_legal_description"], strict=True)
+    assert [(t.label, len(t.calls)) for t in tracts] == [
+        ("Schedule A-1", 5),
+        ("Schedule A-2", 16),
+        ("Schedule A-3", 4),
+        ("Schedule A-4", 4),
+    ]
