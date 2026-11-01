@@ -286,5 +286,5 @@
       "description": "MUST extract exactly 14 calls"
     }
   },
-  "notes": "Checked against Book 12420 Pages 907-908 (Exhibit A, PDF pages 6-7): legal description re-transcribed verbatim (Tract 1 course (3) prints \"54 minutes, 20 seconds\", previously marked illegible and left without a bearing; \"Mable Delong Chew\"; Tract 3's two point-of-beginning courses are separate sentences and are now two tie courses; the Address and Being lines are added); courses are tagged by tract and closure is computed per tract. Ground truth generated at 2026-02-17T02:49:15.035837+00:00"
+  "notes": "Checked against Book 12420 Pages 907-908 (Exhibit A, PDF pages 6-7): legal description re-transcribed verbatim (Tract 1 course (3) prints \"54 minutes, 20 seconds\", previously marked illegible and left without a bearing; \"Mable Delong Chew\"; Tract 3's two point-of-beginning courses are separate sentences and are now two tie courses; the Address and Being lines are added); courses are tagged by tract and closure is computed per tract. Second check (Exhibit A at 300 dpi, deed body Page 904): wording, every figure and the deed details confirmed. Ground truth generated at 2026-02-17T02:49:15.035837+00:00"
 }
