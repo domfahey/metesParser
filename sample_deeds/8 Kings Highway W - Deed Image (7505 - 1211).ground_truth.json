@@ -15,8 +15,9 @@
     "consideration": "$431,322.00"
   },
   "raw_ocr_text": "ALL that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden and State of New Jersey being more particularly described in accordance with a survey prepared by Bach Associates, PC, dated 6/1/04, as follows:\n\nBeginning at a point in the Northeasterly line of Lot 10, Block 76, where same is intersected by the Southerly line of Lot 12.11, Block 76, said point being North 32 degrees 22 minutes 35 seconds West, 61.31 feet from the intersection of said Northeasterly line of Lot 10 with the Southerly corner of Lot 12.13, Block 76 and running; thence\n\n(1) Along said Northeasterly line of Lot 10, Block 76, North 32 degrees 22 minutes 34 seconds West, 20.02 feet to a point in same; thence\n\n(2) Along the division line of Lots 12.10 and 12.11 as shown on Plan hereinafter mentioned, North 61 degrees 11 minutes 34 seconds East, 85.10 feet to a point in the Southwesterly line of Lot 12.05; thence\n\n(3) Along said Southwesterly line of Lots 12.05 and 12.06, South 28 degrees 36 minutes 51 seconds East, 19.98 feet to a point in the division line between Lots 12.11 and 12.12 as shown on Plan hereinafter mentioned; thence\n\n(4) Along said division line, South 61 degrees 11 minutes 34 seconds West, 83.79 feet to the point and place of beginning.",
-  "expected_legal_description": "Beginning at a point in the Northeasterly line of Lot 10, Block 76, where same is intersected by the Southerly line of Lot 12.11, Block 76; thence (1) through (4) to the point and place of beginning.",
-  "expected_normalized_text": "Beginning at a point in the Northeasterly line of Lot 10, Block 76, where same is intersected by the Southerly line of Lot 12.11, Block 76, said point being North 32 degrees 22 minutes 35 seconds West, 61.31 feet from the intersection of said Northeasterly line of Lot 10 with the Southerly corner of Lot 12.13, Block 76",
+  "expected_legal_description": "ALL that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden and State of New Jersey being more particularly described in accordance with a survey prepared by Bach Associates, PC, dated 6/1/04, as follows:\n\nBeginning at a point in the Northeasterly line of Lot 10, Block 76, where same is intersected by the Southerly line of Lot 12.11, Block 76, said point being North 32 degrees 22 minutes 35 seconds West, 61.31 feet from the intersection of said Northeasterly line of Lot 10 with the Southerly corner of Lot 12.13, Block 76 and running; thence\n\n(1) Along said Northeasterly line of Lot 10, Block 76, North 32 degrees 22 minutes 34 seconds West, 20.02 feet to a point in same; thence\n\n(2) Along the division line of Lots 12.10 and 12.11 as shown on Plan hereinafter mentioned, North 61 degrees 11 minutes 34 seconds East, 85.10 feet to a point in the Southwesterly line of Lot 12.05; thence\n\n(3) Along said Southwesterly line of Lots 12.05 and 12.06, South 28 degrees 36 minutes 51 seconds East, 19.98 feet to a point in the division line between Lots 12.11 and 12.12 as shown on Plan hereinafter mentioned; thence\n\n(4) Along said division line, South 61 degrees 11 minutes 34 seconds West, 83.79 feet to the point and place of beginning.\n\nBeing known as Lot 12.11 on a plan prepared by JTS Engineering and Land Surveyors, Inc., entitled \u201cFinal Plan of Lots, Willits Court, situate in the Borough of Haddonfield, County of Camden, New Jersey\u201d, dated December 5, 2003 and filed in the Camden County Clerk\u2019s Office on May 21, 2004 in Book 902, page 15.\n\nFOR INFORMATIONAL PURPOSES ONLY:  Also known as Lot 12.11 in Block 76 on the Borough of Haddonfield Tax Map.",
+  "expected_normalized_text": "ALL that certain lot, parcel or tract of land, situate and lying in the Borough of Haddonfield, County of Camden and State of New Jersey being more particularly described in accordance with a survey prepared by Bach Associates, PC, dated 6/1/04, as follows:\nBeginning at a point in the Northeasterly line of Lot 10, Block 76, where same is intersected by the Southerly line of Lot 12.11, Block 76, said point being N 32\u00b022'35\" W, 61.31 feet from the intersection of said Northeasterly line of Lot 10 with the Southerly corner of Lot 12.13, Block 76 and running; thence\n(1) Along said Northeasterly line of Lot 10, Block 76, N 32\u00b022'34\" W, 20.02 feet to a point in same; thence\n(2) Along the division line of Lots 12.10 and 12.11 as shown on Plan hereinafter mentioned, N 61\u00b011'34\" E, 85.10 feet to a point in the Southwesterly line of Lot 12.05; thence\n(3) Along said Southwesterly line of Lots 12.05 and 12.06, S 28\u00b036'51\" E, 19.98 feet to a point in the division line between Lots 12.11 and 12.12 as shown on Plan hereinafter mentioned; thence\n(4) Along said division line, S 61\u00b011'34\" W, 83.79 feet to the point and place of beginning. Being known as Lot 12.11 on a plan prepared by JTS Engineering and Land Surveyors, Inc., entitled \"Final Plan of Lots, Willits Court, situate in the Borough of Haddonfield, County of Camden, New Jersey\", dated December 5, 2003 and filed in the Camden County Clerk's Office on May 21, 2004 in Book 902, page 15. FOR INFORMATIONAL PURPOSES ONLY:  Also known as Lot 12.11 in Block 76 on the Borough of Haddonfield Tax Map.",
+  "expected_poc": null,
   "expected_pob": "a point in the Northeasterly line of Lot 10, Block 76, where same is intersected by the Southerly line of Lot 12.11, Block 76",
   "expected_calls": [
     {
@@ -25,7 +26,7 @@
       "bearing_quadrant": "N 32\u00b022'34\" W",
       "bearing_azimuth_deg_from_north": 327.6239,
       "distance_ft": 20.02,
-      "along": "Northeasterly line of Lot 10, Block 76",
+      "along": "said Northeasterly line of Lot 10, Block 76",
       "to": "a point in same",
       "notes": null
     },
@@ -35,7 +36,7 @@
       "bearing_quadrant": "N 61\u00b011'34\" E",
       "bearing_azimuth_deg_from_north": 61.1928,
       "distance_ft": 85.1,
-      "along": "division line of Lots 12.10 and 12.11",
+      "along": "the division line of Lots 12.10 and 12.11 as shown on Plan hereinafter mentioned",
       "to": "a point in the Southwesterly line of Lot 12.05",
       "notes": null
     },
@@ -45,8 +46,8 @@
       "bearing_quadrant": "S 28\u00b036'51\" E",
       "bearing_azimuth_deg_from_north": 151.3858,
       "distance_ft": 19.98,
-      "along": "Southwesterly line of Lots 12.05 and 12.06",
-      "to": "a point in the division line between Lots 12.11 and 12.12",
+      "along": "said Southwesterly line of Lots 12.05 and 12.06",
+      "to": "a point in the division line between Lots 12.11 and 12.12 as shown on Plan hereinafter mentioned",
       "notes": null
     },
     {
@@ -63,19 +64,22 @@
   "expected_closure": {
     "misclosure_ft": 0.0038,
     "misclosure_tolerance_ft": 0.01,
-    "area_sq_ft": 1687.22,
+    "area_sq_ft": 1687.17,
     "area_acres": 0.0387,
     "perimeter_ft": 208.89,
     "closure_passed": true
   },
   "critical_assertions": {
-    "total_calls": 4,
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    },
     "is_willits_court_lot": true,
-    "lot_number": "12.11",
-    "note": "Uses 34 seconds in NW/SW bearings (calls 1,2,4) vs 33 or 35 seconds in other deeds for similar lot lines"
+    "lot_number": "12.11"
   },
   "common_failure_modes": [
     "Bearing seconds vary between deeds (34\" vs 33\" vs 35\") for nominally same lot lines"
   ],
-  "notes": "Lot 12.11 is an interior lot in the Willits Court subdivision, bounded by Lot 10 (SW), Lot 12.10 (NW), Lots 12.05/12.06 (NE), and Lot 12.12 (SE). Approximately 20 ft wide by 84 ft deep."
+  "notes": "Legal description transcribed verbatim from Schedule C (File No. ITA6019, revised 6/11/04), Book 7505 Page 1212, PDF page 2; the lot and block in the closing informational sentence (12.11, 76) are handwritten into blanks. Lot 12.11 is an interior lot in the Willits Court subdivision, bounded by Lot 10 (SW), Lot 12.10 (NW), Lots 12.05/12.06 (NE), and Lot 12.12 (SE). Approximately 20 ft wide by 84 ft deep."
 }
