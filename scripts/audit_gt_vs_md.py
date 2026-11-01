@@ -498,6 +498,10 @@ def audit_deed(pdf_base: str) -> AuditResult:
     md_text = md_path.read_text()
     with open(gt_path) as f:
         gt = json.load(f)
+    # A description recorded with another deed's pages (e.g. a Schedule C bundled into the
+    # previous deed's scan) is audited against that deed's markdown.
+    if source := gt.get("legal_description_markdown"):
+        md_text = (SAMPLE_DIR / source).read_text()
 
     gt_calls = gt.get("expected_calls", [])
     issues: list[str] = []
