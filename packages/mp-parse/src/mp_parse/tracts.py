@@ -1,7 +1,7 @@
 """Split legal descriptions into tracts.
 
 Detects multi-tract patterns in priority order:
-1. Explicit markers: TRACT #N, TRACT A, PARCEL N
+1. Explicit markers: TRACT #N, TRACT A, PARCEL N, SCHEDULE A-1
 2. Multiple BEGINNING...POB blocks (text-pattern based)
 3. EXCEPT/ALSO clauses (reuses split_exception_clauses)
 """
@@ -42,6 +42,10 @@ _PARCEL_MARKER = re.compile(
     re.IGNORECASE,
 )
 
+# SCHEDULE A-1 (one property per schedule in a multi-property deed); a lone
+# "Schedule A" names the attachment, not a tract.
+_SCHEDULE_MARKER = re.compile(r"\bSCHEDULE\s+([A-Z]-?\d+)\b\s*[:.\-\u2014]?\s*", re.IGNORECASE)
+
 # Include the full POB opening so extracted tracts retain their original wording.
 _BEGINNING_PATTERN = re.compile(
     r"\b(?:(?:POINT(?:\s+AND\s+PLACE)?|PLACE)\s+OF\s+)?BEGINNING\s+(?:at|in)\b",
@@ -58,7 +62,7 @@ _POB_CLOSE_PATTERN = re.compile(
 def find_tract_markers(
     text: str,
 ) -> list[tuple[int, str, str]]:
-    """Find explicit TRACT or PARCEL markers.
+    """Find explicit TRACT, PARCEL or SCHEDULE markers.
 
     Returns: list of (position, label, marker_kind)
     """
@@ -67,6 +71,8 @@ def find_tract_markers(
         markers.append((m.start(), f"Tract {m.group(1)}", "tract"))
     for m in _PARCEL_MARKER.finditer(text):
         markers.append((m.start(), f"Parcel {m.group(1)}", "parcel"))
+    for m in _SCHEDULE_MARKER.finditer(text):
+        markers.append((m.start(), f"Schedule {m.group(1).upper()}", "schedule"))
     markers.sort(key=lambda x: x[0])
     return markers
 
@@ -106,8 +112,13 @@ def split_on_markers(
         else:
             tract_type = TractType.MAIN
 
-        # EXCEPT clauses inside a main tract describe separate exception parcels.
+        # EXCEPT clauses with courses inside a main tract describe separate exception
+        # parcels; a narrative exception ("so much as was conveyed to the State") stays.
         clauses = split_exception_clauses(segment) if tract_type == TractType.MAIN else []
+        clauses = [
+            (part, is_exception and bool(re.search(r"\bTHENCE\b", part, re.IGNORECASE)))
+            for part, is_exception in clauses
+        ]
         if any(is_exception for _, is_exception in clauses):
             main_text = " ".join(part for part, is_exception in clauses if not is_exception)
             result.append((main_text, label, tract_type))
@@ -133,6 +144,14 @@ def _beginning_starts(text: str) -> list[re.Match[str]]:
     ]
 
 
+def _find_pob_close(text: str, start: int) -> re.Match[str] | None:
+    """Find the closure after start, skipping "said point of beginning" references."""
+    for match in _POB_CLOSE_PATTERN.finditer(text, start):
+        if not re.search(r"\bsaid\s+$", text[: match.start()], re.IGNORECASE):
+            return match
+    return None
+
+
 def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
     """Find BEGINNING...POB blocks.
 
@@ -141,7 +160,7 @@ def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
     blocks: list[tuple[int, int]] = []
     for m in _beginning_starts(text):
         # Look for matching POB closure after this BEGINNING
-        close = _POB_CLOSE_PATTERN.search(text, m.end())
+        close = _find_pob_close(text, m.end())
         if not close:
             logger.warning(
                 "BEGINNING block without matching POB closure",
@@ -180,12 +199,13 @@ def label_beginning_blocks(
 ) -> list[tuple[str, str, TractType]]:
     """Label multiple BEGINNING blocks as tracts.
 
-    Inspects the text preceding each block to detect ALSO/EXCEPT keywords
+    Inspects the text preceding each block to detect EXCEPT/EASEMENT/ALSO keywords
     and assign the correct TractType.
     """
     result: list[tuple[str, str, TractType]] = []
     main_count = 0
     exception_count = 0
+    easement_count = 0
     addition_count = 0
 
     for start, end in blocks:
@@ -199,6 +219,10 @@ def label_beginning_blocks(
             tract_type = TractType.EXCEPTION
             exception_count += 1
             label = f"Exception {exception_count}"
+        elif re.search(r"\bEASEMENT\b", preceding, re.IGNORECASE):
+            tract_type = TractType.EASEMENT
+            easement_count += 1
+            label = f"Easement {easement_count}"
         elif re.search(r"\b(?:ALSO|INCLUDING)\b", preceding, re.IGNORECASE):
             tract_type = TractType.ADDITION
             addition_count += 1
@@ -216,7 +240,7 @@ def split_into_tracts(text: str) -> list[tuple[str, str, TractType]]:
     """Split legal description text into tract segments.
 
     Detection priority:
-    1. Explicit TRACT/PARCEL markers
+    1. Explicit TRACT/PARCEL/SCHEDULE markers
     2. Multiple BEGINNING blocks
     3. EXCEPT/ALSO clauses (fallback)
 

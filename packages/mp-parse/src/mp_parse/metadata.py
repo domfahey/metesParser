@@ -328,7 +328,7 @@ def split_into_calls(text: str) -> list[str]:
     """Split text into individual THENCE calls.
 
     Handles multiple formats:
-    - Numbered (1., 2., 3.; 1), 2); (1), (2))
+    - Numbered (1., 2., 3.; 1), 2); (1), (2); lettered (a), (b))
     - THENCE keyword separated
     - Semicolon separated
 
@@ -338,11 +338,11 @@ def split_into_calls(text: str) -> list[str]:
     Returns:
         List of call strings
     """
-    numbered_pattern = r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+"
+    numbered_pattern = r"(?:^|\n)\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+"
 
     if re.search(numbered_pattern, text, re.MULTILINE):
         parts = re.split(
-            r"(?:^|\n)\s*(?=(?:\(\d+\)|\d+[.)])\s+)",
+            r"(?:^|\n)\s*(?=(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+)",
             text,
             flags=re.MULTILINE,
         )
@@ -360,7 +360,7 @@ def split_into_calls(text: str) -> list[str]:
         if re.match(r"^\s*(?:BEGINNING|COMMENCING|POB|POINT)", cleaned, re.IGNORECASE):
             continue
 
-        cleaned = re.sub(r"^(?:\(\d+\)|\d+[.)])\s+", "", cleaned)
+        cleaned = re.sub(r"^(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+", "", cleaned)
 
         # Truncate at metadata section boundaries (e.g., "THE ABOVE DESCRIBED",
         # "CONTAINING", "BEING the same").  The pattern is sentence-boundary
