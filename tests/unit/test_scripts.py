@@ -389,3 +389,29 @@ class TestAuditRepeatedDescriptions:
         md_text = f"# EXHIBIT A\n\n{lot}\n\n# Exhibit B\nCertification of Trust\n\n{lot}\n"
         calls = mod.extract_calls_from_md(md_text)
         assert [call["distance_ft"] for call in calls] == [51.0, 177.97]
+
+
+class TestAuditExhibitReferences:
+    """One Centennial Square: the deed body refers to Exhibit A and to a recording page."""
+
+    MD = (
+        'SEE EXHIBIT "A" ATTACHED HERETO AND MADE A PART HEREOF.\n\n'
+        "BEING the same premises recorded in Deed Book 4795, beginning at page 618.\n\n"
+        'EXHIBIT "A"\n\n'
+        "BEGINNING at a point in the Northwesterly line of Euclid Avenue; thence\n"
+        "(1) North 49 degrees 06 minutes 30 seconds East a distance of 213.26 feet; thence\n"
+        "(2) Along lands of the Port Authority curving to the right with a radius of 5933.53 "
+        "feet, an arc distance of 344.93 feet to a point; thence\n"
+        "(3) South 21 degrees 01 minutes 53 seconds East a distance of 285.44 feet to the "
+        "point and place of beginning."
+    )
+
+    def test_exhibit_reference_and_recording_page_are_skipped(self) -> None:
+        mod = _load_audit_module()
+        assert mod.find_preferred_text(self.MD).startswith('EXHIBIT "A"\n')
+        assert not mod.BLOCK_START_PATTERN.search("Deed Book 4795, beginning at page 618")
+
+    def test_curve_length_is_its_arc(self) -> None:
+        mod = _load_audit_module()
+        calls = mod.extract_calls_from_md(self.MD)
+        assert [call["distance_ft"] for call in calls] == [213.26, 344.93, 285.44]
