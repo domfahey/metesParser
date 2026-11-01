@@ -3,7 +3,7 @@ name = "mp-review"
 version = "2.0.0"
 requires-python = ">=3.11"
 description = "Deterministic text-first deed review"
-license = "MIT"
+license = "AGPL-3.0-only"
 dependencies = ["mp-models>=2.0.0", "mp-bearing>=1.1.0", "mp-parse>=2.0.0", "mp-verify>=2.0.0", "mp-export>=2.0.0", "pyyaml>=6.0.2"]
 
 [project.optional-dependencies]

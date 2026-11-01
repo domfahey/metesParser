@@ -128,12 +128,20 @@ def test_plugin_archive_is_byte_reproducible(tmp_path, monkeypatch):
         assert {entry.date_time for entry in archive.infolist()} == {(2026, 1, 1, 0, 0, 0)}
 
 
+def test_every_package_declares_the_repository_license():
+    root = Path(__file__).resolve().parents[2]
+    license_text = (root / "LICENSE").read_text(encoding="utf-8")
+    assert license_text.lstrip().startswith("GNU AFFERO GENERAL PUBLIC LICENSE")
+    for path in [root / "pyproject.toml", *sorted(root.glob("packages/*/pyproject.toml"))]:
+        assert tomllib.loads(path.read_text())["project"]["license"] == "AGPL-3.0-only", path
+
+
 def test_plugin_manifest_declares_license_repository_and_keywords():
     manifest_path = Path(__file__).resolve().parents[2] / (
         "plugins/metesparser/.claude-plugin/plugin.json"
     )
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert manifest["license"] == "MIT"
+    assert manifest["license"] == "AGPL-3.0-only"
     assert manifest["repository"] == "https://github.com/domfahey/metesParser"
     assert manifest["homepage"] == "https://github.com/domfahey/metesParser"
     assert {"deed", "metes-and-bounds", "survey", "legal-description", "closure"} <= set(
