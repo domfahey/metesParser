@@ -155,6 +155,12 @@ def _split_schedules(text: str) -> list[str]:
     return [text[a:b] for a, b in zip(bounds, bounds[1:], strict=False) if text[a:b].strip()]
 
 
+# "thence", "thence:" or "thence from the beginning point;" before the first numbered course
+_STANDALONE_THENCE = (
+    r"\s*THENCE(?:\s+from\s+the\s+(?:beginning\s+point|point\s+of\s+beginning))?\s*[:;]?\s*"
+)
+
+
 def _call_preview(call_text: str, max_len: int = 120) -> str:
     """Return a compact single-line preview suitable for warning logs."""
     compact = " ".join(call_text.split())
@@ -416,7 +422,7 @@ class CallExtractor:
                     continue
 
                 if call is None:
-                    standalone_thence = re.fullmatch(r"\s*THENCE\s*:?\s*", call_text, re.I)
+                    standalone_thence = re.fullmatch(_STANDALONE_THENCE, call_text, re.I)
                     explicit_course = not standalone_thence and (
                         has_thence_marker or has_numbered_course_markers
                     )
@@ -988,7 +994,12 @@ class CallExtractor:
             }
 
         else:
-            dir_match = re.search(r"curve\s+to\s+the\s+(left|right)", text, re.IGNORECASE)
+            # "curve to the left", "curving to the right", "turning towards the left"
+            dir_match = re.search(
+                r"\b(?:curve|curving|turning)\s+(?:to|towards?)\s+the\s+(left|right)\b",
+                text,
+                re.IGNORECASE,
+            )
             if dir_match:
                 curve_info["direction"] = dir_match.group(1).lower()
 
