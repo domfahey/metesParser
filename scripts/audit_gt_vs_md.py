@@ -7,6 +7,7 @@ the markdown text, and flags discrepancies with the GT expected_calls.
 
 from __future__ import annotations
 
+import difflib
 import json
 import re
 from pathlib import Path
@@ -188,6 +189,32 @@ def extract_distance(segment: str) -> float | None:
     return value
 
 
+def is_repeated_block(
+    words: list[str],
+    calls: list[dict[str, object]],
+    earlier_words: list[str],
+    earlier_calls: list[dict[str, object]],
+) -> bool:
+    """Return whether a block repeats an earlier one, allowing for OCR noise.
+
+    Requires near-identical wording, the same course count and mostly the same distances,
+    so two parcels written from the same template are not merged.
+    """
+    if words == earlier_words:
+        return True
+    if len(calls) != len(earlier_calls) or not calls:
+        return False
+    if difflib.SequenceMatcher(None, earlier_words, words, autojunk=False).ratio() < 0.95:
+        return False
+    same = sum(
+        1
+        for call, earlier in zip(calls, earlier_calls, strict=True)
+        if call.get("distance_ft") is not None
+        and call.get("distance_ft") == earlier.get("distance_ft")
+    )
+    return same >= 0.8 * len(calls)
+
+
 def extract_all_legal_blocks(text: str) -> list[str]:
     """Extract all BEGINNING...point/place of BEGINNING blocks from text."""
     blocks = []
@@ -337,16 +364,17 @@ def extract_calls_from_md(
             return extract_calls_from_block(block_text)
         return []
 
-    # Step 3: Extract calls from all blocks. A block repeating an earlier one word for word
-    # is a second copy of the description (e.g. inside an attached certification), not a tract.
-    seen: set[str] = set()
-    unique_blocks = []
+    # Step 3: Extract calls from all blocks. A block repeating an earlier one, word for word
+    # or up to OCR noise, is a second copy of the description (e.g. inside an attached
+    # certification), not a tract.
+    block_calls: list[list[dict[str, object]]] = []
+    kept: list[tuple[list[str], list[dict[str, object]]]] = []
     for block in blocks:
-        key = " ".join(block.split()).lower()
-        if key not in seen:
-            seen.add(key)
-            unique_blocks.append(block)
-    block_calls = [extract_calls_from_block(block) for block in unique_blocks]
+        words = " ".join(block.split()).lower().split()
+        calls = extract_calls_from_block(block)
+        if not any(is_repeated_block(words, calls, w, c) for w, c in kept):
+            kept.append((words, calls))
+            block_calls.append(calls)
 
     # Step 4: If some blocks have DMS bearings and others are cardinal-only,
     # drop the cardinal-only blocks (duplicate descriptions of the same parcel),

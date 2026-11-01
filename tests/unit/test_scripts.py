@@ -469,3 +469,43 @@ class TestAuditTractReferences:
         )
         calls = mod.extract_calls_from_md(md_text)
         assert [call["distance_ft"] for call in calls] == [141.73, 146.44]
+
+
+class TestAuditNearRepeatedDescriptions:
+    LOT = (
+        "BEGINNING at a corner formed by the intersection of the Southwest line of {street} Street "
+        "(66 feet wide) with the Northwesterly line of Walnut Street (60 feet wide), which corner "
+        "forms an interior angle of 90 degrees; and extending thence in a northwesterly direction "
+        "along the Southwesterly line of {street} Street a distance of {d1} feet to a point corner "
+        "to lands now or late of Henry E. Uber and wife; thence in a Southwesterly direction and at "
+        "right angles to Ellis Street and along the line of lands now or late of Uber a distance of "
+        "125 feet; thence in a Northwesterly direction and at right angles to the last course and "
+        "along the line of lands now or late of Uber a distance of 42.79 feet to a point corner to "
+        "lands now or late of Isaac Nicholson; thence in a Southwesterly direction and at right "
+        "angles to the last course a distance of 172 feet to a point; thence in a Southeasterly "
+        "direction and at right angles to the last course a distance of {d5} feet; thence in a "
+        "Northeasterly direction along the Northwesterly line of Walnut Street a distance of "
+        "248.31 feet to the place of beginning."
+    )
+
+    def test_ocr_noisy_repeat_is_counted_once(self) -> None:
+        """2 Walnut 10239-1268: the certification's copy reads "Elis" and "81 52"."""
+        mod = _load_audit_module()
+        first = self.LOT.format(street="Ellis", d1="265.21", d5="81.52")
+        copy = self.LOT.format(street="Elis", d1="265.21", d5="81 52")
+        calls = mod.extract_calls_from_md(f"{first}\n\nCertification of Trust\n\n{copy}")
+        assert [call["distance_ft"] for call in calls] == [
+            265.21,
+            125.0,
+            42.79,
+            172.0,
+            81.52,
+            248.31,
+        ]
+
+    def test_similar_parcels_with_different_distances_are_kept(self) -> None:
+        mod = _load_audit_module()
+        lot_a = self.LOT.format(street="Ellis", d1="265.21", d5="81.52")
+        lot_b = self.LOT.format(street="Ellis", d1="200.00", d5="60.00")
+        calls = mod.extract_calls_from_md(f"{lot_a}\n\n{lot_b}")
+        assert len(calls) == 12
