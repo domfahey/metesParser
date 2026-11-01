@@ -90,7 +90,7 @@ _RESTATED_POB_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _CLOSES_TO_POB_PATTERN = re.compile(
-    r"\bto\s+(?:the\s+|a\s+)?(?:(?:point|place)\s+(?:and\s+place\s+)?of\s+)?beginning\b",
+    r"\b(?:to|for)\s+(?:the\s+|a\s+)?(?:(?:point|place)\s+(?:and\s+place\s+)?of\s+)?beginning\b",
     re.IGNORECASE,
 )
 
@@ -121,17 +121,22 @@ _PREAMBLE_TIE_COURSES_PATTERN = re.compile(
 )
 _COUNT_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
 
+# "Commencing at the corner of Lot 15; thence ... for the point of beginning; thence ...":
+# the courses from the commencement point to the POB are tie lines.
+_COMMENCEMENT_PATTERN = re.compile(r"\b(?:COMMENCING|STARTING)\s+at\b", re.IGNORECASE)
+
 
 def _preamble_tie_course_count(preamble: str, call_texts: list[str]) -> int:
     """Return how many leading courses the preamble says lead to the POB.
 
-    Without a count ("the following courses and distances from"), the tie courses end at
-    the first course reaching the place of beginning while more courses follow.
+    Without a count ("the following courses and distances from", or a commencement
+    point), the tie courses end at the first course reaching the place of beginning while
+    more courses follow.
     """
     match = _PREAMBLE_TIE_COURSES_PATTERN.search(preamble)
-    if not match:
+    if not match and not _COMMENCEMENT_PATTERN.search(preamble):
         return 0
-    if match.group(1) is None:
+    if match is None or match.group(1) is None:
         return next(
             (
                 i + 1
@@ -156,16 +161,78 @@ def _mark_preamble_tie_courses(calls: list[DeedCall], count: int) -> list[DeedCa
 
 # SCHEDULE A-1: one property per schedule in a multi-property deed (mirrors
 # mp_parse.tracts._SCHEDULE_MARKER; a lone "Schedule A" names the attachment).
-_SCHEDULE_MARKER = re.compile(r"\bSCHEDULE\s+[A-Z]-?\d+\b", re.IGNORECASE)
+_SCHEDULE_MARKER = re.compile(
+    # "Parcel 2:" / "TRACT #2:" headings also end the clauses before them, so an EXCEPT in
+    # Parcel 1 does not extend into Parcel 2.
+    r"\bSCHEDULE\s+[A-Z]-?\d+\b|\b(?:PARCEL|TRACT)\s+(?:#\s*|NO\.?\s*)?\d+[A-Z]?\s*:",
+    re.IGNORECASE,
+)
 
 
 def _split_schedules(text: str) -> list[str]:
     """Split a multi-property description so each schedule's courses split on their own."""
+    # A title or preamble before the first marker carries no courses; it stays with the first.
     starts = [match.start() for match in _SCHEDULE_MARKER.finditer(text)]
-    if not starts:
-        return [text]
+    if starts and not re.search(r"\bTHENCE\b", text[: starts[0]], re.IGNORECASE):
+        starts = starts[1:]
     bounds = [0, *starts, len(text)]
-    return [text[a:b] for a, b in zip(bounds, bounds[1:], strict=False) if text[a:b].strip()]
+    return [
+        description
+        for a, b in zip(bounds, bounds[1:], strict=False)
+        if text[a:b].strip()
+        for description in _split_complete_descriptions(text[a:b])
+    ]
+
+
+# A description opens at its commencement or point of beginning and closes at its point of
+# beginning (mirrors mp_parse.tracts.split_complete_descriptions)
+_DESCRIPTION_OPENING = re.compile(r"\b(?:COMMENCING|BEGINNING)\s+at\b", re.IGNORECASE)
+_CLAUSE_KEYWORD = re.compile(
+    r"\b(?:(?:LESS\s+AND\s+)?EXCEPT(?:ING)?|EXCLUDING|ALSO|INCLUDING|EASEMENT)\b", re.IGNORECASE
+)
+_DESCRIPTION_CLOSE = re.compile(
+    r"(?:POINT\s+(?:AND\s+PLACE\s+)?OF\s+BEGINNING|place\s+of\s+BEGINNING|POB)\b",
+    re.IGNORECASE,
+)
+
+
+def _find_description_close(text: str, start: int) -> re.Match[str] | None:
+    """Find the closure after start, skipping references and a POB reached by a tie course."""
+    for match in _DESCRIPTION_CLOSE.finditer(text, start):
+        if re.search(r"(?<!\bto\s)\bsaid\s+$", text[: match.start()], re.IGNORECASE):
+            continue
+        if re.match(r"\s*[,;]?\s*thence\b", text[match.end() :], re.IGNORECASE):
+            continue
+        return match
+    return None
+
+
+def _split_complete_descriptions(text: str) -> list[str]:
+    """Split text holding complete descriptions in sequence.
+
+    "...to the point of beginning. Combined Legal Description: ... Commencing at ..." opens
+    another description once the previous one has closed at its point of beginning. An
+    excepted, added or easement parcel ("..., EXCEPT ... beginning at ...") stays with its
+    description.
+    """
+    parts: list[str] = []
+    start = search_from = 0
+    while opening := _DESCRIPTION_OPENING.search(text, search_from):
+        close = _find_description_close(text, opening.end())
+        if close is None:
+            break
+        following = _DESCRIPTION_OPENING.search(text, close.end())
+        if following is None:
+            break
+        between = text[close.end() : following.start()]
+        if re.search(r"\bTHENCE\b", between, re.IGNORECASE):
+            break
+        if not _CLAUSE_KEYWORD.search(between):
+            parts.append(text[start : close.end()])
+            start = close.end()
+        search_from = close.end()
+    parts.append(text[start:])
+    return [part for part in parts if part.strip()]
 
 
 # "thence", "thence:" or "thence from the beginning point;" before the first numbered course
@@ -196,6 +263,14 @@ def _call_hash(call_text: str) -> str:
 
 def _is_debug_logging_enabled() -> bool:
     return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
+
+
+# "...551.39 feet to a point on the Westerly line, said point also being a point on a
+# non-tangential curve to the left": the endpoint lies on the next course's curve.
+_ENDPOINT_ON_CURVE = re.compile(
+    r",?\s*said\s+point\s+(?:also\s+)?being\s+(?:a\s+point\s+)?on\s+(?:a|the)\s+[^;]*?\bcurve\b.*",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _boundary_course_text(call_text: str) -> str:
@@ -562,7 +637,7 @@ class CallExtractor:
 
         distance_ft = ConversionFactors.convert_to_feet(distance, unit)
 
-        curve_info = cls.extract_curve_info(call_text)
+        curve_info = cls.extract_curve_info(_ENDPOINT_ON_CURVE.sub("", call_text))
 
         has_abbreviated_cardinal = bool(
             re.match(r"^\s*(?:N|S|E|W|NE|NW|SE|SW)\b", call_text, re.IGNORECASE)
@@ -1168,10 +1243,13 @@ class CallExtractor:
             calls: List of DeedCall objects
             poc_description: POC description (None or empty means no POC)
 
+        Calls already marked from their course text are kept, and a closing course is not a
+        tie line: marking across the flat calls would otherwise reach into another tract.
+
         Returns:
             List of DeedCall objects with is_tie_in set appropriately
         """
-        if not poc_description:
+        if not poc_description or any(call.is_tie_in for call in calls):
             return calls
 
         pob_index = None
@@ -1180,7 +1258,7 @@ class CallExtractor:
                 pob_index = i
                 break
 
-        if pob_index is None:
+        if pob_index is None or pob_index == len(calls) - 1:
             return calls
 
         result = []

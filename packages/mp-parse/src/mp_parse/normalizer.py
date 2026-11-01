@@ -102,6 +102,16 @@ def standardize_cardinal_directions(text: str) -> str:
         Text with standardized cardinal directions
     """
     patterns: list[tuple[str, str | Callable[[Match[str]], str]]] = [
+        # Words mixed with symbols: "North 34 degrees 02' 00\" West", "South 00°44'00\" West"
+        (
+            r"\b(North|South|N|S)\s*(\d{1,3})\s*(?:°|degrees?)\s*,?\s*(\d{1,2})\s*(?:'|minutes?)\s*,?\s*"
+            r"(?:(?:and\s+)?(\d{1,2}(?:\.\d+)?)\s*(?:\"|seconds?)\s*,?\s*)?(East|West|E|W)\b",
+            lambda m: (
+                f"{m.group(1)[0].upper()} {m.group(2)}°{m.group(3)}'"
+                + (f'{m.group(4)}"' if m.group(4) else "")
+                + f" {m.group(5)[0].upper()}"
+            ),
+        ),
         (
             r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?,?\s+(\d{1,2})\s+minutes?,?\s+(?:and\s+)?(\d{1,2}(?:\.\d+)?)\s+seconds?,?\s+(North|South|East|West)\b",
             lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0]}",
@@ -229,7 +239,7 @@ def expand_assessor_abbreviations(text: str) -> str:
     )
     # Degrees only (DEG/D without M following)
     text = re.sub(
-        r"(\d{1,3})\s*(?:DEG|D)\b",
+        r"(\d{1,3})\s*(?:DEG|D)\b(?:\.(?=\s*\d))?",
         r"\1 degrees",
         text,
         flags=re.IGNORECASE,
@@ -348,6 +358,28 @@ def expand_assessor_abbreviations(text: str) -> str:
     return text
 
 
+# "85.33 feet, N 73°05'24\" W, 128.0 feet; thence": two courses joined by a comma. An offset
+# preamble ("distant S 10° E 100 feet, N 80° E 50 feet from the corner") names a point.
+_COMMA_JOINED_COURSE = re.compile(
+    r"(?<=\bfeet),\s+(?=[NS] \d{1,3}°(?:(?!\b(?:thence|from)\b)[^;])*(?:;|\bthence\b|$))",
+    re.IGNORECASE,
+)
+
+
+def split_comma_joined_courses(text: str) -> str:
+    """Insert thence between two courses joined only by a comma."""
+    return _COMMA_JOINED_COURSE.sub(" thence ", text)
+
+
+# "704.61 (surveyed as 704.60) feet": the note goes after the unit so the number keeps it.
+_NOTE_BEFORE_UNIT = re.compile(r"(\d)\s*(\([^()]{0,40}\))\s*(feet|foot|ft\b)", re.IGNORECASE)
+
+
+def move_distance_notes(text: str) -> str:
+    """Move a parenthetical note between a distance and its unit after the unit."""
+    return _NOTE_BEFORE_UNIT.sub(r"\1 \3 \2", text)
+
+
 def expand_abbreviations(text: str) -> str:
     """Expand common survey abbreviations.
 
@@ -376,6 +408,8 @@ def normalize_legal_description(text: str) -> str:
     text = expand_assessor_abbreviations(text)
     text = merge_line_wrapped_calls(text)
     text = standardize_cardinal_directions(text)
+    text = split_comma_joined_courses(text)
+    text = move_distance_notes(text)
     text = expand_abbreviations(text)
 
     return text

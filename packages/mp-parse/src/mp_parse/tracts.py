@@ -104,36 +104,52 @@ def split_on_markers(
             )
 
     exception_count = 0
-    for i, (pos, label, _kind) in enumerate(markers):
+    for i, (pos, marker_label, _kind) in enumerate(markers):
         end = markers[i + 1][0] if i + 1 < len(markers) else len(text)
-        segment = text[pos:end].strip()
-
-        # Check preceding text for EXCEPT/ALSO to assign correct TractType
-        preceding = text[max(0, pos - 80) : pos]
-        if re.search(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", preceding, re.IGNORECASE):
-            tract_type = TractType.EXCEPTION
-        elif re.search(r"\b(?:ALSO|INCLUDING)\b", preceding, re.IGNORECASE):
-            tract_type = TractType.ADDITION
-        else:
-            tract_type = TractType.MAIN
-
-        # EXCEPT clauses with courses inside a main tract describe separate exception
-        # parcels; a narrative exception ("so much as was conveyed to the State") stays.
-        clauses = split_exception_clauses(segment) if tract_type == TractType.MAIN else []
-        clauses = [
-            (part, is_exception and bool(re.search(r"\bTHENCE\b", part, re.IGNORECASE)))
-            for part, is_exception in clauses
-        ]
-        if any(is_exception for _, is_exception in clauses):
-            main_text = " ".join(part for part, is_exception in clauses if not is_exception)
-            result.append((main_text, label, tract_type))
-            for part, is_exception in clauses:
-                if is_exception:
-                    exception_count += 1
-                    result.append((part, f"Exception {exception_count}", TractType.EXCEPTION))
-        else:
-            result.append((segment, label, tract_type))
+        descriptions = split_complete_descriptions(text[pos:end].strip())
+        for number, segment in enumerate(descriptions, start=1):
+            label = marker_label if number == 1 else f"{marker_label}, description {number}"
+            exception_count = _append_marked_segment(
+                result, text, pos, segment, label, exception_count
+            )
     return result
+
+
+def _append_marked_segment(
+    result: list[tuple[str, str, TractType]],
+    text: str,
+    pos: int,
+    segment: str,
+    label: str,
+    exception_count: int,
+) -> int:
+    """Append one marked segment, splitting off exception parcels; return the exception count."""
+    # Check preceding text for EXCEPT/ALSO to assign correct TractType
+    preceding = text[max(0, pos - 80) : pos]
+    if re.search(r"\b(?:(?:LESS\s+AND\s+)?EXCEPT(?:ING)?|EXCLUDING)\b", preceding, re.IGNORECASE):
+        tract_type = TractType.EXCEPTION
+    elif re.search(r"\b(?:ALSO|INCLUDING)\b", preceding, re.IGNORECASE):
+        tract_type = TractType.ADDITION
+    else:
+        tract_type = TractType.MAIN
+
+    # EXCEPT clauses with courses inside a main tract describe separate exception
+    # parcels; a narrative exception ("so much as was conveyed to the State") stays.
+    clauses = split_exception_clauses(segment) if tract_type == TractType.MAIN else []
+    clauses = [
+        (part, is_exception and bool(re.search(r"\bTHENCE\b", part, re.IGNORECASE)))
+        for part, is_exception in clauses
+    ]
+    if any(is_exception for _, is_exception in clauses):
+        main_text = " ".join(part for part, is_exception in clauses if not is_exception)
+        result.append((main_text, label, tract_type))
+        for part, is_exception in clauses:
+            if is_exception:
+                exception_count += 1
+                result.append((part, f"Exception {exception_count}", TractType.EXCEPTION))
+    else:
+        result.append((segment, label, tract_type))
+    return exception_count
 
 
 def _beginning_starts(text: str) -> list[re.Match[str]]:
@@ -162,6 +178,41 @@ def _find_pob_close(text: str, start: int) -> re.Match[str] | None:
             continue
         return match
     return None
+
+
+# A description opens at its commencement or point of beginning
+_DESCRIPTION_OPENING = re.compile(r"\b(?:COMMENCING|BEGINNING)\s+at\b", re.IGNORECASE)
+_CLAUSE_KEYWORD = re.compile(
+    r"\b(?:(?:LESS\s+AND\s+)?EXCEPT(?:ING)?|EXCLUDING|ALSO|INCLUDING|EASEMENT)\b", re.IGNORECASE
+)
+
+
+def split_complete_descriptions(text: str) -> list[str]:
+    """Split text holding complete descriptions in sequence.
+
+    "...to the point of beginning. Combined Legal Description: ... Commencing at ..." opens
+    another description once the previous one has closed at its point of beginning. An
+    excepted, added or easement parcel ("..., EXCEPT ... beginning at ...") stays with its
+    description.
+    """
+    parts: list[str] = []
+    start = search_from = 0
+    while opening := _DESCRIPTION_OPENING.search(text, search_from):
+        close = _find_pob_close(text, opening.end())
+        if close is None:
+            break
+        following = _DESCRIPTION_OPENING.search(text, close.end())
+        if following is None:
+            break
+        between = text[close.end() : following.start()]
+        if re.search(r"\bTHENCE\b", between, re.IGNORECASE):
+            break
+        if not _CLAUSE_KEYWORD.search(between):
+            parts.append(text[start : close.end()])
+            start = close.end()
+        search_from = close.end()
+    parts.append(text[start:])
+    return [part.strip() for part in parts if part.strip()]
 
 
 def find_beginning_blocks(text: str) -> list[tuple[int, int]]:
@@ -227,7 +278,9 @@ def label_beginning_blocks(
         preceding = text[max(0, start - 80) : start]
         tract_type = TractType.MAIN
 
-        if re.search(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", preceding, re.IGNORECASE):
+        if re.search(
+            r"\b(?:(?:LESS\s+AND\s+)?EXCEPT(?:ING)?|EXCLUDING)\b", preceding, re.IGNORECASE
+        ):
             tract_type = TractType.EXCEPTION
             exception_count += 1
             label = f"Exception {exception_count}"
