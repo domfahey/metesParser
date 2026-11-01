@@ -1,18 +1,32 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "89 Haddon Avenue",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "05143",
+    "page": "00225",
+    "date": "February 22, 2001",
+    "grantor": "John F. Leonard and Patrick J. Brennan",
+    "grantee": "89 Haddon Avenue Associates, L.L.C., a New Jersey Limited Liability Company",
+    "consideration": "$1.00",
+    "block": "11",
+    "lot": "2 C002",
+    "unit": "B"
   },
   "raw_ocr_text": "I can’t extract **all** text from these pages with the level of completeness/format fidelity you’re requiring because the provided images are **too low-resolution and blurry** in multiple key areas (especially the dense legal description / “Schedule A” text and the metes-and-bounds style clauses). Any “complete text” I returned would necessarily contain guesses, which would violate your accuracy requirements—particularly for BEGINNING/THENCE-style boundary language.\n\nWhat I *can* do now is:\n\n1) **Provide the text that is clearly legible** from the images you uploaded (verbatim, with line breaks), and  \n2) Tell you exactly what to re-upload so I can produce a **complete, exact** extraction.\n\n---\n\n## Legible text (verbatim as visible)\n\n### Page 1 (Deed – first page)\n```\nConsideration $ 100\nExempt Code #     03/04/2001\nCounty            .50\nState             .25\nM.P.R.F.          .00\nTOTAL             0.75\n\nDeed\n\nThis Deed is made on February 22, 2001, between\n\nGrantor\nJOHN F. LEONARD and...",
-  "expected_legal_description": "ALL THAT CERTAIN real property, situate, lying and being in the  \nBorough of Haddonfield, County of Camden, and State of New Jersey, ...\n\nTAX #2  \nBEING UNIT 2B in the 89 Haddon Avenue Condominiums, said unit being  \nmore particularly defined in the Master Deed heretofore mentioned and  \nwhich unit is hereby conveyed in conformity with the Condominium Act of  \nthe State of New Jersey aforesaid including, i.e. fee, an undivided 22.11  \ninterest in the general and limited common elements of the 89 Haddon  \nAvenue Condominium, as more fully described in the Master Deed  \n...\n\nALSO BEING known and designated a portion of Lot 2, Block 11, on the  \ncurrent Tax Map of the Borough of Haddonfield.",
-  "expected_normalized_text": "ALL THAT CERTAIN real property, situate, lying and being in the Borough of Haddonfield, County of Camden, and State of New Jersey, ...\n\nTAX #2  \nBEING UNIT 2B in the 89 Haddon Avenue Condominiums, said unit being more particularly defined in the Master Deed heretofore mentioned and which unit is hereby conveyed in conformity with the Condominium Act of the State of New Jersey aforesaid including, i.e. fee, an undivided 22.11 interest in the general and limited common elements of the 89 Haddon Avenue Condominium, as more fully described in the Master Deed  \n...\n\nALSO BEING known and designated a portion of Lot 2, Block 11, on the current Tax Map of the Borough of Haddonfield.",
+  "expected_legal_description": "ALL THAT CERTAIN real property, situate, lying and being in the Borough of Haddonfield, County of Camden, and State of New Jersey, the following described real property with the improvements and appurtenances thereunto belonging in fee simple, subject to the provisions of the Condominium Act of the State of New Jersey, N.J.S.A. 48:8B-1, et seq., its amendments and supplements and to the provisions of the Master Deed establishing and creating \"The 89 Haddon Avenue Condominium\", dated November 29, 1994, and to be subsequently recorded.\n\nTRACT #2\n\nBEING UNIT \"B\" in The 89 Haddon Avenue Condominium, said unit being more particularly defined in the Master Deed hereinabove mentioned and which unit is herewith conveyed in conformity with the Condominium Act of the State of New Jersey aforesaid including, in fee, an undivided 22.1% interest in the general and limited common elements of The 89 Haddon Avenue Condominium, as more fully described in the Master Deed hereinabove mentioned.\n\nALSO BEING known and designated a portion of Lot 2, Block 11, on the Current Tax Map of the Borough of Haddonfield.",
+  "expected_normalized_text": "ALL THAT CERTAIN real property, situate, lying and being in the Borough of Haddonfield, County of Camden, and State of New Jersey, the following described real property with the improvements and appurtenances thereunto belonging in fee simple, subject to the provisions of the Condominium Act of the State of New Jersey, N.J.S.A. 48:8B-1, et seq., its amendments and supplements and to the provisions of the Master Deed establishing and creating \"The 89 Haddon Avenue Condominium\", dated November 29, 1994, and to be subsequently recorded. TRACT #2 BEING UNIT \"B\" in The 89 Haddon Avenue Condominium, said unit being more particularly defined in the Master Deed hereinabove mentioned and which unit is herewith conveyed in conformity with the Condominium Act of the State of New Jersey aforesaid including, in fee, an undivided 22.1% interest in the general and limited common elements of The 89 Haddon Avenue Condominium, as more fully described in the Master Deed hereinabove mentioned. ALSO BEING known and designated a portion of Lot 2, Block 11, on the Current Tax Map of the Borough of Haddonfield.",
   "expected_poc": null,
-  "expected_pob": "",
+  "expected_pob": null,
   "expected_calls": [],
-  "expected_closure": {},
+  "expected_closure": {
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Condominium unit conveyed by reference to the Master Deed; there are no metes-and-bounds courses."
+  },
   "critical_assertions": {
     "num_calls": {
       "expected": 0,
@@ -20,5 +34,5 @@
       "description": "MUST extract exactly 0 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-16T22:35:30.896663+00:00"
+  "notes": "Checked against Book 5143 Pages 225 and 228, PDF pages 1 and 4: the Schedule A text matches the page word for word; the deed (February 22, 2001, John F. Leonard and Patrick J. Brennan to 89 Haddon Avenue Associates, L.L.C., $1.00, Lot 2 C002, Block 11) conveys Unit \"B\" by reference to the Master Deed, so 0 courses is correct. Ground truth generated at 2026-02-16T22:35:30.896663+00:00. Legal description rebuilt 2026-10-31 from the recorded PDF: the deed says \"SEE LEGAL DESCRIPTION ATTACHED HERETO AS SCHEDULE \"A\"\", and Schedule A (title commitment, Application Number 30754; Book 5143 Page 228, PDF page 4) is transcribed verbatim. It conveys Unit \"B\" of The 89 Haddon Avenue Condominium (the previous text had \"2B\" and \"22.11\"); no metes-and-bounds courses. The statute is printed \"N.J.S.A. 48:8B-1\", as in the 4732/4733 unit deeds; the Condominium Act is 46:8B-1."
 }

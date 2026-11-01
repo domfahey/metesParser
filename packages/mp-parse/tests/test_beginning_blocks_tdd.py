@@ -93,7 +93,8 @@ class TestPreamblePointOfBeginningIsNotAClosure:
     def test_gap_without_courses_is_not_a_tract(self):
         text = _BLOCK_1 + "SCHEDULE A-2 219 BERLIN ROAD, CHERRY HILL. " + _BLOCK_3
         segments = split_into_tracts(text)
-        assert [label for _t, label, _k in segments] == ["Tract 1", "Tract 2"]
+        # "SCHEDULE A-2" heads the second description; the header gap is no tract.
+        assert [label for _t, label, _k in segments] == ["Unlabelled tract", "Schedule A-2"]
 
 
 _BERLIN = (
@@ -113,7 +114,10 @@ def test_219_berlin_rd_keeps_every_schedule(field, normalize):
     if normalize:
         text = normalize_legal_description(text)
     calls, tracts = extract_calls(text, strict=False, skipped_courses=[])
-    # Schedule A-1 (5), A-2 (12), the easement (4), A-3 (4), A-4 (4).
-    assert [len(t.calls) for t in tracts] == [5, 12, 4, 4, 4]
-    assert [c.distance_ft for c in calls] == [c["distance_ft"] for c in truth["expected_calls"]]
+    # Schedule A-1 (6, with its two announced ties), A-2 (16: the lot and its easement),
+    # A-3 (4), A-4 (4).
+    assert [len(t.calls) for t in tracts] == [6, 16, 4, 4]
+    assert [c.distance_ft for c in calls] == [
+        c.get("printed_distance_ft", c["distance_ft"]) for c in truth["expected_calls"]
+    ]
     assert len(calls) == truth["critical_assertions"]["num_calls"]["expected"]

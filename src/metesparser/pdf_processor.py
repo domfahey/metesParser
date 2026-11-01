@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import structlog
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from .llm_clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
 from .models import (

@@ -178,5 +178,147 @@
       "Prior_Book_Normalized": "46884",
       "Prior_Page_Normalized": "1345"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "2033 Rawsonville Road",
+    "city": "Belleville",
+    "state": "MI",
+    "book": "50058",
+    "page": "465"
+  },
+  "raw_ocr_text": "A parcel of land being a part of lots 11 & 12 of Newman Orchards, a sub-division of part of the N.W.14 of Sec. 19, Town 3 S, Range 8 E, Van Baren Township, Wayne County, Michigan, as recorded in Liber 68 of Plats, Page 22 Wayne County Records and is particularly described as follows: Commencing at the NE corner of Lot 13 of Newman Orchards a subdivision of part of the NW 36 of Sec. 19 and proceeding th. S 69° 53' 23\" W 82.00 ft. to the POB, proceeding th. S 289.81 ft. th. W 199.44 ft. to a point on the easterly right of way line of Rawsonville Rd. th. along said line N 00° 32' 30\" W 128.78 ft. to a point on the southerly right of way line of the I-94 Expressway th. along said line N 15° 21' 23\" E 49.18 ft. and N 48° 03' 44\" E. 113.41 ft. & N 69° 53' 23\" E 109.98 feet to the point of beginning and containing 1.1005 acres of land more or less.",
+  "expected_legal_description": "Tract 2:\n\nA parcel of land being a part of lots 11 & 12 of Newman Orchards, a sub-division of part of the N.W.¼ of Sec. 19, Town 3 S, Range 8 E, Van Buren Township, Wayne County, Michigan, as recorded in Liber 68 of Plats, Page 22 Wayne County Records and is particularly described as follows: Commencing at the NE corner of Lot 13 of Newman Orchards a subdivision of part of the NW ¼ of Sec. 19 and proceeding th. S 69° 53' 23\" W 82.00 ft. to the POB, proceeding th. S 289.81 ft. th. W 199.44 ft. to a point on the easterly right of way line of Rawsonville Rd. th. along said line N 00° 32' 30\" W 128.78 ft. to a point on the southerly right of way line of the I-94 Expressway th. along said line N 15° 21' 23\" E 49.18 ft. and N 48° 03' 44\" E. 113.41 ft. & N 69° 53' 23\" E 109.98 feet to the point of beginning and containing 1.1005 acres of land more or less.",
+  "expected_normalized_text": "Tract 2: A parcel of land being a part of lots 11 & 12 of Newman Orchards, a sub-division of part of the N.W.¼ of Sec. 19, Town 3 S, Range 8 E, Van Buren Township, Wayne County, Michigan, as recorded in Liber 68 of Plats, Page 22 Wayne County Records and is particularly described as follows: Commencing at the NE corner of Lot 13 of Newman Orchards a subdivision of part of the NW ¼ of Sec. 19 and proceeding thence S 69°53'23\" W 82.00 feet. to the point of beginning, proceeding thence due South 289.81 feet. thence due West 199.44 feet. to a point on the easterly right of way line of Rawsonville Rd. thence along said line N 00°32'30\" W 128.78 feet. to a point on the southerly right of way line of the I-94 Expressway thence along said line N 15°21'23\" E 49.18 feet. thence N 48°03'44\" E. 113.41 feet. thence N 69°53'23\" E 109.98 feet to the point of beginning and containing 1.1005 acres of land more or less.",
+  "expected_poc": "the NE corner of Lot 13 of Newman Orchards a subdivision of part of the NW ¼ of Sec. 19",
+  "expected_pob": "the POB, S 69° 53' 23\" W 82.00 ft. from the NE corner of Lot 13 of Newman Orchards",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 69°53'23\" W",
+      "bearing_quadrant": "S 69°53' W",
+      "bearing_azimuth_deg_from_north": 249.88972222222225,
+      "distance_ft": 82.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "the POB",
+      "monument_type": null,
+      "notes": "tie course from the NE corner of Lot 13 to the point of beginning",
+      "is_tie_in": true
+    },
+    {
+      "course": 2,
+      "direction_text": "S",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": 180.0,
+      "distance_ft": 289.81,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": "bare 'S' with no angle: due South",
+      "is_tie_in": false
+    },
+    {
+      "course": 3,
+      "direction_text": "W",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": 270.0,
+      "distance_ft": 199.44,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "a point on the easterly right of way line of Rawsonville Rd.",
+      "monument_type": null,
+      "notes": "bare 'W' with no angle: due West",
+      "is_tie_in": false
+    },
+    {
+      "course": 4,
+      "direction_text": "N 0°32'30\" W",
+      "bearing_quadrant": "N 0°32' W",
+      "bearing_azimuth_deg_from_north": 359.4583333333333,
+      "distance_ft": 128.78,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said line",
+      "to": "a point on the southerly right of way line of the I-94 Expressway",
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    },
+    {
+      "course": 5,
+      "direction_text": "N 15°21'23\" E",
+      "bearing_quadrant": "N 15°21' E",
+      "bearing_azimuth_deg_from_north": 15.356388888888889,
+      "distance_ft": 49.18,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "said line",
+      "to": null,
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    },
+    {
+      "course": 6,
+      "direction_text": "N 48°03'44\" E",
+      "bearing_quadrant": "N 48°04' E",
+      "bearing_azimuth_deg_from_north": 48.06222222222222,
+      "distance_ft": 113.41,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    },
+    {
+      "course": 7,
+      "direction_text": "N 69°53'23\" E",
+      "bearing_quadrant": "N 69°53' E",
+      "bearing_azimuth_deg_from_north": 69.88972222222223,
+      "distance_ft": 109.98,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "the point of beginning",
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0047,
+    "area_sq_ft": 47945.28,
+    "area_acres": 1.1007,
+    "perimeter_ft": 890.6,
+    "closure_passed": true,
+    "notes": "Closure over boundary courses 2-7; tie course 1 excluded."
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 7,
+      "operator": "==",
+      "description": "MUST extract exactly 7 calls"
+    }
+  },
+  "notes": "Checked against Liber 50058 Page 465 (instrument 2012330301), Exhibit \"A\" Tract 2, PDF page 3 (re-read at 400-900 dpi, 2026-11-01): text and all seven courses confirmed as printed; the last bearing's seconds mark after \"23\" is faint and could be read as a single prime, transcribed as 23\" (the minutes are already given). Standard fields added 2026-10-31 from the recorded PDF (UCC Financing Statement Amendment, Exhibit \"A\" Legal Description - Cont., Tract 2, Liber 50058 Page 465, PDF page 3), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. Part of Lots 11 & 12 of Newman Orchards by metes and bounds: a 'Commencing' tie course then 6 boundary courses (the abbreviation 'th.' is used for thence; 'S 289.81 ft.' and 'W 199.44 ft.' are bare cardinals, recorded as due South/West). Boundary closes to 0.0047 ft. Only Tract 2 is recorded in this instrument. Differences from the vendor text: the deed reads 'Van Buren' (vendor 'Van Baren'), 'N.W.¼' and 'NW ¼' (vendor 'N.W.14', 'NW 36')."
 }

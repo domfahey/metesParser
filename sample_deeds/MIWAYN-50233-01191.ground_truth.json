@@ -163,5 +163,95 @@
       "Prior_Book_Normalized": "NA",
       "Prior_Page_Normalized": "NA"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "42053 Ford Road",
+    "city": "Canton (Township of Canton)",
+    "state": "MI",
+    "book": "50233",
+    "page": "1191"
+  },
+  "raw_ocr_text": "Land situated in the Township of Canton, County of Wayne, State of Michigan, and described as follows: Part of the Northeast 1/4 of Section 14, Town 2 South, Range 8 East, Canton Township, Wayne County, Michigan, described as beginning at a point on the North line of Section 14, distant North 89 degrees 20 minutes 37 seconds East 250.00 feet from the North 1/4 corner of Section 14, and proceeding thence along the North line of Section 14, North 89 degrees 20 minutes 37 seconds East 600.00 feet; thence due South 599.89 feet; thence South 89 degrees 20 minutes 37 seconds West 600.00 feet; thence due North 599.89 feet (recorded as 600.00 feet) to the point of beginning, except the North 60.00 feet thereof taken for road purposes.",
+  "expected_legal_description": "Land situated in the Township of Canton, County of Wayne, State of Michigan, and described as follows:\n\nPart of the Northeast 1/4 of Section 14, Town 2 South, Range 8 East, Canton Township, Wayne County, Michigan, described as beginning at a point on the North line of Section 14, distant North 89 degrees 20 minutes 37 seconds East 250.00 feet from the North 1/4 corner of Section 14, and proceeding thence along the North line of Section 14, North 89 degrees 20 minutes 37 seconds East 600.00 feet; thence due South 599.89 feet; thence South 89 degrees 20 minutes 37 seconds West 600.00 feet; thence due North 599.89 feet (recorded as 600.00 feet) to the point of beginning, except the North 60.00 feet thereof taken for road purposes.",
+  "expected_normalized_text": "Land situated in the Township of Canton, County of Wayne, State of Michigan, and described as follows: Part of the Northeast 1/4 of Section 14, Town 2 South, Range 8 East, Canton Township, Wayne County, Michigan, described as beginning at a point on the North line of Section 14, distant N 89°20'37\" E 250.00 feet from the North 1/4 corner of Section 14, and proceeding thence along the North line of Section 14, N 89°20'37\" E 600.00 feet; thence due South 599.89 feet; thence S 89°20'37\" W 600.00 feet; thence due North 599.89 feet (recorded as 600.00 feet) to the point of beginning, except the North 60.00 feet thereof taken for road purposes.",
+  "expected_poc": null,
+  "expected_pob": "a point on the North line of Section 14, distant North 89 degrees 20 minutes 37 seconds East 250.00 feet from the North 1/4 corner of Section 14",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 89°20'37\" E",
+      "bearing_quadrant": "N 89°21' E",
+      "bearing_azimuth_deg_from_north": 89.3436111111111,
+      "distance_ft": 600.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the North line of Section 14",
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "Due South",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": 180.0,
+      "distance_ft": 599.89,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "S 89°20'37\" W",
+      "bearing_quadrant": "S 89°21' W",
+      "bearing_azimuth_deg_from_north": 269.3436111111111,
+      "distance_ft": 600.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "Due North",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": 0.0,
+      "distance_ft": 599.89,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "the point of beginning",
+      "monument_type": null,
+      "notes": "printed \"599.89 feet (recorded as 600.00 feet)\""
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0,
+    "area_sq_ft": 359910.38,
+    "area_acres": 8.2624,
+    "perimeter_ft": 2399.78,
+    "closure_passed": true,
+    "notes": "The exception (\"except the North 60.00 feet thereof taken for road purposes\") has no courses and is not deducted."
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    }
+  },
+  "notes": "Checked against instrument 2012420814, Exhibit A, PDF page 3 (re-read at 350 dpi, 2026-11-01): text and all four courses confirmed as printed. Standard fields added 2026-10-31 from the recorded PDF: Exhibit A, Legal Description (Page 3 of 3), transcribed verbatim; the vendor keys are kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The offset locating the point of beginning from the North 1/4 corner is part of the beginning clause, not a course. The last course reads \"599.89 feet (recorded as 600.00 feet)\"; the exception for road purposes has no courses. The parcel closes at 0.000 ft."
 }

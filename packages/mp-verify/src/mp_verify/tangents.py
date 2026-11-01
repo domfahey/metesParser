@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from functools import lru_cache
 
-from mp_bearing import (  # type: ignore[import-untyped]
+from mp_bearing import (
     bearing_to_azimuth,
     delta_uncertainty_rad,
 )
@@ -93,7 +93,7 @@ def curve_sweep(call: DeedCall) -> float | None:
 
 @lru_cache(maxsize=4096)
 def _chord_azimuth(chord_bearing: str) -> float | None:
-    return bearing_to_azimuth(chord_bearing)  # type: ignore[no-any-return]
+    return bearing_to_azimuth(chord_bearing)
 
 
 def parse_chord(call: DeedCall) -> float | None:

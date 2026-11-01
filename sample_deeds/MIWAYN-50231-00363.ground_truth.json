@@ -163,5 +163,115 @@
       "Prior_Book_Normalized": "49791",
       "Prior_Page_Normalized": "361"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "17255 Ridge Rd",
+    "city": "Northville (Township of Northville)",
+    "state": "MI",
+    "book": "50231",
+    "page": "363"
+  },
+  "raw_ocr_text": "The following described property: Situated in the Township of Northville, County of Wayne and State of Michigan, to-wit: Commencing at the Southeast corner of Section 7; thence Northerly along East Line of said Section being also the Centerline of Ridge Road, 66 feet wide, 348.0 feet to a place of beginning; thence North 89 degrees 30' 00\" West 445.50 feet; thence Due North 246.0 feet; thence South 89 degrees 30' 00\" East 445.50 feet; thence Due South 246.00 feet to the place of beginning, being a part of Southeast 6 acres of East 1/2 of the Southeast 1/4 of Section 7, Town 1 South, Range 8 East, Northville Township, Michigan. Assessor's Parcel No:77-028-99-0019-001\n",
+  "expected_legal_description": "The following described property:\n\nSituated in the Township of Northville, County of Wayne and State of Michigan, to-wit:\n\nCommencing at the Southeast corner of Section 7; thence Northerly along East Line of said Section being also the Centerline of Ridge Road, 66 feet wide, 348.0 feet to a place of beginning; thence North 89 degrees 30' 00\" West 445.50 feet; thence Due North 246.0 feet; thence South 89 degrees 30' 00\" East 445.50 feet; thence Due South 246.00 feet to the place of beginning, being a part of Southeast 6 acres of East 1/2 of the Southeast 1/4 of Section 7, Town 1 South, Range 8 East, Northville Township, Michigan.\n\nAssessor's Parcel No: 77-028-99-0019-001",
+  "expected_normalized_text": "The following described property: Situated in the Township of Northville, County of Wayne and State of Michigan, to-wit: Commencing at the Southeast corner of Section 7; thence Northerly along East Line of said Section being also the Centerline of Ridge Road, 66 feet wide, 348.0 feet to a place of beginning; thence N 89°30'00\" W 445.50 feet; thence Due North 246.0 feet; thence S 89°30'00\" E 445.50 feet; thence Due South 246.00 feet to the place of beginning, being a part of Southeast 6 acres of East 1/2 of the Southeast 1/4 of Section 7, Town 1 South, Range 8 East, Northville Township, Michigan. Assessor's Parcel No: 77-028-99-0019-001",
+  "expected_poc": "the Southeast corner of Section 7",
+  "expected_pob": "a place of beginning",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "Northerly",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 348.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "East Line of said Section being also the Centerline of Ridge Road, 66 feet wide",
+      "to": "a place of beginning",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only; tie course from the Southeast corner of Section 7",
+      "is_tie_in": true
+    },
+    {
+      "course": 2,
+      "direction_text": "N 89°30'00\" W",
+      "bearing_quadrant": "N 89°30' W",
+      "bearing_azimuth_deg_from_north": 270.5,
+      "distance_ft": 445.5,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    },
+    {
+      "course": 3,
+      "direction_text": "Due North",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": 0.0,
+      "distance_ft": 246.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    },
+    {
+      "course": 4,
+      "direction_text": "S 89°30'00\" E",
+      "bearing_quadrant": "S 89°30' E",
+      "bearing_azimuth_deg_from_north": 90.5,
+      "distance_ft": 445.5,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    },
+    {
+      "course": 5,
+      "direction_text": "Due South",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": 180.0,
+      "distance_ft": 246.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "the place of beginning",
+      "monument_type": null,
+      "notes": null,
+      "is_tie_in": false
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0,
+    "area_sq_ft": 109588.83,
+    "area_acres": 2.5158,
+    "perimeter_ft": 1383.0,
+    "closure_passed": true,
+    "notes": "Closure over the four boundary courses; the tie course from the Southeast corner of Section 7 is excluded."
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 5,
+      "operator": "==",
+      "description": "MUST extract exactly 5 calls"
+    }
+  },
+  "notes": "Checked against instrument 2012420148, Exhibit A, PDF page 2 (re-read at 300 dpi, 2026-11-01): text and all five courses confirmed as printed. Standard fields added 2026-10-31 from the recorded PDF: Exhibit A (Page 2 of 2), transcribed verbatim, including the mixed bearing form \"North 89 degrees 30' 00\" West\"; the vendor keys are kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The first course (Northerly 348.0 feet along the East line of Section 7) is a cardinal-only tie course to the place of beginning. The boundary closes at 0.000 ft."
 }

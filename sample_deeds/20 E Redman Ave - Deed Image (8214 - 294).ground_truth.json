@@ -1,16 +1,22 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "20 E. Redman Avenue",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "8214",
+    "page": "294",
+    "date": "May 10, 2006",
+    "grantor": "EDGEPARK DRIVE ASSOCIATES, LLC, a New Jersey limited liability company",
+    "grantee": "20 EAST REDMAN AVENUE, LLC, a New Jersey limited liability company",
+    "consideration": "$1,120,000.00",
+    "block": "129",
+    "lot": "2"
   },
   "raw_ocr_text": "I can’t reliably extract **all** text with **exact spelling, capitalization, and formatting** from these images as provided (the resolution/compression makes multiple sections—especially small header fields, stamps, and some typed lines—too unclear to read with certainty). If you upload the **original PDF** (or higher‑resolution page images, ideally 300+ DPI), I can produce a complete, line‑accurate transcription.\n\nBelow is the **verbatim text I can read confidently** from the images, preserving line breaks/structure as best as possible. Illegible/uncertain portions are marked **[illegible]**.\n\n---\n\n## Page 1 (Book8214/Page294)\n\nRETURN TO:  \nCONGRESS TITLE  \nP.O. Box 5479  \nBarclay Pavilion East  \nCherry Hill, NJ 08034\n\nPREPARED BY:  \nHENRY O. BOENNING, ESQUIRE  \nARCHER & GREINER  \nA PROFESSIONAL CORPORATION\n\nCAMDEN COUNTY, NJ  \nJAMES BEACH, COUNTY CLERK  \nDEED- OR BOOK 8214 PG 0294  \nRECORDED 05/25/2006 12:24:16  \nFILE NUMBER 2006061109  \nRPT: 373551; RECD BY: annal  \nRECORDING FEES 8...",
-  "expected_legal_description": "All that certain, piece or parcel of land, with the buildings and improvements thereon erected,  \nsituate, lying and being in the Borough of Haddonfield, County of Camden, State of New Jersey:\n\nBEGINNING at the intersection of the Southeasterly line of Redman Avenue (60.00 feet wide)  \nwith the Southwesterly line of Turnley Avenue (20.00 feet wide, also known as Veterans Lane);  \nthence\n\n(1) Along the Southwesterly line of Turnley Avenue, South 44 degrees 49 minutes 50  \nseconds East, a distance of 140.00 feet to a point in the division line between Lots 2 and 3, Block  \n129, Tax Map; thence\n\n(2) Along said division line, South 45 degrees 00 minutes 00 seconds West, a distance of  \n100.00 feet to an angle point; thence\n\n(3) Continuing along said division line, North 44 degrees 49 minutes 50 seconds West, a  \ndistance of 140.00 feet to a point in the Southeasterly line of Redman Avenue; thence\n\n(4) Along the Southeasterly line of Redman Avenue, North 45 degrees 00 minutes 00  \nseconds East, a distance of 100.00 feet to the point and place of beginning.\n\nBEING COMMONLY KNOWN AS 20 E. Redman Avenue, Haddonfield, NJ.\n\nBeing Lot 2, Block 129, on the Tax Map of the Borough of Haddonfield",
-  "expected_normalized_text": "All that certain, piece or parcel of land, with the buildings and improvements thereon erected, situate, lying and being in the Borough of Haddonfield, County of Camden, State of New Jersey:\n\nBEGINNING at the intersection of the Southeasterly line of Redman Avenue (60.00 feet wide) with the Southwesterly line of Turnley Avenue (20.00 feet wide, also known as Veterans Lane); thence\n\n(1) Along the Southwesterly line of Turnley Avenue, S 44°49'50\" E, a distance of 140.00 feet to a point in the division line between Lots 2 and 3, Block 129, Tax Map; thence\n\n(2) Along said division line, S 45°00'00\" W, a distance of 100.00 feet to an angle point; thence\n\n(3) Continuing along said division line, N 44°49'50\" W, a distance of 140.00 feet to a point in the Southeasterly line of Redman Avenue; thence\n\n(4) Along the Southeasterly line of Redman Avenue, N 45°00'00\" E, a distance of 100.00 feet to the point and place of beginning.\n\nBEING COMMONLY KNOWN AS 20 E. Redman Avenue, Haddonfield, NJ.\n\nBeing Lot 2, Block 129, on the Tax Map of the Borough of Haddonfield",
+  "expected_legal_description": "All that certain, piece or parcel of land, with the buildings and improvements thereon erected, situate, lying and being in the Borough of Haddonfield, County of Camden, State of New Jersey:\n\nBEGINNING at the intersection of the Southeasterly line of Redman Avenue (60.00 feet wide) with the Southwesterly line of Turnley Avenue (20.00 feet wide, also known as Veterans Lane); thence\n\n(1) Along the Southwesterly line of Turnley Avenue, South 44 degrees 49 minutes 50 seconds East, a distance of 140.00 feet to a point in the division line between Lots 2 and 3, Block 129, Tax Map; thence\n\n(2) Along said division line, South 45 degrees 00 minutes 00 seconds West, a distance of 100.00 feet to an angle point; thence\n\n(3) Continuing along said division line, North 44 degrees 49 minutes 50 seconds West, a distance of 140.00 feet to a point in the Southeasterly line of Redman Avenue; thence\n\n(4) Along the Southeasterly line of Redman Avenue, North 45 degrees 00 minutes 00 seconds East, a distance of 100.00 feet to the point and place of beginning.\n\nBEING COMMONLY KNOWN AS 20 E. Redman Avenue, Haddonfield, NJ.\n\nBeing Lot 2, Block 129, on the Tax Map of the Borough of Haddonfield",
+  "expected_normalized_text": "All that certain, piece or parcel of land, with the buildings and improvements thereon erected, situate, lying and being in the Borough of Haddonfield, County of Camden, State of New Jersey:\nBEGINNING at the intersection of the Southeasterly line of Redman Avenue (60.00 feet wide) with the Southwesterly line of Turnley Avenue (20.00 feet wide, also known as Veterans Lane); thence\n(1) Along the Southwesterly line of Turnley Avenue, S 44°49'50\" E, a distance of 140.00 feet to a point in the division line between Lots 2 and 3, Block 129, Tax Map; thence\n(2) Along said division line, S 45°00'00\" W, a distance of 100.00 feet to an angle point; thence\n(3) Continuing along said division line, N 44°49'50\" W, a distance of 140.00 feet to a point in the Southeasterly line of Redman Avenue; thence\n(4) Along the Southeasterly line of Redman Avenue, N 45°00'00\" E, a distance of 100.00 feet to the point and place of beginning. BEING COMMONLY KNOWN AS 20 E. Redman Avenue, Haddonfield, NJ. Being Lot 2, Block 129, on the Tax Map of the Borough of Haddonfield",
   "expected_poc": null,
-  "expected_pob": "the intersection of the Southeasterly line of Redman Avenue (60",
+  "expected_pob": "the intersection of the Southeasterly line of Redman Avenue (60.00 feet wide) with the Southwesterly line of Turnley Avenue (20.00 feet wide, also known as Veterans Lane)",
   "expected_calls": [
     {
       "course": 1,
@@ -22,7 +28,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the Southwesterly line of Turnley Avenue, S 44°49'50\" E, a distance of 140.00 feet",
+      "along": "the Southwesterly line of Turnley Avenue",
       "to": "a point in the division line between Lots 2 and 3, Block 129, Tax Map",
       "monument_type": null,
       "notes": null
@@ -37,7 +43,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said division line, S 45°00'00\" W, a distance of 100.00 feet",
+      "along": "said division line",
       "to": "an angle point",
       "monument_type": null,
       "notes": null
@@ -52,7 +58,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said division line, N 44°49'50\" W, a distance of 140.00 feet",
+      "along": "said division line",
       "to": "a point in the Southeasterly line of Redman Avenue",
       "monument_type": null,
       "notes": null
@@ -67,7 +73,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the Southeasterly line of Redman Avenue, N 45°00'00\" E, a distance of 100.00 feet",
+      "along": "the Southeasterly line of Redman Avenue",
       "to": "the point and place of beginning",
       "monument_type": null,
       "notes": null
@@ -87,5 +93,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-16T22:32:04.393307+00:00"
+  "notes": "Checked against Book 8214 Page 295 (Exhibit A), PDF page 2: the legal text matches word for word (only markdown line-wrap artifacts removed); made along/to verbatim, completed expected_pob and filled deed_info. Ground truth generated at 2026-02-16T22:32:04.393307+00:00"
 }

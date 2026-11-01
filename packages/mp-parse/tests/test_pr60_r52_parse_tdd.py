@@ -125,7 +125,7 @@ def test_period_inside_a_sentence_still_does_not_end_it(text: str) -> None:
     assert not ends_sentence(text, text.index("."))
 
 
-EXCEPTION = "except in the case of a spouse"
+EXCEPTION = "except a portion previously conveyed to the county"
 FORMS = {
     "markdown": "\n\n### B. BLIND (See Instruction #8)\n\n- [ ] Grantor(s) legally blind.*\n"
     "- [ ] One- or two-family residential premises.",
@@ -141,6 +141,14 @@ def test_unapplied_exception_stops_before_the_form_after_it(form: str, period: s
     calls = extract_calls(text, strict=False, skipped_courses=[])[0]
     assert len(calls) == 4
     assert [w for c in calls for w in unapplied_exceptions(c.notes)] == [EXCEPTION]
+
+
+@pytest.mark.parametrize("form", sorted(FORMS))
+def test_conditional_except_in_a_form_is_not_an_exception(form: str) -> None:
+    text = f"{SQUARE} Owners must all qualify except in the case of a spouse.{FORMS[form]}"
+    calls = extract_calls(text, strict=False, skipped_courses=[])[0]
+    assert len(calls) == 4
+    assert [w for c in calls for w in unapplied_exceptions(c.notes)] == []
 
 
 def test_along_with_after_the_closing_course_is_conveyancing() -> None:

@@ -1,16 +1,23 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "1350 Brace Road",
+    "city": "Cherry Hill",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "10507",
+    "page": "651",
+    "date": "October 11, 2016",
+    "grantor": "Cherrydale Development Partners, LLC",
+    "grantee": "Cherrydale Development Partners, LLC",
+    "consideration": "$1.00",
+    "block": "407.01",
+    "lot": "9",
+    "deed_type": "Deed of Consolidation (Block 407.01, Lots 6 and 9 into Lot 9)"
   },
   "raw_ocr_text": "I can’t reliably extract **all** text with exact formatting from these images as provided (they’re low-resolution scans with a diagonal watermark and several sections—especially the **metes-and-bounds “BEGINNING / THENCE”** calls—are not fully legible at this size). Returning “complete text” would require guessing, which would violate your accuracy requirements.\n\nIf you upload either:\n1) the **original PDF** (not screenshots), or  \n2) **higher-resolution page images** (ideally 300+ DPI; or each page at least ~2500–3500 px tall, straightened, no compression),\n\nI can then produce a full, line-broken transcription.\n\n---\n\n## What I *can* accurately transcribe from the current images (partial)\n\n### Page 1 (Book10507/Page651) — visible portions\nCAMDEN COUNTY, NJ  \nCAMDEN COUNTY CLERK’S OFFICE  \nDEED-DR BOOK 10507/651  \nRECORDED 10/24/2016 08:40:34  \nFILE NUMBER 2016083551  \nRCPT #: 1814612  REC BY: AL92  \nRECORDING FEES 103.00  \nMARGINAL NOTATION 0.00  \nTOTAL TAX 0.00  \n\nPrepared by:  \nKevin...",
-  "expected_legal_description": "DESCRIPTION OF PROPERTY  \nBLOCK 407.01 LOT 9  \nSITUATED IN  \nCHERRY HILL TOWNSHIP, CAMDEN COUNTY, NEW JERSEY\n\nBeing known and designated as Lot 9, Block 407.01, as shown on the Current Tax Assessment Map of the Township  \nof Cherry Hill, Camden County, New Jersey.\n\nBEGINNING at a PK nail found for a point in the northerly right-of-way line of Kresson Road, (49.5 feet wide right  \nof-way) said PK nail being North 75 degrees 14 minutes 47 seconds West, a distance of 364.4 feet +/- from the  \nintersection of said Kresson Road and the westerly right-of way line of New Jersey State Highway Route 154, (a.k.a.  \nBrace Road, 100 feet wide right-of-way); thence:\n\n1. Along said right-of-way line of Kresson Road, North 75 degrees 14 minutes 47 seconds West, a distance of  \n407.96 feet to a capped iron pin set therein; thence  \n2. Along a common line with Block 407.01 Lot 3, North 25 degrees 09 minutes 13 seconds East, a distance of  \n315.00 feet to a capped iron pin set therein; thence  \n3. Along a common line with Block 407.01 Lot 1, South 75 degrees 14 minutes 47 seconds East, a distance of  \n60.00 feet to an angle point; thence  \n4. Along the same, North 25 degrees 09 minutes 13 seconds East, a distance of 511.54 feet to a pin found; thence  \n5. Along the same, South 67 degrees 39 minutes 47 seconds East, a distance of 218.56 feet to a capped iron pin set  \ntherein; thence  \n6. Along a common line with Block 407.01 Lot 10, South 18 Degrees 36 Minutes 53 Seconds West, a Distance of  \n182.33 feet to a capped iron pin set therein; thence  \n7. Along the same, South 75 degrees 14 minutes 47 seconds East, a distance of 399.43 feet to a capped iron pin  \nset in the aforementioned right-of-way line of New Jersey State Highway Route 154; thence  \n8. Along said New Jersey State Highway Route 154, South 18 degrees 36 minutes 53 seconds West, a distance of  \n400.00 feet to a pin found therein; thence  \n9. Along a common line with Block 407.01 Lot 8, North 75 degrees 14 minutes 47 seconds West, a distance of  \n364.40 feet to a capped pin set therein; thence  \n10. Along the same, South 18 degrees 36 minutes 53 seconds West a distance of  \n203.57 feet to the point and place  \nof BEGINNING.\n\nContaining 398,017 S.F. = 9.137 Acres\n\nThis description is in accordance with a map titled “Lot Consolidation Plan, Block 407.01 Lot 9” prepared by  \nMidAtlantic Engineering Partners, LLC dated March 23, 2016, last revised 07/14/16.",
-  "expected_normalized_text": "DESCRIPTION OF PROPERTY  \nBLOCK 407.01 LOT 9  \nSITUATED IN  \nCHERRY HILL TOWNSHIP, CAMDEN COUNTY, NEW JERSEY\n\nBeing known and designated as Lot 9, Block 407.01, as shown on the Current Tax Assessment Map of the Township of Cherry Hill, Camden County, New Jersey.\n\nBEGINNING at a PK nail found for a point in the northerly right-of-way line of Kresson Road, (49.5 feet wide right of-way) said PK nail being N 75°14'47\" W, a distance of 364.4 feet +/- from the intersection of said Kresson Road and the westerly right-of way line of New Jersey State Highway Route 154, (a.k.a. Brace Road, 100 feet wide right-of-way); thence:\n\n1. Along said right-of-way line of Kresson Road, N 75°14'47\" W, a distance of 407.96 feet to a capped iron pin set therein; thence  \n2. Along a common line with Block 407.01 Lot 3, N 25°09'13\" E, a distance of 315.00 feet to a capped iron pin set therein; thence  \n3. Along a common line with Block 407.01 Lot 1, S 75°14'47\" E, a distance of 60.00 feet to an angle point; thence  \n4. Along the same, N 25°09'13\" E, a distance of 511.54 feet to a pin found; thence  \n5. Along the same, S 67°39'47\" E, a distance of 218.56 feet to a capped iron pin set therein; thence  \n6. Along a common line with Block 407.01 Lot 10, S 18°36'53\" W, a Distance of 182.33 feet to a capped iron pin set therein; thence  \n7. Along the same, S 75°14'47\" E, a distance of 399.43 feet to a capped iron pin set in the aforementioned right-of-way line of New Jersey State Highway Route 154; thence  \n8. Along said New Jersey State Highway Route 154, S 18°36'53\" W, a distance of 400.00 feet to a pin found therein; thence  \n9. Along a common line with Block 407.01 Lot 8, N 75°14'47\" W, a distance of 364.40 feet to a capped pin set therein; thence  \n10. Along the same, S 18°36'53\" W a distance of 203.57 feet to the point and place of BEGINNING.\n\nContaining 398,017 S.F. = 9.137 Acres\n\nThis description is in accordance with a map titled “Lot Consolidation Plan, Block 407.01 Lot 9” prepared by MidAtlantic Engineering Partners, LLC dated March 23, 2016, last revised 07/14/16.",
+  "expected_legal_description": "DESCRIPTION OF PROPERTY\nBLOCK 407.01 LOT 9\nSITUATED IN\nCHERRY HILL TOWNSHIP, CAMDEN COUNTY, NEW JERSEY\n\nBeing known and designated as Lot 9, Block 407.01, as shown on the Current Tax Assessment Map of the Township of Cherry Hill, Camden County, New Jersey.\n\nBEGINNING at a PK nail found for a point in the northerly right-of-way line of Kresson Road, (49.5 feet wide right-of-way) said PK nail being North 75 degrees 14 minutes 47 seconds West, a distance of 364.4 feet +/- from the intersection of said Kresson Road and the westerly right-of way line of New Jersey State Highway Route 154, (a.k.a. Brace Road. 100 feet wide right-of-way); thence\n\n1. Along said right-of-way line of Kresson Road, North 75 degrees 14 minutes 47 seconds West, a distance of 407.96 feet to a capped iron pin set therein; thence\n2. Along a common line with Block 407.01 Lot 3, North 25 degrees 09 minutes 13 seconds East, a distance of 315.00 feet to capped iron pin set therein; thence\n3. Along a common line with Block 407.01 Lot 1, South 75 degrees 14 minutes 47 seconds East, a distance of 60.00 feet to an angle point; thence\n4. Along the same, North 25 degrees 09 minutes 13 seconds East, a distance of 511.54 feet to a pin found; thence\n5. Along the same, South 67 degrees 39 minutes 47 seconds East, a distance of 218.56 feet to capped iron pin set therein; thence\n6. Along a common line with Block 407.01 Lot 10, South 18 Degrees 36 Minutes 53 Seconds West, a Distance of 182.33 feet to a capped iron pin set therein; thence\n7. Along the same, South 75 degrees 14 minutes 47 seconds East, a distance of 399.43 feet to a capped iron pin set in the aforementioned right-of-way line of New Jersey State Highway Route 154; thence\n8. Along said New Jersey State Highway Route 154, South 18 degrees 36 minutes 53 seconds West, a distance of 400.00 feet to a pin found therein; thence\n9. Along a common line with Block 407.01 Lot 8, North 75 degrees 14 minutes 47 seconds West, a distance of 364.40 feet to a capped pin found therein; thence\n10. Along the same, South 18 degrees 36 minutes 53 seconds West a distance of 203.57 feet to the point and place of BEGINNING.\n\nContaining 398,017 S.F. = 9.137 Acres\n\nThis description is in accordance with a map titled “Lot Consolidation Plan; Block 407.01 Lot 9” prepared by MidAtlantic Engineering Partners, LLC dated March 23, 2016, last revised 07/14/16.",
+  "expected_normalized_text": "DESCRIPTION OF PROPERTY BLOCK 407.01 LOT 9 SITUATED IN CHERRY HILL TOWNSHIP, CAMDEN COUNTY, NEW JERSEY Being known and designated as Lot 9, Block 407.01, as shown on the Current Tax Assessment Map of the Township of Cherry Hill, Camden County, New Jersey.\nBEGINNING at a pk nail nail found for a point in the northerly right-of-way line of Kresson Road, (49.5 feet wide right-of-way) said pk nail nail being N 75°14'47\" W, a distance of 364.4 feet +/- from the intersection of said Kresson Road and the westerly right-of way line of New Jersey State Highway Route 154, (a.k.a. Brace Road. 100 feet wide right-of-way); thence\n1. Along said right-of-way line of Kresson Road, N 75°14'47\" W, a distance of 407.96 feet to a capped iron pin set therein; thence\n2. Along a common line with Block 407.01 Lot 3, N 25°09'13\" E, a distance of 315.00 feet to capped iron pin set therein; thence\n3. Along a common line with Block 407.01 Lot 1, S 75°14'47\" E, a distance of 60.00 feet to an angle point; thence\n4. Along the same, N 25°09'13\" E, a distance of 511.54 feet to a pin found; thence\n5. Along the same, S 67°39'47\" E, a distance of 218.56 feet to capped iron pin set therein; thence\n6. Along a common line with Block 407.01 Lot 10, S 18°36'53\" W, a Distance of 182.33 feet to a capped iron pin set therein; thence\n7. Along the same, S 75°14'47\" E, a distance of 399.43 feet to a capped iron pin set in the aforementioned right-of-way line of New Jersey State Highway Route 154; thence\n8. Along said New Jersey State Highway Route 154, S 18°36'53\" W, a distance of 400.00 feet to a pin found therein; thence\n9. Along a common line with Block 407.01 Lot 8, N 75°14'47\" W, a distance of 364.40 feet to a capped pin found therein; thence\n10. Along the same, S 18°36'53\" W a distance of 203.57 feet to the point and place of BEGINNING. Containing 398,017 S.F. = 9.137 Acres This description is in accordance with a map titled \"Lot Consolidation Plan; Block 407.01 Lot 9\" prepared by MidAtlantic Engineering Partners, LLC dated March 23, 2016, last revised 07/14/16.",
   "expected_poc": null,
-  "expected_pob": "a PK nail found for a point in the northerly right-of-way line of Kresson Road, (49",
+  "expected_pob": "a PK nail found for a point in the northerly right-of-way line of Kresson Road, (49.5 feet wide right-of-way) said PK nail being North 75 degrees 14 minutes 47 seconds West, a distance of 364.4 feet +/- from the intersection of said Kresson Road and the westerly right-of way line of New Jersey State Highway Route 154, (a.k.a. Brace Road. 100 feet wide right-of-way)",
   "expected_calls": [
     {
       "course": 1,
@@ -22,7 +29,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said right-of-way line of Kresson Road, N 75°14'47\" W, a distance of 407.96 feet",
+      "along": "said right-of-way line of Kresson Road",
       "to": "a capped iron pin set therein",
       "monument_type": "capped_pin",
       "notes": null
@@ -37,8 +44,8 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "a common line with Block 407.01 Lot 3, N 25°09'13\" E, a distance of 315.00 feet",
-      "to": "a capped iron pin set therein",
+      "along": "a common line with Block 407.01 Lot 3",
+      "to": "capped iron pin set therein",
       "monument_type": "capped_pin",
       "notes": null
     },
@@ -52,7 +59,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "a common line with Block 407.01 Lot 1, S 75°14'47\" E, a distance of 60.00 feet",
+      "along": "a common line with Block 407.01 Lot 1",
       "to": "an angle point",
       "monument_type": null,
       "notes": null
@@ -67,7 +74,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the same, N 25°09'13\" E, a distance of 511.54 feet",
+      "along": "the same",
       "to": "a pin found",
       "monument_type": null,
       "notes": null
@@ -82,8 +89,8 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the same, S 67°39'47\" E, a distance of 218.56 feet",
-      "to": "a capped iron pin set therein",
+      "along": "the same",
+      "to": "capped iron pin set therein",
       "monument_type": "capped_pin",
       "notes": null
     },
@@ -97,7 +104,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "a common line with Block 407.01 Lot 10, S 18°36'53\" W, a Distance of 182.33 feet",
+      "along": "a common line with Block 407.01 Lot 10",
       "to": "a capped iron pin set therein",
       "monument_type": "capped_pin",
       "notes": null
@@ -112,7 +119,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the same, S 75°14'47\" E, a distance of 399.43 feet",
+      "along": "the same",
       "to": "a capped iron pin set in the aforementioned right-of-way line of New Jersey State Highway Route 154",
       "monument_type": "capped_pin",
       "notes": null
@@ -127,7 +134,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said New Jersey State Highway Route 154, S 18°36'53\" W, a distance of 400.00 feet",
+      "along": "said New Jersey State Highway Route 154",
       "to": "a pin found therein",
       "monument_type": null,
       "notes": null
@@ -142,8 +149,8 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "a common line with Block 407.01 Lot 8, N 75°14'47\" W, a distance of 364.40 feet",
-      "to": "a capped pin set therein",
+      "along": "a common line with Block 407.01 Lot 8",
+      "to": "a capped pin found therein",
       "monument_type": "capped_pin",
       "notes": null
     },
@@ -157,7 +164,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the same, S 18°36'53\" W a distance of 203.57 feet",
+      "along": "the same",
       "to": "the point and place of BEGINNING",
       "monument_type": null,
       "notes": null
@@ -177,5 +184,5 @@
       "description": "MUST extract exactly 10 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T02:59:36.658449+00:00"
+  "notes": "Checked against the MidAtlantic Engineering description, Book 10507 Page 654 (PDF page 4), and the Deed of Consolidation, Book 10507 Page 651: all ten bearings and distances match; corrected six transcription differences in the legal text (\"right-of-way\", \"Brace Road. 100 feet\", no colon after \"thence\", \"to capped iron pin\" in courses 2 and 5, \"capped pin found therein\" in course 9, \"Lot Consolidation Plan;\"), trimmed along fields to the printed wording, completed the point of beginning and filled in deed_info. Second check (Page 654 at 300 dpi): text and all figures confirmed; markdown hard-wrap line breaks removed from the legal text. Ground truth generated at 2026-02-17T02:59:36.658449+00:00"
 }

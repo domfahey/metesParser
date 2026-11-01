@@ -7,28 +7,118 @@ the markdown text, and flags discrepancies with the GT expected_calls.
 
 from __future__ import annotations
 
+import difflib
 import json
 import re
 from pathlib import Path
+from typing import NotRequired, TypedDict
 
 SAMPLE_DIR = Path(__file__).resolve().parent.parent / "sample_deeds"
 
-# Regex patterns for extracting metes & bounds data from markdown text
+
+class AuditResult(TypedDict):
+    """One deed's audit outcome."""
+
+    name: str
+    status: str
+    issues: list[str]
+    n_gt: NotRequired[int]
+    n_md: NotRequired[int]
+
+
+def call_distance(call: dict[str, object]) -> float | None:
+    """Return a call's distance in feet, or None when it is missing or not numeric."""
+    value = call.get("distance_ft")
+    return float(value) if isinstance(value, int | float) else None
+
+
+# Regex patterns for extracting metes & bounds data from markdown text. Assessor
+# descriptions abbreviate the units: "S0DEG 49M 20S W", "N 01D 41M 46S W", "N 89D 05M 3SEC W".
 BEARING_PATTERN = re.compile(
-    r"([NS])\s*(?:orth|outh)?\s*(\d{1,3})\s*(?:degrees?|°|deg\.?)\s*"
-    r"(\d{1,2})\s*(?:minutes?|\'|min\.?)[,\s]*"
-    r"(?:(\d{1,2})\s*(?:seconds?|\"|sec\.?)\s*)?"
+    r"([NS])\s*(?:orth|outh)?\s*(\d{1,3})\s*(?:degrees?|°|deg\.?|D\b)[,\s]*"
+    r"(\d{1,2})\.?\s*(?:minutes?|\'|min\.?|M\b)[,\s]*"
+    r"(?:(\d{1,2})\s*(?:seconds?|\"|sec\.?|S\b)[,\s]*)?"
     r"([EW])\s*(?:ast|est)?",
     re.IGNORECASE,
 )
 
+# A distance number; a comma followed by exactly two digits is a decimal point
+# ("300,07 feet"), as some deeds print. Thousands separators have three digits.
+NUMBER = r"\d+(?:\.\d+|,\d{2}(?!\d))?"
+
+
+def to_float(number: str) -> float:
+    """Convert a NUMBER match, reading a two-digit comma as the decimal point."""
+    return float(number.replace(",", "."))
+
+
 DISTANCE_PATTERN = re.compile(
-    r"(?:a?\s*distance\s+of\s+|,\s*)?(\d+(?:\.\d+)?)\s*(?:feet|ft\.?|foot)",
+    rf"(?:a?\s*distance\s+of\s+|,\s*)?({NUMBER})\s*(?:\([^()]{{0,40}}\)\s*)?(?:feet|ft\.?|foot)",
     re.IGNORECASE,
 )
 
-THENCE_PATTERN = re.compile(r"\bthence\b", re.IGNORECASE)
+# "passing over stone 15.83 feet ... total distance of 336.25 feet": the total is the course length
+# "curving to the right with a radius of 5933.53 feet, an arc distance of 344.93 feet":
+# a curve's course length is its arc, not its radius
+ARC_DISTANCE_PATTERN = re.compile(
+    rf"\barc\s+(?:distance|length)\s+(?:of\s+)?({NUMBER})\s*(?:feet|ft\.?|foot)",
+    re.IGNORECASE,
+)
+
+TOTAL_DISTANCE_PATTERN = re.compile(
+    rf"\b(?:a\s+)?total\s+distance\s+(?:of\s+)?({NUMBER})\s*(?:feet|ft\.?|foot)",
+    re.IGNORECASE,
+)
+
+# "158 feet 8 inches", "92 feet, 4 inches"
+INCHES_AFTER_FEET_PATTERN = re.compile(
+    r"\s*,?\s*(?:and\s+)?(\d+(?:\.\d+)?)\s*inch(?:es)?\b", re.IGNORECASE
+)
+
+# "10 feet wide alley" or "distant 10 feet Northeastwardly": not the course length
+WIDTH_AFTER_PATTERN = re.compile(r"\s+wide\b", re.IGNORECASE)
+OFFSET_BEFORE_PATTERN = re.compile(r"\bdistant\s+$", re.IGNORECASE)
+OFFSET_AFTER_PATTERN = re.compile(r"\s+(?:north|south|east|west)", re.IGNORECASE)
+
+# Assessor descriptions abbreviate thence as "TH" or "th."
+THENCE = r"\bthence\b|(?-i:\bTH\b\.?|\bth\.)"
+THENCE_PATTERN = re.compile(THENCE, re.IGNORECASE)
 BEGINNING_PATTERN = re.compile(r"\*{0,2}\bBEGINNING\b\*{0,2}\s+(?:at|in)\b", re.IGNORECASE)
+# Block openings also include "BEGINNING on" (not "place of beginning on the lands") and
+# "STARTING at" (a tie line precedes the POB)
+BLOCK_START_PATTERN = re.compile(
+    r"\*{0,2}\b(?:BEGINNING\b\*{0,2}\s+(?:at|in)|(?<!of\s)BEGINNING\b\*{0,2}\s+on"
+    r"|(?:STARTING|COMMENCING)\b\*{0,2}\s+at"
+    # Assessor "BEG AT NW COR ..."; an excluded part "HAVING A POINT OF BEGINNING BEING ..."
+    r"|(?-i:BEG)|HAVING\s+A\s+POINT\s+OF\s+BEGINNING)\b"
+    # "...in Deed Book 4795, beginning at page 618" is a recording reference
+    r"(?!\s+pages?\b)",
+    re.IGNORECASE,
+)
+
+# "thence due South 50 feet": an exact cardinal bearing, not a general direction
+DUE_CARDINAL_PATTERN = re.compile(r"\bdue\s+(north|south|east|west)\b", re.IGNORECASE)
+DUE_CARDINAL_AZIMUTH = {"north": 0.0, "east": 90.0, "south": 180.0, "west": 270.0}
+
+# "th. S 289.81 ft.": a bare cardinal letter before the distance is also exact
+BARE_CARDINAL_PATTERN = re.compile(rf"\A\s*([NSEW])\s+(?={NUMBER}\s*(?:feet|ft\b|FT\b))")
+BARE_CARDINAL_AZIMUTH = {"N": 0.0, "E": 90.0, "S": 180.0, "W": 270.0}
+
+# A description introduced by an exception ("EXCEPT ... described as follows: beginning ...")
+EXCEPTION_BEFORE_PATTERN = re.compile(r"\bEXCEPT(?:ING)?\b", re.IGNORECASE)
+
+# Two courses joined by a comma, "and" or "&" instead of "thence" ("85.33 feet, North 73
+# degrees ...", "49.18 ft. and N 48° 03' 44" E")
+COMMA_JOINED_COURSE_PATTERN = re.compile(
+    r"(?:(?<=\bfeet)|(?<=\bft\.)),?\s+(?:(?:and|&)\s+)?"
+    r"(?=(?:North|South|N|S)\s*\d{1,3}\s*(?:degrees?|°|deg\.?))",
+    re.IGNORECASE,
+)
+
+# Two courses in one sentence pair: "122.55 feet to a point. South 18 degrees 05 minutes ..."
+SENTENCE_JOINED_COURSE_PATTERN = re.compile(
+    r"(?<=\bpoint)\.\s+(?=(?:North|South)\s+\d{1,3}\s*(?:degrees?|°|deg\.?))", re.IGNORECASE
+)
 
 # Cardinal-only pattern (no DMS) — mirrors _CARDINAL_ONLY_PATTERN from mp_parse/calls.py
 CARDINAL_ONLY_PATTERN = re.compile(
@@ -57,21 +147,45 @@ def bearing_to_azimuth(quadrant1: str, angle_decimal: float, quadrant2: str) -> 
     return None
 
 
-# Exhibit A / Schedule C section markers
+# "TRACT #1", "TRACT #2B": two or more mark separate tracts, not duplicate descriptions
+TRACT_MARKER_PATTERN = re.compile(r"\bTRACT\s*#?\s*\d+[A-Z]?\b", re.IGNORECASE)
+
+# "boundary line of Tract #1 of Haddonfield Estates": a reference, not a tract heading
+TRACT_REFERENCE_BEFORE_PATTERN = re.compile(
+    r"(?:\b(?:of|to|said|with|from|by)|,)\s*$", re.IGNORECASE
+)
+
+# Exhibit A / Schedule C section markers; the letter is a whole word ("SCHEDULE City" is not)
 EXHIBIT_PATTERN = re.compile(
-    r"(?:EXHIBIT\s*[\"']?\s*[\"']?A[\"']?|SCHEDULE\s+C)",
+    r"(?:EXHIBIT\s*[\"']?\s*[\"']?A\b[\"']?|SCHEDULE\s+C\b)",
     re.IGNORECASE,
 )
 
 # "place of BEGINNING" or "point of beginning" closure marker
 POB_CLOSE_PATTERN = re.compile(
-    r"(?:point|place)\s+(?:and\s+place\s+)?of\s+BEGINNING",
+    r"(?:point|place)\s+(?:and\s+place\s+)?of\s+BEGINNING|\bto\s+BEGINNING\b"
+    # Assessor "POB", "TO P O B"
+    r"|(?-i:\bP ?O ?B\b)",
     re.IGNORECASE,
+)
+
+# "which last mentioned point is the place of beginning": a tie line ends here, the description goes on
+# "which last mentioned point is the place of beginning" (a tie line ends here) or
+# "said point of beginning being also distant ..." (a preamble reference): not closures.
+# "to said point of beginning" still closes.
+RESTATED_POB_BEFORE_PATTERN = re.compile(
+    r"(?:\blast\s+mentioned\s+point\s+is\s+(?:the\s+)?|(?<!\bto\s)\bsaid\s+)$", re.IGNORECASE
 )
 
 # Numbered call starters: "1. " or "(1) " at start of line OR inline
 CALL_NUM_PATTERN = re.compile(
-    r"(?:^|\n)\s*(?:\d+\.\s|\(\d+\)\s)",
+    r"(?:^|\n)\s*(?:\d+\.\s|\(\d+\)\s|\([A-Za-z]\)\s)",
+)
+
+# A point of beginning reached by a tie course is followed by more courses:
+# "...to a point and place of beginning, thence;" or "...place of beginning.\n\n(1) South..."
+COURSES_FOLLOW_PATTERN = re.compile(
+    rf"\s*[,;.]?\s*(?:(?:proceeding\s+)?(?:{THENCE})|\(\d+\)\s|\([A-Za-z]\)\s)", re.IGNORECASE
 )
 
 # Inline numbered calls in dense paragraphs: "(1) " anywhere in text
@@ -81,11 +195,83 @@ INLINE_NUM_PATTERN = re.compile(
 
 
 def find_preferred_text(md_text: str) -> str:
-    """Return text from Exhibit A / Schedule C section, or full text if none."""
-    matches = list(EXHIBIT_PATTERN.finditer(md_text))
+    """Return text from Exhibit A / Schedule C section, or full text if none.
+
+    "SEE EXHIBIT "A" ATTACHED HERETO" in the deed body refers to the section; it is skipped.
+    """
+    matches = [
+        match
+        for match in EXHIBIT_PATTERN.finditer(md_text)
+        if not re.search(r"\bsee\s+$", md_text[: match.start()], re.IGNORECASE)
+    ]
     if matches:
         return md_text[matches[0].start() :]
     return md_text
+
+
+def find_block_close(text: str, start: int) -> re.Match[str] | None:
+    """Find the closure ending a block, skipping restated or referenced points of beginning
+    and points of beginning that more courses follow."""
+    for match in POB_CLOSE_PATTERN.finditer(text, start):
+        if RESTATED_POB_BEFORE_PATTERN.search(text, 0, match.start()):
+            continue
+        if COURSES_FOLLOW_PATTERN.match(text, match.end()):
+            continue
+        return match
+    return None
+
+
+def extract_distance(segment: str) -> float | None:
+    """Return the course length in feet, preferring a stated total over widths and offsets."""
+    total = TOTAL_DISTANCE_PATTERN.search(segment) or ARC_DISTANCE_PATTERN.search(segment)
+    if total:
+        return to_float(total.group(1))
+    matches = list(DISTANCE_PATTERN.finditer(segment))
+    if not matches:
+        return None
+
+    def is_reference(m: re.Match[str]) -> bool:
+        after = segment[m.end() :]
+        return bool(
+            WIDTH_AFTER_PATTERN.match(after)
+            or (
+                OFFSET_BEFORE_PATTERN.search(segment, 0, m.start(1))
+                and OFFSET_AFTER_PATTERN.match(after)
+            )
+        )
+
+    match = next((m for m in matches if not is_reference(m)), matches[0])
+    value = to_float(match.group(1))
+    inches = INCHES_AFTER_FEET_PATTERN.match(segment, match.end())
+    if inches:
+        value += float(inches.group(1)) / 12
+    return value
+
+
+def is_repeated_block(
+    words: list[str],
+    calls: list[dict[str, object]],
+    earlier_words: list[str],
+    earlier_calls: list[dict[str, object]],
+) -> bool:
+    """Return whether a block repeats an earlier one, allowing for OCR noise.
+
+    Requires near-identical wording, the same course count and mostly the same distances,
+    so two parcels written from the same template are not merged.
+    """
+    if words == earlier_words:
+        return True
+    if len(calls) != len(earlier_calls) or not calls:
+        return False
+    if difflib.SequenceMatcher(None, earlier_words, words, autojunk=False).ratio() < 0.95:
+        return False
+    same = sum(
+        1
+        for call, earlier in zip(calls, earlier_calls, strict=True)
+        if call.get("distance_ft") is not None
+        and call.get("distance_ft") == earlier.get("distance_ft")
+    )
+    return same >= 0.8 * len(calls)
 
 
 def extract_all_legal_blocks(text: str) -> list[str]:
@@ -94,12 +280,12 @@ def extract_all_legal_blocks(text: str) -> list[str]:
     search_start = 0
 
     while True:
-        begin_match = BEGINNING_PATTERN.search(text, search_start)
+        begin_match = BLOCK_START_PATTERN.search(text, search_start)
         if not begin_match:
             break
 
         start = begin_match.start()
-        close_match = POB_CLOSE_PATTERN.search(text, start + 10)
+        close_match = find_block_close(text, start + 10)
         if close_match:
             blocks.append(text[start : close_match.end()])
             search_start = close_match.end()
@@ -116,7 +302,14 @@ def extract_all_legal_blocks(text: str) -> list[str]:
                 blocks.append(wrapped)
             else:
                 # No closure found anywhere — take to next TRACT marker or end
-                next_tract = re.search(r"\bTRACT\s*#?\d+", text[start + 10 :], re.IGNORECASE)
+                next_tract = next(
+                    (
+                        m
+                        for m in re.finditer(r"\bTRACT\s*#?\d+", text[start + 10 :], re.IGNORECASE)
+                        if not TRACT_REFERENCE_BEFORE_PATTERN.search(text[: start + 10 + m.start()])
+                    ),
+                    None,
+                )
                 if next_tract:
                     blocks.append(text[start : start + 10 + next_tract.start()])
                 else:
@@ -145,7 +338,7 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
         # Include pre-numbered text as thence-split segments
         pre_text = block_text[: num_matches[0].start()]
         if THENCE_PATTERN.search(pre_text):
-            pre_segments = re.split(r"\bthence\b", pre_text, flags=re.IGNORECASE)[1:]
+            pre_segments = THENCE_PATTERN.split(pre_text)[1:]
             segments.extend(pre_segments)
 
         for j, m in enumerate(num_matches):
@@ -153,12 +346,23 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
             seg_end = num_matches[j + 1].start() if j + 1 < len(num_matches) else len(block_text)
             segments.append(block_text[seg_start:seg_end])
     else:
-        # Fall back to thence splitting
-        segments = re.split(r"\bthence\b", block_text, flags=re.IGNORECASE)[1:]
+        # Fall back to thence splitting. When courses end with "thence" ("...483.13 feet
+        # to a point thence;"), the first course is the last sentence before it.
+        preamble, *segments = THENCE_PATTERN.split(block_text)
+        last_sentence = re.split(r"[.;:]\s+|\n", preamble.strip())[-1]
+        if segments and BEARING_PATTERN.match(last_sentence):
+            segments.insert(0, last_sentence)
+
+    segments = [
+        part
+        for segment in segments
+        for joined in COMMA_JOINED_COURSE_PATTERN.split(segment)
+        for part in SENTENCE_JOINED_COURSE_PATTERN.split(joined)
+    ]
 
     for i, segment in enumerate(segments, 1):
         bearing_match = BEARING_PATTERN.search(segment)
-        distance_match = DISTANCE_PATTERN.search(segment)
+        distance_ft = extract_distance(segment)
 
         call_data = {"call_num": i, "segment": segment[:200].strip()}
 
@@ -168,14 +372,20 @@ def extract_calls_from_block(block_text: str) -> list[dict[str, object]]:
             azimuth = bearing_to_azimuth(q1, angle, q2)
             call_data["bearing"] = f"{q1.upper()} {deg}°{mins}'{secs or '00'}\" {q2.upper()}"
             call_data["azimuth"] = azimuth
+        elif due_match := DUE_CARDINAL_PATTERN.search(segment[:100]):
+            call_data["bearing"] = f"due {due_match.group(1).lower()}"
+            call_data["azimuth"] = DUE_CARDINAL_AZIMUTH[due_match.group(1).lower()]
+        elif bare_match := BARE_CARDINAL_PATTERN.match(segment):
+            call_data["bearing"] = bare_match.group(1)
+            call_data["azimuth"] = BARE_CARDINAL_AZIMUTH[bare_match.group(1)]
         else:
             cardinal_match = CARDINAL_ONLY_PATTERN.search(segment[:100])
             if cardinal_match:
                 call_data["bearing"] = f"cardinal-only: {cardinal_match.group()}"
                 call_data["azimuth"] = None
 
-        if distance_match:
-            call_data["distance_ft"] = float(distance_match.group(1))
+        if distance_ft is not None:
+            call_data["distance_ft"] = distance_ft
 
         if "bearing" in call_data or "distance_ft" in call_data:
             calls.append(call_data)
@@ -201,10 +411,12 @@ def extract_calls_from_md(
 
     # Step 2: Find all legal description blocks (multi-tract support)
     blocks = extract_all_legal_blocks(search_text)
+    block_source = search_text
 
     if not blocks and search_text != md_text:
         # No block in exhibit section — try full text
         blocks = extract_all_legal_blocks(md_text)
+        block_source = md_text
 
     if not blocks:
         # Step 2b (fallback): If no BEGINNING block found but closure language
@@ -226,15 +438,37 @@ def extract_calls_from_md(
             return extract_calls_from_block(block_text)
         return []
 
-    # Step 3: Extract calls from all blocks
-    block_calls = [extract_calls_from_block(block) for block in blocks]
+    # Step 3: Extract calls from all blocks. A block repeating an earlier one, word for word
+    # or up to OCR noise, is a second copy of the description (e.g. inside an attached
+    # certification), not a tract.
+    # An excepted parcel that the deed then conveys separately ("EXCEPT [X] ... Parcel 2: [X]")
+    # is not a repeat.
+    block_calls: list[list[dict[str, object]]] = []
+    kept: list[tuple[list[str], list[dict[str, object]]]] = []
+    position = 0
+    for block in blocks:
+        found = block_source.find(block[:60], position)
+        position = found + 1 if found >= 0 else position
+        excepted = found >= 0 and bool(
+            EXCEPTION_BEFORE_PATTERN.search(block_source[max(0, found - 300) : found])
+        )
+        words = " ".join(block.split()).lower().split()
+        calls = extract_calls_from_block(block)
+        if excepted:
+            block_calls.append(calls)
+        elif not any(is_repeated_block(words, calls, w, c) for w, c in kept):
+            kept.append((words, calls))
+            block_calls.append(calls)
 
     # Step 4: If some blocks have DMS bearings and others are cardinal-only,
-    # drop the cardinal-only blocks (duplicate descriptions of the same parcel).
+    # drop the cardinal-only blocks (duplicate descriptions of the same parcel),
+    # unless the deed is multi-tract: marked tracts, or all blocks together match the GT count.
     dms_blocks = [
         calls for calls in block_calls if any(c.get("azimuth") is not None for c in calls)
     ]
-    if dms_blocks and len(dms_blocks) < len(block_calls):
+    total_calls = sum(len(calls) for calls in block_calls)
+    multi_tract = len(TRACT_MARKER_PATTERN.findall(search_text)) >= 2 or total_calls == n_gt
+    if dms_blocks and len(dms_blocks) < len(block_calls) and not multi_tract:
         block_calls = dms_blocks
 
     all_calls = []
@@ -251,15 +485,11 @@ def extract_calls_from_md(
             # Multiple blocks match count — pick best by distance agreement
             best, best_score = matching[0], -1
             for candidate in matching:
-                score = sum(
-                    1
-                    for i in range(n_gt)
-                    if (
-                        candidate[i].get("distance_ft") is not None
-                        and n_gt_calls[i].get("distance_ft") is not None
-                        and abs(candidate[i]["distance_ft"] - n_gt_calls[i]["distance_ft"]) < 0.1
-                    )
-                )
+                score = 0
+                for i in range(n_gt):
+                    md_dist, gt_dist = call_distance(candidate[i]), call_distance(n_gt_calls[i])
+                    if md_dist is not None and gt_dist is not None and abs(md_dist - gt_dist) < 0.1:
+                        score += 1
                 if score > best_score:
                     best, best_score = candidate, score
             return best
@@ -267,7 +497,7 @@ def extract_calls_from_md(
     return all_calls
 
 
-def audit_deed(pdf_base: str) -> dict[str, object]:
+def audit_deed(pdf_base: str) -> AuditResult:
     """Audit a single deed's GT against its markdown."""
     md_path = SAMPLE_DIR / f"{pdf_base}.md"
     gt_path = SAMPLE_DIR / f"{pdf_base}.ground_truth.json"
@@ -278,9 +508,13 @@ def audit_deed(pdf_base: str) -> dict[str, object]:
     md_text = md_path.read_text()
     with open(gt_path) as f:
         gt = json.load(f)
+    # A description recorded with another deed's pages (e.g. a Schedule C bundled into the
+    # previous deed's scan) is audited against that deed's markdown.
+    if source := gt.get("legal_description_markdown"):
+        md_text = (SAMPLE_DIR / source).read_text()
 
     gt_calls = gt.get("expected_calls", [])
-    issues = []
+    issues: list[str] = []
 
     # Extract calls from markdown (pass GT for best-block selection)
     md_calls = extract_calls_from_md(md_text, n_gt=len(gt_calls), n_gt_calls=gt_calls)
@@ -294,14 +528,20 @@ def audit_deed(pdf_base: str) -> dict[str, object]:
 
     if n_gt != n_md and n_gt > 0:
         issues.append(f"CALL_COUNT: GT={n_gt}, MD extracted={n_md}, thence count={thence_count}")
+    elif n_gt == 0 and n_md > 0:
+        # An empty GT would otherwise pass every comparison below
+        issues.append(f"EMPTY_GT: GT has no calls but MD extracted={n_md}")
 
-    # 2. Compare individual calls
+    # 2. Compare individual calls. A course the deed misprints records its intended value,
+    # plus the printed value (printed_*) that the markdown shows.
     for i in range(min(n_gt, n_md)):
         gc = gt_calls[i]
         mc = md_calls[i]
 
         # Compare azimuth
-        gt_az = gc.get("bearing_azimuth_deg_from_north")
+        gt_az = gc.get(
+            "printed_bearing_azimuth_deg_from_north", gc.get("bearing_azimuth_deg_from_north")
+        )
         md_az = mc.get("azimuth")
 
         if gt_az is not None and md_az is not None:
@@ -319,7 +559,7 @@ def audit_deed(pdf_base: str) -> dict[str, object]:
             )
 
         # Compare distance
-        gt_dist = gc.get("distance_ft")
+        gt_dist = gc.get("printed_distance_ft", gc.get("distance_ft"))
         md_dist = mc.get("distance_ft")
 
         if gt_dist is not None and md_dist is not None:
@@ -367,7 +607,7 @@ def main() -> None:
     pdf_files = sorted(SAMPLE_DIR.glob("*.pdf"))
     print(f"Auditing {len(pdf_files)} deeds: GT vs Markdown\n")
 
-    results = []
+    results: list[AuditResult] = []
     for pdf_path in pdf_files:
         base = pdf_path.stem
         result = audit_deed(base)
@@ -385,7 +625,7 @@ def main() -> None:
     print("=" * 90)
 
     # Error type summary
-    error_types = {}
+    error_types: dict[str, list[tuple[str, str]]] = {}
     for r in results:
         for issue in r.get("issues", []):
             etype = issue.split(":")[0]
@@ -417,20 +657,21 @@ def main() -> None:
 
     # Property summary
     print("\n--- PROPERTY SUMMARY ---")
-    properties = {}
+    properties: dict[str, dict[str, int]] = {}
     for r in results:
         parts = r["name"].split(" - Deed Image")
         prop = parts[0] if parts else r["name"]
-        properties.setdefault(prop, {"pass": 0, "fail": 0, "total": 0})
+        properties.setdefault(prop, {"pass": 0, "fail": 0, "skip": 0, "total": 0})
         properties[prop]["total"] += 1
         properties[prop][r["status"].lower()] += 1
 
     for prop, counts in sorted(properties.items()):
-        p = counts.get("pass", 0)
+        p = counts["pass"]
         t = counts["total"]
-        f = counts.get("fail", 0)
+        f = counts["fail"]
+        s = counts["skip"]
         pct = p / t * 100 if t > 0 else 0
-        print(f"  {prop}: {p}/{t} pass ({pct:.0f}%) | {f} fail")
+        print(f"  {prop}: {p}/{t} pass ({pct:.0f}%) | {f} fail | {s} skip")
 
 
 if __name__ == "__main__":

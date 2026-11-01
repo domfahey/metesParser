@@ -164,5 +164,80 @@
       "Prior_Book_Normalized": "NA",
       "Prior_Page_Normalized": "NA"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "10709 Morang",
+    "city": "Detroit",
+    "state": "MI",
+    "book": "50305",
+    "page": "1252"
+  },
+  "raw_ocr_text": "W MORANG THAT PT OF 20 DESC AS FOLS BEG AT NE COR OF LOT 20 TH SLY 90 FT ALG ELY LINE OF SAID LOT TH WLY 2 FT TH NLY 90.02 FT TO P OB ALSO LOTS 19&18 LEIGH G COOPERS CADIEUX-SEVEN MILE DR SUB L56 P68 PLATS. W C R 21/873 40 IRREG",
+  "expected_legal_description": "W MORANG THAT PT OF 20 DESC AS FOLS BEG AT N E COR OF LOT 20 TH SLY 90 FT ALG ELY LINE OF SAID LOT TH WLY 2 FT TH NLY 90.02 FT TO P O B ALSO LOTS 19&18 LEIGH G COOPERS CADIEUX-SEVEN MILE DR SUB L56 P68 PLATS, W C R 21/873 40 IRREG",
+  "expected_normalized_text": "W MORANG THAT PT OF 20 DESC AS FOLS beginning AT N E corner OF LOT 20 thence southerly 90 feet along easterly LINE OF SAID LOT thence westerly 2 feet thence northerly 90.02 feet TO P O B ALSO LOTS 19&18 LEIGH G COOPERS CADIEUX-SEVEN MILE DR SUB L56 P68 PLATS, W C R 21/873 40 IRREG",
+  "expected_poc": null,
+  "expected_pob": "N E COR OF LOT 20",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "SLY",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 90.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "ELY LINE OF SAID LOT",
+      "to": null,
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 2,
+      "direction_text": "WLY",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 2.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    },
+    {
+      "course": 3,
+      "direction_text": "NLY",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 90.02,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "P O B",
+      "monument_type": null,
+      "notes": "incomplete bearing - cardinal only"
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Part of Lot 20 by three cardinal-only courses (bearings not stated), plus Lots 19 and 18 by plat reference; no closure is computed."
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 3,
+      "operator": "==",
+      "description": "MUST extract exactly 3 calls"
+    }
+  },
+  "notes": "Checked against Liber 50305 Page 1252, Legal Description, PDF page 1 (re-read at 400-900 dpi, 2026-11-01): text and all three courses confirmed as printed, including 'N E COR' and 'PLATS, W C R'. Standard fields added 2026-10-31 from the recorded PDF (Wayne County Treasurer Quit Claim Deed, Legal Description, Liber 50305 Page 1252, PDF page 1), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. A 2 ft strip of Lot 20 described by three cardinal-only courses (SLY, WLY, NLY), ALSO Lots 19 and 18 of Leigh G Coopers Cadieux-Seven Mile Dr Sub (no courses). The deed prints 'N E COR' and 'PLATS, W C R'; the vendor text has 'NE COR' and 'PLATS. W C R'."
 }

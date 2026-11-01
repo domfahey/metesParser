@@ -10,7 +10,7 @@ import statistics
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
-from mp_bearing import (  # type: ignore[import-untyped]
+from mp_bearing import (
     arc_length_tolerance_ft,
     bearing_difference_uncertainty_rad,
     chord_length_tolerance_ft,

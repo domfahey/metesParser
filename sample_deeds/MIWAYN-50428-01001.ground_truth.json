@@ -177,5 +177,86 @@
       "Prior_Book_Normalized": "49388",
       "Prior_Page_Normalized": "40"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "14436 Huntington St",
+    "city": "Riverview",
+    "state": "MI",
+    "book": "50428",
+    "page": "1001"
+  },
+  "raw_ocr_text": "THE FOLLOWING DESCRIBED REAL ESTATE LOCATED IN THE CITY OF RIVERVIEW, WAYNE COUNTY, MICHIGAN: LOT 48 EXCLUDING THAT PART DESCRIBED AS TRIANGULAR PORTION HAVING A POINT OF BEGINNING BEING THE NORTHWEST CORNER OF SAID LOT 48: THENCE SOUTH 89 DEGREES 39 MINUTES 00 SECONDS EAST 20.00 FEET; THENCE SOUTH 22 DEGREES 53 MINUTES 15 SECONDS WEST 50.20 FEET; THENCE NORTH 00 DEGREES 35 MINUTES 20 SECONDS WEST 46.37 FEET TO THE POINT OF BEGINNING, HUNTINGTON MEADOWS SUBDIVISION, AS RECORDED IN LIBER 81, PAGES 90 AND 91 OF PLATS, WAYNE COUNTY RECORDS.",
+  "expected_legal_description": "THE FOLLOWING DESCRIBED REAL ESTATE LOCATED IN THE CITY OF RIVERVIEW, WAYNE COUNTY, MICHIGAN: LOT 48 EXCLUDING THAT PART DESCRIBED AS TRIANGULAR PORTION HAVING A POINT OF BEGINNING BEING THE NORTHWEST CORNER OF SAID LOT 48: THENCE SOUTH 89 DEGREES 39 MINUTES 00 SECONDS EAST 20.00 FEET; THENCE SOUTH 22 DEGREES 53 MINUTES 15 SECONDS WEST 50.20 FEET; THENCE NORTH 00 DEGREES 35 MINUTES 20 SECONDS WEST 46.37 FEET TO THE POINT OF BEGINNING, HUNTINGTON MEADOWS SUBDIVISION, AS RECORDED IN LIBER 81, PAGES 90 AND 91 OF PLATS, WAYNE COUNTY RECORDS.",
+  "expected_normalized_text": "THE FOLLOWING DESCRIBED REAL ESTATE LOCATED IN THE CITY OF RIVERVIEW, WAYNE COUNTY, MICHIGAN: LOT 48 EXCLUDING THAT PART DESCRIBED AS TRIANGULAR PORTION HAVING A POINT OF BEGINNING BEING THE NORTHWEST CORNER OF SAID LOT 48: THENCE S 89°39'00\" E 20.00 FEET; THENCE S 22°53'15\" W 50.20 FEET; THENCE N 00°35'20\" W 46.37 FEET TO THE POINT OF BEGINNING, HUNTINGTON MEADOWS SUBDIVISION, AS RECORDED IN LIBER 81, PAGES 90 AND 91 OF PLATS, WAYNE COUNTY RECORDS.",
+  "expected_poc": null,
+  "expected_pob": "THE NORTHWEST CORNER OF SAID LOT 48",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 89°39'00\" E",
+      "bearing_quadrant": "S 89°39' E",
+      "bearing_azimuth_deg_from_north": 90.35,
+      "distance_ft": 20.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null,
+      "tract": "Exception 1",
+      "is_exception": true
+    },
+    {
+      "course": 2,
+      "direction_text": "S 22°53'15\" W",
+      "bearing_quadrant": "S 22°53' W",
+      "bearing_azimuth_deg_from_north": 202.8875,
+      "distance_ft": 50.2,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null,
+      "tract": "Exception 1",
+      "is_exception": true
+    },
+    {
+      "course": 3,
+      "direction_text": "N 0°35'20\" W",
+      "bearing_quadrant": "N 0°35' W",
+      "bearing_azimuth_deg_from_north": 359.4111111111111,
+      "distance_ft": 46.37,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "THE POINT OF BEGINNING",
+      "monument_type": null,
+      "notes": null,
+      "tract": "Exception 1",
+      "is_exception": true
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Lot 48 is described by plat reference (no courses), less an excluded triangle of 3 courses that closes to 0.0026 ft (463.68 sq ft); one closure for the conveyed lot is not computable."
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 3,
+      "operator": "==",
+      "description": "MUST extract exactly 3 calls"
+    }
+  },
+  "notes": "Checked against Liber 50428 Page 1001, PDF page 1 (Discharge of Mortgage, Legal Description; typed, read at 300 dpi): legal text, the excluded triangle's 3 courses and the point of beginning match the print, and the triangle closes to 0.0026 ft. Standard fields added 2026-10-31 from the recorded PDF (Discharge of Mortgage, Legal Description, Liber 50428 Page 1001, PDF page 1), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. Lot 48 of Huntington Meadows Subdivision (plat reference, no courses) EXCLUDING a triangular portion of 3 courses, recorded with is_exception. Matches the vendor text."
 }

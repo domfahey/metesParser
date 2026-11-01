@@ -2,7 +2,7 @@
 
 from mp_models.plot import DashboardPlots, PlotGeometry, PlotPlacement, PlotScene
 from mp_models.plot_request import PlotCall, PlotRequest, PreparedPlot
-from mp_review.plot import plot_file  # type: ignore[import-untyped]
+from mp_review.plot import plot_file
 from mp_verify.plot import (
     arc_point,
     build_dashboard_plots,

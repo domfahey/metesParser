@@ -162,5 +162,94 @@
       "Prior_Book_Normalized": "NA",
       "Prior_Page_Normalized": "NA"
     }
-  ]
+  ],
+  "deed_info": {
+    "address": "34016 Steadman Rd",
+    "city": "New Boston",
+    "state": "MI",
+    "book": "50795",
+    "page": "1269"
+  },
+  "raw_ocr_text": "That part of the Northeast 1/4 of Section 16, described as: Beginning at a point distant North 2 degrees 56 minutes 20 seconds West 955.85 feet along the East line of Section and South 87 degrees 03 minutes West 1782.0 feet from the East 1/4 corner of Section 16, and proceeding thence South 87 degrees 03 minutes 40 seconds West 138.0 feet; thence North 2 degrees 56 minutes 20 seconds West 324.0 feet; thence North 87 degrees 03 minutes 40 seconds East 138.0 feet; thence South 2 degrees 56 minutes 20 seconds East 324.0 feet to the Point of Beginning, except the South 30 feet thereof.",
+  "expected_legal_description": "Township of Huron, County of Wayne; and State of Michigan:\n\nThat part of the Northeast 1/4 of Section 16, described as: Beginning at a point distant North 2 degrees 56 minutes 20 seconds West 955.85 feet along the East line of Section and South 87 degrees 03 minutes West 1782.0 feet from the East 1/4 corner of Section 16, and proceeding thence South 87 degrees 03 minutes 40 seconds West 138.0 feet; thence North 2 degrees 56 minutes 20 seconds West 324.0 feet; thence North 87 degrees 03 minutes 40 seconds East 138.0 feet; thence South 2 degrees 56 minutes 20 seconds East 324.0 feet to the Point of Beginning, except the South 30 feet thereof.\n\nCommonly Known as: 34016 Steadman Rd\nParcel ID No.: 75-061-99-0010-000",
+  "expected_normalized_text": "Township of Huron, County of Wayne; and State of Michigan: That part of the Northeast 1/4 of Section 16, described as: Beginning at a point distant N 2°56'20\" W 955.85 feet along the East line of Section and S 87°03' W 1782.0 feet from the East 1/4 corner of Section 16, and proceeding thence S 87°03'40\" W 138.0 feet; thence N 2°56'20\" W 324.0 feet; thence N 87°03'40\" E 138.0 feet; thence S 2°56'20\" E 324.0 feet to the Point of Beginning, except the South 30 feet thereof. Commonly Known as: 34016 Steadman Rd Parcel ID No.: 75-061-99-0010-000",
+  "expected_poc": "the East 1/4 corner of Section 16",
+  "expected_pob": "a point distant North 2 degrees 56 minutes 20 seconds West 955.85 feet along the East line of Section and South 87 degrees 03 minutes West 1782.0 feet from the East 1/4 corner of Section 16",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "S 87°03'40\" W",
+      "bearing_quadrant": "S 87°04' W",
+      "bearing_azimuth_deg_from_north": 267.06111111111113,
+      "distance_ft": 138.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "N 2°56'20\" W",
+      "bearing_quadrant": "N 2°56' W",
+      "bearing_azimuth_deg_from_north": 357.06111111111113,
+      "distance_ft": 324.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 3,
+      "direction_text": "N 87°03'40\" E",
+      "bearing_quadrant": "N 87°04' E",
+      "bearing_azimuth_deg_from_north": 87.0611111111111,
+      "distance_ft": 138.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": null,
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 4,
+      "direction_text": "S 2°56'20\" E",
+      "bearing_quadrant": "S 2°56' E",
+      "bearing_azimuth_deg_from_north": 177.0611111111111,
+      "distance_ft": 324.0,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "the Point of Beginning",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": 0.0,
+    "area_sq_ft": 44712.0,
+    "area_acres": 1.0264,
+    "perimeter_ft": 924.0,
+    "closure_passed": true
+  },
+  "critical_assertions": {
+    "num_calls": {
+      "expected": 4,
+      "operator": "==",
+      "description": "MUST extract exactly 4 calls"
+    }
+  },
+  "notes": "Checked against Liber 50795 Page 1269, PDF page 2 (Exhibit \"A\"): legal text, the beginning offsets and all 4 courses match the print. Standard fields added 2026-10-31 from the recorded PDF (Warranty Deed, Exhibit \"A\", Liber 50795 Page 1269, PDF page 2), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. \"except the South 30 feet thereof\" excepts a strip by reference, without courses; the four courses describe the whole 138 x 324 ft parcel. The POB offset bearing \"South 87 degrees 03 minutes West\" omits the seconds that course 1 states."
 }

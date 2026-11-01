@@ -152,7 +152,9 @@ TIE_SERIES = (
 
 def test_tie_series_in_its_own_clauses_reaching_the_point_of_beginning_is_a_tie():
     calls, _ = extract_calls(TIE_SERIES + "thence N 45° E 100 feet to a pin; " + REST)
-    assert _azimuths(calls) == SQUARE
+    # The announced tie series is kept and flagged; the boundary is the square.
+    assert [c.is_tie_in for c in calls] == [True, True, True, False, False, False, False]
+    assert _azimuths([c for c in calls if not c.is_tie_in]) == SQUARE
 
 
 def test_course_after_a_locating_clause_without_closing_fails_closed():

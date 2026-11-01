@@ -6,12 +6,18 @@
     "book": "8939",
     "page": "350",
     "parcel_shape": "Near-rectangle",
-    "dimensions": "90 ft x ~112.64 ft"
+    "dimensions": "90 ft x ~112.64 ft",
+    "date": "October 30, 2008",
+    "grantor": "Benjamin J. Connor and Anne T. Connor, husband and wife",
+    "grantee": "David W. Uris and Susannah T. Uris, husband and wife",
+    "consideration": "$515,000.00",
+    "block": "91.11",
+    "lot": "32"
   },
   "raw_ocr_text": "ALL THAT CERTAIN tract or parcel of land and premises lying, being and situate in the Borough of Haddonfield, County of Camden, and State of New Jersey being more particularly described as follows:\n\nBEGINNING at a point in the Westerly line of Birchall Drive, distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of King's Highway said connecting curve having a radius of 75 feet; thence\n\nBEING part of Lot 6 on Plan of County Club Estates, made by Walter H. Macnamara, C.E., dated December 1956, revised January 4, 1957.\n\nFOR INFORMATION ONLY: BEING known and designated as Block 91.11, Lot 32 on the Official Tax Map of the Borough of Haddonfield.\n\nCOMMONLY known as 32 Birchall Drive.",
-  "expected_legal_description": "BEGINNING at a point in the Westerly line of Birchall Drive, distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of King's Highway said connecting curve having a radius of 75 feet; thence",
-  "expected_normalized_text": null,
-  "expected_pob": "a point in the Westerly line of Birchall Drive, distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of King's Highway, said connecting curve having a radius of 75 feet",
+  "expected_legal_description": "ALL THAT CERTAIN tract or parcel of land and premises lying, being and situate in the Borough of Haddonfield, County of Camden, and State of New Jersey being more particularly described as follows:\n\nBEGINNING at a point in the Westerly line of Birchall Drive, distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of King's Highway said connecting curve having a radius of 75 feet; thence\n\n(1) Northwardly along the Westerly line of Birchall Drive, 90 feet to a point in the division line between Lots 6 & 7 on Plan of County Club Estates hereinafter mentioned; thence\n\n(2) Westwardly along said division line at right angles to Birchall Drive, 112.74 feet to a point in the Westerly boundary line of said Plan; thence\n\n(3) Southwardly along said boundary line forming an interior angle of 89 degrees 52 minutes with the last course the distance of 90 feet to a point; thence\n\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive, 112.53 feet to the place of BEGINNING.\n\nBEING part of Lot 6 on Plan of Country Club Estates, made by Walter H. Macnamara, C.E., dated December 1956, revised January 14, 1957.\n\nFOR INFORMATION ONLY: BEING known and designated as Block 91.11, Lot 32 on the Official Tax Map of the Borough of Haddonfield.\n\nCOMMONLY known as 32 Birchall Drive.",
+  "expected_normalized_text": "ALL THAT CERTAIN tract or parcel of land and premises lying, being and situate in the Borough of Haddonfield, County of Camden, and State of New Jersey being more particularly described as follows:\nBEGINNING at a point in the Westerly line of Birchall Drive, distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of King's Highway said connecting curve having a radius of 75 feet; thence\n(1) Northwardly along the Westerly line of Birchall Drive, 90 feet to a point in the division line between Lots 6 & 7 on Plan of County Club Estates hereinafter mentioned; thence\n(2) Westwardly along said division line at right angles to Birchall Drive, 112.74 feet to a point in the Westerly boundary line of said Plan; thence\n(3) Southwardly along said boundary line forming an interior angle of 89 degrees 52 minutes with the last course the distance of 90 feet to a point; thence\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive, 112.53 feet to the place of BEGINNING. BEING part of Lot 6 on Plan of Country Club Estates, made by Walter H. Macnamara, C.E., dated December 1956, revised January 14, 1957. FOR INFORMATION ONLY: BEING known and designated as Block 91.11, Lot 32 on the Official Tax Map of the Borough of Haddonfield. COMMONLY known as 32 Birchall Drive.",
+  "expected_pob": "a point in the Westerly line of Birchall Drive, distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of King's Highway said connecting curve having a radius of 75 feet",
   "expected_poc": null,
   "expected_calls": [
     {
@@ -20,9 +26,22 @@
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 90.0,
-      "along": "Westerly line of Birchall Drive",
-      "to": null,
-      "notes": "incomplete bearing - cardinal only; not extractable from this OCR text"
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
+      "along": "the Westerly line of Birchall Drive",
+      "to": "a point in the division line between Lots 6 & 7 on Plan of County Club Estates hereinafter mentioned",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only; the deed prints \"County Club Estates\" here and \"Country Club Estates\" in the BEING clause"
     },
     {
       "course": 2,
@@ -30,9 +49,22 @@
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 112.74,
-      "along": "division line",
-      "to": null,
-      "notes": "incomplete bearing - cardinal only; not extractable from this OCR text"
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
+      "along": "said division line at right angles to Birchall Drive",
+      "to": "a point in the Westerly boundary line of said Plan",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only"
     },
     {
       "course": 3,
@@ -40,9 +72,22 @@
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 90.0,
-      "along": "boundary line",
-      "to": null,
-      "notes": "incomplete bearing - cardinal only; not extractable from this OCR text"
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
+      "along": "said boundary line",
+      "to": "a point",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only; forms an interior angle of 89°52' with the last course"
     },
     {
       "course": 4,
@@ -50,30 +95,58 @@
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 112.53,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "chord_bearing": null,
+      "chord_length_ft": null,
       "along": null,
-      "to": "the point and place of beginning",
-      "notes": "incomplete bearing - cardinal only; not extractable from this OCR text"
+      "to": "the place of BEGINNING",
+      "monument_type": null,
+      "monument_status": null,
+      "is_exception": false,
+      "is_meander": false,
+      "is_tie_in": false,
+      "non_tangent": false,
+      "radial_bearing": null,
+      "notes": "incomplete bearing - cardinal only; forms an interior angle of 90°08' with the last course and runs at right angles to Birchall Drive"
     }
   ],
-  "expected_closure": {},
+  "expected_closure": {
+    "misclosure_ft": null,
+    "misclosure_tolerance_ft": 0.01,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": 405.27,
+    "closure_passed": false,
+    "closure_notes": "Cannot compute closure — all 4 calls have cardinal-only bearings. The interior angles (89°52' and 90°08') and right angles to Birchall Drive describe a near-rectangle about 90 × 112.64 ft."
+  },
   "critical_assertions": {
     "num_calls": {
       "expected": 4,
-      "actual_extracted": 0,
       "operator": "==",
-      "description": "Deed contains 4 calls, but actual extraction yields 0 due to OCR failure"
+      "description": "MUST extract exactly 4 calls"
     },
-    "ocr_extraction_fails": {
+    "all_cardinal_only": {
       "expected": true,
-      "description": "LLM OCR cannot read the call details from this scanned PDF"
+      "description": "All 4 calls use cardinal-only directions (Northwardly, Westwardly, Southwardly, Eastwardly) with no numeric bearings"
+    },
+    "no_fabricated_bearings": {
+      "expected": true,
+      "description": "bearing_quadrant and bearing_azimuth_deg_from_north MUST be null for all calls — never invent bearings from cardinal directions"
+    },
+    "closure_not_computed": {
+      "expected": true,
+      "description": "Closure calculation cannot proceed without numeric bearings — closure_passed MUST be false"
     }
   },
   "common_failure_modes": [
     {
-      "symptom": "0 calls extracted from PDF",
-      "cause": "Scanned PDF quality too poor; LLM skips from BEGINNING clause directly to BEING clause, missing all 4 THENCE calls",
-      "fix": "Use higher resolution scan or alternative OCR"
+      "symptom": "raw_ocr_text has no courses",
+      "cause": "The earlier LLM OCR skipped from the BEGINNING clause to the BEING clause and misread \"Country\" and \"January 14\"; the scan itself is legible and the LlamaParse markdown has all four courses",
+      "fix": "Legal description transcribed from the PDF image; raw_ocr_text kept as the earlier OCR record"
     }
   ],
-  "notes": "Middle deed in chain of title for 32 Birchall Dr (part of Lot 6, Block 91.11/Lot 32). Same property as book 10234/pg 1230 and book 5070/pg 937. LLM extraction fails — the scan quality is insufficient to read the thence clauses. The actual deed contains 4 cardinal-only calls identical to 10234/1230."
+  "notes": "Checked against Book 8939 Page 350, PDF page 1 (second check at 300-500 dpi): text and courses confirmed; the point of beginning no longer adds a comma after \"King's Highway\". Legal description transcribed verbatim from Book 8939 Page 350 (PDF page 1), courses (1)-(4) included; course (1) prints \"County Club Estates\" and the BEING clause \"Country Club Estates\". Middle deed in chain of title for 32 Birchall Dr (part of Lot 6, Block 91.11/Lot 32). Same property and courses as book 10234/pg 1230 and book 5070/pg 937; the vesting clause cites Deed Book 5070, Page 937."
 }

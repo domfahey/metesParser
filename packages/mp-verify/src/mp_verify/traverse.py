@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from mp_bearing import (  # type: ignore[import-untyped]
+from mp_bearing import (
     calculate_deltas,
     cardinal_conflicts_bearing,
     compute_curve_endpoint,
@@ -78,7 +78,7 @@ def _advance(call: DeedCall, current: Point, chord_azimuth: float | None) -> Poi
         if call.chord_bearing is not None:
             return None
         radial_in = radial_tangent_in(call)
-        if radial_in is None:
+        if radial_in is None or call.curve_dir is None:
             return None
         radial_end: Point = compute_curve_endpoint(
             current, radial_in, call.radius_ft, delta, call.curve_dir

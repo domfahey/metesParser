@@ -8,19 +8,27 @@ from mp_parse.units import LENGTH_NUMBER, parse_number
 
 
 @pytest.mark.parametrize(
-    ("text", "value"), [("1,200.50", 1200.5), ("1,200", 1200.0), ("12,345,678", 12345678.0)]
+    ("text", "value"),
+    [
+        ("1,200.50", 1200.5),
+        ("1,200", 1200.0),
+        ("12,345,678", 12345678.0),
+        # A comma before exactly two digits is a decimal point ("300,07 feet").
+        ("100,50", 100.5),
+        ("300,07", 300.07),
+    ],
 )
 def test_valid_thousands_grouping_is_read(text: str, value: float) -> None:
     assert parse_number(text) == pytest.approx(value)
 
 
-@pytest.mark.parametrize("text", ["1,2,3", "100,50", "1,23", "1234,567", "12,34,567"])
+@pytest.mark.parametrize("text", ["1,2,3", "1,23", "1234,567", "12,34,567", "100,5"])
 def test_malformed_comma_grouping_is_no_number(text: str) -> None:
     with pytest.raises(ValueError):
         parse_number(text)
 
 
-@pytest.mark.parametrize("text", ["100,50", "1,2,3", "1234,567"])
+@pytest.mark.parametrize("text", ["1,23", "1,2,3", "1234,567"])
 def test_malformed_comma_number_never_matches_a_length(text: str) -> None:
     import re
 
@@ -31,7 +39,7 @@ def test_malformed_comma_number_never_matches_a_length(text: str) -> None:
 def test_malformed_comma_distance_is_not_read_as_another_value() -> None:
     # No distance is read, so the course is rejected (existing fail-closed path).
     with pytest.raises(ValueError, match="Missing boundary course distance"):
-        extract_single_call("THENCE N 45° E 100,50 feet to a point", 1)
+        extract_single_call("THENCE N 45° E 1,23 feet to a point", 1)
 
 
 def test_grouped_distance_still_read() -> None:

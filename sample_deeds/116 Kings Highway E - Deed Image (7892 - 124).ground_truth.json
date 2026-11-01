@@ -1,20 +1,27 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "116 Kings Highway East",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "7892",
+    "page": "124",
+    "date": "June 27, 2005 (day and month handwritten); recorded 07/22/2005",
+    "deed_type": "Corrective Deed",
+    "grantor": "116 Kings Highway East Associates, L.L.C.",
+    "grantee": "116 KNGS HIGHWAY ASSOCIATES, L.L.C. (as printed)",
+    "consideration": "$1.00",
+    "block": "34",
+    "lot": "6"
   },
   "raw_ocr_text": "I can’t extract **all** text from this document with the level of completeness/precision you’re requiring from the images provided here. Several areas (especially the recorder stamp at the top, some typed lines, and parts of the notary/affidavit sections) are too low‑resolution/blurred to read reliably, and guessing would risk introducing errors into a legal description.\n\nWhat I *can* do right now is:\n1) Provide a **best-effort transcription** of the portions that are clearly legible (not guaranteed complete), **or**\n2) If you upload the **original PDF** (or higher-resolution page images, ideally 300+ DPI, straightened), I can then extract the **complete text** with preserved line breaks and much higher accuracy.\n\nBelow is the text I can read clearly enough to transcribe from the provided pages (with original line breaks preserved as best as possible). Illegible/uncertain parts are marked **[illegible]**.\n\n---\n\n## Page: Book7892/Page124\n\nDILWORTH PAXSON LLP\n\nPrepared by: FRANK V. TEDES...",
-  "expected_legal_description": "ALL THAT CERTAIN tract or parcel of land and premises situate, lying\nand being in the Borough of HADDONFIELD, County of CAMDEN and State of\nNew Jersey more particularly described as follows:\n\nBEGINNING at a point in the Southeasterly line of Kings Highway East,\nas approved December 15, 1931 and adopted by Ordinance February 16, 1932\nby Borough Commissioners, 171.76 feet Northeasterly from the Easterly\ncorner of Kings Highway East and Chestnut Street, said beginning point\nbeing corner to remaining lands of George W. Westcoatt and Dorothy F.\nWestcoatt;\n\nTHENCE:  Northeastwardly along Southeasterly line of Kings Highway East,\n84 feet to point corner to lands of Trustees of Baptist Church of\nHaddonfield (formerly John Clement) and said point also being 97.23 feet\nSouthwesterly from foundation wall of 128 Kings Highway East (Hunt’s\ncellar wall);\n\nTHENCE:  Southeastwardly forming interior angles of 89 degrees 46 minutes\n45 seconds with Kings Highway East and running along lands of said\nTrustees of Baptist Church of Haddonfield 231.84 feet to point in line of\nsaid Trustees of Baptist Church and corner to lands of the Borough of\nHaddonfield;\n\nTHENCE:  Southwestwardly along lands of Borough of Haddonfield and forming\nan interior angle of 89 degrees 44 minutes 10 seconds with the last\ncourse 83.05 feet to point corner of remaining lands of Estate of Charles\nH. Ellis;\n\nTHENCE:  Northwestwardly along line of remaining land of Estate of Charles\nH. Ellis and also along line of remaining lands of George W. Westcoatt\nand Dorothy F. Westcoatt aforesaid and forming an interior angle of 90\ndegrees 30 minutes with last course and also forming an interior angle of\n89 degrees 59 minutes 5 seconds with Kings Highway East 231.15 feet to\nSoutheasterly line of Kings Highway East and place of Beginning.\n\nBEING KNOWN as Lot 6, Block 34, as shown on the tax map of the\nBorough of Haddonfield.  (For information only).",
-  "expected_normalized_text": "ALL THAT CERTAIN tract or parcel of land and premises situate, lying and being in the Borough of HADDONFIELD, County of CAMDEN and State of New Jersey more particularly described as follows:\n\nBEGINNING at a point in the Southeasterly line of Kings Highway East, as approved December 15, 1931 and adopted by Ordinance February 16, 1932 by Borough Commissioners, 171.76 feet Northeasterly from the Easterly corner of Kings Highway East and Chestnut Street, said beginning point being corner to remaining lands of George W. Westcoatt and Dorothy F. Westcoatt;\n\nTHENCE: Northeastwardly along Southeasterly line of Kings Highway East, 84 feet to point corner to lands of Trustees of Baptist Church of Haddonfield (formerly John Clement) and said point also being 97.23 feet Southwesterly from foundation wall of 128 Kings Highway East (Hunt’s cellar wall);\n\nTHENCE: Southeastwardly forming interior angles of 89°46'45\" with Kings Highway East and running along lands of said Trustees of Baptist Church of Haddonfield 231.84 feet to point in line of said Trustees of Baptist Church and corner to lands of the Borough of Haddonfield;\n\nTHENCE: Southwestwardly along lands of Borough of Haddonfield and forming an interior angle of 89°44'10\" with the last course 83.05 feet to point corner of remaining lands of Estate of Charles H. Ellis;\n\nTHENCE: Northwestwardly along line of remaining land of Estate of Charles H. Ellis and also along line of remaining lands of George W. Westcoatt and Dorothy F. Westcoatt aforesaid and forming an interior angle of 90°30' with last course and also forming an interior angle of 89°59'5\" with Kings Highway East 231.15 feet to Southeasterly line of Kings Highway East and place of Beginning.\n\nBEING KNOWN as Lot 6, Block 34, as shown on the tax map of the Borough of Haddonfield. (For information only).",
+  "expected_legal_description": "ALL THAT CERTAIN tract or parcel of land and premises situate, lying and being in the Borough of HADDONFIELD, County of CAMDEN and State of New Jersey more particularly described as follows:\n\nBEGINNING at a point in the Southeasterly line of Kings Highway East, as approved December 15, 1931.and adopted by Ordinance February 16, 1932 by Borough Commissioners, 171.76 feet Northeastwardly from the Easterly corner of Kings Highway East and Chestnut Street, said beginning point being corner to remaining lands of George W, Westcoatt and Dorothy F. Westcoatt;\n\nTHENCE:  Northeastwardly along Southeasterly line of Kings Highway East, 84 feet to point corner to lands of Trustees of Baptist Church of Haddonfield (formerly John Clement) and said point also being 97.23 feet Southwestwardly from foundation wall of 128 Kings Highway East (Hunt's cellar wall);\n\nTHENCE:  Southeastwardly forming interior angles of 89 degrees 46 minutes 45 seconds with Kings Highway East and running along lands of said Trustees of Baptist Church of Haddonfield 231.84 feet to point in line of said Trustees of Baptist Church and corner to lands of the Borough of Haddonfield;\n\nTHENCE:  Southwestwardly along lands of Borough of Haddonfield and forming an interior angle of 89 degrees 44 minutes 10 seconds with the last course 83.05 feet to point corner of remaining lands of Estate of Charles H. Ellis;\n\nTHENCE:  Northwestwardly along line of remaining land of Estate of Charles H. Ellis and also along line of remaining lands of George W. Westcoatt and Dorothy F. Westcoatt aforesaid and forming an interior angle of 90 degrees 30 minutes with last course and also forming an interior angle of 89 degrees 59 minutes 5 seconds with Kings Highway East 231.15 feet to Southeasterly line of Kings Highway East and place of Beginning.\n\nBEING KNOWN as Lot 6, Block 34, as shown on the tax map of the Borough of Haddonfield.  (For information only)",
+  "expected_normalized_text": "ALL THAT CERTAIN tract or parcel of land and premises situate, lying and being in the Borough of HADDONFIELD, County of CAMDEN and State of New Jersey more particularly described as follows:\nBEGINNING at a point in the Southeasterly line of Kings Highway East, as approved December 15, 1931.and adopted by Ordinance February 16, 1932 by Borough Commissioners, 171.76 feet Northeastwardly from the Easterly corner of Kings Highway East and Chestnut Street, said beginning point being corner to remaining lands of George W, Westcoatt and Dorothy F. Westcoatt; THENCE:  Northeastwardly along Southeasterly line of Kings Highway East, 84 feet to point corner to lands of Trustees of Baptist Church of Haddonfield (formerly John Clement) and said point also being 97.23 feet Southwestwardly from foundation wall of 128 Kings Highway East (Hunt's cellar wall); THENCE:  Southeastwardly forming interior angles of 89 degrees 46 minutes 45 seconds with Kings Highway East and running along lands of said Trustees of Baptist Church of Haddonfield 231.84 feet to point in line of said Trustees of Baptist Church and corner to lands of the Borough of Haddonfield; THENCE:  Southwestwardly along lands of Borough of Haddonfield and forming an interior angle of 89 degrees 44 minutes 10 seconds with the last course 83.05 feet to point corner of remaining lands of Estate of Charles H. Ellis; THENCE:  Northwestwardly along line of remaining land of Estate of Charles H. Ellis and also along line of remaining lands of George W. Westcoatt and Dorothy F. Westcoatt aforesaid and forming an interior angle of 90 degrees 30 minutes with last course and also forming an interior angle of 89 degrees 59 minutes 5 seconds with Kings Highway East 231.15 feet to Southeasterly line of Kings Highway East and place of Beginning. BEING KNOWN as Lot 6, Block 34, as shown on the tax map of the Borough of Haddonfield.  (For information only)",
   "expected_poc": null,
-  "expected_pob": "a point in the Southeasterly line of Kings Highway East, as approved December 15, 1931 and adopted by Ordinance February 16, 1932 by Borough Commissioners, 171",
+  "expected_pob": "a point in the Southeasterly line of Kings Highway East, as approved December 15, 1931 and adopted by Ordinance February 16, 1932 by Borough Commissioners, 171.76 feet Northeastwardly from the Easterly corner of Kings Highway East and Chestnut Street",
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "northeastwardly",
+      "direction_text": "Northeastwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 84.0,
@@ -22,14 +29,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "Southeasterly line of Kings Highway East, 84 feet to point corner",
-      "to": "lands of Trustees of Baptist Church of Haddonfield (formerly John Clement) and said point also being 97",
+      "along": "Southeasterly line of Kings Highway East",
+      "to": "point corner to lands of Trustees of Baptist Church of Haddonfield (formerly John Clement)",
       "monument_type": null,
       "notes": "incomplete bearing - cardinal only"
     },
     {
       "course": 2,
-      "direction_text": "southeastwardly",
+      "direction_text": "Southeastwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 231.84,
@@ -37,14 +44,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "lands of said Trustees of Baptist Church of Haddonfield 231.84 feet to point in line of said Trustees of Baptist Church and corner",
-      "to": "lands of the Borough of Haddonfield",
+      "along": "lands of said Trustees of Baptist Church of Haddonfield",
+      "to": "point in line of said Trustees of Baptist Church and corner to lands of the Borough of Haddonfield",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 89°46'45\" with Kings Highway East"
     },
     {
       "course": 3,
-      "direction_text": "southwestwardly",
+      "direction_text": "Southwestwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 83.05,
@@ -52,14 +59,14 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "lands of Borough of Haddonfield and forming an interior angle of 89°44'10\" with the last course 83.05 feet",
-      "to": "point corner of remaining lands of Estate of Charles H",
+      "along": "lands of Borough of Haddonfield",
+      "to": "point corner of remaining lands of Estate of Charles H. Ellis",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angle 89°44'10\" with the last course"
     },
     {
       "course": 4,
-      "direction_text": "northwestwardly",
+      "direction_text": "Northwestwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 231.15,
@@ -67,18 +74,19 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "line of remaining land of Estate of Charles H. Ellis and also along line of remaining lands of George W. Westcoatt and Dorothy F. Westcoatt aforesaid and forming an interior angle of 90°30' with last course and also forming an interior angle of 89°59'5\" with Kings Highway East 231.15 feet",
+      "along": "line of remaining land of Estate of Charles H. Ellis and also along line of remaining lands of George W. Westcoatt and Dorothy F. Westcoatt aforesaid",
       "to": "Southeasterly line of Kings Highway East and place of Beginning",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only"
+      "notes": "incomplete bearing - cardinal only; interior angles 90°30' with last course and 89°59'05\" with Kings Highway East"
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 0.0,
-    "area_sq_ft": 0.0,
-    "area_acres": 0.0,
-    "perimeter_ft": 630.04,
-    "closure_passed": false
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Every course is cardinal-only (bearings not stated), so no closure is computed. The four interior angles sum to 360°00'00\"."
   },
   "critical_assertions": {
     "num_calls": {
@@ -87,5 +95,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T02:56:45.618990+00:00"
+  "notes": "Checked against Book 7892 Page 125 (Exhibit \"A\"), PDF page 2 (second check at 300-900 dpi): courses confirmed; the retyped text prints \"1931.and\" (the period fills its own monospace cell) and course 4 ends \"place of Beginning\". Page 124 is a Corrective Deed changing the grantee of Book 5264 Page 849 to \"116 KINGS HIGHWAY ASSOCIATES, L.L.C.\". Ground truth generated at 2026-02-17T02:56:45.618990+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF (Book 7892 Page 125, PDF page 2), transcribed verbatim including \"George W, Westcoatt\"; the courses match the 9166-536 Exhibit \"A\". The previous ground truth had the courses right but \"Northeasterly\" for \"Northeastwardly\" in the beginning point and \"W.\" for \"W,\"."
 }
