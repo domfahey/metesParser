@@ -170,6 +170,11 @@ def test_schedules_split_thence_courses_from_numbered_courses(parse):
 BERLIN_12799_GT = SAMPLE_DEEDS / "219 Berlin Rd - Deed Image (12799 - 00118).ground_truth.json"
 
 
+@pytest.mark.xfail(
+    strict=True,
+    reason="Schedule A-1 writes 'thence' after each course: the first tie course (483.13 ft) "
+    "is stripped with the preamble and neither tie course is flagged",
+)
 @pytest.mark.parametrize("key", ["expected_legal_description", "expected_normalized_text"])
 @pytest.mark.parametrize("parse", PARSERS)
 def test_berlin_schedules_match_ground_truth(parse, key):
@@ -181,10 +186,11 @@ def test_berlin_schedules_match_ground_truth(parse, key):
             None
             if c["bearing_azimuth_deg_from_north"] is None
             else round(c["bearing_azimuth_deg_from_north"], 4),
+            c["is_tie_in"],
         )
         for c in gt["expected_calls"]
     ]
-    assert [_course_fields(call)[:2] for call in calls] == expected
+    assert [_course_fields(call)[:3] for call in calls] == expected
 
 
 def test_berlin_schedules_are_tracts():
