@@ -1,8 +1,0 @@
-DEED METADATA
-============================================================
-
-pob_description: A POINT ON THE W LINE OF MERRIMAN ROAD DISTANT N 89°06' W 60
-source_doc: MIWAYN-50484-00299.pdf
-distance_unit: feet
-township: 2 S
-range: 9 E

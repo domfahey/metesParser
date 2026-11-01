@@ -1,7 +1,0 @@
-DEED METADATA
-============================================================
-
-source_doc: MIWAYN-50062-01403.pdf
-distance_unit: feet
-township: 2 S
-range: 8 E

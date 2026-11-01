@@ -1,8 +1,0 @@
-DEED METADATA
-============================================================
-
-pob_description: the NE corner of lot 13 of Newman Orchards a subdivision part of the NW ¼ of Sec
-source_doc: MIWAYN-50058-00465.pdf
-distance_unit: feet
-range: 8 E
-subdivision_ref: Lot 13, Block ?, ?

@@ -1,8 +1,0 @@
-DEED METADATA
-============================================================
-
-poc_description: the Northwest corner of Lot 15, "O'Flynn's Subdivision", also being the Southerly right of way of Mack Avenue (66 feet wide) and the Easterly right of way of Fairview Avenue (66 feet wide)
-pob_description: the Northwest corner of Lot 15, "O'Flynn's Subdivision", also being the Southerly right of way of Mack Avenue (66 feet wide) and the Easterly right of way of Fairview Avenue (66 feet wide)
-source_doc: MIWAYN-50837-00216.pdf
-distance_unit: feet
-subdivision_ref: Lot 15, Block ?, ?

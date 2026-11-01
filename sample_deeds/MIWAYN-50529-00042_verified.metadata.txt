@@ -1,8 +1,0 @@
-DEED METADATA
-============================================================
-
-pob_description: THE NORTHEAST CORNER OF SAID LOT
-source_doc: MIWAYN-50529-00042.pdf
-distance_unit: feet
-range: 9 E
-subdivision_ref: Lot 7, Block ?, ?

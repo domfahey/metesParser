@@ -1,8 +1,0 @@
-DEED METADATA
-============================================================
-
-pob_description: a point distant S 89°14'50" W 1,304
-source_doc: MIWAYN-50020-01181.pdf
-distance_unit: feet
-section: 7
-range: 9 E

@@ -1,8 +1,0 @@
-DEED METADATA
-============================================================
-
-source_doc: MIWAYN-50872-00130.pdf
-distance_unit: feet
-section: 35
-range: 9 E
-clauses: [subject_to] Subject to an Easement for Private Road Purposes over the W 30 Feet hereof
