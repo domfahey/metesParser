@@ -5,6 +5,7 @@ Parses normalized text to create structured DeedCall objects.
 
 import hashlib
 import logging
+import math
 import re
 
 import structlog
@@ -90,7 +91,7 @@ _RESTATED_POB_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _CLOSES_TO_POB_PATTERN = re.compile(
-    r"\bto\s+(?:the\s+|a\s+)?(?:(?:point|place)\s+(?:and\s+place\s+)?of\s+)?beginning\b",
+    r"\b(?:to|for)\s+(?:the\s+|a\s+)?(?:(?:point|place)\s+(?:and\s+place\s+)?of\s+)?beginning\b",
     re.IGNORECASE,
 )
 
@@ -121,17 +122,22 @@ _PREAMBLE_TIE_COURSES_PATTERN = re.compile(
 )
 _COUNT_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
 
+# "Commencing at the corner of Lot 15; thence ... for the point of beginning; thence ...":
+# the courses from the commencement point to the POB are tie lines.
+_COMMENCEMENT_PATTERN = re.compile(r"\b(?:COMMENCING|STARTING)\s+at\b", re.IGNORECASE)
+
 
 def _preamble_tie_course_count(preamble: str, call_texts: list[str]) -> int:
     """Return how many leading courses the preamble says lead to the POB.
 
-    Without a count ("the following courses and distances from"), the tie courses end at
-    the first course reaching the place of beginning while more courses follow.
+    Without a count ("the following courses and distances from", or a commencement
+    point), the tie courses end at the first course reaching the place of beginning while
+    more courses follow.
     """
     match = _PREAMBLE_TIE_COURSES_PATTERN.search(preamble)
-    if not match:
+    if not match and not _COMMENCEMENT_PATTERN.search(preamble):
         return 0
-    if match.group(1) is None:
+    if match is None or match.group(1) is None:
         return next(
             (
                 i + 1
@@ -154,18 +160,163 @@ def _mark_preamble_tie_courses(calls: list[DeedCall], count: int) -> list[DeedCa
     ]
 
 
+# "Commencing at the corner; thence along the South line 505.00 feet; thence ... to the point
+# of beginning": when the point of beginning is never stated, the leading courses reaching it
+# are found by closure: the fewest whose removal lets the remaining 3+ courses close.
+_LOOSE_COMMENCEMENT_PATTERN = re.compile(r"\b(?:COMMENCING|STARTING)\b", re.IGNORECASE)
+_INFERRED_TIE_TOLERANCE_FT = 0.01
+_INFERRED_TIE_REASON = "tie course inferred from closure: the point of beginning is not stated"
+
+
+def _straight_misclosure_ft(calls: list[DeedCall]) -> float | None:
+    """Return the misclosure of straight courses, or None if a course is a curve or has no bearing."""
+    dx = dy = 0.0
+    for call in calls:
+        azimuth = call.bearing_azimuth_deg_from_north
+        if azimuth is None or call.curve_dir is not None:
+            return None
+        course_dx, course_dy = BearingConverter.calculate_deltas(azimuth, call.distance_ft)
+        dx += course_dx
+        dy += course_dy
+    return math.hypot(dx, dy)
+
+
+def _inferred_tie_course_count(preamble: str, calls: list[DeedCall], call_texts: list[str]) -> int:
+    """Return how many leading courses reach an unstated point of beginning, found by closure."""
+    if not _LOOSE_COMMENCEMENT_PATTERN.search(preamble) or any(call.is_tie_in for call in calls):
+        return 0
+    if not call_texts or not _CLOSES_TO_POB_PATTERN.search(call_texts[-1]):
+        return 0
+    if any(_CLOSES_TO_POB_PATTERN.search(text) for text in call_texts[:-1]):
+        return 0
+    full = _straight_misclosure_ft(calls)
+    if full is not None and full < _INFERRED_TIE_TOLERANCE_FT:
+        return 0
+    for count in range(1, len(calls) - 2):
+        remainder = _straight_misclosure_ft(calls[count:])
+        if remainder is not None and remainder < _INFERRED_TIE_TOLERANCE_FT:
+            return count
+    return 0
+
+
+def _mark_inferred_tie_courses(
+    calls: list[DeedCall], count: int, audits: list[CallAudit] | None
+) -> list[DeedCall]:
+    """Mark the leading courses as inferred tie lines, noting and auditing the inference."""
+    for i in range(count):
+        if audits is not None:
+            audits[i] = audits[i].model_copy(
+                update={
+                    "decisions": [
+                        *audits[i].decisions,
+                        Decision(
+                            field="is_tie_in",
+                            value="true",
+                            reason=_INFERRED_TIE_REASON,
+                            alternatives=["false"],
+                            confidence=0.8,
+                        ),
+                    ],
+                    "flags": [*audits[i].flags, "tie_inferred_from_closure"],
+                }
+            )
+    return [
+        call.model_copy(
+            update={
+                "is_tie_in": True,
+                "notes": "; ".join(filter(None, [call.notes, _INFERRED_TIE_REASON])),
+            }
+        )
+        if i < count
+        else call
+        for i, call in enumerate(calls)
+    ]
+
+
 # SCHEDULE A-1: one property per schedule in a multi-property deed (mirrors
 # mp_parse.tracts._SCHEDULE_MARKER; a lone "Schedule A" names the attachment).
-_SCHEDULE_MARKER = re.compile(r"\bSCHEDULE\s+[A-Z]-?\d+\b", re.IGNORECASE)
+_SCHEDULE_MARKER = re.compile(
+    # "Parcel 2:" / "PARCEL A:" / "TRACT #2:" / "Tract #2" headings also end the clauses before
+    # them, so an EXCEPT in Parcel 1 does not extend into Parcel 2.
+    r"\bSCHEDULE\s+[A-Z]-?\d+\b"
+    r"|\b(?:PARCEL|TRACT)\s+(?:#\s*|NO\.?\s*)?(?:\d+[A-Z]?|[A-Z])\s*:"
+    r"|\b(?:PARCEL|TRACT)\s*(?:#\s*|NO\.?\s*)\d+[A-Z]?\b",
+    re.IGNORECASE,
+)
+
+# "the boundary line of Tract #1 of Haddonfield Estates": a reference, not a heading
+# (mirrors mp_parse.tracts._REFERENCE_BEFORE)
+_MARKER_REFERENCE_BEFORE = re.compile(r"(?:\b(?:of|to|said|with|from|by)|,)\s*$", re.IGNORECASE)
 
 
 def _split_schedules(text: str) -> list[str]:
     """Split a multi-property description so each schedule's courses split on their own."""
-    starts = [match.start() for match in _SCHEDULE_MARKER.finditer(text)]
-    if not starts:
-        return [text]
+    # A title or preamble before the first marker carries no courses; it stays with the first.
+    starts = [
+        match.start()
+        for match in _SCHEDULE_MARKER.finditer(text)
+        if not _MARKER_REFERENCE_BEFORE.search(text, 0, match.start())
+    ]
+    if starts and not re.search(r"\bTHENCE\b", text[: starts[0]], re.IGNORECASE):
+        starts = starts[1:]
     bounds = [0, *starts, len(text)]
-    return [text[a:b] for a, b in zip(bounds, bounds[1:], strict=False) if text[a:b].strip()]
+    return [
+        description
+        for a, b in zip(bounds, bounds[1:], strict=False)
+        if text[a:b].strip()
+        for description in _split_complete_descriptions(text[a:b])
+    ]
+
+
+# A description opens at its commencement or point of beginning and closes at its point of
+# beginning (mirrors mp_parse.tracts.split_complete_descriptions)
+_DESCRIPTION_OPENING = re.compile(r"\b(?:COMMENCING|BEGINNING)\s+at\b", re.IGNORECASE)
+_CLAUSE_KEYWORD = re.compile(
+    r"\b(?:(?:LESS\s+AND\s+)?EXCEPT(?:ING)?|EXCLUDING|ALSO|INCLUDING|EASEMENT)\b", re.IGNORECASE
+)
+_DESCRIPTION_CLOSE = re.compile(
+    r"(?:POINT\s+(?:AND\s+PLACE\s+)?OF\s+BEGINNING|place\s+of\s+BEGINNING|POB)\b",
+    re.IGNORECASE,
+)
+
+
+def _find_description_close(text: str, start: int) -> re.Match[str] | None:
+    """Find the closure after start, skipping references and a POB reached by a tie course."""
+    for match in _DESCRIPTION_CLOSE.finditer(text, start):
+        if re.search(r"(?<!\bto\s)\bsaid\s+$", text[: match.start()], re.IGNORECASE):
+            continue
+        if re.match(r"\s*[,;]?\s*thence\b", text[match.end() :], re.IGNORECASE):
+            continue
+        return match
+    return None
+
+
+def _split_complete_descriptions(text: str) -> list[str]:
+    """Split text holding complete descriptions in sequence.
+
+    "...to the point of beginning. Combined Legal Description: ... Commencing at ..." opens
+    another description once the previous one has closed at its point of beginning. An
+    excepted, added or easement parcel ("..., EXCEPT ... beginning at ...") stays with its
+    description.
+    """
+    parts: list[str] = []
+    start = search_from = 0
+    while opening := _DESCRIPTION_OPENING.search(text, search_from):
+        close = _find_description_close(text, opening.end())
+        if close is None:
+            break
+        following = _DESCRIPTION_OPENING.search(text, close.end())
+        if following is None:
+            break
+        between = text[close.end() : following.start()]
+        if re.search(r"\bTHENCE\b", between, re.IGNORECASE):
+            break
+        if not _CLAUSE_KEYWORD.search(between):
+            parts.append(text[start : close.end()])
+            start = close.end()
+        search_from = close.end()
+    parts.append(text[start:])
+    return [part for part in parts if part.strip()]
 
 
 # "thence", "thence:" or "thence from the beginning point;" before the first numbered course
@@ -196,6 +347,14 @@ def _call_hash(call_text: str) -> str:
 
 def _is_debug_logging_enabled() -> bool:
     return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
+
+
+# "...551.39 feet to a point on the Westerly line, said point also being a point on a
+# non-tangential curve to the left": the endpoint lies on the next course's curve.
+_ENDPOINT_ON_CURVE = re.compile(
+    r",?\s*said\s+point\s+(?:also\s+)?being\s+(?:a\s+point\s+)?on\s+(?:a|the)\s+[^;]*?\bcurve\b.*",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _boundary_course_text(call_text: str) -> str:
@@ -410,13 +569,42 @@ class CallExtractor:
             thence_match = re.search(r"\bTHENCE\b", tract_text, re.IGNORECASE)
             has_thence_marker = thence_match is not None
             prefix = tract_text[: thence_match.start()] if thence_match else ""
+            # "(1) Along ..., N 32°22'34\" W, 41.23 feet to a point in same;" may come before the
+            # first THENCE: the courses then start at the first numbered course.
+            first_marker = re.search(
+                r"(?:^|\n)\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+", tract_text, re.MULTILINE
+            )
+            numbered_before_thence = bool(
+                thence_match and first_marker and first_marker.start() < thence_match.start()
+            )
+            if numbered_before_thence and first_marker:
+                prefix = tract_text[: first_marker.start()]
+            # "BEING Lot 1.01, Block 21 on the tax map ... Kings Highway East": with no THENCE, numbered
+            # course, distance, bearing or curve, a lot reference describes no courses.
+            if (
+                not has_thence_marker
+                and not first_marker
+                and not re.search(
+                    rf"{_COMMA_NUMBER}\s*(?:{_UNIT_TOKEN}\b|')", tract_text, re.IGNORECASE
+                )
+                and not re.search(
+                    r"\b[NS]\s*\d{1,3}\s*°|\bdue\s+(?:north|south|east|west)\b|\bcurv",
+                    tract_text,
+                    re.IGNORECASE,
+                )
+            ):
+                continue
             has_beginning_preamble = re.match(
                 r"\s*(?:BEGINNING|COMMENCING|POINT\s+OF\s+BEGINNING|POB|TPOB|RPOB)\b",
                 prefix,
                 re.IGNORECASE,
             )
             has_initial_course = bool(thence_match and cls._is_initial_course_prefix(prefix))
-            if thence_match and (has_beginning_preamble or not has_initial_course):
+            if (
+                thence_match
+                and not numbered_before_thence
+                and (has_beginning_preamble or not has_initial_course)
+            ):
                 tract_text = (
                     cls._trailing_thence_course(prefix) + tract_text[thence_match.start() :]
                 )
@@ -496,7 +684,20 @@ class CallExtractor:
             tract_calls = _mark_preamble_tie_courses(
                 tract_calls, _preamble_tie_course_count(prefix, tract_call_texts)
             )
-            calls.extend(_mark_restated_pob_tie_lines(tract_calls, tract_call_texts))
+            tract_calls = _mark_restated_pob_tie_lines(tract_calls, tract_call_texts)
+            inferred_ties = _inferred_tie_course_count(prefix, tract_calls, tract_call_texts)
+            if inferred_ties:
+                audits = (
+                    audit_context.call_audits[len(audit_context.call_audits) - len(tract_calls) :]
+                    if audit_context is not None
+                    else None
+                )
+                tract_calls = _mark_inferred_tie_courses(tract_calls, inferred_ties, audits)
+                if audit_context is not None and audits is not None:
+                    audit_context.call_audits[
+                        len(audit_context.call_audits) - len(tract_calls) :
+                    ] = audits
+            calls.extend(tract_calls)
 
         return calls
 
@@ -562,7 +763,7 @@ class CallExtractor:
 
         distance_ft = ConversionFactors.convert_to_feet(distance, unit)
 
-        curve_info = cls.extract_curve_info(call_text)
+        curve_info = cls.extract_curve_info(_ENDPOINT_ON_CURVE.sub("", call_text))
 
         has_abbreviated_cardinal = bool(
             re.match(r"^\s*(?:N|S|E|W|NE|NW|SE|SW)\b", call_text, re.IGNORECASE)
@@ -1168,10 +1369,13 @@ class CallExtractor:
             calls: List of DeedCall objects
             poc_description: POC description (None or empty means no POC)
 
+        Calls already marked from their course text are kept, and a closing course is not a
+        tie line: marking across the flat calls would otherwise reach into another tract.
+
         Returns:
             List of DeedCall objects with is_tie_in set appropriately
         """
-        if not poc_description:
+        if not poc_description or any(call.is_tie_in for call in calls):
             return calls
 
         pob_index = None
@@ -1180,7 +1384,7 @@ class CallExtractor:
                 pob_index = i
                 break
 
-        if pob_index is None:
+        if pob_index is None or pob_index == len(calls) - 1:
             return calls
 
         result = []
