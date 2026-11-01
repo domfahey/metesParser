@@ -419,3 +419,17 @@ class TestBeginningBlockClosures:
         calls, tracts = extract_calls(text)
         assert [call.distance_ft for call in calls] == [100, 100]
         assert tracts == []
+
+
+class TestCourselessClauses:
+    def test_also_being_known_as_is_not_a_tract(self):
+        """89 Haddon: "ALSO BEING known as 89 Haddon Avenue" has no courses."""
+        text = (
+            "BEGINNING at a point; THENCE N 45°00' E 100 feet; THENCE S 45°00' W 100 feet to "
+            "the point of beginning. BEING Lot 2, Block 11. ALSO BEING known as 89 Haddon "
+            "Avenue, Haddonfield, New Jersey."
+        )
+        assert [label for _, label, _ in split_into_tracts(text)] == ["Tract 1"]
+        calls, tracts = extract_calls(text)
+        assert [call.distance_ft for call in calls] == [100, 100]
+        assert tracts == []
