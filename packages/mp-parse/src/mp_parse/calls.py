@@ -331,13 +331,27 @@ def _extract_calls_from_text(
         thence_match = re.search(r"\bTHENCE\b", tract_text, re.IGNORECASE)
         has_thence_marker = thence_match is not None
         prefix = tract_text[: thence_match.start()] if thence_match else ""
+        # "(1) Along ..., N 32°22'34\" W, 41.23 feet to a point in same;" may come before the
+        # first THENCE: the courses then start at the first numbered course.
+        first_marker = re.search(
+            r"(?:^|\n)\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+", tract_text, re.MULTILINE
+        )
+        numbered_before_thence = bool(
+            thence_match and first_marker and first_marker.start() < thence_match.start()
+        )
+        if numbered_before_thence and first_marker:
+            prefix = tract_text[: first_marker.start()]
         has_beginning_preamble = re.match(
             r"\s*(?:BEGINNING|COMMENCING|POINT\s+OF\s+BEGINNING|POB|TPOB|RPOB)\b",
             prefix,
             re.IGNORECASE,
         )
         has_initial_course = bool(thence_match and _is_initial_course_prefix(prefix))
-        if thence_match and (has_beginning_preamble or not has_initial_course):
+        if (
+            thence_match
+            and not numbered_before_thence
+            and (has_beginning_preamble or not has_initial_course)
+        ):
             tract_text = _trailing_thence_course(prefix) + tract_text[thence_match.start() :]
 
         has_numbered_course_markers = bool(
