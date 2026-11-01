@@ -3,7 +3,7 @@ name = "mp-parse"
 version = "2.0.0"
 requires-python = ">=3.11"
 description = "Rule-based parsing for metes and bounds legal descriptions"
-license = "MIT"
+license = "AGPL-3.0-only"
 dependencies = [
     "mp-models>=2.0.0",
     "mp-bearing>=1.1.0",

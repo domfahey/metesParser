@@ -7,6 +7,6 @@
   },
   "homepage": "https://github.com/domfahey/metesParser",
   "repository": "https://github.com/domfahey/metesParser",
-  "license": "MIT",
+  "license": "AGPL-3.0-only",
   "keywords": ["deed", "metes-and-bounds", "survey", "legal-description", "closure"]
 }
