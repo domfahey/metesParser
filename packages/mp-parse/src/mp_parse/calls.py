@@ -181,6 +181,13 @@ _STANDALONE_THENCE = (
     r"\s*THENCE(?:\s+from\s+the\s+(?:beginning\s+point|point\s+of\s+beginning))?\s*[:;]?\s*"
 )
 
+# "thence along the line of lands of X, the following two courses and distances;" introduces
+# the next courses and carries none itself
+_COURSE_INTRO_PATTERN = re.compile(
+    r"\bthe\s+following\s+(?:\w+\s+)?(?:\(\d+\)\s+)?courses?(?:\s+and\s+distances?)?\s*[:;,.]?\s*$",
+    re.IGNORECASE,
+)
+
 
 def _call_preview(call_text: str, max_len: int = 120) -> str:
     """Return a compact single-line preview suitable for warning logs."""
@@ -328,7 +335,9 @@ def _extract_calls_from_text(
                 continue
 
             if call is None:
-                standalone_thence = re.fullmatch(_STANDALONE_THENCE, call_text, re.I)
+                standalone_thence = re.fullmatch(
+                    _STANDALONE_THENCE, call_text, re.I
+                ) or _COURSE_INTRO_PATTERN.search(call_text)
                 explicit_course = not standalone_thence and (
                     has_thence_marker or has_numbered_course_markers
                 )

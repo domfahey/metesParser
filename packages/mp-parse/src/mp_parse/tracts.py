@@ -264,8 +264,15 @@ def split_into_tracts(text: str) -> list[tuple[str, str, TractType]]:
     if len(blocks) > 1:
         return label_beginning_blocks(blocks, text)
 
-    # 3. Fall back to EXCEPT/ALSO splitting
-    clauses = split_exception_clauses(text)
+    # 3. Fall back to EXCEPT/ALSO splitting. A clause without courses ("ALSO BEING known
+    # as...", "Excepting so much as was conveyed to the State") stays with the one before it.
+    clauses: list[tuple[str, bool]] = []
+    for clause_text, is_exc in split_exception_clauses(text):
+        if clauses and not re.search(r"\bTHENCE\b", clause_text, re.IGNORECASE):
+            previous_text, previous_exc = clauses[-1]
+            clauses[-1] = (f"{previous_text} {clause_text}", previous_exc)
+        else:
+            clauses.append((clause_text, is_exc))
     if len(clauses) > 1:
         result: list[tuple[str, str, TractType]] = []
         main_idx = 0

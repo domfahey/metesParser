@@ -351,17 +351,29 @@ def _expected_curve_fields(gt: dict) -> list[tuple]:
 
 
 @pytest.mark.parametrize(
-    ("deed", "strict"),
+    "deed",
     [
-        ("One Centennial Square - Deed Image (9528 - 156)", True),
-        # Strict parsing still rejects 89 Haddon's course-less "the following two courses
-        # and distances" segment.
-        ("89 Haddon Ave - Deed Image (4732 - 544)", False),
+        "One Centennial Square - Deed Image (9528 - 156)",
+        "89 Haddon Ave - Deed Image (4732 - 544)",
     ],
 )
 @pytest.mark.parametrize("key", ["expected_legal_description", "expected_normalized_text"])
 @pytest.mark.parametrize("parse", PARSERS)
-def test_curving_deeds_match_ground_truth(parse, key, deed, strict):
+def test_curving_deeds_match_ground_truth(parse, key, deed):
     gt = _load(SAMPLE_DEEDS / f"{deed}.ground_truth.json")
-    calls = parse(gt[key], strict=strict)
+    calls = parse(gt[key], strict=True)
     assert [_curve_fields(call) for call in calls] == _expected_curve_fields(gt)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_following_courses_introduction_is_not_a_course(parse):
+    calls = parse(
+        "BEGINNING at a point; thence (1) South 19 degrees 58 minutes 30 seconds West, a "
+        "distance of 146.44 feet to a found field stone; thence along the line of lands now or "
+        "formerly of Oscar Hinski and wife, the following two courses and distances; thence "
+        "(2) North 34 degrees 42 minutes 30 seconds West, a distance of 53.75 feet to a point; "
+        "thence (3) South 53 degrees 41 minutes 15 seconds West, a distance of 310.45 feet to "
+        "the point of beginning.",
+        strict=True,
+    )
+    assert [call.distance_ft for call in calls] == [146.44, 53.75, 310.45]
