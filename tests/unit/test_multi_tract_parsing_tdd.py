@@ -96,6 +96,14 @@ def _load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _printed_azimuth(course: dict) -> float | None:
+    """The azimuth as the deed prints it; parsers read the print, not a corrected misprint."""
+    azimuth = course.get(
+        "printed_bearing_azimuth_deg_from_north", course["bearing_azimuth_deg_from_north"]
+    )
+    return None if azimuth is None else round(azimuth, 4)
+
+
 def _course_fields(call) -> tuple:
     azimuth = call.bearing_azimuth_deg_from_north
     return (
@@ -176,13 +184,7 @@ def test_berlin_schedules_match_ground_truth(parse, key):
     gt = _load(BERLIN_12799_GT)
     calls = parse(gt[key], strict=True)
     expected = [
-        (
-            round(c["distance_ft"], 2),
-            None
-            if c["bearing_azimuth_deg_from_north"] is None
-            else round(c["bearing_azimuth_deg_from_north"], 4),
-            c["is_tie_in"],
-        )
+        (round(c["distance_ft"], 2), _printed_azimuth(c), c["is_tie_in"])
         for c in gt["expected_calls"]
     ]
     assert [_course_fields(call)[:3] for call in calls] == expected
@@ -241,10 +243,7 @@ def test_berlin_exhibit_a_matches_ground_truth(parse, key):
     """12941-00156: two lots whose preambles end "proceeding thence:"."""
     gt = _load(BERLIN_12941_GT)
     calls = parse(gt[key], strict=True)
-    expected = [
-        (round(c["distance_ft"], 2), round(c["bearing_azimuth_deg_from_north"], 4))
-        for c in gt["expected_calls"]
-    ]
+    expected = [(round(c["distance_ft"], 2), _printed_azimuth(c)) for c in gt["expected_calls"]]
     assert [_course_fields(call)[:2] for call in calls] == expected
 
 
@@ -418,7 +417,8 @@ def test_kresson_exception_with_tie_courses_matches_ground_truth(parse, key, gt_
     calls = parse(gt[key], strict=True)
     expected = [
         (
-            round(c["distance_ft"], 2),
+            # Tract 1 course 1 is printed 217.14 ft (recorded as 317.14); parsers read the print
+            round(c.get("printed_distance_ft", c["distance_ft"]), 2),
             round(c["bearing_azimuth_deg_from_north"], 4),
             c["is_tie_in"],
             c.get("is_exception", False),
