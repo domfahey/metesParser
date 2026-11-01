@@ -6,11 +6,18 @@
     "book": "10394",
     "page": "9",
     "parcel_shape": "Trapezoid",
-    "dimensions": "~135 ft x ~82 ft (Calls 1&3 non-parallel by ~1.04 deg; Calls 2&4 parallel)"
+    "dimensions": "~135 ft x ~82 ft (Calls 1&3 non-parallel by ~1.04 deg; Calls 2&4 parallel)",
+    "date": "April 8, 2016",
+    "recorded": "04/22/2016",
+    "grantor": "First States Investors 3613, LLC, a New Jersey limited liability company",
+    "grantee": "First States Investors 6000C, L.P., a Delaware limited partnership",
+    "consideration": "$10.00",
+    "block": "134",
+    "lot": "9.01"
   },
   "raw_ocr_text": "Legal Description of the Property\n\nAll that certain tract or parcel of land and premises situate in the Borough of Haddonfield, County of Camden and the State of New Jersey, bounded and described as follows:\n\nBEGINNING at the Northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n\n(1) North 32 degrees 6 minutes 30 seconds West along the Northeasterly side of Linden Avenue 135 feet to a point; thence\n\n(2) North 57 degrees 53 minutes 30 seconds East parallel with Kings Highway West, 80.72 feet to the line of land now or formerly of William G. Moore; thence\n\n(3) South 33 degrees 9 minutes East partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the Northwesterly line of Kings Highway West; thence\n\n(4) South 57 degrees 53 minutes 30 seconds West along the Northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.",
-  "expected_legal_description": "BEGINNING at the Northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n(1) North 32 degrees 6 minutes 30 seconds West along the Northeasterly side of Linden Avenue 135 feet to a point; thence\n(2) North 57 degrees 53 minutes 30 seconds East parallel with Kings Highway West, 80.72 feet to the line of land now or formerly of William G. Moore; thence\n(3) South 33 degrees 9 minutes East partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the Northwesterly line of Kings Highway West; thence\n(4) South 57 degrees 53 minutes 30 seconds West along the Northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.",
-  "expected_normalized_text": "BEGINNING at the northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n(1) N 32\u00b006'30\" W along the northeasterly side of Linden Avenue 135 feet to a point; thence\n(2) N 57\u00b053'30\" E parallel with Kings Highway West, 80.72 feet to the line of land now or formerly of William G. Moore; thence\n(3) S 33\u00b009' E partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the northwesterly line of Kings Highway West; thence\n(4) S 57\u00b053'30\" W along the northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.",
+  "expected_legal_description": "All that certain tract or parcel of land and premises situate in the Borough of Haddonfield, County of Camden and the State of New Jersey, bounded and described as follows:\n\nBEGINNING at the Northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n(1) North 32 degrees 6 minutes 30 seconds West along the Northeasterly side of Linden Avenue 135 feet to a point; thence\n(2) North 57 degrees 53 minutes 30 seconds East parallel with Kings Highway West, 80.72 feet to the line of land now or formerly of William G. Moore; thence\n(3) South 33 degrees 9 minutes East partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the Northwesterly line of Kings Highway West; thence\n(4) South 57 degrees 53 minutes 30 seconds West along the Northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.",
+  "expected_normalized_text": "All that certain tract or parcel of land and premises situate in the Borough of Haddonfield, County of Camden and the State of New Jersey, bounded and described as follows:\nBEGINNING at the Northerly corner of Kings Highway and Linden Avenue (50 feet wide); thence\n(1) N 32\u00b06'30\" W along the Northeasterly side of Linden Avenue 135 feet to a point; thence\n(2) N 57\u00b053'30\" E parallel with Kings Highway West, 80.72 feet to the line of land now or formerly of William G. Moore; thence\n(3) S 33\u00b09' E partly along said Moore's land and along lands now or formerly of the Standard Oil Company of New Jersey 135.02 feet to the Northwesterly line of Kings Highway West; thence\n(4) S 57\u00b053'30\" W along the Northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.",
   "expected_pob": "the Northerly corner of Kings Highway and Linden Avenue (50 feet wide)",
   "expected_calls": [
     {
@@ -71,7 +78,7 @@
     "corrected_distance_call_2": {
       "expected": 80.72,
       "operator": "==",
-      "description": "Call 2 distance MUST be 80.72 ft (corrected from 90.72 ft in original deed)"
+      "description": "Call 2 distance MUST be 80.72 ft (corrected from 90.72 ft in the Grantor's 2007 deed, Book 8673 Page 1087)"
     },
     "traverse_closes": {
       "expected": true,
@@ -90,7 +97,7 @@
   "common_failure_modes": [
     {
       "symptom": "Misclosure ~10 ft instead of ~0.005 ft",
-      "cause": "OCR or parser reads the uncorrected distance of 90.72 ft from the referenced original deed instead of the corrected 80.72 ft",
+      "cause": "OCR or parser reads the uncorrected \"90.72 feet\" quoted in the deed body instead of the corrected 80.72 ft in Exhibit A",
       "fix": "Ensure the parser uses the corrected Exhibit A legal description, not the referenced original"
     },
     {
@@ -104,5 +111,5 @@
       "fix": "LLM extraction must scan all pages for the BEGINNING...place of beginning block"
     }
   ],
-  "notes": "2016 Corrective Deed. This deed explicitly corrects the second call distance from 90.72 ft (in the original deed Book 8494 Page 812) to 80.72 ft. Same property as deeds 8494-812, 8658-1822, and 8673-1087. The parcel is a trapezoid: Calls 2 and 4 are parallel (both at N/S 57d53m30s E/W), but Calls 1 and 3 differ by ~1.04 degrees (32d06m30s vs 33d09m00s). Call 3 has no seconds in its bearing (S 33 degrees 9 minutes East). Chain of title: Howard Savings Bank -> Covenant Bank -> Wachovia Bank -> First States Investors 3613 LLC -> First States Investors 6000C LP."
+  "notes": "Checked against Book 10394 Pages 9-13, PDF pages 1-5: the legal description (Page 13, PDF page 5) matches every course; its opening sentence was added. 2016 Corrective Deed (First States Investors 3613, LLC to First States Investors 6000C, L.P., $10.00) correcting Exhibit A of \"the aforementioned Deed from Grantor\", whose second call read 90.72 ft instead of 80.72 ft; the only earlier deed between these parties is Book 8673 Page 1087 (2007), though the corrective deed does not cite its book and page. Same property as deeds 8494-812, 8658-1822, and 8673-1087. The parcel is a trapezoid: Calls 2 and 4 are parallel (both at N/S 57d53m30s E/W), but Calls 1 and 3 differ by ~1.04 degrees (32d06m30s vs 33d09m00s). Call 3 has no seconds in its bearing (S 33 degrees 9 minutes East). Chain of title: Howard Savings Bank -> Covenant Bank -> Wachovia Bank -> First States Investors 3613 LLC -> First States Investors 6000C LP."
 }

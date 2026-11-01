@@ -6,17 +6,23 @@
     "book": "5070",
     "page": "937",
     "parcel_shape": "Near-rectangle",
-    "dimensions": "90 ft x 112.74 ft x 90 ft x 112.53 ft (approximate — cardinal-only bearings, near-rectangle)"
+    "dimensions": "90 ft x 112.74 ft x 90 ft x 112.53 ft (approximate — cardinal-only bearings, near-rectangle)",
+    "date": "September 30, 1999",
+    "grantor": "Alyce Kase, by her Power-of-Attorney John Sanderson",
+    "grantee": "Benjamin J. Connor and Ann T. Connor, husband and wife",
+    "consideration": "$226,000.00",
+    "block": "91.11",
+    "lot": "32"
   },
   "raw_ocr_text": "All that certain lot or parcel of land and premises, situate in the Borough of Haddonfield and County of Camden and State of New Jersey, known and described as follows:\n\nBEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet; thence\n(1) Northwardly along the Westerly line of Birchall Drive 90 feet to a point in the division line between Lots 6 and 7; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle 89 degrees 52 minutes with the last course the distance of 90 feet to a point; thence\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive 112.53 feet to the place of BEGINNING.\n\nBeing part of Lot 6, on Plan of Country Club Estates, made by Walter H. Macnamara, C.E., dated December 1956, revised January 14, 1957.\n\nAlso being known as Block 91.11 Lot 32 on the Tax Map of the Borough of Haddonfield.\n\nBeing known as 32 Birchall Drive, Haddonfield, New Jersey",
-  "expected_legal_description": "BEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet; thence\n(1) Northwardly along the Westerly line of Birchall Drive 90 feet to a point in the division line between Lots 6 and 7; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle 89 degrees 52 minutes with the last course the distance of 90 feet to a point; thence\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive 112.53 feet to the place of BEGINNING.",
-  "expected_normalized_text": null,
+  "expected_legal_description": "BEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet; thence\n(1) Northwardly along the Westerly line of Birchall Drive 90 feet to a point in the division line between Lots 6 and 7; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle 89 degrees 52 minutes with the last course the distance of 90 feet to a point; thence\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive 112.53 feet to the place of BEGINNING.\n\nBEING part of Lot 6, on Plan of Country Club Estates, made by Walter H. Macnamara, C.E., dated December 1956, revised January 14, 1957.\n\nALSO BEING KNOWN as Block 91.11 Lot 32 on the Tax Map of the Borough of Haddonfield.\n\nBEING KNOWN AS 32 Birchall Drive, Haddonfield, New Jersey",
+  "expected_normalized_text": "BEGINNING at a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet; thence\n(1) Northwardly along the Westerly line of Birchall Drive 90 feet to a point in the division line between Lots 6 and 7; thence\n(2) Westwardly along said division line at right angles to Birchall Drive 112.74 feet to a point in the Westerly boundary line of said plan; thence\n(3) Southwardly along said boundary line forming an interior angle 89 degrees 52 minutes with the last course the distance of 90 feet to a point; thence\n(4) Eastwardly forming an interior angle of 90 degrees 08 minutes with the last course and at right angles to Birchall Drive 112.53 feet to the place of BEGINNING. BEING part of Lot 6, on Plan of Country Club Estates, made by Walter H. Macnamara, C.E., dated December 1956, revised January 14, 1957. ALSO BEING KNOWN as Block 91.11 Lot 32 on the Tax Map of the Borough of Haddonfield. BEING KNOWN AS 32 Birchall Drive, Haddonfield, New Jersey",
   "expected_pob": "a point in the Westerly line of Birchall Drive distant 486.81 feet Northwardly from the Northerly end of the curve connecting the Westerly line of Birchall Drive with the Northerly line of Kings Highway, said connecting curve having a radius of 75 feet",
   "expected_poc": null,
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "Northerly",
+      "direction_text": "Northwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 90.0,
@@ -39,7 +45,7 @@
     },
     {
       "course": 2,
-      "direction_text": "Westerly",
+      "direction_text": "Westwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 112.74,
@@ -62,7 +68,7 @@
     },
     {
       "course": 3,
-      "direction_text": "Southerly",
+      "direction_text": "Southwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 90.0,
@@ -85,7 +91,7 @@
     },
     {
       "course": 4,
-      "direction_text": "Easterly",
+      "direction_text": "Eastwardly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
       "distance_ft": 112.53,
@@ -114,7 +120,7 @@
     "area_acres": null,
     "perimeter_ft": 405.27,
     "closure_passed": false,
-    "closure_notes": "Cannot compute closure — all 4 calls have cardinal-only bearings. Corrected distances from LlamaParse MD and later deed 10234-1230: call 1 = 90 ft (was 94.10), call 4 = 112.53 ft (was 112.52)."
+    "closure_notes": "Cannot compute closure — all 4 calls have cardinal-only bearings. Distances confirmed against the recorded PDF: call 1 = 90 ft, call 4 = 112.53 ft (an earlier LLM OCR had 94.10 and 112.52)."
   },
   "critical_assertions": {
     "num_calls": {
@@ -139,12 +145,12 @@
     {
       "symptom": "LLM OCR misread call 1 distance as 94.10 instead of 90",
       "cause": "Poor scan quality of older deed; LLM OCR digit confusion",
-      "fix": "Corrected to 90 ft based on LlamaParse MD and later deed 10234-1230"
+      "fix": "Corrected to 90 ft based on LlamaParse MD and later deed 10234-1230; confirmed against the recorded PDF"
     },
     {
       "symptom": "LLM OCR misread call 4 distance as 112.52 instead of 112.53",
       "cause": "Minor digit confusion in final digit",
-      "fix": "Corrected to 112.53 ft based on LlamaParse MD and later deed 10234-1230"
+      "fix": "Corrected to 112.53 ft based on LlamaParse MD and later deed 10234-1230; confirmed against the recorded PDF"
     },
     {
       "symptom": "Fabricated numerical bearings for cardinal-only directions",
@@ -157,5 +163,5 @@
       "fix": "Interior angle references describe the angle between adjacent courses, not compass bearings — parser must not treat them as bearings"
     }
   ],
-  "notes": "Oldest deed in chain of title for 32 Birchall Dr (part of Lot 6, Block 91.11/Lot 32). Same property as book 10234/pg 1230 and book 8939/pg 350. Distances corrected from LlamaParse MD and later deed 10234-1230: call 1 = 90 ft (LLM OCR had 94.10), call 4 = 112.53 ft (LLM OCR had 112.52). Uses parenthesized numbering format (1), (2), (3), (4)."
+  "notes": "Checked against Book 5070 Page 937 (PDF page 1): the text and all four courses match the print; the course directions are corrected to the printed \"Northwardly/Westwardly/Southwardly/Eastwardly\" (were \"Northerly\" etc.) and the three BEING lines were added. The deed is dated September 30, 1999. Oldest deed in chain of title for 32 Birchall Dr (part of Lot 6, Block 91.11/Lot 32). Same property as book 10234/pg 1230 and book 8939/pg 350. Distances corrected from LlamaParse MD and later deed 10234-1230: call 1 = 90 ft (LLM OCR had 94.10), call 4 = 112.53 ft (LLM OCR had 112.52). Uses parenthesized numbering format (1), (2), (3), (4)."
 }

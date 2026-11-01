@@ -251,7 +251,8 @@
       "direction_text": "northwesterly",
       "bearing_quadrant": null,
       "bearing_azimuth_deg_from_north": null,
-      "distance_ft": 35.57,
+      "distance_ft": 35.37,
+      "printed_distance_ft": 35.57,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
@@ -259,7 +260,7 @@
       "along": "the line of lands now or late of Hinchman",
       "to": "a corner to the same",
       "monument_type": null,
-      "notes": "incomplete bearing - cardinal only; interior angle 118°25'30\"",
+      "notes": "incomplete bearing - cardinal only; interior angle 118°25'30\"; the deed prints 35.57 feet; recorded as 35.37: walking Lot 6's stated angles and right angles, the lot closes to 0.003 ft with 35.37 and misses by 0.20 ft along this course with 35.57, and the earlier Exhibit A in Book 5030 Page 535 reads 35.37",
       "tract": "Lot 6",
       "is_exception": false,
       "is_tie_in": false
@@ -469,7 +470,7 @@
     "area_acres": null,
     "perimeter_ft": null,
     "closure_passed": false,
-    "notes": "Three lots (Lot 6: 17 courses, Lot 9.01: 4, Lot 6.01: 4); every course is cardinal-only (bearings not stated), so no closure is computed."
+    "notes": "Three lots (Lot 6: 17 courses, Lot 9.01: 4, Lot 6.01: 4); every course is cardinal-only (bearings not stated), so no closure is computed. Walking Lot 6's stated interior/exterior angles and right angles with the intended values (course 5 81.52 ft, course 14 35.37 ft) closes the lot to 0.003 ft; with the printed 35.57 it misses by 0.20 ft."
   },
   "critical_assertions": {
     "num_calls": {
@@ -478,5 +479,5 @@
       "description": "MUST extract exactly 25 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T03:01:10.107656+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF: Exhibit A (Book 10239 Pages 1271-1272, PDF pages 4-5) matches the 10239-1279 Exhibit A word for word (including \"265.21feet\", \"81degrees\", \"along Easterly line of Centre Street\", \"Westwardly along said lands\" and \"81.52 feet\"), so its courses and lots carry over. The previous ground truth normalized those four spots and had no deed_info."
+  "notes": "Lot 6 course 14 checked at 600 dpi (Book 10239 Page 1271, PDF page 4): prints 35.57, recorded as the intended 35.37 (closure walk 0.003 ft vs 0.20 ft); course 5 prints 81.52. Ground truth generated at 2026-02-17T03:01:10.107656+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF: Exhibit A (Book 10239 Pages 1271-1272, PDF pages 4-5) matches the 10239-1279 Exhibit A word for word (including \"265.21feet\", \"81degrees\", \"along Easterly line of Centre Street\", \"Westwardly along said lands\" and \"81.52 feet\"), so its courses and lots carry over. The previous ground truth normalized those four spots and had no deed_info."
 }
