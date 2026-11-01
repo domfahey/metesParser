@@ -376,3 +376,16 @@ class TestAuditLetteredTieCourses:
         mod = _load_audit_module()
         assert not mod.CALL_NUM_PATTERN.search("NOTE: Being Lot(s) 4, Block: 423.01")
         assert mod.CALL_NUM_PATTERN.search("\n(A) Along the said row line")
+
+
+class TestAuditRepeatedDescriptions:
+    def test_repeated_description_is_counted_once(self) -> None:
+        """2 Walnut 10239-1279: an attached certification repeats Exhibit A word for word."""
+        mod = _load_audit_module()
+        lot = (
+            "BEGINNING at a point in the Westerly line of Walnut Street; thence Westerly 51.00 "
+            "feet; thence Southerly 177.97 feet to the point and place of beginning."
+        )
+        md_text = f"# EXHIBIT A\n\n{lot}\n\n# Exhibit B\nCertification of Trust\n\n{lot}\n"
+        calls = mod.extract_calls_from_md(md_text)
+        assert [call["distance_ft"] for call in calls] == [51.0, 177.97]

@@ -309,8 +309,16 @@ def extract_calls_from_md(
             return extract_calls_from_block(block_text)
         return []
 
-    # Step 3: Extract calls from all blocks
-    block_calls = [extract_calls_from_block(block) for block in blocks]
+    # Step 3: Extract calls from all blocks. A block repeating an earlier one word for word
+    # is a second copy of the description (e.g. inside an attached certification), not a tract.
+    seen: set[str] = set()
+    unique_blocks = []
+    for block in blocks:
+        key = " ".join(block.split()).lower()
+        if key not in seen:
+            seen.add(key)
+            unique_blocks.append(block)
+    block_calls = [extract_calls_from_block(block) for block in unique_blocks]
 
     # Step 4: If some blocks have DMS bearings and others are cardinal-only,
     # drop the cardinal-only blocks (duplicate descriptions of the same parcel),
