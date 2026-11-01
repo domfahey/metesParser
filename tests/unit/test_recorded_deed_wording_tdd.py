@@ -110,10 +110,15 @@ def test_excluding_that_part_is_an_exception(parse):
     assert all(call.is_exception for call in calls)
 
 
-def test_lot_reference_with_excluded_part_is_not_computable_in_strict_mode():
-    """The parcel is Lot 48 by plat less a triangle; the triangle alone is not the parcel."""
-    with pytest.raises(ValueError, match="no computable calls"):
-        package_extract_with_tracts(_legal_description("deed 50428-01001"), strict=True)
+def test_lot_reference_with_excluded_part_parses_in_strict_mode():
+    """The parcel is Lot 48 by plat less a triangle; only the excluded triangle has courses."""
+    calls, tracts = package_extract_with_tracts(
+        _legal_description("deed 50428-01001"), strict=True
+    )
+    assert [(tract.label, tract.tract_type.value, len(tract.calls)) for tract in tracts] == [
+        ("Exception 1", "exception", 3)
+    ]
+    assert all(call.is_exception for call in calls)
 
 
 @pytest.mark.parametrize("parse", PARSERS)
@@ -209,3 +214,14 @@ def test_no_tie_is_inferred_when_every_course_closes(parse):
     )
     assert len(calls) == 4
     assert not any(call.is_tie_in for call in calls)
+
+
+def test_tract_with_course_text_but_no_computable_calls_still_fails_in_strict_mode():
+    with pytest.raises(ValueError, match="no computable calls"):
+        package_extract_with_tracts(
+            "TRACT 1: BEGINNING at a point; thence North 10 degrees East 100.00 feet; thence "
+            "South 80 degrees East 100.00 feet; thence South 10 degrees West 100.00 feet to the "
+            "point of beginning. TRACT 2: BEGINNING at a stone distant 40.00 feet from the corner "
+            "of Lot 7.",
+            strict=True,
+        )
