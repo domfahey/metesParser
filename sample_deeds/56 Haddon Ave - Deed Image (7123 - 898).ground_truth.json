@@ -1,14 +1,20 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "56 Haddon Avenue",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "7123",
+    "page": "898",
+    "date": "June 30, 2003",
+    "grantor": "UMRE Corp., a New Jersey corporation",
+    "grantee": "Tommar, LLC and J. Del Duca, LLC",
+    "consideration": "$3,500,000.00",
+    "block": "22",
+    "lot": "1.01"
   },
   "raw_ocr_text": "DEED\n\nThis Deed is made on June 30, 2003\n\nBETWEEN UMRE Corp., a New Jersey corporation, having a mailing address at 56\nHaddon Avenue, Haddonfield, New Jersey 08033, referred to as the Grantor.\n\nAND  Tommar, LLC, a New Jersey limited liability corporation, having a mailing\naddress of 89 Haddon Avenue, Haddonfield, NJ 08033 and J. Del Duca, LLC, a New Jersey\nlimited liability corporation, having a mailing address of 89 Haddon Avenue, Haddonfield, NJ\n08033, both referred to collectively as the Grantee.\n\nTransfer of Ownership.  The Grantor grants and conveys (transfers ownership of) the\nproperty described below to the Grantee.  This transfer is made for the sum of  THREE\nMILLION FIVE HUNDRED THOUSAND DOLLARS  ($3,500,000.00).  The Grantor\nacknowledges receipt of this money.\n\nTax Map Reference.  (N.J.S.A. 46:15-2.1)  Municipality of Haddonfield, Block 22, Lot\nNo. 1.01.\n\nProperty.  The property consists of the land and all the buildings and structures on the\nland in the Borough of Haddonfiel...",
   "expected_legal_description": "All that certain lot, piece or parcel of land, with the buildings and improvements thereon erected, situate,\nlying and being in the Borough of Haddonfield, County of Camden, State of New Jersey:\n\nBEGINNING at the intersection of the Northeasterly line of Tanner Street (60 feet wide) with the\nNorthwesterly line of Clement Street (20 feet wide) with the Northwesterly line of Clement Street (20 feet\nwide); thence\n\n(1) North 67 degrees 00 minutes 20 seconds East along the Northwesterly line of Clement Street, 140 feet\nto a spike; thence\n\n(2) North 22 degrees 09 minutes 00 seconds West, 29.33 feet to a pipe; thence\n\n(3) North 29 degrees 19 minutes 10 seconds East, 130.02 feet to the Southwesterly line of Haddon Avenue\n(66 feet wide); thence\n\n(4) North 61 degrees 15 minutes 00 seconds West along the Southwesterly line of Haddon Avenue, 224 feet\nto lands of the Borough of Haddonfield; thence\n\n(5) South 28 degrees 45 minutes 00 seconds West along said lands, 33.01 feet to a pipe; thence\n\n(6) South 56 degrees 58 minutes 00 seconds West still along said lands, 89.44 feet to the Northeasterly line\nof Tanner Street; thence\n\n(7) South 25 degrees 09 minutes 00 seconds East along the Northeasterly line of Tanner Street, 248.86 feet\nto the Northwesterly line of Clement Street and place of beginning.\n\nBeing Lot 1.01 Block 22 on the Tax Map.",
-  "expected_normalized_text": "All that certain lot, piece or parcel of land, with the buildings and improvements thereon erected, situate, lying and being in the Borough of Haddonfield, County of Camden, State of New Jersey:\n\nBEGINNING at the intersection of the Northeasterly line of Tanner Street (60 feet wide) with the Northwesterly line of Clement Street (20 feet wide) with the Northwesterly line of Clement Street (20 feet wide); thence\n\n(1) N 67°00'20\" E along the Northwesterly line of Clement Street, 140 feet to a spike; thence\n\n(2) N 22°09'00\" W, 29.33 feet to a pipe; thence\n\n(3) N 29°19'10\" E, 130.02 feet to the Southwesterly line of Haddon Avenue (66 feet wide); thence\n\n(4) N 61°15'00\" W along the Southwesterly line of Haddon Avenue, 224 feet to lands of the Borough of Haddonfield; thence\n\n(5) S 28°45'00\" W along said lands, 33.01 feet to a pipe; thence\n\n(6) S 56°58'00\" W still along said lands, 89.44 feet to the Northeasterly line of Tanner Street; thence\n\n(7) S 25°09'00\" E along the Northeasterly line of Tanner Street, 248.86 feet to the Northwesterly line of Clement Street and place of beginning.\n\nBeing Lot 1.01 Block 22 on the Tax Map.",
+  "expected_normalized_text": "All that certain lot, piece or parcel of land, with the buildings and improvements thereon erected, situate, lying and being in the Borough of Haddonfield, County of Camden, State of New Jersey:\nBEGINNING at the intersection of the Northeasterly line of Tanner Street (60 feet wide) with the Northwesterly line of Clement Street (20 feet wide) with the Northwesterly line of Clement Street (20 feet wide); thence\n(1) N 67°00'20\" E along the Northwesterly line of Clement Street, 140 feet to a spike; thence\n(2) N 22°09'00\" W, 29.33 feet to a pipe; thence\n(3) N 29°19'10\" E, 130.02 feet to the Southwesterly line of Haddon Avenue (66 feet wide); thence\n(4) N 61°15'00\" W along the Southwesterly line of Haddon Avenue, 224 feet to lands of the Borough of Haddonfield; thence\n(5) S 28°45'00\" W along said lands, 33.01 feet to a pipe; thence\n(6) S 56°58'00\" W still along said lands, 89.44 feet to the Northeasterly line of Tanner Street; thence\n(7) S 25°09'00\" E along the Northeasterly line of Tanner Street, 248.86 feet to the Northwesterly line of Clement Street and place of beginning. Being Lot 1.01 Block 22 on the Tax Map.",
   "expected_poc": null,
   "expected_pob": "the intersection of the Northeasterly line of Tanner Street (60 feet wide) with the Northwesterly line of Clement Street (20 feet wide) with the Northwesterly line of Clement Street (20 feet wide)",
   "expected_calls": [
@@ -22,7 +28,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the Northwesterly line of Clement Street, 140 feet",
+      "along": "the Northwesterly line of Clement Street",
       "to": "a spike",
       "monument_type": null,
       "notes": null
@@ -67,7 +73,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the Southwesterly line of Haddon Avenue, 224 feet",
+      "along": "the Southwesterly line of Haddon Avenue",
       "to": "lands of the Borough of Haddonfield",
       "monument_type": null,
       "notes": null
@@ -82,7 +88,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said lands, 33.01 feet",
+      "along": "said lands",
       "to": "a pipe",
       "monument_type": null,
       "notes": null
@@ -97,7 +103,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "said lands, 89.44 feet",
+      "along": "said lands",
       "to": "the Northeasterly line of Tanner Street",
       "monument_type": null,
       "notes": null
@@ -112,7 +118,7 @@
       "radius_ft": null,
       "delta_deg": null,
       "arc_length_ft": null,
-      "along": "the Northeasterly line of Tanner Street, 248.86 feet",
+      "along": "the Northeasterly line of Tanner Street",
       "to": "the Northwesterly line of Clement Street and place of beginning",
       "monument_type": null,
       "notes": null
@@ -132,5 +138,5 @@
       "description": "MUST extract exactly 7 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T03:08:42.479322+00:00"
+  "notes": "Checked against Book 7123 Page 899 (PDF page 3, Exhibit \"A\", Commitment No. 03-75033518): the legal text and all seven courses match the print, including the repeated \"with the Northwesterly line of Clement Street (20 feet wide)\"; deed_info filled from Page 898 and the distances removed from the along fields. Ground truth generated at 2026-02-17T03:08:42.479322+00:00"
 }

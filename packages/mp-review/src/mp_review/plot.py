@@ -90,7 +90,7 @@ def _request(source: bytes, name: str, input_format: str) -> tuple[PlotRequest, 
             ),
         ), "txt"
     if is_csv:
-        from mp_export.csv_writer import csv_text_to_calls  # type: ignore[import-untyped]
+        from mp_export.csv_writer import csv_text_to_calls
 
         csv_calls = csv_text_to_calls(text, strict=True)
         request = _calls_request(csv_calls, name, f"{name}: data row")
@@ -151,7 +151,7 @@ def plot_file(
         result["input"] = {"name": source_path.name, "sha256": _sha(source)}
         request, kind = _request(source, source_path.name, input_format)
         prepared = prepare_plot(request)
-        from mp_export.plot_html import render_plot  # type: ignore[import-untyped]
+        from mp_export.plot_html import render_plot
 
         rendered = render_plot(prepared)
         canonical = _json(prepared.request.model_dump(mode="json"))

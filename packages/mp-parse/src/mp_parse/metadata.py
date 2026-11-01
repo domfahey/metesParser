@@ -601,8 +601,9 @@ def _split_header_led_parts(parts: list[str]) -> list[str]:
     return result
 
 
-_NUMBERED_LINE = re.compile(r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+", re.MULTILINE)
-_NUMBERED_SPLIT = re.compile(r"(?:^|\n)\s*(?=(?:\(\d+\)|\d+[.)])\s+)", re.MULTILINE)
+# "(1)", "1." or "1)" and lettered "(a)"/"(A)" courses.
+_NUMBERED_LINE = re.compile(r"(?:^|\n)\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+", re.MULTILINE)
+_NUMBERED_SPLIT = re.compile(r"(?:^|\n)\s*(?=(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+)", re.MULTILINE)
 _TRAILING_THENCE = re.compile(r"\bTHENCE\b[\s,]*$", re.IGNORECASE)
 _GAP_END = re.compile(r"(?:[;:,.]|\band|\bthen(?:ce)?)$", re.IGNORECASE)
 
@@ -1004,7 +1005,7 @@ def split_call_fragments(
             calls.append(CallFragment(cleaned, preamble=True))
             continue
 
-        cleaned = re.sub(r"^(?:\(\d+\)|\d+[.)])\s+", "", cleaned)
+        cleaned = re.sub(r"^(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+", "", cleaned)
 
         # Truncate at metadata section boundaries (e.g., "THE ABOVE DESCRIBED",
         # "CONTAINING", "BEING the same").  The pattern is sentence-boundary
@@ -1096,9 +1097,15 @@ _OFFSET_AFTER = re.compile(
 _PARALLEL_AND_BEFORE = re.compile(r"\bparallel\s+(?:to|with)\s+and\s*$", re.IGNORECASE)
 _OFFSET_FROM_AFTER = re.compile(r"\s*,?\s*(?:distant\s+)?(?:from|of)\b", re.IGNORECASE)
 _LENGTH_JUST_BEFORE = re.compile(rf"{LENGTH_NUMBER}\s*{UNIT_TOKEN}\b\.?\s*,?\s*$", re.IGNORECASE)
-# "said point (also) being ...": every later length locates that point.
+# "said point (also) being ...": every later length locates that point. A line the
+# course runs along ("East Line of said Section being also the Centerline of Ridge
+# Road") is described, not a point located.
+_LINE_NOUN_BEFORE = "".join(
+    rf"(?<!\b{noun}\s)"
+    for noun in ("line", "lines", "section", "road", "street", "avenue", "highway", "centerline")
+)
 _TIE_CLAUSE = re.compile(
-    r"\b(?:said|which)\s+(?:[A-Za-z-]+\s+){0,3}?(?:also\s+)?"
+    r"\b(?:said|which)\s+(?:[A-Za-z-]+\s+){0,3}?" + _LINE_NOUN_BEFORE + r"(?:also\s+)?"
     r"(?:being|lying|located|situated|distant)\b",
     re.IGNORECASE,
 )
@@ -1595,10 +1602,20 @@ def _is_lot_qualifier_except(text: str, match: re.Match[str]) -> bool:
         r"(?:erly|wardly)?"
         rf"\s+{LENGTH_NUMBER}"
         r"\s+(?:feet|foot|ft|poles?|rods?|chains?|links?|varas?|meters?)"
-        r"\s+(?:of\b|in\b|thereof\b)",
+        # "except the East 20 feet deeded for roadway."
+        r"\s+(?:of\b|in\b|thereof\b|deeded\b|taken\b|conveyed\b|dedicated\b|for\b)",
         re.IGNORECASE,
     )
     return bool(lot_qualifier_pattern.match(after))
+
+
+# "...must all qualify except in the case of a spouse" (a deed form): a condition, not land
+# taken out of the grant.
+CONDITIONAL_EXCEPT_AFTER = re.compile(
+    r"\s+(?:in\s+the\s+case\s+of|as\s+(?:otherwise|provided|herein|set\s+forth|stated)"
+    r"|where|when|if|unless)\b",
+    re.IGNORECASE,
+)
 
 
 def split_exception_clauses(text: str) -> list[tuple[str, bool]]:
@@ -1614,7 +1631,9 @@ def split_exception_clauses(text: str) -> list[tuple[str, bool]]:
     splits: list[tuple[int, int, bool]] = []
 
     for match in re.finditer(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", text, re.IGNORECASE):
-        if _is_lot_qualifier_except(text, match):
+        if _is_lot_qualifier_except(text, match) or CONDITIONAL_EXCEPT_AFTER.match(
+            text, match.end()
+        ):
             continue
         splits.append((match.start(), match.end(), True))
 

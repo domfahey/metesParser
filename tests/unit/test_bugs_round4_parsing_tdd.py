@@ -78,6 +78,17 @@ def test_explicit_total_distance_beats_intermediate_reference_distance(parse):
     assert call.distance_ft == pytest.approx(100.0)
 
 
+@pytest.mark.parametrize("parse", PARSERS)
+def test_total_distance_without_article_beats_intermediate_reference_distance(parse):
+    # 75 Haddon Ave closing course: "total distance of" with no leading "a".
+    call = parse(
+        "THENCE South 53 degrees 41 minutes 15 seconds West, passing over stone "
+        "15.83 feet from beginning of this course total distance of 336.25 feet "
+        "to place of beginning"
+    )[0]
+    assert call.distance_ft == pytest.approx(336.25)
+
+
 @pytest.mark.parametrize("extract_area", AREA_PARSERS)
 def test_area_statement_prefers_parcel_area_over_parent_tract(extract_area):
     area = extract_area("Being part of a 6 acre tract, containing 2.5 acres.")

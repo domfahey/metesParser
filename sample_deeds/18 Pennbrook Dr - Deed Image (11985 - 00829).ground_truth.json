@@ -6,12 +6,20 @@
     "book": "11985",
     "page": "00829",
     "parcel_shape": "Rectangle",
-    "dimensions": "60 ft × 125 ft"
+    "dimensions": "60 ft × 125 ft",
+    "date": "October 25, 2021 (delivered October 29, 2021)",
+    "recorded": "02/16/2022",
+    "grantor": "Winchris Developers, LLC, a New Jersey Limited Liability Company",
+    "grantee": "Elina Grossman and George MacIntosh, wife and husband",
+    "consideration": "$707,000",
+    "block": "64.23",
+    "lot": "1"
   },
   "raw_ocr_text": "LAND AND PREMISES situate in the Borough of Haddonfield, County of Camden and State of New Jersey as follows:\nBEGINNING at a point at the Southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide); thence\n1. South 33 degrees 20 minutes 00 seconds East, along Southwesterly line of Concord Drive, 60 feet to a point in the division line between Lots 46 and 47 on plan hereinafter mentioned; thence\n2. South 56 degrees 40 minutes, 00 seconds West along said division line 125 feet to point corner to Lot 50 said plan; thence\n3. North 33 degrees 20 minutes, 00 seconds West along said Lot 50, 60 feet to Southeasterly line of Pennbrook Drive; thence\n4. North 56 degrees 40 minutes 00 seconds East along said Southeasterly line of Pennbrook Drive, 125 feet to the point and place of beginning.\nTHE ABOVE DESCRIBED tract or parcel of land and premises being described according to a Survey of Premises made by Walter H. Macnamara Assoc., Inc. Professional Land Surveyors, dated October 12, 2021.",
-  "expected_legal_description": "BEGINNING at a point at the Southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide); thence\n1. South 33 degrees 20 minutes 00 seconds East, along Southwesterly line of Concord Drive, 60 feet to a point in the division line between Lots 46 and 47 on plan hereinafter mentioned; thence\n2. South 56 degrees 40 minutes, 00 seconds West along said division line 125 feet to point corner to Lot 50 said plan; thence\n3. North 33 degrees 20 minutes, 00 seconds West along said Lot 50, 60 feet to Southeasterly line of Pennbrook Drive; thence\n4. North 56 degrees 40 minutes 00 seconds East along said Southeasterly line of Pennbrook Drive, 125 feet to the point and place of beginning.",
-  "expected_normalized_text": "BEGINNING at a point at the southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide); thence\n1. S 33°20'00\" E, along southwesterly line of Concord Drive, 60 feet to a point in the division line between Lots 46 and 47 on plan hereinafter mentioned; thence\n2. S 56°40'00\" W along said division line 125 feet to point corner to Lot 50 said plan; thence\n3. N 33°20'00\" W along said Lot 50, 60 feet to southeasterly line of Pennbrook Drive; thence\n4. N 56°40'00\" E along said southeasterly line of Pennbrook Drive, 125 feet to the point and place of beginning.",
-  "expected_pob": "a point at the southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide)",
+  "expected_legal_description": "LAND AND PREMISES situate in the Borough of Haddonfield, County of Camden and State of New Jersey as follows:\n\nBEGINNING at a point at the Southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide); thence\n1. South 33 degrees 20 minutes 00 seconds East, along Southwesterly line of Concord Drive, 60 feet to a point in the division line between Lots 46 and 47 on plan hereinafter mentioned; thence\n2. South 56 degrees 40 minutes, 00 seconds West along said division line 125 feet to point corner to Lot 50 said plan; thence\n3. North 33 degrees 20 minutes, 00 seconds West along said Lot 50, 60 feet to Southeasterly line of Pennbrook Drive; thence\n4. North 56 degrees 40 minutes 00 seconds East along said Southeasterly line of Pennbrook Drive, 125 feet to the point and place of  beginning.\n\nTHE ABOVE DESCRIBED tract or parcel of land and premises being described according to a Survey of Premises made by Walter H. Macnamara Assoc., Inc. Professional Land Surveyors, dated October 12, 2021.\n\nTAX NOTE:  Being known as Block 64.23, Lot 1 on the official tax map (For informational purposes only).",
+  "expected_normalized_text": "LAND AND PREMISES situate in the Borough of Haddonfield, County of Camden and State of New Jersey as follows:\nBEGINNING at a point at the Southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide); thence\n1. S 33°20'00\" E, along Southwesterly line of Concord Drive, 60 feet to a point in the division line between Lots 46 and 47 on plan hereinafter mentioned; thence\n2. S 56°40'00\" W along said division line 125 feet to point corner to Lot 50 said plan; thence\n3. N 33°20'00\" W along said Lot 50, 60 feet to Southeasterly line of Pennbrook Drive; thence\n4. N 56°40'00\" E along said Southeasterly line of Pennbrook Drive, 125 feet to the point and place of  beginning. THE ABOVE DESCRIBED tract or parcel of land and premises being described according to a Survey of Premises made by Walter H. Macnamara Assoc., Inc. Professional Land Surveyors, dated October 12, 2021. TAX NOTE:  Being known as Block 64.23, Lot 1 on the official tax map (For informational purposes only).",
+  "expected_poc": null,
+  "expected_pob": "a point at the Southwesterly corner of Concord Drive (50 feet wide) and Pennbrook Drive (50 feet wide)",
   "expected_calls": [
     {
       "course": 1,
@@ -19,7 +27,7 @@
       "bearing_quadrant": "S 33°20' E",
       "bearing_azimuth_deg_from_north": 146.666667,
       "distance_ft": 60.0,
-      "along": "southwesterly line of Concord Drive",
+      "along": "Southwesterly line of Concord Drive",
       "to": "a point in the division line between Lots 46 and 47 on plan hereinafter mentioned",
       "notes": null
     },
@@ -40,7 +48,7 @@
       "bearing_azimuth_deg_from_north": 326.666667,
       "distance_ft": 60.0,
       "along": "said Lot 50",
-      "to": "southeasterly line of Pennbrook Drive",
+      "to": "Southeasterly line of Pennbrook Drive",
       "notes": null
     },
     {
@@ -49,8 +57,8 @@
       "bearing_quadrant": "N 56°40' E",
       "bearing_azimuth_deg_from_north": 56.666667,
       "distance_ft": 125.0,
-      "along": "said southeasterly line of Pennbrook Drive",
-      "to": "the point and place of beginning",
+      "along": "said Southeasterly line of Pennbrook Drive",
+      "to": "the point and place of  beginning",
       "notes": null
     }
   ],
@@ -97,12 +105,7 @@
       "symptom": "All 4 numbered calls merged into call #1 or #2's 'along' field",
       "cause": "Legal description extraction or normalization merging calls onto one line",
       "fix": "Add examples showing CORRECT (each number on new line) vs WRONG (merged) formatting"
-    },
-    {
-      "symptom": "Incomplete bearings (None azimuth, notes='incomplete bearing')",
-      "cause": "Call extractor regex not recognizing bearing format",
-      "fix": "Update bearing patterns in call_extractor.py"
     }
   ],
-  "notes": "This is a simple rectangular parcel with 4 numbered calls. It serves as a key test case for validating that the system can properly extract numbered call formats without merging them together."
+  "notes": "Checked against Book 11985 Pages 829-835, PDF pages 1-7: the description follows Exhibit A of the title commitment (Page 832, PDF page 4); a second check of the page images restored its printed double spaces (\"place of  beginning\", \"TAX NOTE:  Being\"), the printed consideration \"($707,000)\" and the recording date (02/16/2022); the deed body (Pages 831 and 833) repeats the same four courses but opens \"at the Southwesterly corner of Concord Drive and Pennbrook Drive\" without the street widths. Along/to text keeps the deed's capitalization. This is a simple rectangular parcel with 4 numbered calls. It serves as a key test case for validating that the system can properly extract numbered call formats without merging them together."
 }

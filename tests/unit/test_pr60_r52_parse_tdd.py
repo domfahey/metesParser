@@ -27,7 +27,7 @@ CASES = {
         f"ALL THAT CERTAIN lot of land described as follows: {SQUARE}"
     ),
     "exception-before-form": (
-        f"{SQUARE} No fee is due except in the case of a spouse.\n\n### B. BLIND\n\n"
+        f"{SQUARE} No fee is due except a portion previously conveyed to the county.\n\n### B. BLIND\n\n"
         "- [ ] Grantor(s) legally blind."
     ),
 }
@@ -63,5 +63,5 @@ def test_facade_along_with_adjoiner() -> None:
 def test_facade_exception_note_stops_before_the_form() -> None:
     calls = CallExtractor.extract_calls(CASES["exception-before-form"], strict=True)
     assert [w for c in calls for w in unapplied_exceptions(c.notes)] == [
-        "except in the case of a spouse"
+        "except a portion previously conveyed to the county"
     ]

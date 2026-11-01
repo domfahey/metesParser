@@ -1,24 +1,129 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "89 Haddon Avenue",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "4732",
+    "page": "544",
+    "date": "November 29, 1994",
+    "grantor": "UM Holdings, Ltd., a corporation of the state of New Jersey",
+    "grantee": "Euclid Avenue Associates, L.L.C. (39.4%), John F. Leonard and Patrick J. Brennan (22.1%), Michael D. Sinko and Steven M. Eisner (18.1%) and Stephen H. Rosen (20.4%), as tenants in common",
+    "consideration": "$1,217,500.00",
+    "block": "11",
+    "lot": "2"
   },
   "raw_ocr_text": "I can’t extract the *complete* text with exact formatting from these images as provided. The pages are too low-resolution/blurred in multiple areas (especially the legal description “BEGINNING/THENCE” metes-and-bounds block), so any “full text” I return would risk errors in distances, bearings, and punctuation—exactly the parts you emphasized.\n\nIf you upload either:\n- the original PDF (not screenshots), or  \n- higher-resolution page images (ideally 300–600 DPI; or at least ~2500–3500 px wide per page),\n\nI can then return a full, line-by-line transcription preserving line breaks and the BEGINNING/THENCE formatting.\n\n### What I *can* reliably read from the current images (partial, not complete)\n\n**Page 1 (top portion, partial):**\n```\nDEED\n\nThis Deed is made on November 29, 1994\n\nBETWEEN UM HOLDINGS, LTD.\na corporation of the state of New Jersey\nhaving its principal office at 56 Haddon Avenue, Haddonfield, NJ 08033\nreferred to as the Grantor.\n\nAND EUCLID AVENUE ASSOCIATES, L.L.C., a limit...",
-  "expected_legal_description": "",
-  "expected_normalized_text": "",
+  "expected_legal_description": "ALL THAT CERTAIN tract or parcel of land and premises situate, lying and being in the Borough of HADDONFIELD, County of CAMDEN and State of New Jersey more particularly described as follows:\n\nBEGINNING at a point forming the intersection of the Northeasterly line of Haddon Avenue (66 feet wide), with the Southeasterly line of Euclid Avenue, (60 feet wide), said beginning point also being measured in a general Southeastwardly direction along the Northeasterly line of Haddon Avenue, a distance of 60.00 feet from a point in the line of lands now or formerly of County Committee of YMCA of Camden County and also being in the former Southeasterly boundary line of Tract #1 of Haddonfield Estates and from said beginning point; running thence (1) North 54 degrees 44 minutes 05 seconds East, along the Southeasterly line of Euclid Avenue, a distance of 141.73 feet to a point of curve on same; thence (2) in a Northeastwardly direction along the Southeasterly and Southerly curved line of Euclid Avenue, curving to the right having a radius of 565.45 feet, an arc distance of 304.57 feet to a set iron pin in the line of lands now or formerly of Nicholson; thence (3) South 19 degrees 58 minutes 30 seconds West, along the line of lands now or formerly of Nicholson, a distance of 145.44 feet to a found field stone in the line of lands now or formerly of Oscar Hinski and wife; thence along the line of lands now or formerly of Oscar Hinski and wife, the following two courses and distances; thence (4) North 34 degrees 42 minutes 30 seconds West, a distance of 53.75 feet to a point in the same; thence (5) South 53 degrees 41 minutes 15 seconds West, still along same, a distance of 310.45 feet to a point on the Northeasterly line of Haddon Avenue, said point also being measured in a Northwestwardly direction along the Northeasterly line of Haddon Avenue, a distance of 85.39 feet to a found monument for an angle on said Haddon Avenue and continuing along said line of Haddon Avenue, a further distance of 379.79 feet from a point forming the intersection of the Northeasterly line of Haddon Avenue with the Northwesterly line of Lake Street; thence (6) North 36 degrees 03 minutes 35 seconds West along the Northeasterly line of Haddon Avenue, a distance of 115.50 feet to the first mentioned point and place of beginning.\n\nBEING shown and designated as Lot 2, Block 11, Plate 5, on the tax map of the Borough of Haddonfield.\n\nALSO BEING known as 89 Haddon Avenue, Haddonfield, New Jersey.",
+  "expected_normalized_text": "ALL THAT CERTAIN tract or parcel of land and premises situate, lying and being in the Borough of HADDONFIELD, County of CAMDEN and State of New Jersey more particularly described as follows:\nBEGINNING at a point forming the intersection of the Northeasterly line of Haddon Avenue (66 feet wide), with the Southeasterly line of Euclid Avenue, (60 feet wide), said beginning point also being measured in a general Southeastwardly direction along the Northeasterly line of Haddon Avenue, a distance of 60.00 feet from a point in the line of lands now or formerly of County Committee of YMCA of Camden County and also being in the former Southeasterly boundary line of Tract #1 of Haddonfield Estates and from said beginning point; running thence (1) N 54°44'05\" E, along the Southeasterly line of Euclid Avenue, a distance of 141.73 feet to a point of curve on same; thence (2) in a Northeastwardly direction along the Southeasterly and Southerly curved line of Euclid Avenue, curving to the right having a radius of 565.45 feet, an arc distance of 304.57 feet to a set iron pin in the line of lands now or formerly of Nicholson; thence (3) S 19°58'30\" W, along the line of lands now or formerly of Nicholson, a distance of 145.44 feet to a found field stone in the line of lands now or formerly of Oscar Hinski and wife; thence along the line of lands now or formerly of Oscar Hinski and wife, the following two courses and distances; thence (4) N 34°42'30\" W, a distance of 53.75 feet to a point in the same; thence (5) S 53°41'15\" W, still along same, a distance of 310.45 feet to a point on the Northeasterly line of Haddon Avenue, said point also being measured in a Northwestwardly direction along the Northeasterly line of Haddon Avenue, a distance of 85.39 feet to a found monument for an angle on said Haddon Avenue and continuing along said line of Haddon Avenue, a further distance of 379.79 feet from a point forming the intersection of the Northeasterly line of Haddon Avenue with the Northwesterly line of Lake Street; thence (6) N 36°03'35\" W along the Northeasterly line of Haddon Avenue, a distance of 115.50 feet to the first mentioned point and place of beginning. BEING shown and designated as Lot 2, Block 11, Plate 5, on the tax map of the Borough of Haddonfield. ALSO BEING known as 89 Haddon Avenue, Haddonfield, New Jersey.",
   "expected_poc": null,
-  "expected_pob": "",
-  "expected_calls": [],
-  "expected_closure": {},
+  "expected_pob": "a point forming the intersection of the Northeasterly line of Haddon Avenue (66 feet wide), with the Southeasterly line of Euclid Avenue, (60 feet wide)",
+  "expected_calls": [
+    {
+      "course": 1,
+      "direction_text": "N 54°44'05\" E",
+      "bearing_quadrant": "N 54°44' E",
+      "bearing_azimuth_deg_from_north": 54.734722222222224,
+      "distance_ft": 141.73,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Southeasterly line of Euclid Avenue",
+      "to": "a point of curve on same",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 2,
+      "direction_text": "in a Northeastwardly direction, curving to the right",
+      "bearing_quadrant": null,
+      "bearing_azimuth_deg_from_north": null,
+      "distance_ft": 304.57,
+      "curve_dir": "right",
+      "radius_ft": 565.45,
+      "delta_deg": null,
+      "arc_length_ft": 304.57,
+      "along": "the Southeasterly and Southerly curved line of Euclid Avenue",
+      "to": "a set iron pin in the line of lands now or formerly of Nicholson",
+      "monument_type": null,
+      "notes": "curve; chord bearing and delta not stated"
+    },
+    {
+      "course": 3,
+      "direction_text": "S 19°58'30\" W",
+      "bearing_quadrant": "S 19°58' W",
+      "bearing_azimuth_deg_from_north": 199.975,
+      "distance_ft": 146.44,
+      "printed_distance_ft": 145.44,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the line of lands now or formerly of Nicholson",
+      "to": "a found field stone in the line of lands now or formerly of Oscar Hinski and wife",
+      "monument_type": null,
+      "notes": "misprint: the deed prints 145.44 feet; the 1990 survey description in Book 4455 Page 174 prints 146.44, and with the curve tangent to course 1 the parcel closes to 0.010 ft with 146.44 but misses by 1.006 ft with 145.44"
+    },
+    {
+      "course": 4,
+      "direction_text": "N 34°42'30\" W",
+      "bearing_quadrant": "N 34°42' W",
+      "bearing_azimuth_deg_from_north": 325.2916666666667,
+      "distance_ft": 53.75,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": null,
+      "to": "a point in the same",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 5,
+      "direction_text": "S 53°41'15\" W",
+      "bearing_quadrant": "S 53°41' W",
+      "bearing_azimuth_deg_from_north": 233.6875,
+      "distance_ft": 310.45,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "same",
+      "to": "a point on the Northeasterly line of Haddon Avenue",
+      "monument_type": null,
+      "notes": null
+    },
+    {
+      "course": 6,
+      "direction_text": "N 36°03'35\" W",
+      "bearing_quadrant": "N 36°04' W",
+      "bearing_azimuth_deg_from_north": 323.9402777777778,
+      "distance_ft": 115.5,
+      "curve_dir": null,
+      "radius_ft": null,
+      "delta_deg": null,
+      "arc_length_ft": null,
+      "along": "the Northeasterly line of Haddon Avenue",
+      "to": "the first mentioned point and place of beginning",
+      "monument_type": null,
+      "notes": null
+    }
+  ],
+  "expected_closure": {
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Course 2 is a curve (radius 565.45 ft, arc 304.57 ft) with no stated chord bearing or delta, so closure is not computed. Assuming the curve is tangent to course 1, the misclosure is 0.010 ft."
+  },
   "critical_assertions": {
     "num_calls": {
-      "expected": 0,
+      "expected": 6,
       "operator": "==",
-      "description": "MUST extract exactly 0 calls"
+      "description": "MUST extract exactly 6 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-16T22:35:52.641456+00:00"
+  "notes": "Checked against Book 4732 Pages 544-545, PDF pages 1-2 (400-900 dpi): Schedule A prints course (3) as \"145.44 feet\" (its third digit has the flat top of the 5s in \"565.45\", not the curved top of the 6s in \"(66 feet wide)\"). Ground truth rebuilt 2026-10-31 from the recorded PDF: the deed refers to Exhibit A, the title commitment Schedule A legal description (Book 4732 Page 545, PDF page 2), transcribed verbatim (including 'Euclid Avenue, (60 feet wide)'). Course 3 is printed 145.44 feet and recorded as 146.44 (printed_distance_ft keeps the print): 146.44 is the 1990 survey value (Book 4455 Page 174) and, with a tangent curve, closes to 0.010 ft, while 145.44 misses by about 1 ft. 'the following two courses and distances' introduces boundary courses 4 and 5, not tie lines. The 'Being the same land and premises...' vesting paragraph is omitted."
 }

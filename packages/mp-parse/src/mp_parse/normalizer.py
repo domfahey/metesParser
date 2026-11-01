@@ -71,7 +71,7 @@ def merge_line_wrapped_calls(text: str) -> str:
             continue
 
         if re.match(
-            r"^(?:(?:THENCE|BEGINNING|FROM|POB|POINT)\b|\(\d+\)|\d+[.)])(?:\s+|$)",
+            r"^(?:(?:THENCE|BEGINNING|FROM|POB|POINT)\b|\(\d+\)|\([A-Za-z]\)|\d+[.)])(?:\s+|$)",
             stripped,
             re.IGNORECASE,
         ):
@@ -143,6 +143,8 @@ def clean_ocr_errors(text: str) -> str:
     text = re.sub(r"\bNOrth\b", "North", text, flags=re.IGNORECASE)
     text = re.sub(r"\bEa5t\b", "East", text, flags=re.IGNORECASE)
     text = re.sub(r"\bWe5t\b", "West", text, flags=re.IGNORECASE)
+    # "UNDER. AND SUBJECT to" (a stray period, 219 Berlin 12799) is one recital.
+    text = re.sub(r"\b(UNDER)\.\s+(AND\s+SUBJECT)\b", r"\1 \2", text, flags=re.IGNORECASE)
 
     text = re.sub(r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4", text)
 
@@ -241,7 +243,7 @@ def expand_assessor_abbreviations(text: str) -> str:
     )
     # Degrees only (DEG/D without M following)
     text = re.sub(
-        r"(\d{1,3})\s*(?:DEG\b\.?|D\b)",
+        r"(\d{1,3})\s*(?:DEG\b\.?|D\b(?:\.(?=\s*\d))?)",
         r"\1 degrees",
         text,
         flags=re.IGNORECASE,
@@ -310,6 +312,10 @@ def expand_assessor_abbreviations(text: str) -> str:
     )
     text = re.sub(r"\bP\.O\.B\.", "point of beginning", text, flags=re.IGNORECASE)
     text = re.sub(r"\bP\s+OB\b", "point of beginning", text, flags=re.IGNORECASE)
+    # "N89DEG 05M 23S W 60FT POB": a POB right after a course's distance is reached by it.
+    text = re.sub(
+        r"(\d\s*(?:FT|feet)\.?)\s+POB\b", r"\1 to the point of beginning", text, flags=re.IGNORECASE
+    )
     text = re.sub(r"\bPOB\b", "point of beginning", text, flags=re.IGNORECASE)
 
     # --- 8. Misc abbreviations ---------------------------------------------
@@ -403,6 +409,36 @@ def expand_assessor_abbreviations(text: str) -> str:
     return text
 
 
+# "85.33 feet, N 73°05'24\" W, 128.0 feet; thence": in a deed that separates each bearing
+# from its distance by a comma, a comma also separates two courses. Without that style
+# ("N 45° E 100 feet, N 50° E 80 feet") the fragment stays merged and fails closed. An
+# offset preamble ("distant S 10° E 100 feet, N 80° E 50 feet from the corner") names a point.
+_COMMA_JOINED_COURSE = re.compile(
+    r"(?<=\bfeet),\s+(?=(?:[NS] \d{1,3}°[\d'\"\s.]*[EW]"
+    r"|(?:North|South)\s+\d{1,3}\s+degrees?,[\w\s,.]*?\b(?:East|West)),\s+\d"
+    r"(?:(?!\b(?:thence|from)\b)[^;])*(?:;|\bthence\b|$))",
+    re.IGNORECASE,
+)
+# "122.55 feet to a point. S 18°05'10\" W 123.00 feet to the point and place of beginning":
+# two courses joined by a sentence break.
+_SENTENCE_JOINED_COURSE = re.compile(r"(?<=\bpoint)\.\s+(?=[NS] \d{1,3}°)", re.IGNORECASE)
+
+
+def split_comma_joined_courses(text: str) -> str:
+    """Insert thence between two courses joined only by a comma or a sentence break."""
+    text = _COMMA_JOINED_COURSE.sub(" thence ", text)
+    return _SENTENCE_JOINED_COURSE.sub(". thence ", text)
+
+
+# "704.61 (surveyed as 704.60) feet": the note goes after the unit so the number keeps it.
+_NOTE_BEFORE_UNIT = re.compile(r"(\d)\s*(\([^()]{0,40}\))\s*(feet|foot|ft\b)", re.IGNORECASE)
+
+
+def move_distance_notes(text: str) -> str:
+    """Move a parenthetical note between a distance and its unit after the unit."""
+    return _NOTE_BEFORE_UNIT.sub(r"\1 \3 \2", text)
+
+
 def expand_abbreviations(text: str) -> str:
     """Expand common survey abbreviations.
 
@@ -431,6 +467,8 @@ def normalize_legal_description(text: str) -> str:
     text = expand_assessor_abbreviations(text)
     text = merge_line_wrapped_calls(text)
     text = standardize_cardinal_directions(text)
+    text = split_comma_joined_courses(text)
+    text = move_distance_notes(text)
     text = expand_abbreviations(text)
 
     return text
