@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 from pathlib import Path
 
@@ -284,6 +285,32 @@ class TestAuditMain:
         out = capsys.readouterr().out
         assert "GT AUDIT: 0 PASS / 0 FAIL / 1 SKIP out of 1" in out
         assert "1 Main St: 0/1 pass (0%) | 0 fail | 1 skip" in out
+
+
+class TestAuditEmptyGroundTruth:
+    MD = (
+        "BEGINNING at a point; thence North 10 degrees 00 minutes 00 seconds East 100 feet; "
+        "thence South 10 degrees 00 minutes 00 seconds West 100 feet to the point of beginning."
+    )
+
+    def _write(self, tmp_path, md_text: str, calls: list[dict[str, object]]) -> str:
+        base = "1 Main St - Deed Image (1 - 1)"
+        (tmp_path / f"{base}.md").write_text(md_text)
+        (tmp_path / f"{base}.ground_truth.json").write_text(json.dumps({"expected_calls": calls}))
+        return base
+
+    def test_empty_ground_truth_with_md_courses_fails(self, tmp_path, monkeypatch) -> None:
+        mod = _load_audit_module()
+        monkeypatch.setattr(mod, "SAMPLE_DIR", tmp_path)
+        result = mod.audit_deed(self._write(tmp_path, self.MD, []))
+        assert result["status"] == "FAIL"
+        assert result["issues"] == ["EMPTY_GT: GT has no calls but MD extracted=2"]
+
+    def test_empty_ground_truth_without_md_courses_passes(self, tmp_path, monkeypatch) -> None:
+        mod = _load_audit_module()
+        monkeypatch.setattr(mod, "SAMPLE_DIR", tmp_path)
+        result = mod.audit_deed(self._write(tmp_path, "See Schedule A attached hereto", []))
+        assert result["status"] == "PASS"
 
 
 class TestAuditSchedules:
