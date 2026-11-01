@@ -5,7 +5,13 @@
     "state": "NJ",
     "book": "4732",
     "page": "554",
-    "unit": "B"
+    "unit": "B",
+    "date": "November 29, 1994",
+    "grantor": "Euclid Avenue Associates, L.L.C., John F. Leonard and Patrick J. Brennan, Michael D. Sinko and Steven M. Eisner, and Stephen H. Rosen, as tenants in common",
+    "grantee": "John F. Leonard and Patrick J. Brennan, as tenants in common",
+    "consideration": "$1.00",
+    "block": "11",
+    "lot": "2"
   },
   "raw_ocr_text": "I can’t extract the *complete* text with exact formatting from these images as provided. The pages are low-resolution and many lines (especially the legal/property description and small-print sections) are not legible enough to transcribe “exactly as shown,” which is required for a deed—particularly for any **BEGINNING / THENCE** metes-and-bounds language.\n\n### What I need to do a full, exact extraction\nPlease upload **either**:\n1) The original PDF (not screenshots), **or**  \n2) Higher-quality page images (300–600 DPI), straightened, with the full page visible, **or**  \n3) Close-up crops of the legal description section(s) (the “PROPERTY / ALL THAT CERTAIN…” and any “BEGINNING… THENCE…” blocks), plus the signature/notary pages.\n\n### What I can do right now\nI can transcribe the portions that are clearly readable, but it would **not** be “ALL text” and would risk errors in critical legal lines. If you want, tell me whether you prefer:\n- **Partial transcription of only clearly legible tex...",
   "expected_legal_description": "ALL THAT CERTAIN real property, situate, lying and being in the Borough of Haddonfield, County of Camden, and State of New Jersey, the following described real property with the improvements and appurtenances thereunto belonging in fee simple, subject to the provisions of the Condominium Act of the State of New Jersey, N.J.S.A. 48:8B-1, et seq., its amendments and supplements and to the provisions of the Master Deed establishing and creating \"The 89 Haddon Avenue Condominium\", dated November 29, 1994, and to be subsequently recorded.\n\nBEING UNIT \"B\" in The 89 Haddon Avenue Condominium, said unit being more particularly defined in the Master Deed hereinabove mentioned and which unit is herewith conveyed in conformity with the Condominium Act of the State of New Jersey aforesaid including, in fee, an undivided 22.1% interest in the general and limited common elements of The 89 Haddon Avenue Condominium, as more fully described in the Master Deed hereinabove mentioned.\n\nALSO BEING known and designated a portion of Lot 2, Block 11, on the Current Tax Map of the Borough of Haddonfield.",
@@ -28,5 +34,5 @@
       "description": "MUST extract exactly 0 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-16T22:36:56.544112+00:00. Legal description rebuilt 2026-10-31 from the recorded PDF (Book 4732 Pages 554-555, PDF pages 1-2), transcribed verbatim: the deed conveys Unit \"B\" (an undivided 22.1% interest in the common elements) of The 89 Haddon Avenue Condominium, described by reference to the Master Deed, so there are no courses. The deed prints \"N.J.S.A. 48:8B-1\" (the Condominium Act is N.J.S.A. 46:8B-1). The previous legal text was empty."
+  "notes": "Checked against Book 4732 Pages 554-555, PDF pages 1-2: the text matches the print word for word; dated 11/29/1994 (handwritten), consideration $1.00. Ground truth generated at 2026-02-16T22:36:56.544112+00:00. Legal description rebuilt 2026-10-31 from the recorded PDF (Book 4732 Pages 554-555, PDF pages 1-2), transcribed verbatim: the deed conveys Unit \"B\" (an undivided 22.1% interest in the common elements) of The 89 Haddon Avenue Condominium, described by reference to the Master Deed, so there are no courses. The deed prints \"N.J.S.A. 48:8B-1\" (the Condominium Act is N.J.S.A. 46:8B-1). The previous legal text was empty."
 }

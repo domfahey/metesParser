@@ -334,9 +334,10 @@ def _curve_fields(call) -> tuple:
 
 
 def _expected_curve_fields(gt: dict) -> list[tuple]:
+    # Parsers read a misprinted course as printed ("printed_distance_ft").
     return [
         (
-            c["distance_ft"],
+            c.get("printed_distance_ft", c["distance_ft"]),
             None
             if c["bearing_azimuth_deg_from_north"] is None
             else round(c["bearing_azimuth_deg_from_north"], 4),
