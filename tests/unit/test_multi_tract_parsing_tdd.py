@@ -404,19 +404,25 @@ def test_uncounted_lettered_tie_courses_are_kept_and_flagged(parse):
 
 
 KRESSON_GT = SAMPLE_DEEDS / "36 Kresson Rd - Deed Image (9476 - 462).ground_truth.json"
+KRESSON_GTS = (
+    KRESSON_GT,
+    SAMPLE_DEEDS / "36 Kresson Rd - Deed Image (9888 - 954).ground_truth.json",
+    SAMPLE_DEEDS / "36 Kresson Rd - Deed Image (12006 - 01795).ground_truth.json",
+)
 
 
+@pytest.mark.parametrize("gt_path", KRESSON_GTS, ids=lambda p: p.stem)
 @pytest.mark.parametrize("key", ["expected_legal_description", "expected_normalized_text"])
 @pytest.mark.parametrize("parse", PARSERS)
-def test_kresson_exception_with_tie_courses_matches_ground_truth(parse, key):
-    gt = _load(KRESSON_GT)
+def test_kresson_exception_with_tie_courses_matches_ground_truth(parse, key, gt_path):
+    gt = _load(gt_path)
     calls = parse(gt[key], strict=True)
     expected = [
         (
             round(c["distance_ft"], 2),
             round(c["bearing_azimuth_deg_from_north"], 4),
             c["is_tie_in"],
-            c["is_exception"],
+            c.get("is_exception", False),
         )
         for c in gt["expected_calls"]
     ]
