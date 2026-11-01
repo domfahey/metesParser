@@ -4,7 +4,13 @@
     "city": "Cherry Hill",
     "state": "NJ",
     "book": "12006",
-    "page": "1795"
+    "page": "1795",
+    "date": "December 28, 2021",
+    "grantor": "Gitomer Family Realty, LLC",
+    "grantee": "All Nations Financial, LLC",
+    "consideration": "$750,000.00",
+    "block": "423.01",
+    "lot": "4"
   },
   "raw_ocr_text": "I can’t reliably extract **all** text with **exact spelling, capitalization, and formatting** from these images as provided (they’re low-resolution and several areas—especially the legal description/“THENCE” bearings and some headers/IDs—are not fully legible). If you upload the **original PDF** (or higher‑resolution page images, ideally 300+ DPI), I can return a complete, line‑for‑line transcription.\n\nThat said, here is the **best-effort transcription of all legible text** from the images you provided, preserving line breaks where readable. Illegible/uncertain portions are marked **[ILLEGIBLE]**.\n\n---\n\nCamden County  \nDocument Summary Sheet\n\nCAMDEN COUNTY CLERK  \n520 MARKET ST  \nCAMDEN NJ 08102\n\nCAMDEN COUNTY, NJ  \nCAMDEN COUNTY CLERK’S OFFICE  \nDEED-OR BOOK 12006 PG 1795  \nRECORDED 03/07/2022 11:20:16  \nFILE NUMBER 2022026074  \nRCPT # 2499255; RECD BY: eRecord  \nRECORDING FEES 63.00  \nTOTAL TAX 6,775.00\n\nOfficial Use Only\n\nTransaction Identification Number  \n5874166            704096...",
   "expected_legal_description": "BEGINNING at a point along a line common with Lot 13A, Block 123 (tac map) and abovementioned Lot 13, said point being the following courses and distances from the intersection of the Northwesterly right of way line of Willard Avenue (50 feet right of way) with the Southwesterly right of way line of Kresson Road (Camden County Route 671) (49.5 feet wide)\n\n(A) Along the said row line of Kresson Road North 73 degrees 30 minutes 00 seconds West a distance of 509.1 feet to a point common to said Lots 13 and 13B, thence;\n\n(B) Along line common to said Lots 13 and 13A South 16 degrees 30 minutes 00 seconds West a distance of 27.00 feet to a point and place of beginning.\n\n(1) South 73 degrees 30 minutes 00 seconds East a distance of 10.00 feet to a point; thence\n\n(2) South 16 degrees 30 minutes 00 seconds West a distance of 47.00 feet to a point, thence;\n\n(3) North 73 degrees 30 minutes 00 seconds West a distance of 10.00 feet to a point, thence;\n\n(4) North 16 degrees 30 minutes 00 seconds East a distance of 47.00 feet to a point and place of BEGINNING.\n\nFOR INFORMATIONAL PURPOSES ONLY: Also known as Lot 4 in Block 423.01 on the Township of Cherry Hill Tax Map.",
@@ -124,5 +130,5 @@
       "description": "MUST extract exactly 6 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T03:07:02.077402+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF (Book 12006 Pages 1797-1798, PDF pages 3-4): the deed describes only the 10 x 47 ft parcel that the 9476-462 and 9888-954 deeds except, reached by tie courses (A) and (B) from the Willard Avenue / Kresson Road intersection. Transcribed verbatim, including \"(tac map)\". The previous ground truth omitted tie course (A) and boundary course (1)."
+  "notes": "Checked against Book 12006 Pages 1797-1798 (PDF pages 3-4): description and every figure match the print. Ground truth generated at 2026-02-17T03:07:02.077402+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF (Book 12006 Pages 1797-1798, PDF pages 3-4): the deed describes only the 10 x 47 ft parcel that the 9476-462 and 9888-954 deeds except, reached by tie courses (A) and (B) from the Willard Avenue / Kresson Road intersection. Transcribed verbatim, including \"(tac map)\". The previous ground truth omitted tie course (A) and boundary course (1)."
 }
