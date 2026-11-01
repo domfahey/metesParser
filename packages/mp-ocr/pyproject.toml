@@ -1,11 +1,11 @@
 [project]
 name = "mp-ocr"
-version = "1.0.0"
+version = "1.0.1"
 requires-python = ">=3.11"
 description = "LLM-based OCR extraction for deed PDFs"
 license = "MIT"
 dependencies = [
-    "mp-models>=1.0.0",
+    "mp-models>=2.0.0",
     "openai>=2.3.0",
     "pypdf>=6.1.1",
     "pyyaml>=6.0.2",

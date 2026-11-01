@@ -1,6 +1,6 @@
 {
   "name": "metesparser",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Locate metes-and-bounds descriptions in any document using Claude native reading, then verify the selected boundary deterministically.",
   "author": {
     "name": "MetesParser"
