@@ -433,3 +433,15 @@ class TestCourselessClauses:
         calls, tracts = extract_calls(text)
         assert [call.distance_ft for call in calls] == [100, 100]
         assert tracts == []
+
+    def test_place_of_beginning_followed_by_thence_does_not_close_the_block(self):
+        """36 Kresson: a tie course reaches "a point and place of beginning, thence;"."""
+        text = (
+            "BEGINNING at a point; THENCE N 45°00' E 100 feet; THENCE S 45°00' W 100 feet to "
+            "the point of beginning. Excepting thereout and therefrom: BEGINNING at a point; "
+            "THENCE N 10°00' E 20 feet to a point and place of beginning, thence; "
+            "THENCE S 80°00' E 10 feet; THENCE S 10°00' W 5 feet to the point of beginning."
+        )
+        exception_text = split_into_tracts(text)[1][0]
+        assert "S 80°00' E 10 feet" in exception_text
+        assert exception_text.endswith("to the point of beginning")

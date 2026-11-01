@@ -90,7 +90,7 @@ _RESTATED_POB_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _CLOSES_TO_POB_PATTERN = re.compile(
-    r"\bto\s+(?:the\s+)?(?:(?:point|place)\s+(?:and\s+place\s+)?of\s+)?beginning\b",
+    r"\bto\s+(?:the\s+|a\s+)?(?:(?:point|place)\s+(?:and\s+place\s+)?of\s+)?beginning\b",
     re.IGNORECASE,
 )
 
@@ -116,17 +116,30 @@ def _mark_restated_pob_tie_lines(calls: list[DeedCall], call_texts: list[str]) -
 # "said point being the following two courses and distances from the intersection":
 # the first courses run from the reference point to the POB, so they are tie lines.
 _PREAMBLE_TIE_COURSES_PATTERN = re.compile(
-    r"\bbeing\s+the\s+following\s+(\w+)(?:\s+\(\d+\))?\s+courses?\s+and\s+distances?\s+from\b",
+    r"\bbeing\s+the\s+following\s+(?:(\w+)(?:\s+\(\d+\))?\s+)?courses?\s+and\s+distances?\s+from\b",
     re.IGNORECASE,
 )
 _COUNT_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
 
 
-def _preamble_tie_course_count(preamble: str) -> int:
-    """Return how many leading courses the preamble says lead to the POB."""
+def _preamble_tie_course_count(preamble: str, call_texts: list[str]) -> int:
+    """Return how many leading courses the preamble says lead to the POB.
+
+    Without a count ("the following courses and distances from"), the tie courses end at
+    the first course reaching the place of beginning while more courses follow.
+    """
     match = _PREAMBLE_TIE_COURSES_PATTERN.search(preamble)
     if not match:
         return 0
+    if match.group(1) is None:
+        return next(
+            (
+                i + 1
+                for i, text in enumerate(call_texts[:-1])
+                if _CLOSES_TO_POB_PATTERN.search(text)
+            ),
+            0,
+        )
     count = match.group(1).lower()
     return int(count) if count.isdigit() else _COUNT_WORDS.get(count, 0)
 
@@ -315,7 +328,24 @@ class CallExtractor:
         """
         boundaries = list(re.finditer(r"[.;:]\s+|\n", prefix))
         tail = prefix[boundaries[-1].end() :] if boundaries else ""
-        return tail if tail.strip() and cls._is_initial_course_prefix(tail) else ""
+        if not tail.strip():
+            return ""
+        return (
+            tail
+            if cls._is_initial_course_prefix(tail) or cls._is_marked_bearing_course(tail)
+            else ""
+        )
+
+    @classmethod
+    def _is_marked_bearing_course(cls, text: str) -> bool:
+        """Return whether text is a lettered/numbered course stating a bearing ("(A) Along X, N 73° W")."""
+        if not re.match(r"\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s", text):
+            return False
+        try:
+            direction = cls.extract_direction(text)
+        except ValueError:
+            return False
+        return bool(direction and BearingConverter.parse_quadrant_bearing(direction))
 
     @classmethod
     def _is_initial_course_prefix(cls, prefix: str) -> bool:
@@ -464,7 +494,7 @@ class CallExtractor:
                 course_num += 1
 
             tract_calls = _mark_preamble_tie_courses(
-                tract_calls, _preamble_tie_course_count(prefix)
+                tract_calls, _preamble_tie_course_count(prefix, tract_call_texts)
             )
             calls.extend(_mark_restated_pob_tie_lines(tract_calls, tract_call_texts))
 
