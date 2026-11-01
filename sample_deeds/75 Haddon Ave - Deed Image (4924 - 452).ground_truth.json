@@ -8,7 +8,9 @@
     "date": "December 23, 1997",
     "grantor": "Rosemary Rausch",
     "grantee": "Rausch, L.L.C.",
-    "consideration": "$725,000.00"
+    "consideration": "$725,000.00",
+    "block": "11",
+    "lot": "14"
   },
   "raw_ocr_text": "Page 1 OCR is heavily garbled (low resolution scan). Page 2 is clear but continues from garbled page 1. BEGINNING keyword appears as 'BEGINNiNn' in OCR output.",
   "expected_legal_description": "BEGINNING at a stone in the Northeast line of Haddon Avenue, distance 167.66 feet North 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue from angle point in Haddon Avenue, said angle point being North 55 degrees 57 minutes 35 seconds West 85.39 feet along the Northeast line of Haddon Avenue from its intersections with Northwest line of Lake Street; thence North 36 degrees 03 minutes 35 seconds West along the Northeast line of Haddon Avenue 87.31 feet to stone corner to land now or late of Samule N. Rhoads; thence along said North 53 degrees 41 minutes 15 seconds East, passing over stone 292.51 feet from Haddon Avenue and corner to Samule N. Rhoads and continuing said course a total distance of 307.52 feet to stake in line of land now or late of Margaret N. Rhoads; thence along said land South 34 degrees 42 minutes 30 seconds East 2.86 feet to stake corner to same; thence still along said land of Margaret N. Rhoads South 54 degrees 55 minutes 50 seconds East 89.13 feet to stake; thence South 53 degrees 41 minutes 15 seconds West, passing over stone 15.83 feet from beginning of this course total distance of 336.25 feet to place of beginning.",
@@ -106,5 +108,5 @@
       "description": "MUST extract exactly 5 calls"
     }
   },
-  "notes": "Ground truth rebuilt 2026-10-31 from the recorded PDF (Book 4924 Pages 452-453, PDF pages 1-2), transcribed verbatim. The previous legal text had transcription errors ('Northeast side', '03 minutes 25 seconds', 'Northwell', 'Samuel'); the deed reads 'Northeast line', '35 seconds', 'Northwest' and spells 'Samule N. Rhoads' twice. Courses 2 and 5 pass over stones; the course lengths are the stated total distances. Misclosure 0.0342 ft, same courses as 4924-448."
+  "notes": "Checked against Book 4924 Pages 452-453, PDF pages 1-2 (second check at 400 dpi): text and courses confirmed word for word; Block 11, Lot 14 from the tax map reference on Page 452. Ground truth rebuilt 2026-10-31 from the recorded PDF (Book 4924 Pages 452-453, PDF pages 1-2), transcribed verbatim. The previous legal text had transcription errors ('Northeast side', '03 minutes 25 seconds', 'Northwell', 'Samuel'); the deed reads 'Northeast line', '35 seconds', 'Northwest' and spells 'Samule N. Rhoads' twice. Courses 2 and 5 pass over stones; the course lengths are the stated total distances. Misclosure 0.0342 ft, same courses as 4924-448."
 }

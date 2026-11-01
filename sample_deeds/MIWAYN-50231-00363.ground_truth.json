@@ -273,5 +273,5 @@
       "description": "MUST extract exactly 5 calls"
     }
   },
-  "notes": "Standard fields added 2026-10-31 from the recorded PDF: Exhibit A (Page 2 of 2), transcribed verbatim, including the mixed bearing form \"North 89 degrees 30' 00\" West\"; the vendor keys are kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The first course (Northerly 348.0 feet along the East line of Section 7) is a cardinal-only tie course to the place of beginning. The boundary closes at 0.000 ft."
+  "notes": "Checked against instrument 2012420148, Exhibit A, PDF page 2 (re-read at 300 dpi, 2026-11-01): text and all five courses confirmed as printed. Standard fields added 2026-10-31 from the recorded PDF: Exhibit A (Page 2 of 2), transcribed verbatim, including the mixed bearing form \"North 89 degrees 30' 00\" West\"; the vendor keys are kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The first course (Northerly 348.0 feet along the East line of Section 7) is a cardinal-only tie course to the place of beginning. The boundary closes at 0.000 ft."
 }

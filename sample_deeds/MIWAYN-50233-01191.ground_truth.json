@@ -253,5 +253,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Standard fields added 2026-10-31 from the recorded PDF: Exhibit A, Legal Description (Page 3 of 3), transcribed verbatim; the vendor keys are kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The offset locating the point of beginning from the North 1/4 corner is part of the beginning clause, not a course. The last course reads \"599.89 feet (recorded as 600.00 feet)\"; the exception for road purposes has no courses. The parcel closes at 0.000 ft."
+  "notes": "Checked against instrument 2012420814, Exhibit A, PDF page 3 (re-read at 350 dpi, 2026-11-01): text and all four courses confirmed as printed. Standard fields added 2026-10-31 from the recorded PDF: Exhibit A, Legal Description (Page 3 of 3), transcribed verbatim; the vendor keys are kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The offset locating the point of beginning from the North 1/4 corner is part of the beginning clause, not a course. The last course reads \"599.89 feet (recorded as 600.00 feet)\"; the exception for road purposes has no courses. The parcel closes at 0.000 ft."
 }

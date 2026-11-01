@@ -270,5 +270,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Standard fields added 2026-10-31 from the recorded PDF (Discharge of Mortgage, Liber 50529 Page 42, PDF page 1 (Legal Description paragraph)), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. \"TO-WIT:PART\" with no space, no semicolons between courses, no final period."
+  "notes": "Checked against Liber 50529 Page 42, PDF page 1 (Legal Description, read at 300 dpi): legal text (including \"TO-WIT:PART\") and all 4 courses match the print. Standard fields added 2026-10-31 from the recorded PDF (Discharge of Mortgage, Liber 50529 Page 42, PDF page 1 (Legal Description paragraph)), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. \"TO-WIT:PART\" with no space, no semicolons between courses, no final period."
 }

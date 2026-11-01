@@ -262,5 +262,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Standard fields added 2026-10-31 from the recorded PDF: Exhibit A, Legal Description (Page 16 of 16), transcribed verbatim; the vendor keys are kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The three offsets locating the point of beginning from the Southeast corner of Section 7 are part of the beginning clause, not courses. Four boundary courses; the parcel closes to 0.110 ft."
+  "notes": "Checked against Liber 50020 Page 1181 (instrument 2012316151), Exhibit A, PDF page 16 (re-read at 400 dpi, 2026-11-01): text, offsets and all four courses confirmed as printed; every figure matches, so the 0.11 ft misclosure is the deed's own. Standard fields added 2026-10-31 from the recorded PDF: Exhibit A, Legal Description (Page 16 of 16), transcribed verbatim; the vendor keys are kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The three offsets locating the point of beginning from the Southeast corner of Section 7 are part of the beginning clause, not courses. Four boundary courses; the parcel closes to 0.110 ft."
 }

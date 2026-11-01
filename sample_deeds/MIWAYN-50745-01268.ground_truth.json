@@ -270,5 +270,5 @@
       "description": "MUST extract exactly 4 calls"
     }
   },
-  "notes": "Standard fields added 2026-10-31 from the recorded PDF (Mortgage, Exhibit A, Liber 50745 Page 1268, PDF page 12), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The vendor text's \"15. minutes\" in course 4 is a scan speck; the deed prints \"15 minutes\". The exhibit gives Flat Rock; the vendor Properties field gives Carleton."
+  "notes": "Checked against Liber 50745 Page 1268, PDF page 12 (Exhibit A): legal text, the beginning offset and all 4 courses match the print. Standard fields added 2026-10-31 from the recorded PDF (Mortgage, Exhibit A, Liber 50745 Page 1268, PDF page 12), transcribed verbatim; vendor fields (Header, Parties, Vesting, Properties, Full_Legal_Description, Legal_Descriptions, Primary_Or_Prior_Document_Details) kept unchanged and raw_ocr_text is the vendor Full_Legal_Description. The vendor text's \"15. minutes\" in course 4 is a scan speck; the deed prints \"15 minutes\". The exhibit gives Flat Rock; the vendor Properties field gives Carleton."
 }

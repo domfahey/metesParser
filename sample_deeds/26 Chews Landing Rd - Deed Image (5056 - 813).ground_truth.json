@@ -5,7 +5,13 @@
     "state": "NJ",
     "book": "5056",
     "page": "813",
-    "parcel_shape": "Irregular 5-sided polygon"
+    "parcel_shape": "Irregular 5-sided polygon",
+    "date": "November 19, 1999",
+    "grantor": "Lillian Ragone, by her attorney-in-fact, Daniel J. Ragone",
+    "grantee": "William V. Furtkevic and Denise A. Furtkevic, husband and wife, and Dennis J. Lynch and Phyllis A. Lynch, husband and wife",
+    "consideration": "$750,000.00",
+    "block": "79.01",
+    "lot": "6"
   },
   "raw_ocr_text": "",
   "expected_legal_description": "ALL that certain land and premises situate in the Borough of Haddonfield, County of Camden and the State of New Jersey, bounded and described as follows:\n\nBEGINNING at a point in the Southeasterly line of Kings Highway West, distant 80 feet Southwestwardly from the intersection of the Southeasterly line of Kings Highway West with the Northwesterly line of Chews Landing Road, said point being corner to land of the Borough of Haddonfield; thence\n\n(1) South 64 degrees 22 minutes 25 seconds West along the Southeasterly line of Kings Highway West, 299.89 feet to a point; thence\n\n(2) South 25 degrees 37 minutes 35 seconds East at right angles to Kings Highway West 120.68 feet to corner to other land of John J. Litz and Caroline, his wife; thence\n\n(3) South 68 degrees 39 minutes 05 seconds East along said land of Litz, at right angles to Chews Landing Road, 171.43 feet to a point in the Northwesterly line of said Chews Landing Road; thence\n\n(4) North 21 degrees 20 minutes 55 seconds East along the Northwesterly line of Chews Landing Road, 279.48 feet to corner to said land of the Borough of Haddonfield; thence\n\n(5) North 46 degrees 46 minutes 25 seconds West along said land of the Borough of Haddonfield, 59.30 feet to the point and place of beginning.\n\nBEING known as Lot 6, Block 79.01, as shown on the Borough of Haddonfield Tax Map.\n\nCOMMONLY known as 26 Chews Landing Road.",
@@ -103,5 +109,5 @@
       "description": "MUST extract exactly 5 calls"
     }
   },
-  "notes": "Oldest deed in the chain of title for 26 Chews Landing Rd. Grantor: Lillian A. Ragone. Grantee: William V. Furtkevic and Denise A. Furtkevic, husband and wife, and Dennis J. Lynch and Phyllis A. Lynch, husband and wife. Dated November 19, 1990; recorded December 7, 1990. Block 79.01, Lot 6. Legal description and calls rebuilt 2026-10-31 from the recorded PDF: Schedule C of the Surety Title Agency commitment (Book 5056 Page 814, PDF page 2), read at 600 dpi and transcribed verbatim. Course 1 is 299.89 ft (the LlamaParse markdown reads 299.09; the 7797 ground truths record 229.89); with 299.89 the parcel closes at 0.0047 ft."
+  "notes": "Checked against Book 5056 Pages 813-814 (PDF pages 1-2): description and courses match the print; the deed is dated 1999, not 1990. Oldest deed in the chain of title for 26 Chews Landing Rd. Grantor: Lillian Ragone, by her attorney-in-fact, Daniel J. Ragone. Grantee: William V. Furtkevic and Denise A. Furtkevic, husband and wife, and Dennis J. Lynch and Phyllis A. Lynch, husband and wife. Dated November 19, 1999; the realty transfer stamp reads 12/07/1999 (the 8566-200 vesting clause misstates this deed as dated November 19, 1990 and recorded December 7, 1990). Block 79.01, Lot 6. Legal description and calls rebuilt 2026-10-31 from the recorded PDF: Schedule C of the Surety Title Agency commitment (Book 5056 Page 814, PDF page 2), read at 600 dpi and transcribed verbatim. Course 1 is 299.89 ft (the LlamaParse markdown reads 299.09; the 7797 ground truths record 229.89); with 299.89 the parcel closes at 0.0047 ft."
 }
