@@ -148,6 +148,34 @@ def _mark_restated_pob_tie_lines(calls: list[DeedCall], call_texts: list[str]) -
     ]
 
 
+# "said point being the following two courses and distances from the intersection":
+# the first courses run from the reference point to the POB, so they are tie lines.
+_PREAMBLE_TIE_COURSES_PATTERN = re.compile(
+    r"\bbeing\s+the\s+following\s+(\w+)(?:\s+\(\d+\))?\s+courses?\s+and\s+distances?\s+from\b",
+    re.IGNORECASE,
+)
+_COUNT_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+
+
+def _preamble_tie_course_count(preamble: str) -> int:
+    """Return how many leading courses the preamble says lead to the POB."""
+    match = _PREAMBLE_TIE_COURSES_PATTERN.search(preamble)
+    if not match:
+        return 0
+    count = match.group(1).lower()
+    return int(count) if count.isdigit() else _COUNT_WORDS.get(count, 0)
+
+
+def _mark_preamble_tie_courses(calls: list[DeedCall], count: int) -> list[DeedCall]:
+    """Mark the leading courses the preamble counts as tie lines."""
+    if not count or count >= len(calls):
+        return calls
+    return [
+        call.model_copy(update={"is_tie_in": True}) if i < count else call
+        for i, call in enumerate(calls)
+    ]
+
+
 def _call_preview(call_text: str, max_len: int = 120) -> str:
     """Return a compact single-line preview suitable for warning logs."""
     compact = " ".join(call_text.split())
@@ -204,6 +232,16 @@ def _is_initial_course_prefix(prefix: str) -> bool:
     return bool(parse_quadrant_bearing(direction) or due_cardinal_to_azimuth(direction) is not None)
 
 
+def _trailing_thence_course(prefix: str) -> str:
+    """Return the course ending the preamble when courses end with "thence".
+
+    "...Burnt Mill Road. N 40°41'31\" E a distance of 483.13 feet to a point thence;"
+    """
+    boundaries = list(re.finditer(r"[.;:]\s+|\n", prefix))
+    tail = prefix[boundaries[-1].end() :] if boundaries else ""
+    return tail if tail.strip() and _is_initial_course_prefix(tail) else ""
+
+
 def _extract_calls_from_text(
     text: str,
     distance_unit: str = "feet",
@@ -248,7 +286,7 @@ def _extract_calls_from_text(
         )
         has_initial_course = bool(thence_match and _is_initial_course_prefix(prefix))
         if thence_match and (has_beginning_preamble or not has_initial_course):
-            tract_text = tract_text[thence_match.start() :]
+            tract_text = _trailing_thence_course(prefix) + tract_text[thence_match.start() :]
 
         has_numbered_course_markers = bool(
             re.search(r"(?:^|\n)\s*(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s+", tract_text, re.MULTILINE)
@@ -316,6 +354,7 @@ def _extract_calls_from_text(
 
             course_num += 1
 
+        tract_calls = _mark_preamble_tie_courses(tract_calls, _preamble_tie_course_count(prefix))
         calls.extend(_mark_restated_pob_tie_lines(tract_calls, tract_call_texts))
 
     return calls
