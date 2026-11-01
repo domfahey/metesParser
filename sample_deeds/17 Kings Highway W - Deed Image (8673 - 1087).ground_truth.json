@@ -5,12 +5,19 @@
     "state": "NJ",
     "book": "8673",
     "page": "1087",
-    "parcel_shape": "Trapezoid (non-closing due to distance error in call 2)",
-    "dimensions": "~135 ft x ~87 ft (nominal, but traverse does not close)"
+    "parcel_shape": "Trapezoid",
+    "dimensions": "~135 ft x ~82 ft (Calls 1&3 non-parallel by ~1.04 deg; Calls 2&4 parallel)",
+    "date": "September 18, 2007",
+    "recorded": "10/02/2007",
+    "grantor": "First States Investors 3613, LLC, a New Jersey limited liability company",
+    "grantee": "First States Investors 6000C, L.P., a Delaware limited partnership",
+    "consideration": "$1.00",
+    "block": "134",
+    "lot": "9.01"
   },
   "raw_ocr_text": "EXHIBIT \"A\"\nLegal Description\n\nALL THAT CERTAIN TRACT OR PARCEL AND LOT OF LAND LYING AND BEING SITUATE IN THE BOROUGH OF HADDONFIELD, COUNTY OF CAMDEN, STATE OF NEW JERSEY, BEING MORE PARTICULARLY DESCRIBED AS FOLLOWS:\n\nBEGINNING AT THE NORTHERLY CORNER OF KINGS HIGHWAY AND LINDEN AVENUE, 50 FEET WIDE; THENCE\n\n1. NORTH 32 DEGREES 6 MINUTES 30 SECONDS WEST ALONG THE NORTHEASTERLY SIDE OF LINDEN AVENUE 135 FEET TO A POINT; THENCE\n\n2. NORTH 57 DEGREES 53 MINUTES 30 SECONDS EAST PARALLEL WITH KINGS HIGHWAY WEST, 90.72 FEET TO THE LINE OF LAND NOW OR FORMERLY OF WILLIAM G. MOORE; THENCE\n\n3. SOUTH 33 DEGREES 9 MINUTES EAST PARTLY ALONG SAID MOORE'S LAND AND ALONG LANDS OF NOW OR FORMERLY THE STANDARD OIL COMPANY OF NEW JERSEY 135.02 FEET TO THE NORTHWESTERLY LINE OF KINGS HIGHWAY WEST; THENCE\n\n4. SOUTH 57 DEGREES 53 MINUTES 30 SECONDS WEST ALONG THE NORTHWESTERLY LINE OF KINGS HIGHWAY WEST, 83.17 FEET TO THE PLACE OF BEGINNING.\n\nBeing the same lands and premises that Wachovia Bank, National Association granted and conveyed unto the Grantor by Deed dated August 31, 2006 and recorded March 9, 2007 in Deed Book DB 8494, page 812.",
-  "expected_legal_description": "BEGINNING AT THE NORTHERLY CORNER OF KINGS HIGHWAY AND LINDEN AVENUE, 50 FEET WIDE; THENCE\n1. NORTH 32 DEGREES 6 MINUTES 30 SECONDS WEST ALONG THE NORTHEASTERLY SIDE OF LINDEN AVENUE 135 FEET TO A POINT; THENCE\n2. NORTH 57 DEGREES 53 MINUTES 30 SECONDS EAST PARALLEL WITH KINGS HIGHWAY WEST, 90.72 FEET TO THE LINE OF LAND NOW OR FORMERLY OF WILLIAM G. MOORE; THENCE\n3. SOUTH 33 DEGREES 9 MINUTES EAST PARTLY ALONG SAID MOORE'S LAND AND ALONG LANDS OF NOW OR FORMERLY THE STANDARD OIL COMPANY OF NEW JERSEY 135.02 FEET TO THE NORTHWESTERLY LINE OF KINGS HIGHWAY WEST; THENCE\n4. SOUTH 57 DEGREES 53 MINUTES 30 SECONDS WEST ALONG THE NORTHWESTERLY LINE OF KINGS HIGHWAY WEST, 83.17 FEET TO THE PLACE OF BEGINNING.",
-  "expected_normalized_text": "BEGINNING at the northerly corner of Kings Highway and Linden Avenue, 50 feet wide; thence\n1. N 32°06'30\" W along the northeasterly side of Linden Avenue 135 feet to a point; thence\n2. N 57°53'30\" E parallel with Kings Highway West, 90.72 feet to the line of land now or formerly of William G. Moore; thence\n3. S 33°09' E partly along said Moore's land and along lands of now or formerly the Standard Oil Company of New Jersey 135.02 feet to the northwesterly line of Kings Highway West; thence\n4. S 57°53'30\" W along the northwesterly line of Kings Highway West, 83.17 feet to the place of beginning.",
+  "expected_legal_description": "ALL THAT CERTAIN TRACT OR PARCEL AND LOT OF LAND LYING AND BEING SITUATE IN THE BOROUGH OF HADDONFIELD, COUNTY OF CAMDEN, STATE OF NEW JERSEY, BEING MORE PARTICULARLY DESCRIBED AS FOLLOWS:\n\nBEGINNING AT THE NORTHERLY CORNER OF KINGS HIGHWAY AND LINDEN AVENUE, 50 FEET WIDE; THENCE\n1. NORTH 32 DEGREES 6 MINUTES 30 SECONDS WEST ALONG THE NORTHEASTERLY SIDE OF LINDEN AVENUE 135 FEET TO A POINT; THENCE\n2. NORTH 57 DEGREES 53 MINUTES 30 SECONDS EAST PARALLEL WITH KINGS HIGHWAY WEST, 90.72 FEET TO THE LINE OF LAND NOW OR FORMERLY OF WILLIAM G. MOORE; THENCE\n3. SOUTH 33 DEGREES 9 MINUTES EAST PARTLY ALONG SAID MOORE'S LAND AND ALONG LANDS OF NOW OR FORMERLY THE STANDARD OIL COMPANY OF NEW JERSEY 135.02 FEET TO THE NORTHWESTERLY LINE OF KINGS HIGHWAY WEST; THENCE\n4. SOUTH 57 DEGREES 53 MINUTES 30 SECONDS WEST ALONG THE NORTHWESTERLY LINE OF KINGS HIGHWAY WEST, 83.17 FEET TO THE PLACE OF BEGINNING.\n\nBeing the same lands and premises that Wachovia Bank, National Association granted and conveyed unto the Grantor by Deed dated August 31, 2006 and recorded March 9, 2007 in Deed Book DB 8494, page 812.",
+  "expected_normalized_text": "ALL THAT CERTAIN TRACT OR PARCEL AND LOT OF LAND LYING AND BEING SITUATE IN THE BOROUGH OF HADDONFIELD, COUNTY OF CAMDEN, STATE OF NEW JERSEY, BEING MORE PARTICULARLY DESCRIBED AS FOLLOWS:\nBEGINNING AT THE NORTHERLY CORNER OF KINGS HIGHWAY AND LINDEN AVENUE, 50 FEET WIDE; THENCE\n1. N 32°6'30\" W ALONG THE NORTHEASTERLY SIDE OF LINDEN AVENUE 135 FEET TO A POINT; THENCE\n2. N 57°53'30\" E PARALLEL WITH KINGS HIGHWAY WEST, 90.72 FEET TO THE LINE OF LAND NOW OR FORMERLY OF WILLIAM G. MOORE; THENCE\n3. S 33°9' E PARTLY ALONG SAID MOORE'S LAND AND ALONG LANDS OF NOW OR FORMERLY THE STANDARD OIL COMPANY OF NEW JERSEY 135.02 FEET TO THE NORTHWESTERLY LINE OF KINGS HIGHWAY WEST; THENCE\n4. S 57°53'30\" W ALONG THE NORTHWESTERLY LINE OF KINGS HIGHWAY WEST, 83.17 FEET TO THE PLACE OF BEGINNING. Being the same lands and premises that Wachovia Bank, National Association granted and conveyed unto the Grantor by Deed dated August 31, 2006 and recorded March 9, 2007 in Deed Book DB 8494, page 812.",
   "expected_pob": "THE NORTHERLY CORNER OF KINGS HIGHWAY AND LINDEN AVENUE, 50 FEET WIDE",
   "expected_calls": [
     {
@@ -31,7 +38,7 @@
       "distance_ft": 80.72,
       "along": "PARALLEL WITH KINGS HIGHWAY WEST",
       "to": "THE LINE OF LAND NOW OR FORMERLY OF WILLIAM G. MOORE",
-      "notes": "printed \"90.72 feet\"; recorded as 80.72 ft: the corrective deeds (Book 8658 Page 1822 and Book 10394 Page 9) correct this course to 80.72 ft, which closes the parcel",
+      "notes": "printed \"90.72 feet\"; recorded as 80.72 ft: the 2016 corrective deed Book 10394 Page 9, between this deed's Grantor and Grantee, corrects this course to 80.72 ft (as Book 8658 Page 1822 did for Book 8494 Page 812), which closes the parcel",
       "printed_distance_ft": 90.72
     },
     {
@@ -69,15 +76,15 @@
       "operator": "==",
       "description": "MUST extract exactly 4 calls"
     },
-    "erroneous_distance_call_2": {
+    "printed_distance_call_2": {
       "expected": 90.72,
       "operator": "==",
-      "description": "Call 2 distance MUST be 90.72 ft as written in this deed (known error, later corrected)"
+      "description": "Call 2 is printed 90.72 ft (printed_distance_ft); distance_ft records the corrected 80.72 ft"
     },
-    "traverse_does_not_close": {
-      "expected": false,
+    "traverse_closes_with_corrected_distance": {
+      "expected": true,
       "tolerance_ft": 0.01,
-      "description": "Traverse MUST NOT close - misclosure should be ~10 ft due to the 10 ft distance error in call 2"
+      "description": "With course 2 at the corrected 80.72 ft the traverse closes to < 0.01 ft; as printed (90.72 ft) it misses by ~10 ft"
     },
     "all_caps_preserved": {
       "expected": true,
@@ -94,9 +101,9 @@
   },
   "common_failure_modes": [
     {
-      "symptom": "Traverse does not close (~10 ft misclosure)",
-      "cause": "This is EXPECTED behavior - the deed contains a known distance error in call 2 (90.72 ft instead of correct 80.72 ft)",
-      "fix": "No fix needed - the parser correctly identifies the non-closure. Corrective deeds 8658-1822 and 10394-9 fix this error."
+      "symptom": "Traverse misses by ~10 ft when course 2 is read as printed",
+      "cause": "The deed prints 90.72 ft for course 2; the 2016 corrective deed Book 10394 Page 9, between the same parties, corrects it to 80.72 ft",
+      "fix": "Compare parser output with printed_distance_ft; closure uses the corrected 80.72 ft"
     },
     {
       "symptom": "Call 3 bearing parsed as S 33d09m30s E instead of S 33d09m E",
@@ -119,5 +126,5 @@
       "fix": "Parser should preserve verbatim deed language without attempting to normalize phrasing"
     }
   ],
-  "notes": "2007 Deed (First States Investors 3613 LLC to First States Investors 6000C LP) for $1.00. This is an intra-company transfer that carries forward the UNCORRECTED distance error from the original 2006 deed (8494-812). The legal description is in ALL CAPS format, unlike the other three deeds in this chain. Uses '1.' numbered format instead of '(1)'. Call 3 phrasing differs slightly: 'ALONG LANDS OF NOW OR FORMERLY THE STANDARD OIL COMPANY' vs 'along lands now or formerly of the Standard Oil Company'. This deed was recorded October 2, 2007, about 3 weeks after the corrective deed (8658-1822, recorded September 13, 2007), suggesting it may have been prepared before the correction was recorded. Same property as deeds 8494-812, 8658-1822, and 10394-9. The 2016 corrective deed (10394-9) was filed to correct this deed's Exhibit A as well. Course 2 is printed 90.72 ft and recorded as 80.72 ft (printed_distance_ft keeps 90.72), as corrected by the later corrective deeds."
+  "notes": "Checked against Book 8673 Pages 1087-1093, PDF pages 1-7: Exhibit A (Page 1093, PDF page 6) matches every course; its opening sentence and Being clause were added. 2007 Deed (First States Investors 3613 LLC to First States Investors 6000C LP) for $1.00. This is an intra-company transfer that carries forward the UNCORRECTED distance error from the original 2006 deed (8494-812). The legal description is in ALL CAPS format, unlike the other three deeds in this chain. Uses '1.' numbered format instead of '(1)'. Call 3 phrasing differs slightly: 'ALONG LANDS OF NOW OR FORMERLY THE STANDARD OIL COMPANY' vs 'along lands now or formerly of the Standard Oil Company'. This deed was recorded October 2, 2007, about 3 weeks after the corrective deed (8658-1822, recorded September 13, 2007), suggesting it may have been prepared before the correction was recorded. Same property as deeds 8494-812, 8658-1822, and 10394-9. The 2016 corrective deed Book 10394 Page 9, between the same Grantor and Grantee, corrects this deed's Exhibit A. Course 2 is printed 90.72 ft and recorded as 80.72 ft (printed_distance_ft keeps 90.72), as corrected by the later corrective deeds."
 }

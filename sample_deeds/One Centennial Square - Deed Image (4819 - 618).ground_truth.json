@@ -1,24 +1,35 @@
 {
   "deed_info": {
-    "address": "Unknown",
-    "city": "Unknown",
+    "address": "One Centennial Square",
+    "city": "Haddonfield",
     "state": "NJ",
-    "book": "Unknown",
-    "page": "Unknown"
+    "book": "4819",
+    "page": "618",
+    "date": "May 9, 1996",
+    "deed_type": "Confirmatory Deed",
+    "grantor": "One Centennial Square Associates, L.L.C., a New Jersey limited liability company",
+    "grantee": "One Centennial Square Associates, L.L.C., a New Jersey limited liability company",
+    "consideration": "$1.00",
+    "block": "129",
+    "lot": "3"
   },
   "raw_ocr_text": "I can’t extract the *complete* text with exact spelling/line breaks from these images as provided because the scan is too low‑resolution and many lines (especially the body paragraphs and any legal description/“BEGINNING/THENCE” style metes-and-bounds text) are not legible enough to read reliably. If I guessed, I’d risk introducing errors into a legal document.\n\nWhat I *can* do now:\n- If you upload the original PDF (not screenshots) or higher‑resolution page images (300–600 dpi, or at least ~2500–3500 px tall per page), I can return a full verbatim transcription with preserved line breaks and formatting.\n- If the legal description is on an “Exhibit A” page that isn’t shown here, please include that page too.\n\nBelow is **all text that is clearly legible** from the images you provided, preserving line breaks as best as the scan allows. Illegible portions are marked **[ILLEGIBLE]**.\n\n---\n\n## Page 1\n\nPREPARED BY:  \n[signature]  \nROBERT R. KUGLER  \nArcher & Greiner,  \nA Professional Corpora...",
-  "expected_legal_description": "[LEGAL DESCRIPTION NOT PRESENT IN PROVIDED DOCUMENT TEXT — Exhibit “A” is referenced but not included/legible, and no metes-and-bounds or lot-and-block legal description text appears in the provided pages.]",
-  "expected_normalized_text": "[LEGAL DESCRIPTION NOT PRESENT IN PROVIDED DOCUMENT TEXT — Exhibit “A” is referenced but not included/legible, and no metes-and-bounds or lot-and-block legal description text appears in the provided pages.]",
+  "expected_legal_description": "Property. The property consists of the land and all the buildings and structures on the land in the Borough of Haddonfield, County of Camden, and State of New Jersey. The legal description is attached hereto and made a part hereof as Exhibit \"A\".",
+  "expected_normalized_text": "Property. The property consists of the land and all the buildings and structures on the land in the Borough of Haddonfield, County of Camden, and State of New Jersey. The legal description is attached hereto and made a part hereof as Exhibit \"A\".",
   "expected_poc": null,
-  "expected_pob": "",
+  "expected_pob": null,
   "expected_calls": [],
-  "expected_closure": {},
+  "expected_closure": null,
   "critical_assertions": {
     "num_calls": {
       "expected": 0,
       "operator": "==",
       "description": "MUST extract exactly 0 calls"
+    },
+    "exhibit_a_not_in_scan": {
+      "expected": true,
+      "description": "The deed's Exhibit \"A\" legal description is not among the recorded pages 618-620, so 0 calls is correct"
     }
   },
-  "notes": "Ground truth generated at 2026-02-16T22:38:42.036896+00:00"
+  "notes": "Checked against Book 4819 Pages 618-620 (PDF pages 1-3): this Confirmatory Deed (merger of One Centennial Square Associates into the L.L.C.) says the legal description is attached as Exhibit \"A\", but the scan holds only the deed, the RTF affidavit and the acknowledgment/back cover, so there are no courses. The bracketed placeholder is replaced with the deed's verbatim Property clause. The RTF affidavit states consideration $2,814,360.00; the deed states $1.00. Ground truth generated at 2026-02-16T22:38:42.036896+00:00"
 }
