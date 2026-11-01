@@ -17,7 +17,7 @@
       "direction_text": "N 73°30'00\" W",
       "bearing_quadrant": "N 73°30' W",
       "bearing_azimuth_deg_from_north": 286.5,
-      "distance_ft": 217.14,
+      "distance_ft": 317.14,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
@@ -25,10 +25,11 @@
       "along": "said Public Road",
       "to": "a stake in same, said stake being 68 feet Southeastwardly from lands now or late of William Hooten",
       "monument_type": null,
-      "notes": null,
+      "notes": "printed \"217.14 feet\"; recorded as 317.14 ft: with it Tract 1 closes to 0.008 ft, and as printed it misses by 99.99 ft along this course",
       "tract": "Tract 1",
       "is_exception": false,
-      "is_tie_in": false
+      "is_tie_in": false,
+      "printed_distance_ft": 217.14
     },
     {
       "course": 2,
@@ -199,7 +200,7 @@
     "area_acres": null,
     "perimeter_ft": null,
     "closure_passed": false,
-    "notes": "Main parcel with an exception; one closure across both is not meaningful. Tract 1 closes at 99.992 ft, area 47,531.50 sq ft; Exception 1 (courses 7-10) closes at 0.000 ft, area 470.00 sq ft."
+    "notes": "Main parcel with an exception; one closure across both is not meaningful. Tract 1 closes at 0.008 ft, area 47,531.62 sq ft; Exception 1 (courses 7-10) closes at 0.000 ft, area 470.00 sq ft."
   },
   "critical_assertions": {
     "num_calls": {
@@ -208,5 +209,5 @@
       "description": "MUST extract exactly 10 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T03:08:18.292792+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF: Exhibit A (Book 9888 Page 958, PDF page 5) matches the 9476-462 Exhibit A word for word, so its courses carry over. The previous ground truth had (B) as 21.00 ft (the deed says 27.00), omitted tie course (A), and flagged neither the tie courses nor the exception."
+  "notes": "Ground truth generated at 2026-02-17T03:08:18.292792+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF: Exhibit A (Book 9888 Page 958, PDF page 5) matches the 9476-462 Exhibit A word for word, so its courses carry over. The previous ground truth had (B) as 21.00 ft (the deed says 27.00), omitted tie course (A), and flagged neither the tie courses nor the exception. Tract 1 course 1 is printed 217.14 ft and recorded as 317.14 ft (printed_distance_ft keeps 217.14): with it Tract 1 closes to 0.008 ft."
 }

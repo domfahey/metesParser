@@ -15,87 +15,87 @@
     "consideration": "$522,000.00"
   },
   "raw_ocr_text": "BEGINNING at a point in the Southwesterly line of Washington Avenue (40.00 feet wide) said point being South 25 degrees 06 minutes 00 seconds East, a distance of 85.00 feet measured along the Southwesterly line of Washington Avenue from the intersection of same with the Southeasterly line of Kings Highway West, also known as Main Street, (66.00 feet wide), said point being in the division line between Lots 11.01 and 12, Block 76 as shown on map hereinafter mentioned and extending; thence\n\n(1) South 25 degrees 06 minutes 00 seconds East along the Southwesterly line of Washington Avenue, a distance of 72.02 feet to a point; thence\n\n(2) South 61 degrees 15 minutes 26 seconds West along the division line between proposed Lots 11.01 and 12.01, Block 76 as shown on said map, a distance of 84.84 feet to a point; thence\n\n(3) South 28 degrees 44 minutes 34 seconds East still along the proposed division line, a distance of 13.35 feet to a point; thence\n\n(4) South 61 degrees 15 minutes 26 seconds West again along the proposed division line, a distance of 58.57 feet to a point; thence\n\n(5) North 32 degrees 22 minutes 35 seconds West along the division line between Lots 11 and 11.01, Block 76 of said map, a distance of 164.01 feet to a point in the Southeasterly line of Kings Highway West; thence\n\n(6) North 59 degrees 02 minutes 00 seconds East along the Southeasterly line of Kings Highway West, a distance of 116.91 feet to a point; thence\n\n(7) South 30 degrees 58 minutes 00 seconds East along the division line between Lots 11.01 and 12, Block 76 of said map, a distance of 85.34 feet to a point; thence\n\n(8) North 59 degrees 02 minutes 00 seconds East still along the division line between Lots 11.01 and 12, Block 76 of said map, a distance of 37.73 feet to the point and place of beginning.",
-  "expected_legal_description": "BEGINNING at a point in the Southwesterly line of Washington Avenue (40.00 feet wide) said point being South 25 degrees 06 minutes 00 seconds East, a distance of 85.00 feet measured along the Southwesterly line of Washington Avenue from the intersection of same with the Southeasterly line of Kings Highway West; thence (1) through (8) to the point and place of beginning.",
-  "expected_normalized_text": "Beginning at a point in the Southwesterly line of Washington Avenue (40.00 feet wide) said point being South 25 degrees 06 minutes 00 seconds East, a distance of 85.00 feet measured along the Southwesterly line of Washington Avenue from the intersection of same with the Southeasterly line of Kings Highway West, also known as Main Street, (66.00 feet wide)",
+  "expected_legal_description": "BEGINNING at a point in the Southwesterly line of Washington Avenue (40.00 feet wide) said point being South 25 degrees 06 minutes 00 seconds East, a distance of 85.00 feet measured along the Southwesterly line of Washington Avenue from the intersection of same with the Southeasterly line of Kings Highway West, also known as Main Street, (66.00 feet wide), said point being in the division line between Lots 11.01 and 12, Block 76 as shown on map hereinafter mentioned and extending; thence\n\n(1) South 25 degrees 06 minutes 00 seconds East along the Southwesterly line of Washington Avenue, a distance of 72.02 feet to a point; thence\n\n(2) South 61 degrees 15 minutes 26 seconds West along the division line between proposed Lots 11.01 and 12.01, Block 76 as shown on said map, a distance of 84.84 feet to a point; thence\n\n(3) South 28 degrees 44 minutes 34 seconds East still along the proposed division line a distance of 13.35 feet to a point; thence\n\n(4) South 61 degrees 15 minutes 26 seconds West again along the proposed division line, a distance of 58.57 feet to a point; thence\n\n(5) North 32 degrees 22 minutes 35 seconds West along the division line between Lots 11 and 11.01, Block 76 of said map, a distance of 164.01 feet to a point in the Southeasterly line of Kings Highway West; thence\n\n(6) North 59 degrees 02 minutes 00 seconds East along the Southeasterly line of Kings Highway West, a distance of 116.91 feet to a point; thence\n\n(7) South 30 degrees 58 minutes 00 seconds East along the division line between Lots 11.01 and 12, Block 76 of said map, a distance of 85.34 feet to a point; thence\n\n(8) North 59 degrees 02 minutes 00 seconds East still along the division line between Lots 11.01 and 12, Block 76 of said map, a distance of 37.73 feet to the point and place of beginning.\n\nFOR INFORMATIONAL PURPOSES ONLY:  Also known as Lot 11.01 in Block 76 on the Borough of Haddonfield Tax Map.",
+  "expected_normalized_text": "BEGINNING at a point in the Southwesterly line of Washington Avenue (40.00 feet wide) said point being S 25°06'00\" E, a distance of 85.00 feet measured along the Southwesterly line of Washington Avenue from the intersection of same with the Southeasterly line of Kings Highway West, also known as Main Street, (66.00 feet wide), said point being in the division line between Lots 11.01 and 12, Block 76 as shown on map hereinafter mentioned and extending; thence\n\n(1) S 25°06'00\" E along the Southwesterly line of Washington Avenue, a distance of 72.02 feet to a point; thence\n\n(2) S 61°15'26\" W along the division line between proposed Lots 11.01 and 12.01, Block 76 as shown on said map, a distance of 84.84 feet to a point; thence\n\n(3) S 28°44'34\" E still along the proposed division line a distance of 13.35 feet to a point; thence\n\n(4) S 61°15'26\" W again along the proposed division line, a distance of 58.57 feet to a point; thence\n\n(5) N 32°22'35\" W along the division line between Lots 11 and 11.01, Block 76 of said map, a distance of 164.01 feet to a point in the Southeasterly line of Kings Highway West; thence\n\n(6) N 59°02'00\" E along the Southeasterly line of Kings Highway West, a distance of 116.91 feet to a point; thence\n\n(7) S 30°58'00\" E along the division line between Lots 11.01 and 12, Block 76 of said map, a distance of 85.34 feet to a point; thence\n\n(8) N 59°02'00\" E still along the division line between Lots 11.01 and 12, Block 76 of said map, a distance of 37.73 feet to the point and place of beginning.\n\nFOR INFORMATIONAL PURPOSES ONLY:  Also known as Lot 11.01 in Block 76 on the Borough of Haddonfield Tax Map.",
   "expected_pob": "a point in the Southwesterly line of Washington Avenue (40.00 feet wide) said point being South 25 degrees 06 minutes 00 seconds East, a distance of 85.00 feet measured along the Southwesterly line of Washington Avenue from the intersection of same with the Southeasterly line of Kings Highway West",
   "expected_calls": [
     {
       "course": 1,
       "direction_text": "S 25 degrees 06 minutes 00 seconds E",
-      "bearing_quadrant": "S 25\u00b006'00\" E",
+      "bearing_quadrant": "S 25°06'00\" E",
       "bearing_azimuth_deg_from_north": 154.9,
       "distance_ft": 72.02,
-      "along": "Southwesterly line of Washington Avenue",
+      "along": "the Southwesterly line of Washington Avenue",
       "to": "a point",
       "notes": null
     },
     {
       "course": 2,
       "direction_text": "S 61 degrees 15 minutes 26 seconds W",
-      "bearing_quadrant": "S 61\u00b015'26\" W",
+      "bearing_quadrant": "S 61°15'26\" W",
       "bearing_azimuth_deg_from_north": 241.2572,
       "distance_ft": 84.84,
-      "along": "division line between proposed Lots 11.01 and 12.01, Block 76",
+      "along": "the division line between proposed Lots 11.01 and 12.01, Block 76 as shown on said map",
       "to": "a point",
       "notes": null
     },
     {
       "course": 3,
       "direction_text": "S 28 degrees 44 minutes 34 seconds E",
-      "bearing_quadrant": "S 28\u00b044'34\" E",
+      "bearing_quadrant": "S 28°44'34\" E",
       "bearing_azimuth_deg_from_north": 151.2572,
       "distance_ft": 13.35,
-      "along": "proposed division line",
+      "along": "the proposed division line",
       "to": "a point",
       "notes": null
     },
     {
       "course": 4,
       "direction_text": "S 61 degrees 15 minutes 26 seconds W",
-      "bearing_quadrant": "S 61\u00b015'26\" W",
+      "bearing_quadrant": "S 61°15'26\" W",
       "bearing_azimuth_deg_from_north": 241.2572,
       "distance_ft": 58.57,
-      "along": "proposed division line",
+      "along": "the proposed division line",
       "to": "a point",
       "notes": null
     },
     {
       "course": 5,
       "direction_text": "N 32 degrees 22 minutes 35 seconds W",
-      "bearing_quadrant": "N 32\u00b022'35\" W",
+      "bearing_quadrant": "N 32°22'35\" W",
       "bearing_azimuth_deg_from_north": 327.6236,
       "distance_ft": 164.01,
-      "along": "division line between Lots 11 and 11.01, Block 76",
+      "along": "the division line between Lots 11 and 11.01, Block 76 of said map",
       "to": "a point in the Southeasterly line of Kings Highway West",
       "notes": null
     },
     {
       "course": 6,
       "direction_text": "N 59 degrees 02 minutes 00 seconds E",
-      "bearing_quadrant": "N 59\u00b002'00\" E",
+      "bearing_quadrant": "N 59°02'00\" E",
       "bearing_azimuth_deg_from_north": 59.0333,
       "distance_ft": 116.91,
-      "along": "Southeasterly line of Kings Highway West",
+      "along": "the Southeasterly line of Kings Highway West",
       "to": "a point",
       "notes": null
     },
     {
       "course": 7,
       "direction_text": "S 30 degrees 58 minutes 00 seconds E",
-      "bearing_quadrant": "S 30\u00b058'00\" E",
+      "bearing_quadrant": "S 30°58'00\" E",
       "bearing_azimuth_deg_from_north": 149.0333,
       "distance_ft": 85.34,
-      "along": "division line between Lots 11.01 and 12, Block 76",
+      "along": "the division line between Lots 11.01 and 12, Block 76 of said map",
       "to": "a point",
       "notes": null
     },
     {
       "course": 8,
       "direction_text": "N 59 degrees 02 minutes 00 seconds E",
-      "bearing_quadrant": "N 59\u00b002'00\" E",
+      "bearing_quadrant": "N 59°02'00\" E",
       "bearing_azimuth_deg_from_north": 59.0333,
       "distance_ft": 37.73,
-      "along": "division line between Lots 11.01 and 12, Block 76",
+      "along": "the division line between Lots 11.01 and 12, Block 76 of said map",
       "to": "the point and place of beginning",
       "notes": null
     }
@@ -115,7 +115,12 @@
     "has_kings_highway_frontage": true,
     "has_washington_ave_frontage": true,
     "misclosure_is_large": true,
-    "note": "Misclosure of ~0.98 ft is significant. This is the L-shaped main parcel (Lot 11.01) that wraps from Kings Highway West along Washington Avenue. The large misclosure may be due to the complex shape with 8 sides and a notch (calls 6-7-8) where Lot 12 inserts into the boundary. The 2013 survey by Macnamara may have used different control than the 2003 JTS survey."
+    "note": "Misclosure of ~0.98 ft is significant. This is the L-shaped main parcel (Lot 11.01) that wraps from Kings Highway West along Washington Avenue. The large misclosure may be due to the complex shape with 8 sides and a notch (calls 6-7-8) where Lot 12 inserts into the boundary. The 2013 survey by Macnamara may have used different control than the 2003 JTS survey.",
+    "num_calls": {
+      "expected": 8,
+      "operator": "==",
+      "description": "MUST extract exactly 8 calls"
+    }
   },
   "common_failure_modes": [
     "8-sided L-shaped parcel is complex - may confuse simple parsers",
@@ -124,5 +129,5 @@
     "Large misclosure (~0.98 ft) suggests the deed description itself has survey inconsistency",
     "POB location uses 85.00 feet (round number) which is unusual for a surveyed point"
   ],
-  "notes": "This is the main 8 Kings Highway West parcel (Lot 11.01), the L-shaped lot that wraps from Kings Highway West around to Washington Avenue. It was the commercial building parcel retained when the larger parcel was subdivided for the Willits Court townhouses. Sold in 2013 by 8 Kings Highway LLC to Kings Hall LLC for $522,000. The 8-sided shape results from: Washington Ave frontage (call 1), the notch boundary with the Willits Court lots (calls 2-3-4), the Lot 11 boundary (call 5), Kings Highway frontage (call 6), and the Lot 12 jog (calls 7-8). The ~0.98 ft misclosure is notable and may indicate a survey discrepancy in the 2013 Macnamara survey."
+  "notes": "This is the main 8 Kings Highway West parcel (Lot 11.01), the L-shaped lot that wraps from Kings Highway West around to Washington Avenue. It was the commercial building parcel retained when the larger parcel was subdivided for the Willits Court townhouses. Sold in 2013 by 8 Kings Highway LLC to Kings Hall LLC for $522,000. The 8-sided shape results from: Washington Ave frontage (call 1), the notch boundary with the Willits Court lots (calls 2-3-4), the Lot 11 boundary (call 5), Kings Highway frontage (call 6), and the Lot 12 jog (calls 7-8). The ~0.98 ft misclosure is notable and may indicate a survey discrepancy in the 2013 Macnamara survey. Legal description rebuilt 2026-10-31 from the recorded PDF (Book 9787 Pages 1784-1785, PDF pages 1-2); the previous text was a placeholder (\"thence (1) through (8) to the point and place of beginning\"). All eight courses match the deed as printed, so the ~0.98 ft misclosure is the deed's own."
 }

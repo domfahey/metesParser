@@ -110,9 +110,9 @@
     },
     {
       "course": 7,
-      "direction_text": "N 50°45'00\" E",
-      "bearing_quadrant": "N 50°45' E",
-      "bearing_azimuth_deg_from_north": 50.75,
+      "direction_text": "N 56°45'00\" E",
+      "bearing_quadrant": "N 56°45' E",
+      "bearing_azimuth_deg_from_north": 56.75,
       "distance_ft": 416.57,
       "curve_dir": null,
       "radius_ft": null,
@@ -121,8 +121,9 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": null,
-      "is_tie_in": false
+      "notes": "printed \"North 50 degrees 45 minutes 00 seconds East\"; recorded as N 56°45'00\" E: the lot closes to 0.13 ft with it and misses by 43.6 ft as printed. Every deed carrying this description (07105-00834, 08256-00635, 12799-00118 Schedule A-2, 12941-00156) prints 50 degrees.",
+      "is_tie_in": false,
+      "printed_bearing_azimuth_deg_from_north": 50.75
     },
     {
       "course": 8,
@@ -499,7 +500,7 @@
     "area_acres": null,
     "perimeter_ft": null,
     "closure_passed": false,
-    "notes": "Multi-property deed (Schedules A-1 to A-4); one closure across schedules is not meaningful. Schedule A-1 boundary (courses 3-6) closes at 0.005 ft, area 60,586.50 sq ft."
+    "notes": "Multi-property deed (Schedules A-1 to A-4); one closure across schedules is not meaningful. Schedule A-1 boundary (courses 3-6) closes at 0.005 ft, area 60,586.50 sq ft. Schedule A-2's lot (courses 7-18) closes at 0.130 ft with course 7 recorded as N 56°45' E (43.6 ft as printed)."
   },
   "critical_assertions": {
     "num_calls": {
@@ -508,5 +509,5 @@
       "description": "MUST extract exactly 30 calls"
     }
   },
-  "notes": "Ground truth generated at 2026-02-17T03:05:40.497923+00:00. Schedule A-1 fixed 2026-10-31 from the recorded PDF (Book 12799 Page 118, PDF page 7): the 483.13 ft and 17.78 ft courses run from the intersection to the point of beginning and are tie courses (is_tie_in). Schedule A-1 boundary (courses 3-6) closes at 0.005 ft, area 60,586.50 sq ft. Schedule A-2 prints five distances with decimal commas (\"300,07\", \"86,75\", \"128,93\", \"140,00\" and the easement's \"35,00\"); the legal text keeps them, and the calls record the values."
+  "notes": "Ground truth generated at 2026-02-17T03:05:40.497923+00:00. Schedule A-1 fixed 2026-10-31 from the recorded PDF (Book 12799 Page 118, PDF page 7): the 483.13 ft and 17.78 ft courses run from the intersection to the point of beginning and are tie courses (is_tie_in). Schedule A-1 boundary (courses 3-6) closes at 0.005 ft, area 60,586.50 sq ft. Schedule A-2 prints five distances with decimal commas (\"300,07\", \"86,75\", \"128,93\", \"140,00\" and the easement's \"35,00\"); the legal text keeps them, and the calls record the values. Course 7 (N 50°45' E as printed) is recorded as N 56°45' E: the 12-course lot then closes to 0.130 ft (43.6 ft as printed)."
 }
