@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mp_export.csv_writer import (  # type: ignore[import-untyped]
+from mp_export.csv_writer import (
     FIELDNAMES,
     calls_to_csv,
     csv_text_to_calls,
