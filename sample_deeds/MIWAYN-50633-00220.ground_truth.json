@@ -173,7 +173,7 @@
   },
   "raw_ocr_text": "13H2C D PART OF NW 1/4 SEC 13 T4S R9E BEG AT NW COR SEC 13 TH S88DEG 23M 20S E 371FT TH S0DEG 02M 20S W 165FT TH N88DEG 23M 20S W 371FT TH NODEG 02M 20S E 165FT POB 1.40 AC",
   "expected_legal_description": "13H2C D PART OF NW 1/4 SEC 13 T4S R9E BEG AT NW COR SEC 13 TH S88DEG 23M 20S E 371FT TH S0DEG 02M 20S W 165FT TH N88DEG 23M 20S W 371FT TH N0DEG 02M 20S E 165FT POB 1.40 AC",
-  "expected_normalized_text": "13H2C D PART OF NW 1/4 SEC 13 T4S R9E BEG AT NW COR SEC 13 TH S 88°23'20\" E 371FT TH S 0°02'20\" W 165FT TH N 88°23'20\" W 371FT TH N 0°02'20\" E 165FT POB 1.40 AC",
+  "expected_normalized_text": "13H2C D PART OF NW 1/4 seconds 13 T4S R9E beginning AT NW corner SEC 13 thence S 88°23'20\" E 371 feet thence S 0°02'20\" W 165 feet thence N 88°23'20\" W 371 feet thence N 0°02'20\" E 165 feet point of beginning 1.40 AC",
   "expected_poc": null,
   "expected_pob": "NW COR SEC 13",
   "expected_calls": [
