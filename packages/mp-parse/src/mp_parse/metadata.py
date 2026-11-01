@@ -579,7 +579,7 @@ def _is_lot_qualifier_except(text: str, match: re.Match[str]) -> bool:
     matched_text = match.group(0)
     if re.search(r"LESS\s+AND", matched_text, re.IGNORECASE):
         return False
-    if re.search(r"ING$", matched_text, re.IGNORECASE):
+    if re.search(r"EXCEPTING$", matched_text, re.IGNORECASE):
         return False
 
     # Look at the text following the EXCEPT keyword
@@ -597,7 +597,8 @@ def _is_lot_qualifier_except(text: str, match: re.Match[str]) -> bool:
         r"(?:erly|wardly)?"
         rf"\s+{COMMA_NUMBER}"
         r"\s+(?:feet|foot|ft|poles?|rods?|chains?|links?|varas?|meters?)"
-        r"\s+(?:of\b|in\b|thereof\b)",
+        # "except the East 20 feet deeded for roadway."
+        r"\s+(?:of\b|in\b|thereof\b|deeded\b|taken\b|conveyed\b|dedicated\b|for\b)",
         re.IGNORECASE,
     )
     return bool(lot_qualifier_pattern.match(after))
@@ -615,7 +616,9 @@ def split_exception_clauses(text: str) -> list[tuple[str, bool]]:
     """
     splits: list[tuple[int, int, bool]] = []
 
-    for match in re.finditer(r"\b(?:LESS\s+AND\s+)?EXCEPT(?:ING)?\b", text, re.IGNORECASE):
+    for match in re.finditer(
+        r"\b(?:(?:LESS\s+AND\s+)?EXCEPT(?:ING)?|EXCLUDING)\b", text, re.IGNORECASE
+    ):
         if _is_lot_qualifier_except(text, match):
             continue
         splits.append((match.start(), match.end(), True))

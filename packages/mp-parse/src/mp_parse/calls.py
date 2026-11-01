@@ -125,7 +125,7 @@ _RESTATED_POB_PATTERN = re.compile(
     re.IGNORECASE,
 )
 _CLOSES_TO_POB_PATTERN = re.compile(
-    r"\bto\s+(?:the\s+|a\s+)?(?:(?:point|place)\s+(?:and\s+place\s+)?of\s+)?beginning\b",
+    r"\b(?:to|for)\s+(?:the\s+|a\s+)?(?:(?:point|place)\s+(?:and\s+place\s+)?of\s+)?beginning\b",
     re.IGNORECASE,
 )
 
@@ -156,17 +156,22 @@ _PREAMBLE_TIE_COURSES_PATTERN = re.compile(
 )
 _COUNT_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
 
+# "Commencing at the corner of Lot 15; thence ... for the point of beginning; thence ...":
+# the courses from the commencement point to the POB are tie lines.
+_COMMENCEMENT_PATTERN = re.compile(r"\b(?:COMMENCING|STARTING)\s+at\b", re.IGNORECASE)
+
 
 def _preamble_tie_course_count(preamble: str, call_texts: list[str]) -> int:
     """Return how many leading courses the preamble says lead to the POB.
 
-    Without a count ("the following courses and distances from"), the tie courses end at
-    the first course reaching the place of beginning while more courses follow.
+    Without a count ("the following courses and distances from", or a commencement
+    point), the tie courses end at the first course reaching the place of beginning while
+    more courses follow.
     """
     match = _PREAMBLE_TIE_COURSES_PATTERN.search(preamble)
-    if not match:
+    if not match and not _COMMENCEMENT_PATTERN.search(preamble):
         return 0
-    if match.group(1) is None:
+    if match is None or match.group(1) is None:
         return next(
             (
                 i + 1
@@ -217,6 +222,14 @@ def _call_hash(call_text: str) -> str:
 
 def _is_debug_logging_enabled() -> bool:
     return logging.getLogger(__name__).isEnabledFor(logging.DEBUG)
+
+
+# "...551.39 feet to a point on the Westerly line, said point also being a point on a
+# non-tangential curve to the left": the endpoint lies on the next course's curve.
+_ENDPOINT_ON_CURVE = re.compile(
+    r",?\s*said\s+point\s+(?:also\s+)?being\s+(?:a\s+point\s+)?on\s+(?:a|the)\s+[^;]*?\bcurve\b.*",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 def _boundary_course_text(call_text: str) -> str:
@@ -533,7 +546,7 @@ def extract_single_call(
 
     distance_ft = ConversionFactors.convert_to_feet(distance, unit)
 
-    curve_info = extract_curve_info(call_text)
+    curve_info = extract_curve_info(_ENDPOINT_ON_CURVE.sub("", call_text))
 
     has_abbreviated_cardinal = bool(
         re.match(r"^\s*(?:N|S|E|W|NE|NW|SE|SW)\b", call_text, re.IGNORECASE)
@@ -1119,10 +1132,13 @@ def mark_tie_in_calls(calls: list[DeedCall], poc_description: str | None) -> lis
         calls: List of DeedCall objects
         poc_description: POC description (None or empty means no POC)
 
+    Calls already marked from their course text are kept, and a closing course is not a
+    tie line: marking across the flat calls would otherwise reach into another tract.
+
     Returns:
         List of DeedCall objects with is_tie_in set appropriately
     """
-    if not poc_description:
+    if not poc_description or any(call.is_tie_in for call in calls):
         return calls
 
     pob_index = None
@@ -1131,7 +1147,7 @@ def mark_tie_in_calls(calls: list[DeedCall], poc_description: str | None) -> lis
             pob_index = i
             break
 
-    if pob_index is None:
+    if pob_index is None or pob_index == len(calls) - 1:
         return calls
 
     result = []
