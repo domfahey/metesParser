@@ -130,7 +130,7 @@
     },
     "all_cardinal_only": {
       "expected": true,
-      "description": "All 4 calls MUST have cardinal-only bearings (Northerly, Westerly, Southerly, Easterly) with no numerical bearing extracted"
+      "description": "All 4 calls MUST have cardinal-only bearings (Northwardly, Westwardly, Southwardly, Eastwardly) with no numerical bearing extracted"
     },
     "no_fabricated_bearings": {
       "expected": true,
@@ -163,5 +163,5 @@
       "fix": "Interior angle references describe the angle between adjacent courses, not compass bearings — parser must not treat them as bearings"
     }
   ],
-  "notes": "Checked against Book 5070 Page 937 (PDF page 1): the text and all four courses match the print; the course directions are corrected to the printed \"Northwardly/Westwardly/Southwardly/Eastwardly\" (were \"Northerly\" etc.) and the three BEING lines were added. The deed is dated September 30, 1999. Oldest deed in chain of title for 32 Birchall Dr (part of Lot 6, Block 91.11/Lot 32). Same property as book 10234/pg 1230 and book 8939/pg 350. Distances corrected from LlamaParse MD and later deed 10234-1230: call 1 = 90 ft (LLM OCR had 94.10), call 4 = 112.53 ft (LLM OCR had 112.52). Uses parenthesized numbering format (1), (2), (3), (4)."
+  "notes": "Checked against Book 5070 Page 937 (PDF page 1): the text and all four courses match the print; the course directions are corrected to the printed \"Northwardly/Westwardly/Southwardly/Eastwardly\" (were \"Northerly\" etc.) and the three BEING lines were added. The deed is dated September 30, 1999. Second check: the all_cardinal_only assertion now names the printed \"-wardly\" directions. Oldest deed in chain of title for 32 Birchall Dr (part of Lot 6, Block 91.11/Lot 32). Same property as book 10234/pg 1230 and book 8939/pg 350. Distances corrected from LlamaParse MD and later deed 10234-1230: call 1 = 90 ft (LLM OCR had 94.10), call 4 = 112.53 ft (LLM OCR had 112.52). Uses parenthesized numbering format (1), (2), (3), (4)."
 }
