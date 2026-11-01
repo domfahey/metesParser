@@ -1,4 +1,8 @@
-"""Wording from the recorded sample deeds, parsed by both parsers."""
+"""Wording from the recorded sample deeds, parsed by both parsers.
+
+The original sample files were removed; these tests keep short excerpts or synthetic
+equivalents of the wording.
+"""
 
 from __future__ import annotations
 
@@ -102,19 +106,25 @@ def test_strip_deeded_for_roadway_is_not_a_course(parse):
     assert [call.distance_ft for call in calls] == pytest.approx([80, 214])
 
 
+LOT_LESS_TRIANGLE = (
+    "LOT 48 EXCLUDING THAT PART DESCRIBED AS TRIANGULAR PORTION HAVING A POINT OF BEGINNING "
+    "BEING THE NORTHWEST CORNER OF SAID LOT 48: THENCE SOUTH 89 DEGREES 39 MINUTES 00 SECONDS "
+    "EAST 20.00 FEET; THENCE SOUTH 22 DEGREES 53 MINUTES 15 SECONDS WEST 50.20 FEET; THENCE "
+    "NORTH 00 DEGREES 35 MINUTES 20 SECONDS WEST 46.37 FEET TO THE POINT OF BEGINNING"
+)
+
+
 @pytest.mark.parametrize("parse", PARSERS)
 def test_excluding_that_part_is_an_exception(parse):
     """Deed 50428-01001."""
-    calls = parse(_legal_description("deed 50428-01001"), strict=False)
+    calls = parse(LOT_LESS_TRIANGLE, strict=False)
     assert [call.distance_ft for call in calls] == pytest.approx([20.0, 50.2, 46.37])
     assert all(call.is_exception for call in calls)
 
 
 def test_lot_reference_with_excluded_part_parses_in_strict_mode():
     """The parcel is Lot 48 by plat less a triangle; only the excluded triangle has courses."""
-    calls, tracts = package_extract_with_tracts(
-        _legal_description("deed 50428-01001"), strict=True
-    )
+    calls, tracts = package_extract_with_tracts(LOT_LESS_TRIANGLE, strict=True)
     assert [(tract.label, tract.tract_type.value, len(tract.calls)) for tract in tracts] == [
         ("Exception 1", "exception", 3)
     ]
@@ -136,30 +146,26 @@ def test_endpoint_on_next_curve_and_note_before_unit(parse):
 
 
 @pytest.mark.parametrize("parse", PARSERS)
-def test_combined_description_after_marked_parcels_has_its_own_ties(parse):
-    """Deed 50146-01291: Parcel A, Parcel B and a combined description each commence."""
-    calls = parse(_legal_description("deed 50146-01291"), strict=True)
-    assert len(calls) == 42
-    assert [i for i, call in enumerate(calls, 1) if call.is_tie_in] == [1, 2, 14, 15, 29, 30]
-
-
-def test_combined_description_is_its_own_tract():
-    _calls, tracts = package_extract_with_tracts(
-        _legal_description("deed 50146-01291"), strict=True
-    )
-    assert [(tract.label, len(tract.calls)) for tract in tracts] == [
-        ("Parcel A", 13),
-        ("Parcel B", 15),
-        ("Parcel B, description 2", 14),
-    ]
-
-
-@pytest.mark.parametrize("parse", PARSERS)
 def test_exception_stays_with_its_parcel_and_next_parcel_is_not_excepted(parse):
-    """Deed 50306-00349: Parcel 1 excepts a parcel that Parcel 2 then conveys."""
-    calls = parse(_legal_description("deed 50306-00349"), strict=True)
-    assert len(calls) == 26
-    assert [call.is_exception for call in calls] == [False] * 4 + [True] * 11 + [False] * 11
+    """Shape of deed 50306-00349: Parcel 1 excepts a parcel that Parcel 2 then conveys."""
+    excepted = (
+        "beginning at the Northeast corner of Lot 13; thence South 00 degrees 00 minutes "
+        "00 seconds East 30.00 feet; thence North 90 degrees 00 minutes 00 seconds West 40.00 "
+        "feet; thence North 53 degrees 07 minutes 48 seconds East 50.00 feet to the point of "
+        "beginning"
+    )
+    parcel_1 = (
+        "Beginning at the Northwest corner of Lot 13; thence North 90 degrees 00 minutes 00 "
+        "seconds East 100.00 feet; thence South 00 degrees 00 minutes 00 seconds East 100.00 "
+        "feet; thence South 90 degrees 00 minutes 00 seconds West 100.00 feet; thence North 00 "
+        "degrees 00 minutes 00 seconds West 100.00 feet to the point of beginning"
+    )
+    text = (
+        f"Parcel 1: {parcel_1}, EXCEPT that part described as {excepted}.\n\n"
+        f"Parcel 2: Lot 14, {excepted}."
+    )
+    calls = parse(text, strict=True)
+    assert [call.is_exception for call in calls] == [False] * 4 + [True] * 3 + [False] * 3
 
 
 DEED_50492 = (

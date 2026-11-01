@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 from mp_parse.calls import extract_curve_info
 from mp_parse.metadata import extract_plss_metadata
@@ -122,13 +119,6 @@ def test_town_alias_extracts_township_in_plss(extract):
     assert metadata["section"] == "34"
     assert metadata["township"] == "4 S"
     assert metadata["range"] == "9 E"
-
-
-def test_saved_sample_ground_truth_township_is_extracted():
-    ground_truth = json.loads(Path("sample_deeds/deed 50745-01268.ground_truth.json").read_text())
-    description = ground_truth["Full_Legal_Description"]
-    assert extract_plss_metadata(description)["township"] == "4 S"
-    assert TextParser.extract_plss_metadata(description)["township"] == "4 S"
 
 
 @pytest.mark.parametrize("parse,verify", list(_apis()))
