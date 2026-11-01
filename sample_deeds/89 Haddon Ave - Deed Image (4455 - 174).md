@@ -1,146 +1,164 @@
+F258859CD
 
-
-F 258259 CO
 
 # DEED
 
-## Prepared by
-Richard R. Cohn  
+
+Prepared by:  
+Richard B. Cohn  
 ARCHER & GREINER  
 Professional Corporation
 
-> Diagonal green stamp across page reading: Recorded Document
 
 This Deed is made on August 1, 1990
 
+Consideration $1,050,000.00
+
+
+Exet cate
+
+
+County
+
+
+State
+
+
+Total
+
+
+5,075.00
+
+
+N.P.N.R.F.1,365.00
+
+
+1.050.00
+
+
+2,150.00 PAS
+
+
+0270571990
+
+
+08/05/1990
+
+
+PAS
+
+
 BETWEEN IVT GROUP, INC., a Pennsylvania corporation (successor-in-interest by amendment to Articles of Incorporation to PHAR LAP LTD., a Pennsylvania corporation), having its principal office at 1700 Market Street, Philadelphia, Pennsylvania 19103, referred to as the Grantor.
+
 
 AND United Medical Corporation, a New Jersey corporation, whose post office address is 56 Haddon Avenue, Haddonfield, New Jersey 08033, referred to as the Grantee.
 
-## Transfer of Ownership
-The Grantor grants and conveys the property described below to the Grantee. This transfer is made for the sum of One Million Sixty Thousand Dollars ($1,060,000.00). The Grantor acknowledges receipt of this money.
 
-## Tax Map Reference
-(N.J.S.A. 46:15-2.1) Municipality of Haddonfield, Block No. 11, Lot No. 2.
+**Transfer of Ownership.** The Grantor grants and conveys the property described below to the Grantee. This transfer is made for the sum of One Million Sixty Thousand Dollars ($1,060,000.00). The Grantor acknowledges receipt of this money.
 
-## Property
-The property consists of the land and all the buildings and structures on the land in the Borough of Haddonfield, County of Camden, and State of New Jersey. The legal description is:
+
+**Tax Map Reference.** (N.J.S.A. 46:15-2.1) Municipality of Haddonfield, Block No. 11, Lot No. 2.
+
+
+**Property.** The property consists of the land and all the buildings and structures on the land in the Borough of Haddonfield, County of Camden, and State of New Jersey. The legal description is:
+
 
 ALL THAT CERTAIN tract or parcel of land and premises, situate in the Borough of Haddonfield, County of Camden and State of New Jersey, bounded and described according to a Survey of Lands, prepared by Walter H. MacNamara Assoc., Inc., dated July 21, 1990, as follows:
 
-BEGINNING at a point forming the intersection of the Northeasterly line of Haddon Avenue (66 feet wide) with the Southeasterly line of Euclid Avenue (60 feet wide), said beginning point also being measured in a general Southeasterly direction along the Northeasterly line of Haddon Avenue, a distance of 60 feet from a point in the line of lands N/F of County Committee of YMCA of Camden County and also being the former Southeasterly boundary line of Tract 1 of Haddonfield Estates, and from said beginning point; running thence
+
+BEGINNING at a point forming the intersection of the Northeasterly line of Haddon Avenue (66 feet wide) with the Southeasterly line of Euclid Avenue (60 feet wide), said beginning point also being measured in a general Southeastwardly direction along the Northeasterly line of Haddon Avenue, a distance of 60.0 feet from a point in the line of lands N/F of County Committee of YMCA of Camden County and also being the former Southeasterly boundary line of Tract #1 of Haddonfield Estates, and from said beginning point; running thence
+
 
 (1) North 54 degrees 44 minutes 05 seconds East, along the Southeasterly line of Euclid Avenue, a distance of 141.73 feet to a point of curve on same; thence
 
-(2) In a Northeastwardly direction along the Southeasterly and Southerly curved line of Euclid Avenue, curving to the right, having a radius of 565.45 feet, an arc distance of 304.57 feet to a set iron pin in the line of lands N/F of Nicholson; thence
+
+(2) In a Northeastwardly direction along the Southeasterly and Southerly curved line of Euclid Avenue, curving to the right having a radius of 565.45 feet, an arc distance of 304.57 feet to a set iron pin in the line of lands N/F of Nicholson; thence
+
 
 (3) South 19 degrees 58 minutes 30 seconds West, along the line of lands N/F of Nicholson, a distance of 146.44 feet to a found field stone in the line of lands N/F of Oscar Hinski and Wife; thence along the line of lands N/F of Oscar Hinski and Wife, the following two courses and distances:
 
--1-
 
-DB4455-0174
-
-
-
----
-
-         Norh  dgroes 4 inutes 30 seconds West, a distance
- 5 North4 dogrd  he ame thonco
-    (4)
-         South 5 degrees 41 minutes 15 seconds Wast, stil
-5 oh 5 d 4  t  oint n th
-    (5)
-
-W
-  d
-
- thence  North 36 degrees 03 minutas 35 seconds Wast, along the
-  o
-    (6)
- thhirst moytiond point and place o beginning.
-    BEINd t  Lot  Blo 1 Pat 5
- C NG howig.
-    ABEINGnown Hdon Avenu Honfiol
- Jersay,
-    BEING  d  premlsashch becama vostod in r
-  B   y
-  y
-  County in Deed Book 4269, Page 244.
-        meo oup
-    h ai ha Lapaain aey
-   In. by t
-    Inc,
-   of Penndyvanda on February 5 1990.
-        Promisem by Grantor. THe Grantor promises that the Grantor
-                                     This promise is called
-    has dro loa by torantumber the property.
-    on no ttncuer th  4:4-5Th
-
-      y
-
-    the Grantor).    This Deed is signed and attested. to by the
-         Bignaturog. Its corporate seal is affixed.
-    the firstpage.
-                                  IVT GROUP, INC. (SUCCEBSOR-IN-
-         by:            Inerest y andant to Artiles
-                        of Inoporatin TO PHAR LAP, LTD.)
-                     ✓  ay  √
-    yaurl. buin      Secretary SO President
-
-084455-0175
-
----
+- 1 -
 
 
 
-# STATE OF NEW JERSEY
 
-COUNTY OF Camden ) SS
+This is not an official document
 
-Be it remembered that on this 1st day of August, 1990, before me, the undersigned witnessing authority, personally appeared Scott Holland, who is the Senior Vice President of IVT GROUP, INC., a Pennsylvania corporation, whom I am satisfied is the person who signed the within instrument, and he/she acknowledged that he/she signed, sealed with the corporate seal and delivered the same as such officer aforesaid, and that the within instrument is the voluntary act and deed of such corporation, made by virtue of a Resolution of its Board of Directors, and the full and actual consideration paid or to be paid for the transfer of title is $1,1[illegible]0,000.00. (Such consideration is defined in N.J.S.A. 46:15-5.)
+(4) North 34 degrees 42 minutes 30 seconds West, a distance of 53.75 feet to a point in the same; thence
 
-Frances A. Maffei  
-Notary Public
 
-FRANCESCA MAFFEI  
-NOTARY PUBLIC OF NEW JERSEY  
-My Commission Expires Dec. [illegible], 1993
+(5) South 53 degrees 41 minutes 15 seconds West, still along same, a distance of 310.45 feet to a point on the Northeasterly line of Haddon Avenue, said point also being measured in a Northwestwardly direction along the Northeasterly line of Haddon Avenue, a distance of 85.39 feet to a found monument for an angle on said Haddon Avenue and continuing along said line of Haddon Avenue, a further distance of 379.79 feet from a point forming the intersection of the Northeasterly line of Haddon Avenue with the Northwesterly line of Lake Street; thence
 
-This is not a certified document
 
-## DEED
+(6) North 36 degrees 03 minutes 35 seconds West, along the Northeasterly line of Haddon Avenue, a distance of 115.50 feet to the first mentioned point and place of beginning.
 
-IVT GROUP, INC., a Pennsylvania corporation (successor-in-interest by amendment to Articles of Incorporation to PHAR LAP, LTD., a Pennsylvania corporation),
 
-TO
+BEING shown and designated as Lot 2 Block 11 Plate 5 on the Current Tax Map of the Borough of Haddonfield.
 
-UNITED MEDICAL CORPORATION, a New Jersey Corporation.
 
-<table>
-  <tr>
-    <td>Dated:</td>
-<td>August 1, 1990</td>
-  </tr>
-<tr>
-    <td>Record and Return to:</td>
-<td>[illegible]</td>
-  </tr>
-<tr>
-    <td>Charge, Record & Return:</td>
-<td>
-      COMMONWEALTH LAND TITLE [INSURANCE COMPANY — remainder illegible]<br/>
-      [illegible address lines]
-    </td>
-  </tr>
-</table>
+ALSO BEING known as 89 Haddon Avenue, Haddonfield, New Jersey.
 
-Instrument No. 444950
 
-RECORDED — CAMDEN COUNTY  
-90 AUG-6 AM 11:29  
-[Registrar’s signature/initials illegible]
+BEING the same land and premises which became vested in Phar Lap, Ltd., a Pennsylvania corporation, by deed from Industrial Valley Title Insurance Company, a Pennsylvania corporation, dated December 31, 1987, and recorded on January 19, 1988, in Camden County in Deed Book 4269, Page 244.
 
-Handwritten notation at right margin: [illegible numbers/marks]
 
-DB4455-017651
+And the said Phar Lap, Ltd. changed its name to IVT Group, Inc. by Amendment of Articles of Incorporation dated January 23, 1990 and filed with the Department of State for the Commonwealth of Pennsylvania on February 5, 1990.
+
+
+Promises by Grantor. The Grantor promises that the Grantor has done no act to encumber the property. This promise is called a "covenant as to grantor's acts" (N.J.S.A. 46:4-6). This promise means that the Grantor has not allowed anyone else to obtain any legal rights which affect the property (such as by making a mortgage or allowing a judgment to be entered against the Grantor).
+
+
+Signatures. This Deed is signed and attested.to by the Grantor's proper corporate officers as of the date at the top of the first page. Its corporate seal is affixed.
+
+
+Attested by:
+
+![seal: corporate seal](page_2_seal_1_v2.jpg)
+
+____________________ Secretary
+
+
+IVT GROUP, INC. (successor-in-interest by amendment to Articles of Incorporation to PHAR LAP, LTD.)
+
+**By:** ![music: signature of IVT Group officer](page_2_image_2_v2.jpg)
+
+SCOTT [illegible]  Senior Vice President
+
+2
+
+
+
+This is a final agreement
+
+**STATE OF NEW JERSEY** : [___]
+
+**COUNTY OF:** Camden : SS
+
+**BE IT REMEMBERED** that on this 1st day of August, 1990 before me, the undersigned witnessing authority, personally appeared Scott Holland, who is the Senior Vice President of IVT GROUP, INC., a Pennsylvania corporation, who I am satisfied is the person who signed the within instrument, and he/she acknowledged that he/she signed, sealed with the corporate seal and delivered the same as such officer aforesaid, and that the within instrument is the voluntary act and deed of such corporation, made by virtue of a Resolution of its Board of Directors, and the full and actual consideration paid or to be paid for the transfer of title is $1,060,000.00. (Such consideration is defined in N.J.S.A. 46:15-5).
+
+**Notary signature:** [signature: Frances D. Maffei]
+**Notary title:** Notary Public
+**Notary name:** FRANCES D. MAFFEI
+**Notary commission:** NOTARY PUBLIC OF NEW JERSEY, My Commission Expires Dec. 30, 1993
+
+**DEED**
+
+**Grantor:** IVT GROUP, INC., a Pennsylvania corporation (successor-in-interest by amendment to Articles of Incorporation to PHAR LAP, LTD., a Pennsylvania corporation),
+
+**TO**
+
+**Grantee:** UNITED MEDICAL CORPORATION, a New Jersey Corporation,
+
+**Dated:** August 1, 1990
+
+**Record and Return to:** Commonwealth Land Title Insurance Company, Columbia Center, 1310 Chapel Avenue West (Suite 104), P.O. Box 5392, Cherry Hill, New Jersey 08012, (609) 662-1400
+
+**Recorder's stamp:** RECORDED-CAMDEN COUNTY, 90 AUG -6 AM 11:29, Robert W. ... Register [signature]
+
+**Book/Instrument number:** 444950
+
+**Page:** - 3 -
+
+**Document ID:** DB4455-0176
 
