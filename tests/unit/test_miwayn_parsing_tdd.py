@@ -155,3 +155,57 @@ def test_exception_stays_with_its_parcel_and_next_parcel_is_not_excepted(parse):
     calls = parse(_legal_description("MIWAYN-50306-00349"), strict=True)
     assert len(calls) == 26
     assert [call.is_exception for call in calls] == [False] * 4 + [True] * 11 + [False] * 11
+
+
+MIWAYN_50492 = (
+    "Property Commencing 88 degrees 54 minutes 18 seconds West from the Southeast corner of "
+    "said Section 7;\nthence along the South line of said Section 7 505.00 feet;\nthence "
+    "continuing North 88 degrees 54 minutes 18 seconds West 159.56 feet;\nthence North 00 "
+    "degrees 35 minutes 20 seconds East 295.05 feet;\nthence South 89 degrees 18 minutes 20 "
+    "second East 160.75 feet;\nthence South 00 degrees 49 minutes 10 seconds West 296.17 feet "
+    "to the point of beginning."
+)
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_tie_to_an_unstated_point_of_beginning_is_inferred_from_closure(parse):
+    """MIWAYN-50492-00960: courses 2-5 close to 0.006 ft without course 1."""
+    calls = parse(MIWAYN_50492, strict=True)
+    assert [call.is_tie_in for call in calls] == [True, False, False, False, False]
+    assert "inferred from closure" in (calls[0].notes or "")
+
+
+def test_inferred_tie_is_recorded_in_the_audit():
+    from datetime import UTC, datetime
+
+    from mp_models import AuditContext, RunMetadata
+
+    audit = AuditContext(
+        run_metadata=RunMetadata(
+            parser_version="test",
+            llm_provider="none",
+            llm_model="none",
+            prompt_hash="",
+            timestamp_utc=datetime.now(UTC),
+            source_pdf="isolated text",
+            cache_enabled=False,
+            config={},
+        )
+    )
+    package_extract_with_tracts(MIWAYN_50492, audit_context=audit, strict=True)
+    first = audit.call_audits[0]
+    assert "tie_inferred_from_closure" in first.flags
+    assert [decision.field for decision in first.decisions][-1] == "is_tie_in"
+    assert all("tie_inferred_from_closure" not in entry.flags for entry in audit.call_audits[1:])
+
+
+@pytest.mark.parametrize("parse", PARSERS)
+def test_no_tie_is_inferred_when_every_course_closes(parse):
+    calls = parse(
+        "Commencing at the Southeast corner of Section 7; thence due North 100.00 feet; thence "
+        "due East 100.00 feet; thence due South 100.00 feet; thence due West 100.00 feet to the "
+        "point of beginning.",
+        strict=True,
+    )
+    assert len(calls) == 4
+    assert not any(call.is_tie_in for call in calls)

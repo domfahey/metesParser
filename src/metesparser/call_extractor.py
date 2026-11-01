@@ -5,6 +5,7 @@ Parses normalized text to create structured DeedCall objects.
 
 import hashlib
 import logging
+import math
 import re
 
 import structlog
@@ -155,6 +156,79 @@ def _mark_preamble_tie_courses(calls: list[DeedCall], count: int) -> list[DeedCa
         return calls
     return [
         call.model_copy(update={"is_tie_in": True}) if i < count else call
+        for i, call in enumerate(calls)
+    ]
+
+
+# "Commencing at the corner; thence along the South line 505.00 feet; thence ... to the point
+# of beginning": when the point of beginning is never stated, the leading courses reaching it
+# are found by closure: the fewest whose removal lets the remaining 3+ courses close.
+_LOOSE_COMMENCEMENT_PATTERN = re.compile(r"\b(?:COMMENCING|STARTING)\b", re.IGNORECASE)
+_INFERRED_TIE_TOLERANCE_FT = 0.01
+_INFERRED_TIE_REASON = "tie course inferred from closure: the point of beginning is not stated"
+
+
+def _straight_misclosure_ft(calls: list[DeedCall]) -> float | None:
+    """Return the misclosure of straight courses, or None if a course is a curve or has no bearing."""
+    dx = dy = 0.0
+    for call in calls:
+        azimuth = call.bearing_azimuth_deg_from_north
+        if azimuth is None or call.curve_dir is not None:
+            return None
+        course_dx, course_dy = BearingConverter.calculate_deltas(azimuth, call.distance_ft)
+        dx += course_dx
+        dy += course_dy
+    return math.hypot(dx, dy)
+
+
+def _inferred_tie_course_count(preamble: str, calls: list[DeedCall], call_texts: list[str]) -> int:
+    """Return how many leading courses reach an unstated point of beginning, found by closure."""
+    if not _LOOSE_COMMENCEMENT_PATTERN.search(preamble) or any(call.is_tie_in for call in calls):
+        return 0
+    if not call_texts or not _CLOSES_TO_POB_PATTERN.search(call_texts[-1]):
+        return 0
+    if any(_CLOSES_TO_POB_PATTERN.search(text) for text in call_texts[:-1]):
+        return 0
+    full = _straight_misclosure_ft(calls)
+    if full is not None and full < _INFERRED_TIE_TOLERANCE_FT:
+        return 0
+    for count in range(1, len(calls) - 2):
+        remainder = _straight_misclosure_ft(calls[count:])
+        if remainder is not None and remainder < _INFERRED_TIE_TOLERANCE_FT:
+            return count
+    return 0
+
+
+def _mark_inferred_tie_courses(
+    calls: list[DeedCall], count: int, audits: list[CallAudit] | None
+) -> list[DeedCall]:
+    """Mark the leading courses as inferred tie lines, noting and auditing the inference."""
+    for i in range(count):
+        if audits is not None:
+            audits[i] = audits[i].model_copy(
+                update={
+                    "decisions": [
+                        *audits[i].decisions,
+                        Decision(
+                            field="is_tie_in",
+                            value="true",
+                            reason=_INFERRED_TIE_REASON,
+                            alternatives=["false"],
+                            confidence=0.8,
+                        ),
+                    ],
+                    "flags": [*audits[i].flags, "tie_inferred_from_closure"],
+                }
+            )
+    return [
+        call.model_copy(
+            update={
+                "is_tie_in": True,
+                "notes": "; ".join(filter(None, [call.notes, _INFERRED_TIE_REASON])),
+            }
+        )
+        if i < count
+        else call
         for i, call in enumerate(calls)
     ]
 
@@ -595,7 +669,20 @@ class CallExtractor:
             tract_calls = _mark_preamble_tie_courses(
                 tract_calls, _preamble_tie_course_count(prefix, tract_call_texts)
             )
-            calls.extend(_mark_restated_pob_tie_lines(tract_calls, tract_call_texts))
+            tract_calls = _mark_restated_pob_tie_lines(tract_calls, tract_call_texts)
+            inferred_ties = _inferred_tie_course_count(prefix, tract_calls, tract_call_texts)
+            if inferred_ties:
+                audits = (
+                    audit_context.call_audits[len(audit_context.call_audits) - len(tract_calls) :]
+                    if audit_context is not None
+                    else None
+                )
+                tract_calls = _mark_inferred_tie_courses(tract_calls, inferred_ties, audits)
+                if audit_context is not None and audits is not None:
+                    audit_context.call_audits[
+                        len(audit_context.call_audits) - len(tract_calls) :
+                    ] = audits
+            calls.extend(tract_calls)
 
         return calls
 
