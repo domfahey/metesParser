@@ -21,7 +21,7 @@ from .numbers import COMMA_NUMBER, parse_comma_number
 from .parcels import ParcelInfo, ParcelMarker, detect_parcel_markers, split_into_parcels
 from .tracts import split_into_tracts
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"
 
 __all__ = [
     "COMMA_NUMBER",
