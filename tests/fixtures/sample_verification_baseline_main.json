@@ -1,6 +1,6 @@
 {
  "_comment": "is_fully_verified per sample deed text on origin/main (non-strict mp_parse.extract_calls + mp_verify.verify_closure), recorded from a detached worktree of main. Keys: '<file>.md' or '<deed>::legal|normalized' (ground truth).",
- "baseline_commit": "fe52a582b3b9c76adeb03d87c287ddd7c6c0dea2",
+ "baseline_commit": "d654792d84942f58e79f80beee3b13cb84d236b9",
  "verified": {
   "1 Walnut St - Deed Image (12420 - 00902).md": false,
   "1 Walnut St - Deed Image (12420 - 00902)::legal": false,

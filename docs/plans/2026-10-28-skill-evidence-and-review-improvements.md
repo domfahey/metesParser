@@ -7,7 +7,7 @@ Status: **local implementation and completion-audit fixes passed renewed integra
 Current results: [implementation evidence ledger](../implementation/2026-10-28-evidence-review-ledger.md).
 Inspected baseline: `c0d6074`, branch `feat/deed-closure-dashboard-skill`
 
-This plan implements the recommendations from the three-agent review of the [BoundaryLogic research](../reference/boundarylogic.md). It covers source-handoff validation, closure diagnosis, artifact inspection, map controls/evidence summaries, paired evaluations, and a separate description-comparison capability. The parent integrates work; bounded subagents implement and independently review it.
+This plan implements the recommendations from the three-agent review of the BoundaryLogic research. It covers source-handoff validation, closure diagnosis, artifact inspection, map controls/evidence summaries, paired evaluations, and a separate description-comparison capability. The parent integrates work; bounded subagents implement and independently review it.
 
 The research is based on public interactions, pictured controls, and vendor claims. It is design input, not evidence of BoundaryLogic's numerical correctness or authenticated-app behavior.
 
