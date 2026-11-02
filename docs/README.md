@@ -18,4 +18,4 @@ Start with the root [README](../README.md) for an overview and [AGENTS.md](../AG
 | [plans/](plans/README.md) | Implementation plans, design notes and acceptance handoffs (indexed) |
 | [implementation/](implementation/) | Evidence ledgers and independent review notes for completed work |
 | [archive/](archive/) | Historical plans and extraction outputs; not current verified results |
-| [reference/](reference/) | Reference PDFs with Markdown conversions and third-party research notes |
+| [reference/](reference/) | Reference PDFs with Markdown conversions |
