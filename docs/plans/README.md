@@ -10,8 +10,6 @@ Dated plans, design notes, evidence records and acceptance handoffs. Status is t
 | 2026-10-27 | [Composable skills refactor](2026-10-27-composable-skills-refactor.md) | Artifact-bounded skill responsibilities | Implemented |
 | 2026-10-27 | [Deed plot implementation](2026-10-27-deed-plot-implementation.md) | Evidence for the deed plot releases | Implemented 2026-10-27 |
 | 2026-10-27 | [Plan 001: Mapbox online viewer](2026-10-27-mapbox-online-viewer.md) | Optional Mapbox viewer combining registered tax maps and recorded deed geometry | IMPLEMENTED — local gates passed; live token blocked, native-host acceptance not run |
-| 2026-10-28 | third-party Cowork plan audit | Specification audit (A01–A10) | Audit complete; amendments incorporated; implementation and behavioral acceptance remain planned |
-| 2026-10-28 | third-party Cowork workflow plan | Cowork workflow improvements | Local implementation complete; native Claude/Cowork acceptance not run |
 | 2026-10-28 | [Source evidence and skill improvements](2026-10-28-skill-evidence-and-review-improvements.md) | Source evidence, diagnostics, maps and composable skills | Local implementation passed; paired evaluations and live provider/native-client acceptance outstanding |
 | 2026-10-31 | [PR #60 review-loop handoff](2026-10-31-pr60-review-loop-handoff.md) | Paused review loop for PR #60 | Paused; superseded once PR #60 merges |
 
