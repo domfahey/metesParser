@@ -110,7 +110,7 @@ def test_lot_strip_with_trailing_qualifier_is_not_a_strip() -> None:
 
 
 def test_closing_course_with_strip_is_no_longer_ambiguous() -> None:
-    # MIWAYN-50795: the strip's width was read as a second course length.
+    # Deed 50795: the strip's width was read as a second course length.
     text = (
         "Beginning at a point distant North 2 degrees 56 minutes 20 seconds West 955.85 feet "
         "from the East 1/4 corner of Section 16, and proceeding thence South 87 degrees 03 "
@@ -185,7 +185,7 @@ def test_easement_clause_without_courses_stays_a_clause(square_calls) -> None:
 
 
 def test_also_inside_a_commencing_clause_is_not_an_easement() -> None:
-    # MIWAYN-50837: ", also being the Southerly right of way of Mack Avenue" names a corner.
+    # Deed 50837: ", also being the Southerly right of way of Mack Avenue" names a corner.
     text = (
         "Commencing at the Northwest corner of Lot 15, also being the Southerly right of way "
         "of Mack Avenue; Thence S 26° E 120.00 feet for the point of beginning; "

@@ -171,7 +171,7 @@ _COURSE_START = re.compile(r"\b(?:thence|then|th\.?|proceeding)\b", re.IGNORECAS
 
 
 def expand_assessor_abbreviations(text: str) -> str:
-    """Expand compressed assessor notation used in Wayne County MI and similar.
+    """Expand compressed county assessor notation.
 
     Handles patterns like:
       S0DEG 32M 50S W 401.55FT → S 0 degrees 32 minutes 50 seconds W 401.55 feet

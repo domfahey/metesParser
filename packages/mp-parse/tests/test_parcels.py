@@ -9,17 +9,17 @@ from mp_parse import extract_calls
 from mp_parse.parcels import detect_parcel_markers, split_into_parcels
 
 # ---------------------------------------------------------------------------
-# Full legal description from MIWAYN-50146-01291 ground truth
+# Full legal description from deed 50146-01291 ground truth
 # ---------------------------------------------------------------------------
-MIWAYN_FULL_TEXT = (
+MULTI_PARCEL_TEXT = (
     "The land referred to in this commitment is described as follows: "
-    "Township of Van Buren, County of Wayne, State of Michigan\n\n"
+    "Township of Sample, County of Sample, State of Michigan\n\n"
     "Parcel A (Northern Tract of land): \n\n"
     "A parcel of land located in the Southwest 1/4 of Section 12, Town 3 South, "
-    "Range 8 East, Van Buren Township, Wayne County, Michigan, more particularly "
+    "Range 8 East, Sample Township, Sample County, Michigan, more particularly "
     "described as follows:\n"
     "Commencing at the Southwest 1/4 of Section 12, Town 3 South, Range 8 East, "
-    "Van Buren Township, Wayne County, Michigan; thence along the West line of said "
+    "Sample Township, Sample County, Michigan; thence along the West line of said "
     "Section 12 and the centreline of Haggerty Road (120 feet wide), North 02 degrees "
     "23 minutes 55 seconds West 640.19 feet to the North Right-of-Way line of Old Tyler "
     "Road (variable width); thence along said North Right-of-Way line North 89 degrees "
@@ -43,9 +43,9 @@ MIWAYN_FULL_TEXT = (
     "beginning.\n\n"
     "Re: 9059 Samuel Barton Drive Tax Item No. 83-047-99-0002-701\n\n"
     "Parcel B (Southern Tract of land): A parcel of land located in the Southwest 1/4 "
-    "of Section 12 Town 3 South, Range 8 East, Van Buren Township, Wayne County, "
+    "of Section 12 Town 3 South, Range 8 East, Sample Township, Sample County, "
     "Michigan, more particularly described as follows: Commencing at the Southwest 1/4 "
-    "of Section 12, Town 3 South, Range 8 East, Van Buren Township, Wayne County, "
+    "of Section 12, Town 3 South, Range 8 East, Sample Township, Sample County, "
     "Michigan; thence along the West line of said Section 12 and the centerline of "
     "Haggerty Road (120 feet wide), North 02 degrees 23 minutes 55 seconds West 574.17 "
     "feet to the South Right-of-Way line of Old Tyler Road (variable width); thence "
@@ -72,9 +72,9 @@ MIWAYN_FULL_TEXT = (
     "of beginning.\n\n"
     "Re: 40000 Ricardo Drive Tax Item No. 83-047-99-0007-702\n\n"
     "Combine Legal Description: A parcel of land located in the Southwest 1/4 of "
-    "Section 12, Town 3 South, Range 8 East, Van Buren Township, Wayne County, "
+    "Section 12, Town 3 South, Range 8 East, Sample Township, Sample County, "
     "Michigan, more particularly described as follows: Commencing at the Southwest 1/4 "
-    "of Section 12, Town 3 South, Range 8 East, Van Buren Township, Wayne County, "
+    "of Section 12, Town 3 South, Range 8 East, Sample Township, Sample County, "
     "Michigan; thence along the West line of said Section 12 and the centreline of "
     "Haggerty Road (120 feet wide), North 02 degrees 23 minutes 55 seconds West 574.17 "
     "feet to the South right of way line of Old Tyler Road (variable width); thence "
@@ -112,28 +112,28 @@ class TestDetectParcelMarkers:
     """Tests for detect_parcel_markers()."""
 
     def test_detects_parcel_a_and_b_lettered(self) -> None:
-        """Detect 'Parcel A' and 'Parcel B' markers in MIWAYN text."""
-        markers = detect_parcel_markers(MIWAYN_FULL_TEXT)
+        """Detect 'Parcel A' and 'Parcel B' markers in sample text."""
+        markers = detect_parcel_markers(MULTI_PARCEL_TEXT)
         labels = [m["label"] for m in markers]
         assert "Parcel A" in labels
         assert "Parcel B" in labels
 
     def test_detects_combined_description_marker(self) -> None:
-        """Detect 'Combine Legal Description' marker in MIWAYN text."""
-        markers = detect_parcel_markers(MIWAYN_FULL_TEXT)
+        """Detect 'Combine Legal Description' marker in sample text."""
+        markers = detect_parcel_markers(MULTI_PARCEL_TEXT)
         labels = [m["label"] for m in markers]
         # The ground truth says "Combine Legal Description:" (without 'd')
         assert any("combine" in label.lower() or "combined" in label.lower() for label in labels)
 
     def test_marker_positions_are_ascending(self) -> None:
         """Markers should appear in ascending position order."""
-        markers = detect_parcel_markers(MIWAYN_FULL_TEXT)
+        markers = detect_parcel_markers(MULTI_PARCEL_TEXT)
         positions = [m["position"] for m in markers]
         assert positions == sorted(positions)
 
     def test_marker_types_are_lettered(self) -> None:
         """Parcel A/B markers should have marker_type 'lettered'."""
-        markers = detect_parcel_markers(MIWAYN_FULL_TEXT)
+        markers = detect_parcel_markers(MULTI_PARCEL_TEXT)
         lettered = [m for m in markers if m["label"] in ("Parcel A", "Parcel B")]
         assert len(lettered) == 2
         for m in lettered:
@@ -141,7 +141,7 @@ class TestDetectParcelMarkers:
 
     def test_combined_marker_type(self) -> None:
         """Combined Legal Description markers should have marker_type 'combined'."""
-        markers = detect_parcel_markers(MIWAYN_FULL_TEXT)
+        markers = detect_parcel_markers(MULTI_PARCEL_TEXT)
         combined = [m for m in markers if "combine" in m["label"].lower()]
         assert len(combined) == 1
         assert combined[0]["marker_type"] == "combined"
@@ -210,9 +210,9 @@ class TestDetectParcelMarkers:
         labels = [m["label"] for m in markers]
         assert any("combined" in label.lower() or "combine" in label.lower() for label in labels)
 
-    def test_three_markers_in_miwayn(self) -> None:
-        """MIWAYN text should produce exactly 3 markers."""
-        markers = detect_parcel_markers(MIWAYN_FULL_TEXT)
+    def test_three_markers_in_sample(self) -> None:
+        """The sample text should produce exactly 3 markers."""
+        markers = detect_parcel_markers(MULTI_PARCEL_TEXT)
         assert len(markers) == 3
 
 
@@ -224,58 +224,58 @@ class TestDetectParcelMarkers:
 class TestSplitIntoParcels:
     """Tests for split_into_parcels()."""
 
-    def test_miwayn_splits_into_three_parcels(self) -> None:
-        """MIWAYN deed should split into 3 parcels."""
-        parcels = split_into_parcels(MIWAYN_FULL_TEXT)
+    def test_sample_splits_into_three_parcels(self) -> None:
+        """The sample deed should split into 3 parcels."""
+        parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         assert len(parcels) == 3
 
-    def test_miwayn_parcel_labels(self) -> None:
-        """MIWAYN parcels should have correct labels."""
-        parcels = split_into_parcels(MIWAYN_FULL_TEXT)
+    def test_sample_parcel_labels(self) -> None:
+        """The sample parcels should have correct labels."""
+        parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         labels = [p["label"] for p in parcels]
         assert labels[0] == "Parcel A"
         assert labels[1] == "Parcel B"
         # "Combine Legal Description" or "Combined Legal Description"
         assert "combine" in labels[2].lower() or "combined" in labels[2].lower()
 
-    def test_miwayn_parcel_types(self) -> None:
-        """MIWAYN parcels A and B are primary, combined is combined."""
-        parcels = split_into_parcels(MIWAYN_FULL_TEXT)
+    def test_sample_parcel_types(self) -> None:
+        """The sample parcels A and B are primary, combined is combined."""
+        parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         assert parcels[0]["parcel_type"] == "primary"
         assert parcels[1]["parcel_type"] == "primary"
         assert parcels[2]["parcel_type"] == "combined"
 
-    def test_miwayn_parcel_a_contains_point_of_beginning(self) -> None:
+    def test_sample_parcel_a_contains_point_of_beginning(self) -> None:
         """Parcel A text should contain 'point of beginning'."""
-        parcels = split_into_parcels(MIWAYN_FULL_TEXT)
+        parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         parcel_a = parcels[0]
         assert "point of beginning" in parcel_a["text"].lower()
 
-    def test_miwayn_parcel_b_contains_point_of_beginning(self) -> None:
+    def test_sample_parcel_b_contains_point_of_beginning(self) -> None:
         """Parcel B text should contain 'point of beginning'."""
-        parcels = split_into_parcels(MIWAYN_FULL_TEXT)
+        parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         parcel_b = parcels[1]
         assert "point of beginning" in parcel_b["text"].lower()
 
-    def test_miwayn_combined_contains_point_of_beginning(self) -> None:
+    def test_sample_combined_contains_point_of_beginning(self) -> None:
         """Combined parcel text should contain 'point of beginning'."""
-        parcels = split_into_parcels(MIWAYN_FULL_TEXT)
+        parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         combined = parcels[2]
         assert "point of beginning" in combined["text"].lower()
 
-    def test_miwayn_parcel_a_mentions_640(self) -> None:
+    def test_sample_parcel_a_mentions_640(self) -> None:
         """Parcel A uses 640.19 feet in its commencing clause."""
-        parcels = split_into_parcels(MIWAYN_FULL_TEXT)
+        parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         assert "640.19" in parcels[0]["text"]
 
-    def test_miwayn_parcel_b_mentions_574(self) -> None:
+    def test_sample_parcel_b_mentions_574(self) -> None:
         """Parcel B uses 574.17 feet in its commencing clause."""
-        parcels = split_into_parcels(MIWAYN_FULL_TEXT)
+        parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         assert "574.17" in parcels[1]["text"]
 
-    def test_miwayn_parcels_do_not_overlap(self) -> None:
+    def test_sample_parcels_do_not_overlap(self) -> None:
         """No parcel text should contain content from another parcel's unique data."""
-        parcels = split_into_parcels(MIWAYN_FULL_TEXT)
+        parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         # Parcel A has "640.19" but Parcel B should not
         assert "640.19" not in parcels[1]["text"]
         assert "640.19" not in parcels[2]["text"]
@@ -345,9 +345,9 @@ class TestSplitIntoParcels:
         for p in parcels:
             assert p["text"] == p["text"].strip()
 
-    def test_miwayn_combined_has_611_64(self) -> None:
+    def test_sample_combined_has_611_64(self) -> None:
         """Combined description has the aggregate curve (611.64 feet) not found in A or B."""
-        parcels = split_into_parcels(MIWAYN_FULL_TEXT)
+        parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         combined = parcels[2]
         assert "611.64" in combined["text"]
         # 611.64 should NOT be in Parcel A or B
@@ -362,7 +362,7 @@ class TestSplitIntoParcels:
 
     def test_parcel_dict_keys(self) -> None:
         """Each parcel dict has the expected keys."""
-        parcels = split_into_parcels(MIWAYN_FULL_TEXT)
+        parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         for p in parcels:
             assert "label" in p
             assert "text" in p
@@ -371,13 +371,13 @@ class TestSplitIntoParcels:
 
 def test_combined_description_after_marked_parcels_has_its_own_ties() -> None:
     """Parcel A, Parcel B and a combined description each commence with their own ties."""
-    calls, _tracts = extract_calls(MIWAYN_FULL_TEXT, strict=True)
+    calls, _tracts = extract_calls(MULTI_PARCEL_TEXT, strict=True)
     assert len(calls) == 42
     assert [i for i, call in enumerate(calls, 1) if call.is_tie_in] == [1, 2, 14, 15, 29, 30]
 
 
 def test_combined_description_is_its_own_tract() -> None:
-    _calls, tracts = extract_calls(MIWAYN_FULL_TEXT, strict=True)
+    _calls, tracts = extract_calls(MULTI_PARCEL_TEXT, strict=True)
     assert [(tract.label, len(tract.calls)) for tract in tracts] == [
         ("Parcel A", 13),
         ("Parcel B", 15),

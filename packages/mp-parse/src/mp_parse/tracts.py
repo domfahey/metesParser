@@ -475,7 +475,7 @@ _COMMENCING = re.compile(r"\bCOMMENCING\b", re.IGNORECASE)
 # following described parcel:", "SAVING AND EXCLUDING PARCEL B:"); "more or less" is
 # never one.
 # "LOT 48 EXCLUDING THAT PART DESCRIBED AS ...": that phrase takes a described part out
-# of the grant even mid-sentence (MIWAYN-50428).
+# of the grant even mid-sentence (deed 50428).
 _TAKING_LEAD = re.compile(
     r"(?:^|(?<=[.;:,\n])|(?<=\s)(?=EXCLUDING\s+THAT\s+PART\b))[ \t]*"
     r"(?P<lead>(?:(?:ALSO|AND|BUT)\s+)?"

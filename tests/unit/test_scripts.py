@@ -546,8 +546,8 @@ class TestAuditDecimalCommas:
         assert not mod.re.fullmatch(mod.NUMBER, "1,140")
 
 
-class TestAuditMiwaynForms:
-    """Wording from the Wayne County (MIWAYN) deeds."""
+class TestAuditRecordedDeedForms:
+    """Wording from the recorded sample deeds."""
 
     def test_due_cardinal_is_an_exact_bearing(self) -> None:
         mod = _load_audit_module()
@@ -582,7 +582,7 @@ class TestAuditMiwaynForms:
         assert [call["distance_ft"] for call in calls] == [85.33, 128.0, 85.33]
 
     def test_excepted_parcel_conveyed_again_is_not_a_repeat(self) -> None:
-        """MIWAYN-50306-00349: Parcel 1 excepts a parcel that Parcel 2 then conveys."""
+        """Deed 50306-00349: Parcel 1 excepts a parcel that Parcel 2 then conveys."""
         mod = _load_audit_module()
         parcel = (
             "beginning at a point; thence South 16 degrees 54 minutes 36 seconds West 85.33 feet; "
@@ -598,7 +598,7 @@ class TestAuditMiwaynForms:
         )
 
     def test_assessor_shorthand_description(self) -> None:
-        """MIWAYN-50062-01403: BEG ... TH <bearing> <distance>FT ... POB."""
+        """Deed 50062-01403: BEG ... TH <bearing> <distance>FT ... POB."""
         mod = _load_audit_module()
         calls = mod.extract_calls_from_md(
             "PT OF NE 1/4 SEC 36 T2S R8E BEG S0DEG 32M 50S W 401.55FT FROM NE COR SEC 36 "
@@ -614,7 +614,7 @@ class TestAuditMiwaynForms:
         assert match is not None and match.groups() == ("N", "89", "05", "3", "W")
 
     def test_bare_cardinal_letter_and_joined_courses(self) -> None:
-        """MIWAYN-50058-00465: "th. S 289.81 ft." and courses joined by "and" / "&"."""
+        """Deed 50058-00465: "th. S 289.81 ft." and courses joined by "and" / "&"."""
         mod = _load_audit_module()
         calls = mod.extract_calls_from_md(
             "Commencing at the NE corner of Lot 13 and proceeding th. S 69° 53' 23\" W 82.00 ft. "
@@ -633,7 +633,7 @@ class TestAuditMiwaynForms:
         assert [call["azimuth"] for call in calls][1:3] == [180.0, 270.0]
 
     def test_excluded_part_with_a_point_of_beginning_being(self) -> None:
-        """MIWAYN-50428-01001: the excluded triangle is the only described figure."""
+        """Deed 50428-01001: the excluded triangle is the only described figure."""
         mod = _load_audit_module()
         calls = mod.extract_calls_from_md(
             "LOT 48 EXCLUDING THAT PART DESCRIBED AS TRIANGULAR PORTION HAVING A POINT OF BEGINNING "

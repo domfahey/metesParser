@@ -227,7 +227,7 @@ DRAINAGE_EASEMENT = (
     "ALSO an easement for drainage: BEGINNING at said pin; "
     "thence North 80 degrees West 20 feet; thence North 10 degrees East 50 feet."
 )
-MIWAYN = (
+STRIP_AFTER_COMMA = (
     "Beginning at a point distant North 2 degrees 56 minutes 20 seconds West 955.85 feet "
     "from the East 1/4 corner of Section 16, and proceeding thence South 87 degrees 03 "
     "minutes 40 seconds West 138.0 feet; thence North 2 degrees 56 minutes 20 seconds West "
@@ -335,8 +335,8 @@ CASES: dict[str, Case] = {
     # --- strips after the closure (r44, r47) ----------------------------------------
     "r44_strip_westerly": _strip_case(SQUARE, "EXCEPTING the westerly 10 feet thereof"),
     "r44_strip_less_and_except": _strip_case(SQUARE, "LESS AND EXCEPT the north 10 feet thereof"),
-    "r44_miwayn_strip_after_comma": Case(
-        MIWAYN,
+    "r44_strip_after_comma": Case(
+        STRIP_AFTER_COMMA,
         closing_to="the Point of Beginning",
         exceptions=("except the South 30 feet thereof",),
     ),

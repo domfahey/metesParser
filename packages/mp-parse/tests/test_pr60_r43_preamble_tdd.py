@@ -129,7 +129,7 @@ def test_course_joined_to_the_beginning_clause_by_a_comma_fails_closed(text):
         "BEGINNING at a point in the Northerly line of Main Street, distant 100 feet "
         "Westerly from the corner of Elm Street; ",
         "BEGINNING at a point distant N 2° W 955.85 feet from the East 1/4 corner; ",
-        # MIWAYN-50020-01181 / MIWAYN-50510-00079: ties joined by "and" up to "from".
+        # Deed 50020-01181 / deed 50510-00079: ties joined by "and" up to "from".
         "beginning at a point distant S 89° W 1,304.76 feet along the South line of said "
         "Section, and N 0° W 785.57 feet, and N 89° E 493.11 feet from the Southeast "
         "corner of Section 7, and proceeding ",

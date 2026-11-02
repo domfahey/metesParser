@@ -1,6 +1,6 @@
 """Tests for 'due cardinal' bearing extraction and enrichment.
 
-Three Wayne County MI deeds use 'due North', 'due South', 'due East',
+Three recorded deeds use 'due North', 'due South', 'due East',
 'due West' bearings.  These must be:
   1. Recognized by extract_direction() as valid directions
   2. Extracted as calls by extract_single_call() / extract_calls()
@@ -96,8 +96,8 @@ class TestExtractSingleCallDueCardinal:
 class TestExtractCallsDueCardinal:
     """extract_calls() should produce complete call lists for real due-cardinal deeds."""
 
-    def test_miwayn_50233_4_calls(self) -> None:
-        """MIWAYN-50233-01191: 4 calls expected (was 2 -- due South/North dropped)."""
+    def test_deed_50233_4_calls(self) -> None:
+        """Deed 50233-01191: 4 calls expected (was 2 -- due South/North dropped)."""
         text = (
             "beginning at a point on the North line of Section 14, "
             "distant North 89 degrees 20 minutes 37 seconds East 250.00 feet "
@@ -124,8 +124,8 @@ class TestExtractCallsDueCardinal:
         ]
         assert len(due_north_calls) >= 1, "Missing due North call"
 
-    def test_miwayn_50248_4_calls(self) -> None:
-        """MIWAYN-50248-00913: 4 calls expected (was 2 -- due west/East dropped)."""
+    def test_deed_50248_4_calls(self) -> None:
+        """Deed 50248-00913: 4 calls expected (was 2 -- due west/East dropped)."""
         text = (
             "beginning at a point distant South 00 degrees 44 minutes 00 seconds West "
             "180.00 feet from the Northeast corner of Lot 206 and proceeding "
@@ -149,8 +149,8 @@ class TestExtractCallsDueCardinal:
         ]
         assert len(due_east_calls) >= 1, "Missing due East call"
 
-    def test_miwayn_50872_4_calls_with_azimuth(self) -> None:
-        """MIWAYN-50872-00130: 4 calls, last one 'due North' must have azimuth 0.0."""
+    def test_deed_50872_4_calls_with_azimuth(self) -> None:
+        """Deed 50872-00130: 4 calls, last one 'due North' must have azimuth 0.0."""
         text = (
             "thence South 89 degrees 58 minutes 45 seconds East 256.93 feet; "
             "thence South 0 degrees 03 minutes 15 seconds East 120.64 feet; "

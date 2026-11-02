@@ -1,6 +1,6 @@
-"""Wording from the Wayne County, Michigan (MIWAYN) deeds, parsed by both parsers.
+"""Wording from the recorded sample deeds, parsed by both parsers.
 
-The MIWAYN sample files were removed; these tests keep short excerpts or synthetic
+The original sample files were removed; these tests keep short excerpts or synthetic
 equivalents of the wording.
 """
 
@@ -46,7 +46,7 @@ def test_bearing_mixing_words_and_symbols(parse, bearing_text, expected_azimuth)
 
 @pytest.mark.parametrize("parse", PARSERS)
 def test_assessor_description_with_offset_preamble(parse):
-    """MIWAYN-50062-01403: the "AND" offsets before FROM locate the POB; they are not courses."""
+    """Deed 50062-01403: the "AND" offsets before FROM locate the POB; they are not courses."""
     calls = parse(
         "BEG S0DEG 32M 50S W 401.55FT AND N80DEG 29M 20S W 480.49FT AND S0DEG 49M 20S W "
         "142.75FT AND N89DEG 10M 40S W 2FT FROM NE COR SEC 36 TH S0DEG 49M 20S W 175FT "
@@ -58,7 +58,7 @@ def test_assessor_description_with_offset_preamble(parse):
 
 @pytest.mark.parametrize(("parse", "mark"), zip(PARSERS, TIE_MARKERS, strict=True))
 def test_commencement_course_ending_for_the_point_of_beginning_is_a_tie(parse, mark):
-    """MIWAYN-50837-00216: the closing course is not a tie line."""
+    """Deed 50837-00216: the closing course is not a tie line."""
     text = (
         "Commencing at the Northwest corner of Lot 15; Thence South 26 deg. 00' 41\" East, "
         "120.00 feet along the Easterly right of way of Fairview Avenue for the point of "
@@ -82,7 +82,7 @@ def test_tie_marking_keeps_tract_level_ties(mark):
 
 @pytest.mark.parametrize("parse", PARSERS)
 def test_comma_joined_courses_are_split_but_offsets_are_not(parse):
-    """MIWAYN-50306-00349 Parcel 2."""
+    """Deed 50306-00349 Parcel 2."""
     calls = parse(
         "beginning at a point South 78 degrees 15 minutes 40 seconds East 445.93 feet, North "
         "73 degrees 05 minutes 24 seconds West 49.61 feet from the corner of Lot 13; thence "
@@ -96,7 +96,7 @@ def test_comma_joined_courses_are_split_but_offsets_are_not(parse):
 
 @pytest.mark.parametrize("parse", PARSERS)
 def test_strip_deeded_for_roadway_is_not_a_course(parse):
-    """MIWAYN-50512-00525."""
+    """Deed 50512-00525."""
     calls = parse(
         "Beginning at a point; thence North 00 degrees 04 minutes West, 80 feet to a point; "
         "thence South 89 degrees 48 minutes 45 seconds West, 214 feet to a point of beginning, "
@@ -116,7 +116,7 @@ LOT_LESS_TRIANGLE = (
 
 @pytest.mark.parametrize("parse", PARSERS)
 def test_excluding_that_part_is_an_exception(parse):
-    """MIWAYN-50428-01001."""
+    """Deed 50428-01001."""
     calls = parse(LOT_LESS_TRIANGLE, strict=False)
     assert [call.distance_ft for call in calls] == pytest.approx([20.0, 50.2, 46.37])
     assert all(call.is_exception for call in calls)
@@ -133,7 +133,7 @@ def test_lot_reference_with_excluded_part_parses_in_strict_mode():
 
 @pytest.mark.parametrize("parse", PARSERS)
 def test_endpoint_on_next_curve_and_note_before_unit(parse):
-    """MIWAYN-50146-01291."""
+    """Deed 50146-01291."""
     calls = parse(
         "thence North 89 degrees 09 minutes 29 seconds East 551.39 feet to a point on the "
         "Westerly Right-of-Way of I-275, said point also being a point on a non-tangential "
@@ -147,7 +147,7 @@ def test_endpoint_on_next_curve_and_note_before_unit(parse):
 
 @pytest.mark.parametrize("parse", PARSERS)
 def test_exception_stays_with_its_parcel_and_next_parcel_is_not_excepted(parse):
-    """Shape of MIWAYN-50306-00349: Parcel 1 excepts a parcel that Parcel 2 then conveys."""
+    """Shape of deed 50306-00349: Parcel 1 excepts a parcel that Parcel 2 then conveys."""
     excepted = (
         "beginning at the Northeast corner of Lot 13; thence South 00 degrees 00 minutes "
         "00 seconds East 30.00 feet; thence North 90 degrees 00 minutes 00 seconds West 40.00 "
@@ -168,7 +168,7 @@ def test_exception_stays_with_its_parcel_and_next_parcel_is_not_excepted(parse):
     assert [call.is_exception for call in calls] == [False] * 4 + [True] * 3 + [False] * 3
 
 
-MIWAYN_50492 = (
+DEED_50492 = (
     "Property Commencing 88 degrees 54 minutes 18 seconds West from the Southeast corner of "
     "said Section 7;\nthence along the South line of said Section 7 505.00 feet;\nthence "
     "continuing North 88 degrees 54 minutes 18 seconds West 159.56 feet;\nthence North 00 "
@@ -180,8 +180,8 @@ MIWAYN_50492 = (
 
 @pytest.mark.parametrize("parse", PARSERS)
 def test_tie_to_an_unstated_point_of_beginning_is_inferred_from_closure(parse):
-    """MIWAYN-50492-00960: courses 2-5 close to 0.006 ft without course 1."""
-    calls = parse(MIWAYN_50492, strict=True)
+    """Deed 50492-00960: courses 2-5 close to 0.006 ft without course 1."""
+    calls = parse(DEED_50492, strict=True)
     assert [call.is_tie_in for call in calls] == [True, False, False, False, False]
     assert "inferred from closure" in (calls[0].notes or "")
 
@@ -203,7 +203,7 @@ def test_inferred_tie_is_recorded_in_the_audit():
             config={},
         )
     )
-    package_extract_with_tracts(MIWAYN_50492, audit_context=audit, strict=True)
+    package_extract_with_tracts(DEED_50492, audit_context=audit, strict=True)
     first = audit.call_audits[0]
     assert "tie_inferred_from_closure" in first.flags
     assert [decision.field for decision in first.decisions][-1] == "is_tie_in"

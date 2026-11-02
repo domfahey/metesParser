@@ -2,7 +2,7 @@
 
 Date: 2026-10-28
 
-Status: **local implementation complete; native Claude/Cowork acceptance not run**. The [audited plan](../plans/2026-10-28-boundarylogic-cowork-workflow-plan.md) has local implementation evidence for all seven phases. This is not full native-client acceptance or a claim of BoundaryLogic parity.
+Status: **local implementation complete; native Claude/Cowork acceptance not run**. The audited plan has local implementation evidence for all seven phases. This is not full native-client acceptance or a claim of third-party parity.
 
 Starting checkout: `4804355` on `feat/deed-closure-dashboard-skill`. Existing untracked `.playwright-cli/` is preserved outside the commit. The user subsequently authorized a local commit of the implementation, plan, audit and ledger; no push was requested.
 

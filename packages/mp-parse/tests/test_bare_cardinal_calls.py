@@ -1,4 +1,4 @@
-"""Tests for bare cardinal + distance normalization (MIWAYN-50058-00465).
+"""Tests for bare cardinal + distance normalization (deed 50058-00465).
 
 Bare cardinal patterns like "thence S 289.81 feet" (no degree notation)
 should be normalized to "thence due South 289.81 feet" so the existing
@@ -137,8 +137,8 @@ class TestAmpersandAndSeparator:
         assert result.lower().count("thence") >= 1
 
 
-class TestMIWAYN50058FullText:
-    """Integration test: full MIWAYN-50058-00465 text should yield 7 calls."""
+class TestDeed50058FullText:
+    """Integration test: full deed 50058-00465 text should yield 7 calls."""
 
     FULL_TEXT = (
         "Commencing at the NE corner of Lot 13 of Newman Orchards a subdivision "

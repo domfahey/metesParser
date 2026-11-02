@@ -14,7 +14,7 @@ class TestDetectStripExceptions:
     """detect_strip_exceptions(text) returns structured data for each strip."""
 
     def test_except_east_20_feet_roadway(self) -> None:
-        """MIWAYN-50512-00525: 'except the East 20 feet deeded for roadway'."""
+        """Deed 50512-00525: 'except the East 20 feet deeded for roadway'."""
         from mp_parse.metadata import detect_strip_exceptions
 
         text = (
@@ -31,7 +31,7 @@ class TestDetectStripExceptions:
         assert "except the East 20 feet deeded for roadway" in strip["original_text"]
 
     def test_except_south_30_feet_thereof(self) -> None:
-        """MIWAYN-50795-01269: 'except the South 30 feet thereof'."""
+        """Deed 50795-01269: 'except the South 30 feet thereof'."""
         from mp_parse.metadata import detect_strip_exceptions
 
         text = (
@@ -46,7 +46,7 @@ class TestDetectStripExceptions:
         assert strip["original_text"] is not None
 
     def test_subject_to_easement_west_30_feet(self) -> None:
-        """MIWAYN-50872: 'Subject to an Easement for Private Road Purposes over the West 30 Feet thereof'."""
+        """Deed 50872: 'Subject to an Easement for Private Road Purposes over the West 30 Feet thereof'."""
         from mp_parse.metadata import detect_strip_exceptions
 
         text = (
@@ -187,13 +187,13 @@ class TestDetectStripExceptions:
         assert result[0]["purpose"] is None
 
     def test_full_legal_50512(self) -> None:
-        """Full legal description from MIWAYN-50512-00525 ground truth."""
+        """Full legal description from deed 50512-00525 ground truth."""
         from mp_parse.metadata import detect_strip_exceptions
 
         text = (
             "Beginning at a point being North 00 degrees 04 minutes West, "
             "1042 feet from the Southeast corner of Section 13, Town 1 South, "
-            "Range 9 East, City of Livonia, Wayne County, Michigan; thence "
+            "Range 9 East, City of Sampleton, Sample County, Michigan; thence "
             "North 00 degrees 04 minutes West, 80 feet to a point; thence "
             "South 89 degrees 48 minutes 45 seconds West, 214 feet along "
             "a line parallel to the South line of said Section 13 to a point; "
@@ -208,7 +208,7 @@ class TestDetectStripExceptions:
         assert result[0]["width_ft"] == 20.0
 
     def test_full_legal_50795(self) -> None:
-        """Full legal description from MIWAYN-50795-01269 ground truth."""
+        """Full legal description from deed 50795-01269 ground truth."""
         from mp_parse.metadata import detect_strip_exceptions
 
         text = (
@@ -309,13 +309,13 @@ class TestRemoveStripExceptions:
         assert "West 25 feet" not in result
 
     def test_full_legal_50512_cleaned(self) -> None:
-        """Full MIWAYN-50512-00525 legal description is cleaned correctly."""
+        """Full deed 50512-00525 legal description is cleaned correctly."""
         from mp_parse.metadata import remove_strip_exceptions
 
         text = (
             "Beginning at a point being North 00 degrees 04 minutes West, "
             "1042 feet from the Southeast corner of Section 13, Town 1 South, "
-            "Range 9 East, City of Livonia, Wayne County, Michigan; thence "
+            "Range 9 East, City of Sampleton, Sample County, Michigan; thence "
             "North 00 degrees 04 minutes West, 80 feet to a point; thence "
             "South 89 degrees 48 minutes 45 seconds West, 214 feet along "
             "a line parallel to the South line of said Section 13 to a point; "

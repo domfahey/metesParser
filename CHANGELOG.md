@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
-- **Wayne County data:** the `sample_deeds/wayne-county-mi/` dataset and the 22 `MIWAYN-*` sample deeds, whose source dataset was not licensed for distribution. 87 sample ground truths remain. Regression tests keep short excerpts or synthetic equivalents of their wording.
+- **Third-party sample data:** a sample dataset and the 22 sample deeds taken from it, which were not licensed for distribution. 87 sample ground truths remain. Regression tests keep short excerpts or synthetic equivalents of their wording.
 
 ## [0.7.0] - 2026-11-01
 
@@ -23,7 +23,6 @@ Versions: `metesparser` 0.7.0; `mp-models`, `mp-parse`, `mp-verify`, `mp-export`
 
 - The chat Skill ZIP and its checksum are attached to the GitHub release alongside the plugin ZIP.
 - Sample-deed ground-truth checks: every one of the 109 ground truths has been checked twice against its recorded PDF, and `tests/unit/test_ground_truth_consistency.py` checks each one's bearings, distances, `along`/`to` wording, course counts and stored closure against its own legal text. Misprinted values record the intended value, with the printed value in `printed_distance_ft` or `printed_bearing_azimuth_deg_from_north`.
-- 22 Wayne County, Michigan sample deeds (`MIWAYN-*`) with markdown and ground truths.
 - Standalone Claude chat Skill archive: one discoverable entrypoint, thirteen embedded procedures and the existing deterministic engine. `make chat-skill-build` produces the ZIP and checksum. Generated instructions use paths inside the extracted archive.
 - Explicit chat runtime setup: host or cached `uv`, or a pinned, hash-checked bootstrap for Linux and macOS (x86_64/ARM64), then locked dependency provisioning. Offline setup and ordinary invocations never download the bootstrap tool. Native chat acceptance is pending.
 
@@ -80,7 +79,7 @@ Versions: `metesparser` 0.7.0; `mp-models`, `mp-parse`, `mp-verify`, `mp-export`
 - Claude plugin workflow for any source document: native text conversion, explicit metes-and-bounds description selection before closure, and deterministic review of the selected boundary.
 - Plugin usage/source-preparation references, per-skill READMEs, and a plugin-specific changelog.
 - Project motivation, design pillars, and WIP notice to README (PR #35)
-- **Wayne County parser fixes** — 10 parser improvements from error analysis of 22 Wayne County MI deeds (PR #42):
+- **Recorded-deed parser fixes** — 10 parser improvements from error analysis of 22 recorded deeds (PR #42):
   - Due cardinal bearing support (`due North` → 0.0° azimuth) in `mp-bearing` and monolith
   - Compressed assessor notation normalizer (DEG/D/M/S/SEC, TH, FT, SLY/NLY/ELY/WLY) in `mp-parse` and monolith
   - Strip exception detection and removal (`except the East 20 feet deeded for roadway`)
@@ -90,7 +89,7 @@ Versions: `metesparser` 0.7.0; `mp-models`, `mp-parse`, `mp-verify`, `mp-export`
   - Bare cardinal + distance normalization (`thence S 289.81 feet` → `thence due South`)
   - LLM anti-hallucination prompts, dual-notation handling, space-separated DMS support
   - 249 new tests across 8 test files
-- 22 Wayne County MI sample deeds with ground truth JSON, added separately from the parser fixes.
+- 22 recorded sample deeds with ground truth JSON, added separately from the parser fixes.
 
 ### Changed
 

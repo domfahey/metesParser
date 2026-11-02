@@ -1,4 +1,4 @@
-"""Tests for assessor abbreviation normalization (Wayne County MI compressed notation).
+"""Tests for assessor abbreviation normalization (compressed county assessor notation).
 
 TDD tests — written BEFORE implementation.
 Covers expand_assessor_abbreviations() for compressed assessor notation patterns:
@@ -95,7 +95,7 @@ class TestSecondExpansion:
         assert "seconds" not in result.lower()
 
     def test_sec_suffix_seconds(self) -> None:
-        """SEC (as in 3SEC or 40SEC from MIWAYN-50484) should become seconds."""
+        """SEC (as in 3SEC or 40SEC from deed 50484) should become seconds."""
         from mp_parse.normalizer import expand_assessor_abbreviations
 
         result = expand_assessor_abbreviations("89D 05M 3SEC W")
@@ -242,8 +242,8 @@ class TestMiscAbbreviations:
 # ---------------------------------------------------------------------------
 
 
-class TestMIWAYN50062:
-    """MIWAYN-50062: S0DEG 49M 20S W 175FT pattern."""
+class TestDeed50062:
+    """Deed 50062: S0DEG 49M 20S W 175FT pattern."""
 
     LEGAL = (
         "36F8B PT OF NE 1/4 SEC 36 T2S R8E BEG S0DEG 32M 50S W 401.55FT "
@@ -329,8 +329,8 @@ class TestMIWAYN50062:
         assert "degrees" in result.lower()
 
 
-class TestMIWAYN50305:
-    """MIWAYN-50305: TH SLY 90 FT ALG ELY LINE pattern (directional abbrevs)."""
+class TestDeed50305:
+    """Deed 50305: TH SLY 90 FT ALG ELY LINE pattern (directional abbrevs)."""
 
     LEGAL = (
         "W MORANG THAT PT OF 20 DESC AS FOLS BEG AT NE COR OF LOT 20 "
@@ -402,8 +402,8 @@ class TestMIWAYN50305:
         assert "corner" in result.lower()
 
 
-class TestMIWAYN50426:
-    """MIWAYN-50426: N 88D 25M 31S E pattern."""
+class TestDeed50426:
+    """Deed 50426: N 88D 25M 31S E pattern."""
 
     LEGAL = (
         "23J1B PT OF THE SE 1/4 OF SEC 23 T4S R10E DESC AS BEG N 88D 25M 31S E "
@@ -459,8 +459,8 @@ class TestMIWAYN50426:
         assert "thence" in result.lower()
 
 
-class TestMIWAYN50484:
-    """MIWAYN-50484: N89DEG 06M W 60FT + SEC suffix for seconds."""
+class TestDeed50484:
+    """Deed 50484: N89DEG 06M W 60FT + SEC suffix for seconds."""
 
     LEGAL = (
         "10L6B3A1A PART OF SE 1/4 SEC 10 T2S R9E BEG N89DEG 06M W 60FT "
@@ -532,8 +532,8 @@ class TestMIWAYN50484:
         assert "point of beginning" in result.lower()
 
 
-class TestMIWAYN50633:
-    """MIWAYN-50633: S88DEG 23M 20S E 371FT pattern."""
+class TestDeed50633:
+    """Deed 50633: S88DEG 23M 20S E 371FT pattern."""
 
     LEGAL = (
         "13H2C D PART OF NW 1/4 SEC 13 T4S R9E BEG AT NW COR SEC 13 "
@@ -651,7 +651,7 @@ class TestEdgeCases:
         assert "AC" in result.upper() or "ac" in result.lower()
 
     def test_fols_not_expanded(self) -> None:
-        """FOLS (follows) in Wayne County text should not be mangled."""
+        """FOLS (follows) in assessor text should not be mangled."""
         from mp_parse.normalizer import expand_assessor_abbreviations
 
         result = expand_assessor_abbreviations("DESC AS FOLS BEG")

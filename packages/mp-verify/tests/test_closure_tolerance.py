@@ -2,7 +2,7 @@
 
 TDD tests for the tolerance_ft parameter and relaxed-tolerance warning.
 Covers default behavior preservation, relaxed tolerance, strict tolerance,
-and the real-world MIWAYN-50020-01181 deed scenario.
+and the real-world deed 50020-01181 deed scenario.
 """
 
 from __future__ import annotations
@@ -80,10 +80,10 @@ def _near_closing_calls(offset_ft: float = 0.005) -> list[DeedCall]:
     ]
 
 
-def _miwayn_50020_calls() -> list[DeedCall]:
-    """Actual extracted calls from MIWAYN-50020-01181.
+def _deed_50020_calls() -> list[DeedCall]:
+    """Actual extracted calls from deed 50020-01181.
 
-    Four calls from a Wayne County, Michigan deed:
+    Four calls from a recorded deed:
       1) N 89 deg 50' E   439.98 ft
       2) S 30 deg 07'30" E 173.82 ft
       3) S 89 deg 50' W   526.89 ft
@@ -255,33 +255,33 @@ class TestStrictTolerance:
 
 
 # ---------------------------------------------------------------------------
-# Test: MIWAYN-50020-01181 real-world deed
+# Test: deed 50020-01181 real-world deed
 # ---------------------------------------------------------------------------
 
 
-class TestMIWAYN50020Deed:
-    """Real-world test using calls from MIWAYN-50020-01181 (Wayne County, MI).
+class TestDeed50020Deed:
+    """Real-world test using calls from deed 50020-01181.
 
     This deed has 4 correctly extracted calls matching ground truth,
     but the traverse does not close within the default 0.01 ft threshold.
     """
 
     def test_fails_at_default_tolerance(self):
-        """MIWAYN-50020 should fail closure at the default 0.01 ft threshold."""
-        calls = _miwayn_50020_calls()
+        """Deed 50020 should fail closure at the default 0.01 ft threshold."""
+        calls = _deed_50020_calls()
         result = verify_closure(calls)
         assert result.closure_passed is False
         assert result.misclosure_ft > CLOSURE_TOLERANCE_FT
 
     def test_misclosure_is_reasonable(self):
         """Misclosure should be small (< 5 ft) -- it's a real deed, not garbage."""
-        calls = _miwayn_50020_calls()
+        calls = _deed_50020_calls()
         result = verify_closure(calls)
         assert result.misclosure_ft < 5.0
 
     def test_passes_with_relaxed_tolerance(self):
-        """With a sufficiently relaxed tolerance, MIWAYN-50020 should pass."""
-        calls = _miwayn_50020_calls()
+        """With a sufficiently relaxed tolerance, deed 50020 should pass."""
+        calls = _deed_50020_calls()
         # First, find the actual misclosure
         result_default = verify_closure(calls)
         misclosure = result_default.misclosure_ft
@@ -292,8 +292,8 @@ class TestMIWAYN50020Deed:
         assert result_relaxed.closure_passed is True
 
     def test_relaxed_tolerance_emits_warning(self):
-        """When MIWAYN-50020 passes with relaxed tolerance, warning is emitted."""
-        calls = _miwayn_50020_calls()
+        """When deed 50020 passes with relaxed tolerance, warning is emitted."""
+        calls = _deed_50020_calls()
         result_default = verify_closure(calls)
         misclosure = result_default.misclosure_ft
         relaxed_tolerance = misclosure + 0.1
@@ -303,8 +303,8 @@ class TestMIWAYN50020Deed:
         assert any("relaxed tolerance" in w.lower() for w in result.warnings)
 
     def test_area_is_reasonable(self):
-        """MIWAYN-50020 should compute a reasonable area (a residential parcel)."""
-        calls = _miwayn_50020_calls()
+        """Deed 50020 should compute a reasonable area (a residential parcel)."""
+        calls = _deed_50020_calls()
         result = verify_closure(calls)
         # Area should be positive and in a plausible residential range
         assert result.area_sq_ft > 10_000
@@ -312,14 +312,14 @@ class TestMIWAYN50020Deed:
 
     def test_all_four_calls_used(self):
         """All 4 calls should have bearings and contribute to the traverse."""
-        calls = _miwayn_50020_calls()
+        calls = _deed_50020_calls()
         for call in calls:
             assert call.bearing_azimuth_deg_from_north is not None
             assert call.distance_ft > 0
 
     def test_perimeter_is_sum_of_distances(self):
         """Perimeter should match sum of all four distances."""
-        calls = _miwayn_50020_calls()
+        calls = _deed_50020_calls()
         result = verify_closure(calls)
         expected_perimeter = 439.98 + 173.82 + 526.89 + 150.60
         assert abs(result.perimeter_ft - expected_perimeter) < 0.01
