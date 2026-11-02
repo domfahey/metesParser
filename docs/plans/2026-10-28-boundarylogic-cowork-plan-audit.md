@@ -14,7 +14,7 @@ No finding below establishes a current MetesParser defect or a newly reproduced 
 
 ## Evidence and audit boundary
 
-The audit used the [research reconstruction](../reference/boundarylogic-reverse-engineering.md), its retained workflow/product/static reviews, the saved REA result, the current plan and targeted current-code contracts. Three smaller-model reviewers independently covered geometry, persistence/intake, and exports/placement; the parent reconciled findings and checked evidence integrity.
+The audit used the research reconstruction, its retained workflow/product/static reviews, the saved REA result, the current plan and targeted current-code contracts. Three smaller-model reviewers independently covered geometry, persistence/intake, and exports/placement; the parent reconciled findings and checked evidence integrity.
 
 Fresh integrity checks passed:
 
@@ -34,7 +34,7 @@ Audited identities:
 
 REA parsed one selected JavaScript file with zero parse failures and 21,601 AST nodes. Application coverage is partial; semantic coverage is unknown, with 4,965 semantic unknowns. Summary `complete-within-view` does not mean complete application recovery. Static observations and source-derived candidates cannot establish save failures, exported-file behavior or server calculations in production.
 
-The raw corpus and REA files under `.firecrawl/` are local, ignored research artifacts. Their links below support local review; the tracked reconstruction preserves the main findings for other checkouts. Hash integrity establishes artifact identity, not semantic correctness.
+The raw corpus, the REA files and the research reconstruction cited below are kept outside the repository and are not linked. Hash integrity establishes artifact identity, not semantic correctness.
 
 ## Original findings and required amendments
 
@@ -44,7 +44,7 @@ The raw corpus and REA files under `.firecrawl/` are local, ignored research art
 
 Stable call IDs and new output directories do not define what happens when a save is pending, rejected, superseded or interrupted. Phase B also leaves ambiguous whether an invalid draft can be saved or only a validated scenario payload. Multi-tract publication lacks explicit tract identity and partial-write semantics.
 
-The captured BoundaryLogic callback skips writes for errorful matched blocks, matches blocks heuristically by calls/name/ordinal position, performs separate writes/deletions, and catches failures internally. Export waits at most 2.5 seconds before navigation. These are static observations; stale exports, orphan records and data loss remain runtime candidates. See [persistence analysis](../../.firecrawl/boundarylogic-full-2026-10-28/review/persistence-static-review.md), S05/S07/S08 and C01–C03, and the reconstruction's [persistence section](../reference/boundarylogic-reverse-engineering.md#persistence-what-the-client-actually-does).
+The captured BoundaryLogic callback skips writes for errorful matched blocks, matches blocks heuristically by calls/name/ordinal position, performs separate writes/deletions, and catches failures internally. Export waits at most 2.5 seconds before navigation. These are static observations; stale exports, orphan records and data loss remain runtime candidates. See persistence analysis, S05/S07/S08 and C01–C03, and the reconstruction's persistence section.
 
 Recommended amendment:
 
@@ -61,7 +61,7 @@ Acceptance: delay a save beyond 2.5 seconds, reject it, edit while saving, switc
 
 Selecting a revision and layer set is necessary but leaves transform policy, raster inclusion, opacity, label/table fidelity and unavailable metrics underspecified. All package components need the same immutable input snapshot.
 
-The captured client uses different export paths, separate screenshot and summary inputs, a visual/PDF rotation notice, Sheet image exclusions and zero defaults for unavailable summary metrics. These motivate tests; actual server files and the suspected preview/output discrepancies remain unobserved. See [export analysis](../../.firecrawl/boundarylogic-full-2026-10-28/review/exports-placement-static-review.md), F01/F02/F03/F08/F15/F21.
+The captured client uses different export paths, separate screenshot and summary inputs, a visual/PDF rotation notice, Sheet image exclusions and zero defaults for unavailable summary metrics. These motivate tests; actual server files and the suspected preview/output discrepancies remain unobserved. See export analysis, F01/F02/F03/F08/F15/F21.
 
 Recommended amendment:
 
@@ -78,7 +78,7 @@ Acceptance: export an asymmetric line/arc parcel with a placement and display ro
 
 The invariant already says to account for every source course, but the acceptance criteria do not test a rejected course whose surviving subset closes. That is one of the strongest research lessons.
 
-The vendor documents unplottable calls being omitted while the remaining geometry can report Closed; static parser/closure flow supports that separation. Its comma/aliquot fallback also admits some ordinary lot prose. See [parser analysis](../../.firecrawl/boundarylogic-full-2026-10-28/review/parser-static-review.md), E01/E02/E04/E08/E12, and [unplottable-call documentation](../../.firecrawl/boundarylogic-full-2026-10-28/pages/d5f23c2de5913e62ee3a.md).
+The vendor documents unplottable calls being omitted while the remaining geometry can report Closed; static parser/closure flow supports that separation. Its comma/aliquot fallback also admits some ordinary lot prose. See parser analysis, E01/E02/E04/E08/E12, and unplottable-call documentation.
 
 Recommended amendment: expose source-linked accounting for parsed boundary, tie/reference, intentionally excluded and unresolved/rejected material, with reasons and actual page/span identities. Unknown coverage stays unknown; do not invent a total source-call count.
 
@@ -90,7 +90,7 @@ Acceptance: use an unreadable middle course surrounded by cancelling valid cours
 
 Sensitivity checks and partial-curve fixtures do not explicitly preserve the current rejection of contradictory redundant measurements or orientations.
 
-BoundaryLogic's inspected solver chooses precedence branches and can ignore contradictory extra inputs; these are static facts about the selected solver. MetesParser already validates redundant evidence in [plot geometry preparation](../../packages/mp-verify/src/mp_verify/plot.py). See [curve analysis](../../.firecrawl/boundarylogic-full-2026-10-28/review/curves-corridors-static-review.md), C03/C04.
+BoundaryLogic's inspected solver chooses precedence branches and can ignore contradictory extra inputs; these are static facts about the selected solver. MetesParser already validates redundant evidence in [plot geometry preparation](../../packages/mp-verify/src/mp_verify/plot.py). See curve analysis, C03/C04.
 
 Recommended amendment: diagnosis, comparison, editing and export must reuse the current consistency/orientation checks. Define independent parameters for sensitivity calculations rather than perturbing constrained inputs inconsistently.
 
@@ -102,7 +102,7 @@ Acceptance: contradictory radius/arc/chord values and tangent/chord orientations
 
 Phase F defines widths, tapers and caps, but does not require their lossless passage through the earlier revision and export contracts.
 
-The captured adapter serializes per-course average side widths; its local corridor path samples curves and does not distinguish the accepted end modes in construction. Backend reconstruction from raw text remains unknown. See [curve/corridor analysis](../../.firecrawl/boundarylogic-full-2026-10-28/review/curves-corridors-static-review.md), C09/C10/C17.
+The captured adapter serializes per-course average side widths; its local corridor path samples curves and does not distinguish the accepted end modes in construction. Backend reconstruction from raw text remains unknown. See curve/corridor analysis, C09/C10/C17.
 
 Recommended amendment: retain interval order, start/end left/right widths, step/taper rules, joins, caps and source references through save → reopen → plot → export. Specify overlapping width-row handling and explicit missing-width outcomes. Declare approximation error in linear units; a fixed angular step alone is insufficient.
 
@@ -126,7 +126,7 @@ Acceptance: a registered raster with no deed control leaves the deed unplaced. C
 
 Structured forms are an appropriate scope choice, but the plan needs an explicit supported-input matrix to avoid ambiguous angle, unit and course-role interpretation.
 
-The documented manual language distinguishes packed DMS from decimal degrees, relative angles, POC/POB ties, reference/omitted calls and derived closing courses. The manual and AI/API paths have different support. See [syntax reference](../../.firecrawl/boundarylogic-full-2026-10-28/pages/0bea1bcb45ad808bd19d.md) and the reconstruction's [interpretation paths](../reference/boundarylogic-reverse-engineering.md#two-interpretation-paths).
+The documented manual language distinguishes packed DMS from decimal degrees, relative angles, POC/POB ties, reference/omitted calls and derived closing courses. The manual and AI/API paths have different support. See syntax reference and the reconstruction's interpretation paths.
 
 Recommended amendment: declare angle representation, units, explicit/inherited orientation and supported course roles. Route supported relative inputs through the existing relative-analysis contract. Unsupported forms remain source evidence. A derived closing course, if offered, remains a scenario rather than a source correction.
 
@@ -138,7 +138,7 @@ Acceptance: `45.3020` cannot silently switch meanings; commencement ties stay ou
 
 Asking which tract is intended is correct when selection is ambiguous. The plan does not cover an explicit request to review several identified operative tracts together.
 
-The research documents separate descriptions within one document and per-tract state; see [manual multi-tract documentation](../../.firecrawl/boundarylogic-full-2026-10-28/pages/039ef836c5ac5c2aa678.md) and the reconstruction's [domain model](../reference/boundarylogic-reverse-engineering.md#domain-model).
+The research documents separate descriptions within one document and per-tract state; see manual multi-tract documentation and the reconstruction's domain model.
 
 Recommended amendment: reuse one acquisition with separate selection/review identities for each requested tract, return a combined inventory and preserve independent outcomes. This is bounded local composition, not hosted bulk processing.
 
@@ -150,7 +150,7 @@ Acceptance: a document has two requested operative tracts plus a historical quot
 
 Authoritative source/date/CRS provenance alone does not establish unique section selection or the validity of a subdivision method.
 
-The saved [PLSS guide](../../.firecrawl/boundarylogic-full-2026-10-28/pages/e7584cceb6ab7e39cc27.md) distinguishes nominal shape from reference placement and computed subdivisions from survey evidence. The proposed stronger requirements are independent design choices, not claims about recovered vendor logic.
+The saved PLSS guide distinguishes nominal shape from reference placement and computed subdivisions from survey evidence. The proposed stronger requirements are independent design choices, not claims about recovered vendor logic.
 
 Recommended amendment: require an unambiguous section/reference ID, including principal-meridian context where applicable, and record the versioned derivation rule and its supported subset.
 

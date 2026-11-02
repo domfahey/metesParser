@@ -12,7 +12,7 @@ Provide a coherent Cowork workflow: bring a deed, understand the source, inspect
 
 This is a follow-on to the [source evidence and review improvements plan](2026-10-28-skill-evidence-and-review-improvements.md), whose current results are recorded in the [implementation evidence ledger](../implementation/2026-10-28-evidence-review-ledger.md). It also builds on the [plot and overlay plan](2026-10-26-deed-plot-and-tax-overlay-plan.md). Do not reopen their completed implementation tasks or duplicate their native-client evaluation backlog.
 
-The [BoundaryLogic reconstruction](../reference/boundarylogic-reverse-engineering.md) supplies functional design input from public documentation and captured client code. It does not establish authenticated behavior, backend implementation, or numerical correctness. Target observable user outcomes; retain MetesParser's own verification requirements.
+The BoundaryLogic reconstruction supplies functional design input from public documentation and captured client code. It does not establish authenticated behavior, backend implementation, or numerical correctness. Target observable user outcomes; retain MetesParser's own verification requirements.
 
 ## Existing foundation and remaining gaps
 
