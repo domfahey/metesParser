@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-25
+
+Versions: `metesparser` 0.7.1; `mp-models`, `mp-parse`, `mp-verify`, `mp-export` and `mp-review` 2.0.0; `mp-bearing` 1.1.0; `mp-ocr` 1.0.1; Claude plugin 2.0.1 (review engine stays 2.0.0 so saved 2.0.0 reviews remain compatible).
+
 ### Changed
 
 - **License:** MetesParser is now licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`), replacing MIT, with commercial licenses available from the copyright holder. No version was released publicly under MIT. See [License](README.md#license).
@@ -14,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **Third-party sample data:** a sample dataset and the 22 sample deeds taken from it, which were not licensed for distribution. 87 sample ground truths remain. Regression tests keep short excerpts or synthetic equivalents of their wording.
+
+### Fixed
+
+- **Fail-closed parsing and stated-area validation (`mp-parse`):** fail closed on malformed negative, spaced-negative, and scientific-notation lengths, curve elements, angles, and stated areas; preserve conveyed-portion area recitals (`being part of the original lot`) and sentence boundaries; prevent empty dropped tract segments or unaligned gaps from hiding non-positive stated areas; harden `TH` normalizer and PLSS section guards; preserve per-segment POC extraction on `Tract.poc_description`.
+- **Linear parsing performance (`mp-parse`):** replace quadratic backtracking and unwindowed alignment in `_uncovered_text_gaps` (anchored k-token alignment + local `_ALIGN_WINDOW`), `extract_area_statement`, `extract_prior_conveyance`, `extract_witness_trees`, `extract_pob`, `_has_malformed_foot_mark`, and `QUADRANT_PATTERN` / `_TH_*` atomic groups.
+- **Models and bearing math (`mp-models`, `mp-bearing`, monolith):** reject booleans on all `FiniteFloat` fields across `_Model` and `_Message` via shared `_NoBoolFloatModel` while preserving standard JSON Schema numeric bounds; export shared `coerce_bool_field` and `stated_areas_match`; guard non-finite/boolean inputs in bearing and curve calculators and normalize IEEE-754 `-1e-17 % 360.0` in `azimuth_to_quadrant`; call `LegalDescription.model_rebuild()` on monolith models.
+- **Verification and verified export (`mp-verify`, `mp-export`, `Pipeline`):** validate `stated_area_sq_ft` and `closure_tolerance_ft` (rejecting non-finite, boolean, and negative values); align multi-tract deed-level `stated_area_sq_ft` across `verify_closure`, `export_verified_csv`, and `Pipeline` (excluding deeds with `EXCEPTION` tracts); reject unlisted/conflicting supplied tracts in `export_verified_csv`; avoid stamping `EASEMENT_TRACT_NOTE` onto shared boundary legs during single-tract verified export while failing closed on ambiguous equal-call subsets; block `is_fully_verified()` on exception-only `verify_tract(calls, tract=None)` calls and compute main-traverse confidence without positioned exception calls.
+- **Review engine, OCR cache, CLI, and tooling (`mp-review`, `mp-ocr`, `scripts/`):** wire `PreparedText.unresolved_commencement` into `mp_review.api`, sync explicit `--area` overrides onto sole boundary tracts, align `[EXCEPTION, EASEMENT]` call retention across text/JSON/PDF paths, and fix `_find_project_root` symlink handling; include `model_name` in OCR cache identity with atomic `0600` temp writes and cycle-guarded client unwrapping; enforce case-insensitive collision checks, `SIGINT`/`SIGTERM`/`SIGHUP` temp-config cleanup, and null `api_key` rejection in `scripts/parse_pdfs_to_md.sh`; enforce exact workspace wheel sets in `scripts/build_claude_plugin.py`; align `WARN` status labels in `scripts/backfill_run_registry.py`.
 
 ## [0.7.0] - 2026-11-01
 
@@ -427,7 +439,8 @@ Update any code that reads CSV files to handle the new fields.
 **Testing**:
 Session-scoped fixtures may affect test timing. Use `pytest --cache-clear` if you encounter caching issues.
 
-[Unreleased]: https://github.com/domfahey/metesParser/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/domfahey/metesParser/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/domfahey/metesParser/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/domfahey/metesParser/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/domfahey/metesParser/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/domfahey/metesParser/compare/v0.4.0...v0.5.0
