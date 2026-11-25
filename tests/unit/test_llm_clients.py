@@ -316,6 +316,32 @@ def test_gemini_client_real_google_genai_sdk_config_construction():
     assert budget_thinking.thinking_level is None
 
 
+def test_gemini_client_failover_and_retry_with_real_sdk_api_errors(monkeypatch):
+    from google.genai import errors as genai_errors
+
+    seen: list[str] = []
+    sleeps: list[float] = []
+    monkeypatch.setattr("metesparser.llm_clients.time.sleep", sleeps.append)
+
+    def fake_generate(*, model: str, contents: object, config: object) -> object:
+        seen.append(model)
+        if len(seen) == 1:
+            raise genai_errors.ClientError(
+                429, {"error": {"code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}}
+            )
+        if len(seen) == 2:
+            raise genai_errors.ServerError(
+                503, {"error": {"code": 503, "message": "busy", "status": "UNAVAILABLE"}}
+            )
+        return SimpleNamespace(text="recovered on round 2", candidates=[])
+
+    client = GeminiClient(api_key="test-key-unused-offline", max_retries=1, retry_backoff_s=0.5)
+    monkeypatch.setattr(client._client.models, "generate_content", fake_generate)
+    assert client.generate_text("hello") == "recovered on round 2"
+    assert seen == ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.6-flash"]
+    assert sleeps == [0.5]
+
+
 def test_gemini_client_validates_config_parameters(monkeypatch):
     _install_fake_gemini(monkeypatch, lambda **kwargs: SimpleNamespace(text="ok"))
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")

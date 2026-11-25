@@ -279,7 +279,10 @@ class GeminiClient:
                     )
                     return self._collect_response_text(response)
                 except (self._errors.ClientError, self._errors.ServerError) as exc:
-                    status_code = getattr(exc, "status_code", None)
+                    # google-genai APIError exposes HTTP status on `.code` (not `.status_code`).
+                    status_code = getattr(exc, "code", None)
+                    if status_code is None:
+                        status_code = getattr(exc, "status_code", None)
                     has_more_models = model_index < len(models_to_try) - 1
                     has_more_rounds = round_index < total_rounds - 1
                     if status_code in retryable_codes and (has_more_models or has_more_rounds):

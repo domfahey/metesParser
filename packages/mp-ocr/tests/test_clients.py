@@ -414,6 +414,27 @@ def test_cached_client_separates_gemini_thinking_config(
     assert low_a._cache_key("p", None) != budget._cache_key("p", None)
 
 
+def test_gemini_client_handles_real_sdk_error_code_attribute(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from google.genai import errors as genai_errors
+
+    seen_models: list[str] = []
+
+    def fake_generate(*, model: str, contents: object, config: object) -> object:
+        seen_models.append(model)
+        if model == "gemini-3.6-flash":
+            raise genai_errors.ClientError(
+                429, {"error": {"code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}}
+            )
+        return SimpleNamespace(text="served by fallback", candidates=[])
+
+    client = GeminiClient(api_key="test-key-unused-offline", max_retries=0)
+    monkeypatch.setattr(client._client.models, "generate_content", fake_generate)
+    assert client.generate_text("hello") == "served by fallback"
+    assert seen_models == ["gemini-3.6-flash", "gemini-3.8-flash"]
+
+
 def test_openai_client_generate_text_with_pdf_missing_file_raises(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
