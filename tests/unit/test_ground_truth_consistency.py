@@ -11,6 +11,7 @@ import json
 import re
 from collections import defaultdict
 from pathlib import Path
+from typing import TypeGuard
 
 import pytest
 from mp_models import DeedCall
@@ -19,7 +20,7 @@ from mp_verify import verify_closure
 SAMPLE_DEEDS = Path(__file__).resolve().parents[2] / "sample_deeds"
 GROUND_TRUTHS = sorted(SAMPLE_DEEDS.glob("*.ground_truth.json"))
 
-_DEG_UNIT = r"(?:°|deg(?:rees?)?\.?|d\.?(?![a-z]))"
+_DEG_UNIT = r"(?:[°\u00ba]|deg(?:rees?)?\.?|d\.?(?![a-z]))"
 _MIN_UNIT = r"(?:'(?!')|\u2019(?!\u2019)|\u2032|min(?:utes?)?\.?|m\.?(?![a-z]))"
 _SEC_UNIT = r"(?:[\"\u201d\u2033]|''|\u2019\u2019|sec(?:onds?)?\.?|s\.?(?![a-z]))"
 
@@ -60,6 +61,10 @@ def _squash(text: str) -> str:
     return " ".join(text.split())
 
 
+def _is_number(value: object) -> TypeGuard[int | float]:
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
 def _parse_direction(text: str) -> tuple[float, str] | None:
     """Parse a DMS or 'due <cardinal>' bearing into (azimuth_deg, description_regex)."""
     match = _QUADRANT.search(text)
@@ -71,6 +76,8 @@ def _parse_direction(text: str) -> tuple[float, str] | None:
         secs_str = match.group("sec")
         secs = float(secs_str or 0.0)
         angle = deg + mins / 60 + secs / 3600
+        if deg > 90 or mins >= 60 or secs >= 60 or angle > 90.0:
+            return None
         azimuth = {"NE": angle, "SE": 180 - angle, "SW": 180 + angle, "NW": 360 - angle}[
             ns + ew
         ] % 360
@@ -183,6 +190,10 @@ def test_bearing_appears_in_the_description(path):
                 f"course {call['course']}: direction_text {direction!r} gives "
                 f"{expected_azimuth:.6f}° but bearing_azimuth_deg_from_north is {azimuth}"
             )
+        elif parsed is not None:
+            raise AssertionError(
+                f"course {call['course']}: parsed bearing {direction!r} without an azimuth"
+            )
         if parsed is None or not legal:
             continue
         _, pattern = parsed
@@ -237,7 +248,7 @@ CLOSURE_CASES = [
     path
     for path in GROUND_TRUTHS
     if _single_figure(_load(path))
-    and isinstance((_load(path).get("expected_closure") or {}).get("misclosure_ft"), int | float)
+    and _is_number((_load(path).get("expected_closure") or {}).get("misclosure_ft"))
 ]
 
 
@@ -251,23 +262,36 @@ def test_stored_closure_matches_the_courses(path):
         call.get("bearing_azimuth_deg_from_north") is not None or call.get("curve_dir")
         for call in calls
     ), "a misclosure is stored for courses without bearings"
+    misclosure_ft = stored.get("misclosure_ft")
+    assert _is_number(misclosure_ft), f"misclosure_ft must be numeric, got {misclosure_ft!r}"
+    raw_tolerance = stored.get("misclosure_tolerance_ft", 0.01)
+    tolerance = 0.01 if raw_tolerance is None else raw_tolerance
+    assert _is_number(tolerance), f"misclosure_tolerance_ft must be numeric, got {tolerance!r}"
     result = verify_closure(
         [
             DeedCall(**{key: value for key, value in call.items() if key in _CLOSURE_FIELDS})
             for call in calls
-        ]
+        ],
+        closure_tolerance_ft=tolerance,
     )
-    assert result.misclosure_ft == pytest.approx(stored["misclosure_ft"], abs=0.002)
-    tolerance = stored.get("misclosure_tolerance_ft", 0.01)
-    if tolerance is None:
-        tolerance = 0.01
-    assert stored["closure_passed"] == (result.misclosure_ft < tolerance)
-    if isinstance(stored.get("perimeter_ft"), int | float):
-        assert result.perimeter_ft == pytest.approx(stored["perimeter_ft"], abs=0.05)
-    if isinstance(stored.get("area_sq_ft"), int | float):
-        assert result.area_sq_ft == pytest.approx(stored["area_sq_ft"], abs=1.0)
-    if isinstance(stored.get("area_acres"), int | float):
-        assert result.area_acres == pytest.approx(stored["area_acres"], abs=0.002)
+    assert result.misclosure_available, "misclosure_ft stored but misclosure is unavailable"
+    assert result.misclosure_ft == pytest.approx(misclosure_ft, abs=0.002)
+    assert stored["closure_passed"] == result.closure_passed
+    perimeter_ft = stored.get("perimeter_ft")
+    if perimeter_ft is not None:
+        assert _is_number(perimeter_ft), f"perimeter_ft must be numeric, got {perimeter_ft!r}"
+        assert result.perimeter_available, "perimeter_ft stored but perimeter is unavailable"
+        assert result.perimeter_ft == pytest.approx(perimeter_ft, abs=0.05)
+    area_sq_ft = stored.get("area_sq_ft")
+    if area_sq_ft is not None:
+        assert _is_number(area_sq_ft), f"area_sq_ft must be numeric, got {area_sq_ft!r}"
+        assert result.area_available, "area_sq_ft stored but area is unavailable"
+        assert result.area_sq_ft == pytest.approx(area_sq_ft, abs=1.0)
+    area_acres = stored.get("area_acres")
+    if area_acres is not None:
+        assert _is_number(area_acres), f"area_acres must be numeric, got {area_acres!r}"
+        assert result.area_available, "area_acres stored but area is unavailable"
+        assert result.area_acres == pytest.approx(area_acres, abs=0.002)
 
 
 def _write_gt(tmp_path: Path, name: str, payload: dict) -> Path:
@@ -501,6 +525,8 @@ class TestBearingConsistencyChecks:
             ("N 50°45'30'' E", 50.7583333, "North 50 degrees 45 minutes 30 seconds East"),
             ("N 50°45'30\" E", 50.7583333, "N 50d 45m 30s E"),
             ("N 50d 45m 30s E", 50.7583333, "North 50 degrees 45 minutes 30 seconds East"),
+            ("N 50°45'30\" E", 50.7583333, "N 50\u00ba45'30\" E"),
+            ("N 50\u00ba45'30\" E", 50.7583333, "North 50 degrees 45 minutes 30 seconds East"),
         ],
     )
     def test_dms_formatting_variants_pass(
@@ -532,6 +558,7 @@ class TestBearingConsistencyChecks:
             ("N 50d 45m 30s E", 50.7583333, "South 10 degrees 00 minutes 00 seconds West"),
             ("N 50°45\u201930\u201d E", 50.7583333, "South 10 degrees 00 minutes 00 seconds West"),
             ("N 50°45'30'' E", 50.7583333, "South 10 degrees 00 minutes 00 seconds West"),
+            ("N 50\u00ba45'30\" E", 50.7583333, "South 10 degrees 00 minutes 00 seconds West"),
         ],
     )
     def test_nonzero_seconds_or_variant_mismatch_fails(
@@ -555,6 +582,53 @@ class TestBearingConsistencyChecks:
         )
         with pytest.raises(AssertionError):
             test_bearing_appears_in_the_description(gt_path)
+
+    @pytest.mark.parametrize(
+        ("direction_text", "legal"),
+        [
+            (
+                "N 50°45'00\" E",
+                "BEGINNING at a point; thence North 50 degrees 45 minutes 00 seconds East, 100 ft.",
+            ),
+            ("due West", "BEGINNING at a point; thence due West 100 ft."),
+            ("N 50°45'00\" E", ""),
+        ],
+    )
+    def test_parsed_bearing_without_azimuth_fails(
+        self, tmp_path: Path, direction_text: str, legal: str
+    ) -> None:
+        gt_path = _write_gt(
+            tmp_path,
+            "missing_azimuth",
+            {
+                "expected_legal_description": legal,
+                "expected_calls": [
+                    {
+                        "course": 1,
+                        "direction_text": direction_text,
+                        "bearing_quadrant": None,
+                        "bearing_azimuth_deg_from_north": None,
+                        "distance_ft": 100.0,
+                    }
+                ],
+            },
+        )
+        with pytest.raises(AssertionError, match="without an azimuth"):
+            test_bearing_appears_in_the_description(gt_path)
+
+    @pytest.mark.parametrize(
+        "bearing",
+        [
+            "N 95°00'00\" E",
+            "N 90°00'01\" E",
+            "N 45°60'00\" E",
+            "N 45°75'00\" E",
+            "N 45°00'60\" E",
+            "N 45°00'75\" E",
+        ],
+    )
+    def test_out_of_range_dms_is_rejected(self, bearing: str) -> None:
+        assert _parse_direction(bearing) is None
 
 
 class TestStoredClosureChecks:
@@ -639,6 +713,65 @@ class TestStoredClosureChecks:
             },
         )
         with pytest.raises(AssertionError):
+            test_stored_closure_matches_the_courses(gt_path)
+
+    def test_unpositioned_curve_with_zero_misclosure_fails(self, tmp_path: Path) -> None:
+        gt_path = _write_gt(
+            tmp_path,
+            "unpositioned_curve",
+            {
+                "expected_calls": [
+                    {
+                        "course": 1,
+                        "direction_text": "curving to the right",
+                        "bearing_azimuth_deg_from_north": None,
+                        "distance_ft": 100.0,
+                        "curve_dir": "right",
+                        "radius_ft": 500.0,
+                        "arc_length_ft": 100.0,
+                    }
+                ],
+                "expected_closure": {
+                    "misclosure_ft": 0.0,
+                    "closure_passed": True,
+                },
+            },
+        )
+        with pytest.raises(AssertionError):
+            test_stored_closure_matches_the_courses(gt_path)
+
+    @pytest.mark.parametrize(
+        ("field", "value", "closing_distance_ft", "base_misclosure_ft"),
+        [
+            ("misclosure_ft", False, 100.0, 0.0),
+            ("misclosure_tolerance_ft", True, 99.5, 0.5),
+            ("perimeter_ft", False, 100.0, 0.0),
+            ("area_sq_ft", False, 100.0, 0.0),
+            ("area_acres", False, 100.0, 0.0),
+        ],
+    )
+    def test_boolean_numeric_closure_fields_fail(
+        self,
+        tmp_path: Path,
+        field: str,
+        value: bool,
+        closing_distance_ft: float,
+        base_misclosure_ft: float,
+    ) -> None:
+        closure: dict[str, object] = {
+            "misclosure_ft": base_misclosure_ft,
+            "area_sq_ft": 10000.0,
+            "area_acres": 0.2296,
+            "perimeter_ft": 300.0 + closing_distance_ft,
+            "closure_passed": True,
+        }
+        closure[field] = value
+        gt_path = _write_gt(
+            tmp_path,
+            f"bool_{field}",
+            {"expected_calls": _square_calls(closing_distance_ft), "expected_closure": closure},
+        )
+        with pytest.raises(AssertionError, match="must be numeric"):
             test_stored_closure_matches_the_courses(gt_path)
 
 
