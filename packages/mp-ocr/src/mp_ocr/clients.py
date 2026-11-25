@@ -331,17 +331,19 @@ class OpenRouterClient:
     """OpenRouter-backed LLM client using OpenAI-compatible Chat Completions.
 
     Routes requests to ``https://openrouter.ai/api/v1`` via the ``openai`` SDK,
-    supporting any OpenRouter model slug (default ``google/gemini-3.6-flash``),
-    inline PDF attachments (with optional ``file-parser`` ``pdf_engine``),
-    optional ``reasoning_effort``, fallback model failover, and bounded retries.
+    defaulting to ``anthropic/claude-haiku-5.5`` with fallback
+    ``anthropic/claude-sonnet-5.5`` and ``reasoning_effort="low"``. For heavily
+    degraded or complex scans, set ``model="anthropic/claude-sonnet-5.5"`` (or
+    ``OPENROUTER_MODEL=anthropic/claude-sonnet-5.5``) and optionally
+    ``pdf_engine="mistral-ocr"``.
     """
 
     api_key: str | None = field(default=None, repr=False)
-    model: str = "google/gemini-3.6-flash"
-    fallback_model: str | None = None
+    model: str = "anthropic/claude-haiku-5.5"
+    fallback_model: str | None = "anthropic/claude-sonnet-5.5"
     base_url: str = "https://openrouter.ai/api/v1"
     pdf_engine: str | None = None
-    reasoning_effort: str | None = None
+    reasoning_effort: str | None = "low"
     site_url: str | None = None
     app_name: str | None = "MetesParser"
     timeout_s: float | None = 120.0

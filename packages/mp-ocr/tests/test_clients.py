@@ -673,13 +673,13 @@ def test_cached_client_separates_openrouter_pdf_engine_and_reasoning_effort(
     c_mistral = CachedLLMClient(
         OpenRouterClient(api_key="k", pdf_engine="mistral-ocr"), cache_dir=tmp_path / "cache"
     )
-    c_low = CachedLLMClient(
-        OpenRouterClient(api_key="k", reasoning_effort="low"), cache_dir=tmp_path / "cache"
+    c_none = CachedLLMClient(
+        OpenRouterClient(api_key="k", reasoning_effort=None), cache_dir=tmp_path / "cache"
     )
     c_low_upper = CachedLLMClient(
         OpenRouterClient(api_key="k", reasoning_effort="LOW"), cache_dir=tmp_path / "cache"
     )
 
     assert c_default._cache_key("p", None) != c_mistral._cache_key("p", None)
-    assert c_default._cache_key("p", None) != c_low._cache_key("p", None)
-    assert c_low._cache_key("p", None) == c_low_upper._cache_key("p", None)
+    assert c_default._cache_key("p", None) != c_none._cache_key("p", None)
+    assert c_default._cache_key("p", None) == c_low_upper._cache_key("p", None)

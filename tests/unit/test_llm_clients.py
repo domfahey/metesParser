@@ -399,7 +399,9 @@ def test_openrouter_client_real_openai_sdk_construction_and_parity(tmp_path):
         pdf_engine="mistral-ocr",
         reasoning_effort="LOW",
     )
-    assert mono.model == pkg.model == "google/gemini-3.6-flash"
+    assert mono.model == pkg.model == "anthropic/claude-haiku-5.5"
+    assert mono.fallback_model == pkg.fallback_model == "anthropic/claude-sonnet-5.5"
+    assert mono.reasoning_effort == pkg.reasoning_effort == "low"
     assert "or-test-key-offline" not in repr(mono)
     assert str(mono._client.base_url).rstrip("/") == "https://openrouter.ai/api/v1"
     assert mono._client.max_retries == 0
@@ -425,7 +427,7 @@ def test_openrouter_client_monolith_pdf_failover_and_missing_key(monkeypatch, tm
     class FakeCompletions:
         def create(self, **kwargs: object) -> object:
             calls.append(kwargs)
-            if kwargs["model"] == "google/gemini-3.6-flash":
+            if kwargs["model"] == "anthropic/claude-haiku-5.5":
                 raise FakeStatusError(503)
             return SimpleNamespace(
                 choices=[SimpleNamespace(message=SimpleNamespace(content="fallback ok"))]
@@ -442,13 +444,15 @@ def test_openrouter_client_monolith_pdf_failover_and_missing_key(monkeypatch, tm
     pdf.write_bytes(b"%PDF-1.4")
     client = OpenRouterClient(
         api_key="or-key",
-        model="google/gemini-3.6-flash",
-        fallback_model="openai/gpt-6.1-terra",
         pdf_engine="native",
     )
     assert client.generate_text_with_pdf("extract", str(pdf)) == "fallback ok"
-    assert [c["model"] for c in calls] == ["google/gemini-3.6-flash", "openai/gpt-6.1-terra"]
+    assert [c["model"] for c in calls] == [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+    ]
     assert sleeps == []
     assert calls[0]["extra_body"] == {
-        "plugins": [{"id": "file-parser", "pdf": {"engine": "native"}}]
+        "plugins": [{"id": "file-parser", "pdf": {"engine": "native"}}],
+        "reasoning": {"effort": "low"},
     }
