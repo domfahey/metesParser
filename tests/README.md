@@ -14,6 +14,6 @@ uv run pytest packages/mp-review/tests/test_revision_store.py packages/mp-review
 uv run pytest tests/unit/test_skill_eval_cowork_materialization.py tests/unit/test_packaged_skill_navigation.py --no-cov
 ```
 
-Root fixtures include `deed_call_factory`, `sample_legal_text`, and `isolate_logging_state`; legal-description text and test helpers are in `tests/fixtures/sample_deeds.py` and `tests/helpers.py`.
+Root fixtures include `deed_call_factory`, `sample_legal_text`, and `isolate_logging_state`; shared legal-description text lives in `tests/fixtures/sample_deeds.py`.
 
 See the [testing guide](../docs/TESTING.md) for suite boundaries, coverage settings, focused revision/corridor/delivery/picker/PLSS commands, browser and live-provider gates, mocked PDF tests, and skill-evaluation limits. Browser preview tests validate offline page behavior and local downloads; native Claude/Cowork paired evaluations and live Mapbox remain separate acceptance gates. Current gate status is recorded in the [Cowork workflow ledger](../docs/implementation/2026-10-28-cowork-workflow-ledger.md).

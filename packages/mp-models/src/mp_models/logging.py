@@ -15,6 +15,17 @@ _DEFAULT_FORMAT = "console"
 _VALID_FORMATS = {"console", "json"}
 _CURRENT_FORMAT = _DEFAULT_FORMAT
 _OWNS_WARNING_CAPTURE = False
+# Monolith and composable packages log via structlog with stdlib logger names.
+_PACKAGE_LOGGER_NAMES = (
+    "metesparser",
+    "mp_models",
+    "mp_bearing",
+    "mp_ocr",
+    "mp_parse",
+    "mp_verify",
+    "mp_export",
+    "mp_review",
+)
 
 
 def _normalize_level(level: str) -> str:
@@ -82,7 +93,9 @@ def configure_logging(
     exception_processor: structlog.typing.Processor
     renderer: structlog.typing.Processor
     if resolved_format == "json":
-        exception_processor = structlog.processors.dict_tracebacks
+        exception_processor = structlog.processors.ExceptionRenderer(
+            structlog.tracebacks.ExceptionDictTransformer(show_locals=False)
+        )
         renderer = structlog.processors.JSONRenderer(sort_keys=True)
     else:
         exception_processor = structlog.processors.format_exc_info
@@ -125,8 +138,6 @@ def configure_logging(
     handler = logging.StreamHandler(stream or sys.stderr)
     handler.setFormatter(formatter)
 
-    package_logger = logging.getLogger("metesparser")
-
     global _CURRENT_FORMAT
     global _OWNS_WARNING_CAPTURE
 
@@ -136,16 +147,20 @@ def configure_logging(
         root_logger.setLevel(level_num)
 
         # Remove stale package handlers from prior non-root configuration.
-        _clear_handlers(package_logger)
-        package_logger.setLevel(logging.NOTSET)
-        package_logger.propagate = True
+        for package_name in _PACKAGE_LOGGER_NAMES:
+            stale_logger = logging.getLogger(package_name)
+            _clear_handlers(stale_logger)
+            stale_logger.setLevel(logging.NOTSET)
+            stale_logger.propagate = True
 
         logging.captureWarnings(True)
         _OWNS_WARNING_CAPTURE = True
     else:
-        _replace_handlers(package_logger, handler)
-        package_logger.setLevel(level_num)
-        package_logger.propagate = False
+        for package_name in _PACKAGE_LOGGER_NAMES:
+            package_scoped_logger = logging.getLogger(package_name)
+            _replace_handlers(package_scoped_logger, handler)
+            package_scoped_logger.setLevel(level_num)
+            package_scoped_logger.propagate = False
 
         # If root warning capture was enabled by this module, disable it when returning
         # to package-scoped logging.
@@ -165,5 +180,5 @@ def configure_logging(
         ],
         logger_factory=structlog.stdlib.LoggerFactory(),
         wrapper_class=structlog.stdlib.BoundLogger,
-        cache_logger_on_first_use=True,
+        cache_logger_on_first_use=False,
     )

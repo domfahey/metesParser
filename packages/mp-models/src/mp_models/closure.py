@@ -59,15 +59,17 @@ class ClosureResult(_Model):
 
     misclosure_x_ft: FiniteFloat = Field(..., description="Misclosure in X direction (feet)")
     misclosure_y_ft: FiniteFloat = Field(..., description="Misclosure in Y direction (feet)")
-    misclosure_ft: FiniteFloat = Field(..., description="Total misclosure distance (feet)")
+    misclosure_ft: FiniteFloat = Field(..., ge=0, description="Total misclosure distance (feet)")
 
     area_sq_ft: FiniteFloat = Field(
         ...,
+        ge=0,
         description="Area in square feet (shoelace formula)",
     )
-    area_acres: FiniteFloat = Field(..., description="Area in acres")
+    area_acres: FiniteFloat = Field(..., ge=0, description="Area in acres")
     perimeter_ft: FiniteFloat = Field(
         ...,
+        ge=0,
         description="Total perimeter in feet; 0.0 when perimeter_available is False",
     )
     misclosure_available: bool = Field(
@@ -187,6 +189,8 @@ class ClosureResult(_Model):
             return "NEEDS REVIEW"
         if not self.misclosure_available:
             return "NOT DETERMINED"
+        if not self.is_fully_verified():
+            return "NEEDS REVIEW"
         if self.misclosure_ft < 0.01:
             return "EXCELLENT"
         if self.misclosure_ft < 0.1:

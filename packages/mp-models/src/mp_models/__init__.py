@@ -17,7 +17,13 @@ from .audit import (
     Transformation,
     VerificationAudit,
 )
-from .base import _Model
+from .base import (
+    STATED_AREA_ABS_TOL,
+    STATED_AREA_REL_TOL,
+    _Model,
+    coerce_bool_field,
+    stated_areas_match,
+)
 from .closure import CheckResult, ClosureResult, Point
 from .comparison import (
     BearingBasis,
@@ -60,6 +66,7 @@ from .deed_call import (
     EXCEPTION_TRACT_NOTE,
     FIXED_NOTE_PREFIXES,
     FIXED_NOTES,
+    INVALID_STATED_AREA_NOTE_PREFIX,
     LEGACY_CURVE_NOTE,
     NON_BOUNDARY_NOTES,
     PARENTHETICAL_NOTE_PREFIX,
@@ -76,6 +83,7 @@ from .deed_call import (
     MonumentStatus,
     MonumentType,
     SubdivisionReference,
+    invalid_stated_area_notes,
     split_notes,
     unapplied_exceptions,
 )
@@ -216,11 +224,13 @@ __all__ = [
     "VERBATIM_NOTE_PREFIXES",
     "FIXED_NOTES",
     "FIXED_NOTE_PREFIXES",
+    "INVALID_STATED_AREA_NOTE_PREFIX",
     "LEGACY_CURVE_NOTE",
     "DESCRIPTION_ROLES_NOTE",
     "EASEMENT_TRACT_NOTE",
     "EXCEPTION_TRACT_NOTE",
     "NON_BOUNDARY_NOTES",
+    "invalid_stated_area_notes",
     "split_notes",
     "unapplied_exceptions",
     "DeliveryItem",
@@ -382,10 +392,14 @@ __all__ = [
     "tract_kind",
     "Transformation",
     "VerificationAudit",
+    "STATED_AREA_ABS_TOL",
+    "STATED_AREA_REL_TOL",
     "_Model",
+    "coerce_bool_field",
     "configure_logging",
     "get_log_format",
     "parse_message",
     "read_jsonl",
+    "stated_areas_match",
     "write_jsonl",
 ]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
@@ -41,9 +41,9 @@ class BaseLLMClient(Protocol):
 class OpenAIClient:
     """OpenAI-backed LLM client."""
 
-    api_key: str | None = None
+    api_key: str | None = field(default=None, repr=False)
     model: str = "gpt-5.2"
-    _client: Any = object()
+    _client: Any = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         key = self.api_key or os.getenv("OPENAI_API_KEY")
@@ -121,12 +121,12 @@ class OpenAIClient:
 class GeminiClient:
     """Gemini-backed LLM client with optional fallback model."""
 
-    api_key: str | None = None
+    api_key: str | None = field(default=None, repr=False)
     model: str = "gemini-3-flash-preview"
     fallback_model: str | None = "gemini-2.5-flash"
-    _client: Any = object()
-    _types: Any = object()
-    _errors: Any = object()
+    _client: Any = field(init=False, repr=False, compare=False)
+    _types: Any = field(init=False, repr=False, compare=False)
+    _errors: Any = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         key = self.api_key or os.getenv("GEMINI_API_KEY")

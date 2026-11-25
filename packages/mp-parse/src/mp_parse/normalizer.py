@@ -21,7 +21,7 @@ SURVEY_ABBREVIATIONS: list[tuple[str, str]] = [
     (r"\bCIP\b", "capped iron pin"),
     (r"\bCMP\b", "concrete monument placed"),
     (r"\bR/W\b", "right-of-way"),
-    (r"\bROW\b", "right-of-way"),
+    (r"(?-i:\bROW\b)", "right-of-way"),
     (r"\bN/F\b", "now or formerly"),
     (r"\bPK\b(?!\s+nail\b)", "pk nail"),
 ]
@@ -40,9 +40,9 @@ def normalize_dms_symbols(text: str) -> str:
     """
     text = re.sub(r"[°º\u00B0\u00BA]", "°", text)
 
-    text = re.sub(r"[''\u2018\u2019`]", "'", text)
+    text = re.sub(r"[''\u2018\u2019`\u2032]", "'", text)
 
-    text = re.sub(r"[" "\u201c\u201d]", '"', text)
+    text = re.sub(r"[" "\u201c\u201d\u2033]", '"', text)
 
     return text
 
@@ -101,25 +101,43 @@ def standardize_cardinal_directions(text: str) -> str:
     Returns:
         Text with standardized cardinal directions
     """
+    _word_start = r"\b(?:(?P<c1w>North|South|East|West)\s+|(?P<c1l>[NSEW])\s*)"
+    _word_end = r"(?P<c2>North|South|East|West|[NSEW])(?![A-Za-z_])"
+    _ns_start = r"\b(?P<c1l>[NS])\s*"
+    _ew_end = r"(?P<c2>East|West|[EW])(?![A-Za-z_])"
+
+    def _c1(m: Match[str]) -> str:
+        groupdict = m.groupdict()
+        return (groupdict.get("c1w") or groupdict["c1l"])[0].upper()
+
+    def _c2(m: Match[str]) -> str:
+        return m.group("c2")[0].upper()
+
     patterns: list[tuple[str, str | Callable[[Match[str]], str]]] = [
         (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
-            lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0]}",
+            rf"{_word_start}(\d{{1,3}})\s+degrees?,?\s+(\d{{1,2}})\s+minutes?\s+(\d{{1,2}}(?:\.\d+)?)\s+seconds?\s+{_word_end}",
+            lambda m: f"{_c1(m)} {m.group(3)}°{m.group(4)}'{m.group(5)}\" {_c2(m)}",
         ),
         (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(North|South|East|West)\b",
-            lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}' {m.group(4)[0]}",
+            rf"{_word_start}(\d{{1,3}})\s+degrees?,?\s+(\d{{1,2}})\s+minutes?\s+{_word_end}",
+            lambda m: f"{_c1(m)} {m.group(3)}°{m.group(4)}' {_c2(m)}",
         ),
         (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(North|South|East|West)\b",
-            lambda m: f"{m.group(1)[0]} {m.group(2)}° {m.group(3)[0]}",
+            rf"{_word_start}(\d{{1,3}})\s+degrees?,?\s+{_word_end}",
+            lambda m: f"{_c1(m)} {m.group(3)}° {_c2(m)}",
         ),
         (
-            r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])",
-            "\\1 \\2°\\3'\\4\" \\5",
+            rf"{_ns_start}(\d{{1,3}})\s*°\s*(\d{{1,2}})\s*'\s*(\d{{1,2}}(?:\.\d+)?)\s*\"\s*{_ew_end}",
+            lambda m: f"{_c1(m)} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {_c2(m)}",
         ),
-        (r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4"),
-        (r"([NS])\s*(\d{1,3})\s*°\s*([EW])", r"\1 \2° \3"),
+        (
+            rf"{_ns_start}(\d{{1,3}})\s*°\s*(\d{{1,2}})\s*'\s*{_ew_end}",
+            lambda m: f"{_c1(m)} {m.group(2)}°{m.group(3)}' {_c2(m)}",
+        ),
+        (
+            rf"{_ns_start}(\d{{1,3}})\s*°\s*{_ew_end}",
+            lambda m: f"{_c1(m)} {m.group(2)}° {_c2(m)}",
+        ),
     ]
 
     for pattern, replacement in patterns:
@@ -140,17 +158,29 @@ def clean_ocr_errors(text: str) -> str:
         Cleaned text
     """
     text = re.sub(r"\b5outh\b", "South", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bNOrth\b", "North", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bN[0O]rth\b", "North", text, flags=re.IGNORECASE)
     text = re.sub(r"\bEa5t\b", "East", text, flags=re.IGNORECASE)
     text = re.sub(r"\bWe5t\b", "West", text, flags=re.IGNORECASE)
     # "UNDER. AND SUBJECT to" (a stray period, 219 Berlin 12799) is one recital.
     text = re.sub(r"\b(UNDER)\.\s+(AND\s+SUBJECT)\b", r"\1 \2", text, flags=re.IGNORECASE)
 
-    text = re.sub(r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4", text)
+    text = re.sub(
+        r"\b([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'(?:\s*(\d{1,2}(?:\.\d+)?)\s*\")?\s*([EW])(?![A-Za-z_])",
+        lambda m: (
+            f"{m.group(1)} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)}"
+            if m.group(4) is not None
+            else f"{m.group(1)} {m.group(2)}°{m.group(3)}' {m.group(5)}"
+        ),
+        text,
+    )
 
     text = re.sub(
-        r"\b(North|South)\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*(East|West)\b",
-        r"\1 \2 degrees \3 minutes \4",
+        r"\b(North|South)\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'(?:\s*(\d{1,2}(?:\.\d+)?)\s*\")?\s*(East|West)\b",
+        lambda m: (
+            f"{m.group(1)} {m.group(2)} degrees {m.group(3)} minutes {m.group(4)} seconds {m.group(5)}"
+            if m.group(4) is not None
+            else f"{m.group(1)} {m.group(2)} degrees {m.group(3)} minutes {m.group(5)}"
+        ),
         text,
         flags=re.IGNORECASE,
     )
@@ -168,6 +198,74 @@ _AND_BEARING_RE = re.compile(
 _AND_RUNNING_RE = re.compile(r"\band\s+running\s+" + _BEARING_AHEAD, re.IGNORECASE)
 _POB_START = re.compile(r"\b(?:beginning|commencing|beg\.?)\b", re.IGNORECASE)
 _COURSE_START = re.compile(r"\b(?:thence|then|th\.?|proceeding)\b", re.IGNORECASE)
+_NON_SECONDS_PREFIX = re.compile(
+    r"\b(?:lot|block|blk|tract|parcel|plat|page|book|liber|lib|unit|apt|suite|bldg|sec|section|part|pt)\s+$",
+    re.IGNORECASE,
+)
+_TH_ABBREV_RE = re.compile(r"\bTH\.?\s", re.IGNORECASE)
+_TH_WS_RE = re.compile(r"\s*")
+_TH_PREPOSITION_BEFORE = re.compile(
+    r"\b(?:of|along|on|in|into|upon|at|for|with|across|through|between|over|under|near|per|via|as)\s+$",
+    re.IGNORECASE,
+)
+_TH_POB_BEFORE = re.compile(r"\b(?:BEG|POB|TPOB|RPOB)\b\.?\s+$", re.IGNORECASE)
+_TH_AT_NUMBER_AFTER = re.compile(r"AT\b(?>\s+)\d", re.IGNORECASE)
+_TH_MIXED_NAME_AFTER = re.compile(r"(?:[A-Z]\.\s+)?[A-Z](?:[a-z]|'[A-Z])[A-Za-z']*\b")
+_TH_BEARING_OR_DIR_AFTER = re.compile(
+    r"(?:"
+    r"[NSEW]\s*\d"
+    r"|(?:North|South)\s*\d+\s*(?:°|deg(?:rees?)?\b|d\b)"
+    r"|Due\s+(?:North|South|East|West|[NSEW])\b"
+    r"|(?:(?:North|South)(?:east|west)?|East|West)(?:erly|wardly)?\b"
+    r"|(?:N|S|E|W|NE|NW|SE|SW)(?:'?ly)?\b(?=\s+(?:\d|along|alg|with|to|by|on|from|for|at|a\s+distance|dist))"
+    r")",
+    re.IGNORECASE,
+)
+_TH_ORDINAL_DIGIT_BEFORE = re.compile(r"\d\s+$")
+_TH_SURVEY_REF_BEFORE = re.compile(
+    r"\b(?:sec|section|lot|block|blk|tract|parcel|plat|page|book|liber|lib|unit|"
+    r"part|pt|point|range|r|township|t|sub|div|ward|dist|claim|grant|survey|corner|cor|"
+    r"monument|mon|pin|pipe|stake|post|stone|station|sta|hub|bar|rebar|rod|nail|spike|"
+    r"tack|marker|mkr|node|oak|tree|angle|bend)\b\.?"
+    r"(?:\s+(?:(?:NO\.?|NUM(?:BER)?)\s*)?(?:#\s*)?|\s*#\s*)\d+\s+$",
+    re.IGNORECASE,
+)
+_TH_EXPLICIT_COURSE_AFTER_DIGIT = re.compile(
+    r"(?:"
+    r"[NSEW]\s*\d"
+    r"|(?:NORTH|SOUTH)\s+\d+\s*(?:°|DEG|D\b)"
+    r"|DUE\s+(?:NORTH|SOUTH|EAST|WEST|[NSEW])\b"
+    r"|(?:SLY|NLY|ELY|WLY|NELY|NWLY|SELY|SWLY)\b"
+    r"|(?:(?:NORTH|SOUTH)(?:EAST|WEST)?|EAST|WEST)(?:ERLY|WARDLY)\b"
+    r"|(?:ALONG|ALG|CURV(?:E|ED|ING)?|REVERSE\s+CURVE|COMPOUND\s+CURVE|"
+    r"RUNNING|PROCEEDING|FOLLOWING|CONTINUING)\b"
+    r")",
+    re.IGNORECASE,
+)
+_TH_STANDALONE_EAST = re.compile(
+    r"E\.?(?:(?>\s*)(?:[,;:](?>\s*))?(?:\d|(?:ALONG|ALG|WITH|TO|BY|ON|FROM|UPON|FOR|AT|"
+    r"A\s+DISTANCE|DIST(?:ANCE)?)\b)|(?>\s*)$)",
+    re.IGNORECASE,
+)
+_TH_ADJECTIVAL_MEASURE_AFTER_E = re.compile(
+    r"E\.?(?>\s*)(?:[,;:](?>\s*))?"
+    r"\d+(?:\.\d+)?(?>[-\s]*)"
+    r"(?:foot|ft\.?|inch(?:es)?|in\.?|wide|acres?|rods?|meters?|yards?)"
+    r"(?:(?>[-\s]+)wide)?(?>[-\s]+)"
+    r"(?:alley|street|st|road|rd|avenue|ave|lane|ln|drive|dr|"
+    r"way|easement|strip|right|row|lot|parcel|tract|buffer|setback|walk|path|corridor)\b\.?",
+    re.IGNORECASE,
+)
+_TH_OCR_SPLIT_AFTER = re.compile(
+    r"(?:"
+    r"E(?![A-Za-z_'])"
+    r"|AT\b(?!(?>\s+)(?:A\s+RIGHT\s+ANGLE|RIGHT\s+ANGLES|AN?\s+ANGLE"
+    r"|\d+(?:\.\d+)?(?>\s*)(?:°|º|DEG(?:REES?)?\b|D\b)))"
+    r"|(?:IS|ERE(?:OF|IN|TO|FROM|BY|ON|WITH|AFTER|UNDER|UPON|FORE)?|EY|EN|ENCE|"
+    r"AN|OSE|ESE|EM|EIR|ROUGH|ROU|US|ING|OUGH|IRTY|IRTEEN|REE|IRD|OUSAND)\b"
+    r")",
+    re.IGNORECASE,
+)
 
 
 def expand_assessor_abbreviations(text: str) -> str:
@@ -197,30 +295,17 @@ def expand_assessor_abbreviations(text: str) -> str:
         return text
 
     # --- 1. Fix common OCR typos: NODEG → N0DEG, NOODEG → N00DEG -----------
-    # O (letter) used instead of 0 (digit) adjacent to direction letters
+    # O (letter) used instead of 0 (digit) adjacent to direction letters; require
+    # DEG or at least one digit before D so ordinary words like NODE and SOD stay intact.
     text = re.sub(
-        r"\b([NS])O(\d*(?:DEG|D))",
+        r"\b([NS])O(\d+D\b|\d*DEG\b)",
         lambda m: f"{m.group(1)}0{m.group(2)}",
         text,
         flags=re.IGNORECASE,
     )
     text = re.sub(
-        r"\b([NS])OO(\d*(?:DEG|D))",
+        r"\b([NS])OO(\d+D\b|\d*DEG\b)",
         lambda m: f"{m.group(1)}00{m.group(2)}",
-        text,
-        flags=re.IGNORECASE,
-    )
-    # Catch NOODEG specifically where the OO represents 00
-    text = re.sub(
-        r"\b([NS])OO(DEG|D)\b",
-        lambda m: f"{m.group(1)}00{m.group(2)}",
-        text,
-        flags=re.IGNORECASE,
-    )
-    # Catch NODEG where O is 0
-    text = re.sub(
-        r"\b([NS])O(DEG|D)\b",
-        lambda m: f"{m.group(1)}0{m.group(2)}",
         text,
         flags=re.IGNORECASE,
     )
@@ -241,10 +326,24 @@ def expand_assessor_abbreviations(text: str) -> str:
         text,
         flags=re.IGNORECASE,
     )
-    # Degrees only (DEG/D without M following)
+    # Degrees only (DEG without M following, or D in bearing context — never "LOT 2D")
     text = re.sub(
-        r"(\d{1,3})\s*(?:DEG\b\.?|D\b(?:\.(?=\s*\d))?)",
+        r"(\d{1,3})\s*DEG\b\.?",
         r"\1 degrees",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"(\b(?:North|South|[NS])\s*)(\d{1,3})\s*D\b(?:\.(?=\s*\d))?(?=\s*(?:(?:East|West|[EW])(?![A-Za-z_])|\d))",
+        r"\1\2 degrees",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # Curve/central angle with D suffix (e.g., "delta of 90D", "angle of 45D")
+    text = re.sub(
+        r"(\b(?:delta(?:\s+angle)?|(?:central|interior|deflection|chord|curve)\s+angle|angle)"
+        r"(?:\s*[:=]\s*|\s+(?:of\s+)?))(\d{1,3}(?:\.\d+)?)\s*D\b\.?",
+        r"\1\2 degrees",
         text,
         flags=re.IGNORECASE,
     )
@@ -257,21 +356,52 @@ def expand_assessor_abbreviations(text: str) -> str:
     )
 
     # --- 3. Expand number+SEC that wasn't already caught (standalone) -------
+    # Guard against PLSS/lot references like "LOT 12 SEC 4" or "1/4 SEC 10".
     text = re.sub(
-        r"(\d{1,2}(?:\.\d+)?)\s*SEC\b\.?",
-        r"\1 seconds",
+        r"(?<![/\w])(\d{1,2}(?:\.\d+)?)\s*SEC\b\.?(?!\s*\d)",
+        lambda m: (
+            m.group(0)
+            if _NON_SECONDS_PREFIX.search(m.string[max(0, m.start() - 32) : m.start()])
+            else f"{m.group(1)} seconds"
+        ),
         text,
         flags=re.IGNORECASE,
     )
 
-    # --- 4. TH / TH. → thence (word boundary, not inside words) ------------
-    # Must not match THE, THAT, THIS, THEREOF, THENCE, etc.
-    text = re.sub(
-        r"\bTH\.?\s(?!E\b|A\b|I\b|ERE|EN|ROU|AT\b|US\b)",
-        "thence ",
-        text,
-        flags=re.IGNORECASE,
-    )
+    # --- 4. TH / TH. → thence (guarded against ordinals & OCR word splits) --
+    # Block only ordinal suffixes ("4 TH STREET", "20 th day") and OCR word splits
+    # ("TH E LINE", "TH AT CORNER", "TH EREOF") so valid course phrasing is never
+    # silently dropped into preamble.
+    def _expand_th(m: Match[str]) -> str:
+        ws_match = _TH_WS_RE.match(m.string, m.end())
+        after_pos = ws_match.end() if ws_match else m.end()
+        if after_pos >= len(m.string):
+            return m.group(0)
+        before = m.string[max(0, m.start() - 48) : m.start()]
+        if _TH_PREPOSITION_BEFORE.search(before):
+            return m.group(0)
+        if (
+            m.group(0).startswith("Th.")
+            and _TH_MIXED_NAME_AFTER.match(m.string, after_pos)
+            and not _TH_BEARING_OR_DIR_AFTER.match(m.string, after_pos)
+        ):
+            return m.group(0)
+        if _TH_ORDINAL_DIGIT_BEFORE.search(before) and not (
+            _TH_SURVEY_REF_BEFORE.search(before)
+            or _TH_EXPLICIT_COURSE_AFTER_DIGIT.match(m.string, after_pos)
+        ):
+            return m.group(0)
+        if _TH_OCR_SPLIT_AFTER.match(m.string, after_pos) and not (
+            (
+                _TH_STANDALONE_EAST.match(m.string, after_pos)
+                and not _TH_ADJECTIVAL_MEASURE_AFTER_E.match(m.string, after_pos)
+            )
+            or (_TH_POB_BEFORE.search(before) and _TH_AT_NUMBER_AFTER.match(m.string, after_pos))
+        ):
+            return m.group(0)
+        return "thence "
+
+    text = _TH_ABBREV_RE.sub(_expand_th, text)
 
     # --- 5. FT suffix → feet -----------------------------------------------
     # Handles both "175FT" (no space) and "175 FT" (with space)
@@ -414,14 +544,14 @@ def expand_assessor_abbreviations(text: str) -> str:
 # ("N 45° E 100 feet, N 50° E 80 feet") the fragment stays merged and fails closed. An
 # offset preamble ("distant S 10° E 100 feet, N 80° E 50 feet from the corner") names a point.
 _COMMA_JOINED_COURSE = re.compile(
-    r"(?<=\bfeet),\s+(?=(?:[NS] \d{1,3}°[\d'\"\s.]*[EW]"
+    r"(?<=\bfeet),\s+(?=(?:(?:[NS]|North|South)(?>\s*)\d{1,3}(?>\s*)°[\d'\"\s.]*(?:East|West|[EW])(?![A-Za-z_])"
     r"|(?:North|South)\s+\d{1,3}\s+degrees?,[\w\s,.]*?\b(?:East|West)),\s+\d"
     r"(?:(?!\b(?:thence|from)\b)[^;])*(?:;|\bthence\b|$))",
     re.IGNORECASE,
 )
 # "122.55 feet to a point. S 18°05'10\" W 123.00 feet to the point and place of beginning":
 # two courses joined by a sentence break.
-_SENTENCE_JOINED_COURSE = re.compile(r"(?<=\bpoint)\.\s+(?=[NS] \d{1,3}°)", re.IGNORECASE)
+_SENTENCE_JOINED_COURSE = re.compile(r"(?<=\bpoint)\.\s+" + _BEARING_AHEAD, re.IGNORECASE)
 
 
 def split_comma_joined_courses(text: str) -> str:

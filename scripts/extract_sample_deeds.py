@@ -7,9 +7,14 @@ showing the extraction results for human review.
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
+from mp_models import is_boundary_tract
+
+from metesparser.cli import aggregate_tract_closure
 from metesparser.closure_checker import ClosureChecker
 from metesparser.csv_builder import CSVBuilder
+from metesparser.models import ClosureResult, LegalDescription
 from metesparser.pdf_processor import PDFProcessor
 
 # Sample deed PDFs
@@ -26,7 +31,9 @@ SAMPLE_PDFS = [
 ]
 
 
-def create_extraction_report(legal_desc, closure_result, output_file):
+def create_extraction_report(
+    legal_desc: LegalDescription, closure_result: ClosureResult, output_file: Path
+) -> None:
     """Create a human-readable extraction report.
 
     Args:
@@ -34,7 +41,7 @@ def create_extraction_report(legal_desc, closure_result, output_file):
         closure_result: ClosureResult object
         output_file: Path to output text file
     """
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write("=" * 80 + "\n")
         f.write("DEED EXTRACTION REPORT\n")
         f.write("=" * 80 + "\n\n")
@@ -72,11 +79,12 @@ def create_extraction_report(legal_desc, closure_result, output_file):
         f.write(f"Aliquot: {legal_desc.aliquot or '(None)'}\n\n")
 
         # Calls
+        report_calls = legal_desc.calls or legal_desc.all_calls
         f.write("=" * 80 + "\n")
-        f.write(f"EXTRACTED CALLS ({len(legal_desc.calls)} total)\n")
+        f.write(f"EXTRACTED CALLS ({len(report_calls)} total)\n")
         f.write("=" * 80 + "\n\n")
 
-        for i, call in enumerate(legal_desc.calls, 1):
+        for i, call in enumerate(report_calls, 1):
             f.write(f"CALL #{i}\n")
             f.write("-" * 80 + "\n")
             f.write(f"Direction Text:  {call.direction_text}\n")
@@ -156,10 +164,10 @@ def create_extraction_report(legal_desc, closure_result, output_file):
         f.write("-" * 80 + "\n")
 
 
-def main():
+def main() -> None:
     """Process all sample PDFs and create extraction reports."""
     # Create output directory
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # Initialize processor
     print("Initializing PDF processor...")
@@ -167,7 +175,7 @@ def main():
 
     print(f"\nProcessing {len(SAMPLE_PDFS)} sample deeds...\n")
 
-    results = []
+    results: list[dict[str, Any]] = []
 
     for pdf_filename, output_name in SAMPLE_PDFS:
         pdf_path = SAMPLE_DEEDS_DIR / pdf_filename
@@ -182,10 +190,30 @@ def main():
             # Extract legal description
             print("  - Extracting from PDF...")
             legal_desc = processor.process_deed_pdf(str(pdf_path))
+            assert not isinstance(legal_desc, tuple)
 
             # Verify closure
             print("  - Verifying closure...")
-            closure_result = ClosureChecker.verify_closure(legal_desc.calls)
+            tracts = legal_desc.tracts or None
+            calls_for_verify = legal_desc.all_calls if tracts else legal_desc.calls
+            verification = ClosureChecker.verify_closure(
+                calls_for_verify,
+                stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0,
+                tracts=tracts,
+            )
+            if isinstance(verification, list):
+                tract_results = list(zip(legal_desc.tracts, verification, strict=True))
+                closure_result = aggregate_tract_closure(tract_results)
+                is_verified = any(
+                    is_boundary_tract(tract.tract_type) and res.is_fully_verified()
+                    for tract, res in tract_results
+                )
+                closes = closure_result.closure_passed
+            else:
+                tract_results = None
+                closure_result = verification
+                is_verified = closure_result.is_fully_verified()
+                closes = closure_result.closure_passed
 
             # Create text report
             report_path = OUTPUT_DIR / f"{output_name}_extraction_report.txt"
@@ -198,22 +226,26 @@ def main():
             CSVBuilder.legal_description_to_csv(legal_desc, str(csv_path))
 
             # Try verified export if it passes
-            if closure_result.is_fully_verified():
+            if is_verified:
                 verified_path = OUTPUT_DIR / f"{output_name}.csv"
-                print(f"  - Exporting VERIFIED CSV: {output_name}_verified.csv")
-                CSVBuilder.export_verified_csv(
-                    calls=legal_desc.calls,
+                written_paths = CSVBuilder.export_verified_csv(
+                    calls=calls_for_verify,
                     closure_result=closure_result,
                     output_path=str(verified_path),
                     legal_desc=legal_desc,
+                    tract_results=tract_results,
                 )
+                written_names = (
+                    ", ".join(Path(p).name for p in written_paths) if written_paths else "(none)"
+                )
+                print(f"  - Exported VERIFIED CSV(s): {written_names}")
 
             results.append(
                 {
                     "pdf": pdf_filename,
-                    "calls": len(legal_desc.calls),
-                    "closes": closure_result.closure_passed,
-                    "verified": closure_result.is_fully_verified(),
+                    "calls": legal_desc.num_calls(),
+                    "closes": closes,
+                    "verified": is_verified,
                     "area_sq_ft": closure_result.area_sq_ft
                     if closure_result.area_available
                     else None,
@@ -223,7 +255,7 @@ def main():
                 }
             )
 
-            print(f"  ✓ Complete: {len(legal_desc.calls)} calls extracted\n")
+            print(f"  ✓ Complete: {legal_desc.num_calls()} calls extracted\n")
 
         except Exception as e:
             print(f"  ✗ ERROR: {str(e)}\n")

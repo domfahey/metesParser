@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -18,6 +19,45 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = ("mp-models", "mp-bearing", "mp-parse", "mp-verify", "mp-export", "mp-review")
 
+_WHEEL_TAG_RE = re.compile(r"[A-Za-z0-9]+(?:[._][A-Za-z0-9]+)*")
+_WHEEL_BUILD_TAG_RE = re.compile(r"[0-9][A-Za-z0-9]*(?:[._][A-Za-z0-9]+)*")
+_PEP440_VERSION_RE = re.compile(
+    r"^(?:[0-9]+!)?"
+    r"[0-9]+(?:\.[0-9]+)*"
+    r"(?:[._]?(?:a|b|c|rc|alpha|beta|pre|preview)[._]?[0-9]*)?"
+    r"(?:\.(?:post|r|rev)[._]?[0-9]*)?"
+    r"(?:\.dev[._]?[0-9]*)?"
+    r"(?:\+[a-z0-9]+(?:[._][a-z0-9]+)*)?$",
+    re.IGNORECASE,
+)
+
+
+def _parse_wheel_name(filename: str) -> tuple[str, str]:
+    """Validate a PEP-427 wheel filename and return its PEP-503 package name and PEP-440 version."""
+    if not filename.endswith(".whl"):
+        raise ValueError(f"Unexpected wheel filename: {filename}")
+    parts = filename.removesuffix(".whl").split("-")
+    if len(parts) == 5:
+        dist, version, py_tag, abi_tag, plat_tag = parts
+        build_tag: str | None = None
+    elif len(parts) == 6:
+        dist, version, build_tag, py_tag, abi_tag, plat_tag = parts
+    else:
+        raise ValueError(f"Unexpected wheel filename: {filename}")
+
+    if not re.fullmatch(r"[A-Za-z0-9._]+", dist):
+        raise ValueError(f"Unexpected wheel filename: {filename}")
+    name = re.sub(r"[-_.]+", "-", dist).lower()
+    if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", name):
+        raise ValueError(f"Unexpected wheel filename: {filename}")
+    if not _PEP440_VERSION_RE.fullmatch(version):
+        raise ValueError(f"Unexpected wheel filename: {filename}")
+    if build_tag is not None and not _WHEEL_BUILD_TAG_RE.fullmatch(build_tag):
+        raise ValueError(f"Unexpected wheel filename: {filename}")
+    if not all(_WHEEL_TAG_RE.fullmatch(tag) for tag in (py_tag, abi_tag, plat_tag)):
+        raise ValueError(f"Unexpected wheel filename: {filename}")
+    return name, version
+
 
 def run(args: list[str], *, cwd: Path) -> None:
     env = dict(os.environ)
@@ -26,11 +66,17 @@ def run(args: list[str], *, cwd: Path) -> None:
     subprocess.run(args, cwd=cwd, env=env, check=True)
 
 
-def runtime_project(wheels: list[Path], *, geo: bool = True, web_map: bool = False) -> str:
+def runtime_project(
+    wheels: list[Path],
+    *,
+    geo: bool = True,
+    web_map: bool = False,
+    require_all_wheels: bool = False,
+) -> str:
     """Pin external dependencies to the versions already reviewed in the root lock."""
     if web_map and not geo:
         raise ValueError("web-map requires geo support")
-    lock = tomllib.loads((ROOT / "uv.lock").read_text())
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
     indexed: dict[str, list[dict[str, Any]]] = {}
     for package in lock["package"]:
         indexed.setdefault(package["name"], []).append(package)
@@ -58,20 +104,39 @@ def runtime_project(wheels: list[Path], *, geo: bool = True, web_map: bool = Fal
         "mp-review",
         tuple(["delivery"] + (["geo"] if geo else []) + (["web-map"] if web_map else [])),
     )
+    sources = []
+    wheel_versions: dict[str, str] = {}
+    expected_packages = set(PACKAGES)
+    for wheel in sorted(wheels):
+        name, version = _parse_wheel_name(wheel.name)
+        if name not in expected_packages:
+            raise ValueError(f"Unexpected wheel package {name}: {wheel.name}")
+        if name in wheel_versions:
+            if wheel_versions[name] != version:
+                raise ValueError(
+                    f"Conflicting wheel versions for {name}: {wheel_versions[name]} vs {version}"
+                )
+            raise ValueError(f"Duplicate wheel for {name}: {wheel.name}")
+        wheel_versions[name] = version
+        sources.append(f'{name} = {{ path = "wheels/{wheel.name}" }}')
+    if (wheels or require_all_wheels) and set(wheel_versions) != expected_packages:
+        missing = sorted(expected_packages - set(wheel_versions))
+        raise ValueError(f"Missing workspace wheel(s): {', '.join(missing)}")
     dependencies = []
     for name in [*PACKAGES, *sorted(external)]:
         for package in indexed[name]:
-            requirement = f"{name}=={package['version']}"
+            version = (
+                wheel_versions.get(name, package["version"])
+                if name in expected_packages
+                else package["version"]
+            )
+            requirement = f"{name}=={version}"
             if len(indexed[name]) > 1:
                 markers = package.get("resolution-markers", [])
                 if not markers:
                     raise ValueError(f"Multiple locked {name} versions require resolution markers")
                 requirement += "; " + " or ".join(f"({m})" for m in markers)
             dependencies.append(requirement)
-    sources = []
-    for wheel in sorted(wheels):
-        name = wheel.name.split("-", 1)[0].replace("_", "-")
-        sources.append(f'{name} = {{ path = "wheels/{wheel.name}" }}')
     return (
         '[project]\nname = "metesparser-plugin-runtime"\nversion = "0.1.0"\n'
         'requires-python = ">=3.11"\ndependencies = '
@@ -120,7 +185,10 @@ def build(output: Path, *, offline: bool = False, geo: bool = True, web_map: boo
                 cwd=ROOT,
             )
         wheels = list(wheel_dir.glob("*.whl"))
-        (runtime / "pyproject.toml").write_text(runtime_project(wheels, geo=geo, web_map=web_map))
+        (runtime / "pyproject.toml").write_text(
+            runtime_project(wheels, geo=geo, web_map=web_map, require_all_wheels=True),
+            encoding="utf-8",
+        )
         run([uv, "lock", "--project", str(runtime), *flags], cwd=runtime)
         hashes = {
             str(path.relative_to(runtime)): hashlib.sha256(path.read_bytes()).hexdigest()
@@ -128,7 +196,8 @@ def build(output: Path, *, offline: bool = False, geo: bool = True, web_map: boo
         }
         fingerprint = hashlib.sha256(json.dumps(hashes, sort_keys=True).encode()).hexdigest()
         (runtime / "engine.json").write_text(
-            json.dumps({"fingerprint": fingerprint, "sha256": hashes}, indent=2) + "\n"
+            json.dumps({"fingerprint": fingerprint, "sha256": hashes}, indent=2) + "\n",
+            encoding="utf-8",
         )
         # Publish only after every wheel and the runtime lock have been built successfully.
         # Fixed timestamps and permissions keep the archive byte-reproducible.
@@ -148,7 +217,9 @@ def build(output: Path, *, offline: bool = False, geo: bool = True, web_map: boo
                     archive.writestr(entry, path.read_bytes())
         shutil.copyfile(staged_zip, output)
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
-    output.with_suffix(output.suffix + ".sha256").write_text(f"{digest}  {output.name}\n")
+    output.with_suffix(output.suffix + ".sha256").write_text(
+        f"{digest}  {output.name}\n", encoding="utf-8"
+    )
     return output
 
 

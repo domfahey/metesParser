@@ -7,8 +7,9 @@ import unicodedata
 
 # A number directly after a degree sign (or digit/point/comma) is a bearing's
 # minutes or part of a larger number, never a length; after a fraction slash it
-# is a fraction's denominator.
-LENGTH_NUMBER_GUARD = r"(?<![\d.,\u00b0/\u2044])(?<!\u00b0\s)"
+# is a fraction's denominator; after ``<digit>e`` / ``<digit>e[+-]`` it is a
+# scientific-notation exponent.
+LENGTH_NUMBER_GUARD = r"(?<![\d.,\u00b0/\u2044])(?<!\u00b0\s)(?<!\d[eE])(?<!\d[eE][+\-\u2212])"
 # A leading-decimal number (".5") starts only at a word boundary: at the start of
 # the text or directly after whitespace, "=" or "(", and never after a digit (with
 # or without a gap), a letter, a period/comma or a degree/minute mark. It therefore
@@ -41,7 +42,9 @@ _MIXED_GAP = r"(?:\s*-\s*|\s+)"
 # A fraction (or lone vulgar fraction) never starts after a whole number and a gap
 # (it would be read without the whole number).
 _NO_WHOLE_BEFORE = r"(?<!\d\s)(?<!\d\s\s)(?<!\d,\s)(?<!\d-)(?<!\d\s-)(?<!\d-\s)"
-_NUMBER_END = rf"(?!\d|[.,]\d|{_FRACTION_SLASH}|{_VULGAR}|\s*-?\s*\d+{_FRACTION_SLASH}\d)"
+_NUMBER_END = (
+    rf"(?!\d|[.,]\d|[eE][+\-\u2212]?\d|{_FRACTION_SLASH}|{_VULGAR}|\s*-?\s*\d+{_FRACTION_SLASH}\d)"
+)
 LENGTH_NUMBER = (
     rf"(?:{LENGTH_NUMBER_GUARD}(?:{_DECIMAL_COMMA}|{_WHOLE}{_MIXED_GAP}{_FRACTION}|{_WHOLE}\s*{_VULGAR}"
     rf"|{_WHOLE}(?:\.\d+)?|{_NO_WHOLE_BEFORE}{_FRACTION}|{_NO_WHOLE_BEFORE}{_VULGAR})"

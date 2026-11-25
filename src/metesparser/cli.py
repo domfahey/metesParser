@@ -2,20 +2,124 @@
 
 from __future__ import annotations
 
+import math
 import os
 import sys
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import structlog
 import structlog.contextvars
 
 from .logging_config import configure_logging, get_log_format
 
+if TYPE_CHECKING:
+    from .models import ClosureResult
+
 logger = structlog.get_logger(__name__)
 
 RUNS_DIR = Path("output/runs")
+
+
+def _unwrap_llm_model(processor: object) -> str:
+    """Resolve the underlying model identifier, preferring public model_name properties."""
+    model_name = getattr(processor, "model_name", None)
+    if isinstance(model_name, str) and model_name:
+        return model_name
+    client: Any = getattr(processor, "client", None)
+    seen: set[int] = set()
+    while client is not None and id(client) not in seen:
+        seen.add(id(client))
+        for attr in ("model_name", "model"):
+            model = getattr(client, attr, None)
+            if isinstance(model, str) and model:
+                return model
+        client = getattr(client, "_client", None)
+    return "unknown"
+
+
+def aggregate_tract_closure(tract_results: list[tuple[Any, Any]]) -> Any:
+    """Summarize per-tract ClosureResult objects into a single RunResults-compatible ClosureResult."""
+    from mp_models import is_boundary_tract, tract_kind
+
+    from .models import CheckResult, ClosureResult
+
+    if not tract_results:
+        return ClosureResult(
+            misclosure_x_ft=0.0,
+            misclosure_y_ft=0.0,
+            misclosure_ft=0.0,
+            area_sq_ft=0.0,
+            area_acres=0.0,
+            perimeter_ft=0.0,
+            misclosure_available=False,
+            area_available=False,
+            perimeter_available=False,
+            closure_passed=False,
+            angle_check_passed=False,
+            curve_consistency_passed=False,
+            confidence_score=0.0,
+            warnings=["No tracts verified"],
+        )
+
+    boundary_pairs = [(t, r) for t, r in tract_results if is_boundary_tract(t.tract_type)]
+    exception_pairs = [(t, r) for t, r in tract_results if tract_kind(t.tract_type) == "exception"]
+    boundary = [r for _, r in boundary_pairs]
+    exceptions = [r for _, r in exception_pairs]
+    selected = boundary or [r for _, r in tract_results]
+    evaluated = [*boundary, *exceptions] if boundary else selected
+
+    all_warnings = [w for _, r in tract_results for w in r.warnings]
+    if not boundary:
+        all_warnings.append("No boundary tracts (main or addition) present")
+    else:
+        for tract, res in exception_pairs:
+            if not res.closure_passed:
+                all_warnings.append(f"{tract.label}: exception tract closure failed")
+
+    propagated_checks = [
+        CheckResult(
+            name=check.name,
+            status=check.status,
+            reason=check.reason,
+            detail=f"[{tract.label}] {check.detail}",
+            inputs=dict(check.inputs),
+        )
+        for tract, res in tract_results
+        for check in getattr(res, "checks", ())
+        if check.status in ("failed", "blocked")
+    ]
+
+    misclosure_avail = all(r.misclosure_available for r in evaluated)
+    area_avail = bool(boundary) and not exceptions and all(r.area_available for r in boundary)
+    perimeter_avail = all(r.perimeter_available for r in selected)
+    closure_passed = bool(boundary) and all(r.closure_passed for r in evaluated)
+    confidences = [r.confidence_score for r in evaluated if r.confidence_score is not None]
+    return ClosureResult(
+        misclosure_x_ft=(
+            evaluated[0].misclosure_x_ft if misclosure_avail and len(evaluated) == 1 else 0.0
+        ),
+        misclosure_y_ft=(
+            evaluated[0].misclosure_y_ft if misclosure_avail and len(evaluated) == 1 else 0.0
+        ),
+        misclosure_ft=(
+            max((r.misclosure_ft for r in evaluated), default=0.0) if misclosure_avail else 0.0
+        ),
+        area_sq_ft=sum(r.area_sq_ft for r in boundary) if area_avail else 0.0,
+        area_acres=sum(r.area_acres for r in boundary) if area_avail else 0.0,
+        perimeter_ft=sum(r.perimeter_ft for r in selected) if perimeter_avail else 0.0,
+        misclosure_available=misclosure_avail,
+        area_available=area_avail,
+        perimeter_available=perimeter_avail,
+        closure_passed=closure_passed,
+        angle_check_passed=all(r.angle_check_passed for r in evaluated),
+        curve_consistency_passed=all(r.curve_consistency_passed for r in evaluated),
+        confidence_score=min(confidences) if confidences else 0.0,
+        warnings=all_warnings,
+        checks=propagated_checks,
+    )
 
 
 def _emit_closure_summary(summary: str, command_logger: structlog.stdlib.BoundLogger) -> None:
@@ -73,24 +177,76 @@ def extract_command(
         if role_review:
             command_logger.warning(roles_review_detail(role_review))
             legal_desc = legal_desc.model_copy(
-                update={"calls": mark_roles_review(legal_desc.calls)}
+                update={
+                    "calls": mark_roles_review(legal_desc.calls),
+                    "tracts": [
+                        t.model_copy(update={"calls": mark_roles_review(t.calls)})
+                        for t in legal_desc.tracts
+                    ],
+                }
             )
 
+        from mp_models import is_boundary_tract
+
+        tracts_arg = legal_desc.tracts or None
+        calls_for_verify = legal_desc.all_calls if tracts_arg else legal_desc.calls
+
         command_logger.info("Verifying closure")
-        closure_result = ClosureChecker.verify_closure(
-            legal_desc.calls, legal_desc.stated_area_sq_ft or 0.0
-        )
-
-        summary = ClosureChecker.get_closure_summary(closure_result)
-        _emit_closure_summary(summary, command_logger)
-
-        if closure_result.is_fully_verified() and not role_review:
-            command_logger.info("Exporting verified CSV")
-            CSVBuilder.export_verified_csv(legal_desc.calls, closure_result, output, legal_desc)
+        closure_result: ClosureResult | list[ClosureResult]
+        if tracts_arg is not None:
+            closure_result = ClosureChecker.verify_closure(
+                calls_for_verify,
+                stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0,
+                tracts=tracts_arg,
+            )
         else:
-            command_logger.warning("Verification did not pass completely; exporting unverified CSV")
-            CSVBuilder.legal_description_to_csv(legal_desc, output)
-            command_logger.info("Exported unverified CSV")
+            closure_result = ClosureChecker.verify_closure(
+                calls_for_verify,
+                stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0,
+            )
+
+        if isinstance(closure_result, list):
+            tract_results = list(zip(legal_desc.tracts, closure_result, strict=True))
+            summary = "\n\n".join(
+                f"--- {tract.label} ---\n"
+                + ClosureChecker.get_closure_summary(tract_res, calls=tract.calls)
+                for tract, tract_res in tract_results
+            )
+            _emit_closure_summary(summary, command_logger)
+            any_exportable = not role_review and any(
+                is_boundary_tract(tract.tract_type) and tract_res.is_fully_verified()
+                for tract, tract_res in tract_results
+            )
+            if any_exportable:
+                command_logger.info("Exporting verified CSV")
+                CSVBuilder.export_verified_csv(
+                    calls_for_verify,
+                    closure_result[0],
+                    output,
+                    legal_desc,
+                    tract_results=tract_results,
+                )
+            else:
+                command_logger.warning(
+                    "Verification did not pass completely; exporting unverified CSV"
+                )
+                CSVBuilder.legal_description_to_csv(legal_desc, output)
+                command_logger.info("Exported unverified CSV")
+            manifest_closure = aggregate_tract_closure(tract_results)
+        else:
+            summary = ClosureChecker.get_closure_summary(closure_result, calls=calls_for_verify)
+            _emit_closure_summary(summary, command_logger)
+
+            if closure_result.is_fully_verified() and not role_review:
+                command_logger.info("Exporting verified CSV")
+                CSVBuilder.export_verified_csv(legal_desc.calls, closure_result, output, legal_desc)
+            else:
+                command_logger.warning(
+                    "Verification did not pass completely; exporting unverified CSV"
+                )
+                CSVBuilder.legal_description_to_csv(legal_desc, output)
+                command_logger.info("Exported unverified CSV")
+            manifest_closure = closure_result
 
         # Write run manifest (never fails the main extract flow)
         try:
@@ -108,13 +264,11 @@ def extract_command(
                 run_id=run_id,
                 timestamp_utc=datetime.now(UTC),
                 source_pdf=pdf_file.name,
-                llm_provider=llm_provider
-                if llm_provider is not None
-                else os.getenv("METESPARSER_LLM_PROVIDER", "openai"),
-                llm_model=getattr(getattr(processor, "client", None), "model", "unknown"),
+                llm_provider=llm_provider or os.getenv("METESPARSER_LLM_PROVIDER") or "openai",
+                llm_model=_unwrap_llm_model(processor),
                 cache_enabled=not no_cache,
                 prompt_versions=prompt_versions,
-                results=RunResults.from_closure(closure_result, len(legal_desc.calls)),
+                results=RunResults.from_closure(manifest_closure, len(calls_for_verify)),
                 parser_version=metesparser.__version__,
             )
             write_run_manifest(manifest, RUNS_DIR)
@@ -143,6 +297,12 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
         logger.error("CSV file not found", path=csv_path)
         sys.exit(1)
 
+    if stated_area is not None and (
+        isinstance(stated_area, bool) or not math.isfinite(stated_area) or stated_area <= 0
+    ):
+        logger.error("Stated area must be finite and positive", stated_area=stated_area)
+        sys.exit(1)
+
     command_logger = logger.bind(command="verify", input_csv=csv_path)
     command_logger.info("Verifying calls from CSV")
 
@@ -150,9 +310,12 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
         calls = CSVBuilder.csv_to_calls(csv_path)
         command_logger.info("Loaded calls", count=len(calls))
 
-        closure_result = ClosureChecker.verify_closure(calls, stated_area or 0.0)
+        closure_result = ClosureChecker.verify_closure(
+            calls,
+            stated_area_sq_ft=stated_area or 0.0,
+        )
 
-        summary = ClosureChecker.get_closure_summary(closure_result)
+        summary = ClosureChecker.get_closure_summary(closure_result, calls=calls)
         _emit_closure_summary(summary, command_logger)
 
         if closure_result.is_fully_verified():
@@ -281,6 +444,8 @@ def main() -> None:
     if args.command == "extract":
         extract_command(args.pdf, args.output, args.llm_provider, no_cache=args.no_cache)
     elif args.command == "verify":
+        if args.area is not None and (not math.isfinite(args.area) or args.area <= 0):
+            parser.error("--area must be a finite positive number")
         verify_command(args.csv, args.area)
     elif args.command == "compare-runs":
         compare_runs_command(args.runs_dir, args.pdf)

@@ -45,7 +45,14 @@ def _assertions(result: dict[str, Any], expected: dict[str, Any]) -> list[dict[s
     checks: list[dict[str, Any]] = []
 
     def check(name: str, actual: Any, wanted: Any, tolerance: float = 0.0) -> None:
-        if isinstance(wanted, (int, float)) and isinstance(actual, (int, float)):
+        if isinstance(actual, bool) != isinstance(wanted, bool):
+            ok = False
+        elif (
+            isinstance(wanted, (int, float))
+            and not isinstance(wanted, bool)
+            and isinstance(actual, (int, float))
+            and not isinstance(actual, bool)
+        ):
             ok = math.isclose(float(actual), float(wanted), rel_tol=0.0, abs_tol=tolerance)
         else:
             ok = actual == wanted
@@ -54,7 +61,11 @@ def _assertions(result: dict[str, Any], expected: dict[str, Any]) -> list[dict[s
                 "assertion": name,
                 "expected": wanted,
                 "actual": actual,
-                "tolerance": tolerance if isinstance(wanted, (int, float)) else None,
+                "tolerance": (
+                    tolerance
+                    if isinstance(wanted, (int, float)) and not isinstance(wanted, bool)
+                    else None
+                ),
                 "passed": ok,
             }
         )
@@ -69,9 +80,25 @@ def _assertions(result: dict[str, Any], expected: dict[str, Any]) -> list[dict[s
             flag = "misclosure_available" if key == "misclosure_ft" else "area_available"
             actual = None if verification.get(flag) is False else verification.get(key)
             check(key, actual, expected[key], expected.get(f"{key}_tolerance", 0.01))
+    calls = result.get("calls", [])
     for index, fields in enumerate(expected.get("selected_calls", [])):
-        calls = result.get("calls", [])
-        actual_call = calls[index] if index < len(calls) else {}
+        if index >= len(calls):
+            for field, wanted in fields.items():
+                checks.append(
+                    {
+                        "assertion": f"calls[{index}].{field}",
+                        "expected": wanted,
+                        "actual": "<missing call>",
+                        "tolerance": (
+                            expected.get("numeric_tolerance", 0.001)
+                            if isinstance(wanted, (int, float)) and not isinstance(wanted, bool)
+                            else None
+                        ),
+                        "passed": False,
+                    }
+                )
+            continue
+        actual_call = calls[index]
         for field, wanted in fields.items():
             check(
                 f"calls[{index}].{field}",
@@ -118,6 +145,16 @@ def _validate_case(case: Any) -> tuple[str, dict[str, Any]]:
         raise ValueError("selected_calls must be a list of field objects")
     if "selected_calls" in expected and not selected_calls:
         raise ValueError("selected_calls must contain at least one field assertion")
+    for tol_key in ("misclosure_ft_tolerance", "area_sq_ft_tolerance", "numeric_tolerance"):
+        if tol_key in expected:
+            tol = expected[tol_key]
+            if (
+                isinstance(tol, bool)
+                or not isinstance(tol, (int, float))
+                or not math.isfinite(tol)
+                or tol < 0
+            ):
+                raise ValueError(f"{tol_key} must be a non-negative finite number")
     known_call_fields = set(DeedCall.model_fields)
     for index, fields in enumerate(selected_calls):
         if not isinstance(fields, dict) or not fields:

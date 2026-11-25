@@ -25,6 +25,8 @@ from .models import (
     LLMStageRecord,
     RunMetadata,
     Tract,
+    TractType,
+    stated_areas_match,
 )
 
 logger = structlog.get_logger(__name__)
@@ -94,14 +96,14 @@ class PDFProcessor:
         prompt_text: str | None = None
         for prompt_path in candidate_paths:
             if prompt_path.exists():
-                prompt_text = prompt_path.read_text()
+                prompt_text = prompt_path.read_text(encoding="utf-8")
                 break
 
         if prompt_text is None:
             try:
                 packaged_prompt = resources.files("metesparser").joinpath("prompts", prompt_file)
                 if packaged_prompt.is_file():
-                    prompt_text = packaged_prompt.read_text()
+                    prompt_text = packaged_prompt.read_text(encoding="utf-8")
             except (ModuleNotFoundError, FileNotFoundError):
                 prompt_text = None
 
@@ -120,7 +122,13 @@ class PDFProcessor:
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract all text from a PDF using the configured LLM provider."""
         prompt_config = self._load_prompt("extract_text_from_pdf")
-        prompt_text = prompt_config["user_prompt_template"]
+        system_prompt = prompt_config.get("system_prompt")
+        user_prompt = prompt_config["user_prompt_template"]
+        prompt_text = (
+            f"{system_prompt}\n\n{user_prompt}"
+            if isinstance(system_prompt, str) and system_prompt.strip()
+            else user_prompt
+        )
         response_mime_type = prompt_config.get("response_mime_type")
         response = self.client.generate_text_with_pdf(
             prompt_text, pdf_path, response_mime_type=response_mime_type
@@ -165,7 +173,7 @@ class PDFProcessor:
             provider = "gemini"
         else:
             provider = "unknown"
-        model = getattr(inner, "model", None)
+        model = self._get_model_name()
         self._audit_stage_records.append(
             LLMStageRecord(
                 stage=stage,
@@ -174,7 +182,7 @@ class PDFProcessor:
                 response=response,
                 response_sha256=hashlib.sha256(response.encode("utf-8")).hexdigest(),
                 provider=provider,
-                model=model if isinstance(model, str) else "unknown",
+                model=model,
             )
         )
 
@@ -273,6 +281,8 @@ class PDFProcessor:
                 llm_stages=llm_stage_records,
             )
 
+        from mp_models import invalid_stated_area_notes, is_boundary_tract
+
         processing_logger.info("Extracting calls")
         # One extraction gives the flat calls and the tracts (with role bases) the
         # role gate reads (``mp_models.roles_need_review``); a blocked deed's flat
@@ -282,10 +292,81 @@ class PDFProcessor:
             normalized_text, distance_unit=distance_unit, audit_context=ctx, tracts=tracts
         )
 
-        calls = CallExtractor.enrich_calls_with_azimuths(calls)
-
         processing_logger.info("Marking tie-in calls")
-        calls = CallExtractor.mark_tie_in_calls(calls, poc_description=poc if poc else None)
+        legal_poc_description: str | None
+        if tracts:
+            tracts = [
+                tract.model_copy(
+                    update={"calls": CallExtractor.enrich_calls_with_azimuths(tract.calls)}
+                )
+                for tract in tracts
+            ]
+            if (
+                len(tracts) == 1
+                and tracts[0].poc_description is None
+                and poc
+                and not tracts[0].skipped_courses
+            ):
+                marked = CallExtractor.mark_tie_in_calls(tracts[0].calls, poc_description=poc)
+                if marked and not all(c.is_tie_in for c in marked):
+                    tracts[0] = tracts[0].model_copy(update={"calls": marked})
+            non_empty_boundary = [
+                tract for tract in tracts if is_boundary_tract(tract.tract_type) and tract.calls
+            ]
+            if non_empty_boundary:
+                active_tracts = [
+                    tract for tract in tracts if tract.tract_type != TractType.EASEMENT
+                ]
+                calls = [call for tract in active_tracts for call in tract.calls]
+            else:
+                active_tracts = tracts
+                calls = [call for tract in tracts for call in tract.calls]
+            legal_poc_description = next(
+                (tract.poc_description for tract in active_tracts if tract.poc_description),
+                None,
+            )
+            if (
+                legal_poc_description is None
+                and len(tracts) == 1
+                and tracts[0].poc_description is None
+            ):
+                legal_poc_description = poc or None
+        else:
+            calls = CallExtractor.enrich_calls_with_azimuths(calls)
+            calls = CallExtractor.mark_tie_in_calls(calls, poc_description=poc if poc else None)
+            legal_poc_description = poc or None
+
+        area_notes = list(
+            dict.fromkeys(
+                detail
+                for call in (*calls, *(c for tract in tracts for c in tract.calls))
+                for detail in invalid_stated_area_notes(call.notes)
+            )
+        )
+        has_invalid_stated_area = bool(area_notes) or (
+            not calls
+            and not any(tract.calls for tract in tracts)
+            and stated_area is not None
+            and stated_area["value_sq_ft"] <= 0
+        )
+        if has_invalid_stated_area:
+            processing_logger.warning(
+                "Ignoring non-positive stated area",
+                stated_area_sq_ft=(
+                    stated_area["value_sq_ft"]
+                    if stated_area is not None and stated_area["value_sq_ft"] <= 0
+                    else area_notes
+                ),
+            )
+            if ctx is not None and ctx.extraction_record is not None:
+                ctx.extraction_record = ctx.extraction_record.model_copy(
+                    update={
+                        "confidence_signals": {
+                            **ctx.extraction_record.confidence_signals,
+                            "valid_stated_area": False,
+                        }
+                    }
+                )
 
         processing_logger.info("Extracting deed clauses")
         clauses = TextParser.extract_deed_clauses(normalized_text)
@@ -299,9 +380,38 @@ class PDFProcessor:
         processing_logger.info("Extracting coordinate system")
         coordinate_system, fips_code = TextParser.extract_coordinate_system(normalized_text)
 
+        valid_stated_area = stated_area if stated_area and stated_area["value_sq_ft"] > 0 else None
+        boundary_tracts = [tract for tract in tracts if is_boundary_tract(tract.tract_type)]
+        legal_stated_area_sq_ft: float | None
+        if tracts:
+            boundary_area = (
+                boundary_tracts[0].stated_area_sq_ft
+                if len(boundary_tracts) == 1
+                and not any(invalid_stated_area_notes(c.notes) for c in boundary_tracts[0].calls)
+                else None
+            )
+            if boundary_area is not None:
+                legal_stated_area_sq_ft = boundary_area
+                legal_stated_area_approx = (
+                    bool(valid_stated_area["approximate"])
+                    if valid_stated_area is not None
+                    and stated_areas_match(valid_stated_area["value_sq_ft"], boundary_area)
+                    else False
+                )
+            else:
+                legal_stated_area_sq_ft = None
+                legal_stated_area_approx = False
+        else:
+            legal_stated_area_sq_ft = (
+                valid_stated_area["value_sq_ft"] if valid_stated_area else None
+            )
+            legal_stated_area_approx = (
+                bool(valid_stated_area["approximate"]) if valid_stated_area else False
+            )
+
         legal_desc = LegalDescription(
-            poc_description=poc if poc else None,
-            pob_description=pob,
+            poc_description=legal_poc_description,
+            pob_description=pob or None,
             calls=calls,
             tracts=tracts,
             source_doc=Path(pdf_path).name,
@@ -323,8 +433,8 @@ class PDFProcessor:
             witness_trees=witness_trees,
             coordinate_system=coordinate_system,
             fips_code=fips_code,
-            stated_area_sq_ft=stated_area["value_sq_ft"] if stated_area else None,
-            stated_area_approximate=stated_area["approximate"] if stated_area else False,
+            stated_area_sq_ft=legal_stated_area_sq_ft,
+            stated_area_approximate=legal_stated_area_approx,
         )
 
         processing_logger.info("Extracted calls", count=legal_desc.num_calls())
@@ -365,7 +475,7 @@ class PDFProcessor:
         # Compute prompt hash from normalize_text prompt template content
         prompt_hash = self._compute_prompt_hash("normalize_text")
 
-        log_level = os.getenv("LOG_LEVEL", "INFO")
+        log_level = os.getenv("METESPARSER_LOG_LEVEL") or os.getenv("LOG_LEVEL") or "INFO"
 
         run_metadata = RunMetadata(
             parser_version=metesparser.__version__,
@@ -397,13 +507,22 @@ class PDFProcessor:
 
         return ctx
 
+    @property
+    def model_name(self) -> str | None:
+        """Return the LLM model name from the underlying client, if available."""
+        inner = self._unwrap_client(self.client)
+        for candidate in (self.client, inner):
+            model: object = getattr(candidate, "model", None)
+            if isinstance(model, str) and model:
+                return model
+            wrapped: object = getattr(candidate, "model_name", None)
+            if isinstance(wrapped, str) and wrapped:
+                return wrapped
+        return None
+
     def _get_model_name(self) -> str:
         """Return the LLM model name from the underlying client."""
-        inner = self._unwrap_client(self.client)
-        model: object = getattr(inner, "model", None)
-        if isinstance(model, str):
-            return model
-        return "unknown"
+        return self.model_name or "unknown"
 
     def _compute_prompt_hash(self, prompt_name: str) -> str:
         """Return SHA-256 hex digest of a prompt template's content."""
@@ -434,7 +553,11 @@ class PDFProcessor:
             re.search(r"(?:POINT\s+OF\s+BEGINNING|BEGINNING\s+at|POB)\b", text, re.IGNORECASE)
         )
 
-        bearing_matches = re.findall(r"(?:North|South|[NS])\s+\d+\s+degrees?", text, re.IGNORECASE)
+        bearing_matches = re.findall(
+            r"\b(?:North|South|[NS])\s*\d{1,2}\s*(?:°|º|degrees?|deg\.?)",
+            text,
+            re.IGNORECASE,
+        )
         has_bearing_calls = len(bearing_matches) >= 3
 
         has_closure_language = bool(
@@ -445,11 +568,17 @@ class PDFProcessor:
             )
         )
 
-        has_distances = bool(re.search(r"\d+\.\d+\s+(?:feet|ft)", text, re.IGNORECASE))
+        has_distances = bool(
+            re.search(
+                r"\b\d+(?:\.\d+)?\s*(?:feet|foot|ft\.?|poles?|rods?|perch(?:es)?|chains?|links?|varas?|arpents?|toises?|furlongs?|meters?|miles?)\b",
+                text,
+                re.IGNORECASE,
+            )
+        )
 
         text_length_reasonable = 50 < len(text) < 50_000
 
-        has_plss = bool(re.search(r"(?:Section|Township|Range)", text, re.IGNORECASE))
+        has_plss = bool(re.search(r"\b(?:Section|Township|Range)\b", text, re.IGNORECASE))
 
         # Non-ASCII ratio excluding common surveying symbols
         allowed_non_ascii = set("\u00b0\u2032\u2033\u2018\u2019\u201c\u201d\u2013\u2014")
@@ -485,12 +614,10 @@ class PDFProcessor:
 
     @staticmethod
     def _unwrap_client(client: BaseLLMClient) -> BaseLLMClient:
-        """Unwrap an already-cached client to avoid double-wrapping."""
-        from .llm_cache import CachedLLMClient
+        """Unwrap already-cached client layers to avoid double-wrapping."""
+        from .llm_cache import _unwrap_client_chain
 
-        if isinstance(client, CachedLLMClient):
-            return client._client
-        return client
+        return _unwrap_client_chain(client)
 
     def _create_client(self, provider: str | None) -> BaseLLMClient:
         provider_name = (provider or os.getenv("METESPARSER_LLM_PROVIDER") or "openai").lower()

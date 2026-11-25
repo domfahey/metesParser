@@ -19,6 +19,7 @@ import sys
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -37,7 +38,7 @@ PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 DEFAULT_RUNS_DIR = Path(__file__).parent.parent / "output" / "runs"
 
 
-def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
+def _build_calls(expected_calls: list[dict[str, Any]]) -> list[DeedCall]:
     """Build DeedCall objects from ground truth expected_calls."""
     calls: list[DeedCall] = []
     for raw in expected_calls:
@@ -50,6 +51,14 @@ def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
                 distance_ft=raw.get("distance_ft"),
                 along=raw.get("along"),
                 to=raw.get("to"),
+                monument_type=raw.get("monument_type"),
+                monument_status=raw.get("monument_status"),
+                is_exception=raw.get("is_exception", False),
+                is_meander=raw.get("is_meander", False),
+                is_tie_in=raw.get("is_tie_in", False),
+                non_tangent=raw.get("non_tangent", False),
+                radial_bearing=raw.get("radial_bearing"),
+                is_indefinite=raw.get("is_indefinite", False),
                 notes=raw.get("notes"),
                 curve_dir=raw.get("curve_dir"),
                 radius_ft=raw.get("radius_ft"),
@@ -61,6 +70,15 @@ def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
             )
         )
     return calls
+
+
+def _status_label(results: RunResults) -> str:
+    """Classify run results as FAIL, WARN, or PASS consistently with run_registry."""
+    if not results.closure_passed:
+        return "FAIL"
+    if results.warnings:
+        return "WARN"
+    return "PASS"
 
 
 def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
@@ -79,8 +97,9 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
     base_time = datetime.now(UTC)
 
     for idx, gt_file in enumerate(gt_files):
-        data = json.loads(gt_file.read_text())
+        data = json.loads(gt_file.read_text(encoding="utf-8"))
         expected_calls = data.get("expected_calls", [])
+        stated_area_sq_ft = data.get("stated_area_sq_ft")
 
         # Derive PDF filename from ground truth filename
         pdf_name = gt_file.name.replace(".ground_truth.json", ".pdf")
@@ -114,7 +133,10 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
                 reason = " ".join(str(exc).split())
                 print(f"  NOT BACKFILLABLE: {pdf_name} — {reason}; no run entry written")
                 continue
-            closure_result = ClosureChecker.verify_closure(calls)
+            closure_result = ClosureChecker.verify_closure(
+                calls,
+                stated_area_sq_ft=stated_area_sq_ft if stated_area_sq_ft is not None else 0.0,
+            )
 
             manifest = RunManifest(
                 run_id=str(uuid.uuid4()),
@@ -128,8 +150,8 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
                 parser_version=metesparser.__version__,
             )
 
+        status = _status_label(manifest.results)
         if dry_run:
-            status = "PASS" if manifest.results.closure_passed else "FAIL"
             misclosure = (
                 f"{manifest.results.misclosure_ft:.4f} ft"
                 if manifest.results.misclosure_available
@@ -141,7 +163,6 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
             )
         else:
             path = write_run_manifest(manifest, runs_dir)
-            status = "PASS" if manifest.results.closure_passed else "FAIL"
             print(f"  WROTE: {path.name} — {manifest.results.call_count} calls, {status}")
 
         written += 1

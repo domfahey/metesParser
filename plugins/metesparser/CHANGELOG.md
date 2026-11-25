@@ -4,9 +4,17 @@ Record user-visible plugin changes here. Keep pending changes under Unreleased a
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-11-25
+
+Included with MetesParser v0.7.1, keeping review engine 2.0.0 compatibility with rebuilt deterministic runtime wheels and updated engine fingerprint. This is not a marketplace publication.
+
 ### Changed
 
 - **License:** MetesParser is now licensed under the GNU Affero General Public License, version 3 only (`AGPL-3.0-only`), replacing MIT, with commercial licenses available from the copyright holder. No version was released publicly under MIT. See [License](../../README.md#license).
+
+### Fixed
+
+- Rebuilt locked runtime wheels with full-repo audit hardening across parsing, verification, verified export, review preparation, and plugin wheel validation.
 
 ## [2.0.0] - 2026-11-01
 

@@ -28,6 +28,12 @@ def _mapping(loader: UniqueKeyLoader, node: yaml.MappingNode) -> dict[str, Any]:
 UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping)
 
 
+def _find_project_root(settings_path: Path) -> Path:
+    """Resolve the project directory immediately owning the settings file."""
+    start = settings_path.parent.resolve()
+    return start.parent if start.name == ".claude" else start
+
+
 def read_settings(path: Path | None) -> dict[str, Any]:
     """Return defaults when absent; parse only the first fenced YAML block."""
     if path is None or not path.exists():
@@ -52,7 +58,7 @@ def read_settings(path: Path | None) -> dict[str, Any]:
             value = settings["output_dir"]
             if not isinstance(value, str) or not value.strip() or Path(value).is_absolute():
                 raise SettingsError("output_dir must be a non-empty project-relative path.")
-            project = path.resolve().parent.parent
+            project = _find_project_root(path)
             target = (project / value).resolve()
             if not target.is_relative_to(project):
                 raise SettingsError("output_dir must stay within the project directory.")

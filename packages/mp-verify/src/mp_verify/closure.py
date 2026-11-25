@@ -32,7 +32,12 @@ from mp_models import (
     Point,
     SkippedCourse,
     Tract,
+    TractType,
     VerificationAudit,
+    invalid_stated_area_notes,
+    is_boundary_tract,
+    stated_areas_match,
+    tract_kind,
     unapplied_exceptions,
 )
 
@@ -60,14 +65,13 @@ from .tangents import (
     is_spiral,
     stated_tangent,
 )
+from .topology import CLOSURE_TOLERANCE_FT as CLOSURE_TOLERANCE_FT
 from .traverse import (
     analyze_courses,
     traverse_positions,
 )
 
 logger = structlog.get_logger(__name__)
-
-CLOSURE_TOLERANCE_FT = 0.01
 
 
 def compute_traverse(
@@ -145,7 +149,11 @@ def calculate_perimeter(calls: list[DeedCall]) -> float:
     return perimeter
 
 
-def _calculate_exception_area(calls: list[DeedCall]) -> float:
+def _calculate_exception_area(
+    calls: list[DeedCall],
+    *,
+    closure_tolerance_ft: float = CLOSURE_TOLERANCE_FT,
+) -> float:
     """Sum independently closed exception loops without mixing their winding.
 
     The flat call API has no tract identifiers. A return to the local origin
@@ -175,8 +183,12 @@ def _calculate_exception_area(calls: list[DeedCall]) -> float:
         points.extend(vertices[1:])
         pending.append(call)
         misclosure = math.hypot(points[-1].x, points[-1].y)
-        if misclosure < CLOSURE_TOLERANCE_FT:
-            intersections = check_boundary_intersections(pending, points)
+        if misclosure < closure_tolerance_ft and (
+            len(pending) >= 3 or any(c.is_curve() for c in pending)
+        ):
+            intersections = check_boundary_intersections(
+                pending, points, closure_tolerance_ft=closure_tolerance_ft
+            )
             if intersections:
                 raise ValueError(
                     f"Exception tract topology failed; net area unavailable: {intersections[0]}"
@@ -198,11 +210,28 @@ def _calculate_exception_area(calls: list[DeedCall]) -> float:
     return math.fsum(areas)
 
 
+def _validate_non_negative_float(
+    name: str, value: float | None, *, default: float | None = None
+) -> float:
+    """Validate a finite non-negative float, returning ``default`` when ``value`` is None."""
+    if value is None and default is not None:
+        return default
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise ValueError(f"{name} must be a finite non-negative number, got {value!r}")
+    return float(value)
+
+
 def verify_tract(
     calls: list[DeedCall],
     *,
     stated_area_sq_ft: float = 0.0,
     closure_tolerance_ft: float | None = None,
+    double_entry_calls: list[DeedCall] | None = None,
     audit_context: AuditContext | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
     tract: Tract | None = None,
@@ -215,10 +244,15 @@ def verify_tract(
     Without it, the calls' own marks block them: the role-review mark every call of a
     blocked deed carries, and the note every easement/exception tract's call carries.
     """
+    stated_area_sq_ft = _validate_non_negative_float("stated_area_sq_ft", stated_area_sq_ft)
+    tolerance = _validate_non_negative_float(
+        "closure_tolerance_ft", closure_tolerance_ft, default=CLOSURE_TOLERANCE_FT
+    )
     return _verify_tract(
         calls,
         stated_area_sq_ft=stated_area_sq_ft,
-        closure_tolerance_ft=closure_tolerance_ft,
+        closure_tolerance_ft=tolerance,
+        double_entry_calls=double_entry_calls,
         audit_context=audit_context,
         skipped_courses=skipped_courses,
         tract=tract,
@@ -231,6 +265,8 @@ def _verify_tract(
     *,
     stated_area_sq_ft: float,
     closure_tolerance_ft: float | None,
+    double_entry_calls: list[DeedCall] | None = None,
+    double_entry_override_errors: list[str] | None = None,
     audit_context: AuditContext | None,
     skipped_courses: list[SkippedCourse] | None,
     tract: Tract | None,
@@ -245,14 +281,25 @@ def _verify_tract(
         )
         if check is not None
     ]
-    boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
+    if tract is not None:
+        treat_exceptions_as_boundary = tract.tract_type == TractType.EXCEPTION
+    else:
+        non_tie = [c for c in calls if not c.is_tie_in]
+        treat_exceptions_as_boundary = bool(non_tie) and all(c.is_exception for c in non_tie)
+        if treat_exceptions_as_boundary and evaluate_non_boundary_marks(calls) is None:
+            exc_role = evaluate_tract_role("exception", TractType.EXCEPTION)
+            if exc_role is not None:
+                role_checks.append(exc_role)
     return _verify_single(
-        boundary,
+        calls,
         stated_area_sq_ft=stated_area_sq_ft,
         closure_tolerance_ft=closure_tolerance_ft,
+        double_entry_calls=double_entry_calls,
+        double_entry_override_errors=double_entry_override_errors,
         audit_context=audit_context,
         skipped_courses=skipped_courses,
         role_checks=role_checks,
+        treat_exceptions_as_boundary=treat_exceptions_as_boundary,
     )
 
 
@@ -365,7 +412,25 @@ def verify_closure(
         ClosureResult when tracts is None (single-tract).
         list[ClosureResult] when tracts is provided (one per tract).
     """
+    stated_area_sq_ft = _validate_non_negative_float("stated_area_sq_ft", stated_area_sq_ft)
+    tolerance = _validate_non_negative_float(
+        "closure_tolerance_ft", closure_tolerance_ft, default=CLOSURE_TOLERANCE_FT
+    )
     if tracts is not None:
+        boundary_tracts = [t for t in tracts if is_boundary_tract(t.tract_type)]
+        has_exception = any(tract_kind(t.tract_type) == TractType.EXCEPTION.value for t in tracts)
+        # Deed-level stated_area_sq_ft applies to a sole boundary tract only when no
+        # EXCEPTION tract exists (with an exception, deed-level area is net, not gross).
+        sole_boundary = (
+            boundary_tracts[0] if len(boundary_tracts) == 1 and not has_exception else None
+        )
+        if (
+            stated_area_sq_ft > 0.0
+            and sole_boundary is not None
+            and sole_boundary.stated_area_sq_ft is not None
+            and not stated_areas_match(stated_area_sq_ft, sole_boundary.stated_area_sq_ft)
+        ):
+            raise ValueError("stated_area_sq_ft conflicts with boundary tract stated_area_sq_ft.")
         if audit_context is not None:
             # Reflect only the latest multi-tract run: drop the single-tract audit too.
             audit_context.verification_audit = None
@@ -377,17 +442,37 @@ def verify_closure(
         # Deed level: inferred roles among several descriptions (or the role-review
         # mark on the deed's calls) block every tract.
         deed_roles = evaluate_description_roles(tracts, calls)
+        total_tract_calls = sum(len(t.calls) for t in tracts)
+        deed_double_entry_mismatch: list[str] | None = None
+        if double_entry_calls is not None and len(double_entry_calls) != total_tract_calls:
+            deed_double_entry_mismatch = [
+                f"Call count mismatch: {total_tract_calls} vs {len(double_entry_calls)} "
+                "(multi-tract total)"
+            ]
+        offset = 0
         for tract in tracts:
+            tract_double_entry: list[DeedCall] | None = None
+            if double_entry_calls is not None and deed_double_entry_mismatch is None:
+                tract_double_entry = double_entry_calls[offset : offset + len(tract.calls)]
+                offset += len(tract.calls)
             # Scratch context per tract so tracts never overwrite each other's audit.
             scratch = (
                 audit_context.model_copy(update={"verification_audit": None, "skipped_courses": []})
                 if audit_context is not None
                 else None
             )
+            if tract.stated_area_sq_ft is not None:
+                tract_stated_area = tract.stated_area_sq_ft
+            elif stated_area_sq_ft > 0.0 and tract is sole_boundary:
+                tract_stated_area = stated_area_sq_ft
+            else:
+                tract_stated_area = 0.0
             result = _verify_tract(
                 tract.calls,
-                stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
-                closure_tolerance_ft=closure_tolerance_ft,
+                stated_area_sq_ft=tract_stated_area,
+                closure_tolerance_ft=tolerance,
+                double_entry_calls=tract_double_entry,
+                double_entry_override_errors=deed_double_entry_mismatch,
                 audit_context=scratch,
                 skipped_courses=skips_for_tract(tract, tracts, labelled),
                 tract=tract,
@@ -404,7 +489,7 @@ def verify_closure(
     return _verify_single(
         calls,
         stated_area_sq_ft=stated_area_sq_ft,
-        closure_tolerance_ft=closure_tolerance_ft,
+        closure_tolerance_ft=tolerance,
         double_entry_calls=double_entry_calls,
         audit_context=audit_context,
         skipped_courses=skipped_courses,
@@ -422,11 +507,17 @@ def _verify_single(
     stated_area_sq_ft: float = 0.0,
     closure_tolerance_ft: float | None = None,
     double_entry_calls: list[DeedCall] | None = None,
+    double_entry_override_errors: list[str] | None = None,
     audit_context: AuditContext | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
     role_checks: Sequence[CheckResult] = (),
+    treat_exceptions_as_boundary: bool = False,
 ) -> ClosureResult:
     """Single-tract verification; ``role_checks`` are internal (set by ``verify_tract``)."""
+    stated_area_sq_ft = _validate_non_negative_float("stated_area_sq_ft", stated_area_sq_ft)
+    tolerance = _validate_non_negative_float(
+        "closure_tolerance_ft", closure_tolerance_ft, default=CLOSURE_TOLERANCE_FT
+    )
     if any(c.name not in _ROLE_CHECK_NAMES or c.status != "blocked" for c in role_checks):
         raise ValueError(
             "role_checks must be blocked non_boundary_tract or description_roles_inferred checks"
@@ -441,15 +532,16 @@ def _verify_single(
         evaluate_description_roles((), calls) if DESCRIPTION_ROLES_CHECK not in present else None,
     )
     role_checks = [*role_checks, *(check for check in derived if check is not None)]
-    tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
     # Courses the extractor skipped are missing from ``calls``: a traverse of the
     # rest is not the deed's boundary, so nothing derived from it is determined.
     skipped = _merge_skips(
         skipped_courses or [], audit_context.skipped_courses if audit_context else []
     )
 
-    main_calls = [c for c in calls if not c.is_exception and not c.is_tie_in]
-    exception_calls = [c for c in calls if c.is_exception]
+    main_calls = [
+        c for c in calls if (treat_exceptions_as_boundary or not c.is_exception) and not c.is_tie_in
+    ]
+    exception_calls = [] if treat_exceptions_as_boundary else [c for c in calls if c.is_exception]
 
     # One pass decides each call's chord, positioning and direction. Records are
     # tracked by position: course numbers may repeat, and only the offending call
@@ -512,6 +604,11 @@ def _verify_single(
         "deed's net parcel"
         for call in calls
         for wording in unapplied_exceptions(call.notes)
+    )
+    warnings.extend(
+        f"Course {call.course}: invalid stated area ({detail}); requires source review"
+        for call in calls
+        for detail in invalid_stated_area_notes(call.notes)
     )
 
     for record in bad_chords:
@@ -593,13 +690,26 @@ def _verify_single(
                     "calculating exception area to subtract"
                 )
                 try:
-                    exception_area_sq_ft = _calculate_exception_area(exception_calls)
+                    exception_area_sq_ft = _calculate_exception_area(
+                        exception_calls, closure_tolerance_ft=tolerance
+                    )
                 except ValueError as e:
                     warnings.append(f"Cannot calculate exception area: {e}")
                     exception_area_available = False
                     area_available = False
 
-            area_sq_ft = main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
+            if exception_area_available:
+                if exception_area_sq_ft > main_area_sq_ft:
+                    warnings.append(
+                        f"Exception area ({exception_area_sq_ft:.1f} sq ft) exceeds main parcel area "
+                        f"({main_area_sq_ft:.1f} sq ft); net area clamped to 0.0 sq ft"
+                    )
+                    area_available = False
+                    area_sq_ft = 0.0
+                else:
+                    area_sq_ft = main_area_sq_ft - exception_area_sq_ft
+            else:
+                area_sq_ft = 0.0
             area_acres = area_sq_ft / 43560.0
         except ValueError as e:
             area_available = False
@@ -630,7 +740,9 @@ def _verify_single(
     parallel_warnings = check_parallelism(main_calls)
     warnings.extend(parallel_warnings)
 
-    intersection_warnings = check_boundary_intersections(main_calls, points)
+    intersection_warnings = check_boundary_intersections(
+        main_calls, points, closure_tolerance_ft=tolerance
+    )
     warnings.extend(intersection_warnings)
 
     reversal_warnings = check_bearing_reversals(main_calls)
@@ -656,7 +768,13 @@ def _verify_single(
         )
 
     discrepancies: list[str] = []
-    if double_entry_calls is not None:
+    double_entry_performed = False
+    if double_entry_override_errors is not None:
+        double_entry_performed = True
+        discrepancies = list(double_entry_override_errors)
+        warnings.extend(f"Double-entry discrepancy: {discrepancy}" for discrepancy in discrepancies)
+    elif double_entry_calls is not None:
+        double_entry_performed = True
         discrepancies = compare_double_entry(calls, double_entry_calls)
         warnings.extend(f"Double-entry discrepancy: {discrepancy}" for discrepancy in discrepancies)
 
@@ -699,7 +817,7 @@ def _verify_single(
         area_available=area_available,
         misclosure_available=misclosure_available,
         positioned=positioned,
-        double_entry_performed=double_entry_calls is not None,
+        double_entry_performed=double_entry_performed,
         discrepancies=discrepancies,
         curve_issues=curve_warnings,
     )
@@ -778,6 +896,7 @@ def _verify_single(
         calls,
         [analysis[id(c)].chord_positioned for c in calls],
         [analysis[id(c)].indefinite for c in calls],
+        positioned,
     )
     closure_result = closure_result.model_copy(update={"confidence_score": confidence})
 

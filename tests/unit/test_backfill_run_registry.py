@@ -68,4 +68,5 @@ def test_backfill_skips_deed_missing_distance(
     assert "WROTE:" in out
     manifests = sorted(p.name for p in runs.glob("*.json"))
     assert len(manifests) == 1
-    assert "bad" not in manifests[0]
+    assert "-good-" in manifests[0]
+    assert "-bad-" not in manifests[0]
