@@ -21,7 +21,7 @@ SURVEY_ABBREVIATIONS: list[tuple[str, str]] = [
     (r"\bCIP\b", "capped iron pin"),
     (r"\bCMP\b", "concrete monument placed"),
     (r"\bR/W\b", "right-of-way"),
-    (r"\bROW\b", "right-of-way"),
+    (r"(?-i:\bROW\b)", "right-of-way"),
     (r"\bN/F\b", "now or formerly"),
     (r"\bPK\b(?!\s+nail\b)", "pk nail"),
 ]
@@ -40,9 +40,9 @@ def normalize_dms_symbols(text: str) -> str:
     """
     text = re.sub(r"[°º\u00B0\u00BA]", "°", text)
 
-    text = re.sub(r"[''\u2018\u2019`]", "'", text)
+    text = re.sub(r"[''\u2018\u2019`\u2032]", "'", text)
 
-    text = re.sub(r"[" "\u201c\u201d]", '"', text)
+    text = re.sub(r"[" "\u201c\u201d\u2033]", '"', text)
 
     return text
 
@@ -101,25 +101,40 @@ def standardize_cardinal_directions(text: str) -> str:
     Returns:
         Text with standardized cardinal directions
     """
+    _word_start = r"\b(?:(?P<c1w>North|South|East|West)\s+|(?P<c1l>[NSEW])\s*)"
+    _word_end = r"(?P<c2>North|South|East|West|[NSEW])\b"
+
+    def _c1(m: Match[str]) -> str:
+        return (m.group("c1w") or m.group("c1l"))[0].upper()
+
+    def _c2(m: Match[str]) -> str:
+        return m.group("c2")[0].upper()
+
     patterns: list[tuple[str, str | Callable[[Match[str]], str]]] = [
         (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
-            lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0]}",
+            rf"{_word_start}(\d{{1,3}})\s+degrees?,?\s+(\d{{1,2}})\s+minutes?\s+(\d{{1,2}}(?:\.\d+)?)\s+seconds?\s+{_word_end}",
+            lambda m: f"{_c1(m)} {m.group(3)}°{m.group(4)}'{m.group(5)}\" {_c2(m)}",
         ),
         (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(North|South|East|West)\b",
-            lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}' {m.group(4)[0]}",
+            rf"{_word_start}(\d{{1,3}})\s+degrees?,?\s+(\d{{1,2}})\s+minutes?\s+{_word_end}",
+            lambda m: f"{_c1(m)} {m.group(3)}°{m.group(4)}' {_c2(m)}",
         ),
         (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(North|South|East|West)\b",
-            lambda m: f"{m.group(1)[0]} {m.group(2)}° {m.group(3)[0]}",
+            rf"{_word_start}(\d{{1,3}})\s+degrees?,?\s+{_word_end}",
+            lambda m: f"{_c1(m)} {m.group(3)}° {_c2(m)}",
         ),
         (
             r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])",
-            "\\1 \\2°\\3'\\4\" \\5",
+            lambda m: f"{m.group(1).upper()} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5).upper()}",
         ),
-        (r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4"),
-        (r"([NS])\s*(\d{1,3})\s*°\s*([EW])", r"\1 \2° \3"),
+        (
+            r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*([EW])",
+            lambda m: f"{m.group(1).upper()} {m.group(2)}°{m.group(3)}' {m.group(4).upper()}",
+        ),
+        (
+            r"([NS])\s*(\d{1,3})\s*°\s*([EW])",
+            lambda m: f"{m.group(1).upper()} {m.group(2)}° {m.group(3).upper()}",
+        ),
     ]
 
     for pattern, replacement in patterns:
@@ -140,17 +155,29 @@ def clean_ocr_errors(text: str) -> str:
         Cleaned text
     """
     text = re.sub(r"\b5outh\b", "South", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bNOrth\b", "North", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bN[0O]rth\b", "North", text, flags=re.IGNORECASE)
     text = re.sub(r"\bEa5t\b", "East", text, flags=re.IGNORECASE)
     text = re.sub(r"\bWe5t\b", "West", text, flags=re.IGNORECASE)
     # "UNDER. AND SUBJECT to" (a stray period, 219 Berlin 12799) is one recital.
     text = re.sub(r"\b(UNDER)\.\s+(AND\s+SUBJECT)\b", r"\1 \2", text, flags=re.IGNORECASE)
 
-    text = re.sub(r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4", text)
+    text = re.sub(
+        r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'(?:\s*(\d{1,2}(?:\.\d+)?)\s*\")?\s*([EW])",
+        lambda m: (
+            f"{m.group(1)} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)}"
+            if m.group(4) is not None
+            else f"{m.group(1)} {m.group(2)}°{m.group(3)}' {m.group(5)}"
+        ),
+        text,
+    )
 
     text = re.sub(
-        r"\b(North|South)\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*(East|West)\b",
-        r"\1 \2 degrees \3 minutes \4",
+        r"\b(North|South)\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'(?:\s*(\d{1,2}(?:\.\d+)?)\s*\")?\s*(East|West)\b",
+        lambda m: (
+            f"{m.group(1)} {m.group(2)} degrees {m.group(3)} minutes {m.group(4)} seconds {m.group(5)}"
+            if m.group(4) is not None
+            else f"{m.group(1)} {m.group(2)} degrees {m.group(3)} minutes {m.group(5)}"
+        ),
         text,
         flags=re.IGNORECASE,
     )
@@ -197,30 +224,17 @@ def expand_assessor_abbreviations(text: str) -> str:
         return text
 
     # --- 1. Fix common OCR typos: NODEG → N0DEG, NOODEG → N00DEG -----------
-    # O (letter) used instead of 0 (digit) adjacent to direction letters
+    # O (letter) used instead of 0 (digit) adjacent to direction letters; require
+    # DEG or at least one digit before D so ordinary words like NODE and SOD stay intact.
     text = re.sub(
-        r"\b([NS])O(\d*(?:DEG|D))",
+        r"\b([NS])O(\d+D\b|\d*DEG\b)",
         lambda m: f"{m.group(1)}0{m.group(2)}",
         text,
         flags=re.IGNORECASE,
     )
     text = re.sub(
-        r"\b([NS])OO(\d*(?:DEG|D))",
+        r"\b([NS])OO(\d+D\b|\d*DEG\b)",
         lambda m: f"{m.group(1)}00{m.group(2)}",
-        text,
-        flags=re.IGNORECASE,
-    )
-    # Catch NOODEG specifically where the OO represents 00
-    text = re.sub(
-        r"\b([NS])OO(DEG|D)\b",
-        lambda m: f"{m.group(1)}00{m.group(2)}",
-        text,
-        flags=re.IGNORECASE,
-    )
-    # Catch NODEG where O is 0
-    text = re.sub(
-        r"\b([NS])O(DEG|D)\b",
-        lambda m: f"{m.group(1)}0{m.group(2)}",
         text,
         flags=re.IGNORECASE,
     )
@@ -241,10 +255,16 @@ def expand_assessor_abbreviations(text: str) -> str:
         text,
         flags=re.IGNORECASE,
     )
-    # Degrees only (DEG/D without M following)
+    # Degrees only (DEG without M following, or D in bearing context — never "LOT 2D")
     text = re.sub(
-        r"(\d{1,3})\s*(?:DEG\b\.?|D\b(?:\.(?=\s*\d))?)",
+        r"(\d{1,3})\s*DEG\b\.?",
         r"\1 degrees",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"(\b[NS]\s*)(\d{1,3})\s*D\b(?:\.(?=\s*\d))?(?=\s*(?:[EW]\b|\d))",
+        r"\1\2 degrees",
         text,
         flags=re.IGNORECASE,
     )
@@ -257,17 +277,27 @@ def expand_assessor_abbreviations(text: str) -> str:
     )
 
     # --- 3. Expand number+SEC that wasn't already caught (standalone) -------
+    # Guard against PLSS/lot references like "LOT 12 SEC 4" or "1/4 SEC 10".
+    _non_seconds_prefix = re.compile(
+        r"\b(?:lot|block|blk|tract|parcel|plat|page|book|liber|lib|unit|apt|suite|bldg|sec|section|part|pt)\s+$",
+        re.IGNORECASE,
+    )
     text = re.sub(
-        r"(\d{1,2}(?:\.\d+)?)\s*SEC\b\.?",
-        r"\1 seconds",
+        r"(?<![/\w])(\d{1,2}(?:\.\d+)?)\s*SEC\b\.?(?!\s*\d)",
+        lambda m: (
+            m.group(0)
+            if _non_seconds_prefix.search(m.string[: m.start()])
+            else f"{m.group(1)} seconds"
+        ),
         text,
         flags=re.IGNORECASE,
     )
 
-    # --- 4. TH / TH. → thence (word boundary, not inside words) ------------
-    # Must not match THE, THAT, THIS, THEREOF, THENCE, etc.
+    # --- 4. TH / TH. → thence (word boundary, followed by whitespace) -------
+    # \s ensures words starting with TH (THE, THAT, THIS, THEREOF, THENCE) never match,
+    # while "TH E ..." / "TH A ..." still expand.
     text = re.sub(
-        r"\bTH\.?\s(?!E\b|A\b|I\b|ERE|EN|ROU|AT\b|US\b)",
+        r"\bTH\.?\s",
         "thence ",
         text,
         flags=re.IGNORECASE,

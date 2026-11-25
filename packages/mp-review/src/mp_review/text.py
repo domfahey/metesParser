@@ -15,6 +15,7 @@ from mp_parse import (
 from mp_parse.metadata import (
     extract_area_statement,
     extract_poc_and_pob,
+    infer_distance_unit,
     split_into_calls,
 )
 from mp_parse.normalizer import normalize_legal_description
@@ -30,6 +31,7 @@ class PreparedText:
     quotes: tuple[str, ...]
     multiple_tracts: bool
     unresolved_commencement: bool
+    inferred_distance_unit: str | None = None
 
 
 def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> PreparedText:
@@ -67,6 +69,7 @@ def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> Pre
         raise ValueError(MULTIPLE_PARCELS)
     calls = mark_tie_in_calls(enrich_calls_with_azimuths(extracted), poc)
     area = extract_area_statement(normalized)
+    inferred_unit = infer_distance_unit(normalized)
     # The tracts (with role bases) travel with the description, so the role gate
     # (``mp_models.roles_need_review``) reads the same extraction its calls came from.
     legal = LegalDescription(
@@ -75,6 +78,7 @@ def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> Pre
         poc_description=poc or None,
         pob_description=pob or None,
         stated_area_sq_ft=area["value_sq_ft"] if area else None,
+        stated_area_approximate=area["approximate"] if area else False,
     )
     # Normalization changes bearing notation and abbreviations. Never present the
     # normalized parser excerpt as a verbatim quotation of the user's source.
@@ -101,4 +105,5 @@ def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> Pre
         multiple_tracts=bool(tracts),
         unresolved_commencement=has_commencement
         and (not poc or not any(c.is_tie_in for c in calls) or all(c.is_tie_in for c in calls)),
+        inferred_distance_unit=inferred_unit,
     )

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
 
 from mp_models import AuditContext, ClosureResult, LegalDescription
 from mp_verify import verify_closure
 
+from .models import AuditContext as MonolithAuditContext
+from .models import LegalDescription as MonolithLegalDescription
+from .package_bridge import package_audit_context, package_legal_description
 from .pdf_processor import PDFProcessor
 
 
@@ -49,14 +51,29 @@ class Pipeline:
         processor = PDFProcessor(provider=self.provider, cache=self.cache)
         result = processor.process_deed_pdf(str(pdf_path), audit=self.audit)
 
-        audit_ctx: AuditContext | None = None
+        raw_legal_desc: LegalDescription | MonolithLegalDescription
+        raw_audit_ctx: AuditContext | MonolithAuditContext | None = None
         if self.audit:
             assert isinstance(result, tuple)
-            legal_desc = cast(LegalDescription, result[0])
-            audit_ctx = cast(AuditContext, result[1])
+            raw_legal_desc, raw_audit_ctx = result
         else:
             assert not isinstance(result, tuple)
-            legal_desc = cast(LegalDescription, result)
+            raw_legal_desc = result
+
+        legal_desc = (
+            raw_legal_desc
+            if isinstance(raw_legal_desc, LegalDescription)
+            else package_legal_description(raw_legal_desc)
+        )
+        audit_ctx = (
+            None
+            if raw_audit_ctx is None
+            else (
+                raw_audit_ctx
+                if isinstance(raw_audit_ctx, AuditContext)
+                else package_audit_context(raw_audit_ctx)
+            )
+        )
 
         if legal_desc.tracts:
             results = verify_closure(

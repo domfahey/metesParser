@@ -37,20 +37,26 @@ class ParcelMarker(TypedDict):
 
 # Lettered parcels: "Parcel A:", "Parcel A (Northern Tract):", "Parcel A -"
 _LETTERED_PARCEL = re.compile(
-    r"\bParcel\s+([A-Z])\s*(?:\([^)]*\)\s*)?(?:[:;\-\u2013\u2014])",
+    r"\bParcel\s+([A-Z])\s*(?:\([^)]*\)\s*)?(?:[:\-\u2013\u2014])",
     re.IGNORECASE,
 )
 
 # Numbered parcels: "Parcel 1:", "Parcel 2:", "Parcel 10 -"
 _NUMBERED_PARCEL = re.compile(
-    r"\bParcel\s+(\d+)\s*(?:\([^)]*\)\s*)?(?:[:;\-\u2013\u2014])",
+    r"\bParcel\s+(\d+)\s*(?:\([^)]*\)\s*)?(?:[:\-\u2013\u2014])",
     re.IGNORECASE,
 )
 
 # Combined / aggregate description: "Combined Legal Description:" or
 # "Combine Legal Description:" (the ground truth uses the typo "Combine")
 _COMBINED_DESCRIPTION = re.compile(
-    r"\bCombine[d]?\s+Legal\s+Description\s*[:;\-\u2013\u2014]",
+    r"\bCombine[d]?\s+Legal\s+Description\s*[:\-\u2013\u2014]",
+    re.IGNORECASE,
+)
+
+# Mid-call adjoining references ("along the west line of Parcel A:") are not headings.
+_REFERENCE_WORD_BEFORE = re.compile(
+    r"\b(?:of|to|said|adjoining|adjacent|along|from|with|in|within|being)[ \t]+$",
     re.IGNORECASE,
 )
 
@@ -82,6 +88,8 @@ def detect_parcel_markers(text: str) -> list[ParcelMarker]:
 
     # Lettered parcels
     for match in _LETTERED_PARCEL.finditer(text):
+        if _REFERENCE_WORD_BEFORE.search(text[: match.start()]):
+            continue
         letter = match.group(1).upper()
         markers.append(
             {
@@ -93,6 +101,8 @@ def detect_parcel_markers(text: str) -> list[ParcelMarker]:
 
     # Numbered parcels
     for match in _NUMBERED_PARCEL.finditer(text):
+        if _REFERENCE_WORD_BEFORE.search(text[: match.start()]):
+            continue
         number = match.group(1)
         markers.append(
             {

@@ -232,7 +232,7 @@ class Tract(_Model):
         default_factory=list, description="Courses of this tract extraction could not parse"
     )
     pob_description: str | None = Field(default=None, description="POB for this tract")
-    stated_area_sq_ft: FiniteFloat | None = Field(default=None, description="Stated area")
+    stated_area_sq_ft: FiniteFloat | None = Field(default=None, gt=0, description="Stated area")
     closure_result: ClosureResult | None = Field(
         default=None, description="Closure result (populated by mp-verify)"
     )

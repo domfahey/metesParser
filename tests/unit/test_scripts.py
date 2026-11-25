@@ -178,22 +178,39 @@ class TestAuditFallbackExtraction:
         assert calls[1]["distance_ft"] == 50.00
         assert calls[2]["distance_ft"] == 75.00
 
-    def test_no_beginning_not_flagged_when_fallback_recovers_calls(self) -> None:
+    def test_no_beginning_not_flagged_when_fallback_recovers_calls(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
         """The NO_BEGINNING issue should NOT be raised when the fallback
         successfully extracted calls (n_md > 0)."""
         mod = _load_audit_module()
-        # The audit_deed function needs GT and MD files, so test the logic
-        # directly: when n_gt > 0 and n_md > 0, NO_BEGINNING should not fire
+        monkeypatch.setattr(mod, "SAMPLE_DIR", tmp_path)
         md_text = (
             "BEGINNiNn garbled;\n"
             "thence North 45 degrees 00 minutes East 100.00 feet;\n"
             "thence South 45 degrees 00 minutes West 100.00 feet to the place of beginning."
         )
-        calls = mod.extract_calls_from_md(md_text)
-        # Fallback should find calls
-        assert len(calls) > 0
         # BEGINNING_PATTERN should NOT match the garbled text
         assert not mod.BEGINNING_PATTERN.search(md_text)
+
+        base = "1 Main St - Deed Image (1 - 1)"
+        (tmp_path / f"{base}.md").write_text(md_text, encoding="utf-8")
+        (tmp_path / f"{base}.ground_truth.json").write_text(
+            json.dumps(
+                {
+                    "expected_calls": [
+                        {"bearing_azimuth_deg_from_north": 45.0, "distance_ft": 100.0},
+                        {"bearing_azimuth_deg_from_north": 225.0, "distance_ft": 100.0},
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        result = mod.audit_deed(base)
+        assert result["status"] == "PASS", result["issues"]
+        assert result["n_md"] == 2
+        assert not any(issue.startswith("NO_BEGINNING") for issue in result["issues"])
 
 
 class TestAuditTotalDistance:
@@ -658,3 +675,385 @@ class TestAuditSentenceJoinedCourses:
             "minutes 50 seconds West 53.36 feet to the point and place of beginning."
         )
         assert [call["distance_ft"] for call in calls] == [122.55, 123.0, 82.0, 53.36]
+
+
+def _load_script(script_name: str):
+    """Import a standalone script from scripts/ as a module."""
+    spec = importlib.util.spec_from_file_location(
+        script_name.removesuffix(".py"),
+        Path(__file__).resolve().parents[2] / "scripts" / script_name,
+    )
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+class TestParsePdfsToMdScript:
+    """Tests for scripts/parse_pdfs_to_md.sh safety, CLI checks, and --force handling."""
+
+    REPO_ROOT = Path(__file__).resolve().parents[2]
+    SCRIPT_PATH = REPO_ROOT / "scripts" / "parse_pdfs_to_md.sh"
+
+    def test_uses_rm_trap_and_safe_python_env_passing(self) -> None:
+        content = self.SCRIPT_PATH.read_text(encoding="utf-8")
+        assert 'rm -f "$CONFIG_FILE"' in content
+        assert "trash " not in content
+        assert "command -v parse >/dev/null 2>&1" in content
+        assert "_LLAMA_API_KEY" in content
+        assert "sys.argv" in content
+        assert "open('$USER_CONFIG')" not in content
+        assert "open('$CONFIG_FILE')" not in content
+        assert "'$API_KEY'" not in content
+
+    def test_fails_cleanly_when_parse_cli_missing(self, tmp_path: Path) -> None:
+        import os
+        import shutil
+        import subprocess
+
+        # Provide bash/python3/standard bins without any `parse` binary.
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        for tool in ("bash", "dirname", "basename", "mktemp", "rm", "cat", "find", "sort", "cp"):
+            resolved = shutil.which(tool)
+            if resolved:
+                (bin_dir / tool).symlink_to(resolved)
+
+        env = {"PATH": str(bin_dir), "HOME": str(tmp_path), "LLAMA_CLOUD_API_KEY": "test-key"}
+        proc = subprocess.run(
+            ["bash", str(self.SCRIPT_PATH)],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode != 0
+        assert "parse" in (proc.stderr + proc.stdout).lower()
+        assert not os.path.exists(tmp_path / ".parse")
+
+    def test_force_with_file_arg_clears_cache_and_exits_nonzero_on_missing_output(
+        self, tmp_path: Path
+    ) -> None:
+        import os
+        import shutil
+        import subprocess
+
+        fake_home = tmp_path / "home"
+        parse_cache = fake_home / ".parse"
+        parse_cache.mkdir(parents=True)
+        # Semtools config with single-quote in API key to verify safe quoting.
+        (fake_home / ".semtools_config.json").write_text(
+            json.dumps({"parse": {"api_key": "key'with\"quotes"}}),
+            encoding="utf-8",
+        )
+
+        pdf_dir = tmp_path / "pdfs"
+        pdf_dir.mkdir()
+        pdf_a = pdf_dir / "a.pdf"
+        pdf_b = pdf_dir / "b.pdf"
+        pdf_a.write_bytes(b"%PDF")
+        pdf_b.write_bytes(b"%PDF")
+        (parse_cache / "a.pdf.md").write_text("stale cache", encoding="utf-8")
+
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        for tool in (
+            "bash",
+            "dirname",
+            "basename",
+            "mktemp",
+            "rm",
+            "cat",
+            "find",
+            "sort",
+            "cp",
+            "python3",
+        ):
+            resolved = shutil.which(tool)
+            if resolved:
+                (bin_dir / tool).symlink_to(resolved)
+
+        # Fake `parse` CLI that logs its args, records whether stale cache was already removed
+        # before it ran, and does not create output so FAILED > 0 triggers exit 1.
+        marker = tmp_path / "cache_existed_at_parse_time"
+        args_log = tmp_path / "parse_args.log"
+        fake_parse = bin_dir / "parse"
+        fake_parse.write_text(
+            "#!/usr/bin/env bash\n"
+            f'printf "%s\\n" "$@" > "{args_log}"\n'
+            f'if [ -f "{parse_cache / "a.pdf.md"}" ]; then touch "{marker}"; fi\n'
+            "exit 0\n",
+            encoding="utf-8",
+        )
+        os.chmod(fake_parse, 0o755)
+
+        for args in (["--force", str(pdf_a)], [str(pdf_a), "--force"]):
+            (parse_cache / "a.pdf.md").write_text("stale cache", encoding="utf-8")
+            marker.unlink(missing_ok=True)
+            args_log.unlink(missing_ok=True)
+            proc = subprocess.run(
+                ["bash", str(self.SCRIPT_PATH), *args],
+                env={"PATH": str(bin_dir), "HOME": str(fake_home)},
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            assert args_log.exists(), f"parse was never invoked for {args}: {proc.stderr}"
+            logged = args_log.read_text(encoding="utf-8").splitlines()
+            assert str(pdf_a) in logged
+            assert str(pdf_b) not in logged
+            assert "Done: 0 parsed, 1 failed." in proc.stdout
+            assert proc.returncode == 1, f"Expected exit 1 on FAILED > 0 for {args}"
+            assert not marker.exists(), f"--force did not clear cache before parse for {args}"
+
+
+class TestExtractSampleDeedsScript:
+    """Tests for scripts/extract_sample_deeds.py verification args and paths."""
+
+    def test_passes_stated_area_and_tracts_and_creates_nested_output_dir(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        from metesparser.models import ClosureResult, DeedCall, LegalDescription, Tract
+
+        mod = _load_script("extract_sample_deeds.py")
+        nested_out = tmp_path / "nested" / "extractions"
+        sample_dir = tmp_path / "samples"
+        sample_dir.mkdir()
+        (sample_dir / "sample.pdf").write_bytes(b"%PDF")
+
+        call1 = DeedCall(
+            course=1,
+            direction_text="N 0° E",
+            bearing_quadrant="N 0° E",
+            bearing_azimuth_deg_from_north=0.0,
+            distance_ft=100.0,
+        )
+        tract1 = Tract(label="Tract 1", tract_type="main", calls=[call1], role_basis="heading")
+        legal_desc = LegalDescription(
+            source_doc="sample.pdf",
+            calls=[call1],
+            tracts=[tract1],
+            stated_area_sq_ft=10000.0,
+        )
+
+        class FakeProcessor:
+            def process_deed_pdf(self, pdf_path: str) -> LegalDescription:
+                return legal_desc
+
+        verify_calls: list[dict[str, object]] = []
+        fake_closure = ClosureResult(
+            misclosure_x_ft=0.0,
+            misclosure_y_ft=0.0,
+            misclosure_ft=0.0,
+            area_sq_ft=10000.0,
+            area_acres=10000.0 / 43560.0,
+            perimeter_ft=400.0,
+            closure_passed=True,
+            angle_check_passed=True,
+            curve_consistency_passed=True,
+            warnings=[],
+        )
+
+        def fake_verify_closure(calls, stated_area_sq_ft=0.0, **kwargs):
+            verify_calls.append(
+                {
+                    "calls": calls,
+                    "stated_area_sq_ft": stated_area_sq_ft,
+                    "tracts": kwargs.get("tracts"),
+                }
+            )
+            return [fake_closure] if kwargs.get("tracts") else fake_closure
+
+        exported_kwargs: list[dict[str, object]] = []
+
+        def fake_export_verified_csv(**kwargs):
+            exported_kwargs.append(kwargs)
+            return []
+
+        monkeypatch.setattr(mod, "OUTPUT_DIR", nested_out)
+        monkeypatch.setattr(mod, "SAMPLE_DEEDS_DIR", sample_dir)
+        monkeypatch.setattr(mod, "SAMPLE_PDFS", [("sample.pdf", "sample")])
+        monkeypatch.setattr(mod, "PDFProcessor", FakeProcessor)
+        monkeypatch.setattr(mod.ClosureChecker, "verify_closure", staticmethod(fake_verify_closure))
+        monkeypatch.setattr(
+            mod.CSVBuilder,
+            "legal_description_to_csv",
+            staticmethod(lambda ld, p: Path(p).write_text("csv", encoding="utf-8")),
+        )
+        monkeypatch.setattr(
+            mod.CSVBuilder, "export_verified_csv", staticmethod(fake_export_verified_csv)
+        )
+
+        mod.main()
+
+        assert nested_out.is_dir()
+        assert len(verify_calls) == 1
+        assert verify_calls[0]["stated_area_sq_ft"] == 10000.0
+        assert verify_calls[0]["tracts"] == [tract1]
+        assert len(exported_kwargs) == 1
+        assert exported_kwargs[0]["tract_results"] == [(tract1, fake_closure)]
+
+
+class TestGenerateGroundTruthScript:
+    """Tests for scripts/generate_ground_truth.py lazy processor initialization."""
+
+    def test_skips_pdf_processor_init_when_all_ground_truth_exist(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        mod = _load_script("generate_ground_truth.py")
+        sample_dir = tmp_path / "sample_deeds"
+        sample_dir.mkdir()
+        (sample_dir / "a.pdf").write_bytes(b"%PDF")
+        (sample_dir / "a.ground_truth.json").write_text("{}", encoding="utf-8")
+
+        init_count = 0
+
+        def fail_init():
+            nonlocal init_count
+            init_count += 1
+            raise AssertionError("PDFProcessor should not be initialized when skipping all PDFs")
+
+        # Point Path(__file__).parent.parent at tmp_path by monkeypatching __file__.
+        scripts_dir = tmp_path / "scripts"
+        scripts_dir.mkdir()
+        fake_script = scripts_dir / "generate_ground_truth.py"
+        fake_script.write_text("", encoding="utf-8")
+        monkeypatch.setattr(mod, "__file__", str(fake_script))
+        monkeypatch.setattr(mod, "PDFProcessor", fail_init)
+
+        mod.main()
+        assert init_count == 0
+
+
+class TestBackfillRunRegistryScript:
+    """Tests for scripts/backfill_run_registry.py field forwarding."""
+
+    def test_build_calls_forwards_all_deed_call_fields(self) -> None:
+        mod = _load_script("backfill_run_registry.py")
+        calls = mod._build_calls(
+            [
+                {
+                    "course": 1,
+                    "direction_text": "N 45°00' E, curving right",
+                    "bearing_quadrant": "N 45°00' E",
+                    "bearing_azimuth_deg_from_north": 45.0,
+                    "distance_ft": 100.0,
+                    "monument_type": "iron_pin",
+                    "monument_status": "found",
+                    "is_exception": True,
+                    "is_meander": True,
+                    "is_tie_in": True,
+                    "non_tangent": True,
+                    "radial_bearing": "S 45°00' E",
+                    "is_indefinite": True,
+                    "curve_dir": "right",
+                    "radius_ft": 50.0,
+                    "delta_deg": 45.0,
+                    "arc_length_ft": 39.27,
+                    "curve_type": "compound",
+                }
+            ]
+        )
+        assert len(calls) == 1
+        call = calls[0]
+        assert call.monument_type == "iron_pin"
+        assert call.monument_status == "found"
+        assert call.is_exception is True
+        assert call.is_meander is True
+        assert call.is_tie_in is True
+        assert call.non_tangent is True
+        assert call.radial_bearing == "S 45°00' E"
+        assert call.is_indefinite is True
+        assert call.curve_type == "compound"
+
+    def test_backfill_passes_stated_area_sq_ft_when_present(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        mod = _load_script("backfill_run_registry.py")
+        sample_dir = tmp_path / "sample_deeds"
+        sample_dir.mkdir()
+        (sample_dir / "parcel.ground_truth.json").write_text(
+            json.dumps(
+                {
+                    "stated_area_sq_ft": 4321.5,
+                    "expected_calls": [
+                        {
+                            "course": 1,
+                            "direction_text": "N 0° E",
+                            "bearing_azimuth_deg_from_north": 0.0,
+                            "distance_ft": 100.0,
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        from metesparser.models import ClosureResult
+
+        captured_areas: list[float] = []
+        fake_closure = ClosureResult(
+            misclosure_x_ft=0.0,
+            misclosure_y_ft=0.0,
+            misclosure_ft=0.0,
+            area_sq_ft=4321.5,
+            area_acres=4321.5 / 43560.0,
+            perimeter_ft=400.0,
+            closure_passed=True,
+            angle_check_passed=True,
+            curve_consistency_passed=True,
+            warnings=[],
+        )
+
+        def spy_verify(calls, stated_area_sq_ft=0.0, **kwargs):
+            captured_areas.append(stated_area_sq_ft)
+            return fake_closure
+
+        monkeypatch.setattr(mod, "SAMPLE_DEEDS_DIR", sample_dir)
+        monkeypatch.setattr(mod.ClosureChecker, "verify_closure", staticmethod(spy_verify))
+
+        written = mod.backfill(tmp_path / "runs", dry_run=True)
+        assert written == 1
+        assert captured_areas == [4321.5]
+
+
+class TestRepoConfigAndMakefile:
+    """Tests for .env.example, .gitignore, Makefile, and dead helper removal."""
+
+    REPO_ROOT = Path(__file__).resolve().parents[2]
+
+    def test_env_example_uses_metesparser_log_vars(self) -> None:
+        content = (self.REPO_ROOT / ".env.example").read_text(encoding="utf-8")
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+        assert "METESPARSER_LOG_LEVEL=INFO" in lines
+        assert "METESPARSER_LOG_FORMAT=console" in lines
+        assert "LOG_LEVEL=INFO" not in lines
+
+    def test_gitignore_has_uv_cache_and_no_duplicates(self) -> None:
+        content = (self.REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
+        entries = [
+            line.strip()
+            for line in content.splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        ]
+        assert ".uv-cache/" in entries
+        assert len(entries) == len(set(entries)), f"Duplicate .gitignore entries: {entries}"
+
+    def test_makefile_targets_and_ci_safety(self) -> None:
+        content = (self.REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+        assert re.search(r"^ci:\s+(?!.*clean\b)", content, re.MULTILINE)
+        assert "rm -rf .mypy_cache/" in content
+        assert re.search(r"for dep in .*mypy", content)
+        assert "test-packages:" in content
+        assert "test-plugin:" in content
+        for target in (
+            "review-corpus",
+            "plugin-build",
+            "chat-skill-build",
+            "test-packages",
+            "test-plugin",
+        ):
+            assert re.search(rf"^\.PHONY:.*\b{re.escape(target)}\b", content, re.MULTILINE), target
+            assert f"make {target}" in content, target
+
+    def test_dead_tests_helpers_deleted(self) -> None:
+        assert not (self.REPO_ROOT / "tests" / "helpers.py").exists()

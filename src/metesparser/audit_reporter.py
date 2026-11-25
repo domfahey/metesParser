@@ -66,6 +66,7 @@ class AuditReporter:
     def write_report(cls, ctx: AuditContext, path: Path) -> None:
         """Write HTML audit report to file."""
         html_content = cls.generate_html(ctx)
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(html_content, encoding="utf-8")
 
     # ------------------------------------------------------------------
@@ -127,7 +128,7 @@ class AuditReporter:
         if ctx.extraction_record and ctx.extraction_record.llm_confidence is not None:
             conf = ctx.extraction_record.llm_confidence
             css_cls = cls._confidence_class(conf)
-            pct = int(conf * 100)
+            pct = round(conf * 100)
             parts.append(
                 f"<div style='margin-top:12px'>Extraction Confidence: "
                 f"<span class='{css_cls}' style='padding:2px 8px;border-radius:4px'>"

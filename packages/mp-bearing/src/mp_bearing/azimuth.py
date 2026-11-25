@@ -4,10 +4,12 @@ Converts between quadrant bearings (e.g., N 56°40' E) and azimuths
 (degrees from North, clockwise). Also handles packed DMS and compass points.
 """
 
+import math
 import re
+from decimal import Decimal, InvalidOperation
 
 QUADRANT_PATTERN = re.compile(
-    r"(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?,?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)",
+    r"\b(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?,?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)\b",
     re.IGNORECASE,
 )
 
@@ -73,19 +75,29 @@ def parse_packed_dms(value: float) -> float:
         Decimal degrees
 
     Raises:
-        ValueError: If minutes >= 60 or seconds >= 60
+        ValueError: If value is negative/non-finite, minutes >= 60, or seconds >= 60
     """
-    degrees = int(value)
-    frac = value - degrees
+    if isinstance(value, bool) or not math.isfinite(value):
+        raise ValueError(f"Invalid packed DMS value: {value!r}")
+    if value < 0:
+        raise ValueError(f"Packed DMS value must be non-negative, got {value}")
 
-    minutes_seconds = frac * 100
-    minutes = int(round(minutes_seconds * 100) // 100)
-    seconds = round((minutes_seconds - minutes) * 100, 4)
+    try:
+        dec_value = Decimal(str(value))
+    except InvalidOperation as exc:
+        raise ValueError(f"Invalid packed DMS value: {value!r}") from exc
+
+    degrees = int(dec_value)
+    frac = dec_value - degrees
+
+    minutes_seconds = frac * Decimal(100)
+    minutes = int(minutes_seconds)
+    seconds = float((minutes_seconds - minutes) * Decimal(100))
 
     if minutes >= 60:
         raise ValueError(f"Invalid packed DMS: minutes={minutes} (must be 0-59)")
     if seconds >= 60:
-        raise ValueError(f"Invalid packed DMS: seconds={seconds:.0f} (must be 0-59)")
+        raise ValueError(f"Invalid packed DMS: seconds={seconds:g} (must be 0-59)")
 
     return degrees + minutes / 60.0 + seconds / 3600.0
 
@@ -105,7 +117,11 @@ def degree_of_curvature_to_radius(degree_of_curve: float) -> float:
     Raises:
         ValueError: If degree_of_curve is zero or negative
     """
-    if degree_of_curve <= 0:
+    if (
+        isinstance(degree_of_curve, bool)
+        or not math.isfinite(degree_of_curve)
+        or degree_of_curve <= 0
+    ):
         raise ValueError(
             f"Degree of curvature must be positive and non-zero, got {degree_of_curve}"
         )
@@ -164,6 +180,12 @@ def quadrant_to_azimuth(cardinal1: str, degrees: float, cardinal2: str) -> float
     Returns:
         Azimuth in degrees [0, 360)
     """
+    if isinstance(degrees, bool) or not math.isfinite(degrees) or not (0.0 <= degrees <= 90.0):
+        raise ValueError(f"Degrees must be finite and between 0 and 90, got {degrees}")
+
+    cardinal1 = cardinal1.strip().upper()
+    cardinal2 = cardinal2.strip().upper()
+
     if cardinal1 == "N" and cardinal2 == "E":
         azimuth = degrees
     elif cardinal1 == "S" and cardinal2 == "E":
@@ -179,7 +201,8 @@ def quadrant_to_azimuth(cardinal1: str, degrees: float, cardinal2: str) -> float
             f"Valid combinations are: {valid_combos}"
         )
 
-    return azimuth % 360.0
+    result = azimuth % 360.0
+    return 0.0 if result == 360.0 else result
 
 
 _DUE_CARDINAL_RE = re.compile(

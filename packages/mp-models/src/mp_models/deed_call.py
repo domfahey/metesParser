@@ -338,8 +338,10 @@ class DeedCall(_Model):
     def _normalize_bearing_azimuth(cls, value: float | int | str | None) -> float | None:
         if value is None:
             return None
-        azimuth = float(value)
-        return azimuth % 360.0
+        if isinstance(value, bool):
+            raise ValueError("bearing_azimuth_deg_from_north must be a number, not a boolean")
+        azimuth = float(value) % 360.0
+        return 0.0 if azimuth == 360.0 else azimuth
 
     @field_validator("radius_ft", mode="before")
     @classmethod
@@ -347,6 +349,8 @@ class DeedCall(_Model):
         """Ensure radius is numeric and non-zero."""
         if value is None:
             return None
+        if isinstance(value, bool):
+            raise ValueError("radius_ft must be a number, not a boolean")
         radius = float(value)
         if radius == 0:
             raise ValueError("radius_ft must be non-zero")

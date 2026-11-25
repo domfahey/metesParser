@@ -27,6 +27,33 @@ system_prompt: |
   - Include seemingly minor details like "to an angle in same"
   </precision_requirements>
 
+  <anti_hallucination_warning>
+  WARNING — BEARING ACCURACY IS CRITICAL:
+  - Do NOT "correct" or "fix" bearings to match other bearings in the document. If a bearing
+    reads N 20°35'40" W and nearby bearings read S 20°38'45" E, those are DIFFERENT bearings
+    and both must be transcribed exactly as printed. Real-world surveys intentionally have
+    non-symmetric bearings due to measurement conditions.
+  - Transcribe EXACTLY what appears on the page, even if a value seems like a typo, a rounding
+    error, or an inconsistency with other courses. A single digit difference (e.g., 35 vs 38
+    minutes, or 40 vs 45 seconds) is meaningful in surveying.
+  - Do NOT replace full DMS bearings with cardinal-only directions. If the document says
+    "South 26 deg. 00 41 East", you must transcribe the full bearing including degrees,
+    minutes, and seconds — never reduce it to just "southeasterly" or "South ... East"
+    without the numbers.
+  - Pay special attention to bearing numbers — even a single digit difference matters for
+    property boundary accuracy. A 3-minute bearing error over 380 feet shifts a boundary
+    by approximately 0.33 feet.
+  </anti_hallucination_warning>
+
+  <space_separated_dms>
+  Some documents use space-separated DMS notation WITHOUT explicit minute/second symbols:
+  - "26 deg. 00 41" means 26 degrees, 00 minutes, 41 seconds
+  - "58 deg. 14 00" means 58 degrees, 14 minutes, 00 seconds
+  - "27 deg. 01 40" means 27 degrees, 01 minutes, 40 seconds
+  Transcribe these exactly as they appear — do NOT drop the minute/second values.
+  The downstream parser will handle the conversion.
+  </space_separated_dms>
+
 user_prompt_template: |
   <instruction>
   Extract the complete text from the provided PDF document. Think carefully about preserving exact formatting, especially in legal descriptions and property boundaries.

@@ -50,6 +50,14 @@ def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
                 distance_ft=raw.get("distance_ft"),
                 along=raw.get("along"),
                 to=raw.get("to"),
+                monument_type=raw.get("monument_type"),
+                monument_status=raw.get("monument_status"),
+                is_exception=raw.get("is_exception", False),
+                is_meander=raw.get("is_meander", False),
+                is_tie_in=raw.get("is_tie_in", False),
+                non_tangent=raw.get("non_tangent", False),
+                radial_bearing=raw.get("radial_bearing"),
+                is_indefinite=raw.get("is_indefinite", False),
                 notes=raw.get("notes"),
                 curve_dir=raw.get("curve_dir"),
                 radius_ft=raw.get("radius_ft"),
@@ -79,8 +87,9 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
     base_time = datetime.now(UTC)
 
     for idx, gt_file in enumerate(gt_files):
-        data = json.loads(gt_file.read_text())
+        data = json.loads(gt_file.read_text(encoding="utf-8"))
         expected_calls = data.get("expected_calls", [])
+        stated_area_sq_ft = data.get("stated_area_sq_ft")
 
         # Derive PDF filename from ground truth filename
         pdf_name = gt_file.name.replace(".ground_truth.json", ".pdf")
@@ -114,7 +123,10 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
                 reason = " ".join(str(exc).split())
                 print(f"  NOT BACKFILLABLE: {pdf_name} — {reason}; no run entry written")
                 continue
-            closure_result = ClosureChecker.verify_closure(calls)
+            closure_result = ClosureChecker.verify_closure(
+                calls,
+                stated_area_sq_ft=stated_area_sq_ft if stated_area_sq_ft is not None else 0.0,
+            )
 
             manifest = RunManifest(
                 run_id=str(uuid.uuid4()),

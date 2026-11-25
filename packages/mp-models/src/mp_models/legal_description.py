@@ -71,6 +71,7 @@ class LegalDescription(_Model):
 
     stated_area_sq_ft: FiniteFloat | None = Field(
         default=None,
+        gt=0,
         description="Stated area from the legal description (square feet)",
     )
     stated_area_approximate: bool = Field(

@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 import subprocess
-from datetime import datetime
+from datetime import UTC, datetime
 from itertools import groupby
 from pathlib import Path
 
@@ -85,17 +85,20 @@ def _git_sha_for_file(file_path: Path) -> str | None:
 
     Returns None if the file is not in a git repository or has no commits.
     """
+    resolved = file_path.resolve()
     try:
         result = subprocess.run(
-            ["git", "log", "-1", "--format=%H", "--", str(file_path)],
+            ["git", "log", "-1", "--format=%H", "--", resolved.name],
             capture_output=True,
             text=True,
             timeout=5,
-            cwd=file_path.parent,
+            cwd=resolved.parent,
         )
+        if result.returncode != 0:
+            return None
         sha = result.stdout.strip()
         return sha if sha else None
-    except (subprocess.SubprocessError, FileNotFoundError):
+    except (subprocess.SubprocessError, OSError):
         return None
 
 
@@ -131,6 +134,18 @@ def _slugify_pdf_name(pdf_name: str) -> str:
     return slug
 
 
+_ACTIVE_PROMPTS = (
+    "extract_text_from_pdf",
+    "extract_legal_description",
+    "normalize_text",
+)
+
+
+def _utc_timestamp(dt: datetime) -> datetime:
+    """Normalize a naive or offset-aware datetime to UTC."""
+    return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
+
+
 def write_run_manifest(manifest: RunManifest, runs_dir: Path) -> Path:
     """Write a run manifest to a JSON file.
 
@@ -142,12 +157,12 @@ def write_run_manifest(manifest: RunManifest, runs_dir: Path) -> Path:
         Path to the written JSON file.
     """
     runs_dir.mkdir(parents=True, exist_ok=True)
-    ts = manifest.timestamp_utc.strftime("%Y-%m-%dT%H%M%S")
+    ts = _utc_timestamp(manifest.timestamp_utc).strftime("%Y-%m-%dT%H%M%S")
     slug = _slugify_pdf_name(manifest.source_pdf)
     run_id_digest = hashlib.sha256(manifest.run_id.encode("utf-8")).hexdigest()
     filename = f"{ts}-{slug}-{run_id_digest}.json"
     path = runs_dir / filename
-    path.write_text(manifest.model_dump_json(indent=2))
+    path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
     logger.debug("Run manifest written", path=str(path))
     return path
 
@@ -166,7 +181,7 @@ def load_run_manifests(runs_dir: Path) -> list[RunManifest]:
     manifests: list[RunManifest] = []
     for json_file in sorted(runs_dir.glob("*.json")):
         try:
-            data = json.loads(json_file.read_text())
+            data = json.loads(json_file.read_text(encoding="utf-8"))
             manifests.append(RunManifest.model_validate(data))
         except (json.JSONDecodeError, ValueError):
             logger.warning("Skipping malformed run manifest", path=str(json_file))
@@ -174,11 +189,15 @@ def load_run_manifests(runs_dir: Path) -> list[RunManifest]:
 
 
 def _short_prompt_sha(manifest: RunManifest) -> str:
-    """Return the first 7 chars of the first prompt git SHA, or content hash."""
-    for pv in manifest.prompt_versions.values():
+    """Return the first 7 chars of the active prompt git SHA, or content hash."""
+    versions = manifest.prompt_versions
+    ordered = [versions[name] for name in _ACTIVE_PROMPTS if name in versions]
+    remaining = [pv for name, pv in versions.items() if name not in _ACTIVE_PROMPTS]
+    candidates = ordered + remaining
+    for pv in candidates:
         if pv.git_sha:
             return pv.git_sha[:7]
-    for pv in manifest.prompt_versions.values():
+    for pv in candidates:
         return pv.content_hash[:7]
     return "unknown"
 
@@ -200,7 +219,9 @@ def format_comparison_table(manifests: list[RunManifest], pdf_filter: str | None
         return "No runs found."
 
     lines: list[str] = []
-    sorted_manifests = sorted(manifests, key=lambda m: (m.source_pdf, m.timestamp_utc))
+    sorted_manifests = sorted(
+        manifests, key=lambda m: (m.source_pdf, _utc_timestamp(m.timestamp_utc))
+    )
 
     header = (
         f"{'Timestamp':<20} {'Prompt':<9} {'Calls':>5} "
@@ -214,9 +235,14 @@ def format_comparison_table(manifests: list[RunManifest], pdf_filter: str | None
         lines.append(header)
         lines.append(separator)
         for m in group:
-            ts = m.timestamp_utc.strftime("%Y-%m-%d %H:%M")
+            ts = _utc_timestamp(m.timestamp_utc).strftime("%Y-%m-%d %H:%M")
             prompt_sha = _short_prompt_sha(m)
-            status = "PASS" if m.results.closure_passed else "FAIL"
+            if not m.results.closure_passed:
+                status = "FAIL"
+            elif m.results.warnings:
+                status = "WARN"
+            else:
+                status = "PASS"
             misclosure = (
                 f"{m.results.misclosure_ft:>10.4f}'"
                 if m.results.misclosure_available

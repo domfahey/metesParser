@@ -20,6 +20,8 @@ from mp_models import (
     DeedCall,
     LegalDescription,
     RunMetadata,
+    is_boundary_tract,
+    mark_non_boundary,
     mark_roles_review,
     roles_need_review,
     roles_review_detail,
@@ -27,7 +29,7 @@ from mp_models import (
 from mp_verify import verify_closure
 
 from .json_input import parse_json
-from .text import prepare_text
+from .text import MULTIPLE_PARCELS, prepare_text
 
 ENGINE_VERSION = "2.0.0"
 REPLAY_VERSION = "review-replay-1"
@@ -94,7 +96,7 @@ def _run(
         )
     )
     try:
-        text = source.decode("utf-8")
+        text = source.decode("utf-8-sig")
         if stated_area_sq_ft is not None and (
             not math.isfinite(stated_area_sq_ft) or stated_area_sq_ft <= 0
         ):
@@ -104,6 +106,11 @@ def _run(
             normalized = prepared.normalized_text
             legal = prepared.legal_description
             calls = legal.calls
+            if prepared.inferred_distance_unit:
+                result["limitations"].append(
+                    f"Advisory: historical or regional distance unit {prepared.inferred_distance_unit!r} "
+                    "detected in source text; verify unit conversions against the source deed."
+                )
             if legal.poc_description and not any(c.is_tie_in for c in calls):
                 result["errors"].append(
                     {
@@ -119,9 +126,24 @@ def _run(
             if isinstance(data, list):
                 calls = [DeedCall.model_validate(c) for c in data]
                 legal = LegalDescription(calls=calls)
-            elif isinstance(data, dict) and "calls" in data:
+            elif isinstance(data, dict) and ("calls" in data or "tracts" in data):
                 legal = LegalDescription.model_validate(data)
-                calls = legal.calls
+                if sum(is_boundary_tract(tract.tract_type) for tract in legal.tracts) > 1:
+                    raise ValueError(MULTIPLE_PARCELS)
+                if legal.tracts:
+                    marked_tracts = [
+                        tract.model_copy(
+                            update={"calls": mark_non_boundary(tract.calls, tract.tract_type)}
+                        )
+                        if not is_boundary_tract(tract.tract_type)
+                        else tract
+                        for tract in legal.tracts
+                    ]
+                    if marked_tracts != legal.tracts:
+                        legal = legal.model_copy(update={"tracts": marked_tracts})
+                calls = legal.calls or legal.all_calls
+                if len(legal.tracts) == 1 and not is_boundary_tract(legal.tracts[0].tract_type):
+                    calls = mark_non_boundary(calls, legal.tracts[0].tract_type)
             else:
                 raise ValueError("JSON must be a calls list or LegalDescription object.")
         elif kind == "csv":
@@ -219,6 +241,13 @@ def _run(
                     skipped_courses=list(audit.skipped_courses),
                 )
                 result["artifacts"]["calls_verified.csv"] = str(directory / "calls_verified.csv")
+                for sidecar in (
+                    "calls_verified.verification.txt",
+                    "calls_verified.metadata.txt",
+                ):
+                    sidecar_path = directory / sidecar
+                    if sidecar_path.is_file():
+                        result["artifacts"][sidecar] = str(sidecar_path)
             body = html.escape(json.dumps(result, indent=2, allow_nan=False))
             write(
                 "review.html",

@@ -158,7 +158,10 @@ def _arc_arc(first: _Arc, second: _Arc) -> tuple[list[XY], bool]:
 
 
 def check_curved_boundary_intersections(
-    calls: list[DeedCall], coordinates: list[Point]
+    calls: list[DeedCall],
+    coordinates: list[Point],
+    *,
+    closure_tolerance_ft: float = 0.01,
 ) -> list[str]:
     """Report line–arc/arc–arc contacts beyond legitimate neighboring endpoints.
 
@@ -185,7 +188,7 @@ def check_curved_boundary_intersections(
                 warnings.append(
                     f"Course {call.course}: boundary intersection check unavailable ({exc})"
                 )
-    closed = _distance(points[0], points[-1]) < 0.01
+    closed = _distance(points[0], points[-1]) < closure_tolerance_ft
     for i, first in enumerate(calls):
         for j in range(i + 1, len(calls)):
             second = calls[j]

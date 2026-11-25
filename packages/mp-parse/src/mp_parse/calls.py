@@ -22,6 +22,7 @@ from mp_bearing import (
     bearing_to_azimuth,
     calculate_curve_properties,
     calculate_deltas,
+    calculate_missing_curve_elements,
     cardinal_conflicts_bearing,
     degree_of_curvature_to_radius,
     due_cardinal_to_azimuth,
@@ -69,8 +70,10 @@ from .metadata import (
     bracket_groups,
     breaks_at_period,
     detect_meander,
+    extract_area_statement,
     extract_course_clause,
     extract_distance,
+    extract_pob,
     extract_poc,
     extract_witness_trees,
     is_closure_to_pob,
@@ -445,10 +448,22 @@ def _course_distance_text(call_text: str, *, is_curve: bool) -> str:
     return text
 
 
+_INITIAL_CURVE_PREFIX = re.compile(
+    r"^(?:(?:along|with|following)\s+)?(?:(?:a|the)\s+)?"
+    r"(?:(?:non[-\s\u2010-\u2015\u2212]?tangent(?:ial)?|reverse|compound|spiral|transition)\s+)?"
+    rf"(?:{CURVE_WORD}|spiral)\b",
+    re.IGNORECASE,
+)
+
+
 def _is_initial_course_prefix(prefix: str) -> bool:
-    """Return whether text before THENCE starts with a supported bearing."""
+    """Return whether text before THENCE starts with a supported bearing or curve course."""
     candidate = re.sub(r"^\s*(?:(?:\(\d+\)|\([A-Za-z]\)|\d+[.)])\s*)?", "", prefix)
     if PACKED_DMS_PATTERN.match(candidate):
+        return True
+    if _INITIAL_CURVE_PREFIX.match(candidate.lstrip()) and _describes_curve(
+        extract_curve_info(candidate)
+    ):
         return True
 
     try:
@@ -1714,11 +1729,18 @@ def extract_calls(
         # they are taken: the note travels with them (with or without this tract).
         tract_calls = mark_non_boundary(tract_calls, tract_type)
 
+        pob_description = extract_pob(segment_text) or None
+        area_info = extract_area_statement(segment_text)
+        stated_area_sq_ft = (
+            area_info["value_sq_ft"] if area_info and area_info["value_sq_ft"] > 0 else None
+        )
         tract = Tract(
             label=label,
             tract_type=tract_type,
             calls=tract_calls,
             skipped_courses=tract_skips,
+            pob_description=pob_description,
+            stated_area_sq_ft=stated_area_sq_ft,
             role_basis=role_basis,
         )
         tract_objects.append(tract)
@@ -2798,9 +2820,13 @@ def _course_segments(call_text: str) -> list[str]:
 
 
 def _is_curve_segment(segment: str) -> bool:
-    """Return True when a segment states a curve's own direction or radius."""
+    """Return True when a segment states a curve's own direction, radius, or delta+arc."""
     info = extract_curve_info(segment)
-    return info.get("direction") in ("left", "right") or info.get("radius_ft") is not None
+    return (
+        info.get("direction") in ("left", "right")
+        or info.get("radius_ft") is not None
+        or (info.get("delta_deg") is not None and info.get("arc_length_ft") is not None)
+    )
 
 
 def _segment_course_count(segment: str) -> int:
@@ -3232,7 +3258,21 @@ def _extract_call(
         return None, raw_direction
 
     arc_length_ft = curve_info.get("arc_length_ft")
+    delta_deg_val = curve_info.get("delta_deg")
     arc_computed = False
+    if (
+        not is_spiral
+        and curve_info.get("radius_ft") is None
+        and isinstance(delta_deg_val, float)
+        and delta_deg_val > 0.0
+        and isinstance(arc_length_ft, float)
+        and arc_length_ft > 0.0
+    ):
+        derived = calculate_missing_curve_elements(
+            delta_deg=delta_deg_val,
+            arc_length_ft=arc_length_ft,
+        )
+        curve_info["radius_ft"] = derived["radius_ft"]
     if isinstance(arc_length_ft, float) and arc_length_ft > 0.0:
         distance_ft = arc_length_ft
     elif (
@@ -3368,7 +3408,11 @@ def _extract_call(
     if distance_ft is not None and distance_ft <= 0.0:
         return None, raw_direction
 
-    has_curve = bool(curve_info.get("direction") or curve_info.get("radius_ft"))
+    has_curve = bool(
+        curve_info.get("direction")
+        or curve_info.get("radius_ft")
+        or (curve_info.get("delta_deg") is not None and curve_info.get("arc_length_ft") is not None)
+    )
     has_direction_intent = bool(
         raw_direction
         or parsed_bearing
@@ -3614,6 +3658,9 @@ def _audit_single_call(
             if re.search(pattern, to_lower):
                 matched_rule = pattern
                 break
+        if matched_rule is None and call.monument_type == "other":
+            if re.search(r"\bmonument\b", to_lower):
+                matched_rule = r"\bmonument\b"
         transformations.append(
             Transformation(
                 step="classify_monument",
@@ -3715,18 +3762,20 @@ def _audit_single_call(
     return transformations, decisions, flags
 
 
-def extract_direction(text: str) -> str:
+def extract_direction(text: str, *, strict: bool = True) -> str:
     """Extract direction/bearing from call text.
 
     Args:
         text: Call text
+        strict: If True (default), invalid packed DMS raises ValueError. If False,
+            returns the verbatim packed DMS token without fabricating an azimuth.
 
     Returns:
         Direction string (e.g., "S 56 deg 40' W" or "southwesterly")
     """
     packed_match = PACKED_DMS_PATTERN.search(text)
     quadrant_match = QUADRANT_PATTERN.search(text)
-    if quadrant_match and not packed_match:
+    if quadrant_match and (not packed_match or quadrant_match.start() <= packed_match.start()):
         return quadrant_match.group(0)
 
     if packed_match:
@@ -3735,7 +3784,12 @@ def extract_direction(text: str) -> str:
         cardinal2 = packed_match.group(3).upper()
         if len(packed_match.group(2).split(".")[1]) in (1, 3):
             return packed_match.group(0)  # ambiguous decimal degrees: never converted
-        decimal_degrees = parse_packed_dms(packed_value)
+        try:
+            decimal_degrees = parse_packed_dms(packed_value)
+        except ValueError:
+            if strict:
+                raise
+            return packed_match.group(0)
         total_seconds = round(decimal_degrees * 3600, 4)
         degree, remainder = divmod(total_seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
@@ -3774,11 +3828,9 @@ def extract_direction(text: str) -> str:
     )
 
     cardinal_match = re.search(cardinal_pattern, text, re.IGNORECASE)
-    if cardinal_match:
-        return cardinal_match.group(0).lower()
-
-    # Abbreviated cardinal directions (NW, SW, NE, SE) from LLM normalization
     abbrev_match = re.search(r"\b(NE|NW|SE|SW)\b", text, re.IGNORECASE)
+    if cardinal_match and (not abbrev_match or cardinal_match.start() <= abbrev_match.start()):
+        return cardinal_match.group(0).lower()
     if abbrev_match:
         return abbrev_match.group(0).lower()
 

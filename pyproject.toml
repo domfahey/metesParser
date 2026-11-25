@@ -10,10 +10,8 @@ authors = [
     { name = "Dominic Fahey", email = "dominic@example.com" }
 ]
 dependencies = [
-    "anthropic>=0.40.0",
     "pydantic>=2.10.0",
     "pyyaml>=6.0.2",
-    "pandas>=2.2.0",
     "python-dotenv>=1.0.0",
     "structlog>=24.4.0",
     "openai>=2.3.0",
@@ -89,6 +87,10 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["google", "google.*"]
+ignore_missing_imports = true
 
 [tool.uv.sources]
 mp-models = { workspace = true }

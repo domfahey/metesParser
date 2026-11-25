@@ -19,7 +19,11 @@ def load_builder():
 
 def test_runtime_links_every_local_wheel_as_direct_dependency():
     builder = load_builder()
-    wheels = [Path(name.replace("-", "_") + "-1.0.0-py3-none-any.whl") for name in builder.PACKAGES]
+    wheels = []
+    for name in builder.PACKAGES:
+        pyproject = tomllib.loads((builder.ROOT / "packages" / name / "pyproject.toml").read_text())
+        version = pyproject["project"]["version"]
+        wheels.append(Path(f"{name.replace('-', '_')}-{version}-py3-none-any.whl"))
     project = tomllib.loads(builder.runtime_project(wheels))
     dependencies = project["project"]["dependencies"]
     for name in builder.PACKAGES:
@@ -27,6 +31,58 @@ def test_runtime_links_every_local_wheel_as_direct_dependency():
         assert f"{name}=={pyproject['project']['version']}" in dependencies
         assert name in project["tool"]["uv"]["sources"]
     assert not any("ocr" in dependency or "openai" in dependency for dependency in dependencies)
+
+
+def test_runtime_pins_local_packages_to_built_wheel_versions():
+    builder = load_builder()
+    wheels = [
+        Path(
+            f"{name.replace('-', '_')}-{'9.9.9' if name == 'mp-models' else '1.0.0'}-py3-none-any.whl"
+        )
+        for name in builder.PACKAGES
+    ]
+    project = tomllib.loads(builder.runtime_project(wheels))
+    dependencies = project["project"]["dependencies"]
+    assert "mp-models==9.9.9" in dependencies
+    assert not any(
+        dep.startswith("mp-models==") and dep != "mp-models==9.9.9" for dep in dependencies
+    )
+    assert project["tool"]["uv"]["sources"]["mp-models"] == {
+        "path": "wheels/mp_models-9.9.9-py3-none-any.whl"
+    }
+
+
+def test_runtime_rejects_malformed_or_conflicting_wheels():
+    builder = load_builder()
+    with pytest.raises(ValueError, match="Unexpected wheel filename"):
+        builder.runtime_project([Path("broken.whl")])
+    with pytest.raises(ValueError, match="Conflicting wheel versions"):
+        builder.runtime_project(
+            [
+                Path("mp_models-1.0.0-py3-none-any.whl"),
+                Path("mp_models-2.0.0-py3-none-any.whl"),
+            ]
+        )
+
+
+def test_runtime_preserves_resolution_markers_when_pinning_wheels():
+    builder = load_builder()
+    lock = tomllib.loads((builder.ROOT / "uv.lock").read_text())
+    multi_version = {
+        pkg["name"]
+        for pkg in lock["package"]
+        if sum(1 for item in lock["package"] if item["name"] == pkg["name"]) > 1
+    }
+    wheels = [Path(f"{name.replace('-', '_')}-9.9.9-py3-none-any.whl") for name in builder.PACKAGES]
+    project = tomllib.loads(builder.runtime_project(wheels, web_map=True))
+    dependencies = project["project"]["dependencies"]
+    assert (
+        any(
+            any(dep.startswith(f"{pkg}==") and ";" in dep for dep in dependencies)
+            for pkg in multi_version
+        )
+        or not multi_version
+    )
 
 
 def test_build_cache_is_absolute_when_subprocess_changes_directory(monkeypatch, tmp_path):

@@ -58,20 +58,35 @@ def runtime_project(wheels: list[Path], *, geo: bool = True, web_map: bool = Fal
         "mp-review",
         tuple(["delivery"] + (["geo"] if geo else []) + (["web-map"] if web_map else [])),
     )
+    sources = []
+    wheel_versions: dict[str, str] = {}
+    for wheel in sorted(wheels):
+        parts = wheel.name.split("-")
+        if len(parts) < 2 or not parts[1]:
+            raise ValueError(f"Unexpected wheel filename: {wheel.name}")
+        name = parts[0].replace("_", "-")
+        version = parts[1]
+        if name in wheel_versions and wheel_versions[name] != version:
+            raise ValueError(
+                f"Conflicting wheel versions for {name}: {wheel_versions[name]} vs {version}"
+            )
+        wheel_versions[name] = version
+        sources.append(f'{name} = {{ path = "wheels/{wheel.name}" }}')
     dependencies = []
     for name in [*PACKAGES, *sorted(external)]:
         for package in indexed[name]:
-            requirement = f"{name}=={package['version']}"
+            version = (
+                wheel_versions.get(name, package["version"])
+                if name in PACKAGES
+                else package["version"]
+            )
+            requirement = f"{name}=={version}"
             if len(indexed[name]) > 1:
                 markers = package.get("resolution-markers", [])
                 if not markers:
                     raise ValueError(f"Multiple locked {name} versions require resolution markers")
                 requirement += "; " + " or ".join(f"({m})" for m in markers)
             dependencies.append(requirement)
-    sources = []
-    for wheel in sorted(wheels):
-        name = wheel.name.split("-", 1)[0].replace("_", "-")
-        sources.append(f'{name} = {{ path = "wheels/{wheel.name}" }}')
     return (
         '[project]\nname = "metesparser-plugin-runtime"\nversion = "0.1.0"\n'
         'requires-python = ">=3.11"\ndependencies = '

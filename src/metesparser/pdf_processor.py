@@ -120,7 +120,13 @@ class PDFProcessor:
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract all text from a PDF using the configured LLM provider."""
         prompt_config = self._load_prompt("extract_text_from_pdf")
-        prompt_text = prompt_config["user_prompt_template"]
+        system_prompt = prompt_config.get("system_prompt")
+        user_prompt = prompt_config["user_prompt_template"]
+        prompt_text = (
+            f"{system_prompt}\n\n{user_prompt}"
+            if isinstance(system_prompt, str) and system_prompt.strip()
+            else user_prompt
+        )
         response_mime_type = prompt_config.get("response_mime_type")
         response = self.client.generate_text_with_pdf(
             prompt_text, pdf_path, response_mime_type=response_mime_type
@@ -301,7 +307,7 @@ class PDFProcessor:
 
         legal_desc = LegalDescription(
             poc_description=poc if poc else None,
-            pob_description=pob,
+            pob_description=pob or None,
             calls=calls,
             tracts=tracts,
             source_doc=Path(pdf_path).name,
@@ -365,7 +371,7 @@ class PDFProcessor:
         # Compute prompt hash from normalize_text prompt template content
         prompt_hash = self._compute_prompt_hash("normalize_text")
 
-        log_level = os.getenv("LOG_LEVEL", "INFO")
+        log_level = os.getenv("METESPARSER_LOG_LEVEL") or os.getenv("LOG_LEVEL") or "INFO"
 
         run_metadata = RunMetadata(
             parser_version=metesparser.__version__,
@@ -434,7 +440,11 @@ class PDFProcessor:
             re.search(r"(?:POINT\s+OF\s+BEGINNING|BEGINNING\s+at|POB)\b", text, re.IGNORECASE)
         )
 
-        bearing_matches = re.findall(r"(?:North|South|[NS])\s+\d+\s+degrees?", text, re.IGNORECASE)
+        bearing_matches = re.findall(
+            r"\b(?:North|South|[NS])\s*\d{1,2}\s*(?:°|º|degrees?|deg\.?)",
+            text,
+            re.IGNORECASE,
+        )
         has_bearing_calls = len(bearing_matches) >= 3
 
         has_closure_language = bool(
@@ -445,11 +455,17 @@ class PDFProcessor:
             )
         )
 
-        has_distances = bool(re.search(r"\d+\.\d+\s+(?:feet|ft)", text, re.IGNORECASE))
+        has_distances = bool(
+            re.search(
+                r"\b\d+(?:\.\d+)?\s*(?:feet|foot|ft\.?|poles?|rods?|perch(?:es)?|chains?|links?|varas?|arpents?|toises?|furlongs?|meters?|miles?)\b",
+                text,
+                re.IGNORECASE,
+            )
+        )
 
         text_length_reasonable = 50 < len(text) < 50_000
 
-        has_plss = bool(re.search(r"(?:Section|Township|Range)", text, re.IGNORECASE))
+        has_plss = bool(re.search(r"\b(?:Section|Township|Range)\b", text, re.IGNORECASE))
 
         # Non-ASCII ratio excluding common surveying symbols
         allowed_non_ascii = set("\u00b0\u2032\u2033\u2018\u2019\u201c\u201d\u2013\u2014")

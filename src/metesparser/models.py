@@ -287,8 +287,10 @@ class DeedCall(_Model):
     def _normalize_bearing_azimuth(cls, value: float | int | str | None) -> float | None:
         if value is None:
             return None
-        azimuth = float(value)
-        return azimuth % 360.0
+        if isinstance(value, bool):
+            raise ValueError("bearing_azimuth_deg_from_north must be a number, not a boolean")
+        azimuth = float(value) % 360.0
+        return 0.0 if azimuth == 360.0 else azimuth
 
     @field_validator("radius_ft", mode="before")
     @classmethod
@@ -296,6 +298,8 @@ class DeedCall(_Model):
         """Ensure radius is numeric and non-zero."""
         if value is None:
             return None
+        if isinstance(value, bool):
+            raise ValueError("radius_ft must be a number, not a boolean")
         radius = float(value)
         if radius == 0:
             raise ValueError("radius_ft must be non-zero")
@@ -467,6 +471,7 @@ class LegalDescription(_Model):
 
     stated_area_sq_ft: FiniteFloat | None = Field(
         default=None,
+        gt=0,
         description="Stated area from the legal description (square feet)",
     )
     stated_area_approximate: bool = Field(
@@ -575,15 +580,17 @@ class ClosureResult(_Model):
 
     misclosure_x_ft: FiniteFloat = Field(..., description="Misclosure in X direction (feet)")
     misclosure_y_ft: FiniteFloat = Field(..., description="Misclosure in Y direction (feet)")
-    misclosure_ft: FiniteFloat = Field(..., description="Total misclosure distance (feet)")
+    misclosure_ft: FiniteFloat = Field(..., ge=0, description="Total misclosure distance (feet)")
 
     area_sq_ft: FiniteFloat = Field(
         ...,
+        ge=0,
         description="Area in square feet (shoelace formula)",
     )
-    area_acres: FiniteFloat = Field(..., description="Area in acres")
+    area_acres: FiniteFloat = Field(..., ge=0, description="Area in acres")
     perimeter_ft: FiniteFloat = Field(
         ...,
+        ge=0,
         description="Total perimeter in feet; 0.0 when perimeter_available is False",
     )
     misclosure_available: bool = Field(
@@ -703,6 +710,8 @@ class ClosureResult(_Model):
             return "NEEDS REVIEW"
         if not self.misclosure_available:
             return "NOT DETERMINED"
+        if not self.is_fully_verified():
+            return "NEEDS REVIEW"
         if self.misclosure_ft < 0.01:
             return "EXCELLENT"
         if self.misclosure_ft < 0.1:
@@ -752,7 +761,7 @@ class Tract(_Model):
         default_factory=list, description="Courses of this tract extraction could not parse"
     )
     pob_description: str | None = Field(default=None, description="POB for this tract")
-    stated_area_sq_ft: FiniteFloat | None = Field(default=None, description="Stated area")
+    stated_area_sq_ft: FiniteFloat | None = Field(default=None, gt=0, description="Stated area")
     closure_result: ClosureResult | None = Field(
         default=None, description="Closure result (populated by mp-verify)"
     )

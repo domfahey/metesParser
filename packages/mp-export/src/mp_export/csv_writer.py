@@ -174,13 +174,15 @@ def _call_to_row(call: DeedCall) -> dict[str, str]:
     }
 
 
-def _write_metadata(metadata: dict[str, str | int | float | None], output_path: Path) -> None:
+def _write_metadata(
+    metadata: dict[str, str | int | float | bool | None], output_path: Path
+) -> None:
     """Write metadata to a text file."""
-    with open(output_path, "w") as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         f.write("DEED METADATA\n")
         f.write("=" * 60 + "\n\n")
         for key, value in metadata.items():
-            if value:
+            if value is not None and value != "":
                 f.write(f"{key}: {value}\n")
 
 
@@ -322,7 +324,7 @@ def _validate_export_geometry(
 def calls_to_csv(
     calls: list[DeedCall],
     output_path: str,
-    metadata: dict[str, str | int | float | None] | None = None,
+    metadata: dict[str, str | int | float | bool | None] | None = None,
 ) -> None:
     """Export calls to CSV file.
 
@@ -334,7 +336,7 @@ def calls_to_csv(
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
-    with open(output_file, "w", newline="") as f:
+    with open(output_file, "w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         writer.writeheader()
         for call in calls:
@@ -460,7 +462,7 @@ def legal_description_to_csv(
         legal_desc: LegalDescription object.
         output_path: Output file path.
     """
-    metadata: dict[str, str | int | float | None] = {
+    metadata: dict[str, str | int | float | bool | None] = {
         "poc_description": legal_desc.poc_description,
         "pob_description": legal_desc.pob_description,
         "source_doc": legal_desc.source_doc,
@@ -470,6 +472,8 @@ def legal_description_to_csv(
         "basis_of_bearing": legal_desc.basis_of_bearing,
         "datum": legal_desc.datum,
         "distance_unit": legal_desc.distance_unit,
+        "stated_area_sq_ft": legal_desc.stated_area_sq_ft,
+        "stated_area_approximate": legal_desc.stated_area_approximate,
         "section": legal_desc.section,
         "township": legal_desc.township,
         "range": legal_desc.range,
@@ -479,6 +483,8 @@ def legal_description_to_csv(
         "prior_conveyance": legal_desc.prior_conveyance,
         "coordinate_system": legal_desc.coordinate_system,
         "fips_code": legal_desc.fips_code,
+        "plat_book": legal_desc.subdivision_ref.plat_book if legal_desc.subdivision_ref else None,
+        "plat_page": legal_desc.subdivision_ref.plat_page if legal_desc.subdivision_ref else None,
         "clauses": (
             "; ".join(f"[{c.clause_type}] {c.text}" for c in legal_desc.clauses)
             if legal_desc.clauses
@@ -557,12 +563,12 @@ def export_verified_csv(
     )
     if role_reasons:
         raise ValueError("Cannot export verified CSV: " + roles_review_detail(role_reasons))
-    if not tract_results:
+    if tract_results is None:
         kinds = non_boundary_marks([*calls, *(legal_desc.calls if legal_desc is not None else [])])
         if kinds:
             raise ValueError("Cannot export verified CSV: " + non_boundary_marks_detail(kinds))
     # Multi-tract mode gates per tract, but at least one boundary tract must verify.
-    if tract_results:
+    if tract_results is not None:
         if not any(is_boundary_tract(tract.tract_type) for tract, _ in tract_results):
             raise ValueError(
                 "Cannot export verified CSV: no parcel boundary tract (main or addition) "
@@ -582,10 +588,15 @@ def export_verified_csv(
         )
 
     output_file = Path(output_path)
+    verified_stem = (
+        output_file.stem
+        if output_file.stem.endswith("_verified")
+        else f"{output_file.stem}_verified"
+    )
     written_paths: list[Path] = []
 
     # Validate every selected successful result before writing any output.
-    if tract_results:
+    if tract_results is not None:
         labelled_skips = _labelled_skips(audit_context, skipped_courses)
         for tract, result in tract_results:
             if _exportable(tract, result):
@@ -607,7 +618,7 @@ def export_verified_csv(
             skipped_courses=_single_description_skips(legal_desc, audit_context, skipped_courses),
         )
 
-    if tract_results:
+    if tract_results is not None:
         for i, (tract, tract_result) in enumerate(tract_results, start=1):
             if not _exportable(tract, tract_result):
                 logger.warning(
@@ -621,13 +632,13 @@ def export_verified_csv(
                     warnings_count=len(tract_result.warnings),
                 )
                 continue
-            tract_path = output_file.with_stem(f"{output_file.stem}_verified_tract{i}")
+            tract_path = output_file.with_stem(f"{verified_stem}_tract{i}")
             calls_to_csv(tract.calls, str(tract_path))
             written_paths.append(tract_path)
             logger.info("Verified tract CSV exported", path=str(tract_path), tract=tract.label)
 
     else:
-        verified_path = output_file.with_stem(output_file.stem + "_verified")
+        verified_path = output_file.with_stem(verified_stem)
         if legal_desc:
             legal_description_to_csv(legal_desc, str(verified_path))
         else:
@@ -635,12 +646,10 @@ def export_verified_csv(
         written_paths.append(verified_path)
         logger.info("Verified CSV exported", path=str(verified_path))
 
-    summary_path = output_file.with_stem(output_file.stem + "_verified").with_suffix(
-        ".verification.txt"
-    )
+    summary_path = output_file.with_stem(verified_stem).with_suffix(".verification.txt")
     from mp_verify import get_closure_summary
 
-    if tract_results:
+    if tract_results is not None:
         summaries: list[str] = []
         for tract, tract_result in tract_results:
             if not _exportable(tract, tract_result):
@@ -657,19 +666,19 @@ def export_verified_csv(
                     f"{tract.label}: misclosure {_misclosure_text(tract_result)}; {reasons}"
                 )
             summaries.append("")
-        with open(summary_path, "w") as f:
+        with open(summary_path, "w", encoding="utf-8") as f:
             f.write("\n".join(summaries))
     else:
         summary = get_closure_summary(closure_result)
-        with open(summary_path, "w") as f:
+        with open(summary_path, "w", encoding="utf-8") as f:
             f.write(summary)
     logger.info("Verification summary written", path=str(summary_path))
 
     if audit_context is not None:
-        audit_base = output_file.with_stem(output_file.stem + "_verified")
+        audit_base = output_file.with_stem(verified_stem)
         audit_json_path = audit_base.with_suffix(".audit.json")
 
-        audit_json_path.write_text(audit_context.model_dump_json(indent=2))
+        audit_json_path.write_text(audit_context.model_dump_json(indent=2), encoding="utf-8")
         logger.info("Audit trail written", path=str(audit_json_path))
 
         from .audit_html import write_report

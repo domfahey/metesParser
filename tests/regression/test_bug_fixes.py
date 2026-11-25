@@ -56,12 +56,17 @@ class TestHighBug3MinutesRounding:
     """Bug #3: Minutes rounding to 60 creates invalid bearings."""
 
     def test_bearing_rounds_to_60_minutes(self):
-        """Bearing with 59.99 minutes should round to next degree, not 60 minutes."""
-        azimuth = 45.999722
-        result = BearingConverter.azimuth_to_quadrant(azimuth)
+        """Bearing with 59.99+ minutes should round to next degree, not 60 minutes."""
+        # 45.9999 deg -> 45°59'59.6" (must not contain invalid 60' or 60.0")
+        near_rollover = BearingConverter.azimuth_to_quadrant(45.9999)
+        assert "60'" not in near_rollover
+        assert '60.0"' not in near_rollover
+        assert near_rollover == "N 45°59'59.6\" E"
 
-        assert "60'" not in result
-        assert result.startswith("N 46°") or result.startswith("N 45°59'")
+        # 45.99999 deg -> 45°59'59.964" >= 59.95" rolls minutes to 60 -> 46°00'
+        rollover = BearingConverter.azimuth_to_quadrant(45.99999)
+        assert "60'" not in rollover
+        assert rollover == "N 46°00' E"
 
     def test_call_extractor_handles_rounding(self):
         """CallExtractor should handle minutes rounding edge case."""

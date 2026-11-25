@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Annotated, Literal, TextIO
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, FiniteFloat, Tag, TypeAdapter
 
 
 class _Message(BaseModel):
@@ -23,7 +23,7 @@ class RawTextMessage(_Message):
     llm_provider: str = Field(..., description="LLM provider name")
     llm_model: str = Field(..., description="LLM model identifier")
     extracted_at: str | None = Field(default=None, description="ISO timestamp of extraction")
-    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    confidence: FiniteFloat | None = Field(default=None, ge=0.0, le=1.0)
     cache_hit: bool | None = Field(default=None)
 
 
@@ -45,10 +45,10 @@ class ClosureResultMessage(_Message):
 
     type: Literal["closure_result"] = "closure_result"
     is_verified: bool = Field(...)
-    misclosure_ft: float = Field(...)
+    misclosure_ft: FiniteFloat = Field(...)
     precision_ratio: str | None = Field(default=None)
-    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
-    area_sq_ft: float | None = Field(default=None)
+    confidence: FiniteFloat | None = Field(default=None, ge=0.0, le=1.0)
+    area_sq_ft: FiniteFloat | None = Field(default=None)
     checks: list[dict[str, object]] = Field(default_factory=list)
     calls: list[dict[str, object]] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

@@ -212,7 +212,7 @@ class _AreaStatement(TypedDict):
     approximate: bool
 
 
-_SQ_FT_UNIT = r"sq\.?\s*ft\.?|square\s+feet?"
+_SQ_FT_UNIT = r"sq\.?\s*ft\.?|square\s+(?:feet|foot)"
 _AREA_LEAD_UNIT = rf"(?:{_SQ_FT_UNIT}|acres?)"
 # Later components of a compound area ("2 acres and 50 perches", "2 acres, 3 roods
 # and 10 perches"): after an area, a perch, rod or pole is a square perch.
@@ -298,7 +298,7 @@ def extract_area_statement(text: str) -> _AreaStatement | None:
             normalized_text[max(0, match.start() - 55) : match.start()],
         )
         and not re.search(
-            r"\b(?:parent|larger|original)\s+tract\b",
+            r"\b(?:parent|larger|original)\s+(?:tract|parcel|lot)\b",
             normalized_text[match.start() : match.end() + 45],
         )
         and not is_parent_area_context(match)
@@ -353,7 +353,7 @@ def extract_plss_metadata(text: str) -> dict[str, str | None]:
 
     text_upper = text.upper()
 
-    section_match = re.search(r"\bSECTION\s+(\d+)\b", text_upper)
+    section_match = re.search(r"\b(?:SECTION|SEC\.?)\s+(\d+)\b", text_upper)
     if section_match:
         plss_data["section"] = section_match.group(1)
 
@@ -378,13 +378,18 @@ def extract_plss_metadata(text: str) -> dict[str, str | None]:
         r"\b(?:IN\s+|THE\s+)?([A-Z0-9]+(?:\s+[A-Z0-9]+){0,4})\s+P\.?M\.?\b",
     ]
     for pattern in pm_patterns:
-        pm_match = re.search(pattern, text_upper)
-        if pm_match:
-            meridian_name = pm_match.group(1).title()
+        for pm_match in re.finditer(pattern, text_upper):
+            raw_meridian = pm_match.group(1).strip()
+            # Reject time-of-day phrases like "AT 3 P.M." where a bare integer precedes P.M.
+            if re.search(r"(?:^|\s)\d+$", raw_meridian):
+                continue
+            meridian_name = raw_meridian.title()
             plss_data["principal_meridian"] = f"{meridian_name} Principal Meridian"
             break
+        if plss_data["principal_meridian"] is not None:
+            break
 
-    aliquot_pattern = r"\b((?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\s+OF\s+(?:THE\s+)?)+(?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\b"
+    aliquot_pattern = r"\b((?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\s+OF\s+(?:THE\s+)?)*(?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\b"
     aliquot_match = re.search(aliquot_pattern, text_upper)
     if aliquot_match:
         aliquot_text = aliquot_match.group(0)
@@ -404,15 +409,15 @@ def extract_pob(text: str) -> str:
         POB description string
     """
     pob_patterns = [
-        r"BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
-        r"POB\s+at\s+(.*?)(?:\.|;|THENCE)",
-        r"POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
-        r"commencing\s+at\s+(.*?)(?:\.|;|THENCE)",
-        r"TRUE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
-        r"TPOB\s+at\s+(.*?)(?:\.|;|THENCE)",
-        r"T\.P\.O\.B\.\s+at\s+(.*?)(?:\.|;|THENCE)",
-        r"REMOTE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
-        r"RPOB\s+at\s+(.*?)(?:\.|;|THENCE)",
+        r"BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"POB\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"commencing\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"TRUE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"TPOB\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"T\.P\.O\.B\.\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"REMOTE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"RPOB\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
     ]
 
     for pattern in pob_patterns:
@@ -433,13 +438,13 @@ def is_closure_to_pob(text: str) -> bool:
         True if text indicates returning to POB, False otherwise
     """
     closure_patterns = [
-        r"\bto\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
-        r"\bto\s+(?:the\s+)?POB\b",
-        r"\breturning\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
-        r"\bback\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
-        r"\bback\s+to\s+(?:the\s+)?POB\b",
-        r"\bto\s+(?:the\s+)?(?:true\s+point\s+of\s+beginning\b|TPOB\b|T\.P\.O\.B\.)",
-        r"\bto\s+(?:the\s+)?(?:remote\s+point\s+of\s+beginning\b|RPOB\b|R\.P\.O\.B\.)",
+        r"\bto\s+(?:the\s+)?(?:point(?:\s+and\s+place)?\s+of\s+)?beginning\b",
+        r"\bto\s+(?:the\s+)?(?:POB\b|P\.O\.B\.?(?!\w))",
+        r"\breturning\s+to\s+(?:the\s+)?(?:point(?:\s+and\s+place)?\s+of\s+)?beginning\b",
+        r"\bback\s+to\s+(?:the\s+)?(?:point(?:\s+and\s+place)?\s+of\s+)?beginning\b",
+        r"\bback\s+to\s+(?:the\s+)?(?:POB\b|P\.O\.B\.?(?!\w))",
+        r"\bto\s+(?:the\s+)?(?:true\s+point(?:\s+and\s+place)?\s+of\s+beginning\b|TPOB\b|T\.P\.O\.B\.?(?!\w))",
+        r"\bto\s+(?:the\s+)?(?:remote\s+point(?:\s+and\s+place)?\s+of\s+beginning\b|RPOB\b|R\.P\.O\.B\.?(?!\w))",
     ]
 
     text_lower = text.lower()
@@ -1351,17 +1356,28 @@ def _compound_size(text: str, tokens: list[Match[str]], index: int) -> int:
     return keep
 
 
-def _unsupported_and_pair(text: str, start: int) -> bool:
-    """Return True for "<n> <word> and <n> <word>" at ``start`` that cannot be summed.
+_UNSUPPORTED_DISTANCE_UNIT = re.compile(
+    r"^(?:cubits?|yards?|yds?|kilometers?|kilometres?|km|centimeters?|centimetres?|cm|"
+    r"millimeters?|millimetres?|mm|decimeters?|decimetres?|dm|hectometers?|hectometres?|hm|"
+    r"fathoms?|paces?|steps?|leagues?|ells?|spans?|palms?|hands?|digits?|barleycorns?|versts?)$",
+    re.IGNORECASE,
+)
 
-    A same-unit pair is two measurements (each read as a length); any other pair
-    that did not form a compound has a component that is not a supported unit.
+
+def _unsupported_and_pair(text: str, start: int) -> bool:
+    """Return True for "<n> <unit> and <n> <unit>" at ``start`` that cannot be summed.
+
+    Only rejects compound distance expressions with unsupported or mismatched
+    distance units, never counts of monuments or physical features.
     """
     pair = _UNSUPPORTED_AND_PAIR.match(text, start)
     if not pair:
         return False
     units = re.findall(rf"{LENGTH_NUMBER}\s*({UNIT_TOKEN})\b", pair.group(0), re.IGNORECASE)
-    return not (len(units) == 2 and _same_unit_family(*(_singular_unit(u) for u in units)))
+    if len(units) == 2:
+        return not _same_unit_family(*(_singular_unit(u) for u in units))
+    tail = re.search(rf"\band\s+{LENGTH_NUMBER}\s+([A-Za-z]+)", pair.group(0), re.IGNORECASE)
+    return bool(tail and _UNSUPPORTED_DISTANCE_UNIT.match(tail.group(1)))
 
 
 def _length_role(text: str, start: int, end: int, *, first: bool, tie_from: int) -> str:
@@ -1445,11 +1461,19 @@ def _length_runs(text: str) -> list[_LengthRun]:
         size = _compound_size(text, tokens, index)
         group = tokens[index : index + size]
         start, end = group[0].start(), group[-1].end()
-        unsupported = bool(
-            re.match(rf"\s+and\s+{LENGTH_NUMBER}\s+[A-Za-z]+", text[end:], re.IGNORECASE)
-            if size >= 2
-            else _unsupported_and_pair(text, start)
-        )
+        if size >= 2:
+            tail_match = re.match(
+                rf"\s+and\s+{LENGTH_NUMBER}\s+([A-Za-z]+)", text[end:], re.IGNORECASE
+            )
+            unsupported = bool(
+                tail_match
+                and (
+                    re.fullmatch(UNIT_TOKEN, tail_match.group(1), re.IGNORECASE)
+                    or _UNSUPPORTED_DISTANCE_UNIT.match(tail_match.group(1))
+                )
+            )
+        else:
+            unsupported = _unsupported_and_pair(text, start)
         # Inches alone size an object ("a 1.5 inch iron pipe"); never a course length.
         # Inches directly before a larger unit ("6 inches 10 feet") are an ascending
         # compound that is never summed: it stays a course length, so the course
@@ -2184,12 +2208,12 @@ def extract_prior_conveyance(text: str) -> str | None:
         Prior conveyance string or None if not found
     """
     patterns = [
-        (r"(BEING\s+the\s+same\s+premises\s+.+?)(?:\.|$)", re.IGNORECASE),
+        (r"(BEING\s+the\s+same\s+premises\s+.+?)(?:\.(?!\d)|$)", re.IGNORECASE),
         (
-            r"((?:Deed|Official\s+Records)\s+Book\s+\d+.*?(?:Page\s+\d+)?)(?:\b.*?)(?:\.|$)",
+            r"((?:Deed|Official\s+Records)\s+Book\s+\d+(?:\s*,?\s*(?:at\s+)?Page\s+\d+)?)(?:[^.\n]*?)(?:\.(?!\d)|$)",
             re.IGNORECASE,
         ),
-        (r"(Instrument\s+Number\s+\d+.+?)(?:\.|$)", re.IGNORECASE),
+        (r"(Instrument\s+Number\s+\d+.+?)(?:\.(?!\d)|$)", re.IGNORECASE),
     ]
 
     for pattern, flags in patterns:
@@ -2250,6 +2274,90 @@ def extract_deed_clauses(text: str) -> list[DeedClause]:
     return clauses
 
 
+_SUBDIVISION_LEADING_STOPWORDS = frozenset(
+    {
+        "BEGINNING",
+        "THENCE",
+        "COMMENCING",
+        "EXCEPT",
+        "EXCEPTING",
+        "RESERVING",
+        "SUBJECT",
+        "TOGETHER",
+        "BEING",
+        "DESCRIBED",
+        "CONTAINING",
+        "LOCATED",
+        "SITUATED",
+        "SITUATE",
+        "LYING",
+        "SAID",
+        "LESS",
+        "SAVE",
+        "ALSO",
+        "PART",
+        "PLAT",
+        "RECORDED",
+        "OF",
+        "IN",
+        "ON",
+        "AT",
+        "TO",
+        "FOR",
+        "WITH",
+        "FROM",
+        "BY",
+        "THE",
+        "AND",
+        "OR",
+        "AS",
+        "POINT",
+        "CORNER",
+        "LINE",
+        "SECTION",
+        "TOWNSHIP",
+        "RANGE",
+        "COUNTY",
+        "STATE",
+        "THEREFROM",
+        "THEREOF",
+        "HEREIN",
+        "POB",
+        "TPOB",
+        "RPOB",
+    }
+)
+
+_SUBDIVISION_ALL_STOPWORDS = _SUBDIVISION_LEADING_STOPWORDS | frozenset(
+    {
+        "NORTH",
+        "SOUTH",
+        "EAST",
+        "WEST",
+        "NORTHEAST",
+        "NORTHWEST",
+        "SOUTHEAST",
+        "SOUTHWEST",
+        "NORTHERLY",
+        "SOUTHERLY",
+        "EASTERLY",
+        "WESTERLY",
+        "N",
+        "S",
+        "E",
+        "W",
+        "NE",
+        "NW",
+        "SE",
+        "SW",
+        "FEET",
+        "FOOT",
+        "ACRES",
+        "MORE",
+    }
+)
+
+
 def extract_subdivision_reference(text: str) -> SubdivisionReference | None:
     """Extract subdivision lot/block reference from deed text.
 
@@ -2281,7 +2389,14 @@ def extract_subdivision_reference(text: str) -> SubdivisionReference | None:
         text,
     )
     if name_match:
-        subdivision_name = name_match.group(1).strip()
+        candidate = name_match.group(1).strip()
+        words = candidate.split()
+        if (
+            words
+            and words[0] not in _SUBDIVISION_LEADING_STOPWORDS
+            and not all(w in _SUBDIVISION_ALL_STOPWORDS for w in words)
+        ):
+            subdivision_name = candidate
 
     plat_match = re.search(r"Plat\s+Book\s+(\d+),?\s*Page\s+(\d+)", text, re.IGNORECASE)
     if plat_match:
@@ -2315,20 +2430,21 @@ def infer_distance_unit(text: str, state: str | None = None, year: int | None = 
     """
     text_lower = text.lower()
 
-    if "varas" in text_lower or "vara" in text_lower:
+    if re.search(r"\bvaras?\b", text_lower):
         return "varas"
-    if "chains and links" in text_lower:
+    if re.search(r"\bchains\s+and\s+links\b", text_lower):
         return "chains"
-    if "arpents" in text_lower or "arpent" in text_lower:
+    if re.search(r"\barpents?\b", text_lower):
         return "arpents"
 
-    if state == "TX" and year is not None and year < 1900:
+    state_upper = state.upper() if state else None
+    if state_upper == "TX" and year is not None and year < 1900:
         return "varas"
-    if state == "LA":
+    if state_upper == "LA":
         return "arpents"
 
     new_england = {"MA", "CT", "ME", "NH", "VT", "RI"}
-    if state in new_england and year is not None and year < 1850:
+    if state_upper in new_england and year is not None and year < 1850:
         return "rods"
 
     return None
@@ -2350,8 +2466,8 @@ def extract_witness_trees(text: str) -> list[str]:
     trees: list[str] = []
 
     tree_pattern = re.compile(
-        r"((?:a\s+)?(?:\w+\s+)?(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|"
-        r"poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)"
+        r"((?:a\s+)?(?:\w+\s+)?\b(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|"
+        r"poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)\b"
         r"[^;.]*?\bbears?\b[^;.]*?(?:dist(?:ant)?|links?|feet|ft)[^;.]*)",
         re.IGNORECASE,
     )
@@ -2422,6 +2538,25 @@ CARDINAL_ONLY_PATTERN = re.compile(
 )
 
 
+_WATER_STREET_NAME = re.compile(
+    r"\b(?:creek|stream|river|brook|run|branch|kill|pond|lake|bay|shore|bank)\s+"
+    r"(?:ave(?:nue)?|st(?:reet)?|rd|road|dr(?:ive)?|ln|lane|blvd|boulevard|"
+    r"ct|court|pl(?:ace)?|way|cir(?:cle)?|pkwy|parkway|ter(?:race)?|"
+    r"hwy|highway|route|pike|trail|path|alley)\b\.?",
+    re.IGNORECASE,
+)
+
+_FINANCIAL_BANK_NAME = re.compile(
+    r"(?:\b(?:first(?:\s+national)?|second|third|national|federal|savings|trust|"
+    r"commercial|citizens?|farmers?|merchants?|peoples?|community|union|city|"
+    r"county|state|valley|american|republic|heritage|liberty|mutual|"
+    r"chase|citi|wells\s+fargo|pnc|td|hsbc|key|fifth\s+third|u\.?s\.?)\s+bank\b"
+    r"|\bbank\s+(?:of\s+america|building|branch|plaza|tower|center|parking)\b)"
+    r"(?!\s+of\s+(?:the\s+|said\s+)?(?:creek|stream|river|brook|run|branch|kill|pond|lake|bay|water|channel)\b)",
+    re.IGNORECASE,
+)
+
+
 def detect_meander(text: str) -> bool:
     """Detect if call text references a water boundary (meander).
 
@@ -2437,7 +2572,9 @@ def detect_meander(text: str) -> bool:
     if MEANDER_PATTERNS.search(text):
         return True
 
-    if WATER_PREPOSITION_PATTERN.search(text) and WATER_BODY_KEYWORDS.search(text):
+    cleaned = _WATER_STREET_NAME.sub(" ", text)
+    cleaned = _FINANCIAL_BANK_NAME.sub(" ", cleaned)
+    if WATER_PREPOSITION_PATTERN.search(cleaned) and WATER_BODY_KEYWORDS.search(cleaned):
         return True
 
     return False
@@ -2560,7 +2697,7 @@ _STRIP_PATTERNS: list[re.Pattern[str]] = [
 # it is a geometric exception (not a simple strip), and should NOT be removed.
 _METES_INDICATOR = re.compile(
     r"\bthence\b|"
-    r"\b[NS]\s+\d+\s+degree",
+    r"\b[NS]\s*\d+\s*(?:degree|°)",
     re.IGNORECASE,
 )
 # The end of a sentence: a strip's clause never continues past it.
@@ -2611,7 +2748,7 @@ def strip_exception_spans(text: str) -> list[tuple[int, int, _StripException]]:
         for match in pattern.finditer(text):
             span = (match.start(), match.end())
             # Avoid duplicate matches from overlapping patterns
-            if any(start <= span[0] < end or start < span[1] <= end for start, end, _ in results):
+            if any(span[0] < end and start < span[1] for start, end, _ in results):
                 continue
 
             original = match.group(0).strip().rstrip(".")

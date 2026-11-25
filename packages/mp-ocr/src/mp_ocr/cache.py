@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -39,7 +41,7 @@ class CachedLLMClient:
         }
         identity = {
             "namespace": _CACHE_KEY_VERSION,
-            "client": f"{client_type.__module__}.{client_type.__qualname__}",
+            "client": client_type.__name__,
             "config": client_config,
             "prompt": prompt,
             "response_mime_type": response_mime_type,
@@ -56,7 +58,7 @@ class CachedLLMClient:
         if not path.exists():
             return None
         try:
-            data = json.loads(path.read_text())
+            data = json.loads(path.read_text(encoding="utf-8"))
             if not isinstance(data, dict):
                 return None
             response: object = data.get("response")
@@ -64,7 +66,7 @@ class CachedLLMClient:
                 return None
             logger.debug("Cache hit", cache_key=key[:12])
             return response
-        except (json.JSONDecodeError, KeyError, TypeError, UnicodeDecodeError):
+        except (OSError, json.JSONDecodeError, KeyError, TypeError, UnicodeDecodeError):
             return None
 
     def _write_cache(
@@ -81,8 +83,30 @@ class CachedLLMClient:
             "response": response,
             "timestamp": datetime.now(UTC).isoformat(),
         }
-        self._cache_path(key).write_text(json.dumps(entry, ensure_ascii=False))
-        logger.debug("Cache stored", cache_key=key[:12])
+        tmp_path: Path | None = None
+        try:
+            self._cache_dir.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(
+                mode="w",
+                encoding="utf-8",
+                dir=self._cache_dir,
+                prefix=f".{key}.",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                tmp_path = Path(handle.name)
+                handle.write(json.dumps(entry, ensure_ascii=False))
+            os.replace(tmp_path, self._cache_path(key))
+            tmp_path = None
+            logger.debug("Cache stored", cache_key=key[:12])
+        except OSError as exc:
+            logger.warning("Cache write failed", cache_key=key[:12], error=str(exc))
+        finally:
+            if tmp_path is not None and tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except OSError:
+                    pass
 
     def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
         key = self._cache_key(prompt, response_mime_type)

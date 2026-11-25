@@ -145,7 +145,11 @@ def calculate_perimeter(calls: list[DeedCall]) -> float:
     return perimeter
 
 
-def _calculate_exception_area(calls: list[DeedCall]) -> float:
+def _calculate_exception_area(
+    calls: list[DeedCall],
+    *,
+    closure_tolerance_ft: float = CLOSURE_TOLERANCE_FT,
+) -> float:
     """Sum independently closed exception loops without mixing their winding.
 
     The flat call API has no tract identifiers. A return to the local origin
@@ -175,8 +179,12 @@ def _calculate_exception_area(calls: list[DeedCall]) -> float:
         points.extend(vertices[1:])
         pending.append(call)
         misclosure = math.hypot(points[-1].x, points[-1].y)
-        if misclosure < CLOSURE_TOLERANCE_FT:
-            intersections = check_boundary_intersections(pending, points)
+        if misclosure < closure_tolerance_ft and (
+            len(pending) >= 3 or any(c.is_curve() for c in pending)
+        ):
+            intersections = check_boundary_intersections(
+                pending, points, closure_tolerance_ft=closure_tolerance_ft
+            )
             if intersections:
                 raise ValueError(
                     f"Exception tract topology failed; net area unavailable: {intersections[0]}"
@@ -231,6 +239,7 @@ def _verify_tract(
     *,
     stated_area_sq_ft: float,
     closure_tolerance_ft: float | None,
+    double_entry_calls: list[DeedCall] | None = None,
     audit_context: AuditContext | None,
     skipped_courses: list[SkippedCourse] | None,
     tract: Tract | None,
@@ -245,14 +254,15 @@ def _verify_tract(
         )
         if check is not None
     ]
-    boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
     return _verify_single(
-        boundary,
+        calls,
         stated_area_sq_ft=stated_area_sq_ft,
         closure_tolerance_ft=closure_tolerance_ft,
+        double_entry_calls=double_entry_calls,
         audit_context=audit_context,
         skipped_courses=skipped_courses,
         role_checks=role_checks,
+        treat_exceptions_as_boundary=True,
     )
 
 
@@ -377,7 +387,15 @@ def verify_closure(
         # Deed level: inferred roles among several descriptions (or the role-review
         # mark on the deed's calls) block every tract.
         deed_roles = evaluate_description_roles(tracts, calls)
-        for tract in tracts:
+        offset = 0
+        for idx, tract in enumerate(tracts):
+            tract_double_entry: list[DeedCall] | None = None
+            if double_entry_calls is not None:
+                if idx == len(tracts) - 1:
+                    tract_double_entry = double_entry_calls[offset:]
+                else:
+                    tract_double_entry = double_entry_calls[offset : offset + len(tract.calls)]
+                offset += len(tract.calls)
             # Scratch context per tract so tracts never overwrite each other's audit.
             scratch = (
                 audit_context.model_copy(update={"verification_audit": None, "skipped_courses": []})
@@ -388,6 +406,7 @@ def verify_closure(
                 tract.calls,
                 stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
                 closure_tolerance_ft=closure_tolerance_ft,
+                double_entry_calls=tract_double_entry,
                 audit_context=scratch,
                 skipped_courses=skips_for_tract(tract, tracts, labelled),
                 tract=tract,
@@ -425,6 +444,7 @@ def _verify_single(
     audit_context: AuditContext | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
     role_checks: Sequence[CheckResult] = (),
+    treat_exceptions_as_boundary: bool = False,
 ) -> ClosureResult:
     """Single-tract verification; ``role_checks`` are internal (set by ``verify_tract``)."""
     if any(c.name not in _ROLE_CHECK_NAMES or c.status != "blocked" for c in role_checks):
@@ -448,8 +468,10 @@ def _verify_single(
         skipped_courses or [], audit_context.skipped_courses if audit_context else []
     )
 
-    main_calls = [c for c in calls if not c.is_exception and not c.is_tie_in]
-    exception_calls = [c for c in calls if c.is_exception]
+    main_calls = [
+        c for c in calls if (treat_exceptions_as_boundary or not c.is_exception) and not c.is_tie_in
+    ]
+    exception_calls = [] if treat_exceptions_as_boundary else [c for c in calls if c.is_exception]
 
     # One pass decides each call's chord, positioning and direction. Records are
     # tracked by position: course numbers may repeat, and only the offending call
@@ -593,13 +615,25 @@ def _verify_single(
                     "calculating exception area to subtract"
                 )
                 try:
-                    exception_area_sq_ft = _calculate_exception_area(exception_calls)
+                    exception_area_sq_ft = _calculate_exception_area(
+                        exception_calls, closure_tolerance_ft=tolerance
+                    )
                 except ValueError as e:
                     warnings.append(f"Cannot calculate exception area: {e}")
                     exception_area_available = False
                     area_available = False
 
-            area_sq_ft = main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
+            if exception_area_available:
+                if exception_area_sq_ft > main_area_sq_ft:
+                    warnings.append(
+                        f"Exception area ({exception_area_sq_ft:.1f} sq ft) exceeds main parcel area "
+                        f"({main_area_sq_ft:.1f} sq ft); net area clamped to 0.0 sq ft"
+                    )
+                    area_sq_ft = 0.0
+                else:
+                    area_sq_ft = main_area_sq_ft - exception_area_sq_ft
+            else:
+                area_sq_ft = 0.0
             area_acres = area_sq_ft / 43560.0
         except ValueError as e:
             area_available = False
@@ -630,7 +664,9 @@ def _verify_single(
     parallel_warnings = check_parallelism(main_calls)
     warnings.extend(parallel_warnings)
 
-    intersection_warnings = check_boundary_intersections(main_calls, points)
+    intersection_warnings = check_boundary_intersections(
+        main_calls, points, closure_tolerance_ft=tolerance
+    )
     warnings.extend(intersection_warnings)
 
     reversal_warnings = check_bearing_reversals(main_calls)

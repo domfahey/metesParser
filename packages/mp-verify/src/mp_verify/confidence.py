@@ -85,6 +85,27 @@ def calculate_confidence_score(
     if not calls:
         return 0.0
 
+    records = None
+    if chord_flags is None or indefinite_flags is None:
+        records = analyze_courses(calls)[1]
+        if chord_flags is None:
+            chord_flags = [record.chord_positioned for record in records]
+        if indefinite_flags is None:
+            indefinite_flags = [record.indefinite for record in records]
+
+    complete = sum(
+        1
+        for c, chord in zip(calls, chord_flags, strict=True)
+        if has_determined_direction(c) or chord
+    )
+    if complete == 0:
+        return 0.0
+    if not result.misclosure_available:
+        if records is None:
+            records = analyze_courses(calls)[1]
+        if not any(record.positioned for record in records):
+            return 0.0
+
     # Closure quality (30%); an undetermined misclosure earns no closure credit.
     if not result.misclosure_available:
         closure_score = 0.0
@@ -102,28 +123,29 @@ def calculate_confidence_score(
 
     # Verification checks (20%)
     if result.checks:
-        checks_passed = sum(
-            check.status == "passed"
+        applicable_checks = [
+            check
             for check in result.checks
-            if check.name in {"interior_angles", "curve_consistency"}
-        )
+            if check.name
+            in {
+                "interior_angles",
+                "curve_consistency",
+                "boundary_intersections",
+                "self_intersection",
+            }
+            and check.status != "not_applicable"
+        ]
+        if applicable_checks:
+            checks_passed = sum(check.status == "passed" for check in applicable_checks)
+            checks_score = checks_passed / len(applicable_checks)
+        else:
+            checks_score = 0.0
     else:
         checks_passed = sum([result.angle_check_passed, result.curve_consistency_passed])
-    checks_score = checks_passed / 2.0
+        checks_score = checks_passed / 2.0
 
     # Bearing completeness (25%): a stated chord bearing that positions the course
     # counts as a stated direction (its lower quality is scored below).
-    if chord_flags is None or indefinite_flags is None:
-        records = analyze_courses(calls)[1]
-        if chord_flags is None:
-            chord_flags = [record.chord_positioned for record in records]
-        if indefinite_flags is None:
-            indefinite_flags = [record.indefinite for record in records]
-    complete = sum(
-        1
-        for c, chord in zip(calls, chord_flags, strict=True)
-        if has_determined_direction(c) or chord
-    )
     bearing_score = complete / len(calls)
 
     # Call quality (15%)

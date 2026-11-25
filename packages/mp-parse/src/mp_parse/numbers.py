@@ -2,7 +2,7 @@
 
 import re
 
-COMMA_NUMBER = r"\d[\d,]*(?:\.\d+)?"
+COMMA_NUMBER = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
 
 # "300,07": a single comma followed by exactly two digits is a decimal point, as some
 # deeds print it. Thousands separators are always followed by three digits.

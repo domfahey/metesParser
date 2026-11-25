@@ -193,7 +193,7 @@ def main():
 
     print(f"Found {len(pdfs)} PDFs to process")
 
-    processor = PDFProcessor()
+    processor: PDFProcessor | None = None
 
     for pdf_path in pdfs:
         # Check if ground truth already exists
@@ -204,10 +204,12 @@ def main():
             continue
 
         try:
+            if processor is None:
+                processor = PDFProcessor()
             ground_truth = generate_ground_truth(pdf_path, processor)
 
             # Write JSON
-            with open(output_path, "w") as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(ground_truth, f, indent=2, ensure_ascii=False)
 
             print(f"  ✅ Saved to: {output_path.name}")

@@ -35,7 +35,7 @@ DOCTOR_REQUIRE_CONNECTIVITY ?= 0
 .DEFAULT_GOAL := help
 
 # Targets that are not real files.
-.PHONY: all help install install-minimal install-dev install-offline check-tools lockfile-check quality ci distclean test-fast lint lint-fix format format-check check test test-cov clean run-extract run-verify dev-setup pre-commit doctor type
+.PHONY: all help install install-minimal install-dev install-offline check-tools lockfile-check quality ci distclean test-fast lint lint-fix format format-check check test test-packages test-plugin test-cov clean run-extract run-verify dev-setup pre-commit doctor type review-corpus plugin-build chat-skill-build
 
 all: help
 
@@ -64,13 +64,18 @@ help: ## Show available development commands and their usage.
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test          Run pytest test suite"
+	@echo "  make test-packages Run composable package test suites"
+	@echo "  make test-plugin   Run Claude plugin test suite"
 	@echo "  make test-fast     Run tests with fail-fast behavior"
 	@echo "  make test-cov      Run tests with coverage report"
+	@echo "  make review-corpus Run reviewed deterministic pipeline fixtures without OCR"
 	@echo "  make ci            Run the CI-style full check workflow"
 	@echo ""
 	@echo "Utility:"
 	@echo "  make clean         Remove build artifacts and cache"
-	@echo "  make distclean      Remove environment and ephemeral caches"
+	@echo "  make distclean     Remove environment and ephemeral caches"
+	@echo "  make plugin-build  Build the Claude plugin ZIP with a locked deterministic runtime"
+	@echo "  make chat-skill-build Build the standalone Claude chat Skill ZIP and checksum"
 	@echo "  make run-extract   Extract from sample PDF (requires PDF_FILE var)"
 	@echo "  make run-verify    Verify sample CSV (requires CSV_FILE var)"
 	@echo "  make pre-commit    Run lint-fix, format, and tests"
@@ -124,7 +129,7 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 	@echo "Verifying toolchain access..."
 	@$(UV_RUN) python --version
 	@missing_tools=0; \
-	for dep in ruff pytest; do \
+	for dep in ruff pytest mypy; do \
 		$(UV_RUN) "$${dep}" --version >/dev/null 2>&1 || { echo "ERROR: missing dependency in .venv: $${dep}"; missing_tools=1; }; \
 	done; \
 	if [ "$$missing_tools" -ne 0 ]; then \
@@ -245,6 +250,16 @@ test: ## Run full test suite.
 	$(UV_RUN) pytest
 	@echo "✓ Tests complete"
 
+test-packages: ## Run composable package test suites.
+	@echo "Running package test suites..."
+	$(UV_RUN) pytest packages/mp-*/tests --no-cov --import-mode=importlib
+	@echo "✓ Package tests complete"
+
+test-plugin: ## Run Claude plugin test suite.
+	@echo "Running plugin test suite..."
+	$(UV_RUN) pytest plugins/metesparser/tests --no-cov --import-mode=importlib
+	@echo "✓ Plugin tests complete"
+
 test-fast: ## Run tests with fail-fast behavior.
 	@echo "Running tests with fail-fast..."
 	$(UV_RUN) pytest -x --maxfail=1
@@ -269,7 +284,7 @@ test-cov: ## Run tests with HTML and terminal coverage reports.
 	$(UV_RUN) pytest --cov=$(PY_SRC) --cov-report=html --cov-report=term-missing
 	@echo "✓ Coverage report generated in htmlcov/"
 
-ci: clean check-tools install quality test-cov ## CI-oriented end-to-end validation lane.
+ci: check-tools install quality test-cov ## CI-oriented end-to-end validation lane.
 	@echo "✓ CI checks complete"
 
 clean: ## Remove generated artifacts and caches.
@@ -280,6 +295,7 @@ clean: ## Remove generated artifacts and caches.
 	rm -rf *.egg-info
 	rm -rf .pytest_cache/
 	rm -rf .ruff_cache/
+	rm -rf .mypy_cache/
 	rm -rf htmlcov/
 	rm -rf .coverage
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
