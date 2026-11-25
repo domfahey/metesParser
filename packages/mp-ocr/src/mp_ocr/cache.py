@@ -113,7 +113,7 @@ class CachedLLMClient:
             if not isinstance(data, dict):
                 return None
             response: object = data.get("response")
-            if not isinstance(response, str):
+            if not isinstance(response, str) or not response.strip():
                 return None
             logger.debug("Cache hit", cache_key=key[:12])
             return response

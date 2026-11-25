@@ -1129,7 +1129,7 @@ def test_openrouter_client_strips_openai_org_project_headers_and_webhook_secret(
     assert getattr(client._client, "project", None) is None
     assert getattr(client._client, "webhook_secret", None) is None
 
-    client._client._client = httpx.Client(transport=httpx.MockTransport(transport_handler))
+    client._client._client._transport = httpx.MockTransport(transport_handler)
     assert client.generate_text("hello") == "ok"
     assert "openai-organization" not in captured_headers
     assert "openai-project" not in captured_headers
@@ -1330,3 +1330,117 @@ def test_cached_client_does_not_persist_empty_or_whitespace_responses(tmp_path: 
     assert len(list(pdf_cache_dir.glob("*.json"))) == 1
     assert cached_pdf.generate_text_with_pdf("extract", str(pdf)) == "real output"
     assert pdf_client.calls == 3
+
+
+def test_openrouter_client_rejects_malformed_ipv6_invalid_ports_and_url_whitespace(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_fake_openrouter_openai(
+        monkeypatch,
+        lambda **kwargs: SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
+        ),
+    )
+
+    valid = OpenRouterClient(
+        api_key="or-secret",
+        base_url="https://openrouter.ai:443/api/v1",
+        site_url="https://example.com:8443/app",
+    )
+    assert valid.base_url == "https://openrouter.ai:443/api/v1"
+
+    for bad_base_url in (
+        "https://[::1/api/v1",
+        "https://openrouter.ai:abc/api/v1",
+        "https://openrouter.ai:0/api/v1",
+        "http://localhost:0/api/v1",
+        "https://openrouter.ai:99999/api/v1",
+        "https://openrouter.ai:-1/api/v1",
+        "https://openrouter.ai/api /v1",
+        "https://open router.ai/api/v1",
+    ):
+        with pytest.raises(LLMConfigurationError):
+            OpenRouterClient(api_key="or-secret", base_url=bad_base_url)
+
+    for bad_site_url in (
+        "https://[::1/app",
+        "https://example.com:abc",
+        "https://example.com:0",
+        "https://example.com:99999",
+        "https://example.com:-1",
+        "https://example.com/my app",
+        "https://exam ple.com",
+    ):
+        with pytest.raises(LLMConfigurationError):
+            OpenRouterClient(api_key="or-secret", site_url=bad_site_url)
+
+
+@pytest.mark.parametrize("bad_payload", [[], 42, True, 3.14, ()])
+def test_openrouter_client_http200_non_object_json_payloads_fail_over_and_raise(
+    monkeypatch: pytest.MonkeyPatch, bad_payload: object
+) -> None:
+    def failover_handler(*, kwargs, status_error, timeout_error, connection_error):
+        if kwargs["model"] == "anthropic/claude-haiku-5.5":
+            return bad_payload
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="recovered payload"))]
+        )
+
+    _, failover_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, failover_handler)
+    client = OpenRouterClient(api_key="or-secret", max_retries=0)
+    assert client.generate_text("hello") == "recovered payload"
+    assert [c["model"] for c in failover_calls] == [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+    ]
+
+    _install_fake_openrouter_openai(monkeypatch, lambda **kwargs: bad_payload)
+    exhausted = OpenRouterClient(api_key="or-secret", fallback_model=None, max_retries=0)
+    with pytest.raises(LLMClientError, match="unexpected response payload"):
+        exhausted.generate_text("hello")
+
+
+@pytest.mark.parametrize("poisoned_response", ["", "   ", "  \n\t "])
+def test_cached_client_treats_preexisting_empty_or_whitespace_cache_file_as_miss(
+    tmp_path: Path, poisoned_response: str
+) -> None:
+    class CountingClient:
+        model = "fake"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+            self.calls += 1
+            return "fresh text"
+
+        def generate_text_with_pdf(
+            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+        ) -> str:
+            self.calls += 1
+            return "fresh pdf"
+
+    cache_dir = tmp_path / "cache"
+    client = CountingClient()
+    cached = CachedLLMClient(client, cache_dir=cache_dir)
+
+    text_key = cached._cache_key("prompt", None)
+    cached._cache_path(text_key).write_text(
+        json.dumps({"response": poisoned_response}), encoding="utf-8"
+    )
+    assert cached.generate_text("prompt") == "fresh text"
+    assert client.calls == 1
+    assert cached.generate_text("prompt") == "fresh text"
+    assert client.calls == 1
+
+    pdf = tmp_path / "deed.pdf"
+    pdf_bytes = b"%PDF-1.4"
+    pdf.write_bytes(pdf_bytes)
+    pdf_key = cached._cache_key("extract", None, pdf_bytes)
+    cached._cache_path(pdf_key).write_text(
+        json.dumps({"response": poisoned_response}), encoding="utf-8"
+    )
+    assert cached.generate_text_with_pdf("extract", str(pdf)) == "fresh pdf"
+    assert client.calls == 2
+    assert cached.generate_text_with_pdf("extract", str(pdf)) == "fresh pdf"
+    assert client.calls == 2

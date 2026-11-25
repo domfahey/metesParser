@@ -396,9 +396,19 @@ class OpenRouterClient:
         normalized_base_url = self.base_url.strip().rstrip("/")
         if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in normalized_base_url):
             raise LLMConfigurationError("base_url must not contain control characters.")
-        parsed_base_url = urlsplit(normalized_base_url)
+        if any(ch.isspace() for ch in normalized_base_url):
+            raise LLMConfigurationError("base_url must not contain whitespace.")
+        try:
+            parsed_base_url = urlsplit(normalized_base_url)
+            base_port = parsed_base_url.port
+            hostname = parsed_base_url.hostname
+        except ValueError as exc:
+            raise LLMConfigurationError(
+                "base_url must be a valid http:// or https:// URL with a hostname."
+            ) from exc
+        if base_port is not None and base_port <= 0:
+            raise LLMConfigurationError("base_url port must be a positive integer.")
         scheme = parsed_base_url.scheme.lower()
-        hostname = parsed_base_url.hostname
         if scheme not in ("https", "http") or not hostname:
             raise LLMConfigurationError(
                 "base_url must be a valid http:// or https:// URL with a hostname."
@@ -457,10 +467,21 @@ class OpenRouterClient:
                     raise LLMConfigurationError(
                         "site_url must contain only printable ASCII characters."
                     )
-                parsed_site_url = urlsplit(normalized_site_url)
+                if any(ch.isspace() for ch in normalized_site_url):
+                    raise LLMConfigurationError("site_url must not contain whitespace.")
+                try:
+                    parsed_site_url = urlsplit(normalized_site_url)
+                    site_port = parsed_site_url.port
+                    site_hostname = parsed_site_url.hostname
+                except ValueError as exc:
+                    raise LLMConfigurationError(
+                        "site_url must be a valid http:// or https:// URL without credentials."
+                    ) from exc
+                if site_port is not None and site_port <= 0:
+                    raise LLMConfigurationError("site_url port must be a positive integer.")
                 if (
                     parsed_site_url.scheme.lower() not in ("https", "http")
-                    or not parsed_site_url.hostname
+                    or not site_hostname
                     or parsed_site_url.username is not None
                     or parsed_site_url.password is not None
                 ):
@@ -640,7 +661,7 @@ class OpenRouterClient:
     def _extract_response_error(
         response: object, model_name: str
     ) -> tuple[LLMClientError, bool] | None:
-        if response is None or isinstance(response, (str, bytes)):
+        if response is None or isinstance(response, (str, bytes, list, tuple, int, float)):
             return (
                 LLMClientError(
                     f"OpenRouter returned unexpected response payload for {model_name}: "

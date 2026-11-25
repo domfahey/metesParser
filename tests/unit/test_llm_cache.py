@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+
+import pytest
 
 from metesparser.llm_cache import CachedLLMClient
 
@@ -221,3 +224,33 @@ def test_empty_and_whitespace_responses_are_not_cached(tmp_path: Path) -> None:
     assert cached_pdf.generate_text_with_pdf("p", str(pdf)) == "valid pdf"
     assert pdf_client.call_count == 3
     assert len(list(pdf_cache.glob("*.json"))) == 1
+
+
+@pytest.mark.parametrize("poisoned_response", ["", "   ", "  \n\t "])
+def test_preexisting_empty_and_whitespace_cache_entries_are_misses(
+    tmp_path: Path, poisoned_response: str
+) -> None:
+    cache_dir = tmp_path / "cache"
+    fake = FakeLLMClient(text_response="fresh response")
+    cached = CachedLLMClient(fake, cache_dir=cache_dir)
+
+    text_key = cached._cache_key("prompt", None)
+    cached._cache_path(text_key).write_text(
+        json.dumps({"response": poisoned_response}), encoding="utf-8"
+    )
+    assert cached.generate_text("prompt") == "fresh response"
+    assert fake.call_count == 1
+    assert cached.generate_text("prompt") == "fresh response"
+    assert fake.call_count == 1
+
+    pdf = tmp_path / "deed.pdf"
+    pdf_bytes = b"%PDF-1.4"
+    pdf.write_bytes(pdf_bytes)
+    pdf_key = cached._cache_key("extract", None, pdf_bytes)
+    cached._cache_path(pdf_key).write_text(
+        json.dumps({"response": poisoned_response}), encoding="utf-8"
+    )
+    assert cached.generate_text_with_pdf("extract", str(pdf)) == "fresh response"
+    assert fake.call_count == 2
+    assert cached.generate_text_with_pdf("extract", str(pdf)) == "fresh response"
+    assert fake.call_count == 2
