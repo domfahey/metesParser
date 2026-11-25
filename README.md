@@ -113,7 +113,7 @@ Optional Mapbox viewing supports a local viewer and a requested vector MCP previ
 
 ## Use the Python engine or CLI
 
-The CLI is useful for automation, prepared inputs and testing without a Claude session. Deterministic review commands need no LLM API key. The separate PDF extraction pipeline can call OpenAI or Gemini.
+The CLI is useful for automation, prepared inputs and testing without a Claude session. Deterministic review commands need no LLM API key. The separate PDF extraction pipeline can call OpenAI, Gemini, or OpenRouter.
 
 ### Set up a source checkout
 
@@ -142,12 +142,13 @@ Each command prints JSON; check its `status` (`checks_passed`, `needs_review` or
 
 ### Extract a PDF with a provider
 
-Set `METESPARSER_LLM_PROVIDER` and the corresponding `OPENAI_API_KEY` or `GEMINI_API_KEY` in your local `.env`, then:
+Set `METESPARSER_LLM_PROVIDER` and the corresponding `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `OPENROUTER_API_KEY` in your local `.env`, then:
 
 ```sh
 uv run metesparser extract deed.pdf
-# Or select Gemini explicitly, with GEMINI_API_KEY configured:
+# Or select Gemini or OpenRouter explicitly, with the matching API key configured:
 uv run metesparser extract deed.pdf --llm-provider gemini
+uv run metesparser extract deed.pdf --llm-provider openrouter
 ```
 
 Provider extraction remains subject to source review and deterministic checks. Never commit credentials. The [architecture guide](docs/ARCHITECTURE.md) documents the Python `Pipeline` API and its compatibility layer.

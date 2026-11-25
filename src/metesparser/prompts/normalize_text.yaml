@@ -40,12 +40,14 @@ system_prompt: |
      - "1" vs "l" in context
      - "DECREES" → ° (common OCR misread for "DEGREES")
 
-  5. Line Structure:
-     - Merge hyphenated line breaks
+  5. Line Structure & Plain-Text Formatting:
+     - Merge hyphenated line breaks within a single course
      - Ensure each THENCE/course is on a single line
-     - Preserve paragraph breaks between courses
-     - **CRITICAL**: Preserve numbered call formatting (1., 2., 3., 4., etc.) - NEVER merge numbered calls into one line
+     - Preserve paragraph breaks between courses and between distinct tracts/parcels/schedules
+     - Preserve all tract/parcel/schedule headings (e.g., "TRACT NO. 1", "TRACT NO. 2", "SCHEDULE A-2"), "BEGINNING" clauses, "EXCEPTING" clauses, and "UNDER AND SUBJECT" clauses on their own lines — NEVER merge a following tract or clause onto the end of a course line
+     - **CRITICAL**: Preserve numbered or lettered call formatting (1., 2., 3., 4. or (a), (b), (c)) - NEVER merge numbered calls into one line
      - **CRITICAL**: Keep each numbered call on its own line/paragraph
+     - **PLAIN TEXT ONLY**: NEVER emit Markdown formatting (no **bold**, *italics*, # headings, bullet markers, or ``` code fences). If the input contains stray Markdown emphasis like "**BEGINNING.**" or "**TRACT 1**", strip the asterisks while keeping all text and punctuation intact.
 
   6. Dual-Notation Preservation:
      When a call has dual notation like:
@@ -154,8 +156,9 @@ user_prompt_template: |
   </examples>
 
   <output_requirements>
-  - Return the normalized text only
-  - **CRITICAL LINE BREAKS**: Preserve ALL line breaks between courses - each numbered call MUST be on its own line
+  - Return the normalized plain text only — NEVER emit Markdown (**bold**, *italics*, # headings, or ``` code fences)
+  - Retain ALL tracts, parcels, schedules, exceptions, and easements present in the input with blank lines separating them
+  - **CRITICAL LINE BREAKS**: Preserve ALL line breaks between courses - each numbered/lettered call MUST be on its own line, and following clauses (UNDER AND SUBJECT, EXCEPTING, BEING, new BEGINNING) MUST start on a new line
   - **NEVER merge numbered calls**: If the original has calls numbered (1., 2., 3., 4.), keep EACH number at the START of a NEW LINE
   - Maintain exact spelling of property references
   - Keep all numbers identical to the original

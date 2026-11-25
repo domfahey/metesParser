@@ -362,6 +362,14 @@ def test_prompt_copies_are_in_sync_and_reconciled(filename: str) -> None:
         assert 'cardinal directions (e.g., "DECREES"' not in root_text
         assert "along Southwesterly line of Concord Drive" in root_text
         assert "along southwesterly line of Concord Drive" not in root_text
+        assert "NEVER emit Markdown" in root_text
+        assert "UNDER AND SUBJECT" in root_text
+    if filename == "extract_legal_description.yaml":
+        assert "MULTI-TRACT / MULTI-SCHEDULE DEEDS" in root_text
+        assert "NEVER emit Markdown" in root_text
+        assert "FULL DMS SURVEY" in root_text
+    if filename == "extract_text_from_pdf.yaml":
+        assert "NEVER add Markdown formatting" in root_text
 
 
 @pytest.mark.parametrize("_name,proc_cls", PDF_PROCESSOR_IMPLS)

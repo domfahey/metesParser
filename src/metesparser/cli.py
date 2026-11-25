@@ -396,7 +396,7 @@ def main() -> None:
     )
     extract_parser.add_argument(
         "--llm-provider",
-        choices=["openai", "gemini"],
+        choices=["openai", "gemini", "openrouter"],
         help="LLM provider to use (overrides METESPARSER_LLM_PROVIDER env var)",
     )
     extract_parser.add_argument(

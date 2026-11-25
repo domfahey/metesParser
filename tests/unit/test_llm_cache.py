@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
+
+import pytest
 
 from metesparser.llm_cache import CachedLLMClient
 
@@ -156,3 +159,98 @@ class TestClearCache:
         cached.generate_text("prompt")
 
         assert fake.call_count == 2
+
+
+def test_openrouter_cache_key_includes_normalized_base_url(tmp_path: Path) -> None:
+    from metesparser.llm_clients import OpenRouterClient
+
+    c_default = CachedLLMClient(
+        OpenRouterClient(api_key="or-test", base_url="https://openrouter.ai/api/v1"),
+        cache_dir=tmp_path / "cache",
+    )
+    c_slash = CachedLLMClient(
+        OpenRouterClient(api_key="or-test", base_url="https://openrouter.ai/api/v1/"),
+        cache_dir=tmp_path / "cache",
+    )
+    c_proxy = CachedLLMClient(
+        OpenRouterClient(api_key="or-test", base_url="https://proxy.example.com/api/v1"),
+        cache_dir=tmp_path / "cache",
+    )
+
+    assert c_default._cache_key("prompt", None) == c_slash._cache_key("prompt", None)
+    assert c_default._cache_key("prompt", None) != c_proxy._cache_key("prompt", None)
+
+
+def test_empty_and_whitespace_responses_are_not_cached(tmp_path: Path) -> None:
+    class SequenceClient:
+        def __init__(self, responses: list[str]) -> None:
+            self._responses = list(responses)
+            self.call_count = 0
+
+        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+            self.call_count += 1
+            return self._responses.pop(0)
+
+        def generate_text_with_pdf(
+            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+        ) -> str:
+            self.call_count += 1
+            return self._responses.pop(0)
+
+    cache_dir = tmp_path / "cache"
+    client = SequenceClient(["", "  \n\t ", "valid"])
+    cached = CachedLLMClient(client, cache_dir=cache_dir)
+
+    assert cached.generate_text("p") == ""
+    assert list(cache_dir.glob("*.json")) == []
+    assert cached.generate_text("p") == "  \n\t "
+    assert list(cache_dir.glob("*.json")) == []
+    assert cached.generate_text("p") == "valid"
+    assert cached.generate_text("p") == "valid"
+    assert client.call_count == 3
+    assert len(list(cache_dir.glob("*.json"))) == 1
+
+    pdf_cache = tmp_path / "pdf_cache"
+    pdf = tmp_path / "deed.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    pdf_client = SequenceClient(["", "   ", "valid pdf"])
+    cached_pdf = CachedLLMClient(pdf_client, cache_dir=pdf_cache)
+
+    assert cached_pdf.generate_text_with_pdf("p", str(pdf)) == ""
+    assert list(pdf_cache.glob("*.json")) == []
+    assert cached_pdf.generate_text_with_pdf("p", str(pdf)) == "   "
+    assert list(pdf_cache.glob("*.json")) == []
+    assert cached_pdf.generate_text_with_pdf("p", str(pdf)) == "valid pdf"
+    assert cached_pdf.generate_text_with_pdf("p", str(pdf)) == "valid pdf"
+    assert pdf_client.call_count == 3
+    assert len(list(pdf_cache.glob("*.json"))) == 1
+
+
+@pytest.mark.parametrize("poisoned_response", ["", "   ", "  \n\t "])
+def test_preexisting_empty_and_whitespace_cache_entries_are_misses(
+    tmp_path: Path, poisoned_response: str
+) -> None:
+    cache_dir = tmp_path / "cache"
+    fake = FakeLLMClient(text_response="fresh response")
+    cached = CachedLLMClient(fake, cache_dir=cache_dir)
+
+    text_key = cached._cache_key("prompt", None)
+    cached._cache_path(text_key).write_text(
+        json.dumps({"response": poisoned_response}), encoding="utf-8"
+    )
+    assert cached.generate_text("prompt") == "fresh response"
+    assert fake.call_count == 1
+    assert cached.generate_text("prompt") == "fresh response"
+    assert fake.call_count == 1
+
+    pdf = tmp_path / "deed.pdf"
+    pdf_bytes = b"%PDF-1.4"
+    pdf.write_bytes(pdf_bytes)
+    pdf_key = cached._cache_key("extract", None, pdf_bytes)
+    cached._cache_path(pdf_key).write_text(
+        json.dumps({"response": poisoned_response}), encoding="utf-8"
+    )
+    assert cached.generate_text_with_pdf("extract", str(pdf)) == "fresh response"
+    assert fake.call_count == 2
+    assert cached.generate_text_with_pdf("extract", str(pdf)) == "fresh response"
+    assert fake.call_count == 2

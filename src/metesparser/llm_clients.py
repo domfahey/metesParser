@@ -1,14 +1,16 @@
-"""LLM client abstractions for OpenAI and Gemini providers."""
+"""LLM client abstractions for OpenAI, Gemini, and OpenRouter providers."""
 
 from __future__ import annotations
 
 import base64
+import json
 import math
 import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
+from urllib.parse import urlsplit
 
 
 class LLMClientError(RuntimeError):
@@ -17,6 +19,20 @@ class LLMClientError(RuntimeError):
 
 class LLMConfigurationError(LLMClientError):
     """Raised when the LLM client configuration is invalid."""
+
+
+def _is_retryable_status(status_code: object) -> bool:
+    """Return True for transient HTTP status codes eligible for retry/failover."""
+    return (
+        isinstance(status_code, int)
+        and not isinstance(status_code, bool)
+        and (status_code in {408, 409, 429} or 500 <= status_code < 600)
+    )
+
+
+def _has_invalid_header_chars(value: str) -> bool:
+    """Return True if *value* has control or non-ASCII chars unsafe for HTTP headers."""
+    return not value.isascii() or any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value)
 
 
 def _read_pdf(pdf_path: str) -> tuple[str, bytes]:
@@ -323,4 +339,416 @@ class GeminiClient:
         text = getattr(response, "text", None)
         if isinstance(text, str) and text:
             return text
+        return ""
+
+
+@dataclass(frozen=True)
+class OpenRouterClient:
+    """OpenRouter-backed LLM client using OpenAI-compatible Chat Completions.
+
+    Routes requests to ``https://openrouter.ai/api/v1`` via the ``openai`` SDK,
+    defaulting to ``anthropic/claude-haiku-5.5`` with fallback
+    ``anthropic/claude-sonnet-5.5`` and ``reasoning_effort="low"``. For heavily
+    degraded or complex scans, set ``model="anthropic/claude-sonnet-5.5"`` (or
+    ``OPENROUTER_MODEL=anthropic/claude-sonnet-5.5``) and optionally
+    ``pdf_engine="mistral-ocr"``.
+    """
+
+    api_key: str | None = field(default=None, repr=False)
+    model: str = "anthropic/claude-haiku-5.5"
+    fallback_model: str | None = "anthropic/claude-sonnet-5.5"
+    base_url: str = "https://openrouter.ai/api/v1"
+    pdf_engine: str | None = None
+    reasoning_effort: str | None = "low"
+    site_url: str | None = None
+    app_name: str | None = "MetesParser"
+    timeout_s: float | None = 120.0
+    max_retries: int = 2
+    retry_backoff_s: float = 1.0
+    _client: Any = field(init=False, repr=False, compare=False)
+    _status_errors: tuple[type[BaseException], ...] = field(init=False, repr=False, compare=False)
+    _transport_errors: tuple[type[BaseException], ...] = field(
+        init=False, repr=False, compare=False
+    )
+
+    def __post_init__(self) -> None:
+        raw_key = self.api_key if self.api_key is not None else os.getenv("OPENROUTER_API_KEY")
+        key = raw_key.strip() if isinstance(raw_key, str) else ""
+        if not key:
+            raise LLMConfigurationError(
+                "OpenRouter API key not found. Set OPENROUTER_API_KEY environment variable."
+            )
+        if _has_invalid_header_chars(key):
+            raise LLMConfigurationError(
+                "OpenRouter API key must contain only printable ASCII characters."
+            )
+        normalized_model = self.model.strip()
+        if not normalized_model:
+            raise LLMConfigurationError("model must be a non-empty string.")
+        object.__setattr__(self, "model", normalized_model)
+
+        if self.fallback_model is not None:
+            normalized_fallback = self.fallback_model.strip()
+            if not normalized_fallback:
+                raise LLMConfigurationError("fallback_model must be a non-empty string or None.")
+            object.__setattr__(self, "fallback_model", normalized_fallback)
+
+        normalized_base_url = self.base_url.strip().rstrip("/")
+        if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in normalized_base_url):
+            raise LLMConfigurationError("base_url must not contain control characters.")
+        if any(ch.isspace() for ch in normalized_base_url):
+            raise LLMConfigurationError("base_url must not contain whitespace.")
+        try:
+            parsed_base_url = urlsplit(normalized_base_url)
+            base_port = parsed_base_url.port
+            hostname = parsed_base_url.hostname
+        except ValueError as exc:
+            raise LLMConfigurationError(
+                "base_url must be a valid http:// or https:// URL with a hostname."
+            ) from exc
+        if base_port is not None and base_port <= 0:
+            raise LLMConfigurationError("base_url port must be a positive integer.")
+        scheme = parsed_base_url.scheme.lower()
+        if scheme not in ("https", "http") or not hostname:
+            raise LLMConfigurationError(
+                "base_url must be a valid http:// or https:// URL with a hostname."
+            )
+        if scheme == "http" and hostname.lower() not in {"localhost", "127.0.0.1", "::1"}:
+            raise LLMConfigurationError("base_url must use https:// for non-loopback hosts.")
+        if (
+            parsed_base_url.username is not None
+            or parsed_base_url.password is not None
+            or parsed_base_url.query
+            or parsed_base_url.fragment
+            or "?" in normalized_base_url
+            or "#" in normalized_base_url
+        ):
+            raise LLMConfigurationError(
+                "base_url must not contain embedded credentials, query strings, or fragments."
+            )
+        object.__setattr__(self, "base_url", normalized_base_url)
+
+        if self.pdf_engine is not None:
+            normalized_engine = self.pdf_engine.strip()
+            if not normalized_engine:
+                raise LLMConfigurationError("pdf_engine must be a non-empty string or None.")
+            object.__setattr__(self, "pdf_engine", normalized_engine)
+
+        if self.reasoning_effort is not None:
+            normalized_effort = self.reasoning_effort.strip().lower()
+            if not normalized_effort:
+                raise LLMConfigurationError("reasoning_effort must be a non-empty string or None.")
+            object.__setattr__(self, "reasoning_effort", normalized_effort)
+
+        if self.timeout_s is not None and (
+            isinstance(self.timeout_s, bool)
+            or not math.isfinite(self.timeout_s)
+            or self.timeout_s <= 0
+        ):
+            raise LLMConfigurationError("timeout_s must be a positive finite number.")
+        if (
+            isinstance(self.max_retries, bool)
+            or not isinstance(self.max_retries, int)
+            or self.max_retries < 0
+        ):
+            raise LLMConfigurationError("max_retries must be a non-negative integer.")
+        if (
+            isinstance(self.retry_backoff_s, bool)
+            or not math.isfinite(self.retry_backoff_s)
+            or self.retry_backoff_s < 0
+        ):
+            raise LLMConfigurationError("retry_backoff_s must be a non-negative finite number.")
+
+        default_headers: dict[str, str] = {}
+        if self.site_url is not None:
+            normalized_site_url = self.site_url.strip()
+            if normalized_site_url:
+                if _has_invalid_header_chars(normalized_site_url):
+                    raise LLMConfigurationError(
+                        "site_url must contain only printable ASCII characters."
+                    )
+                if any(ch.isspace() for ch in normalized_site_url):
+                    raise LLMConfigurationError("site_url must not contain whitespace.")
+                try:
+                    parsed_site_url = urlsplit(normalized_site_url)
+                    site_port = parsed_site_url.port
+                    site_hostname = parsed_site_url.hostname
+                except ValueError as exc:
+                    raise LLMConfigurationError(
+                        "site_url must be a valid http:// or https:// URL without credentials."
+                    ) from exc
+                if site_port is not None and site_port <= 0:
+                    raise LLMConfigurationError("site_url port must be a positive integer.")
+                if (
+                    parsed_site_url.scheme.lower() not in ("https", "http")
+                    or not site_hostname
+                    or parsed_site_url.username is not None
+                    or parsed_site_url.password is not None
+                ):
+                    raise LLMConfigurationError(
+                        "site_url must be a valid http:// or https:// URL without credentials."
+                    )
+                default_headers["HTTP-Referer"] = normalized_site_url
+        if self.app_name is not None:
+            normalized_app_name = self.app_name.strip()
+            if normalized_app_name:
+                if _has_invalid_header_chars(normalized_app_name):
+                    raise LLMConfigurationError(
+                        "app_name must contain only printable ASCII characters."
+                    )
+                default_headers["X-Title"] = normalized_app_name
+
+        try:
+            import openai as openai_mod
+        except ImportError as exc:  # pragma: no cover - defensive
+            raise LLMConfigurationError(
+                "openai package not installed. Install metesparser with OpenAI extras."
+            ) from exc
+
+        openai_cls = getattr(openai_mod, "OpenAI", None)
+        if not callable(openai_cls):
+            raise LLMConfigurationError(
+                "openai package not installed. Install metesparser with OpenAI extras."
+            )
+
+        # Disable SDK-level retries so OpenRouterClient's round-robin failover
+        # and backoff govern retry counts without multiplicative amplification.
+        client_kwargs: dict[str, object] = {
+            "api_key": key,
+            "base_url": self.base_url,
+            "max_retries": 0,
+        }
+        if self.timeout_s is not None:
+            client_kwargs["timeout"] = self.timeout_s
+        if default_headers:
+            client_kwargs["default_headers"] = default_headers
+
+        status_errors = tuple(
+            err
+            for err in (getattr(openai_mod, "APIStatusError", None),)
+            if isinstance(err, type) and issubclass(err, BaseException)
+        )
+        transport_errors = tuple(
+            err
+            for err in (
+                getattr(openai_mod, "APITimeoutError", None),
+                getattr(openai_mod, "APIConnectionError", None),
+            )
+            if isinstance(err, type) and issubclass(err, BaseException)
+        )
+
+        sdk_client = openai_cls(**client_kwargs)
+        # Clear OpenAI-specific env credentials so they are never forwarded to OpenRouter.
+        for attr in ("organization", "project", "webhook_secret"):
+            if hasattr(sdk_client, attr):
+                setattr(sdk_client, attr, None)
+
+        object.__setattr__(self, "_client", sdk_client)
+        object.__setattr__(self, "_status_errors", status_errors)
+        object.__setattr__(self, "_transport_errors", transport_errors)
+
+    def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+        messages: list[dict[str, object]] = [{"role": "user", "content": prompt}]
+        return self._create_completion(
+            messages, response_mime_type=response_mime_type, include_pdf_plugin=False
+        )
+
+    def generate_text_with_pdf(
+        self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+    ) -> str:
+        filename, pdf_bytes = _read_pdf(pdf_path)
+        pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+        messages: list[dict[str, object]] = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "file",
+                        "file": {
+                            "filename": filename,
+                            "file_data": f"data:application/pdf;base64,{pdf_base64}",
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    },
+                ],
+            }
+        ]
+        return self._create_completion(
+            messages, response_mime_type=response_mime_type, include_pdf_plugin=True
+        )
+
+    def _create_completion(
+        self,
+        messages: list[dict[str, object]],
+        *,
+        response_mime_type: str | None = None,
+        include_pdf_plugin: bool = False,
+    ) -> str:
+        request_kwargs: dict[str, object] = {
+            "temperature": 0,
+            "messages": messages,
+        }
+        if response_mime_type == "application/json":
+            request_kwargs["response_format"] = {"type": "json_object"}
+
+        extra_body: dict[str, object] = {}
+        if include_pdf_plugin and self.pdf_engine is not None:
+            extra_body["plugins"] = [
+                {
+                    "id": "file-parser",
+                    "pdf": {"engine": self.pdf_engine},
+                }
+            ]
+        if self.reasoning_effort is not None:
+            extra_body["reasoning"] = {"effort": self.reasoning_effort}
+        if extra_body:
+            request_kwargs["extra_body"] = extra_body
+
+        models_to_try: list[str] = [self.model]
+        fallback = self.fallback_model
+        if fallback and fallback not in models_to_try:
+            models_to_try.append(fallback)
+
+        catch_types = self._status_errors + self._transport_errors
+        last_error: BaseException | None = None
+        total_rounds = self.max_retries + 1
+
+        for round_index in range(total_rounds):
+            for model_index, model_name in enumerate(models_to_try):
+                has_more_models = model_index < len(models_to_try) - 1
+                has_more_rounds = round_index < total_rounds - 1
+                try:
+                    response = self._client.chat.completions.create(
+                        model=model_name,
+                        **request_kwargs,
+                    )
+                except json.JSONDecodeError as exc:
+                    err = LLMClientError(f"OpenRouter returned invalid JSON: {exc}")
+                    if has_more_models or has_more_rounds:
+                        last_error = err
+                        continue
+                    raise err from exc
+                except catch_types as exc:
+                    is_retryable = isinstance(exc, self._transport_errors) or (
+                        isinstance(exc, self._status_errors)
+                        and _is_retryable_status(getattr(exc, "status_code", None))
+                    )
+                    if is_retryable and (has_more_models or has_more_rounds):
+                        last_error = exc
+                        continue
+                    raise
+
+                payload_error = self._extract_response_error(response, model_name)
+                if payload_error is not None:
+                    err, is_retryable = payload_error
+                    if is_retryable and (has_more_models or has_more_rounds):
+                        last_error = err
+                        continue
+                    raise err
+
+                return self._collect_response_text(response)
+            if round_index < total_rounds - 1 and self.retry_backoff_s > 0:
+                time.sleep(self.retry_backoff_s * (2**round_index))
+
+        if last_error:
+            raise last_error
+        return ""
+
+    @staticmethod
+    def _extract_response_error(
+        response: object, model_name: str
+    ) -> tuple[LLMClientError, bool] | None:
+        if response is None or isinstance(response, (str, bytes, list, tuple, int, float)):
+            return (
+                LLMClientError(
+                    f"OpenRouter returned unexpected response payload for {model_name}: "
+                    f"{type(response).__name__}"
+                ),
+                True,
+            )
+
+        response_error = getattr(response, "error", None)
+        choices = getattr(response, "choices", None)
+        choice_error: object = None
+        finish_reason: object = None
+        if isinstance(choices, list) and choices:
+            first_choice = choices[0]
+            choice_error = getattr(first_choice, "error", None)
+            finish_reason = getattr(first_choice, "finish_reason", None)
+
+        if response_error is None and choice_error is None and finish_reason != "error":
+            return None
+
+        err_obj = response_error if response_error is not None else choice_error
+        raw_code: object = None
+        raw_message: object = None
+        if isinstance(err_obj, dict):
+            raw_code = err_obj.get("code")
+            raw_message = err_obj.get("message")
+        elif err_obj is not None:
+            raw_code = getattr(err_obj, "code", None)
+            raw_message = getattr(err_obj, "message", None)
+
+        code: int | None = None
+        if isinstance(raw_code, int) and not isinstance(raw_code, bool):
+            code = raw_code
+        elif isinstance(raw_code, str):
+            stripped_code = raw_code.strip()
+            if stripped_code:
+                try:
+                    code = int(stripped_code)
+                except ValueError:
+                    code = None
+
+        if isinstance(raw_message, str) and raw_message.strip():
+            message = raw_message.strip()
+        elif err_obj is not None:
+            message = str(err_obj)
+        else:
+            message = "upstream completion failed"
+
+        detail_parts: list[str] = []
+        if code is not None:
+            detail_parts.append(f"code={code}")
+        if finish_reason == "error":
+            detail_parts.append("finish_reason=error")
+        if message:
+            detail_parts.append(message)
+        detail = "; ".join(detail_parts) or "unknown error"
+
+        err = LLMClientError(f"OpenRouter error for {model_name}: {detail}")
+        is_retryable = _is_retryable_status(code) or (code is None and finish_reason == "error")
+        return err, is_retryable
+
+    @staticmethod
+    def _collect_response_text(response: object) -> str:
+        choices = getattr(response, "choices", None)
+        if not isinstance(choices, list) or not choices:
+            return ""
+        message = getattr(choices[0], "message", None)
+        if message is None:
+            return ""
+        content = getattr(message, "content", None)
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            segments: list[str] = []
+            for part in content:
+                part_type = (
+                    part.get("type") if isinstance(part, dict) else getattr(part, "type", None)
+                )
+                if isinstance(part_type, str) and (
+                    part_type in ("thinking", "reasoning", "reasoning_text")
+                    or part_type.startswith(("thinking", "reasoning"))
+                ):
+                    continue
+                part_text = (
+                    part.get("text") if isinstance(part, dict) else getattr(part, "text", None)
+                )
+                if isinstance(part_text, str):
+                    segments.append(part_text)
+            return "".join(segments)
         return ""

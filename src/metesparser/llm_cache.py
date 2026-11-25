@@ -23,12 +23,17 @@ _MODEL_CONFIG_FIELDS = (
     "fallback_model",
     "thinking_level",
     "thinking_budget",
+    "pdf_engine",
+    "reasoning_effort",
+    "base_url",
 )
 _SHARED_CLIENT_ALIASES: dict[tuple[str, str], str] = {
     ("mp_ocr.clients", "OpenAIClient"): "OpenAIClient",
     ("metesparser.llm_clients", "OpenAIClient"): "OpenAIClient",
     ("mp_ocr.clients", "GeminiClient"): "GeminiClient",
     ("metesparser.llm_clients", "GeminiClient"): "GeminiClient",
+    ("mp_ocr.clients", "OpenRouterClient"): "OpenRouterClient",
+    ("metesparser.llm_clients", "OpenRouterClient"): "OpenRouterClient",
 }
 
 
@@ -108,7 +113,7 @@ class CachedLLMClient:
             if not isinstance(data, dict):
                 return None
             response: object = data.get("response")
-            if not isinstance(response, str):
+            if not isinstance(response, str) or not response.strip():
                 return None
             logger.debug("Cache hit", cache_key=key[:12])
             return response
@@ -162,7 +167,8 @@ class CachedLLMClient:
             return cached
 
         result = self._client.generate_text(prompt, response_mime_type=response_mime_type)
-        self._write_cache(key, result, prompt)
+        if result and result.strip():
+            self._write_cache(key, result, prompt)
         return result
 
     def generate_text_with_pdf(
@@ -178,7 +184,8 @@ class CachedLLMClient:
         result = self._client.generate_text_with_pdf(
             prompt, pdf_path, response_mime_type=response_mime_type
         )
-        self._write_cache(key, result, prompt, pdf_name=pdf_name)
+        if result and result.strip():
+            self._write_cache(key, result, prompt, pdf_name=pdf_name)
         return result
 
     def clear_cache(self) -> int:

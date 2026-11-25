@@ -703,3 +703,67 @@ class TestExtractRunManifest:
         assert len(manifests) == 1
         assert manifests[0].source_pdf == "test.pdf"
         assert manifests[0].results.call_count == 4
+
+    def test_extract_openrouter_unwraps_model_and_writes_manifest(self, monkeypatch, tmp_path):
+        """CLI _unwrap_llm_model and extract_command record OpenRouter provider and model."""
+        from metesparser.llm_cache import CachedLLMClient
+        from metesparser.llm_clients import OpenRouterClient
+        from metesparser.run_registry import load_run_manifests
+
+        client = OpenRouterClient(api_key="or-offline", model="anthropic/claude-haiku-5.5")
+        cached_client = CachedLLMClient(client, cache_dir=tmp_path / "cache")
+        assert cli._unwrap_llm_model(SimpleNamespace(client=cached_client)) == (
+            "anthropic/claude-haiku-5.5"
+        )
+
+        pdf = tmp_path / "deed.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        output = tmp_path / "out.csv"
+        runs_dir = tmp_path / "runs"
+
+        legal_desc = LegalDescription(
+            calls=[
+                DeedCall(
+                    course=1,
+                    direction_text="N 90° E",
+                    bearing_quadrant="N 90° E",
+                    bearing_azimuth_deg_from_north=90.0,
+                    distance_ft=10.0,
+                )
+            ],
+            source_doc="deed.pdf",
+        )
+        verified = _verified_result()
+
+        seen_providers: list[str | None] = []
+
+        def fake_processor(*, provider=None, cache=True):
+            seen_providers.append(provider)
+            return SimpleNamespace(
+                process_deed_pdf=lambda _: legal_desc,
+                prompts_dir=tmp_path,
+                client=cached_client,
+            )
+
+        monkeypatch.setattr("metesparser.pdf_processor.PDFProcessor", fake_processor)
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.verify_closure",
+            lambda calls, stated_area_sq_ft=0.0, **kwargs: verified,
+        )
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+            lambda result, **kwargs: "VERIFIED",
+        )
+        monkeypatch.setattr(
+            "metesparser.csv_builder.CSVBuilder.export_verified_csv",
+            lambda calls, closure_result, output_path, legal_desc_obj: None,
+        )
+        monkeypatch.setattr("metesparser.cli.RUNS_DIR", runs_dir)
+
+        cli.extract_command(str(pdf), output=str(output), llm_provider="openrouter")
+
+        assert seen_providers == ["openrouter"]
+        manifests = load_run_manifests(runs_dir)
+        assert len(manifests) == 1
+        assert manifests[0].llm_provider == "openrouter"
+        assert manifests[0].llm_model == "anthropic/claude-haiku-5.5"

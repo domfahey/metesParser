@@ -7,8 +7,8 @@ This directory contains all prompts used by the metesParser system. Prompts are 
 ### 1. extract_text_from_pdf.yaml
 **Purpose**: Extract all text from a PDF document (LLM prompt input for downstream parsing)
 
-**Model**: OpenAI `gpt-4.1` (default)
-**API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
+**Model**: Provider-dependent (OpenAI `gpt-5.2`, Gemini `gemini-3.6-flash` / fallback `gemini-3.8-flash`, OpenRouter `anthropic/claude-haiku-5.5` / fallback `anthropic/claude-sonnet-5.5`)
+**API/Client**: Provider-dependent (`OpenAIClient`, `GeminiClient`, or `OpenRouterClient`)
 **Input**: PDF file (base64 encoded)
 **Output**: Complete document text
 
@@ -19,8 +19,8 @@ This directory contains all prompts used by the metesParser system. Prompts are 
 ### 2. extract_legal_description.yaml
 **Purpose**: Locate and extract the legal description section from deed text
 
-**Model**: OpenAI `gpt-4.1` (default)
-**API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
+**Model**: Provider-dependent (OpenAI `gpt-5.2`, Gemini `gemini-3.6-flash` / fallback `gemini-3.8-flash`, OpenRouter `anthropic/claude-haiku-5.5` / fallback `anthropic/claude-sonnet-5.5`)
+**API/Client**: Provider-dependent (`OpenAIClient`, `GeminiClient`, or `OpenRouterClient`)
 **Input**: Full document text
 **Output**: Legal description text only
 
@@ -36,8 +36,8 @@ This directory contains all prompts used by the metesParser system. Prompts are 
 ### 3. normalize_text.yaml
 **Purpose**: Normalize and clean up legal description text
 
-**Model**: OpenAI `gpt-4.1` (default)
-**API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
+**Model**: Provider-dependent (OpenAI `gpt-5.2`, Gemini `gemini-3.6-flash` / fallback `gemini-3.8-flash`, OpenRouter `anthropic/claude-haiku-5.5` / fallback `anthropic/claude-sonnet-5.5`)
+**API/Client**: Provider-dependent (`OpenAIClient`, `GeminiClient`, or `OpenRouterClient`)
 **Input**: Raw legal description text
 **Output**: Normalized, standardized text
 
@@ -55,8 +55,8 @@ This directory contains all prompts used by the metesParser system. Prompts are 
 ### 4. extract_calls.yaml
 **Purpose**: Extract individual calls/courses from normalized legal description (AI-assisted experimental method)
 
-**Model**: OpenAI `gpt-4.1` (default)
-**API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
+**Model**: Provider-dependent (OpenAI `gpt-5.2`, Gemini `gemini-3.6-flash` / fallback `gemini-3.8-flash`, OpenRouter `anthropic/claude-haiku-5.5` / fallback `anthropic/claude-sonnet-5.5`)
+**API/Client**: Provider-dependent (`OpenAIClient`, `GeminiClient`, or `OpenRouterClient`)
 **Input**: Normalized legal description text
 **Output**: JSON array of structured call data
 
@@ -167,8 +167,9 @@ The complete PDF processing pipeline uses prompts in this order:
 
 Defaults are:
 
-- OpenAI: **gpt-4.1**
-- Gemini: **gemini-2.5-pro** (with optional fallback model in `GeminiClient`)
+- OpenAI: **gpt-5.2**
+- Gemini: **gemini-3.6-flash** (fallback **gemini-3.8-flash** in `GeminiClient`)
+- OpenRouter: **anthropic/claude-haiku-5.5** (fallback **anthropic/claude-sonnet-5.5** in `OpenRouterClient`)
 
 Prompts are provider-agnostic, so model changes are provider-specific and should be made in the client configuration.
 

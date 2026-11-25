@@ -44,7 +44,7 @@ metesParser combines source acquisition with deterministic metes-and-bounds pars
 
 - **Python 3.11+** - Modern Python with type hints (`|` unions)
 - **Pydantic v2** - Data validation and schema enforcement
-- **OpenAI + optional Gemini** - Configurable LLM providers for PDF extraction
+- **OpenAI + Gemini + OpenRouter** - Configurable LLM providers for PDF extraction
 - **UV workspace monorepo** - 7 `mp-*` packages plus the root `metesparser` package (no pip/conda/poetry)
 - **pytest** - Root, package/plugin, and opt-in browser suites; scope and commands are in [TESTING.md](TESTING.md)
 
@@ -284,7 +284,7 @@ flowchart TD
     picker[Offline raster control picker] --> controls[Downloaded control coordinates only]
     controls --> register[Separate raster registration and review]
     register --> prepared
-    pdf[PDF for separate provider pipeline] --> ocr[mp-ocr: OpenAI or Gemini]
+    pdf[PDF for separate provider pipeline] --> ocr[mp-ocr: OpenAI, Gemini, or OpenRouter]
     ocr --> legacy[Python CLI/API path: parse, verify, gated export]
 ```
 
@@ -294,7 +294,7 @@ Dashboard creation is an explicit composition step: assemble source-linked calls
 
 A map-only request composes existing `PreparedPlot` objects, map layers, and explicit placements in `StandaloneWebMapInput`, then supplies a separate `WebMapRequest` to `render-map`. It revalidates shared geometry and placement bindings without requiring dashboard assembly. See the [standalone composition recipe](../plugins/metesparser/skills/render-online-map/references/local-viewer.md#compose-existing-artifacts).
 
-Claude's native reading and selection are source-preparation stages outside the Python provider pipeline. The plugin does not substitute `mp-ocr` or an external OCR service for native reading. In the separate Python PDF pipeline below, `mp-ocr` owns OpenAI/Gemini calls. In both paths, parsing, geometry, checks, and rendering use deterministic package code; geometric success does not establish source completeness.
+Claude's native reading and selection are source-preparation stages outside the Python provider pipeline. The plugin does not substitute `mp-ocr` or an external OCR service for native reading. In the separate Python PDF pipeline below, `mp-ocr` owns OpenAI/Gemini/OpenRouter calls. In both paths, parsing, geometry, checks, and rendering use deterministic package code; geometric success does not establish source completeness.
 
 Browser edits are recoverable working copies. The straight-course scenario calculator is a preview; the structured editor retains exact raw line/arc inputs, but shared-engine geometry is refreshed only after publishing and rendering a revision. A browser preview, saved raw draft, or last-valid parent plot is not the current geometry for an unresolved revision.
 
@@ -404,7 +404,7 @@ flowchart LR
     doc["PDF or image"]
     subgraph read["Source reading"]
         native["Claude native reading<br/>plugin and chat Skill"]
-        ocr["PDFProcessor, OpenAI or Gemini<br/>Python Pipeline, CLI extract"]
+        ocr["PDFProcessor, OpenAI / Gemini / OpenRouter<br/>Python Pipeline, CLI extract"]
     end
     text["Description text"]
     subgraph parse["mp_parse"]
@@ -439,7 +439,7 @@ GeoJSON is built in `mp_review.delivery` and the other delivery formats in `mp_e
 
 ```
 1. PDF Extraction [mp-ocr]
-   |-> Configured LLM provider (OpenAI or Gemini)
+   |-> Configured LLM provider (OpenAI, Gemini, or OpenRouter)
    |-> Retain provider output; sampling settings do not prove repeatability or accuracy
    |-> File-based response caching (CachedLLMClient)
    |-> LLM confidence scoring (7 heuristic signals)
@@ -540,7 +540,7 @@ Deltas: dx = dist * sin(az), dy = dist * cos(az)
 
 **Key Classes**:
 - `PDFProcessor` - Extracts text from deed PDFs via LLM
-- `BaseLLMClient` ABC, `OpenAIClient`, `GeminiClient` - Provider implementations
+- `BaseLLMClient` ABC, `OpenAIClient`, `GeminiClient`, `OpenRouterClient` - Provider implementations
 - `CachedLLMClient` - Disk-cached wrapper for LLM responses
 - `compute_llm_confidence()` - 7 weighted heuristic signals, 0.0-1.0
 

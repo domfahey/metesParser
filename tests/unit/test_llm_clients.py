@@ -10,6 +10,7 @@ from metesparser.llm_clients import (
     GeminiClient,
     LLMConfigurationError,
     OpenAIClient,
+    OpenRouterClient,
     _read_pdf,
 )
 
@@ -380,3 +381,78 @@ def test_gemini_client_package_and_monolith_parity(monkeypatch, tmp_path):
     assert PackageCachedLLMClient(pkg_low, tmp_path / "c")._cache_key(
         "prompt", None
     ) != PackageCachedLLMClient(pkg_high, tmp_path / "c")._cache_key("prompt", None)
+
+
+def test_openrouter_client_real_openai_sdk_construction_and_parity(tmp_path):
+    from mp_ocr.cache import CachedLLMClient as PackageCachedLLMClient
+    from mp_ocr.clients import OpenRouterClient as PackageOpenRouterClient
+
+    from metesparser.llm_cache import CachedLLMClient as MonolithCachedLLMClient
+
+    mono = OpenRouterClient(
+        api_key="or-test-key-offline",
+        pdf_engine="mistral-ocr",
+        reasoning_effort="low",
+    )
+    pkg = PackageOpenRouterClient(
+        api_key="or-test-key-offline",
+        pdf_engine="mistral-ocr",
+        reasoning_effort="LOW",
+    )
+    assert mono.model == pkg.model == "anthropic/claude-haiku-5.5"
+    assert mono.fallback_model == pkg.fallback_model == "anthropic/claude-sonnet-5.5"
+    assert mono.reasoning_effort == pkg.reasoning_effort == "low"
+    assert "or-test-key-offline" not in repr(mono)
+    assert str(mono._client.base_url).rstrip("/") == "https://openrouter.ai/api/v1"
+    assert mono._client.max_retries == 0
+    assert PackageCachedLLMClient(pkg, tmp_path / "c")._cache_key(
+        "prompt", None
+    ) == MonolithCachedLLMClient(mono, tmp_path / "c")._cache_key("prompt", None)
+
+
+def test_openrouter_client_monolith_pdf_failover_and_missing_key(monkeypatch, tmp_path):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    with pytest.raises(LLMConfigurationError, match="OPENROUTER_API_KEY"):
+        OpenRouterClient()
+
+    calls: list[dict[str, object]] = []
+    sleeps: list[float] = []
+    monkeypatch.setattr("metesparser.llm_clients.time.sleep", sleeps.append)
+
+    class FakeStatusError(Exception):
+        def __init__(self, status_code: int) -> None:
+            super().__init__(f"status {status_code}")
+            self.status_code = status_code
+
+    class FakeCompletions:
+        def create(self, **kwargs: object) -> object:
+            calls.append(kwargs)
+            if kwargs["model"] == "anthropic/claude-haiku-5.5":
+                raise FakeStatusError(503)
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content="fallback ok"))]
+            )
+
+    module = ModuleType("openai")
+    module.OpenAI = lambda **kwargs: SimpleNamespace(  # type: ignore[attr-defined]
+        chat=SimpleNamespace(completions=FakeCompletions())
+    )
+    module.APIStatusError = FakeStatusError  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "openai", module)
+
+    pdf = tmp_path / "sample.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    client = OpenRouterClient(
+        api_key="or-key",
+        pdf_engine="native",
+    )
+    assert client.generate_text_with_pdf("extract", str(pdf)) == "fallback ok"
+    assert [c["model"] for c in calls] == [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+    ]
+    assert sleeps == []
+    assert calls[0]["extra_body"] == {
+        "plugins": [{"id": "file-parser", "pdf": {"engine": "native"}}],
+        "reasoning": {"effort": "low"},
+    }

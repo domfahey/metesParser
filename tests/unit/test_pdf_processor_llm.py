@@ -204,3 +204,134 @@ def test_gemini_client_fallback_to_flash(monkeypatch):
 
     assert result == "ok"
     assert calls == ["gemini-2.5-pro", "gemini-2.5-flash"]
+
+
+def test_provider_env_selects_openrouter_and_reads_overrides(monkeypatch):
+    created = {}
+
+    class DummyOpenRouter(RecordingClient):
+        def __init__(self, **kwargs):
+            super().__init__()
+            created.update(kwargs)
+
+    monkeypatch.setenv("METESPARSER_LLM_PROVIDER", "openrouter")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "or-test-key")
+    monkeypatch.setenv("OPENROUTER_MODEL", "openai/gpt-6.1-terra")
+    monkeypatch.setenv("OPENROUTER_FALLBACK_MODEL", "google/gemini-3.8-flash")
+    monkeypatch.setenv("OPENROUTER_PDF_ENGINE", "mistral-ocr")
+    monkeypatch.setenv("OPENROUTER_REASONING_EFFORT", "low")
+    monkeypatch.setattr("metesparser.pdf_processor.OpenRouterClient", DummyOpenRouter)
+
+    processor = PDFProcessor(cache=False)
+    assert isinstance(processor.client, DummyOpenRouter)
+    assert created == {
+        "api_key": None,
+        "model": "openai/gpt-6.1-terra",
+        "fallback_model": "google/gemini-3.8-flash",
+        "pdf_engine": "mistral-ocr",
+        "reasoning_effort": "low",
+    }
+
+
+def test_openrouter_provider_audit_metadata_in_package_and_monolith(monkeypatch, tmp_path):
+    from mp_ocr.clients import OpenRouterClient as PackageOpenRouterClient
+    from mp_ocr.extract import PDFProcessor as PackagePDFProcessor
+
+    from metesparser.llm_clients import OpenRouterClient as MonolithOpenRouterClient
+
+    pdf = tmp_path / "deed.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+
+    legal_text = (
+        "BEGINNING at a point; "
+        "thence N 00°00'00\" E 100.00 feet; "
+        "thence S 90°00'00\" E 100.00 feet; "
+        "thence S 00°00'00\" W 100.00 feet; "
+        "thence N 90°00'00\" W 100.00 feet to the point of beginning."
+    )
+
+    fake_resp = SimpleNamespace(
+        choices=[SimpleNamespace(message=SimpleNamespace(content=legal_text))]
+    )
+
+    mono_client = MonolithOpenRouterClient(api_key="or-offline", model="openai/gpt-6.1-terra")
+    monkeypatch.setattr(mono_client._client.chat.completions, "create", lambda **kw: fake_resp)
+    mono_proc = PDFProcessor(client=mono_client, cache=False)
+    _, mono_ctx = mono_proc.process_deed_pdf(str(pdf), audit=True)
+    assert mono_ctx.run_metadata.llm_provider == "openrouter"
+    assert mono_ctx.run_metadata.llm_model == "openai/gpt-6.1-terra"
+    assert all(stage.provider == "openrouter" for stage in mono_ctx.extraction_record.llm_stages)
+
+    pkg_client = PackageOpenRouterClient(api_key="or-offline", model="openai/gpt-6.1-terra")
+    monkeypatch.setattr(pkg_client._client.chat.completions, "create", lambda **kw: fake_resp)
+    pkg_proc = PackagePDFProcessor(client=pkg_client, cache=False)
+    pkg_proc.extract_legal_description(str(pdf), audit=True)
+    pkg_ctx = pkg_proc._build_audit_context(
+        pdf_path=str(pdf),
+        legal_desc_text=legal_text,
+        normalized_text=legal_text,
+        distance_unit="feet",
+    )
+    assert pkg_ctx.run_metadata.llm_provider == "openrouter"
+    assert pkg_ctx.run_metadata.llm_model == "openai/gpt-6.1-terra"
+
+
+def test_cli_accepts_openrouter_llm_provider(monkeypatch, tmp_path):
+    from metesparser import cli
+
+    captured = {}
+
+    def fake_extract(pdf, output=None, llm_provider=None, no_cache=False):
+        captured["pdf"] = pdf
+        captured["llm_provider"] = llm_provider
+        captured["no_cache"] = no_cache
+
+    monkeypatch.setattr(cli, "extract_command", fake_extract)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["metesparser", "extract", str(tmp_path / "d.pdf"), "--llm-provider", "openrouter"],
+    )
+    cli.main()
+    assert captured["llm_provider"] == "openrouter"
+
+
+def test_openrouter_env_escape_hatches_disable_fallback_and_reasoning(monkeypatch):
+    created: dict[str, object] = {}
+
+    class DummyOpenRouter(RecordingClient):
+        def __init__(self, **kwargs):
+            super().__init__()
+            created.clear()
+            created.update(kwargs)
+
+    monkeypatch.setattr("metesparser.pdf_processor.OpenRouterClient", DummyOpenRouter)
+    for var in (
+        "OPENROUTER_MODEL",
+        "OPENROUTER_FALLBACK_MODEL",
+        "OPENROUTER_PDF_ENGINE",
+        "OPENROUTER_REASONING_EFFORT",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    # Unset env vars leave defaults intact (not passed in kwargs)
+    PDFProcessor(provider="openrouter", cache=False)
+    assert created == {"api_key": None}
+
+    # Disable fallback with "", "none", "off", "disabled"
+    for disable_val in ("", "  ", "none", "off", "DISABLED"):
+        monkeypatch.setenv("OPENROUTER_FALLBACK_MODEL", disable_val)
+        PDFProcessor(provider="openrouter", cache=False)
+        assert "fallback_model" in created and created["fallback_model"] is None
+
+    monkeypatch.delenv("OPENROUTER_FALLBACK_MODEL", raising=False)
+
+    # Disable reasoning with "", "off", "disabled"
+    for disable_val in ("", "  ", "off", "disabled"):
+        monkeypatch.setenv("OPENROUTER_REASONING_EFFORT", disable_val)
+        PDFProcessor(provider="openrouter", cache=False)
+        assert "reasoning_effort" in created and created["reasoning_effort"] is None
+
+    # Explicit "none" preserves reasoning_effort="none"
+    monkeypatch.setenv("OPENROUTER_REASONING_EFFORT", "none")
+    PDFProcessor(provider="openrouter", cache=False)
+    assert created["reasoning_effort"] == "none"

@@ -14,7 +14,13 @@ from typing import Any, cast
 import structlog
 import yaml
 
-from .llm_clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
+from .llm_clients import (
+    BaseLLMClient,
+    GeminiClient,
+    LLMClientError,
+    OpenAIClient,
+    OpenRouterClient,
+)
 from .models import (
     PRIOR_CONVEYANCE_SIGNALS,
     AuditContext,
@@ -53,7 +59,7 @@ class PDFProcessor:
 
         Args:
             api_key: Optional API key override for the chosen provider
-            provider: LLM provider name ("openai" or "gemini")
+            provider: LLM provider name ("openai", "gemini", or "openrouter")
             client: Optional pre-constructed LLM client implementation
             cache: Enable/disable LLM response caching (default: True, env: METESPARSER_LLM_CACHE)
             cache_dir: Directory for cached responses (env: METESPARSER_CACHE_DIR)
@@ -171,6 +177,8 @@ class PDFProcessor:
             provider = "openai"
         elif isinstance(inner, GeminiClient):
             provider = "gemini"
+        elif isinstance(inner, OpenRouterClient):
+            provider = "openrouter"
         else:
             provider = "unknown"
         model = self._get_model_name()
@@ -467,6 +475,8 @@ class PDFProcessor:
             llm_provider = "openai"
         elif isinstance(inner, GeminiClient):
             llm_provider = "gemini"
+        elif isinstance(inner, OpenRouterClient):
+            llm_provider = "openrouter"
         else:
             llm_provider = "unknown"
 
@@ -627,9 +637,28 @@ class PDFProcessor:
                 return OpenAIClient(api_key=self._configured_api_key)
             if provider_name == "gemini":
                 return GeminiClient(api_key=self._configured_api_key)
+            if provider_name == "openrouter":
+                openrouter_kwargs: dict[str, Any] = {"api_key": self._configured_api_key}
+                if or_model := (os.getenv("OPENROUTER_MODEL") or "").strip():
+                    openrouter_kwargs["model"] = or_model
+                if "OPENROUTER_FALLBACK_MODEL" in os.environ:
+                    or_fallback = os.environ["OPENROUTER_FALLBACK_MODEL"].strip()
+                    if not or_fallback or or_fallback.lower() in {"none", "off", "disabled"}:
+                        openrouter_kwargs["fallback_model"] = None
+                    else:
+                        openrouter_kwargs["fallback_model"] = or_fallback
+                if or_pdf_engine := (os.getenv("OPENROUTER_PDF_ENGINE") or "").strip():
+                    openrouter_kwargs["pdf_engine"] = or_pdf_engine
+                if "OPENROUTER_REASONING_EFFORT" in os.environ:
+                    or_effort = os.environ["OPENROUTER_REASONING_EFFORT"].strip()
+                    if not or_effort or or_effort.lower() in {"off", "disabled"}:
+                        openrouter_kwargs["reasoning_effort"] = None
+                    else:
+                        openrouter_kwargs["reasoning_effort"] = or_effort
+                return OpenRouterClient(**openrouter_kwargs)
         except LLMClientError as exc:
             raise ValueError(str(exc)) from exc
 
         raise ValueError(
-            f"Unsupported LLM provider '{provider_name}'. Choose from: openai, gemini."
+            f"Unsupported LLM provider '{provider_name}'. Choose from: openai, gemini, openrouter."
         )

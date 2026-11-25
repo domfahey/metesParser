@@ -60,11 +60,12 @@ user_prompt_template: |
   </instruction>
 
   <output_requirements>
-  - Return ALL text from the document
-  - Preserve original line breaks and paragraph structure
+  - Return ALL text from the document as plain text ONLY
+  - NEVER add Markdown formatting (no **bold**, *italics*, # headings, bullet markers, or ``` code fences)
+  - Preserve original line breaks, tract/schedule headings, and paragraph structure
   - Maintain exact spelling and capitalization
   - Include all numbers, symbols, and special characters exactly as shown
-  - Focus particularly on accuracy in BEGINNING/THENCE sections
+  - Focus particularly on accuracy in BEGINNING/THENCE sections across ALL pages and schedules
   </output_requirements>
 
   Begin extraction now.

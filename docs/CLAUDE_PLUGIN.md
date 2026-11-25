@@ -74,12 +74,12 @@ One deterministic engine sits behind four ways of running MetesParser: the plugi
 | Where you get it | `metesparser-plugin.zip` from [GitHub Releases](https://github.com/domfahey/metesParser/releases) | Same ZIP | `metesparser-chat-skill.zip` from [GitHub Releases](https://github.com/domfahey/metesParser/releases) (v0.7.0 and later), or build it from a source checkout (`make chat-skill-build`) | Source checkout |
 | Install | Customize → Plugins, upload the ZIP (Anthropic's article does not name the upload format) | Extract the ZIP, then `claude --plugin-dir /absolute/path/to/extracted-plugin`; no marketplace | Customize → Skills → **+** → upload a skill; code execution must be on | `uv sync --all-extras --dev` |
 | Needed on your computer | Claude Desktop app, open and connected, for local folders | Python 3.11+ and `uv` on `PATH` | Nothing; the chat host needs Python 3.11+ | Python 3.11+ and `uv` |
-| Claude plan or account | Paid plan (Pro, Max, Ultra, Team, Enterprise) | Claude Code access; plan requirements not documented here | Any plan with Skills (Free to Enterprise) and code execution; Team and Enterprise owners must enable it | None for local commands; `metesparser extract` needs an OpenAI or Gemini API key and is billed by that provider (rates not documented here) |
+| Claude plan or account | Paid plan (Pro, Max, Ultra, Team, Enterprise) | Claude Code access; plan requirements not documented here | Any plan with Skills (Free to Enterprise) and code execution; Team and Enterprise owners must enable it | None for local commands; `metesparser extract` needs an OpenAI, Gemini, or OpenRouter API key and is billed by that provider (rates not documented here) |
 | Entry points | 13 skills: 10 capabilities, 2 workflows, and `review-deed`, a manual alias Claude never selects itself | Same 13 skills | 1 skill, `metesparser-review`, routing to 13 procedures | `metes-review` (27 subcommands); `metesparser` (`extract`, `verify`, `compare-runs`) |
 | Operating systems | Desktop app on macOS, Windows, Linux (Anthropic: beta); the engine runs in Cowork's cloud environment | macOS used in development; Linux and Windows untested | Bootstrap supports Linux and macOS, x86_64 and ARM64; other hosts need `uv` on `PATH` | macOS used in development; Linux and Windows not documented |
 | Updating | Download a newer ZIP and upload it again; no marketplace | Download, extract and point `--plugin-dir` at the new folder | Rebuild from the newer commit and upload again | `git pull`, then `uv sync` |
 | **Working with documents** | | | | |
-| Reading PDFs and images | Claude's native reading | Claude's native reading, when the session supports it | Claude's native reading | `metes-review` reads UTF-8 text, CSV or JSON only; `metesparser extract` reads a PDF through an OpenAI or Gemini API |
+| Reading PDFs and images | Claude's native reading | Claude's native reading, when the session supports it | Claude's native reading | `metes-review` reads UTF-8 text, CSV or JSON only; `metesparser extract` reads a PDF through an OpenAI, Gemini, or OpenRouter API |
 | Choosing the tract | Claude asks which tract, keeps page references and uncertainty, and explains results | Same | Same | You supply one description per run; text containing several returns `error` (exit 2) |
 | File access | Folders you connect through the Desktop app; results written beside the sources | Local filesystem under Claude Code's permissions | Uploaded files only; results come back as a downloadable ZIP | Full local filesystem |
 | Many deeds | Several tracts of one deed in one session; folder-wide batches untested (the plugin bundles no subagents or schedules) | Same | Upload limits for many files untested | One input per run, so script a loop; `metes-review corpus` is a regression runner for a reviewed manifest, not a deed batch tool |
@@ -138,7 +138,7 @@ Claude chat Skill:
 CLI:
 
 - Needs a source checkout, Python 3.11+ and `uv`; there is no Claude-guided reading or tract selection.
-- `metes-review` does not read PDFs or images. `metesparser extract` needs an OpenAI or Gemini key, sends the PDF to that provider at its cost, and produces model output that is not guaranteed repeatable.
+- `metes-review` does not read PDFs or images. `metesparser extract` needs an OpenAI, Gemini, or OpenRouter key, sends the PDF to that provider at its cost, and produces model output that is not guaranteed repeatable.
 - When verification fails, `extract` still writes an unverified CSV to the same output path; read the log before using it.
 - `metesparser verify` checks a CSV but writes no verified export.
 - `fetch-parcel` and Mapbox viewing need network access, and only when you ask for them.

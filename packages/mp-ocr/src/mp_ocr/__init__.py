@@ -7,6 +7,7 @@ from .clients import (
     LLMClientError,
     LLMConfigurationError,
     OpenAIClient,
+    OpenRouterClient,
 )
 from .extract import PDFProcessor, compute_llm_confidence
 
@@ -19,6 +20,7 @@ __all__ = [
     "LLMClientError",
     "LLMConfigurationError",
     "OpenAIClient",
+    "OpenRouterClient",
     "PDFProcessor",
     "compute_llm_confidence",
 ]
