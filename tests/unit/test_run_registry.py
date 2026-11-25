@@ -132,6 +132,36 @@ class TestGetPromptVersions:
         # tmp_path is not inside a git repo, so git_sha should be None
         assert versions["test_prompt"].git_sha is None
 
+    def test_git_sha_for_file_resolves_relative_repo_path(self) -> None:
+        from metesparser.run_registry import _git_sha_for_file
+
+        sha = _git_sha_for_file(Path("prompts/normalize_text.yaml"))
+        assert sha is not None and len(sha) == 40
+
+    def test_git_sha_for_file_returns_none_on_nonzero_and_oserror(
+        self, monkeypatch, tmp_path: Path
+    ) -> None:
+        import subprocess
+        from types import SimpleNamespace
+
+        from metesparser.run_registry import _git_sha_for_file
+
+        f = tmp_path / "x.yaml"
+        f.write_text("a: 1\n", encoding="utf-8")
+
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **kw: SimpleNamespace(returncode=128, stdout="stale\n"),
+        )
+        assert _git_sha_for_file(f) is None
+
+        def _raise_oserror(*_a, **_kw):
+            raise OSError("permission denied")
+
+        monkeypatch.setattr(subprocess, "run", _raise_oserror)
+        assert _git_sha_for_file(f) is None
+
 
 class TestWriteRunManifest:
     def _make_manifest(self) -> RunManifest:
@@ -316,3 +346,56 @@ class TestFormatComparisonTable:
         output = format_comparison_table(manifests, pdf_filter="deed_a")
         assert "deed_a.pdf" in output
         assert "deed_b.pdf" not in output
+
+    def test_mixed_naive_and_offset_timestamps_normalize_to_utc(self, tmp_path: Path) -> None:
+        from datetime import timedelta, timezone
+
+        from metesparser.run_registry import format_comparison_table, write_run_manifest
+
+        offset_dt = datetime(2026, 2, 16, 15, 30, 0, tzinfo=timezone(timedelta(hours=5)))
+        naive_dt = datetime(2026, 2, 16, 12, 0, 0)
+        results = RunResults(
+            call_count=4,
+            closure_passed=True,
+            misclosure_ft=0.0,
+            area_sq_ft=10000.0,
+            confidence_score=0.9,
+            warnings=[],
+        )
+        m_offset = RunManifest(
+            run_id="uuid-offset",
+            timestamp_utc=offset_dt,
+            source_pdf="deed.pdf",
+            llm_provider="openai",
+            llm_model="gpt-5.2",
+            cache_enabled=False,
+            prompt_versions={},
+            results=results,
+            parser_version="0.4.0",
+        )
+        m_naive = RunManifest(
+            run_id="uuid-naive",
+            timestamp_utc=naive_dt,
+            source_pdf="deed.pdf",
+            llm_provider="openai",
+            llm_model="gpt-5.2",
+            cache_enabled=False,
+            prompt_versions={},
+            results=results,
+            parser_version="0.4.0",
+        )
+
+        path = write_run_manifest(m_offset, tmp_path)
+        assert path.name.startswith("2026-02-16T103000-")
+
+        table = format_comparison_table([m_naive, m_offset])
+        assert "2026-02-16 10:30" in table
+        assert "2026-02-16 12:00" in table
+        assert table.index("2026-02-16 10:30") < table.index("2026-02-16 12:00")
+
+
+def test_slugify_pdf_name_fallback_when_empty() -> None:
+    from metesparser.run_registry import _slugify_pdf_name
+
+    assert _slugify_pdf_name("---.pdf") == "deed"
+    assert _slugify_pdf_name("!!!.pdf") == "deed"

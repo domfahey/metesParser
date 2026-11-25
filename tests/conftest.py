@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Iterator
 
 import pytest
 
@@ -23,7 +24,7 @@ def pytest_configure(config: pytest.Config) -> None:
 
 
 @pytest.fixture
-def isolate_logging_state() -> None:
+def isolate_logging_state() -> Iterator[None]:
     """Reset logging configuration for tests that opt in to logging isolation."""
     yield
     configure_logging(level="INFO", log_format="console", stream=sys.stderr, take_over_root=True)

@@ -4,14 +4,14 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 class SettingsError(ValueError):
     """The local settings file is malformed or unsupported."""
 
 
-class UniqueKeyLoader(yaml.SafeLoader):
+class UniqueKeyLoader(yaml.SafeLoader):  # type: ignore[misc]
     """Use safe YAML construction and reject ambiguous duplicate settings."""
 
 
@@ -26,6 +26,17 @@ def _mapping(loader: UniqueKeyLoader, node: yaml.MappingNode) -> dict[str, Any]:
 
 
 UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping)
+
+
+def _resolve_project_root(settings_path: Path) -> Path:
+    """Resolve the project directory for a settings file without brittle parent offsets."""
+    settings_dir = settings_path.resolve().parent
+    if settings_dir.name == ".claude":
+        return settings_dir.parent
+    for candidate in (settings_dir, *settings_dir.parents):
+        if any((candidate / marker).exists() for marker in (".claude", "pyproject.toml", ".git")):
+            return candidate
+    return settings_dir
 
 
 def read_settings(path: Path | None) -> dict[str, Any]:
@@ -52,7 +63,7 @@ def read_settings(path: Path | None) -> dict[str, Any]:
             value = settings["output_dir"]
             if not isinstance(value, str) or not value.strip() or Path(value).is_absolute():
                 raise SettingsError("output_dir must be a non-empty project-relative path.")
-            project = path.resolve().parent.parent
+            project = _resolve_project_root(path)
             target = (project / value).resolve()
             if not target.is_relative_to(project):
                 raise SettingsError("output_dir must stay within the project directory.")
@@ -68,4 +79,4 @@ def output_path(settings: dict[str, Any], explicit: Path | None) -> Path:
         return explicit
     if "output_dir" not in settings:
         raise SettingsError("Supply --output-dir or configure output_dir in local settings.")
-    return settings["output_dir"] / f"review-{uuid.uuid4().hex}"
+    return Path(settings["output_dir"]) / f"review-{uuid.uuid4().hex}"

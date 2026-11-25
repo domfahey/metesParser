@@ -71,6 +71,7 @@ class LegalDescription(_Model):
 
     stated_area_sq_ft: FiniteFloat | None = Field(
         default=None,
+        gt=0,
         description="Stated area from the legal description (square feet)",
     )
     stated_area_approximate: bool = Field(
@@ -111,8 +112,7 @@ class LegalDescription(_Model):
         if not isinstance(value, str):
             raise ValueError("distance_unit must be a string")
 
-        normalized = value.strip().lower()
-        return normalized
+        return value.strip().lower()
 
     @field_validator("stated_area_approximate", mode="before")
     @classmethod

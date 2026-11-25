@@ -384,3 +384,65 @@ class TestCardinalWardlySuffix:
         assert math.isclose(calls[1].distance_ft, 28.84, abs_tol=0.01)
         assert calls[2].notes == "incomplete bearing - cardinal only"
         assert math.isclose(calls[2].distance_ft, 134.52, abs_tol=0.01)
+
+
+class TestOpenBugRegressions:
+    def test_spelled_out_bearing_with_minutes_seconds_comma_parses(self):
+        """Bug #49: comma between minutes and seconds should parse as DMS."""
+        calls = CallExtractor.extract_calls(
+            "BEGINNING at a point; "
+            "thence North 71 degrees 54 minutes, 20 seconds West 69.17 feet to a point; "
+            "thence South 71 degrees 54 minutes, 20 seconds East 69.17 feet "
+            "to the point of beginning."
+        )
+
+        assert len(calls) == 2
+        assert calls[0].bearing_quadrant is not None
+        assert calls[0].bearing_azimuth_deg_from_north is not None
+        assert math.isclose(calls[0].bearing_azimuth_deg_from_north, 288.0944, abs_tol=0.001)
+
+    def test_inline_tie_in_courses_before_numbered_calls_marked(self):
+        """Bug #50: tie-in lead-in courses should be split and flagged is_tie_in."""
+        text = (
+            "BEGINNING at a point which is located at the following two courses and distances "
+            "from the intersection of the Southwesterly line of Ellis Street (66 feet wide) "
+            "with the Southeasterly line of Walnut Street (60 feet wide); "
+            "thence South 71 degrees 54 minutes 50 seconds East along the Southwesterly line "
+            "of Ellis Street 122.55 feet to a point. "
+            "South 18 degrees 05 minutes 10 seconds West 123.00 feet to the point and place of beginning; "
+            "thence (1) South 18 degrees 05 minutes 10 seconds West 82.00 feet to a point; "
+            "thence (2) North 71 degrees 54 minutes 50 seconds West 122.55 feet to a point; "
+            "thence (3) North 18 degrees 05 minutes 10 seconds East 82.00 feet to a point; "
+            "thence (4) South 71 degrees 54 minutes 50 seconds East 122.55 feet to the point and place of beginning."
+        )
+        calls = CallExtractor.extract_calls(text)
+
+        assert len(calls) == 6
+        assert calls[0].is_tie_in is True
+        assert calls[1].is_tie_in is True
+        assert all(not c.is_tie_in for c in calls[2:])
+
+    def test_multiline_tract3_inline_tie_in_courses_marked(self):
+        """Bug #50: multi-line Tract 3 with newlines around (1)-(4) extracts 6 calls."""
+        text = (
+            "Tract No. 3\n"
+            "BEGINNING at a point which is located at the following two courses and distances "
+            "from the intersection of the Southwesterly line of Ellis Street (66 feet wide) "
+            "with the Southeasterly line of Walnut Street (60 feet wide); thence\n\n"
+            "South 71 degrees 54 minutes 50 seconds East along the Southwesterly line of Ellis Street "
+            "122.55 feet to a point. South 18 degrees 05 minutes 10 seconds West 123.00 feet to the "
+            "point and place of beginning; thence\n\n"
+            "(1) South 18 degrees 05 minutes 10 seconds West 82.00 feet to a point; thence\n"
+            "(2) North 71 degrees 54 minutes 50 seconds West 53.36 feet to a point; thence\n"
+            "(3) North 18 degrees 17 minutes 22 seconds East 82.00 feet to a point; thence\n"
+            "(4) South 71 degrees 54 minutes 50 seconds East 53.19 feet to the point and place of beginning."
+        )
+        calls = CallExtractor.extract_calls(text)
+
+        assert len(calls) == 6
+        assert calls[0].is_tie_in is True
+        assert math.isclose(calls[0].distance_ft, 122.55, abs_tol=0.01)
+        assert calls[1].is_tie_in is True
+        assert math.isclose(calls[1].distance_ft, 123.00, abs_tol=0.01)
+        assert [round(c.distance_ft, 2) for c in calls[2:]] == [82.00, 53.36, 82.00, 53.19]
+        assert all(not c.is_tie_in for c in calls[2:])

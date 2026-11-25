@@ -14,6 +14,7 @@ from typing import Any, cast
 import structlog
 import yaml  # type: ignore[import-untyped]
 
+from .llm_cache import CachedLLMClient
 from .llm_clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
 from .models import (
     PRIOR_CONVEYANCE_SIGNALS,
@@ -24,13 +25,44 @@ from .models import (
     LegalDescription,
     LLMStageRecord,
     RunMetadata,
+    Tract,
+    TractType,
 )
 
 logger = structlog.get_logger(__name__)
 
 _PRIOR_CONVEYANCE_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(signal, re.IGNORECASE) for signal in PRIOR_CONVEYANCE_SIGNALS
+    re.compile(signal, re.IGNORECASE) for signal in sorted(PRIOR_CONVEYANCE_SIGNALS)
 ]
+
+_POB_RE = re.compile(r"(?:POINT\s+OF\s+BEGINNING|BEGINNING\s+at|POB)\b", re.IGNORECASE)
+_BEARING_CALL_RE = re.compile(
+    r"\b(?:North|South|[NS])\.?\s*\d+(?:\.\d+)?\s*(?:°|degrees?\b|deg\.?)",
+    re.IGNORECASE,
+)
+_CLOSURE_RE = re.compile(
+    r"(?:POINT\s+OF\s+BEGINNING|place\s+of\s+beginning)\s*(?:[.;]|\s*$)",
+    re.IGNORECASE,
+)
+_DISTANCE_RE = re.compile(
+    r"\b\d+(?:,\d{3})*(?:\.\d+)?\s+"
+    r"(?:feet|foot|ft|poles?|rods?|perch(?:es)?|chains?|links?|varas?|arpents?|toises?|furlongs?|meters?|miles?)\b",
+    re.IGNORECASE,
+)
+_PLSS_RE = re.compile(
+    r"\b(?:Section|Township|Range)\b|\bT\.?\s*\d+\s*[NS]\b|\bR\.?\s*\d+\s*[EW]\b",
+    re.IGNORECASE,
+)
+_ALLOWED_NON_ASCII = frozenset("\u00b0\u2032\u2033\u2018\u2019\u201c\u201d\u2013\u2014")
+_CONFIDENCE_WEIGHTS: dict[str, float] = {
+    "has_pob": 0.20,
+    "has_bearing_calls": 0.20,
+    "has_closure_language": 0.15,
+    "has_distances": 0.15,
+    "text_length_reasonable": 0.10,
+    "has_plss": 0.10,
+    "no_garbled_chars": 0.10,
+}
 
 
 class PDFProcessor:
@@ -66,8 +98,6 @@ class PDFProcessor:
             else os.getenv("METESPARSER_LLM_CACHE", "true").lower() != "false"
         )
         if cache_enabled:
-            from .llm_cache import CachedLLMClient
-
             resolved_cache_dir = cache_dir or Path(os.getenv("METESPARSER_CACHE_DIR", ".cache/llm"))
             self.client = CachedLLMClient(
                 self._unwrap_client(self.client), cache_dir=resolved_cache_dir
@@ -83,23 +113,27 @@ class PDFProcessor:
             Dict with prompt configuration
         """
         prompt_file = f"{prompt_name}.yaml"
-        candidate_paths = [
-            self.prompts_dir / prompt_file,
-            Path(__file__).parent.parent / "prompts" / prompt_file,
-            Path(__file__).parent.parent.parent / "prompts" / prompt_file,
-        ]
+        candidate_paths = list(
+            dict.fromkeys(
+                [
+                    self.prompts_dir / prompt_file,
+                    Path(__file__).parent / "prompts" / prompt_file,
+                    Path(__file__).parent.parent.parent / "prompts" / prompt_file,
+                ]
+            )
+        )
 
         prompt_text: str | None = None
         for prompt_path in candidate_paths:
             if prompt_path.exists():
-                prompt_text = prompt_path.read_text()
+                prompt_text = prompt_path.read_text(encoding="utf-8")
                 break
 
         if prompt_text is None:
             try:
                 packaged_prompt = resources.files("metesparser").joinpath("prompts", prompt_file)
                 if packaged_prompt.is_file():
-                    prompt_text = packaged_prompt.read_text()
+                    prompt_text = packaged_prompt.read_text(encoding="utf-8")
             except (ModuleNotFoundError, FileNotFoundError):
                 prompt_text = None
 
@@ -118,7 +152,13 @@ class PDFProcessor:
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract all text from a PDF using the configured LLM provider."""
         prompt_config = self._load_prompt("extract_text_from_pdf")
-        prompt_text = prompt_config["user_prompt_template"]
+        system_prompt = prompt_config.get("system_prompt")
+        user_prompt = prompt_config["user_prompt_template"]
+        prompt_text = (
+            f"{system_prompt.strip()}\n\n{user_prompt}"
+            if isinstance(system_prompt, str) and system_prompt.strip()
+            else user_prompt
+        )
         response_mime_type = prompt_config.get("response_mime_type")
         response = self.client.generate_text_with_pdf(
             prompt_text, pdf_path, response_mime_type=response_mime_type
@@ -271,15 +311,64 @@ class PDFProcessor:
                 llm_stages=llm_stage_records,
             )
 
+        from mp_parse.tracts import split_into_tracts
+
         processing_logger.info("Extracting calls")
-        calls = CallExtractor.extract_calls(
-            normalized_text, distance_unit=distance_unit, audit_context=ctx
-        )
+        segments = split_into_tracts(normalized_text)
+        tracts: list[Tract] = []
 
-        calls = CallExtractor.enrich_calls_with_azimuths(calls)
+        if len(segments) == 1 and segments[0][2].value == TractType.MAIN.value:
+            calls = CallExtractor.extract_calls(
+                normalized_text, distance_unit=distance_unit, audit_context=ctx
+            )
 
-        processing_logger.info("Marking tie-in calls")
-        calls = CallExtractor.mark_tie_in_calls(calls, poc_description=poc if poc else None)
+            calls = CallExtractor.enrich_calls_with_azimuths(calls)
+
+            processing_logger.info("Marking tie-in calls")
+            calls = CallExtractor.mark_tie_in_calls(calls, poc_description=poc if poc else None)
+        else:
+            built_tracts: list[Tract] = []
+            for segment_text, label, seg_type in segments:
+                tract_type = TractType(seg_type.value)
+                seg_calls = CallExtractor.extract_calls(
+                    segment_text, distance_unit=distance_unit, audit_context=ctx
+                )
+                if not seg_calls:
+                    processing_logger.warning(
+                        "Empty tract after extraction - segment dropped",
+                        tract_label=label,
+                        tract_type=tract_type.value,
+                    )
+                    continue
+
+                seg_calls = CallExtractor.enrich_calls_with_azimuths(seg_calls)
+                seg_poc, seg_pob = TextParser.extract_poc_and_pob(segment_text)
+                seg_calls = CallExtractor.mark_tie_in_calls(
+                    seg_calls, poc_description=seg_poc if seg_poc else None
+                )
+                if tract_type == TractType.EXCEPTION:
+                    seg_calls = [c.model_copy(update={"is_exception": True}) for c in seg_calls]
+
+                seg_area = TextParser.extract_area_statement(segment_text)
+                built_tracts.append(
+                    Tract(
+                        label=label,
+                        tract_type=tract_type,
+                        calls=seg_calls,
+                        pob_description=seg_pob or None,
+                        stated_area_sq_ft=seg_area["value_sq_ft"] if seg_area else None,
+                    )
+                )
+
+            if len(built_tracts) > 1 or (
+                len(built_tracts) == 1 and built_tracts[0].tract_type != TractType.MAIN
+            ):
+                tracts = built_tracts
+                calls = [c for t in tracts for c in t.calls]
+            elif len(built_tracts) == 1:
+                calls = list(built_tracts[0].calls)
+            else:
+                calls = []
 
         processing_logger.info("Extracting deed clauses")
         clauses = TextParser.extract_deed_clauses(normalized_text)
@@ -294,9 +383,10 @@ class PDFProcessor:
         coordinate_system, fips_code = TextParser.extract_coordinate_system(normalized_text)
 
         legal_desc = LegalDescription(
-            poc_description=poc if poc else None,
-            pob_description=pob,
+            poc_description=poc or None,
+            pob_description=pob or None,
             calls=calls,
+            tracts=tracts,
             source_doc=Path(pdf_path).name,
             exhibit=None,
             page=None,
@@ -340,9 +430,7 @@ class PDFProcessor:
         llm_stages: list[LLMStageRecord] | None = None,
     ) -> AuditContext:
         """Build an ``AuditContext`` populated with run metadata and extraction record."""
-        import metesparser  # noqa: PLW0406 – local import to read __version__
-
-        from .llm_cache import CachedLLMClient
+        import metesparser
 
         # Determine LLM provider name from client type
         inner = self._unwrap_client(self.client)
@@ -358,7 +446,7 @@ class PDFProcessor:
         # Compute prompt hash from normalize_text prompt template content
         prompt_hash = self._compute_prompt_hash("normalize_text")
 
-        log_level = os.getenv("LOG_LEVEL", "INFO")
+        log_level = os.getenv("METESPARSER_LOG_LEVEL", "INFO")
 
         run_metadata = RunMetadata(
             parser_version=metesparser.__version__,
@@ -423,30 +511,15 @@ class PDFProcessor:
         - has_plss (+0.10)
         - no_garbled_chars (+0.10)
         """
-        has_pob = bool(
-            re.search(r"(?:POINT\s+OF\s+BEGINNING|BEGINNING\s+at|POB)\b", text, re.IGNORECASE)
-        )
-
-        bearing_matches = re.findall(r"(?:North|South|[NS])\s+\d+\s+degrees?", text, re.IGNORECASE)
-        has_bearing_calls = len(bearing_matches) >= 3
-
-        has_closure_language = bool(
-            re.search(
-                r"(?:POINT\s+OF\s+BEGINNING|place\s+of\s+beginning)\s*(?:[.;]|\s*$)",
-                text,
-                re.IGNORECASE,
-            )
-        )
-
-        has_distances = bool(re.search(r"\d+\.\d+\s+(?:feet|ft)", text, re.IGNORECASE))
-
+        has_pob = bool(_POB_RE.search(text))
+        has_bearing_calls = len(_BEARING_CALL_RE.findall(text)) >= 3
+        has_closure_language = bool(_CLOSURE_RE.search(text))
+        has_distances = bool(_DISTANCE_RE.search(text))
         text_length_reasonable = 50 < len(text) < 50_000
-
-        has_plss = bool(re.search(r"(?:Section|Township|Range)", text, re.IGNORECASE))
+        has_plss = bool(_PLSS_RE.search(text))
 
         # Non-ASCII ratio excluding common surveying symbols
-        allowed_non_ascii = set("\u00b0\u2032\u2033\u2018\u2019\u201c\u201d\u2013\u2014")
-        non_ascii_count = sum(1 for ch in text if ord(ch) > 127 and ch not in allowed_non_ascii)
+        non_ascii_count = sum(1 for ch in text if ord(ch) > 127 and ch not in _ALLOWED_NON_ASCII)
         total_chars = max(len(text), 1)
         no_garbled_chars = (non_ascii_count / total_chars) < 0.05
 
@@ -460,17 +533,7 @@ class PDFProcessor:
             "no_garbled_chars": no_garbled_chars,
         }
 
-        weights: dict[str, float] = {
-            "has_pob": 0.20,
-            "has_bearing_calls": 0.20,
-            "has_closure_language": 0.15,
-            "has_distances": 0.15,
-            "text_length_reasonable": 0.10,
-            "has_plss": 0.10,
-            "no_garbled_chars": 0.10,
-        }
-
-        confidence = sum(weights[k] for k, v in signals.items() if v)
+        confidence = sum(_CONFIDENCE_WEIGHTS[k] for k, v in signals.items() if v)
         # Clamp to [0.0, 1.0] to be safe with floating point
         confidence = max(0.0, min(1.0, confidence))
 
@@ -479,8 +542,6 @@ class PDFProcessor:
     @staticmethod
     def _unwrap_client(client: BaseLLMClient) -> BaseLLMClient:
         """Unwrap an already-cached client to avoid double-wrapping."""
-        from .llm_cache import CachedLLMClient
-
         if isinstance(client, CachedLLMClient):
             return client._client
         return client

@@ -47,7 +47,7 @@ if bearing is None:
 
 # ALWAYS do this:
 if bearing is None:
-    call.notes = "incomplete bearing - manual review required"  # CORRECT
+    call = call.model_copy(update={"notes": "incomplete bearing - cardinal only"})  # CORRECT
 ```
 
 ### 2. Verification Before Export

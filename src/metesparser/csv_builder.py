@@ -12,6 +12,7 @@ from pydantic import ValidationError, field_validator
 from .models import AuditContext, ClosureResult, DeedCall, LegalDescription, Tract, _Model
 
 logger = structlog.get_logger(__name__)
+_MISSING = "\x00__METESPARSER_MISSING__"
 
 
 def _cleanup_stale_sidecars(output_file: Path, *, metadata_written: bool) -> None:
@@ -148,7 +149,7 @@ class CSVBuilder:
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(output_file, "w", newline="") as f:
+        with open(output_file, "w", encoding="utf-8", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=cls.FIELDNAMES)
 
             writer.writeheader()
@@ -232,6 +233,8 @@ class CSVBuilder:
             "aliquot": legal_desc.aliquot,
             "surveyor_certification": legal_desc.surveyor_certification,
             "prior_conveyance": legal_desc.prior_conveyance,
+            "stated_area_sq_ft": legal_desc.stated_area_sq_ft,
+            "stated_area_approximate": legal_desc.stated_area_approximate,
             "coordinate_system": legal_desc.coordinate_system,
             "fips_code": legal_desc.fips_code,
             "clauses": (
@@ -243,6 +246,12 @@ class CSVBuilder:
                 f"Lot {legal_desc.subdivision_ref.lot or '?'}, Block {legal_desc.subdivision_ref.block or '?'}, {legal_desc.subdivision_ref.subdivision_name or '?'}"
                 if legal_desc.subdivision_ref
                 else None
+            ),
+            "plat_book": (
+                legal_desc.subdivision_ref.plat_book if legal_desc.subdivision_ref else None
+            ),
+            "plat_page": (
+                legal_desc.subdivision_ref.plat_page if legal_desc.subdivision_ref else None
             ),
             "witness_trees": (
                 "; ".join(legal_desc.witness_trees) if legal_desc.witness_trees else None
@@ -260,11 +269,11 @@ class CSVBuilder:
             metadata: Metadata dict
             output_path: Output file path
         """
-        with open(output_path, "w") as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write("DEED METADATA\n")
             f.write("=" * 60 + "\n\n")
             for key, value in metadata.items():
-                if value:
+                if value is not None and value != "":
                     f.write(f"{key}: {value}\n")
 
     @classmethod
@@ -280,10 +289,25 @@ class CSVBuilder:
         """
         calls = []
 
-        with open(input_path) as f:
-            reader = csv.DictReader(f)
+        with open(input_path, encoding="utf-8-sig", newline="") as f:
+            reader = csv.DictReader(f, restval=_MISSING)
+            if (
+                strict
+                and reader.fieldnames is not None
+                and not {"course", "direction_text", "distance_ft"}.issubset(set(reader.fieldnames))
+            ):
+                raise ValueError("Cannot import complete parcel: CSV missing required columns")
 
             for row_number, row in enumerate(reader, start=2):
+                if None in row or any(value is _MISSING for value in row.values()):
+                    if strict:
+                        raise ValueError(
+                            f"Cannot import complete parcel: invalid CSV row {row_number}"
+                        )
+                    logger.warning(
+                        "Skipping invalid CSV row", row=row_number, error="column count mismatch"
+                    )
+                    continue
                 call = cls._row_to_call(row, row_number=row_number)
                 if call:
                     calls.append(call)
@@ -309,12 +333,7 @@ class CSVBuilder:
             normalized_row = {k: (None if v == "" else v) for k, v in normalized_row.items()}
 
             csv_row = _CSVDeedCallRow.model_validate(normalized_row)
-            normalized_payload = csv_row.model_dump()
-            normalized_payload["is_exception"] = bool(csv_row.is_exception)
-            normalized_payload["is_meander"] = bool(csv_row.is_meander)
-            normalized_payload["is_tie_in"] = bool(csv_row.is_tie_in)
-            normalized_payload["non_tangent"] = bool(csv_row.non_tangent)
-            return DeedCall.model_validate(normalized_payload, strict=True)
+            return DeedCall.model_validate(csv_row.model_dump(), strict=True)
 
         except (KeyError, TypeError, ValueError, ValidationError) as e:
             row_label = row_number if row_number is not None else "unknown"
@@ -351,7 +370,7 @@ class CSVBuilder:
             ValueError: If verification checks did not pass
         """
         # In multi-tract mode, skip global gate — each tract checked independently
-        if not tract_results and not closure_result.is_fully_verified():
+        if tract_results is None and not closure_result.is_fully_verified():
             raise ValueError(
                 "Cannot export verified CSV: verification checks failed. "
                 f"Misclosure: {closure_result.misclosure_ft:.4f} ft, "
@@ -359,10 +378,16 @@ class CSVBuilder:
             )
 
         output_file = Path(output_path)
+        verified_stem = (
+            output_file.stem
+            if output_file.stem.endswith("_verified")
+            else f"{output_file.stem}_verified"
+        )
+        verified_base = output_file.with_stem(verified_stem)
         written_paths: list[Path] = []
 
         # Validate every selected successful result before writing any output.
-        if tract_results:
+        if tract_results is not None:
             for tract, result in tract_results:
                 if result.is_fully_verified():
                     selected = LegalDescription(
@@ -374,7 +399,7 @@ class CSVBuilder:
         else:
             cls._validate_export_geometry(calls, closure_result, legal_desc)
 
-        if tract_results:
+        if tract_results is not None:
             for i, (tract, tract_result) in enumerate(tract_results, start=1):
                 if not tract_result.is_fully_verified():
                     logger.warning(
@@ -384,13 +409,13 @@ class CSVBuilder:
                         warnings_count=len(tract_result.warnings),
                     )
                     continue
-                tract_path = output_file.with_stem(f"{output_file.stem}_verified_tract{i}")
+                tract_path = output_file.with_stem(f"{verified_stem}_tract{i}")
                 cls.calls_to_csv(tract.calls, str(tract_path))
                 written_paths.append(tract_path)
                 logger.info("Verified tract CSV exported", path=str(tract_path), tract=tract.label)
 
         else:
-            verified_path = output_file.with_stem(output_file.stem + "_verified")
+            verified_path = verified_base
             if legal_desc:
                 cls.legal_description_to_csv(legal_desc, str(verified_path))
             else:
@@ -398,30 +423,29 @@ class CSVBuilder:
             written_paths.append(verified_path)
             logger.info("Verified CSV exported", path=str(verified_path))
 
-        summary_path = output_file.with_stem(output_file.stem + "_verified").with_suffix(
-            ".verification.txt"
-        )
+        summary_path = verified_base.with_suffix(".verification.txt")
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         from .closure_checker import ClosureChecker
 
-        if tract_results:
+        if tract_results is not None:
             summaries: list[str] = []
             for tract, tract_result in tract_results:
                 summaries.append(f"--- {tract.label} ---")
                 summaries.append(ClosureChecker.get_closure_summary(tract_result))
                 summaries.append("")
-            with open(summary_path, "w") as f:
+            with open(summary_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(summaries))
         else:
             summary = ClosureChecker.get_closure_summary(closure_result)
-            with open(summary_path, "w") as f:
+            with open(summary_path, "w", encoding="utf-8") as f:
                 f.write(summary)
         logger.info("Verification summary written", path=str(summary_path))
 
         if audit_context is not None:
-            audit_base = output_file.with_stem(output_file.stem + "_verified")
+            audit_base = verified_base
             audit_json_path = audit_base.with_suffix(".audit.json")
 
-            audit_json_path.write_text(audit_context.model_dump_json(indent=2))
+            audit_json_path.write_text(audit_context.model_dump_json(indent=2), encoding="utf-8")
             logger.info("Audit trail written", path=str(audit_json_path))
 
             from .audit_reporter import AuditReporter
@@ -430,5 +454,10 @@ class CSVBuilder:
 
             AuditReporter.write_report(audit_context, audit_html_path)
             logger.info("Audit HTML report written", path=str(audit_html_path))
+        else:
+            for suffix in (".audit.json", ".audit.html"):
+                stale_audit = verified_base.with_suffix(suffix)
+                if stale_audit.exists():
+                    stale_audit.unlink()
 
         return written_paths

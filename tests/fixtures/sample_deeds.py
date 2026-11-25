@@ -49,13 +49,7 @@ THENCE North 33 degrees 20 minutes East 60.00 feet along the south line to a poi
 THENCE South 56 degrees 40 minutes West 125.00 feet along the division line to a corner;
 THENCE South 33 degrees 20 minutes West 60.00 feet along the west line;
 THENCE North 56 degrees 40 minutes East 125.00 feet to the POINT OF BEGINNING.
-"""
-
-TRIANGLE_RIGHT = """
-BEGINNING at a point;
-THENCE North 45 degrees East 100 feet;
-THENCE South 45 degrees East 100 feet;
-THENCE South 45 degrees West 141.42 feet to the POINT OF BEGINNING.
+(Note: 18 Pennbrook bearings form a parallelogram with interior angles 86°40' and 93°20', not a true right-angle rectangle)
 """
 
 
@@ -65,13 +59,6 @@ THENCE North 0 degrees East 100 feet;
 THENCE along a curve to the right, having a radius of 50.00 feet,
 a delta angle of 90 degrees 00 minutes, and an arc length of 78.54 feet;
 THENCE South 0 degrees East 50 feet to the POINT OF BEGINNING.
-"""
-
-CURVE_NO_BEARING = """
-BEGINNING at an iron pin;
-THENCE along a curve to the left having a radius of 100.00 feet
-and a delta angle of 45 degrees 00 minutes to an iron pin;
-THENCE South 45 degrees West 100 feet to the POINT OF BEGINNING.
 """
 
 

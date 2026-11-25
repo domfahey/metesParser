@@ -84,13 +84,13 @@ enriched = CallExtractor.enrich_calls_with_azimuths(calls)
 
 ### ClosureChecker
 
+Verify traverse closure and perform validation checks.
+
 The composable package API `mp_parse.extract_calls(text, strict=True)` returns
 `(flat_calls, tracts)`. Unpack the calls before passing them to enrichment or
 verification. The legacy `CallExtractor.extract_calls()` retains its list return
 value. For independent tracts, use `mp_verify.verify_closure(calls, tracts=tracts)`;
 each tract runs the same geometric guardrails as a single description.
-
-Verify traverse closure and perform validation checks.
 
 ```python
 from metesparser.closure_checker import ClosureChecker
@@ -247,27 +247,17 @@ from metesparser import (
 
 # 1. Extract from PDF
 processor = PDFProcessor()
-legal_text = processor.process_deed_pdf("deed.pdf")
+legal_desc = processor.process_deed_pdf("deed.pdf")
 
-# 2. Normalize
-normalized = TextParser.normalize_legal_description(legal_text)
-pob = TextParser.extract_pob(normalized)
-
-# 3. Extract calls
-calls = CallExtractor.extract_calls(normalized)
+# 2. Extract calls & verify
+calls = legal_desc.calls
 calls = CallExtractor.enrich_calls_with_azimuths(calls)
-
-# 4. Verify
-result = ClosureChecker.verify_closure(calls)
-
-# 5. Create legal description
-legal_desc = LegalDescription(
-    pob_description=pob,
+result = ClosureChecker.verify_closure(
     calls=calls,
-    source_doc="deed.pdf"
+    stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0
 )
 
-# 6. Export
+# 3. Export
 if result.is_fully_verified():
     CSVBuilder.export_verified_csv(
         calls,

@@ -35,22 +35,42 @@ class ParcelMarker(TypedDict):
 # Marker patterns — standalone compiled regexes
 # ---------------------------------------------------------------------------
 
-# Lettered parcels: "Parcel A:", "Parcel A (Northern Tract):", "Parcel A -"
-_LETTERED_PARCEL = re.compile(
-    r"\bParcel\s+([A-Z])\s*(?:\([^)]*\)\s*)?(?:[:;\-\u2013\u2014])",
+_HEADER_DELIMITERS = r"[:\-\u2013\u2014]"
+
+# Adjoining-parcel / mid-call reference prefixes that must not trigger a split.
+_ADJOINING_PREFIX_RE = re.compile(
+    r"(?:"
+    r"\b(?:line|corner|side|boundary|lands?|property|lot|parcel|tract|right-of-way|easement|north|south|east|west)\s+of"
+    r"|\b(?:to|from|along|with|into|across|near|between|said|the|an?)"
+    r")\s+$",
     re.IGNORECASE,
 )
 
-# Numbered parcels: "Parcel 1:", "Parcel 2:", "Parcel 10 -"
+
+def is_adjoining_reference(text: str, position: int) -> bool:
+    """Return True if a tract/parcel match at *position* is a mid-call reference."""
+    if position <= 0:
+        return False
+    lookback = text[max(0, position - 48) : position]
+    return bool(_ADJOINING_PREFIX_RE.search(lookback))
+
+
+# Lettered parcels: "Parcel A:", "Parcel A (Northern Tract):", "Parcel A -"
+_LETTERED_PARCEL = re.compile(
+    rf"\bParcel\s+(?:(?:NO\.?|#)\s*)?([A-Z])\s*(?:\([^)]*\)\s*)?{_HEADER_DELIMITERS}",
+    re.IGNORECASE,
+)
+
+# Numbered parcels: "Parcel 1:", "Parcel No. 2:", "Parcel 10 -"
 _NUMBERED_PARCEL = re.compile(
-    r"\bParcel\s+(\d+)\s*(?:\([^)]*\)\s*)?(?:[:;\-\u2013\u2014])",
+    rf"\bParcel\s+(?:(?:NO\.?|#)\s*)?(\d+)\s*(?:\([^)]*\)\s*)?{_HEADER_DELIMITERS}",
     re.IGNORECASE,
 )
 
 # Combined / aggregate description: "Combined Legal Description:" or
 # "Combine Legal Description:" (the ground truth uses the typo "Combine")
 _COMBINED_DESCRIPTION = re.compile(
-    r"\bCombine[d]?\s+Legal\s+Description\s*[:;\-\u2013\u2014]",
+    rf"\bCombine[d]?\s+Legal\s+Description\s*{_HEADER_DELIMITERS}",
     re.IGNORECASE,
 )
 
@@ -64,6 +84,14 @@ _ALSO_MARKER = re.compile(
 _TOGETHER_WITH_MARKER = re.compile(
     r"\bTOGETHER\s+WITH\s*:",
     re.IGNORECASE,
+)
+
+_MARKER_PATTERNS: tuple[re.Pattern[str], ...] = (
+    _LETTERED_PARCEL,
+    _NUMBERED_PARCEL,
+    _COMBINED_DESCRIPTION,
+    _ALSO_MARKER,
+    _TOGETHER_WITH_MARKER,
 )
 
 
@@ -82,6 +110,8 @@ def detect_parcel_markers(text: str) -> list[ParcelMarker]:
 
     # Lettered parcels
     for match in _LETTERED_PARCEL.finditer(text):
+        if is_adjoining_reference(text, match.start()):
+            continue
         letter = match.group(1).upper()
         markers.append(
             {
@@ -93,6 +123,8 @@ def detect_parcel_markers(text: str) -> list[ParcelMarker]:
 
     # Numbered parcels
     for match in _NUMBERED_PARCEL.finditer(text):
+        if is_adjoining_reference(text, match.start()):
+            continue
         number = match.group(1)
         markers.append(
             {
@@ -228,17 +260,9 @@ def _find_marker_end(text: str, start_pos: int) -> int:
     Searches all marker patterns starting from start_pos and returns the
     end position of the first match that begins at start_pos.
     """
-    patterns = [
-        _LETTERED_PARCEL,
-        _NUMBERED_PARCEL,
-        _COMBINED_DESCRIPTION,
-        _ALSO_MARKER,
-        _TOGETHER_WITH_MARKER,
-    ]
-
-    for pattern in patterns:
-        match = pattern.search(text, pos=start_pos)
-        if match and match.start() == start_pos:
+    for pattern in _MARKER_PATTERNS:
+        match = pattern.match(text, pos=start_pos)
+        if match:
             return match.end()
 
     # This indicates a bug: detect_parcel_markers found a marker but

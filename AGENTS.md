@@ -8,7 +8,7 @@ Extracts, parses, and verifies metes and bounds legal descriptions from deed PDF
 
 MetesParser transforms scanned deeds into structured metes-and-bounds data. Follow these guardrails so every contribution stays reliable, auditable, and easy to review.
 
-**Version**: 0.5.0 | **Tests**: ~996 | **Coverage**: ~94%
+**Version**: 0.5.0 | **Tests**: ~1,576 root (+ 563 per-package) | **Coverage**: ~96%
 
 ## Critical Architecture Principles
 
@@ -16,7 +16,7 @@ MetesParser transforms scanned deeds into structured metes-and-bounds data. Foll
 **Most Important Rule**: If a bearing is incomplete (e.g., "southwesterly" without degrees), leave `bearing_azimuth_deg_from_north` as `None` and set `notes="incomplete bearing - cardinal only"`. Never invent numerical bearings.
 
 ### 2. Verification Before Export
-Traverse must close to < 0.01 ft misclosure before exporting `_verified.csv`. Use `verify_closure()` to run all 8 verification checks before calling `export_verified_csv()`.
+Traverse must close to < 0.01 ft misclosure before exporting `_verified.csv`. Use `verify_closure()` to run all 9 verification checks before calling `export_verified_csv()`.
 
 ### 3. Preserve Verbatim Deed Language
 Keep original wording in `along` and `to` fields. Example: Keep "Southerly line of Pennbrook Drive" exactly as written in the deed.
@@ -26,7 +26,7 @@ Build for transparency by design. All LLM-generated outputs must be traceable an
 
 ## Composable Package Architecture
 
-The codebase is a **uv workspace monorepo** with 7 independently installable packages (the 6 `mp-*` packages under `packages/` plus the root `metesparser` package) following Unix philosophy (each does one thing well). The original monolith in `src/metesparser/` is preserved for backward compatibility.
+The codebase is a **uv workspace monorepo** with 8 independently installable packages (the 7 `mp-*` packages under `packages/` plus the root `metesparser` package) following Unix philosophy (each does one thing well). The original monolith in `src/metesparser/` is preserved for backward compatibility.
 
 ```
 packages/
@@ -34,8 +34,9 @@ packages/
   mp-bearing/   → Pure math: azimuth, curves, deltas (depends: mp-models)
   mp-ocr/       → LLM boundary: PDF → text (depends: mp-models)
   mp-parse/     → Rule-based parsing: text → calls (depends: mp-models, mp-bearing)
-  mp-verify/    → Geometric verification: 8 checks (depends: mp-models, mp-bearing)
+  mp-verify/    → Geometric verification: 9 checks (depends: mp-models, mp-bearing)
   mp-export/    → CSV/JSON/audit HTML output (depends: mp-models, mp-verify)
+  mp-review/    → Deterministic review CLI/corpus harness (depends: mp-models, mp-parse, mp-verify, mp-export)
 src/metesparser/ → Orchestrator + backward-compat monolith
 ```
 
@@ -45,9 +46,10 @@ src/metesparser/ → Orchestrator + backward-compat monolith
 | `mp-models` | `mp_models.deed_call`, `mp_models.legal_description`, `mp_models.closure`, `mp_models.audit`, `mp_models.envelope`, `mp_models.units`, `mp_models.constants`, `mp_models.base`, `mp_models.logging` | `models.py` |
 | `mp-bearing` | `mp_bearing.azimuth`, `mp_bearing.curves`, `mp_bearing.deltas` | `bearing_converter.py` |
 | `mp-ocr` | `mp_ocr.extract`, `mp_ocr.clients`, `mp_ocr.cache` | `pdf_processor.py`, `llm_clients.py` |
-| `mp-parse` | `mp_parse.calls`, `mp_parse.metadata`, `mp_parse.monuments`, `mp_parse.normalizer`, `mp_parse.numbers` | `call_extractor.py`, `text_parser.py` |
+| `mp-parse` | `mp_parse.calls`, `mp_parse.metadata`, `mp_parse.monuments`, `mp_parse.normalizer`, `mp_parse.numbers`, `mp_parse.parcels`, `mp_parse.tracts` | `call_extractor.py`, `text_parser.py` |
 | `mp-verify` | `mp_verify.closure`, `mp_verify.checks`, `mp_verify.confidence` | `closure_checker.py` |
 | `mp-export` | `mp_export.csv_writer`, `mp_export.audit_html` | `csv_builder.py`, `audit_reporter.py` |
+| `mp-review` | `mp_review.api`, `mp_review.cli`, `mp_review.corpus`, `mp_review.settings` | Deterministic review engine (new) |
 | `metesparser` | `metesparser.pipeline` | Orchestrator (new) |
 
 ### Pipeline Orchestrator

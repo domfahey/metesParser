@@ -145,6 +145,8 @@ def test_plss_numeric_ordinal_pm_abbreviation() -> None:
     text = "Section 5, Township 1 South, Range 4 West, 11TH P.M."
     result = TextParser.extract_plss_metadata(text)
     assert result["principal_meridian"] is not None
+    assert "11" in result["principal_meridian"]
+    assert "Principal Meridian" in result["principal_meridian"]
 
 
 def test_plss_alphabetic_meridian_still_works() -> None:

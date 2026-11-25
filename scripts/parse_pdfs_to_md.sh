@@ -25,7 +25,12 @@ PARSE_CACHE="$HOME/.parse"
 
 # Max quality config for LlamaParse
 CONFIG_FILE=$(mktemp)
-trap 'trash "$CONFIG_FILE" 2>/dev/null || true' EXIT
+trap 'rm -f "$CONFIG_FILE"' EXIT
+
+if ! command -v parse >/dev/null 2>&1; then
+    echo "Error: 'parse' CLI (semtools) not found in PATH" >&2
+    exit 1
+fi
 
 cat > "$CONFIG_FILE" <<'CONF'
 {
@@ -53,15 +58,21 @@ CONF
 if [ -z "${LLAMA_CLOUD_API_KEY:-}" ]; then
     USER_CONFIG="$HOME/.semtools_config.json"
     if [ -f "$USER_CONFIG" ]; then
-        API_KEY=$(python3 -c "import json; print(json.load(open('$USER_CONFIG'))['parse']['api_key'])" 2>/dev/null || true)
+        API_KEY=$(python3 -c '
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    print(json.load(f)["parse"]["api_key"])
+' "$USER_CONFIG" 2>/dev/null || true)
         if [ -n "$API_KEY" ]; then
             # Patch the temp config with the API key
-            python3 -c "
-import json
-cfg = json.load(open('$CONFIG_FILE'))
-cfg['parse']['api_key'] = '$API_KEY'
-json.dump(cfg, open('$CONFIG_FILE', 'w'), indent=2)
-"
+            _LLAMA_API_KEY="$API_KEY" python3 -c '
+import json, os, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    cfg = json.load(f)
+cfg["parse"]["api_key"] = os.environ["_LLAMA_API_KEY"]
+with open(sys.argv[1], "w", encoding="utf-8") as f:
+    json.dump(cfg, f, indent=2)
+' "$CONFIG_FILE"
         else
             echo "Error: No API key found. Set LLAMA_CLOUD_API_KEY or configure ~/.semtools_config.json" >&2
             exit 1
@@ -112,6 +123,13 @@ echo "Parsing ${#PDF_FILES[@]} PDF(s) with LlamaParse (gpt-5, max settings)..."
 echo "Settings: parse_page_with_agent | high_res_ocr | adaptive_long_table | outlined_table_extraction"
 echo ""
 
+# When --force is passed, clear matching cache entries so parse re-runs them
+if [ "$FORCE" = true ]; then
+    for pdf in "${PDF_FILES[@]}"; do
+        rm -f "$PARSE_CACHE/$(basename "$pdf").md"
+    done
+fi
+
 # Run parse CLI
 parse -v -c "$CONFIG_FILE" "${PDF_FILES[@]}"
 
@@ -136,3 +154,6 @@ done
 
 echo ""
 echo "Done: $COPIED parsed, $FAILED failed."
+if [ "$FAILED" -gt 0 ]; then
+    exit 1
+fi

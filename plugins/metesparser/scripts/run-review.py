@@ -79,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     if validation_error:
         return emit_error(validation_error)
 
-    cache_root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    cache_root = Path(os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache"))
     env = os.environ.copy()
     env["UV_PROJECT_ENVIRONMENT"] = str(cache_root / "metesparser" / fingerprint / "venv")
     env["UV_CACHE_DIR"] = str(cache_root / "metesparser" / "uv-cache")

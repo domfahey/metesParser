@@ -23,8 +23,187 @@ SURVEY_ABBREVIATIONS: list[tuple[str, str]] = [
     (r"\bR/W\b", "right-of-way"),
     (r"\bROW\b", "right-of-way"),
     (r"\bN/F\b", "now or formerly"),
-    (r"\bPK\b", "pk nail"),
+    (r"\bPK\b(?!\s+nail\b)", "pk nail"),
 ]
+
+_COMPILED_SURVEY_ABBREVIATIONS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(pattern, 0 if pattern == r"\bROW\b" else re.IGNORECASE), expansion)
+    for pattern, expansion in SURVEY_ABBREVIATIONS
+]
+
+# ----- DMS symbol normalization patterns -----
+
+_DMS_DEGREE_RE = re.compile(r"[°º]")
+_DMS_MINUTE_RE = re.compile(r"['\u2018\u2019\u2032`]")
+_DMS_SECOND_RE = re.compile(r'["\u201c\u201d\u2033]')
+
+# ----- Line-wrapping merge patterns -----
+
+_HYPHEN_BREAK_RE = re.compile(r"-\s*\n\s*")
+_CALL_START_LINE_RE = re.compile(
+    r"^(?:(?:THENCE|BEGINNING|FROM|POB|POINT)\b|\(\d+\)|\d+[.)])(?:\s+|$)",
+    re.IGNORECASE,
+)
+
+# ----- Cardinal direction standardization patterns -----
+
+_CARDINAL_DIR_PATTERNS: list[tuple[re.Pattern[str], Callable[[Match[str]], str]]] = [
+    (
+        re.compile(
+            r"\b(North|South|N|S)\s*(\d{1,3})\s+degrees?,?\s+(\d{1,2})\s+minutes?\s*,?\s*(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(East|West|E|W)\b",
+            re.IGNORECASE,
+        ),
+        lambda m: (
+            f"{m.group(1)[0].upper()} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0].upper()}"
+        ),
+    ),
+    (
+        re.compile(
+            r"\b(North|South|N|S)\s*(\d{1,3})\s+degrees?,?\s+(\d{1,2})\s+minutes?\s*,?\s*(East|West|E|W)\b",
+            re.IGNORECASE,
+        ),
+        lambda m: f"{m.group(1)[0].upper()} {m.group(2)}°{m.group(3)}' {m.group(4)[0].upper()}",
+    ),
+    (
+        re.compile(
+            r"\b(North|South|N|S)\s*(\d{1,3})\s+degrees?\s*,?\s*(East|West|E|W)\b",
+            re.IGNORECASE,
+        ),
+        lambda m: f"{m.group(1)[0].upper()} {m.group(2)}° {m.group(3)[0].upper()}",
+    ),
+    (
+        re.compile(
+            r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])",
+            re.IGNORECASE,
+        ),
+        lambda m: (
+            f"{m.group(1).upper()} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5).upper()}"
+        ),
+    ),
+    (
+        re.compile(r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*([EW])", re.IGNORECASE),
+        lambda m: f"{m.group(1).upper()} {m.group(2)}°{m.group(3)}' {m.group(4).upper()}",
+    ),
+    (
+        re.compile(r"([NS])\s*(\d{1,3})\s*°\s*([EW])", re.IGNORECASE),
+        lambda m: f"{m.group(1).upper()} {m.group(2)}° {m.group(3).upper()}",
+    ),
+]
+
+# ----- OCR cleanup patterns -----
+
+_OCR_WORD_FIXES: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\b5outh\b", re.IGNORECASE), "South"),
+    (re.compile(r"\bNOrth\b"), "North"),
+    (re.compile(r"\bN0rth\b", re.IGNORECASE), "North"),
+    (re.compile(r"\bEa5t\b", re.IGNORECASE), "East"),
+    (re.compile(r"\bWe5t\b", re.IGNORECASE), "West"),
+]
+_OCR_ZERO_DEG_SYMBOL_RE = re.compile(
+    r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*(?:(\d{1,2}(?:\.\d+)?)\s*\"\s*)?([EW])",
+    re.IGNORECASE,
+)
+_OCR_ZERO_DEG_WORD_RE = re.compile(
+    r"\b(North|South)\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*(?:(\d{1,2}(?:\.\d+)?)\s*\"\s*)?(East|West)\b",
+    re.IGNORECASE,
+)
+
+# ----- Assessor abbreviation expansion patterns -----
+
+_OCR_NO_DEG_RE = re.compile(r"\b([NS])O(\d*DEG|\d+D|D(?=\s+\d{1,2}\s*M\b))\b", re.IGNORECASE)
+_OCR_NOO_DEG_RE = re.compile(r"\b([NS])OO(\d*DEG|\d+D|D(?=\s+\d{1,2}\s*M\b))\b", re.IGNORECASE)
+
+_ASSESSOR_SUBS: list[tuple[re.Pattern[str], str]] = [
+    (
+        re.compile(
+            r"(?:(?<=[NS])|(?<!\w))(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\s+(\d{1,2}(?:\.\d+)?)\s*(?:SEC|S)\b",
+            re.IGNORECASE,
+        ),
+        r"\1 degrees \2 minutes \3 seconds",
+    ),
+    (
+        re.compile(
+            r"(?:(?<=[NS])|(?<!\w))(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\b",
+            re.IGNORECASE,
+        ),
+        r"\1 degrees \2 minutes",
+    ),
+    (re.compile(r"(?:(?<=[NS])|(?<!\w))(\d{1,3})\s*DEG\b", re.IGNORECASE), r"\1 degrees"),
+    (re.compile(r"\b(N|S|North|South)\s*(\d{1,3})\s*D\b", re.IGNORECASE), r"\1 \2 degrees"),
+    (re.compile(r"(?:(?<=[NS])|(?<!\w))(\d{1,3})\s+deg\.\s", re.IGNORECASE), r"\1 degrees "),
+    (re.compile(r"(?<!\w)(\d{1,2}(?:\.\d+)?)SEC\b(?!\s*\d)", re.IGNORECASE), r"\1 seconds"),
+    (
+        re.compile(
+            r"(?<!\w)(\d{1,2}(?:\.\d+)?)\s+SEC\b(?=\s*(?:East|West|E|W)\b)",
+            re.IGNORECASE,
+        ),
+        r"\1 seconds",
+    ),
+    (
+        re.compile(
+            r"((?:minutes?|,|['′])\s*)(\d{1,2}(?:\.\d+)?)\s+SEC\b(?!\s*\d)",
+            re.IGNORECASE,
+        ),
+        r"\1\2 seconds",
+    ),
+    (re.compile(r"\bTH\.?\s+", re.IGNORECASE), "thence "),
+    (re.compile(r"(\d+(?:\.\d+)?)\s*FT\b", re.IGNORECASE), r"\1 feet"),
+    (re.compile(r"\bSLY\b", re.IGNORECASE), "southerly"),
+    (re.compile(r"\bNLY\b", re.IGNORECASE), "northerly"),
+    (re.compile(r"\bELY\b", re.IGNORECASE), "easterly"),
+    (re.compile(r"\bWLY\b", re.IGNORECASE), "westerly"),
+    (re.compile(r"(?<![A-Za-z]\.)\bP\.O\.B\.", re.IGNORECASE), "point of beginning"),
+    (re.compile(r"\bP\s+OB\b", re.IGNORECASE), "point of beginning"),
+    (re.compile(r"\bPOB\b", re.IGNORECASE), "point of beginning"),
+    (re.compile(r"\bALG\b", re.IGNORECASE), "along"),
+    (re.compile(r"\bCOR\b", re.IGNORECASE), "corner"),
+    (re.compile(r"\bBEG\b", re.IGNORECASE), "beginning"),
+    (
+        re.compile(
+            r"(?<=\S)\s+(?:&|and)\s+(?=[NS]\s*\d{1,3}\s*(?:°|degrees?\b))",
+            re.IGNORECASE,
+        ),
+        " thence ",
+    ),
+]
+
+_CARDINAL_MAP: dict[str, str] = {
+    "n": "North",
+    "s": "South",
+    "e": "East",
+    "w": "West",
+    "north": "North",
+    "south": "South",
+    "east": "East",
+    "west": "West",
+}
+
+_BARE_CARDINAL_RE = re.compile(
+    r"(\b(?:thence|proceeding)\s+)"
+    r"(N|S|E|W|North|South|East|West)"
+    r"(\s+)"
+    r"(\d+\.?\d*)",
+    re.IGNORECASE,
+)
+
+_DEGREE_AFTER_NUMBER = re.compile(
+    r"\s*(?:°|degrees?\b|DEG\b|\d+(?:\.\d+)?\s*['′]|(?:E|W|East|West)\b)",
+    re.IGNORECASE,
+)
+
+
+def _bare_cardinal_replace(m: Match[str]) -> str:
+    """Replace bare cardinal + distance with 'due Cardinal distance' unless bearing follows."""
+    after_pos = m.end()
+    after_text = m.string[after_pos : after_pos + 50]
+    if _DEGREE_AFTER_NUMBER.match(after_text):
+        return m.group(0)
+
+    prefix = m.group(1)
+    cardinal = m.group(2)
+    number = m.group(4)
+    full_name = _CARDINAL_MAP[cardinal.lower()]
+    return f"{prefix}due {full_name} {number}"
 
 
 def normalize_dms_symbols(text: str) -> str:
@@ -38,12 +217,9 @@ def normalize_dms_symbols(text: str) -> str:
     Returns:
         Text with standardized DMS symbols
     """
-    text = re.sub(r"[°º\u00B0\u00BA]", "°", text)
-
-    text = re.sub(r"[''\u2018\u2019`]", "'", text)
-
-    text = re.sub(r"[" "\u201c\u201d]", '"', text)
-
+    text = _DMS_DEGREE_RE.sub("°", text)
+    text = _DMS_MINUTE_RE.sub("'", text)
+    text = _DMS_SECOND_RE.sub('"', text)
     return text
 
 
@@ -59,7 +235,7 @@ def merge_line_wrapped_calls(text: str) -> str:
     Returns:
         Text with wrapped calls merged
     """
-    text = re.sub(r"-\s*\n\s*", "", text)
+    text = _HYPHEN_BREAK_RE.sub("", text)
 
     lines = text.split("\n")
     merged = []
@@ -70,11 +246,7 @@ def merge_line_wrapped_calls(text: str) -> str:
         if not stripped:
             continue
 
-        if re.match(
-            r"^(?:(?:THENCE|BEGINNING|FROM|POB|POINT)\b|\(\d+\)|\d+[.)])(?:\s+|$)",
-            stripped,
-            re.IGNORECASE,
-        ):
+        if _CALL_START_LINE_RE.match(stripped):
             if current:
                 merged.append(current)
             current = stripped
@@ -101,31 +273,16 @@ def standardize_cardinal_directions(text: str) -> str:
     Returns:
         Text with standardized cardinal directions
     """
-    patterns: list[tuple[str, str | Callable[[Match[str]], str]]] = [
-        (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
-            lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0]}",
-        ),
-        (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(North|South|East|West)\b",
-            lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}' {m.group(4)[0]}",
-        ),
-        (
-            r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(North|South|East|West)\b",
-            lambda m: f"{m.group(1)[0]} {m.group(2)}° {m.group(3)[0]}",
-        ),
-        (
-            r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])",
-            "\\1 \\2°\\3'\\4\" \\5",
-        ),
-        (r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4"),
-        (r"([NS])\s*(\d{1,3})\s*°\s*([EW])", r"\1 \2° \3"),
-    ]
-
-    for pattern, replacement in patterns:
-        text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    for pattern, replacement in _CARDINAL_DIR_PATTERNS:
+        text = pattern.sub(replacement, text)
 
     return text
+
+
+def _ocr_zero_deg_symbol_replace(m: Match[str]) -> str:
+    """Replace OCR '0' for degree symbol in compact DMS notation."""
+    sec = f'{m.group(4)}"' if m.group(4) else ""
+    return f"{m.group(1)} {m.group(2)}°{m.group(3)}'{sec} {m.group(5)}"
 
 
 def clean_ocr_errors(text: str) -> str:
@@ -139,18 +296,17 @@ def clean_ocr_errors(text: str) -> str:
     Returns:
         Cleaned text
     """
-    text = re.sub(r"\b5outh\b", "South", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bNOrth\b", "North", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bEa5t\b", "East", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bWe5t\b", "West", text, flags=re.IGNORECASE)
+    for pattern, replacement in _OCR_WORD_FIXES:
+        text = pattern.sub(replacement, text)
 
-    text = re.sub(r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4", text)
+    text = _OCR_ZERO_DEG_SYMBOL_RE.sub(_ocr_zero_deg_symbol_replace, text)
 
-    text = re.sub(
-        r"\b(North|South)\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*(East|West)\b",
-        r"\1 \2 degrees \3 minutes \4",
+    text = _OCR_ZERO_DEG_WORD_RE.sub(
+        lambda m: (
+            f"{m.group(1)} {m.group(2)} degrees {m.group(3)} minutes"
+            f"{(' ' + m.group(4) + ' seconds') if m.group(4) else ''} {m.group(5)}"
+        ),
         text,
-        flags=re.IGNORECASE,
     )
 
     return text
@@ -184,165 +340,14 @@ def expand_assessor_abbreviations(text: str) -> str:
 
     # --- 1. Fix common OCR typos: NODEG → N0DEG, NOODEG → N00DEG -----------
     # O (letter) used instead of 0 (digit) adjacent to direction letters
-    text = re.sub(
-        r"\b([NS])O(\d*(?:DEG|D))",
-        lambda m: f"{m.group(1)}0{m.group(2)}",
-        text,
-        flags=re.IGNORECASE,
-    )
-    text = re.sub(
-        r"\b([NS])OO(\d*(?:DEG|D))",
-        lambda m: f"{m.group(1)}00{m.group(2)}",
-        text,
-        flags=re.IGNORECASE,
-    )
-    # Catch NOODEG specifically where the OO represents 00
-    text = re.sub(
-        r"\b([NS])OO(DEG|D)\b",
-        lambda m: f"{m.group(1)}00{m.group(2)}",
-        text,
-        flags=re.IGNORECASE,
-    )
-    # Catch NODEG where O is 0
-    text = re.sub(
-        r"\b([NS])O(DEG|D)\b",
-        lambda m: f"{m.group(1)}0{m.group(2)}",
-        text,
-        flags=re.IGNORECASE,
-    )
+    text = _OCR_NO_DEG_RE.sub(lambda m: f"{m.group(1)}0{m.group(2)}", text)
+    text = _OCR_NOO_DEG_RE.sub(lambda m: f"{m.group(1)}00{m.group(2)}", text)
 
-    # --- 2. Expand DMS bearing notation (DEG/D, M, S/SEC) ------------------
-    # Match complete DMS bearing: [cardinal]<deg>(DEG|D) <min>M [<sec>(S|SEC)] [cardinal]
-    # Full DMS with seconds (S or SEC)
-    text = re.sub(
-        r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\s+(\d{1,2}(?:\.\d+)?)\s*(?:SEC|S)\b",
-        r"\1 degrees \2 minutes \3 seconds",
-        text,
-        flags=re.IGNORECASE,
-    )
-    # DM only (no seconds)
-    text = re.sub(
-        r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\b",
-        r"\1 degrees \2 minutes",
-        text,
-        flags=re.IGNORECASE,
-    )
-    # Degrees only (DEG/D without M following)
-    text = re.sub(
-        r"(\d{1,3})\s*(?:DEG|D)\b",
-        r"\1 degrees",
-        text,
-        flags=re.IGNORECASE,
-    )
-    # "deg." → "degrees" (e.g., "26 deg. 00 41")
-    text = re.sub(
-        r"(\d{1,3})\s+deg\.\s",
-        r"\1 degrees ",
-        text,
-        flags=re.IGNORECASE,
-    )
-
-    # --- 3. Expand number+SEC that wasn't already caught (standalone) -------
-    text = re.sub(
-        r"(\d{1,2}(?:\.\d+)?)\s*SEC\b",
-        r"\1 seconds",
-        text,
-        flags=re.IGNORECASE,
-    )
-
-    # --- 4. TH / TH. → thence (word boundary, not inside words) ------------
-    # Must not match THE, THAT, THIS, THEREOF, THENCE, etc.
-    text = re.sub(
-        r"\bTH\.?\s(?!E\b|A\b|I\b|ERE|EN|ROU|AT\b|US\b)",
-        "thence ",
-        text,
-        flags=re.IGNORECASE,
-    )
-
-    # --- 5. FT suffix → feet -----------------------------------------------
-    # Handles both "175FT" (no space) and "175 FT" (with space)
-    text = re.sub(
-        r"(\d+(?:\.\d+)?)\s*FT\b",
-        r"\1 feet",
-        text,
-        flags=re.IGNORECASE,
-    )
-
-    # --- 6. Directional abbreviations ---------------------------------------
-    text = re.sub(r"\bSLY\b", "southerly", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bNLY\b", "northerly", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bELY\b", "easterly", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bWLY\b", "westerly", text, flags=re.IGNORECASE)
-
-    # --- 7. POB variants → point of beginning ------------------------------
-    text = re.sub(r"\bP\.O\.B\.", "point of beginning", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bP\s+OB\b", "point of beginning", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bPOB\b", "point of beginning", text, flags=re.IGNORECASE)
-
-    # --- 8. Misc abbreviations ---------------------------------------------
-    text = re.sub(r"\bALG\b", "along", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bCOR\b", "corner", text, flags=re.IGNORECASE)
-    text = re.sub(r"\bBEG\b", "beginning", text, flags=re.IGNORECASE)
-
-    # --- 9. `&` / `and` as call separators → thence --------------------------
-    # Between bearings: "113.41 feet & N 69° 53' 23\" E" or
-    # "49.18 feet and N 48° 03' 44\" E".  Replace `&` or `and` with `thence`
-    # when followed by a quadrant bearing pattern ([NS] <digits>°).
-    # Note: Only [NS] because standard quadrant bearings always start with
-    # North or South.  E/W-initial bearings need different handling.
-    text = re.sub(
-        r"(?<=\S)\s+(?:&|and)\s+(?=[NS]\s*\d{1,3}\s*°)",
-        " thence ",
-        text,
-        flags=re.IGNORECASE,
-    )
+    # --- 2-9. Expand DMS, SEC, TH, FT, directionals, POB, misc, &/and ------
+    for pattern, replacement in _ASSESSOR_SUBS:
+        text = pattern.sub(replacement, text)
 
     # --- 10. Bare cardinal + distance → due Cardinal + distance ---------------
-    # "thence S 289.81 feet" → "thence due South 289.81 feet"
-    # Only match single cardinal letters (N/S/E/W) or full words
-    # (North/South/East/West) followed by a number, NOT followed by degree
-    # notation (°, degrees, DEG).  Must not match compound cardinals
-    # (northerly, southwesterly, NE, NW, etc.).
-    _CARDINAL_MAP = {
-        "n": "North",
-        "s": "South",
-        "e": "East",
-        "w": "West",
-        "north": "North",
-        "south": "South",
-        "east": "East",
-        "west": "West",
-    }
-
-    # Pattern: capture the full match so the callback can inspect context
-    _BARE_CARDINAL_RE = re.compile(
-        r"(\b(?:thence|proceeding)\s+)"  # group 1: anchor
-        r"(N|S|E|W|North|South|East|West)"  # group 2: bare cardinal
-        r"(\s+)"  # group 3: whitespace
-        r"(\d+\.?\d*)",  # group 4: distance number
-        re.IGNORECASE,
-    )
-
-    # Degree notation that immediately follows the captured number.
-    _DEGREE_AFTER_NUMBER = re.compile(
-        r"\s*(?:°|degrees?|DEG\b)",
-        re.IGNORECASE,
-    )
-
-    def _bare_cardinal_replace(m: Match[str]) -> str:
-        # Check what follows the captured number in the original string.
-        # If degree notation follows, this is a quadrant bearing — leave it alone.
-        after_pos = m.end()
-        after_text = m.string[after_pos : after_pos + 50]
-        if _DEGREE_AFTER_NUMBER.match(after_text):
-            return m.group(0)  # no change
-
-        prefix = m.group(1)  # "thence " (or "proceeding ")
-        cardinal = m.group(2)
-        number = m.group(4)  # "289.81" etc.
-        full_name = _CARDINAL_MAP[cardinal.lower()]
-        return f"{prefix}due {full_name} {number}"
-
     text = _BARE_CARDINAL_RE.sub(_bare_cardinal_replace, text)
 
     return text
@@ -357,8 +362,8 @@ def expand_abbreviations(text: str) -> str:
     Returns:
         Text with abbreviations expanded
     """
-    for pattern, expansion in SURVEY_ABBREVIATIONS:
-        text = re.sub(pattern, expansion, text, flags=re.IGNORECASE)
+    for pattern, expansion in _COMPILED_SURVEY_ABBREVIATIONS:
+        text = pattern.sub(expansion, text)
     return text
 
 

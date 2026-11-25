@@ -101,7 +101,7 @@ class TestStandardizeCardinalDirections:
 
         text = "North 45 degrees 30 minutes 15 seconds East"
         result = standardize_cardinal_directions(text)
-        assert "N 45\u00b030'15\"" in result or "N 45\u00b030'15" in result
+        assert "N 45\u00b030'15\"" in result
 
     def test_written_out_dm(self) -> None:
         from mp_parse.normalizer import standardize_cardinal_directions
@@ -146,3 +146,4 @@ class TestNormalizeLegalDescription:
 
         result = normalize_legal_description("simple text")
         assert isinstance(result, str)
+        assert result == "simple text"

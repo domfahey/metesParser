@@ -3,12 +3,29 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
 
 from mp_models import AuditContext, ClosureResult, LegalDescription
 from mp_verify import verify_closure
 
 from .pdf_processor import PDFProcessor
+
+
+def _to_mp_legal_description(obj: object) -> LegalDescription:
+    """Convert monolith or package LegalDescription to mp_models.LegalDescription."""
+    if isinstance(obj, LegalDescription):
+        return obj
+    if hasattr(obj, "model_dump"):
+        return LegalDescription.model_validate(obj.model_dump())
+    raise TypeError(f"Expected LegalDescription, got {type(obj).__name__}")
+
+
+def _to_mp_audit_context(obj: object) -> AuditContext:
+    """Convert monolith or package AuditContext to mp_models.AuditContext."""
+    if isinstance(obj, AuditContext):
+        return obj
+    if hasattr(obj, "model_dump"):
+        return AuditContext.model_validate(obj.model_dump())
+    raise TypeError(f"Expected AuditContext, got {type(obj).__name__}")
 
 
 class Pipeline:
@@ -52,11 +69,11 @@ class Pipeline:
         audit_ctx: AuditContext | None = None
         if self.audit:
             assert isinstance(result, tuple)
-            legal_desc = cast(LegalDescription, result[0])
-            audit_ctx = cast(AuditContext, result[1])
+            legal_desc = _to_mp_legal_description(result[0])
+            audit_ctx = _to_mp_audit_context(result[1])
         else:
             assert not isinstance(result, tuple)
-            legal_desc = cast(LegalDescription, result)
+            legal_desc = _to_mp_legal_description(result)
 
         if legal_desc.tracts:
             results = verify_closure(

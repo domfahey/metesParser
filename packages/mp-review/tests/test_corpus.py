@@ -186,3 +186,149 @@ def test_cli_corpus_exit_codes_and_structured_manifest_error(tmp_path, monkeypat
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "error"
     assert payload["errors"][0]["code"] == "invalid_manifest"
+
+
+def test_assertions_do_not_treat_bool_as_number():
+    from mp_review.corpus import _assertions
+
+    result = {
+        "calls": [
+            {"is_exception": False, "is_tie_in": True},
+        ]
+    }
+    checks_tol = _assertions(
+        result,
+        {"selected_calls": [{"is_exception": 0.0005}], "numeric_tolerance": 0.001},
+    )
+    assert checks_tol[0]["passed"] is False
+
+    checks_zero = _assertions(result, {"selected_calls": [{"is_exception": 0}]})
+    assert checks_zero[0]["passed"] is False
+
+    checks_one = _assertions(result, {"selected_calls": [{"is_tie_in": 1}]})
+    assert checks_one[0]["passed"] is False
+
+    checks_bool = _assertions(result, {"selected_calls": [{"is_exception": False}]})
+    assert checks_bool[0]["passed"] is True
+    assert checks_bool[0]["tolerance"] is None
+
+
+def test_missing_selected_call_fails_even_when_expected_is_none():
+    from mp_review.corpus import _assertions
+
+    checks = _assertions(
+        {"calls": []},
+        {"selected_calls": [{"bearing_azimuth_deg_from_north": None}]},
+    )
+    assert len(checks) == 1
+    assert checks[0]["passed"] is False
+    assert checks[0]["actual"] == "<missing call>"
+
+
+def test_manifest_with_nan_or_infinity_rejected(tmp_path):
+    for constant in ("NaN", "Infinity", "-Infinity"):
+        manifest_path = tmp_path / f"{constant}.json"
+        manifest_path.write_text(
+            '{"schema_version":"1.0","reviewed_basis":"test","cases":[{"id":"c","input":{"kind":"text","path":"square.txt"},"expect":{"misclosure_ft":'
+            + constant
+            + "}}]}",
+            encoding="utf-8",
+        )
+        try:
+            run_corpus(manifest_path)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"Manifest containing {constant} should be rejected")
+
+
+def test_run_corpus_rejects_nan_when_writing_report(tmp_path, monkeypatch):
+    manifest = {
+        "schema_version": "1.0",
+        "reviewed_basis": "test",
+        "cases": [
+            {
+                "id": "nan-result",
+                "input": {"kind": "text", "path": "square.txt"},
+                "expect": {"status": "checks_passed"},
+            }
+        ],
+    }
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    (tmp_path / "square.txt").write_bytes((FIXTURES / "square.txt").read_bytes())
+
+    monkeypatch.setattr(
+        "mp_review.api.review_file",
+        lambda *_args, **_kwargs: {
+            "status": "checks_passed",
+            "calls": [],
+            "verification": {"misclosure_ft": float("nan")},
+        },
+    )
+    try:
+        run_corpus(manifest_path, tmp_path / "report.json")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Writing report with NaN should fail with allow_nan=False")
+
+
+def test_invalid_tolerance_rejected(tmp_path):
+    (tmp_path / "square.txt").write_bytes((FIXTURES / "square.txt").read_bytes())
+    for tol_key in ("misclosure_ft_tolerance", "area_sq_ft_tolerance", "numeric_tolerance"):
+        for bad_val in (True, -0.1, "0.01", None):
+            manifest = {
+                "schema_version": "1.0",
+                "reviewed_basis": "test",
+                "cases": [
+                    {
+                        "id": "bad-tol",
+                        "input": {"kind": "text", "path": "square.txt"},
+                        "expect": {"status": "checks_passed", tol_key: bad_val},
+                    }
+                ],
+            }
+            manifest_path = tmp_path / "tol.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            report = run_corpus(manifest_path)
+            assert report["status"] == "failed"
+            assert report["cases"][0]["error"]["type"] == "ValueError"
+
+
+def test_cli_corpus_output_error_distinguished_from_invalid_manifest(tmp_path, monkeypatch, capsys):
+    bad_manifest = tmp_path / "bad.json"
+    bad_manifest.write_text("{}")
+    monkeypatch.setattr("sys.argv", ["metes-review", "corpus", str(bad_manifest)])
+    try:
+        main()
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:
+        raise AssertionError("malformed manifest must exit two")
+    invalid_payload = json.loads(capsys.readouterr().out)
+    assert invalid_payload["artifacts"] == {}
+    assert invalid_payload["errors"][0]["code"] == "invalid_manifest"
+
+    existing_dir = tmp_path / "already_a_dir"
+    existing_dir.mkdir()
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "metes-review",
+            "corpus",
+            str(FIXTURES / "corpus.json"),
+            "--output",
+            str(existing_dir),
+        ],
+    )
+    try:
+        main()
+    except SystemExit as exc:
+        assert exc.code == 2
+    else:
+        raise AssertionError("unwritable output must exit two")
+    output_payload = json.loads(capsys.readouterr().out)
+    assert output_payload["status"] == "error"
+    assert output_payload["artifacts"] == {}
+    assert output_payload["errors"][0]["code"] == "output_error"

@@ -1,6 +1,9 @@
 """Tests for multi-tract verification."""
 
-from mp_models import ClosureResult, DeedCall, Tract, TractType
+from datetime import UTC, datetime
+
+import pytest
+from mp_models import AuditContext, ClosureResult, DeedCall, RunMetadata, Tract, TractType
 from mp_verify import verify_closure
 from mp_verify.closure import verify_tract
 
@@ -76,6 +79,26 @@ class TestVerifyTract:
         assert result.misclosure_ft > 100
         assert not result.is_fully_verified()
 
+    def test_verify_tract_preserves_inline_exceptions_in_mixed_tract(self):
+        main_calls = _square_calls(100.0, course_start=1)
+        exc_calls = [
+            c.model_copy(update={"is_exception": True}) for c in _square_calls(20.0, course_start=5)
+        ]
+        result = verify_tract(main_calls + exc_calls)
+        assert result.closure_passed is True
+        assert result.area_sq_ft == pytest.approx(9600.0)
+        assert result.angle_check_passed is True
+        assert not any("intersect" in w.lower() for w in result.warnings)
+
+    def test_verify_tract_standalone_exception_only_tract_closes(self):
+        exc_only = [
+            c.model_copy(update={"is_exception": True}) for c in _square_calls(50.0, course_start=1)
+        ]
+        result = verify_tract(exc_only)
+        assert result.closure_passed is True
+        assert result.area_sq_ft == pytest.approx(2500.0)
+        assert result.angle_check_passed is True
+
 
 class TestVerifyClosureMultiTract:
     def test_multi_tract_returns_list(self):
@@ -90,6 +113,9 @@ class TestVerifyClosureMultiTract:
         """Backward compat: no tracts param = single ClosureResult."""
         result = verify_closure(_square_calls())
         assert isinstance(result, ClosureResult)
+        assert result.closure_passed is True
+        assert result.area_sq_ft == pytest.approx(10000.0)
+        assert result.warnings == []
 
     def test_per_tract_closure_independent(self):
         t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
@@ -113,3 +139,24 @@ class TestVerifyClosureMultiTract:
             _square_calls(), stated_area_sq_ft=10000.0, closure_tolerance_ft=0.1
         )
         assert isinstance(result, ClosureResult)
+        assert result.closure_passed is True
+        assert result.area_sq_ft == pytest.approx(10000.0)
+        assert result.warnings == []
+
+    def test_multi_tract_audit_context_not_overwritten(self):
+        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
+        t2 = Tract(label="Tract 2", tract_type=TractType.MAIN, calls=_square_calls(50.0))
+        ctx = AuditContext(
+            run_metadata=RunMetadata(
+                parser_version="0.5.0",
+                llm_provider="openai",
+                llm_model="gpt-5.2",
+                prompt_hash="abc123",
+                timestamp_utc=datetime.now(UTC),
+                source_pdf="deed.pdf",
+                cache_enabled=False,
+            )
+        )
+        results = verify_closure(_square_calls(100.0), tracts=[t1, t2], audit_context=ctx)
+        assert len(results) == 2
+        assert ctx.verification_audit is None

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import base64
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
+
+_RETRYABLE_STATUS_CODES = frozenset({429, 502, 503, 504})
 
 
 class LLMClientError(RuntimeError):
@@ -41,9 +43,9 @@ class BaseLLMClient(Protocol):
 class OpenAIClient:
     """OpenAI-backed LLM client."""
 
-    api_key: str | None = None
+    api_key: str | None = field(default=None, repr=False)
     model: str = "gpt-5.2"
-    _client: Any = object()
+    _client: Any = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         key = self.api_key or os.getenv("OPENAI_API_KEY")
@@ -55,7 +57,7 @@ class OpenAIClient:
             from openai import OpenAI
         except ImportError as exc:  # pragma: no cover - defensive
             raise LLMConfigurationError(
-                "openai package not installed. Install metesparser with OpenAI extras."
+                "openai package not installed. Install with: uv sync --extra openai."
             ) from exc
         object.__setattr__(self, "_client", OpenAI(api_key=key))
 
@@ -121,12 +123,12 @@ class OpenAIClient:
 class GeminiClient:
     """Gemini-backed LLM client with optional fallback model."""
 
-    api_key: str | None = None
+    api_key: str | None = field(default=None, repr=False)
     model: str = "gemini-3-flash-preview"
     fallback_model: str | None = "gemini-2.5-flash"
-    _client: Any = object()
-    _types: Any = object()
-    _errors: Any = object()
+    _client: Any = field(init=False, repr=False, compare=False)
+    _types: Any = field(init=False, repr=False, compare=False)
+    _errors: Any = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         key = self.api_key or os.getenv("GEMINI_API_KEY")
@@ -140,7 +142,7 @@ class GeminiClient:
             from google.genai import types as genai_types
         except ImportError as exc:  # pragma: no cover - defensive
             raise LLMConfigurationError(
-                "google-genai package not installed. Install metesparser with the gemini extra: pip install 'metesparser[gemini]'."
+                "google-genai package not installed. Install metesparser with the gemini extra: uv sync --extra gemini."
             ) from exc
         object.__setattr__(self, "_client", genai.Client(api_key=key))
         object.__setattr__(self, "_types", genai_types)
@@ -176,10 +178,8 @@ class GeminiClient:
         if fallback and fallback not in models_to_try:
             models_to_try.append(fallback)
 
-        last_error: Exception | None = None
-
+        config = self._types.GenerateContentConfig(**generate_kwargs)
         for index, model_name in enumerate(models_to_try):
-            config = self._types.GenerateContentConfig(**generate_kwargs)
             try:
                 response = self._client.models.generate_content(
                     model=model_name,
@@ -189,15 +189,11 @@ class GeminiClient:
                 return self._collect_response_text(response)
             except (self._errors.ClientError, self._errors.ServerError) as exc:
                 status_code = getattr(exc, "status_code", None)
-                retryable_codes = {429, 502, 503, 504}
-                if status_code in retryable_codes and index < len(models_to_try) - 1:
-                    last_error = exc
+                if status_code in _RETRYABLE_STATUS_CODES and index < len(models_to_try) - 1:
                     continue
                 raise
 
-        if last_error:
-            raise last_error
-        return ""
+        return ""  # pragma: no cover - unreachable since models_to_try is non-empty
 
     def _collect_response_text(self, response: object) -> str:
         text = getattr(response, "text", None)

@@ -249,11 +249,14 @@ class TestNonTangentFields:
         assert call.radial_bearing is None
 
     def test_radial_bearing_without_non_tangent_is_allowed(self):
-        """radial_bearing can be set independently for informational purposes."""
+        """radial_bearing can be set independently on a curve for informational purposes."""
         call = DeedCall(
             course=1,
             direction_text="N 45° E",
             distance_ft=100.0,
+            curve_dir="right",
+            radius_ft=356.37,
+            delta_deg=41.8,
             radial_bearing="N 15°22' E",
         )
         assert call.radial_bearing == "N 15°22' E"

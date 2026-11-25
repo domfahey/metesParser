@@ -38,12 +38,16 @@ def score_call_quality(call: DeedCall) -> str:
     return "high"
 
 
-def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> float:
+def calculate_confidence_score(
+    result: ClosureResult,
+    calls: list[DeedCall],
+    self_intersection_passed: bool | None = None,
+) -> float:
     """Calculate overall confidence score (0.0-1.0) for a closure result.
 
     Weighted components:
     - Closure quality (30%): based on misclosure distance and pass/fail
-    - Verification checks (20%): angle + curve consistency
+    - Verification checks (20%): angle + curve consistency + self-intersection
     - Bearing completeness (25%): ratio of calls with complete bearings
     - Call quality (15%): ratio of high-quality calls
     - Warning penalty (10%): deducted per warning
@@ -51,11 +55,13 @@ def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> 
     Args:
         result: ClosureResult from verify_closure().
         calls: List of DeedCall objects.
+        self_intersection_passed: Optional straight-boundary self-intersection check result.
+            When omitted, inferred from ``result.warnings``.
 
     Returns:
         Score between 0.0 and 1.0 (inclusive).
     """
-    if not calls:
+    if not calls or result.perimeter_ft <= 0 or not any(c.is_complete_bearing() for c in calls):
         return 0.0
 
     # Closure quality (30%)
@@ -72,13 +78,18 @@ def calculate_confidence_score(result: ClosureResult, calls: list[DeedCall]) -> 
         closure_score = max(0.0, 0.3 - result.misclosure_ft * 0.02)
 
     # Verification checks (20%)
+    if self_intersection_passed is None:
+        self_intersection_passed = not any(
+            "self-intersection" in warning.lower() for warning in result.warnings
+        )
     checks_passed = sum(
         [
             result.angle_check_passed,
             result.curve_consistency_passed,
+            self_intersection_passed,
         ]
     )
-    checks_score = checks_passed / 2.0
+    checks_score = checks_passed / 3.0
 
     # Bearing completeness (25%)
     complete = sum(1 for c in calls if c.is_complete_bearing())

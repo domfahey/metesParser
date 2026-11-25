@@ -82,7 +82,7 @@ class TestSecondExpansion:
 
         result = expand_assessor_abbreviations("S0DEG 49M 20S W 175FT")
         # First S must stay as a directional, not become "seconds"
-        assert result.startswith("S") or result.startswith("S ")
+        assert result.startswith("S")
         # Must not start with "seconds"
         assert not result.lower().startswith("seconds")
 
@@ -141,7 +141,7 @@ class TestThenceExpansion:
         from mp_parse.normalizer import expand_assessor_abbreviations
 
         result = expand_assessor_abbreviations("EXC E 60FT THEREOF")
-        assert "THEREOF" in result.upper() or "thereof" in result.lower()
+        assert "THEREOF" in result.upper()
         assert result.upper().count("THENCE") == 0
 
 
@@ -443,7 +443,7 @@ class TestMIWAYN50426:
         result = expand_assessor_abbreviations(self.LEGAL)
         # "S 89D" — S is South, not seconds
         # After expansion: "S 89 degrees ..." — S still present as direction
-        assert "S 89 degrees" in result or "S 89D" in result
+        assert "S 89 degrees" in result
 
     def test_ft_expanded(self) -> None:
         from mp_parse.normalizer import expand_assessor_abbreviations
@@ -648,14 +648,14 @@ class TestEdgeCases:
         from mp_parse.normalizer import expand_assessor_abbreviations
 
         result = expand_assessor_abbreviations("0.25 AC")
-        assert "AC" in result.upper() or "ac" in result.lower()
+        assert "AC" in result.upper()
 
     def test_fols_not_expanded(self) -> None:
         """FOLS (follows) in Wayne County text should not be mangled."""
         from mp_parse.normalizer import expand_assessor_abbreviations
 
         result = expand_assessor_abbreviations("DESC AS FOLS BEG")
-        assert "FOLS" in result.upper() or "fols" in result.lower()
+        assert "FOLS" in result.upper()
 
     def test_mixed_case(self) -> None:
         from mp_parse.normalizer import expand_assessor_abbreviations

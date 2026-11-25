@@ -6,8 +6,9 @@ Handles cleaning up OCR errors, standardizing DMS notation, merging line breaks,
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from re import Match
-from typing import TYPE_CHECKING, Callable, Literal, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 from .models import ConversionFactors
 
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
     from .models import DeedClause, SubdivisionReference
 
 # Regex fragment for numbers with optional comma grouping (e.g., "1,200" or "3,500.00")
-_COMMA_NUMBER = r"\d[\d,]*(?:\.\d+)?"
+_COMMA_NUMBER = r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?"
 
 # Sentence-boundary markers where the legal description ends and post-description
 # metadata begins.  The pattern requires ". " before the keyword so that phrases
@@ -39,6 +40,52 @@ _METADATA_BOUNDARY = re.compile(
 )
 
 _CLAUSE_ABBREVIATIONS = {"ave", "blvd", "dr", "ft", "in", "no", "rd", "st"}
+
+_DISTANCE_UNIT_TOKEN = (
+    r"US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?"
+    r"|foot|feet|ft|poles?|rods?|perches?|chains?|links?"
+    r"|varas?|arpents?|toises?|furlongs?|meters?|miles?"
+)
+
+_UNSUPPORTED_DISTANCE_UNIT_TOKEN = (
+    r"inch(?:es)?|yards?|yds?|cubits?|paces?|fathoms?|leagues?|ells?|spans?|hands?"
+    r"|(?:kilo|centi|milli|deci)met(?:er|re)s?|metres?|km|cm|mm"
+    r"|gunter(?:'s)?\s+(?:chains?|links?)"
+)
+
+_DISTANCE_UNIT_ALIASES: dict[str, str] = {
+    "ft": "feet",
+    "foot": "feet",
+    "feet": "feet",
+    "poles": "poles",
+    "pole": "poles",
+    "rods": "rods",
+    "rod": "rods",
+    "perch": "perches",
+    "perches": "perches",
+    "chain": "chains",
+    "chains": "chains",
+    "link": "links",
+    "links": "links",
+    "engineer chain": "engineer_chains",
+    "engineer chains": "engineer_chains",
+    "engineer link": "engineer_links",
+    "engineer links": "engineer_links",
+    "us survey foot": "us_survey_feet",
+    "us survey feet": "us_survey_feet",
+    "vara": "varas",
+    "varas": "varas",
+    "arpent": "arpents",
+    "arpents": "arpents",
+    "toise": "toises",
+    "toises": "toises",
+    "furlong": "furlongs",
+    "furlongs": "furlongs",
+    "meter": "meters",
+    "meters": "meters",
+    "mile": "miles",
+    "miles": "miles",
+}
 
 
 def _before_clause_delimiter(text: str) -> str:
@@ -64,8 +111,140 @@ def parse_comma_number(s: str) -> float:
     return float(s.replace(",", ""))
 
 
+_AREA_PATTERN = re.compile(
+    r"(?:(?:(?:approximately|approx\.?|~)\s+)?)"
+    r"(?P<value>\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)"
+    r"\s*(?P<unit>sq\.?\s*ft\.?|square\s+(?:feet|foot)|acres?)",
+    re.IGNORECASE,
+)
+_AREA_STANDALONE_PATTERN = re.compile(
+    r"\s*(?:(?:approximately|approx\.?|~)\s+)?"
+    r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s*(?:sq\.?\s*ft\.?|square\s+(?:feet|foot)|acres?)"
+    r"(?:\s+more\s+or\s+less)?\s*[.]?\s*",
+    re.IGNORECASE,
+)
+_AREA_PARCEL_CONTEXT_RE = re.compile(
+    r"\b(?:containing|contains|comprising|consisting\s+of)\b|\barea\s*:\s*$"
+)
+_PARENT_AREA_CONTEXT_RE = re.compile(r"\b(?:parent|larger|original)\s+(?:tract|parcel|lot)\b")
+_AREA_APPROX_RE = re.compile(r"\bapprox(?:imately)?\.?\b")
+
+_PLSS_SECTION_RE = re.compile(r"\b(?:SECTION|SEC\.?)\s+(\d+)\b")
+_PLSS_TOWNSHIP_RE = re.compile(
+    r"\b(?:TOWNSHIP|TOWN|T\.?)\s*(\d+)\s*(NORTH|N\.?|SOUTH|S\.?)\b"
+)
+_PLSS_RANGE_RE = re.compile(r"\b(?:RANGE|R\.?)\s*(\d+)\s*(EAST|E\.?|WEST|W\.?)\b")
+_PLSS_PM_PRINCIPAL_RE = re.compile(
+    r"\b(?:IN\s+|THE\s+)?([A-Z0-9]+(?:\s+[A-Z0-9]+){0,4})\s+PRINCIPAL\s+MERIDIAN\b"
+)
+_PLSS_PM_ABBREV_RE = re.compile(
+    r"\b(?:IN\s+|THE\s+)?([A-Z0-9]+(?:\s+[A-Z0-9]+){0,4})\s+P\.?M\.?\b"
+)
+_PLSS_PM_PREFIX_STRIP_RE = re.compile(
+    r"^(?:.*?\b(?:OF\s+THE|OF|IN|THE)\s+|(?:\d+\s+)?(?:NORTH|SOUTH|EAST|WEST)\s+)"
+)
+_PLSS_TIME_PM_RE = re.compile(r"\bAT\s+\d+(?::\d+)?\s+P\.?M\.?\b")
+_PLSS_ORDINAL_OR_WORD_RE = re.compile(r"^(?:[A-Z][A-Z0-9]*|\d+(?:ST|ND|RD|TH))$")
+_PLSS_ALIQUOT_RE = re.compile(
+    r"\b((?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\s+OF\s+(?:THE\s+)?)*(?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\b"
+)
+
+_DMS_DEGREE_RE = re.compile(r"[°º]")
+_DMS_MINUTE_RE = re.compile(r"['\u2018\u2019\u2032`]")
+_DMS_SECOND_RE = re.compile(r'["\u201c\u201d\u2033]')
+_HYPHEN_BREAK_RE = re.compile(r"-\s*\n\s*")
+_CALL_START_LINE_RE = re.compile(
+    r"^(?:(?:THENCE|BEGINNING|FROM|POB|POINT)\b|\(\d+\)|\d+[.)])(?:\s+|$)",
+    re.IGNORECASE,
+)
+
+_CARDINAL_DIR_PATTERNS: list[tuple[re.Pattern[str], Callable[[Match[str]], str]]] = [
+    (
+        re.compile(
+            r"\b(North|South|N|S)\s*(\d{1,3})\s+degrees?,?\s+(\d{1,2})\s+minutes?\s*,?\s*(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(East|West|E|W)\b",
+            re.IGNORECASE,
+        ),
+        lambda m: (
+            f"{m.group(1)[0].upper()} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0].upper()}"
+        ),
+    ),
+    (
+        re.compile(
+            r"\b(North|South|N|S)\s*(\d{1,3})\s+degrees?,?\s+(\d{1,2})\s+minutes?\s*,?\s*(East|West|E|W)\b",
+            re.IGNORECASE,
+        ),
+        lambda m: f"{m.group(1)[0].upper()} {m.group(2)}°{m.group(3)}' {m.group(4)[0].upper()}",
+    ),
+    (
+        re.compile(
+            r"\b(North|South|N|S)\s*(\d{1,3})\s+degrees?\s*,?\s*(East|West|E|W)\b",
+            re.IGNORECASE,
+        ),
+        lambda m: f"{m.group(1)[0].upper()} {m.group(2)}° {m.group(3)[0].upper()}",
+    ),
+    (
+        re.compile(
+            r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])",
+            re.IGNORECASE,
+        ),
+        lambda m: (
+            f"{m.group(1).upper()} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5).upper()}"
+        ),
+    ),
+    (
+        re.compile(r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*([EW])", re.IGNORECASE),
+        lambda m: f"{m.group(1).upper()} {m.group(2)}°{m.group(3)}' {m.group(4).upper()}",
+    ),
+    (
+        re.compile(r"([NS])\s*(\d{1,3})\s*°\s*([EW])", re.IGNORECASE),
+        lambda m: f"{m.group(1).upper()} {m.group(2)}° {m.group(3).upper()}",
+    ),
+]
+
+_POB_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pattern, re.IGNORECASE | re.DOTALL)
+    for pattern in (
+        r"BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"POB\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"TRUE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"TPOB\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"T\.P\.O\.B\.\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"REMOTE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"RPOB\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"R\.P\.O\.B\.\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+        r"commencing\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
+    )
+)
+
+_CLOSURE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\bto\s+(?:the\s+)?(?:(?:true|remote)\s+)?(?:point\s+(?:and\s+place\s+)?of\s+|place\s+of\s+)?beginning\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bto\s+(?:the\s+)?(?:(?:[TR]\.?P\.?O\.?B\.?)|P\.?O\.?B\.?)(?=\W|$)",
+        re.IGNORECASE,
+    ),
+)
+
+_POC_POB_PATTERN = re.compile(r"\b(?:point\s+of\s+beginning|beginning|POB)\b", re.IGNORECASE)
+_POC_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"COMMENCING\s+at\s+(.*?)(?:;|THENCE)", re.IGNORECASE | re.DOTALL),
+    re.compile(r"STARTING\s+at\s+(.*?)(?:,|;|THENCE)", re.IGNORECASE | re.DOTALL),
+)
+_SUBSEQUENT_COURSE_RE = re.compile(
+    r"\bTHENCE\b|(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+",
+    re.IGNORECASE | re.MULTILINE,
+)
+_BETWEEN_THENCE_RE = re.compile(r"\bTHENCE\b", re.IGNORECASE)
+_BETWEEN_NUM_RE = re.compile(r"(?:^|\n)\s*(?:\(\d+\)|\d+[.)])\s+", re.MULTILINE)
+
+
 class TextParser:
     """Parse and normalize legal description text."""
+
+    _COMMA_NUMBER = _COMMA_NUMBER
 
     class _AreaStatement(TypedDict):
         value_sq_ft: float
@@ -90,14 +269,7 @@ class TextParser:
         if not normalized_text:
             return None
 
-        area_pattern = re.compile(
-            r"(?:(?:(?:approximately|approx\.?|~)\s+)?)"
-            r"(?P<value>\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)"
-            r"\s*(?P<unit>sq\.?\s*ft\.?|square\s+feet?|acres?)",
-            re.IGNORECASE,
-        )
-
-        matches = list(area_pattern.finditer(normalized_text))
+        matches = list(_AREA_PATTERN.finditer(normalized_text))
         if not matches:
             return None
 
@@ -107,54 +279,42 @@ class TextParser:
                 preceding_text.rfind(";"), preceding_text.rfind("."), preceding_text.rfind("\n")
             )
             clause_prefix = preceding_text[clause_start + 1 :]
-            return bool(
-                re.search(
-                    r"\b(?:parent|larger|original)\s+(?:tract|parcel|lot)\b", clause_prefix
-                )
-            )
+            return bool(_PARENT_AREA_CONTEXT_RE.search(clause_prefix))
 
-        standalone = re.fullmatch(
-            r"\s*(?:(?:approximately|approx\.?|~)\s+)?"
-            r"(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?\s*(?:sq\.?\s*ft\.?|square\s+feet?|acres?)"
-            r"(?:\s+more\s+or\s+less)?\s*[.]?\s*",
-            normalized_text,
-            re.IGNORECASE,
-        )
+        standalone = _AREA_STANDALONE_PATTERN.fullmatch(normalized_text)
         parcel_matches = [
             match
             for match in matches
-            if re.search(r"\b(?:containing|contains|comprising|consisting\s+of)\b|\barea\s*:\s*$", normalized_text[max(0, match.start() - 55) : match.start()])
-            and not re.search(r"\b(?:parent|larger|original)\s+tract\b", normalized_text[match.start() : match.end() + 45])
+            if _AREA_PARCEL_CONTEXT_RE.search(
+                normalized_text[max(0, match.start() - 55) : match.start()]
+            )
+            and not _PARENT_AREA_CONTEXT_RE.search(normalized_text[match.start() : match.end() + 45])
             and not is_parent_area_context(match)
         ]
         if not parcel_matches and not standalone:
             return None
 
-        for match in (parcel_matches or matches[:1]):
-            unit = match.group("unit").replace(" ", "")
-            value = float(match.group("value").replace(",", ""))
+        match = parcel_matches[0] if parcel_matches else matches[0]
+        unit = match.group("unit").replace(" ", "")
+        value = float(match.group("value").replace(",", ""))
 
-            if "acre" in unit:
-                value_sq_ft = value * ConversionFactors.ACRE_TO_SQ_FEET
-                unit_key = "acres"
-            else:
-                value_sq_ft = value
-                unit_key = "sq_ft"
+        if "acre" in unit:
+            value_sq_ft = value * ConversionFactors.ACRE_TO_SQ_FEET
+            unit_key = "acres"
+        else:
+            value_sq_ft = value
+            unit_key = "sq_ft"
 
-            prefix = normalized_text[max(0, match.start() - 45) : match.end() + 45]
-            approximate = bool(
-                "~" in prefix
-                or re.search(r"\bapprox(?:imately)?\.?\b", prefix)
-                or "more or less" in prefix
-            )
+        prefix = normalized_text[max(0, match.start() - 45) : match.end() + 45]
+        approximate = bool(
+            "~" in prefix or _AREA_APPROX_RE.search(prefix) or "more or less" in prefix
+        )
 
-            return {
-                "value_sq_ft": value_sq_ft,
-                "unit": unit_key,
-                "approximate": approximate,
-            }
-
-        return None
+        return {
+            "value_sq_ft": value_sq_ft,
+            "unit": unit_key,
+            "approximate": approximate,
+        }
 
     @classmethod
     def extract_plss_metadata(cls, text: str) -> dict[str, str | None]:
@@ -176,39 +336,44 @@ class TextParser:
 
         text_upper = text.upper()
 
-        section_match = re.search(r"\bSECTION\s+(\d+)\b", text_upper)
+        section_match = _PLSS_SECTION_RE.search(text_upper)
         if section_match:
             plss_data["section"] = section_match.group(1)
 
-        township_match = re.search(
-            r"\b(?:TOWNSHIP|TOWN|T\.?)\s*(\d+)\s*(NORTH|N\.?|SOUTH|S\.?)\b", text_upper
-        )
+        township_match = _PLSS_TOWNSHIP_RE.search(text_upper)
         if township_match:
             township_num = township_match.group(1)
             direction_token = township_match.group(2)
             direction = "N" if direction_token.startswith("N") else "S"
             plss_data["township"] = f"{township_num} {direction}"
 
-        range_match = re.search(r"\b(?:RANGE|R\.?)\s*(\d+)\s*(EAST|E\.?|WEST|W\.?)\b", text_upper)
+        range_match = _PLSS_RANGE_RE.search(text_upper)
         if range_match:
             range_num = range_match.group(1)
             direction_token = range_match.group(2)
             direction = "W" if direction_token.startswith("W") else "E"
             plss_data["range"] = f"{range_num} {direction}"
 
-        pm_patterns = [
-            r"\b(?:IN\s+|THE\s+)?([A-Z0-9]+(?:\s+[A-Z0-9]+){0,4})\s+PRINCIPAL\s+MERIDIAN\b",
-            r"\b(?:IN\s+|THE\s+)?([A-Z0-9]+(?:\s+[A-Z0-9]+){0,4})\s+P\.?M\.?\b",
-        ]
-        for pattern in pm_patterns:
-            pm_match = re.search(pattern, text_upper)
-            if pm_match:
-                meridian_name = pm_match.group(1).title()
-                plss_data["principal_meridian"] = f"{meridian_name} Principal Meridian"
+        pm_match = _PLSS_PM_PRINCIPAL_RE.search(text_upper)
+        if pm_match:
+            cleaned = _PLSS_PM_PREFIX_STRIP_RE.sub("", pm_match.group(1)).strip()
+            if cleaned:
+                plss_data["principal_meridian"] = f"{cleaned.title()} Principal Meridian"
+        else:
+            for abbrev_match in _PLSS_PM_ABBREV_RE.finditer(text_upper):
+                ctx_start = max(0, abbrev_match.start() - 15)
+                if _PLSS_TIME_PM_RE.search(text_upper[ctx_start : abbrev_match.end()]):
+                    continue
+                cleaned = _PLSS_PM_PREFIX_STRIP_RE.sub("", abbrev_match.group(1)).strip()
+                if not cleaned:
+                    continue
+                last_token = cleaned.split()[-1]
+                if not _PLSS_ORDINAL_OR_WORD_RE.match(last_token):
+                    continue
+                plss_data["principal_meridian"] = f"{cleaned.title()} Principal Meridian"
                 break
 
-        aliquot_pattern = r"\b((?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\s+OF\s+(?:THE\s+)?)+(?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\b"
-        aliquot_match = re.search(aliquot_pattern, text_upper)
+        aliquot_match = _PLSS_ALIQUOT_RE.search(text_upper)
         if aliquot_match:
             aliquot_text = aliquot_match.group(0)
             aliquot_text = aliquot_text.replace("½", "1/2").replace("¼", "1/4")
@@ -228,12 +393,9 @@ class TextParser:
         Returns:
             Text with standardized DMS symbols
         """
-        text = re.sub(r"[°º\u00B0\u00BA]", "°", text)
-
-        text = re.sub(r"[''\u2018\u2019`]", "'", text)
-
-        text = re.sub(r"[" "\u201c\u201d]", '"', text)
-
+        text = _DMS_DEGREE_RE.sub("°", text)
+        text = _DMS_MINUTE_RE.sub("'", text)
+        text = _DMS_SECOND_RE.sub('"', text)
         return text
 
     @classmethod
@@ -249,7 +411,7 @@ class TextParser:
         Returns:
             Text with wrapped calls merged
         """
-        text = re.sub(r"-\s*\n\s*", "", text)
+        text = _HYPHEN_BREAK_RE.sub("", text)
 
         lines = text.split("\n")
         merged = []
@@ -260,11 +422,7 @@ class TextParser:
             if not stripped:
                 continue
 
-            if re.match(
-                r"^(?:(?:THENCE|BEGINNING|FROM|POB|POINT)\b|\(\d+\)|\d+[.)])(?:\s+|$)",
-                stripped,
-                re.IGNORECASE,
-            ):
+            if _CALL_START_LINE_RE.match(stripped):
                 if current:
                     merged.append(current)
                 current = stripped
@@ -291,29 +449,8 @@ class TextParser:
         Returns:
             Text with standardized cardinal directions
         """
-        patterns: list[tuple[str, str | Callable[[Match[str]], str]]] = [
-            (
-                r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(\d{1,2}(?:\.\d+)?)\s+seconds?\s+(North|South|East|West)\b",
-                lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}'{m.group(4)}\" {m.group(5)[0]}",
-            ),
-            (
-                r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(\d{1,2})\s+minutes?\s+(North|South|East|West)\b",
-                lambda m: f"{m.group(1)[0]} {m.group(2)}°{m.group(3)}' {m.group(4)[0]}",
-            ),
-            (
-                r"\b(North|South|East|West)\s+(\d{1,3})\s+degrees?\s+(North|South|East|West)\b",
-                lambda m: f"{m.group(1)[0]} {m.group(2)}° {m.group(3)[0]}",
-            ),
-            (
-                r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*(\d{1,2}(?:\.\d+)?)\s*\"\s*([EW])",
-                "\\1 \\2°\\3'\\4\" \\5",
-            ),
-            (r"([NS])\s*(\d{1,3})\s*°\s*(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4"),
-            (r"([NS])\s*(\d{1,3})\s*°\s*([EW])", r"\1 \2° \3"),
-        ]
-
-        for pattern, replacement in patterns:
-            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+        for pattern, replacement in _CARDINAL_DIR_PATTERNS:
+            text = pattern.sub(replacement, text)
 
         return text
 
@@ -327,20 +464,8 @@ class TextParser:
         Returns:
             POB description string
         """
-        pob_patterns = [
-            r"BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
-            r"POB\s+at\s+(.*?)(?:\.|;|THENCE)",
-            r"POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
-            r"commencing\s+at\s+(.*?)(?:\.|;|THENCE)",
-            r"TRUE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
-            r"TPOB\s+at\s+(.*?)(?:\.|;|THENCE)",
-            r"T\.P\.O\.B\.\s+at\s+(.*?)(?:\.|;|THENCE)",
-            r"REMOTE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.|;|THENCE)",
-            r"RPOB\s+at\s+(.*?)(?:\.|;|THENCE)",
-        ]
-
-        for pattern in pob_patterns:
-            match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        for pattern in _POB_PATTERNS:
+            match = pattern.search(text)
             if match:
                 return match.group(1).strip()
 
@@ -356,24 +481,9 @@ class TextParser:
         Returns:
             True if text indicates returning to POB, False otherwise
         """
-        closure_patterns = [
-            r"\bto\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
-            r"\bto\s+(?:the\s+)?POB\b",
-            r"\breturning\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
-            r"\bback\s+to\s+(?:the\s+)?(?:point\s+of\s+)?beginning\b",
-            r"\bback\s+to\s+(?:the\s+)?POB\b",
-            r"\bto\s+(?:the\s+)?(?:true\s+point\s+of\s+beginning\b|TPOB\b|T\.P\.O\.B\.)",
-            r"\bto\s+(?:the\s+)?(?:remote\s+point\s+of\s+beginning\b|RPOB\b|R\.P\.O\.B\.)",
-        ]
+        last_part = text[-60:] if len(text) > 60 else text
 
-        text_lower = text.lower()
-
-        for pattern in closure_patterns:
-            last_part = text_lower[-60:] if len(text_lower) > 60 else text_lower
-            if re.search(pattern, last_part, re.IGNORECASE):
-                return True
-
-        return False
+        return any(pattern.search(last_part) for pattern in _CLOSURE_PATTERNS)
 
     @classmethod
     def extract_poc(cls, text: str) -> str:
@@ -389,27 +499,27 @@ class TextParser:
         Returns:
             POC description string (empty if no separate POC found)
         """
-        pob_pattern = r"\b(?:point\s+of\s+beginning|beginning|POB)\b"
-
-        has_later_pob = bool(re.search(pob_pattern, text, re.IGNORECASE))
-
-        if not has_later_pob:
+        if not _POC_POB_PATTERN.search(text):
             return ""
 
-        poc_patterns = [
-            r"COMMENCING\s+at\s+(.*?)(?:;|THENCE)",
-            r"STARTING\s+at\s+(.*?)(?:,|;|THENCE)",
-        ]
-
-        for pattern in poc_patterns:
-            match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+        for pattern in _POC_PATTERNS:
+            match = pattern.search(text)
             if match:
                 poc_text = match.group(1).strip()
                 poc_end_pos = match.end()
 
-                pob_match = re.search(pob_pattern, text[poc_end_pos:], re.IGNORECASE)
+                pob_match = _POC_POB_PATTERN.search(text[poc_end_pos:])
                 if pob_match:
-                    return poc_text
+                    after_pob = text[poc_end_pos + pob_match.end() :]
+                    if _SUBSEQUENT_COURSE_RE.search(after_pob):
+                        return poc_text
+                    between = text[poc_end_pos : poc_end_pos + pob_match.start()]
+                    if (
+                        len(_BETWEEN_THENCE_RE.findall(between)) < 2
+                        and ";" not in between
+                        and len(_BETWEEN_NUM_RE.findall(between)) < 2
+                    ):
+                        return poc_text
 
         return ""
 
@@ -491,122 +601,105 @@ class TextParser:
         Returns:
             Tuple of (distance_value, unit)
         """
-        pattern = (
-            rf"({_COMMA_NUMBER})\s*"
-            r"(US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?"
-            r"|foot|feet|ft|poles?|rods?|perches?|chains?|links?"
-            r"|varas?|arpents?|toises?|furlongs?|meters?|miles?)"
-        )
+        component_pattern = rf"({_COMMA_NUMBER})\s*({_DISTANCE_UNIT_TOKEN})\b"
+
+        def _normalize_unit(raw_unit: str) -> str:
+            return _DISTANCE_UNIT_ALIASES[" ".join(raw_unit.lower().split())]
+
+        def _consume_compound_from(
+            base_value_raw: str, base_unit_raw: str, start_pos: int
+        ) -> tuple[float, str] | None:
+            base_unit = _normalize_unit(base_unit_raw)
+            total_ft = ConversionFactors.convert_to_feet(
+                parse_comma_number(base_value_raw), base_unit
+            )
+            pos = start_pos
+            count = 1
+            while True:
+                cont = re.match(rf"\s+and\s+{component_pattern}", text[pos:], re.IGNORECASE)
+                if not cont:
+                    break
+                cont_unit = _normalize_unit(cont.group(2))
+                total_ft += ConversionFactors.convert_to_feet(
+                    parse_comma_number(cont.group(1)), cont_unit
+                )
+                pos += cont.end()
+                count += 1
+            if re.match(
+                rf"\s+and\s+{_COMMA_NUMBER}\s+(?:{_UNSUPPORTED_DISTANCE_UNIT_TOKEN})\b",
+                text[pos:],
+                re.IGNORECASE,
+            ):
+                return (0.0, "feet")
+            if count >= 2:
+                return (total_ft, "feet")
+            return None
 
         total_match = re.search(
-            rf"\b(?:for\s+)?a\s+total\s+distance\s+(?:of\s+)?({_COMMA_NUMBER})\s*"
-            r"(US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?|foot|feet|ft|poles?|rods?|perches?|chains?|links?|varas?|arpents?|toises?|furlongs?|meters?|miles?)",
+            rf"\b(?:for\s+)?a\s+total\s+distance\s+(?:of\s+)?{component_pattern}",
             text,
             re.IGNORECASE,
         )
-        total_has_additional_component = bool(
-            total_match
-            and re.match(
-                rf"\s+and\s+{_COMMA_NUMBER}\s+[A-Za-z]+",
-                text[total_match.end() :],
+        if total_match:
+            compound_total = _consume_compound_from(
+                total_match.group(1), total_match.group(2), total_match.end()
+            )
+            if compound_total is not None:
+                return compound_total
+            return (
+                parse_comma_number(total_match.group(1)),
+                _normalize_unit(total_match.group(2)),
+            )
+
+        first_match = re.search(component_pattern, text, re.IGNORECASE)
+        if first_match:
+            if re.search(
+                rf"{_COMMA_NUMBER}\s+(?:{_UNSUPPORTED_DISTANCE_UNIT_TOKEN})\b\s+and\s+$",
+                text[: first_match.start()],
                 re.IGNORECASE,
+            ):
+                return (0.0, "feet")
+            compound_result = _consume_compound_from(
+                first_match.group(1), first_match.group(2), first_match.end()
             )
-        )
-        match: re.Match[str] | None = None
-        if total_match and not total_has_additional_component:
-            match = total_match
-        else:
-            compound_unit = (
-                r"US\s+survey\s+(?:feet|foot)|engineer\s+chains?|engineer\s+links?|"
-                r"foot|feet|ft|poles?|rods?|perches?|chains?|links?|varas?|arpents?|"
-                r"toises?|furlongs?|meters?|miles?"
+            if compound_result is not None:
+                return compound_result
+            return (
+                parse_comma_number(first_match.group(1)),
+                _normalize_unit(first_match.group(2)),
             )
-            component_pattern = rf"({_COMMA_NUMBER})\s*({compound_unit})"
-            compound = re.search(
-                rf"{component_pattern}(?:\s+and\s+{component_pattern})+",
-                text,
-                re.IGNORECASE,
-            )
-            if compound:
-                trailing_component = re.match(
-                    rf"\s+and\s+{_COMMA_NUMBER}\s+[A-Za-z]+",
-                    text[compound.end() :],
-                    re.IGNORECASE,
-                )
-                if trailing_component:
-                    return 0.0, "feet"
-                values = [
-                    (component.group(1), component.group(2))
-                    for component in re.finditer(component_pattern, compound.group(0), re.IGNORECASE)
-                ]
-                unit_keys = {
-                    "ft": "feet", "foot": "feet", "feet": "feet",
-                    "poles": "poles", "pole": "poles", "rods": "rods", "rod": "rods",
-                    "perch": "perches", "perches": "perches", "chain": "chains", "chains": "chains",
-                    "link": "links", "links": "links", "engineer chain": "engineer_chains",
-                    "engineer chains": "engineer_chains", "engineer link": "engineer_links",
-                    "engineer links": "engineer_links", "us survey foot": "us_survey_feet",
-                    "us survey feet": "us_survey_feet", "vara": "varas", "varas": "varas",
-                    "arpent": "arpents", "arpents": "arpents", "toise": "toises", "toises": "toises",
-                    "furlong": "furlongs", "furlongs": "furlongs", "meter": "meters", "meters": "meters",
-                    "mile": "miles", "miles": "miles",
-                }
-                total_ft = sum(
-                    ConversionFactors.convert_to_feet(
-                        parse_comma_number(value), unit_keys[" ".join(unit.lower().split())]
-                    )
-                    for value, unit in values
-                )
-                return total_ft, "feet"
-            if re.search(rf"{_COMMA_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{_COMMA_NUMBER}\s+[A-Za-z]+", text, re.IGNORECASE):
-                return 0.0, "feet"
-            match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            value = parse_comma_number(match.group(1))
-            unit = " ".join(match.group(2).lower().split())
 
-            if unit in ("us survey feet", "us survey foot"):
-                unit = "us_survey_feet"
-            elif unit in ("engineer chain", "engineer chains"):
-                unit = "engineer_chains"
-            elif unit in ("engineer link", "engineer links"):
-                unit = "engineer_links"
-            elif unit in ("ft", "feet", "foot"):
-                unit = "feet"
-            elif unit in ("pole", "poles"):
-                unit = "poles"
-            elif unit in ("rod", "rods"):
-                unit = "rods"
-            elif unit in ("perch", "perches"):
-                unit = "perches"
-            elif unit in ("chain", "chains"):
-                unit = "chains"
-            elif unit in ("link", "links"):
-                unit = "links"
-            elif unit in ("vara", "varas"):
-                unit = "varas"
-            elif unit in ("arpent", "arpents"):
-                unit = "arpents"
-            elif unit in ("toise", "toises"):
-                unit = "toises"
-            elif unit in ("furlong", "furlongs"):
-                unit = "furlongs"
-            elif unit in ("meter", "meters"):
-                unit = "meters"
-            elif unit in ("mile", "miles"):
-                unit = "miles"
-
-            return (value, unit)
-
-        apostrophe_feet = re.search(
-            rf"(?<!°)({_COMMA_NUMBER})\s*'(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
+        for m in re.finditer(
+            rf"(?<![\d\u00b0])({_COMMA_NUMBER})\s*'(?=\s*(?:(?:feet|foot|ft)\b|along\b|to\b|[.,;)]|$))",
             text,
             re.IGNORECASE,
-        )
-        if apostrophe_feet:
-            return (parse_comma_number(apostrophe_feet.group(1)), "feet")
+        ):
+            prefix = text[: m.end()]
+            if re.search(
+                r"\b(?:NORTH|SOUTH|N|S)\s+\d{1,3}\s+\d+(?:\.\d+)?\s*'\s*$",
+                prefix,
+                re.IGNORECASE,
+            ) or re.search(r"\d+\u00b0\s*\d+(?:\.\d+)?\s*'\s*$", prefix):
+                continue
+            return (parse_comma_number(m.group(1)), "feet")
 
         return (0.0, "feet")
+
+    _OCR_WORD_FIXES: list[tuple[re.Pattern[str], str]] = [
+        (re.compile(r"\b5outh\b", re.IGNORECASE), "South"),
+        (re.compile(r"\bNOrth\b"), "North"),
+        (re.compile(r"\bN0rth\b", re.IGNORECASE), "North"),
+        (re.compile(r"\bEa5t\b", re.IGNORECASE), "East"),
+        (re.compile(r"\bWe5t\b", re.IGNORECASE), "West"),
+    ]
+    _OCR_ZERO_DEG_SYMBOL_RE = re.compile(
+        r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*(?:(\d{1,2}(?:\.\d+)?)\s*\"\s*)?([EW])",
+        re.IGNORECASE,
+    )
+    _OCR_ZERO_DEG_WORD_RE = re.compile(
+        r"\b(North|South)\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*(?:(\d{1,2}(?:\.\d+)?)\s*\"\s*)?(East|West)\b",
+        re.IGNORECASE,
+    )
 
     @classmethod
     def clean_ocr_errors(cls, text: str) -> str:
@@ -620,18 +713,22 @@ class TextParser:
         Returns:
             Cleaned text
         """
-        text = re.sub(r"\b5outh\b", "South", text, flags=re.IGNORECASE)
-        text = re.sub(r"\bNOrth\b", "North", text, flags=re.IGNORECASE)
-        text = re.sub(r"\bEa5t\b", "East", text, flags=re.IGNORECASE)
-        text = re.sub(r"\bWe5t\b", "West", text, flags=re.IGNORECASE)
+        for pattern, replacement in cls._OCR_WORD_FIXES:
+            text = pattern.sub(replacement, text)
 
-        text = re.sub(r"([NS])\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*([EW])", r"\1 \2°\3' \4", text)
-
-        text = re.sub(
-            r"\b(North|South)\s+(\d{1,3})\s+0\s+(\d{1,2})\s*'\s*(East|West)\b",
-            r"\1 \2 degrees \3 minutes \4",
+        text = cls._OCR_ZERO_DEG_SYMBOL_RE.sub(
+            lambda m: (
+                f"{m.group(1)} {m.group(2)}°{m.group(3)}'{m.group(4) + chr(34) if m.group(4) else ''} {m.group(5)}"
+            ),
             text,
-            flags=re.IGNORECASE,
+        )
+
+        text = cls._OCR_ZERO_DEG_WORD_RE.sub(
+            lambda m: (
+                f"{m.group(1)} {m.group(2)} degrees {m.group(3)} minutes"
+                f"{(' ' + m.group(4) + ' seconds') if m.group(4) else ''} {m.group(5)}"
+            ),
+            text,
         )
 
         return text
@@ -652,6 +749,41 @@ class TextParser:
         re.IGNORECASE,
     )
 
+    _STREET_WATER_NAME_RE = re.compile(
+        r"\b(?:creek|stream|river|brook|run|branch|kill|pond|lake|shore|bank|bay|spring)\s+"
+        r"(?:ave(?:nue)?|st(?:reet)?|rd|road|dr(?:ive)?|ln|lane|ct|court|blvd|boulevard|"
+        r"pkwy|parkway|way|pl(?:ace)?|cir(?:cle)?|ter(?:race)?|tr(?:ail)?|hwy|highway|"
+        r"pike|turnpike|alley)\b\.?",
+        re.IGNORECASE,
+    )
+
+    _FINANCIAL_BANK_RE = re.compile(
+        r"\b(?:(?:first|second|third|national|federal|state|savings|trust|commercial|"
+        r"community|citizens|merchants|farmers|chase|wells\s+fargo|citibank|pnc|td|us|"
+        r"union|peoples|american|city|central|capital|valley|heritage|liberty|pacific|"
+        r"atlantic|republic|united|home|security|fidelity)\s+)+bank\b"
+        r"|\bbank\s+of\s+(?!the\s+(?:creek|stream|river|brook|run|branch|kill|pond|lake)\b)[A-Za-z]+",
+        re.IGNORECASE,
+    )
+
+    _UNAMBIGUOUS_WATER_BODY_RE = re.compile(
+        r"\b(?:creek|stream|river|brook|run|branch|kill|pond|lake|shore|thalweg|thread)\b",
+        re.IGNORECASE,
+    )
+
+    _WATER_BANK_RE = re.compile(
+        r"\b(?:the|north(?:erly)?|south(?:erly)?|east(?:erly)?|west(?:erly)?|left|right|"
+        r"high|low|opposite|creek|river|stream|brook|pond|lake)\s+bank\b"
+        r"|\bbank\s+of\s+(?:the\s+)?(?:creek|stream|river|brook|run|branch|kill|pond|lake)\b",
+        re.IGNORECASE,
+    )
+
+    _WATER_MARK_RE = re.compile(
+        r"\b(?:(?:high|low)\s+water\s+mark|water(?:'s)?\s+edge|"
+        r"thread\s+of\s+(?:the\s+)?(?:creek|stream|river|brook|run|branch))\b",
+        re.IGNORECASE,
+    )
+
     @classmethod
     def detect_meander(cls, text: str) -> bool:
         """Detect if call text references a water boundary (meander).
@@ -668,7 +800,15 @@ class TextParser:
         if cls.MEANDER_PATTERNS.search(text):
             return True
 
-        if cls.WATER_PREPOSITION_PATTERN.search(text) and cls.WATER_BODY_KEYWORDS.search(text):
+        cleaned = cls._STREET_WATER_NAME_RE.sub(" ", text)
+        cleaned = cls._FINANCIAL_BANK_RE.sub(" ", cleaned)
+
+        if cls._WATER_MARK_RE.search(cleaned):
+            return True
+
+        if cls.WATER_PREPOSITION_PATTERN.search(cleaned) and (
+            cls._UNAMBIGUOUS_WATER_BODY_RE.search(cleaned) or cls._WATER_BANK_RE.search(cleaned)
+        ):
             return True
 
         return False
@@ -718,8 +858,106 @@ class TextParser:
         (r"\bR/W\b", "right-of-way"),
         (r"\bROW\b", "right-of-way"),
         (r"\bN/F\b", "now or formerly"),
-        (r"\bPK\b", "pk nail"),
+        (r"\bPK\b(?!\s+nail\b)", "pk nail"),
     ]
+
+    _COMPILED_SURVEY_ABBREVIATIONS: list[tuple[re.Pattern[str], str]] = [
+        (re.compile(pattern, 0 if pattern == r"\bROW\b" else re.IGNORECASE), expansion)
+        for pattern, expansion in SURVEY_ABBREVIATIONS
+    ]
+
+    _OCR_NO_DEG_RE = re.compile(r"\b([NS])O(\d*DEG|\d+D|D(?=\s+\d{1,2}\s*M\b))\b", re.IGNORECASE)
+    _OCR_NOO_DEG_RE = re.compile(r"\b([NS])OO(\d*DEG|\d+D|D(?=\s+\d{1,2}\s*M\b))\b", re.IGNORECASE)
+
+    _ASSESSOR_SUBS: list[tuple[re.Pattern[str], str]] = [
+        (
+            re.compile(
+                r"(?:(?<=[NS])|(?<!\w))(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\s+(\d{1,2}(?:\.\d+)?)\s*(?:SEC|S)\b",
+                re.IGNORECASE,
+            ),
+            r"\1 degrees \2 minutes \3 seconds",
+        ),
+        (
+            re.compile(
+                r"(?:(?<=[NS])|(?<!\w))(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\b",
+                re.IGNORECASE,
+            ),
+            r"\1 degrees \2 minutes",
+        ),
+        (re.compile(r"(?:(?<=[NS])|(?<!\w))(\d{1,3})\s*DEG\b", re.IGNORECASE), r"\1 degrees"),
+        (re.compile(r"\b(N|S|North|South)\s*(\d{1,3})\s*D\b", re.IGNORECASE), r"\1 \2 degrees"),
+        (re.compile(r"(?:(?<=[NS])|(?<!\w))(\d{1,3})\s+deg\.\s", re.IGNORECASE), r"\1 degrees "),
+        (re.compile(r"(?<!\w)(\d{1,2}(?:\.\d+)?)SEC\b(?!\s*\d)", re.IGNORECASE), r"\1 seconds"),
+        (
+            re.compile(
+                r"(?<!\w)(\d{1,2}(?:\.\d+)?)\s+SEC\b(?=\s*(?:East|West|E|W)\b)",
+                re.IGNORECASE,
+            ),
+            r"\1 seconds",
+        ),
+        (
+            re.compile(
+                r"((?:minutes?|,|['′])\s*)(\d{1,2}(?:\.\d+)?)\s+SEC\b(?!\s*\d)",
+                re.IGNORECASE,
+            ),
+            r"\1\2 seconds",
+        ),
+        (re.compile(r"\bTH\.?\s+", re.IGNORECASE), "thence "),
+        (re.compile(r"(\d+(?:\.\d+)?)\s*FT\b", re.IGNORECASE), r"\1 feet"),
+        (re.compile(r"\bSLY\b", re.IGNORECASE), "southerly"),
+        (re.compile(r"\bNLY\b", re.IGNORECASE), "northerly"),
+        (re.compile(r"\bELY\b", re.IGNORECASE), "easterly"),
+        (re.compile(r"\bWLY\b", re.IGNORECASE), "westerly"),
+        (re.compile(r"(?<![A-Za-z]\.)\bP\.O\.B\.", re.IGNORECASE), "point of beginning"),
+        (re.compile(r"\bP\s+OB\b", re.IGNORECASE), "point of beginning"),
+        (re.compile(r"\bPOB\b", re.IGNORECASE), "point of beginning"),
+        (re.compile(r"\bALG\b", re.IGNORECASE), "along"),
+        (re.compile(r"\bCOR\b", re.IGNORECASE), "corner"),
+        (re.compile(r"\bBEG\b", re.IGNORECASE), "beginning"),
+        (
+            re.compile(
+                r"(?<=\S)\s+(?:&|and)\s+(?=[NS]\s*\d{1,3}\s*(?:°|degrees?\b))",
+                re.IGNORECASE,
+            ),
+            " thence ",
+        ),
+    ]
+
+    _CARDINAL_MAP: dict[str, str] = {
+        "n": "North",
+        "s": "South",
+        "e": "East",
+        "w": "West",
+        "north": "North",
+        "south": "South",
+        "east": "East",
+        "west": "West",
+    }
+
+    _BARE_CARDINAL_RE = re.compile(
+        r"(\b(?:thence|proceeding)\s+)"
+        r"(N|S|E|W|North|South|East|West)"
+        r"(\s+)"
+        r"(\d+\.?\d*)",
+        re.IGNORECASE,
+    )
+
+    _DEGREE_AFTER_NUMBER = re.compile(
+        r"\s*(?:°|degrees?\b|DEG\b|\d+(?:\.\d+)?\s*['′]|(?:E|W|East|West)\b)",
+        re.IGNORECASE,
+    )
+
+    @classmethod
+    def _bare_cardinal_replace(cls, m: Match[str]) -> str:
+        after_pos = m.end()
+        after_text = m.string[after_pos : after_pos + 50]
+        if cls._DEGREE_AFTER_NUMBER.match(after_text):
+            return m.group(0)
+        prefix = m.group(1)
+        cardinal = m.group(2)
+        number = m.group(4)
+        full_name = cls._CARDINAL_MAP[cardinal.lower()]
+        return f"{prefix}due {full_name} {number}"
 
     @classmethod
     def expand_assessor_abbreviations(cls, text: str) -> str:
@@ -748,156 +986,15 @@ class TextParser:
             return text
 
         # --- 1. Fix common OCR typos: NODEG -> N0DEG, NOODEG -> N00DEG -----
-        text = re.sub(
-            r"\b([NS])O(\d*(?:DEG|D))",
-            lambda m: f"{m.group(1)}0{m.group(2)}",
-            text,
-            flags=re.IGNORECASE,
-        )
-        text = re.sub(
-            r"\b([NS])OO(\d*(?:DEG|D))",
-            lambda m: f"{m.group(1)}00{m.group(2)}",
-            text,
-            flags=re.IGNORECASE,
-        )
-        text = re.sub(
-            r"\b([NS])OO(DEG|D)\b",
-            lambda m: f"{m.group(1)}00{m.group(2)}",
-            text,
-            flags=re.IGNORECASE,
-        )
-        text = re.sub(
-            r"\b([NS])O(DEG|D)\b",
-            lambda m: f"{m.group(1)}0{m.group(2)}",
-            text,
-            flags=re.IGNORECASE,
-        )
+        text = cls._OCR_NO_DEG_RE.sub(lambda m: f"{m.group(1)}0{m.group(2)}", text)
+        text = cls._OCR_NOO_DEG_RE.sub(lambda m: f"{m.group(1)}00{m.group(2)}", text)
 
-        # --- 2. Expand DMS bearing notation (DEG/D, M, S/SEC) --------------
-        # Full DMS with seconds (S or SEC)
-        text = re.sub(
-            r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\s+(\d{1,2}(?:\.\d+)?)\s*(?:SEC|S)\b",
-            r"\1 degrees \2 minutes \3 seconds",
-            text,
-            flags=re.IGNORECASE,
-        )
-        # DM only (no seconds)
-        text = re.sub(
-            r"(\d{1,3})\s*(?:DEG|D)\s+(\d{1,2})\s*(?:M)\b",
-            r"\1 degrees \2 minutes",
-            text,
-            flags=re.IGNORECASE,
-        )
-        # Degrees only (DEG/D without M following)
-        text = re.sub(
-            r"(\d{1,3})\s*(?:DEG|D)\b",
-            r"\1 degrees",
-            text,
-            flags=re.IGNORECASE,
-        )
-        # "deg." -> "degrees"
-        text = re.sub(
-            r"(\d{1,3})\s+deg\.\s",
-            r"\1 degrees ",
-            text,
-            flags=re.IGNORECASE,
-        )
-
-        # --- 3. Expand number+SEC that wasn't already caught ----------------
-        text = re.sub(
-            r"(\d{1,2}(?:\.\d+)?)\s*SEC\b",
-            r"\1 seconds",
-            text,
-            flags=re.IGNORECASE,
-        )
-
-        # --- 4. TH / TH. -> thence -----------------------------------------
-        text = re.sub(
-            r"\bTH\.?\s(?!E\b|A\b|I\b|ERE|EN|ROU|AT\b|US\b)",
-            "thence ",
-            text,
-            flags=re.IGNORECASE,
-        )
-
-        # --- 5. FT suffix -> feet -------------------------------------------
-        text = re.sub(
-            r"(\d+(?:\.\d+)?)\s*FT\b",
-            r"\1 feet",
-            text,
-            flags=re.IGNORECASE,
-        )
-
-        # --- 6. Directional abbreviations -----------------------------------
-        text = re.sub(r"\bSLY\b", "southerly", text, flags=re.IGNORECASE)
-        text = re.sub(r"\bNLY\b", "northerly", text, flags=re.IGNORECASE)
-        text = re.sub(r"\bELY\b", "easterly", text, flags=re.IGNORECASE)
-        text = re.sub(r"\bWLY\b", "westerly", text, flags=re.IGNORECASE)
-
-        # --- 7. POB variants -> point of beginning --------------------------
-        text = re.sub(r"\bP\.O\.B\.", "point of beginning", text, flags=re.IGNORECASE)
-        text = re.sub(r"\bP\s+OB\b", "point of beginning", text, flags=re.IGNORECASE)
-        text = re.sub(r"\bPOB\b", "point of beginning", text, flags=re.IGNORECASE)
-
-        # --- 8. Misc abbreviations ------------------------------------------
-        text = re.sub(r"\bALG\b", "along", text, flags=re.IGNORECASE)
-        text = re.sub(r"\bCOR\b", "corner", text, flags=re.IGNORECASE)
-        text = re.sub(r"\bBEG\b", "beginning", text, flags=re.IGNORECASE)
-
-        # --- 9. `&` / `and` as call separators -> thence --------------------
-        # Between bearings: "113.41 feet & N 69° 53' 23\" E" or
-        # "49.18 feet and N 48° 03' 44\" E".  Replace `&` or `and` with
-        # `thence` when followed by a quadrant bearing pattern ([NS] <digits>°).
-        # Note: Only [NS] because standard quadrant bearings always start with
-        # North or South.  E/W-initial bearings need different handling.
-        text = re.sub(
-            r"(?<=\S)\s+(?:&|and)\s+(?=[NS]\s*\d{1,3}\s*°)",
-            " thence ",
-            text,
-            flags=re.IGNORECASE,
-        )
+        # --- 2-9. Expand DMS, SEC, TH, FT, directionals, POB, misc, &/and --
+        for pattern, replacement in cls._ASSESSOR_SUBS:
+            text = pattern.sub(replacement, text)
 
         # --- 10. Bare cardinal + distance -> due Cardinal + distance --------
-        # "thence S 289.81 feet" -> "thence due South 289.81 feet"
-        # Only match single cardinal letters (N/S/E/W) or full words
-        # (North/South/East/West) followed by a number, NOT followed by
-        # degree notation (°, degrees, DEG).
-        _CARDINAL_MAP = {
-            "n": "North",
-            "s": "South",
-            "e": "East",
-            "w": "West",
-            "north": "North",
-            "south": "South",
-            "east": "East",
-            "west": "West",
-        }
-
-        _BARE_CARDINAL_RE = re.compile(
-            r"(\b(?:thence|proceeding)\s+)"  # group 1: anchor
-            r"(N|S|E|W|North|South|East|West)"  # group 2: bare cardinal
-            r"(\s+)"  # group 3: whitespace
-            r"(\d+\.?\d*)",  # group 4: distance number
-
-            re.IGNORECASE,
-        )
-
-        _DEGREE_AFTER_NUMBER = re.compile(
-            r"\s*(?:°|degrees?|DEG\b)",
-            re.IGNORECASE,
-        )
-
-        def _bare_cardinal_replace(m: Match[str]) -> str:
-            after_pos = m.end()
-            after_text = m.string[after_pos : after_pos + 50]
-            if _DEGREE_AFTER_NUMBER.match(after_text):
-                return m.group(0)  # no change -- quadrant bearing
-            prefix = m.group(1)
-            cardinal = m.group(2)
-            number = m.group(4)
-            full_name = _CARDINAL_MAP[cardinal.lower()]
-            return f"{prefix}due {full_name} {number}"
-
-        text = _BARE_CARDINAL_RE.sub(_bare_cardinal_replace, text)
+        text = cls._BARE_CARDINAL_RE.sub(cls._bare_cardinal_replace, text)
 
         return text
 
@@ -911,8 +1008,8 @@ class TextParser:
         Returns:
             Text with abbreviations expanded
         """
-        for pattern, expansion in cls.SURVEY_ABBREVIATIONS:
-            text = re.sub(pattern, expansion, text, flags=re.IGNORECASE)
+        for pattern, expansion in cls._COMPILED_SURVEY_ABBREVIATIONS:
+            text = pattern.sub(expansion, text)
         return text
 
     @classmethod
@@ -1018,9 +1115,12 @@ class TextParser:
         along = ""
         to = ""
 
-        def is_curve_direction_to(segment: str, token_end: int) -> bool:
+        def is_non_endpoint_to(segment: str, token_start: int, token_end: int) -> bool:
             after = segment[token_end:].lstrip()
-            return bool(re.match(r"the\s+(?:left|right)(?!\s+of)\b", after, re.IGNORECASE))
+            if re.match(r"the\s+(?:left|right)(?!\s+of)\b", after, re.IGNORECASE):
+                return True
+            before = segment[:token_start].rstrip()
+            return bool(re.search(r"\b(?:common|parallel)$", before, re.IGNORECASE))
 
         along_match = re.search(r"\balong\b", call_text, re.IGNORECASE)
         if along_match:
@@ -1028,7 +1128,7 @@ class TextParser:
             to_tokens = [
                 match
                 for match in re.finditer(r"\bto\b", segment, re.IGNORECASE)
-                if not is_curve_direction_to(segment, match.end())
+                if not is_non_endpoint_to(segment, match.start(), match.end())
             ]
 
             if to_tokens:
@@ -1043,7 +1143,7 @@ class TextParser:
             to_tokens = [
                 match
                 for match in re.finditer(r"\bto\b", call_text, re.IGNORECASE)
-                if not is_curve_direction_to(call_text, match.end())
+                if not is_non_endpoint_to(call_text, match.start(), match.end())
             ]
             if to_tokens:
                 last = to_tokens[-1]
@@ -1051,6 +1151,125 @@ class TextParser:
                 to = _before_clause_delimiter(to_candidate).strip(" ,")
 
         return (along, to)
+
+    _SENTENCE_END = r"(?:(?<!\b[A-Za-z])(?<!\bNo)(?<!\.[A-Za-z])\.(?!\d)|$)"
+    _CLAUSE_END = r"(?:;|(?<!\b[A-Za-z])(?<!\bNo)(?<!\.[A-Za-z])\.(?!\d)|$)"
+
+    _BASIS_OF_BEARING_PATTERNS: tuple[re.Pattern[str], ...] = (
+        re.compile(rf"basis\s+of\s+bearings?\s*:\s*(.+?){_SENTENCE_END}", re.IGNORECASE),
+        re.compile(rf"bearings?\s+(?:are\s+)?based\s+on\s+(.+?){_SENTENCE_END}", re.IGNORECASE),
+        re.compile(rf"bearings?\s+referenced\s+to\s+(.+?){_SENTENCE_END}", re.IGNORECASE),
+        re.compile(
+            rf"bearings?\s+(?:herein\s+)?are\s+(magnetic|assumed|true\s+north|grid\s+north)(?:\b.*?){_SENTENCE_END}",
+            re.IGNORECASE,
+        ),
+    )
+
+    _SURVEYOR_CERT_PATTERNS: tuple[re.Pattern[str], ...] = (
+        re.compile(
+            r"(?:That\s+I,\s+)(.+?)(?:,\s+(?:a\s+)?(?:Licensed|Registered|Professional))",
+            re.IGNORECASE | re.DOTALL,
+        ),
+        re.compile(rf"(?:Certified\s+by:\s*)(.+?){_SENTENCE_END}", re.IGNORECASE),
+        re.compile(rf"(?:Surveyed\s+by\s+)(.+?){_SENTENCE_END}", re.IGNORECASE),
+        re.compile(rf"(I\s+hereby\s+certify\s+.+?){_SENTENCE_END}", re.IGNORECASE),
+    )
+
+    _PRIOR_CONVEYANCE_PATTERNS: tuple[re.Pattern[str], ...] = (
+        re.compile(rf"(BEING\s+the\s+same\s+premises\s+.+?){_SENTENCE_END}", re.IGNORECASE),
+        re.compile(
+            r"((?:Deed|Official\s+Records)\s+Book\s+\d+(?:,?\s*Page\s+\d+)?)",
+            re.IGNORECASE,
+        ),
+        re.compile(rf"(Instrument\s+Number\s+\d+.+?){_SENTENCE_END}", re.IGNORECASE),
+    )
+
+    _DEED_CLAUSE_PATTERNS: tuple[
+        tuple[re.Pattern[str], Literal["reservation", "subject_to", "together_with"]], ...
+    ] = (
+        (
+            re.compile(r"(RESERVING\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", re.IGNORECASE | re.DOTALL),
+            "reservation",
+        ),
+        (
+            re.compile(r"(SUBJECT\s+TO\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", re.IGNORECASE | re.DOTALL),
+            "subject_to",
+        ),
+        (
+            re.compile(
+                r"(TOGETHER\s+WITH\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", re.IGNORECASE | re.DOTALL
+            ),
+            "together_with",
+        ),
+    )
+
+    _SUBDIV_STOPWORDS = frozenset(
+        {
+            "of",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "and",
+            "or",
+            "the",
+            "a",
+            "an",
+            "is",
+            "was",
+            "as",
+            "by",
+            "from",
+            "with",
+            "that",
+            "this",
+            "wall",
+            "walls",
+            "building",
+            "house",
+            "line",
+            "corner",
+            "thereof",
+            "said",
+            "such",
+            "land",
+            "ground",
+            "area",
+            "size",
+            "more",
+            "less",
+        }
+    )
+    _SUBDIV_LOT_RE = re.compile(r"\bLot\s+(?:(?:No\.?|#)\s*)?(\w+)\b", re.IGNORECASE)
+    _SUBDIV_BLOCK_RE = re.compile(r"\bBlock\s+(?:(?:No\.?|#)\s*)?(\w+)\b", re.IGNORECASE)
+    _SUBDIV_NAME_RE = re.compile(
+        r"(?i:(?:Block|Lot)\s+(?:(?:No\.?|#)\s*)?(?:\d+[A-Za-z]?|[A-Za-z](?![a-z]))),?\s+"
+        r"(?!(?:BLOCK|LOT)\b)"
+        r"([A-Z][A-Z\s]+(?:ESTATES?|SUBDIVISION|ADDITION|HEIGHTS?|HILLS?|PARK|PLACE|MANOR|ACRES|VILLAGE|LANDING|TERRACE|GARDENS?)?)\b"
+    )
+    _SUBDIV_PLAT_RE = re.compile(r"Plat\s+Book\s+(\d+),?\s*Page\s+(\d+)", re.IGNORECASE)
+
+    _VARAS_RE = re.compile(r"\bvaras?\b", re.IGNORECASE)
+    _ARPENTS_RE = re.compile(r"\barpents?\b", re.IGNORECASE)
+    _NEW_ENGLAND_STATES = frozenset({"MA", "CT", "ME", "NH", "VT", "RI"})
+
+    _WITNESS_TREE_PATTERN = re.compile(
+        r"((?:a\s+)?(?:\w+\s+)?\b(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|"
+        r"poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)\b"
+        r"(?:[^;.]|\.(?=\d))*?\bbears?\b(?:[^;.]|\.(?=\d))*?(?:dist(?:ant)?|links?|feet|ft)(?:[^;.]|\.(?=\d))*)",
+        re.IGNORECASE,
+    )
+    _CHORD_OR_RADIAL_BEARS_RE = re.compile(
+        r"\b(?:chord(?:\s+of\s+which)?|radial(?:\s+line)?)\s+bears?\b",
+        re.IGNORECASE,
+    )
+
+    _SPCS_RE = re.compile(
+        rf"(State\s+Plane\s+Coordinate\s+System.+?){_CLAUSE_END}",
+        re.IGNORECASE,
+    )
+    _FIPS_RE = re.compile(r"\bFIPS\s+(?:Zone\s+)?(\d{4})\b", re.IGNORECASE)
 
     @classmethod
     def extract_basis_of_bearing(cls, text: str) -> str | None:
@@ -1062,18 +1281,8 @@ class TextParser:
         Returns:
             Basis of bearing string or None if not found
         """
-        patterns = [
-            (r"basis\s+of\s+bearings?\s*:\s*(.+?)(?:\.|$)", re.IGNORECASE),
-            (r"bearings?\s+(?:are\s+)?based\s+on\s+(.+?)(?:\.|$)", re.IGNORECASE),
-            (r"bearings?\s+referenced\s+to\s+(.+?)(?:\.|$)", re.IGNORECASE),
-            (
-                r"bearings?\s+(?:herein\s+)?are\s+(magnetic|assumed|true\s+north|grid\s+north)(?:\b.*?)(?:\.|$)",
-                re.IGNORECASE,
-            ),
-        ]
-
-        for pattern, flags in patterns:
-            match = re.search(pattern, text, flags)
+        for pattern in cls._BASIS_OF_BEARING_PATTERNS:
+            match = pattern.search(text)
             if match:
                 return match.group(1).strip()
 
@@ -1089,18 +1298,8 @@ class TextParser:
         Returns:
             Surveyor certification string or None if not found
         """
-        patterns = [
-            (
-                r"(?:That\s+I,\s+)(.+?)(?:,\s+(?:a\s+)?(?:Licensed|Registered|Professional))",
-                re.IGNORECASE | re.DOTALL,
-            ),
-            (r"(?:Certified\s+by:\s*)(.+?)(?:\.|$)", re.IGNORECASE),
-            (r"(?:Surveyed\s+by\s+)(.+?)(?:\.|$)", re.IGNORECASE),
-            (r"(I\s+hereby\s+certify\s+.+?)(?:\.|$)", re.IGNORECASE),
-        ]
-
-        for pattern, flags in patterns:
-            match = re.search(pattern, text, flags)
+        for pattern in cls._SURVEYOR_CERT_PATTERNS:
+            match = pattern.search(text)
             if match:
                 return match.group(1).strip()
 
@@ -1116,17 +1315,8 @@ class TextParser:
         Returns:
             Prior conveyance string or None if not found
         """
-        patterns = [
-            (r"(BEING\s+the\s+same\s+premises\s+.+?)(?:\.|$)", re.IGNORECASE),
-            (
-                r"((?:Deed|Official\s+Records)\s+Book\s+\d+.*?(?:Page\s+\d+)?)(?:\b.*?)(?:\.|$)",
-                re.IGNORECASE,
-            ),
-            (r"(Instrument\s+Number\s+\d+.+?)(?:\.|$)", re.IGNORECASE),
-        ]
-
-        for pattern, flags in patterns:
-            match = re.search(pattern, text, flags)
+        for pattern in cls._PRIOR_CONVEYANCE_PATTERNS:
+            match = pattern.search(text)
             if match:
                 return match.group(1).strip()
 
@@ -1147,16 +1337,9 @@ class TextParser:
         from .models import DeedClause
 
         clauses: list[DeedClause] = []
-        ClauseType = Literal["reservation", "subject_to", "together_with"]
 
-        patterns: list[tuple[str, ClauseType]] = [
-            (r"(RESERVING\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "reservation"),
-            (r"(SUBJECT\s+TO\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "subject_to"),
-            (r"(TOGETHER\s+WITH\b.*?)(?=\.\s+[A-Z]|\.\s*$|$)", "together_with"),
-        ]
-
-        for pattern, clause_type in patterns:
-            for match in re.finditer(pattern, text, re.IGNORECASE | re.DOTALL):
+        for pattern, clause_type in cls._DEED_CLAUSE_PATTERNS:
+            for match in pattern.finditer(text):
                 clause_text = match.group(1).strip().rstrip(".")
                 if clause_text:
                     clauses.append(DeedClause(clause_type=clause_type, text=clause_text))
@@ -1181,23 +1364,24 @@ class TextParser:
         plat_book = None
         plat_page = None
 
-        lot_match = re.search(r"\bLot\s+(\w+)", text, re.IGNORECASE)
-        if lot_match:
-            lot = lot_match.group(1)
+        for lot_match in cls._SUBDIV_LOT_RE.finditer(text):
+            candidate = lot_match.group(1)
+            if candidate.lower() not in cls._SUBDIV_STOPWORDS:
+                lot = candidate
+                break
 
-        block_match = re.search(r"\bBlock\s+(\w+)", text, re.IGNORECASE)
-        if block_match:
-            block = block_match.group(1)
+        for block_match in cls._SUBDIV_BLOCK_RE.finditer(text):
+            candidate = block_match.group(1)
+            if candidate.lower() not in cls._SUBDIV_STOPWORDS:
+                block = candidate
+                break
 
         # Subdivision name: typically in ALL CAPS after Lot/Block
-        name_match = re.search(
-            r"(?:Block\s+\w+|Lot\s+\w+),?\s+([A-Z][A-Z\s]+(?:ESTATES?|SUBDIVISION|ADDITION|HEIGHTS?|HILLS?|PARK|PLACE|MANOR|ACRES|VILLAGE|LANDING|TERRACE|GARDENS?)?)\b",
-            text,
-        )
+        name_match = cls._SUBDIV_NAME_RE.search(text)
         if name_match:
             subdivision_name = name_match.group(1).strip()
 
-        plat_match = re.search(r"Plat\s+Book\s+(\d+),?\s*Page\s+(\d+)", text, re.IGNORECASE)
+        plat_match = cls._SUBDIV_PLAT_RE.search(text)
         if plat_match:
             plat_book = plat_match.group(1)
             plat_page = plat_match.group(2)
@@ -1229,22 +1413,20 @@ class TextParser:
         Returns:
             Suggested unit string or None if no inference
         """
-        text_lower = text.lower()
-
-        if "varas" in text_lower or "vara" in text_lower:
+        if cls._VARAS_RE.search(text):
             return "varas"
-        if "chains and links" in text_lower:
+        if "chains and links" in text.lower():
             return "chains"
-        if "arpents" in text_lower or "arpent" in text_lower:
+        if cls._ARPENTS_RE.search(text):
             return "arpents"
 
-        if state == "TX" and year is not None and year < 1900:
+        state_upper = state.upper() if state else None
+        if state_upper == "TX" and year is not None and year < 1900:
             return "varas"
-        if state == "LA":
+        if state_upper == "LA":
             return "arpents"
 
-        new_england = {"MA", "CT", "ME", "NH", "VT", "RI"}
-        if state in new_england and year is not None and year < 1850:
+        if state_upper in cls._NEW_ENGLAND_STATES and year is not None and year < 1850:
             return "rods"
 
         return None
@@ -1265,15 +1447,11 @@ class TextParser:
         """
         trees: list[str] = []
 
-        tree_pattern = re.compile(
-            r"((?:a\s+)?(?:\w+\s+)?(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|"
-            r"poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)"
-            r"[^;.]*?\bbears?\b[^;.]*?(?:dist(?:ant)?|links?|feet|ft)[^;.]*)",
-            re.IGNORECASE,
-        )
-
-        for match in tree_pattern.finditer(text):
-            trees.append(match.group(1).strip())
+        for match in cls._WITNESS_TREE_PATTERN.finditer(text):
+            candidate = match.group(1).strip()
+            if cls._CHORD_OR_RADIAL_BEARS_RE.search(candidate):
+                continue
+            trees.append(candidate)
 
         return trees
 
@@ -1292,15 +1470,11 @@ class TextParser:
         coordinate_system = None
         fips_code = None
 
-        spcs_match = re.search(
-            r"(State\s+Plane\s+Coordinate\s+System[^.;]*?)(?:\.|;|$)",
-            text,
-            re.IGNORECASE,
-        )
+        spcs_match = cls._SPCS_RE.search(text)
         if spcs_match:
             coordinate_system = spcs_match.group(1).strip()
 
-        fips_match = re.search(r"\bFIPS\s+(?:Zone\s+)?(\d{4})\b", text, re.IGNORECASE)
+        fips_match = cls._FIPS_RE.search(text)
         if fips_match:
             fips_code = fips_match.group(1)
 

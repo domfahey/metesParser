@@ -4,10 +4,12 @@ Converts between quadrant bearings (e.g., N 56°40' E) and azimuths
 (degrees from North, clockwise). Also handles packed DMS and compass points.
 """
 
+import math
 import re
+from decimal import Decimal
 
 QUADRANT_PATTERN = re.compile(
-    r"(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?,?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)",
+    r"\b(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?,?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)\b",
     re.IGNORECASE,
 )
 
@@ -73,19 +75,23 @@ def parse_packed_dms(value: float) -> float:
         Decimal degrees
 
     Raises:
-        ValueError: If minutes >= 60 or seconds >= 60
+        ValueError: If value is negative/non-finite or minutes/seconds not in [0, 60)
     """
-    degrees = int(value)
-    frac = value - degrees
+    if not math.isfinite(value) or value < 0:
+        raise ValueError(f"Packed DMS value must be non-negative and finite, got {value}")
 
-    minutes_seconds = frac * 100
-    minutes = int(round(minutes_seconds * 100) // 100)
-    seconds = round((minutes_seconds - minutes) * 100, 4)
+    dec = Decimal(str(value))
+    degrees = int(dec)
+    frac = dec - degrees
 
-    if minutes >= 60:
+    minutes_seconds = frac * Decimal("100")
+    minutes = int(minutes_seconds)
+    seconds = float((minutes_seconds - minutes) * Decimal("100"))
+
+    if not (0 <= minutes < 60):
         raise ValueError(f"Invalid packed DMS: minutes={minutes} (must be 0-59)")
-    if seconds >= 60:
-        raise ValueError(f"Invalid packed DMS: seconds={seconds:.0f} (must be 0-59)")
+    if not (0 <= seconds < 60):
+        raise ValueError(f"Invalid packed DMS: seconds={seconds:.4f} (must be 0-59)")
 
     return degrees + minutes / 60.0 + seconds / 3600.0
 
@@ -158,12 +164,18 @@ def quadrant_to_azimuth(cardinal1: str, degrees: float, cardinal2: str) -> float
 
     Args:
         cardinal1: First cardinal (N or S)
-        degrees: Angle in degrees
+        degrees: Angle in degrees (finite, 0.0 to 90.0)
         cardinal2: Second cardinal (E or W)
 
     Returns:
         Azimuth in degrees [0, 360)
     """
+    if not math.isfinite(degrees) or not (0.0 <= degrees <= 90.0):
+        raise ValueError(f"Degrees must be finite and between 0 and 90, got {degrees}")
+
+    cardinal1 = cardinal1.strip().upper()
+    cardinal2 = cardinal2.strip().upper()
+
     if cardinal1 == "N" and cardinal2 == "E":
         azimuth = degrees
     elif cardinal1 == "S" and cardinal2 == "E":
@@ -179,7 +191,8 @@ def quadrant_to_azimuth(cardinal1: str, degrees: float, cardinal2: str) -> float
             f"Valid combinations are: {valid_combos}"
         )
 
-    return azimuth % 360.0
+    az = azimuth % 360.0
+    return 0.0 if az == 360.0 else az
 
 
 _DUE_CARDINAL_RE = re.compile(
@@ -272,5 +285,4 @@ def azimuth_to_quadrant(azimuth: float) -> str:
 
     if seconds < 0.5:
         return f"{cardinal1} {degrees}\u00b0{minutes:02d}' {cardinal2}"
-    else:
-        return f"{cardinal1} {degrees}\u00b0{minutes:02d}'{seconds:04.1f}\" {cardinal2}"
+    return f"{cardinal1} {degrees}\u00b0{minutes:02d}'{seconds:04.1f}\" {cardinal2}"

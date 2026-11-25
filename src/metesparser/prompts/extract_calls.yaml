@@ -71,9 +71,9 @@ user_prompt_template: |
   </parsing_approach>
 
   <json_schema>
-  {{
+  {
     "calls": [
-      {{
+      {
         "course": 1,
         "direction_text": "S 56°40' W",
         "distance": 50.0,
@@ -85,9 +85,9 @@ user_prompt_template: |
         "along": "southerly line of Pennbrook Drive",
         "to": "an angle in same",
         "notes": null
-      }}
+      }
     ]
-  }}
+  }
   </json_schema>
 
   <special_cases>

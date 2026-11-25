@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 import subprocess
-from datetime import datetime
+from datetime import UTC, datetime
 from itertools import groupby
 from pathlib import Path
 
@@ -14,6 +14,12 @@ import structlog
 from pydantic import BaseModel, ConfigDict, Field
 
 logger = structlog.get_logger(__name__)
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _normalize_utc(dt: datetime) -> datetime:
+    """Normalize a datetime to timezone-aware UTC."""
+    return dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
 
 
 class PromptVersion(BaseModel):
@@ -63,16 +69,19 @@ def _git_sha_for_file(file_path: Path) -> str | None:
     Returns None if the file is not in a git repository or has no commits.
     """
     try:
+        resolved = file_path.resolve()
         result = subprocess.run(
-            ["git", "log", "-1", "--format=%H", "--", str(file_path)],
+            ["git", "log", "-1", "--format=%H", "--", resolved.name],
             capture_output=True,
             text=True,
             timeout=5,
-            cwd=file_path.parent,
+            cwd=resolved.parent,
         )
+        if result.returncode != 0:
+            return None
         sha = result.stdout.strip()
         return sha if sha else None
-    except (subprocess.SubprocessError, FileNotFoundError):
+    except (subprocess.SubprocessError, OSError):
         return None
 
 
@@ -104,8 +113,8 @@ def get_prompt_versions(prompts_dir: Path) -> dict[str, PromptVersion]:
 def _slugify_pdf_name(pdf_name: str) -> str:
     """Convert PDF filename to a short slug for the manifest filename."""
     stem = Path(pdf_name).stem
-    slug = re.sub(r"[^a-z0-9]+", "-", stem[:30].lower()).strip("-")
-    return slug
+    slug = _SLUG_RE.sub("-", stem[:30].lower()).strip("-")
+    return slug or "deed"
 
 
 def write_run_manifest(manifest: RunManifest, runs_dir: Path) -> Path:
@@ -119,12 +128,12 @@ def write_run_manifest(manifest: RunManifest, runs_dir: Path) -> Path:
         Path to the written JSON file.
     """
     runs_dir.mkdir(parents=True, exist_ok=True)
-    ts = manifest.timestamp_utc.strftime("%Y-%m-%dT%H%M%S")
+    ts = _normalize_utc(manifest.timestamp_utc).strftime("%Y-%m-%dT%H%M%S")
     slug = _slugify_pdf_name(manifest.source_pdf)
     run_id_digest = hashlib.sha256(manifest.run_id.encode("utf-8")).hexdigest()
     filename = f"{ts}-{slug}-{run_id_digest}.json"
     path = runs_dir / filename
-    path.write_text(manifest.model_dump_json(indent=2))
+    path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
     logger.debug("Run manifest written", path=str(path))
     return path
 
@@ -143,15 +152,32 @@ def load_run_manifests(runs_dir: Path) -> list[RunManifest]:
     manifests: list[RunManifest] = []
     for json_file in sorted(runs_dir.glob("*.json")):
         try:
-            data = json.loads(json_file.read_text())
+            data = json.loads(json_file.read_text(encoding="utf-8"))
             manifests.append(RunManifest.model_validate(data))
         except (json.JSONDecodeError, ValueError):
             logger.warning("Skipping malformed run manifest", path=str(json_file))
     return manifests
 
 
+_ACTIVE_PROMPTS = ("extract_text_from_pdf", "extract_legal_description", "normalize_text")
+
+
 def _short_prompt_sha(manifest: RunManifest) -> str:
-    """Return the first 7 chars of the first prompt git SHA, or content hash."""
+    """Return a 7-char identifier prioritizing active pipeline prompts."""
+    active = [
+        (name, manifest.prompt_versions[name])
+        for name in _ACTIVE_PROMPTS
+        if name in manifest.prompt_versions
+    ]
+    if len(active) == 1:
+        _, pv = active[0]
+        return (pv.git_sha or pv.content_hash)[:7]
+    if len(active) > 1:
+        digest = hashlib.sha256()
+        for name, pv in active:
+            token = pv.git_sha or pv.content_hash
+            digest.update(f"{name}:{token}\n".encode())
+        return digest.hexdigest()[:7]
     for pv in manifest.prompt_versions.values():
         if pv.git_sha:
             return pv.git_sha[:7]
@@ -177,7 +203,9 @@ def format_comparison_table(manifests: list[RunManifest], pdf_filter: str | None
         return "No runs found."
 
     lines: list[str] = []
-    sorted_manifests = sorted(manifests, key=lambda m: (m.source_pdf, m.timestamp_utc))
+    sorted_manifests = sorted(
+        manifests, key=lambda m: (m.source_pdf, _normalize_utc(m.timestamp_utc))
+    )
 
     header = (
         f"{'Timestamp':<20} {'Prompt':<9} {'Calls':>5} "
@@ -191,9 +219,14 @@ def format_comparison_table(manifests: list[RunManifest], pdf_filter: str | None
         lines.append(header)
         lines.append(separator)
         for m in group:
-            ts = m.timestamp_utc.strftime("%Y-%m-%d %H:%M")
+            ts = _normalize_utc(m.timestamp_utc).strftime("%Y-%m-%d %H:%M")
             prompt_sha = _short_prompt_sha(m)
-            status = "PASS" if m.results.closure_passed else "FAIL"
+            if not m.results.closure_passed:
+                status = "FAIL"
+            elif m.results.warnings:
+                status = "WARN"
+            else:
+                status = "PASS"
             lines.append(
                 f"{ts:<20} {prompt_sha:<9} {m.results.call_count:>5} "
                 f"{m.results.misclosure_ft:>10.4f}' {m.results.confidence_score:>10.2f} "

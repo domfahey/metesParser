@@ -2,7 +2,7 @@
 name: review-metes-and-bounds
 description: This skill should be used when the user asks to "check metes and bounds closure", "does this description close", "check the boundary", or review a metes-and-bounds description in any document, image, or supplied text. Locates the intended description before deterministic parsing and closure verification.
 metadata:
-  version: "0.1.0"
+  version: "1.0.0"
 ---
 
 # Review metes and bounds

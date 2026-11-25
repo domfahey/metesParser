@@ -2,7 +2,7 @@
 name: extract-metes-and-bounds
 description: This skill should be used when the user asks to "locate the metes and bounds description", "extract the legal description", or "find the boundary description" within a complete document's text. Selects verbatim parcel descriptions and their source locations before deterministic parsing and verification.
 metadata:
-  version: "0.1.0"
+  version: "1.0.0"
 ---
 
 # Locate and extract metes and bounds

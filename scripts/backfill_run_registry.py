@@ -20,8 +20,6 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 import metesparser
 from metesparser.closure_checker import ClosureChecker
 from metesparser.models import DeedCall
@@ -50,6 +48,13 @@ def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
                 distance_ft=raw.get("distance_ft", 0.0),
                 along=raw.get("along"),
                 to=raw.get("to"),
+                monument_type=raw.get("monument_type"),
+                monument_status=raw.get("monument_status"),
+                is_exception=bool(raw.get("is_exception", False)),
+                is_meander=bool(raw.get("is_meander", False)),
+                is_tie_in=bool(raw.get("is_tie_in", False)),
+                non_tangent=bool(raw.get("non_tangent", False)),
+                radial_bearing=raw.get("radial_bearing"),
                 notes=raw.get("notes"),
                 curve_dir=raw.get("curve_dir"),
                 radius_ft=raw.get("radius_ft"),
@@ -78,7 +83,7 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
     base_time = datetime.now(UTC)
 
     for idx, gt_file in enumerate(gt_files):
-        data = json.loads(gt_file.read_text())
+        data = json.loads(gt_file.read_text(encoding="utf-8"))
         expected_calls = data.get("expected_calls", [])
 
         # Derive PDF filename from ground truth filename

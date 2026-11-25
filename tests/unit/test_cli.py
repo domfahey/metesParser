@@ -285,7 +285,6 @@ def test_verify_command_success_and_failure(monkeypatch, tmp_path):
 
     cli.verify_command(str(csv))
 
-    calls[0] = calls[0].model_copy(update={"distance_ft": 20.0})
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
         lambda calls, area=0.0: _not_verified_result(),
@@ -693,3 +692,124 @@ class TestExtractRunManifest:
         assert len(manifests) == 1
         assert manifests[0].source_pdf == "test.pdf"
         assert manifests[0].results.call_count == 4
+
+    def test_extract_manifest_resolves_cached_client_model_and_empty_env_provider(
+        self, monkeypatch, tmp_path
+    ):
+        """Manifest resolves model via _get_model_name/_client and falls back for empty env."""
+        from metesparser.run_registry import load_run_manifests
+
+        pdf = tmp_path / "test.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        output = tmp_path / "out.csv"
+        runs_dir = tmp_path / "runs"
+
+        legal_desc = LegalDescription(
+            calls=[
+                DeedCall(
+                    course=1,
+                    direction_text="N 90° E",
+                    bearing_azimuth_deg_from_north=90.0,
+                    distance_ft=10.0,
+                )
+            ],
+            source_doc="test.pdf",
+        )
+        verified = _verified_result()
+
+        monkeypatch.setenv("METESPARSER_LLM_PROVIDER", "")
+        monkeypatch.setattr(
+            "metesparser.pdf_processor.PDFProcessor",
+            lambda **_kw: SimpleNamespace(
+                process_deed_pdf=lambda _: legal_desc,
+                prompts_dir=tmp_path / "missing_prompts",
+                client=SimpleNamespace(_client=SimpleNamespace(model="gemini-2.5-flash")),
+                _get_model_name=lambda: "gemini-2.5-flash",
+            ),
+        )
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.verify_closure",
+            lambda calls, area=0.0: verified,
+        )
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+            lambda result: "VERIFIED",
+        )
+        monkeypatch.setattr(
+            "metesparser.csv_builder.CSVBuilder.export_verified_csv",
+            lambda calls, closure_result, output_path, legal_desc_obj: None,
+        )
+        monkeypatch.setattr("metesparser.cli.RUNS_DIR", runs_dir)
+
+        cli.extract_command(str(pdf), output=str(output))
+
+        manifests = load_run_manifests(runs_dir)
+        assert len(manifests) == 1
+        assert manifests[0].llm_provider == "openai"
+        assert manifests[0].llm_model == "gemini-2.5-flash"
+        assert manifests[0].prompt_versions  # C4 fallback to package prompts dir
+
+    def test_extract_manifest_unwraps_client_without_get_model_name(self, monkeypatch, tmp_path):
+        """Manifest unwraps client._client.model when _get_model_name is absent."""
+        from metesparser.run_registry import load_run_manifests
+
+        pdf = tmp_path / "test.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        runs_dir = tmp_path / "runs"
+        legal_desc = LegalDescription(
+            calls=[
+                DeedCall(
+                    course=1,
+                    direction_text="N 90° E",
+                    bearing_azimuth_deg_from_north=90.0,
+                    distance_ft=10.0,
+                )
+            ],
+            source_doc="test.pdf",
+        )
+        monkeypatch.setattr(
+            "metesparser.pdf_processor.PDFProcessor",
+            lambda **_kw: SimpleNamespace(
+                process_deed_pdf=lambda _: legal_desc,
+                prompts_dir=tmp_path / "missing_prompts",
+                client=SimpleNamespace(_client=SimpleNamespace(model="gpt-5.2")),
+            ),
+        )
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.verify_closure",
+            lambda calls, area=0.0: _verified_result(),
+        )
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+            lambda result: "VERIFIED",
+        )
+        monkeypatch.setattr(
+            "metesparser.csv_builder.CSVBuilder.export_verified_csv",
+            lambda calls, closure_result, output_path, legal_desc_obj: None,
+        )
+        monkeypatch.setattr("metesparser.cli.RUNS_DIR", runs_dir)
+
+        cli.extract_command(str(pdf), output=str(tmp_path / "out.csv"))
+
+        manifests = load_run_manifests(runs_dir)
+        assert len(manifests) == 1
+        assert manifests[0].llm_model == "gpt-5.2"
+
+
+@pytest.mark.parametrize("bad_area", [0.0, -50.0, float("nan"), float("inf"), float("-inf")])
+def test_verify_command_rejects_invalid_stated_area(monkeypatch, tmp_path, bad_area):
+    csv = tmp_path / "calls.csv"
+    csv.write_text("course,direction_text,distance_ft\n")
+    monkeypatch.setattr("metesparser.csv_builder.CSVBuilder.csv_to_calls", lambda _: [])
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.verify_closure",
+        lambda calls, area=0.0: _verified_result(),
+    )
+    monkeypatch.setattr(
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+        lambda result: "VERIFIED",
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        cli.verify_command(str(csv), stated_area=bad_area)
+    assert exc.value.code == 1

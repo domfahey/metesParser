@@ -34,7 +34,7 @@ def create_extraction_report(legal_desc, closure_result, output_file):
         closure_result: ClosureResult object
         output_file: Path to output text file
     """
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write("=" * 80 + "\n")
         f.write("DEED EXTRACTION REPORT\n")
         f.write("=" * 80 + "\n\n")
@@ -145,7 +145,7 @@ def create_extraction_report(legal_desc, closure_result, output_file):
 def main():
     """Process all sample PDFs and create extraction reports."""
     # Create output directory
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # Initialize processor
     print("Initializing PDF processor...")
@@ -171,7 +171,11 @@ def main():
 
             # Verify closure
             print("  - Verifying closure...")
-            closure_result = ClosureChecker.verify_closure(legal_desc.calls)
+            closure_result = ClosureChecker.verify_closure(
+                legal_desc.calls,
+                stated_area_sq_ft=legal_desc.stated_area_sq_ft,
+                tracts=legal_desc.tracts or None,
+            )
 
             # Create text report
             report_path = OUTPUT_DIR / f"{output_name}_extraction_report.txt"

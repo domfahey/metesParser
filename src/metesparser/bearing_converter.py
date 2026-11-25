@@ -6,6 +6,7 @@ Also handles curve calculations and coordinate deltas.
 
 import math
 import re
+from decimal import Decimal
 
 from .models import DeedCall, Point
 
@@ -14,7 +15,7 @@ class BearingConverter:
     """Convert bearings and calculate coordinate deltas."""
 
     QUADRANT_PATTERN = re.compile(
-        r"(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?,?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)",
+        r"\b(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?,?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)\b",
         re.IGNORECASE,
     )
 
@@ -80,19 +81,23 @@ class BearingConverter:
             Decimal degrees
 
         Raises:
-            ValueError: If minutes >= 60 or seconds >= 60
+            ValueError: If value is negative/non-finite or minutes/seconds not in [0, 60)
         """
-        degrees = int(value)
-        frac = value - degrees
+        if not math.isfinite(value) or value < 0:
+            raise ValueError(f"Packed DMS value must be non-negative and finite, got {value}")
 
-        minutes_seconds = frac * 100
-        minutes = int(round(minutes_seconds * 100) // 100)
-        seconds = round((minutes_seconds - minutes) * 100, 4)
+        dec = Decimal(str(value))
+        degrees = int(dec)
+        frac = dec - degrees
 
-        if minutes >= 60:
+        minutes_seconds = frac * Decimal("100")
+        minutes = int(minutes_seconds)
+        seconds = float((minutes_seconds - minutes) * Decimal("100"))
+
+        if not (0 <= minutes < 60):
             raise ValueError(f"Invalid packed DMS: minutes={minutes} (must be 0-59)")
-        if seconds >= 60:
-            raise ValueError(f"Invalid packed DMS: seconds={seconds:.0f} (must be 0-59)")
+        if not (0 <= seconds < 60):
+            raise ValueError(f"Invalid packed DMS: seconds={seconds:.4f} (must be 0-59)")
 
         return degrees + minutes / 60.0 + seconds / 3600.0
 
@@ -165,12 +170,18 @@ class BearingConverter:
 
         Args:
             cardinal1: First cardinal (N or S)
-            degrees: Angle in degrees
+            degrees: Angle in degrees (finite, 0.0 to 90.0)
             cardinal2: Second cardinal (E or W)
 
         Returns:
             Azimuth in degrees [0, 360)
         """
+        if not math.isfinite(degrees) or not (0.0 <= degrees <= 90.0):
+            raise ValueError(f"Degrees must be finite and between 0 and 90, got {degrees}")
+
+        cardinal1 = cardinal1.strip().upper()
+        cardinal2 = cardinal2.strip().upper()
+
         if cardinal1 == "N" and cardinal2 == "E":
             azimuth = degrees
         elif cardinal1 == "S" and cardinal2 == "E":
@@ -186,7 +197,8 @@ class BearingConverter:
                 f"Valid combinations are: {valid_combos}"
             )
 
-        return azimuth % 360.0
+        az = azimuth % 360.0
+        return 0.0 if az == 360.0 else az
 
     _DUE_CARDINAL_RE = re.compile(
         r"^\s*due\s+(north|south|east|west|n|s|e|w)\s*$",
@@ -278,8 +290,7 @@ class BearingConverter:
 
         if seconds < 0.5:
             return f"{cardinal1} {degrees}°{minutes:02d}' {cardinal2}"
-        else:
-            return f"{cardinal1} {degrees}°{minutes:02d}'{seconds:04.1f}\" {cardinal2}"
+        return f"{cardinal1} {degrees}°{minutes:02d}'{seconds:04.1f}\" {cardinal2}"
 
     @classmethod
     def calculate_deltas(cls, azimuth: float, distance_ft: float) -> tuple[float, float]:
@@ -398,13 +409,18 @@ class BearingConverter:
         Returns:
             Chord bearing azimuth (degrees)
         """
+        direction = curve_dir.strip().lower()
+        if direction not in ("left", "right"):
+            raise ValueError(f"curve_dir must be 'left' or 'right', got {curve_dir!r}")
+
         half_delta = delta_deg / 2.0
 
         chord_azimuth = (
-            tangent_azimuth - half_delta if curve_dir == "left" else tangent_azimuth + half_delta
+            tangent_azimuth - half_delta if direction == "left" else tangent_azimuth + half_delta
         )
 
-        return chord_azimuth % 360.0
+        az = chord_azimuth % 360.0
+        return 0.0 if az == 360.0 else az
 
     @classmethod
     def compute_curve_endpoint(
@@ -453,17 +469,19 @@ class BearingConverter:
         delta_deg: float | None = None,
         arc_length_ft: float | None = None,
         chord_length_ft: float | None = None,
+        degree_of_curvature: float | None = None,
     ) -> dict[str, float]:
         """Calculate missing curve elements from provided values.
 
         Given at least 2 of: radius, delta, arc length, chord length,
-        compute the missing elements.
+        degree of curvature — compute the missing elements.
 
         Args:
             radius_ft: Curve radius in feet
             delta_deg: Central angle in degrees
             arc_length_ft: Arc length in feet
             chord_length_ft: Chord length in feet
+            degree_of_curvature: Degree of curvature (central angle for 100-ft arc)
 
         Returns:
             Dict with all curve elements: radius_ft, delta_deg,
@@ -472,14 +490,25 @@ class BearingConverter:
         Raises:
             ValueError: If fewer than 2 elements provided
         """
+        if degree_of_curvature is not None and radius_ft is None:
+            radius_ft = cls.degree_of_curvature_to_radius(degree_of_curvature)
+
         provided = sum(
             1 for v in [radius_ft, delta_deg, arc_length_ft, chord_length_ft] if v is not None
         )
         if provided < 2:
             raise ValueError(f"Need at least two curve elements, got {provided}")
 
+        if radius_ft is not None and radius_ft <= 0:
+            raise ValueError(f"Radius must be positive, got {radius_ft}")
         if delta_deg is not None and delta_deg == 0:
             raise ValueError("Delta angle must be non-zero for curve element calculation")
+        if delta_deg is not None and not (0 < delta_deg <= 360):
+            raise ValueError(f"Delta angle must be in (0, 360] degrees, got {delta_deg}")
+        if arc_length_ft is not None and arc_length_ft <= 0:
+            raise ValueError(f"Arc length must be positive, got {arc_length_ft}")
+        if chord_length_ft is not None and chord_length_ft < 0:
+            raise ValueError(f"Chord length must be non-negative, got {chord_length_ft}")
 
         if radius_ft is not None and delta_deg is not None:
             pass
@@ -497,13 +526,15 @@ class BearingConverter:
             delta_rad = math.radians(delta_deg)
             radius_ft = arc_length_ft / delta_rad
         elif chord_length_ft is not None and delta_deg is not None:
+            if chord_length_ft <= 0:
+                raise ValueError(f"Chord length must be positive, got {chord_length_ft}")
+            if delta_deg >= 360:
+                raise ValueError(
+                    f"Delta angle must be less than 360 degrees with chord length, got {delta_deg}"
+                )
             delta_rad = math.radians(delta_deg)
             radius_ft = chord_length_ft / (2 * math.sin(delta_rad / 2))
         elif arc_length_ft is not None and chord_length_ft is not None:
-            if arc_length_ft <= 0:
-                raise ValueError(f"Arc length must be positive, got {arc_length_ft}")
-            if chord_length_ft < 0:
-                raise ValueError(f"Chord must be non-negative, got {chord_length_ft}")
             if chord_length_ft >= arc_length_ft:
                 raise ValueError(
                     f"Chord ({chord_length_ft} ft) must be less than arc ({arc_length_ft} ft)"
@@ -522,24 +553,29 @@ class BearingConverter:
             delta_deg = math.degrees(delta_rad)
             radius_ft = arc_length_ft / delta_rad
 
+        if delta_deg is None or not (0 < delta_deg <= 360):
+            raise ValueError(f"Computed delta angle must be in (0, 360] degrees, got {delta_deg}")
+        if radius_ft is None or radius_ft <= 0:
+            raise ValueError(f"Computed radius must be positive, got {radius_ft}")
+
         # Compute all elements from radius and delta
-        delta_rad = math.radians(delta_deg)  # type: ignore[arg-type]
+        delta_rad = math.radians(delta_deg)
         if arc_length_ft is None:
-            arc_length_ft = radius_ft * delta_rad  # type: ignore[operator]
+            arc_length_ft = radius_ft * delta_rad
         if chord_length_ft is None:
-            chord_length_ft = 2 * radius_ft * math.sin(delta_rad / 2)  # type: ignore[operator]
+            chord_length_ft = 2 * radius_ft * math.sin(delta_rad / 2)
         cos_half = math.cos(delta_rad / 2)
         if abs(cos_half) < 1e-10:
             tangent_length_ft = float("inf")
             external_distance_ft = float("inf")
         else:
-            tangent_length_ft = radius_ft * math.tan(delta_rad / 2)  # type: ignore[operator]
-            external_distance_ft = radius_ft * (1.0 / cos_half - 1.0)  # type: ignore[operator]
-        middle_ordinate_ft = radius_ft * (1.0 - math.cos(delta_rad / 2))  # type: ignore[operator]
+            tangent_length_ft = radius_ft * math.tan(delta_rad / 2)
+            external_distance_ft = radius_ft * (1.0 / cos_half - 1.0)
+        middle_ordinate_ft = radius_ft * (1.0 - math.cos(delta_rad / 2))
 
         return {
-            "radius_ft": radius_ft,  # type: ignore[dict-item]
-            "delta_deg": delta_deg,  # type: ignore[dict-item]
+            "radius_ft": radius_ft,
+            "delta_deg": delta_deg,
             "arc_length_ft": arc_length_ft,
             "chord_length_ft": chord_length_ft,
             "tangent_length_ft": tangent_length_ft,

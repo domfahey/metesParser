@@ -12,12 +12,25 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from mp_export.csv_writer import FIELDNAMES, calls_to_csv, csv_to_calls, export_verified_csv
-from mp_models import AuditContext, DeedCall, LegalDescription, RunMetadata
-from mp_parse import enrich_calls_with_azimuths, extract_calls, mark_tie_in_calls
-from mp_parse.metadata import extract_area_statement, extract_poc_and_pob
+from mp_export.csv_writer import (
+    FIELDNAMES,
+    _row_to_call,
+    calls_to_csv,
+    export_verified_csv,
+)
+from mp_models import AuditContext, DeedCall, LegalDescription, RunMetadata, TractType
+from mp_parse import (
+    enrich_calls_with_azimuths,
+    extract_calls,
+    mark_tie_in_calls,
+)
+from mp_parse.metadata import (
+    extract_area_statement,
+    extract_poc_and_pob,
+    infer_distance_unit,
+)
 from mp_parse.normalizer import normalize_legal_description
-from mp_parse.parcels import detect_parcel_markers
+from mp_parse.parcels import split_into_parcels
 from mp_verify import verify_closure
 
 ENGINE_VERSION = "1.0.0"
@@ -37,6 +50,7 @@ def _base(source: bytes, name: str, kind: str) -> dict[str, Any]:
         "calls": [],
         "verification": None,
         "limitations": list(LIMITATIONS),
+        "advisories": [],
         "errors": [],
         "artifacts": {},
     }
@@ -54,7 +68,6 @@ def _run(
     kind: str,
     output_dir: Path | None,
     stated_area_sq_ft: float | None,
-    path: Path | None = None,
 ) -> dict[str, Any]:
     result = _base(source, name, kind)
     directory = Path(output_dir) if output_dir is not None else None
@@ -83,24 +96,35 @@ def _run(
         )
     )
     try:
-        text = source.decode("utf-8")
+        text = source.decode("utf-8-sig")
         if stated_area_sq_ft is not None and (
             not math.isfinite(stated_area_sq_ft) or stated_area_sq_ft <= 0
         ):
             raise ValueError("Stated area must be finite and positive.")
         if kind == "text":
-            if len(detect_parcel_markers(text)) > 1:
+            if len(split_into_parcels(text)) > 1:
                 raise ValueError("Multiple parcel descriptions require separate reviews.")
             normalized = normalize_legal_description(text)
             poc, pob = extract_poc_and_pob(normalized)
-            extracted_calls, _tracts = extract_calls(normalized, audit_context=audit)
+            extracted_calls, extracted_tracts = extract_calls(normalized, audit_context=audit)
+            non_exception_tracts = [
+                t for t in extracted_tracts if t.tract_type != TractType.EXCEPTION
+            ]
+            if len(non_exception_tracts) > 1:
+                raise ValueError("Multiple parcel descriptions require separate reviews.")
             calls = mark_tie_in_calls(enrich_calls_with_azimuths(extracted_calls), poc)
             area = extract_area_statement(normalized)
+            inferred_unit = infer_distance_unit(normalized)
+            if inferred_unit is not None:
+                result["advisories"].append(
+                    f"Advisory: inferred primary distance unit '{inferred_unit}' from deed text; review distance conversions."
+                )
             legal = LegalDescription(
                 calls=calls,
                 poc_description=poc or None,
                 pob_description=pob or None,
                 stated_area_sq_ft=area["value_sq_ft"] if area else None,
+                stated_area_approximate=area["approximate"] if area else False,
             )
             if poc and not any(c.is_tie_in for c in calls):
                 result["errors"].append(
@@ -117,18 +141,34 @@ def _run(
             if isinstance(data, list):
                 calls = [DeedCall.model_validate(c) for c in data]
                 legal = LegalDescription(calls=calls)
-            elif isinstance(data, dict) and "calls" in data:
+            elif isinstance(data, dict) and ("calls" in data or "tracts" in data):
                 legal = LegalDescription.model_validate(data)
-                calls = legal.calls
+                non_exception_tracts = [
+                    t for t in legal.tracts if t.tract_type != TractType.EXCEPTION
+                ]
+                if len(non_exception_tracts) > 1:
+                    raise ValueError("Multiple parcel descriptions require separate reviews.")
+                calls = legal.all_calls
+                if legal.calls != calls:
+                    legal = legal.model_copy(update={"calls": calls})
             else:
                 raise ValueError("JSON must be a calls list or LegalDescription object.")
         elif kind == "csv":
             reader = csv.reader(io.StringIO(text))
             if next(reader, None) != FIELDNAMES:
                 raise ValueError("CSV header must match the complete 21-field schema.")
-            if any(len(row) != len(FIELDNAMES) for row in reader if row):
-                raise ValueError("CSV contains a row with incorrect field count.")
-            calls = csv_to_calls(str(path), strict=True)
+            calls = []
+            num_fields = len(FIELDNAMES)
+            for row_number, raw_row in enumerate(reader, start=2):
+                if not raw_row:
+                    continue
+                if len(raw_row) != num_fields:
+                    raise ValueError("CSV contains a row with incorrect field count.")
+                row_dict: dict[str, str | None] = dict(zip(FIELDNAMES, raw_row, strict=True))
+                call = _row_to_call(row_dict, row_number=row_number)
+                if call is None:
+                    raise ValueError(f"Cannot import complete parcel: invalid CSV row {row_number}")
+                calls.append(call)
             legal = LegalDescription(calls=calls)
         else:
             raise ValueError(
@@ -198,6 +238,13 @@ def _run(
                 # Exporter rechecks geometry before issuing the verified artifact.
                 export_verified_csv(calls, verification, str(directory / "calls.csv"), legal)
                 result["artifacts"]["calls_verified.csv"] = str(directory / "calls_verified.csv")
+                for sidecar_name in (
+                    "calls_verified.metadata.txt",
+                    "calls_verified.verification.txt",
+                ):
+                    sidecar_path = directory / sidecar_name
+                    if sidecar_path.exists():
+                        result["artifacts"][sidecar_name] = str(sidecar_path)
             body = html.escape(json.dumps(result, indent=2, allow_nan=False))
             write(
                 "review.html",
@@ -235,7 +282,7 @@ def review_file(
         source = path.read_bytes()
     except OSError as exc:
         return _error(_base(b"", path.name, kind), "input_error", str(exc))
-    return _run(source, path.name, kind, output_dir, stated_area_sq_ft, path)
+    return _run(source, path.name, kind, output_dir, stated_area_sq_ft)
 
 
 def verify_file(

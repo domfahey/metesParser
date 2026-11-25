@@ -53,7 +53,9 @@ def check_interior_angles(calls: list[DeedCall], coordinates: list[Point]) -> bo
 
 
 def check_straight_boundary_intersections(
-    calls: list[DeedCall], coordinates: list[Point]
+    calls: list[DeedCall],
+    coordinates: list[Point],
+    closure_tolerance_ft: float = 0.01,
 ) -> list[str]:
     """Detect crossings, overlaps, and nonadjacent touches between straight edges.
 
@@ -81,7 +83,7 @@ def check_straight_boundary_intersections(
     warnings: list[str] = []
     closed = (
         math.hypot(coordinates[-1].x - coordinates[0].x, coordinates[-1].y - coordinates[0].y)
-        < 0.01
+        < closure_tolerance_ft
     )
     for i, first in enumerate(calls):
         if first.is_curve():
@@ -154,6 +156,7 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
         Tuple of (passed, warnings).
     """
     warnings: list[str] = []
+    all_passed = True
 
     for call in calls:
         if not call.is_curve():
@@ -172,7 +175,8 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
                 # Arc cannot exceed full circle (2*pi*radius)
                 if implied_delta_rad > 2 * math.pi:
                     warnings.append(f"Course {call.course}: arc length exceeds full circle")
-                    return False, warnings
+                    all_passed = False
+                    continue
                 delta_deg = math.degrees(implied_delta_rad)
             else:
                 # No delta and insufficient data to derive one -- skip
@@ -188,7 +192,7 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
                     f"Course {call.course}: arc length inconsistency "
                     f"(given: {call.arc_length_ft:.2f}, expected: {expected_arc:.2f})"
                 )
-                return False, warnings
+                all_passed = False
 
         expected_chord = 2 * call.radius_ft * math.sin(delta_rad / 2)
 
@@ -199,9 +203,9 @@ def check_curve_consistency(calls: list[DeedCall]) -> tuple[bool, list[str]]:
                     f"Course {call.course}: chord length inconsistency "
                     f"(given: {call.chord_length_ft:.2f}, expected: {expected_chord:.2f})"
                 )
-                return False, warnings
+                all_passed = False
 
-    return True, warnings
+    return all_passed, warnings
 
 
 def check_bearing_reversals(calls: list[DeedCall]) -> list[str]:
@@ -260,13 +264,13 @@ def check_distance_reasonableness(calls: list[DeedCall]) -> list[str]:
         return []
 
     warnings: list[str] = []
-    distances = [c.distance_ft for c in calls]
+    distances = [
+        c.arc_length_ft if c.curve_dir and c.arc_length_ft else c.distance_ft for c in calls
+    ]
     median_dist = statistics.median(distances)
     total_perimeter = sum(distances)
 
-    for call in calls:
-        dist = call.distance_ft
-
+    for call, dist in zip(calls, distances, strict=True):
         if dist < 0.5:
             warnings.append(f"Course {call.course}: suspiciously short distance ({dist:.2f} ft)")
 
@@ -312,21 +316,6 @@ def check_area_reasonableness(
     return []
 
 
-def check_double_entry(calls: list[DeedCall]) -> list[str]:
-    """Check for double-entry validation issues.
-
-    This is a placeholder that returns an empty list when no
-    independent double-entry data is provided.
-
-    Args:
-        calls: List of DeedCall objects.
-
-    Returns:
-        List of warning messages (empty without comparison data).
-    """
-    return []
-
-
 def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list[str]:
     """Compare two entry sets for discrepancies (double-entry validation).
 
@@ -349,6 +338,7 @@ def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list
         value1: float | None,
         value2: float | None,
         tolerance: float = 0.01,
+        decimals: int = 2,
     ) -> None:
         if value1 is None and value2 is None:
             return
@@ -357,7 +347,8 @@ def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list
             return
         if abs(value1 - value2) > tolerance:
             discrepancies.append(
-                f"Course {course_num}: {label} mismatch - {value1:.2f} vs {value2:.2f}"
+                f"Course {course_num}: {label} mismatch - "
+                f"{value1:.{decimals}f} vs {value2:.{decimals}f}"
             )
 
     for i, (c1, c2) in enumerate(zip(calls1, calls2, strict=False), start=1):
@@ -379,6 +370,32 @@ def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list
                 f"Course {i}: Distance mismatch - {c1.distance_ft:.2f} vs {c2.distance_ft:.2f}"
             )
 
+        if c1.is_exception != c2.is_exception:
+            discrepancies.append(
+                f"Course {i}: Exception flag mismatch - {c1.is_exception} vs {c2.is_exception}"
+            )
+
+        if c1.is_tie_in != c2.is_tie_in:
+            discrepancies.append(
+                f"Course {i}: Tie-in flag mismatch - {c1.is_tie_in} vs {c2.is_tie_in}"
+            )
+
+        if c1.is_meander != c2.is_meander:
+            discrepancies.append(
+                f"Course {i}: Meander flag mismatch - {c1.is_meander} vs {c2.is_meander}"
+            )
+
+        if c1.non_tangent != c2.non_tangent:
+            discrepancies.append(
+                f"Course {i}: Non-tangent flag mismatch - {c1.non_tangent} vs {c2.non_tangent}"
+            )
+
+        if c1.radial_bearing != c2.radial_bearing:
+            discrepancies.append(
+                f"Course {i}: Radial bearing mismatch - "
+                f"'{c1.radial_bearing}' vs '{c2.radial_bearing}'"
+            )
+
         curve1 = c1.is_curve()
         curve2 = c2.is_curve()
         if curve1 != curve2:
@@ -391,7 +408,7 @@ def compare_double_entry(calls1: list[DeedCall], calls2: list[DeedCall]) -> list
             discrepancies.append(f"Course {i}: Curve direction mismatch")
 
         compare_optional_float(i, "Radius", c1.radius_ft, c2.radius_ft)
-        compare_optional_float(i, "Delta", c1.delta_deg, c2.delta_deg, tolerance=0.0001)
+        compare_optional_float(i, "Delta", c1.delta_deg, c2.delta_deg, tolerance=0.0001, decimals=4)
         compare_optional_float(i, "Arc length", c1.arc_length_ft, c2.arc_length_ft)
         compare_optional_float(i, "Chord length", c1.chord_length_ft, c2.chord_length_ft)
 

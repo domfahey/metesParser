@@ -1,6 +1,8 @@
 ---
 name: review-deed
 description: This skill should be used when the user specifically asks to "review a deed" or "check a deed description" for metes-and-bounds geometry. Routes to the document-agnostic review workflow, locating the intended description before closure calculation.
+metadata:
+  version: "1.0.0"
 ---
 
 # Review a deed

@@ -15,23 +15,54 @@ import json
 import os
 import re
 from datetime import UTC, datetime
-from hashlib import sha256
+from importlib import resources
 from pathlib import Path
 from typing import Any, cast
 
-import structlog
 import yaml  # type: ignore[import-untyped]
-from mp_models import LLMStageRecord
+from mp_models import (
+    PRIOR_CONVEYANCE_SIGNALS,
+    AuditContext,
+    ExtractionRecord,
+    LLMStageRecord,
+    RunMetadata,
+)
 
 from .cache import CachedLLMClient
 from .clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
 
-logger = structlog.get_logger(__name__)
-
-
 # ---------------------------------------------------------------------------
 # Module-level confidence scorer (was PDFProcessor._compute_llm_confidence)
 # ---------------------------------------------------------------------------
+
+_POB_RE = re.compile(r"(?:POINT\s+OF\s+BEGINNING|BEGINNING\s+at|POB)\b", re.IGNORECASE)
+_BEARING_CALL_RE = re.compile(
+    r"\b(?:North|South|[NS])\.?\s*\d+(?:\.\d+)?\s*(?:°|degrees?\b|deg\.?)",
+    re.IGNORECASE,
+)
+_CLOSURE_RE = re.compile(
+    r"(?:POINT\s+OF\s+BEGINNING|place\s+of\s+beginning)\s*(?:[.;]|\s*$)",
+    re.IGNORECASE,
+)
+_DISTANCE_RE = re.compile(
+    r"\b\d+(?:,\d{3})*(?:\.\d+)?\s+"
+    r"(?:feet|foot|ft|poles?|rods?|perch(?:es)?|chains?|links?|varas?|arpents?|toises?|furlongs?|meters?|miles?)\b",
+    re.IGNORECASE,
+)
+_PLSS_RE = re.compile(
+    r"\b(?:Section|Township|Range)\b|\bT\.?\s*\d+\s*[NS]\b|\bR\.?\s*\d+\s*[EW]\b",
+    re.IGNORECASE,
+)
+_ALLOWED_NON_ASCII = frozenset("\u00b0\u2032\u2033\u2018\u2019\u201c\u201d\u2013\u2014")
+_CONFIDENCE_WEIGHTS: dict[str, float] = {
+    "has_pob": 0.20,
+    "has_bearing_calls": 0.20,
+    "has_closure_language": 0.15,
+    "has_distances": 0.15,
+    "text_length_reasonable": 0.10,
+    "has_plss": 0.10,
+    "no_garbled_chars": 0.10,
+}
 
 
 def compute_llm_confidence(text: str) -> tuple[float, dict[str, bool]]:
@@ -49,30 +80,15 @@ def compute_llm_confidence(text: str) -> tuple[float, dict[str, bool]]:
     - has_plss (+0.10)
     - no_garbled_chars (+0.10)
     """
-    has_pob = bool(
-        re.search(r"(?:POINT\s+OF\s+BEGINNING|BEGINNING\s+at|POB)\b", text, re.IGNORECASE)
-    )
-
-    bearing_matches = re.findall(r"(?:North|South|[NS])\s+\d+\s+degrees?", text, re.IGNORECASE)
-    has_bearing_calls = len(bearing_matches) >= 3
-
-    has_closure_language = bool(
-        re.search(
-            r"(?:POINT\s+OF\s+BEGINNING|place\s+of\s+beginning)\s*(?:[.;]|\s*$)",
-            text,
-            re.IGNORECASE,
-        )
-    )
-
-    has_distances = bool(re.search(r"\d+\.\d+\s+(?:feet|ft)", text, re.IGNORECASE))
-
+    has_pob = bool(_POB_RE.search(text))
+    has_bearing_calls = len(_BEARING_CALL_RE.findall(text)) >= 3
+    has_closure_language = bool(_CLOSURE_RE.search(text))
+    has_distances = bool(_DISTANCE_RE.search(text))
     text_length_reasonable = 50 < len(text) < 50_000
-
-    has_plss = bool(re.search(r"(?:Section|Township|Range)", text, re.IGNORECASE))
+    has_plss = bool(_PLSS_RE.search(text))
 
     # Non-ASCII ratio excluding common surveying symbols
-    allowed_non_ascii = set("\u00b0\u2032\u2033\u2018\u2019\u201c\u201d\u2013\u2014")
-    non_ascii_count = sum(1 for ch in text if ord(ch) > 127 and ch not in allowed_non_ascii)
+    non_ascii_count = sum(1 for ch in text if ord(ch) > 127 and ch not in _ALLOWED_NON_ASCII)
     total_chars = max(len(text), 1)
     no_garbled_chars = (non_ascii_count / total_chars) < 0.05
 
@@ -86,17 +102,7 @@ def compute_llm_confidence(text: str) -> tuple[float, dict[str, bool]]:
         "no_garbled_chars": no_garbled_chars,
     }
 
-    weights: dict[str, float] = {
-        "has_pob": 0.20,
-        "has_bearing_calls": 0.20,
-        "has_closure_language": 0.15,
-        "has_distances": 0.15,
-        "text_length_reasonable": 0.10,
-        "has_plss": 0.10,
-        "no_garbled_chars": 0.10,
-    }
-
-    confidence = sum(weights[k] for k, v in signals.items() if v)
+    confidence = sum(_CONFIDENCE_WEIGHTS[k] for k, v in signals.items() if v)
     # Clamp to [0.0, 1.0] to be safe with floating point
     confidence = max(0.0, min(1.0, confidence))
 
@@ -107,15 +113,8 @@ def compute_llm_confidence(text: str) -> tuple[float, dict[str, bool]]:
 # Prior-conveyance pattern compilation
 # ---------------------------------------------------------------------------
 
-# Lazy import guard: mp_models may not carry PRIOR_CONVEYANCE_SIGNALS on
-# every installation, so fall back gracefully.
-try:
-    from mp_models import PRIOR_CONVEYANCE_SIGNALS as _SIGNALS
-except ImportError:  # pragma: no cover
-    _SIGNALS: list[str] = []  # type: ignore[no-redef]
-
 _PRIOR_CONVEYANCE_PATTERNS: list[re.Pattern[str]] = [
-    re.compile(sig, re.IGNORECASE) for sig in _SIGNALS
+    re.compile(sig, re.IGNORECASE) for sig in sorted(PRIOR_CONVEYANCE_SIGNALS)
 ]
 
 
@@ -173,24 +172,26 @@ class PDFProcessor:
             Dict with prompt configuration
         """
         prompt_file = f"{prompt_name}.yaml"
-        candidate_paths = [
-            self.prompts_dir / prompt_file,
-            Path(__file__).parent / "prompts" / prompt_file,
-        ]
+        candidate_paths = list(
+            dict.fromkeys(
+                [
+                    self.prompts_dir / prompt_file,
+                    Path(__file__).parent / "prompts" / prompt_file,
+                ]
+            )
+        )
 
         prompt_text: str | None = None
         for prompt_path in candidate_paths:
             if prompt_path.exists():
-                prompt_text = prompt_path.read_text()
+                prompt_text = prompt_path.read_text(encoding="utf-8")
                 break
 
         if prompt_text is None:
             try:
-                from importlib import resources
-
                 packaged_prompt = resources.files("mp_ocr").joinpath("prompts", prompt_file)
                 if packaged_prompt.is_file():
-                    prompt_text = packaged_prompt.read_text()
+                    prompt_text = packaged_prompt.read_text(encoding="utf-8")
             except (ModuleNotFoundError, FileNotFoundError):
                 prompt_text = None
 
@@ -208,13 +209,16 @@ class PDFProcessor:
 
     def extract_text_from_pdf(self, pdf_path: str, *, audit: bool = False) -> str:
         """Extract all text from a PDF using the configured LLM provider."""
-        if not audit:
-            self._audit_stage_records = None
-        if audit and self._audit_stage_records is None:
-            self._audit_stage_records = []
+        self._audit_stage_records = [] if audit else None
         try:
             prompt_config = self._load_prompt("extract_text_from_pdf")
-            prompt_text = prompt_config["user_prompt_template"]
+            system_prompt = prompt_config.get("system_prompt")
+            user_prompt = prompt_config["user_prompt_template"]
+            prompt_text = (
+                f"{system_prompt.strip()}\n\n{user_prompt}"
+                if isinstance(system_prompt, str) and system_prompt.strip()
+                else user_prompt
+            )
             response_mime_type = prompt_config.get("response_mime_type")
             response = self.client.generate_text_with_pdf(
                 prompt_text, pdf_path, response_mime_type=response_mime_type
@@ -285,9 +289,9 @@ class PDFProcessor:
             LLMStageRecord(
                 stage=stage,
                 prompt=prompt,
-                prompt_sha256=sha256(prompt.encode("utf-8")).hexdigest(),
+                prompt_sha256=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
                 response=response,
-                response_sha256=sha256(response.encode("utf-8")).hexdigest(),
+                response_sha256=hashlib.sha256(response.encode("utf-8")).hexdigest(),
                 provider=provider,
                 model=model if isinstance(model, str) else "unknown",
             )
@@ -330,7 +334,7 @@ class PDFProcessor:
         normalized_text: str,
         distance_unit: str,
         parser_version: str = "unknown",
-    ) -> Any:
+    ) -> AuditContext:
         """Build an ``AuditContext`` populated with run metadata and extraction record.
 
         Args:
@@ -340,8 +344,6 @@ class PDFProcessor:
             distance_unit: Resolved distance unit string.
             parser_version: Caller-provided version string (e.g. ``metesparser.__version__``).
         """
-        from mp_models import AuditContext, ExtractionRecord, RunMetadata
-
         inner = self._unwrap_client(self.client)
         if isinstance(inner, OpenAIClient):
             llm_provider = "openai"
@@ -352,7 +354,7 @@ class PDFProcessor:
 
         llm_model = self._get_model_name()
         prompt_hash = self._compute_prompt_hash("normalize_text")
-        log_level = os.getenv("LOG_LEVEL", "INFO")
+        log_level = os.getenv("METESPARSER_LOG_LEVEL", "INFO")
 
         run_metadata = RunMetadata(
             parser_version=parser_version,

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import inspect
+import math
 import os
 import sys
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import structlog
 import structlog.contextvars
@@ -24,6 +27,58 @@ def _emit_closure_summary(summary: str, command_logger: structlog.stdlib.BoundLo
         print()
         print(summary)
         print()
+
+
+def _resolve_llm_model(processor: object) -> str:
+    """Resolve the model name from processor or unwrapped client."""
+    get_model_name = getattr(processor, "_get_model_name", None)
+    if callable(get_model_name):
+        name = get_model_name()
+        if isinstance(name, str) and name:
+            return name
+    client = getattr(processor, "client", None)
+    while (inner := getattr(client, "_client", None)) is not None:
+        client = inner
+    model = getattr(client, "model", None)
+    return model if isinstance(model, str) and model else "unknown"
+
+
+def _resolve_prompts_dir(processor: object, fallback_dir: Path) -> Path:
+    """Use processor.prompts_dir when it exists and has YAML prompts, else fallback."""
+    prompts_dir = getattr(processor, "prompts_dir", None)
+    if isinstance(prompts_dir, Path) and prompts_dir.is_dir() and any(prompts_dir.glob("*.yaml")):
+        return prompts_dir
+    return fallback_dir
+
+
+def _verify_closure_compat(
+    checker: Any,
+    calls: list[Any],
+    stated_area_sq_ft: float,
+    tracts: list[Any] | None = None,
+) -> Any:
+    """Pass keyword args when supported, keeping legacy monkeypatched lambdas working."""
+    params = inspect.signature(checker.verify_closure).parameters
+    if "stated_area_sq_ft" in params or "tracts" in params:
+        kwargs: dict[str, Any] = {}
+        if "stated_area_sq_ft" in params:
+            kwargs["stated_area_sq_ft"] = stated_area_sq_ft
+        if "tracts" in params:
+            kwargs["tracts"] = tracts
+        return checker.verify_closure(calls, **kwargs)
+    return checker.verify_closure(calls, stated_area_sq_ft)
+
+
+def _get_closure_summary_compat(
+    checker: Any,
+    result: Any,
+    calls: list[Any] | None = None,
+) -> str:
+    """Pass calls when get_closure_summary accepts it, preserving 1-arg test stubs."""
+    params = inspect.signature(checker.get_closure_summary).parameters
+    if "calls" in params:
+        return str(checker.get_closure_summary(result, calls=calls))
+    return str(checker.get_closure_summary(result))
 
 
 def extract_command(
@@ -65,20 +120,72 @@ def extract_command(
         legal_desc = result
 
         command_logger.info("Verifying closure")
-        closure_result = ClosureChecker.verify_closure(
-            legal_desc.calls, legal_desc.stated_area_sq_ft or 0.0
+        tracts = legal_desc.tracts or None
+        raw_verification = _verify_closure_compat(
+            ClosureChecker,
+            legal_desc.all_calls if tracts else legal_desc.calls,
+            legal_desc.stated_area_sq_ft or 0.0,
+            tracts=tracts,
         )
 
-        summary = ClosureChecker.get_closure_summary(closure_result)
-        _emit_closure_summary(summary, command_logger)
+        if isinstance(raw_verification, list):
+            assert tracts is not None
+            tract_pairs = list(zip(tracts, raw_verification, strict=True))
+            summaries = [
+                f"--- {tract.label} ---\n"
+                + _get_closure_summary_compat(ClosureChecker, tract_result, calls=tract.calls)
+                for tract, tract_result in tract_pairs
+            ]
+            _emit_closure_summary("\n\n".join(summaries), command_logger)
 
-        if closure_result.is_fully_verified():
-            command_logger.info("Exporting verified CSV")
-            CSVBuilder.export_verified_csv(legal_desc.calls, closure_result, output, legal_desc)
+            if any(r.is_fully_verified() for r in raw_verification):
+                command_logger.info("Exporting verified tract CSVs")
+                CSVBuilder.export_verified_csv(
+                    legal_desc.all_calls,
+                    raw_verification[0],
+                    output,
+                    legal_desc,
+                    tract_results=tract_pairs,
+                )
+            else:
+                command_logger.warning(
+                    "Verification did not pass completely; exporting unverified CSV"
+                )
+                CSVBuilder.legal_description_to_csv(legal_desc, output)
+                command_logger.info("Exported unverified CSV")
+
+            run_call_count = len(legal_desc.all_calls)
+            run_closure_passed = all(r.closure_passed for r in raw_verification)
+            run_misclosure_ft = max((r.misclosure_ft for r in raw_verification), default=0.0)
+            run_area_sq_ft = sum(r.area_sq_ft for r in raw_verification)
+            run_confidence_score = min(
+                ((r.confidence_score or 0.0) for r in raw_verification),
+                default=0.0,
+            )
+            run_warnings = [w for r in raw_verification for w in r.warnings]
         else:
-            command_logger.warning("Verification did not pass completely; exporting unverified CSV")
-            CSVBuilder.legal_description_to_csv(legal_desc, output)
-            command_logger.info("Exported unverified CSV")
+            closure_result = raw_verification
+            summary = _get_closure_summary_compat(
+                ClosureChecker, closure_result, calls=legal_desc.calls
+            )
+            _emit_closure_summary(summary, command_logger)
+
+            if closure_result.is_fully_verified():
+                command_logger.info("Exporting verified CSV")
+                CSVBuilder.export_verified_csv(legal_desc.calls, closure_result, output, legal_desc)
+            else:
+                command_logger.warning(
+                    "Verification did not pass completely; exporting unverified CSV"
+                )
+                CSVBuilder.legal_description_to_csv(legal_desc, output)
+                command_logger.info("Exported unverified CSV")
+
+            run_call_count = len(legal_desc.calls)
+            run_closure_passed = closure_result.closure_passed
+            run_misclosure_ft = closure_result.misclosure_ft
+            run_area_sq_ft = closure_result.area_sq_ft
+            run_confidence_score = closure_result.confidence_score or 0.0
+            run_warnings = closure_result.warnings
 
         # Write run manifest (never fails the main extract flow)
         try:
@@ -91,24 +198,23 @@ def extract_command(
                 write_run_manifest,
             )
 
-            prompt_versions = get_prompt_versions(processor.prompts_dir)
+            prompts_dir = _resolve_prompts_dir(processor, Path(__file__).parent / "prompts")
+            prompt_versions = get_prompt_versions(prompts_dir)
             manifest = RunManifest(
                 run_id=run_id,
                 timestamp_utc=datetime.now(UTC),
                 source_pdf=pdf_file.name,
-                llm_provider=llm_provider
-                if llm_provider is not None
-                else os.getenv("METESPARSER_LLM_PROVIDER", "openai"),
-                llm_model=getattr(getattr(processor, "client", None), "model", "unknown"),
+                llm_provider=llm_provider or os.getenv("METESPARSER_LLM_PROVIDER") or "openai",
+                llm_model=_resolve_llm_model(processor),
                 cache_enabled=not no_cache,
                 prompt_versions=prompt_versions,
                 results=RunResults(
-                    call_count=len(legal_desc.calls),
-                    closure_passed=closure_result.closure_passed,
-                    misclosure_ft=closure_result.misclosure_ft,
-                    area_sq_ft=closure_result.area_sq_ft,
-                    confidence_score=closure_result.confidence_score or 0.0,
-                    warnings=closure_result.warnings,
+                    call_count=run_call_count,
+                    closure_passed=run_closure_passed,
+                    misclosure_ft=run_misclosure_ft,
+                    area_sq_ft=run_area_sq_ft,
+                    confidence_score=run_confidence_score,
+                    warnings=run_warnings,
                 ),
                 parser_version=metesparser.__version__,
             )
@@ -138,6 +244,10 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
         logger.error("CSV file not found", path=csv_path)
         sys.exit(1)
 
+    if stated_area is not None and (not math.isfinite(stated_area) or stated_area <= 0):
+        logger.error("Stated area must be finite and positive", stated_area=stated_area)
+        sys.exit(1)
+
     command_logger = logger.bind(command="verify", input_csv=csv_path)
     command_logger.info("Verifying calls from CSV")
 
@@ -147,7 +257,7 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
 
         closure_result = ClosureChecker.verify_closure(calls, stated_area or 0.0)
 
-        summary = ClosureChecker.get_closure_summary(closure_result)
+        summary = _get_closure_summary_compat(ClosureChecker, closure_result, calls=calls)
         _emit_closure_summary(summary, command_logger)
 
         if closure_result.is_fully_verified():

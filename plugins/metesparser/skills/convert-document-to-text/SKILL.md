@@ -2,7 +2,7 @@
 name: convert-document-to-text
 description: This skill should be used when a document arrives as an image, scanned PDF, or native PDF and the user asks to "read this document", "convert this document to text", or "extract text from this document". Uses Claude's native image and document reading before locating a legal description.
 metadata:
-  version: "0.1.0"
+  version: "1.0.0"
 ---
 
 # Convert a document to text

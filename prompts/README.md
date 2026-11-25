@@ -7,7 +7,7 @@ This directory contains all prompts used by the metesParser system. Prompts are 
 ### 1. extract_text_from_pdf.yaml
 **Purpose**: Extract all text from a PDF document (LLM prompt input for downstream parsing)
 
-**Model**: OpenAI `gpt-4.1` (default)
+**Model**: OpenAI `gpt-5.2` (default) / Gemini `gemini-3-flash-preview`
 **API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
 **Input**: PDF file (base64 encoded)
 **Output**: Complete document text
@@ -19,7 +19,7 @@ This directory contains all prompts used by the metesParser system. Prompts are 
 ### 2. extract_legal_description.yaml
 **Purpose**: Locate and extract the legal description section from deed text
 
-**Model**: OpenAI `gpt-4.1` (default)
+**Model**: OpenAI `gpt-5.2` (default) / Gemini `gemini-3-flash-preview`
 **API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
 **Input**: Full document text
 **Output**: Legal description text only
@@ -36,7 +36,7 @@ This directory contains all prompts used by the metesParser system. Prompts are 
 ### 3. normalize_text.yaml
 **Purpose**: Normalize and clean up legal description text
 
-**Model**: OpenAI `gpt-4.1` (default)
+**Model**: OpenAI `gpt-5.2` (default) / Gemini `gemini-3-flash-preview`
 **API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
 **Input**: Raw legal description text
 **Output**: Normalized, standardized text
@@ -55,7 +55,7 @@ This directory contains all prompts used by the metesParser system. Prompts are 
 ### 4. extract_calls.yaml
 **Purpose**: Extract individual calls/courses from normalized legal description (AI-assisted experimental method)
 
-**Model**: OpenAI `gpt-4.1` (default)
+**Model**: OpenAI `gpt-5.2` (default) / Gemini `gemini-3-flash-preview`
 **API/Client**: Provider-dependent (`OpenAIClient` or `GeminiClient`)
 **Input**: Normalized legal description text
 **Output**: JSON array of structured call data
@@ -118,7 +118,7 @@ Then used with appropriate formatting:
 
 ```python
 prompt_config = self._load_prompt("extract_legal_description")
-user_prompt = prompt_config["user_prompt_template"].format(document_text=doc_text)
+user_prompt = prompt_config["user_prompt_template"].replace("{document_text}", doc_text)
 
 # Combine system and user prompts for the configured LLM client
 combined_prompt = f"{prompt_config['system_prompt']}\n\n{user_prompt}"
@@ -167,8 +167,8 @@ The complete PDF processing pipeline uses prompts in this order:
 
 Defaults are:
 
-- OpenAI: **gpt-4.1**
-- Gemini: **gemini-2.5-pro** (with optional fallback model in `GeminiClient`)
+- OpenAI: **gpt-5.2**
+- Gemini: **gemini-3-flash-preview** (with fallback to **gemini-2.5-flash** in `GeminiClient`)
 
 Prompts are provider-agnostic, so model changes are provider-specific and should be made in the client configuration.
 

@@ -47,6 +47,9 @@ def load_ground_truth(path: Path) -> GroundTruth:
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in {path}: {exc}") from exc
 
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected JSON object in {path}, got {type(data).__name__}")
+
     missing = _REQUIRED_KEYS - set(data.keys())
     if missing:
         raise ValueError(f"Missing required keys in {path}: {sorted(missing)}")
@@ -72,10 +75,10 @@ def build_metadata_section(gt: GroundTruth, source_pdf: str) -> str:
     Returns:
         HTML string for the metadata section.
     """
-    info = gt.get("deed_info", {})
+    info = gt.get("deed_info") or {}
     parts: list[str] = []
     parts.append("<div class='metadata'>")
-    parts.append(f"<h1>{_esc(info.get('address', 'Unknown Address'))}</h1>")
+    parts.append(f"<h1>{_esc(info.get('address') or 'Unknown Address')}</h1>")
     parts.append("<table class='meta-table'>")
     parts.append(f"<tr><th>Source PDF</th><td>{_esc(source_pdf)}</td></tr>")
     parts.append(
@@ -108,7 +111,24 @@ _CALL_COLUMNS = [
     ("To", "to"),
     ("Monument", "monument_type"),
     ("Notes", "notes"),
+    ("Chord Bearing", "chord_bearing"),
+    ("Chord Length (ft)", "chord_length_ft"),
+    ("Radial Bearing", "radial_bearing"),
+    ("Monument Status", "monument_status"),
+    ("Flags", "_flags"),
 ]
+
+_FLAG_LABELS = (
+    ("is_exception", "exception"),
+    ("is_meander", "meander"),
+    ("is_tie_in", "tie-in"),
+    ("non_tangent", "non-tangent"),
+)
+
+
+def _format_call_flags(call: dict[str, Any]) -> str:
+    """Format boolean call flags into a compact comma-separated string."""
+    return ", ".join(label for field, label in _FLAG_LABELS if call.get(field))
 
 
 def build_call_table(gt: GroundTruth) -> str:
@@ -141,7 +161,7 @@ def build_call_table(gt: GroundTruth) -> str:
     for call in calls:
         parts.append("<tr>")
         for _, key in _CALL_COLUMNS:
-            val = call.get(key)
+            val = _format_call_flags(call) if key == "_flags" else call.get(key)
             parts.append(f"<td>{_esc(val)}</td>")
         parts.append("<td></td>")  # Correct? — blank for reviewer
         parts.append("<td></td>")  # Reviewer Notes — blank for reviewer
@@ -170,8 +190,15 @@ def build_closure_section(gt: GroundTruth) -> str:
 
     # Status row
     passed = closure.get("closure_passed")
-    status_label = "PASS" if passed else "FAIL"
-    status_css = "pass" if passed else "fail"
+    if passed is None:
+        status_label = "N/A"
+        status_css = "na"
+    elif passed:
+        status_label = "PASS"
+        status_css = "pass"
+    else:
+        status_label = "FAIL"
+        status_css = "fail"
     parts.append(
         f"<tr><th>Closure Status</th>"
         f"<td class='{status_css}'><strong>{status_label}</strong></td>"
@@ -268,6 +295,97 @@ def build_text_comparison(gt: GroundTruth) -> str:
     return "\n".join(parts)
 
 
+def _as_finite_float(value: object) -> float | None:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        num = float(value)
+        if math.isfinite(num):
+            return num
+    return None
+
+
+def _resolve_curve_delta(radius: object, delta: object, arc_length: object) -> float | None:
+    radius_f = _as_finite_float(radius)
+    if radius_f is None or radius_f <= 0:
+        return None
+    if delta is not None:
+        delta_val = _as_finite_float(delta)
+        if delta_val is None:
+            return None
+        return delta_val if 0 <= delta_val <= 360 else None
+    if arc_length is not None:
+        arc_val = _as_finite_float(arc_length)
+        if arc_val is None or arc_val < 0:
+            return None
+        delta_val = math.degrees(arc_val / radius_f)
+        return delta_val if 0 <= delta_val <= 360 else None
+    return None
+
+
+def _next_svg_point(last: tuple[float, float], call: dict[str, Any]) -> tuple[float, float] | None:
+    from .bearing_converter import BearingConverter
+    from .models import Point
+
+    curve_dir = call.get("curve_dir")
+    radius = call.get("radius_ft")
+    delta = call.get("delta_deg")
+    arc_length = call.get("arc_length_ft")
+    is_curve = (
+        bool(curve_dir) and radius is not None and (delta is not None or arc_length is not None)
+    )
+
+    if is_curve:
+        curve_dir_norm = str(curve_dir).strip().lower()
+        if curve_dir_norm not in ("left", "right"):
+            return None
+        radius_f = _as_finite_float(radius)
+        effective_delta = _resolve_curve_delta(radius, delta, arc_length)
+        if radius_f is None or effective_delta is None:
+            return None
+
+        chord_bearing = call.get("chord_bearing")
+        chord_az: float | None = None
+        if isinstance(chord_bearing, str) and chord_bearing.strip():
+            chord_az = BearingConverter.bearing_to_azimuth(chord_bearing)
+            if chord_az is None:
+                chord_az = BearingConverter.due_cardinal_to_azimuth(chord_bearing)
+        if chord_az is not None:
+            chord_len_raw = call.get("chord_length_ft")
+            if chord_len_raw is not None:
+                chord_len = _as_finite_float(chord_len_raw)
+                if chord_len is None or chord_len < 0:
+                    return None
+            else:
+                props = BearingConverter.calculate_curve_properties(
+                    radius_f, delta_deg=effective_delta
+                )
+                chord_len = float(props["chord_length_ft"] or 0.0)
+            dx, dy = BearingConverter.calculate_deltas(chord_az, chord_len)
+            return (last[0] + dx, last[1] - dy)
+
+        azimuth_f = _as_finite_float(call.get("bearing_azimuth_deg_from_north"))
+        if azimuth_f is None or not (0 <= azimuth_f <= 360):
+            return None
+        end_pt = BearingConverter.compute_curve_endpoint(
+            Point(x=last[0], y=-last[1]),
+            azimuth_f,
+            radius_f,
+            effective_delta,
+            curve_dir_norm,
+        )
+        return (end_pt.x, -end_pt.y)
+
+    azimuth_f = _as_finite_float(call.get("bearing_azimuth_deg_from_north"))
+    distance_f = _as_finite_float(call.get("distance_ft"))
+    if azimuth_f is None or not (0 <= azimuth_f <= 360):
+        return None
+    if distance_f is None or distance_f < 0:
+        return None
+    azimuth_rad = math.radians(azimuth_f)
+    dx = distance_f * math.sin(azimuth_rad)
+    dy = -distance_f * math.cos(azimuth_rad)  # negate for SVG y-axis
+    return (last[0] + dx, last[1] + dy)
+
+
 def generate_traverse_plot(gt: GroundTruth) -> str:
     """Generate an SVG traverse plot from ground truth calls.
 
@@ -281,30 +399,24 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
         SVG string if plottable calls exist, otherwise an HTML message.
     """
     calls = gt.get("expected_calls", [])
+    plottable = [
+        call for call in calls if not call.get("is_tie_in") and not call.get("is_exception")
+    ]
 
-    if not calls:
+    if not plottable:
         return "<p class='na'>No plottable calls (cannot generate traverse plot).</p>"
 
     # A boundary call without usable geometry breaks the traverse. Dropping it
     # would falsely connect the calls on either side of the gap.
+    # SVG: x = east, y = south (so we negate y for north-up)
+    points: list[tuple[float, float]] = [(0.0, 0.0)]
     invalid_courses: list[str] = []
-    for index, call in enumerate(calls, start=1):
-        azimuth = call.get("bearing_azimuth_deg_from_north")
-        distance = call.get("distance_ft")
-        valid_azimuth = (
-            isinstance(azimuth, (int, float))
-            and not isinstance(azimuth, bool)
-            and math.isfinite(azimuth)
-            and 0 <= azimuth <= 360
-        )
-        valid_distance = (
-            isinstance(distance, (int, float))
-            and not isinstance(distance, bool)
-            and math.isfinite(distance)
-            and distance >= 0
-        )
-        if not (valid_azimuth and valid_distance):
+    for index, call in enumerate(plottable, start=1):
+        next_point = _next_svg_point(points[-1], call)
+        if next_point is None:
             invalid_courses.append(str(call.get("course", index)))
+        else:
+            points.append(next_point)
 
     if invalid_courses:
         courses = ", ".join(_esc(course) for course in invalid_courses)
@@ -313,19 +425,6 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
             "missing or invalid geometry "
             f"for course(s) {courses}.</p>"
         )
-
-    plottable = calls
-
-    # Compute traverse points (azimuth is clockwise from north)
-    # SVG: x = east, y = south (so we negate y for north-up)
-    points: list[tuple[float, float]] = [(0.0, 0.0)]
-    for call in plottable:
-        azimuth_rad = math.radians(call["bearing_azimuth_deg_from_north"])
-        dist = call["distance_ft"]
-        dx = dist * math.sin(azimuth_rad)
-        dy = -dist * math.cos(azimuth_rad)  # negate for SVG y-axis
-        last = points[-1]
-        points.append((last[0] + dx, last[1] + dy))
 
     # Compute bounding box with padding
     xs = [p[0] for p in points]
@@ -367,7 +466,10 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
         mid_x = (points[i][0] + points[i + 1][0]) / 2
         mid_y = (points[i][1] + points[i + 1][1]) / 2
         label = _esc(f"#{call.get('course', i + 1)}")
-        dist_label = f"{call.get('distance_ft', 0):.1f}'"
+        dist_val = _as_finite_float(call.get("distance_ft"))
+        if dist_val is None:
+            dist_val = _as_finite_float(call.get("arc_length_ft"))
+        dist_label = f"{dist_val:.1f}'" if dist_val is not None else ""
         parts.append(
             f"<text x='{mid_x:.2f}' y='{mid_y:.2f}' "
             f"font-size='{font_size:.1f}' text-anchor='middle' "
@@ -437,7 +539,8 @@ def _review_css() -> str:
         "th { background: #f8f9fa; font-weight: 600; }\n"
         ".call-table { font-size: 0.85em; }\n"
         ".call-table td, .call-table th { padding: 4px 6px; white-space: nowrap; }\n"
-        ".call-table td:nth-child(10), .call-table td:nth-child(11) "
+        ".call-table td:nth-child(10), .call-table td:nth-child(11), "
+        ".call-table td:nth-child(13), .call-table td:nth-child(18) "
         "{ white-space: normal; max-width: 200px; }\n"
         ".pass { color: #2d6a4f; font-weight: bold; }\n"
         ".fail { color: #842029; font-weight: bold; }\n"
@@ -473,7 +576,7 @@ def generate_review_html(gt: GroundTruth, source_pdf: str) -> str:
     Returns:
         Complete HTML document as string.
     """
-    address = gt.get("deed_info", {}).get("address", "Unknown")
+    address = (gt.get("deed_info") or {}).get("address") or "Unknown Address"
     parts: list[str] = []
     parts.append("<!DOCTYPE html>")
     parts.append("<html lang='en'>")
@@ -523,10 +626,10 @@ def generate_all_packets(source_dir: Path, output_dir: Path) -> list[Path]:
     for gt_path in gt_files:
         gt = load_ground_truth(gt_path)
         # Derive source PDF name from GT filename
-        source_pdf = gt_path.name.replace(".ground_truth.json", ".pdf")
+        source_pdf = gt_path.name.removesuffix(".ground_truth.json") + ".pdf"
         html_content = generate_review_html(gt, source_pdf)
 
-        out_name = gt_path.stem.replace(".ground_truth", "") + "_review.html"
+        out_name = gt_path.stem.removesuffix(".ground_truth") + "_review.html"
         out_path = output_dir / out_name
         out_path.write_text(html_content, encoding="utf-8")
         generated.append(out_path)

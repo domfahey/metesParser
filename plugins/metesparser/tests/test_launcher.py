@@ -119,3 +119,20 @@ def test_settings_come_from_calling_project_not_plugin_install(monkeypatch, tmp_
     commands.clear()
     assert launcher.main(["review", "deed.txt", "--settings=alternate.md"]) == 0
     assert commands[0][-1] == "--settings=alternate.md"
+
+
+def test_empty_xdg_cache_home_falls_back_to_home_cache(monkeypatch, tmp_path, capsys):
+    runtime = make_runtime(tmp_path)
+    setup_launcher(monkeypatch, runtime)
+    monkeypatch.setenv("XDG_CACHE_HOME", "")
+    captured_env = {}
+
+    def run(command, **kwargs):
+        captured_env.update(kwargs.get("env", {}))
+        return SimpleNamespace(returncode=0, stdout='{"status":"checks_passed"}\n', stderr="")
+
+    monkeypatch.setattr(launcher.subprocess, "run", run)
+    assert launcher.main(["review", "deed.txt"]) == 0
+    expected_prefix = str(Path.home() / ".cache")
+    assert captured_env["UV_PROJECT_ENVIRONMENT"].startswith(expected_prefix)
+    assert captured_env["UV_CACHE_DIR"].startswith(expected_prefix)

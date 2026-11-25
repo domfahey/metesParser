@@ -12,7 +12,6 @@ class _Model(BaseModel):
         extra="forbid",
         frozen=True,
         str_strip_whitespace=True,
-        validate_assignment=True,
     )
 
     @staticmethod

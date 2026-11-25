@@ -150,7 +150,7 @@ def test_openai_client_generates_text_and_handles_pdf(monkeypatch, tmp_path):
 
 def test_openai_generate_text_with_pdf_includes_encoded_pdf(monkeypatch, tmp_path):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    fake_openai_module, _ = _install_fake_openai(monkeypatch)
+    _install_fake_openai(monkeypatch)
     pdf = tmp_path / "input.pdf"
     pdf.write_bytes(b"%PDF")
 
@@ -190,7 +190,7 @@ def test_gemini_client_retries_retryable_errors_and_collects_candidate_text(monk
             ],
         )
 
-    _, _, _ = _install_fake_gemini(monkeypatch, handler)
+    _ = _install_fake_gemini(monkeypatch, handler)
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     client = GeminiClient(model="gemini-2.5-pro", fallback_model="gemini-2.5-flash")
     assert client.generate_text("hello") == "via candidates"

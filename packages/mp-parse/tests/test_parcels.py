@@ -235,7 +235,7 @@ class TestSplitIntoParcels:
         assert labels[0] == "Parcel A"
         assert labels[1] == "Parcel B"
         # "Combine Legal Description" or "Combined Legal Description"
-        assert "combine" in labels[2].lower() or "combined" in labels[2].lower()
+        assert "combine" in labels[2].lower()
 
     def test_miwayn_parcel_types(self) -> None:
         """MIWAYN parcels A and B are primary, combined is combined."""

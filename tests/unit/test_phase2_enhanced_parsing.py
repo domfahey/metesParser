@@ -490,7 +490,7 @@ class TestCSVSchemaExpansion:
 
 
 class TestPipelineWiring:
-    """Test that process_deed_pdf wires new extractors."""
+    """Test that CSVBuilder exports legal description metadata fields correctly."""
 
     def test_legal_description_metadata_export(self, tmp_path: Path) -> None:
         """Test that new metadata fields are exported."""

@@ -21,6 +21,8 @@ import math
 import statistics
 from typing import overload
 
+import structlog
+
 from .bearing_converter import BearingConverter
 from .models import (
     PERMANENT_MONUMENTS,
@@ -32,6 +34,8 @@ from .models import (
     Tract,
     VerificationAudit,
 )
+
+logger = structlog.get_logger(__name__)
 
 
 class ClosureChecker:
@@ -49,7 +53,11 @@ class ClosureChecker:
         audit_context: AuditContext | None = None,
     ) -> ClosureResult:
         """Check one independent tract using every standard verification guardrail."""
-        boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
+        non_tie_in = [call for call in calls if not call.is_tie_in]
+        if non_tie_in and all(call.is_exception for call in non_tie_in):
+            boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
+        else:
+            boundary = calls
         return cls.verify_closure(
             boundary,
             stated_area_sq_ft=stated_area_sq_ft,
@@ -113,9 +121,64 @@ class ClosureChecker:
                     tract.calls,
                     stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
                     closure_tolerance_ft=closure_tolerance_ft,
-                    audit_context=audit_context,
                 )
                 results.append(result)
+
+            multi_tract_discrepancies: list[str] = []
+            if double_entry_calls is not None:
+                baseline_calls = [c for t in tracts for c in t.calls] if tracts else calls
+                multi_tract_discrepancies = cls.compare_double_entry(
+                    baseline_calls, double_entry_calls
+                )
+                if multi_tract_discrepancies:
+                    de_warnings = [
+                        f"Double-entry discrepancy: {discrepancy}"
+                        for discrepancy in multi_tract_discrepancies
+                    ]
+                    updated_results: list[ClosureResult] = []
+                    for tract, result in zip(tracts, results, strict=True):
+                        updated = result.model_copy(
+                            update={"warnings": [*result.warnings, *de_warnings]}
+                        )
+                        updated_confidence = (
+                            0.0
+                            if updated.confidence_score == 0.0
+                            else cls.calculate_confidence_score(updated, tract.calls)
+                        )
+                        updated_results.append(
+                            updated.model_copy(update={"confidence_score": updated_confidence})
+                        )
+                    results = updated_results
+
+            if audit_context is not None:
+                if double_entry_calls is not None:
+                    de_check = CheckResult(
+                        name="double_entry",
+                        passed=(len(multi_tract_discrepancies) == 0),
+                        detail=(
+                            f"{len(multi_tract_discrepancies)} discrepancy(ies) detected"
+                            if multi_tract_discrepancies
+                            else "double-entry calls match"
+                        ),
+                        inputs={},
+                    )
+                    if audit_context.verification_audit is None:
+                        audit_context.verification_audit = VerificationAudit(
+                            checks=[de_check],
+                            closure_summary={},
+                        )
+                    else:
+                        audit_context.verification_audit = (
+                            audit_context.verification_audit.model_copy(
+                                update={
+                                    "checks": [*audit_context.verification_audit.checks, de_check]
+                                }
+                            )
+                        )
+                else:
+                    logger.warning(
+                        "Audit trail recording not yet implemented for per-tract verification"
+                    )
             return results
 
         tolerance = (
@@ -154,12 +217,23 @@ class ClosureChecker:
                     f"Found {len(exception_calls)} exception calls - calculating exception area to subtract"
                 )
                 try:
-                    exception_area_sq_ft = cls._calculate_exception_area(exception_calls)
+                    exception_area_sq_ft = cls._calculate_exception_area(
+                        exception_calls, closure_tolerance_ft=tolerance
+                    )
                 except ValueError as e:
                     warnings.append(f"Cannot calculate exception area: {e}")
                     exception_area_available = False
 
-            area_sq_ft = main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
+            if not exception_area_available:
+                area_sq_ft = 0.0
+            elif exception_area_sq_ft > main_area_sq_ft:
+                warnings.append(
+                    f"Exception area ({exception_area_sq_ft:.2f} sq ft) exceeds main tract area "
+                    f"({main_area_sq_ft:.2f} sq ft); clamping net area to 0.0 sq ft"
+                )
+                area_sq_ft = 0.0
+            else:
+                area_sq_ft = main_area_sq_ft - exception_area_sq_ft
             area_acres = area_sq_ft / 43560.0
         except ValueError as e:
             area_sq_ft = 0.0
@@ -182,12 +256,17 @@ class ClosureChecker:
             )
 
         angle_check_passed = cls.check_interior_angles(main_calls)
-        curve_consistency_passed = cls.check_curve_consistency(main_calls)
+        curve_consistency_passed, curve_warnings = cls._check_curve_consistency_with_warnings(
+            main_calls
+        )
+        warnings.extend(curve_warnings)
 
         parallel_warnings = cls.check_parallelism(main_calls)
         warnings.extend(parallel_warnings)
 
-        intersection_warnings = cls.check_straight_boundary_intersections(main_calls, points)
+        intersection_warnings = cls.check_straight_boundary_intersections(
+            main_calls, points, closure_tolerance_ft=tolerance
+        )
         warnings.extend(intersection_warnings)
 
         reversal_warnings = cls.check_bearing_reversals(main_calls)
@@ -212,19 +291,23 @@ class ClosureChecker:
                 f"(courses {course_nums}) have vague direction without precise bearing"
             )
 
+        double_entry_discrepancies: list[str] = []
         if double_entry_calls is not None:
-            discrepancies = cls.compare_double_entry(calls, double_entry_calls)
+            double_entry_discrepancies = cls.compare_double_entry(calls, double_entry_calls)
             warnings.extend(
-                f"Double-entry discrepancy: {discrepancy}" for discrepancy in discrepancies
+                f"Double-entry discrepancy: {discrepancy}"
+                for discrepancy in double_entry_discrepancies
             )
 
+        area_warnings: list[str] = []
         if stated_area_sq_ft > 0:
             area_diff_pct = abs(area_sq_ft - stated_area_sq_ft) / stated_area_sq_ft * 100
             if area_diff_pct > 5.0:
-                warnings.append(
+                area_warnings.append(
                     f"Computed area differs from stated by {area_diff_pct:.1f}% "
                     f"(computed: {area_sq_ft:.1f} sq ft, stated: {stated_area_sq_ft:.1f} sq ft)"
                 )
+        warnings.extend(area_warnings)
 
         incomplete = [c for c in main_calls if not c.is_complete_bearing()]
         if incomplete:
@@ -251,13 +334,35 @@ class ClosureChecker:
             curve_consistency_passed=curve_consistency_passed,
             warnings=warnings,
             points=points,
-            precision_ratio=misclosure / perimeter if perimeter else None,
+            precision_ratio=(
+                misclosure / perimeter if (has_computable_traverse and perimeter > 0) else None
+            ),
         )
 
-        confidence = cls.calculate_confidence_score(closure_result, calls)
+        confidence = (
+            0.0
+            if (not has_computable_traverse or perimeter <= 0)
+            else cls.calculate_confidence_score(
+                closure_result,
+                calls,
+                self_intersection_passed=not intersection_warnings,
+            )
+        )
         closure_result = closure_result.model_copy(update={"confidence_score": confidence})
 
         if audit_context is not None:
+            angles_skipped = len(main_calls) < 3 or any(
+                not c.is_complete_bearing() or c.is_curve() for c in main_calls
+            )
+            angle_detail = (
+                "skipped (curves present, incomplete bearings, or fewer than 3 courses)"
+                if angles_skipped
+                else (
+                    "all-straight polygon angles sum correctly"
+                    if angle_check_passed
+                    else "interior angle sum failed"
+                )
+            )
             check_results = [
                 CheckResult(
                     name="traverse_closure",
@@ -276,10 +381,16 @@ class ClosureChecker:
                 CheckResult(
                     name="interior_angles",
                     passed=angle_check_passed,
+                    detail=angle_detail,
+                    inputs={},
+                ),
+                CheckResult(
+                    name="parallelism",
+                    passed=(len(parallel_warnings) == 0),
                     detail=(
-                        "all-straight polygon angles sum correctly"
-                        if angle_check_passed
-                        else "skipped (curves present or incomplete bearings)"
+                        f"{len(parallel_warnings)} issue(s) detected"
+                        if parallel_warnings
+                        else "no parallelism issues"
                     ),
                     inputs={},
                 ),
@@ -324,8 +435,39 @@ class ClosureChecker:
                 ),
             ]
 
+            if stated_area_sq_ft > 0:
+                check_results.append(
+                    CheckResult(
+                        name="area_reasonableness",
+                        passed=(len(area_warnings) == 0),
+                        detail=(
+                            area_warnings[0]
+                            if area_warnings
+                            else f"computed area within 5.0% of stated {stated_area_sq_ft:.1f} sq ft"
+                        ),
+                        inputs={
+                            "computed_area_sq_ft": area_sq_ft,
+                            "stated_area_sq_ft": stated_area_sq_ft,
+                        },
+                    )
+                )
+
+            if double_entry_calls is not None:
+                check_results.append(
+                    CheckResult(
+                        name="double_entry",
+                        passed=(len(double_entry_discrepancies) == 0),
+                        detail=(
+                            f"{len(double_entry_discrepancies)} discrepancy(ies) detected"
+                            if double_entry_discrepancies
+                            else "double-entry calls match"
+                        ),
+                        inputs={},
+                    )
+                )
+
             precision_ratio_str: str
-            if perimeter and (misclosure / perimeter) > 1e-10:
+            if has_computable_traverse and perimeter > 0 and (misclosure / perimeter) > 1e-10:
                 precision_ratio_str = f"1:{round(1.0 / (misclosure / perimeter))}"
             else:
                 precision_ratio_str = "N/A"
@@ -379,7 +521,7 @@ class ClosureChecker:
                     ):
                         delta_deg = math.degrees(call.arc_length_ft / call.radius_ft)
 
-                    if delta_deg is not None and abs(delta_deg) > 1e-9:
+                    if delta_deg is not None and 1e-9 < delta_deg <= 360.0:
                         if call.chord_bearing is not None:
                             chord_azimuth = BearingConverter.bearing_to_azimuth(call.chord_bearing)
                             if chord_azimuth is None:
@@ -464,12 +606,19 @@ class ClosureChecker:
         return abs(area + curved_area)
 
     @classmethod
-    def _calculate_exception_area(cls, calls: list[DeedCall]) -> float:
+    def _calculate_exception_area(
+        cls,
+        calls: list[DeedCall],
+        closure_tolerance_ft: float | None = None,
+    ) -> float:
         """Sum closed exception loops independently of their winding.
 
         The flat call API has no tract identifiers. A return to the local
         origin ends a loop; an incomplete final loop makes net area unavailable.
         """
+        tolerance = (
+            closure_tolerance_ft if closure_tolerance_ft is not None else cls.CLOSURE_TOLERANCE_FT
+        )
         areas: list[float] = []
         pending: list[DeedCall] = []
         points = [Point(x=0, y=0)]
@@ -483,8 +632,11 @@ class ClosureChecker:
             points.extend(cls.compute_traverse([call], start_point=points[-1])[1:])
             pending.append(call)
             misclosure = math.hypot(points[-1].x, points[-1].y)
-            if misclosure < cls.CLOSURE_TOLERANCE_FT:
-                intersections = cls.check_straight_boundary_intersections(pending, points)
+            has_curve = any(c.is_curve() for c in pending)
+            if (len(pending) >= 3 or has_curve) and misclosure < tolerance:
+                intersections = cls.check_straight_boundary_intersections(
+                    pending, points, closure_tolerance_ft=tolerance
+                )
                 if intersections:
                     raise ValueError(
                         f"Exception tract self-intersection; net area unavailable: {intersections[0]}"
@@ -564,7 +716,10 @@ class ClosureChecker:
 
     @classmethod
     def check_straight_boundary_intersections(
-        cls, calls: list[DeedCall], coordinates: list[Point]
+        cls,
+        calls: list[DeedCall],
+        coordinates: list[Point],
+        closure_tolerance_ft: float = 0.01,
     ) -> list[str]:
         """Detect crossings, overlaps, and nonadjacent touches between straight edges.
 
@@ -592,7 +747,7 @@ class ClosureChecker:
         warnings: list[str] = []
         closed = (
             math.hypot(coordinates[-1].x - coordinates[0].x, coordinates[-1].y - coordinates[0].y)
-            < 0.01
+            < closure_tolerance_ft
         )
         for i, first in enumerate(calls):
             if first.is_curve():
@@ -656,19 +811,13 @@ class ClosureChecker:
         return warnings
 
     @classmethod
-    def check_curve_consistency(cls, calls: list[DeedCall]) -> bool:
-        """Check curve math consistency: L ≈ R*Δ, chord ≈ 2R*sin(Δ/2).
+    def _check_curve_consistency_with_warnings(
+        cls, calls: list[DeedCall]
+    ) -> tuple[bool, list[str]]:
+        """Check curve math consistency and return ``(passed, warnings)``."""
+        warnings: list[str] = []
+        all_passed = True
 
-        When delta_deg is not provided but both radius_ft and arc_length_ft
-        are present, the implied delta is derived from arc/radius and used
-        for consistency checks (including chord validation).
-
-        Args:
-            calls: List of DeedCall objects
-
-        Returns:
-            True if all curves are consistent (within tolerance)
-        """
         for call in calls:
             if not call.is_curve():
                 continue
@@ -685,7 +834,9 @@ class ClosureChecker:
                     implied_delta_rad = call.arc_length_ft / call.radius_ft
                     # Arc cannot exceed full circle (2*pi*radius)
                     if implied_delta_rad > 2 * math.pi:
-                        return False
+                        warnings.append(f"Course {call.course}: arc length exceeds full circle")
+                        all_passed = False
+                        continue
                     delta_deg = math.degrees(implied_delta_rad)
                 else:
                     # No delta and insufficient data to derive one — skip
@@ -697,16 +848,41 @@ class ClosureChecker:
             if call.arc_length_ft is not None:
                 arc_diff = abs(call.arc_length_ft - expected_arc)
                 if arc_diff > tolerance_ft:
-                    return False
+                    warnings.append(
+                        f"Course {call.course}: arc length inconsistency "
+                        f"(given: {call.arc_length_ft:.2f}, expected: {expected_arc:.2f})"
+                    )
+                    all_passed = False
 
             expected_chord = 2 * call.radius_ft * math.sin(delta_rad / 2)
 
             if call.chord_length_ft is not None:
                 chord_diff = abs(call.chord_length_ft - expected_chord)
                 if chord_diff > tolerance_ft:
-                    return False
+                    warnings.append(
+                        f"Course {call.course}: chord length inconsistency "
+                        f"(given: {call.chord_length_ft:.2f}, expected: {expected_chord:.2f})"
+                    )
+                    all_passed = False
 
-        return True
+        return all_passed, warnings
+
+    @classmethod
+    def check_curve_consistency(cls, calls: list[DeedCall]) -> bool:
+        """Check curve math consistency: L ≈ R*Δ, chord ≈ 2R*sin(Δ/2).
+
+        When delta_deg is not provided but both radius_ft and arc_length_ft
+        are present, the implied delta is derived from arc/radius and used
+        for consistency checks (including chord validation).
+
+        Args:
+            calls: List of DeedCall objects
+
+        Returns:
+            True if all curves are consistent (within tolerance)
+        """
+        passed, _ = cls._check_curve_consistency_with_warnings(calls)
+        return passed
 
     @classmethod
     def check_bearing_reversals(cls, calls: list[DeedCall]) -> list[str]:
@@ -765,13 +941,13 @@ class ClosureChecker:
             return []
 
         warnings: list[str] = []
-        distances = [c.distance_ft for c in calls]
+        distances = [
+            c.arc_length_ft if c.curve_dir and c.arc_length_ft else c.distance_ft for c in calls
+        ]
         median_dist = statistics.median(distances)
         total_perimeter = sum(distances)
 
-        for call in calls:
-            dist = call.distance_ft
-
+        for call, dist in zip(calls, distances, strict=True):
             if dist < 0.5:
                 warnings.append(
                     f"Course {call.course}: suspiciously short distance ({dist:.2f} ft)"
@@ -818,12 +994,17 @@ class ClosureChecker:
         return "high"
 
     @classmethod
-    def calculate_confidence_score(cls, result: ClosureResult, calls: list[DeedCall]) -> float:
+    def calculate_confidence_score(
+        cls,
+        result: ClosureResult,
+        calls: list[DeedCall],
+        self_intersection_passed: bool | None = None,
+    ) -> float:
         """Calculate overall confidence score (0.0–1.0) for a closure result.
 
         Weighted components:
         - Closure quality (30%): based on misclosure distance and pass/fail
-        - Verification checks (20%): angle + curve consistency
+        - Verification checks (20%): angle + curve consistency + self-intersection
         - Bearing completeness (25%): ratio of calls with complete bearings
         - Call quality (15%): ratio of high-quality calls
         - Warning penalty (10%): deducted per warning
@@ -831,11 +1012,13 @@ class ClosureChecker:
         Args:
             result: ClosureResult from verify_closure()
             calls: List of DeedCall objects
+            self_intersection_passed: Optional straight-boundary self-intersection check result.
+                When omitted, inferred from ``result.warnings``.
 
         Returns:
             Score between 0.0 and 1.0 (inclusive)
         """
-        if not calls:
+        if not calls or result.perimeter_ft <= 0 or not any(c.is_complete_bearing() for c in calls):
             return 0.0
 
         # Closure quality (30%)
@@ -852,13 +1035,18 @@ class ClosureChecker:
             closure_score = max(0.0, 0.3 - result.misclosure_ft * 0.02)
 
         # Verification checks (20%)
+        if self_intersection_passed is None:
+            self_intersection_passed = not any(
+                "self-intersection" in warning.lower() for warning in result.warnings
+            )
         checks_passed = sum(
             [
                 result.angle_check_passed,
                 result.curve_consistency_passed,
+                self_intersection_passed,
             ]
         )
-        checks_score = checks_passed / 2.0
+        checks_score = checks_passed / 3.0
 
         # Bearing completeness (25%)
         complete = sum(1 for c in calls if c.is_complete_bearing())
@@ -905,6 +1093,7 @@ class ClosureChecker:
             value1: float | None,
             value2: float | None,
             tolerance: float = 0.01,
+            decimals: int = 2,
         ) -> None:
             if value1 is None and value2 is None:
                 return
@@ -913,7 +1102,8 @@ class ClosureChecker:
                 return
             if abs(value1 - value2) > tolerance:
                 discrepancies.append(
-                    f"Course {course_num}: {label} mismatch - {value1:.2f} vs {value2:.2f}"
+                    f"Course {course_num}: {label} mismatch - "
+                    f"{value1:.{decimals}f} vs {value2:.{decimals}f}"
                 )
 
         for i, (c1, c2) in enumerate(zip(calls1, calls2, strict=False), start=1):
@@ -935,6 +1125,32 @@ class ClosureChecker:
                     f"Course {i}: Distance mismatch - {c1.distance_ft:.2f} vs {c2.distance_ft:.2f}"
                 )
 
+            if c1.is_exception != c2.is_exception:
+                discrepancies.append(
+                    f"Course {i}: Exception flag mismatch - {c1.is_exception} vs {c2.is_exception}"
+                )
+
+            if c1.is_tie_in != c2.is_tie_in:
+                discrepancies.append(
+                    f"Course {i}: Tie-in flag mismatch - {c1.is_tie_in} vs {c2.is_tie_in}"
+                )
+
+            if c1.is_meander != c2.is_meander:
+                discrepancies.append(
+                    f"Course {i}: Meander flag mismatch - {c1.is_meander} vs {c2.is_meander}"
+                )
+
+            if c1.non_tangent != c2.non_tangent:
+                discrepancies.append(
+                    f"Course {i}: Non-tangent flag mismatch - {c1.non_tangent} vs {c2.non_tangent}"
+                )
+
+            if c1.radial_bearing != c2.radial_bearing:
+                discrepancies.append(
+                    f"Course {i}: Radial bearing mismatch - "
+                    f"'{c1.radial_bearing}' vs '{c2.radial_bearing}'"
+                )
+
             curve1 = c1.is_curve()
             curve2 = c2.is_curve()
             if curve1 != curve2:
@@ -947,7 +1163,9 @@ class ClosureChecker:
                 discrepancies.append(f"Course {i}: Curve direction mismatch")
 
             compare_optional_float(i, "Radius", c1.radius_ft, c2.radius_ft)
-            compare_optional_float(i, "Delta", c1.delta_deg, c2.delta_deg, tolerance=0.0001)
+            compare_optional_float(
+                i, "Delta", c1.delta_deg, c2.delta_deg, tolerance=0.0001, decimals=4
+            )
             compare_optional_float(i, "Arc length", c1.arc_length_ft, c2.arc_length_ft)
             compare_optional_float(i, "Chord length", c1.chord_length_ft, c2.chord_length_ft)
 

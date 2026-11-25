@@ -117,3 +117,30 @@ class TestMultiTractExport:
         )
         assert len(result) == 1
         assert "tract1" in result[0].stem
+
+    def test_all_tracts_fail_verification_nested_dir(self, tmp_path: Path):
+        """When all tracts fail verification and parent directories don't exist yet,
+        export_verified_csv should not raise FileNotFoundError and should return []."""
+        t1 = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=_square_calls(100.0))
+        bad_closure = ClosureResult(
+            misclosure_x_ft=5.0,
+            misclosure_y_ft=5.0,
+            misclosure_ft=7.07,
+            area_sq_ft=2500.0,
+            area_acres=2500.0 / 43560.0,
+            perimeter_ft=200.0,
+            closure_passed=False,
+            angle_check_passed=True,
+            curve_consistency_passed=True,
+            warnings=["Closure failed"],
+        )
+        nested_path = tmp_path / "nested" / "sub" / "deed.csv"
+
+        res_mp = export_verified_csv(
+            _square_calls(),
+            bad_closure,
+            str(nested_path),
+            tract_results=[(t1, bad_closure)],
+        )
+        assert res_mp == []
+        assert (tmp_path / "nested" / "sub" / "deed_verified.verification.txt").exists()

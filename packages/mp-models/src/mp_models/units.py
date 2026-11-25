@@ -1,6 +1,6 @@
 """Distance unit types and conversion factors."""
 
-from typing import Literal
+from typing import ClassVar, Literal
 
 DistanceUnit = Literal[
     "feet",
@@ -44,30 +44,30 @@ class ConversionFactors:
     US_SURVEY_FOOT_TO_METERS: float = 0.30480061
     US_SURVEY_FOOT_TO_FEET: float = US_SURVEY_FOOT_TO_METERS / FOOT_TO_METERS
 
+    _UNIT_TO_FEET: ClassVar[dict[str, float]] = {
+        "feet": 1.0,
+        "us_survey_feet": US_SURVEY_FOOT_TO_FEET,
+        "poles": POLE_TO_FEET,
+        "rods": ROD_TO_FEET,
+        "perch": PERCH_TO_FEET,
+        "perches": PERCH_TO_FEET,
+        "chains": CHAIN_TO_FEET,
+        "link": LINK_TO_FEET,
+        "links": LINK_TO_FEET,
+        "varas": VARA_TO_FEET,
+        "arpents": ARPENT_TO_FEET,
+        "toises": TOISE_TO_FEET,
+        "furlongs": FURLONG_TO_FEET,
+        "meters": METER_TO_FEET,
+        "miles": MILE_TO_FEET,
+        "engineer_chains": ENGINEER_CHAIN_TO_FEET,
+        "engineer_links": ENGINEER_LINK_TO_FEET,
+    }
+
     @classmethod
     def convert_to_feet(cls, value: float, unit: str) -> float:
         """Convert a distance value to feet."""
-        conversions = {
-            "feet": 1.0,
-            "us_survey_feet": cls.US_SURVEY_FOOT_TO_FEET,
-            "poles": cls.POLE_TO_FEET,
-            "rods": cls.ROD_TO_FEET,
-            "perch": cls.PERCH_TO_FEET,
-            "perches": cls.PERCH_TO_FEET,
-            "chains": cls.CHAIN_TO_FEET,
-            "link": cls.LINK_TO_FEET,
-            "links": cls.LINK_TO_FEET,
-            "varas": cls.VARA_TO_FEET,
-            "arpents": cls.ARPENT_TO_FEET,
-            "toises": cls.TOISE_TO_FEET,
-            "furlongs": cls.FURLONG_TO_FEET,
-            "meters": cls.METER_TO_FEET,
-            "miles": cls.MILE_TO_FEET,
-            "engineer_chains": cls.ENGINEER_CHAIN_TO_FEET,
-            "engineer_links": cls.ENGINEER_LINK_TO_FEET,
-        }
         normalized_unit = unit.strip().lower()
-        if normalized_unit not in conversions:
+        if normalized_unit not in cls._UNIT_TO_FEET:
             raise ValueError(f"Unsupported distance unit: {unit}")
-        factor = conversions[normalized_unit]
-        return value * factor
+        return value * cls._UNIT_TO_FEET[normalized_unit]

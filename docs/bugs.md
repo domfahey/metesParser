@@ -544,3 +544,35 @@ Use this for each bug ticket in issue tracker/PR discussion:
 - **Impact:** Single sample deed unprocessable; other 31 Pennbrook variants (Books 11191, 11985) process normally
 - **No code fix required** — this is a document quality/LLM limitation, not a parser bug
 - **Mitigation ideas for future work:** Apply Tesseract preprocessing before LLM extraction (binarization, rotation detection), retry with alternative LLM provider, explore character-level OCR recovery on damaged text regions
+
+---
+
+## Multi-Tract Integration Testing (2026-02-19)
+- Tested multi-tract support (PR #37) against 1 Walnut St deed (3 tracts, Book 12420 Pg 902).
+- Tract splitting correctly identified all 3 tracts via `TRACT NO. 1/2/3` markers.
+- Tract 2 fully verified (misclosure 0.0037 ft, precision 1:96,499).
+- Tracts 1 and 3 failed verification due to pre-existing parser edge cases (not multi-tract bugs).
+
+### #49) Comma in DMS bearing notation causes incomplete parse
+- **Status:** `fixed`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `mp_parse.calls` / `src/metesparser/call_extractor.py` — bearing regex
+- **Minimal input:** `"North 71 degrees 54 minutes, 20 seconds West along lands now or late of Voight Pierce a distance of 69.17 feet"`
+- **Expected behavior:** Parse bearing as `N 71°54'20" W` → azimuth 288.094°, distance 69.17 ft
+- **Actual behavior:** Bearing parsed as cardinal-only "westerly" (azimuth=None), distance 69.17 ft extracted correctly. The comma between "minutes" and "seconds" (`54 minutes, 20 seconds`) breaks the DMS regex.
+- **Impact:** Tract 1 of 1 Walnut St fails closure verification (misclosure 69.17 ft instead of near-zero). Any deed using `degrees X minutes, Y seconds` notation will have the same issue.
+- **Suggested test:** `test_comma_between_minutes_seconds` — input `"North 71 degrees 54 minutes, 20 seconds West"` should parse to quadrant bearing `N 71°54'20" W`
+- **Note:** PR #32 (commit `5b81c2b`) fixed comma in *packed DMS* notation (e.g., `S 56°40,30" W`). This is a different pattern: comma between the words "minutes" and "seconds" in spelled-out notation.
+
+### #50) Tie-in courses in tract preamble not separated from traversal calls
+- **Status:** `fixed`
+- **Severity:** `medium`
+- **Reproducibility:** `always`
+- **Location:** `mp_parse.calls` / `src/metesparser/call_extractor.py` — tie-in detection
+- **Minimal input:** `"BEGINNING at a point which is located at the following two courses and distances from the intersection of the Southwesterly line of Ellis Street (66 feet wide) with the Southeasterly line of Walnut Street (60 feet wide); thence South 71 degrees 54 minutes 50 seconds East along the Southwesterly line of Ellis Street 122.55 feet to a point. South 18 degrees 05 minutes 10 seconds West 123.00 feet to the point and place of beginning; thence (1) South 18 degrees 05 minutes 10 seconds West 82.00 feet to a point;"`
+- **Expected behavior:** The two courses before "(1)" (S 71°54'50" E 122.55 ft and S 18°05'10" W 123.00 ft) should be marked as tie-in calls (`is_tie_in=True`) since they describe the path from a reference point to the POB, not the traversal itself. Only courses (1)-(4) should be in the closure traverse.
+- **Actual behavior:** All 5 courses extracted as regular calls (first tie-in included as course 1, second tie-in becomes "to the point and place of beginning" and gets absorbed). The traversal has 5 calls instead of 4, so closure fails (misclosure 122.67 ft).
+- **Impact:** Tract 3 of 1 Walnut St deed fails verification. Any tract where the POB is described via intermediate courses from a known reference point will have the same issue.
+- **Suggested test:** `test_preamble_tie_in_courses_marked` — courses before first numbered `(1)` course that describe path to POB should be flagged `is_tie_in=True`
+- **Note:** Existing tie-in detection (`mark_tie_in_calls`) handles POC-to-POB tie-ins when `extract_poc_and_pob()` identifies both. This case is different: the POB is described inline with "located at the following two courses and distances from..." phrasing, and there's no separate POC.

@@ -1,6 +1,6 @@
 # Testing Guide
 
-Comprehensive guide to the metesParser test suite (~996 tests).
+Comprehensive guide to the metesParser test suite (~1,576 root tests + 563 per-package tests + 6 plugin tests).
 
 ## Table of Contents
 
@@ -17,80 +17,26 @@ Comprehensive guide to the metesParser test suite (~996 tests).
 ## Overview
 
 The test suite ensures correctness of metes & bounds parsing with:
-- **~996 function-level tests** across unit, integration, regression, and e2e categories (as of 2026-02-17)
+- **~1,576 root tests** across unit, integration, regression, and e2e categories, plus **563 per-package tests** across `packages/mp-*/tests/` and **6 plugin launcher tests**
 - **Shared fixtures** for common test scenarios (squares, rectangles, curves)
 - **Parametrized tests** to reduce duplication
 - **Custom markers** for selective test execution
-- **Fast execution** (~0.06 seconds for non-PDF tests)
-
-### Test Statistics
-
-| Category | Tests | Files | Purpose |
-|----------|-------|-------|---------|
-| Unit | 923 | 37 | Individual module testing |
-| Integration | 31 | 4 | End-to-end text/PDF/pipeline integration |
-| Regression | 40 | 1 | Bug fix validation |
-| E2E | 2 | 1 | End-to-end CLI workflows |
-| **Total** | **~996** | **43** | Full coverage (~94%) |
+- **Fast execution** (~2.4 seconds for the full root test suite)
 
 ## Test Organization
 
-Tests are organized into a 5-tier hierarchy:
+Tests are organized into a 4-tier hierarchy under `tests/` (plus per-package suites in `packages/mp-*/tests/`):
 
 ```
 tests/
 ├── conftest.py              # Shared fixtures and pytest configuration
-├── helpers.py               # Assertion helpers and data generators
 ├── fixtures/
 │   ├── __init__.py
-│   └── sample_deeds.py      # Legal description samples
-├── unit/                    # Fast, isolated tests (923 tests, 37 files)
-│   ├── test_bearing_converter.py      # 32 tests
-│   ├── test_bugs_closure_tdd.py       # 6 tests
-│   ├── test_bugs_integration_tdd.py   # 5 tests
-│   ├── test_bugs_parser_tdd.py        # 11 tests
-│   ├── test_bugs_remaining_tdd.py     # 17 tests
-│   ├── test_call_extractor.py         # 39 tests
-│   ├── test_cli.py                    # 25 tests
-│   ├── test_closure_checker.py        # 42 tests
-│   ├── test_cross_package_imports.py  # 15 tests
-│   ├── test_llm_cache.py             # 12 tests
-│   ├── test_llm_clients.py           # 9 tests
-│   ├── test_logging_config.py        # 9 tests
-│   ├── test_open_bugs_tdd.py         # 9 tests
-│   ├── test_pdf_processor_cache.py   # 8 tests
-│   ├── test_pdf_processor_coverage.py # 13 tests
-│   ├── test_pdf_processor_llm.py     # 8 tests
-│   ├── test_phase1_foundation.py     # 52 tests
-│   ├── test_phase2_enhanced_parsing.py # 84 tests
-│   ├── test_phase3_verification.py   # 62 tests
-│   ├── test_phase4_geometric.py      # 78 tests
-│   ├── test_phase5_production.py     # 31 tests
-│   ├── test_phase5_step3.py          # 10 tests
-│   ├── test_phase5_step4.py          # 19 tests
-│   ├── test_phase5_step5.py          # 14 tests
-│   ├── test_phase5_step6.py          # 7 tests
-│   ├── test_phase5_step7.py          # 13 tests
-│   ├── test_phase5_step8.py          # 5 tests
-│   ├── test_phase5_step9.py          # 8 tests
-│   ├── test_phase5_step10.py         # 3 tests
-│   ├── test_phase5b_quality.py       # 27 tests
-│   ├── test_phase6_audit.py          # 59 tests
-│   ├── test_pipeline.py              # 11 tests
-│   ├── test_pydantic_guardrails.py   # 29 tests
-│   ├── test_review_packet.py         # 60 tests
-│   ├── test_run_registry.py          # 18 tests
-│   ├── test_scripts.py               # 10 tests
-│   └── test_text_parser.py           # 63 tests
-├── integration/             # End-to-end tests (31 tests)
-│   ├── test_integration.py           # Text-based pipeline
-│   ├── test_pdf_processing.py        # PDF pipeline (mocked)
-│   ├── test_pipeline_contracts.py    # Pipeline contracts
-│   └── test_script_and_packaging_contracts.py  # Script and packaging contracts
-├── e2e/                     # End-to-end CLI tests (2 tests)
-│   └── test_cli_end_to_end.py        # CLI contract workflow
-└── regression/              # Bug fix tests (40 tests)
-    └── test_bug_fixes.py             # Regression protection
+│   └── sample_deeds.py      # Legal description samples and DeedCall fixtures
+├── unit/                    # Fast, isolated module and TDD regression tests
+├── integration/             # End-to-end text/PDF/pipeline/packaging integration tests
+├── e2e/                     # End-to-end CLI contract tests
+└── regression/              # Historical bug fix regression tests
 ```
 
 ### Test File Naming
@@ -471,9 +417,11 @@ def test_invalid_input_raises():
 
 ### Available Fixtures
 
-Fixtures are defined in `tests/conftest.py` and automatically available in all tests.
+Fixtures are defined in `tests/conftest.py` and automatically available in all tests:
 
-#### Factory Fixtures
+- **`deed_call_factory`** — Factory fixture for creating `DeedCall` objects with sensible defaults.
+- **`sample_legal_text`** — Sample 18 Pennbrook Drive legal description text.
+- **`isolate_logging_state`** — Autouse fixture that resets `structlog` state around each test.
 
 ```python
 def test_with_factory(deed_call_factory):
@@ -481,73 +429,21 @@ def test_with_factory(deed_call_factory):
     call = deed_call_factory(
         course=5,
         bearing_azimuth_deg_from_north=45.0,
-        distance_ft=200.0
+        distance_ft=200.0,
     )
     assert call.course == 5
 ```
 
-#### Shape Fixtures
+### Sample Legal Descriptions & Fixture Calls
 
-```python
-def test_square(square_100ft):
-    """100x100 ft square that closes perfectly."""
-    result = ClosureChecker.verify_closure(square_100ft)
-    assert result.area_sq_ft == 10000.0
-
-def test_rectangle(pennbrook_18_rectangle):
-    """18 Pennbrook parcel (parallelogram, not rectangle!)."""
-    result = ClosureChecker.verify_closure(pennbrook_18_rectangle)
-    assert result.closure_passed is True
-```
-
-#### Curve Fixtures
-
-```python
-def test_curve(curve_90deg_right):
-    """90° right curve with radius 100 ft."""
-    assert curve_90deg_right.delta_deg == 90.0
-    assert curve_90deg_right.radius_ft == 100.0
-```
-
-### Helper Functions
-
-Helpers are in `tests/helpers.py`:
-
-```python
-from tests.helpers import assert_point_near, assert_closure_within_tolerance
-
-def test_with_helpers(square_100ft, origin):
-    """Use assertion helpers for cleaner tests."""
-    points = ClosureChecker.compute_traverse(square_100ft)
-
-    # Assert last point near origin
-    assert_point_near(points[-1], origin, tolerance=0.01)
-
-    # Assert closure
-    result = ClosureChecker.verify_closure(square_100ft)
-    assert_closure_within_tolerance(result, tolerance=0.01)
-```
-
-### Data Generators
-
-```python
-from tests.helpers import create_square, create_rectangle
-
-def test_generated_square():
-    """Generate test data dynamically."""
-    calls = create_square(size=50.0, start_azimuth=0.0)
-    result = ClosureChecker.verify_closure(calls)
-    assert result.area_sq_ft == 2500.0  # 50 * 50
-```
-
-### Sample Legal Descriptions
+Shared sample legal description strings and `DeedCall` lists live in `tests/fixtures/sample_deeds.py`:
 
 ```python
 from tests.fixtures import sample_deeds
 
 def test_with_sample_deed():
     """Use realistic legal description."""
-    calls = CallExtractor.extract_calls(sample_deeds.PENNBROOK_18)
+    calls = CallExtractor.extract_calls(sample_deeds.PENNBROOK_18_NORMALIZED)
     assert len(calls) == 4
 ```
 
@@ -558,10 +454,11 @@ Custom markers are registered in `conftest.py`:
 | Marker | Purpose | Usage |
 |--------|---------|-------|
 | `slow` | Tests taking > 1 second | `-m "not slow"` to skip |
-| `integration` | End-to-end tests | `-m integration` |
+| `integration` | End-to-end pipeline tests | `-m integration` |
 | `regression` | Bug fix tests | `-m regression` |
 | `curve` | Curve-specific tests | `-m curve` |
 | `validation` | Input validation | `-m validation` |
+| `e2e` | End-to-end CLI tests | `-m e2e` |
 
 ### Adding New Markers
 
@@ -595,29 +492,8 @@ uv run pytest --cov=src/metesparser --cov-report=term-missing
 
 ### Coverage Goals
 
-- **Overall target**: > 90% line coverage (current: ~94%)
-- **Per-module coverage** (as of 2026-02-17):
-  - `bearing_converter.py` 87%
-  - `closure_checker.py` 97%
-  - `call_extractor.py` 84%
-  - `csv_builder.py` 100%
-  - `models.py` 96%
-  - `audit_reporter.py` 93%
-  - `pdf_processor.py` 94%
-  - `text_parser.py` 95%
-  - `cli.py` 96%
-  - `llm_clients.py` 91%
-  - `llm_cache.py` 95%
-  - `pipeline.py` 100%
-  - `run_registry.py` 96%
-  - `review_packet.py` 100%
-  - `logging_config.py` 100%
-
-### Excluding from Coverage
-
-Some files are intentionally excluded:
-- `cli.py` - Command-line interface (integration tested)
-- `pdf_processor.py` - External API dependency (mocked)
+- **Overall target**: > 90% line coverage (minimum enforced threshold in `pyproject.toml`: 80%; current monolith coverage: ~96%).
+- Run `make test-cov` for up-to-date per-module coverage in `htmlcov/index.html`.
 
 ## Best Practices
 
@@ -679,14 +555,14 @@ def test_one(deed_call_factory):
     call = deed_call_factory()
 ```
 
-❌ **Don't use magic numbers**
+❌ **Don't use unexplained magic numbers**
 ```python
 # Bad
 assert math.isclose(dx, 32.9, abs_tol=0.1)
 
 # Good
-from tests.helpers import EXPECTED_DX_N33E_60FT
-assert math.isclose(dx, EXPECTED_DX_N33E_60FT, abs_tol=0.1)
+expected_dx = 60.0 * math.sin(math.radians(33 + 20 / 60))
+assert math.isclose(dx, expected_dx, abs_tol=0.01)
 ```
 
 ❌ **Don't test implementation details**
@@ -719,10 +595,11 @@ make pre-commit
 ```
 
 This runs:
-1. Linting (ruff)
+1. Linting with auto-fix (ruff)
 2. Formatting (ruff)
-3. Type checking (mypy)
-4. Full test suite
+3. Full test suite
+
+Run `make check` to also include type checking (`mypy`).
 
 ### CI/CD Pipeline
 

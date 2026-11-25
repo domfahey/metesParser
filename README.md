@@ -27,7 +27,7 @@ This repository is a **prototype** exploring whether AI can assist with that wor
 - **PDF Extraction** - Extract legal descriptions using OpenAI or Gemini APIs
 - **Bearing Conversion** - Quadrant bearings to azimuth (degrees from North)
 - **Curve Support** - Full radius, delta, arc length, chord calculations; compound/reverse curves
-- **8 Verification Checks** - Traverse closure, angles, curves, area, parallelism, double-entry, bearing reversals, distance reasonableness
+- **9 Verification Checks** - Traverse closure, angles, curves, area, parallelism, double-entry, bearing reversals, distance reasonableness, and self-intersection
 - **CSV Export** - Standard 21-field schema for GIS plotting
 - **Monument Classification** - Automatically identifies survey marker types (iron rod, stone, brass cap, etc.)
 - **PLSS Support** - Extracts Section, Township, Range, Principal Meridian metadata
@@ -40,18 +40,18 @@ This repository is a **prototype** exploring whether AI can assist with that wor
 - **Audit Sidecar** - Optional `.audit.json` + `.audit.html` alongside verified CSV for full transparency
 - **LLM Caching** - File-based response caching for deterministic, cost-effective re-extraction
 - **Run Registry** - Track prompt versions and extraction results for A/B comparison across runs
-- **Composable Packages** - 7 independently installable packages in a uv workspace monorepo
+- **Composable Packages** - 8 independently installable packages in a uv workspace monorepo
 
 ## Recent Updates (v0.5.0)
 
-- **Composable Package Architecture** - Refactored into 7 independently installable packages in a uv workspace monorepo (mp-models, mp-bearing, mp-ocr, mp-parse, mp-verify, mp-export, metesparser). Each package does one thing well; the monolith is preserved for backward compatibility.
+- **Composable Package Architecture** - Refactored into 8 independently installable packages in a uv workspace monorepo (`mp-models`, `mp-bearing`, `mp-ocr`, `mp-parse`, `mp-verify`, `mp-export`, `mp-review`, `metesparser`). Each package does one thing well; the monolith is preserved for backward compatibility.
 - **Pipeline Orchestrator** - `Pipeline` class chains mp-ocr -> mp-parse -> mp-verify -> mp-export in a single call.
 - **Audit Sidecar** - Full transparency with `.audit.json` + `.audit.html` alongside verified CSV. Tracks LLM extraction confidence, per-call source excerpts, field-level transformations, and verification results.
 - **Quality Scoring** - Per-call quality (high/medium/low) and weighted confidence score (0.0-1.0) on `ClosureResult`.
 - **Run Registry** - Track prompt versions (git SHA + content hash) and extraction metrics per run. Compare results with `metesparser compare-runs`.
 - **Ground Truth Review Packets** - Self-contained HTML review pages per deed with traverse plots, call tables, and text comparison.
 - **38 features** across 6 phases: foundation units, enhanced parsing, verification checks, geometric completeness, production features, and audit transparency.
-- **~996 tests, ~94% coverage** with unit, integration, regression, and e2e categories.
+- **~1,576 root tests + 563 per-package tests (~96% monolith coverage)** with unit, integration, regression, and e2e categories.
 - 87 sample deeds with ground truth JSON + LlamaParse markdown conversions.
 - Gemini LLM provider support alongside OpenAI (`--llm-provider gemini`).
 - File-based LLM response caching via `CachedLLMClient`.
@@ -169,7 +169,7 @@ print(f"Status: {'VERIFIED' if result.is_fully_verified() else 'NEEDS REVIEW'}")
 
 ### Composable Packages
 
-The codebase is a **uv workspace monorepo** with 7 independently installable packages following Unix philosophy (each does one thing well):
+The codebase is a **uv workspace monorepo** with 8 independently installable packages following Unix philosophy (each does one thing well):
 
 | Package | Purpose | Dependencies |
 |---------|---------|--------------|
@@ -177,8 +177,9 @@ The codebase is a **uv workspace monorepo** with 7 independently installable pac
 | `mp-bearing` | Pure math: azimuth, curves, deltas | mp-models |
 | `mp-ocr` | LLM boundary: PDF -> text (OpenAI/Gemini) | mp-models |
 | `mp-parse` | Rule-based parsing: text -> calls | mp-models, mp-bearing |
-| `mp-verify` | Geometric verification: 8 checks | mp-models, mp-bearing |
+| `mp-verify` | Geometric verification: 9 checks | mp-models, mp-bearing |
 | `mp-export` | CSV/JSON/audit HTML output | mp-models, mp-verify |
+| `mp-review` | Deterministic review CLI & corpus harness | mp-models, mp-parse, mp-verify, mp-export |
 | `metesparser` | Pipeline orchestrator + CLI | All packages |
 
 Only `mp-ocr` calls LLMs; everything downstream is deterministic.
@@ -187,7 +188,7 @@ Only `mp-ocr` calls LLMs; everything downstream is deterministic.
 
 ```
 PDF -> mp-ocr -> mp-parse -> mp-verify -> mp-export
-       LLM       Rules       8 checks    _verified.csv
+       LLM       Rules       9 checks    _verified.csv
        extract    extract     closure     .audit.json
                   calls       area        .audit.html
 ```
@@ -208,7 +209,7 @@ The original monolith in `src/metesparser/` is preserved for backward compatibil
 
 ### Verification Checks
 
-The system implements 8 checks before exporting verified CSV:
+The system implements 9 checks before exporting verified CSV:
 
 1. **Traverse Closure** - Misclosure < 0.01 ft
 2. **Interior Angles** - Sum matches (n-2)x180 degrees
@@ -218,6 +219,7 @@ The system implements 8 checks before exporting verified CSV:
 6. **Double-Entry Validation** - Compare duplicate entries
 7. **Bearing Reversal Detection** - Adjacent courses ~180 degrees apart (5 degree threshold)
 8. **Distance Reasonableness** - Flags <0.5 ft, >10x median, >90% perimeter
+9. **Self-Intersection Detection** - Flags intersecting non-adjacent boundary segments
 
 ## Development
 
@@ -252,7 +254,7 @@ make pre-commit    # Run all checks before committing
 
 ### Running Tests
 
-The test suite runs ~996 tests organized by type:
+The root test suite runs ~1,576 tests (plus 563 per-package tests and 6 plugin tests) organized by type:
 
 ```bash
 # Run all tests (unit + integration + e2e + regression)
@@ -326,8 +328,8 @@ non_tangent,radial_bearing,notes
 
 **Example:**
 ```csv
-1,"S 33 20' E","S 33 20' E",146.666667,60.00,,,,,,"SW line of Concord Dr","a point in the division line","iron_pin",,false,false,"",""
-2,"S 56 40' W","S 56 40' W",236.666667,125.00,,,,,,"Div. line L46/47 to L50","point corner to Lot 50","stone",,false,false,"",""
+1,"S 33 20' E","S 33 20' E",146.666667,60.00,,,,,,,"SW line of Concord Dr","a point in the division line","iron_pin",,false,false,false,false,"",""
+2,"S 56 40' W","S 56 40' W",236.666667,125.00,,,,,,,"Div. line L46/47 to L50","point corner to Lot 50","stone",,false,false,false,false,"",""
 ```
 
 **Key Fields:**
@@ -385,8 +387,9 @@ metesParser/
 │   ├── mp-bearing/              # Pure math: azimuth, curves, deltas
 │   ├── mp-ocr/                  # LLM boundary: PDF -> text
 │   ├── mp-parse/                # Rule-based parsing: text -> calls
-│   ├── mp-verify/               # Geometric verification: 8 checks
-│   └── mp-export/               # CSV/JSON/audit HTML output
+│   ├── mp-verify/               # Geometric verification: 9 checks
+│   ├── mp-export/               # CSV/JSON/audit HTML output
+│   └── mp-review/               # Deterministic review CLI & corpus harness
 ├── src/metesparser/             # Orchestrator + backward-compat monolith
 │   ├── pipeline.py              # Pipeline orchestrator
 │   ├── cli.py                   # Command-line interface
@@ -394,16 +397,15 @@ metesParser/
 │   ├── review_packet.py         # Ground truth review packets
 │   └── ...                      # Monolith modules (kept in sync with packages)
 ├── prompts/                     # Prompt YAML files
-├── tests/                       # Pytest test suite (~996 tests, ~94% coverage)
+├── tests/                       # Pytest test suite (~1,576 root tests, ~96% coverage)
 │   ├── unit/                    # Unit tests
 │   ├── integration/             # Integration tests
 │   ├── e2e/                     # End-to-end CLI tests
 │   └── regression/              # Bug fix tests
 ├── scripts/                     # Utility scripts
-├── sample_deeds/                # 87 sample PDFs + ground truth JSON + LlamaParse markdown
-├── docs/                        # Documentation
-├── CLAUDE.md                    # AI assistant guidance
-└── bugs.md                      # Known issues tracker
+├── sample_deeds/                # Sample PDFs + ground truth JSON + LlamaParse markdown
+├── docs/                        # Documentation (including docs/bugs.md)
+└── CLAUDE.md                    # Symlink to AGENTS.md (AI assistant guidance)
 ```
 
 ## Requirements
@@ -418,9 +420,10 @@ Create a `.env` file:
 
 ```bash
 METESPARSER_LLM_PROVIDER=openai
-OPENAI_API_KEY=sk-...  # Required
-GEMINI_API_KEY=...      # Required when using Gemini
-LOG_LEVEL=INFO          # Optional (default: INFO)
+OPENAI_API_KEY=sk-...          # Required when using OpenAI
+GEMINI_API_KEY=...              # Required when using Gemini
+METESPARSER_LOG_LEVEL=INFO      # Optional (default: INFO)
+METESPARSER_LOG_FORMAT=console  # Optional (console or json)
 ```
 
 ## Troubleshooting

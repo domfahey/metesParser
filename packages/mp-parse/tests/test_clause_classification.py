@@ -269,4 +269,4 @@ class TestLotQualifierVariants:
         assert len(exception_tracts) >= 1, "Should have exception tract"
         # The main tract should contain the lot qualifier text and the THENCE
         main_text = " ".join(t[0] for t in main_tracts)
-        assert "thence" in main_text.lower() or "THENCE" in main_text
+        assert "thence" in main_text.lower()

@@ -61,6 +61,14 @@ MONUMENT_STATUS_PATTERNS: list[tuple[str, MonumentStatus]] = [
     (r"\bplaced\b", "set"),
 ]
 
+_COMPILED_MONUMENT_PATTERNS: list[tuple[re.Pattern[str], MonumentType]] = [
+    (re.compile(pattern), monument_type) for pattern, monument_type in MONUMENT_PATTERNS
+]
+_MONUMENT_FALLBACK_PATTERN = re.compile(r"\bmonument\b")
+_COMPILED_MONUMENT_STATUS_PATTERNS: list[tuple[re.Pattern[str], MonumentStatus]] = [
+    (re.compile(pattern), status) for pattern, status in MONUMENT_STATUS_PATTERNS
+]
+
 
 def classify_monument(text: str) -> MonumentType | None:
     """Classify monument type from text description.
@@ -79,11 +87,11 @@ def classify_monument(text: str) -> MonumentType | None:
 
     text_lower = text.lower()
 
-    for pattern, monument_type in MONUMENT_PATTERNS:
-        if re.search(pattern, text_lower):
+    for pattern, monument_type in _COMPILED_MONUMENT_PATTERNS:
+        if pattern.search(text_lower):
             return monument_type
 
-    if re.search(r"\bmonument\b", text_lower):
+    if _MONUMENT_FALLBACK_PATTERN.search(text_lower):
         return "other"
 
     return None
@@ -102,8 +110,8 @@ def classify_monument_status(text: str | None) -> MonumentStatus | None:
         return None
 
     text_lower = text.lower()
-    for pattern, status in MONUMENT_STATUS_PATTERNS:
-        if re.search(pattern, text_lower):
+    for pattern, status in _COMPILED_MONUMENT_STATUS_PATTERNS:
+        if pattern.search(text_lower):
             return status
 
     return None

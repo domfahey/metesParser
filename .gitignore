@@ -25,7 +25,6 @@ pip-wheel-metadata/
 *.egg
 *.pyd
 *.dll
-*.so
 
 # Virtual environments
 .venv/
@@ -38,11 +37,13 @@ env/
 
 # UV
 .uv/
+.uv-cache/
 .python-version
 
 # Packaging / local metadata
-*.egg-info/
 *.spec
+plugins/metesparser/dist/
+plugins/metesparser/vendor/
 
 # Claude Code
 .claude/settings.local.json
@@ -116,8 +117,6 @@ debug_*
 temp_*
 *.tmp
 *.temp
-*.swp
-*.swo
 *.swn
 *.pid
 *.seed

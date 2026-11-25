@@ -2,10 +2,11 @@
 name = "mp-export"
 version = "1.0.0"
 requires-python = ">=3.11"
-description = "Export metes and bounds data to CSV, JSON, and audit HTML"
+description = "Export metes and bounds data to CSV and audit sidecars (JSON/HTML)"
 dependencies = [
     "mp-models>=1.0.0",
     "mp-verify>=1.0.0",
+    "pydantic>=2.10.0",
     "structlog>=24.4.0",
 ]
 

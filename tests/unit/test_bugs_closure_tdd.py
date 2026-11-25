@@ -66,7 +66,7 @@ def test_compare_double_entry_flags_delta_mismatch() -> None:
 
     discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
     assert discrepancies == [
-        "Course 1: Delta mismatch - 90.00 vs 95.00",
+        "Course 1: Delta mismatch - 90.0000 vs 95.0000",
         "Course 1: Arc length mismatch - 78.54 vs 82.90",
     ]
 

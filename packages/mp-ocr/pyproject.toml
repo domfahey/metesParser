@@ -6,14 +6,13 @@ description = "LLM-based OCR extraction for deed PDFs"
 dependencies = [
     "mp-models>=1.0.0",
     "openai>=2.3.0",
-    "pypdf>=6.1.1",
     "pyyaml>=6.0.2",
     "structlog>=24.4.0",
 ]
 
 [project.optional-dependencies]
 gemini = ["google-genai>=0.3.0"]
-dev = ["pytest>=8.3.0", "ruff>=0.8.0"]
+dev = ["pytest>=8.3.0", "ruff>=0.8.0", "mypy>=1.14.0"]
 
 [build-system]
 requires = ["hatchling"]

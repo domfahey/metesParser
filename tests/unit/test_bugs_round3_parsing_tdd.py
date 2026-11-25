@@ -16,12 +16,19 @@ from tests.fixtures.package_parser import extract_calls
 
 def _apis():
     return (
+        extract_calls,
+        CallExtractor.extract_calls,
+    )
+
+
+def _apis_full():
+    return (
         (extract_calls, verify_closure),
         (CallExtractor.extract_calls, ClosureChecker.verify_closure),
     )
 
 
-@pytest.mark.parametrize("parse,verify", list(_apis()))
+@pytest.mark.parametrize("parse,verify", list(_apis_full()))
 def test_witness_reference_bearing_does_not_replace_course_bearing(parse, verify):
     description = (
         "THENCE due North 100 feet to an iron pin, from which a witness tree bears S 45° W 50 feet"
@@ -33,8 +40,8 @@ def test_witness_reference_bearing_does_not_replace_course_bearing(parse, verify
     assert call.distance_ft == pytest.approx(100.0)
 
 
-@pytest.mark.parametrize("parse,_verify", list(_apis()))
-def test_cardinal_only_boundary_bearing_stays_incomplete_despite_witness_bearing(parse, _verify):
+@pytest.mark.parametrize("parse", _apis())
+def test_cardinal_only_boundary_bearing_stays_incomplete_despite_witness_bearing(parse):
     call = parse(
         "THENCE northerly 100 feet to an iron pin; from which an oak bears S 45° W 50 feet"
     )[0]
@@ -42,9 +49,9 @@ def test_cardinal_only_boundary_bearing_stays_incomplete_despite_witness_bearing
     assert call.notes == "incomplete bearing - cardinal only"
 
 
-@pytest.mark.parametrize("parse,_verify", list(_apis()))
+@pytest.mark.parametrize("parse", _apis())
 @pytest.mark.parametrize("tree", ["hickory", "sycamore", "cottonwood"])
-def test_tree_reference_bearing_is_removed_using_witness_metadata_patterns(parse, _verify, tree):
+def test_tree_reference_bearing_is_removed_using_witness_metadata_patterns(parse, tree):
     call = parse(f"THENCE northerly 100 feet to an iron pin; a large {tree} bears S 45° W 50 feet")[
         0
     ]
@@ -52,7 +59,7 @@ def test_tree_reference_bearing_is_removed_using_witness_metadata_patterns(parse
     assert call.notes == "incomplete bearing - cardinal only"
 
 
-@pytest.mark.parametrize("parse,verify", list(_apis()))
+@pytest.mark.parametrize("parse,verify", list(_apis_full()))
 def test_witness_bearings_do_not_make_square_traverse_appear_closed(parse, verify):
     description = (
         "THENCE easterly 100 feet to iron pin, from which oak bears N 0° E 20 feet; "
@@ -67,7 +74,7 @@ def test_witness_bearings_do_not_make_square_traverse_appear_closed(parse, verif
     assert any("4 call(s) have incomplete bearings" in warning for warning in result.warnings)
 
 
-@pytest.mark.parametrize("parse,verify", list(_apis()))
+@pytest.mark.parametrize("parse,verify", list(_apis_full()))
 def test_curve_without_initial_tangent_keeps_chord_bearing_for_closure(parse, verify):
     calls = parse(
         "THENCE along a curve to the right, radius of 100 feet, delta angle of 90 degrees, "
@@ -82,7 +89,7 @@ def test_curve_without_initial_tangent_keeps_chord_bearing_for_closure(parse, ve
     assert result.misclosure_ft == pytest.approx(0.0, abs=0.01)
 
 
-@pytest.mark.parametrize("parse,_verify", list(_apis()))
+@pytest.mark.parametrize("parse", _apis())
 @pytest.mark.parametrize(
     ("text", "expected_ft"),
     [
@@ -98,7 +105,7 @@ def test_curve_without_initial_tangent_keeps_chord_bearing_for_closure(parse, ve
         ),
     ],
 )
-def test_straight_engineer_and_us_survey_units_are_converted(parse, _verify, text, expected_ft):
+def test_straight_engineer_and_us_survey_units_are_converted(parse, text, expected_ft):
     call = parse(text)[0]
     assert call.distance_ft == pytest.approx(expected_ft)
 
@@ -123,7 +130,12 @@ def test_town_alias_extracts_township_in_plss(extract):
 
 
 def test_saved_miwayn_ground_truth_township_is_extracted():
-    ground_truth = json.loads(Path("sample_deeds/MIWAYN-50745-01268.ground_truth.json").read_text())
+    ground_truth = json.loads(
+        (
+            Path(__file__).resolve().parents[2]
+            / "sample_deeds/MIWAYN-50745-01268.ground_truth.json"
+        ).read_text()
+    )
     description = ground_truth["Full_Legal_Description"]
     assert extract_plss_metadata(description)["township"] == "4 S"
     assert TextParser.extract_plss_metadata(description)["township"] == "4 S"

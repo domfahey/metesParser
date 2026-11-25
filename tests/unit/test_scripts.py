@@ -6,6 +6,8 @@ import importlib.util
 import re
 from pathlib import Path
 
+import pytest
+
 
 def _load_audit_module():
     """Import the audit_gt_vs_md script as a module."""
@@ -177,19 +179,47 @@ class TestAuditFallbackExtraction:
         assert calls[1]["distance_ft"] == 50.00
         assert calls[2]["distance_ft"] == 75.00
 
-    def test_no_beginning_not_flagged_when_fallback_recovers_calls(self) -> None:
+    def test_no_beginning_not_flagged_when_fallback_recovers_calls(self, tmp_path) -> None:
         """The NO_BEGINNING issue should NOT be raised when the fallback
         successfully extracted calls (n_md > 0)."""
         mod = _load_audit_module()
-        # The audit_deed function needs GT and MD files, so test the logic
-        # directly: when n_gt > 0 and n_md > 0, NO_BEGINNING should not fire
+
+        # Create sample files in tmp_path
+        sample_name = "sample"
+        pdf_path = tmp_path / f"{sample_name}.pdf"
+        pdf_path.write_text("dummy pdf")
+
+        gt_path = tmp_path / f"{sample_name}.ground_truth.json"
+        gt_path.write_text('{"calls": []}')
+
         md_text = (
             "BEGINNiNn garbled;\n"
             "thence North 45 degrees 00 minutes East 100.00 feet;\n"
             "thence South 45 degrees 00 minutes West 100.00 feet to the place of beginning."
         )
-        calls = mod.extract_calls_from_md(md_text)
-        # Fallback should find calls
-        assert len(calls) > 0
-        # BEGINNING_PATTERN should NOT match the garbled text
+        md_path = tmp_path / f"{sample_name}.md"
+        md_path.write_text(md_text)
+
+        monkeypatch = pytest.MonkeyPatch()
+        monkeypatch.setattr(mod, "SAMPLE_DIR", tmp_path)
+        try:
+            result = mod.audit_deed(sample_name)
+        finally:
+            monkeypatch.undo()
+
+        assert result["n_md"] > 0
         assert not mod.BEGINNING_PATTERN.search(md_text)
+        assert "NO_BEGINNING" not in result["issues"]
+
+
+class TestAuditPropertySummary:
+    """Test that audit script property summary handles 'SKIP' status without KeyError."""
+
+    def test_property_summary_with_skip_status(self) -> None:
+        mod = _load_audit_module()
+        results = [
+            {"name": "PropertyA - Deed Image 1", "status": "PASS", "issues": []},
+            {"name": "PropertyA - Deed Image 2", "status": "SKIP", "issues": []},
+        ]
+        properties = mod.summarize_by_property(results)
+        assert properties["PropertyA"] == {"pass": 1, "fail": 0, "skip": 1, "total": 2}

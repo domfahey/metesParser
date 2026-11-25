@@ -212,7 +212,7 @@ if bearing is None:
 ✅ **Do**:
 ```python
 if bearing is None:
-    call.notes = "incomplete bearing - manual review required"
+    call = call.model_copy(update={"notes": "incomplete bearing - manual review required"})
 ```
 
 ### 2. Preserve Determinism

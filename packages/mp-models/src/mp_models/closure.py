@@ -36,14 +36,15 @@ class ClosureResult(_Model):
 
     misclosure_x_ft: FiniteFloat = Field(..., description="Misclosure in X direction (feet)")
     misclosure_y_ft: FiniteFloat = Field(..., description="Misclosure in Y direction (feet)")
-    misclosure_ft: FiniteFloat = Field(..., description="Total misclosure distance (feet)")
+    misclosure_ft: FiniteFloat = Field(..., ge=0, description="Total misclosure distance (feet)")
 
     area_sq_ft: FiniteFloat = Field(
         ...,
+        ge=0,
         description="Area in square feet (shoelace formula)",
     )
-    area_acres: FiniteFloat = Field(..., description="Area in acres")
-    perimeter_ft: FiniteFloat = Field(..., description="Total perimeter in feet")
+    area_acres: FiniteFloat = Field(..., ge=0, description="Area in acres")
+    perimeter_ft: FiniteFloat = Field(..., ge=0, description="Total perimeter in feet")
 
     closure_passed: bool = Field(
         ...,
@@ -102,7 +103,7 @@ class ClosureResult(_Model):
 
     def get_closure_status(self) -> str:
         """Get human-readable closure status."""
-        if self.warnings:
+        if not self.is_fully_verified():
             return "NEEDS REVIEW"
         if self.misclosure_ft < 0.01:
             return "EXCELLENT"

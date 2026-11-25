@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -58,29 +59,110 @@ class TestPDFProcessorCacheIntegration:
 
 
 class TestCLICacheFlag:
-    def test_extract_parser_has_no_cache_flag(self) -> None:
-        """The extract subcommand parser accepts --no-cache."""
-        import argparse
+    def test_extract_cli_cache_true_by_default(self, monkeypatch, tmp_path: Path) -> None:
+        """Invoking extract command without --no-cache initializes PDFProcessor with cache=True."""
+        from metesparser import cli
+        from metesparser.models import LegalDescription
 
-        # Build a parser mimicking cli.py structure to verify the flag works
-        parser = argparse.ArgumentParser()
-        subparsers = parser.add_subparsers(dest="command")
-        extract_parser = subparsers.add_parser("extract")
-        extract_parser.add_argument("pdf")
-        extract_parser.add_argument("--no-cache", action="store_true", default=False)
+        captured_kwargs = {}
 
-        args = parser.parse_args(["extract", "deed.pdf", "--no-cache"])
-        assert args.no_cache is True
+        class DummyProcessor:
+            def __init__(self, *args, **kwargs):
+                captured_kwargs.update(kwargs)
 
-    def test_extract_parser_no_cache_defaults_false(self) -> None:
-        """Without --no-cache, the flag defaults to False."""
-        import argparse
+            def process_deed_pdf(self, path):
+                return LegalDescription(calls=[])
 
-        parser = argparse.ArgumentParser()
-        subparsers = parser.add_subparsers(dest="command")
-        extract_parser = subparsers.add_parser("extract")
-        extract_parser.add_argument("pdf")
-        extract_parser.add_argument("--no-cache", action="store_true", default=False)
+        import metesparser.pdf_processor as pdf_proc_module
 
-        args = parser.parse_args(["extract", "deed.pdf"])
-        assert args.no_cache is False
+        monkeypatch.setattr(pdf_proc_module, "PDFProcessor", DummyProcessor)
+
+        import metesparser.closure_checker as closure_checker_module
+
+        dummy_result = type(
+            "DummyResult",
+            (),
+            {
+                "is_fully_verified": lambda self: True,
+                "misclosure_ft": 0.0,
+                "get_closure_status": lambda self: "closed",
+                "closure_passed": True,
+                "area_sq_ft": 1000.0,
+                "confidence_score": 1.0,
+                "warnings": [],
+            },
+        )()
+        monkeypatch.setattr(
+            closure_checker_module.ClosureChecker, "verify_closure", lambda *a, **kw: dummy_result
+        )
+        monkeypatch.setattr(
+            closure_checker_module.ClosureChecker, "get_closure_summary", lambda *a, **kw: "Summary"
+        )
+
+        import metesparser.csv_builder as csv_builder_module
+
+        monkeypatch.setattr(
+            csv_builder_module.CSVBuilder, "export_verified_csv", lambda *a, **kw: None
+        )
+
+        pdf_file = tmp_path / "deed.pdf"
+        pdf_file.write_text("dummy")
+
+        monkeypatch.setattr(sys, "argv", ["metesparser", "extract", str(pdf_file)])
+        cli.main()
+
+        assert captured_kwargs.get("cache") is True
+
+    def test_extract_cli_cache_false_with_no_cache_flag(self, monkeypatch, tmp_path: Path) -> None:
+        """Invoking extract command with --no-cache initializes PDFProcessor with cache=False."""
+        from metesparser import cli
+        from metesparser.models import LegalDescription
+
+        captured_kwargs = {}
+
+        class DummyProcessor:
+            def __init__(self, *args, **kwargs):
+                captured_kwargs.update(kwargs)
+
+            def process_deed_pdf(self, path):
+                return LegalDescription(calls=[])
+
+        import metesparser.pdf_processor as pdf_proc_module
+
+        monkeypatch.setattr(pdf_proc_module, "PDFProcessor", DummyProcessor)
+
+        import metesparser.closure_checker as closure_checker_module
+
+        dummy_result = type(
+            "DummyResult",
+            (),
+            {
+                "is_fully_verified": lambda self: True,
+                "misclosure_ft": 0.0,
+                "get_closure_status": lambda self: "closed",
+                "closure_passed": True,
+                "area_sq_ft": 1000.0,
+                "confidence_score": 1.0,
+                "warnings": [],
+            },
+        )()
+        monkeypatch.setattr(
+            closure_checker_module.ClosureChecker, "verify_closure", lambda *a, **kw: dummy_result
+        )
+        monkeypatch.setattr(
+            closure_checker_module.ClosureChecker, "get_closure_summary", lambda *a, **kw: "Summary"
+        )
+
+        import metesparser.csv_builder as csv_builder_module
+
+        monkeypatch.setattr(
+            csv_builder_module.CSVBuilder, "export_verified_csv", lambda *a, **kw: None
+        )
+
+        pdf_file = tmp_path / "deed.pdf"
+        pdf_file.write_text("dummy")
+
+        monkeypatch.setattr(sys, "argv", ["metesparser", "extract", str(pdf_file), "--no-cache"])
+        cli.main()
+
+        assert captured_kwargs.get("cache") is False

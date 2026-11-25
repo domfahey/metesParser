@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Literal, Self
+from typing import ClassVar, Literal, Self
 
 from pydantic import (
     BaseModel,
@@ -92,7 +92,6 @@ class _Model(BaseModel):
         extra="forbid",
         frozen=True,
         str_strip_whitespace=True,
-        validate_assignment=True,
     )
 
     @staticmethod
@@ -229,7 +228,7 @@ class DeedCall(_Model):
     )
     curve_type: CurveType | None = Field(
         default=None,
-        description="Type of curve: simple, compound, or reverse (None for non-curves)",
+        description="Type of curve: simple, compound, reverse, or spiral (None for non-curves)",
     )
     quality: Literal["high", "medium", "low"] | None = Field(
         default=None,
@@ -284,8 +283,10 @@ class DeedCall(_Model):
     def _normalize_bearing_azimuth(cls, value: float | int | str | None) -> float | None:
         if value is None:
             return None
-        azimuth = float(value)
-        return azimuth % 360.0
+        if isinstance(value, bool):
+            raise ValueError("bearing_azimuth_deg_from_north must be numeric, not boolean")
+        az = float(value) % 360.0
+        return 0.0 if az == 360.0 else az
 
     @field_validator("radius_ft", mode="before")
     @classmethod
@@ -293,6 +294,8 @@ class DeedCall(_Model):
         """Ensure radius is numeric and non-zero."""
         if value is None:
             return None
+        if isinstance(value, bool):
+            raise ValueError("radius_ft must be numeric, not boolean")
         radius = float(value)
         if radius == 0:
             raise ValueError("radius_ft must be non-zero")
@@ -320,9 +323,15 @@ class DeedCall(_Model):
         has_delta = self.delta_deg is not None
         has_arc = self.arc_length_ft is not None
         has_chord = self.chord_length_ft is not None
+        has_curve_metadata = (
+            self.non_tangent
+            or self.radial_bearing is not None
+            or self.curve_type is not None
+            or self.chord_bearing is not None
+        )
         has_curve_measure = has_radius or has_delta or has_arc or has_chord
 
-        if not has_curve_measure and not has_curve_direction:
+        if not has_curve_measure and not has_curve_direction and not has_curve_metadata:
             return self
 
         if not has_curve_direction:
@@ -337,7 +346,7 @@ class DeedCall(_Model):
 
     def is_curve(self) -> bool:
         """Check if this call represents a curve."""
-        return self.curve_dir is not None or self.radius_ft is not None
+        return self.curve_dir is not None
 
     def is_complete_bearing(self) -> bool:
         """Check if bearing is fully specified (has azimuth)."""
@@ -403,6 +412,7 @@ class LegalDescription(_Model):
 
     stated_area_sq_ft: FiniteFloat | None = Field(
         default=None,
+        gt=0,
         description="Stated area from the legal description (square feet)",
     )
     stated_area_approximate: bool = Field(
@@ -441,8 +451,7 @@ class LegalDescription(_Model):
         if not isinstance(value, str):
             raise ValueError("distance_unit must be a string")
 
-        normalized = value.strip().lower()
-        return normalized
+        return value.strip().lower()
 
     @field_validator("stated_area_approximate", mode="before")
     @classmethod
@@ -480,14 +489,15 @@ class ClosureResult(_Model):
 
     misclosure_x_ft: FiniteFloat = Field(..., description="Misclosure in X direction (feet)")
     misclosure_y_ft: FiniteFloat = Field(..., description="Misclosure in Y direction (feet)")
-    misclosure_ft: FiniteFloat = Field(..., description="Total misclosure distance (feet)")
+    misclosure_ft: FiniteFloat = Field(..., ge=0, description="Total misclosure distance (feet)")
 
     area_sq_ft: FiniteFloat = Field(
         ...,
+        ge=0,
         description="Area in square feet (shoelace formula)",
     )
-    area_acres: FiniteFloat = Field(..., description="Area in acres")
-    perimeter_ft: FiniteFloat = Field(..., description="Total perimeter in feet")
+    area_acres: FiniteFloat = Field(..., ge=0, description="Area in acres")
+    perimeter_ft: FiniteFloat = Field(..., ge=0, description="Total perimeter in feet")
 
     closure_passed: bool = Field(
         ...,
@@ -542,7 +552,7 @@ class ClosureResult(_Model):
 
     def get_closure_status(self) -> str:
         """Get human-readable closure status."""
-        if self.warnings:
+        if not self.is_fully_verified():
             return "NEEDS REVIEW"
         if self.misclosure_ft < 0.01:
             return "EXCELLENT"
@@ -598,33 +608,33 @@ class ConversionFactors:
     US_SURVEY_FOOT_TO_METERS: float = 0.30480061
     US_SURVEY_FOOT_TO_FEET: float = US_SURVEY_FOOT_TO_METERS / FOOT_TO_METERS
 
+    _UNIT_TO_FEET: ClassVar[dict[str, float]] = {
+        "feet": 1.0,
+        "us_survey_feet": US_SURVEY_FOOT_TO_FEET,
+        "poles": POLE_TO_FEET,
+        "rods": ROD_TO_FEET,
+        "perch": PERCH_TO_FEET,
+        "perches": PERCH_TO_FEET,
+        "chains": CHAIN_TO_FEET,
+        "link": LINK_TO_FEET,
+        "links": LINK_TO_FEET,
+        "varas": VARA_TO_FEET,
+        "arpents": ARPENT_TO_FEET,
+        "toises": TOISE_TO_FEET,
+        "furlongs": FURLONG_TO_FEET,
+        "meters": METER_TO_FEET,
+        "miles": MILE_TO_FEET,
+        "engineer_chains": ENGINEER_CHAIN_TO_FEET,
+        "engineer_links": ENGINEER_LINK_TO_FEET,
+    }
+
     @classmethod
     def convert_to_feet(cls, value: float, unit: str) -> float:
         """Convert a distance value to feet."""
-        conversions = {
-            "feet": 1.0,
-            "us_survey_feet": cls.US_SURVEY_FOOT_TO_FEET,
-            "poles": cls.POLE_TO_FEET,
-            "rods": cls.ROD_TO_FEET,
-            "perch": cls.PERCH_TO_FEET,
-            "perches": cls.PERCH_TO_FEET,
-            "chains": cls.CHAIN_TO_FEET,
-            "link": cls.LINK_TO_FEET,
-            "links": cls.LINK_TO_FEET,
-            "varas": cls.VARA_TO_FEET,
-            "arpents": cls.ARPENT_TO_FEET,
-            "toises": cls.TOISE_TO_FEET,
-            "furlongs": cls.FURLONG_TO_FEET,
-            "meters": cls.METER_TO_FEET,
-            "miles": cls.MILE_TO_FEET,
-            "engineer_chains": cls.ENGINEER_CHAIN_TO_FEET,
-            "engineer_links": cls.ENGINEER_LINK_TO_FEET,
-        }
         normalized_unit = unit.strip().lower()
-        if normalized_unit not in conversions:
+        if normalized_unit not in cls._UNIT_TO_FEET:
             raise ValueError(f"Unsupported distance unit: {unit}")
-        factor = conversions[normalized_unit]
-        return value * factor
+        return value * cls._UNIT_TO_FEET[normalized_unit]
 
 
 # ---------------------------------------------------------------------------
@@ -692,9 +702,7 @@ class RunMetadata(_Model):
 class LLMStageRecord(_Model):
     """Rendered prompt and response evidence for one audited LLM call."""
 
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, str_strip_whitespace=False, validate_assignment=True
-    )
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=False)
 
     stage: str = Field(..., description="Pipeline prompt stage name")
     prompt: str = Field(..., description="Fully rendered prompt sent to the provider")

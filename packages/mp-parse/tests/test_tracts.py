@@ -68,6 +68,33 @@ class TestExplicitTractMarkers:
         result = split_into_tracts(text)
         assert len(result) == 2
 
+    def test_tract_no_prefix(self):
+        text = (
+            "TRACT NO. 1: BEGINNING at a point... THENCE N 45\u00b000' E 100 feet "
+            "to the POINT OF BEGINNING. "
+            "TRACT NO. 2: BEGINNING at a point... THENCE S 45\u00b000' E 200 feet "
+            "to the POINT OF BEGINNING. "
+            "Tract No. 3: BEGINNING at a point... THENCE N 45\u00b000' W 150 feet "
+            "to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 3
+        assert result[0][1] == "Tract 1"
+        assert result[1][1] == "Tract 2"
+        assert result[2][1] == "Tract 3"
+
+    def test_parcel_no_prefix(self):
+        text = (
+            "PARCEL NO. 1: BEGINNING at a point... THENCE N 45\u00b000' E 100 feet "
+            "to the POINT OF BEGINNING. "
+            "Parcel No 2: BEGINNING at a point... THENCE S 45\u00b000' E 200 feet "
+            "to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 2
+        assert result[0][1] == "Parcel 1"
+        assert result[1][1] == "Parcel 2"
+
 
 class TestMultipleBeginningBlocks:
     """Priority 2: Multiple BEGINNING blocks."""
@@ -191,6 +218,24 @@ class TestSingleTract:
         """'TRACT CONVEYED BY' must NOT trigger splitting."""
         text = (
             "THE TRACT CONVEYED BY DEED BOOK 1234 PAGE 567 "
+            "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 1
+
+    def test_tract_formerly_owned_no_false_split(self):
+        """'TRACT FORMERLY OWNED BY' must NOT trigger splitting."""
+        text = (
+            "THE TRACT FORMERLY OWNED BY SMITH "
+            "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
+        )
+        result = split_into_tracts(text)
+        assert len(result) == 1
+
+    def test_parcel_map_no_false_split(self):
+        """'PARCEL MAP RECORDED IN' must NOT trigger splitting."""
+        text = (
+            "THE PARCEL MAP RECORDED IN BOOK 5 PAGE 10 "
             "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
         )
         result = split_into_tracts(text)

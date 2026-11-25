@@ -15,16 +15,15 @@ Tests are the safety net that lets us trust the system's output. Since metesPars
 ```
 tests/
 ├── conftest.py              # Shared fixtures, custom markers, logging isolation
-├── helpers.py               # Assertion helpers and data generators
 ├── fixtures/
-│   └── sample_deeds.py      # Legal description text samples
-├── unit/                    # Fast, isolated module tests (~923 tests)
-├── integration/             # Full pipeline tests (~31 tests)
-├── regression/              # Bug fix validation (~40 tests)
-└── e2e/                     # CLI end-to-end tests (~2 tests)
+│   └── sample_deeds.py      # Legal description text samples and DeedCall fixtures
+├── unit/                    # Fast, isolated module tests
+├── integration/             # Full pipeline tests
+├── regression/              # Bug fix validation
+└── e2e/                     # CLI end-to-end tests
 ```
 
-Per-package tests live alongside their packages in `packages/mp-*/tests/`.
+Per-package tests live alongside their packages in `packages/mp-*/tests/` (plus plugin launcher tests in `plugins/metesparser/tests/`).
 
 ## Running Tests
 
@@ -40,10 +39,11 @@ uv run pytest tests/e2e/ -v
 
 # By marker
 uv run pytest -m curve -v
-uv run pytest -m "not slow" -v
+uv run pytest -m e2e -v
 
 # Per-package (requires --no-cov)
 uv run pytest packages/mp-models/tests/ -v --no-cov
+for pkg in packages/mp-*/tests/; do uv run pytest "$pkg" -v --no-cov; done
 
 # With coverage
 make test-cov
@@ -57,7 +57,7 @@ Defined in `conftest.py` and available to all tests:
 - **`sample_legal_text`** — 18 Pennbrook Dr parallelogram (4 calls, closes perfectly)
 - **`isolate_logging_state`** — Resets structlog configuration between tests
 
-Shape fixtures and data generators live in `helpers.py` and `fixtures/sample_deeds.py`.
+Sample legal descriptions and `DeedCall` lists live in `tests/fixtures/sample_deeds.py`.
 
 ## Markers
 
@@ -68,10 +68,11 @@ Shape fixtures and data generators live in `helpers.py` and `fixtures/sample_dee
 | `regression` | Bug fix tests | `-m "not regression"` |
 | `curve` | Curve calculations | `-m "not curve"` |
 | `validation` | Input validation | `-m "not validation"` |
+| `e2e` | End-to-end CLI tests | `-m "not e2e"` |
 
 ## Coverage
 
-Target: >90% line coverage (current: ~94%). Run `make test-cov` and open `htmlcov/index.html`.
+Target: >90% line coverage (current: ~96% across `src/metesparser/`). Run `make test-cov` and open `htmlcov/index.html`.
 
 ## See Also
 

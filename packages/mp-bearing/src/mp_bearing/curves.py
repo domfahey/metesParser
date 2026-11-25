@@ -11,6 +11,7 @@ import math
 
 from mp_models import Point
 
+from .azimuth import degree_of_curvature_to_radius
 from .deltas import calculate_deltas
 
 
@@ -112,13 +113,18 @@ def calculate_chord_bearing(
     Returns:
         Chord bearing azimuth (degrees)
     """
+    direction = curve_dir.strip().lower()
+    if direction not in ("left", "right"):
+        raise ValueError(f"curve_dir must be 'left' or 'right', got {curve_dir!r}")
+
     half_delta = delta_deg / 2.0
 
     chord_azimuth = (
-        tangent_azimuth - half_delta if curve_dir == "left" else tangent_azimuth + half_delta
+        tangent_azimuth - half_delta if direction == "left" else tangent_azimuth + half_delta
     )
 
-    return chord_azimuth % 360.0
+    az = chord_azimuth % 360.0
+    return 0.0 if az == 360.0 else az
 
 
 def compute_curve_endpoint(
@@ -190,8 +196,6 @@ def calculate_missing_curve_elements(
     """
     # Convert degree of curvature to radius if provided
     if degree_of_curvature is not None and radius_ft is None:
-        from .azimuth import degree_of_curvature_to_radius
-
         radius_ft = degree_of_curvature_to_radius(degree_of_curvature)
 
     provided = sum(
@@ -200,8 +204,16 @@ def calculate_missing_curve_elements(
     if provided < 2:
         raise ValueError(f"Need at least two curve elements, got {provided}")
 
+    if radius_ft is not None and radius_ft <= 0:
+        raise ValueError(f"Radius must be positive, got {radius_ft}")
     if delta_deg is not None and delta_deg == 0:
         raise ValueError("Delta angle must be non-zero for curve element calculation")
+    if delta_deg is not None and not (0 < delta_deg <= 360):
+        raise ValueError(f"Delta angle must be in (0, 360] degrees, got {delta_deg}")
+    if arc_length_ft is not None and arc_length_ft <= 0:
+        raise ValueError(f"Arc length must be positive, got {arc_length_ft}")
+    if chord_length_ft is not None and chord_length_ft < 0:
+        raise ValueError(f"Chord length must be non-negative, got {chord_length_ft}")
 
     if radius_ft is not None and delta_deg is not None:
         pass
@@ -217,13 +229,15 @@ def calculate_missing_curve_elements(
         delta_rad = math.radians(delta_deg)
         radius_ft = arc_length_ft / delta_rad
     elif chord_length_ft is not None and delta_deg is not None:
+        if chord_length_ft <= 0:
+            raise ValueError(f"Chord length must be positive, got {chord_length_ft}")
+        if delta_deg >= 360:
+            raise ValueError(
+                f"Delta angle must be less than 360 degrees with chord length, got {delta_deg}"
+            )
         delta_rad = math.radians(delta_deg)
         radius_ft = chord_length_ft / (2 * math.sin(delta_rad / 2))
     elif arc_length_ft is not None and chord_length_ft is not None:
-        if arc_length_ft <= 0:
-            raise ValueError(f"Arc length must be positive, got {arc_length_ft}")
-        if chord_length_ft < 0:
-            raise ValueError(f"Chord must be non-negative, got {chord_length_ft}")
         if chord_length_ft >= arc_length_ft:
             raise ValueError(
                 f"Chord ({chord_length_ft} ft) must be less than arc ({arc_length_ft} ft)"
@@ -242,24 +256,29 @@ def calculate_missing_curve_elements(
         delta_deg = math.degrees(delta_rad)
         radius_ft = arc_length_ft / delta_rad
 
+    if delta_deg is None or not (0 < delta_deg <= 360):
+        raise ValueError(f"Computed delta angle must be in (0, 360] degrees, got {delta_deg}")
+    if radius_ft is None or radius_ft <= 0:
+        raise ValueError(f"Computed radius must be positive, got {radius_ft}")
+
     # Compute all elements from radius and delta
-    delta_rad = math.radians(delta_deg)  # type: ignore[arg-type]
+    delta_rad = math.radians(delta_deg)
     if arc_length_ft is None:
-        arc_length_ft = radius_ft * delta_rad  # type: ignore[operator]
+        arc_length_ft = radius_ft * delta_rad
     if chord_length_ft is None:
-        chord_length_ft = 2 * radius_ft * math.sin(delta_rad / 2)  # type: ignore[operator]
+        chord_length_ft = 2 * radius_ft * math.sin(delta_rad / 2)
     cos_half = math.cos(delta_rad / 2)
     if abs(cos_half) < 1e-10:
         tangent_length_ft = float("inf")
         external_distance_ft = float("inf")
     else:
-        tangent_length_ft = radius_ft * math.tan(delta_rad / 2)  # type: ignore[operator]
-        external_distance_ft = radius_ft * (1.0 / cos_half - 1.0)  # type: ignore[operator]
-    middle_ordinate_ft = radius_ft * (1.0 - math.cos(delta_rad / 2))  # type: ignore[operator]
+        tangent_length_ft = radius_ft * math.tan(delta_rad / 2)
+        external_distance_ft = radius_ft * (1.0 / cos_half - 1.0)
+    middle_ordinate_ft = radius_ft * (1.0 - math.cos(delta_rad / 2))
 
     return {
-        "radius_ft": radius_ft,  # type: ignore[dict-item]
-        "delta_deg": delta_deg,  # type: ignore[dict-item]
+        "radius_ft": radius_ft,
+        "delta_deg": delta_deg,
         "arc_length_ft": arc_length_ft,
         "chord_length_ft": chord_length_ft,
         "tangent_length_ft": tangent_length_ft,

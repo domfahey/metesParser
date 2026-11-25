@@ -1,4 +1,4 @@
-"""Export metes and bounds data to CSV, JSON, and audit HTML."""
+"""Export metes and bounds data to CSV and audit sidecars (JSON/HTML)."""
 
 from .audit_html import generate_html, write_report
 from .csv_writer import (

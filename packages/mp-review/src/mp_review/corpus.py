@@ -21,6 +21,23 @@ _EXPECTATION_KEYS = {
     "error_code",
 }
 _CASE_KEYS = {"id", "input", "expect", "stated_area_sq_ft"}
+_TOLERANCE_KEYS = ("misclosure_ft_tolerance", "area_sq_ft_tolerance", "numeric_tolerance")
+_KNOWN_CALL_FIELDS = frozenset(DeedCall.model_fields)
+
+
+def _reject_json_constant(value: str) -> Any:
+    raise ValueError(f"Invalid JSON number constant: {value}")
+
+
+def write_corpus_report(report: dict[str, Any], output_path: str | Path) -> Path:
+    """Write a corpus report JSON file with strict NaN rejection."""
+    dest = Path(output_path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(
+        json.dumps(report, indent=2, sort_keys=True, allow_nan=False) + "\n",
+        encoding="utf-8",
+    )
+    return dest
 
 
 def _read_case(case: dict[str, Any], base: Path) -> dict[str, Any]:
@@ -42,9 +59,14 @@ def _read_case(case: dict[str, Any], base: Path) -> dict[str, Any]:
 def _assertions(result: dict[str, Any], expected: dict[str, Any]) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
 
+    def is_number(value: Any) -> bool:
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+
     def check(name: str, actual: Any, wanted: Any, tolerance: float = 0.0) -> None:
-        if isinstance(wanted, (int, float)) and isinstance(actual, (int, float)):
+        if is_number(wanted) and is_number(actual):
             ok = math.isclose(float(actual), float(wanted), rel_tol=0.0, abs_tol=tolerance)
+        elif isinstance(actual, bool) or isinstance(wanted, bool):
+            ok = type(actual) is type(wanted) and actual == wanted
         else:
             ok = actual == wanted
         checks.append(
@@ -52,7 +74,7 @@ def _assertions(result: dict[str, Any], expected: dict[str, Any]) -> list[dict[s
                 "assertion": name,
                 "expected": wanted,
                 "actual": actual,
-                "tolerance": tolerance if isinstance(wanted, (int, float)) else None,
+                "tolerance": tolerance if is_number(wanted) else None,
                 "passed": ok,
             }
         )
@@ -65,9 +87,23 @@ def _assertions(result: dict[str, Any], expected: dict[str, Any]) -> list[dict[s
     for key in ("misclosure_ft", "area_sq_ft"):
         if key in expected:
             check(key, verification.get(key), expected[key], expected.get(f"{key}_tolerance", 0.01))
+    calls = result.get("calls", [])
     for index, fields in enumerate(expected.get("selected_calls", [])):
-        calls = result.get("calls", [])
-        actual_call = calls[index] if index < len(calls) else {}
+        if index >= len(calls):
+            for field, wanted in fields.items():
+                checks.append(
+                    {
+                        "assertion": f"calls[{index}].{field}",
+                        "expected": wanted,
+                        "actual": "<missing call>",
+                        "tolerance": (
+                            expected.get("numeric_tolerance", 0.001) if is_number(wanted) else None
+                        ),
+                        "passed": False,
+                    }
+                )
+            continue
+        actual_call = calls[index]
         for field, wanted in fields.items():
             check(
                 f"calls[{index}].{field}",
@@ -109,16 +145,25 @@ def _validate_case(case: Any) -> tuple[str, dict[str, Any]]:
         )
     ):
         raise ValueError("expectations must contain at least one assertion")
+    for tol_key in _TOLERANCE_KEYS:
+        if tol_key in expected:
+            tol_val = expected[tol_key]
+            if (
+                isinstance(tol_val, bool)
+                or not isinstance(tol_val, (int, float))
+                or not math.isfinite(float(tol_val))
+                or tol_val < 0
+            ):
+                raise ValueError(f"{tol_key} must be a finite non-negative number")
     selected_calls = expected.get("selected_calls", [])
     if not isinstance(selected_calls, list):
         raise ValueError("selected_calls must be a list of field objects")
     if "selected_calls" in expected and not selected_calls:
         raise ValueError("selected_calls must contain at least one field assertion")
-    known_call_fields = set(DeedCall.model_fields)
     for index, fields in enumerate(selected_calls):
         if not isinstance(fields, dict) or not fields:
             raise ValueError(f"selected_calls[{index}] must be a non-empty object")
-        unknown_fields = set(fields) - known_call_fields
+        unknown_fields = set(fields) - _KNOWN_CALL_FIELDS
         if unknown_fields:
             raise ValueError(f"unknown selected call fields: {sorted(unknown_fields)}")
     return case_id, expected
@@ -127,7 +172,10 @@ def _validate_case(case: Any) -> tuple[str, dict[str, Any]]:
 def run_corpus(manifest_path: str | Path, output_path: str | Path | None = None) -> dict[str, Any]:
     """Run manifest cases independently and compare results with reviewed expectations."""
     manifest_file = Path(manifest_path).resolve()
-    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    manifest = json.loads(
+        manifest_file.read_text(encoding="utf-8"),
+        parse_constant=_reject_json_constant,
+    )
     if not isinstance(manifest, dict):
         raise ValueError("manifest must be an object")
     if manifest.get("schema_version") != "1.0" or not isinstance(manifest.get("cases"), list):
@@ -170,7 +218,5 @@ def run_corpus(manifest_path: str | Path, output_path: str | Path | None = None)
         "cases": outcomes,
     }
     if output_path is not None:
-        dest = Path(output_path)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        write_corpus_report(report, output_path)
     return report

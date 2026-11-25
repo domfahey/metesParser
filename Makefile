@@ -1,18 +1,12 @@
 SHELL := /bin/bash
-.DEFAULT_GOAL := all
 
 # Tooling and path defaults.
 UV ?= uv
 UV_RUN := $(UV) run
-
-.PHONY: review-corpus plugin-build
-review-corpus: ## Run reviewed deterministic pipeline fixtures without OCR.
-	$(UV_RUN) python -m mp_review corpus packages/mp-review/tests/fixtures/corpus.json
-
-plugin-build: ## Build the Claude plugin ZIP with a locked deterministic runtime.
-	$(UV_RUN) python scripts/build_claude_plugin.py
 PY_SRC := src/metesparser
 PY_TESTS := tests
+PY_LINT_PATHS := $(PY_SRC) $(PY_TESTS) packages scripts plugins/metesparser/scripts plugins/metesparser/tests
+PACKAGE_SRC_PATHS := packages/mp-models/src packages/mp-bearing/src packages/mp-ocr/src packages/mp-parse/src packages/mp-verify/src packages/mp-export/src packages/mp-review/src
 
 # Cache/tooling behavior.
 UV_CACHE_DIR ?= $(CURDIR)/.uv-cache
@@ -32,9 +26,15 @@ DOCTOR_REQUIRE_CONNECTIVITY ?= 0
 .DEFAULT_GOAL := help
 
 # Targets that are not real files.
-.PHONY: all help install install-minimal install-dev install-offline check-tools lockfile-check quality ci distclean test-fast lint lint-fix format format-check check test test-cov clean run-extract run-verify dev-setup pre-commit doctor type
+.PHONY: all help install install-minimal install-dev install-offline check-tools lockfile-check quality ci distclean test-fast lint lint-fix format format-check check test test-packages test-plugin test-cov clean run-extract run-verify dev-setup pre-commit doctor type review-corpus plugin-build
 
 all: help
+
+review-corpus: ## Run reviewed deterministic pipeline fixtures without OCR.
+	$(UV_RUN) python -m mp_review corpus packages/mp-review/tests/fixtures/corpus.json
+
+plugin-build: ## Build the Claude plugin ZIP with a locked deterministic runtime.
+	$(UV_RUN) python scripts/build_claude_plugin.py
 
 help: ## Show available development commands and their usage.
 	@echo "Metes Parser - Development Commands"
@@ -56,18 +56,22 @@ help: ## Show available development commands and their usage.
 	@echo "  make format        Format code with ruff"
 	@echo "  make format-check  Check formatter compliance"
 	@echo "  make type          Run mypy type checks"
-	@echo "  make check         Run all checks (lint + format + type + test)"
+	@echo "  make check         Run all checks (lint + format + type + test + test-packages + test-plugin)"
 	@echo "  make quality       Run lint + formatting checks"
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test          Run pytest test suite"
+	@echo "  make test-packages Run all per-package test suites"
+	@echo "  make test-plugin   Run Claude plugin launcher tests"
 	@echo "  make test-fast     Run tests with fail-fast behavior"
 	@echo "  make test-cov      Run tests with coverage report"
+	@echo "  make review-corpus Run reviewed deterministic pipeline fixtures without OCR"
 	@echo "  make ci            Run the CI-style full check workflow"
 	@echo ""
 	@echo "Utility:"
 	@echo "  make clean         Remove build artifacts and cache"
-	@echo "  make distclean      Remove environment and ephemeral caches"
+	@echo "  make distclean     Remove environment and ephemeral caches"
+	@echo "  make plugin-build  Build the Claude plugin ZIP"
 	@echo "  make run-extract   Extract from sample PDF (requires PDF_FILE var)"
 	@echo "  make run-verify    Verify sample CSV (requires CSV_FILE var)"
 	@echo "  make pre-commit    Run lint-fix, format, and tests"
@@ -121,7 +125,7 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 	@echo "Verifying toolchain access..."
 	@$(UV_RUN) python --version
 	@missing_tools=0; \
-	for dep in ruff pytest; do \
+	for dep in ruff pytest mypy; do \
 		$(UV_RUN) "$${dep}" --version >/dev/null 2>&1 || { echo "ERROR: missing dependency in .venv: $${dep}"; missing_tools=1; }; \
 	done; \
 	if [ "$$missing_tools" -ne 0 ]; then \
@@ -208,39 +212,53 @@ lockfile-check: ## Ensure uv.lock is present and in sync with pyproject.toml.
 
 lint: ## Run static analysis with Ruff.
 	@echo "Running ruff linter..."
-	$(UV_RUN) ruff check $(PY_SRC) $(PY_TESTS)
+	$(UV_RUN) ruff check $(PY_LINT_PATHS)
 	@echo "✓ Linting complete"
 
 format: ## Format source files with Ruff.
 	@echo "Formatting code with ruff..."
-	$(UV_RUN) ruff format $(PY_SRC) $(PY_TESTS)
+	$(UV_RUN) ruff format $(PY_LINT_PATHS)
 	@echo "✓ Formatting complete"
 
 lint-fix: ## Auto-fix Ruff-detected issues.
 	@echo "Running ruff linter with auto-fix..."
-	$(UV_RUN) ruff check $(PY_SRC) $(PY_TESTS) --fix
+	$(UV_RUN) ruff check $(PY_LINT_PATHS) --fix
 	@echo "✓ Auto-fix complete"
 
 format-check: ## Verify formatting without making changes.
 	@echo "Checking code formatting..."
-	$(UV_RUN) ruff format $(PY_SRC) $(PY_TESTS) --check
+	$(UV_RUN) ruff format $(PY_LINT_PATHS) --check
 	@echo "✓ All checks passed"
 
 quality: lint format-check ## Run lint + format checks.
 	@echo "✓ Quality checks complete"
 
-check: lint format type test ## Run lint, format, type checks, and tests.
+check: lint format type test test-packages test-plugin ## Run lint, format, type checks, and all tests.
 	@echo "✓ All checks passed"
 
 type: ## Run mypy static type checking.
 	@echo "Running mypy checks..."
 	$(UV_RUN) mypy src/metesparser
+	$(UV_RUN) mypy $(PACKAGE_SRC_PATHS)
 	@echo "✓ Type checks complete"
 
 test: ## Run full test suite.
 	@echo "Running test suite..."
 	$(UV_RUN) pytest
 	@echo "✓ Tests complete"
+
+test-packages: ## Run all per-package test suites.
+	@echo "Running per-package test suites..."
+	@for pkg in packages/mp-*/tests/; do \
+		echo "Testing $$pkg..."; \
+		$(UV_RUN) pytest "$$pkg" --no-cov || exit 1; \
+	done
+	@echo "✓ Package tests complete"
+
+test-plugin: ## Run Claude plugin launcher tests.
+	@echo "Running plugin tests..."
+	$(UV_RUN) pytest plugins/metesparser/tests/ --no-cov
+	@echo "✓ Plugin tests complete"
 
 test-fast: ## Run tests with fail-fast behavior.
 	@echo "Running tests with fail-fast..."
@@ -252,7 +270,7 @@ test-cov: ## Run tests with HTML and terminal coverage reports.
 	$(UV_RUN) pytest --cov=$(PY_SRC) --cov-report=html --cov-report=term-missing
 	@echo "✓ Coverage report generated in htmlcov/"
 
-ci: clean check-tools install quality test-cov ## CI-oriented end-to-end validation lane.
+ci: check-tools install quality test-cov test-packages test-plugin ## CI-oriented end-to-end validation lane.
 	@echo "✓ CI checks complete"
 
 clean: ## Remove generated artifacts and caches.
@@ -263,6 +281,7 @@ clean: ## Remove generated artifacts and caches.
 	rm -rf *.egg-info
 	rm -rf .pytest_cache/
 	rm -rf .ruff_cache/
+	rm -rf .mypy_cache/
 	rm -rf htmlcov/
 	rm -rf .coverage
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true

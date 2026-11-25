@@ -38,7 +38,7 @@ system_prompt: |
      - "5outh" → "South", "NOrth" → "North"
      - "0" mistaken for degree symbol → correct context
      - "1" vs "l" in context
-     - "DECREES" → "DEGREES" (common OCR misread)
+     - "DECREES" → ° (common OCR misread for "DEGREES", normalized to degree symbol)
 
   5. Line Structure:
      - Merge hyphenated line breaks
@@ -96,7 +96,7 @@ user_prompt_template: |
   2. Handle space-separated DMS: "26 deg. 00 41" → "26°00'41\""
      - When numbers follow "deg." without explicit ' or " symbols, treat them as minutes and seconds
   3. Convert spelled-out cardinal directions to abbreviated form (North → N, etc.)
-  4. Fix obvious OCR errors in cardinal directions (e.g., "DECREES" → degrees)
+  4. Fix obvious OCR errors in cardinal directions and DMS units (e.g., "5outh" → "S", "NOrth" → "N", "DECREES" → °)
   5. Merge line-wrapped sentences so each course is continuous
   6. Preserve dual-notation parentheticals: "(recorded as S 26°03'00\" E)" stays intact
   7. Verify all numbers remain unchanged — do NOT "correct" any bearing values
@@ -118,10 +118,10 @@ user_prompt_template: |
   4. North 56 degrees 40 minutes 00 seconds East along Southwesterly line of Pennbrook Drive, 125 feet to the beginning."
 
   After:
-  "1. S 33°20'00" E along southwesterly line of Concord Drive, 60 feet to a point;
+  "1. S 33°20'00" E along Southwesterly line of Concord Drive, 60 feet to a point;
   2. S 56°40'00" W along said division line 125 feet to corner;
-  3. N 33°20'00" W along said Lot 50, 60 feet to southwesterly line;
-  4. N 56°40'00" E along southwesterly line of Pennbrook Drive, 125 feet to the beginning."
+  3. N 33°20'00" W along said Lot 50, 60 feet to Southwesterly line;
+  4. N 56°40'00" E along Southwesterly line of Pennbrook Drive, 125 feet to the beginning."
 
   NOTE: Each numbered call (1., 2., 3., 4.) remains on its own line with proper formatting.
   </example_2_numbered_calls>

@@ -60,9 +60,7 @@ class RunMetadata(_Model):
 class LLMStageRecord(_Model):
     """Rendered prompt and response evidence for one audited LLM call."""
 
-    model_config = ConfigDict(
-        extra="forbid", frozen=True, str_strip_whitespace=False, validate_assignment=True
-    )
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=False)
 
     stage: str = Field(..., description="Pipeline prompt stage name")
     prompt: str = Field(..., description="Fully rendered prompt sent to the provider")

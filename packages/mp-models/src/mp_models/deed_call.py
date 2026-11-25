@@ -153,7 +153,7 @@ class DeedCall(_Model):
     )
     curve_type: CurveType | None = Field(
         default=None,
-        description="Type of curve: simple, compound, or reverse (None for non-curves)",
+        description="Type of curve: simple, compound, reverse, or spiral (None for non-curves)",
     )
     quality: Literal["high", "medium", "low"] | None = Field(
         default=None,
@@ -213,8 +213,10 @@ class DeedCall(_Model):
     def _normalize_bearing_azimuth(cls, value: float | int | str | None) -> float | None:
         if value is None:
             return None
-        azimuth = float(value)
-        return azimuth % 360.0
+        if isinstance(value, bool):
+            raise ValueError("bearing_azimuth_deg_from_north must be numeric, not boolean")
+        az = float(value) % 360.0
+        return 0.0 if az == 360.0 else az
 
     @field_validator("radius_ft", mode="before")
     @classmethod
@@ -222,6 +224,8 @@ class DeedCall(_Model):
         """Ensure radius is numeric and non-zero."""
         if value is None:
             return None
+        if isinstance(value, bool):
+            raise ValueError("radius_ft must be numeric, not boolean")
         radius = float(value)
         if radius == 0:
             raise ValueError("radius_ft must be non-zero")
@@ -249,9 +253,15 @@ class DeedCall(_Model):
         has_delta = self.delta_deg is not None
         has_arc = self.arc_length_ft is not None
         has_chord = self.chord_length_ft is not None
+        has_curve_metadata = (
+            self.non_tangent
+            or self.radial_bearing is not None
+            or self.curve_type is not None
+            or self.chord_bearing is not None
+        )
         has_curve_measure = has_radius or has_delta or has_arc or has_chord
 
-        if not has_curve_measure and not has_curve_direction:
+        if not has_curve_measure and not has_curve_direction and not has_curve_metadata:
             return self
 
         if not has_curve_direction:
@@ -266,7 +276,7 @@ class DeedCall(_Model):
 
     def is_curve(self) -> bool:
         """Check if this call represents a curve."""
-        return self.curve_dir is not None or self.radius_ft is not None
+        return self.curve_dir is not None
 
     def is_complete_bearing(self) -> bool:
         """Check if bearing is fully specified (has azimuth)."""

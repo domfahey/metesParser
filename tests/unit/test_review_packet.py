@@ -160,6 +160,14 @@ class TestLoadGroundTruth:
         with pytest.raises(ValueError, match="Missing required"):
             load_ground_truth(gt_file)
 
+    def test_raises_on_non_object_json(self, tmp_path: Path) -> None:
+        """Raise ValueError when JSON root is not an object."""
+        gt_file = tmp_path / "list.ground_truth.json"
+        gt_file.write_text(json.dumps([1, 2, 3]))
+
+        with pytest.raises(ValueError, match="object"):
+            load_ground_truth(gt_file)
+
 
 class TestBuildMetadataSection:
     """Tests for build_metadata_section()."""
@@ -199,6 +207,14 @@ class TestBuildMetadataSection:
         """Works when parcel_shape/dimensions are absent."""
         html = build_metadata_section(CARDINAL_ONLY_GT, "test.pdf")
         assert "38 Birchall Drive" in html
+
+    def test_null_address_uses_unknown_address(self) -> None:
+        """Null address falls back to 'Unknown Address' in metadata and HTML title."""
+        gt = {**SIMPLE_GT, "deed_info": {**SIMPLE_GT["deed_info"], "address": None}}
+        meta_html = build_metadata_section(gt, "test.pdf")
+        full_html = generate_review_html(gt, "test.pdf")
+        assert "Unknown Address" in meta_html
+        assert "<title>Review Packet &mdash; Unknown Address</title>" in full_html
 
 
 # Fixture with curve data for call table tests
@@ -346,6 +362,14 @@ class TestBuildClosureSection:
         """Output shows FAIL for unsuccessful closure."""
         html = build_closure_section(CARDINAL_ONLY_GT)
         assert "FAIL" in html
+
+    def test_closure_passed_none_renders_na(self) -> None:
+        """Null closure_passed renders N/A with class 'na' instead of FAIL."""
+        gt = {**SIMPLE_GT, "expected_closure": {"closure_passed": None, "misclosure_ft": None}}
+        html = build_closure_section(gt)
+        assert "class='na'" in html
+        assert ">N/A<" in html
+        assert "FAIL" not in html
 
     def test_handles_null_misclosure(self) -> None:
         """Handles null misclosure (cardinal-only deed) gracefully."""
@@ -594,6 +618,79 @@ class TestGenerateTraversePlot:
         assert "<script>" not in svg
         assert "&lt;script&gt;" in svg
 
+    def test_excludes_tie_in_and_exception_calls_from_polygon(self) -> None:
+        """Tie-in and exception calls are excluded so main boundary closes properly."""
+        gt = {
+            **RECTANGLE_GT,
+            "expected_calls": [
+                {
+                    "course": 0,
+                    "bearing_azimuth_deg_from_north": 0.0,
+                    "distance_ft": 50.0,
+                    "is_tie_in": True,
+                },
+                *RECTANGLE_GT["expected_calls"],
+                {
+                    "course": 99,
+                    "bearing_azimuth_deg_from_north": 90.0,
+                    "distance_ft": 10.0,
+                    "is_exception": True,
+                },
+            ],
+        }
+        svg = generate_traverse_plot(gt)
+        path = next(line for line in svg.splitlines() if "<path " in line)
+        assert " Z'" in path
+        assert "fill='#e8f4f8'" in path
+        assert "#0 " not in svg
+        assert "#99 " not in svg
+
+    def test_curved_call_with_chord_bearing_closes_properly(self) -> None:
+        """Curved call with chord_bearing uses chord endpoint, not arc along tangent."""
+        gt = {
+            **SIMPLE_GT,
+            "expected_calls": [
+                {"course": 1, "bearing_azimuth_deg_from_north": 0.0, "distance_ft": 100.0},
+                {
+                    "course": 2,
+                    "curve_dir": "right",
+                    "radius_ft": 50.0,
+                    "delta_deg": 180.0,
+                    "arc_length_ft": 157.08,
+                    "chord_bearing": "N 90° E",
+                    "bearing_azimuth_deg_from_north": None,
+                    "distance_ft": None,
+                },
+                {"course": 3, "bearing_azimuth_deg_from_north": 180.0, "distance_ft": 100.0},
+                {"course": 4, "bearing_azimuth_deg_from_north": 270.0, "distance_ft": 100.0},
+            ],
+        }
+        svg = generate_traverse_plot(gt)
+        path = next(line for line in svg.splitlines() if "<path " in line)
+        assert " Z'" in path
+        assert "fill='#e8f4f8'" in path
+
+    def test_curved_call_without_chord_bearing_uses_compute_curve_endpoint(self) -> None:
+        """Curved call without chord_bearing computes endpoint via BearingConverter."""
+        gt = {
+            **SIMPLE_GT,
+            "expected_calls": [
+                {
+                    "course": 1,
+                    "curve_dir": "right",
+                    "radius_ft": 50.0,
+                    "arc_length_ft": 50.0 * 3.141592653589793,
+                    "bearing_azimuth_deg_from_north": 0.0,
+                    "distance_ft": None,
+                },
+                {"course": 2, "bearing_azimuth_deg_from_north": 270.0, "distance_ft": 100.0},
+            ],
+        }
+        svg = generate_traverse_plot(gt)
+        path = next(line for line in svg.splitlines() if "<path " in line)
+        assert " Z'" in path
+        assert "fill='#e8f4f8'" in path
+
 
 class TestGenerateReviewHtml:
     """Tests for generate_review_html()."""
@@ -649,6 +746,11 @@ class TestGenerateReviewHtml:
         html = generate_review_html(SIMPLE_GT, "test.pdf")
         assert "<title>" in html
         assert "18 Pennbrook Drive" in html
+
+    def test_css_wraps_notes_column(self) -> None:
+        """Notes column (13th td) is included in wrapping CSS rule."""
+        html = generate_review_html(SIMPLE_GT, "test.pdf")
+        assert ".call-table td:nth-child(13)" in html
 
 
 class TestGenerateAllPackets:
@@ -719,3 +821,15 @@ class TestGenerateAllPackets:
         paths = generate_all_packets(src, out)
 
         assert len(paths) == 1
+
+    def test_uses_removesuffix_when_ground_truth_appears_in_stem(self, tmp_path: Path) -> None:
+        """Only the trailing .ground_truth.json suffix is stripped."""
+        src = tmp_path / "deeds"
+        src.mkdir()
+        (src / "sample.ground_truth.deed.ground_truth.json").write_text(json.dumps(SIMPLE_GT))
+        out = tmp_path / "packets"
+
+        paths = generate_all_packets(src, out)
+        assert len(paths) == 1
+        assert paths[0].name == "sample.ground_truth.deed_review.html"
+        assert "sample.ground_truth.deed.pdf" in paths[0].read_text()

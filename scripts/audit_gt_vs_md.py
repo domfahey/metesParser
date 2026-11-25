@@ -363,6 +363,18 @@ def audit_deed(pdf_base: str) -> dict[str, object]:
     return {"name": pdf_base, "status": status, "issues": issues, "n_gt": n_gt, "n_md": n_md}
 
 
+def summarize_by_property(results: list[dict]) -> dict[str, dict[str, int]]:
+    """Aggregate audit results per property name (handling PASS, FAIL, and SKIP)."""
+    properties: dict[str, dict[str, int]] = {}
+    for r in results:
+        parts = r["name"].split(" - Deed Image")
+        prop = parts[0] if parts else r["name"]
+        properties.setdefault(prop, {"pass": 0, "fail": 0, "skip": 0, "total": 0})
+        properties[prop]["total"] += 1
+        properties[prop][r["status"].lower()] += 1
+    return properties
+
+
 def main() -> None:
     pdf_files = sorted(SAMPLE_DIR.glob("*.pdf"))
     print(f"Auditing {len(pdf_files)} deeds: GT vs Markdown\n")
@@ -417,20 +429,15 @@ def main() -> None:
 
     # Property summary
     print("\n--- PROPERTY SUMMARY ---")
-    properties = {}
-    for r in results:
-        parts = r["name"].split(" - Deed Image")
-        prop = parts[0] if parts else r["name"]
-        properties.setdefault(prop, {"pass": 0, "fail": 0, "total": 0})
-        properties[prop]["total"] += 1
-        properties[prop][r["status"].lower()] += 1
+    properties = summarize_by_property(results)
 
     for prop, counts in sorted(properties.items()):
         p = counts.get("pass", 0)
         t = counts["total"]
         f = counts.get("fail", 0)
+        s = counts.get("skip", 0)
         pct = p / t * 100 if t > 0 else 0
-        print(f"  {prop}: {p}/{t} pass ({pct:.0f}%) | {f} fail")
+        print(f"  {prop}: {p}/{t} pass ({pct:.0f}%) | {f} fail | {s} skip")
 
 
 if __name__ == "__main__":

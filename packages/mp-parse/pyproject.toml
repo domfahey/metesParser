@@ -6,6 +6,7 @@ description = "Rule-based parsing for metes and bounds legal descriptions"
 dependencies = [
     "mp-models>=1.0.0",
     "mp-bearing>=1.0.0",
+    "pydantic>=2.10.0",
     "structlog>=24.4.0",
 ]
 

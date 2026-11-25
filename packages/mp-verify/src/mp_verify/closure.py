@@ -33,6 +33,7 @@ from mp_models import (
 )
 
 from .checks import (
+    check_area_reasonableness,
     check_bearing_reversals,
     check_curve_consistency,
     check_distance_reasonableness,
@@ -78,7 +79,7 @@ def compute_traverse(
                 if delta_deg is None and call.arc_length_ft is not None and call.radius_ft > 0.0:
                     delta_deg = math.degrees(call.arc_length_ft / call.radius_ft)
 
-                if delta_deg is not None and abs(delta_deg) > 1e-9:
+                if delta_deg is not None and 1e-9 < delta_deg <= 360.0:
                     if call.chord_bearing is not None:
                         chord_azimuth = bearing_to_azimuth(call.chord_bearing)
                         if chord_azimuth is None:
@@ -179,7 +180,10 @@ def calculate_perimeter(calls: list[DeedCall]) -> float:
     return perimeter
 
 
-def _calculate_exception_area(calls: list[DeedCall]) -> float:
+def _calculate_exception_area(
+    calls: list[DeedCall],
+    closure_tolerance_ft: float = CLOSURE_TOLERANCE_FT,
+) -> float:
     """Sum independently closed exception loops without mixing their winding.
 
     The flat call API has no tract identifiers. A return to the local origin
@@ -198,8 +202,11 @@ def _calculate_exception_area(calls: list[DeedCall]) -> float:
         points.extend(compute_traverse([call], start_point=points[-1])[1:])
         pending.append(call)
         misclosure = math.hypot(points[-1].x, points[-1].y)
-        if misclosure < CLOSURE_TOLERANCE_FT:
-            intersections = check_straight_boundary_intersections(pending, points)
+        has_curve = any(c.is_curve() for c in pending)
+        if (len(pending) >= 3 or has_curve) and misclosure < closure_tolerance_ft:
+            intersections = check_straight_boundary_intersections(
+                pending, points, closure_tolerance_ft=closure_tolerance_ft
+            )
             if intersections:
                 raise ValueError(
                     f"Exception tract self-intersection; net area unavailable: {intersections[0]}"
@@ -229,7 +236,11 @@ def verify_tract(
     audit_context: AuditContext | None = None,
 ) -> ClosureResult:
     """Check one independent tract using every standard verification guardrail."""
-    boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
+    non_tie_in = [call for call in calls if not call.is_tie_in]
+    if non_tie_in and all(call.is_exception for call in non_tie_in):
+        boundary = [call.model_copy(update={"is_exception": False}) for call in calls]
+    else:
+        boundary = calls
     return verify_closure(
         boundary,
         stated_area_sq_ft=stated_area_sq_ft,
@@ -286,8 +297,6 @@ def verify_closure(
         list[ClosureResult] when tracts is provided (one per tract).
     """
     if tracts is not None:
-        if audit_context is not None:
-            logger.warning("Audit trail recording not yet implemented for per-tract verification")
         results: list[ClosureResult] = []
         for tract in tracts:
             result = verify_tract(
@@ -296,6 +305,56 @@ def verify_closure(
                 closure_tolerance_ft=closure_tolerance_ft,
             )
             results.append(result)
+
+        multi_tract_discrepancies: list[str] = []
+        if double_entry_calls is not None:
+            baseline_calls = [c for t in tracts for c in t.calls] if tracts else calls
+            multi_tract_discrepancies = compare_double_entry(baseline_calls, double_entry_calls)
+            if multi_tract_discrepancies:
+                de_warnings = [
+                    f"Double-entry discrepancy: {discrepancy}"
+                    for discrepancy in multi_tract_discrepancies
+                ]
+                updated_results: list[ClosureResult] = []
+                for tract, result in zip(tracts, results, strict=True):
+                    updated = result.model_copy(
+                        update={"warnings": [*result.warnings, *de_warnings]}
+                    )
+                    updated_confidence = (
+                        0.0
+                        if updated.confidence_score == 0.0
+                        else calculate_confidence_score(updated, tract.calls)
+                    )
+                    updated_results.append(
+                        updated.model_copy(update={"confidence_score": updated_confidence})
+                    )
+                results = updated_results
+
+        if audit_context is not None:
+            if double_entry_calls is not None:
+                de_check = CheckResult(
+                    name="double_entry",
+                    passed=(len(multi_tract_discrepancies) == 0),
+                    detail=(
+                        f"{len(multi_tract_discrepancies)} discrepancy(ies) detected"
+                        if multi_tract_discrepancies
+                        else "double-entry calls match"
+                    ),
+                    inputs={},
+                )
+                if audit_context.verification_audit is None:
+                    audit_context.verification_audit = VerificationAudit(
+                        checks=[de_check],
+                        closure_summary={},
+                    )
+                else:
+                    audit_context.verification_audit = audit_context.verification_audit.model_copy(
+                        update={"checks": [*audit_context.verification_audit.checks, de_check]}
+                    )
+            else:
+                logger.warning(
+                    "Audit trail recording not yet implemented for per-tract verification"
+                )
         return results
 
     tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
@@ -331,12 +390,23 @@ def verify_closure(
                 "calculating exception area to subtract"
             )
             try:
-                exception_area_sq_ft = _calculate_exception_area(exception_calls)
+                exception_area_sq_ft = _calculate_exception_area(
+                    exception_calls, closure_tolerance_ft=tolerance
+                )
             except ValueError as e:
                 warnings.append(f"Cannot calculate exception area: {e}")
                 exception_area_available = False
 
-        area_sq_ft = main_area_sq_ft - exception_area_sq_ft if exception_area_available else 0.0
+        if not exception_area_available:
+            area_sq_ft = 0.0
+        elif exception_area_sq_ft > main_area_sq_ft:
+            warnings.append(
+                f"Exception area ({exception_area_sq_ft:.2f} sq ft) exceeds main tract area "
+                f"({main_area_sq_ft:.2f} sq ft); clamping net area to 0.0 sq ft"
+            )
+            area_sq_ft = 0.0
+        else:
+            area_sq_ft = main_area_sq_ft - exception_area_sq_ft
         area_acres = area_sq_ft / 43560.0
     except ValueError as e:
         area_sq_ft = 0.0
@@ -361,7 +431,9 @@ def verify_closure(
     parallel_warnings = check_parallelism(main_calls)
     warnings.extend(parallel_warnings)
 
-    intersection_warnings = check_straight_boundary_intersections(main_calls, points)
+    intersection_warnings = check_straight_boundary_intersections(
+        main_calls, points, closure_tolerance_ft=tolerance
+    )
     warnings.extend(intersection_warnings)
 
     reversal_warnings = check_bearing_reversals(main_calls)
@@ -386,17 +458,15 @@ def verify_closure(
             f"(courses {course_nums}) have vague direction without precise bearing"
         )
 
+    double_entry_discrepancies: list[str] = []
     if double_entry_calls is not None:
-        discrepancies = compare_double_entry(calls, double_entry_calls)
-        warnings.extend(f"Double-entry discrepancy: {discrepancy}" for discrepancy in discrepancies)
+        double_entry_discrepancies = compare_double_entry(calls, double_entry_calls)
+        warnings.extend(
+            f"Double-entry discrepancy: {discrepancy}" for discrepancy in double_entry_discrepancies
+        )
 
-    if stated_area_sq_ft > 0:
-        area_diff_pct = abs(area_sq_ft - stated_area_sq_ft) / stated_area_sq_ft * 100
-        if area_diff_pct > 5.0:
-            warnings.append(
-                f"Computed area differs from stated by {area_diff_pct:.1f}% "
-                f"(computed: {area_sq_ft:.1f} sq ft, stated: {stated_area_sq_ft:.1f} sq ft)"
-            )
+    area_warnings = check_area_reasonableness(area_sq_ft, stated_area_sq_ft)
+    warnings.extend(area_warnings)
 
     incomplete = [c for c in main_calls if not c.is_complete_bearing()]
     if incomplete:
@@ -423,13 +493,35 @@ def verify_closure(
         curve_consistency_passed=curve_consistency_passed_val,
         warnings=warnings,
         points=points,
-        precision_ratio=misclosure / perimeter if perimeter else None,
+        precision_ratio=(
+            misclosure / perimeter if (has_computable_traverse and perimeter > 0) else None
+        ),
     )
 
-    confidence = calculate_confidence_score(closure_result, calls)
+    confidence = (
+        0.0
+        if (not has_computable_traverse or perimeter <= 0)
+        else calculate_confidence_score(
+            closure_result,
+            calls,
+            self_intersection_passed=not intersection_warnings,
+        )
+    )
     closure_result = closure_result.model_copy(update={"confidence_score": confidence})
 
     if audit_context is not None:
+        angles_skipped = len(main_calls) < 3 or any(
+            not c.is_complete_bearing() or c.is_curve() for c in main_calls
+        )
+        angle_detail = (
+            "skipped (curves present, incomplete bearings, or fewer than 3 courses)"
+            if angles_skipped
+            else (
+                "all-straight polygon angles sum correctly"
+                if angle_check_passed
+                else "interior angle sum failed"
+            )
+        )
         check_results = [
             CheckResult(
                 name="traverse_closure",
@@ -448,10 +540,16 @@ def verify_closure(
             CheckResult(
                 name="interior_angles",
                 passed=angle_check_passed,
+                detail=angle_detail,
+                inputs={},
+            ),
+            CheckResult(
+                name="parallelism",
+                passed=(len(parallel_warnings) == 0),
                 detail=(
-                    "all-straight polygon angles sum correctly"
-                    if angle_check_passed
-                    else "skipped (curves present or incomplete bearings)"
+                    f"{len(parallel_warnings)} issue(s) detected"
+                    if parallel_warnings
+                    else "no parallelism issues"
                 ),
                 inputs={},
             ),
@@ -496,8 +594,39 @@ def verify_closure(
             ),
         ]
 
+        if stated_area_sq_ft > 0:
+            check_results.append(
+                CheckResult(
+                    name="area_reasonableness",
+                    passed=(len(area_warnings) == 0),
+                    detail=(
+                        area_warnings[0]
+                        if area_warnings
+                        else f"computed area within 5.0% of stated {stated_area_sq_ft:.1f} sq ft"
+                    ),
+                    inputs={
+                        "computed_area_sq_ft": area_sq_ft,
+                        "stated_area_sq_ft": stated_area_sq_ft,
+                    },
+                )
+            )
+
+        if double_entry_calls is not None:
+            check_results.append(
+                CheckResult(
+                    name="double_entry",
+                    passed=(len(double_entry_discrepancies) == 0),
+                    detail=(
+                        f"{len(double_entry_discrepancies)} discrepancy(ies) detected"
+                        if double_entry_discrepancies
+                        else "double-entry calls match"
+                    ),
+                    inputs={},
+                )
+            )
+
         precision_ratio_str: str
-        if perimeter and (misclosure / perimeter) > 1e-10:
+        if has_computable_traverse and perimeter > 0 and (misclosure / perimeter) > 1e-10:
             precision_ratio_str = f"1:{round(1.0 / (misclosure / perimeter))}"
         else:
             precision_ratio_str = "N/A"

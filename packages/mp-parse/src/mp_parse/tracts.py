@@ -14,29 +14,27 @@ import structlog
 from mp_models import TractType
 
 from .metadata import split_exception_clauses
+from .parcels import _HEADER_DELIMITERS, is_adjoining_reference
 
 logger = structlog.get_logger(__name__)
 
-# Negative lookahead for common words that follow TRACT/PARCEL in deed preambles
-# (e.g., "TRACT OF LAND", "PARCEL SITUATE IN") to prevent false positives.
-_COMMON_WORDS = (
-    r"(?!OF\b|OR\b|AND\b|IN\b|ON\b|AT\b|TO\b|THE\b|BEING\b|LAND\b"
-    r"|SITUATE\b|IS\b|DESCRIBED\b|CONVEYED\b|KNOWN\b|LYING\b"
-    r"|HEREIN\b|SAID\b|WHICH\b|THAT\b|CONTAINING\b|BOUNDED\b)"
+_TRACT_HEADER_TERMINATOR = (
+    rf"(?:{_HEADER_DELIMITERS}"
+    r"|\.(?=\s+(?:BEGINNING|COMMENCING|POINT\s+OF\s+BEGINNING|POB)\b)"
+    r"|\s*(?=\r?\n|$)"
+    r"|(?=\s+(?:BEGINNING|COMMENCING|POINT\s+OF\s+BEGINNING|POB)\b))"
 )
 
 # TRACT #1, TRACT 1, TRACT III, TRACT A (numbers, Roman numerals, single letters)
 # [IVX]+ must precede [A-Z] so "TRACT III" matches "III" not "I".
 _TRACT_MARKER = re.compile(
-    r"\bTRACT\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[IVX]+|[A-Z])"
-    r"\s*[:.\-\u2014]?\s*",
+    rf"\bTRACT\s+(?:(?:NO\.?|#)\s*)?(\d+|[IVX]+|[A-Z])\b\s*(?:\([^)]*\)\s*)?{_TRACT_HEADER_TERMINATOR}\s*",
     re.IGNORECASE,
 )
 
-# PARCEL 1, PARCEL A (same constraints as TRACT)
+# PARCEL 1, PARCEL A (same header structure as TRACT and parcels.py)
 _PARCEL_MARKER = re.compile(
-    r"\bPARCEL\s+(?:#\s*)?" + _COMMON_WORDS + r"(\d+|[IVX]+|[A-Z])"
-    r"\s*[:.\-\u2014]?\s*",
+    rf"\bPARCEL\s+(?:(?:NO\.?|#)\s*)?(\d+|[IVX]+|[A-Z])\b\s*(?:\([^)]*\)\s*)?{_TRACT_HEADER_TERMINATOR}\s*",
     re.IGNORECASE,
 )
 
@@ -62,8 +60,12 @@ def find_tract_markers(
     """
     markers: list[tuple[int, str, str]] = []
     for m in _TRACT_MARKER.finditer(text):
+        if is_adjoining_reference(text, m.start()):
+            continue
         markers.append((m.start(), f"Tract {m.group(1)}", "tract"))
     for m in _PARCEL_MARKER.finditer(text):
+        if is_adjoining_reference(text, m.start()):
+            continue
         markers.append((m.start(), f"Parcel {m.group(1)}", "parcel"))
     markers.sort(key=lambda x: x[0])
     return markers

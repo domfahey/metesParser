@@ -11,7 +11,9 @@ import subprocess
 import tempfile
 import tomllib
 import zipfile
+from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGES = ("mp-models", "mp-bearing", "mp-parse", "mp-verify", "mp-export", "mp-review")
@@ -24,30 +26,69 @@ def run(args: list[str], *, cwd: Path) -> None:
     subprocess.run(args, cwd=cwd, env=env, check=True)
 
 
+def _parse_wheel_name_and_version(wheel: Path) -> tuple[str, str]:
+    if wheel.suffix != ".whl":
+        raise ValueError(f"Expected a .whl file, got: {wheel.name}")
+    parts = wheel.stem.split("-")
+    if len(parts) < 2 or not parts[0] or not parts[1]:
+        raise ValueError(f"Invalid wheel filename: {wheel.name}")
+    return parts[0].replace("_", "-"), parts[1]
+
+
 def runtime_project(wheels: list[Path]) -> str:
     """Pin external dependencies to the versions already reviewed in the root lock."""
+    wheel_versions: dict[str, str] = {}
+    sources: list[str] = []
+    for wheel in sorted(wheels):
+        name, version = _parse_wheel_name_and_version(wheel)
+        if name in wheel_versions:
+            raise ValueError(f"Duplicate wheel provided for package {name!r}")
+        wheel_versions[name] = version
+        sources.append(f'{name} = {{ path = "wheels/{wheel.name}" }}')
+
     lock = tomllib.loads((ROOT / "uv.lock").read_text())
-    indexed = {p["name"]: p for p in lock["package"]}
+    packages_by_name: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for pkg in lock.get("package", []):
+        packages_by_name[pkg["name"]].append(pkg)
+
     external: set[str] = set()
+    visited: set[str] = set()
+
+    def _resolved_version(name: str) -> str:
+        entries = packages_by_name.get(name, [])
+        if not entries:
+            raise ValueError(f"Required package {name!r} not found in uv.lock")
+        versions = sorted({str(entry["version"]) for entry in entries})
+        if len(versions) > 1:
+            raise ValueError(
+                f"Conflicting versions in uv.lock for required package {name!r}: "
+                + ", ".join(versions)
+            )
+        return versions[0]
 
     def collect(name: str) -> None:
-        if name in external:
+        if name in visited:
             return
+        visited.add(name)
+        entries = packages_by_name.get(name, [])
+        if entries:
+            _resolved_version(name)
+        elif name not in PACKAGES:
+            raise ValueError(f"Required package {name!r} not found in uv.lock")
         if name not in PACKAGES:
             external.add(name)
-        for dependency in indexed[name].get("dependencies", []):
-            collect(dependency["name"])
+        for entry in entries:
+            for dependency in entry.get("dependencies", []):
+                collect(dependency["name"])
 
     for name in PACKAGES:
-        if name in indexed:
+        if name in packages_by_name:
             collect(name)
-    dependencies = [f"{name}=={indexed[name]['version']}" for name in PACKAGES] + [
-        f"{name}=={indexed[name]['version']}" for name in sorted(external)
-    ]
-    sources = []
-    for wheel in sorted(wheels):
-        name = wheel.name.split("-", 1)[0].replace("_", "-")
-        sources.append(f'{name} = {{ path = "wheels/{wheel.name}" }}')
+
+    dependencies = [
+        f"{name}=={wheel_versions[name] if name in wheel_versions else _resolved_version(name)}"
+        for name in PACKAGES
+    ] + [f"{name}=={_resolved_version(name)}" for name in sorted(external)]
     return (
         '[project]\nname = "metesparser-plugin-runtime"\nversion = "0.1.0"\n'
         'requires-python = ">=3.11"\ndependencies = '
