@@ -66,7 +66,10 @@ def calculate_confidence_score(
 
     Weighted components:
     - Closure quality (30%): based on misclosure distance and pass/fail
-    - Verification checks (20%): angle + curve consistency
+    - Verification checks (20%): applicable geometric checks
+      (``interior_angles``, ``curve_consistency``, ``boundary_intersections``,
+      ``self_intersection``), falling back to ``angle_check_passed`` and
+      ``curve_consistency_passed`` when ``result.checks`` is empty
     - Bearing completeness (25%): ratio of calls with complete bearings
     - Call quality (15%): ratio of high-quality calls
     - Warning penalty (10%): deducted per warning

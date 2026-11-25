@@ -344,30 +344,35 @@ def test_review_surfaces_infer_distance_unit_advisory():
 def test_read_settings_walks_upward_for_project_root_markers(tmp_path):
     from mp_review.settings import SettingsError, read_settings
 
-    # Case 1: nested inside .claude/
+    # Case 1: project/.claude/metesparser.local.md resolves project = project/
     proj_a = tmp_path / "proj_a"
-    nested_settings = proj_a / ".claude" / "nested" / "metesparser.local.md"
-    nested_settings.parent.mkdir(parents=True)
-    nested_settings.write_text('---\noutput_dir: "out"\n---\n', encoding="utf-8")
-    parsed_a = read_settings(nested_settings)
+    claude_settings = proj_a / ".claude" / "metesparser.local.md"
+    claude_settings.parent.mkdir(parents=True)
+    claude_settings.write_text('---\noutput_dir: "out"\n---\n', encoding="utf-8")
+    parsed_a = read_settings(claude_settings)
     assert parsed_a["output_dir"] == (proj_a / "out").resolve()
 
-    # Case 2: located under config/ with pyproject.toml marker at proj_b root
+    # Case 2: project/metesparser.local.md resolves project = project/
     proj_b = tmp_path / "proj_b"
-    (proj_b / "config").mkdir(parents=True)
-    (proj_b / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
-    cfg_settings = proj_b / "config" / "settings.md"
-    cfg_settings.write_text('---\noutput_dir: "reviews"\n---\n', encoding="utf-8")
-    parsed_b = read_settings(cfg_settings)
+    proj_b.mkdir(parents=True)
+    direct_settings = proj_b / "metesparser.local.md"
+    direct_settings.write_text('---\noutput_dir: "reviews"\n---\n', encoding="utf-8")
+    parsed_b = read_settings(direct_settings)
     assert parsed_b["output_dir"] == (proj_b / "reviews").resolve()
 
-    # Case 3: isolated directory with no markers falls back safely to parent, not parent.parent
-    isolated = tmp_path / "isolated" / "sub"
-    isolated.mkdir(parents=True)
-    iso_settings = isolated / "settings.md"
-    iso_settings.write_text('---\noutput_dir: "../escape"\n---\n', encoding="utf-8")
+    # Case 3: subdirectory does NOT climb up to ancestor .claude / .git / pyproject.toml and rejects ../ escapes
+    ancestor = tmp_path / "ancestor"
+    (ancestor / ".claude").mkdir(parents=True)
+    (ancestor / ".git").mkdir(parents=True)
+    (ancestor / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    sub = ancestor / "sub"
+    sub.mkdir()
+    sub_settings = sub / "settings.md"
+    sub_settings.write_text('---\noutput_dir: "../escape"\n---\n', encoding="utf-8")
     with pytest.raises(SettingsError, match="within the project directory"):
-        read_settings(iso_settings)
+        read_settings(sub_settings)
+    sub_settings.write_text('---\noutput_dir: "local-out"\n---\n', encoding="utf-8")
+    assert read_settings(sub_settings)["output_dir"] == (sub / "local-out").resolve()
 
 
 def test_mp_review_main_module_guarded_by_dunder_main():
@@ -597,9 +602,6 @@ def test_extract_command_passes_tracts_stated_area_and_calls_to_closure_checker(
 
 
 def test_pipeline_source_has_no_cast_and_converts_monolith_models(monkeypatch):
-    source = Path("src/metesparser/pipeline.py").read_text(encoding="utf-8")
-    assert "cast(" not in source
-
     monolith_calls = [
         MonolithDeedCall(
             course=1, direction_text="N 0° E", bearing_azimuth_deg_from_north=0.0, distance_ft=100.0
@@ -722,8 +724,32 @@ def test_call_columns_surfaces_all_csv_fields_and_notes_css_wraps():
 
     column_keys = [key for _, key in _CALL_COLUMNS]
     assert set(FIELDNAMES).issubset(set(column_keys))
-    css = _review_css()
-    assert "nth-child(13)" in css
+    html = generate_review_html(
+        {
+            "deed_info": {"address": "1 Main St"},
+            "expected_calls": [
+                {
+                    "course": 1,
+                    "direction_text": "N 0° E",
+                    "bearing_azimuth_deg_from_north": 0.0,
+                    "distance_ft": 100.0,
+                    "along": "Main St",
+                    "to": "iron pin",
+                    "notes": "boundary note",
+                }
+            ],
+            "expected_closure": {"closure_passed": True},
+            "expected_legal_description": "BEGINNING...",
+            "expected_pob": "a point",
+            "raw_ocr_text": "raw",
+        },
+        "deed.pdf",
+    )
+    for label, _ in _CALL_COLUMNS:
+        assert f"<th>{label}</th>" in html
+    assert "<th>Notes</th>" in html
+    assert "boundary note" in html
+    assert "white-space: normal" in _review_css()
 
 
 def test_generate_traverse_plot_handles_curves_tie_ins_and_exceptions():

@@ -20,6 +20,7 @@ from mp_models import (
     DeedCall,
     LegalDescription,
     RunMetadata,
+    TractType,
     is_boundary_tract,
     mark_non_boundary,
     mark_roles_review,
@@ -101,6 +102,7 @@ def _run(
             not math.isfinite(stated_area_sq_ft) or stated_area_sq_ft <= 0
         ):
             raise ValueError("Stated area must be finite and positive.")
+        pre_role_review: list[str] = []
         if kind == "text":
             prepared = prepare_text(text, audit_context=audit)
             normalized = prepared.normalized_text
@@ -110,6 +112,16 @@ def _run(
                 result["limitations"].append(
                     f"Advisory: historical or regional distance unit {prepared.inferred_distance_unit!r} "
                     "detected in source text; verify unit conversions against the source deed."
+                )
+            if prepared.invalid_stated_area:
+                result["errors"].append(
+                    {
+                        "code": "invalid_stated_area",
+                        "message": (
+                            "Stated area is non-positive and requires review: "
+                            f"{prepared.invalid_stated_area}"
+                        ),
+                    }
                 )
             if legal.poc_description and not any(c.is_tie_in for c in calls):
                 result["errors"].append(
@@ -132,6 +144,13 @@ def _run(
                 if len(boundary_tracts) > 1:
                     raise ValueError(MULTIPLE_PARCELS)
                 if legal.tracts:
+                    raw_non_easement = [
+                        c
+                        for t in legal.tracts
+                        if t.tract_type != TractType.EASEMENT
+                        for c in t.calls
+                    ]
+                    all_raw_tract_calls = [c for t in legal.tracts for c in t.calls]
                     marked_tracts = [
                         tract.model_copy(
                             update={"calls": mark_non_boundary(tract.calls, tract.tract_type)}
@@ -140,11 +159,55 @@ def _run(
                         else tract
                         for tract in legal.tracts
                     ]
+                    marked_non_easement = [
+                        c
+                        for t in marked_tracts
+                        if t.tract_type != TractType.EASEMENT
+                        for c in t.calls
+                    ]
+                    all_marked_tract_calls = [c for t in marked_tracts for c in t.calls]
+                    non_empty_boundary = [
+                        t for t in marked_tracts if is_boundary_tract(t.tract_type) and t.calls
+                    ]
+
+                    def _call_dumps(items: list[DeedCall]) -> list[dict[str, Any]]:
+                        return [c.model_dump() for c in items]
+
+                    pre_role_review = roles_need_review(legal.tracts, legal.calls)
+                    if legal.calls and not roles_need_review(legal.tracts):
+                        valid_candidates = (
+                            [raw_non_easement, marked_non_easement]
+                            if non_empty_boundary
+                            else [
+                                raw_non_easement,
+                                marked_non_easement,
+                                all_raw_tract_calls,
+                                all_marked_tract_calls,
+                            ]
+                        )
+                        supplied_dump = _call_dumps(legal.calls)
+                        if not any(supplied_dump == _call_dumps(cand) for cand in valid_candidates):
+                            raise ValueError(
+                                "JSON calls do not match tracts; supply consistent calls or tracts only."
+                            )
+
+                    if any(
+                        t.tract_type == TractType.EXCEPTION and not t.calls for t in marked_tracts
+                    ):
+                        result["errors"].append(
+                            {
+                                "code": "incomplete_exception_tract",
+                                "message": (
+                                    "Exception tract has no calls; cannot verify net parcel boundary."
+                                ),
+                            }
+                        )
+
+                    calls = marked_non_easement if non_empty_boundary else all_marked_tract_calls
                     if marked_tracts != legal.tracts:
                         legal = legal.model_copy(update={"tracts": marked_tracts})
-                calls = legal.calls or legal.all_calls
-                if legal.tracts and not boundary_tracts:
-                    calls = mark_non_boundary(calls, legal.tracts[0].tract_type)
+                else:
+                    calls = list(legal.calls)
                 tract_skips = [skip for tract in legal.tracts for skip in tract.skipped_courses]
                 if tract_skips:
                     audit.skipped_courses.extend(tract_skips)
@@ -153,11 +216,27 @@ def _run(
                     legal_updates["calls"] = calls
                 if (
                     stated_area_sq_ft is None
-                    and legal.stated_area_sq_ft is None
                     and len(boundary_tracts) == 1
                     and boundary_tracts[0].stated_area_sq_ft is not None
                 ):
-                    legal_updates["stated_area_sq_ft"] = boundary_tracts[0].stated_area_sq_ft
+                    if legal.stated_area_sq_ft is None:
+                        legal_updates["stated_area_sq_ft"] = boundary_tracts[0].stated_area_sq_ft
+                    elif not math.isclose(
+                        legal.stated_area_sq_ft,
+                        boundary_tracts[0].stated_area_sq_ft,
+                        rel_tol=1e-6,
+                        abs_tol=1e-4,
+                    ):
+                        result["errors"].append(
+                            {
+                                "code": "conflicting_stated_area",
+                                "message": (
+                                    f"Top-level stated_area_sq_ft ({legal.stated_area_sq_ft}) "
+                                    "conflicts with boundary tract stated_area_sq_ft "
+                                    f"({boundary_tracts[0].stated_area_sq_ft})."
+                                ),
+                            }
+                        )
                 if legal_updates:
                     legal = legal.model_copy(update=legal_updates)
             else:
@@ -174,7 +253,9 @@ def _run(
         # Fail closed on guessed description roles (the one gate, for every input
         # kind): flat calls of a deed with several descriptions and an inferred role,
         # or calls a blocked review marked, never reach checks_passed or export.
-        role_review = roles_need_review(legal.tracts, calls)
+        role_review = list(
+            dict.fromkeys([*pre_role_review, *roles_need_review(legal.tracts, calls)])
+        )
         if role_review:
             # Marked, every artifact written below stays blocked when re-reviewed.
             calls = mark_roles_review(calls)

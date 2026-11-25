@@ -29,11 +29,8 @@ UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, 
 
 
 def _find_project_root(settings_path: Path) -> Path:
-    """Walk upward from the settings parent looking for project-root markers."""
+    """Resolve the project directory immediately owning the settings file."""
     start = settings_path.resolve().parent
-    for candidate in (start, *start.parents):
-        if any((candidate / marker).exists() for marker in (".claude", "pyproject.toml", ".git")):
-            return candidate
     return start.parent if start.name == ".claude" else start
 
 

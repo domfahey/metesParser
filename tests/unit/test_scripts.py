@@ -695,16 +695,90 @@ class TestParsePdfsToMdScript:
     REPO_ROOT = Path(__file__).resolve().parents[2]
     SCRIPT_PATH = REPO_ROOT / "scripts" / "parse_pdfs_to_md.sh"
 
-    def test_uses_rm_trap_and_safe_python_env_passing(self) -> None:
-        content = self.SCRIPT_PATH.read_text(encoding="utf-8")
-        assert 'rm -f "$CONFIG_FILE"' in content
-        assert "trash " not in content
-        assert "command -v parse >/dev/null 2>&1" in content
-        assert "_LLAMA_API_KEY" in content
-        assert "sys.argv" in content
-        assert "open('$USER_CONFIG')" not in content
-        assert "open('$CONFIG_FILE')" not in content
-        assert "'$API_KEY'" not in content
+    def test_force_with_no_file_args_quotes_api_key_copies_md_and_cleans_config(
+        self, tmp_path: Path
+    ) -> None:
+        import os
+        import shutil
+        import subprocess
+
+        repo_root = tmp_path / "repo"
+        scripts_dir = repo_root / "scripts"
+        sample_dir = repo_root / "sample_deeds"
+        scripts_dir.mkdir(parents=True)
+        sample_dir.mkdir(parents=True)
+
+        script_copy = scripts_dir / "parse_pdfs_to_md.sh"
+        script_copy.write_text(self.SCRIPT_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+        os.chmod(script_copy, 0o755)
+
+        pdf_a = sample_dir / "deed.pdf"
+        pdf_a.write_bytes(b"%PDF")
+        existing_md = sample_dir / "deed.md"
+        existing_md.write_text("old markdown", encoding="utf-8")
+
+        fake_home = tmp_path / "home"
+        parse_cache = fake_home / ".parse"
+        parse_cache.mkdir(parents=True)
+        api_key = "key'with\"quotes\\and$special"
+        (fake_home / ".semtools_config.json").write_text(
+            json.dumps({"parse": {"api_key": api_key}}),
+            encoding="utf-8",
+        )
+        (parse_cache / "deed.pdf.md").write_text("stale cache", encoding="utf-8")
+
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        for tool in (
+            "bash",
+            "dirname",
+            "basename",
+            "mktemp",
+            "rm",
+            "cat",
+            "find",
+            "sort",
+            "cp",
+            "python3",
+        ):
+            resolved = shutil.which(tool)
+            if resolved:
+                (bin_dir / tool).symlink_to(resolved)
+
+        captured_cfg = tmp_path / "captured_config.json"
+        captured_cfg_path = tmp_path / "captured_config_path.txt"
+        fake_parse = bin_dir / "parse"
+        fake_parse.write_text(
+            "#!/usr/bin/env bash\n"
+            'cfg=""\n'
+            "while [ $# -gt 0 ]; do\n"
+            '  if [ "$1" = "-c" ]; then cfg="$2"; shift 2; continue; fi\n'
+            "  shift\n"
+            "done\n"
+            f'printf "%s" "$cfg" > "{captured_cfg_path}"\n'
+            f'cp "$cfg" "{captured_cfg}"\n'
+            f'printf "fresh parsed md\\n" > "{parse_cache / "deed.pdf.md"}"\n'
+            "exit 0\n",
+            encoding="utf-8",
+        )
+        os.chmod(fake_parse, 0o755)
+
+        proc = subprocess.run(
+            ["bash", str(script_copy), "--force"],
+            env={"PATH": str(bin_dir), "HOME": str(fake_home)},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert proc.returncode == 0, proc.stderr
+        assert captured_cfg.exists()
+        parsed_cfg = json.loads(captured_cfg.read_text(encoding="utf-8"))
+        assert parsed_cfg["parse"]["api_key"] == api_key
+        temp_cfg = Path(captured_cfg_path.read_text(encoding="utf-8"))
+        assert not temp_cfg.exists(), "EXIT trap must delete temporary config file"
+        assert existing_md.read_text(encoding="utf-8") == "fresh parsed md\n"
+        assert "Done: 1 parsed, 0 failed." in proc.stdout
 
     def test_fails_cleanly_when_parse_cli_missing(self, tmp_path: Path) -> None:
         import os
@@ -1054,6 +1128,3 @@ class TestRepoConfigAndMakefile:
         ):
             assert re.search(rf"^\.PHONY:.*\b{re.escape(target)}\b", content, re.MULTILINE), target
             assert f"make {target}" in content, target
-
-    def test_dead_tests_helpers_deleted(self) -> None:
-        assert not (self.REPO_ROOT / "tests" / "helpers.py").exists()

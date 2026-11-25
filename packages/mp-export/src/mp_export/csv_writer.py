@@ -21,6 +21,7 @@ from mp_models import (
     LegalDescription,
     SkippedCourse,
     Tract,
+    TractType,
     _Model,
     is_boundary_tract,
     non_boundary_detail,
@@ -281,6 +282,54 @@ def _single_description_skips(
     return skips
 
 
+_PASSED_DOUBLE_ENTRY_CHECK: dict[str, object] = {
+    "name": "double_entry",
+    "status": "passed",
+    "passed": True,
+    "reason": "check_passed",
+    "detail": "Independent entries match",
+    "inputs": {},
+}
+
+
+def _results_match(
+    closure_result: ClosureResult,
+    fresh_result: ClosureResult,
+    *,
+    allow_external_double_entry: bool,
+) -> bool:
+    """Return True when the supplied result matches fresh geometry verification."""
+    # Source review is an explicit human assessment, independent of fresh geometry.
+    excluded = {"source_review_status"}
+    if not {"checks", "source_review_status"} & closure_result.model_fields_set:
+        # Historical results lack structured checks and used an older heuristic score.
+        excluded.update({"checks", "confidence_score"})
+    supplied_dump = closure_result.model_dump(exclude=excluded)
+    fresh_dump = fresh_result.model_dump(exclude=excluded)
+    if supplied_dump == fresh_dump:
+        return True
+    if not allow_external_double_entry or "checks" in excluded:
+        return False
+    if {k: v for k, v in supplied_dump.items() if k != "checks"} != {
+        k: v for k, v in fresh_dump.items() if k != "checks"
+    }:
+        return False
+    supplied_checks = supplied_dump["checks"]
+    fresh_checks = fresh_dump["checks"]
+    if len(supplied_checks) != len(fresh_checks):
+        return False
+    for supplied_check, fresh_check in zip(supplied_checks, fresh_checks, strict=True):
+        if supplied_check == fresh_check:
+            continue
+        if not (
+            supplied_check == _PASSED_DOUBLE_ENTRY_CHECK
+            and fresh_check.get("name") == "double_entry"
+            and fresh_check.get("status") == "not_applicable"
+        ):
+            return False
+    return True
+
+
 def _validate_export_geometry(
     calls: list[DeedCall],
     closure_result: ClosureResult,
@@ -288,7 +337,8 @@ def _validate_export_geometry(
     *,
     independent_tract: bool = False,
     skipped_courses: list[SkippedCourse] | None = None,
-) -> list[DeedCall]:
+    double_entry_calls: list[DeedCall] | None = None,
+) -> tuple[list[DeedCall], ClosureResult]:
     """Require the supplied verification to describe the calls actually exported."""
     selected_calls = legal_desc.calls if legal_desc is not None else calls
     if legal_desc is not None and [c.model_dump() for c in calls] != [
@@ -303,7 +353,10 @@ def _validate_export_geometry(
 
     verifier = verify_tract if independent_tract else verify_closure
     fresh_result = verifier(
-        selected_calls, stated_area_sq_ft=stated_area, skipped_courses=skipped_courses
+        selected_calls,
+        stated_area_sq_ft=stated_area,
+        skipped_courses=skipped_courses,
+        double_entry_calls=double_entry_calls,
     )
     if not fresh_result.is_fully_verified():
         raise ValueError(
@@ -311,14 +364,13 @@ def _validate_export_geometry(
             f"Misclosure: {_misclosure_text(fresh_result)}, "
             f"Warnings: {len(fresh_result.warnings)}"
         )
-    # Source review is an explicit human assessment, independent of fresh geometry.
-    excluded = {"source_review_status"}
-    if not {"checks", "source_review_status"} & closure_result.model_fields_set:
-        # Historical results lack structured checks and used an older heuristic score.
-        excluded.update({"checks", "confidence_score"})
-    if closure_result.model_dump(exclude=excluded) != fresh_result.model_dump(exclude=excluded):
+    if not _results_match(
+        closure_result,
+        fresh_result,
+        allow_external_double_entry=double_entry_calls is None,
+    ):
         raise ValueError("Cannot export verified CSV: closure result does not match selected calls")
-    return selected_calls
+    return selected_calls, fresh_result
 
 
 def calls_to_csv(
@@ -501,7 +553,7 @@ def legal_description_to_csv(
             "; ".join(legal_desc.witness_trees) if legal_desc.witness_trees else None
         ),
     }
-    calls_to_csv(legal_desc.calls, output_path, metadata)
+    calls_to_csv(legal_desc.calls or legal_desc.all_calls, output_path, metadata)
 
 
 def export_verified_csv(
@@ -513,6 +565,7 @@ def export_verified_csv(
     tract_results: list[tuple[Tract, ClosureResult]] | None = None,
     audit_context: AuditContext | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
+    double_entry_calls: list[DeedCall] | None = None,
 ) -> list[Path]:
     """Export verified CSV(s).
 
@@ -532,6 +585,9 @@ def export_verified_csv(
             pass the audit context (or tracts) used for extraction.
         skipped_courses: Optional explicit skip records applied to the fresh
             re-check, in addition to those above.
+        double_entry_calls: Optional independently-entered call set to replay
+            during fresh verification (matches ``verify_closure`` ordering in
+            multi-tract mode).
 
     Returns:
         List of written file paths.
@@ -564,12 +620,31 @@ def export_verified_csv(
     if role_reasons:
         raise ValueError("Cannot export verified CSV: " + roles_review_detail(role_reasons))
     if tract_results is None:
-        if known_tracts and not any(is_boundary_tract(tract.tract_type) for tract in known_tracts):
-            raise ValueError(
-                "Cannot export verified CSV: no parcel boundary tract (main or addition) "
-                "was supplied; easement and exception tracts are never eligible for "
-                f"verified export. Tracts checked: {len(known_tracts)}"
-            )
+        if known_tracts:
+            all_boundary = [tract for tract in known_tracts if is_boundary_tract(tract.tract_type)]
+            non_empty_boundary = [tract for tract in all_boundary if tract.calls]
+            if not non_empty_boundary:
+                raise ValueError(
+                    "Cannot export verified CSV: no parcel boundary tract (main or addition) "
+                    "with calls was supplied; easement and exception tracts are never eligible for "
+                    f"verified export. Tracts checked: {len(known_tracts)}"
+                )
+            if len(all_boundary) > 1:
+                raise ValueError(
+                    "Cannot export verified CSV: multiple boundary tracts require "
+                    "multi-tract verification (tract_results=)."
+                )
+            if any(tract.tract_type == TractType.EXCEPTION for tract in known_tracts):
+                raise ValueError(
+                    "Cannot export verified CSV: deeds with exception tracts require "
+                    "multi-tract verification (tract_results=)."
+                )
+            if [c.model_dump() for c in calls] != [
+                c.model_dump() for c in non_empty_boundary[0].calls
+            ]:
+                raise ValueError(
+                    "Cannot export verified CSV: calls do not match the boundary tract."
+                )
         kinds = non_boundary_marks([*calls, *(legal_desc.calls if legal_desc is not None else [])])
         if kinds:
             raise ValueError("Cannot export verified CSV: " + non_boundary_marks_detail(kinds))
@@ -601,27 +676,60 @@ def export_verified_csv(
     )
     written_paths: list[Path] = []
 
+    validated_tract_summaries: dict[int, ClosureResult] = {}
+    validated_single_summary: ClosureResult | None = None
     # Validate every selected successful result before writing any output.
     if tract_results is not None:
         labelled_skips = _labelled_skips(audit_context, skipped_courses)
-        for tract, result in tract_results:
+        if double_entry_calls is not None:
+            total_tract_calls = sum(len(tract.calls) for tract, _ in tract_results)
+            if len(double_entry_calls) != total_tract_calls:
+                raise ValueError(
+                    "Cannot export verified CSV: selected calls failed fresh verification. "
+                    f"Double-entry call count mismatch: {total_tract_calls} vs "
+                    f"{len(double_entry_calls)} (multi-tract total)"
+                )
+        offset = 0
+        for idx, (tract, result) in enumerate(tract_results):
+            tract_double_entry = (
+                double_entry_calls[offset : offset + len(tract.calls)]
+                if double_entry_calls is not None
+                else None
+            )
+            offset += len(tract.calls)
             if _exportable(tract, result):
                 selected = LegalDescription(
                     calls=tract.calls, stated_area_sq_ft=tract.stated_area_sq_ft
                 )
-                _validate_export_geometry(
+                _, fresh = _validate_export_geometry(
                     tract.calls,
                     result,
                     selected,
                     independent_tract=True,
                     skipped_courses=skips_for_tract(tract, known_tracts, labelled_skips),
+                    double_entry_calls=tract_double_entry,
+                )
+                validated_tract_summaries[idx] = (
+                    result
+                    if tract_double_entry is not None
+                    else fresh.model_copy(
+                        update={"source_review_status": result.source_review_status}
+                    )
                 )
     else:
-        _validate_export_geometry(
+        _, fresh = _validate_export_geometry(
             calls,
             closure_result,
             legal_desc,
             skipped_courses=_single_description_skips(legal_desc, audit_context, skipped_courses),
+            double_entry_calls=double_entry_calls,
+        )
+        validated_single_summary = (
+            closure_result
+            if double_entry_calls is not None
+            else fresh.model_copy(
+                update={"source_review_status": closure_result.source_review_status}
+            )
         )
 
     if tract_results is not None:
@@ -657,11 +765,11 @@ def export_verified_csv(
 
     if tract_results is not None:
         summaries: list[str] = []
-        for tract, tract_result in tract_results:
+        for idx, (tract, tract_result) in enumerate(tract_results):
             if not _exportable(tract, tract_result):
                 continue
             summaries.append(f"--- {tract.label} ---")
-            summaries.append(get_closure_summary(tract_result))
+            summaries.append(get_closure_summary(validated_tract_summaries.get(idx, tract_result)))
             summaries.append("")
         unverified = [(t, r) for t, r in tract_results if not _exportable(t, r)]
         if unverified:
@@ -675,7 +783,9 @@ def export_verified_csv(
         with open(summary_path, "w", encoding="utf-8") as f:
             f.write("\n".join(summaries))
     else:
-        summary = get_closure_summary(closure_result)
+        summary = get_closure_summary(
+            validated_single_summary if validated_single_summary is not None else closure_result
+        )
         with open(summary_path, "w", encoding="utf-8") as f:
             f.write(summary)
     logger.info("Verification summary written", path=str(summary_path))

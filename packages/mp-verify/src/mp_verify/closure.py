@@ -33,6 +33,7 @@ from mp_models import (
     SkippedCourse,
     Tract,
     VerificationAudit,
+    invalid_stated_area_notes,
     unapplied_exceptions,
 )
 
@@ -211,6 +212,7 @@ def verify_tract(
     *,
     stated_area_sq_ft: float = 0.0,
     closure_tolerance_ft: float | None = None,
+    double_entry_calls: list[DeedCall] | None = None,
     audit_context: AuditContext | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
     tract: Tract | None = None,
@@ -227,6 +229,7 @@ def verify_tract(
         calls,
         stated_area_sq_ft=stated_area_sq_ft,
         closure_tolerance_ft=closure_tolerance_ft,
+        double_entry_calls=double_entry_calls,
         audit_context=audit_context,
         skipped_courses=skipped_courses,
         tract=tract,
@@ -543,6 +546,11 @@ def _verify_single(
         for call in calls
         for wording in unapplied_exceptions(call.notes)
     )
+    warnings.extend(
+        f"Course {call.course}: invalid stated area ({detail}); requires source review"
+        for call in calls
+        for detail in invalid_stated_area_notes(call.notes)
+    )
 
     for record in bad_chords:
         warnings.append(
@@ -637,6 +645,7 @@ def _verify_single(
                         f"Exception area ({exception_area_sq_ft:.1f} sq ft) exceeds main parcel area "
                         f"({main_area_sq_ft:.1f} sq ft); net area clamped to 0.0 sq ft"
                     )
+                    area_available = False
                     area_sq_ft = 0.0
                 else:
                     area_sq_ft = main_area_sq_ft - exception_area_sq_ft

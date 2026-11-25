@@ -45,7 +45,9 @@ def _assertions(result: dict[str, Any], expected: dict[str, Any]) -> list[dict[s
     checks: list[dict[str, Any]] = []
 
     def check(name: str, actual: Any, wanted: Any, tolerance: float = 0.0) -> None:
-        if (
+        if isinstance(actual, bool) != isinstance(wanted, bool):
+            ok = False
+        elif (
             isinstance(wanted, (int, float))
             and not isinstance(wanted, bool)
             and isinstance(actual, (int, float))

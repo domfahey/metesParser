@@ -102,7 +102,7 @@ def standardize_cardinal_directions(text: str) -> str:
         Text with standardized cardinal directions
     """
     _word_start = r"\b(?:(?P<c1w>North|South|East|West)\s+|(?P<c1l>[NSEW])\s*)"
-    _word_end = r"(?P<c2>North|South|East|West|[NSEW])\b"
+    _word_end = r"(?P<c2>North|South|East|West|[NSEW])(?![A-Za-z_])"
 
     def _c1(m: Match[str]) -> str:
         return (m.group("c1w") or m.group("c1l"))[0].upper()
@@ -195,6 +195,32 @@ _AND_BEARING_RE = re.compile(
 _AND_RUNNING_RE = re.compile(r"\band\s+running\s+" + _BEARING_AHEAD, re.IGNORECASE)
 _POB_START = re.compile(r"\b(?:beginning|commencing|beg\.?)\b", re.IGNORECASE)
 _COURSE_START = re.compile(r"\b(?:thence|then|th\.?|proceeding)\b", re.IGNORECASE)
+_NON_SECONDS_PREFIX = re.compile(
+    r"\b(?:lot|block|blk|tract|parcel|plat|page|book|liber|lib|unit|apt|suite|bldg|sec|section|part|pt)\s+$",
+    re.IGNORECASE,
+)
+_TH_ABBREV_RE = re.compile(r"\bTH\.?\s", re.IGNORECASE)
+_TH_ORDINAL_DIGIT_BEFORE = re.compile(r"\d\s+$")
+_TH_SURVEY_REF_BEFORE = re.compile(
+    r"\b(?:sec|section|lot|block|blk|tract|parcel|plat|page|book|liber|lib|unit|"
+    r"part|pt|range|r|township|t|sub|div|ward|dist|claim|grant|survey|corner|cor|"
+    r"monument|mon|pin|pipe|stake|post|stone)\b\.?\s+\d+\s+$",
+    re.IGNORECASE,
+)
+_TH_COURSE_STARTER = re.compile(
+    r"(?:"
+    r"[NSEW]\s*\d"
+    r"|[NSW]\.?(?=\s|$|[,;:])"
+    r"|E\.?\s*[,;:]?\s*(?:\d|(?:ALONG|ALG|WITH|TO|BY|ON|FROM|UPON|FOR|AT|A\s+DISTANCE|DIST(?:ANCE)?)\b)"
+    r"|(?:NE|NW|SE|SW|NLY|SLY|ELY|WLY|NELY|NWLY|SELY|SWLY)\b"
+    r"|(?:(?:NORTH|SOUTH)(?:EAST|WEST)?|EAST|WEST)(?:ERLY|WARDLY|WARDS?)?\b"
+    r"|(?:ALONG|ALG|WITH|TO|BY|ON|DUE|CURV(?:E|ED|ING)?|RUNNING|PROCEEDING|FOLLOWING|CONTINUING)\b"
+    r"|A\s+(?:CURVE|LINE)\b"
+    r"|IN\s+A\b"
+    r"|AT\s+\d"
+    r")",
+    re.IGNORECASE,
+)
 
 
 def expand_assessor_abbreviations(text: str) -> str:
@@ -263,7 +289,15 @@ def expand_assessor_abbreviations(text: str) -> str:
         flags=re.IGNORECASE,
     )
     text = re.sub(
-        r"(\b[NS]\s*)(\d{1,3})\s*D\b(?:\.(?=\s*\d))?(?=\s*(?:[EW]\b|\d))",
+        r"(\b[NS]\s*)(\d{1,3})\s*D\b(?:\.(?=\s*\d))?(?=\s*(?:[EW](?![A-Za-z_])|\d))",
+        r"\1\2 degrees",
+        text,
+        flags=re.IGNORECASE,
+    )
+    # Curve/central angle with D suffix (e.g., "delta of 90D", "angle of 45D")
+    text = re.sub(
+        r"(\b(?:delta(?:\s+angle)?|(?:central|interior|deflection|chord|curve)\s+angle|angle)"
+        r"(?:\s*[:=]\s*|\s+(?:of\s+)?))(\d{1,3}(?:\.\d+)?)\s*D\b\.?",
         r"\1\2 degrees",
         text,
         flags=re.IGNORECASE,
@@ -278,30 +312,30 @@ def expand_assessor_abbreviations(text: str) -> str:
 
     # --- 3. Expand number+SEC that wasn't already caught (standalone) -------
     # Guard against PLSS/lot references like "LOT 12 SEC 4" or "1/4 SEC 10".
-    _non_seconds_prefix = re.compile(
-        r"\b(?:lot|block|blk|tract|parcel|plat|page|book|liber|lib|unit|apt|suite|bldg|sec|section|part|pt)\s+$",
-        re.IGNORECASE,
-    )
     text = re.sub(
         r"(?<![/\w])(\d{1,2}(?:\.\d+)?)\s*SEC\b\.?(?!\s*\d)",
         lambda m: (
             m.group(0)
-            if _non_seconds_prefix.search(m.string[: m.start()])
+            if _NON_SECONDS_PREFIX.search(m.string[max(0, m.start() - 32) : m.start()])
             else f"{m.group(1)} seconds"
         ),
         text,
         flags=re.IGNORECASE,
     )
 
-    # --- 4. TH / TH. → thence (word boundary, followed by whitespace) -------
-    # \s ensures words starting with TH (THE, THAT, THIS, THEREOF, THENCE) never match,
-    # while "TH E ..." / "TH A ..." still expand.
-    text = re.sub(
-        r"\bTH\.?\s",
-        "thence ",
-        text,
-        flags=re.IGNORECASE,
-    )
+    # --- 4. TH / TH. → thence (guarded against ordinals & OCR word splits) --
+    # Only expand when not an ordinal suffix ("4 TH STREET", "20 th day") and
+    # followed by a plausible course starter (never "TH E LINE", "TH AT CORNER").
+    def _expand_th(m: Match[str]) -> str:
+        before = m.string[max(0, m.start() - 32) : m.start()]
+        if _TH_ORDINAL_DIGIT_BEFORE.search(before) and not _TH_SURVEY_REF_BEFORE.search(before):
+            return m.group(0)
+        after = m.string[m.end() : m.end() + 32].lstrip()
+        if not _TH_COURSE_STARTER.match(after):
+            return m.group(0)
+        return "thence "
+
+    text = _TH_ABBREV_RE.sub(_expand_th, text)
 
     # --- 5. FT suffix → feet -----------------------------------------------
     # Handles both "175FT" (no space) and "175 FT" (with space)

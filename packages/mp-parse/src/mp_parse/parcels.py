@@ -88,7 +88,7 @@ def detect_parcel_markers(text: str) -> list[ParcelMarker]:
 
     # Lettered parcels
     for match in _LETTERED_PARCEL.finditer(text):
-        if _REFERENCE_WORD_BEFORE.search(text[: match.start()]):
+        if _REFERENCE_WORD_BEFORE.search(text[max(0, match.start() - 64) : match.start()]):
             continue
         letter = match.group(1).upper()
         markers.append(
@@ -101,7 +101,7 @@ def detect_parcel_markers(text: str) -> list[ParcelMarker]:
 
     # Numbered parcels
     for match in _NUMBERED_PARCEL.finditer(text):
-        if _REFERENCE_WORD_BEFORE.search(text[: match.start()]):
+        if _REFERENCE_WORD_BEFORE.search(text[max(0, match.start() - 64) : match.start()]):
             continue
         number = match.group(1)
         markers.append(

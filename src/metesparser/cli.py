@@ -106,9 +106,7 @@ def _aggregate_tract_closure(tract_results: list[tuple[Any, Any]]) -> Any:
         misclosure_available=misclosure_avail,
         area_available=area_avail,
         perimeter_available=perimeter_avail,
-        closure_passed=(
-            all(r.closure_passed for r in selected) and all(r.is_fully_verified() for r in selected)
-        ),
+        closure_passed=all(r.closure_passed for r in selected),
         angle_check_passed=all(r.angle_check_passed for r in selected),
         curve_consistency_passed=all(r.curve_consistency_passed for r in selected),
         confidence_score=min(confidences) if confidences else 0.0,

@@ -6,7 +6,14 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from mp_models import AuditContext, LegalDescription, RunMetadata, is_boundary_tract
+from mp_models import (
+    INVALID_STATED_AREA_NOTE_PREFIX,
+    AuditContext,
+    DeedCall,
+    LegalDescription,
+    RunMetadata,
+    is_boundary_tract,
+)
 from mp_parse import (
     enrich_calls_with_azimuths,
     extract_calls,
@@ -32,6 +39,7 @@ class PreparedText:
     multiple_tracts: bool
     unresolved_commencement: bool
     inferred_distance_unit: str | None = None
+    invalid_stated_area: str | None = None
 
 
 def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> PreparedText:
@@ -70,6 +78,27 @@ def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> Pre
     calls = mark_tie_in_calls(enrich_calls_with_azimuths(extracted), poc)
     area = extract_area_statement(normalized)
     valid_area = area if area and area["value_sq_ft"] > 0 else None
+    invalid_stated_area = (
+        f"{area['value_sq_ft']} sq ft ({area['unit']})"
+        if area is not None and area["value_sq_ft"] <= 0
+        else None
+    )
+    if invalid_stated_area is not None:
+        area_note = f"{INVALID_STATED_AREA_NOTE_PREFIX}{invalid_stated_area}"
+
+        def _attach_area_note(seq: list[DeedCall]) -> list[DeedCall]:
+            if not seq:
+                return seq
+            first = seq[0]
+            if first.notes and area_note in first.notes:
+                return seq
+            merged = f"{first.notes}; {area_note}" if first.notes else area_note
+            return [first.model_copy(update={"notes": merged}), *seq[1:]]
+
+        calls = _attach_area_note(calls)
+        tracts = [
+            tract.model_copy(update={"calls": _attach_area_note(tract.calls)}) for tract in tracts
+        ]
     inferred_unit = infer_distance_unit(normalized)
     # The tracts (with role bases) travel with the description, so the role gate
     # (``mp_models.roles_need_review``) reads the same extraction its calls came from.
@@ -107,4 +136,5 @@ def prepare_text(text: str, *, audit_context: AuditContext | None = None) -> Pre
         unresolved_commencement=has_commencement
         and (not poc or not any(c.is_tie_in for c in calls) or all(c.is_tie_in for c in calls)),
         inferred_distance_unit=inferred_unit,
+        invalid_stated_area=invalid_stated_area,
     )

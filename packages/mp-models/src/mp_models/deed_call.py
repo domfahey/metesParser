@@ -102,6 +102,7 @@ FIXED_NOTES: tuple[str, ...] = (
     DESCRIPTION_ROLES_NOTE,
     *NON_BOUNDARY_NOTES,
 )
+INVALID_STATED_AREA_NOTE_PREFIX = "invalid stated area: "
 # Fixed notes that carry a measured or quoted value after the prefix.
 FIXED_NOTE_PREFIXES: tuple[str, ...] = (
     "stated direction ",
@@ -110,6 +111,7 @@ FIXED_NOTE_PREFIXES: tuple[str, ...] = (
     "radius conflict: ",
     "curve length ambiguous: ",
     "course length ambiguous: ",
+    INVALID_STATED_AREA_NOTE_PREFIX,
 )
 _FIXED_NOTES_LONGEST_FIRST = tuple(sorted(FIXED_NOTES, key=len, reverse=True))
 _NOTE_BOUNDARY_PREFIXES = (*VERBATIM_NOTE_PREFIXES, *FIXED_NOTE_PREFIXES)
@@ -158,6 +160,15 @@ def unapplied_exceptions(notes: str | None) -> list[str]:
         part[len(UNAPPLIED_EXCEPTION_NOTE_PREFIX) :]
         for part in split_notes(notes)
         if part.startswith(UNAPPLIED_EXCEPTION_NOTE_PREFIX)
+    ]
+
+
+def invalid_stated_area_notes(notes: str | None) -> list[str]:
+    """Return recorded non-positive stated area warnings carried on a call's notes."""
+    return [
+        part[len(INVALID_STATED_AREA_NOTE_PREFIX) :]
+        for part in split_notes(notes)
+        if part.startswith(INVALID_STATED_AREA_NOTE_PREFIX)
     ]
 
 

@@ -389,12 +389,33 @@ def extract_plss_metadata(text: str) -> dict[str, str | None]:
         if plss_data["principal_meridian"] is not None:
             break
 
-    aliquot_pattern = r"\b((?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\s+OF\s+(?:THE\s+)?)*(?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)\b"
-    aliquot_match = re.search(aliquot_pattern, text_upper)
-    if aliquot_match:
+    has_plss_anchor = any(
+        plss_data[key] is not None for key in ("section", "township", "range", "principal_meridian")
+    )
+    aliquot_part = r"(?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)"
+    aliquot_pattern = (
+        rf"\b(?P<prefix>(?:{aliquot_part}\s+OF\s+(?:THE\s+)?)+)?{aliquot_part}(?![A-Z0-9/])"
+    )
+    disqualifying_follow = re.compile(
+        r"^(?:\s*['′\"″]|[\s-]+(?:°|º|DEG(?:REES?)?\b|MILES?\b|FT\b\.?|FEET\b|FOOT\b|"
+        r"INCH(?:ES)?\b|IN\.(?![A-Z])|RODS?\b|POLES?\b|PERCH(?:ES)?\b|CHAINS?\b|LINKS?\b|"
+        r"METERS?\b|METRES?\b|YARDS?\b|YDS?\b\.?|ACRES?\b)|"
+        r"\s*(?:°|º))"
+    )
+    anchor_follow = re.compile(
+        r"^\s+OF\s+(?:THE\s+)?(?:SECTION|SEC\.?|LOT|TRACT|GOVERNMENT|GOVT\.?)\b"
+    )
+    for aliquot_match in re.finditer(aliquot_pattern, text_upper):
+        after = text_upper[aliquot_match.end() :]
+        if disqualifying_follow.match(after):
+            continue
+        is_multi_level = aliquot_match.group("prefix") is not None
+        if not is_multi_level and not (has_plss_anchor or anchor_follow.match(after)):
+            continue
         aliquot_text = aliquot_match.group(0)
         aliquot_text = aliquot_text.replace("½", "1/2").replace("¼", "1/4")
         plss_data["aliquot"] = aliquot_text
+        break
 
     return plss_data
 
@@ -1234,7 +1255,8 @@ _UNREAD_INCH_AFTER = re.compile(
 # Without "and", a later component must be a clearly smaller unit to extend a run.
 _DESCENDING_RATIO = 1.5
 _UNSUPPORTED_AND_PAIR = re.compile(
-    rf"{LENGTH_NUMBER}\s+[A-Za-z]+(?:\s+[A-Za-z]+)?\s+and\s+{LENGTH_NUMBER}\s+[A-Za-z]+",
+    rf"{LENGTH_NUMBER}\s*(?:{UNIT_TOKEN}|[A-Za-z]+(?:\s+[A-Za-z]+)?)\.?"
+    rf"(?:\s*,\s*|\s+)and\s+{LENGTH_NUMBER}\s*(?P<tail>(?:{UNIT_TOKEN}|[A-Za-z]+(?:\s+[A-Za-z]+){{0,2}}))",
     re.IGNORECASE,
 )
 # A foot-mark length, optionally followed by an inch mark ("100' 6\"") that is
@@ -1356,19 +1378,39 @@ def _compound_size(text: str, tokens: list[Match[str]], index: int) -> int:
     return keep
 
 
-_UNSUPPORTED_DISTANCE_UNIT = re.compile(
-    r"^(?:cubits?|yards?|yds?|kilometers?|kilometres?|km|centimeters?|centimetres?|cm|"
-    r"millimeters?|millimetres?|mm|decimeters?|decimetres?|dm|hectometers?|hectometres?|hm|"
-    r"fathoms?|paces?|steps?|leagues?|ells?|spans?|palms?|hands?|digits?|barleycorns?|versts?)$",
+# Fail-closed compound-distance allowlist: only explicit non-distance physical
+# features / monument counts after "and <n>" may follow a length without making
+# it an unsupported compound distance. Unknown trailing words always fail closed.
+_NON_DISTANCE_FEATURE_MODIFIER = (
+    r"(?:concrete|iron|steel|wood|wooden|stone|granite|brass|aluminum|capped|drill|chiseled)"
+)
+_NON_DISTANCE_FEATURE_COLOR = r"(?:white|red|black|yellow|live|dead)"
+_NON_DISTANCE_FEATURE_NOUN = (
+    r"(?:monuments?|pins?|pipes?|stakes?|rebars?|posts?|markers?|corners?|hubs?|"
+    r"nails?|spikes?|bolts?|disks?|discs?|caps?|trees?|oaks?|pines?|hickory|hickories|"
+    r"maples?|ash(?:es)?|elms?|walnuts?|birch(?:es)?|cedars?|sycamores?|beech(?:es)?|"
+    r"poplars?|witness(?:es)?|bounds?|boulders?|rocks?|stones?|holes?|x|cross(?:es)?|"
+    r"bars?|tacks?)"
+)
+_NON_DISTANCE_FEATURE_FOLLOW = (
+    r"(?:$|\s+(?:to|at|on|in|into|along|with|for|of|by|from|near|thence|and|or|"
+    r"being|set|found|marking|marked|which|where|as|the|a|an|more|less)\b)"
+)
+_NON_DISTANCE_FEATURE_AFTER_AND = re.compile(
+    rf"^(?:(?:{_NON_DISTANCE_FEATURE_MODIFIER}\s+){{1,2}}(?:{_NON_DISTANCE_FEATURE_NOUN}|rods?)"
+    rf"|{_NON_DISTANCE_FEATURE_COLOR}\s+(?:{_NON_DISTANCE_FEATURE_NOUN}\s+)?{_NON_DISTANCE_FEATURE_NOUN}"
+    rf"|(?:{_NON_DISTANCE_FEATURE_NOUN}\s+)?{_NON_DISTANCE_FEATURE_NOUN})"
+    rf"{_NON_DISTANCE_FEATURE_FOLLOW}",
     re.IGNORECASE,
 )
 
 
 def _unsupported_and_pair(text: str, start: int) -> bool:
-    """Return True for "<n> <unit> and <n> <unit>" at ``start`` that cannot be summed.
+    """Return True for "<n> <unit> and <n> <word>" at ``start`` that cannot be summed.
 
-    Only rejects compound distance expressions with unsupported or mismatched
-    distance units, never counts of monuments or physical features.
+    Fails closed by default for any trailing "<n> <word>" that is not a same-family
+    unit pair and does not positively match an explicit non-distance physical feature
+    or monument count.
     """
     pair = _UNSUPPORTED_AND_PAIR.match(text, start)
     if not pair:
@@ -1376,8 +1418,8 @@ def _unsupported_and_pair(text: str, start: int) -> bool:
     units = re.findall(rf"{LENGTH_NUMBER}\s*({UNIT_TOKEN})\b", pair.group(0), re.IGNORECASE)
     if len(units) == 2:
         return not _same_unit_family(*(_singular_unit(u) for u in units))
-    tail = re.search(rf"\band\s+{LENGTH_NUMBER}\s+([A-Za-z]+)", pair.group(0), re.IGNORECASE)
-    return bool(tail and _UNSUPPORTED_DISTANCE_UNIT.match(tail.group(1)))
+    tail = pair.group("tail")
+    return not bool(_NON_DISTANCE_FEATURE_AFTER_AND.match(tail))
 
 
 def _length_role(text: str, start: int, end: int, *, first: bool, tie_from: int) -> str:
@@ -1463,14 +1505,12 @@ def _length_runs(text: str) -> list[_LengthRun]:
         start, end = group[0].start(), group[-1].end()
         if size >= 2:
             tail_match = re.match(
-                rf"\s+and\s+{LENGTH_NUMBER}\s+([A-Za-z]+)", text[end:], re.IGNORECASE
+                rf"\.?(?:\s*,\s*|\s+)and\s+{LENGTH_NUMBER}\s*([A-Za-z]+(?:\s+[A-Za-z]+){{0,2}})",
+                text[end:],
+                re.IGNORECASE,
             )
             unsupported = bool(
-                tail_match
-                and (
-                    re.fullmatch(UNIT_TOKEN, tail_match.group(1), re.IGNORECASE)
-                    or _UNSUPPORTED_DISTANCE_UNIT.match(tail_match.group(1))
-                )
+                tail_match and not _NON_DISTANCE_FEATURE_AFTER_AND.match(tail_match.group(1))
             )
         else:
             unsupported = _unsupported_and_pair(text, start)
@@ -2307,7 +2347,6 @@ _SUBDIVISION_LEADING_STOPWORDS = frozenset(
         "WITH",
         "FROM",
         "BY",
-        "THE",
         "AND",
         "OR",
         "AS",
@@ -2330,6 +2369,7 @@ _SUBDIVISION_LEADING_STOPWORDS = frozenset(
 
 _SUBDIVISION_ALL_STOPWORDS = _SUBDIVISION_LEADING_STOPWORDS | frozenset(
     {
+        "THE",
         "NORTH",
         "SOUTH",
         "EAST",
@@ -2354,6 +2394,70 @@ _SUBDIVISION_ALL_STOPWORDS = _SUBDIVISION_LEADING_STOPWORDS | frozenset(
         "FOOT",
         "ACRES",
         "MORE",
+    }
+)
+
+_SUBDIVISION_EXPLICIT_SUFFIXES = frozenset(
+    {
+        "ESTATE",
+        "ESTATES",
+        "SUBDIVISION",
+        "ADDITION",
+        "HEIGHT",
+        "HEIGHTS",
+        "HILL",
+        "HILLS",
+        "PARK",
+        "PLACE",
+        "MANOR",
+        "ACRES",
+        "VILLAGE",
+        "LANDING",
+        "TERRACE",
+        "GARDEN",
+        "GARDENS",
+    }
+)
+
+_SUBDIVISION_ARTICLE_RECITAL_WORDS = frozenset(
+    {
+        "FOLLOWING",
+        "ABOVE",
+        "FOREGOING",
+        "PREMISES",
+        "PROPERTY",
+        "PARCEL",
+        "TRACT",
+        "LAND",
+        "MAP",
+        "SURVEY",
+        "DEED",
+        "PUBLIC",
+        "OFFICIAL",
+        "HALF",
+        "QUARTER",
+        "REMAINDER",
+        "BALANCE",
+        "WHOLE",
+        "ENTIRE",
+        "SAME",
+        "REAL",
+        "WITHIN",
+        "HEREINAFTER",
+        "AFORESAID",
+        "AFOREMENTIONED",
+        "RIGHT",
+        "LEFT",
+        "CENTER",
+        "CENTERLINE",
+        "BOUNDARY",
+        "ROAD",
+        "STREET",
+        "HIGHWAY",
+        "AVENUE",
+        "DRIVE",
+        "LANE",
+        "WAY",
     }
 )
 
@@ -2391,12 +2495,23 @@ def extract_subdivision_reference(text: str) -> SubdivisionReference | None:
     if name_match:
         candidate = name_match.group(1).strip()
         words = candidate.split()
-        if (
-            words
-            and words[0] not in _SUBDIVISION_LEADING_STOPWORDS
-            and not all(w in _SUBDIVISION_ALL_STOPWORDS for w in words)
-        ):
-            subdivision_name = candidate
+        if words:
+            if words[0] == "THE":
+                has_suffix = len(words) >= 3 and words[-1] in _SUBDIVISION_EXPLICIT_SUFFIXES
+                second_blocked = len(words) < 2 or (
+                    words[1] in _SUBDIVISION_LEADING_STOPWORDS
+                    or words[1] in _SUBDIVISION_ARTICLE_RECITAL_WORDS
+                    or (not has_suffix and words[1] in _SUBDIVISION_ALL_STOPWORDS)
+                )
+                valid_name = not second_blocked and not all(
+                    w in _SUBDIVISION_ALL_STOPWORDS for w in words
+                )
+            else:
+                valid_name = words[0] not in _SUBDIVISION_LEADING_STOPWORDS and not all(
+                    w in _SUBDIVISION_ALL_STOPWORDS for w in words
+                )
+            if valid_name:
+                subdivision_name = candidate
 
     plat_match = re.search(r"Plat\s+Book\s+(\d+),?\s*Page\s+(\d+)", text, re.IGNORECASE)
     if plat_match:

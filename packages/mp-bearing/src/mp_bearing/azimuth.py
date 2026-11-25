@@ -9,7 +9,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 QUADRANT_PATTERN = re.compile(
-    r"\b(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?,?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)\b",
+    r"\b(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?,?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)(?![A-Za-z_])",
     re.IGNORECASE,
 )
 

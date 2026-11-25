@@ -22,7 +22,6 @@ from mp_bearing import (
     bearing_to_azimuth,
     calculate_curve_properties,
     calculate_deltas,
-    calculate_missing_curve_elements,
     cardinal_conflicts_bearing,
     degree_of_curvature_to_radius,
     due_cardinal_to_azimuth,
@@ -31,6 +30,7 @@ from mp_bearing import (
     quadrant_to_azimuth,
 )
 from mp_models import (
+    INVALID_STATED_AREA_NOTE_PREFIX,
     PARENTHETICAL_NOTE_PREFIX,
     PASSING_CALL_NOTE_PREFIX,
     RECORD_CALL_NOTE_PREFIX,
@@ -1595,6 +1595,20 @@ def _restore_verbatim_records(
     return restored
 
 
+def _attach_invalid_stated_area_note(
+    calls: list[DeedCall], value_sq_ft: float, unit: str
+) -> list[DeedCall]:
+    """Attach the canonical blocking note for a non-positive stated area idempotently."""
+    if not calls:
+        return calls
+    area_note = f"{INVALID_STATED_AREA_NOTE_PREFIX}{value_sq_ft} sq ft ({unit})"
+    first = calls[0]
+    if first.notes and area_note in first.notes:
+        return calls
+    merged = f"{first.notes}; {area_note}" if first.notes else area_note
+    return [first.model_copy(update={"notes": merged}), *calls[1:]]
+
+
 def extract_calls(
     text: str,
     distance_unit: str = "feet",
@@ -1668,6 +1682,11 @@ def extract_calls(
             normalize=False,
             source_text=text,
         )
+        area_info = extract_area_statement(normalized)
+        if area_info is not None and area_info["value_sq_ft"] <= 0:
+            flat_calls = _attach_invalid_stated_area_note(
+                flat_calls, area_info["value_sq_ft"], area_info["unit"]
+            )
         return flat_calls, []
 
     source_map = _SourceMap(text, working)
@@ -1734,6 +1753,10 @@ def extract_calls(
         stated_area_sq_ft = (
             area_info["value_sq_ft"] if area_info and area_info["value_sq_ft"] > 0 else None
         )
+        if area_info is not None and area_info["value_sq_ft"] <= 0:
+            tract_calls = _attach_invalid_stated_area_note(
+                tract_calls, area_info["value_sq_ft"], area_info["unit"]
+            )
         tract = Tract(
             label=label,
             tract_type=tract_type,
@@ -3260,19 +3283,17 @@ def _extract_call(
     arc_length_ft = curve_info.get("arc_length_ft")
     delta_deg_val = curve_info.get("delta_deg")
     arc_computed = False
+    # Never fabricate unstated radius_ft from delta and arc: keep radius_ft=None
+    # and reject out-of-range delta on delta+arc-only curves.
     if (
         not is_spiral
         and curve_info.get("radius_ft") is None
         and isinstance(delta_deg_val, float)
-        and delta_deg_val > 0.0
         and isinstance(arc_length_ft, float)
         and arc_length_ft > 0.0
+        and (delta_deg_val <= 0.0 or delta_deg_val > 360.0)
     ):
-        derived = calculate_missing_curve_elements(
-            delta_deg=delta_deg_val,
-            arc_length_ft=arc_length_ft,
-        )
-        curve_info["radius_ft"] = derived["radius_ft"]
+        raise ValueError(f"Curve delta angle out of range (0, 360]: {delta_deg_val}")
     if isinstance(arc_length_ft, float) and arc_length_ft > 0.0:
         distance_ft = arc_length_ft
     elif (
@@ -4010,16 +4031,18 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
             curve_info["radius_ft"] = ConversionFactors.convert_to_feet(radius_raw, radius_unit)
 
         delta_match = re.search(
-            r"(?:delta|central\s+angle)\s+(?:angle\s+)?(?:of\s+)?(\d+(?:\.\d+)?)(?:\u00b0|(?:\s+)?degrees?)(?:\s*(\d+(?:\.\d+)?)(?:'|\s+minutes?))?(?:\s*(\d+(?:\.\d+)?)(?:\"|\s+seconds?))?",
+            rf"(?:delta|central\s+angle)\s+(?:angle\s+)?(?:of\s+)?({COMMA_NUMBER})(?:\u00b0|(?:\s+)?degrees?)"
+            rf"(?:\s*({COMMA_NUMBER})(?:'|\s+minutes?))?"
+            rf"(?:\s*({COMMA_NUMBER})(?:\"|\s+seconds?))?",
             text,
             re.IGNORECASE,
         )
         if delta_match:
-            delta = float(delta_match.group(1))
+            delta = parse_comma_number(delta_match.group(1))
             if delta_match.group(2):
-                delta += float(delta_match.group(2)) / 60.0
+                delta += parse_comma_number(delta_match.group(2)) / 60.0
             if delta_match.group(3):
-                delta += float(delta_match.group(3)) / 3600.0
+                delta += parse_comma_number(delta_match.group(3)) / 3600.0
 
             curve_info["delta_deg"] = delta
 

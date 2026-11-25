@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import json
 import re
+import sys
+import types
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -269,8 +272,26 @@ def test_multi_tract_double_entry_length_mismatch_blocks_earlier_main_tract() ->
 # ---------------------------------------------------------------------------
 
 
-def test_unwrap_llm_model_stops_at_provider_client_with_sdk_client() -> None:
+def test_unwrap_llm_model_stops_at_provider_client_with_sdk_client(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Codex P2: OpenAIClient and GeminiClient own ._client (SDK) — must not unwrap past .model."""
+    fake_openai = types.ModuleType("openai")
+    fake_openai.OpenAI = lambda api_key: SimpleNamespace(api_key=api_key)  # type: ignore[attr-defined]
+    fake_google = types.ModuleType("google")
+    fake_genai = types.ModuleType("google.genai")
+    fake_genai.Client = lambda api_key: SimpleNamespace(api_key=api_key)  # type: ignore[attr-defined]
+    fake_types = types.ModuleType("google.genai.types")
+    fake_errors = types.ModuleType("google.genai.errors")
+    fake_genai.types = fake_types  # type: ignore[attr-defined]
+    fake_genai.errors = fake_errors  # type: ignore[attr-defined]
+    fake_google.genai = fake_genai  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "openai", fake_openai)
+    monkeypatch.setitem(sys.modules, "google", fake_google)
+    monkeypatch.setitem(sys.modules, "google.genai", fake_genai)
+    monkeypatch.setitem(sys.modules, "google.genai.types", fake_types)
+    monkeypatch.setitem(sys.modules, "google.genai.errors", fake_errors)
+
     openai_client = OpenAIClient(api_key="test-key", model="gpt-5.2")
     gemini_client = GeminiClient(api_key="test-key", model="gemini-3-flash-preview")
     cached_openai = CachedLLMClient(openai_client, cache_dir=Path("/tmp/unused-cache"))
@@ -321,7 +342,8 @@ def test_aggregate_tract_closure_preserves_all_warnings_and_handles_empty() -> N
 
     agg = cli._aggregate_tract_closure([(main_tract, main_res), (exc_tract, exc_res)])
     assert "Exception tract warning" in agg.warnings
-    assert agg.closure_passed is False
+    assert agg.closure_passed is True
+    assert not agg.is_fully_verified()
 
     empty_agg = cli._aggregate_tract_closure([])
     assert empty_agg.closure_passed is False

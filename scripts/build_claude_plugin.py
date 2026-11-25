@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -61,15 +62,21 @@ def runtime_project(wheels: list[Path], *, geo: bool = True, web_map: bool = Fal
     sources = []
     wheel_versions: dict[str, str] = {}
     for wheel in sorted(wheels):
-        parts = wheel.name.split("-")
-        if len(parts) < 2 or not parts[1]:
+        if not re.fullmatch(r"[A-Za-z0-9._+-]+\.whl", wheel.name):
             raise ValueError(f"Unexpected wheel filename: {wheel.name}")
-        name = parts[0].replace("_", "-")
+        parts = wheel.name.split("-")
+        if len(parts) < 2 or not parts[0] or not parts[1]:
+            raise ValueError(f"Unexpected wheel filename: {wheel.name}")
+        name = re.sub(r"[-_.]+", "-", parts[0]).lower()
+        if not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", name):
+            raise ValueError(f"Unexpected wheel filename: {wheel.name}")
         version = parts[1]
-        if name in wheel_versions and wheel_versions[name] != version:
-            raise ValueError(
-                f"Conflicting wheel versions for {name}: {wheel_versions[name]} vs {version}"
-            )
+        if name in wheel_versions:
+            if wheel_versions[name] != version:
+                raise ValueError(
+                    f"Conflicting wheel versions for {name}: {wheel_versions[name]} vs {version}"
+                )
+            raise ValueError(f"Duplicate wheel for {name}: {wheel.name}")
         wheel_versions[name] = version
         sources.append(f'{name} = {{ path = "wheels/{wheel.name}" }}')
     dependencies = []

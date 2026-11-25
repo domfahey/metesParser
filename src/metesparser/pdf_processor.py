@@ -19,6 +19,7 @@ from .models import (
     PRIOR_CONVEYANCE_SIGNALS,
     AuditContext,
     ConversionFactors,
+    DeedCall,
     DistanceUnit,
     ExtractionRecord,
     LegalDescription,
@@ -279,6 +280,21 @@ class PDFProcessor:
                 llm_stages=llm_stage_records,
             )
 
+        if stated_area is not None and stated_area["value_sq_ft"] <= 0:
+            processing_logger.warning(
+                "Ignoring non-positive stated area",
+                stated_area_sq_ft=stated_area["value_sq_ft"],
+            )
+            if ctx is not None and ctx.extraction_record is not None:
+                ctx.extraction_record = ctx.extraction_record.model_copy(
+                    update={
+                        "confidence_signals": {
+                            **ctx.extraction_record.confidence_signals,
+                            "valid_stated_area": False,
+                        }
+                    }
+                )
+
         processing_logger.info("Extracting calls")
         # One extraction gives the flat calls and the tracts (with role bases) the
         # role gate reads (``mp_models.roles_need_review``); a blocked deed's flat
@@ -292,6 +308,29 @@ class PDFProcessor:
 
         processing_logger.info("Marking tie-in calls")
         calls = CallExtractor.mark_tie_in_calls(calls, poc_description=poc if poc else None)
+
+        if stated_area is not None and stated_area["value_sq_ft"] <= 0:
+            from mp_models import INVALID_STATED_AREA_NOTE_PREFIX
+
+            area_note = (
+                f"{INVALID_STATED_AREA_NOTE_PREFIX}"
+                f"{stated_area['value_sq_ft']} sq ft ({stated_area['unit']})"
+            )
+
+            def _attach_area_note(seq: list[DeedCall]) -> list[DeedCall]:
+                if not seq:
+                    return seq
+                first = seq[0]
+                if first.notes and area_note in first.notes:
+                    return seq
+                merged = f"{first.notes}; {area_note}" if first.notes else area_note
+                return [first.model_copy(update={"notes": merged}), *seq[1:]]
+
+            calls = _attach_area_note(calls)
+            tracts = [
+                tract.model_copy(update={"calls": _attach_area_note(tract.calls)})
+                for tract in tracts
+            ]
 
         processing_logger.info("Extracting deed clauses")
         clauses = TextParser.extract_deed_clauses(normalized_text)

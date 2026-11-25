@@ -121,6 +121,7 @@ class CSVBuilder:
         tract_results: list[tuple[Tract, ClosureResult]] | None = None,
         audit_context: AuditContext | None = None,
         skipped_courses: list[SkippedCourse] | None = None,
+        double_entry_calls: list[DeedCall] | None = None,
     ) -> list[Path]:
         """Export verified CSV(s) through the canonical package gate.
 
@@ -140,6 +141,8 @@ class CSVBuilder:
                 pass the audit context (or tracts) used for extraction.
             skipped_courses: Optional explicit skip records applied to the fresh
                 re-check, in addition to those above.
+            double_entry_calls: Optional independently-entered call set to replay
+                during fresh verification.
 
         Returns:
             List of written file paths.
@@ -160,4 +163,7 @@ class CSVBuilder:
             ),
             audit_context=(None if audit_context is None else package_audit_context(audit_context)),
             skipped_courses=None if skipped_courses is None else package_skips(skipped_courses),
+            double_entry_calls=(
+                None if double_entry_calls is None else package_calls(double_entry_calls)
+            ),
         )

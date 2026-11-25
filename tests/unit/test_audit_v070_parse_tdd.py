@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from mp_models import AuditContext, RunMetadata
+from mp_models import AuditContext, RunMetadata, SkippedCourse
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -86,8 +86,8 @@ class TestNormalizerFixes:
 
 
 class TestCallsFixes:
-    def test_curve_with_delta_and_arc_derives_radius(self) -> None:
-        from mp_parse.calls import _is_curve_segment, extract_single_call
+    def test_curve_with_delta_and_arc_without_radius_fails_closed(self) -> None:
+        from mp_parse.calls import _is_curve_segment, extract_calls, extract_single_call
 
         curve_text = (
             "THENCE along a curve to the right having a delta angle of 90 degrees "
@@ -96,11 +96,14 @@ class TestCallsFixes:
         assert _is_curve_segment(
             "along a curve having a delta angle of 90 degrees and an arc length of 157.08 feet"
         )
-        call = extract_single_call(curve_text, 1)
-        assert call is not None
-        assert call.delta_deg == pytest.approx(90.0)
-        assert call.arc_length_ft == pytest.approx(157.08)
-        assert call.radius_ft == pytest.approx(100.0, abs=0.01)
+        # Never fabricate unstated radius_ft: strict mode rejects; non-strict skips course.
+        with pytest.raises(ValueError, match="Curve geometry requires radius_ft"):
+            extract_single_call(curve_text, 1)
+        skipped: list[SkippedCourse] = []
+        calls, _ = extract_calls(curve_text, strict=False, skipped_courses=skipped)
+        assert calls == []
+        assert len(skipped) == 1
+        assert "radius_ft" in skipped[0].error
 
     def test_extract_direction_non_strict_invalid_packed_and_text_order_priority(self) -> None:
         from mp_parse.calls import extract_direction

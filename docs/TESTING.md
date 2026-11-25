@@ -96,7 +96,7 @@ The parametrized cases include a 100-foot square, 18 Pennbrook (7,500 sq ft), an
 
 ## Fixtures and markers
 
-Root fixtures in `tests/conftest.py` include `deed_call_factory`, `sample_legal_text`, and `isolate_logging_state`. Shared legal-description text lives in `tests/fixtures/sample_deeds.py`; assertion helpers are in `tests/helpers.py`. Other suites define their own focused fixtures alongside package/plugin tests.
+Root fixtures in `tests/conftest.py` include `deed_call_factory`, `sample_legal_text`, and `isolate_logging_state`. Shared legal-description text lives in `tests/fixtures/sample_deeds.py`. Other suites define their own focused fixtures alongside package/plugin tests.
 
 Root markers are `slow`, `integration`, `e2e`, `regression`, `curve`, and `validation`. For example, `uv run pytest -m 'integration' --no-cov` runs marked root integration tests. Package-only commands should use `--no-cov`; use `--import-mode=importlib` when collecting multiple package/plugin test trees.
 
