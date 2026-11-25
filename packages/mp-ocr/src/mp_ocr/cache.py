@@ -17,7 +17,13 @@ from .clients import BaseLLMClient, _read_pdf
 logger = structlog.get_logger(__name__)
 
 _CACHE_KEY_VERSION = "llm-response-cache-v2"
-_MODEL_CONFIG_FIELDS = ("model", "model_name", "fallback_model")
+_MODEL_CONFIG_FIELDS = (
+    "model",
+    "model_name",
+    "fallback_model",
+    "thinking_level",
+    "thinking_budget",
+)
 _SHARED_CLIENT_ALIASES: dict[tuple[str, str], str] = {
     ("mp_ocr.clients", "OpenAIClient"): "OpenAIClient",
     ("metesparser.llm_clients", "OpenAIClient"): "OpenAIClient",

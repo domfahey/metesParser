@@ -164,7 +164,7 @@ def test_gemini_client_retries_retryable_errors_and_collects_candidates(
     client = GeminiClient(api_key="gm-secret")
     assert "gm-secret" not in repr(client)
     assert client.generate_text("hello") == "fallback text"
-    assert calls == ["gemini-3-flash-preview", "gemini-2.5-flash"]
+    assert calls == ["gemini-3-flash-preview", "gemini-3.8-flash"]
 
 
 def test_gemini_client_propagates_non_retryable_error(
@@ -216,11 +216,202 @@ def test_gemini_client_fallback_exhaustion_raises_after_trying_all_models(
     def handler(*, model, contents, config, client_error, server_error):
         raise server_error(503)
 
+    sleeps: list[float] = []
+    monkeypatch.setattr("mp_ocr.clients.time.sleep", sleeps.append)
+
     calls, _, server_error = _install_fake_gemini(monkeypatch, handler)
     client = GeminiClient(api_key="gm-secret")
     with pytest.raises(server_error, match="server 503"):
         client.generate_text("hello")
-    assert calls == ["gemini-3-flash-preview", "gemini-2.5-flash"]
+    assert calls == [
+        "gemini-3-flash-preview",
+        "gemini-3.8-flash",
+        "gemini-3-flash-preview",
+        "gemini-3.8-flash",
+        "gemini-3-flash-preview",
+        "gemini-3.8-flash",
+    ]
+    assert sleeps == [1.0, 2.0]
+
+
+def test_gemini_client_http_options_thinking_config_and_thought_filtering(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_client_kwargs: list[dict[str, object]] = []
+    captured_configs: list[dict[str, object]] = []
+
+    google_module = ModuleType("google")
+    genai_module = ModuleType("google.genai")
+    errors_module = ModuleType("google.genai.errors")
+    types_module = ModuleType("google.genai.types")
+
+    class FakeClientError(Exception):
+        def __init__(self, status_code: int) -> None:
+            super().__init__(f"client {status_code}")
+            self.status_code = status_code
+
+    class FakeServerError(Exception):
+        def __init__(self, status_code: int) -> None:
+            super().__init__(f"server {status_code}")
+            self.status_code = status_code
+
+    class GuardedResponse:
+        def __init__(self, parts: list[object]) -> None:
+            self.candidates = [SimpleNamespace(content=SimpleNamespace(parts=parts))]
+
+        @property
+        def text(self) -> str:
+            raise AssertionError("response.text must not be accessed when candidate parts exist")
+
+    class FakeClient:
+        def __init__(self, **kwargs: object) -> None:
+            captured_client_kwargs.append(kwargs)
+            self.models = SimpleNamespace(
+                generate_content=lambda *, model, contents, config: (
+                    captured_configs.append(config),
+                    GuardedResponse(
+                        [
+                            SimpleNamespace(thought=True, text="internal chain of thought"),
+                            SimpleNamespace(thought_signature=b"sig", text=None),
+                            SimpleNamespace(thought=False, text="clean deed text"),
+                        ]
+                    ),
+                )[1]
+            )
+
+    errors_module.ClientError = FakeClientError  # type: ignore[attr-defined]
+    errors_module.ServerError = FakeServerError  # type: ignore[attr-defined]
+    types_module.Part = SimpleNamespace(from_text=lambda *, text: SimpleNamespace(text=text))  # type: ignore[attr-defined]
+    types_module.Content = lambda *, role, parts: SimpleNamespace(role=role, parts=parts)  # type: ignore[attr-defined]
+    types_module.HttpOptions = lambda **kwargs: {"http_options": kwargs}  # type: ignore[attr-defined]
+    types_module.HttpRetryOptions = lambda **kwargs: {"retry_options": kwargs}  # type: ignore[attr-defined]
+    types_module.ThinkingConfig = lambda **kwargs: {"thinking_config": kwargs}  # type: ignore[attr-defined]
+    types_module.GenerateContentConfig = lambda **kwargs: kwargs  # type: ignore[attr-defined]
+    genai_module.Client = FakeClient  # type: ignore[attr-defined]
+    genai_module.errors = errors_module  # type: ignore[attr-defined]
+    genai_module.types = types_module  # type: ignore[attr-defined]
+    google_module.genai = genai_module  # type: ignore[attr-defined]
+    google_module.__path__ = []  # type: ignore[attr-defined]
+
+    monkeypatch.setitem(sys.modules, "google", google_module)
+    monkeypatch.setitem(sys.modules, "google.genai", genai_module)
+    monkeypatch.setitem(sys.modules, "google.genai.errors", errors_module)
+    monkeypatch.setitem(sys.modules, "google.genai.types", types_module)
+
+    # Default: preview primary -> v1beta, 120s timeout, single SDK attempt, thinking_level=LOW
+    default_client = GeminiClient(api_key="gm-secret")
+    assert default_client.generate_text("hello") == "clean deed text"
+    assert captured_client_kwargs[-1]["http_options"] == {
+        "http_options": {
+            "api_version": "v1beta",
+            "timeout": 120_000,
+            "retry_options": {"retry_options": {"attempts": 1}},
+        }
+    }
+    assert captured_configs[-1]["thinking_config"] == {"thinking_config": {"thinking_level": "LOW"}}
+
+    # GA models only -> omits api_version; thinking_budget overrides default thinking_level
+    ga_client = GeminiClient(
+        api_key="gm-secret",
+        model="gemini-3.8-flash",
+        fallback_model="gemini-3.6-flash",
+        thinking_budget=0,
+        timeout_ms=45_000,
+    )
+    assert ga_client.generate_text("hello") == "clean deed text"
+    assert captured_client_kwargs[-1]["http_options"] == {
+        "http_options": {
+            "timeout": 45_000,
+            "retry_options": {"retry_options": {"attempts": 1}},
+        }
+    }
+    assert captured_configs[-1]["thinking_config"] == {"thinking_config": {"thinking_budget": 0}}
+
+    # thinking_level=None omits thinking_config; lowercase level is normalized
+    unbounded_client = GeminiClient(
+        api_key="gm-secret",
+        model="gemini-3.8-flash",
+        fallback_model=None,
+        thinking_level=None,
+        api_version="v1",
+        timeout_ms=None,
+    )
+    assert unbounded_client.generate_text("hello") == "clean deed text"
+    assert captured_client_kwargs[-1]["http_options"] == {
+        "http_options": {
+            "api_version": "v1",
+            "retry_options": {"retry_options": {"attempts": 1}},
+        }
+    }
+    assert "thinking_config" not in captured_configs[-1]
+
+    minimal_client = GeminiClient(api_key="gm-secret", thinking_level=" minimal ")
+    assert minimal_client.thinking_level == "MINIMAL"
+    assert minimal_client.generate_text("hello") == "clean deed text"
+    assert captured_configs[-1]["thinking_config"] == {
+        "thinking_config": {"thinking_level": "MINIMAL"}
+    }
+
+
+def test_gemini_client_single_model_retries_with_backoff_and_validates_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts = {"count": 0}
+
+    def handler(*, model, contents, config, client_error, server_error):
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            raise server_error(503)
+        return SimpleNamespace(text="recovered", candidates=[])
+
+    sleeps: list[float] = []
+    monkeypatch.setattr("mp_ocr.clients.time.sleep", sleeps.append)
+    calls, _, _ = _install_fake_gemini(monkeypatch, handler)
+
+    client = GeminiClient(
+        api_key="gm-secret",
+        fallback_model=None,
+        max_retries=2,
+        retry_backoff_s=0.5,
+    )
+    assert client.generate_text("hello") == "recovered"
+    assert calls == ["gemini-3-flash-preview"] * 3
+    assert sleeps == [0.5, 1.0]
+
+    for bad_kwargs in (
+        {"timeout_ms": 0},
+        {"timeout_ms": True},
+        {"max_retries": -1},
+        {"retry_backoff_s": -0.1},
+        {"retry_backoff_s": float("nan")},
+        {"thinking_budget": -2},
+        {"thinking_level": "   "},
+        {"api_version": ""},
+    ):
+        with pytest.raises(LLMConfigurationError):
+            GeminiClient(api_key="gm-secret", **bad_kwargs)  # type: ignore[arg-type]
+
+
+def test_cached_client_separates_gemini_thinking_config(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _install_fake_gemini(monkeypatch, lambda **kwargs: SimpleNamespace(text="ok", candidates=[]))
+    low_a = CachedLLMClient(
+        GeminiClient(api_key="k", thinking_level="low"), cache_dir=tmp_path / "cache"
+    )
+    low_b = CachedLLMClient(
+        GeminiClient(api_key="k", thinking_level="LOW"), cache_dir=tmp_path / "cache"
+    )
+    high = CachedLLMClient(
+        GeminiClient(api_key="k", thinking_level="HIGH"), cache_dir=tmp_path / "cache"
+    )
+    budget = CachedLLMClient(
+        GeminiClient(api_key="k", thinking_budget=0), cache_dir=tmp_path / "cache"
+    )
+
+    assert low_a._cache_key("p", None) == low_b._cache_key("p", None)
+    assert low_a._cache_key("p", None) != high._cache_key("p", None)
+    assert low_a._cache_key("p", None) != budget._cache_key("p", None)
 
 
 def test_openai_client_generate_text_with_pdf_missing_file_raises(

@@ -39,7 +39,7 @@ dev = [
     "types-pyyaml>=6.0.12",
 ]
 gemini = [
-    "google-genai>=0.3.0",
+    "google-genai>=3.0.0",
 ]
 
 [project.scripts]
