@@ -9,7 +9,7 @@ Guidelines for contributing to metesParser.
 - Python 3.11+
 - [UV package manager](https://github.com/astral-sh/uv)
 - Git
-- OpenAI and/or Gemini API key (for PDF extraction, depending on provider)
+- OpenAI, Gemini, and/or OpenRouter API key (for PDF extraction, depending on provider)
 
 ### Initial Setup
 

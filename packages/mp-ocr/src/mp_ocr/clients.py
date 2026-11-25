@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
+from urllib.parse import urlparse
 
 
 class LLMClientError(RuntimeError):
@@ -17,6 +18,15 @@ class LLMClientError(RuntimeError):
 
 class LLMConfigurationError(LLMClientError):
     """Raised when the LLM client configuration is invalid."""
+
+
+def _is_retryable_status(status_code: object) -> bool:
+    """Return True for transient HTTP status codes eligible for retry/failover."""
+    return (
+        isinstance(status_code, int)
+        and not isinstance(status_code, bool)
+        and (status_code in {408, 409, 429} or 500 <= status_code < 600)
+    )
 
 
 def _read_pdf(pdf_path: str) -> tuple[str, bytes]:
@@ -356,7 +366,8 @@ class OpenRouterClient:
     )
 
     def __post_init__(self) -> None:
-        key = self.api_key or os.getenv("OPENROUTER_API_KEY")
+        raw_key = self.api_key if self.api_key is not None else os.getenv("OPENROUTER_API_KEY")
+        key = raw_key.strip() if isinstance(raw_key, str) else ""
         if not key:
             raise LLMConfigurationError(
                 "OpenRouter API key not found. Set OPENROUTER_API_KEY environment variable."
@@ -372,9 +383,12 @@ class OpenRouterClient:
                 raise LLMConfigurationError("fallback_model must be a non-empty string or None.")
             object.__setattr__(self, "fallback_model", normalized_fallback)
 
-        normalized_base_url = self.base_url.strip()
-        if not normalized_base_url.startswith(("https://", "http://")):
-            raise LLMConfigurationError("base_url must start with 'https://' or 'http://'.")
+        normalized_base_url = self.base_url.strip().rstrip("/")
+        parsed_base_url = urlparse(normalized_base_url)
+        if parsed_base_url.scheme.lower() not in ("https", "http") or not parsed_base_url.hostname:
+            raise LLMConfigurationError(
+                "base_url must be a valid http:// or https:// URL with a hostname."
+            )
         object.__setattr__(self, "base_url", normalized_base_url)
 
         if self.pdf_engine is not None:
@@ -395,7 +409,11 @@ class OpenRouterClient:
             or self.timeout_s <= 0
         ):
             raise LLMConfigurationError("timeout_s must be a positive finite number.")
-        if isinstance(self.max_retries, bool) or self.max_retries < 0:
+        if (
+            isinstance(self.max_retries, bool)
+            or not isinstance(self.max_retries, int)
+            or self.max_retries < 0
+        ):
             raise LLMConfigurationError("max_retries must be a non-negative integer.")
         if (
             isinstance(self.retry_backoff_s, bool)
@@ -518,36 +536,101 @@ class OpenRouterClient:
         if fallback and fallback not in models_to_try:
             models_to_try.append(fallback)
 
-        retryable_codes = {408, 429, 502, 503, 504}
         catch_types = self._status_errors + self._transport_errors
         last_error: BaseException | None = None
         total_rounds = self.max_retries + 1
 
         for round_index in range(total_rounds):
             for model_index, model_name in enumerate(models_to_try):
+                has_more_models = model_index < len(models_to_try) - 1
+                has_more_rounds = round_index < total_rounds - 1
                 try:
                     response = self._client.chat.completions.create(
                         model=model_name,
                         **request_kwargs,
                     )
-                    return self._collect_response_text(response)
                 except catch_types as exc:
                     is_retryable = isinstance(exc, self._transport_errors) or (
                         isinstance(exc, self._status_errors)
-                        and getattr(exc, "status_code", None) in retryable_codes
+                        and _is_retryable_status(getattr(exc, "status_code", None))
                     )
-                    has_more_models = model_index < len(models_to_try) - 1
-                    has_more_rounds = round_index < total_rounds - 1
                     if is_retryable and (has_more_models or has_more_rounds):
                         last_error = exc
                         continue
                     raise
+
+                payload_error = self._extract_response_error(response, model_name)
+                if payload_error is not None:
+                    err, is_retryable = payload_error
+                    if is_retryable and (has_more_models or has_more_rounds):
+                        last_error = err
+                        continue
+                    raise err
+
+                return self._collect_response_text(response)
             if round_index < total_rounds - 1 and self.retry_backoff_s > 0:
                 time.sleep(self.retry_backoff_s * (2**round_index))
 
         if last_error:
             raise last_error
         return ""
+
+    @staticmethod
+    def _extract_response_error(
+        response: object, model_name: str
+    ) -> tuple[LLMClientError, bool] | None:
+        response_error = getattr(response, "error", None)
+        choices = getattr(response, "choices", None)
+        choice_error = None
+        finish_reason = None
+        if choices:
+            first_choice = choices[0]
+            choice_error = getattr(first_choice, "error", None)
+            finish_reason = getattr(first_choice, "finish_reason", None)
+
+        if not response_error and not choice_error and finish_reason != "error":
+            return None
+
+        err_obj = response_error or choice_error
+        raw_code: object = None
+        raw_message: object = None
+        if isinstance(err_obj, dict):
+            raw_code = err_obj.get("code")
+            raw_message = err_obj.get("message")
+        elif err_obj is not None:
+            raw_code = getattr(err_obj, "code", None)
+            raw_message = getattr(err_obj, "message", None)
+
+        code: int | None = None
+        if isinstance(raw_code, int) and not isinstance(raw_code, bool):
+            code = raw_code
+        elif isinstance(raw_code, str):
+            stripped_code = raw_code.strip()
+            if stripped_code:
+                try:
+                    code = int(stripped_code)
+                except ValueError:
+                    code = None
+
+        if isinstance(raw_message, str) and raw_message.strip():
+            message = raw_message.strip()
+        elif err_obj is not None:
+            message = str(err_obj)
+        else:
+            message = "upstream completion failed"
+
+        detail_parts: list[str] = []
+        if code is not None:
+            detail_parts.append(f"code={code}")
+        if finish_reason == "error":
+            detail_parts.append("finish_reason=error")
+        if message:
+            detail_parts.append(message)
+        detail = "; ".join(detail_parts) or "unknown error"
+
+        err = LLMClientError(f"OpenRouter error for {model_name}: {detail}")
+        is_retryable = _is_retryable_status(code) or (code is None and finish_reason == "error")
+        return err, is_retryable
 
     @staticmethod
     def _collect_response_text(response: object) -> str:

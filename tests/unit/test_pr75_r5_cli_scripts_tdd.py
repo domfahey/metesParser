@@ -1713,6 +1713,7 @@ def test_env_example_omits_unused_anthropic_key_and_keeps_active_vars() -> None:
     for var in (
         "OPENAI_API_KEY=",
         "GEMINI_API_KEY=",
+        "OPENROUTER_API_KEY=",
         "METESPARSER_LLM_PROVIDER=",
         "METESPARSER_LOG_LEVEL=",
         "METESPARSER_LOG_FORMAT=",

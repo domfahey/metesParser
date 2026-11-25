@@ -25,6 +25,7 @@ _MODEL_CONFIG_FIELDS = (
     "thinking_budget",
     "pdf_engine",
     "reasoning_effort",
+    "base_url",
 )
 _SHARED_CLIENT_ALIASES: dict[tuple[str, str], str] = {
     ("mp_ocr.clients", "OpenAIClient"): "OpenAIClient",

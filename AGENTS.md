@@ -152,13 +152,13 @@ Bug history: missing `wardly` caused false negatives; missing abbreviations caus
 
 ### LLM Configuration
 - `OpenAIClient`, `GeminiClient`, and `OpenRouterClient` behind `METESPARSER_LLM_PROVIDER` (`openai`, `gemini`, `openrouter`); `BaseLLMClient` ABC in `mp_ocr.clients`; `PDFProcessor` accepts `provider=` or `client=` for DI.
-- Defaults: OpenAI `gpt-5.2`; Gemini `gemini-3.6-flash` with fallback `gemini-3.8-flash` (`thinking_level="LOW"`, `v1beta` auto-selected for preview models); OpenRouter `anthropic/claude-haiku-5.5` with fallback `anthropic/claude-sonnet-5.5` (`reasoning_effort="low"`) via `OPENROUTER_API_KEY` (for harder scans use `OPENROUTER_MODEL=anthropic/claude-sonnet-5.5`; also supports `OPENROUTER_FALLBACK_MODEL`, `OPENROUTER_PDF_ENGINE`, `OPENROUTER_REASONING_EFFORT`).
+- Defaults: OpenAI `gpt-5.2`; Gemini `gemini-3.6-flash` with fallback `gemini-3.8-flash` (`thinking_level="LOW"`, `v1beta` auto-selected for preview models); OpenRouter `anthropic/claude-haiku-5.5` with fallback `anthropic/claude-sonnet-5.5` (`reasoning_effort="low"`) via `OPENROUTER_API_KEY` (for harder scans use `OPENROUTER_MODEL=anthropic/claude-sonnet-5.5`; also supports `OPENROUTER_FALLBACK_MODEL`—use `off`/`none`/empty to disable—`OPENROUTER_PDF_ENGINE`, and `OPENROUTER_REASONING_EFFORT`—use `off`/empty to omit).
 
 ### CSV Schema
 22 fields (`curve_type` last) in `mp_export.csv_writer.FIELDNAMES` (monolith `csv_builder.py`); **order matters**. Field list and notes: [DEVELOPER_REFERENCE.md](docs/DEVELOPER_REFERENCE.md#csv-schema).
 
 ## Environment Setup
-`.env` (copy from `.env.example`): `OPENAI_API_KEY` or `GEMINI_API_KEY` per provider; optional `METESPARSER_LOG_LEVEL` (default `INFO`). Never commit secrets; guard API keys when scripting against the pipeline. Document basis of bearing, datum and source metadata alongside exported CSV.
+`.env` (copy from `.env.example`): `OPENAI_API_KEY`, `GEMINI_API_KEY`, or `OPENROUTER_API_KEY` per provider; optional `METESPARSER_LOG_LEVEL` (default `INFO`). Never commit secrets; guard API keys when scripting against the pipeline. Document basis of bearing, datum and source metadata alongside exported CSV.
 
 ## Git Workflow
 - Never push to `main` — use branches and PRs.

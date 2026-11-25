@@ -641,12 +641,20 @@ class PDFProcessor:
                 openrouter_kwargs: dict[str, Any] = {"api_key": self._configured_api_key}
                 if or_model := (os.getenv("OPENROUTER_MODEL") or "").strip():
                     openrouter_kwargs["model"] = or_model
-                if or_fallback := (os.getenv("OPENROUTER_FALLBACK_MODEL") or "").strip():
-                    openrouter_kwargs["fallback_model"] = or_fallback
+                if "OPENROUTER_FALLBACK_MODEL" in os.environ:
+                    or_fallback = os.environ["OPENROUTER_FALLBACK_MODEL"].strip()
+                    if not or_fallback or or_fallback.lower() in {"none", "off", "disabled"}:
+                        openrouter_kwargs["fallback_model"] = None
+                    else:
+                        openrouter_kwargs["fallback_model"] = or_fallback
                 if or_pdf_engine := (os.getenv("OPENROUTER_PDF_ENGINE") or "").strip():
                     openrouter_kwargs["pdf_engine"] = or_pdf_engine
-                if or_effort := (os.getenv("OPENROUTER_REASONING_EFFORT") or "").strip():
-                    openrouter_kwargs["reasoning_effort"] = or_effort
+                if "OPENROUTER_REASONING_EFFORT" in os.environ:
+                    or_effort = os.environ["OPENROUTER_REASONING_EFFORT"].strip()
+                    if not or_effort or or_effort.lower() in {"off", "disabled"}:
+                        openrouter_kwargs["reasoning_effort"] = None
+                    else:
+                        openrouter_kwargs["reasoning_effort"] = or_effort
                 return OpenRouterClient(**openrouter_kwargs)
         except LLMClientError as exc:
             raise ValueError(str(exc)) from exc

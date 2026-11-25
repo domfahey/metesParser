@@ -156,3 +156,23 @@ class TestClearCache:
         cached.generate_text("prompt")
 
         assert fake.call_count == 2
+
+
+def test_openrouter_cache_key_includes_normalized_base_url(tmp_path: Path) -> None:
+    from metesparser.llm_clients import OpenRouterClient
+
+    c_default = CachedLLMClient(
+        OpenRouterClient(api_key="or-test", base_url="https://openrouter.ai/api/v1"),
+        cache_dir=tmp_path / "cache",
+    )
+    c_slash = CachedLLMClient(
+        OpenRouterClient(api_key="or-test", base_url="https://openrouter.ai/api/v1/"),
+        cache_dir=tmp_path / "cache",
+    )
+    c_proxy = CachedLLMClient(
+        OpenRouterClient(api_key="or-test", base_url="https://proxy.example.com/api/v1"),
+        cache_dir=tmp_path / "cache",
+    )
+
+    assert c_default._cache_key("prompt", None) == c_slash._cache_key("prompt", None)
+    assert c_default._cache_key("prompt", None) != c_proxy._cache_key("prompt", None)

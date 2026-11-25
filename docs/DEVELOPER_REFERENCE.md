@@ -6,7 +6,7 @@ Lookup material for contributors and coding agents. Rules and guardrails live in
 
 ### `metesparser` (provider-backed pipeline)
 ```bash
-uv run metesparser extract deed.pdf [--llm-provider gemini]
+uv run metesparser extract deed.pdf [--llm-provider openai|gemini|openrouter]
 uv run metesparser verify calls.csv --area 7500
 uv run metesparser compare-runs [--pdf pennbrook] [--runs-dir PATH]
 ```

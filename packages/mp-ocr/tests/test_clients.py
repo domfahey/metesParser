@@ -683,3 +683,427 @@ def test_cached_client_separates_openrouter_pdf_engine_and_reasoning_effort(
     assert c_default._cache_key("p", None) != c_mistral._cache_key("p", None)
     assert c_default._cache_key("p", None) != c_none._cache_key("p", None)
     assert c_default._cache_key("p", None) == c_low_upper._cache_key("p", None)
+
+
+def test_openrouter_client_http200_response_error_retryable_fails_over(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def handler(*, kwargs, status_error, timeout_error, connection_error):
+        if kwargs["model"] == "anthropic/claude-haiku-5.5":
+            return SimpleNamespace(
+                choices=[],
+                error={"code": 502, "message": "upstream bad gateway"},
+            )
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="fallback ok"))]
+        )
+
+    sleeps: list[float] = []
+    monkeypatch.setattr("mp_ocr.clients.time.sleep", sleeps.append)
+    _, create_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, handler)
+
+    client = OpenRouterClient(api_key="or-secret")
+    assert client.generate_text("hello") == "fallback ok"
+    assert [c["model"] for c in create_calls] == [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+    ]
+    assert sleeps == []
+
+
+def test_openrouter_client_http200_response_error_string_code_object_fails_over(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def handler(*, kwargs, status_error, timeout_error, connection_error):
+        if kwargs["model"] == "anthropic/claude-haiku-5.5":
+            return SimpleNamespace(
+                choices=[],
+                error=SimpleNamespace(code="503", message="upstream unavailable"),
+            )
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="recovered"))]
+        )
+
+    _, create_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, handler)
+    client = OpenRouterClient(api_key="or-secret")
+    assert client.generate_text("hello") == "recovered"
+    assert [c["model"] for c in create_calls] == [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+    ]
+
+
+def test_openrouter_client_http200_response_error_non_retryable_raises_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def handler(*, kwargs, status_error, timeout_error, connection_error):
+        return SimpleNamespace(
+            choices=[],
+            error={"code": 400, "message": "invalid model parameters"},
+        )
+
+    sleeps: list[float] = []
+    monkeypatch.setattr("mp_ocr.clients.time.sleep", sleeps.append)
+    _, create_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, handler)
+
+    client = OpenRouterClient(api_key="or-secret")
+    with pytest.raises(LLMClientError, match="400.*invalid model parameters"):
+        client.generate_text("hello")
+    assert [c["model"] for c in create_calls] == ["anthropic/claude-haiku-5.5"]
+    assert sleeps == []
+
+
+def test_openrouter_client_http200_finish_reason_error_failover_and_exhaustion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 1. finish_reason == "error" with no code triggers failover to fallback model
+    def failover_handler(*, kwargs, status_error, timeout_error, connection_error):
+        if kwargs["model"] == "anthropic/claude-haiku-5.5":
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        finish_reason="error",
+                        message=SimpleNamespace(content=""),
+                    )
+                ]
+            )
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    finish_reason="stop",
+                    message=SimpleNamespace(content="fallback text"),
+                )
+            ]
+        )
+
+    _, failover_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, failover_handler)
+    client = OpenRouterClient(api_key="or-secret", max_retries=0)
+    assert client.generate_text("hello") == "fallback text"
+    assert [c["model"] for c in failover_calls] == [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+    ]
+
+    # 2. Persistent finish_reason == "error" exhausts retries and raises LLMClientError (never "")
+    def always_error_handler(*, kwargs, status_error, timeout_error, connection_error):
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    finish_reason="error",
+                    error={"code": 503, "message": "provider overloaded"},
+                    message=SimpleNamespace(content=""),
+                )
+            ]
+        )
+
+    sleeps: list[float] = []
+    monkeypatch.setattr("mp_ocr.clients.time.sleep", sleeps.append)
+    _, exhausted_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, always_error_handler)
+    exhausted_client = OpenRouterClient(api_key="or-secret", max_retries=1, retry_backoff_s=0.5)
+    with pytest.raises(LLMClientError, match="503.*provider overloaded"):
+        exhausted_client.generate_text("hello")
+    assert [c["model"] for c in exhausted_calls] == [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+    ]
+    assert sleeps == [0.5]
+
+    # 3. Choice-level non-retryable error raises immediately without failover
+    def choice_401_handler(*, kwargs, status_error, timeout_error, connection_error):
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    finish_reason="error",
+                    error={"code": 401, "message": "invalid credentials"},
+                    message=SimpleNamespace(content=""),
+                )
+            ]
+        )
+
+    sleeps.clear()
+    _, auth_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, choice_401_handler)
+    auth_client = OpenRouterClient(api_key="or-secret")
+    with pytest.raises(LLMClientError, match="401.*invalid credentials"):
+        auth_client.generate_text("hello")
+    assert [c["model"] for c in auth_calls] == ["anthropic/claude-haiku-5.5"]
+    assert sleeps == []
+
+
+def test_cached_client_does_not_cache_openrouter_http200_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    state = {"fail": True}
+
+    def handler(*, kwargs, status_error, timeout_error, connection_error):
+        if state["fail"]:
+            return SimpleNamespace(
+                choices=[],
+                error={"code": 400, "message": "bad payload"},
+            )
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="clean text"))]
+        )
+
+    _, create_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, handler)
+    cache_dir = tmp_path / "cache"
+    cached = CachedLLMClient(OpenRouterClient(api_key="or-secret"), cache_dir=cache_dir)
+
+    with pytest.raises(LLMClientError, match="bad payload"):
+        cached.generate_text("same prompt")
+    assert list(cache_dir.glob("*.json")) == []
+
+    state["fail"] = False
+    assert cached.generate_text("same prompt") == "clean text"
+    assert cached.generate_text("same prompt") == "clean text"
+    assert len(create_calls) == 2
+
+
+@pytest.mark.parametrize("retryable_code", [408, 409, 429, 500, 502, 503, 504, 529])
+def test_openrouter_client_retries_expanded_transient_status_codes(
+    monkeypatch: pytest.MonkeyPatch, retryable_code: int
+) -> None:
+    def handler(*, kwargs, status_error, timeout_error, connection_error):
+        if kwargs["model"] == "anthropic/claude-haiku-5.5":
+            raise status_error(retryable_code)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))])
+
+    _, create_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, handler)
+    client = OpenRouterClient(api_key="or-secret", max_retries=0)
+    assert client.generate_text("hello") == "ok"
+    assert [c["model"] for c in create_calls] == [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+    ]
+
+
+@pytest.mark.parametrize("non_retryable_code", [400, 401, 402, 403, 404, 422])
+def test_openrouter_client_does_not_retry_non_retryable_status_codes(
+    monkeypatch: pytest.MonkeyPatch, non_retryable_code: int
+) -> None:
+    def handler(*, kwargs, status_error, timeout_error, connection_error):
+        raise status_error(non_retryable_code)
+
+    sleeps: list[float] = []
+    monkeypatch.setattr("mp_ocr.clients.time.sleep", sleeps.append)
+    _, create_calls, status_error, _ = _install_fake_openrouter_openai(monkeypatch, handler)
+
+    client = OpenRouterClient(api_key="or-secret")
+    with pytest.raises(status_error, match=f"status {non_retryable_code}"):
+        client.generate_text("hello")
+    assert [c["model"] for c in create_calls] == ["anthropic/claude-haiku-5.5"]
+    assert sleeps == []
+
+
+def test_openrouter_client_retry_exhaustion_backoff_and_connection_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def always_503(*, kwargs, status_error, timeout_error, connection_error):
+        raise status_error(503)
+
+    sleeps: list[float] = []
+    monkeypatch.setattr("mp_ocr.clients.time.sleep", sleeps.append)
+    _, create_calls, status_error, _ = _install_fake_openrouter_openai(monkeypatch, always_503)
+
+    client = OpenRouterClient(api_key="or-secret", max_retries=2, retry_backoff_s=1.0)
+    with pytest.raises(status_error, match="status 503"):
+        client.generate_text("hello")
+    assert [c["model"] for c in create_calls] == [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+    ]
+    assert sleeps == [1.0, 2.0]
+
+    # APIConnectionError triggers failover and retry
+    attempts = {"n": 0}
+
+    def conn_err_handler(*, kwargs, status_error, timeout_error, connection_error):
+        attempts["n"] += 1
+        if attempts["n"] <= 2:
+            raise connection_error("connection reset")
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="reconnected"))]
+        )
+
+    sleeps.clear()
+    _, conn_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, conn_err_handler)
+    conn_client = OpenRouterClient(api_key="or-secret", max_retries=1, retry_backoff_s=0.25)
+    assert conn_client.generate_text("hello") == "reconnected"
+    assert [c["model"] for c in conn_calls] == [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+        "anthropic/claude-haiku-5.5",
+    ]
+    assert sleeps == [0.25]
+
+
+def test_openrouter_client_fallback_dedup_single_model_and_omits_empty_extra_body(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # 1. fallback_model == model deduplicates to one attempt per round
+    def always_503(*, kwargs, status_error, timeout_error, connection_error):
+        raise status_error(503)
+
+    sleeps: list[float] = []
+    monkeypatch.setattr("mp_ocr.clients.time.sleep", sleeps.append)
+    _, dedup_calls, status_error, _ = _install_fake_openrouter_openai(monkeypatch, always_503)
+
+    dedup_client = OpenRouterClient(
+        api_key="or-secret",
+        model="anthropic/claude-sonnet-5.5",
+        fallback_model="anthropic/claude-sonnet-5.5",
+        max_retries=1,
+        retry_backoff_s=0.5,
+    )
+    with pytest.raises(status_error, match="status 503"):
+        dedup_client.generate_text("hello")
+    assert [c["model"] for c in dedup_calls] == [
+        "anthropic/claude-sonnet-5.5",
+        "anthropic/claude-sonnet-5.5",
+    ]
+    assert sleeps == [0.5]
+
+    # 2. fallback_model=None retries single model and recovers
+    attempts = {"n": 0}
+
+    def single_retry(*, kwargs, status_error, timeout_error, connection_error):
+        attempts["n"] += 1
+        if attempts["n"] < 3:
+            raise status_error(502)
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="single ok"))]
+        )
+
+    sleeps.clear()
+    _, single_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, single_retry)
+    single_client = OpenRouterClient(
+        api_key="or-secret",
+        model="anthropic/claude-haiku-5.5",
+        fallback_model=None,
+        pdf_engine=None,
+        reasoning_effort=None,
+        max_retries=2,
+        retry_backoff_s=0.5,
+    )
+    assert single_client.generate_text("hello") == "single ok"
+    assert [c["model"] for c in single_calls] == ["anthropic/claude-haiku-5.5"] * 3
+    assert sleeps == [0.5, 1.0]
+    assert "extra_body" not in single_calls[0]
+
+    pdf = tmp_path / "deed.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    assert single_client.generate_text_with_pdf("read", str(pdf)) == "single ok"
+    assert "extra_body" not in single_calls[-1]
+
+
+def test_openrouter_client_collect_response_text_edge_cases() -> None:
+    assert OpenRouterClient._collect_response_text(SimpleNamespace(choices=[])) == ""
+    assert (
+        OpenRouterClient._collect_response_text(
+            SimpleNamespace(choices=[SimpleNamespace(message=None)])
+        )
+        == ""
+    )
+    assert (
+        OpenRouterClient._collect_response_text(
+            SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=None))])
+        )
+        == ""
+    )
+    assert (
+        OpenRouterClient._collect_response_text(
+            SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content=[
+                                SimpleNamespace(type="thinking", text="secret thought"),
+                                SimpleNamespace(type="reasoning", text="more thought"),
+                                SimpleNamespace(type="text", text="visible "),
+                                SimpleNamespace(type="text", text="answer"),
+                            ]
+                        )
+                    )
+                ]
+            )
+        )
+        == "visible answer"
+    )
+
+
+def test_openrouter_client_validation_hardening(monkeypatch: pytest.MonkeyPatch) -> None:
+    client_inits, _, _, _ = _install_fake_openrouter_openai(
+        monkeypatch,
+        lambda **kwargs: SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
+        ),
+    )
+
+    # Whitespace-only api_key rejected even when env var is populated
+    monkeypatch.setenv("OPENROUTER_API_KEY", "valid-env-key")
+    with pytest.raises(LLMConfigurationError, match="OPENROUTER_API_KEY"):
+        OpenRouterClient(api_key="   \n\t ")
+
+    # Whitespace-only env var rejected
+    monkeypatch.setenv("OPENROUTER_API_KEY", "   \n ")
+    with pytest.raises(LLMConfigurationError, match="OPENROUTER_API_KEY"):
+        OpenRouterClient()
+
+    # Surrounding whitespace/newline trimmed from api_key and trailing slash trimmed from base_url
+    client = OpenRouterClient(
+        api_key="  or-trimmed-key\n",
+        base_url="  https://openrouter.ai/api/v1/  ",
+    )
+    assert client.base_url == "https://openrouter.ai/api/v1"
+    assert client_inits[-1]["api_key"] == "or-trimmed-key"
+    assert client_inits[-1]["base_url"] == "https://openrouter.ai/api/v1"
+
+    # Hostless URLs and non-int / bool max_retries rejected
+    for bad_kwargs in (
+        {"base_url": "https://"},
+        {"base_url": "http://"},
+        {"base_url": "https:///api/v1"},
+        {"max_retries": 1.5},
+        {"max_retries": True},
+    ):
+        with pytest.raises(LLMConfigurationError):
+            OpenRouterClient(api_key="or-secret", **bad_kwargs)  # type: ignore[arg-type]
+
+
+def test_cached_client_openrouter_base_url_and_cross_provider_isolation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _install_fake_openrouter_openai(
+        monkeypatch,
+        lambda **kwargs: SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
+        ),
+    )
+    c_default = CachedLLMClient(
+        OpenRouterClient(api_key="k", base_url="https://openrouter.ai/api/v1"),
+        cache_dir=tmp_path / "cache",
+    )
+    c_slash = CachedLLMClient(
+        OpenRouterClient(api_key="k", base_url="https://openrouter.ai/api/v1/"),
+        cache_dir=tmp_path / "cache",
+    )
+    c_other_host = CachedLLMClient(
+        OpenRouterClient(api_key="k", base_url="https://proxy.example.com/api/v1"),
+        cache_dir=tmp_path / "cache",
+    )
+    assert c_default._cache_key("p", None) == c_slash._cache_key("p", None)
+    assert c_default._cache_key("p", None) != c_other_host._cache_key("p", None)
+
+    c_openai = CachedLLMClient(
+        OpenAIClient(api_key="k", model="gpt-5.2"), cache_dir=tmp_path / "cache"
+    )
+    c_openrouter_same_slug = CachedLLMClient(
+        OpenRouterClient(api_key="k", model="gpt-5.2", fallback_model=None, reasoning_effort=None),
+        cache_dir=tmp_path / "cache",
+    )
+    assert c_openai._cache_key("p", None) != c_openrouter_same_slug._cache_key("p", None)

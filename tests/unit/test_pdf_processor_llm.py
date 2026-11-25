@@ -293,3 +293,45 @@ def test_cli_accepts_openrouter_llm_provider(monkeypatch, tmp_path):
     )
     cli.main()
     assert captured["llm_provider"] == "openrouter"
+
+
+def test_openrouter_env_escape_hatches_disable_fallback_and_reasoning(monkeypatch):
+    created: dict[str, object] = {}
+
+    class DummyOpenRouter(RecordingClient):
+        def __init__(self, **kwargs):
+            super().__init__()
+            created.clear()
+            created.update(kwargs)
+
+    monkeypatch.setattr("metesparser.pdf_processor.OpenRouterClient", DummyOpenRouter)
+    for var in (
+        "OPENROUTER_MODEL",
+        "OPENROUTER_FALLBACK_MODEL",
+        "OPENROUTER_PDF_ENGINE",
+        "OPENROUTER_REASONING_EFFORT",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    # Unset env vars leave defaults intact (not passed in kwargs)
+    PDFProcessor(provider="openrouter", cache=False)
+    assert created == {"api_key": None}
+
+    # Disable fallback with "", "none", "off", "disabled"
+    for disable_val in ("", "  ", "none", "off", "DISABLED"):
+        monkeypatch.setenv("OPENROUTER_FALLBACK_MODEL", disable_val)
+        PDFProcessor(provider="openrouter", cache=False)
+        assert "fallback_model" in created and created["fallback_model"] is None
+
+    monkeypatch.delenv("OPENROUTER_FALLBACK_MODEL", raising=False)
+
+    # Disable reasoning with "", "off", "disabled"
+    for disable_val in ("", "  ", "off", "disabled"):
+        monkeypatch.setenv("OPENROUTER_REASONING_EFFORT", disable_val)
+        PDFProcessor(provider="openrouter", cache=False)
+        assert "reasoning_effort" in created and created["reasoning_effort"] is None
+
+    # Explicit "none" preserves reasoning_effort="none"
+    monkeypatch.setenv("OPENROUTER_REASONING_EFFORT", "none")
+    PDFProcessor(provider="openrouter", cache=False)
+    assert created["reasoning_effort"] == "none"

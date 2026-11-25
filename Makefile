@@ -160,6 +160,7 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 	if [ -z "$$provider" ]; then \
 		provider="openai"; \
 	fi; \
+	provider="$$(printf '%s' "$$provider" | tr '[:upper:]' '[:lower:]')"; \
 	case "$$provider" in \
 		openai|gemini|openrouter) \
 			echo "✓ METESPARSER_LLM_PROVIDER=$$provider"; \
@@ -190,7 +191,7 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 			exit 1; \
 		fi; \
 		echo "✓ OPENROUTER_API_KEY is set"; \
-		provider_url="https://openrouter.ai/api/v1/models"; \
+		provider_url="https://openrouter.ai"; \
 	fi; \
 	echo "Checking network connectivity to $$provider provider endpoint..."; \
 	connectivity_ok=1; \
