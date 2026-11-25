@@ -98,16 +98,45 @@ def test_azimuth_is_in_range(path):
 
 @pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
 def test_straight_course_distance_appears_in_the_description(path):
-    """A misprinted course is printed as its printed_distance_ft."""
+    """Every straight course's distance_ft appears verbatim in the legal description."""
     gt = _load(path)
     legal = _squash(gt.get("expected_legal_description") or "")
     for call in gt.get("expected_calls") or []:
         if call.get("curve_dir") or not legal:
             continue
-        distance = call.get("printed_distance_ft", call["distance_ft"])
+        distance = call["distance_ft"]
         whole_feet = re.search(rf"\b{int(distance)}\s*(?:feet|ft|')", legal)
         assert any(form in legal for form in _printed_forms(distance)) or whole_feet, (
             f"course {call['course']}: {distance}"
+        )
+
+
+@pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
+def test_bearing_appears_in_the_description(path):
+    """Every DMS bearing in direction_text appears verbatim in the legal description."""
+    gt = _load(path)
+    legal = _squash(gt.get("expected_legal_description") or "")
+    if not legal:
+        return
+    for call in gt.get("expected_calls") or []:
+        direction = call.get("direction_text") or ""
+        match = _QUADRANT.search(direction)
+        if not match:
+            continue
+        ns, deg, mins, secs, ew = match.groups()
+        ns_pat = "(?:North|N)" if ns == "N" else "(?:South|S)"
+        ew_pat = "(?:East|E)" if ew == "E" else "(?:West|W)"
+        parts = [rf"\b{ns_pat}\.?\s*0?{int(deg)}\s*(?:°|deg(?:rees?)?\.?)"]
+        if mins is not None:
+            parts.append(rf"\s*,?\s*0?{int(mins)}\s*(?:'|min(?:utes?)?\.?)")
+        if secs is not None:
+            sec_val = float(secs)
+            sec_num = rf"0?{int(sec_val)}" if sec_val.is_integer() else re.escape(secs)
+            sec_clause = rf"\s*,?\s*{sec_num}\s*(?:\"|sec(?:onds?)?\.?)"
+            parts.append(f"(?:{sec_clause})?" if sec_val == 0 else sec_clause)
+        parts.append(rf"\s*,?\s*{ew_pat}\b")
+        assert re.search("".join(parts), legal, re.IGNORECASE), (
+            f"course {call['course']}: {direction!r} not found in legal description"
         )
 
 
@@ -123,15 +152,11 @@ def test_along_and_to_are_quoted_from_the_description(path):
 
 
 @pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
-def test_printed_value_differs_from_the_intended_one(path):
+def test_ground_truth_records_printed_values_without_overrides(path):
+    """Ground truths store verbatim transcribed deed values, never corrected substitutes."""
     for call in _load(path).get("expected_calls") or []:
-        if "printed_distance_ft" in call:
-            assert call["printed_distance_ft"] != call["distance_ft"], f"course {call['course']}"
-        if "printed_bearing_azimuth_deg_from_north" in call:
-            assert (
-                call["printed_bearing_azimuth_deg_from_north"]
-                != call["bearing_azimuth_deg_from_north"]
-            ), f"course {call['course']}"
+        overrides = [key for key in call if key.startswith("printed_")]
+        assert not overrides, f"course {call['course']}: unexpected override fields {overrides}"
 
 
 @pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))

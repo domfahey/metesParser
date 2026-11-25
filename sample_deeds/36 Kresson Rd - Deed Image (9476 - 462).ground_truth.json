@@ -25,7 +25,7 @@
       "direction_text": "N 73°30'00\" W",
       "bearing_quadrant": "N 73°30' W",
       "bearing_azimuth_deg_from_north": 286.5,
-      "distance_ft": 317.14,
+      "distance_ft": 217.14,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
@@ -33,11 +33,10 @@
       "along": "said Public Road",
       "to": "a stake in same, said stake being 68 feet Southeastwardly from lands now or late of William Hooten",
       "monument_type": null,
-      "notes": "printed \"217.14 feet\"; recorded as 317.14 ft: with it Tract 1 closes to 0.008 ft, and as printed it misses by 99.99 ft along this course",
+      "notes": "deed misprint: prints \"217.14 feet\"; as printed Tract 1 misses closure by 99.99 ft along this course (with 317.14 ft it closes to 0.008 ft)",
       "tract": "Tract 1",
       "is_exception": false,
-      "is_tie_in": false,
-      "printed_distance_ft": 217.14
+      "is_tie_in": false
     },
     {
       "course": 2,
@@ -208,7 +207,7 @@
     "area_acres": null,
     "perimeter_ft": null,
     "closure_passed": false,
-    "notes": "Main parcel with an exception; one closure across both is not meaningful. Tract 1 closes at 0.008 ft, area 47,531.62 sq ft; Exception 1 (courses 7-10) closes at 0.000 ft, area 470.00 sq ft."
+    "notes": "Main parcel with an exception; one closure across both is not meaningful. As printed (course 1: 217.14 ft), Tract 1 misses closure by 99.99 ft (with 317.14 ft it closes at 0.008 ft, area 47,531.62 sq ft); Exception 1 (courses 7-10) closes at 0.000 ft, area 470.00 sq ft."
   },
   "critical_assertions": {
     "num_calls": {
@@ -217,5 +216,5 @@
       "description": "MUST extract exactly 10 calls"
     }
   },
-  "notes": "Checked against Book 9476 Page 467 (Exhibit A, PDF page 6) and Page 462 (PDF page 1): description and every figure match the print, including the printed 217.14. Ground truth rebuilt 2026-10-31 from the recorded PDF: the deed's property description refers to Exhibit 'A' (Book 9476 Page 467, PDF page 6), transcribed verbatim. The exception's point of beginning is reached by tie courses (A) and (B) from the Willard Avenue / Kresson Road intersection (courses 5-6, is_tie_in). (B) reads 27.00 feet. As printed, Tract 1 misses by 99.99 ft; Exception 1 (courses 7-10) closes at 0.000 ft, area 470.00 sq ft. Tract 1 course 1 is printed 217.14 ft and recorded as 317.14 ft (printed_distance_ft keeps 217.14): with it Tract 1 closes to 0.008 ft."
+  "notes": "Checked against Book 9476 Page 467 (Exhibit A, PDF page 6) and Page 462 (PDF page 1): description and every figure match the print, including the printed 217.14. Ground truth rebuilt 2026-10-31 from the recorded PDF: the deed's property description refers to Exhibit 'A' (Book 9476 Page 467, PDF page 6), transcribed verbatim. The exception's point of beginning is reached by tie courses (A) and (B) from the Willard Avenue / Kresson Road intersection (courses 5-6, is_tie_in). (B) reads 27.00 feet. As printed, Tract 1 misses by 99.99 ft; Exception 1 (courses 7-10) closes at 0.000 ft, area 470.00 sq ft. Tract 1 course 1 is recorded verbatim as printed (217.14 ft), where Tract 1 misses closure by 99.99 ft (with 317.14 ft it closes to 0.008 ft)."
 }

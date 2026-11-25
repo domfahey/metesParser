@@ -117,7 +117,5 @@ def test_219_berlin_rd_keeps_every_schedule(field, normalize):
     # Schedule A-1 (6, with its two announced ties), A-2 (16: the lot and its easement),
     # A-3 (4), A-4 (4).
     assert [len(t.calls) for t in tracts] == [6, 16, 4, 4]
-    assert [c.distance_ft for c in calls] == [
-        c.get("printed_distance_ft", c["distance_ft"]) for c in truth["expected_calls"]
-    ]
+    assert [c.distance_ft for c in calls] == [c["distance_ft"] for c in truth["expected_calls"]]
     assert len(calls) == truth["critical_assertions"]["num_calls"]["expected"]

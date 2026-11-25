@@ -457,7 +457,7 @@ class TestAuditExhibitReferences:
 
 
 class TestAuditPrintedValues:
-    """A misprinted course records its intended value and the printed value the markdown shows."""
+    """Ground truths store verbatim transcribed deed values compared directly with markdown."""
 
     MD = (
         "BEGINNING at a point; thence South 64 degrees 22 minutes 25 seconds West, 229.89 feet "
@@ -474,19 +474,17 @@ class TestAuditPrintedValues:
         (tmp_path / f"{base}.ground_truth.json").write_text(json.dumps({"expected_calls": calls}))
         return mod.audit_deed(base)
 
-    def test_printed_value_is_compared_with_the_markdown(self, tmp_path, monkeypatch) -> None:
+    def test_verbatim_printed_value_matches_the_markdown(self, tmp_path, monkeypatch) -> None:
         result = self._audit(
             tmp_path,
             monkeypatch,
-            {
-                "bearing_azimuth_deg_from_north": 244.3736,
-                "distance_ft": 299.89,
-                "printed_distance_ft": 229.89,
-            },
+            {"bearing_azimuth_deg_from_north": 244.3736, "distance_ft": 229.89},
         )
         assert result["status"] == "PASS", result["issues"]
 
-    def test_intended_value_without_printed_value_fails(self, tmp_path, monkeypatch) -> None:
+    def test_corrected_value_diverging_from_printed_markdown_fails(
+        self, tmp_path, monkeypatch
+    ) -> None:
         result = self._audit(
             tmp_path,
             monkeypatch,
