@@ -210,7 +210,7 @@ def test_gemini_client_re_raises_non_retryable_client_error(monkeypatch):
 
 def test_gemini_client_default_fallback_and_retries(monkeypatch):
     def handler(*, model, contents, config, client_error, server_error):
-        if model == "gemini-3-flash-preview":
+        if model == "gemini-3.6-flash":
             raise server_error(503)
         return SimpleNamespace(
             candidates=[
@@ -229,10 +229,11 @@ def test_gemini_client_default_fallback_and_retries(monkeypatch):
     calls, _, _ = _install_fake_gemini(monkeypatch, handler)
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     client = GeminiClient()
+    assert client.model == "gemini-3.6-flash"
     assert client.fallback_model == "gemini-3.8-flash"
     assert client.thinking_level == "LOW"
     assert client.generate_text("hello") == "from 3.8 fallback"
-    assert calls == ["gemini-3-flash-preview", "gemini-3.8-flash"]
+    assert calls == ["gemini-3.6-flash", "gemini-3.8-flash"]
 
 
 def test_gemini_client_thought_only_candidates_do_not_touch_response_text(monkeypatch):
@@ -269,9 +270,9 @@ def test_gemini_client_retry_exhaustion_with_backoff_and_real_sdk_types(monkeypa
     with pytest.raises(server_error, match="server 503"):
         client.generate_text("hello")
     assert calls == [
-        "gemini-3-flash-preview",
+        "gemini-3.6-flash",
         "gemini-3.8-flash",
-        "gemini-3-flash-preview",
+        "gemini-3.6-flash",
         "gemini-3.8-flash",
     ]
     assert sleeps == [0.25]
@@ -281,7 +282,7 @@ def test_gemini_client_retry_exhaustion_with_backoff_and_real_sdk_types(monkeypa
     sleeps.clear()
     with pytest.raises(server_error, match="server 503"):
         zero_retry_client.generate_text("hello")
-    assert calls == ["gemini-3-flash-preview", "gemini-3.8-flash"]
+    assert calls == ["gemini-3.6-flash", "gemini-3.8-flash"]
     assert sleeps == []
 
 
@@ -289,9 +290,10 @@ def test_gemini_client_real_google_genai_sdk_config_construction():
     from google.genai import types as genai_types
 
     client = GeminiClient(api_key="test-key-unused-offline")
-    assert client._resolve_api_version() == "v1beta"
+    assert client.model == "gemini-3.6-flash"
+    assert client._resolve_api_version() is None
     http_opts = client._client._api_client._http_options
-    assert http_opts.api_version == "v1beta"
+    assert http_opts.api_version == "v1"
     assert http_opts.timeout == 120_000
     assert http_opts.retry_options is not None
     assert http_opts.retry_options.attempts == 1
@@ -300,14 +302,15 @@ def test_gemini_client_real_google_genai_sdk_config_construction():
     config = genai_types.GenerateContentConfig(temperature=0, thinking_config=thinking)
     assert config.thinking_config is not None
 
-    ga_client = GeminiClient(
+    preview_client = GeminiClient(
         api_key="test-key-unused-offline",
-        model="gemini-3.8-flash",
+        model="gemini-3-flash-preview",
         fallback_model=None,
         thinking_budget=0,
     )
-    assert ga_client._resolve_api_version() is None
-    budget_thinking = ga_client._build_thinking_config()
+    assert preview_client._resolve_api_version() == "v1beta"
+    assert preview_client._client._api_client._http_options.api_version == "v1beta"
+    budget_thinking = preview_client._build_thinking_config()
     assert isinstance(budget_thinking, genai_types.ThinkingConfig)
     assert budget_thinking.thinking_budget == 0
     assert budget_thinking.thinking_level is None

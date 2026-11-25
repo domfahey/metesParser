@@ -149,7 +149,7 @@ def test_gemini_client_retries_retryable_errors_and_collects_candidates(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     def handler(*, model, contents, config, client_error, server_error):
-        if model == "gemini-3-flash-preview":
+        if model == "gemini-3.6-flash":
             raise server_error(503)
         return SimpleNamespace(
             text="",
@@ -164,7 +164,7 @@ def test_gemini_client_retries_retryable_errors_and_collects_candidates(
     client = GeminiClient(api_key="gm-secret")
     assert "gm-secret" not in repr(client)
     assert client.generate_text("hello") == "fallback text"
-    assert calls == ["gemini-3-flash-preview", "gemini-3.8-flash"]
+    assert calls == ["gemini-3.6-flash", "gemini-3.8-flash"]
 
 
 def test_gemini_client_propagates_non_retryable_error(
@@ -200,7 +200,7 @@ def test_gemini_client_generates_text_with_pdf_and_missing_pdf_raises(
 
     client = GeminiClient(api_key="gm-secret")
     assert client.generate_text_with_pdf("read pdf", str(pdf)) == "extracted deed text"
-    assert calls == ["gemini-3-flash-preview"]
+    assert calls == ["gemini-3.6-flash"]
     parts = captured[0][0].parts  # type: ignore[index,attr-defined]
     assert parts[0].data == b"%PDF-1.4\n%%EOF\n"
     assert parts[0].mime_type == "application/pdf"
@@ -224,11 +224,11 @@ def test_gemini_client_fallback_exhaustion_raises_after_trying_all_models(
     with pytest.raises(server_error, match="server 503"):
         client.generate_text("hello")
     assert calls == [
-        "gemini-3-flash-preview",
+        "gemini-3.6-flash",
         "gemini-3.8-flash",
-        "gemini-3-flash-preview",
+        "gemini-3.6-flash",
         "gemini-3.8-flash",
-        "gemini-3-flash-preview",
+        "gemini-3.6-flash",
         "gemini-3.8-flash",
     ]
     assert sleeps == [1.0, 2.0]
@@ -298,29 +298,29 @@ def test_gemini_client_http_options_thinking_config_and_thought_filtering(
     monkeypatch.setitem(sys.modules, "google.genai.errors", errors_module)
     monkeypatch.setitem(sys.modules, "google.genai.types", types_module)
 
-    # Default: preview primary -> v1beta, 120s timeout, single SDK attempt, thinking_level=LOW
+    # Default: GA primary + fallback -> omits api_version (uses v1), 120s timeout, single SDK attempt, thinking_level=LOW
     default_client = GeminiClient(api_key="gm-secret")
     assert default_client.generate_text("hello") == "clean deed text"
     assert captured_client_kwargs[-1]["http_options"] == {
         "http_options": {
-            "api_version": "v1beta",
             "timeout": 120_000,
             "retry_options": {"retry_options": {"attempts": 1}},
         }
     }
     assert captured_configs[-1]["thinking_config"] == {"thinking_config": {"thinking_level": "LOW"}}
 
-    # GA models only -> omits api_version; thinking_budget overrides default thinking_level
-    ga_client = GeminiClient(
+    # Preview model -> auto-selects v1beta; thinking_budget overrides default thinking_level
+    preview_client = GeminiClient(
         api_key="gm-secret",
-        model="gemini-3.8-flash",
-        fallback_model="gemini-3.6-flash",
+        model="gemini-3-flash-preview",
+        fallback_model="gemini-3.8-flash",
         thinking_budget=0,
         timeout_ms=45_000,
     )
-    assert ga_client.generate_text("hello") == "clean deed text"
+    assert preview_client.generate_text("hello") == "clean deed text"
     assert captured_client_kwargs[-1]["http_options"] == {
         "http_options": {
+            "api_version": "v1beta",
             "timeout": 45_000,
             "retry_options": {"retry_options": {"attempts": 1}},
         }
@@ -375,7 +375,7 @@ def test_gemini_client_single_model_retries_with_backoff_and_validates_config(
         retry_backoff_s=0.5,
     )
     assert client.generate_text("hello") == "recovered"
-    assert calls == ["gemini-3-flash-preview"] * 3
+    assert calls == ["gemini-3.6-flash"] * 3
     assert sleeps == [0.5, 1.0]
 
     for bad_kwargs in (

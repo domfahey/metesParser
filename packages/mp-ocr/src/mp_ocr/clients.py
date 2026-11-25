@@ -123,7 +123,7 @@ class OpenAIClient:
 class GeminiClient:
     """Gemini-backed LLM client with optional fallback model, thinking control, and retries.
 
-    Defaults to ``gemini-3-flash-preview`` with fallback ``gemini-3.8-flash`` and
+    Defaults to ``gemini-3.6-flash`` with fallback ``gemini-3.8-flash`` and
     ``thinking_level="LOW"`` (supported across Gemini 3/3.5/3.6/3.8/4 models while
     avoiding unbounded reasoning latency). When ``thinking_budget`` is provided,
     it takes precedence over ``thinking_level``. Set ``thinking_level=None`` to
@@ -131,7 +131,7 @@ class GeminiClient:
     """
 
     api_key: str | None = field(default=None, repr=False)
-    model: str = "gemini-3-flash-preview"
+    model: str = "gemini-3.6-flash"
     fallback_model: str | None = "gemini-3.8-flash"
     thinking_level: str | None = "LOW"
     thinking_budget: int | None = None

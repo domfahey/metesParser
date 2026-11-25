@@ -152,7 +152,7 @@ Bug history: missing `wardly` caused false negatives; missing abbreviations caus
 
 ### LLM Configuration
 - `OpenAIClient` and `GeminiClient` behind `METESPARSER_LLM_PROVIDER`; `BaseLLMClient` ABC in `mp_ocr.clients`; `PDFProcessor` accepts `provider=` or `client=` for DI.
-- Defaults: OpenAI `gpt-5.2`; Gemini `gemini-3-flash-preview` with fallback `gemini-3.8-flash` (`thinking_level="LOW"`, `v1beta` auto-selected for preview models).
+- Defaults: OpenAI `gpt-5.2`; Gemini `gemini-3.6-flash` with fallback `gemini-3.8-flash` (`thinking_level="LOW"`, `v1beta` auto-selected for preview models).
 
 ### CSV Schema
 22 fields (`curve_type` last) in `mp_export.csv_writer.FIELDNAMES` (monolith `csv_builder.py`); **order matters**. Field list and notes: [DEVELOPER_REFERENCE.md](docs/DEVELOPER_REFERENCE.md#csv-schema).
