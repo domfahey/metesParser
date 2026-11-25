@@ -176,3 +176,48 @@ def test_openrouter_cache_key_includes_normalized_base_url(tmp_path: Path) -> No
 
     assert c_default._cache_key("prompt", None) == c_slash._cache_key("prompt", None)
     assert c_default._cache_key("prompt", None) != c_proxy._cache_key("prompt", None)
+
+
+def test_empty_and_whitespace_responses_are_not_cached(tmp_path: Path) -> None:
+    class SequenceClient:
+        def __init__(self, responses: list[str]) -> None:
+            self._responses = list(responses)
+            self.call_count = 0
+
+        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+            self.call_count += 1
+            return self._responses.pop(0)
+
+        def generate_text_with_pdf(
+            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+        ) -> str:
+            self.call_count += 1
+            return self._responses.pop(0)
+
+    cache_dir = tmp_path / "cache"
+    client = SequenceClient(["", "  \n\t ", "valid"])
+    cached = CachedLLMClient(client, cache_dir=cache_dir)
+
+    assert cached.generate_text("p") == ""
+    assert list(cache_dir.glob("*.json")) == []
+    assert cached.generate_text("p") == "  \n\t "
+    assert list(cache_dir.glob("*.json")) == []
+    assert cached.generate_text("p") == "valid"
+    assert cached.generate_text("p") == "valid"
+    assert client.call_count == 3
+    assert len(list(cache_dir.glob("*.json"))) == 1
+
+    pdf_cache = tmp_path / "pdf_cache"
+    pdf = tmp_path / "deed.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+    pdf_client = SequenceClient(["", "   ", "valid pdf"])
+    cached_pdf = CachedLLMClient(pdf_client, cache_dir=pdf_cache)
+
+    assert cached_pdf.generate_text_with_pdf("p", str(pdf)) == ""
+    assert list(pdf_cache.glob("*.json")) == []
+    assert cached_pdf.generate_text_with_pdf("p", str(pdf)) == "   "
+    assert list(pdf_cache.glob("*.json")) == []
+    assert cached_pdf.generate_text_with_pdf("p", str(pdf)) == "valid pdf"
+    assert cached_pdf.generate_text_with_pdf("p", str(pdf)) == "valid pdf"
+    assert pdf_client.call_count == 3
+    assert len(list(pdf_cache.glob("*.json"))) == 1

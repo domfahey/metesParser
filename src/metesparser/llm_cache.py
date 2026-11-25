@@ -167,7 +167,8 @@ class CachedLLMClient:
             return cached
 
         result = self._client.generate_text(prompt, response_mime_type=response_mime_type)
-        self._write_cache(key, result, prompt)
+        if result and result.strip():
+            self._write_cache(key, result, prompt)
         return result
 
     def generate_text_with_pdf(
@@ -183,7 +184,8 @@ class CachedLLMClient:
         result = self._client.generate_text_with_pdf(
             prompt, pdf_path, response_mime_type=response_mime_type
         )
-        self._write_cache(key, result, prompt, pdf_name=pdf_name)
+        if result and result.strip():
+            self._write_cache(key, result, prompt, pdf_name=pdf_name)
         return result
 
     def clear_cache(self) -> int:

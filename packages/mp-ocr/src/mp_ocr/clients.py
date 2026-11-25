@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import base64
+import json
 import math
 import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
-from urllib.parse import urlparse
+from urllib.parse import urlsplit
 
 
 class LLMClientError(RuntimeError):
@@ -27,6 +28,11 @@ def _is_retryable_status(status_code: object) -> bool:
         and not isinstance(status_code, bool)
         and (status_code in {408, 409, 429} or 500 <= status_code < 600)
     )
+
+
+def _has_invalid_header_chars(value: str) -> bool:
+    """Return True if *value* has control or non-ASCII chars unsafe for HTTP headers."""
+    return not value.isascii() or any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value)
 
 
 def _read_pdf(pdf_path: str) -> tuple[str, bytes]:
@@ -372,6 +378,10 @@ class OpenRouterClient:
             raise LLMConfigurationError(
                 "OpenRouter API key not found. Set OPENROUTER_API_KEY environment variable."
             )
+        if _has_invalid_header_chars(key):
+            raise LLMConfigurationError(
+                "OpenRouter API key must contain only printable ASCII characters."
+            )
         normalized_model = self.model.strip()
         if not normalized_model:
             raise LLMConfigurationError("model must be a non-empty string.")
@@ -384,10 +394,27 @@ class OpenRouterClient:
             object.__setattr__(self, "fallback_model", normalized_fallback)
 
         normalized_base_url = self.base_url.strip().rstrip("/")
-        parsed_base_url = urlparse(normalized_base_url)
-        if parsed_base_url.scheme.lower() not in ("https", "http") or not parsed_base_url.hostname:
+        if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in normalized_base_url):
+            raise LLMConfigurationError("base_url must not contain control characters.")
+        parsed_base_url = urlsplit(normalized_base_url)
+        scheme = parsed_base_url.scheme.lower()
+        hostname = parsed_base_url.hostname
+        if scheme not in ("https", "http") or not hostname:
             raise LLMConfigurationError(
                 "base_url must be a valid http:// or https:// URL with a hostname."
+            )
+        if scheme == "http" and hostname.lower() not in {"localhost", "127.0.0.1", "::1"}:
+            raise LLMConfigurationError("base_url must use https:// for non-loopback hosts.")
+        if (
+            parsed_base_url.username is not None
+            or parsed_base_url.password is not None
+            or parsed_base_url.query
+            or parsed_base_url.fragment
+            or "?" in normalized_base_url
+            or "#" in normalized_base_url
+        ):
+            raise LLMConfigurationError(
+                "base_url must not contain embedded credentials, query strings, or fragments."
             )
         object.__setattr__(self, "base_url", normalized_base_url)
 
@@ -422,6 +449,34 @@ class OpenRouterClient:
         ):
             raise LLMConfigurationError("retry_backoff_s must be a non-negative finite number.")
 
+        default_headers: dict[str, str] = {}
+        if self.site_url is not None:
+            normalized_site_url = self.site_url.strip()
+            if normalized_site_url:
+                if _has_invalid_header_chars(normalized_site_url):
+                    raise LLMConfigurationError(
+                        "site_url must contain only printable ASCII characters."
+                    )
+                parsed_site_url = urlsplit(normalized_site_url)
+                if (
+                    parsed_site_url.scheme.lower() not in ("https", "http")
+                    or not parsed_site_url.hostname
+                    or parsed_site_url.username is not None
+                    or parsed_site_url.password is not None
+                ):
+                    raise LLMConfigurationError(
+                        "site_url must be a valid http:// or https:// URL without credentials."
+                    )
+                default_headers["HTTP-Referer"] = normalized_site_url
+        if self.app_name is not None:
+            normalized_app_name = self.app_name.strip()
+            if normalized_app_name:
+                if _has_invalid_header_chars(normalized_app_name):
+                    raise LLMConfigurationError(
+                        "app_name must contain only printable ASCII characters."
+                    )
+                default_headers["X-Title"] = normalized_app_name
+
         try:
             import openai as openai_mod
         except ImportError as exc:  # pragma: no cover - defensive
@@ -434,12 +489,6 @@ class OpenRouterClient:
             raise LLMConfigurationError(
                 "openai package not installed. Install metesparser with OpenAI extras."
             )
-
-        default_headers: dict[str, str] = {}
-        if self.site_url and self.site_url.strip():
-            default_headers["HTTP-Referer"] = self.site_url.strip()
-        if self.app_name and self.app_name.strip():
-            default_headers["X-Title"] = self.app_name.strip()
 
         # Disable SDK-level retries so OpenRouterClient's round-robin failover
         # and backoff govern retry counts without multiplicative amplification.
@@ -467,7 +516,13 @@ class OpenRouterClient:
             if isinstance(err, type) and issubclass(err, BaseException)
         )
 
-        object.__setattr__(self, "_client", openai_cls(**client_kwargs))
+        sdk_client = openai_cls(**client_kwargs)
+        # Clear OpenAI-specific env credentials so they are never forwarded to OpenRouter.
+        for attr in ("organization", "project", "webhook_secret"):
+            if hasattr(sdk_client, attr):
+                setattr(sdk_client, attr, None)
+
+        object.__setattr__(self, "_client", sdk_client)
         object.__setattr__(self, "_status_errors", status_errors)
         object.__setattr__(self, "_transport_errors", transport_errors)
 
@@ -549,6 +604,12 @@ class OpenRouterClient:
                         model=model_name,
                         **request_kwargs,
                     )
+                except json.JSONDecodeError as exc:
+                    err = LLMClientError(f"OpenRouter returned invalid JSON: {exc}")
+                    if has_more_models or has_more_rounds:
+                        last_error = err
+                        continue
+                    raise err from exc
                 except catch_types as exc:
                     is_retryable = isinstance(exc, self._transport_errors) or (
                         isinstance(exc, self._status_errors)
@@ -579,19 +640,28 @@ class OpenRouterClient:
     def _extract_response_error(
         response: object, model_name: str
     ) -> tuple[LLMClientError, bool] | None:
+        if response is None or isinstance(response, (str, bytes)):
+            return (
+                LLMClientError(
+                    f"OpenRouter returned unexpected response payload for {model_name}: "
+                    f"{type(response).__name__}"
+                ),
+                True,
+            )
+
         response_error = getattr(response, "error", None)
         choices = getattr(response, "choices", None)
-        choice_error = None
-        finish_reason = None
-        if choices:
+        choice_error: object = None
+        finish_reason: object = None
+        if isinstance(choices, list) and choices:
             first_choice = choices[0]
             choice_error = getattr(first_choice, "error", None)
             finish_reason = getattr(first_choice, "finish_reason", None)
 
-        if not response_error and not choice_error and finish_reason != "error":
+        if response_error is None and choice_error is None and finish_reason != "error":
             return None
 
-        err_obj = response_error or choice_error
+        err_obj = response_error if response_error is not None else choice_error
         raw_code: object = None
         raw_message: object = None
         if isinstance(err_obj, dict):
@@ -635,7 +705,7 @@ class OpenRouterClient:
     @staticmethod
     def _collect_response_text(response: object) -> str:
         choices = getattr(response, "choices", None)
-        if not choices:
+        if not isinstance(choices, list) or not choices:
             return ""
         message = getattr(choices[0], "message", None)
         if message is None:
@@ -649,7 +719,10 @@ class OpenRouterClient:
                 part_type = (
                     part.get("type") if isinstance(part, dict) else getattr(part, "type", None)
                 )
-                if part_type in ("thinking", "reasoning"):
+                if isinstance(part_type, str) and (
+                    part_type in ("thinking", "reasoning", "reasoning_text")
+                    or part_type.startswith(("thinking", "reasoning"))
+                ):
                     continue
                 part_text = (
                     part.get("text") if isinstance(part, dict) else getattr(part, "text", None)
