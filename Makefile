@@ -161,12 +161,12 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 		provider="openai"; \
 	fi; \
 	case "$$provider" in \
-		openai|gemini) \
+		openai|gemini|openrouter) \
 			echo "✓ METESPARSER_LLM_PROVIDER=$$provider"; \
 			;; \
 		*) \
 			echo "ERROR: unsupported METESPARSER_LLM_PROVIDER=$$provider"; \
-			echo "Expected: openai or gemini"; \
+			echo "Expected: openai, gemini, or openrouter"; \
 			exit 1; \
 			;; \
 	esac; \
@@ -177,13 +177,20 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 		fi; \
 		echo "✓ OPENAI_API_KEY is set"; \
 		provider_url="https://api.openai.com"; \
-	else \
+	elif [ "$$provider" = "gemini" ]; then \
 		if [ -z "$$GEMINI_API_KEY" ]; then \
 			echo "ERROR: GEMINI_API_KEY is required when provider is gemini"; \
 			exit 1; \
 		fi; \
 		echo "✓ GEMINI_API_KEY is set"; \
 		provider_url="https://generativelanguage.googleapis.com"; \
+	else \
+		if [ -z "$$OPENROUTER_API_KEY" ]; then \
+			echo "ERROR: OPENROUTER_API_KEY is required when provider is openrouter"; \
+			exit 1; \
+		fi; \
+		echo "✓ OPENROUTER_API_KEY is set"; \
+		provider_url="https://openrouter.ai/api/v1/models"; \
 	fi; \
 	echo "Checking network connectivity to $$provider provider endpoint..."; \
 	connectivity_ok=1; \

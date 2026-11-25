@@ -15,6 +15,7 @@ from mp_ocr import (
     LLMClientError,
     LLMConfigurationError,
     OpenAIClient,
+    OpenRouterClient,
 )
 
 
@@ -469,3 +470,216 @@ def test_cached_client_hits_and_clears_cache(tmp_path: Path) -> None:
     assert cached.clear_cache() == 1
     assert cached.generate_text("p") == "resp:p"
     assert fake.calls == 2
+
+
+def _install_fake_openrouter_openai(monkeypatch: pytest.MonkeyPatch, handler):
+    module = ModuleType("openai")
+    client_inits: list[dict[str, object]] = []
+    create_calls: list[dict[str, object]] = []
+
+    class FakeAPIStatusError(Exception):
+        def __init__(self, status_code: int) -> None:
+            super().__init__(f"status {status_code}")
+            self.status_code = status_code
+
+    class FakeAPITimeoutError(Exception):
+        pass
+
+    class FakeAPIConnectionError(Exception):
+        pass
+
+    class FakeCompletions:
+        def create(self, **kwargs: object) -> object:
+            create_calls.append(kwargs)
+            return handler(
+                kwargs=kwargs,
+                status_error=FakeAPIStatusError,
+                timeout_error=FakeAPITimeoutError,
+                connection_error=FakeAPIConnectionError,
+            )
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs: object) -> None:
+            client_inits.append(kwargs)
+            self.chat = SimpleNamespace(completions=FakeCompletions())
+
+    module.OpenAI = FakeOpenAI  # type: ignore[attr-defined]
+    module.APIStatusError = FakeAPIStatusError  # type: ignore[attr-defined]
+    module.APITimeoutError = FakeAPITimeoutError  # type: ignore[attr-defined]
+    module.APIConnectionError = FakeAPIConnectionError  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "openai", module)
+    return client_inits, create_calls, FakeAPIStatusError, FakeAPITimeoutError
+
+
+def test_openrouter_client_requires_api_key_and_validates_config(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    with pytest.raises(LLMConfigurationError, match="OPENROUTER_API_KEY"):
+        OpenRouterClient()
+
+    _install_fake_openrouter_openai(
+        monkeypatch,
+        lambda **kwargs: SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
+        ),
+    )
+    for bad_kwargs in (
+        {"model": "   "},
+        {"fallback_model": ""},
+        {"base_url": "ftp://openrouter.ai/api/v1"},
+        {"pdf_engine": "  "},
+        {"reasoning_effort": " "},
+        {"timeout_s": 0},
+        {"timeout_s": True},
+        {"timeout_s": float("nan")},
+        {"max_retries": -1},
+        {"retry_backoff_s": -0.5},
+    ):
+        with pytest.raises(LLMConfigurationError):
+            OpenRouterClient(api_key="or-secret", **bad_kwargs)  # type: ignore[arg-type]
+
+
+def test_openrouter_client_text_pdf_plugins_headers_and_redaction(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def handler(*, kwargs, status_error, timeout_error, connection_error):
+        return SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(
+                        content=[
+                            {"type": "reasoning", "text": "private thought"},
+                            {"type": "text", "text": "extracted "},
+                            {"type": "text", "text": "deed text"},
+                        ]
+                    )
+                )
+            ]
+        )
+
+    client_inits, create_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, handler)
+    pdf = tmp_path / "deed.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
+
+    client = OpenRouterClient(
+        api_key="or-secret-value",
+        model="google/gemini-3.8-flash",
+        pdf_engine="mistral-ocr",
+        reasoning_effort=" LOW ",
+        site_url="https://example.com",
+    )
+    assert "or-secret-value" not in repr(client)
+    assert "_client=" not in repr(client)
+    assert client.reasoning_effort == "low"
+    with pytest.raises(TypeError):
+        OpenRouterClient(api_key="or-secret-value", _client=object())  # type: ignore[call-arg]
+
+    assert client_inits[0]["base_url"] == "https://openrouter.ai/api/v1"
+    assert client_inits[0]["max_retries"] == 0
+    assert client_inits[0]["timeout"] == 120.0
+    assert client_inits[0]["default_headers"] == {
+        "HTTP-Referer": "https://example.com",
+        "X-Title": "MetesParser",
+    }
+
+    # Text call includes reasoning extra_body + json response_format, but NOT file-parser plugin
+    assert client.generate_text("parse", response_mime_type="application/json") == (
+        "extracted deed text"
+    )
+    text_call = create_calls[0]
+    assert text_call["model"] == "google/gemini-3.8-flash"
+    assert text_call["response_format"] == {"type": "json_object"}
+    assert text_call["extra_body"] == {"reasoning": {"effort": "low"}}
+
+    # PDF call attaches inline base64 file block AND file-parser plugin
+    assert client.generate_text_with_pdf("read pdf", str(pdf)) == "extracted deed text"
+    pdf_call = create_calls[1]
+    content = pdf_call["messages"][0]["content"]  # type: ignore[index]
+    assert content[0]["type"] == "file"
+    assert content[0]["file"]["filename"] == "deed.pdf"
+    file_data = content[0]["file"]["file_data"]
+    assert file_data.startswith("data:application/pdf;base64,")
+    assert base64.b64decode(file_data.split(",", 1)[1]) == b"%PDF-1.4\n%%EOF\n"
+    assert content[1] == {"type": "text", "text": "read pdf"}
+    assert pdf_call["extra_body"] == {
+        "plugins": [{"id": "file-parser", "pdf": {"engine": "mistral-ocr"}}],
+        "reasoning": {"effort": "low"},
+    }
+
+    with pytest.raises(FileNotFoundError, match="PDF not found"):
+        client.generate_text_with_pdf("read pdf", str(tmp_path / "missing.pdf"))
+
+
+def test_openrouter_client_retries_failover_and_propagates_non_retryable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    attempts = {"n": 0}
+
+    def handler(*, kwargs, status_error, timeout_error, connection_error):
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise status_error(429)
+        if attempts["n"] == 2:
+            raise timeout_error("timed out")
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))])
+
+    sleeps: list[float] = []
+    monkeypatch.setattr("mp_ocr.clients.time.sleep", sleeps.append)
+    _, create_calls, status_error, _ = _install_fake_openrouter_openai(monkeypatch, handler)
+
+    client = OpenRouterClient(
+        api_key="or-secret",
+        model="google/gemini-3.6-flash",
+        fallback_model="google/gemini-3.8-flash",
+        max_retries=1,
+        retry_backoff_s=0.5,
+    )
+    assert client.generate_text("hello") == "ok"
+    assert [c["model"] for c in create_calls] == [
+        "google/gemini-3.6-flash",
+        "google/gemini-3.8-flash",
+        "google/gemini-3.6-flash",
+    ]
+    assert sleeps == [0.5]
+
+    # Non-retryable 400 raises immediately with no sleep or fallback
+    def bad_request(*, kwargs, status_error, timeout_error, connection_error):
+        raise status_error(400)
+
+    _, err_calls, bad_status_error, _ = _install_fake_openrouter_openai(monkeypatch, bad_request)
+    sleeps.clear()
+    client_400 = OpenRouterClient(
+        api_key="or-secret",
+        model="google/gemini-3.6-flash",
+        fallback_model="google/gemini-3.8-flash",
+    )
+    with pytest.raises(bad_status_error, match="status 400"):
+        client_400.generate_text("hello")
+    assert [c["model"] for c in err_calls] == ["google/gemini-3.6-flash"]
+    assert sleeps == []
+
+
+def test_cached_client_separates_openrouter_pdf_engine_and_reasoning_effort(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _install_fake_openrouter_openai(
+        monkeypatch,
+        lambda **kwargs: SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
+        ),
+    )
+    c_default = CachedLLMClient(OpenRouterClient(api_key="k"), cache_dir=tmp_path / "cache")
+    c_mistral = CachedLLMClient(
+        OpenRouterClient(api_key="k", pdf_engine="mistral-ocr"), cache_dir=tmp_path / "cache"
+    )
+    c_low = CachedLLMClient(
+        OpenRouterClient(api_key="k", reasoning_effort="low"), cache_dir=tmp_path / "cache"
+    )
+    c_low_upper = CachedLLMClient(
+        OpenRouterClient(api_key="k", reasoning_effort="LOW"), cache_dir=tmp_path / "cache"
+    )
+
+    assert c_default._cache_key("p", None) != c_mistral._cache_key("p", None)
+    assert c_default._cache_key("p", None) != c_low._cache_key("p", None)
+    assert c_low._cache_key("p", None) == c_low_upper._cache_key("p", None)

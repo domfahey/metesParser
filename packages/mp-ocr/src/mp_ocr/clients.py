@@ -1,4 +1,4 @@
-"""LLM client abstractions for OpenAI and Gemini providers."""
+"""LLM client abstractions for OpenAI, Gemini, and OpenRouter providers."""
 
 from __future__ import annotations
 
@@ -323,4 +323,253 @@ class GeminiClient:
         text = getattr(response, "text", None)
         if isinstance(text, str) and text:
             return text
+        return ""
+
+
+@dataclass(frozen=True)
+class OpenRouterClient:
+    """OpenRouter-backed LLM client using OpenAI-compatible Chat Completions.
+
+    Routes requests to ``https://openrouter.ai/api/v1`` via the ``openai`` SDK,
+    supporting any OpenRouter model slug (default ``google/gemini-3.6-flash``),
+    inline PDF attachments (with optional ``file-parser`` ``pdf_engine``),
+    optional ``reasoning_effort``, fallback model failover, and bounded retries.
+    """
+
+    api_key: str | None = field(default=None, repr=False)
+    model: str = "google/gemini-3.6-flash"
+    fallback_model: str | None = None
+    base_url: str = "https://openrouter.ai/api/v1"
+    pdf_engine: str | None = None
+    reasoning_effort: str | None = None
+    site_url: str | None = None
+    app_name: str | None = "MetesParser"
+    timeout_s: float | None = 120.0
+    max_retries: int = 2
+    retry_backoff_s: float = 1.0
+    _client: Any = field(init=False, repr=False, compare=False)
+    _status_errors: tuple[type[BaseException], ...] = field(init=False, repr=False, compare=False)
+    _transport_errors: tuple[type[BaseException], ...] = field(
+        init=False, repr=False, compare=False
+    )
+
+    def __post_init__(self) -> None:
+        key = self.api_key or os.getenv("OPENROUTER_API_KEY")
+        if not key:
+            raise LLMConfigurationError(
+                "OpenRouter API key not found. Set OPENROUTER_API_KEY environment variable."
+            )
+        normalized_model = self.model.strip()
+        if not normalized_model:
+            raise LLMConfigurationError("model must be a non-empty string.")
+        object.__setattr__(self, "model", normalized_model)
+
+        if self.fallback_model is not None:
+            normalized_fallback = self.fallback_model.strip()
+            if not normalized_fallback:
+                raise LLMConfigurationError("fallback_model must be a non-empty string or None.")
+            object.__setattr__(self, "fallback_model", normalized_fallback)
+
+        normalized_base_url = self.base_url.strip()
+        if not normalized_base_url.startswith(("https://", "http://")):
+            raise LLMConfigurationError("base_url must start with 'https://' or 'http://'.")
+        object.__setattr__(self, "base_url", normalized_base_url)
+
+        if self.pdf_engine is not None:
+            normalized_engine = self.pdf_engine.strip()
+            if not normalized_engine:
+                raise LLMConfigurationError("pdf_engine must be a non-empty string or None.")
+            object.__setattr__(self, "pdf_engine", normalized_engine)
+
+        if self.reasoning_effort is not None:
+            normalized_effort = self.reasoning_effort.strip().lower()
+            if not normalized_effort:
+                raise LLMConfigurationError("reasoning_effort must be a non-empty string or None.")
+            object.__setattr__(self, "reasoning_effort", normalized_effort)
+
+        if self.timeout_s is not None and (
+            isinstance(self.timeout_s, bool)
+            or not math.isfinite(self.timeout_s)
+            or self.timeout_s <= 0
+        ):
+            raise LLMConfigurationError("timeout_s must be a positive finite number.")
+        if isinstance(self.max_retries, bool) or self.max_retries < 0:
+            raise LLMConfigurationError("max_retries must be a non-negative integer.")
+        if (
+            isinstance(self.retry_backoff_s, bool)
+            or not math.isfinite(self.retry_backoff_s)
+            or self.retry_backoff_s < 0
+        ):
+            raise LLMConfigurationError("retry_backoff_s must be a non-negative finite number.")
+
+        try:
+            import openai as openai_mod
+        except ImportError as exc:  # pragma: no cover - defensive
+            raise LLMConfigurationError(
+                "openai package not installed. Install metesparser with OpenAI extras."
+            ) from exc
+
+        openai_cls = getattr(openai_mod, "OpenAI", None)
+        if not callable(openai_cls):
+            raise LLMConfigurationError(
+                "openai package not installed. Install metesparser with OpenAI extras."
+            )
+
+        default_headers: dict[str, str] = {}
+        if self.site_url and self.site_url.strip():
+            default_headers["HTTP-Referer"] = self.site_url.strip()
+        if self.app_name and self.app_name.strip():
+            default_headers["X-Title"] = self.app_name.strip()
+
+        # Disable SDK-level retries so OpenRouterClient's round-robin failover
+        # and backoff govern retry counts without multiplicative amplification.
+        client_kwargs: dict[str, object] = {
+            "api_key": key,
+            "base_url": self.base_url,
+            "max_retries": 0,
+        }
+        if self.timeout_s is not None:
+            client_kwargs["timeout"] = self.timeout_s
+        if default_headers:
+            client_kwargs["default_headers"] = default_headers
+
+        status_errors = tuple(
+            err
+            for err in (getattr(openai_mod, "APIStatusError", None),)
+            if isinstance(err, type) and issubclass(err, BaseException)
+        )
+        transport_errors = tuple(
+            err
+            for err in (
+                getattr(openai_mod, "APITimeoutError", None),
+                getattr(openai_mod, "APIConnectionError", None),
+            )
+            if isinstance(err, type) and issubclass(err, BaseException)
+        )
+
+        object.__setattr__(self, "_client", openai_cls(**client_kwargs))
+        object.__setattr__(self, "_status_errors", status_errors)
+        object.__setattr__(self, "_transport_errors", transport_errors)
+
+    def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+        messages: list[dict[str, object]] = [{"role": "user", "content": prompt}]
+        return self._create_completion(
+            messages, response_mime_type=response_mime_type, include_pdf_plugin=False
+        )
+
+    def generate_text_with_pdf(
+        self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+    ) -> str:
+        filename, pdf_bytes = _read_pdf(pdf_path)
+        pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+        messages: list[dict[str, object]] = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "file",
+                        "file": {
+                            "filename": filename,
+                            "file_data": f"data:application/pdf;base64,{pdf_base64}",
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    },
+                ],
+            }
+        ]
+        return self._create_completion(
+            messages, response_mime_type=response_mime_type, include_pdf_plugin=True
+        )
+
+    def _create_completion(
+        self,
+        messages: list[dict[str, object]],
+        *,
+        response_mime_type: str | None = None,
+        include_pdf_plugin: bool = False,
+    ) -> str:
+        request_kwargs: dict[str, object] = {
+            "temperature": 0,
+            "messages": messages,
+        }
+        if response_mime_type == "application/json":
+            request_kwargs["response_format"] = {"type": "json_object"}
+
+        extra_body: dict[str, object] = {}
+        if include_pdf_plugin and self.pdf_engine is not None:
+            extra_body["plugins"] = [
+                {
+                    "id": "file-parser",
+                    "pdf": {"engine": self.pdf_engine},
+                }
+            ]
+        if self.reasoning_effort is not None:
+            extra_body["reasoning"] = {"effort": self.reasoning_effort}
+        if extra_body:
+            request_kwargs["extra_body"] = extra_body
+
+        models_to_try: list[str] = [self.model]
+        fallback = self.fallback_model
+        if fallback and fallback not in models_to_try:
+            models_to_try.append(fallback)
+
+        retryable_codes = {408, 429, 502, 503, 504}
+        catch_types = self._status_errors + self._transport_errors
+        last_error: BaseException | None = None
+        total_rounds = self.max_retries + 1
+
+        for round_index in range(total_rounds):
+            for model_index, model_name in enumerate(models_to_try):
+                try:
+                    response = self._client.chat.completions.create(
+                        model=model_name,
+                        **request_kwargs,
+                    )
+                    return self._collect_response_text(response)
+                except catch_types as exc:
+                    is_retryable = isinstance(exc, self._transport_errors) or (
+                        isinstance(exc, self._status_errors)
+                        and getattr(exc, "status_code", None) in retryable_codes
+                    )
+                    has_more_models = model_index < len(models_to_try) - 1
+                    has_more_rounds = round_index < total_rounds - 1
+                    if is_retryable and (has_more_models or has_more_rounds):
+                        last_error = exc
+                        continue
+                    raise
+            if round_index < total_rounds - 1 and self.retry_backoff_s > 0:
+                time.sleep(self.retry_backoff_s * (2**round_index))
+
+        if last_error:
+            raise last_error
+        return ""
+
+    @staticmethod
+    def _collect_response_text(response: object) -> str:
+        choices = getattr(response, "choices", None)
+        if not choices:
+            return ""
+        message = getattr(choices[0], "message", None)
+        if message is None:
+            return ""
+        content = getattr(message, "content", None)
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            segments: list[str] = []
+            for part in content:
+                part_type = (
+                    part.get("type") if isinstance(part, dict) else getattr(part, "type", None)
+                )
+                if part_type in ("thinking", "reasoning"):
+                    continue
+                part_text = (
+                    part.get("text") if isinstance(part, dict) else getattr(part, "text", None)
+                )
+                if isinstance(part_text, str):
+                    segments.append(part_text)
+            return "".join(segments)
         return ""

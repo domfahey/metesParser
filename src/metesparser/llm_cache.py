@@ -23,12 +23,16 @@ _MODEL_CONFIG_FIELDS = (
     "fallback_model",
     "thinking_level",
     "thinking_budget",
+    "pdf_engine",
+    "reasoning_effort",
 )
 _SHARED_CLIENT_ALIASES: dict[tuple[str, str], str] = {
     ("mp_ocr.clients", "OpenAIClient"): "OpenAIClient",
     ("metesparser.llm_clients", "OpenAIClient"): "OpenAIClient",
     ("mp_ocr.clients", "GeminiClient"): "GeminiClient",
     ("metesparser.llm_clients", "GeminiClient"): "GeminiClient",
+    ("mp_ocr.clients", "OpenRouterClient"): "OpenRouterClient",
+    ("metesparser.llm_clients", "OpenRouterClient"): "OpenRouterClient",
 }
 
 
