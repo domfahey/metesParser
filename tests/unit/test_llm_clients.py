@@ -206,3 +206,177 @@ def test_gemini_client_re_raises_non_retryable_client_error(monkeypatch):
 
     with pytest.raises(client_error, match="client 400"):
         client.generate_text("hello")
+
+
+def test_gemini_client_default_fallback_and_retries(monkeypatch):
+    def handler(*, model, contents, config, client_error, server_error):
+        if model == "gemini-3.6-flash":
+            raise server_error(503)
+        return SimpleNamespace(
+            candidates=[
+                SimpleNamespace(
+                    content=SimpleNamespace(
+                        parts=[
+                            SimpleNamespace(thought=True, text="skip me"),
+                            SimpleNamespace(thought_signature=b"sig", text=None),
+                            SimpleNamespace(text="from 3.8 fallback"),
+                        ]
+                    )
+                )
+            ]
+        )
+
+    calls, _, _ = _install_fake_gemini(monkeypatch, handler)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    client = GeminiClient()
+    assert client.model == "gemini-3.6-flash"
+    assert client.fallback_model == "gemini-3.8-flash"
+    assert client.thinking_level == "LOW"
+    assert client.generate_text("hello") == "from 3.8 fallback"
+    assert calls == ["gemini-3.6-flash", "gemini-3.8-flash"]
+
+
+def test_gemini_client_thought_only_candidates_do_not_touch_response_text(monkeypatch):
+    class ThoughtOnlyResponse:
+        def __init__(self) -> None:
+            self.candidates = [
+                SimpleNamespace(
+                    content=SimpleNamespace(
+                        parts=[SimpleNamespace(thought=True, text="private reasoning")]
+                    )
+                )
+            ]
+
+        @property
+        def text(self) -> str:
+            raise AssertionError("response.text should not be accessed")
+
+    _install_fake_gemini(monkeypatch, lambda **kwargs: ThoughtOnlyResponse())
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    client = GeminiClient()
+    assert client.generate_text("hello") == ""
+
+
+def test_gemini_client_retry_exhaustion_with_backoff_and_real_sdk_types(monkeypatch):
+    sleeps: list[float] = []
+    monkeypatch.setattr("metesparser.llm_clients.time.sleep", sleeps.append)
+
+    def handler(*, model, contents, config, client_error, server_error):
+        raise server_error(503)
+
+    calls, _, server_error = _install_fake_gemini(monkeypatch, handler)
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    client = GeminiClient(max_retries=1, retry_backoff_s=0.25)
+    with pytest.raises(server_error, match="server 503"):
+        client.generate_text("hello")
+    assert calls == [
+        "gemini-3.6-flash",
+        "gemini-3.8-flash",
+        "gemini-3.6-flash",
+        "gemini-3.8-flash",
+    ]
+    assert sleeps == [0.25]
+
+    zero_retry_client = GeminiClient(max_retries=0)
+    calls.clear()
+    sleeps.clear()
+    with pytest.raises(server_error, match="server 503"):
+        zero_retry_client.generate_text("hello")
+    assert calls == ["gemini-3.6-flash", "gemini-3.8-flash"]
+    assert sleeps == []
+
+
+def test_gemini_client_real_google_genai_sdk_config_construction():
+    from google.genai import types as genai_types
+
+    client = GeminiClient(api_key="test-key-unused-offline")
+    assert client.model == "gemini-3.6-flash"
+    assert client._resolve_api_version() is None
+    http_opts = client._client._api_client._http_options
+    assert http_opts.api_version == "v1"
+    assert http_opts.timeout == 120_000
+    assert http_opts.retry_options is not None
+    assert http_opts.retry_options.attempts == 1
+    thinking = client._build_thinking_config()
+    assert isinstance(thinking, genai_types.ThinkingConfig)
+    config = genai_types.GenerateContentConfig(temperature=0, thinking_config=thinking)
+    assert config.thinking_config is not None
+
+    preview_client = GeminiClient(
+        api_key="test-key-unused-offline",
+        model="gemini-3-flash-preview",
+        fallback_model=None,
+        thinking_budget=0,
+    )
+    assert preview_client._resolve_api_version() == "v1beta"
+    assert preview_client._client._api_client._http_options.api_version == "v1beta"
+    budget_thinking = preview_client._build_thinking_config()
+    assert isinstance(budget_thinking, genai_types.ThinkingConfig)
+    assert budget_thinking.thinking_budget == 0
+    assert budget_thinking.thinking_level is None
+
+
+def test_gemini_client_failover_and_retry_with_real_sdk_api_errors(monkeypatch):
+    from google.genai import errors as genai_errors
+
+    seen: list[str] = []
+    sleeps: list[float] = []
+    monkeypatch.setattr("metesparser.llm_clients.time.sleep", sleeps.append)
+
+    def fake_generate(*, model: str, contents: object, config: object) -> object:
+        seen.append(model)
+        if len(seen) == 1:
+            raise genai_errors.ClientError(
+                429, {"error": {"code": 429, "message": "quota", "status": "RESOURCE_EXHAUSTED"}}
+            )
+        if len(seen) == 2:
+            raise genai_errors.ServerError(
+                503, {"error": {"code": 503, "message": "busy", "status": "UNAVAILABLE"}}
+            )
+        return SimpleNamespace(text="recovered on round 2", candidates=[])
+
+    client = GeminiClient(api_key="test-key-unused-offline", max_retries=1, retry_backoff_s=0.5)
+    monkeypatch.setattr(client._client.models, "generate_content", fake_generate)
+    assert client.generate_text("hello") == "recovered on round 2"
+    assert seen == ["gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.6-flash"]
+    assert sleeps == [0.5]
+
+
+def test_gemini_client_validates_config_parameters(monkeypatch):
+    _install_fake_gemini(monkeypatch, lambda **kwargs: SimpleNamespace(text="ok"))
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    for bad_kwargs in (
+        {"timeout_ms": 0},
+        {"timeout_ms": -5},
+        {"timeout_ms": True},
+        {"max_retries": -1},
+        {"max_retries": False},
+        {"retry_backoff_s": -1.0},
+        {"retry_backoff_s": float("inf")},
+        {"thinking_budget": -2},
+        {"thinking_level": "  "},
+        {"api_version": " "},
+    ):
+        with pytest.raises(LLMConfigurationError):
+            GeminiClient(**bad_kwargs)
+
+
+def test_gemini_client_package_and_monolith_parity(monkeypatch, tmp_path):
+    from mp_ocr.cache import CachedLLMClient as PackageCachedLLMClient
+    from mp_ocr.clients import GeminiClient as PackageGeminiClient
+
+    from metesparser.llm_cache import CachedLLMClient as MonolithCachedLLMClient
+
+    _install_fake_gemini(monkeypatch, lambda **kwargs: SimpleNamespace(text="ok"))
+    pkg_low = PackageGeminiClient(api_key="k", thinking_level="low")
+    mono_low = GeminiClient(api_key="k", thinking_level="LOW")
+    assert pkg_low.fallback_model == mono_low.fallback_model == "gemini-3.8-flash"
+    assert pkg_low.thinking_level == mono_low.thinking_level == "LOW"
+    assert PackageCachedLLMClient(pkg_low, tmp_path / "c")._cache_key(
+        "prompt", None
+    ) == MonolithCachedLLMClient(mono_low, tmp_path / "c")._cache_key("prompt", None)
+
+    pkg_high = PackageGeminiClient(api_key="k", thinking_level="HIGH")
+    assert PackageCachedLLMClient(pkg_low, tmp_path / "c")._cache_key(
+        "prompt", None
+    ) != PackageCachedLLMClient(pkg_high, tmp_path / "c")._cache_key("prompt", None)
