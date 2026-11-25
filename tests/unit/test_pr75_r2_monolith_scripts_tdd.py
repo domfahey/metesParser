@@ -10,17 +10,14 @@ from pathlib import Path
 import pytest
 import structlog.testing
 
-from metesparser import cli
 from metesparser.models import (
     ClosureResult,
     DeedCall,
     LegalDescription,
     Tract,
-    TractType,
 )
 from metesparser.pdf_processor import PDFProcessor
 from metesparser.review_packet import generate_traverse_plot
-from metesparser.run_registry import RunManifest, RunResults, format_comparison_table
 
 
 def _load_script(script_name: str):
@@ -252,65 +249,7 @@ def test_pdf_processor_surfaces_warning_and_audit_signal_for_non_positive_stated
 
 
 # ---------------------------------------------------------------------------
-# 3. cli.py: _aggregate_tract_closure closure_passed semantics
-# ---------------------------------------------------------------------------
-
-
-def test_aggregate_tract_closure_closure_passed_true_when_closed_with_warnings() -> None:
-    """Closed multi-tract run with warnings must yield closure_passed=True and WARN status."""
-    from datetime import UTC, datetime
-
-    main_tract = Tract(label="Tract 1", tract_type=TractType.MAIN, role_basis="heading", calls=[])
-    exc_tract = Tract(
-        label="Exception 1", tract_type=TractType.EXCEPTION, role_basis="heading", calls=[]
-    )
-    main_res = ClosureResult(
-        misclosure_x_ft=0.0,
-        misclosure_y_ft=0.0,
-        misclosure_ft=0.0,
-        area_sq_ft=10000.0,
-        area_acres=10000.0 / 43560.0,
-        perimeter_ft=400.0,
-        closure_passed=True,
-        angle_check_passed=False,
-        curve_consistency_passed=True,
-        warnings=[],
-    )
-    exc_res = ClosureResult(
-        misclosure_x_ft=0.0,
-        misclosure_y_ft=0.0,
-        misclosure_ft=0.0,
-        area_sq_ft=100.0,
-        area_acres=100.0 / 43560.0,
-        perimeter_ft=40.0,
-        closure_passed=True,
-        angle_check_passed=True,
-        curve_consistency_passed=True,
-        warnings=["Exception tract warning"],
-    )
-
-    agg = cli._aggregate_tract_closure([(main_tract, main_res), (exc_tract, exc_res)])
-    assert agg.closure_passed is True
-    assert not agg.is_fully_verified()
-    assert "Exception tract warning" in agg.warnings
-
-    manifest = RunManifest(
-        run_id="r1",
-        timestamp_utc=datetime.now(UTC),
-        source_pdf="multi.pdf",
-        llm_provider="openai",
-        llm_model="gpt-5.2",
-        cache_enabled=False,
-        parser_version="1.0.0",
-        results=RunResults.from_closure(agg, call_count=4),
-    )
-    table = format_comparison_table([manifest])
-    assert "WARN" in table
-    assert "FAIL" not in table
-
-
-# ---------------------------------------------------------------------------
-# 4. scripts/extract_sample_deeds.py: multi-tract handling
+# 3. scripts/extract_sample_deeds.py: multi-tract handling
 # ---------------------------------------------------------------------------
 
 

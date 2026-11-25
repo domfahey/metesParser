@@ -17,7 +17,13 @@ from .audit import (
     Transformation,
     VerificationAudit,
 )
-from .base import _Model
+from .base import (
+    STATED_AREA_ABS_TOL,
+    STATED_AREA_REL_TOL,
+    _Model,
+    coerce_bool_field,
+    stated_areas_match,
+)
 from .closure import CheckResult, ClosureResult, Point
 from .comparison import (
     BearingBasis,
@@ -386,10 +392,14 @@ __all__ = [
     "tract_kind",
     "Transformation",
     "VerificationAudit",
+    "STATED_AREA_ABS_TOL",
+    "STATED_AREA_REL_TOL",
     "_Model",
+    "coerce_bool_field",
     "configure_logging",
     "get_log_format",
     "parse_message",
     "read_jsonl",
+    "stated_areas_match",
     "write_jsonl",
 ]

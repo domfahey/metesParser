@@ -214,8 +214,24 @@ def test_configure_logging_disables_logger_caching(
 ) -> None:
     from mp_models.logging import configure_logging
 
-    configure_logging(level="INFO", log_format="console", stream=io.StringIO())
+    console_stream = io.StringIO()
+    configure_logging(level="INFO", log_format="console", stream=console_stream)
     assert structlog.get_config()["cache_logger_on_first_use"] is False
+
+    reused_logger = structlog.get_logger("mp_ocr.reconfigure_test")
+    reused_logger.info("first event", stage="console")
+    assert "first event" in console_stream.getvalue()
+
+    json_stream = io.StringIO()
+    configure_logging(level="INFO", log_format="json", stream=json_stream)
+    reused_logger.info("second event", stage="json")
+
+    assert "second event" not in console_stream.getvalue()
+    lines = [line for line in json_stream.getvalue().splitlines() if line.strip()]
+    assert len(lines) == 1
+    payload = json.loads(lines[0])
+    assert payload["event"] == "second event"
+    assert payload["stage"] == "json"
 
 
 def test_json_logging_exception_does_not_leak_local_secrets(
@@ -332,9 +348,12 @@ def test_monolith_calculate_missing_curve_elements_supports_degree_of_curvature(
     ["extract_legal_description.yaml", "extract_text_from_pdf.yaml", "normalize_text.yaml"],
 )
 def test_prompt_copies_are_in_sync_and_reconciled(filename: str) -> None:
-    root_text = (Path("prompts") / filename).read_text(encoding="utf-8")
-    pkg_text = (Path("packages/mp-ocr/src/mp_ocr/prompts") / filename).read_text(encoding="utf-8")
-    mono_text = (Path("src/metesparser/prompts") / filename).read_text(encoding="utf-8")
+    repo_root = Path(__file__).resolve().parents[2]
+    root_text = (repo_root / "prompts" / filename).read_text(encoding="utf-8")
+    pkg_text = (repo_root / "packages/mp-ocr/src/mp_ocr/prompts" / filename).read_text(
+        encoding="utf-8"
+    )
+    mono_text = (repo_root / "src/metesparser/prompts" / filename).read_text(encoding="utf-8")
 
     assert pkg_text == root_text
     assert mono_text == root_text

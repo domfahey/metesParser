@@ -149,10 +149,11 @@ def test_extract_command_exports_verified_csv(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls, area=0.0: verified,
+        lambda calls, stated_area_sq_ft=0.0, **kwargs: verified,
     )
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+        lambda result, **kwargs: "VERIFIED",
     )
     monkeypatch.setattr(
         "metesparser.csv_builder.CSVBuilder.export_verified_csv",
@@ -189,10 +190,11 @@ def test_extract_command_defaults_output_path_to_csv(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls, area=0.0: verified,
+        lambda calls, stated_area_sq_ft=0.0, **kwargs: verified,
     )
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+        lambda result, **kwargs: "VERIFIED",
     )
     monkeypatch.setattr(
         "metesparser.csv_builder.CSVBuilder.export_verified_csv",
@@ -244,11 +246,11 @@ def test_extract_command_exports_unverified_csv(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls, area=0.0: unverified,
+        lambda calls, stated_area_sq_ft=0.0, **kwargs: unverified,
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.get_closure_summary",
-        lambda result: "UNVERIFIED",
+        lambda result, **kwargs: "UNVERIFIED",
     )
     monkeypatch.setattr(
         "metesparser.csv_builder.CSVBuilder.legal_description_to_csv",
@@ -276,11 +278,12 @@ def test_verify_command_success_and_failure(monkeypatch, tmp_path):
 
     monkeypatch.setattr("metesparser.csv_builder.CSVBuilder.csv_to_calls", lambda _: calls)
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+        lambda result, **kwargs: "VERIFIED",
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls, area=0.0: _verified_result(),
+        lambda calls, stated_area_sq_ft=0.0, **kwargs: _verified_result(),
     )
 
     cli.verify_command(str(csv))
@@ -288,7 +291,7 @@ def test_verify_command_success_and_failure(monkeypatch, tmp_path):
     calls[0] = calls[0].model_copy(update={"distance_ft": 20.0})
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls, area=0.0: _not_verified_result(),
+        lambda calls, stated_area_sq_ft=0.0, **kwargs: _not_verified_result(),
     )
 
     with pytest.raises(SystemExit) as exc:
@@ -310,13 +313,16 @@ def test_verify_command_forwards_stated_area(monkeypatch, tmp_path):
 
     observed_areas: list[float] = []
 
-    def _verify(calls_arg: list[DeedCall], area: float = 0.0) -> ClosureResult:
-        observed_areas.append(area)
+    def _verify(
+        calls_arg: list[DeedCall], stated_area_sq_ft: float = 0.0, **kwargs: object
+    ) -> ClosureResult:
+        observed_areas.append(stated_area_sq_ft)
         return _verified_result()
 
     monkeypatch.setattr("metesparser.csv_builder.CSVBuilder.csv_to_calls", lambda _: calls)
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+        lambda result, **kwargs: "VERIFIED",
     )
     monkeypatch.setattr("metesparser.closure_checker.ClosureChecker.verify_closure", _verify)
 
@@ -374,10 +380,11 @@ def test_extract_command_json_mode_logs_summary_without_stdout(monkeypatch, tmp_
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls, area=0.0: _verified_result(),
+        lambda calls, stated_area_sq_ft=0.0, **kwargs: _verified_result(),
     )
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+        lambda result, **kwargs: "VERIFIED",
     )
     monkeypatch.setattr(
         "metesparser.csv_builder.CSVBuilder.export_verified_csv",
@@ -421,10 +428,11 @@ def test_extract_command_console_mode_logs_summary_and_stdout(monkeypatch, tmp_p
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls, area=0.0: _verified_result(),
+        lambda calls, stated_area_sq_ft=0.0, **kwargs: _verified_result(),
     )
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+        lambda result, **kwargs: "VERIFIED",
     )
     monkeypatch.setattr(
         "metesparser.csv_builder.CSVBuilder.export_verified_csv",
@@ -470,10 +478,11 @@ def test_extract_command_propagates_contextvars_and_clears_after_completion(monk
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls, area=0.0: _verified_result(),
+        lambda calls, stated_area_sq_ft=0.0, **kwargs: _verified_result(),
     )
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+        lambda result, **kwargs: "VERIFIED",
     )
     monkeypatch.setattr(
         "metesparser.csv_builder.CSVBuilder.export_verified_csv",
@@ -518,10 +527,11 @@ def test_verify_command_json_mode_logs_summary_without_stdout(monkeypatch, tmp_p
     monkeypatch.setattr("metesparser.csv_builder.CSVBuilder.csv_to_calls", lambda _: calls)
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls, area=0.0: _verified_result(),
+        lambda calls, stated_area_sq_ft=0.0, **kwargs: _verified_result(),
     )
     monkeypatch.setattr(
-        "metesparser.closure_checker.ClosureChecker.get_closure_summary", lambda result: "VERIFIED"
+        "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+        lambda result, **kwargs: "VERIFIED",
     )
 
     try:
@@ -675,11 +685,11 @@ class TestExtractRunManifest:
         )
         monkeypatch.setattr(
             "metesparser.closure_checker.ClosureChecker.verify_closure",
-            lambda calls, area=0.0: verified,
+            lambda calls, stated_area_sq_ft=0.0, **kwargs: verified,
         )
         monkeypatch.setattr(
             "metesparser.closure_checker.ClosureChecker.get_closure_summary",
-            lambda result: "VERIFIED",
+            lambda result, **kwargs: "VERIFIED",
         )
         monkeypatch.setattr(
             "metesparser.csv_builder.CSVBuilder.export_verified_csv",

@@ -15,7 +15,7 @@ class BearingConverter:
     """Convert bearings and calculate coordinate deltas."""
 
     QUADRANT_PATTERN = re.compile(
-        r"\b(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?,?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)(?![A-Za-z_])",
+        r"\b(North|South|N|S)(?>\s*)([0-8]?[0-9]|90)[°º](?>\s*)(?:([0-5]?[0-9])['′],?(?>\s*)|,(?>\s*))?(?:([0-5]?[0-9](?:\.\d+)?)[\"″](?>\s*))?(East|West|E|W)(?![A-Za-z_])",
         re.IGNORECASE,
     )
 
@@ -121,7 +121,7 @@ class BearingConverter:
             Radius in feet
 
         Raises:
-            ValueError: If degree_of_curve is zero or negative
+            ValueError: If degree_of_curve is non-finite, zero, or negative
         """
         if (
             isinstance(degree_of_curve, bool)
@@ -129,7 +129,7 @@ class BearingConverter:
             or degree_of_curve <= 0
         ):
             raise ValueError(
-                f"Degree of curvature must be positive and non-zero, got {degree_of_curve}"
+                f"Degree of curvature must be finite, positive and non-zero, got {degree_of_curve}"
             )
         return 5729.578 / degree_of_curve
 
@@ -148,11 +148,11 @@ class BearingConverter:
         if not match:
             return None
 
-        cardinal1 = match.group(1).upper()
+        cardinal1 = match.group(1)[0].upper()
         degrees = float(match.group(2))
         minutes = float(match.group(3)) if match.group(3) else 0.0
         seconds = float(match.group(4)) if match.group(4) else 0.0
-        cardinal2 = match.group(5).upper()
+        cardinal2 = match.group(5)[0].upper()
 
         if not (0 <= degrees <= 90):
             return None
@@ -271,7 +271,10 @@ class BearingConverter:
         Returns:
             Quadrant bearing string like "N 45°30' E"
         """
+        if isinstance(azimuth, bool) or not math.isfinite(azimuth):
+            raise ValueError(f"Azimuth must be finite, got {azimuth!r}")
         azimuth = azimuth % 360.0
+        azimuth = 0.0 if azimuth == 360.0 else azimuth
 
         if 0 <= azimuth <= 90:
             angle = azimuth
@@ -351,22 +354,26 @@ class BearingConverter:
         Raises:
             ValueError: If radius <= 0, delta > 360, or neither delta/arc provided
         """
-        if radius_ft <= 0:
-            raise ValueError(f"Radius must be positive, got {radius_ft}")
+        if isinstance(radius_ft, bool) or not math.isfinite(radius_ft) or radius_ft <= 0:
+            raise ValueError(f"Radius must be positive and finite, got {radius_ft}")
+        if delta_deg is not None and (
+            isinstance(delta_deg, bool)
+            or not math.isfinite(delta_deg)
+            or not (0 <= delta_deg <= 360)
+        ):
+            raise ValueError(f"Delta angle must be 0-360 degrees and finite, got {delta_deg}")
+        if arc_length_ft is not None and (
+            isinstance(arc_length_ft, bool) or not math.isfinite(arc_length_ft) or arc_length_ft < 0
+        ):
+            raise ValueError(f"Arc length must be non-negative and finite, got {arc_length_ft}")
 
         delta_rad = 0.0
 
         if delta_deg is not None:
-            if not (0 <= delta_deg <= 360):
-                raise ValueError(f"Delta angle must be 0-360 degrees, got {delta_deg}")
-
             delta_rad = math.radians(delta_deg)
             arc = radius_ft * delta_rad
             chord = 2 * radius_ft * math.sin(delta_rad / 2)
         elif arc_length_ft is not None:
-            if arc_length_ft < 0:
-                raise ValueError(f"Arc length must be non-negative, got {arc_length_ft}")
-
             delta_rad = arc_length_ft / radius_ft
             delta_deg = math.degrees(delta_rad)
 
@@ -463,8 +470,8 @@ class BearingConverter:
         Raises:
             ValueError: If radius <= 0 or delta out of range
         """
-        if radius_ft <= 0:
-            raise ValueError(f"Radius must be positive, got {radius_ft}")
+        if isinstance(radius_ft, bool) or not math.isfinite(radius_ft) or radius_ft <= 0:
+            raise ValueError(f"Radius must be positive and finite, got {radius_ft}")
 
         curve_props = cls.calculate_curve_properties(radius_ft, delta_deg=delta_deg)
         chord_length = curve_props["chord_length_ft"]
@@ -502,7 +509,7 @@ class BearingConverter:
             arc_length_ft, chord_length_ft, tangent_length_ft
 
         Raises:
-            ValueError: If fewer than 2 elements provided
+            ValueError: If fewer than 2 elements provided or any element is non-finite or out of range
         """
         if degree_of_curvature is not None:
             converted_radius = cls.degree_of_curvature_to_radius(degree_of_curvature)
@@ -528,14 +535,14 @@ class BearingConverter:
             ("Arc length", arc_length_ft),
         ):
             if val is not None and (isinstance(val, bool) or not math.isfinite(val) or val <= 0):
-                raise ValueError(f"{name} must be positive, got {val}")
+                raise ValueError(f"{name} must be positive and finite, got {val}")
 
         if chord_length_ft is not None and (
             isinstance(chord_length_ft, bool)
             or not math.isfinite(chord_length_ft)
             or chord_length_ft < 0
         ):
-            raise ValueError(f"Chord length must be non-negative, got {chord_length_ft}")
+            raise ValueError(f"Chord length must be non-negative and finite, got {chord_length_ft}")
 
         if radius_ft is not None and delta_deg is not None:
             pass

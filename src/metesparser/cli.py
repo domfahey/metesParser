@@ -2,19 +2,21 @@
 
 from __future__ import annotations
 
-import inspect
 import math
 import os
 import sys
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 import structlog.contextvars
 
 from .logging_config import configure_logging, get_log_format
+
+if TYPE_CHECKING:
+    from .models import ClosureResult
 
 logger = structlog.get_logger(__name__)
 
@@ -22,53 +24,27 @@ RUNS_DIR = Path("output/runs")
 
 
 def _unwrap_llm_model(processor: object) -> str:
-    """Resolve the underlying model identifier through any CachedLLMClient wrappers."""
+    """Resolve the underlying model identifier, preferring public model_name properties."""
+    model_name = getattr(processor, "model_name", None)
+    if isinstance(model_name, str) and model_name:
+        return model_name
     client: Any = getattr(processor, "client", None)
     seen: set[int] = set()
     while client is not None and id(client) not in seen:
         seen.add(id(client))
-        model = getattr(client, "model", None)
-        if isinstance(model, str) and model:
-            return model
+        for attr in ("model_name", "model"):
+            model = getattr(client, attr, None)
+            if isinstance(model, str) and model:
+                return model
         client = getattr(client, "_client", None)
     return "unknown"
 
 
-def _verify_closure_compat(
-    verify_fn: Any,
-    calls: list[Any],
-    *,
-    stated_area_sq_ft: float,
-    tracts: list[Any] | None = None,
-) -> Any:
-    """Call ClosureChecker.verify_closure while remaining compatible with 2-arg mocks."""
-    params = inspect.signature(verify_fn).parameters
-    accepts_var_kw = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
-    kwargs: dict[str, Any] = {}
-    if "tracts" in params or accepts_var_kw:
-        kwargs["tracts"] = tracts
-    if "stated_area_sq_ft" in params or accepts_var_kw:
-        kwargs["stated_area_sq_ft"] = stated_area_sq_ft
-        return verify_fn(calls, **kwargs)
-    return verify_fn(calls, stated_area_sq_ft, **kwargs)
-
-
-def _get_closure_summary_compat(
-    summary_fn: Any, result: Any, calls: list[Any] | None = None
-) -> str:
-    """Call ClosureChecker.get_closure_summary while remaining compatible with 1-arg mocks."""
-    params = inspect.signature(summary_fn).parameters
-    accepts_var_kw = any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values())
-    if "calls" in params or accepts_var_kw:
-        return str(summary_fn(result, calls=calls))
-    return str(summary_fn(result))
-
-
-def _aggregate_tract_closure(tract_results: list[tuple[Any, Any]]) -> Any:
+def aggregate_tract_closure(tract_results: list[tuple[Any, Any]]) -> Any:
     """Summarize per-tract ClosureResult objects into a single RunResults-compatible ClosureResult."""
-    from mp_models import is_boundary_tract
+    from mp_models import is_boundary_tract, tract_kind
 
-    from .models import ClosureResult
+    from .models import CheckResult, ClosureResult
 
     if not tract_results:
         return ClosureResult(
@@ -87,30 +63,62 @@ def _aggregate_tract_closure(tract_results: list[tuple[Any, Any]]) -> Any:
             confidence_score=0.0,
             warnings=["No tracts verified"],
         )
-    boundary = [r for t, r in tract_results if is_boundary_tract(t.tract_type)]
+
+    boundary_pairs = [(t, r) for t, r in tract_results if is_boundary_tract(t.tract_type)]
+    exception_pairs = [(t, r) for t, r in tract_results if tract_kind(t.tract_type) == "exception"]
+    boundary = [r for _, r in boundary_pairs]
+    exceptions = [r for _, r in exception_pairs]
     selected = boundary or [r for _, r in tract_results]
+    evaluated = [*boundary, *exceptions] if boundary else selected
+
     all_warnings = [w for _, r in tract_results for w in r.warnings]
-    misclosure_avail = all(r.misclosure_available for r in selected)
-    area_avail = all(r.area_available for r in selected)
+    if not boundary:
+        all_warnings.append("No boundary tracts (main or addition) present")
+    else:
+        for tract, res in exception_pairs:
+            if not res.closure_passed:
+                all_warnings.append(f"{tract.label}: exception tract closure failed")
+
+    propagated_checks = [
+        CheckResult(
+            name=check.name,
+            status=check.status,
+            reason=check.reason,
+            detail=f"[{tract.label}] {check.detail}",
+            inputs=dict(check.inputs),
+        )
+        for tract, res in tract_results
+        for check in getattr(res, "checks", ())
+        if check.status in ("failed", "blocked")
+    ]
+
+    misclosure_avail = all(r.misclosure_available for r in evaluated)
+    area_avail = bool(boundary) and not exceptions and all(r.area_available for r in boundary)
     perimeter_avail = all(r.perimeter_available for r in selected)
-    confidences = [r.confidence_score for r in selected if r.confidence_score is not None]
+    closure_passed = bool(boundary) and all(r.closure_passed for r in evaluated)
+    confidences = [r.confidence_score for r in evaluated if r.confidence_score is not None]
     return ClosureResult(
-        misclosure_x_ft=selected[0].misclosure_x_ft if len(selected) == 1 else 0.0,
-        misclosure_y_ft=selected[0].misclosure_y_ft if len(selected) == 1 else 0.0,
-        misclosure_ft=max(
-            (r.misclosure_ft for r in selected if r.misclosure_available), default=0.0
+        misclosure_x_ft=(
+            evaluated[0].misclosure_x_ft if misclosure_avail and len(evaluated) == 1 else 0.0
         ),
-        area_sq_ft=sum(r.area_sq_ft for r in selected) if area_avail else 0.0,
-        area_acres=sum(r.area_acres for r in selected) if area_avail else 0.0,
+        misclosure_y_ft=(
+            evaluated[0].misclosure_y_ft if misclosure_avail and len(evaluated) == 1 else 0.0
+        ),
+        misclosure_ft=(
+            max((r.misclosure_ft for r in evaluated), default=0.0) if misclosure_avail else 0.0
+        ),
+        area_sq_ft=sum(r.area_sq_ft for r in boundary) if area_avail else 0.0,
+        area_acres=sum(r.area_acres for r in boundary) if area_avail else 0.0,
         perimeter_ft=sum(r.perimeter_ft for r in selected) if perimeter_avail else 0.0,
         misclosure_available=misclosure_avail,
         area_available=area_avail,
         perimeter_available=perimeter_avail,
-        closure_passed=all(r.closure_passed for r in selected),
-        angle_check_passed=all(r.angle_check_passed for r in selected),
-        curve_consistency_passed=all(r.curve_consistency_passed for r in selected),
+        closure_passed=closure_passed,
+        angle_check_passed=all(r.angle_check_passed for r in evaluated),
+        curve_consistency_passed=all(r.curve_consistency_passed for r in evaluated),
         confidence_score=min(confidences) if confidences else 0.0,
         warnings=all_warnings,
+        checks=propagated_checks,
     )
 
 
@@ -184,20 +192,24 @@ def extract_command(
         calls_for_verify = legal_desc.all_calls if tracts_arg else legal_desc.calls
 
         command_logger.info("Verifying closure")
-        closure_result = _verify_closure_compat(
-            ClosureChecker.verify_closure,
-            calls_for_verify,
-            stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0,
-            tracts=tracts_arg,
-        )
+        closure_result: ClosureResult | list[ClosureResult]
+        if tracts_arg is not None:
+            closure_result = ClosureChecker.verify_closure(
+                calls_for_verify,
+                stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0,
+                tracts=tracts_arg,
+            )
+        else:
+            closure_result = ClosureChecker.verify_closure(
+                calls_for_verify,
+                stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0,
+            )
 
         if isinstance(closure_result, list):
             tract_results = list(zip(legal_desc.tracts, closure_result, strict=True))
             summary = "\n\n".join(
                 f"--- {tract.label} ---\n"
-                + _get_closure_summary_compat(
-                    ClosureChecker.get_closure_summary, tract_res, calls=tract.calls
-                )
+                + ClosureChecker.get_closure_summary(tract_res, calls=tract.calls)
                 for tract, tract_res in tract_results
             )
             _emit_closure_summary(summary, command_logger)
@@ -220,11 +232,9 @@ def extract_command(
                 )
                 CSVBuilder.legal_description_to_csv(legal_desc, output)
                 command_logger.info("Exported unverified CSV")
-            manifest_closure = _aggregate_tract_closure(tract_results)
+            manifest_closure = aggregate_tract_closure(tract_results)
         else:
-            summary = _get_closure_summary_compat(
-                ClosureChecker.get_closure_summary, closure_result, calls=calls_for_verify
-            )
+            summary = ClosureChecker.get_closure_summary(closure_result, calls=calls_for_verify)
             _emit_closure_summary(summary, command_logger)
 
             if closure_result.is_fully_verified() and not role_review:
@@ -287,7 +297,9 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
         logger.error("CSV file not found", path=csv_path)
         sys.exit(1)
 
-    if stated_area is not None and (not math.isfinite(stated_area) or stated_area <= 0):
+    if stated_area is not None and (
+        isinstance(stated_area, bool) or not math.isfinite(stated_area) or stated_area <= 0
+    ):
         logger.error("Stated area must be finite and positive", stated_area=stated_area)
         sys.exit(1)
 
@@ -298,15 +310,12 @@ def verify_command(csv_path: str, stated_area: float | None = None) -> None:
         calls = CSVBuilder.csv_to_calls(csv_path)
         command_logger.info("Loaded calls", count=len(calls))
 
-        closure_result = _verify_closure_compat(
-            ClosureChecker.verify_closure,
+        closure_result = ClosureChecker.verify_closure(
             calls,
             stated_area_sq_ft=stated_area or 0.0,
         )
 
-        summary = _get_closure_summary_compat(
-            ClosureChecker.get_closure_summary, closure_result, calls=calls
-        )
+        summary = ClosureChecker.get_closure_summary(closure_result, calls=calls)
         _emit_closure_summary(summary, command_logger)
 
         if closure_result.is_fully_verified():

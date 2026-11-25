@@ -12,7 +12,6 @@ from mp_bearing.curves import calculate_chord_bearing, calculate_missing_curve_e
 from mp_export.csv_writer import csv_to_calls, export_verified_csv, legal_description_to_csv
 from mp_models import DeedCall, LegalDescription, Tract, TractType
 from mp_verify import get_closure_summary, verify_closure
-from mp_verify.confidence import calculate_confidence_score
 
 from metesparser.bearing_converter import BearingConverter
 from metesparser.closure_checker import ClosureChecker
@@ -356,25 +355,6 @@ def test_legal_description_to_csv_exports_easement_only_tracts_calls(tmp_path: P
     loaded = csv_to_calls(str(out))
     assert len(loaded) == 4
     assert all(c.distance_ft == 30.0 for c in loaded)
-
-
-# ---------------------------------------------------------------------------
-# Item 6 (#18): confidence.py docstring documents applicable geometric checks
-# ---------------------------------------------------------------------------
-
-
-def test_calculate_confidence_score_docstring_matches_implementation() -> None:
-    doc = calculate_confidence_score.__doc__ or ""
-    assert "angle + curve consistency" not in doc
-    for name in (
-        "interior_angles",
-        "curve_consistency",
-        "boundary_intersections",
-        "self_intersection",
-    ):
-        assert name in doc
-    assert "angle_check_passed" in doc
-    assert "curve_consistency_passed" in doc
 
 
 # ---------------------------------------------------------------------------

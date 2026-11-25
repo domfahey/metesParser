@@ -61,14 +61,14 @@ def calculate_confidence_score(
     calls: list[DeedCall],
     chord_flags: list[bool] | None = None,
     indefinite_flags: list[bool] | None = None,
+    positioned_flags: list[bool] | None = None,
 ) -> float:
     """Calculate overall confidence score (0.0-1.0) for a closure result.
 
     Weighted components:
     - Closure quality (30%): based on misclosure distance and pass/fail
-    - Verification checks (20%): applicable geometric checks
-      (``interior_angles``, ``curve_consistency``, ``boundary_intersections``,
-      ``self_intersection``), falling back to ``angle_check_passed`` and
+    - Verification checks (20%): all applicable non-closure checks in
+      ``result.checks``, falling back to ``angle_check_passed`` and
       ``curve_consistency_passed`` when ``result.checks`` is empty
     - Bearing completeness (25%): ratio of calls with complete bearings
     - Call quality (15%): ratio of high-quality calls
@@ -81,6 +81,9 @@ def calculate_confidence_score(
             from one traverse pass when omitted.
         indefinite_flags: Per-call effective_indefinite flags aligned with calls;
             derived from the same pass when omitted.
+        positioned_flags: Per-boundary-call positioning flags (excluding tie-ins
+            and non-standalone exceptions) used to detect a non-computable traverse
+            when misclosure is unavailable; derived when omitted.
 
     Returns:
         Score between 0.0 and 1.0 (inclusive).
@@ -104,9 +107,18 @@ def calculate_confidence_score(
     if complete == 0:
         return 0.0
     if not result.misclosure_available:
-        if records is None:
-            records = analyze_courses(calls)[1]
-        if not any(record.positioned for record in records):
+        if positioned_flags is None:
+            non_tie = [c for c in calls if not c.is_tie_in]
+            boundary_calls = [c for c in non_tie if not c.is_exception]
+            if not boundary_calls:
+                boundary_calls = non_tie
+            if records is not None and len(boundary_calls) == len(calls):
+                positioned_flags = [record.positioned for record in records]
+            else:
+                positioned_flags = [
+                    record.positioned for record in analyze_courses(boundary_calls)[1]
+                ]
+        if not any(positioned_flags):
             return 0.0
 
     # Closure quality (30%); an undetermined misclosure earns no closure credit.
@@ -124,19 +136,12 @@ def calculate_confidence_score(
     else:
         closure_score = max(0.0, 0.3 - result.misclosure_ft * 0.02)
 
-    # Verification checks (20%)
+    # Verification checks (20%): all applicable non-closure checks.
     if result.checks:
         applicable_checks = [
             check
             for check in result.checks
-            if check.name
-            in {
-                "interior_angles",
-                "curve_consistency",
-                "boundary_intersections",
-                "self_intersection",
-            }
-            and check.status != "not_applicable"
+            if check.name != "traverse_closure" and check.status != "not_applicable"
         ]
         if applicable_checks:
             checks_passed = sum(check.status == "passed" for check in applicable_checks)

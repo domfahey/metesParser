@@ -20,6 +20,7 @@ from .units import (
     LENGTH_NUMBER,
     LENGTH_UNIT,
     UNIT_TOKEN,
+    VULGAR_FRACTIONS,
     is_foot_mark,
     normalize_unit_token,
     parse_number,
@@ -96,7 +97,9 @@ def _structure_follows(text: str, index: int) -> bool:
     return after is not None and STRUCTURE_BREAK.match(text, after.end()) is not None
 
 
-def is_abbreviation_period(text: str, index: int) -> bool:
+def is_abbreviation_period(
+    text: str, index: int, *, abbreviations: frozenset[str] = _ABBREVIATIONS
+) -> bool:
     """Return whether the period at ``text[index]`` belongs to a word, not a sentence.
 
     A decimal point ("1.5"), a single-letter initial or acronym letter ("John A.
@@ -115,7 +118,7 @@ def is_abbreviation_period(text: str, index: int) -> bool:
         return False
     if len(word) == 1:
         return not _LABEL_BEFORE.search(text, max(0, start - 12), start)
-    return word.lower() in _ABBREVIATIONS
+    return word.lower() in abbreviations
 
 
 def ends_sentence(text: str, index: int) -> bool:
@@ -214,18 +217,100 @@ class _AreaStatement(TypedDict):
 
 _SQ_FT_UNIT = r"sq\.?\s*ft\.?|square\s+(?:feet|foot)"
 _AREA_LEAD_UNIT = rf"(?:{_SQ_FT_UNIT}|acres?)"
+_AREA_COMPONENT_UNIT = (
+    rf"{_SQ_FT_UNIT}|acres?|roods?|(?:(?:square|sq\.?)\s*)?(?:perch(?:es)?|rods?|poles?)"
+)
+_SIGNED_AREA_NUM_START = rf"(?=\d|\.\d|[{VULGAR_FRACTIONS}])"
+_SIGNED_AREA_NEG_BODY = (
+    rf"\.\d+(?!\d|[.,]\d|[eE][+\-\u2212]?\d|[/\u2044]|[{VULGAR_FRACTIONS}])|{LENGTH_NUMBER}"
+)
 # Later components of a compound area ("2 acres and 50 perches", "2 acres, 3 roods
-# and 10 perches"): after an area, a perch, rod or pole is a square perch.
+# and 10 perches"): after an area, a perch, rod or pole is a square perch. Signed
+# negative components ("and -50 perches", "and - 50 perches") are captured so the
+# compound fails closed rather than silently dropping the negative term.
 _SQ_PERCH_FEET = ConversionFactors.PERCH_TO_FEET**2
 _AREA_COMPONENT = re.compile(
-    rf"\s*,?\s*(?:and\s+)?(?P<value>{LENGTH_NUMBER})\s*"
-    rf"(?P<unit>{_SQ_FT_UNIT}|acres?|roods?|(?:(?:square|sq\.?)\s*)?(?:perch(?:es)?|rods?|poles?))"
-    r"(?![a-z])\.?",
+    rf"(?:\s*,?\s*and\s+(?:(?P<and_sign>[-\u2212])[ \t]*{_SIGNED_AREA_NUM_START}"
+    rf"(?P<and_neg>{_SIGNED_AREA_NEG_BODY})|(?P<and_pos>{LENGTH_NUMBER}))"
+    rf"|\s*(?:,\s*|\s+)(?:(?P<sign>[-\u2212])[ \t]*{_SIGNED_AREA_NUM_START}"
+    rf"(?P<neg_value>{_SIGNED_AREA_NEG_BODY})|(?P<pos_value>{LENGTH_NUMBER})))"
+    rf"\s*(?P<unit>{_AREA_COMPONENT_UNIT})(?![a-z])",
     re.IGNORECASE,
 )
 # "2 acres and 50 feet": a further joined value that is not a read area unit. The
 # area is then unavailable, never reported without it.
-_UNREAD_AREA_COMPONENT = re.compile(rf"\s*,?\s*and\s+{LENGTH_NUMBER}\s*[a-z]", re.IGNORECASE)
+_UNREAD_AREA_COMPONENT = re.compile(
+    rf"\s*,?\s*and\s+(?:[-\u2212][ \t]*)?(?:{LENGTH_NUMBER}|(?:\d+(?:\.\d+)?|\.\d+)[eE][+\-\u2212]?\d+)\s*[a-z]",
+    re.IGNORECASE,
+)
+_SPACED_MINUS_TRIGGER = re.compile(
+    r"(?:[:~(]|\b(?:containing|contains|comprising|consisting\s+of|"
+    r"approximately|approx\.?|about|nearly|roughly|of|all|or|and))$",
+    re.IGNORECASE,
+)
+_UNSIGNED_AREA_GUARD = r"(?:(?<=[\w][-\u2212])|(?<![-\u2212]))"
+_SCI_AREA_BODY = r"(?<![A-Za-z0-9.])(?:[-\u2212][ \t]*)?(?:\d+(?:\.\d+)?|\.\d+)[eE][+\-\u2212]?\d+"
+_SIGNED_AREA_VALUE = (
+    rf"(?:(?P<sci_value>{_SCI_AREA_BODY})"
+    rf"|(?<![\w])(?P<sign>[-\u2212]){_SIGNED_AREA_NUM_START}"
+    rf"(?P<neg_value>{_SIGNED_AREA_NEG_BODY})"
+    rf"|{_UNSIGNED_AREA_GUARD}(?P<pos_value>{LENGTH_NUMBER}))"
+)
+_AREA_PATTERN = re.compile(
+    rf"{_SIGNED_AREA_VALUE}\s*(?P<unit>{_AREA_LEAD_UNIT})(?![a-z])",
+    re.IGNORECASE,
+)
+_STANDALONE_AREA_PATTERN = re.compile(
+    rf"\s*(?:(?:approximately|approx\.?|about|nearly|roughly|~)\s+)?"
+    rf"(?:{_SCI_AREA_BODY}"
+    rf"|(?<![\w])[-\u2212][ \t]*{_SIGNED_AREA_NUM_START}(?:{_SIGNED_AREA_NEG_BODY})"
+    rf"|{_UNSIGNED_AREA_GUARD}{LENGTH_NUMBER})"
+    rf"\s*{_AREA_LEAD_UNIT}"
+    r"(?:\s+more\s+or\s+less)?\s*[.]?\s*",
+    re.IGNORECASE,
+)
+_PARCEL_AREA_LEAD = re.compile(
+    r"\b(?:containing|contains|comprising|consisting\s+of)\b"
+    r"|\barea\s*:\s*(?:(?:approximately|approx\.?|about|nearly|roughly|~)\s*)?(?:[-\u2212][ \t]+)?$",
+    re.IGNORECASE,
+)
+_APPROX_WORD = re.compile(r"\bapprox(?:imately)?\.?\b", re.IGNORECASE)
+_PARENT_PREFIX_PATTERN = re.compile(
+    r"\b(?:parent|larger|original)\s+(?:tract|parcel|lot)\b"
+    r"|\boriginally\s+(?:containing|contains|comprising|consisting\s+of)\b"
+)
+_PARENT_AFTER_PATTERN = re.compile(r"\b(?:parent|larger|original)\s+(?:tract|parcel|lot)\b")
+_CONVEYED_PORTION_RECITAL = re.compile(
+    r"^\s*(?:,?\s*(?:more\s+or\s+less|m\.o\.l\.?))?"
+    r"(?:\s*,\s*(?:(?:and\s+)?(?:said\s+(?:land|parcel|tract|premises)\s+)?(?:being|which\s+is)\s+)?"
+    r"|\s+(?:and\s+)?being\s+)"
+    r"(?:a\s+)?(?:part|portion)\s+of\s+(?:the\s+|a\s+|an\s+|said\s+)?"
+    r"(?:parent|larger|original)\s+(?:tract|parcel|lot)\b",
+    re.IGNORECASE,
+)
+_SQ_FT_SENTENCE_BREAK = re.compile(
+    r"\s+(?:being|said|this|that|the|part|portion|all|also|subject|reserving|together|"
+    r"except\w*|less|save|saving|beginning|commencing|thence|parent|larger|original|"
+    r"tract|parcel|lot|containing|contains|comprising|consisting)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_spaced_minus_before(text: str, start: int) -> bool:
+    """Return True in O(1) when ``text[:start]`` ends with a spaced unary minus."""
+    if start <= 0 or text[start - 1] not in " \t":
+        return False
+    idx = start - 1
+    while idx >= 0 and text[idx] in " \t":
+        idx -= 1
+    if idx < 0 or text[idx] not in "-\u2212":
+        return False
+    before = idx
+    while before > 0 and text[before - 1] in " \t\r\n":
+        before -= 1
+    if before == 0:
+        return True
+    return bool(_SPACED_MINUS_TRIGGER.search(text[max(0, before - 32) : before]))
 
 
 def _area_sq_ft(value: str, unit: str) -> float:
@@ -240,20 +325,53 @@ def _area_sq_ft(value: str, unit: str) -> float:
     return number
 
 
+_AREA_CONTEXT_ABBREVS = _ABBREVIATIONS | frozenset({"approx", "sq", "sec", "etc"})
+
+
+def _area_clause_start_in_range(s: str, low: int, pos: int) -> int:
+    stop = max(s.rfind(";", low, pos), s.rfind("\n", low, pos))
+    dot_low = max(low, stop + 1)
+    dot = s.rfind(".", dot_low, pos)
+    while dot >= dot_low:
+        if not is_abbreviation_period(s, dot, abbreviations=_AREA_CONTEXT_ABBREVS):
+            return dot
+        dot = s.rfind(".", dot_low, dot)
+    return stop
+
+
+def _area_clause_start_before(s: str, pos: int) -> int:
+    return _area_clause_start_in_range(s, 0, pos)
+
+
+def _area_clause_end_after(s: str, pos: int, limit: int) -> int:
+    semi = s.find(";", pos, limit)
+    nl = s.find("\n", pos, limit)
+    stop = min((idx for idx in (semi, nl) if idx >= 0), default=limit)
+    dot = s.find(".", pos, stop)
+    while dot >= 0:
+        if not is_abbreviation_period(s, dot, abbreviations=_AREA_CONTEXT_ABBREVS):
+            return dot
+        dot = s.find(".", dot + 1, stop)
+    return stop
+
+
 def extract_area_statement(text: str) -> _AreaStatement | None:
-    """Extract the first stated area statement from legal text.
+    """Extract the stated area statement from legal text.
 
     Returns a dict with:
         value_sq_ft: numeric area in square feet
         unit: original unit label ("sq_ft" or "acres"; "compound" for a sum such
-            as "2 acres and 50 perches")
+            as "2 acres and 50 perches"; or "unsupported scientific notation (...)"
+            when a parcel-context statement uses scientific notation)
         approximate: whether wording indicates approximation
 
     Values use the shared length-number grammar (".5", "2 1/2", "1,234.5"). A
     compound area sums its components (acres, roods, square perches/rods/poles,
     square feet); a joined component that cannot be read makes the statement
-    unavailable rather than partial. If no parseable area statement exists,
-    returns None.
+    unavailable rather than partial. Any non-positive stated area (zero,
+    negative, scientific notation, or a compound containing a negative component)
+    takes fail-closed precedence over earlier positive or unreadable statements.
+    If no parseable area statement exists, returns None.
     """
     if not isinstance(text, str):
         return None
@@ -262,76 +380,167 @@ def extract_area_statement(text: str) -> _AreaStatement | None:
     if not normalized_text:
         return None
 
-    area_pattern = re.compile(
-        rf"(?P<value>{LENGTH_NUMBER})\s*(?P<unit>{_AREA_LEAD_UNIT})(?![a-z])\.?",
-        re.IGNORECASE,
-    )
-
-    matches = list(area_pattern.finditer(normalized_text))
+    matches = list(_AREA_PATTERN.finditer(normalized_text))
     if not matches:
         return None
 
+    has_mixed_case = len(text) == len(normalized_text) and any(c.islower() for c in text)
+    parent_prefixes = [
+        (m.start(), m.end()) for m in _PARENT_PREFIX_PATTERN.finditer(normalized_text)
+    ]
+    parent_prefix_ends = [end for _, end in parent_prefixes]
+    has_parent_after = bool(_PARENT_AFTER_PATTERN.search(normalized_text))
+    last_boundary = -1
+    boundary_scan_pos = 0
+
     def is_parent_area_context(match: re.Match[str]) -> bool:
-        preceding_text = normalized_text[: match.start()]
-        clause_start = max(
-            preceding_text.rfind(";"), preceding_text.rfind("."), preceding_text.rfind("\n")
-        )
-        clause_prefix = preceding_text[clause_start + 1 :]
-        return bool(
-            re.search(r"\b(?:parent|larger|original)\s+(?:tract|parcel|lot)\b", clause_prefix)
-        )
+        nonlocal last_boundary, boundary_scan_pos
+        if parent_prefixes:
+            if match.start() > boundary_scan_pos:
+                found = _area_clause_start_in_range(
+                    normalized_text, boundary_scan_pos, match.start()
+                )
+                if found >= boundary_scan_pos:
+                    last_boundary = found
+                boundary_scan_pos = match.start()
+            p_idx = bisect_right(parent_prefix_ends, match.start()) - 1
+            if p_idx >= 0 and parent_prefixes[p_idx][0] > last_boundary:
+                return True
+        if not has_parent_after:
+            return False
+        comp_end = match.end()
+        while comp := _AREA_COMPONENT.match(normalized_text, comp_end):
+            comp_end = comp.end()
+        if normalized_text[comp_end - 1 : comp_end] == "." and (
+            _SQ_FT_SENTENCE_BREAK.match(normalized_text, comp_end)
+            or (has_mixed_case and _SENTENCE_START.match(text, comp_end))
+        ):
+            return False
+        limit = min(len(normalized_text), comp_end + 45)
+        clause_end = _area_clause_end_after(normalized_text, comp_end, limit)
+        clause_after = normalized_text[comp_end:clause_end]
+        if _CONVEYED_PORTION_RECITAL.match(clause_after):
+            return False
+        return bool(_PARENT_AFTER_PATTERN.search(clause_after))
 
     # A bare area remains a supported API input, but an area embedded in a
     # legal description must be tied to the described parcel, not its parent.
-    standalone = re.fullmatch(
-        rf"\s*(?:(?:approximately|approx\.?|~)\s+)?"
-        rf"{LENGTH_NUMBER}\s*{_AREA_LEAD_UNIT}"
-        r"(?:\s+more\s+or\s+less)?\s*[.]?\s*",
-        normalized_text,
-        re.IGNORECASE,
-    )
+    standalone = _STANDALONE_AREA_PATTERN.fullmatch(normalized_text)
     parcel_matches = [
         match
         for match in matches
-        if re.search(
-            r"\b(?:containing|contains|comprising|consisting\s+of)\b|\barea\s*:\s*$",
-            normalized_text[max(0, match.start() - 55) : match.start()],
-        )
-        and not re.search(
-            r"\b(?:parent|larger|original)\s+(?:tract|parcel|lot)\b",
-            normalized_text[match.start() : match.end() + 45],
-        )
+        if _PARCEL_AREA_LEAD.search(normalized_text, max(0, match.start() - 55), match.start())
         and not is_parent_area_context(match)
     ]
     if not parcel_matches and not standalone:
         return None
 
+    first_positive: _AreaStatement | None = None
+    first_unread = False
     for match in parcel_matches or matches[:1]:
         unit = match.group("unit")
-        value_sq_ft = _area_sq_ft(match.group("value"), unit)
         unit_key = "acres" if "acre" in unit else "sq_ft"
+        if match.group("sci_value") is not None:
+            prefix = normalized_text[max(0, match.start() - 45) : match.end() + 45]
+            approximate = bool(
+                "~" in prefix or _APPROX_WORD.search(prefix) or "more or less" in prefix
+            )
+            return {
+                "value_sq_ft": 0.0,
+                "unit": f"unsupported scientific notation ({unit_key})",
+                "approximate": approximate,
+            }
+
+        raw_value = match.group("neg_value") or match.group("pos_value")
+        magnitude = _area_sq_ft(raw_value, unit)
         end = match.end()
+        has_negative_component = False
+        negative_component_sum = 0.0
         while component := _AREA_COMPONENT.match(normalized_text, end):
-            value_sq_ft += _area_sq_ft(component.group("value"), component.group("unit"))
+            comp_raw = (
+                component.group("and_neg")
+                or component.group("and_pos")
+                or component.group("neg_value")
+                or component.group("pos_value")
+            )
+            comp_val = _area_sq_ft(comp_raw, component.group("unit"))
+            if component.group("and_sign") is not None or component.group("sign") is not None:
+                has_negative_component = True
+                negative_component_sum -= comp_val
+            magnitude += comp_val
             unit_key = "compound"
             end = component.end()
-        if _UNREAD_AREA_COMPONENT.match(normalized_text, end):
-            return None
 
-        prefix = normalized_text[max(0, match.start() - 45) : end + 45]
-        approximate = bool(
-            "~" in prefix
-            or re.search(r"\bapprox(?:imately)?\.?\b", prefix)
-            or "more or less" in prefix
+        is_negative = match.group("sign") is not None or _has_spaced_minus_before(
+            normalized_text, match.start()
         )
+        if is_negative:
+            value_sq_ft = 0.0 if magnitude == 0.0 else -magnitude
+        elif has_negative_component:
+            signed_sum = magnitude + 2.0 * negative_component_sum
+            value_sq_ft = (
+                signed_sum
+                if signed_sum <= 0.0
+                else (negative_component_sum if negative_component_sum < 0.0 else 0.0)
+            )
+        else:
+            value_sq_ft = magnitude
+        has_unread = bool(_UNREAD_AREA_COMPONENT.match(normalized_text, end))
 
-        return {
-            "value_sq_ft": value_sq_ft,
-            "unit": unit_key,
-            "approximate": approximate,
-        }
+        if value_sq_ft <= 0:
+            prefix = normalized_text[max(0, match.start() - 45) : end + 45]
+            approximate = bool(
+                "~" in prefix or _APPROX_WORD.search(prefix) or "more or less" in prefix
+            )
+            return {
+                "value_sq_ft": value_sq_ft,
+                "unit": unit_key,
+                "approximate": approximate,
+            }
+        if has_unread:
+            if first_positive is None:
+                first_unread = True
+            continue
+        if first_positive is None and not first_unread:
+            prefix = normalized_text[max(0, match.start() - 45) : end + 45]
+            approximate = bool(
+                "~" in prefix or _APPROX_WORD.search(prefix) or "more or less" in prefix
+            )
+            first_positive = {
+                "value_sq_ft": value_sq_ft,
+                "unit": unit_key,
+                "approximate": approximate,
+            }
 
-    return None
+    return None if first_unread else first_positive
+
+
+_PLSS_SEC_PATTERN = re.compile(r"\b(SECTION|SEC\.?)\s+(\d+)\b")
+_PLSS_SEC_SURVEY_REF_BEFORE = re.compile(
+    r"(?:\b(?:LOT|BLOCK|BLK|TRACT|PARCEL|PLAT|PAGE|BOOK|UNIT|PART|PT|"
+    r"RANGE|TOWNSHIP|CLAIM|GRANT|GOVERNMENT|GOVT\.?)\s+\d+|\d/\d+)\s+$"
+)
+_PLSS_SEC_NUMERIC_BEFORE = re.compile(r"\d+(?:\.\d+)?\s+$")
+_PLSS_SEC_LENGTH_FOLLOW = re.compile(
+    r"\s*(?:FT\b\.?|FEET\b|FOOT\b|M\b(?!\s*\d)|METERS?\b|METRES?\b|"
+    r"YARDS?\b|YDS?\b\.?|CHAINS?\b|RODS?\b|LINKS?\b|POLES?\b|PERCH(?:ES)?\b)"
+)
+_PLSS_PM_TIME_PHRASE = re.compile(r"\b(?:O(?:'|\s+)?CLOCK|AT\s+\d+|NOON)\b")
+_PLSS_ALIQUOT_PART = r"(?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)"
+_PLSS_ALIQUOT_PATTERN = re.compile(
+    rf"\b(?P<prefix>(?:{_PLSS_ALIQUOT_PART}\s+OF\s+(?:THE\s+)?)+)?{_PLSS_ALIQUOT_PART}(?![A-Z0-9/])"
+)
+_PLSS_DISQUALIFYING_FOLLOW = re.compile(
+    r"(?:\s*['′\"″]"
+    r"|\s*-\s*IN\b"
+    r"|[\s-]+(?:°|º|DEG(?:REES?)?\b|MILES?\b|FT\b\.?|FEET\b|FOOT\b|"
+    r"INCH(?:ES)?\b|IN\.|RODS?\b|POLES?\b|PERCH(?:ES)?\b|CHAINS?\b|LINKS?\b|"
+    r"METERS?\b|METRES?\b|YARDS?\b|YDS?\b\.?|ACRES?\b)"
+    r"|\s*(?:°|º))"
+)
+_PLSS_ANCHOR_FOLLOW = re.compile(
+    r"\s+OF\s+(?:THE\s+)?(?:SECTION|SEC\.?|LOT|TRACT|GOVERNMENT|GOVT\.?)\b"
+)
 
 
 def extract_plss_metadata(text: str) -> dict[str, str | None]:
@@ -353,9 +562,21 @@ def extract_plss_metadata(text: str) -> dict[str, str | None]:
 
     text_upper = text.upper()
 
-    section_match = re.search(r"\b(?:SECTION|SEC\.?)\s+(\d+)\b", text_upper)
-    if section_match:
-        plss_data["section"] = section_match.group(1)
+    for section_match in _PLSS_SEC_PATTERN.finditer(text_upper):
+        keyword = section_match.group(1)
+        sec_num = section_match.group(2)
+        if keyword != "SECTION":
+            if not (1 <= int(sec_num) <= 36):
+                continue
+            if _PLSS_SEC_LENGTH_FOLLOW.match(text_upper, section_match.end()):
+                continue
+            before_sec = text_upper[max(0, section_match.start() - 32) : section_match.start()]
+            if _PLSS_SEC_NUMERIC_BEFORE.search(before_sec) and not (
+                _PLSS_SEC_SURVEY_REF_BEFORE.search(before_sec)
+            ):
+                continue
+        plss_data["section"] = sec_num
+        break
 
     township_match = re.search(
         r"\b(?:TOWNSHIP|TOWN|T\.?)\s*(\d+)\s*(NORTH|N\.?|SOUTH|S\.?)\b", text_upper
@@ -377,12 +598,19 @@ def extract_plss_metadata(text: str) -> dict[str, str | None]:
         r"\b(?:IN\s+|THE\s+)?([A-Z0-9]+(?:\s+[A-Z0-9]+){0,4})\s+PRINCIPAL\s+MERIDIAN\b",
         r"\b(?:IN\s+|THE\s+)?([A-Z0-9]+(?:\s+[A-Z0-9]+){0,4})\s+P\.?M\.?\b",
     ]
-    for pattern in pm_patterns:
+    for pattern_idx, pattern in enumerate(pm_patterns):
         for pm_match in re.finditer(pattern, text_upper):
             raw_meridian = pm_match.group(1).strip()
-            # Reject time-of-day phrases like "AT 3 P.M." where a bare integer precedes P.M.
+            # Reject time-of-day phrases like "AT 3 P.M." or "AT 3 O'CLOCK P.M."
             if re.search(r"(?:^|\s)\d+$", raw_meridian):
                 continue
+            if pattern_idx == 1:
+                clause_start = max(
+                    text_upper.rfind(sep, 0, pm_match.start()) for sep in (";", ",", "\n", ". ")
+                )
+                clause_before_pm = text_upper[clause_start + 1 : pm_match.end()]
+                if _PLSS_PM_TIME_PHRASE.search(clause_before_pm):
+                    continue
             meridian_name = raw_meridian.title()
             plss_data["principal_meridian"] = f"{meridian_name} Principal Meridian"
             break
@@ -392,25 +620,13 @@ def extract_plss_metadata(text: str) -> dict[str, str | None]:
     has_plss_anchor = any(
         plss_data[key] is not None for key in ("section", "township", "range", "principal_meridian")
     )
-    aliquot_part = r"(?:NE|NW|SE|SW|N|S|E|W)\s*(?:1/\d+|½|¼)"
-    aliquot_pattern = (
-        rf"\b(?P<prefix>(?:{aliquot_part}\s+OF\s+(?:THE\s+)?)+)?{aliquot_part}(?![A-Z0-9/])"
-    )
-    disqualifying_follow = re.compile(
-        r"^(?:\s*['′\"″]|[\s-]+(?:°|º|DEG(?:REES?)?\b|MILES?\b|FT\b\.?|FEET\b|FOOT\b|"
-        r"INCH(?:ES)?\b|IN\.(?![A-Z])|RODS?\b|POLES?\b|PERCH(?:ES)?\b|CHAINS?\b|LINKS?\b|"
-        r"METERS?\b|METRES?\b|YARDS?\b|YDS?\b\.?|ACRES?\b)|"
-        r"\s*(?:°|º))"
-    )
-    anchor_follow = re.compile(
-        r"^\s+OF\s+(?:THE\s+)?(?:SECTION|SEC\.?|LOT|TRACT|GOVERNMENT|GOVT\.?)\b"
-    )
-    for aliquot_match in re.finditer(aliquot_pattern, text_upper):
-        after = text_upper[aliquot_match.end() :]
-        if disqualifying_follow.match(after):
+    for aliquot_match in _PLSS_ALIQUOT_PATTERN.finditer(text_upper):
+        if _PLSS_DISQUALIFYING_FOLLOW.match(text_upper, aliquot_match.end()):
             continue
         is_multi_level = aliquot_match.group("prefix") is not None
-        if not is_multi_level and not (has_plss_anchor or anchor_follow.match(after)):
+        if not is_multi_level and not (
+            has_plss_anchor or _PLSS_ANCHOR_FOLLOW.match(text_upper, aliquot_match.end())
+        ):
             continue
         aliquot_text = aliquot_match.group(0)
         aliquot_text = aliquot_text.replace("½", "1/2").replace("¼", "1/4")
@@ -418,6 +634,20 @@ def extract_plss_metadata(text: str) -> dict[str, str | None]:
         break
 
     return plss_data
+
+
+_POB_OPENERS = (
+    re.compile(r"BEGINNING\s+at\s+", re.IGNORECASE),
+    re.compile(r"POB\s+at\s+", re.IGNORECASE),
+    re.compile(r"POINT\s+OF\s+BEGINNING\s+at\s+", re.IGNORECASE),
+    re.compile(r"commencing\s+at\s+", re.IGNORECASE),
+    re.compile(r"TRUE\s+POINT\s+OF\s+BEGINNING\s+at\s+", re.IGNORECASE),
+    re.compile(r"TPOB\s+at\s+", re.IGNORECASE),
+    re.compile(r"T\.P\.O\.B\.\s+at\s+", re.IGNORECASE),
+    re.compile(r"REMOTE\s+POINT\s+OF\s+BEGINNING\s+at\s+", re.IGNORECASE),
+    re.compile(r"RPOB\s+at\s+", re.IGNORECASE),
+)
+_POB_TERMINATOR = re.compile(r"\.(?!\d)|;|THENCE", re.IGNORECASE)
 
 
 def extract_pob(text: str) -> str:
@@ -429,22 +659,15 @@ def extract_pob(text: str) -> str:
     Returns:
         POB description string
     """
-    pob_patterns = [
-        r"BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
-        r"POB\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
-        r"POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
-        r"commencing\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
-        r"TRUE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
-        r"TPOB\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
-        r"T\.P\.O\.B\.\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
-        r"REMOTE\s+POINT\s+OF\s+BEGINNING\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
-        r"RPOB\s+at\s+(.*?)(?:\.(?!\d)|;|THENCE)",
-    ]
-
-    for pattern in pob_patterns:
-        match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
-        if match:
-            return match.group(1).strip()
+    no_terminator_from = len(text) + 1
+    for opener in _POB_OPENERS:
+        match = opener.search(text)
+        if match is None or match.end() >= no_terminator_from:
+            continue
+        end = _POB_TERMINATOR.search(text, match.end())
+        if end is not None:
+            return text[match.end() : end.start()].strip()
+        no_terminator_from = match.end()
 
     return ""
 
@@ -1483,8 +1706,78 @@ def _inch_mark_after_word_feet(text: str, tokens: list[Match[str]], mark: Match[
     )
 
 
-def _length_runs(text: str) -> list[_LengthRun]:
-    """Group the unit-word lengths in ``text`` into stated lengths, each with its role."""
+_SCI_NOTATION_PREFIX = re.compile(r"(?<![A-Za-z0-9])(?:\d+(?:\.\d+)?|\.\d+)[eE][+\-\u2212]?$")
+_SCI_UNIT_LENGTH = re.compile(
+    rf"(?<![A-Za-z0-9])(?:\d+(?:\.\d+)?|\.\d+)[eE][+\-\u2212]?\d+\s*"
+    rf"(?:{UNIT_TOKEN}\b|metres?\b|m\b(?!\s*\d)|{_INCH_UNIT})",
+    re.IGNORECASE,
+)
+_SCI_FOOT_MARK_LENGTH = re.compile(
+    rf"(?<![A-Za-z0-9])(?:\d+(?:\.\d+)?|\.\d+)[eE][+\-\u2212]?\d+\s*(?:'(?!')|′(?!′))"
+    rf"(?=\s*(?:(?:feet|foot|ft)\b|{_MEASUREMENT_END_ALT}|{_MONUMENT_SIZE_AFTER_FOOT}))",
+    re.IGNORECASE,
+)
+_SPACED_MINUS_LENGTH_BEFORE = re.compile(
+    r"(?:[,;:=~(]|\b(?:"
+    r"north(?:east|west)?(?:erly|wardly)?|south(?:east|west)?(?:erly|wardly)?|"
+    r"east(?:erly|wardly)?|west(?:erly|wardly)?|"
+    r"N|S|E|W|NE|NW|SE|SW|"
+    r"thence|distance|length|of|is|and|or|for|about|approx|approximately|nearly|roughly|"
+    r"radius|arc|chord|tangent|delta|angle|bearing|bears|distant|dist|"
+    r"running|runs|continuing|extending|measuring"
+    r")\.?)$",
+    re.IGNORECASE,
+)
+
+
+def _is_malformed_length_prefix(text: str, start: int) -> bool:
+    """Return True when the token at ``start`` follows unary minus or sci-notation."""
+    if start <= 0:
+        return False
+    if text[start - 1] in "-\u2212" and (
+        start == 1 or not (text[start - 2].isalnum() or text[start - 2] == ".")
+    ):
+        return True
+    if text[start - 1] in " \t":
+        idx = start - 1
+        while idx >= 0 and text[idx] in " \t":
+            idx -= 1
+        if idx >= 0 and text[idx] in "-\u2212":
+            if text[idx] == "\u2212" and (
+                idx == 0 or not (text[idx - 1].isalnum() or text[idx - 1] == ".")
+            ):
+                return True
+            before_minus = idx
+            while before_minus > 0 and text[before_minus - 1] in " \t\r\n":
+                before_minus -= 1
+            if before_minus == 0:
+                return True
+            if _SPACED_MINUS_LENGTH_BEFORE.search(text[max(0, before_minus - 32) : before_minus]):
+                return True
+    return bool(_SCI_NOTATION_PREFIX.search(text[max(0, start - 32) : start]))
+
+
+def _has_malformed_foot_mark(text: str) -> bool:
+    """Return True when ``text`` contains a malformed foot-mark length outside bearings."""
+    for sci in _SCI_FOOT_MARK_LENGTH.finditer(text):
+        if not _UNSIGNED_DEGREES_BEFORE.search(text, max(0, sci.start() - 48), sci.start()):
+            return True
+    for mark in _FOOT_MARK_LENGTH.finditer(text):
+        if not _is_malformed_length_prefix(text, mark.start()):
+            continue
+        if not _UNSIGNED_DEGREES_BEFORE.search(text, max(0, mark.start() - 48), mark.start()):
+            return True
+    return False
+
+
+def _length_runs(text: str) -> list[_LengthRun] | None:
+    """Group the unit-word lengths in ``text`` into stated lengths, each with its role.
+
+    Returns ``None`` when any unit-word length carries a malformed unary-minus or
+    scientific-notation prefix so callers fail closed instead of picking another length.
+    """
+    if _SCI_UNIT_LENGTH.search(text):
+        return None
     tokens: list[Match[str]] = []
     for m in re.finditer(
         rf"({LENGTH_NUMBER})\s*({LENGTH_UNIT}|{_INCH_UNIT}|{_INCH_MARK_UNIT})",
@@ -1495,6 +1788,8 @@ def _length_runs(text: str) -> list[_LengthRun]:
             continue
         if re.fullmatch(_INCH_MARK, m.group(2)) and not _inch_mark_after_word_feet(text, tokens, m):
             continue
+        if _is_malformed_length_prefix(text, m.start()):
+            return None
         tokens.append(m)
     tie_from = _tie_clause_start(text)
     runs: list[_LengthRun] = []
@@ -1574,6 +1869,8 @@ def read_course_length(text: str) -> CourseLengthReading:
     the course length.
     """
     runs = _length_runs(text)
+    if runs is None or _has_malformed_foot_mark(text):
+        return CourseLengthReading(0.0, "feet")
     reading = _select_course_length(text, runs)
     if reading is not None:
         return _fail_closed_on_unread_inches(text, runs, reading)
@@ -1581,7 +1878,7 @@ def read_course_length(text: str) -> CourseLengthReading:
     runs = []
     read_spans: list[tuple[int, int]] = []
     for mark in _FOOT_MARK_LENGTH.finditer(text):
-        if _UNSIGNED_DEGREES_BEFORE.search(text, 0, mark.start()):
+        if _UNSIGNED_DEGREES_BEFORE.search(text, max(0, mark.start() - 48), mark.start()):
             continue
         components: tuple[tuple[str, str], ...] = ((mark.group(1), "feet"),)
         if mark.group(2) is not None:
@@ -1595,7 +1892,7 @@ def read_course_length(text: str) -> CourseLengthReading:
         pair.group(0)
         for pair in _FOOT_INCH.finditer(text)
         if (pair.start(), pair.end()) not in read_spans
-        and not _UNSIGNED_DEGREES_BEFORE.search(text, 0, pair.start())
+        and not _UNSIGNED_DEGREES_BEFORE.search(text, max(0, pair.start() - 48), pair.start())
     ]
     if unread:
         return CourseLengthReading(0.0, "feet", tuple(unread))
@@ -1869,6 +2166,8 @@ def _course_length_span(text: str) -> tuple[int, int] | None:
     if reading.ambiguous or reading.value <= 0:
         return None
     runs = _length_runs(text)
+    if runs is None:
+        return None
     if _select_course_length(text, runs) is None:
         # Foot-mark lengths are read only when no unit-word length is the course length.
         tie_from = _tie_clause_start(text)
@@ -2238,6 +2537,15 @@ def extract_surveyor_certification(text: str) -> str | None:
     return None
 
 
+_PRIOR_BEING_ANCHOR = re.compile(r"BEING\s+the\s+same\s+premises\s+", re.IGNORECASE)
+_PRIOR_BOOK_ANCHOR = re.compile(
+    r"(?:Deed|Official\s+Records)\s+Book\s+\d+(?:(?>\s*)(?:,(?>\s*))?(?:at\s+)?Page\s+\d+)?",
+    re.IGNORECASE,
+)
+_PRIOR_INSTRUMENT_ANCHOR = re.compile(r"Instrument\s+Number\s+\d+", re.IGNORECASE)
+_PRIOR_CONVEYANCE_END = re.compile(r"\.(?!\d)|\n")
+
+
 def extract_prior_conveyance(text: str) -> str | None:
     """Extract prior conveyance reference from legal description text.
 
@@ -2247,19 +2555,22 @@ def extract_prior_conveyance(text: str) -> str | None:
     Returns:
         Prior conveyance string or None if not found
     """
-    patterns = [
-        (r"(BEING\s+the\s+same\s+premises\s+.+?)(?:\.(?!\d)|$)", re.IGNORECASE),
-        (
-            r"((?:Deed|Official\s+Records)\s+Book\s+\d+(?:\s*,?\s*(?:at\s+)?Page\s+\d+)?)(?:[^.\n]*?)(?:\.(?!\d)|$)",
-            re.IGNORECASE,
-        ),
-        (r"(Instrument\s+Number\s+\d+.+?)(?:\.(?!\d)|$)", re.IGNORECASE),
-    ]
+    being_match = _PRIOR_BEING_ANCHOR.search(text)
+    if being_match is not None:
+        end_match = _PRIOR_CONVEYANCE_END.search(text, being_match.end())
+        end = end_match.start() if end_match is not None else len(text)
+        if end > being_match.end():
+            return text[being_match.start() : end].strip()
 
-    for pattern, flags in patterns:
-        match = re.search(pattern, text, flags)
-        if match:
-            return match.group(1).strip()
+    book_match = _PRIOR_BOOK_ANCHOR.search(text)
+    if book_match is not None:
+        return book_match.group(0).strip()
+
+    inst_match = _PRIOR_INSTRUMENT_ANCHOR.search(text)
+    if inst_match is not None:
+        end_match = _PRIOR_CONVEYANCE_END.search(text, inst_match.end())
+        end = end_match.start() if end_match is not None else len(text)
+        return text[inst_match.start() : end].strip()
 
     return None
 
@@ -2462,6 +2773,22 @@ _SUBDIVISION_ARTICLE_RECITAL_WORDS = frozenset(
 )
 
 
+_SUBDIVISION_ARTICLE_RECITAL_ANY_WORDS = frozenset(
+    {
+        "HALF",
+        "QUARTER",
+        "LINE",
+        "CORNER",
+        "PART",
+        "PORTION",
+        "REMAINING",
+        "SAID",
+        "OF",
+        "THEREOF",
+    }
+)
+
+
 def extract_subdivision_reference(text: str) -> SubdivisionReference | None:
     """Extract subdivision lot/block reference from deed text.
 
@@ -2503,8 +2830,13 @@ def extract_subdivision_reference(text: str) -> SubdivisionReference | None:
                     or words[1] in _SUBDIVISION_ARTICLE_RECITAL_WORDS
                     or (not has_suffix and words[1] in _SUBDIVISION_ALL_STOPWORDS)
                 )
-                valid_name = not second_blocked and not all(
-                    w in _SUBDIVISION_ALL_STOPWORDS for w in words
+                has_recital_word = any(
+                    w in _SUBDIVISION_ARTICLE_RECITAL_ANY_WORDS for w in words[1:]
+                )
+                valid_name = (
+                    not second_blocked
+                    and not has_recital_word
+                    and not all(w in _SUBDIVISION_ALL_STOPWORDS for w in words)
                 )
             else:
                 valid_name = words[0] not in _SUBDIVISION_LEADING_STOPWORDS and not all(
@@ -2565,6 +2897,15 @@ def infer_distance_unit(text: str, state: str | None = None, year: int | None = 
     return None
 
 
+_WITNESS_TREE_SPECIES = re.compile(
+    r"\b(?:a(?>\s+))?(?:\w+(?>\s+))?\b(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|"
+    r"poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)\b",
+    re.IGNORECASE,
+)
+_WITNESS_BEARS = re.compile(r"\bbears?\b", re.IGNORECASE)
+_WITNESS_DISTANCE = re.compile(r"(?:dist(?:ant)?|links?|feet|ft)", re.IGNORECASE)
+
+
 def extract_witness_trees(text: str) -> list[str]:
     """Extract witness tree / reference mark descriptions.
 
@@ -2580,15 +2921,16 @@ def extract_witness_trees(text: str) -> list[str]:
     """
     trees: list[str] = []
 
-    tree_pattern = re.compile(
-        r"((?:a\s+)?(?:\w+\s+)?\b(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|"
-        r"poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)\b"
-        r"[^;.]*?\bbears?\b[^;.]*?(?:dist(?:ant)?|links?|feet|ft)[^;.]*)",
-        re.IGNORECASE,
-    )
-
-    for match in tree_pattern.finditer(text):
-        trees.append(match.group(1).strip())
+    for clause in re.split(r"[;.]", text):
+        species = _WITNESS_TREE_SPECIES.search(clause)
+        if species is None:
+            continue
+        bears = _WITNESS_BEARS.search(clause, species.end())
+        if bears is None:
+            continue
+        if _WITNESS_DISTANCE.search(clause, bears.end()) is None:
+            continue
+        trees.append(clause[species.start() :].strip())
 
     return trees
 

@@ -177,22 +177,24 @@ def calculate_curve_properties(
     Raises:
         ValueError: If radius <= 0, delta > 360, or neither delta/arc provided
     """
-    if radius_ft <= 0:
-        raise ValueError(f"Radius must be positive, got {radius_ft}")
+    if isinstance(radius_ft, bool) or not math.isfinite(radius_ft) or radius_ft <= 0:
+        raise ValueError(f"Radius must be positive and finite, got {radius_ft}")
+    if delta_deg is not None and (
+        isinstance(delta_deg, bool) or not math.isfinite(delta_deg) or not (0 <= delta_deg <= 360)
+    ):
+        raise ValueError(f"Delta angle must be 0-360 degrees and finite, got {delta_deg}")
+    if arc_length_ft is not None and (
+        isinstance(arc_length_ft, bool) or not math.isfinite(arc_length_ft) or arc_length_ft < 0
+    ):
+        raise ValueError(f"Arc length must be non-negative and finite, got {arc_length_ft}")
 
     delta_rad = 0.0
 
     if delta_deg is not None:
-        if not (0 <= delta_deg <= 360):
-            raise ValueError(f"Delta angle must be 0-360 degrees, got {delta_deg}")
-
         delta_rad = math.radians(delta_deg)
         arc = radius_ft * delta_rad
         chord = 2 * radius_ft * math.sin(delta_rad / 2)
     elif arc_length_ft is not None:
-        if arc_length_ft < 0:
-            raise ValueError(f"Arc length must be non-negative, got {arc_length_ft}")
-
         delta_rad = arc_length_ft / radius_ft
         delta_deg = math.degrees(delta_rad)
 
@@ -288,8 +290,8 @@ def compute_curve_endpoint(
     Raises:
         ValueError: If radius <= 0 or delta out of range
     """
-    if radius_ft <= 0:
-        raise ValueError(f"Radius must be positive, got {radius_ft}")
+    if isinstance(radius_ft, bool) or not math.isfinite(radius_ft) or radius_ft <= 0:
+        raise ValueError(f"Radius must be positive and finite, got {radius_ft}")
 
     curve_props = calculate_curve_properties(radius_ft, delta_deg=delta_deg)
     chord_length = curve_props["chord_length_ft"]
@@ -328,7 +330,7 @@ def calculate_missing_curve_elements(
         external_distance_ft, middle_ordinate_ft
 
     Raises:
-        ValueError: If fewer than 2 elements provided
+        ValueError: If fewer than 2 elements provided or any element is non-finite or out of range
     """
     # Convert degree of curvature to radius if provided
     if degree_of_curvature is not None:
@@ -357,14 +359,14 @@ def calculate_missing_curve_elements(
         ("Arc length", arc_length_ft),
     ):
         if val is not None and (isinstance(val, bool) or not math.isfinite(val) or val <= 0):
-            raise ValueError(f"{name} must be positive, got {val}")
+            raise ValueError(f"{name} must be positive and finite, got {val}")
 
     if chord_length_ft is not None and (
         isinstance(chord_length_ft, bool)
         or not math.isfinite(chord_length_ft)
         or chord_length_ft < 0
     ):
-        raise ValueError(f"Chord length must be non-negative, got {chord_length_ft}")
+        raise ValueError(f"Chord length must be non-negative and finite, got {chord_length_ft}")
 
     if radius_ft is not None and delta_deg is not None:
         pass

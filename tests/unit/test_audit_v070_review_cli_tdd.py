@@ -58,6 +58,8 @@ from metesparser.run_registry import (
     write_run_manifest,
 )
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 # ---------------------------------------------------------------------------
 # 1. mp-review fixes
 # ---------------------------------------------------------------------------
@@ -378,12 +380,16 @@ def test_read_settings_walks_upward_for_project_root_markers(tmp_path):
 def test_mp_review_main_module_guarded_by_dunder_main():
     mod = importlib.import_module("mp_review.__main__")
     assert mod is not None
-    source = Path("packages/mp-review/src/mp_review/__main__.py").read_text(encoding="utf-8")
+    source = (REPO_ROOT / "packages/mp-review/src/mp_review/__main__.py").read_text(
+        encoding="utf-8"
+    )
     assert 'if __name__ == "__main__":' in source or "if __name__ == '__main__':" in source
 
 
 def test_mp_review_pyproject_declares_dev_optional_dependencies():
-    data = tomllib.loads(Path("packages/mp-review/pyproject.toml").read_text(encoding="utf-8"))
+    data = tomllib.loads(
+        (REPO_ROOT / "packages/mp-review/pyproject.toml").read_text(encoding="utf-8")
+    )
     dev_deps = data["project"]["optional-dependencies"]["dev"]
     joined = " ".join(dev_deps)
     assert "pytest>=8.3.0" in joined
@@ -440,11 +446,11 @@ def test_extract_command_unwraps_cached_llm_client_model_and_empty_env_provider(
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls, area=0.0: verified,
+        lambda calls, stated_area_sq_ft=0.0, **kwargs: verified,
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.get_closure_summary",
-        lambda result: "VERIFIED",
+        lambda result, **kwargs: "VERIFIED",
     )
     monkeypatch.setattr(
         "metesparser.csv_builder.CSVBuilder.export_verified_csv",
@@ -489,11 +495,11 @@ def test_verify_command_rejects_non_positive_or_non_finite_area(monkeypatch, tmp
     monkeypatch.setattr("metesparser.csv_builder.CSVBuilder.csv_to_calls", lambda _: [])
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.verify_closure",
-        lambda calls, area=0.0: verified,
+        lambda calls, stated_area_sq_ft=0.0, **kwargs: verified,
     )
     monkeypatch.setattr(
         "metesparser.closure_checker.ClosureChecker.get_closure_summary",
-        lambda result: "VERIFIED",
+        lambda result, **kwargs: "VERIFIED",
     )
     with pytest.raises(SystemExit) as exc:
         cli.verify_command(str(csv), stated_area=bad_area)
@@ -810,6 +816,7 @@ def test_generate_traverse_plot_handles_curves_tie_ins_and_exceptions():
 
 
 def test_git_sha_for_file_works_for_relative_path_and_checks_returncode(monkeypatch):
+    monkeypatch.chdir(REPO_ROOT)
     sha = _git_sha_for_file(Path("prompts/normalize_text.yaml"))
     assert sha is not None and len(sha) == 40
 

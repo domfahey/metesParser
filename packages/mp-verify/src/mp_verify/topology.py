@@ -10,6 +10,7 @@ from mp_models import DeedCall, Point
 
 from .tangents import curve_sweep, curve_tangents, is_circular_curve
 
+CLOSURE_TOLERANCE_FT: float = 0.01
 _TOL = 1e-7  # Feet: construction roundoff, not the traverse closure tolerance.
 XY = tuple[float, float]
 
@@ -161,7 +162,7 @@ def check_curved_boundary_intersections(
     calls: list[DeedCall],
     coordinates: list[Point],
     *,
-    closure_tolerance_ft: float = 0.01,
+    closure_tolerance_ft: float = CLOSURE_TOLERANCE_FT,
 ) -> list[str]:
     """Report line–arc/arc–arc contacts beyond legitimate neighboring endpoints.
 

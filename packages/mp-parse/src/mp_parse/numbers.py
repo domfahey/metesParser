@@ -3,9 +3,9 @@
 import re
 
 COMMA_NUMBER = (
-    r"(?<![\d.,])"
+    r"(?<![\d.,])(?<!\d[eE])(?<!\d[eE][+\-\u2212])"
     r"(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+,\d{2}|\d+(?:\.\d+)?)"
-    r"(?!\d|,[,\d]|\.[.\d])"
+    r"(?!\d|,[,\d]|\.[.\d]|[eE][+\-\u2212]?\d)"
 )
 
 # "300,07": a single comma followed by exactly two digits is a decimal point, as some

@@ -8,6 +8,7 @@ import os
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
 import structlog
 
@@ -16,7 +17,31 @@ from .llm_clients import BaseLLMClient, _read_pdf
 logger = structlog.get_logger(__name__)
 
 _CACHE_KEY_VERSION = "llm-response-cache-v2"
-_MODEL_CONFIG_FIELDS = ("model", "fallback_model")
+_MODEL_CONFIG_FIELDS = ("model", "model_name", "fallback_model")
+_SHARED_CLIENT_ALIASES: dict[tuple[str, str], str] = {
+    ("mp_ocr.clients", "OpenAIClient"): "OpenAIClient",
+    ("metesparser.llm_clients", "OpenAIClient"): "OpenAIClient",
+    ("mp_ocr.clients", "GeminiClient"): "GeminiClient",
+    ("metesparser.llm_clients", "GeminiClient"): "GeminiClient",
+}
+
+
+def _is_cache_wrapper(client: object) -> bool:
+    """Return True when *client* behaves like a CachedLLMClient wrapper."""
+    return callable(getattr(type(client), "clear_cache", None)) and hasattr(client, "_client")
+
+
+def _unwrap_client_chain(client: BaseLLMClient) -> BaseLLMClient:
+    """Unwrap nested cache wrappers (with cycle guard) to the underlying client."""
+    current: Any = client
+    seen: set[int] = set()
+    while id(current) not in seen and _is_cache_wrapper(current):
+        seen.add(id(current))
+        next_client = current._client
+        if id(next_client) in seen:
+            break
+        current = next_client
+    return cast(BaseLLMClient, current)
 
 
 class CachedLLMClient:
@@ -27,21 +52,36 @@ class CachedLLMClient:
         self._cache_dir = cache_dir
         self._cache_dir.mkdir(parents=True, exist_ok=True)
 
+    @property
+    def model_name(self) -> str | None:
+        """Return the underlying LLM model identifier if available."""
+        inner = _unwrap_client_chain(self)
+        if inner is self or _is_cache_wrapper(inner):
+            return None
+        name: object = getattr(inner, "model_name", None)
+        if isinstance(name, str) and name:
+            return name
+        model: object = getattr(inner, "model", None)
+        return model if isinstance(model, str) and model else None
+
     def _cache_key(
         self,
         prompt: str,
         response_mime_type: str | None,
         pdf_bytes: bytes | None = None,
     ) -> str:
-        client_type = type(self._client)
+        target = _unwrap_client_chain(self)
+        client_type = type(target)
+        client_id = _SHARED_CLIENT_ALIASES.get(
+            (client_type.__module__, client_type.__qualname__),
+            f"{client_type.__module__}.{client_type.__qualname__}",
+        )
         client_config = {
-            name: getattr(self._client, name)
-            for name in _MODEL_CONFIG_FIELDS
-            if hasattr(self._client, name)
+            name: getattr(target, name) for name in _MODEL_CONFIG_FIELDS if hasattr(target, name)
         }
         identity = {
             "namespace": _CACHE_KEY_VERSION,
-            "client": client_type.__name__,
+            "client": client_id,
             "config": client_config,
             "prompt": prompt,
             "response_mime_type": response_mime_type,

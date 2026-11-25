@@ -58,7 +58,7 @@ make test-cov      # Tests with HTML coverage report (htmlcov/index.html)
 make quality       # Lint + format checks only (nonmutating)
 make pre-commit    # lint-fix, format, tests (no type checks; mutating)
 make check         # Root lint + mutating format + root typing/tests
-make ci            # clean/reinstall, quality checks, root coverage tests (no type)
+make ci            # check-tools, install, quality checks, root coverage tests (no clean or type)
 make clean         # Remove .venv, build/dist artifacts and caches
 make test-dashboard-browser # Opt-in offline dashboard Chromium/Node checks
 make test-mapbox-browser    # Local map adapter/pinned SDK checks; no provider credentials

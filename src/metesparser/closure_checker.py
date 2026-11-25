@@ -67,6 +67,7 @@ class ClosureChecker:
         *,
         stated_area_sq_ft: float = 0.0,
         closure_tolerance_ft: float | None = None,
+        double_entry_calls: list[DeedCall] | None = None,
         audit_context: AuditContext | None = None,
         skipped_courses: list[SkippedCourse] | None = None,
         tract: Tract | None = None,
@@ -85,10 +86,14 @@ class ClosureChecker:
             if audit_context is not None
             else None
         )
+        package_double_entry = (
+            _package_calls(double_entry_calls) if double_entry_calls is not None else None
+        )
         result = package_closure.verify_tract(
             _package_calls(calls),
             stated_area_sq_ft=stated_area_sq_ft,
             closure_tolerance_ft=closure_tolerance_ft,
+            double_entry_calls=package_double_entry,
             audit_context=scratch,
             skipped_courses=_package_skips(
                 [
@@ -294,20 +299,32 @@ class ClosureChecker:
 
     @classmethod
     def check_boundary_intersections(
-        cls, calls: list[DeedCall], coordinates: list[Point]
+        cls,
+        calls: list[DeedCall],
+        coordinates: list[Point],
+        *,
+        closure_tolerance_ft: float = CLOSURE_TOLERANCE_FT,
     ) -> list[str]:
         """Use the shared straight/circular checker for the legacy model API."""
         return package_checks.check_boundary_intersections(
-            _package_calls(calls), _package_points(coordinates)
+            _package_calls(calls),
+            _package_points(coordinates),
+            closure_tolerance_ft=closure_tolerance_ft,
         )
 
     @classmethod
     def check_straight_boundary_intersections(
-        cls, calls: list[DeedCall], coordinates: list[Point]
+        cls,
+        calls: list[DeedCall],
+        coordinates: list[Point],
+        *,
+        closure_tolerance_ft: float = CLOSURE_TOLERANCE_FT,
     ) -> list[str]:
         """Detect crossings, overlaps, and nonadjacent touches between straight edges."""
         return package_checks.check_straight_boundary_intersections(
-            _package_calls(calls), _package_points(coordinates)
+            _package_calls(calls),
+            _package_points(coordinates),
+            closure_tolerance_ft=closure_tolerance_ft,
         )
 
     @classmethod

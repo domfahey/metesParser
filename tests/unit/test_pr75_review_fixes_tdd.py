@@ -268,12 +268,12 @@ def test_multi_tract_double_entry_length_mismatch_blocks_earlier_main_tract() ->
 
 
 # ---------------------------------------------------------------------------
-# Codex #3 (P2) & Adversarial #5: CLI _unwrap_llm_model and _aggregate_tract_closure
+# Codex #3 (P2) & Adversarial #5: CLI _unwrap_llm_model and aggregate_tract_closure
 # ---------------------------------------------------------------------------
 
 
 def test_unwrap_llm_model_stops_at_provider_client_with_sdk_client(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """Codex P2: OpenAIClient and GeminiClient own ._client (SDK) — must not unwrap past .model."""
     fake_openai = types.ModuleType("openai")
@@ -294,8 +294,9 @@ def test_unwrap_llm_model_stops_at_provider_client_with_sdk_client(
 
     openai_client = OpenAIClient(api_key="test-key", model="gpt-5.2")
     gemini_client = GeminiClient(api_key="test-key", model="gemini-3-flash-preview")
-    cached_openai = CachedLLMClient(openai_client, cache_dir=Path("/tmp/unused-cache"))
-    cached_gemini = CachedLLMClient(gemini_client, cache_dir=Path("/tmp/unused-cache"))
+    cache_dir = tmp_path / "unused-cache"
+    cached_openai = CachedLLMClient(openai_client, cache_dir=cache_dir)
+    cached_gemini = CachedLLMClient(gemini_client, cache_dir=cache_dir)
 
     class _Proc:
         def __init__(self, client: Any) -> None:
@@ -340,12 +341,12 @@ def test_aggregate_tract_closure_preserves_all_warnings_and_handles_empty() -> N
         warnings=["Exception tract warning"],
     )
 
-    agg = cli._aggregate_tract_closure([(main_tract, main_res), (exc_tract, exc_res)])
+    agg = cli.aggregate_tract_closure([(main_tract, main_res), (exc_tract, exc_res)])
     assert "Exception tract warning" in agg.warnings
     assert agg.closure_passed is True
     assert not agg.is_fully_verified()
 
-    empty_agg = cli._aggregate_tract_closure([])
+    empty_agg = cli.aggregate_tract_closure([])
     assert empty_agg.closure_passed is False
     assert empty_agg.misclosure_available is False
 

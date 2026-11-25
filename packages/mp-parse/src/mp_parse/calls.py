@@ -56,6 +56,8 @@ from mp_models import (
 from pydantic import ValidationError
 
 from .metadata import (
+    _SCI_FOOT_MARK_LENGTH,
+    _SCI_UNIT_LENGTH,
     CONVEYANCING_ALONG_WITH,
     COURSE_LENGTH_AMBIGUOUS_NOTE,
     COURSE_LIST_MARKER,
@@ -65,6 +67,7 @@ from .metadata import (
     TIE_BEFORE_PATTERN,
     VERBATIM_BEARING,
     CourseListAnalysis,
+    _is_malformed_length_prefix,
     _tie_clause_start,
     analyze_course_lists,
     bracket_groups,
@@ -345,6 +348,90 @@ def _clause_roles(text: str) -> dict[int, str]:
     return roles
 
 
+_MALFORMED_CURVE_NUMBER = (
+    rf"(?:[-\u2212][ \t]*(?:\d+(?:,\d{{3}})*(?:\.\d+)?|\.\d+|[{VULGAR_FRACTIONS}])"
+    rf"|(?:[-\u2212][ \t]*)?(?:\d+(?:\.\d+)?|\.\d+)[eE][+\-\u2212]?\d+)"
+)
+_MALFORMED_LABELLED_CURVE_LENGTH = re.compile(
+    r"\b(?:"
+    r"(?P<arc_length_ft>arc(?:\s+(?:length|distance))?|length\s+of\s+(?:(?:the|said)\s+)?(?:arc|curve)|distance\s+along\s+(?:(?:the|said)\s+)?(?:arc|curve)|curve\s+length)"
+    r"|(?P<chord_length_ft>(?:long\s+)?chord(?:\s+(?:length|distance))?)"
+    r"|(?P<radius_ft>radius(?:\s+(?:length|distance))?)"
+    r"|(?P<tangent_length_ft>tangent(?:\s+(?:length|distance))?)"
+    r")"
+    r"(?:\s+(?:of|is|equal\s+to))?(?:\s*[:=]\s*|\s+)"
+    rf"(?P<value>{_MALFORMED_CURVE_NUMBER})(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
+_MALFORMED_CURVE_ANGLE = re.compile(
+    r"\b(?:"
+    r"(?P<delta_deg>delta(?:\s+angle)?|central\s+angle)"
+    r"|(?P<degree_of_curvature>degree\s+of\s+(?:curve|curvature))"
+    r")"
+    r"(?:\s+(?:of|is|equal\s+to))?(?:\s*[:=]\s*|\s+)"
+    rf"(?P<value>{_MALFORMED_CURVE_NUMBER})"
+    r"(?=\s*(?:[\u00b0\u00ba]|degrees?\b|deg\b\.?)|(?![A-Za-z0-9]))",
+    re.IGNORECASE,
+)
+_SCI_DEGREE_ANGLE = re.compile(
+    r"(?<![A-Za-z0-9])(?P<value>(?:[-\u2212][ \t]*)?(?:\d+(?:\.\d+)?|\.\d+)[eE][+\-\u2212]?\d+)"
+    r"\s*(?:[\u00b0\u00ba]|degrees?\b)",
+    re.IGNORECASE,
+)
+
+
+def _curve_bearing_spans(text: str) -> list[tuple[int, int]]:
+    return [
+        (m.start(), m.end())
+        for pattern in (QUADRANT_PATTERN, PACKED_DMS_PATTERN)
+        for m in pattern.finditer(text)
+    ]
+
+
+def _malformed_curve_element_error(course_text: str, bearings: list[tuple[int, int]]) -> str | None:
+    """Return an error message when ``course_text`` states a malformed curve dimension."""
+
+    def _in_bearing(pos: int) -> bool:
+        return any(start <= pos < end for start, end in bearings)
+
+    for match in _MALFORMED_LABELLED_CURVE_LENGTH.finditer(course_text):
+        if _in_bearing(match.start("value")):
+            continue
+        field = next(
+            name
+            for name in ("arc_length_ft", "chord_length_ft", "radius_ft", "tangent_length_ft")
+            if match.group(name)
+        )
+        return f"Malformed curve element ({field}): {match.group('value')!r}"
+
+    for match in _MALFORMED_CURVE_ANGLE.finditer(course_text):
+        if _in_bearing(match.start("value")):
+            continue
+        field = "delta_deg" if match.group("delta_deg") else "degree_of_curvature"
+        return f"Malformed curve element ({field}): {match.group('value')!r}"
+
+    for match in _SCI_DEGREE_ANGLE.finditer(course_text):
+        if not _in_bearing(match.start("value")):
+            return f"Malformed curve element (delta_deg): {match.group('value')!r}"
+
+    for token in _LENGTH_TOKEN.finditer(course_text):
+        if not _in_bearing(token.start()) and _is_malformed_length_prefix(
+            course_text, token.start()
+        ):
+            snippet = course_text[max(0, token.start() - 12) : token.end()].strip()
+            return f"Malformed curve length: {snippet!r}"
+
+    for sci in _SCI_UNIT_LENGTH.finditer(course_text):
+        if not _in_bearing(sci.start()):
+            return f"Malformed scientific-notation curve length: {sci.group(0)!r}"
+
+    for sci in _SCI_FOOT_MARK_LENGTH.finditer(course_text):
+        if not _in_bearing(sci.start()):
+            return f"Malformed scientific-notation curve length: {sci.group(0)!r}"
+
+    return None
+
+
 def _curve_lengths(call_text: str, distance_unit: str = "feet") -> tuple[str, list[_CurveLength]]:
     """Classify every length in a curve call's boundary course text.
 
@@ -356,11 +443,7 @@ def _curve_lengths(call_text: str, distance_unit: str = "feet") -> tuple[str, li
     ``distance_unit``.
     """
     text = _normalize_bearing_forms(_boundary_course_text(call_text))
-    bearings = [
-        (m.start(), m.end())
-        for pattern in (QUADRANT_PATTERN, PACKED_DMS_PATTERN)
-        for m in pattern.finditer(text)
-    ]
+    bearings = _curve_bearing_spans(text)
     clause_roles = _clause_roles(text)
     element_starts = set()
     for subject in _RADIAL_ELEMENT_PATTERN.finditer(text):
@@ -369,13 +452,15 @@ def _curve_lengths(call_text: str, distance_unit: str = "feet") -> tuple[str, li
             element_starts.add(first.start())
     # (start, end, value, unit as written, role from an explicit label)
     tokens: list[tuple[int, int, str, str | None, str | None]] = [
-        (t.start(), t.end(), t.group(1), t.group(2), None) for t in _LENGTH_TOKEN.finditer(text)
+        (t.start(), t.end(), t.group(1), t.group(2), None)
+        for t in _LENGTH_TOKEN.finditer(text)
+        if not _is_malformed_length_prefix(text, t.start())
     ]
     tokens += [
         (m.start("value"), m.end("value"), m.group("value"), None, role)
         for m in _UNITLESS_LABELLED_LENGTH.finditer(text)
         for role in ("arc", "chord", "radius")
-        if m.group(role)
+        if m.group(role) and not _is_malformed_length_prefix(text, m.start("value"))
     ]
     tokens.sort()
     lengths: list[_CurveLength] = []
@@ -1598,15 +1683,309 @@ def _restore_verbatim_records(
 def _attach_invalid_stated_area_note(
     calls: list[DeedCall], value_sq_ft: float, unit: str
 ) -> list[DeedCall]:
-    """Attach the canonical blocking note for a non-positive stated area idempotently."""
+    """Attach the canonical blocking note for a non-positive stated area to every call."""
     if not calls:
         return calls
     area_note = f"{INVALID_STATED_AREA_NOTE_PREFIX}{value_sq_ft} sq ft ({unit})"
-    first = calls[0]
-    if first.notes and area_note in first.notes:
-        return calls
-    merged = f"{first.notes}; {area_note}" if first.notes else area_note
-    return [first.model_copy(update={"notes": merged}), *calls[1:]]
+    return [
+        call
+        if area_note in split_notes(call.notes)
+        else call.model_copy(update={"notes": "; ".join(filter(None, (call.notes, area_note)))})
+        for call in calls
+    ]
+
+
+_GAP_BOUNDARY_BEFORE = frozenset({".", ";", ":"})
+_GAP_BOUNDARY_END = frozenset({".", ";"})
+_GAP_LEADING_PUNCT = frozenset({".", ";", ",", ")", "]"})
+
+
+def _gap_boundary_score(words: list[str], gap_start: int, gap_end: int) -> int:
+    score = 0
+    if gap_start == 0 or words[gap_start - 1] in _GAP_BOUNDARY_BEFORE:
+        score += 2
+    if gap_end > gap_start and words[gap_end - 1] in _GAP_BOUNDARY_END:
+        score += 2
+    if gap_start < gap_end and words[gap_start] not in _GAP_LEADING_PUNCT:
+        score += 1
+    return score
+
+
+_ALIGN_ANCHOR_K = 4
+_ALIGN_WINDOW = 256
+_MAX_ALIGNED_TOKENS = 40000
+
+
+def _build_token_index(
+    words: list[str], k: int = _ALIGN_ANCHOR_K
+) -> dict[tuple[str, ...], list[int]]:
+    """Build a k-token anchor index over ``words[:_MAX_ALIGNED_TOKENS]``."""
+    limit = min(len(words), _MAX_ALIGNED_TOKENS)
+    index: dict[tuple[str, ...], list[int]] = {}
+    for pos in range(0, limit - k + 1):
+        gram = tuple(words[pos : pos + k])
+        bucket = index.get(gram)
+        if bucket is None:
+            index[gram] = [pos]
+        else:
+            bucket.append(pos)
+    return index
+
+
+def _local_sequence_blocks(
+    work_words: list[str],
+    a_start: int,
+    a_end: int,
+    seg_words: list[str],
+    b_start: int,
+    b_end: int,
+    *,
+    allow_single: bool = False,
+) -> list[list[int]]:
+    if a_start >= a_end or b_start >= b_end:
+        return []
+    return [
+        [a_start + blk.a, b_start + blk.b, blk.size]
+        for blk in SequenceMatcher(
+            None, work_words[a_start:a_end], seg_words[b_start:b_end], autojunk=False
+        ).get_matching_blocks()
+        if blk.size >= 2 or (allow_single and blk.size == 1)
+    ]
+
+
+def _align_segment_tokens(
+    work_words: list[str],
+    seg_words: list[str],
+    tok_start: int,
+    *,
+    _work_index: dict[tuple[str, ...], list[int]] | None = None,
+) -> list[tuple[int, int]]:
+    """Align ``seg_words`` to ``work_words[tok_start:]`` as token-index intervals."""
+    work_end = min(len(work_words), _MAX_ALIGNED_TOKENS)
+    seg_end = min(len(seg_words), _MAX_ALIGNED_TOKENS)
+    if tok_start >= work_end or seg_end == 0:
+        return []
+
+    if work_end - tok_start <= _ALIGN_WINDOW and seg_end <= _ALIGN_WINDOW:
+        blocks = _local_sequence_blocks(
+            work_words,
+            tok_start,
+            work_end,
+            seg_words,
+            0,
+            seg_end,
+            allow_single=(seg_end == 1),
+        )
+    elif seg_end < _ALIGN_ANCHOR_K:
+        blocks = []
+        target = seg_words[:seg_end]
+        for pos in range(tok_start, work_end - seg_end + 1):
+            if work_words[pos : pos + seg_end] == target:
+                blocks.append([pos, 0, seg_end])
+                break
+        if not blocks and seg_end == 3:
+            for b_off in (0, 1):
+                sub = target[b_off : b_off + 2]
+                for pos in range(tok_start, work_end - 1):
+                    if work_words[pos : pos + 2] == sub:
+                        blocks.append([pos, b_off, 2])
+                        break
+                if blocks:
+                    break
+    else:
+        k = _ALIGN_ANCHOR_K
+        index = _work_index if _work_index is not None else _build_token_index(work_words, k)
+
+        def _best_anchor_at(b_i: int, a_min: int) -> tuple[int, int] | None:
+            positions = index.get(tuple(seg_words[b_i : b_i + k]))
+            if not positions:
+                return None
+            p_idx = bisect_left(positions, a_min)
+            if p_idx >= len(positions):
+                return None
+            best_a = -1
+            best_run = 0
+            for a_pos in positions[p_idx : p_idx + 8]:
+                if a_pos + k > work_end:
+                    break
+                run = k
+                while (
+                    a_pos + run < work_end
+                    and b_i + run < seg_end
+                    and work_words[a_pos + run] == seg_words[b_i + run]
+                ):
+                    run += 1
+                if run >= 2 * k or b_i + run == seg_end:
+                    return (a_pos, run)
+                if run > best_run:
+                    best_a = a_pos
+                    best_run = run
+            return (best_a, best_run) if best_run > 0 else None
+
+        blocks = []
+        a_cursor = tok_start
+        b_pos = 0
+        while b_pos <= seg_end - k and a_cursor < work_end:
+            if work_words[a_cursor] == seg_words[b_pos]:
+                run = 1
+                while (
+                    a_cursor + run < work_end
+                    and b_pos + run < seg_end
+                    and work_words[a_cursor + run] == seg_words[b_pos + run]
+                ):
+                    run += 1
+                if run >= k or (run >= 2 and b_pos + run == seg_end):
+                    blocks.append([a_cursor, b_pos, run])
+                    a_cursor += run
+                    b_pos += run
+                    continue
+            best = _best_anchor_at(b_pos, a_cursor)
+            if best is None:
+                b_pos += 1
+                continue
+            a_hit, run = best
+            if a_hit - a_cursor > _ALIGN_WINDOW and run < 2 * k and b_pos + run < seg_end:
+                look_limit = min(seg_end - k + 1, b_pos + 16)
+                for lb in range(b_pos + 1, look_limit):
+                    alt = _best_anchor_at(lb, a_cursor)
+                    if alt is not None and (alt[0] - a_cursor <= _ALIGN_WINDOW or alt[1] > run):
+                        b_pos = lb
+                        a_hit, run = alt
+                        break
+            if blocks:
+                prev_a = blocks[-1][0] + blocks[-1][2]
+                prev_b = blocks[-1][1] + blocks[-1][2]
+                if 0 < a_hit - prev_a <= _ALIGN_WINDOW and 0 < b_pos - prev_b <= _ALIGN_WINDOW:
+                    blocks.extend(
+                        _local_sequence_blocks(work_words, prev_a, a_hit, seg_words, prev_b, b_pos)
+                    )
+            elif 0 < b_pos <= _ALIGN_WINDOW:
+                lead_a_start = max(tok_start, a_hit - _ALIGN_WINDOW)
+                blocks.extend(
+                    _local_sequence_blocks(work_words, lead_a_start, a_hit, seg_words, 0, b_pos)
+                )
+            blocks.append([a_hit, b_pos, run])
+            a_cursor = a_hit + run
+            b_pos += run
+
+        if blocks:
+            tail_a = blocks[-1][0] + blocks[-1][2]
+            tail_b = blocks[-1][1] + blocks[-1][2]
+            if 0 < seg_end - tail_b <= _ALIGN_WINDOW and tail_a < work_end:
+                tail_a_end = min(work_end, tail_a + _ALIGN_WINDOW)
+                blocks.extend(
+                    _local_sequence_blocks(
+                        work_words, tail_a, tail_a_end, seg_words, tail_b, seg_end
+                    )
+                )
+
+    if not blocks:
+        return []
+
+    merged_blocks: list[list[int]] = [blocks[0]]
+    for blk in blocks[1:]:
+        prev = merged_blocks[-1]
+        if prev[0] + prev[2] == blk[0] and prev[1] + prev[2] == blk[1]:
+            prev[2] += blk[2]
+        else:
+            merged_blocks.append(blk)
+    blocks = merged_blocks
+
+    # Shift adjacent segment blocks across identical boundary tokens (e.g. a
+    # spliced-out "Containing 0 acres." before "Containing 10 acres.") so gaps
+    # stay aligned on sentence/clause boundaries rather than splitting mid-clause.
+    for idx in range(len(blocks) - 1):
+        a1, b1, s1 = blocks[idx]
+        a2, b2, s2 = blocks[idx + 1]
+        if b1 + s1 != b2 or a1 + s1 >= a2:
+            continue
+        gap_start, gap_end = a1 + s1, a2
+        best_shift = 0
+        best_score = _gap_boundary_score(work_words, gap_start, gap_end)
+        shift = 0
+        while shift < s1 and work_words[gap_start - 1 - shift] == work_words[gap_end - 1 - shift]:
+            shift += 1
+            score = _gap_boundary_score(work_words, gap_start - shift, gap_end - shift)
+            if score > best_score:
+                best_score = score
+                best_shift = -shift
+        rshift = 0
+        while rshift < s2 and work_words[gap_start + rshift] == work_words[gap_end + rshift]:
+            rshift += 1
+            score = _gap_boundary_score(work_words, gap_start + rshift, gap_end + rshift)
+            if score > best_score:
+                best_score = score
+                best_shift = rshift
+        if best_shift:
+            blocks[idx][2] += best_shift
+            blocks[idx + 1][0] += best_shift
+            blocks[idx + 1][1] += best_shift
+            blocks[idx + 1][2] -= best_shift
+    return [(a, a + s) for a, _, s in blocks if s > 0]
+
+
+def _uncovered_text_gaps(working: str, segments: list[tuple[str, str, TractType]]) -> list[str]:
+    """Return non-empty slices of ``working`` outside all tract segments."""
+    intervals: list[tuple[int, int]] = []
+    cursor = 0
+    work_tokens: list[re.Match[str]] | None = None
+    work_words: list[str] = []
+    work_starts: list[int] = []
+    work_index: dict[tuple[str, ...], list[int]] | None = None
+    for segment_text, _, _ in segments:
+        if not segment_text:
+            continue
+        found = working.find(segment_text, cursor)
+        if found < 0:
+            found = working.find(segment_text)
+        if found >= 0:
+            intervals.append((found, found + len(segment_text)))
+            cursor = max(cursor, found + len(segment_text))
+            continue
+        if work_tokens is None:
+            work_tokens = list(_WORD_TOKEN.finditer(working))
+            work_words = [token.group() for token in work_tokens]
+            work_starts = [token.start() for token in work_tokens]
+            if len(work_words) > _ALIGN_WINDOW:
+                work_index = _build_token_index(work_words)
+        seg_words = _WORD_TOKEN.findall(segment_text)
+        if not work_words or not seg_words:
+            continue
+        tok_start = bisect_left(work_starts, cursor)
+        aligned = _align_segment_tokens(work_words, seg_words, tok_start, _work_index=work_index)
+        matched = sum(end - start for start, end in aligned)
+        if tok_start > 0 and matched < len(seg_words):
+            from_zero = _align_segment_tokens(work_words, seg_words, 0, _work_index=work_index)
+            if sum(end - start for start, end in from_zero) > matched:
+                aligned = from_zero
+        for start_tok, end_tok in aligned:
+            char_start = work_tokens[start_tok].start()
+            char_end = work_tokens[end_tok - 1].end()
+            intervals.append((char_start, char_end))
+            cursor = max(cursor, char_end)
+    if not intervals:
+        stripped = working.strip()
+        return [stripped] if stripped else []
+    intervals.sort()
+    merged: list[tuple[int, int]] = []
+    for start, end in intervals:
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    gaps: list[str] = []
+    pos = 0
+    for start, end in merged:
+        if start > pos:
+            gap = working[pos:start].strip()
+            if gap:
+                gaps.append(gap)
+        pos = end
+    if pos < len(working):
+        gap = working[pos:].strip()
+        if gap:
+            gaps.append(gap)
+    return gaps
 
 
 def extract_calls(
@@ -1691,6 +2070,11 @@ def extract_calls(
 
     source_map = _SourceMap(text, working)
     segment_notes = _notes_by_segment(working, segments, strips, normalized, text)
+    deed_invalid_areas: list[tuple[float, str]] = []
+    for gap in _uncovered_text_gaps(working, segments):
+        gap_area = extract_area_statement(gap)
+        if gap_area is not None and gap_area["value_sq_ft"] <= 0:
+            deed_invalid_areas.append((gap_area["value_sq_ft"], gap_area["unit"]))
 
     # Multi-tract path
     all_calls: list[DeedCall] = []
@@ -1733,6 +2117,9 @@ def extract_calls(
             raise ValueError(f"Tract {label!r} has no computable calls")
         # A tract whose every course was skipped is kept so its skips block it.
         if not tract_calls and not tract_skips:
+            dropped_area = extract_area_statement(segment_text)
+            if dropped_area is not None and dropped_area["value_sq_ft"] <= 0:
+                deed_invalid_areas.append((dropped_area["value_sq_ft"], dropped_area["unit"]))
             logger.warning(
                 "Empty tract after extraction — segment dropped",
                 tract_label=label,
@@ -1749,6 +2136,7 @@ def extract_calls(
         tract_calls = mark_non_boundary(tract_calls, tract_type)
 
         pob_description = extract_pob(segment_text) or None
+        poc_description = extract_poc(segment_text) or None
         area_info = extract_area_statement(segment_text)
         stated_area_sq_ft = (
             area_info["value_sq_ft"] if area_info and area_info["value_sq_ft"] > 0 else None
@@ -1762,6 +2150,7 @@ def extract_calls(
             tract_type=tract_type,
             calls=tract_calls,
             skipped_courses=tract_skips,
+            poc_description=poc_description,
             pob_description=pob_description,
             stated_area_sq_ft=stated_area_sq_ft,
             role_basis=role_basis,
@@ -1770,6 +2159,22 @@ def extract_calls(
         # An easement's legs are never part of a boundary: they stay on its tract.
         if tract_type != TractType.EASEMENT:
             all_calls.extend(tract_calls)
+
+    if deed_invalid_areas and tract_objects:
+        for idx, tract in enumerate(tract_objects):
+            updated_calls = tract.calls
+            for invalid_val, invalid_unit in deed_invalid_areas:
+                updated_calls = _attach_invalid_stated_area_note(
+                    updated_calls, invalid_val, invalid_unit
+                )
+            if updated_calls != tract.calls:
+                tract_objects[idx] = tract.model_copy(update={"calls": updated_calls})
+        all_calls = [
+            call
+            for tract in tract_objects
+            if tract.tract_type != TractType.EASEMENT
+            for call in tract.calls
+        ]
 
     # The deed's one described tract is "single" only as the parcel (MAIN by position)
     # whose wording establishes it (r59: ``sole_description_basis``, an allow-list). An
@@ -1984,11 +2389,11 @@ def _expand_hyphen_marked_dms(text: str) -> str:
 # length/angle, a number (for CB, a bearing letter); "D=" (degree of curve) and
 # "A=" (arc or area) are ambiguous and stay unread, as does any unlabelled value.
 _CURVE_LABELS = (
-    (r"R", "radius of ", r"(?=\.?\d)"),
-    (r"L", "arc length of ", r"(?=\.?\d)"),
-    (r"[\u0394\u2206]|Delta", "delta of ", r"(?=\.?\d)"),
+    (r"R", "radius of ", r"(?=(?:[-\u2212][ \t]*)?\.?\d)"),
+    (r"L", "arc length of ", r"(?=(?:[-\u2212][ \t]*)?\.?\d)"),
+    (r"[\u0394\u2206]|Delta", "delta of ", r"(?=(?:[-\u2212][ \t]*)?\.?\d)"),
     (r"CB", "chord bearing of ", r"(?=[NS](?![a-z]))"),
-    (r"CH|C", "chord length of ", r"(?=\.?\d)"),
+    (r"CH|C", "chord length of ", r"(?=(?:[-\u2212][ \t]*)?\.?\d)"),
 )
 _CURVE_LABEL_PATTERNS = tuple(
     (re.compile(rf"(?<![\w.])(?-i:{label})\s*=\s*{ahead}"), words)
@@ -3105,6 +3510,9 @@ def _extract_call(
     record_scan = _scan_record_calls(call_text)
     reading = record_scan.reading
     curve_info = extract_curve_info(reading, distance_unit)
+    malformed_curve_error = curve_info.get("malformed_element_error")
+    if isinstance(malformed_curve_error, str):
+        raise ValueError(malformed_curve_error)
     if _describes_curve(curve_info) and _has_second_course(reading):
         raise MultipleCoursesError(MULTIPLE_COURSES_ERROR)
     course_bearing = _course_bearing(reading, curve_info)
@@ -3932,7 +4340,7 @@ def _apply_radial_length(
 ) -> None:
     """Read the radius from the length following a radial bearing (never overrides)."""
     length = _RADIAL_RADIUS_AFTER_BEARING.match(radial_text, bearing_end)
-    if not length:
+    if not length or _is_malformed_length_prefix(radial_text, length.start(1)):
         return
     radial_radius = ConversionFactors.convert_to_feet(
         parse_number(length.group(1)), normalize_unit_token(length.group(2))
@@ -3988,7 +4396,10 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
 
     match = CURVE_PATTERN.search(text)
     if match and (
-        _is_bearing_degree(text, match.start(4)) or _is_degree_of_curve(text, match.start(4))
+        _is_bearing_degree(text, match.start(4))
+        or _is_degree_of_curve(text, match.start(4))
+        or _is_malformed_length_prefix(text, match.start(2))
+        or _is_malformed_length_prefix(text, match.start(4))
     ):
         # The first degree value belongs to a bearing (e.g. the chord's), not
         # the central angle; only an explicitly labelled delta may be used.
@@ -4025,7 +4436,7 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
         radius_match = re.search(
             rf"radius\s+(?:of\s+)?({LENGTH_NUMBER})\s*({LENGTH_UNIT})?", text, re.IGNORECASE
         )
-        if radius_match:
+        if radius_match and not _is_malformed_length_prefix(text, radius_match.start(1)):
             radius_raw = parse_number(radius_match.group(1))
             radius_unit = normalize_unit_token(radius_match.group(2), distance_unit)
             curve_info["radius_ft"] = ConversionFactors.convert_to_feet(radius_raw, radius_unit)
@@ -4037,7 +4448,7 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
             text,
             re.IGNORECASE,
         )
-        if delta_match:
+        if delta_match and not _is_malformed_length_prefix(text, delta_match.start(1)):
             delta = parse_comma_number(delta_match.group(1))
             if delta_match.group(2):
                 delta += parse_comma_number(delta_match.group(2)) / 60.0
@@ -4055,7 +4466,11 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
             text,
             re.IGNORECASE,
         )
-        if doc_match and curve_info.get("radius_ft") is None:
+        if (
+            doc_match
+            and curve_info.get("radius_ft") is None
+            and not _is_malformed_length_prefix(text, doc_match.start(1))
+        ):
             doc_deg = float(doc_match.group(1))
             if doc_match.group(2):
                 doc_deg += float(doc_match.group(2)) / 60.0
@@ -4077,12 +4492,14 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
             unread = _stated_unread_bearing(text[chord_match.end() :])
             if unread:
                 curve_info["chord_bearing_unread"] = unread
-        if chord_match.group("chord_lead_len"):
+        if chord_match.group("chord_lead_len") and not _is_malformed_length_prefix(
+            text, chord_match.start("chord_lead_len")
+        ):
             curve_info["chord_length_ft"] = ConversionFactors.convert_to_feet(
                 parse_number(chord_match.group("chord_lead_len")),
                 normalize_unit_token(chord_match.group("chord_lead_unit")),
             )
-        elif chord_length:
+        elif chord_length and not _is_malformed_length_prefix(chord_text, chord_length.start(1)):
             curve_info["chord_length_ft"] = ConversionFactors.convert_to_feet(
                 parse_number(chord_length.group(1)),
                 normalize_unit_token(chord_length.group(2)),
@@ -4095,6 +4512,10 @@ def extract_curve_info(text: str, distance_unit: str = "feet") -> dict[str, floa
         labelled = next((length for length in lengths if length.role == role), None)
         if labelled is not None and curve_info.get(key) is None:
             curve_info[key] = labelled.feet
+
+    malformed_error = _malformed_curve_element_error(course_text, _curve_bearing_spans(course_text))
+    if malformed_error is not None:
+        curve_info["malformed_element_error"] = malformed_error
 
     if re.search(
         r"\b(?:point\s+of\s+compound\s+curvature|PCC|compound\s+curve)\b",

@@ -15,8 +15,9 @@ _DEFAULT_FORMAT = "console"
 _VALID_FORMATS = {"console", "json"}
 _CURRENT_FORMAT = _DEFAULT_FORMAT
 _OWNS_WARNING_CAPTURE = False
-# Composable packages log via structlog with stdlib logger names (e.g. mp_parse.calls).
+# Monolith and composable packages log via structlog with stdlib logger names.
 _PACKAGE_LOGGER_NAMES = (
+    "metesparser",
     "mp_models",
     "mp_bearing",
     "mp_ocr",
@@ -137,8 +138,6 @@ def configure_logging(
     handler = logging.StreamHandler(stream or sys.stderr)
     handler.setFormatter(formatter)
 
-    package_logger = logging.getLogger("metesparser")
-
     global _CURRENT_FORMAT
     global _OWNS_WARNING_CAPTURE
 
@@ -148,9 +147,6 @@ def configure_logging(
         root_logger.setLevel(level_num)
 
         # Remove stale package handlers from prior non-root configuration.
-        _clear_handlers(package_logger)
-        package_logger.setLevel(logging.NOTSET)
-        package_logger.propagate = True
         for package_name in _PACKAGE_LOGGER_NAMES:
             stale_logger = logging.getLogger(package_name)
             _clear_handlers(stale_logger)
@@ -160,11 +156,7 @@ def configure_logging(
         logging.captureWarnings(True)
         _OWNS_WARNING_CAPTURE = True
     else:
-        _replace_handlers(package_logger, handler)
-        package_logger.setLevel(level_num)
-        package_logger.propagate = False
         for package_name in _PACKAGE_LOGGER_NAMES:
-            # Package loggers are not children of 'metesparser'; attach the same handler.
             package_scoped_logger = logging.getLogger(package_name)
             _replace_handlers(package_scoped_logger, handler)
             package_scoped_logger.setLevel(level_num)

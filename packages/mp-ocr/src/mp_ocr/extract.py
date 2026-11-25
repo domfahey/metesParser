@@ -23,7 +23,7 @@ import structlog
 import yaml
 from mp_models import LLMStageRecord
 
-from .cache import CachedLLMClient
+from .cache import CachedLLMClient, _unwrap_client_chain
 from .clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient
 
 logger = structlog.get_logger(__name__)
@@ -191,7 +191,7 @@ class PDFProcessor:
         prompt_text: str | None = None
         for prompt_path in candidate_paths:
             if prompt_path.exists():
-                prompt_text = prompt_path.read_text()
+                prompt_text = prompt_path.read_text(encoding="utf-8")
                 break
 
         if prompt_text is None:
@@ -200,7 +200,7 @@ class PDFProcessor:
 
                 packaged_prompt = resources.files("mp_ocr").joinpath("prompts", prompt_file)
                 if packaged_prompt.is_file():
-                    prompt_text = packaged_prompt.read_text()
+                    prompt_text = packaged_prompt.read_text(encoding="utf-8")
             except (ModuleNotFoundError, FileNotFoundError):
                 prompt_text = None
 
@@ -264,7 +264,12 @@ class PDFProcessor:
         """Normalize and clean up legal description text."""
         if not audit:
             self._audit_stage_records = None
-        elif self._audit_stage_records is None:
+        elif (
+            not self._audit_stage_records
+            or self._audit_stage_records[-1].stage != "extract_legal_description"
+        ):
+            # Keep an active extract_legal_description -> normalize_legal_description
+            # audited chain intact while resetting on repeated standalone calls.
             self._audit_stage_records = []
 
         try:
@@ -293,7 +298,7 @@ class PDFProcessor:
             if isinstance(inner, GeminiClient)
             else "unknown"
         )
-        model = getattr(inner, "model", None)
+        model = self._get_model_name()
         self._audit_stage_records.append(
             LLMStageRecord(
                 stage=stage,
@@ -302,7 +307,7 @@ class PDFProcessor:
                 response=response,
                 response_sha256=sha256(response.encode("utf-8")).hexdigest(),
                 provider=provider,
-                model=model if isinstance(model, str) else "unknown",
+                model=model,
             )
         )
 
@@ -397,13 +402,22 @@ class PDFProcessor:
 
         return ctx
 
+    @property
+    def model_name(self) -> str | None:
+        """Return the LLM model name from the underlying client, if available."""
+        inner = self._unwrap_client(self.client)
+        for candidate in (self.client, inner):
+            model: object = getattr(candidate, "model", None)
+            if isinstance(model, str) and model:
+                return model
+            wrapped: object = getattr(candidate, "model_name", None)
+            if isinstance(wrapped, str) and wrapped:
+                return wrapped
+        return None
+
     def _get_model_name(self) -> str:
         """Return the LLM model name from the underlying client."""
-        inner = self._unwrap_client(self.client)
-        model: object = getattr(inner, "model", None)
-        if isinstance(model, str):
-            return model
-        return "unknown"
+        return self.model_name or "unknown"
 
     def _compute_prompt_hash(self, prompt_name: str) -> str:
         """Return SHA-256 hex digest of a prompt template's content."""
@@ -416,10 +430,8 @@ class PDFProcessor:
 
     @staticmethod
     def _unwrap_client(client: BaseLLMClient) -> BaseLLMClient:
-        """Unwrap an already-cached client to avoid double-wrapping."""
-        if isinstance(client, CachedLLMClient):
-            return client._client
-        return client
+        """Unwrap already-cached client layers to avoid double-wrapping."""
+        return _unwrap_client_chain(client)
 
     def _create_client(self, provider: str | None) -> BaseLLMClient:
         provider_name = (provider or os.getenv("METESPARSER_LLM_PROVIDER") or "openai").lower()

@@ -32,8 +32,12 @@ from mp_models import (
     Point,
     SkippedCourse,
     Tract,
+    TractType,
     VerificationAudit,
     invalid_stated_area_notes,
+    is_boundary_tract,
+    stated_areas_match,
+    tract_kind,
     unapplied_exceptions,
 )
 
@@ -61,14 +65,13 @@ from .tangents import (
     is_spiral,
     stated_tangent,
 )
+from .topology import CLOSURE_TOLERANCE_FT as CLOSURE_TOLERANCE_FT
 from .traverse import (
     analyze_courses,
     traverse_positions,
 )
 
 logger = structlog.get_logger(__name__)
-
-CLOSURE_TOLERANCE_FT = 0.01
 
 
 def compute_traverse(
@@ -207,6 +210,22 @@ def _calculate_exception_area(
     return math.fsum(areas)
 
 
+def _validate_non_negative_float(
+    name: str, value: float | None, *, default: float | None = None
+) -> float:
+    """Validate a finite non-negative float, returning ``default`` when ``value`` is None."""
+    if value is None and default is not None:
+        return default
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or value < 0
+    ):
+        raise ValueError(f"{name} must be a finite non-negative number, got {value!r}")
+    return float(value)
+
+
 def verify_tract(
     calls: list[DeedCall],
     *,
@@ -225,10 +244,14 @@ def verify_tract(
     Without it, the calls' own marks block them: the role-review mark every call of a
     blocked deed carries, and the note every easement/exception tract's call carries.
     """
+    stated_area_sq_ft = _validate_non_negative_float("stated_area_sq_ft", stated_area_sq_ft)
+    tolerance = _validate_non_negative_float(
+        "closure_tolerance_ft", closure_tolerance_ft, default=CLOSURE_TOLERANCE_FT
+    )
     return _verify_tract(
         calls,
         stated_area_sq_ft=stated_area_sq_ft,
-        closure_tolerance_ft=closure_tolerance_ft,
+        closure_tolerance_ft=tolerance,
         double_entry_calls=double_entry_calls,
         audit_context=audit_context,
         skipped_courses=skipped_courses,
@@ -258,6 +281,15 @@ def _verify_tract(
         )
         if check is not None
     ]
+    if tract is not None:
+        treat_exceptions_as_boundary = tract.tract_type == TractType.EXCEPTION
+    else:
+        non_tie = [c for c in calls if not c.is_tie_in]
+        treat_exceptions_as_boundary = bool(non_tie) and all(c.is_exception for c in non_tie)
+        if treat_exceptions_as_boundary and evaluate_non_boundary_marks(calls) is None:
+            exc_role = evaluate_tract_role("exception", TractType.EXCEPTION)
+            if exc_role is not None:
+                role_checks.append(exc_role)
     return _verify_single(
         calls,
         stated_area_sq_ft=stated_area_sq_ft,
@@ -267,7 +299,7 @@ def _verify_tract(
         audit_context=audit_context,
         skipped_courses=skipped_courses,
         role_checks=role_checks,
-        treat_exceptions_as_boundary=True,
+        treat_exceptions_as_boundary=treat_exceptions_as_boundary,
     )
 
 
@@ -380,7 +412,25 @@ def verify_closure(
         ClosureResult when tracts is None (single-tract).
         list[ClosureResult] when tracts is provided (one per tract).
     """
+    stated_area_sq_ft = _validate_non_negative_float("stated_area_sq_ft", stated_area_sq_ft)
+    tolerance = _validate_non_negative_float(
+        "closure_tolerance_ft", closure_tolerance_ft, default=CLOSURE_TOLERANCE_FT
+    )
     if tracts is not None:
+        boundary_tracts = [t for t in tracts if is_boundary_tract(t.tract_type)]
+        has_exception = any(tract_kind(t.tract_type) == TractType.EXCEPTION.value for t in tracts)
+        # Deed-level stated_area_sq_ft applies to a sole boundary tract only when no
+        # EXCEPTION tract exists (with an exception, deed-level area is net, not gross).
+        sole_boundary = (
+            boundary_tracts[0] if len(boundary_tracts) == 1 and not has_exception else None
+        )
+        if (
+            stated_area_sq_ft > 0.0
+            and sole_boundary is not None
+            and sole_boundary.stated_area_sq_ft is not None
+            and not stated_areas_match(stated_area_sq_ft, sole_boundary.stated_area_sq_ft)
+        ):
+            raise ValueError("stated_area_sq_ft conflicts with boundary tract stated_area_sq_ft.")
         if audit_context is not None:
             # Reflect only the latest multi-tract run: drop the single-tract audit too.
             audit_context.verification_audit = None
@@ -411,10 +461,16 @@ def verify_closure(
                 if audit_context is not None
                 else None
             )
+            if tract.stated_area_sq_ft is not None:
+                tract_stated_area = tract.stated_area_sq_ft
+            elif stated_area_sq_ft > 0.0 and tract is sole_boundary:
+                tract_stated_area = stated_area_sq_ft
+            else:
+                tract_stated_area = 0.0
             result = _verify_tract(
                 tract.calls,
-                stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
-                closure_tolerance_ft=closure_tolerance_ft,
+                stated_area_sq_ft=tract_stated_area,
+                closure_tolerance_ft=tolerance,
                 double_entry_calls=tract_double_entry,
                 double_entry_override_errors=deed_double_entry_mismatch,
                 audit_context=scratch,
@@ -433,7 +489,7 @@ def verify_closure(
     return _verify_single(
         calls,
         stated_area_sq_ft=stated_area_sq_ft,
-        closure_tolerance_ft=closure_tolerance_ft,
+        closure_tolerance_ft=tolerance,
         double_entry_calls=double_entry_calls,
         audit_context=audit_context,
         skipped_courses=skipped_courses,
@@ -458,6 +514,10 @@ def _verify_single(
     treat_exceptions_as_boundary: bool = False,
 ) -> ClosureResult:
     """Single-tract verification; ``role_checks`` are internal (set by ``verify_tract``)."""
+    stated_area_sq_ft = _validate_non_negative_float("stated_area_sq_ft", stated_area_sq_ft)
+    tolerance = _validate_non_negative_float(
+        "closure_tolerance_ft", closure_tolerance_ft, default=CLOSURE_TOLERANCE_FT
+    )
     if any(c.name not in _ROLE_CHECK_NAMES or c.status != "blocked" for c in role_checks):
         raise ValueError(
             "role_checks must be blocked non_boundary_tract or description_roles_inferred checks"
@@ -472,7 +532,6 @@ def _verify_single(
         evaluate_description_roles((), calls) if DESCRIPTION_ROLES_CHECK not in present else None,
     )
     role_checks = [*role_checks, *(check for check in derived if check is not None)]
-    tolerance = closure_tolerance_ft if closure_tolerance_ft is not None else CLOSURE_TOLERANCE_FT
     # Courses the extractor skipped are missing from ``calls``: a traverse of the
     # rest is not the deed's boundary, so nothing derived from it is determined.
     skipped = _merge_skips(
@@ -837,6 +896,7 @@ def _verify_single(
         calls,
         [analysis[id(c)].chord_positioned for c in calls],
         [analysis[id(c)].indefinite for c in calls],
+        positioned,
     )
     closure_result = closure_result.model_copy(update={"confidence_score": confidence})
 

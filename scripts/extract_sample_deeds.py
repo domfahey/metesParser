@@ -9,7 +9,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from metesparser.cli import _aggregate_tract_closure
+from mp_models import is_boundary_tract
+
+from metesparser.cli import aggregate_tract_closure
 from metesparser.closure_checker import ClosureChecker
 from metesparser.csv_builder import CSVBuilder
 from metesparser.models import ClosureResult, LegalDescription
@@ -201,17 +203,12 @@ def main() -> None:
             )
             if isinstance(verification, list):
                 tract_results = list(zip(legal_desc.tracts, verification, strict=True))
-                closure_result = _aggregate_tract_closure(tract_results)
-                boundary_results = [
-                    res for tract, res in tract_results if tract.tract_type in ("main", "addition")
-                ]
+                closure_result = aggregate_tract_closure(tract_results)
                 is_verified = any(
-                    tract.tract_type in ("main", "addition") and res.is_fully_verified()
+                    is_boundary_tract(tract.tract_type) and res.is_fully_verified()
                     for tract, res in tract_results
                 )
-                closes = bool(boundary_results) and all(
-                    res.closure_passed for res in boundary_results
-                )
+                closes = closure_result.closure_passed
             else:
                 tract_results = None
                 closure_result = verification
@@ -231,14 +228,17 @@ def main() -> None:
             # Try verified export if it passes
             if is_verified:
                 verified_path = OUTPUT_DIR / f"{output_name}.csv"
-                print(f"  - Exporting VERIFIED CSV: {output_name}_verified.csv")
-                CSVBuilder.export_verified_csv(
+                written_paths = CSVBuilder.export_verified_csv(
                     calls=calls_for_verify,
                     closure_result=closure_result,
                     output_path=str(verified_path),
                     legal_desc=legal_desc,
                     tract_results=tract_results,
                 )
+                written_names = (
+                    ", ".join(Path(p).name for p in written_paths) if written_paths else "(none)"
+                )
+                print(f"  - Exported VERIFIED CSV(s): {written_names}")
 
             results.append(
                 {

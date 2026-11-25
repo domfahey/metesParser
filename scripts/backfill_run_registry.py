@@ -19,6 +19,7 @@ import sys
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
@@ -37,7 +38,7 @@ PROMPTS_DIR = Path(__file__).parent.parent / "prompts"
 DEFAULT_RUNS_DIR = Path(__file__).parent.parent / "output" / "runs"
 
 
-def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
+def _build_calls(expected_calls: list[dict[str, Any]]) -> list[DeedCall]:
     """Build DeedCall objects from ground truth expected_calls."""
     calls: list[DeedCall] = []
     for raw in expected_calls:
@@ -69,6 +70,15 @@ def _build_calls(expected_calls: list[dict]) -> list[DeedCall]:
             )
         )
     return calls
+
+
+def _status_label(results: RunResults) -> str:
+    """Classify run results as FAIL, WARN, or PASS consistently with run_registry."""
+    if not results.closure_passed:
+        return "FAIL"
+    if results.warnings:
+        return "WARN"
+    return "PASS"
 
 
 def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
@@ -140,8 +150,8 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
                 parser_version=metesparser.__version__,
             )
 
+        status = _status_label(manifest.results)
         if dry_run:
-            status = "PASS" if manifest.results.closure_passed else "FAIL"
             misclosure = (
                 f"{manifest.results.misclosure_ft:.4f} ft"
                 if manifest.results.misclosure_available
@@ -153,7 +163,6 @@ def backfill(runs_dir: Path, *, dry_run: bool = False) -> int:
             )
         else:
             path = write_run_manifest(manifest, runs_dir)
-            status = "PASS" if manifest.results.closure_passed else "FAIL"
             print(f"  WROTE: {path.name} — {manifest.results.call_count} calls, {status}")
 
         written += 1

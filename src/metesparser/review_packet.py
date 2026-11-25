@@ -296,17 +296,12 @@ def build_text_comparison(gt: GroundTruth) -> str:
 
 def _as_bool(value: Any) -> bool:
     """Coerce JSON boolean or string-encoded boolean values to bool."""
-    if isinstance(value, bool):
-        return value
-    if value is None:
-        return False
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"true", "1", "yes", "y", "on"}:
-            return True
-        if normalized in {"false", "0", "no", "n", "off", ""}:
-            return False
-    return bool(value)
+    from mp_models import coerce_bool_field
+
+    try:
+        return coerce_bool_field(value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid boolean value: {value!r}") from exc
 
 
 def _is_curve_call(call: dict[str, Any]) -> bool:
@@ -344,16 +339,25 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
     from pydantic import ValidationError
 
     calls = gt.get("expected_calls") or []
-    boundary_calls = [
-        c for c in calls if not _as_bool(c.get("is_tie_in")) and not _as_bool(c.get("is_exception"))
-    ]
+    # A boundary call without usable geometry (or with an invalid boolean flag)
+    # breaks the traverse. Dropping it would falsely connect the calls on either
+    # side of the gap.
+    boundary_calls: list[dict[str, Any]] = []
+    invalid_courses: list[str] = []
+    for raw_index, c in enumerate(calls, start=1):
+        course_label = str(c.get("course", raw_index))
+        try:
+            is_tie_in = _as_bool(c.get("is_tie_in"))
+            is_exception = _as_bool(c.get("is_exception"))
+        except ValueError:
+            invalid_courses.append(course_label)
+            continue
+        if not is_tie_in and not is_exception:
+            boundary_calls.append(c)
 
-    if not boundary_calls:
+    if not boundary_calls and not invalid_courses:
         return "<p class='na'>No plottable calls (cannot generate traverse plot).</p>"
 
-    # A boundary call without usable geometry breaks the traverse. Dropping it
-    # would falsely connect the calls on either side of the gap.
-    invalid_courses: list[str] = []
     # (dx, dy, svg_cmd, dist_label, label_offset, arc_bbox_offsets, mid_offset)
     segments: list[
         tuple[
@@ -370,7 +374,12 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
 
     for index, call in enumerate(boundary_calls, start=1):
         course_label = str(call.get("course", index))
-        if _is_curve_call(call):
+        try:
+            is_curve = _is_curve_call(call)
+        except ValueError:
+            invalid_courses.append(course_label)
+            continue
+        if is_curve:
             try:
                 deed_call = DeedCall(
                     course=index,
@@ -409,31 +418,51 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
                 and deed_call.curve_type != "spiral"
             ):
                 radius = deed_call.radius_ft
-                sweep_flag = 1 if deed_call.curve_dir == "right" else 0
-                dist_label = deed_call.arc_length_ft or (radius * math.radians(sweep_deg))
+                dir_sign = 1.0 if deed_call.curve_dir == "right" else -1.0
+                sweep_flag = 1 if dir_sign > 0 else 0
+                sweep_rad = math.radians(sweep_deg)
+                dist_label = deed_call.arc_length_ft or (radius * sweep_rad)
                 chord = math.hypot(dx, dy)
                 arc_offsets: list[tuple[float, float]] = []
                 label_offset: tuple[float, float] | None = None
                 mid_offset: tuple[float, float] | None = None
-                if sweep_deg >= 360.0 - 1e-6 or (sweep_deg > 180.0 and chord < 0.05):
+                split_arc = sweep_deg >= 360.0 - 1e-6 or (sweep_deg > 180.0 and chord < 0.05)
+                center: tuple[float, float] | None = None
+                if split_arc:
                     t_deg = entry_azimuth(deed_call)
                     if t_deg is None:
                         invalid_courses.append(course_label)
                         continue
                     t_rad = math.radians(t_deg)
-                    sign = 1.0 if deed_call.curve_dir == "right" else -1.0
-                    cx = sign * radius * math.cos(t_rad)
-                    cy = sign * radius * math.sin(t_rad)
-                    sweep_rad = math.radians(sweep_deg)
+                    center = (
+                        dir_sign * radius * math.cos(t_rad),
+                        dir_sign * radius * math.sin(t_rad),
+                    )
+                    cmd = f"A {radius:.2f},{radius:.2f} 0 0,{sweep_flag}"
+                else:
+                    large_arc = 1 if sweep_deg > 180.0 else 0
+                    cmd = f"A {radius:.2f},{radius:.2f} 0 {large_arc},{sweep_flag}"
+                    if chord > 1e-9:
+                        # SVG y-down coordinates: left-hand normal to (dx, dy) is (dy/c, -dx/c).
+                        # For sweep_flag=1 ("right", clockwise in SVG), center is on the right side
+                        # (-nx, -ny) for minor arcs and switches sign via cos(sweep/2) for major arcs.
+                        h = radius * math.cos(sweep_rad / 2.0)
+                        center = (
+                            dx / 2.0 - dir_sign * (dy / chord) * h,
+                            dy / 2.0 + dir_sign * (dx / chord) * h,
+                        )
+                if center is not None:
+                    cx, cy = center
                     start_angle = math.atan2(-cy, -cx)
-                    dir_sign = 1.0 if deed_call.curve_dir == "right" else -1.0
                     mid_angle = start_angle + dir_sign * (sweep_rad / 2.0)
-                    mid_offset = (
+                    label_offset = (
                         cx + radius * math.cos(mid_angle),
                         cy + radius * math.sin(mid_angle),
                     )
-                    label_offset = mid_offset
-                    arc_offsets = [mid_offset]
+                    if split_arc:
+                        mid_offset = label_offset
+                    arc_offsets.append(label_offset)
+                    # Include every cardinal extremum angle traversed by the rendered arc
                     lo = min(start_angle, start_angle + dir_sign * sweep_rad)
                     hi = max(start_angle, start_angle + dir_sign * sweep_rad)
                     k_start = math.ceil(lo / (math.pi / 2.0))
@@ -443,39 +472,6 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
                         arc_offsets.append(
                             (cx + radius * math.cos(theta), cy + radius * math.sin(theta))
                         )
-                    cmd = f"A {radius:.2f},{radius:.2f} 0 0,{sweep_flag}"
-                else:
-                    large_arc = 1 if sweep_deg > 180.0 else 0
-                    cmd = f"A {radius:.2f},{radius:.2f} 0 {large_arc},{sweep_flag}"
-                    if chord > 1e-9:
-                        # SVG y-down coordinates: left-hand normal to (dx, dy) is (dy/c, -dx/c).
-                        # For sweep_flag=1 ("right", clockwise in SVG), center is on the right side
-                        # (-nx, -ny) for minor arcs and switches sign via cos(sweep/2) for major arcs.
-                        sweep_rad = math.radians(sweep_deg)
-                        nx = dy / chord
-                        ny = -dx / chord
-                        center_sign = -1.0 if deed_call.curve_dir == "right" else 1.0
-                        h = radius * math.cos(sweep_rad / 2.0)
-                        cx = dx / 2.0 + center_sign * nx * h
-                        cy = dy / 2.0 + center_sign * ny * h
-                        start_angle = math.atan2(-cy, -cx)
-                        dir_sign = 1.0 if deed_call.curve_dir == "right" else -1.0
-                        mid_angle = start_angle + dir_sign * (sweep_rad / 2.0)
-                        label_offset = (
-                            cx + radius * math.cos(mid_angle),
-                            cy + radius * math.sin(mid_angle),
-                        )
-                        arc_offsets.append(label_offset)
-                        # Include every cardinal extremum angle traversed by the rendered arc
-                        lo = min(start_angle, start_angle + dir_sign * sweep_rad)
-                        hi = max(start_angle, start_angle + dir_sign * sweep_rad)
-                        k_start = math.ceil(lo / (math.pi / 2.0))
-                        k_end = math.floor(hi / (math.pi / 2.0))
-                        for k in range(k_start, k_end + 1):
-                            theta = k * (math.pi / 2.0)
-                            arc_offsets.append(
-                                (cx + radius * math.cos(theta), cy + radius * math.sin(theta))
-                            )
                 segments.append((dx, dy, cmd, dist_label, label_offset, arc_offsets, mid_offset))
             else:
                 dist_label = deed_call.chord_length_ft or math.hypot(dx, dy)
@@ -484,19 +480,16 @@ def generate_traverse_plot(gt: GroundTruth) -> str:
 
         azimuth = call.get("bearing_azimuth_deg_from_north")
         distance = call.get("distance_ft")
-        valid_azimuth = (
-            isinstance(azimuth, (int, float))
-            and not isinstance(azimuth, bool)
-            and math.isfinite(azimuth)
-            and 0 <= azimuth <= 360
-        )
-        valid_distance = (
-            isinstance(distance, (int, float))
-            and not isinstance(distance, bool)
-            and math.isfinite(distance)
-            and distance >= 0
-        )
-        if not (valid_azimuth and valid_distance):
+        if (
+            not isinstance(azimuth, (int, float))
+            or isinstance(azimuth, bool)
+            or not math.isfinite(azimuth)
+            or not (0 <= azimuth <= 360)
+            or not isinstance(distance, (int, float))
+            or isinstance(distance, bool)
+            or not math.isfinite(distance)
+            or distance < 0
+        ):
             invalid_courses.append(course_label)
             continue
         azimuth_rad = math.radians(azimuth)

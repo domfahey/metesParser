@@ -8,7 +8,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import mp_export.audit_html as pkg_audit_html
-import mp_verify.checks as pkg_checks
 import pytest
 from mp_export import export_verified_csv, legal_description_to_csv
 from mp_export.csv_writer import _write_metadata, calls_to_csv
@@ -227,10 +226,6 @@ def test_compare_double_entry_checks_flags_and_radial_bearing() -> None:
     assert "Course 1: Meander" in joined
     assert "Course 1: Non-tangent" in joined
     assert "Course 1: Radial bearing" in joined
-
-
-def test_dead_check_double_entry_placeholder_removed() -> None:
-    assert not hasattr(pkg_checks, "check_double_entry")
 
 
 def test_check_distance_reasonableness_uses_curve_arc_length() -> None:

@@ -9,7 +9,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 QUADRANT_PATTERN = re.compile(
-    r"\b(N|S)\s*([0-8]?[0-9]|90)[°º]\s*(?:([0-5]?[0-9])['′])?,?\s*(?:([0-5]?[0-9](?:\.\d+)?)[\"″])?\s*(E|W)(?![A-Za-z_])",
+    r"\b(North|South|N|S)(?>\s*)([0-8]?[0-9]|90)[°º](?>\s*)(?:([0-5]?[0-9])['′],?(?>\s*)|,(?>\s*))?(?:([0-5]?[0-9](?:\.\d+)?)[\"″](?>\s*))?(East|West|E|W)(?![A-Za-z_])",
     re.IGNORECASE,
 )
 
@@ -115,7 +115,7 @@ def degree_of_curvature_to_radius(degree_of_curve: float) -> float:
         Radius in feet
 
     Raises:
-        ValueError: If degree_of_curve is zero or negative
+        ValueError: If degree_of_curve is non-finite, zero, or negative
     """
     if (
         isinstance(degree_of_curve, bool)
@@ -123,7 +123,7 @@ def degree_of_curvature_to_radius(degree_of_curve: float) -> float:
         or degree_of_curve <= 0
     ):
         raise ValueError(
-            f"Degree of curvature must be positive and non-zero, got {degree_of_curve}"
+            f"Degree of curvature must be finite, positive and non-zero, got {degree_of_curve}"
         )
     return 5729.578 / degree_of_curve
 
@@ -142,11 +142,11 @@ def parse_quadrant_bearing(bearing_text: str) -> tuple[str, float, str] | None:
     if not match:
         return None
 
-    cardinal1 = match.group(1).upper()
+    cardinal1 = match.group(1)[0].upper()
     degrees = float(match.group(2))
     minutes = float(match.group(3)) if match.group(3) else 0.0
     seconds = float(match.group(4)) if match.group(4) else 0.0
-    cardinal2 = match.group(5).upper()
+    cardinal2 = match.group(5)[0].upper()
 
     if not (0 <= degrees <= 90):
         return None
@@ -266,7 +266,10 @@ def azimuth_to_quadrant(azimuth: float) -> str:
     Returns:
         Quadrant bearing string like "N 45 deg 30' E"
     """
+    if isinstance(azimuth, bool) or not math.isfinite(azimuth):
+        raise ValueError(f"Azimuth must be finite, got {azimuth!r}")
     azimuth = azimuth % 360.0
+    azimuth = 0.0 if azimuth == 360.0 else azimuth
 
     if 0 <= azimuth <= 90:
         angle = azimuth

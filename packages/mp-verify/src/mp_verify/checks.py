@@ -49,14 +49,14 @@ from .tangents import (
     stated_sweep_with_error,
     stated_tangent,
 )
-from .topology import check_curved_boundary_intersections
+from .topology import CLOSURE_TOLERANCE_FT, check_curved_boundary_intersections
 
 
 def check_boundary_intersections(
     calls: list[DeedCall],
     coordinates: list[Point],
     *,
-    closure_tolerance_ft: float = 0.01,
+    closure_tolerance_ft: float = CLOSURE_TOLERANCE_FT,
 ) -> list[str]:
     """Check straight and circular boundaries without substituting chords for arcs."""
     return check_straight_boundary_intersections(
@@ -518,7 +518,7 @@ def check_straight_boundary_intersections(
     calls: list[DeedCall],
     coordinates: list[Point],
     *,
-    closure_tolerance_ft: float = 0.01,
+    closure_tolerance_ft: float = CLOSURE_TOLERANCE_FT,
 ) -> list[str]:
     """Detect crossings, overlaps, and nonadjacent touches between straight edges.
 
@@ -854,7 +854,13 @@ def check_distance_reasonableness(calls: list[DeedCall]) -> list[str]:
     measured = [
         (c, length)
         for c in calls
-        if (length := (c.arc_length_ft if c.curve_dir and c.arc_length_ft else c.distance_ft))
+        if (
+            length := (
+                c.arc_length_ft
+                if c.is_curve() and c.arc_length_ft is not None and c.arc_length_ft > 0.0
+                else c.distance_ft
+            )
+        )
         is not None
     ]
     if len(measured) < 2:

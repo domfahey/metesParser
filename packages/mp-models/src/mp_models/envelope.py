@@ -5,10 +5,19 @@ from __future__ import annotations
 from collections.abc import Iterator
 from typing import Annotated, Literal, TextIO
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, FiniteFloat, Tag, TypeAdapter
+from pydantic import (
+    ConfigDict,
+    Discriminator,
+    Field,
+    FiniteFloat,
+    Tag,
+    TypeAdapter,
+)
+
+from .base import _NoBoolFloatModel
 
 
-class _Message(BaseModel):
+class _Message(_NoBoolFloatModel):
     """Base for all JSONL messages."""
 
     model_config = ConfigDict(extra="allow", frozen=True)
@@ -45,10 +54,10 @@ class ClosureResultMessage(_Message):
 
     type: Literal["closure_result"] = "closure_result"
     is_verified: bool = Field(...)
-    misclosure_ft: FiniteFloat = Field(...)
+    misclosure_ft: FiniteFloat = Field(..., ge=0.0)
     precision_ratio: str | None = Field(default=None)
     confidence: FiniteFloat | None = Field(default=None, ge=0.0, le=1.0)
-    area_sq_ft: FiniteFloat | None = Field(default=None)
+    area_sq_ft: FiniteFloat | None = Field(default=None, ge=0.0)
     checks: list[dict[str, object]] = Field(default_factory=list)
     calls: list[dict[str, object]] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)

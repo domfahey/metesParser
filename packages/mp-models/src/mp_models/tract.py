@@ -231,6 +231,7 @@ class Tract(_Model):
     skipped_courses: list[SkippedCourse] = Field(
         default_factory=list, description="Courses of this tract extraction could not parse"
     )
+    poc_description: str | None = Field(default=None, description="POC for this tract")
     pob_description: str | None = Field(default=None, description="POB for this tract")
     stated_area_sq_ft: FiniteFloat | None = Field(default=None, gt=0, description="Stated area")
     closure_result: ClosureResult | None = Field(

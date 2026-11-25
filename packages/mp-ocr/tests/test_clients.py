@@ -179,6 +179,59 @@ def test_gemini_client_propagates_non_retryable_error(
         client.generate_text("hello")
 
 
+def test_gemini_client_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with pytest.raises(LLMConfigurationError, match="GEMINI_API_KEY"):
+        GeminiClient()
+
+
+def test_gemini_client_generates_text_with_pdf_and_missing_pdf_raises(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    captured: list[object] = []
+
+    def handler(*, model, contents, config, client_error, server_error):
+        captured.append(contents)
+        return SimpleNamespace(text="extracted deed text", candidates=[])
+
+    calls, _, _ = _install_fake_gemini(monkeypatch, handler)
+    pdf = tmp_path / "deed.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
+
+    client = GeminiClient(api_key="gm-secret")
+    assert client.generate_text_with_pdf("read pdf", str(pdf)) == "extracted deed text"
+    assert calls == ["gemini-3-flash-preview"]
+    parts = captured[0][0].parts  # type: ignore[index,attr-defined]
+    assert parts[0].data == b"%PDF-1.4\n%%EOF\n"
+    assert parts[0].mime_type == "application/pdf"
+    assert parts[1].text == "read pdf"
+
+    with pytest.raises(FileNotFoundError, match="PDF not found"):
+        client.generate_text_with_pdf("read pdf", str(tmp_path / "missing.pdf"))
+
+
+def test_gemini_client_fallback_exhaustion_raises_after_trying_all_models(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def handler(*, model, contents, config, client_error, server_error):
+        raise server_error(503)
+
+    calls, _, server_error = _install_fake_gemini(monkeypatch, handler)
+    client = GeminiClient(api_key="gm-secret")
+    with pytest.raises(server_error, match="server 503"):
+        client.generate_text("hello")
+    assert calls == ["gemini-3-flash-preview", "gemini-2.5-flash"]
+
+
+def test_openai_client_generate_text_with_pdf_missing_file_raises(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _install_fake_openai(monkeypatch)
+    client = OpenAIClient(api_key="sk-secret")
+    with pytest.raises(FileNotFoundError, match="PDF not found"):
+        client.generate_text_with_pdf("read", str(tmp_path / "does_not_exist.pdf"))
+
+
 def test_cached_client_hits_and_clears_cache(tmp_path: Path) -> None:
     class FakeClient:
         model = "fake"

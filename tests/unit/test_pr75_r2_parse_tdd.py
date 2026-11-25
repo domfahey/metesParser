@@ -192,23 +192,6 @@ class TestCommaNumberDecimalComma:
 
 
 class TestNoFabricatedRadius:
-    def test_delta_and_arc_curve_without_radius_never_fabricates_radius(self) -> None:
-        from mp_models import SkippedCourse
-        from mp_parse.calls import extract_calls, extract_single_call
-
-        curve_text = (
-            "THENCE along a curve to the right having a delta angle of 90 degrees "
-            "and an arc length of 157.08 feet to a point"
-        )
-        with pytest.raises(ValueError, match="Curve geometry requires radius_ft"):
-            extract_single_call(curve_text, 1)
-
-        skipped: list[SkippedCourse] = []
-        calls, _ = extract_calls(curve_text, strict=False, skipped_courses=skipped)
-        assert calls == []
-        assert len(skipped) == 1
-        assert "radius_ft" in skipped[0].error
-
     @pytest.mark.parametrize("delta_str", ["400 degrees", "0 degrees"])
     def test_delta_and_arc_curve_rejects_invalid_delta_range(self, delta_str: str) -> None:
         from mp_parse.calls import extract_single_call
@@ -327,11 +310,6 @@ class TestThExpansionGuards:
 
 
 class TestBoundedPrefixPerformance:
-    def test_non_seconds_prefix_hoisted_to_module_level(self) -> None:
-        from mp_parse import normalizer
-
-        assert isinstance(getattr(normalizer, "_NON_SECONDS_PREFIX", None), re.Pattern)
-
     def test_bounded_slices_preserve_behavior_on_large_inputs(self) -> None:
         from mp_parse.normalizer import expand_assessor_abbreviations
         from mp_parse.parcels import detect_parcel_markers

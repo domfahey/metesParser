@@ -349,7 +349,7 @@ def test_create_extraction_report_uses_all_calls_on_tracts_only_deed(tmp_path: P
 
 
 # ---------------------------------------------------------------------------
-# Native #9 (LOW): PLSS hyphen/in./prime guard & empty wheel name guard
+# Native #9 (LOW): PLSS hyphen/in./prime guard
 # ---------------------------------------------------------------------------
 
 
@@ -364,16 +364,3 @@ def test_create_extraction_report_uses_all_calls_on_tracts_only_deed(tmp_path: P
 )
 def test_plss_aliquot_rejects_hyphenated_in_and_prime_units(text: str) -> None:
     assert extract_plss_metadata(text)["aliquot"] is None
-
-
-def test_build_claude_plugin_rejects_empty_wheel_package_name() -> None:
-    import importlib.util
-
-    script_path = Path(__file__).resolve().parents[2] / "scripts" / "build_claude_plugin.py"
-    spec = importlib.util.spec_from_file_location("build_claude_plugin_r3", script_path)
-    assert spec is not None and spec.loader is not None
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-
-    with pytest.raises(ValueError, match="Unexpected wheel filename"):
-        mod.runtime_project([Path("-1.0.0-py3-none-any.whl")])

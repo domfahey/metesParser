@@ -30,7 +30,7 @@ UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, 
 
 def _find_project_root(settings_path: Path) -> Path:
     """Resolve the project directory immediately owning the settings file."""
-    start = settings_path.resolve().parent
+    start = settings_path.parent.resolve()
     return start.parent if start.name == ".claude" else start
 
 

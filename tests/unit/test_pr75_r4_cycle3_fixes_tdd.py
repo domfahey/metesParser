@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
-import sys
 from pathlib import Path
 
 import pytest
@@ -262,13 +262,22 @@ class TestNativeR3NonPositiveStatedAreaMultiTractAndArtifactReplay:
         assert tract_results[0].is_fully_verified()
         assert not tract_results[1].is_fully_verified()
 
-        with pytest.raises(ValueError):
+        written = CSVBuilder.export_verified_csv(
+            legal.all_calls,
+            tract_results[0],
+            str(tmp_path / "out.csv"),
+            legal_desc=legal,
+            tract_results=list(zip(legal.tracts, tract_results, strict=True)),
+        )
+        assert [p.name for p in written] == ["out_verified_tract1.csv"]
+
+        with pytest.raises(ValueError, match="Cannot export verified CSV"):
             CSVBuilder.export_verified_csv(
-                legal.all_calls,
-                tract_results[0],
-                str(tmp_path / "out_verified.csv"),
+                legal.tracts[1].calls,
+                tract_results[1],
+                str(tmp_path / "tract2.csv"),
                 legal_desc=legal,
-                tract_results=tract_results,
+                tract_results=[(legal.tracts[1], tract_results[1])],
             )
 
     def test_mp_review_persists_invalid_stated_area_note_blocking_rereview_export(
@@ -309,10 +318,11 @@ class TestNativeR3BuildPluginPep503WheelValidation:
         ],
     )
     def test_runtime_project_rejects_malformed_wheel_names(self, bad_wheel: str) -> None:
-        scripts_dir = Path(__file__).resolve().parents[2] / "scripts"
-        if str(scripts_dir) not in sys.path:
-            sys.path.insert(0, str(scripts_dir))
-        import build_claude_plugin
+        script_path = Path(__file__).resolve().parents[2] / "scripts" / "build_claude_plugin.py"
+        spec = importlib.util.spec_from_file_location("build_claude_plugin_r4_test", script_path)
+        assert spec is not None and spec.loader is not None
+        build_claude_plugin = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(build_claude_plugin)
 
         with pytest.raises(ValueError, match="Unexpected wheel filename"):
             build_claude_plugin.runtime_project([Path(bad_wheel)])

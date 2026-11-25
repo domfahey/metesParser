@@ -10,11 +10,15 @@ from __future__ import annotations
 
 import csv
 import io
+from collections import deque
+from collections.abc import Callable
 from pathlib import Path
 
 import structlog
 from mp_models import (
+    DESCRIPTION_ROLES_NOTE,
     LEGACY_CURVE_NOTE,
+    NON_BOUNDARY_NOTES,
     AuditContext,
     ClosureResult,
     DeedCall,
@@ -24,11 +28,15 @@ from mp_models import (
     TractType,
     _Model,
     is_boundary_tract,
+    mark_non_boundary,
+    mark_roles_review,
     non_boundary_detail,
     non_boundary_marks,
     non_boundary_marks_detail,
     roles_need_review,
     roles_review_detail,
+    split_notes,
+    stated_areas_match,
     tract_kind,
 )
 from mp_verify.closure import skips_for_tract
@@ -255,16 +263,64 @@ def _not_exported_reason(tract: Tract, result: ClosureResult) -> str:
     return "; ".join(reasons) or "verification checks did not pass"
 
 
+def _tracts_conflict(orig_tract: Tract, supplied_tract: Tract) -> bool:
+    """Whether a supplied tract conflicts with a same-label tract in legal_desc."""
+    return (
+        orig_tract.tract_type != supplied_tract.tract_type
+        or orig_tract.role_basis != supplied_tract.role_basis
+        or orig_tract.calls != supplied_tract.calls
+        or orig_tract.skipped_courses != supplied_tract.skipped_courses
+        or orig_tract.stated_area_sq_ft != supplied_tract.stated_area_sq_ft
+    )
+
+
+def _validate_supplied_tracts(
+    legal_desc: LegalDescription | None,
+    tract_results: list[tuple[Tract, ClosureResult]],
+) -> None:
+    """Reject supplied tracts absent from or conflicting with legal_desc."""
+    if legal_desc is None or not legal_desc.tracts or not tract_results:
+        return
+    remaining_by_label: dict[str, list[Tract]] = {}
+    for orig in legal_desc.tracts:
+        remaining_by_label.setdefault(orig.label, []).append(orig)
+    supplied_labels: set[str] = set()
+    for supplied, _ in tract_results:
+        supplied_labels.add(supplied.label)
+        candidates = remaining_by_label.get(supplied.label)
+        if candidates is None:
+            raise ValueError(
+                f"Cannot export verified CSV: supplied tract {supplied.label!r} "
+                "is not in legal_desc.tracts."
+            )
+        match_idx = next(
+            (i for i, orig in enumerate(candidates) if not _tracts_conflict(orig, supplied)),
+            None,
+        )
+        if match_idx is None:
+            raise ValueError(
+                f"Cannot export verified CSV: supplied tract {supplied.label!r} "
+                "conflicts with legal_desc.tracts."
+            )
+        candidates.pop(match_idx)
+    for label in supplied_labels:
+        if remaining_by_label.get(label):
+            raise ValueError(
+                f"Cannot export verified CSV: supplied tract {label!r} "
+                "conflicts with legal_desc.tracts."
+            )
+
+
 def _known_tracts(
     legal_desc: LegalDescription | None, tract_results: list[tuple[Tract, ClosureResult]]
 ) -> list[Tract]:
     """Every tract the caller knows, so a skip labelled with an omitted tract stays with it."""
+    _validate_supplied_tracts(legal_desc, tract_results)
     known = [t for t, _ in tract_results]
-    labels = {t.label for t in known}
+    supplied_labels = {t.label for t in known}
     for tract in legal_desc.tracts if legal_desc is not None else []:
-        if tract.label not in labels:
+        if tract.label not in supplied_labels:
             known.append(tract)
-            labels.add(tract.label)
     return known
 
 
@@ -282,14 +338,24 @@ def _single_description_skips(
     return skips
 
 
-_PASSED_DOUBLE_ENTRY_CHECK: dict[str, object] = {
-    "name": "double_entry",
-    "status": "passed",
-    "passed": True,
-    "reason": "check_passed",
-    "detail": "Independent entries match",
-    "inputs": {},
-}
+_CHECK_RESULT_KEYS: frozenset[str] = frozenset(
+    {"name", "status", "passed", "reason", "detail", "inputs"}
+)
+
+
+def _is_passed_double_entry_check(check: dict[str, object]) -> bool:
+    """Return True when a dumped CheckResult structurally represents a passing double_entry."""
+    detail = check.get("detail")
+    return (
+        set(check.keys()) == _CHECK_RESULT_KEYS
+        and check.get("name") == "double_entry"
+        and check.get("status") == "passed"
+        and check.get("passed") is True
+        and check.get("reason") == "check_passed"
+        and check.get("inputs") == {}
+        and isinstance(detail, str)
+        and bool(detail.strip())
+    )
 
 
 def _results_match(
@@ -322,7 +388,7 @@ def _results_match(
         if supplied_check == fresh_check:
             continue
         if not (
-            supplied_check == _PASSED_DOUBLE_ENTRY_CHECK
+            _is_passed_double_entry_check(supplied_check)
             and fresh_check.get("name") == "double_entry"
             and fresh_check.get("status") == "not_applicable"
         ):
@@ -336,6 +402,8 @@ def _validate_export_geometry(
     legal_desc: LegalDescription | None,
     *,
     independent_tract: bool = False,
+    tract: Tract | None = None,
+    stated_area_sq_ft: float | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
     double_entry_calls: list[DeedCall] | None = None,
 ) -> tuple[list[DeedCall], ClosureResult]:
@@ -346,18 +414,29 @@ def _validate_export_geometry(
     ]:
         raise ValueError("Cannot export verified CSV: calls do not match LegalDescription.calls")
 
-    stated_area = 0.0
-    if legal_desc is not None and legal_desc.stated_area_sq_ft is not None:
+    if stated_area_sq_ft is not None:
+        stated_area = stated_area_sq_ft
+    elif legal_desc is not None and legal_desc.stated_area_sq_ft is not None:
         stated_area = legal_desc.stated_area_sq_ft
+    else:
+        stated_area = 0.0
     from mp_verify import verify_closure, verify_tract
 
-    verifier = verify_tract if independent_tract else verify_closure
-    fresh_result = verifier(
-        selected_calls,
-        stated_area_sq_ft=stated_area,
-        skipped_courses=skipped_courses,
-        double_entry_calls=double_entry_calls,
-    )
+    if independent_tract:
+        fresh_result = verify_tract(
+            selected_calls,
+            stated_area_sq_ft=stated_area,
+            skipped_courses=skipped_courses,
+            double_entry_calls=double_entry_calls,
+            tract=tract,
+        )
+    else:
+        fresh_result = verify_closure(
+            selected_calls,
+            stated_area_sq_ft=stated_area,
+            skipped_courses=skipped_courses,
+            double_entry_calls=double_entry_calls,
+        )
     if not fresh_result.is_fully_verified():
         raise ValueError(
             "Cannot export verified CSV: selected calls failed fresh verification. "
@@ -504,17 +583,102 @@ def csv_text_to_calls(
     return calls
 
 
-def legal_description_to_csv(
-    legal_desc: LegalDescription,
-    output_path: str,
-) -> None:
-    """Export a LegalDescription to CSV with metadata sidecar.
+_MARK_NOTES: frozenset[str] = frozenset({DESCRIPTION_ROLES_NOTE, *NON_BOUNDARY_NOTES})
 
-    Args:
-        legal_desc: LegalDescription object.
-        output_path: Output file path.
+
+def _call_exact_key(call: DeedCall) -> tuple[tuple[str, object], ...]:
+    """Hashable exact identity for matching calls across flat calls and tracts."""
+    return tuple(sorted(call.model_dump().items()))
+
+
+def _call_normalized_key(
+    call: DeedCall, *, include_course: bool = True
+) -> tuple[tuple[str, object], ...]:
+    """Hashable call identity ignoring non-boundary/role notes and is_exception flag."""
+    dump = call.model_dump()
+    stripped_notes = [note for note in split_notes(call.notes) if note not in _MARK_NOTES]
+    dump["notes"] = "; ".join(stripped_notes) if stripped_notes else None
+    dump["is_exception"] = False
+    if not include_course:
+        dump.pop("course", None)
+    return tuple(sorted(dump.items()))
+
+
+def _attribute_calls_to_tracts(
+    calls: list[DeedCall], tracts: list[Tract]
+) -> list[TractType | None]:
+    """Attribute each flat call to at most one tract call slot.
+
+    Preserves original tract order when all matching slots are covered, and fails
+    closed to non-boundary slots on ambiguous partial subsets across boundary and
+    non-boundary tracts.
     """
-    metadata: dict[str, str | int | float | bool | None] = {
+    slots: list[tuple[DeedCall, TractType]] = [
+        (call, tract.tract_type) for tract in tracts for call in tract.calls
+    ]
+    used = [False] * len(slots)
+    attributed: list[TractType | None] = [None] * len(calls)
+
+    def broad_key_fn(call: DeedCall) -> object:
+        return _call_normalized_key(call, include_course=False)
+
+    key_fns: tuple[Callable[[DeedCall], object], ...] = (
+        id,
+        _call_exact_key,
+        _call_normalized_key,
+        broad_key_fn,
+    )
+    for key_fn in key_fns:
+        index: dict[object, list[int]] = {}
+        broad_slot_counts: dict[object, int] = {}
+        for slot_idx, (slot_call, _) in enumerate(slots):
+            if not used[slot_idx]:
+                index.setdefault(key_fn(slot_call), []).append(slot_idx)
+                bk = broad_key_fn(slot_call)
+                broad_slot_counts[bk] = broad_slot_counts.get(bk, 0) + 1
+        call_counts: dict[object, int] = {}
+        broad_call_counts: dict[object, int] = {}
+        for call_idx, call in enumerate(calls):
+            if attributed[call_idx] is None:
+                key = key_fn(call)
+                if key in index:
+                    call_counts[key] = call_counts.get(key, 0) + 1
+                bk = broad_key_fn(call)
+                if bk in broad_slot_counts:
+                    broad_call_counts[bk] = broad_call_counts.get(bk, 0) + 1
+        queues: dict[object, deque[int]] = {}
+        for key, slot_indices in index.items():
+            bk = broad_key_fn(slots[slot_indices[0]][0])
+            if (
+                call_counts.get(key, 0) < len(slot_indices)
+                and broad_call_counts.get(bk, 0) < broad_slot_counts[bk]
+            ):
+                has_boundary = any(is_boundary_tract(slots[i][1]) for i in slot_indices)
+                has_non_boundary = any(not is_boundary_tract(slots[i][1]) for i in slot_indices)
+                if has_boundary and has_non_boundary:
+                    slot_indices = [
+                        *(i for i in slot_indices if not is_boundary_tract(slots[i][1])),
+                        *(i for i in slot_indices if is_boundary_tract(slots[i][1])),
+                    ]
+            queues[key] = deque(slot_indices)
+        for call_idx, call in enumerate(calls):
+            if attributed[call_idx] is not None:
+                continue
+            queue = queues.get(key_fn(call))
+            while queue and used[queue[0]]:
+                queue.popleft()
+            if queue:
+                slot_idx = queue.popleft()
+                used[slot_idx] = True
+                attributed[call_idx] = slots[slot_idx][1]
+    return attributed
+
+
+def _legal_desc_metadata(
+    legal_desc: LegalDescription,
+) -> dict[str, str | int | float | bool | None]:
+    """Build the sidecar metadata mapping from a LegalDescription."""
+    return {
         "poc_description": legal_desc.poc_description,
         "pob_description": legal_desc.pob_description,
         "source_doc": legal_desc.source_doc,
@@ -553,7 +717,83 @@ def legal_description_to_csv(
             "; ".join(legal_desc.witness_trees) if legal_desc.witness_trees else None
         ),
     }
-    calls_to_csv(legal_desc.calls or legal_desc.all_calls, output_path, metadata)
+
+
+def _matches_sole_boundary_tract(calls: list[DeedCall], tracts: list[Tract]) -> bool:
+    """Return True when calls match a sole boundary tract verbatim and no non-boundary tract."""
+    if not calls or not tracts or roles_need_review(tracts, calls):
+        return False
+    boundary_tracts = [t for t in tracts if is_boundary_tract(t.tract_type)]
+    if len(boundary_tracts) != 1:
+        return False
+    call_dumps = [c.model_dump() for c in calls]
+    if call_dumps != [c.model_dump() for c in boundary_tracts[0].calls]:
+        return False
+    normalized_calls = [_call_normalized_key(c) for c in calls]
+    return all(
+        [_call_normalized_key(c) for c in t.calls] != normalized_calls
+        for t in tracts
+        if not is_boundary_tract(t.tract_type)
+    )
+
+
+def legal_description_to_csv(
+    legal_desc: LegalDescription,
+    output_path: str,
+) -> None:
+    """Export a LegalDescription to CSV with metadata sidecar.
+
+    Args:
+        legal_desc: LegalDescription object.
+        output_path: Output file path.
+    """
+    metadata = _legal_desc_metadata(legal_desc)
+    if legal_desc.calls:
+        calls_to_write = list(legal_desc.calls)
+        if legal_desc.tracts and not _matches_sole_boundary_tract(
+            calls_to_write, legal_desc.tracts
+        ):
+            attributed = _attribute_calls_to_tracts(calls_to_write, legal_desc.tracts)
+            has_boundary = any(is_boundary_tract(tract.tract_type) for tract in legal_desc.tracts)
+            fallback_types = (
+                []
+                if has_boundary
+                else list(dict.fromkeys(tract.tract_type for tract in legal_desc.tracts))
+            )
+            all_exception_fallback = not has_boundary and all(
+                tract.tract_type == TractType.EXCEPTION for tract in legal_desc.tracts
+            )
+            marked_calls: list[DeedCall] = []
+            for call, tract_type in zip(calls_to_write, attributed, strict=True):
+                if tract_type is not None:
+                    if tract_type == TractType.EXCEPTION and not call.is_exception:
+                        call = call.model_copy(update={"is_exception": True})
+                    if not is_boundary_tract(tract_type):
+                        call = mark_non_boundary([call], tract_type)[0]
+                elif fallback_types:
+                    if all_exception_fallback and not call.is_exception:
+                        call = call.model_copy(update={"is_exception": True})
+                    for fallback_type in fallback_types:
+                        call = mark_non_boundary([call], fallback_type)[0]
+                marked_calls.append(call)
+            calls_to_write = marked_calls
+    elif legal_desc.tracts:
+        calls_to_write = []
+        for tract in legal_desc.tracts:
+            tract_calls = tract.calls
+            if tract.tract_type == TractType.EXCEPTION:
+                tract_calls = [
+                    c if c.is_exception else c.model_copy(update={"is_exception": True})
+                    for c in tract_calls
+                ]
+            if not is_boundary_tract(tract.tract_type):
+                tract_calls = mark_non_boundary(tract_calls, tract.tract_type)
+            calls_to_write.extend(tract_calls)
+    else:
+        calls_to_write = []
+    if legal_desc.tracts and roles_need_review(legal_desc.tracts, calls_to_write):
+        calls_to_write = mark_roles_review(calls_to_write)
+    calls_to_csv(calls_to_write, output_path, metadata)
 
 
 def export_verified_csv(
@@ -619,6 +859,7 @@ def export_verified_csv(
     )
     if role_reasons:
         raise ValueError("Cannot export verified CSV: " + roles_review_detail(role_reasons))
+    boundary_tract: Tract | None = None
     if tract_results is None:
         if known_tracts:
             all_boundary = [tract for tract in known_tracts if is_boundary_tract(tract.tract_type)]
@@ -634,20 +875,35 @@ def export_verified_csv(
                     "Cannot export verified CSV: multiple boundary tracts require "
                     "multi-tract verification (tract_results=)."
                 )
-            if any(tract.tract_type == TractType.EXCEPTION for tract in known_tracts):
+            if any(
+                tract_kind(tract.tract_type) == TractType.EXCEPTION.value for tract in known_tracts
+            ):
                 raise ValueError(
                     "Cannot export verified CSV: deeds with exception tracts require "
                     "multi-tract verification (tract_results=)."
                 )
-            if [c.model_dump() for c in calls] != [
-                c.model_dump() for c in non_empty_boundary[0].calls
-            ]:
+            boundary_tract = non_empty_boundary[0]
+            if [c.model_dump() for c in calls] != [c.model_dump() for c in boundary_tract.calls]:
                 raise ValueError(
                     "Cannot export verified CSV: calls do not match the boundary tract."
+                )
+            if (
+                legal_desc is not None
+                and legal_desc.stated_area_sq_ft is not None
+                and boundary_tract.stated_area_sq_ft is not None
+                and not stated_areas_match(
+                    legal_desc.stated_area_sq_ft,
+                    boundary_tract.stated_area_sq_ft,
+                )
+            ):
+                raise ValueError(
+                    "Cannot export verified CSV: legal_desc.stated_area_sq_ft conflicts with "
+                    "boundary tract stated_area_sq_ft."
                 )
         kinds = non_boundary_marks([*calls, *(legal_desc.calls if legal_desc is not None else [])])
         if kinds:
             raise ValueError("Cannot export verified CSV: " + non_boundary_marks_detail(kinds))
+    single_boundary_stated_area: float | None = None
     # Multi-tract mode gates per tract, but at least one boundary tract must verify.
     if tract_results is not None:
         if not any(is_boundary_tract(tract.tract_type) for tract, _ in tract_results):
@@ -656,6 +912,26 @@ def export_verified_csv(
                 "was supplied; easement and exception tracts are never eligible for "
                 f"verified export. Tracts checked: {len(tract_results)}"
             )
+        if legal_desc is not None and legal_desc.stated_area_sq_ft is not None:
+            boundary_tracts = [t for t in known_tracts if is_boundary_tract(t.tract_type)]
+            has_exception = any(
+                tract_kind(t.tract_type) == TractType.EXCEPTION.value for t in known_tracts
+            )
+            # Align with verify_closure: deed-level stated area applies to a sole boundary
+            # tract only when no EXCEPTION tract exists (net deed area != gross MAIN area).
+            if len(boundary_tracts) == 1 and not has_exception:
+                sole_boundary = boundary_tracts[0]
+                if sole_boundary.stated_area_sq_ft is not None:
+                    if not stated_areas_match(
+                        legal_desc.stated_area_sq_ft,
+                        sole_boundary.stated_area_sq_ft,
+                    ):
+                        raise ValueError(
+                            "Cannot export verified CSV: legal_desc.stated_area_sq_ft conflicts "
+                            "with boundary tract stated_area_sq_ft."
+                        )
+                else:
+                    single_boundary_stated_area = legal_desc.stated_area_sq_ft
         if not any(_exportable(tract, result) for tract, result in tract_results):
             raise ValueError(
                 "Cannot export verified CSV: no tract passed verification. "
@@ -678,6 +954,7 @@ def export_verified_csv(
 
     validated_tract_summaries: dict[int, ClosureResult] = {}
     validated_single_summary: ClosureResult | None = None
+    selected_single_calls: list[DeedCall] = calls
     # Validate every selected successful result before writing any output.
     if tract_results is not None:
         labelled_skips = _labelled_skips(audit_context, skipped_courses)
@@ -698,38 +975,49 @@ def export_verified_csv(
             )
             offset += len(tract.calls)
             if _exportable(tract, result):
+                effective_stated_area = (
+                    tract.stated_area_sq_ft
+                    if tract.stated_area_sq_ft is not None
+                    else (
+                        single_boundary_stated_area if is_boundary_tract(tract.tract_type) else None
+                    )
+                )
                 selected = LegalDescription(
-                    calls=tract.calls, stated_area_sq_ft=tract.stated_area_sq_ft
+                    calls=tract.calls, stated_area_sq_ft=effective_stated_area
                 )
                 _, fresh = _validate_export_geometry(
                     tract.calls,
                     result,
                     selected,
                     independent_tract=True,
+                    tract=tract,
+                    stated_area_sq_ft=effective_stated_area,
                     skipped_courses=skips_for_tract(tract, known_tracts, labelled_skips),
                     double_entry_calls=tract_double_entry,
                 )
-                validated_tract_summaries[idx] = (
-                    result
-                    if tract_double_entry is not None
-                    else fresh.model_copy(
-                        update={"source_review_status": result.source_review_status}
-                    )
+                validated_tract_summaries[idx] = fresh.model_copy(
+                    update={"source_review_status": result.source_review_status}
                 )
     else:
-        _, fresh = _validate_export_geometry(
+        single_stated_area = (
+            legal_desc.stated_area_sq_ft
+            if (legal_desc is not None and legal_desc.stated_area_sq_ft is not None)
+            else (
+                boundary_tract.stated_area_sq_ft
+                if (boundary_tract is not None and boundary_tract.stated_area_sq_ft is not None)
+                else 0.0
+            )
+        )
+        selected_single_calls, fresh = _validate_export_geometry(
             calls,
             closure_result,
             legal_desc,
+            stated_area_sq_ft=single_stated_area,
             skipped_courses=_single_description_skips(legal_desc, audit_context, skipped_courses),
             double_entry_calls=double_entry_calls,
         )
-        validated_single_summary = (
-            closure_result
-            if double_entry_calls is not None
-            else fresh.model_copy(
-                update={"source_review_status": closure_result.source_review_status}
-            )
+        validated_single_summary = fresh.model_copy(
+            update={"source_review_status": closure_result.source_review_status}
         )
 
     if tract_results is not None:
@@ -753,10 +1041,8 @@ def export_verified_csv(
 
     else:
         verified_path = output_file.with_stem(verified_stem)
-        if legal_desc:
-            legal_description_to_csv(legal_desc, str(verified_path))
-        else:
-            calls_to_csv(calls, str(verified_path))
+        metadata = _legal_desc_metadata(legal_desc) if legal_desc is not None else None
+        calls_to_csv(selected_single_calls, str(verified_path), metadata)
         written_paths.append(verified_path)
         logger.info("Verified CSV exported", path=str(verified_path))
 

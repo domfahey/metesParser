@@ -76,11 +76,20 @@ class Pipeline:
         )
 
         if legal_desc.tracts:
-            results = verify_closure(
-                legal_desc.all_calls,
-                tracts=legal_desc.tracts,
-                audit_context=audit_ctx,
-            )
+            stated_area: float | None = getattr(legal_desc, "stated_area_sq_ft", None)
+            if stated_area is not None:
+                results = verify_closure(
+                    legal_desc.all_calls,
+                    tracts=legal_desc.tracts,
+                    stated_area_sq_ft=stated_area,
+                    audit_context=audit_ctx,
+                )
+            else:
+                results = verify_closure(
+                    legal_desc.all_calls,
+                    tracts=legal_desc.tracts,
+                    audit_context=audit_ctx,
+                )
             if self.audit:
                 assert audit_ctx is not None
                 return results, audit_ctx
