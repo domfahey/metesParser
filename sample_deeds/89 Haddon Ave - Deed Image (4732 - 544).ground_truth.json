@@ -53,8 +53,7 @@
       "direction_text": "S 19°58'30\" W",
       "bearing_quadrant": "S 19°58' W",
       "bearing_azimuth_deg_from_north": 199.975,
-      "distance_ft": 146.44,
-      "printed_distance_ft": 145.44,
+      "distance_ft": 145.44,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
@@ -62,7 +61,7 @@
       "along": "the line of lands now or formerly of Nicholson",
       "to": "a found field stone in the line of lands now or formerly of Oscar Hinski and wife",
       "monument_type": null,
-      "notes": "misprint: the deed prints 145.44 feet; the 1990 survey description in Book 4455 Page 174 prints 146.44, and with the curve tangent to course 1 the parcel closes to 0.010 ft with 146.44 but misses by 1.006 ft with 145.44"
+      "notes": "deed misprint: prints 145.44 feet; the 1990 survey description in Book 4455 Page 174 prints 146.44, and with the curve tangent to course 1 the parcel misses by 1.006 ft as printed (0.010 ft with 146.44)"
     },
     {
       "course": 4,
@@ -116,7 +115,7 @@
     "area_acres": null,
     "perimeter_ft": null,
     "closure_passed": false,
-    "notes": "Course 2 is a curve (radius 565.45 ft, arc 304.57 ft) with no stated chord bearing or delta, so closure is not computed. Assuming the curve is tangent to course 1, the misclosure is 0.010 ft."
+    "notes": "Course 2 is a curve (radius 565.45 ft, arc 304.57 ft) with no stated chord bearing or delta, so closure is not computed. Assuming the curve is tangent to course 1, as printed (course 3: 145.44 ft) the misclosure is 1.006 ft (0.010 ft with Book 4455 Page 174's 146.44 ft)."
   },
   "critical_assertions": {
     "num_calls": {
@@ -125,5 +124,5 @@
       "description": "MUST extract exactly 6 calls"
     }
   },
-  "notes": "Checked against Book 4732 Pages 544-545, PDF pages 1-2 (400-900 dpi): Schedule A prints course (3) as \"145.44 feet\" (its third digit has the flat top of the 5s in \"565.45\", not the curved top of the 6s in \"(66 feet wide)\"). Ground truth rebuilt 2026-10-31 from the recorded PDF: the deed refers to Exhibit A, the title commitment Schedule A legal description (Book 4732 Page 545, PDF page 2), transcribed verbatim (including 'Euclid Avenue, (60 feet wide)'). Course 3 is printed 145.44 feet and recorded as 146.44 (printed_distance_ft keeps the print): 146.44 is the 1990 survey value (Book 4455 Page 174) and, with a tangent curve, closes to 0.010 ft, while 145.44 misses by about 1 ft. 'the following two courses and distances' introduces boundary courses 4 and 5, not tie lines. The 'Being the same land and premises...' vesting paragraph is omitted."
+  "notes": "Checked against Book 4732 Pages 544-545, PDF pages 1-2 (400-900 dpi): Schedule A prints course (3) as \"145.44 feet\" (its third digit has the flat top of the 5s in \"565.45\", not the curved top of the 6s in \"(66 feet wide)\"). Ground truth rebuilt 2026-10-31 from the recorded PDF: the deed refers to Exhibit A, the title commitment Schedule A legal description (Book 4732 Page 545, PDF page 2), transcribed verbatim (including 'Euclid Avenue, (60 feet wide)'). Course 3 is recorded verbatim as printed (145.44 feet); the 1990 survey value (Book 4455 Page 174) is 146.44 feet, which with a tangent curve closes to 0.010 ft while 145.44 misses by about 1 ft. 'the following two courses and distances' introduces boundary courses 4 and 5, not tie lines. The 'Being the same land and premises...' vesting paragraph is omitted."
 }

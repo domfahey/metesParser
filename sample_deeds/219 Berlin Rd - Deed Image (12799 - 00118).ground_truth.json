@@ -123,9 +123,9 @@
     },
     {
       "course": 7,
-      "direction_text": "N 56°45'00\" E",
-      "bearing_quadrant": "N 56°45' E",
-      "bearing_azimuth_deg_from_north": 56.75,
+      "direction_text": "N 50°45'00\" E",
+      "bearing_quadrant": "N 50°45' E",
+      "bearing_azimuth_deg_from_north": 50.75,
       "distance_ft": 416.57,
       "curve_dir": null,
       "radius_ft": null,
@@ -134,9 +134,8 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": "printed \"North 50 degrees 45 minutes 00 seconds East\"; recorded as N 56°45'00\" E: the lot closes to 0.13 ft with it and misses by 43.6 ft as printed. Every deed carrying this description (07105-00834, 08256-00635, 12799-00118 Schedule A-2, 12941-00156) prints 50 degrees.",
+      "notes": "deed misprint: prints \"North 50 degrees 45 minutes 00 seconds East\" (every deed carrying this description: 07105-00834, 08256-00635, 12799-00118 Schedule A-2, 12941-00156 prints 50 degrees); as printed the lot misses closure by 43.6 ft, whereas with N 56°45'00\" E it closes to 0.13 ft.",
       "is_tie_in": false,
-      "printed_bearing_azimuth_deg_from_north": 50.75,
       "tract": "Schedule A-2"
     },
     {
@@ -537,7 +536,7 @@
     "area_acres": null,
     "perimeter_ft": null,
     "closure_passed": false,
-    "notes": "Multi-property deed (Schedules A-1 to A-4); one closure across schedules is not meaningful. Schedule A-1 boundary (courses 3-6) closes at 0.005 ft, area 60,586.50 sq ft. Schedule A-2's lot (courses 7-18) closes at 0.130 ft, area 144,488.59 sq ft, with course 7 recorded as N 56°45' E (43.6 ft as printed); its easement (courses 19-22) closes at 0.000 ft. Schedule A-3 (courses 23-26) closes at 0.000 ft, area 20,018.65 sq ft. Schedule A-4 is cardinal-only, so no closure is computed."
+    "notes": "Multi-property deed (Schedules A-1 to A-4); one closure across schedules is not meaningful. Schedule A-1 boundary (courses 3-6) closes at 0.005 ft, area 60,586.50 sq ft. Schedule A-2's lot (courses 7-18) misses closure by 43.6 ft as printed (course 7: N 50°45'00\" E; with N 56°45' E it closes at 0.130 ft, area 144,488.59 sq ft); its easement (courses 19-22) closes at 0.000 ft. Schedule A-3 (courses 23-26) closes at 0.000 ft, area 20,018.65 sq ft. Schedule A-4 is cardinal-only, so no closure is computed."
   },
   "critical_assertions": {
     "num_calls": {
@@ -546,5 +545,5 @@
       "description": "MUST extract exactly 30 calls"
     }
   },
-  "notes": "Checked against Book 12799 Pages 118-128 (deed Page 120, PDF page 3; Schedules A-1 to A-4 on Pages 124-128, PDF pages 7-11): corrected the legal text to the print in thirteen places (A-2: \"Haddonfield-Berlin Road, with\", \"(S0.00 feet wide)\", \"a, distance\", course (l) \"along said Northerly line of Berlin-Haddonfield Road,\"; easement: \"point In\", \"Haddonfield-Bertin Road\", \"4' a point\"; A-3: \"ROAD. CHERRY HILL\", \"bounded .and\", \"24. 75\", \"East, along\", \"( 49.50.\"; A-4: \"FEET CO THE POINT\"); courses tagged by schedule; along/to fields that held distances or were cut off rewritten from the print. The bearings and distances already matched. Ground truth generated at 2026-02-17T03:05:40.497923+00:00. Schedule A-1 fixed 2026-10-31 from the recorded PDF (Book 12799 Page 118, PDF page 7): the 483.13 ft and 17.78 ft courses run from the intersection to the point of beginning and are tie courses (is_tie_in). Schedule A-1 boundary (courses 3-6) closes at 0.005 ft, area 60,586.50 sq ft. Schedule A-2 prints five distances with decimal commas (\"300,07\", \"86,75\", \"128,93\", \"140,00\" and the easement's \"35,00\"); the legal text keeps them, and the calls record the values. Course 7 (N 50°45' E as printed) is recorded as N 56°45' E: the 12-course lot then closes to 0.130 ft (43.6 ft as printed)."
+  "notes": "Checked against Book 12799 Pages 118-128 (deed Page 120, PDF page 3; Schedules A-1 to A-4 on Pages 124-128, PDF pages 7-11): corrected the legal text to the print in thirteen places (A-2: \"Haddonfield-Berlin Road, with\", \"(S0.00 feet wide)\", \"a, distance\", course (l) \"along said Northerly line of Berlin-Haddonfield Road,\"; easement: \"point In\", \"Haddonfield-Bertin Road\", \"4' a point\"; A-3: \"ROAD. CHERRY HILL\", \"bounded .and\", \"24. 75\", \"East, along\", \"( 49.50.\"; A-4: \"FEET CO THE POINT\"); courses tagged by schedule; along/to fields that held distances or were cut off rewritten from the print. The bearings and distances already matched. Ground truth generated at 2026-02-17T03:05:40.497923+00:00. Schedule A-1 fixed 2026-10-31 from the recorded PDF (Book 12799 Page 118, PDF page 7): the 483.13 ft and 17.78 ft courses run from the intersection to the point of beginning and are tie courses (is_tie_in). Schedule A-1 boundary (courses 3-6) closes at 0.005 ft, area 60,586.50 sq ft. Schedule A-2 prints five distances with decimal commas (\"300,07\", \"86,75\", \"128,93\", \"140,00\" and the easement's \"35,00\"); the legal text keeps them, and the calls record the values. Course 7 is recorded verbatim as printed (N 50°45'00\" E), where the 12-course lot misses by 43.6 ft (with N 56°45' E it closes to 0.130 ft)."
 }

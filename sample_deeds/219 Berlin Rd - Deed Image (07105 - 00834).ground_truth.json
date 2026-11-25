@@ -20,10 +20,10 @@
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "N 56°45'00\" E",
-      "bearing_quadrant": "N 56°45' E",
-      "bearing_azimuth_deg_from_north": 56.75,
-      "distance_ft": 416.57,
+      "direction_text": "N 50°45'00\" E",
+      "bearing_quadrant": "N 50°45' E",
+      "bearing_azimuth_deg_from_north": 50.75,
+      "distance_ft": 417.57,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
@@ -31,9 +31,7 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": "printed \"North 50 degrees 45 minutes 00 seconds East\"; recorded as N 56°45'00\" E: the lot closes to 0.13 ft with it and misses by 43.6 ft as printed. Every deed carrying this description (07105-00834, 08256-00635, 12799-00118 Schedule A-2, 12941-00156) prints 50 degrees. Printed \"417.57 feet\"; recorded as 416.57 ft, as the other three deeds print it (0.13 ft closure vs 0.87 ft).",
-      "printed_bearing_azimuth_deg_from_north": 50.75,
-      "printed_distance_ft": 417.57,
+      "notes": "deed misprint: prints \"North 50 degrees 45 minutes 00 seconds East\" and \"417.57 feet\". Every deed carrying this description (07105-00834, 08256-00635, 12799-00118 Schedule A-2, 12941-00156) prints 50 degrees (missing closure by 43.67 ft as printed; with N 56°45'00\" E and 416.57 ft as in the other three deeds, the lot closes to 0.13 ft).",
       "tract": "Tract 1"
     },
     {
@@ -283,7 +281,7 @@
     "area_acres": null,
     "perimeter_ft": null,
     "closure_passed": false,
-    "notes": "Lot (courses 1-12) and an ingress/egress easement (courses 13-16); one closure across both is not meaningful. Lot closes at 0.130 ft, area 144,488.59 sq ft (course 1 recorded as N 56°45' E); easement closes at 0.000 ft, area 4,899.67 sq ft."
+    "notes": "Lot (courses 1-12) and an ingress/egress easement (courses 13-16); one closure across both is not meaningful. As printed (course 1: N 50°45'00\" E, 417.57 ft), the lot misses closure by 43.67 ft (with N 56°45' E and 416.57 ft it closes at 0.130 ft, area 144,488.59 sq ft); easement closes at 0.000 ft, area 4,899.67 sq ft."
   },
   "critical_assertions": {
     "num_calls": {
@@ -292,5 +290,5 @@
       "description": "MUST extract exactly 16 calls"
     }
   },
-  "notes": "Checked against Book 7105 Pages 836-837 (Schedule A), PDF pages 3-4: the legal text matches as typed (course 1 prints 417.57 and 50 degrees, as recorded in printed_*); made along/to verbatim, completed expected_pob, tagged the lot (courses 1-12, Tract 1) and the ingress and egress easement (courses 13-16, Easement 1), and filled deed_info. Ground truth generated at 2026-02-17T03:02:47.226985+00:00 Course 1 (N 50°45' E as printed) is recorded as N 56°45' E and 416.57 ft (printed 417.57): the 12-course lot then closes to 0.130 ft (43.6 ft as printed)."
+  "notes": "Checked against Book 7105 Pages 836-837 (Schedule A), PDF pages 3-4: the legal text matches as typed (course 1 prints 417.57 and 50 degrees, recorded verbatim); made along/to verbatim, completed expected_pob, tagged the lot (courses 1-12, Tract 1) and the ingress and egress easement (courses 13-16, Easement 1), and filled deed_info. Ground truth generated at 2026-02-17T03:02:47.226985+00:00 Course 1 is recorded verbatim as printed (N 50°45'00\" E, 417.57 ft), where the 12-course lot misses by 43.67 ft (with N 56°45' E and 416.57 ft it closes to 0.130 ft)."
 }

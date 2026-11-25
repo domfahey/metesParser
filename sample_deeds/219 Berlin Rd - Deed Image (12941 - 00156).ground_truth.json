@@ -22,9 +22,9 @@
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "N 56°45'00\" E",
-      "bearing_quadrant": "N 56°45' E",
-      "bearing_azimuth_deg_from_north": 56.75,
+      "direction_text": "N 50°45'00\" E",
+      "bearing_quadrant": "N 50°45' E",
+      "bearing_azimuth_deg_from_north": 50.75,
       "distance_ft": 416.57,
       "curve_dir": null,
       "radius_ft": null,
@@ -33,9 +33,8 @@
       "along": null,
       "to": "a point",
       "monument_type": null,
-      "notes": "printed \"North 50 degrees 45 minutes 00 seconds East\"; recorded as N 56°45'00\" E: the lot closes to 0.13 ft with it and misses by 43.6 ft as printed. Every deed carrying this description (07105-00834, 08256-00635, 12799-00118 Schedule A-2, 12941-00156) prints 50 degrees.",
-      "tract": "Lot 17",
-      "printed_bearing_azimuth_deg_from_north": 50.75
+      "notes": "deed misprint: prints \"North 50 degrees 45 minutes 00 seconds East\" (every deed carrying this description: 07105-00834, 08256-00635, 12799-00118 Schedule A-2, 12941-00156 prints 50 degrees); as printed the lot misses closure by 43.6 ft, whereas with N 56°45'00\" E it closes to 0.13 ft.",
+      "tract": "Lot 17"
     },
     {
       "course": 2,
@@ -284,7 +283,7 @@
     "area_acres": null,
     "perimeter_ft": null,
     "closure_passed": false,
-    "notes": "Two lots described separately; one closure across both is not meaningful. Lot 17 closes at 0.130 ft, area 144,488.59 sq ft (course 1 recorded as N 56°45' E; 43.6 ft as printed); Lot 22 closes at 0.000 ft, area 20,018.65 sq ft."
+    "notes": "Two lots described separately; one closure across both is not meaningful. As printed (course 1: N 50°45'00\" E), Lot 17 misses closure by 43.607 ft (with N 56°45' E it closes at 0.130 ft, area 144,488.59 sq ft); Lot 22 closes at 0.000 ft, area 20,018.65 sq ft."
   },
   "critical_assertions": {
     "num_calls": {
@@ -293,5 +292,5 @@
       "description": "MUST extract exactly 16 calls"
     }
   },
-  "notes": "Checked against Book 12941 Pages 156-169 (deed Pages 158ff., PDF page 3; Exhibit A on Pages 168-169, PDF pages 13-14): legal text and all 16 courses match the print word for word, including course (1)'s printed \"North 50 degrees\" and 416.57 feet; the deed date is handwritten (\"made as of August 19, 2025 and delivered on September 4, 2025\") and the consideration is printed \"($4,970,000.00.00)\". Ground truth generated at 2026-02-17T03:06:16.100350+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF: the deed's property description is \"See Schedule A attached hereto\", and the legal description is Exhibit A of the attached title commitment (Book 12941 Pages 168-169, PDF pages 13-14), transcribed verbatim including its typos (\"a, distance\", \"10)\", \"Haddonfield- Berlin\", \"49.50. feet\", \"255 BERLIN AVENUE\"). As printed, Lot 17 misses closure by 43.607 ft (area 135,416.31 sq ft); Lot 22 closes at 0.000 ft, area 20,018.65 sq ft. Course 1 (N 50°45' E as printed) is recorded as N 56°45' E: the 12-course lot then closes to 0.130 ft (43.6 ft as printed)."
+  "notes": "Checked against Book 12941 Pages 156-169 (deed Pages 158ff., PDF page 3; Exhibit A on Pages 168-169, PDF pages 13-14): legal text and all 16 courses match the print word for word, including course (1)'s printed \"North 50 degrees\" and 416.57 feet; the deed date is handwritten (\"made as of August 19, 2025 and delivered on September 4, 2025\") and the consideration is printed \"($4,970,000.00.00)\". Ground truth generated at 2026-02-17T03:06:16.100350+00:00. Legal description and calls rebuilt 2026-10-31 from the recorded PDF: the deed's property description is \"See Schedule A attached hereto\", and the legal description is Exhibit A of the attached title commitment (Book 12941 Pages 168-169, PDF pages 13-14), transcribed verbatim including its typos (\"a, distance\", \"10)\", \"Haddonfield- Berlin\", \"49.50. feet\", \"255 BERLIN AVENUE\"). As printed, Lot 17 misses closure by 43.607 ft (area 135,416.31 sq ft); Lot 22 closes at 0.000 ft, area 20,018.65 sq ft. Course 1 is recorded verbatim as printed (N 50°45'00\" E), where the 12-course lot misses by 43.6 ft (with N 56°45' E it closes to 0.130 ft)."
 }

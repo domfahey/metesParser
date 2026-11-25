@@ -25,7 +25,7 @@
       "direction_text": "S 64°22'25\" W",
       "bearing_quadrant": "S 64°22' W",
       "bearing_azimuth_deg_from_north": 244.3736111111111,
-      "distance_ft": 299.89,
+      "distance_ft": 229.89,
       "curve_dir": null,
       "radius_ft": null,
       "delta_deg": null,
@@ -33,8 +33,7 @@
       "along": "the Southeasterly line of Kings Highway West",
       "to": "a point",
       "monument_type": null,
-      "notes": "printed \"229.89 feet\"; recorded as 299.89 ft, as in the earlier 5056-813 deed: the parcel closes to 0.005 ft with it and misses by 70 ft as printed",
-      "printed_distance_ft": 229.89
+      "notes": "deed misprint: prints \"229.89 feet\"; as printed the parcel misses closure by 70.00 ft (earlier 5056-813 deed prints 299.89 ft, which closes the parcel to 0.005 ft)"
     },
     {
       "course": 2,
@@ -98,11 +97,12 @@
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 0.0047,
-    "area_sq_ft": 51635.57,
+    "misclosure_ft": 70.0018,
+    "area_sq_ft": 51635.42,
     "area_acres": 1.1854,
-    "perimeter_ft": 930.78,
-    "closure_passed": true
+    "perimeter_ft": 860.78,
+    "closure_passed": false,
+    "notes": "As printed (course 1: 229.89 ft), the parcel misses closure by 70.00 ft; with 299.89 ft (as in earlier deed 5056-813) it closes to 0.0047 ft (area 51,635.57 sq ft)."
   },
   "critical_assertions": {
     "num_calls": {
@@ -111,5 +111,5 @@
       "description": "MUST extract exactly 5 calls"
     }
   },
-  "notes": "Checked against Book 7797 Page 972 (PDF pages 1-2): courses match the print, including course (1)'s printed 229.89; the closing BEING and COMMONLY lines were added. Companion deed to 7797/967. Grantor: Dennis J. Lynch and Phyllis A. Lynch as tenants in common (25% each). Grantee: Dennis J. Lynch as Trustee of the Dennis J. Lynch Declaration of Trust, and Phyllis A. Lynch as Trustee of the Phyllis A. Lynch Declaration of Trust (25% each, as tenants in common). Dated April 11, 2005. Consideration: $1.00. Block 79.01, Lot 6. Legal description and calls rebuilt 2026-10-31 from the recorded PDF (Book 7797 Page 972, PDF page 1), transcribed verbatim. Course (1) is printed \"229.89 feet\" and recorded as 299.89 ft (see its notes)."
+  "notes": "Checked against Book 7797 Page 972 (PDF pages 1-2): courses match the print, including course (1)'s printed 229.89; the closing BEING and COMMONLY lines were added. Companion deed to 7797/967. Grantor: Dennis J. Lynch and Phyllis A. Lynch as tenants in common (25% each). Grantee: Dennis J. Lynch as Trustee of the Dennis J. Lynch Declaration of Trust, and Phyllis A. Lynch as Trustee of the Phyllis A. Lynch Declaration of Trust (25% each, as tenants in common). Dated April 11, 2005. Consideration: $1.00. Block 79.01, Lot 6. Legal description and calls rebuilt 2026-10-31 from the recorded PDF (Book 7797 Page 972, PDF page 1), transcribed verbatim. Course (1) is recorded verbatim as printed (\"229.89 feet\"; see its notes)."
 }

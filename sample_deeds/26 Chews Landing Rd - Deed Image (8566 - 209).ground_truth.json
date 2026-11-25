@@ -22,9 +22,9 @@
   "expected_calls": [
     {
       "course": 1,
-      "direction_text": "S 64°22'25\" W",
-      "bearing_quadrant": "S 64°22' W",
-      "bearing_azimuth_deg_from_north": 244.3736111111111,
+      "direction_text": "S 54°22'25\" W",
+      "bearing_quadrant": "S 54°22' W",
+      "bearing_azimuth_deg_from_north": 234.37361111111113,
       "distance_ft": 300.55,
       "curve_dir": null,
       "radius_ft": null,
@@ -33,8 +33,7 @@
       "along": "the Southeasterly line of Kings Highway West",
       "to": "a point",
       "monument_type": null,
-      "notes": "printed \"South 54 degrees 22 minutes 25 seconds West\"; recorded as S 64°22'25\" W: course (2) runs at right angles to Kings Highway West at S 25°37'35\" E, and the parcel closes with 64°",
-      "printed_bearing_azimuth_deg_from_north": 234.37361111111113
+      "notes": "deed misprint: prints \"South 54 degrees 22 minutes 25 seconds West\"; course (2) runs at right angles to Kings Highway West at S 25°37'35\" E, and as printed the parcel misses closure by 52.39 ft (with S 64°22'25\" W it closes to 0.004 ft)"
     },
     {
       "course": 2,
@@ -98,11 +97,12 @@
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 0.0036,
-    "area_sq_ft": 51683.12,
-    "area_acres": 1.1865,
+    "misclosure_ft": 52.3875,
+    "area_sq_ft": 59526.05,
+    "area_acres": 1.3665,
     "perimeter_ft": 931.88,
-    "closure_passed": true
+    "closure_passed": false,
+    "notes": "As printed (course 1: S 54°22'25\" W), the parcel misses closure by 52.39 ft; with S 64°22'25\" W it closes to 0.0036 ft (area 51,683.12 sq ft)."
   },
   "critical_assertions": {
     "num_calls": {
@@ -111,5 +111,5 @@
       "description": "MUST extract exactly 5 calls"
     }
   },
-  "notes": "Checked against Schedule C (Commonwealth Land Title, File 66646), Book 8566 Page 210, PDF page 2: courses match the print, including course (1)'s printed \"South 54 degrees\"; the opening sentence, survey line and TAX NOTE were added. Chain-of-title deed for 26 Chews Landing Rd. Grantor: Sirva Relocation, LLC. Grantee: Christopher Poyatt. Dated April 11, 2007, delivered April 27, 2007. Consideration: $1,100,000.00. Block 79.01, Lot 6. Legal description and calls rebuilt 2026-10-31 from the recorded PDF (Schedule C, Book 8566 Page 210, PDF page 2), transcribed verbatim. Course (1) is printed \"South 54 degrees\" and recorded as S 64°22'25\" W (see its notes)."
+  "notes": "Checked against Schedule C (Commonwealth Land Title, File 66646), Book 8566 Page 210, PDF page 2: courses match the print, including course (1)'s printed \"South 54 degrees\"; the opening sentence, survey line and TAX NOTE were added. Chain-of-title deed for 26 Chews Landing Rd. Grantor: Sirva Relocation, LLC. Grantee: Christopher Poyatt. Dated April 11, 2007, delivered April 27, 2007. Consideration: $1,100,000.00. Block 79.01, Lot 6. Legal description and calls rebuilt 2026-10-31 from the recorded PDF (Schedule C, Book 8566 Page 210, PDF page 2), transcribed verbatim. Course (1) is recorded verbatim as printed (\"South 54 degrees 22 minutes 25 seconds West\"; see its notes)."
 }
