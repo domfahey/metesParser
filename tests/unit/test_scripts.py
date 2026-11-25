@@ -492,6 +492,21 @@ class TestAuditPrintedValues:
         )
         assert result["issues"] == ["DISTANCE_C1: GT=299.89ft, MD=229.89ft (diff=70.00ft)"]
 
+    def test_legacy_printed_distance_field_is_ignored_when_distance_diverges(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        result = self._audit(
+            tmp_path,
+            monkeypatch,
+            {
+                "bearing_azimuth_deg_from_north": 244.3736,
+                "distance_ft": 299.89,
+                "printed_distance_ft": 229.89,
+            },
+        )
+        assert result["status"] == "FAIL"
+        assert result["issues"] == ["DISTANCE_C1: GT=299.89ft, MD=229.89ft (diff=70.00ft)"]
+
 
 class TestAuditTractReferences:
     def test_tract_reference_does_not_cut_an_unclosed_description(self) -> None:
