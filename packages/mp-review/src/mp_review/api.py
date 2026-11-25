@@ -128,7 +128,8 @@ def _run(
                 legal = LegalDescription(calls=calls)
             elif isinstance(data, dict) and ("calls" in data or "tracts" in data):
                 legal = LegalDescription.model_validate(data)
-                if sum(is_boundary_tract(tract.tract_type) for tract in legal.tracts) > 1:
+                boundary_tracts = [t for t in legal.tracts if is_boundary_tract(t.tract_type)]
+                if len(boundary_tracts) > 1:
                     raise ValueError(MULTIPLE_PARCELS)
                 if legal.tracts:
                     marked_tracts = [
@@ -142,8 +143,23 @@ def _run(
                     if marked_tracts != legal.tracts:
                         legal = legal.model_copy(update={"tracts": marked_tracts})
                 calls = legal.calls or legal.all_calls
-                if len(legal.tracts) == 1 and not is_boundary_tract(legal.tracts[0].tract_type):
+                if legal.tracts and not boundary_tracts:
                     calls = mark_non_boundary(calls, legal.tracts[0].tract_type)
+                tract_skips = [skip for tract in legal.tracts for skip in tract.skipped_courses]
+                if tract_skips:
+                    audit.skipped_courses.extend(tract_skips)
+                legal_updates: dict[str, Any] = {}
+                if calls != legal.calls:
+                    legal_updates["calls"] = calls
+                if (
+                    stated_area_sq_ft is None
+                    and legal.stated_area_sq_ft is None
+                    and len(boundary_tracts) == 1
+                    and boundary_tracts[0].stated_area_sq_ft is not None
+                ):
+                    legal_updates["stated_area_sq_ft"] = boundary_tracts[0].stated_area_sq_ft
+                if legal_updates:
+                    legal = legal.model_copy(update=legal_updates)
             else:
                 raise ValueError("JSON must be a calls list or LegalDescription object.")
         elif kind == "csv":
@@ -162,7 +178,11 @@ def _run(
         if role_review:
             # Marked, every artifact written below stays blocked when re-reviewed.
             calls = mark_roles_review(calls)
-            legal = legal.model_copy(update={"calls": calls})
+            marked_tracts = [
+                tract.model_copy(update={"calls": mark_roles_review(tract.calls)})
+                for tract in legal.tracts
+            ]
+            legal = legal.model_copy(update={"calls": calls, "tracts": marked_tracts})
             result["errors"].append(
                 {"code": "description_roles_inferred", "message": roles_review_detail(role_review)}
             )

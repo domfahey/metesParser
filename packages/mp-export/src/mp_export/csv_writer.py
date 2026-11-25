@@ -564,6 +564,12 @@ def export_verified_csv(
     if role_reasons:
         raise ValueError("Cannot export verified CSV: " + roles_review_detail(role_reasons))
     if tract_results is None:
+        if known_tracts and not any(is_boundary_tract(tract.tract_type) for tract in known_tracts):
+            raise ValueError(
+                "Cannot export verified CSV: no parcel boundary tract (main or addition) "
+                "was supplied; easement and exception tracts are never eligible for "
+                f"verified export. Tracts checked: {len(known_tracts)}"
+            )
         kinds = non_boundary_marks([*calls, *(legal_desc.calls if legal_desc is not None else [])])
         if kinds:
             raise ValueError("Cannot export verified CSV: " + non_boundary_marks_detail(kinds))

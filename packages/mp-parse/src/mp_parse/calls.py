@@ -1200,7 +1200,7 @@ def _extract_calls_from_text(
                 )
                 if (
                     explicit_course
-                    or extract_direction(call_text)
+                    or extract_direction(call_text, strict=False)
                     or re.search(r"\b(?:[NSEW])\s+\d", call_text, re.I)
                     or CURVE_KEYWORD_PATTERN.search(call_text)
                 ):

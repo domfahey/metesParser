@@ -24,10 +24,14 @@ RUNS_DIR = Path("output/runs")
 def _unwrap_llm_model(processor: object) -> str:
     """Resolve the underlying model identifier through any CachedLLMClient wrappers."""
     client: Any = getattr(processor, "client", None)
-    while hasattr(client, "_client"):
-        client = client._client
-    model = getattr(client, "model", None)
-    return model if isinstance(model, str) and model else "unknown"
+    seen: set[int] = set()
+    while client is not None and id(client) not in seen:
+        seen.add(id(client))
+        model = getattr(client, "model", None)
+        if isinstance(model, str) and model:
+            return model
+        client = getattr(client, "_client", None)
+    return "unknown"
 
 
 def _verify_closure_compat(
@@ -66,17 +70,33 @@ def _aggregate_tract_closure(tract_results: list[tuple[Any, Any]]) -> Any:
 
     from .models import ClosureResult
 
+    if not tract_results:
+        return ClosureResult(
+            misclosure_x_ft=0.0,
+            misclosure_y_ft=0.0,
+            misclosure_ft=0.0,
+            area_sq_ft=0.0,
+            area_acres=0.0,
+            perimeter_ft=0.0,
+            misclosure_available=False,
+            area_available=False,
+            perimeter_available=False,
+            closure_passed=False,
+            angle_check_passed=False,
+            curve_consistency_passed=False,
+            confidence_score=0.0,
+            warnings=["No tracts verified"],
+        )
     boundary = [r for t, r in tract_results if is_boundary_tract(t.tract_type)]
     selected = boundary or [r for _, r in tract_results]
-    if len(selected) == 1:
-        return selected[0]
+    all_warnings = [w for _, r in tract_results for w in r.warnings]
     misclosure_avail = all(r.misclosure_available for r in selected)
     area_avail = all(r.area_available for r in selected)
     perimeter_avail = all(r.perimeter_available for r in selected)
     confidences = [r.confidence_score for r in selected if r.confidence_score is not None]
     return ClosureResult(
-        misclosure_x_ft=0.0,
-        misclosure_y_ft=0.0,
+        misclosure_x_ft=selected[0].misclosure_x_ft if len(selected) == 1 else 0.0,
+        misclosure_y_ft=selected[0].misclosure_y_ft if len(selected) == 1 else 0.0,
         misclosure_ft=max(
             (r.misclosure_ft for r in selected if r.misclosure_available), default=0.0
         ),
@@ -92,7 +112,7 @@ def _aggregate_tract_closure(tract_results: list[tuple[Any, Any]]) -> Any:
         angle_check_passed=all(r.angle_check_passed for r in selected),
         curve_consistency_passed=all(r.curve_consistency_passed for r in selected),
         confidence_score=min(confidences) if confidences else 0.0,
-        warnings=[w for _, r in tract_results for w in r.warnings],
+        warnings=all_warnings,
     )
 
 

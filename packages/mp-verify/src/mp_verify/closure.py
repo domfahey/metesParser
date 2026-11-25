@@ -240,6 +240,7 @@ def _verify_tract(
     stated_area_sq_ft: float,
     closure_tolerance_ft: float | None,
     double_entry_calls: list[DeedCall] | None = None,
+    double_entry_override_errors: list[str] | None = None,
     audit_context: AuditContext | None,
     skipped_courses: list[SkippedCourse] | None,
     tract: Tract | None,
@@ -259,6 +260,7 @@ def _verify_tract(
         stated_area_sq_ft=stated_area_sq_ft,
         closure_tolerance_ft=closure_tolerance_ft,
         double_entry_calls=double_entry_calls,
+        double_entry_override_errors=double_entry_override_errors,
         audit_context=audit_context,
         skipped_courses=skipped_courses,
         role_checks=role_checks,
@@ -387,14 +389,18 @@ def verify_closure(
         # Deed level: inferred roles among several descriptions (or the role-review
         # mark on the deed's calls) block every tract.
         deed_roles = evaluate_description_roles(tracts, calls)
+        total_tract_calls = sum(len(t.calls) for t in tracts)
+        deed_double_entry_mismatch: list[str] | None = None
+        if double_entry_calls is not None and len(double_entry_calls) != total_tract_calls:
+            deed_double_entry_mismatch = [
+                f"Call count mismatch: {total_tract_calls} vs {len(double_entry_calls)} "
+                "(multi-tract total)"
+            ]
         offset = 0
-        for idx, tract in enumerate(tracts):
+        for tract in tracts:
             tract_double_entry: list[DeedCall] | None = None
-            if double_entry_calls is not None:
-                if idx == len(tracts) - 1:
-                    tract_double_entry = double_entry_calls[offset:]
-                else:
-                    tract_double_entry = double_entry_calls[offset : offset + len(tract.calls)]
+            if double_entry_calls is not None and deed_double_entry_mismatch is None:
+                tract_double_entry = double_entry_calls[offset : offset + len(tract.calls)]
                 offset += len(tract.calls)
             # Scratch context per tract so tracts never overwrite each other's audit.
             scratch = (
@@ -407,6 +413,7 @@ def verify_closure(
                 stated_area_sq_ft=tract.stated_area_sq_ft or 0.0,
                 closure_tolerance_ft=closure_tolerance_ft,
                 double_entry_calls=tract_double_entry,
+                double_entry_override_errors=deed_double_entry_mismatch,
                 audit_context=scratch,
                 skipped_courses=skips_for_tract(tract, tracts, labelled),
                 tract=tract,
@@ -441,6 +448,7 @@ def _verify_single(
     stated_area_sq_ft: float = 0.0,
     closure_tolerance_ft: float | None = None,
     double_entry_calls: list[DeedCall] | None = None,
+    double_entry_override_errors: list[str] | None = None,
     audit_context: AuditContext | None = None,
     skipped_courses: list[SkippedCourse] | None = None,
     role_checks: Sequence[CheckResult] = (),
@@ -692,7 +700,13 @@ def _verify_single(
         )
 
     discrepancies: list[str] = []
-    if double_entry_calls is not None:
+    double_entry_performed = False
+    if double_entry_override_errors is not None:
+        double_entry_performed = True
+        discrepancies = list(double_entry_override_errors)
+        warnings.extend(f"Double-entry discrepancy: {discrepancy}" for discrepancy in discrepancies)
+    elif double_entry_calls is not None:
+        double_entry_performed = True
         discrepancies = compare_double_entry(calls, double_entry_calls)
         warnings.extend(f"Double-entry discrepancy: {discrepancy}" for discrepancy in discrepancies)
 
@@ -735,7 +749,7 @@ def _verify_single(
         area_available=area_available,
         misclosure_available=misclosure_available,
         positioned=positioned,
-        double_entry_performed=double_entry_calls is not None,
+        double_entry_performed=double_entry_performed,
         discrepancies=discrepancies,
         curve_issues=curve_warnings,
     )

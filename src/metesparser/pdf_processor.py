@@ -329,8 +329,16 @@ class PDFProcessor:
             witness_trees=witness_trees,
             coordinate_system=coordinate_system,
             fips_code=fips_code,
-            stated_area_sq_ft=stated_area["value_sq_ft"] if stated_area else None,
-            stated_area_approximate=stated_area["approximate"] if stated_area else False,
+            stated_area_sq_ft=(
+                stated_area["value_sq_ft"]
+                if stated_area and stated_area["value_sq_ft"] > 0
+                else None
+            ),
+            stated_area_approximate=(
+                stated_area["approximate"]
+                if stated_area and stated_area["value_sq_ft"] > 0
+                else False
+            ),
         )
 
         processing_logger.info("Extracted calls", count=legal_desc.num_calls())
