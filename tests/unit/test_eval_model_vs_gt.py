@@ -259,3 +259,152 @@ def test_instrument_usage_tracks_openrouter_tokens_and_cost(
         "api_calls": 1,
     }
     assert "or-secret-never-logged" not in json.dumps(totals)
+
+
+def test_escalation_slug_checkpoint_isolation_raw_text_and_summary(tmp_path: Path) -> None:
+    from unittest.mock import patch
+
+    from pypdf import PdfWriter
+
+    mod = _load_module()
+    assert (
+        mod._default_output_slug(
+            provider="openrouter",
+            model="anthropic/claude-haiku-5.5",
+            escalation_policy="never",
+        )
+        == "openrouter_anthropic_claude-haiku-5.5"
+    )
+    esc_slug = mod._default_output_slug(
+        provider="openrouter",
+        model="anthropic/claude-haiku-5.5",
+        escalation_policy="unverified",
+        escalation_model="anthropic/claude-sonnet-5.5",
+        escalation_dpi=300,
+    )
+    assert esc_slug == (
+        "openrouter_anthropic_claude-haiku-5.5__esc_unverified_anthropic_claude-sonnet-5.5_dpi300"
+    )
+
+    # Invalid --escalate-dpi exits cleanly with code 2
+    assert mod.main(["--escalate-policy", "unverified", "--escalate-dpi", "0"]) == 2
+    assert mod.main(["--escalate-policy", "unverified", "--escalate-dpi", "601"]) == 2
+
+    broken_text = (
+        "BEGINNING at a pin; "
+        "THENCE N 0°00'00\" E, 100.00 feet; "
+        "THENCE S 90°00'00\" E, 100.00 feet; "
+        "THENCE S 0°00'00\" W, 100.00 feet; "
+        "THENCE N 90°00'00\" W, 99.00 feet to the point of beginning."
+    )
+    fixed_text = broken_text.replace("99.00", "100.00")
+    gt = {
+        "expected_legal_description": fixed_text,
+        "expected_calls": [
+            {"course": 1, "bearing_azimuth_deg_from_north": 0.0, "distance_ft": 100.0},
+            {"course": 2, "bearing_azimuth_deg_from_north": 90.0, "distance_ft": 100.0},
+            {"course": 3, "bearing_azimuth_deg_from_north": 180.0, "distance_ft": 100.0},
+            {"course": 4, "bearing_azimuth_deg_from_north": 270.0, "distance_ft": 100.0},
+        ],
+    }
+    stem = "Test Esc - Deed Image (2 - 2)"
+    pdf_path = tmp_path / f"{stem}.pdf"
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    with pdf_path.open("wb") as handle:
+        writer.write(handle)
+    gt_path = tmp_path / f"{stem}.ground_truth.json"
+    gt_path.write_text(json.dumps(gt), encoding="utf-8")
+    fake_png = tmp_path / "p1.png"
+    fake_png.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    class _PriClient:
+        model = "fake/haiku"
+
+        def generate_text_with_pdf(self, prompt: str, pdf_path: str, **kwargs):
+            return "**MARKDOWN RAW**\n" + broken_text
+
+        def generate_text(self, prompt: str, **kwargs):
+            return broken_text
+
+        def generate_text_with_images(self, prompt: str, image_paths, **kwargs):
+            return '{"pages": [1]}'
+
+    class _EscClient:
+        model = "fake/sonnet"
+
+        def generate_text_with_pdf(self, prompt: str, pdf_path: str, **kwargs):
+            return fixed_text
+
+        def generate_text(self, prompt: str, **kwargs):
+            return fixed_text
+
+        def generate_text_with_images(self, prompt: str, image_paths, **kwargs):
+            return "CLEAN ESCALATED RAW\n" + fixed_text
+
+    results_dir = tmp_path / "results"
+    # First run without escalation saves a policy="never" checkpoint
+    rec_never = mod.evaluate_deed(
+        gt_path,
+        client_factory=lambda: (_PriClient(), "fake/haiku"),
+        results_dir=results_dir,
+        cache_dir=None,
+        use_cache=False,
+        escalation_policy="never",
+    )
+    assert rec_never["norm"]["exact"] is False
+    assert rec_never["markdown"]["raw"] is True
+
+    # Running with escalation_policy="closure_failed" must NOT reuse the stale policy="never" checkpoint
+    with patch("mp_ocr.extract.preprocess_pdf_pages_for_ocr", return_value=[fake_png]):
+        rec_esc = mod.evaluate_deed(
+            gt_path,
+            client_factory=lambda: (_PriClient(), "fake/haiku"),
+            results_dir=results_dir,
+            cache_dir=None,
+            use_cache=False,
+            escalation_policy="closure_failed",
+            escalation_client_factory=lambda: (_EscClient(), "fake/sonnet"),
+            escalation_model="fake/sonnet",
+            escalation_dpi=300,
+        )
+    assert rec_esc["norm"]["exact"] is True
+    assert rec_esc["escalation"]["triggered"] is True
+    assert rec_esc["escalation"]["selected"] == "escalated"
+    # Selected escalated raw_text replaced primary raw_text (no stale markdown leak!)
+    assert rec_esc["markdown"]["raw"] is False
+    assert rec_esc["raw_len"] == len("CLEAN ESCALATED RAW\n" + fixed_text)
+
+    # Matching escalation config DOES resume from checkpoint without invoking clients
+    rec_resumed = mod.evaluate_deed(
+        gt_path,
+        client_factory=lambda: (_ for _ in ()).throw(AssertionError("should resume")),
+        results_dir=results_dir,
+        cache_dir=None,
+        use_cache=False,
+        escalation_policy="closure_failed",
+        escalation_model="fake/sonnet",
+        escalation_dpi=300,
+    )
+    assert rec_resumed["escalation"]["selected"] == "escalated"
+
+    # Changed escalation_dpi invalidates checkpoint
+    assert (
+        mod._checkpoint_matches_escalation(
+            rec_esc,
+            escalation_policy="closure_failed",
+            escalation_model="fake/sonnet",
+            escalation_dpi=400,
+        )
+        is False
+    )
+
+    summary = mod.summarize_results(
+        [rec_esc], provider="openrouter", model="fake/haiku", wall_s=1.0
+    )
+    assert summary["escalation_triggered"] == 1
+    assert summary["escalation_agreed"] == 0
+    assert summary["escalation_disagreed"] == 1
+    assert summary["escalation_selected_escalated"] == 1
+    md = mod.render_markdown_report(summary, [rec_esc])
+    assert "Escalations (triggered / agreed / selected) | 1 / 0 / 1 |" in md

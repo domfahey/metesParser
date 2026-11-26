@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from mp_ocr import PDFProcessor, verify_normalization_integrity
+from mp_ocr import PDFProcessor, has_legal_measurement_signals, verify_normalization_integrity
 
 
 class _StubClient:
@@ -78,6 +78,49 @@ class TestVerifyNormalizationIntegrity:
         ok, reasons = verify_normalization_integrity("BEGINNING at pin", "normalized text")
         assert ok is True
         assert reasons == []
+
+    def test_accepts_curly_quotes_mixed_fractions_leading_decimals_and_units(self) -> None:
+        source = (
+            "BEGINNING at a point; "
+            "(1) S0uth 45° 12\u2018 and 30\u201c W, 100 1/2 US survey feet; "
+            "(2) North 26 deg. 5 9 East, .50 feet along a 50-foot lane; "
+            "(3) N 10° 05` 00\" E, 265.21feet and 1/2 foot, 12.5 metres, 4 engineer's chains; "
+            "(4) curve right delta 15°30'00\", radius 200.00 feet."
+        )
+        normalized = (
+            "BEGINNING at a point;\n"
+            "(1) S 45°12'30\" W, 100.50 feet;\n"
+            "(2) N 26°05'09\" E, 0.50 feet along a 50 foot lane;\n"
+            "(3) N 10°05'00\" E, 265.21 feet and 0.5 feet, 12.5 meters, 4 chains;\n"
+            "(4) curve right delta 15°30'00\", radius 200.00 feet."
+        )
+        ok, reasons = verify_normalization_integrity(source, normalized)
+        assert ok is True, reasons
+        assert reasons == []
+
+    def test_detects_standalone_curve_delta_angle_drift(self) -> None:
+        source = "Curving right with a central angle of 15°30'00\", radius 200.00 feet."
+        drifted = "Curving right with a central angle of 15°31'00\", radius 200.00 feet."
+        ok, reasons = verify_normalization_integrity(source, drifted)
+        assert ok is False
+        assert any("angle_sequence_mismatch" in r for r in reasons)
+
+    def test_rejects_partial_unit_and_malformed_decimal_false_matches(self) -> None:
+        # "50 ft.a" and "3.14.5 feet" should not be treated as valid distance measurements
+        ok, reasons = verify_normalization_integrity("Ref 50 ft.a and 3.14.5 feet", "clean text")
+        assert ok is True
+        assert reasons == []
+
+    def test_has_legal_measurement_signals_rejects_stray_cover_sheet_distance(self) -> None:
+        assert has_legal_measurement_signals("Property located 500 feet from Main St.") is False
+        assert has_legal_measurement_signals("BEGINNING at a pin, 100 feet to corner.") is False
+        assert (
+            has_legal_measurement_signals(
+                "BEGINNING at a pin; THENCE Northerly 100 feet; THENCE Easterly 50 feet."
+            )
+            is True
+        )
+        assert has_legal_measurement_signals("N 45°00'00\" E") is True
 
 
 class TestPDFProcessorNormalizationGuard:

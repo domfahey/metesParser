@@ -28,6 +28,7 @@ dependencies = [
 delivery = ["mp-review[delivery]>=2.0.0"]
 geo = ["mp-review[geo]>=2.0.0"]
 web-map = ["mp-review[web-map]>=2.0.0"]
+vision = ["mp-ocr[vision]>=1.0.1"]
 browser-test = ["playwright>=1.49,<2"]
 dev = [
     "pytest>=8.3.0",
@@ -37,6 +38,8 @@ dev = [
     "ruff>=0.8.0",
     "mypy>=1.13.0",
     "types-pyyaml>=6.0.12",
+    "pillow>=11,<13",
+    "numpy>=1.26,<3",
 ]
 gemini = [
     "google-genai>=3.0.0",

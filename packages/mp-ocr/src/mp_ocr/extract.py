@@ -121,25 +121,40 @@ def compute_llm_confidence(text: str) -> tuple[float, dict[str, bool]]:
 # ---------------------------------------------------------------------------
 
 _NORM_GUARD_DEG = r"(?:°|º|deg(?:rees?)?\.?|decr(?:ees?)?\.?)"
-_NORM_GUARD_MIN = r"(?:'|’|′|min(?:utes?)?\.?)"
-_NORM_GUARD_SEC = r'(?:"|”|″|\'\'|sec(?:onds?)?\.?)'
+_NORM_GUARD_MIN = r"(?:'|\u2018|\u2019|\u2032|`|min(?:utes?)?\.?)"
+_NORM_GUARD_SEC = r'(?:"|\u201c|\u201d|\u2033|\'\'|sec(?:onds?)?\.?)'
 _NORM_GUARD_BEARING_RE = re.compile(
-    rf"\b(?:(?P<ns_word>[5S]outh|N[oO0]rth)\s+|(?P<ns_abbr>[NS])\s*)"
+    rf"\b(?:(?P<ns_word>[5S][oO0]uth|N[oO0]rth)\s+|(?P<ns_abbr>[NS])\s*)"
     rf"(?P<deg>\d{{1,2}})\s*{_NORM_GUARD_DEG}\s*,?\s*"
     rf"(?:"
     rf"(?P<min1>\d{{1,2}})\s*{_NORM_GUARD_MIN}\s*,?\s*"
-    rf"(?:(?P<sec1>\d{{1,2}}(?:\.\d+)?)\s*{_NORM_GUARD_SEC}?)?"
-    rf"|(?P<min2>\d{{2}})\s+(?P<sec2>\d{{2}}(?:\.\d+)?)"
+    rf"(?:(?:and\s+)?(?P<sec1>\d{{1,2}}(?:\.\d+)?)\s*{_NORM_GUARD_SEC}?\s*,?\s*)?"
+    rf"|(?P<min2>\d{{1,2}})\s+(?P<sec2>\d{{1,2}}(?:\.\d+)?)\s*,?\s*"
     rf")?\s*(?P<ew>East|West|[EW])\b",
     re.IGNORECASE,
 )
 
-_NORM_GUARD_DISTANCE_RE = re.compile(
-    r"(?<![A-Za-z0-9.])(\d+(?:,\d{3})*(?:\.\d+)?)\.?\s*"
-    r"(feet|foot|ft\.?|poles?|rods?|perch(?:es)?|chains?|links?|varas?|"
-    r"arpents?|toises?|furlongs?|meters?|miles?)\b",
+_NORM_GUARD_ANGLE_RE = re.compile(
+    rf"(?<![A-Za-z0-9.])(?P<deg>\d{{1,3}})\s*{_NORM_GUARD_DEG}\s*,?\s*"
+    rf"(?P<min>\d{{1,2}})\s*{_NORM_GUARD_MIN}\s*,?\s*"
+    rf"(?:(?:and\s+)?(?P<sec>\d{{1,2}}(?:\.\d+)?)\s*{_NORM_GUARD_SEC}?)?",
     re.IGNORECASE,
 )
+
+_NORM_GUARD_DISTANCE_RE = re.compile(
+    r"(?<![A-Za-z0-9./,])"
+    r"(?:(?:(?P<whole>\d+)\s+)?(?P<num>\d+)/(?P<den>\d+)"
+    r"|(?P<val>\d+(?:,\d{3})*(?:\.\d+)?|\.\d+))"
+    r"\.?[\s-]*"
+    r"(?P<unit>(?:u\.?s\.?\s+)?survey\s+(?:feet|foot|ft)|"
+    r"engineer(?:'s)?\s+(?:chains?|links?)|"
+    r"feet|foot|ft|poles?|rods?|perch(?:es)?|chains?|links?|varas?|"
+    r"arpents?|toises?|furlongs?|met(?:er|re)s?|miles?)"
+    r"(?:\.(?!\w))?(?!\w|\.\w)",
+    re.IGNORECASE,
+)
+
+_LEGAL_COURSE_CUE_RE = re.compile(r"\b(?:BEGINNING|COMMENCING|THENCE)\b", re.IGNORECASE)
 
 _NORM_GUARD_UNIT_CANONICAL: dict[str, str] = {
     "foot": "feet",
@@ -165,14 +180,30 @@ _NORM_GUARD_UNIT_CANONICAL: dict[str, str] = {
     "furlongs": "furlongs",
     "meter": "meters",
     "meters": "meters",
+    "metre": "meters",
+    "metres": "meters",
     "mile": "miles",
     "miles": "miles",
 }
 
 
-def _extract_bearing_signature(text: str) -> list[tuple[str, int, int, float, str]]:
-    """Return ordered canonical DMS bearing tuples ``(ns, deg, min, sec, ew)``."""
+def _canonicalize_unit(raw_unit: str) -> str:
+    cleaned = " ".join(raw_unit.lower().replace(".", "").split())
+    if cleaned.endswith(("feet", "foot", "ft")):
+        return "feet"
+    if cleaned.endswith(("chains", "chain")):
+        return "chains"
+    if cleaned.endswith(("links", "link")):
+        return "links"
+    return _NORM_GUARD_UNIT_CANONICAL.get(cleaned, cleaned)
+
+
+def _extract_bearing_signature(
+    text: str,
+) -> tuple[list[tuple[str, int, int, float, str]], list[tuple[int, int]]]:
+    """Return ordered canonical DMS bearings and their character spans."""
     out: list[tuple[str, int, int, float, str]] = []
+    spans: list[tuple[int, int]] = []
     for match in _NORM_GUARD_BEARING_RE.finditer(text):
         ns_raw = match.group("ns_word") or match.group("ns_abbr") or ""
         ns = "N" if ns_raw[0].upper() == "N" else "S"
@@ -188,6 +219,23 @@ def _extract_bearing_signature(text: str) -> list[tuple[str, int, int, float, st
             mins = 0
             secs = 0.0
         out.append((ns, deg, mins, round(secs, 4), ew))
+        spans.append(match.span())
+    return out, spans
+
+
+def _extract_standalone_angle_signature(
+    text: str, excluded_spans: Sequence[tuple[int, int]]
+) -> list[tuple[int, int, float]]:
+    """Return ordered standalone DMS angles (deltas, interior/exterior angles)."""
+    out: list[tuple[int, int, float]] = []
+    for match in _NORM_GUARD_ANGLE_RE.finditer(text):
+        start, end = match.span()
+        if any(start < b_end and end > b_start for b_start, b_end in excluded_spans):
+            continue
+        deg = int(match.group("deg"))
+        mins = int(match.group("min"))
+        secs = float(match.group("sec")) if match.group("sec") is not None else 0.0
+        out.append((deg, mins, round(secs, 4)))
     return out
 
 
@@ -195,32 +243,46 @@ def _extract_distance_signature(text: str) -> list[tuple[float, str]]:
     """Return ordered canonical ``(value, unit)`` distance measurement tuples."""
     out: list[tuple[float, str]] = []
     for match in _NORM_GUARD_DISTANCE_RE.finditer(text):
-        val = round(float(match.group(1).replace(",", "")), 6)
-        raw_unit = match.group(2).lower().rstrip(".")
-        unit = _NORM_GUARD_UNIT_CANONICAL.get(raw_unit, raw_unit)
-        out.append((val, unit))
+        if match.group("num") is not None:
+            den = int(match.group("den"))
+            if den == 0:
+                continue
+            whole = float(match.group("whole")) if match.group("whole") is not None else 0.0
+            val = whole + (float(match.group("num")) / den)
+        else:
+            val = float(match.group("val").replace(",", ""))
+        unit = _canonicalize_unit(match.group("unit"))
+        out.append((round(val, 6), unit))
     return out
 
 
 def verify_normalization_integrity(
     source_text: str, normalized_text: str
 ) -> tuple[bool, list[str]]:
-    """Verify Stage 3 normalization preserved every bearing and distance in order.
+    """Verify Stage 3 normalization preserved every bearing, angle, and distance in order.
 
     Stage 3 is a format-only rewrite (symbols, abbreviations, line unwrapping).
-    Any reordering, omission, duplication, or numeric change in bearings or
-    distance measurements indicates LLM copy drift and fails this check.
+    Any reordering, omission, duplication, or numeric change in bearings,
+    standalone DMS angles, or distance measurements indicates LLM copy drift
+    and fails this check.
     """
     reasons: list[str] = []
     if source_text.strip() and not normalized_text.strip():
         return False, ["empty_normalized_output"]
 
-    src_bearings = _extract_bearing_signature(source_text)
-    norm_bearings = _extract_bearing_signature(normalized_text)
+    src_bearings, src_b_spans = _extract_bearing_signature(source_text)
+    norm_bearings, norm_b_spans = _extract_bearing_signature(normalized_text)
     if src_bearings != norm_bearings:
         reasons.append(
             f"bearing_sequence_mismatch (source={len(src_bearings)}, "
             f"normalized={len(norm_bearings)})"
+        )
+
+    src_angles = _extract_standalone_angle_signature(source_text, src_b_spans)
+    norm_angles = _extract_standalone_angle_signature(normalized_text, norm_b_spans)
+    if src_angles != norm_angles:
+        reasons.append(
+            f"angle_sequence_mismatch (source={len(src_angles)}, normalized={len(norm_angles)})"
         )
 
     src_distances = _extract_distance_signature(source_text)
@@ -234,12 +296,21 @@ def verify_normalization_integrity(
     return not reasons, reasons
 
 
-def _has_legal_measurement_signals(text: str) -> bool:
-    """Return True if *text* contains at least one bearing or distance measurement."""
-    return bool(_extract_bearing_signature(text) or _extract_distance_signature(text))
+def has_legal_measurement_signals(text: str) -> bool:
+    """Return True if *text* contains bearings or metes-and-bounds course distances.
+
+    Requires at least one DMS bearing OR a legal course cue
+    (``BEGINNING`` / ``COMMENCING`` / ``THENCE``) with at least two distance
+    measurements so a stray boilerplate distance on a cover page does not
+    suppress all-page fallback.
+    """
+    bearings, _ = _extract_bearing_signature(text)
+    if bearings:
+        return True
+    return bool(_LEGAL_COURSE_CUE_RE.search(text)) and len(_extract_distance_signature(text)) >= 2
 
 
-def _parse_located_pages(raw_response: str, total_pages: int) -> list[int]:
+def parse_located_pages(raw_response: str, total_pages: int) -> list[int]:
     """Parse 1-based legal-description page numbers from JSON LLM output.
 
     Falls back to all pages ``1..total_pages`` whenever the response is empty,
@@ -248,7 +319,7 @@ def _parse_located_pages(raw_response: str, total_pages: int) -> list[int]:
     all_pages = list(range(1, total_pages + 1))
     cleaned = raw_response.strip()
     if cleaned.startswith("```"):
-        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"\s*```$", "", cleaned)
     try:
         parsed = json.loads(cleaned)
@@ -281,6 +352,10 @@ def _parse_located_pages(raw_response: str, total_pages: int) -> list[int]:
         )
         return all_pages
     return valid
+
+
+_has_legal_measurement_signals = has_legal_measurement_signals
+_parse_located_pages = parse_located_pages
 
 
 # ---------------------------------------------------------------------------
@@ -487,47 +562,66 @@ class PDFProcessor:
         *,
         thumbnail_dpi: int = 100,
         thumbnail_max_dim: int = 900,
+        max_pages_per_batch: int = 16,
         audit: bool = False,
     ) -> list[int]:
         """Identify 1-based page numbers in *pdf_path* containing legal descriptions.
 
         Returns all pages without an LLM call when the PDF has two or fewer pages.
+        Batches thumbnail requests when ``total_pages > max_pages_per_batch``.
         """
         total_pages = count_pdf_pages(pdf_path)
+        if total_pages == 0:
+            raise ValueError(f"PDF has no pages: {pdf_path}")
+
+        self._audit_stage_records = [] if audit else None
         if total_pages <= 2:
             return list(range(1, total_pages + 1))
 
-        if audit and self._audit_stage_records is None:
-            self._audit_stage_records = []
-
+        batch_size = max(1, int(max_pages_per_batch))
         prompt_config = self._load_prompt("locate_legal_pages")
-        user_prompt = prompt_config["user_prompt_template"].replace(
-            "{total_pages}", str(total_pages)
-        )
         system_prompt = prompt_config.get("system_prompt")
-        combined_prompt = (
-            f"{system_prompt}\n\n{user_prompt}"
-            if isinstance(system_prompt, str) and system_prompt.strip()
-            else user_prompt
-        )
         response_mime_type = prompt_config.get("response_mime_type")
 
-        with tempfile.TemporaryDirectory(prefix="mp_ocr_locate_") as tmpdir:
-            thumbs = preprocess_pdf_pages_for_ocr(
-                pdf_path,
-                Path(tmpdir),
-                dpi=thumbnail_dpi,
-                strip_watermark=False,
-                crop_margins=False,
-                max_dim=thumbnail_max_dim,
-            )
-            response = self._generate_text_with_images(
-                combined_prompt, thumbs, response_mime_type=response_mime_type
-            )
+        try:
+            located: list[int] = []
+            with tempfile.TemporaryDirectory(prefix="mp_ocr_locate_") as tmpdir:
+                thumbs = preprocess_pdf_pages_for_ocr(
+                    pdf_path,
+                    Path(tmpdir),
+                    dpi=thumbnail_dpi,
+                    strip_watermark=False,
+                    crop_margins=False,
+                    max_dim=thumbnail_max_dim,
+                )
+                for batch_start in range(0, len(thumbs), batch_size):
+                    batch = thumbs[batch_start : batch_start + batch_size]
+                    batch_len = (
+                        total_pages
+                        if batch_start == 0 and total_pages <= batch_size
+                        else len(batch)
+                    )
+                    user_prompt = prompt_config["user_prompt_template"].replace(
+                        "{total_pages}", str(batch_len)
+                    )
+                    combined_prompt = (
+                        f"{system_prompt}\n\n{user_prompt}"
+                        if isinstance(system_prompt, str) and system_prompt.strip()
+                        else user_prompt
+                    )
+                    response = self._generate_text_with_images(
+                        combined_prompt, batch, response_mime_type=response_mime_type
+                    )
+                    if audit:
+                        self._record_llm_stage("locate_legal_pages", combined_prompt, response)
+                    local_pages = parse_located_pages(response, batch_len)
+                    located.extend(batch_start + p for p in local_pages)
+        except Exception:
+            if audit:
+                self._audit_stage_records = None
+            raise
 
-        if audit:
-            self._record_llm_stage("locate_legal_pages", combined_prompt, response)
-        return _parse_located_pages(response, total_pages)
+        return sorted(dict.fromkeys(located))
 
     def extract_text_from_images(
         self,
@@ -535,10 +629,14 @@ class PDFProcessor:
         *,
         audit: bool = False,
         stage_name: str = "extract_text_from_images",
+        max_images_per_call: int = 16,
     ) -> str:
         """Extract all text from preprocessed deed page images using Stage 1 prompt."""
-        if audit and self._audit_stage_records is None:
+        if not audit:
+            self._audit_stage_records = None
+        elif self._audit_stage_records is None:
             self._audit_stage_records = []
+
         prompt_config = self._load_prompt("extract_text_from_pdf")
         system_prompt = prompt_config.get("system_prompt")
         user_prompt = prompt_config["user_prompt_template"]
@@ -548,12 +646,39 @@ class PDFProcessor:
             else user_prompt
         )
         response_mime_type = prompt_config.get("response_mime_type")
-        response = self._generate_text_with_images(
-            prompt_text, image_paths, response_mime_type=response_mime_type
-        )
-        if audit:
-            self._record_llm_stage(stage_name, prompt_text, response)
-        return response
+        items = list(image_paths)
+        batch_size = max(1, int(max_images_per_call))
+
+        try:
+            if len(items) <= batch_size:
+                response = self._generate_text_with_images(
+                    prompt_text, items, response_mime_type=response_mime_type
+                )
+                if audit:
+                    self._record_llm_stage(stage_name, prompt_text, response)
+                return response
+
+            chunks: list[str] = []
+            for start in range(0, len(items), batch_size):
+                batch = items[start : start + batch_size]
+                chunk = self._generate_text_with_images(
+                    prompt_text, batch, response_mime_type=response_mime_type
+                )
+                if audit:
+                    self._record_llm_stage(stage_name, prompt_text, chunk)
+                if chunk:
+                    chunks.append(chunk)
+            return "\n\n".join(chunks)
+        except Exception:
+            if audit:
+                self._audit_stage_records = None
+            raise
+
+    def pop_audit_stage_records(self) -> list[LLMStageRecord]:
+        """Return and clear collected audit stage records on this processor."""
+        stages = list(self._audit_stage_records or [])
+        self._audit_stage_records = None
+        return stages
 
     def extract_legal_description_from_images(
         self,
@@ -571,28 +696,30 @@ class PDFProcessor:
         """Run a blind 3-stage extraction on preprocessed high-DPI legal-page PNGs.
 
         Returns ``(legal_desc_text, normalized_text, resolved_pages)``. Never
-        receives closure errors or prior extraction guesses.
+        receives closure errors or prior extraction guesses, and preserves any
+        pre-existing audit records on *locator_processor* without stealing them.
         """
-        if audit:
-            self._audit_stage_records = []
-        else:
-            self._audit_stage_records = None
+        collected_stages: list[LLMStageRecord] | None = [] if audit else None
+        self._audit_stage_records = None
 
         try:
             total_pages = count_pdf_pages(pdf_path)
+            if total_pages == 0:
+                raise ValueError(f"PDF has no pages: {pdf_path}")
+
             if pages is not None:
                 resolved_pages = sorted(dict.fromkeys(int(p) for p in pages))
             else:
                 locator = locator_processor or self
-                resolved_pages = locator.locate_legal_description_pages(pdf_path, audit=audit)
-                if (
-                    audit
-                    and locator is not self
-                    and locator._audit_stage_records
-                    and self._audit_stage_records is not None
-                ):
-                    self._audit_stage_records.extend(locator._audit_stage_records)
-                    locator._audit_stage_records = None
+                prev_locator_records = locator._audit_stage_records
+                try:
+                    resolved_pages = locator.locate_legal_description_pages(pdf_path, audit=audit)
+                    if audit and collected_stages is not None and locator._audit_stage_records:
+                        collected_stages.extend(locator._audit_stage_records)
+                finally:
+                    locator._audit_stage_records = prev_locator_records
+
+            self._audit_stage_records = collected_stages
 
             def _run_on_pages(target_pages: list[int], prefix: str) -> tuple[str, str]:
                 with tempfile.TemporaryDirectory(prefix="mp_ocr_escalate_") as tmpdir:
@@ -643,7 +770,7 @@ class PDFProcessor:
             if (
                 pages is None
                 and len(resolved_pages) < total_pages
-                and not _has_legal_measurement_signals(legal_desc_text)
+                and not has_legal_measurement_signals(legal_desc_text)
             ):
                 all_pages = list(range(1, total_pages + 1))
                 logger.warning(

@@ -1,6 +1,6 @@
 # Implementation plans
 
-Dated plans, design notes, evidence records and acceptance handoffs. Status is taken from each file's own status line or heading as of 2026-10-31. Local implementation gates are kept separate from live-provider and native Claude host acceptance.
+Dated plans, design notes, evidence records and acceptance handoffs. Status is taken from each file's own status line or heading as of 2026-11-25. Local implementation gates are kept separate from live-provider and native Claude host acceptance.
 
 | Date | Document | Topic | Status |
 |---|---|---|---|

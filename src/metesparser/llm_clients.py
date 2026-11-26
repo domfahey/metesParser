@@ -52,14 +52,28 @@ _IMAGE_MIME_TYPES: dict[str, str] = {
 }
 
 
+def _validate_image_paths(image_paths: Sequence[str | Path]) -> list[str | Path]:
+    if isinstance(image_paths, (str, bytes, Path)):
+        raise TypeError("image_paths must be a sequence of image paths, not a single path")
+    items = list(image_paths)
+    if not items:
+        raise ValueError("image_paths must contain at least one image")
+    return items
+
+
 def _read_image(image_path: str | Path) -> tuple[str, str, bytes]:
     path = Path(image_path)
     if not path.exists():
         raise FileNotFoundError(f"Image not found at {image_path}")
+    if not path.is_file():
+        raise ValueError(f"Image path is not a regular file: {image_path}")
     mime = _IMAGE_MIME_TYPES.get(path.suffix.lower())
     if mime is None:
         raise ValueError(f"Unsupported image format '{path.suffix}' for {path.name}")
-    return path.name, mime, path.read_bytes()
+    data = path.read_bytes()
+    if not data:
+        raise ValueError(f"Image file is empty: {path.name}")
+    return path.name, mime, data
 
 
 @runtime_checkable
@@ -161,10 +175,9 @@ class OpenAIClient:
         *,
         response_mime_type: str | None = None,
     ) -> str:
-        if not image_paths:
-            raise ValueError("image_paths must contain at least one image")
+        validated_paths = _validate_image_paths(image_paths)
         content: list[dict[str, object]] = []
-        for image_path in image_paths:
+        for image_path in validated_paths:
             _, mime, img_bytes = _read_image(image_path)
             b64 = base64.b64encode(img_bytes).decode("utf-8")
             content.append(
@@ -323,10 +336,9 @@ class GeminiClient:
         *,
         response_mime_type: str | None = None,
     ) -> str:
-        if not image_paths:
-            raise ValueError("image_paths must contain at least one image")
+        validated_paths = _validate_image_paths(image_paths)
         parts: list[object] = []
-        for image_path in image_paths:
+        for image_path in validated_paths:
             _, mime, img_bytes = _read_image(image_path)
             parts.append(self._types.Part.from_bytes(data=img_bytes, mime_type=mime))
         parts.append(self._types.Part.from_text(text=prompt))
@@ -653,10 +665,9 @@ class OpenRouterClient:
         *,
         response_mime_type: str | None = None,
     ) -> str:
-        if not image_paths:
-            raise ValueError("image_paths must contain at least one image")
+        validated_paths = _validate_image_paths(image_paths)
         content: list[dict[str, object]] = []
-        for image_path in image_paths:
+        for image_path in validated_paths:
             _, mime, img_bytes = _read_image(image_path)
             b64 = base64.b64encode(img_bytes).decode("utf-8")
             content.append(

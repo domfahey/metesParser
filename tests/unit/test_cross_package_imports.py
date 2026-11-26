@@ -313,3 +313,37 @@ def test_raster_picker_facade_reuses_shared_adapter():
     from metesparser.raster_picker import prepare_raster_picker_file as public
 
     assert public is prepare_raster_picker_file
+
+
+def test_mp_ocr_escalation_and_preprocessing_public_exports():
+    from mp_ocr import (
+        VALID_ESCALATION_POLICIES,
+        CourseDisagreement,
+        EscalationReport,
+        compare_call_readings,
+        count_pdf_pages,
+        has_legal_measurement_signals,
+        parse_located_pages,
+        preprocess_pdf_pages_for_ocr,
+        render_pdf_pages_to_pngs,
+        select_escalation_outcome,
+        should_escalate_closure,
+        strip_green_watermark_and_crop,
+        validate_escalation_policy,
+        verify_normalization_integrity,
+    )
+
+    assert VALID_ESCALATION_POLICIES == ("never", "closure_failed", "unverified")
+    assert callable(validate_escalation_policy)
+    assert callable(should_escalate_closure)
+    assert callable(compare_call_readings)
+    assert callable(select_escalation_outcome)
+    assert callable(count_pdf_pages)
+    assert callable(render_pdf_pages_to_pngs)
+    assert callable(strip_green_watermark_and_crop)
+    assert callable(preprocess_pdf_pages_for_ocr)
+    assert callable(verify_normalization_integrity)
+    assert callable(has_legal_measurement_signals)
+    assert callable(parse_located_pages)
+    assert CourseDisagreement is not None
+    assert EscalationReport is not None

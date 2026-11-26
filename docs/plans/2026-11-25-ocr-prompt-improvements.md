@@ -55,9 +55,10 @@ Every failing page was rendered at 300 DPI and visually inspected against Stage 
 
 ## 3. Targeted Prompt Improvements
 
-Keep both copies synchronized when editing:
+Keep all three prompt directories synchronized when editing:
 - Package prompts: `packages/mp-ocr/src/mp_ocr/prompts/`
 - Monolith prompts: `prompts/`
+- Packaged root prompts: `src/metesparser/prompts/`
 
 ### 3.1 Stage 1 — `extract_text_from_pdf.yaml`
 
@@ -119,7 +120,7 @@ Aligned with `AGENTS.md` (*"Use deterministic code wherever possible, AI only wh
 ## 5. Recommended Experiment Order & Acceptance Gates
 
 1. **Experiment 1 — Pure Prompt Edits (Stage 1 + Stage 3):**
-   - Apply Sections 3.1 (items 1–2) and 3.3 to both `packages/mp-ocr/src/mp_ocr/prompts/` and `prompts/`.
+   - Apply Sections 3.1 (items 1–2) and 3.3 to all three synced prompt directories (`packages/mp-ocr/src/mp_ocr/prompts/`, `prompts/`, `src/metesparser/prompts/`).
    - Run `scripts/eval_model_vs_gt.py` on a targeted subset first: the **6 recoverable failing deeds** + a **10–15 deed regression sentinel set** (space-separated DMS, dual notation, multi-tract, and known-typo deeds to ensure `<anti_hallucination_warning>` still holds).
    - If net-positive with 0 regressions, run the full 87-deed Haiku 5.5 sweep (~`$0.55`) and record before/after metrics.
 2. **Experiment 2 — Deterministic Stage 3 Guard:**
@@ -151,7 +152,7 @@ Implemented `verify_normalization_integrity(source_text, normalized_text)` in [e
 
 - **Invariant:** Extracts ordered canonical DMS bearing tuples and ordered `(value, unit)` distance tuples from Stage 2 and Stage 3. Any reordering, omission, duplication, numeric drift, or empty output logs a warning and falls back to Stage 2 `legal_desc_text` while still recording the raw Stage 3 LLM response in `LLMStageRecord` for auditability.
 - **Retrospective validation across all 212 real model runs** (87x2 baseline + 19x2 Exp 1): **0 false positives**; caught `Sonnet / 219 Berlin Rd (12941 - 00156)` (bearing + distance swap) and `Haiku / 8 Kings Highway W (7505 - 1211)` (Stage 3 silently deleted a duplicate tie-in measurement; Stage 2 fallback preserves 4/4 exact).
-- **Tests:** Added [packages/mp-ocr/tests/test_normalization_integrity.py](../../packages/mp-ocr/tests/test_normalization_integrity.py) and [tests/unit/test_normalization_integrity_guard.py](../../tests/unit/test_normalization_integrity_guard.py), and aligned two synthetic mock stubs (`test_extract.py`, `test_phase6_audit.py`) so Stage 2 and Stage 3 stub fixtures carry matching course counts.
+- **Tests:** Added [packages/mp-ocr/tests/test_normalization_integrity.py](../../packages/mp-ocr/tests/test_normalization_integrity.py) and [tests/unit/test_normalization_integrity_guard.py](../../tests/unit/test_normalization_integrity_guard.py), and aligned one synthetic mock stub ([tests/unit/test_phase6_audit.py](../../tests/unit/test_phase6_audit.py)) so Stage 2 and Stage 3 stub fixtures carry matching course counts.
 
 ### 6.3 Experiment 3 — 300 DPI Legal-Page Crop + RGB Green-Watermark Removal (Prototype Benchmark)
 
@@ -190,7 +191,7 @@ Implemented the full closure-triggered blind escalation pipeline with zero hardc
 | `17 Kings Highway W (8494)` (deed-typo control) | `4/4 -> 4/4` | Yes | `[2, 4, 5]` | **Yes** | `readings_agree_confirmed_by_escalation` | `$0.0732` |
 | `36 Kresson Rd (9476)` (6-page typo control) | `10/10 -> 10/10` | Yes | **`[6]`** | **Yes** | `readings_agree_confirmed_by_escalation` | `$0.0634` |
 | `26 Chews Landing (5056)` | `4/5 -> 5/5` **EXACT** | Yes | `[1, 2]` | No (c1 `299.09->299.89`) | `escalated_passed_closure_where_primary_failed` | `$0.0705` |
-| `89 Haddon Ave (4732)` | `5/6 -> 6/6` **EXACT** | Yes | `[1, 2]` | No (c3 `19°08'->19°58'`, c4 `93.75->53.75`) | `escalated_high_dpi_selected_with_disagreement_warning` | `$0.0833` |
+| `89 Haddon Ave (4732)` | `4/6 -> 6/6` **EXACT** | Yes | `[1, 2]` | No (c3 `19°08'->19°58'`, c4 `93.75->53.75`) | `escalated_high_dpi_selected_with_disagreement_warning` | `$0.0833` |
 | `101-111 KH (11353)` (9-page PDF) | `33/34 -> 34/34` **EXACT** | Yes | `[2, 3, 4, 5]` | No (c12 `21.04->21.64`) | `escalated_high_dpi_selected_with_disagreement_warning` | `$0.2066` |
 | `2 Walnut St (5030)` | `14/17 -> 15/17` | Yes | `[1, 2]` | No (c14 `15.37->35.37`) | `escalated_high_dpi_selected_with_disagreement_warning` | `$0.0934` |
 
@@ -216,5 +217,5 @@ Output directory: `output/model_eval/exp3_full87_haiku_to_sonnet_unverified/`
 - **Triggered:** `54/87` deeds.
   - **47/54 agreed 100%** (`agrees=True`, `readings_agree_confirmed_by_escalation`), confirming their non-closure is due to genuine source-deed typos or cardinal-only wording rather than OCR error.
   - **5/54 rescued primary OCR errors:** `26 Chews Landing (5056)` (`4/5 -> 5/5`), `89 Haddon Ave (4732)` (`4/6 -> 6/6`), `101-111 KH (11353)` (`33/34 -> 34/34`), `15 E Redman Ave (04462)` (`7/9 -> 9/9` bonus rescue), and `2 Walnut St (5030)` (`14/17 -> 15/17`).
-  - **2/54 safe guard fallbacks:** On 7-page deeds `116 Kings Highway E (9166 - 536)` and `17 Kings Highway W (8673 - 1087)`, 100-DPI thumbnail triage missed the exhibit page (`[1, 2, 7]`), returning 0 escalated calls; `escalated_empty_fallback_to_primary` preserved primary (`4/4` exact on both). (Follow-up candidate: retry page-locator at higher thumbnail DPI or fall back to all pages if escalated returns empty.)
+  - **2/54 safe guard fallbacks (pre-fallback run):** On 7-page deeds `116 Kings Highway E (9166 - 536)` and `17 Kings Highway W (8673 - 1087)`, this 87-deed sweep ran prior to adding the automatic all-page fallback; 100-DPI thumbnail triage missed the exhibit page (`[1, 2, 7]`), returning 0 escalated calls, and `escalated_empty_fallback_to_primary` preserved primary (`4/4` exact on both). After adding automatic all-page fallback on empty or truncated located-page extractions, live re-verification on both deeds passed `4/4` exact with `agrees=True` and 0 disagreements.
 - **Only 2 remaining course misses in the entire 644-course recoverable corpus:** `2 Walnut St (5030 - 535)` c12 (`130.48` vs `110.48`) and c17 (`248.31` vs `240.31`), where horizontal ink strokes are physically absent in the 1999 scan and `mp-verify` blocks verified export.

@@ -13,7 +13,7 @@ from typing import Any, cast
 
 import structlog
 
-from .clients import BaseLLMClient, _read_image, _read_pdf
+from .clients import BaseLLMClient, _read_image, _read_pdf, _validate_image_paths
 
 logger = structlog.get_logger(__name__)
 
@@ -201,11 +201,16 @@ class CachedLLMClient:
         *,
         response_mime_type: str | None = None,
     ) -> str:
-        if not image_paths:
-            raise ValueError("image_paths must contain at least one image")
+        validated_paths = _validate_image_paths(image_paths)
+        image_method = getattr(self._client, "generate_text_with_images", None)
+        if not callable(image_method):
+            raise NotImplementedError(
+                f"{type(self._client).__name__} does not support generate_text_with_images"
+            )
+
         image_names: list[str] = []
         image_bytes_list: list[bytes] = []
-        for image_path in image_paths:
+        for image_path in validated_paths:
             name, _, img_bytes = _read_image(image_path)
             image_names.append(name)
             image_bytes_list.append(img_bytes)
@@ -215,14 +220,9 @@ class CachedLLMClient:
         if cached is not None:
             return cached
 
-        image_method = getattr(self._client, "generate_text_with_images", None)
-        if not callable(image_method):
-            raise NotImplementedError(
-                f"{type(self._client).__name__} does not support generate_text_with_images"
-            )
         result = cast(
             str,
-            image_method(prompt, image_paths, response_mime_type=response_mime_type),
+            image_method(prompt, validated_paths, response_mime_type=response_mime_type),
         )
         if result and result.strip():
             self._write_cache(key, result, prompt, pdf_name=",".join(image_names))
