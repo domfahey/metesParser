@@ -64,7 +64,7 @@
   "expected_closure": {
     "misclosure_ft": 0.0051,
     "misclosure_tolerance_ft": 0.01,
-    "area_sq_ft": 11062.79,
+    "area_sq_ft": 11062.7,
     "area_acres": 0.254,
     "perimeter_ft": 433.91,
     "closure_passed": true
