@@ -19,7 +19,14 @@
   "expected_poc": null,
   "expected_pob": null,
   "expected_calls": [],
-  "expected_closure": null,
+  "expected_closure": {
+    "misclosure_ft": null,
+    "area_sq_ft": null,
+    "area_acres": null,
+    "perimeter_ft": null,
+    "closure_passed": false,
+    "notes": "Exhibit \"A\" is not in the recorded scan; there are no metes-and-bounds courses."
+  },
   "critical_assertions": {
     "num_calls": {
       "expected": 0,

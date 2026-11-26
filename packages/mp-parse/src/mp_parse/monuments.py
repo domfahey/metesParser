@@ -10,6 +10,16 @@ import re
 
 from mp_models import MonumentStatus, MonumentType
 
+# Road/thoroughfare suffixes so street names like "Sycamore Street",
+# "Walnut Avenue", "Stone Road", or "Prospect Ridge Boulevard" are not
+# misclassified as trees, stones, or natural-feature monuments.
+_ROAD_SUFFIX_LOOKAHEAD = (
+    r"(?!\s+(?:streets?|st|avenues?|ave|roads?|rd|drives?|dr|lanes?|ln"
+    r"|courts?|ct|boulevards?|blvd|ways?|places?|pl|circles?|cir"
+    r"|terraces?|ter|parkways?|pkwy|highways?|hwy|pikes?|turnpikes?|tpke"
+    r"|alleys?|trails?|trl|plazas?|squares?|sq)\b)"
+)
+
 MONUMENT_PATTERNS: list[tuple[str, MonumentType]] = [
     (r"\btxdot\b.*\bmonument\b", "txdot_monument"),
     (r"\bcapped\s+(?:iron\s+)?rod\b", "capped_rod"),
@@ -29,7 +39,7 @@ MONUMENT_PATTERNS: list[tuple[str, MonumentType]] = [
     (r"\brailroad\s+(?:spike|tie)\b", "railroad_spike"),
     (r"\bgin\s+(?:spike|pole)\b", "railroad_spike"),
     (r"\bstone\s+monument\b", "stone"),
-    (r"\bstone\b", "stone"),
+    (rf"\bstone\b{_ROAD_SUFFIX_LOOKAHEAD}", "stone"),
     (r"\bconcrete\s+monument\b", "concrete"),
     (r"\bconcrete\b", "concrete"),
     (r"\bbrass\s+(?:cap|marker|monument)\b", "brass_cap"),
@@ -39,7 +49,7 @@ MONUMENT_PATTERNS: list[tuple[str, MonumentType]] = [
     (r"\blandscap(?:e|ing)\s+(?:rod|pin)\b", "iron_rod"),
     # Natural monuments -- trees
     (
-        r"\b(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)\b",
+        rf"\b(?:oak|hickory|elm|pine|walnut|sycamore|maple|beech|poplar|cedar|ash|birch|chestnut|cottonwood|willow|cypress)\b{_ROAD_SUFFIX_LOOKAHEAD}",
         "tree",
     ),
     (r"\btree\b", "tree"),
@@ -49,8 +59,11 @@ MONUMENT_PATTERNS: list[tuple[str, MonumentType]] = [
     (r"\bstanding\s+rock\b", "rock"),
     (r"\blarge\s+rock\b", "rock"),
     # Natural features -- water/terrain
-    (r"\b(?:stream|creek|river|brook|branch|run)\b", "natural_feature"),
-    (r"\b(?:ridge|bluff|cliff|shoreline|lakeshore|shore)\b", "natural_feature"),
+    (rf"\b(?:stream|creek|river|brook|branch|run)\b{_ROAD_SUFFIX_LOOKAHEAD}", "natural_feature"),
+    (
+        rf"\b(?:ridge|bluff|cliff|shoreline|lakeshore|shore)\b{_ROAD_SUFFIX_LOOKAHEAD}",
+        "natural_feature",
+    ),
 ]
 
 MONUMENT_STATUS_PATTERNS: list[tuple[str, MonumentStatus]] = [

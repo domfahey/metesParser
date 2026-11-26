@@ -161,6 +161,27 @@ class TestClassifyMonument:
         result = classify_monument("capped iron rod found")
         assert result == "capped_rod"
 
+    def test_street_names_not_misclassified_as_monuments(self) -> None:
+        from mp_parse.monuments import classify_monument
+
+        for text in (
+            "A POINT IN THE NORTHERLY LINE OF SYCAMORE STREET (50 FEET WIDE)",
+            "a point in said easterly line of Walnut Street",
+            "a point on Chestnut Ave.",
+            "the southerly line of Prospect Ridge Boulevard",
+            "the westerly line of Creek Road",
+            "the northerly line of Stone St.",
+            "corner of Euclid and Walnut Avenues",
+        ):
+            assert classify_monument(text) is None, text
+
+    def test_real_natural_monument_near_named_street_still_matches(self) -> None:
+        from mp_parse.monuments import classify_monument
+
+        assert classify_monument("a white oak at the corner of Walnut Street") == "tree"
+        assert classify_monument("a found field stone on Creek Road") == "stone"
+        assert classify_monument("top of the ridge near Oak Drive") == "natural_feature"
+
 
 class TestClassifyMonumentStatus:
     def test_found(self) -> None:

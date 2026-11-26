@@ -16,6 +16,7 @@ from typing import TypeGuard
 
 import pytest
 from mp_models import DeedCall
+from mp_parse.monuments import classify_monument
 from mp_verify import verify_closure
 
 SAMPLE_DEEDS = Path(__file__).resolve().parents[2] / "sample_deeds"
@@ -296,6 +297,30 @@ def test_call_count_assertion_matches_the_courses(path):
 @pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
 def test_no_html_entities(path):
     assert not re.search(r"&(?:amp|lt|gt|quot|#\d+);", path.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
+def test_populated_monument_type_matches_to_field(path):
+    """Any populated monument_type must be supported by the call's `to` wording."""
+    for call in _load(path).get("expected_calls") or []:
+        monument_type = call.get("monument_type")
+        if monument_type is None:
+            continue
+        to_text = call.get("to") or ""
+        assert classify_monument(to_text) == monument_type, (
+            f"course {call['course']}: monument_type={monument_type!r} "
+            f"not supported by to={to_text!r}"
+        )
+
+
+@pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
+def test_expected_closure_is_structured_dict(path):
+    """Every ground truth stores a structured expected_closure with boolean closure_passed."""
+    closure = _load(path).get("expected_closure")
+    assert isinstance(closure, dict), f"expected_closure must be a dict, got {closure!r}"
+    assert isinstance(closure.get("closure_passed"), bool), (
+        f"expected_closure.closure_passed must be bool, got {closure.get('closure_passed')!r}"
+    )
 
 
 def _single_figure(gt: dict) -> list[dict] | None:
@@ -970,3 +995,28 @@ class TestAdditionalGroundTruthGuards:
         )
         with pytest.raises(AssertionError, match="radius_ft"):
             test_curve_parameters_appear_in_description_and_are_consistent(gt_path)
+
+    def test_street_name_monument_type_fails(self, tmp_path: Path) -> None:
+        gt_path = _write_gt(
+            tmp_path,
+            "street_tree",
+            {
+                "expected_calls": [
+                    {
+                        "course": 1,
+                        "to": "A POINT IN THE NORTHERLY LINE OF SYCAMORE STREET (50 FEET WIDE)",
+                        "monument_type": "tree",
+                    }
+                ]
+            },
+        )
+        with pytest.raises(AssertionError, match="monument_type='tree'"):
+            test_populated_monument_type_matches_to_field(gt_path)
+
+    @pytest.mark.parametrize("bad_closure", [None, {}])
+    def test_unstructured_expected_closure_fails(
+        self, tmp_path: Path, bad_closure: dict | None
+    ) -> None:
+        gt_path = _write_gt(tmp_path, "bad_closure", {"expected_closure": bad_closure})
+        with pytest.raises(AssertionError, match="expected_closure"):
+            test_expected_closure_is_structured_dict(gt_path)

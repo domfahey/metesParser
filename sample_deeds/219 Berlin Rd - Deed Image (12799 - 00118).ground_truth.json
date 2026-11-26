@@ -490,7 +490,7 @@
       "arc_length_ft": null,
       "along": null,
       "to": "A POINT IN THE NORTHERLY LINE OF SYCAMORE STREET (50 FEET WIDE)",
-      "monument_type": "tree",
+      "monument_type": null,
       "notes": "incomplete bearing - cardinal only; at right angles to Prospect Ridge Boulevard",
       "is_tie_in": false,
       "tract": "Schedule A-4"
@@ -507,7 +507,7 @@
       "arc_length_ft": null,
       "along": "SAME",
       "to": "THE POINT OF INTERSECTION OF THE NORTHERLY LINE OF SYCAMORE STREET WITH THE EASTERLY LINE OF BLACK HORSE PIKE",
-      "monument_type": "tree",
+      "monument_type": null,
       "notes": "incomplete bearing - cardinal only",
       "is_tie_in": false,
       "tract": "Schedule A-4"
