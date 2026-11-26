@@ -59,7 +59,10 @@ class TestCodexR3ThCardinalStarter:
 
         closure = verify_closure(calls)
         assert not closure.is_fully_verified()
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match="Cannot export verified CSV: selected calls failed fresh verification",
+        ):
             _validate_export_geometry(calls, closure, LegalDescription(calls=calls))
 
         result = review_text(deed)

@@ -110,7 +110,7 @@ def test_corpus_rejects_negative_non_finite_and_bool_tolerances(tol_key, tol_val
         "input": {"kind": "text", "path": "square.txt"},
         "expect": {"status": "checks_passed", tol_key: tol_value},
     }
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=rf"{tol_key} must be a non-negative finite number"):
         _validate_case(case)
 
 
@@ -377,13 +377,26 @@ def test_read_settings_walks_upward_for_project_root_markers(tmp_path):
     assert read_settings(sub_settings)["output_dir"] == (sub / "local-out").resolve()
 
 
-def test_mp_review_main_module_guarded_by_dunder_main():
+def test_mp_review_main_module_guarded_by_dunder_main(monkeypatch: pytest.MonkeyPatch):
+    import runpy
+    import sys
+
+    import mp_review.cli as review_cli
+
+    called: list[str] = []
+
+    def fake_main() -> int:
+        called.append("main")
+        return 0
+
+    monkeypatch.setattr(review_cli, "main", fake_main)
     mod = importlib.import_module("mp_review.__main__")
-    assert mod is not None
-    source = (REPO_ROOT / "packages/mp-review/src/mp_review/__main__.py").read_text(
-        encoding="utf-8"
-    )
-    assert 'if __name__ == "__main__":' in source or "if __name__ == '__main__':" in source
+    importlib.reload(mod)
+    assert called == []
+
+    monkeypatch.delitem(sys.modules, "mp_review.__main__", raising=False)
+    runpy.run_module("mp_review", run_name="__main__")
+    assert called == ["main"]
 
 
 def test_mp_review_pyproject_declares_dev_optional_dependencies():
@@ -674,7 +687,7 @@ def test_pipeline_source_has_no_cast_and_converts_monolith_models(monkeypatch):
 def test_load_ground_truth_rejects_non_dict_json(tmp_path, raw_json):
     gt_file = tmp_path / "non_dict.ground_truth.json"
     gt_file.write_text(raw_json, encoding="utf-8")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Ground truth JSON .* must be an object, got "):
         load_ground_truth(gt_file)
 
 

@@ -70,7 +70,7 @@ def test_projection_failure_during_replay_render_is_not_verified(tmp_path, monke
     replay = replay_delivery(bundle, revision, directory)
     assert replay.geojson_coordinates == "not_verified"
     assert replay.findings and "not re-verified" in replay.findings[0]
-    with pytest.raises(DeliveryReplayIncomplete):
+    with pytest.raises(DeliveryReplayIncomplete, match="GeoJSON coordinates not re-verified"):
         load_delivery(bundle, revision, directory)
     assert load_delivery(bundle, revision, directory, allow_unverified_geojson=True)
 

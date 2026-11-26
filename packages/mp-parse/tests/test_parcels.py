@@ -123,7 +123,7 @@ class TestDetectParcelMarkers:
         markers = detect_parcel_markers(MULTI_PARCEL_TEXT)
         labels = [m["label"] for m in markers]
         # The ground truth says "Combine Legal Description:" (without 'd')
-        assert any("combine" in label.lower() or "combined" in label.lower() for label in labels)
+        assert "Combine Legal Description" in labels
 
     def test_marker_positions_are_ascending(self) -> None:
         """Markers should appear in ascending position order."""
@@ -167,8 +167,7 @@ class TestDetectParcelMarkers:
         text = "PARCEL A - Description of first parcel.\nPARCEL B - Description of second parcel."
         markers = detect_parcel_markers(text)
         labels = [m["label"] for m in markers]
-        assert "Parcel A" in labels or "PARCEL A" in labels
-        assert "Parcel B" in labels or "PARCEL B" in labels
+        assert labels == ["Parcel A", "Parcel B"]
 
     def test_also_marker(self) -> None:
         """Detect 'ALSO:' as parcel marker."""
@@ -208,7 +207,17 @@ class TestDetectParcelMarkers:
         text = "Parcel A: First.\nParcel B: Second.\nCombined Legal Description: Aggregate."
         markers = detect_parcel_markers(text)
         labels = [m["label"] for m in markers]
-        assert any("combined" in label.lower() or "combine" in label.lower() for label in labels)
+        assert labels == ["Parcel A", "Parcel B", "Combined Legal Description"]
+
+    def test_inline_adjoining_and_back_references_ignored(self) -> None:
+        """Mid-call references to adjoining parcels are not parcel headings."""
+        text = (
+            "BEING Parcel A: beginning at the west line of Parcel B: "
+            "thence north 100 feet adjoining Parcel 2: thence west 100 feet "
+            "being Parcel C - previously conveyed and being Parcel 3 - reserved."
+        )
+        markers = detect_parcel_markers(text)
+        assert [m["label"] for m in markers] == ["Parcel A"]
 
     def test_three_markers_in_sample(self) -> None:
         """The sample text should produce exactly 3 markers."""
@@ -233,10 +242,7 @@ class TestSplitIntoParcels:
         """The sample parcels should have correct labels."""
         parcels = split_into_parcels(MULTI_PARCEL_TEXT)
         labels = [p["label"] for p in parcels]
-        assert labels[0] == "Parcel A"
-        assert labels[1] == "Parcel B"
-        # "Combine Legal Description" or "Combined Legal Description"
-        assert "combine" in labels[2].lower() or "combined" in labels[2].lower()
+        assert labels == ["Parcel A", "Parcel B", "Combine Legal Description"]
 
     def test_sample_parcel_types(self) -> None:
         """The sample parcels A and B are primary, combined is combined."""
@@ -383,3 +389,9 @@ def test_combined_description_is_its_own_tract() -> None:
         ("Parcel B", 15),
         ("Parcel B, description 2", 14),
     ]
+
+
+def test_find_marker_end_returns_start_pos_when_unmatched() -> None:
+    from mp_parse.parcels import _find_marker_end
+
+    assert _find_marker_end("plain legal description text", 6) == 6

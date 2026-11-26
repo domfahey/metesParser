@@ -16,6 +16,9 @@ chat-skill-build: ## Build the standalone Claude chat Skill ZIP and checksum.
 	$(UV_RUN) python scripts/build_claude_skill.py
 PY_SRC := src/metesparser
 PY_TESTS := tests
+PKG_PY_SRCS := $(sort $(wildcard packages/mp-*/src))
+PKG_COV_ARGS := $(addprefix --cov=,$(PKG_PY_SRCS))
+PKG_COV_FLOOR ?= 95
 
 # Cache/tooling behavior.
 UV_CACHE_DIR ?= $(CURDIR)/.uv-cache
@@ -35,7 +38,7 @@ DOCTOR_REQUIRE_CONNECTIVITY ?= 0
 .DEFAULT_GOAL := help
 
 # Targets that are not real files.
-.PHONY: all help install install-minimal install-dev install-offline check-tools lockfile-check quality ci distclean test-fast lint lint-fix format format-check check test test-packages test-plugin test-cov clean run-extract run-verify dev-setup pre-commit doctor type review-corpus plugin-build chat-skill-build
+.PHONY: all help install install-minimal install-dev install-offline check-tools lockfile-check quality ci distclean test-fast lint lint-fix format format-check check test test-packages test-packages-cov test-plugin test-cov clean run-extract run-verify dev-setup pre-commit doctor type review-corpus plugin-build chat-skill-build
 
 all: help
 
@@ -64,8 +67,9 @@ help: ## Show available development commands and their usage.
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test          Run pytest test suite"
-	@echo "  make test-packages Run composable package test suites"
-	@echo "  make test-plugin   Run Claude plugin test suite"
+	@echo "  make test-packages     Run composable package test suites"
+	@echo "  make test-packages-cov Run composable package tests with coverage report"
+	@echo "  make test-plugin       Run Claude plugin test suite"
 	@echo "  make test-fast     Run tests with fail-fast behavior"
 	@echo "  make test-cov      Run tests with coverage report"
 	@echo "  make review-corpus Run reviewed deterministic pipeline fixtures without OCR"
@@ -263,6 +267,11 @@ test-packages: ## Run composable package test suites.
 	$(UV_RUN) pytest packages/mp-*/tests --no-cov --import-mode=importlib
 	@echo "✓ Package tests complete"
 
+test-packages-cov: ## Run composable package tests with coverage report and floor.
+	@echo "Running package test suites with coverage..."
+	$(UV_RUN) pytest -o addopts="-v --strict-markers" packages/mp-*/tests --import-mode=importlib $(PKG_COV_ARGS) --cov-report=html:htmlcov/packages --cov-report=term-missing --cov-fail-under=$(PKG_COV_FLOOR)
+	@echo "✓ Package coverage report generated in htmlcov/packages/"
+
 test-plugin: ## Run Claude plugin test suite.
 	@echo "Running plugin test suite..."
 	$(UV_RUN) pytest plugins/metesparser/tests --no-cov --import-mode=importlib
@@ -292,7 +301,7 @@ test-cov: ## Run tests with HTML and terminal coverage reports.
 	$(UV_RUN) pytest --cov=$(PY_SRC) --cov-report=html --cov-report=term-missing
 	@echo "✓ Coverage report generated in htmlcov/"
 
-ci: check-tools install quality test-cov ## CI-oriented end-to-end validation lane.
+ci: check-tools install quality test-cov test-packages-cov ## CI-oriented end-to-end validation lane.
 	@echo "✓ CI checks complete"
 
 clean: ## Remove generated artifacts and caches.

@@ -70,12 +70,23 @@ def test_explicit_foot_definitions(unit, crs, expected):
 
 
 @pytest.mark.parametrize(
-    "changes",
-    [{"source_crs": None}, {"units": "unknown_ft"}, {"axis_order": "yx"}, {"basis": "ground"}],
+    ("changes", "expected_error"),
+    [
+        ({"source_crs": None}, "Projected-layer source CRS is required"),
+        (
+            {"units": "unknown_ft"},
+            "Projected layer requires explicit XY axes and unambiguous units",
+        ),
+        (
+            {"axis_order": "yx"},
+            "Projected layer requires explicit XY axes and unambiguous units",
+        ),
+        ({"basis": "ground"}, "Ground coordinates require a documented ground/grid conversion"),
+    ],
 )
-def test_projected_metadata_fails_closed(changes):
+def test_projected_metadata_fails_closed(changes, expected_error):
     value = {"source_crs": "EPSG:3857", "units": "m", "axis_order": "xy", "features": []} | changes
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_error):
         import_overlay(
             json.dumps(value).encode(), input_format="projected-layer", target_crs="EPSG:3857"
         )
@@ -84,11 +95,14 @@ def test_projected_metadata_fails_closed(changes):
 def test_invalid_geojson_and_missing_extra(monkeypatch):
     import mp_review.overlays as module
 
-    for coords in (
-        [[[0, 0], [1, 1], [0, 1], [1, 0], [0, 0]]],
-        [[[500, 0], [501, 0], [501, 1], [500, 0]]],
+    for coords, expected_error in (
+        ([[[0, 0], [1, 1], [0, 1], [1, 0], [0, 0]]], "degenerate ring has zero area"),
+        (
+            [[[500, 0], [501, 0], [501, 1], [500, 0]]],
+            "RFC 7946 longitude/latitude outside supported range",
+        ),
     ):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=expected_error):
             import_overlay(geo(coords), input_format="geojson", target_crs="EPSG:3857")
     monkeypatch.setattr(
         module, "_projection", lambda: (_ for _ in ()).throw(ValueError("Install mp-review[geo]"))
@@ -149,3 +163,120 @@ def test_missing_grids_and_nonfinite_operations_fail_closed(monkeypatch):
     Group.transformers = [BadTransformer()]
     with pytest.raises(ValueError, match="nonfinite"):
         import_overlay(geo(), input_format="geojson", target_crs="EPSG:3857")
+
+
+def test_overlay_input_size_json_format_coordinate_and_crs_guardrails(monkeypatch):
+    import builtins
+
+    import mp_review.overlays as module
+
+    # Size limit
+    with pytest.raises(ValueError, match="20 MiB"):
+        import_overlay(
+            b"x" * (module.MAX_IMPORT_BYTES + 1), input_format="geojson", target_crs="EPSG:3857"
+        )
+
+    # Malformed JSON & non-object JSON
+    with pytest.raises(ValueError, match="JSON"):
+        import_overlay(b"{not-json", input_format="geojson", target_crs="EPSG:3857")
+    with pytest.raises(ValueError, match="object"):
+        import_overlay(b"[]", input_format="geojson", target_crs="EPSG:3857")
+
+    # Unsupported GeoJSON type & unsupported input_format & empty features
+    with pytest.raises(ValueError, match="Feature or FeatureCollection"):
+        import_overlay(
+            b'{"type":"Point","coordinates":[0,0]}', input_format="geojson", target_crs="EPSG:3857"
+        )
+    with pytest.raises(ValueError, match="Supported formats"):
+        import_overlay(b"{}", input_format="shapefile", target_crs="EPSG:3857")
+    with pytest.raises(ValueError, match="at least one feature"):
+        import_overlay(
+            b'{"type":"FeatureCollection","features":[]}',
+            input_format="geojson",
+            target_crs="EPSG:3857",
+        )
+
+    # Non-object feature & duplicate feature IDs
+    with pytest.raises(ValueError, match="Feature must be an object"):
+        import_overlay(
+            b'{"type":"FeatureCollection","features":[123]}',
+            input_format="geojson",
+            target_crs="EPSG:3857",
+        )
+    dup = json.loads(geo())
+    dup["features"].append(dict(dup["features"][0]))
+    with pytest.raises(ValueError, match="Duplicate feature IDs"):
+        import_overlay(json.dumps(dup).encode(), input_format="geojson", target_crs="EPSG:3857")
+
+    # Empty coordinates, non-XY / bool positions, antimeridian crossing ring
+    empty_coords = json.loads(geo())
+    empty_coords["features"][0]["geometry"]["coordinates"] = []
+    with pytest.raises(ValueError, match="Empty or invalid"):
+        import_overlay(
+            json.dumps(empty_coords).encode(), input_format="geojson", target_crs="EPSG:3857"
+        )
+    for bad_coords in (
+        [[[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 0, 1]]],
+        [[[True, 0], [1, 0], [1, 1], [True, 0]]],
+    ):
+        with pytest.raises(ValueError, match="finite XY"):
+            import_overlay(geo(bad_coords), input_format="geojson", target_crs="EPSG:3857")
+    antimeridian = [[[175, 0], [-175, 0], [-175, 1], [175, 1], [175, 0]]]
+    with pytest.raises(ValueError, match="Antimeridian"):
+        import_overlay(geo(antimeridian), input_format="geojson", target_crs="EPSG:3857")
+
+    # Projected-layer conflicting source_crs override & conflicting declared units vs CRS
+    proj_payload = {
+        "source_crs": "EPSG:3857",
+        "units": "m",
+        "axis_order": "xy",
+        "features": [
+            {
+                "id": "p1",
+                "geometry_type": "Polygon",
+                "coordinates": [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]],
+            }
+        ],
+    }
+    with pytest.raises(ValueError, match="Conflicting source CRS"):
+        import_overlay(
+            json.dumps(proj_payload).encode(),
+            input_format="projected-layer",
+            target_crs="EPSG:3857",
+            source_crs="EPSG:2260",
+        )
+    wrong_units = {**proj_payload, "units": "international_ft"}
+    with pytest.raises(ValueError, match="Declared units conflict"):
+        import_overlay(
+            json.dumps(wrong_units).encode(),
+            input_format="projected-layer",
+            target_crs="EPSG:3857",
+        )
+
+    # Transformer raising an error during coordinate transformation
+    pyproj, _ = module._projection()
+
+    class ExplodingTransformer:
+        def transform(self, *_, **__):
+            raise RuntimeError("proj failure")
+
+    class GoodGroup:
+        best_available = True
+        transformers = [ExplodingTransformer()]
+
+    monkeypatch.setattr(module, "_projection", lambda: (pyproj, lambda *a, **k: GoodGroup()))
+    with pytest.raises(ValueError, match="CRS transformation failed"):
+        import_overlay(geo(), input_format="geojson", target_crs="EPSG:3857")
+
+    # Missing pyproj inside real _projection()
+    monkeypatch.undo()
+    real_import = builtins.__import__
+
+    def no_pyproj(name, *args, **kwargs):
+        if name == "pyproj" or name.startswith("pyproj."):
+            raise ImportError("missing pyproj")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", no_pyproj)
+    with pytest.raises(ValueError, match="mp-review\\[geo\\]"):
+        module._projection()

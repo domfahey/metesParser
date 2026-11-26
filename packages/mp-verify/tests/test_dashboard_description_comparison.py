@@ -62,11 +62,11 @@ def test_changed_sources_recompute_hashes_and_forged_advisory_rejected():
 def test_cross_occurrence_explicit_pair_and_unknown_calculation_rejected():
     raw = data()
     raw["description_comparison_specs"][0]["pairs"][0]["right"]["call_ids"] = ["call-one"]
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="dangling or cross-occurrence calls"):
         DashboardBundle.model_validate(raw)
     raw = data()
     raw["description_comparison_specs"][0]["right_calculation_id"] = "unknown"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="unknown calculation"):
         DashboardBundle.model_validate(raw)
 
 

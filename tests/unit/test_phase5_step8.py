@@ -24,7 +24,7 @@ class TestWitnessTrees:
     def test_extract_witness_tree_with_bears(self) -> None:
         text = "a post oak 12 in dia bears N 22\u00b030' E 15 links dist"
         trees = TextParser.extract_witness_trees(text)
-        assert len(trees) == 1
+        assert trees == [text]
 
     def test_no_witness_trees(self) -> None:
         text = "thence N 45\u00b0 E 100 feet to an iron pin found"

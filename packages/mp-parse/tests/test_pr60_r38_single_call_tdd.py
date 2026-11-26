@@ -22,7 +22,7 @@ CURVE_CHORD = CURVE + ", a chord bearing of N 10° E and a chord of 49.74 feet"
     ],
 )
 def test_curve_with_following_course_raises(text: str) -> None:
-    with pytest.raises(MultipleCoursesError):
+    with pytest.raises(MultipleCoursesError, match="fragment contains multiple courses"):
         extract_single_call(text, 1)
 
 

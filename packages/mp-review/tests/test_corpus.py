@@ -2,6 +2,7 @@ import json
 import math
 from pathlib import Path
 
+import pytest
 from mp_review.cli import main
 from mp_review.corpus import run_corpus
 
@@ -186,3 +187,107 @@ def test_cli_corpus_exit_codes_and_structured_manifest_error(tmp_path, monkeypat
     payload = json.loads(capsys.readouterr().out)
     assert payload["status"] == "error"
     assert payload["errors"][0]["code"] == "invalid_manifest"
+
+
+def test_corpus_rejects_malformed_manifest_case_fields_and_missing_selected_calls(tmp_path):
+    # Non-object manifest fails top-level validation
+    non_obj = tmp_path / "non_obj.json"
+    non_obj.write_text("[]")
+    with pytest.raises(ValueError, match="manifest must be an object"):
+        run_corpus(non_obj)
+
+    (tmp_path / "square.txt").write_bytes((FIXTURES / "square.txt").read_bytes())
+
+    manifest = {
+        "schema_version": "1.0",
+        "reviewed_basis": "Edge-case validation coverage.",
+        "cases": [
+            {
+                "id": "unknown-case-key",
+                "extra": 1,
+                "input": {"kind": "text", "path": "square.txt"},
+                "expect": {"status": "checks_passed"},
+            },
+            {
+                "id": "missing-expect",
+                "input": {"kind": "text", "path": "square.txt"},
+                "expect": {},
+            },
+            {
+                "id": "only-tolerance",
+                "input": {"kind": "text", "path": "square.txt"},
+                "expect": {"numeric_tolerance": 0.01},
+            },
+            {
+                "id": "non-list-selected-calls",
+                "input": {"kind": "text", "path": "square.txt"},
+                "expect": {"selected_calls": "bad"},
+            },
+            {
+                "id": "bad-tolerance",
+                "input": {"kind": "text", "path": "square.txt"},
+                "expect": {"status": "checks_passed", "numeric_tolerance": -1},
+            },
+            {
+                "id": "empty-selected-entry",
+                "input": {"kind": "text", "path": "square.txt"},
+                "expect": {"selected_calls": [{}]},
+            },
+            {
+                "id": "unknown-selected-field",
+                "input": {"kind": "text", "path": "square.txt"},
+                "expect": {"selected_calls": [{"nonexistent_field": 1}]},
+            },
+            {
+                "id": "unsupported-kind",
+                "input": {"kind": "pdf", "path": "square.txt"},
+                "expect": {"status": "checks_passed"},
+            },
+            {
+                "id": "missing-file",
+                "input": {"kind": "text", "path": "absent.txt"},
+                "expect": {"status": "checks_passed"},
+            },
+            {
+                "id": "suffix-mismatch",
+                "input": {"kind": "json", "path": "square.txt"},
+                "expect": {"status": "checks_passed"},
+            },
+            {
+                "id": "bool-mismatch-and-missing-call",
+                "input": {"kind": "text", "path": "square.txt"},
+                "expect": {
+                    "selected_calls": [
+                        {"is_tie_in": 0},  # int 0 vs bool False -> must fail!
+                        {"course": 2},
+                        {"course": 3},
+                        {"course": 4},
+                        {"distance_ft": 100.0, "direction_text": "extra"},  # index 4 missing
+                    ]
+                },
+            },
+        ],
+    }
+    manifest_file = tmp_path / "edge.json"
+    manifest_file.write_text(json.dumps(manifest))
+    report = run_corpus(manifest_file)
+    assert report["status"] == "failed"
+    assert report["passed"] == 0 and report["failed"] == len(manifest["cases"])
+
+    by_id = {c["id"]: c for c in report["cases"]}
+    assert "unknown case keys" in by_id["unknown-case-key"]["error"]["message"]
+    assert "explicit expectations" in by_id["missing-expect"]["error"]["message"]
+    assert "at least one assertion" in by_id["only-tolerance"]["error"]["message"]
+    assert "must be a list" in by_id["non-list-selected-calls"]["error"]["message"]
+    assert "non-negative finite" in by_id["bad-tolerance"]["error"]["message"]
+    assert "non-empty object" in by_id["empty-selected-entry"]["error"]["message"]
+    assert "unknown selected call fields" in by_id["unknown-selected-field"]["error"]["message"]
+    assert "unsupported input kind" in by_id["unsupported-kind"]["error"]["message"]
+    assert by_id["missing-file"]["error"]["type"] == "FileNotFoundError"
+    assert "requires one of" in by_id["suffix-mismatch"]["error"]["message"]
+
+    assertions = {a["assertion"]: a for a in by_id["bool-mismatch-and-missing-call"]["assertions"]}
+    assert assertions["calls[0].is_tie_in"]["passed"] is False
+    assert assertions["calls[4].distance_ft"]["actual"] == "<missing call>"
+    assert assertions["calls[4].distance_ft"]["passed"] is False
+    assert assertions["calls[4].direction_text"]["tolerance"] is None

@@ -38,7 +38,41 @@ def test_input_cannot_inject_review_or_verification_flags(field):
 
 
 def test_duplicate_ids_empty_calls_and_meter_label_are_rejected():
-    for changes in ({"calls": ()}, {"calls": (record(), record())}, {"foot_definition": "m"}):
+    for changes, expected_match in (
+        ({"calls": ()}, "at least 1 item"),
+        ({"calls": (record(), record())}, "plot call IDs must be unique"),
+        ({"foot_definition": "m"}, "foot_definition must identify feet"),
+    ):
         data = {"title": "supplied", "calls": (record(),)} | changes
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match=expected_match):
             PlotRequest.model_validate(data)
+
+
+def test_blank_title_and_mismatched_relative_courses_rejected():
+    from mp_models import LocalFrame, RelativeCourse, RelativeDescription, RelativeSource
+
+    with pytest.raises(ValidationError, match="title must not be blank"):
+        PlotRequest(title="   ", calls=(record(),))
+
+    src = RelativeSource(reference="p1", quote="q")
+    rel = RelativeDescription(
+        frame=LocalFrame(name="L", first_azimuth_deg=0.0, origin=(0.0, 0.0), orientation="cw"),
+        courses=tuple(
+            RelativeCourse(course_id=f"c{i}", distance_ft=10.0, source=src) for i in (1, 2, 3)
+        ),
+        constraints=(),
+    )
+    # Count mismatch (1 call vs 3 relative courses).
+    with pytest.raises(ValidationError, match="correspond in order"):
+        PlotRequest(title="t", calls=(record(),), relative=rel)
+
+    # Matching count but call distance differs from relative course.
+    three_calls = tuple(
+        PlotCall(
+            id=f"c{i}",
+            call=DeedCall(course=i, direction_text="northwardly", distance_ft=20.0),
+        )
+        for i in (1, 2, 3)
+    )
+    with pytest.raises(ValidationError, match="differs from its supplied straight plot call"):
+        PlotRequest(title="t", calls=three_calls, relative=rel)

@@ -24,7 +24,7 @@ def test_valid_thousands_grouping_is_read(text: str, value: float) -> None:
 
 @pytest.mark.parametrize("text", ["1,2,3", "1,23", "1234,567", "12,34,567", "100,5"])
 def test_malformed_comma_grouping_is_no_number(text: str) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="not a length number"):
         parse_number(text)
 
 

@@ -167,7 +167,7 @@ def test_domain_and_wrong_projection_are_rejected():
 
 def test_tampered_raster_is_an_error_not_an_omission():
     layer = layer_for(np.full((3, 3, 4), 255, dtype="uint8"))
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Raster dimensions/MIME do not match its image header"):
         prepare(layer.model_copy(update={"width": 4}))
 
 

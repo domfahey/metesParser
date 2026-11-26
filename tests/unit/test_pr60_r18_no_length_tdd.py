@@ -158,7 +158,7 @@ def test_distance_may_be_undetermined_only_for_spiral_without_length(impl, overr
 
 @pytest.mark.parametrize("impl", MODELS)
 def test_distance_key_is_still_required(impl):
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match=r"(?s)distance_ft.*Field required"):
         MODELS[impl].DeedCall(course=1, direction_text="N 0 E")
 
 

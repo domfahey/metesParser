@@ -96,9 +96,9 @@ def test_numbered_courses_before_the_first_thence_match_ground_truth():
     calls, _ = extract_calls(md)
     assert [c.course for c in calls] == [t["course"] for t in truth]
     assert [c.distance_ft for c in calls] == [t["distance_ft"] for t in truth]
-    assert [round(c.bearing_azimuth_deg_from_north, 4) for c in calls] == [
-        t["bearing_azimuth_deg_from_north"] for t in truth
-    ]
+    assert [c.bearing_azimuth_deg_from_north for c in calls] == pytest.approx(
+        [t["bearing_azimuth_deg_from_north"] for t in truth], abs=1e-9
+    )
     assert calls[0].to == "a point in same"
 
 

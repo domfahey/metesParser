@@ -58,13 +58,28 @@ def test_chord_only_spiral_constructs(impl, with_dir):
 
 
 @pytest.mark.parametrize(
-    "overrides",
+    ("overrides", "expected_match"),
     [
-        {"curve_type": "spiral", "chord_length_ft": 100.0},
-        {"curve_type": "spiral", "curve_dir": "right", "delta_deg": 5.0},
-        {"chord_bearing": "N 20° E", "chord_length_ft": 100.0},
-        {"curve_dir": "right", "chord_bearing": "N 20° E", "chord_length_ft": 100.0},
-        {"curve_type": "circular", "chord_bearing": "N 20° E", "chord_length_ft": 100.0},
+        (
+            {"curve_type": "spiral", "chord_length_ft": 100.0},
+            "curve_dir is required when any curve field is provided",
+        ),
+        (
+            {"curve_type": "spiral", "curve_dir": "right", "delta_deg": 5.0},
+            "Curve geometry requires radius_ft",
+        ),
+        (
+            {"chord_bearing": "N 20° E", "chord_length_ft": 100.0},
+            "curve_dir is required when any curve field is provided",
+        ),
+        (
+            {"curve_dir": "right", "chord_bearing": "N 20° E", "chord_length_ft": 100.0},
+            "Curve geometry requires radius_ft",
+        ),
+        (
+            {"curve_type": "circular", "chord_bearing": "N 20° E", "chord_length_ft": 100.0},
+            "Input should be 'simple', 'compound', 'reverse' or 'spiral'",
+        ),
     ],
     ids=[
         "spiral-length-only",
@@ -75,8 +90,8 @@ def test_chord_only_spiral_constructs(impl, with_dir):
     ],
 )
 @pytest.mark.parametrize("impl", MODELS)
-def test_other_curves_without_radius_stay_rejected(impl, overrides):
-    with pytest.raises(ValidationError):
+def test_other_curves_without_radius_stay_rejected(impl, overrides, expected_match):
+    with pytest.raises(ValidationError, match=expected_match):
         MODELS[impl].DeedCall(course=1, direction_text="x", distance_ft=100.0, **overrides)
 
 
@@ -106,10 +121,15 @@ def test_calls_parse_chord_only_spiral(impl, strict):
 @pytest.mark.parametrize("impl", EXTRACT_CALLS)
 def test_circular_curve_chord_without_radius_is_not_a_spiral(impl):
     text = DEED.replace("spiral curve", "curve")
-    try:
-        calls = EXTRACT_CALLS[impl](text, False)
-    except ValueError:
-        return
+    skipped: list = []
+    if impl == "package":
+        calls = package_extract_calls(text, strict=False, skipped_courses=skipped)[0]
+    else:
+        calls = CallExtractor.extract_calls(text, strict=False, skipped_courses=skipped)
+    assert len(skipped) == 1
+    assert skipped[0].course == 2
+    assert "Missing boundary course distance" in skipped[0].error
+    assert [c.course for c in calls] == [1, 3, 4]
     assert all(NOTE not in (c.notes or "") for c in calls)
     assert all(c.curve_type != "spiral" for c in calls)
 
@@ -124,9 +144,9 @@ def test_verification_positions_spiral_by_chord_without_certifying_arc(impl):
     assert not result.geometry_verified
     curve = next(c for c in result.checks if c.name == "curve_consistency")
     assert curve.status == "blocked"
-    assert any("spiral_geometry_unverified" in str(v) for v in vars(curve).values()) or any(
-        "Spiral geometry is not verified" in w for w in result.warnings
-    )
+    assert curve.reason == "spiral_geometry_unverified"
+    assert "Spiral geometry is not verified" in curve.detail
+    assert any("spiral positioned by its stated chord only" in w for w in result.warnings)
 
 
 def test_plot_places_chord_only_spiral_by_chord():

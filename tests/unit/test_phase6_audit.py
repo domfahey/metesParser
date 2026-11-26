@@ -39,164 +39,28 @@ def _verified_square_calls() -> tuple[list[DeedCall], ClosureResult]:
 
 
 class TestTransformation:
-    def test_create_basic(self):
-        t = Transformation(step="extract_bearing", input="South 56 degrees", output="S 56°00' W")
-        assert t.step == "extract_bearing"
-        assert t.input == "South 56 degrees"
-        assert t.output == "S 56°00' W"
-        assert t.rule is None
-
-    def test_create_with_rule(self):
-        t = Transformation(
-            step="classify_monument",
-            input="iron pin found",
-            output="iron_pin",
-            rule=r"iron\s*pin (call_extractor.py:134)",
-        )
-        assert t.rule == r"iron\s*pin (call_extractor.py:134)"
-
     def test_frozen(self):
         t = Transformation(step="x", input="a", output="b")
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="frozen_instance"):
             t.step = "y"
 
     def test_extra_forbidden(self):
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="extra_forbidden"):
             Transformation(step="x", input="a", output="b", bogus="nope")
 
 
 class TestDecision:
-    def test_create_basic(self):
-        d = Decision(
-            field="monument_type",
-            value="iron_pin",
-            reason="matched pattern",
-            confidence=0.90,
-        )
-        assert d.field == "monument_type"
-        assert d.alternatives == []
-        assert d.confidence == 0.90
-
-    def test_with_alternatives(self):
-        d = Decision(
-            field="monument_type",
-            value="iron_pin",
-            reason="matched",
-            alternatives=["iron_rod"],
-            confidence=0.90,
-        )
-        assert d.alternatives == ["iron_rod"]
-
     def test_confidence_bounds(self):
-        Decision(field="f", value="v", reason="r", confidence=0.0)
-        Decision(field="f", value="v", reason="r", confidence=1.0)
-        with pytest.raises(ValidationError):
+        low = Decision(field="f", value="v", reason="r", confidence=0.0)
+        high = Decision(field="f", value="v", reason="r", confidence=1.0)
+        assert (low.confidence, high.confidence) == (0.0, 1.0)
+        with pytest.raises(ValidationError, match="greater_than_equal"):
             Decision(field="f", value="v", reason="r", confidence=-0.1)
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="less_than_equal"):
             Decision(field="f", value="v", reason="r", confidence=1.1)
 
 
-class TestCallAudit:
-    def test_create_minimal(self):
-        ca = CallAudit(course=1, source_excerpt="thence North 100 feet")
-        assert ca.course == 1
-        assert ca.transformations == []
-        assert ca.decisions == []
-        assert ca.flags == []
-
-    def test_create_full(self):
-        ca = CallAudit(
-            course=3,
-            source_excerpt="thence S 56°40' W 150.00 feet to an iron pin found",
-            transformations=[
-                Transformation(step="extract_bearing", input="S 56°40' W", output="236.675"),
-            ],
-            decisions=[
-                Decision(
-                    field="monument_type",
-                    value="iron_pin",
-                    reason="matched",
-                    confidence=0.90,
-                ),
-            ],
-            flags=["incomplete_bearing"],
-        )
-        assert len(ca.transformations) == 1
-        assert len(ca.decisions) == 1
-        assert ca.flags == ["incomplete_bearing"]
-
-
-class TestCheckResult:
-    def test_create(self):
-        cr = CheckResult(
-            name="traverse_closure",
-            passed=True,
-            detail="misclosure: 0.003 ft < 0.01 ft",
-        )
-        assert cr.name == "traverse_closure"
-        assert cr.passed is True
-        assert cr.inputs == {}
-
-    def test_with_inputs(self):
-        cr = CheckResult(
-            name="traverse_closure",
-            passed=True,
-            detail="ok",
-            inputs={"misclosure_ft": 0.003, "tolerance_ft": 0.01},
-        )
-        assert cr.inputs["misclosure_ft"] == 0.003
-
-
-class TestRunMetadata:
-    def test_create(self):
-        rm = RunMetadata(
-            parser_version="0.2.0",
-            llm_provider="openai",
-            llm_model="gpt-5.2",
-            prompt_hash="abc123",
-            timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
-            source_pdf="deed.pdf",
-            cache_enabled=False,
-        )
-        assert rm.parser_version == "0.2.0"
-        assert rm.config == {}
-
-
-class TestExtractionRecord:
-    def test_create(self):
-        er = ExtractionRecord(
-            raw_llm_response="BEGINNING at...",
-            normalized_text="BEGINNING at...",
-        )
-        assert er.llm_confidence is None
-        assert er.confidence_signals == {}
-
-
-class TestVerificationAudit:
-    def test_create_empty(self):
-        va = VerificationAudit()
-        assert va.checks == []
-        assert va.closure_summary == {}
-
-
 class TestAuditContext:
-    def test_create_minimal(self):
-        ctx = AuditContext(
-            run_metadata=RunMetadata(
-                parser_version="0.2.0",
-                llm_provider="openai",
-                llm_model="gpt-5.2",
-                prompt_hash="abc",
-                timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
-                source_pdf="test.pdf",
-                cache_enabled=False,
-            ),
-        )
-        assert ctx.schema_version == "1.0.0"
-        assert ctx.call_audits == []
-        assert ctx.extraction_record is None
-        assert ctx.verification_audit is None
-
     def test_json_roundtrip(self):
         ctx = AuditContext(
             run_metadata=RunMetadata(
@@ -208,14 +72,49 @@ class TestAuditContext:
                 source_pdf="test.pdf",
                 cache_enabled=False,
             ),
+            extraction_record=ExtractionRecord(
+                raw_llm_response="BEGINNING at...",
+                normalized_text="BEGINNING at...",
+            ),
             call_audits=[
-                CallAudit(course=1, source_excerpt="thence North 100 feet"),
+                CallAudit(
+                    course=1,
+                    source_excerpt="thence North 100 feet",
+                    transformations=[
+                        Transformation(
+                            step="extract_bearing",
+                            input="S 56°40' W",
+                            output="236.675",
+                            rule="quadrant",
+                        )
+                    ],
+                    decisions=[
+                        Decision(
+                            field="monument_type",
+                            value="iron_pin",
+                            reason="matched",
+                            alternatives=["iron_rod"],
+                            confidence=0.90,
+                        )
+                    ],
+                    flags=["incomplete_bearing"],
+                ),
             ],
+            verification_audit=VerificationAudit(
+                checks=[
+                    CheckResult(
+                        name="traverse_closure",
+                        passed=True,
+                        detail="ok",
+                        inputs={"misclosure_ft": 0.003, "tolerance_ft": 0.01},
+                    )
+                ],
+                closure_summary={"status": "EXCELLENT"},
+            ),
         )
         json_str = ctx.model_dump_json(indent=2)
         restored = AuditContext.model_validate_json(json_str)
-        assert restored.call_audits[0].course == 1
-        assert restored.run_metadata.parser_version == "0.2.0"
+        assert restored == ctx
 
     def test_mutable_accumulator(self):
         """AuditContext must allow appending to call_audits (not frozen)."""
@@ -247,10 +146,16 @@ class TestAuditContext:
             ),
         )
         ctx.extraction_record = ExtractionRecord(
-            raw_llm_response="test",
-            normalized_text="test",
+            raw_llm_response="raw deed",
+            normalized_text="normalized deed",
         )
-        assert ctx.extraction_record is not None
+        ctx.verification_audit = VerificationAudit(
+            checks=[CheckResult(name="traverse_closure", passed=True, detail="0.000 ft")],
+            closure_summary={"status": "EXCELLENT"},
+        )
+        assert ctx.extraction_record.raw_llm_response == "raw deed"
+        assert ctx.verification_audit.checks[0].name == "traverse_closure"
+        assert ctx.verification_audit.closure_summary == {"status": "EXCELLENT"}
 
 
 # ---------------------------------------------------------------------------
@@ -289,8 +194,7 @@ class TestSourceExcerptCapture:
         assert ctx.call_audits[0].course == 1
         # Text is normalized before splitting into calls, so the excerpt
         # contains the normalized form (e.g., "N 45° E" not "North 45 degrees East")
-        assert "45" in ctx.call_audits[0].source_excerpt
-        assert "100.00 feet" in ctx.call_audits[0].source_excerpt
+        assert ctx.call_audits[0].source_excerpt == "N 45° E 100.00 feet to a point"
 
     def test_extract_calls_no_audit_context(self):
         text = (
@@ -648,6 +552,51 @@ class TestAuditReporter:
         css = AuditReporter._css()
         assert ".confidence-bar" not in css
 
+    def test_renders_confidence_signals_transformation_rule_and_empty_section_guards(self):
+        """Confidence signals table, transformation rule, and None-section guards render cleanly."""
+        from metesparser.audit_reporter import AuditReporter
+
+        empty_ctx = _make_audit_context()
+        assert AuditReporter._build_extraction_section(empty_ctx) == ""
+        assert AuditReporter._build_verification_section(empty_ctx) == ""
+
+        ctx = AuditContext(
+            run_metadata=RunMetadata(
+                parser_version="0.2.0",
+                llm_provider="gemini",
+                llm_model="gemini-3.6-flash",
+                prompt_hash="abc",
+                timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
+                source_pdf="signals.pdf",
+                cache_enabled=True,
+            ),
+            extraction_record=ExtractionRecord(
+                raw_llm_response="raw text",
+                normalized_text="normalized text",
+                llm_confidence=0.85,
+                confidence_signals={"has_pob": True, "has_plss": False},
+            ),
+            call_audits=[
+                CallAudit(
+                    course=1,
+                    source_excerpt="THENCE N 45° E 100 ft",
+                    transformations=[
+                        Transformation(
+                            step="extract_bearing",
+                            input="N 45° E",
+                            output="45.0",
+                            rule="QUADRANT_PATTERN",
+                        )
+                    ],
+                )
+            ],
+        )
+        html = AuditReporter.generate_html(ctx)
+        assert "<h4>Confidence Signals</h4>" in html
+        assert "<tr><td>has_pob</td><td class='pass'>PASS</td></tr>" in html
+        assert "<tr><td>has_plss</td><td class='fail'>FAIL</td></tr>" in html
+        assert "<em>(rule: QUADRANT_PATTERN)</em>" in html
+
     def test_html_report_written_alongside_csv(self, tmp_path):
         from metesparser.csv_builder import CSVBuilder
 
@@ -687,7 +636,7 @@ _SAMPLE_LEGAL_TEXT = (
 
 def _make_mock_client(
     extract_text_return: str = "Full document text from PDF",
-    extract_legal_return: str = "Raw legal description extracted",
+    extract_legal_return: str = _SAMPLE_LEGAL_TEXT.replace("feet", "ft"),
     normalize_return: str = _SAMPLE_LEGAL_TEXT,
 ) -> MagicMock:
     """Build a MagicMock that satisfies the BaseLLMClient protocol.
@@ -744,7 +693,7 @@ class TestPDFProcessorAudit:
 
     def test_audit_captures_extraction_record(self):
         """AuditContext captures raw LLM response and normalized text."""
-        raw_llm = "Raw deed text from LLM"
+        raw_llm = _SAMPLE_LEGAL_TEXT.replace("feet", "ft")
         normalized = _SAMPLE_LEGAL_TEXT
         mock_client = _make_mock_client(
             extract_legal_return=raw_llm,
@@ -784,6 +733,25 @@ class TestPDFProcessorAudit:
             assert ctx.run_metadata.llm_provider == "openai"
             assert ctx.run_metadata.llm_model == "gpt-5.2"
 
+    def test_audit_llm_provider_detection_gemini(self):
+        """LLM provider is detected as 'gemini' in both stage records and RunMetadata."""
+        mock_client = _make_mock_client()
+        with patch.object(PDFProcessor, "_unwrap_client") as unwrap:
+            from metesparser.llm_clients import GeminiClient
+
+            fake_gemini = MagicMock(spec=GeminiClient)
+            fake_gemini.model = "gemini-3.6-flash"
+            unwrap.return_value = fake_gemini
+
+            processor = PDFProcessor(client=mock_client, cache=False)
+            _, ctx = processor.process_deed_pdf("/fake/deed.pdf", audit=True)
+
+            assert ctx.run_metadata.llm_provider == "gemini"
+            assert ctx.run_metadata.llm_model == "gemini-3.6-flash"
+            assert ctx.extraction_record is not None
+            assert len(ctx.extraction_record.llm_stages) == 3
+            assert all(stage.provider == "gemini" for stage in ctx.extraction_record.llm_stages)
+
     def test_audit_llm_provider_detection_unknown(self):
         """Unknown client types get provider='unknown'."""
         mock_client = _make_mock_client()
@@ -820,13 +788,21 @@ class TestPDFProcessorAudit:
         legal_desc, ctx = processor.process_deed_pdf("/fake/deed.pdf", audit=True)
 
         # The sample text has 4 bearing calls — all should have CallAudit entries
-        assert len(ctx.call_audits) == len(legal_desc.calls)
-        assert len(ctx.call_audits) >= 4
+        assert len(ctx.call_audits) == len(legal_desc.calls) == 4
+        assert [ca.source_excerpt for ca in ctx.call_audits] == [
+            "S 33° E 60.00 feet to a point",
+            "S 56° W 125.00 feet to corner",
+            "N 33° W 60.00 feet to a point",
+            "N 56° E 125.00 feet to the POINT OF BEGINNING.",
+        ]
 
-        # Each call audit should have source_excerpt and at least one transformation
+        # Each call audit records the exact deterministic parsing transformation steps
         for ca in ctx.call_audits:
-            assert ca.source_excerpt != ""
-            assert len(ca.transformations) > 0
+            assert [t.step for t in ca.transformations] == [
+                "extract_bearing",
+                "compute_azimuth",
+                "extract_distance",
+            ]
 
 
 class TestLLMConfidenceScoring:
@@ -848,9 +824,11 @@ class TestLLMConfidenceScoring:
         assert signals["has_closure_language"] is True
 
     def test_low_confidence_garbled(self):
-        text = "Th3nc3 N0rth @#$ d3gr33s"
+        # Non-ASCII garbled characters fail no_garbled_chars too -> 0.0 score
+        text = "Th3nc3 \ufffd\ufffd\ufffd @#$ \x00\x01\x02"
         confidence, signals = PDFProcessor._compute_llm_confidence(text)
-        assert confidence < 0.5
+        assert confidence == pytest.approx(0.0)
+        assert all(v is False for v in signals.values())
 
     def test_missing_closure_reduces_confidence(self):
         open_text = (
@@ -870,7 +848,16 @@ class TestLLMConfidenceScoring:
 
     def test_empty_text(self):
         confidence, signals = PDFProcessor._compute_llm_confidence("")
-        assert confidence < 0.2
+        assert confidence == pytest.approx(0.10)
+        assert signals == {
+            "has_pob": False,
+            "has_bearing_calls": False,
+            "has_closure_language": False,
+            "has_distances": False,
+            "text_length_reasonable": False,
+            "has_plss": False,
+            "no_garbled_chars": True,
+        }
 
     def test_all_signals_present(self):
         """When all signals present, confidence should be 1.0."""

@@ -51,17 +51,17 @@ class Test18PennbrookParcel:
 
         calls = CallExtractor.enrich_calls_with_azimuths(calls)
 
-        assert calls[0].bearing_azimuth_deg_from_north == pytest.approx(146.666667, abs=0.000001)
-        assert calls[1].bearing_azimuth_deg_from_north == pytest.approx(236.666667, abs=0.000001)
-        assert calls[2].bearing_azimuth_deg_from_north == pytest.approx(326.666667, abs=0.000001)
-        assert calls[3].bearing_azimuth_deg_from_north == pytest.approx(56.666667, abs=0.000001)
+        assert calls[0].bearing_azimuth_deg_from_north == pytest.approx(146 + 40 / 60, abs=1e-9)
+        assert calls[1].bearing_azimuth_deg_from_north == pytest.approx(236 + 40 / 60, abs=1e-9)
+        assert calls[2].bearing_azimuth_deg_from_north == pytest.approx(326 + 40 / 60, abs=1e-9)
+        assert calls[3].bearing_azimuth_deg_from_north == pytest.approx(56 + 40 / 60, abs=1e-9)
 
         result = ClosureChecker.verify_closure(calls)
 
         assert result.closure_passed is True
-        assert result.misclosure_ft < 0.01
-
-        assert math.isclose(result.area_sq_ft, 7500.0, abs_tol=10.0)
+        assert math.isclose(result.misclosure_ft, 0.0, abs_tol=1e-9)
+        assert math.isclose(result.area_sq_ft, 7500.0, abs_tol=1e-6)
+        assert math.isclose(result.perimeter_ft, 370.0, abs_tol=1e-9)
         assert result.is_fully_verified() is True
 
 
@@ -89,8 +89,10 @@ class Test31PennbrookParcel:
 
         result = ClosureChecker.verify_closure(calls)
 
-        assert result.misclosure_ft > 0.01
-        assert result.area_sq_ft > 0
+        assert result.closure_passed is False
+        assert math.isclose(result.misclosure_ft, 78.30616895615901, abs_tol=1e-4)
+        assert math.isclose(result.area_sq_ft, 7470.3067707082355, abs_tol=1e-4)
+        assert math.isclose(result.perimeter_ft, 350.52, abs_tol=1e-6)
 
 
 class TestSquareParcel:
@@ -107,11 +109,9 @@ class TestSquareParcel:
         result = ClosureChecker.verify_closure(calls)
 
         assert result.closure_passed is True
-        assert result.misclosure_ft < 0.01
-
-        assert math.isclose(result.area_sq_ft, 10000.0, abs_tol=1.0)
-
-        assert math.isclose(result.perimeter_ft, 400.0, abs_tol=0.1)
+        assert math.isclose(result.misclosure_ft, 0.0, abs_tol=1e-9)
+        assert math.isclose(result.area_sq_ft, 10000.0, abs_tol=1e-6)
+        assert math.isclose(result.perimeter_ft, 400.0, abs_tol=1e-9)
 
 
 class TestIncompleteBearings:
@@ -132,8 +132,13 @@ class TestIncompleteBearings:
 
         result = ClosureChecker.verify_closure(calls)
 
-        assert len(result.warnings) > 0
-        assert any("incomplete bearings" in warning.lower() for warning in result.warnings)
+        assert any(
+            "1 meander/water boundary call(s) (courses 2)" in warning for warning in result.warnings
+        )
+        assert any(
+            "1 call(s) have incomplete bearings (cardinal-only or meanders)" in warning
+            for warning in result.warnings
+        )
 
         assert result.is_fully_verified() is False
 
@@ -166,7 +171,8 @@ class TestCurveIntegration:
         ClosureChecker.verify_closure(calls)
         expected_arc = 50.0 * math.radians(90.0)
         assert calls[1].arc_length_ft is not None
-        assert math.isclose(calls[1].arc_length_ft, expected_arc, abs_tol=0.1)
+        assert math.isclose(calls[1].arc_length_ft, 78.54, abs_tol=1e-9)
+        assert math.isclose(calls[1].arc_length_ft, expected_arc, abs_tol=1e-3)
 
 
 class TestCSVExportIntegration:
@@ -254,11 +260,11 @@ class TestCSVImportExportRoundTrip:
         for original, imported in zip(calls, imported_calls, strict=True):
             assert imported.course == original.course
             assert imported.bearing_quadrant == original.bearing_quadrant
-            assert imported.distance_ft == pytest.approx(original.distance_ft, abs=0.01)
+            assert imported.distance_ft == pytest.approx(original.distance_ft, abs=1e-9)
 
             if original.bearing_azimuth_deg_from_north is not None:
                 assert imported.bearing_azimuth_deg_from_north == pytest.approx(
-                    original.bearing_azimuth_deg_from_north, abs=0.000001
+                    original.bearing_azimuth_deg_from_north, abs=1e-9
                 )
             else:
                 assert imported.bearing_azimuth_deg_from_north is None
@@ -271,20 +277,15 @@ class TestTextNormalizationPipeline:
         """Test OCR error correction in full pipeline."""
         text = WITH_OCR_ERRORS
         normalized = TextParser.normalize_legal_description(text)
-        assert "S" in normalized
-        assert "W" in normalized
-        assert "N" in normalized
-        assert "E" in normalized
-        assert "56°40'" in normalized
-        assert "33°20'" in normalized
+        assert "S 56°40' W 125 feet" in normalized
+        assert "N 33°20' E 60 feet" in normalized
 
         calls = CallExtractor.extract_calls(normalized)
         assert len(calls) == 2
-        assert calls[0].bearing_quadrant is not None
-        assert calls[1].bearing_quadrant is not None
-
-        assert calls[0].bearing_azimuth_deg_from_north is not None
-        assert calls[1].bearing_azimuth_deg_from_north is not None
+        assert calls[0].bearing_quadrant == "S 56°40' W"
+        assert calls[1].bearing_quadrant == "N 33°20' E"
+        assert calls[0].bearing_azimuth_deg_from_north == pytest.approx(236 + 40 / 60, abs=1e-9)
+        assert calls[1].bearing_azimuth_deg_from_north == pytest.approx(33 + 20 / 60, abs=1e-9)
 
     def test_line_wrapping_fix(self):
         """Test line wrapping correction."""
@@ -330,10 +331,10 @@ class TestErrorHandling:
         assert len(calls) == 2
         assert calls[0].course == 1
         assert calls[0].bearing_azimuth_deg_from_north is None
-        assert calls[0].notes is not None and "incomplete" in calls[0].notes.lower()
+        assert calls[0].notes == "incomplete bearing"
         assert calls[-1].bearing_azimuth_deg_from_north is not None
-        assert math.isclose(calls[-1].bearing_azimuth_deg_from_north, 225.0, abs_tol=0.01)
-        assert math.isclose(calls[-1].distance_ft, 100.0, abs_tol=0.01)
+        assert math.isclose(calls[-1].bearing_azimuth_deg_from_north, 225.0, abs_tol=1e-9)
+        assert math.isclose(calls[-1].distance_ft, 100.0, abs_tol=1e-9)
 
 
 class TestRealWorldScenarios:
@@ -375,5 +376,6 @@ class TestRealWorldScenarios:
         result = ClosureChecker.verify_closure(calls)
 
         assert result.closure_passed is True
-
-        assert math.isclose(result.area_sq_ft, 100.0, abs_tol=1.0)
+        assert math.isclose(result.misclosure_ft, 0.0, abs_tol=1e-9)
+        assert math.isclose(result.area_sq_ft, 100.0, abs_tol=1e-6)
+        assert math.isclose(result.perimeter_ft, 40.0, abs_tol=1e-9)

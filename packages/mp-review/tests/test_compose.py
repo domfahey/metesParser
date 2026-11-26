@@ -301,3 +301,94 @@ def test_text_plot_composes_map_with_verbatim_source_txt(tmp_path):
         )["status"]
         == "needs_review"
     )
+
+
+def test_compose_in_process_dashboard_raster_and_fail_closed_validation(tmp_path):
+    from io import BytesIO
+
+    from mp_models.plot import PlotScene
+    from mp_models.raster import RasterControl
+    from mp_review.compose import compose_dashboard_file, compose_map_file
+    from mp_review.raster_registration import fit_affine, image_layer
+    from PIL import Image
+
+    # 1. In-process compose_dashboard_file with valid layer succeeds.
+    dash_out = tmp_path / "composed-dash"
+    dash_res = compose_dashboard_file(
+        FIXTURES / "dashboard-absolute.json", dash_out, layers=[layer(tmp_path)]
+    )
+    assert dash_res["status"] == "needs_review", dash_res
+    assert (dash_out / "bundle.json").is_file()
+
+    # 2. In-process compose_map_file validates raster layers against their scene.
+    buf = BytesIO()
+    Image.new("RGB", (10, 20)).save(buf, format="PNG")
+    scene = PlotScene(id="rgrid", name="R", kind="projected", crs="EPSG:3857", units="m")
+    controls = (
+        RasterControl(id="a", pixel=(0, 0), scene=(0, 0)),
+        RasterControl(id="b", pixel=(10, 0), scene=(10, 0)),
+        RasterControl(id="c", pixel=(0, 10), scene=(0, 10)),
+    )
+    rlayer, rsource = image_layer(
+        buf.getvalue(), scene=scene, registration=fit_affine(controls), filename="scan.png"
+    )
+    raster_layer_file = write(
+        tmp_path / "raster-layer.json",
+        {
+            "scenes": [scene.model_dump(mode="json")],
+            "map_sources": [rsource.model_dump(mode="json")],
+            "raster_layers": [rlayer.model_dump(mode="json")],
+        },
+    )
+    src_plot = plot(tmp_path)
+    map_out = tmp_path / "composed-raster"
+    map_res = compose_map_file(src_plot, map_out, layers=[raster_layer_file])
+    assert map_res["status"] == "needs_review", map_res
+
+    # 3. Existing output dir fails closed without echoing secrets.
+    existing = tmp_path / "already-there"
+    existing.mkdir()
+    err_exists = compose_map_file(src_plot, existing)
+    assert err_exists["status"] == "error"
+    assert err_exists["errors"][0]["code"] == "invalid_composition"
+
+    # 4. Non-dict / missing map arrays layer & non-list map field fail closed.
+    bad_layer_1 = write(tmp_path / "bad1.json", {"unrelated": "SECRET_TOKEN_XYZ"})
+    bad_res_1 = compose_map_file(src_plot, tmp_path / "err1", layers=[bad_layer_1])
+    assert bad_res_1["status"] == "error"
+    assert "SECRET_TOKEN_XYZ" not in json.dumps(bad_res_1)
+
+    bad_layer_2 = write(tmp_path / "bad2.json", {"scenes": "not-a-list"})
+    assert compose_map_file(src_plot, tmp_path / "err2", layers=[bad_layer_2])["status"] == "error"
+
+    # 5. Plot manifest non-dict, hash mismatch, missing/extra source file, stale source & geometry hash.
+    import shutil
+
+    def _copy_plot(name: str) -> Path:
+        dst = tmp_path / name
+        shutil.copytree(src_plot, dst)
+        return dst
+
+    p_non_dict = _copy_plot("p-non-dict")
+    (p_non_dict / "plot-manifest.json").write_text("[]")
+    assert compose_map_file(p_non_dict, tmp_path / "out-nd")["status"] == "error"
+
+    p_bad_geom_sha = _copy_plot("p-bad-geom-sha")
+    m = json.loads((p_bad_geom_sha / "plot-manifest.json").read_text())
+    m["plot_geometry_sha256"] = "0" * 64
+    write(p_bad_geom_sha / "plot-manifest.json", m)
+    assert compose_map_file(p_bad_geom_sha, tmp_path / "out-gs")["status"] == "error"
+
+    p_two_src = _copy_plot("p-two-src")
+    (p_two_src / "source.txt").write_text("extra")
+    assert compose_map_file(p_two_src, tmp_path / "out-2s")["status"] == "error"
+
+    p_bad_src_sha = _copy_plot("p-bad-src-sha")
+    (p_bad_src_sha / "source.json").write_text("[]")
+    assert compose_map_file(p_bad_src_sha, tmp_path / "out-ss")["status"] == "error"
+
+    p_stale_geom_hash = _copy_plot("p-stale-gh")
+    m2 = json.loads((p_stale_geom_hash / "plot-manifest.json").read_text())
+    m2["geometry_hash"] = "0" * 64
+    write(p_stale_geom_hash / "plot-manifest.json", m2)
+    assert compose_map_file(p_stale_geom_hash, tmp_path / "out-sgh")["status"] == "error"

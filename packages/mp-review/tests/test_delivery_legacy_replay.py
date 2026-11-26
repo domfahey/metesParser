@@ -43,7 +43,7 @@ def test_new_packages_record_current_exporter_version(tmp_path):
     snapshot = prepare_delivery(bundle, revision, request)
     assert snapshot.exporter_version == "delivery-2"
     assert "Presentation rotation" in snapshot.omissions[0].reason
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Delivery publication incomplete"):
         load_delivery(bundle, revision, directory.parent / "missing")
 
 

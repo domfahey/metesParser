@@ -69,3 +69,106 @@ def test_standalone_raster_source_content_must_match():
     changed["map_sources"][0]["data_base64"] = None
     with pytest.raises(ValidationError, match="match its map source"):
         StandaloneWebMapInput.model_validate(changed)
+
+
+def test_standalone_layer_and_placement_reference_guards():
+    from mp_models import DeedCall, PlotCall, PlotRequest
+    from mp_models.plot import PlotGeometry
+    from mp_models.plot_request import PreparedPlot
+
+    # Layer referencing unknown scene or source rejected.
+    with pytest.raises(ValidationError, match="unknown scene or map source"):
+        StandaloneWebMapInput.model_validate(
+            {
+                "title": "Map",
+                "scenes": [SCENE],
+                "vector_layers": [
+                    {
+                        "id": "v1",
+                        "label": "V",
+                        "source_id": "missing-src",
+                        "scene_id": "grid",
+                        "geometry_type": "Polygon",
+                        "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]],
+                    }
+                ],
+            }
+        )
+
+    call = PlotCall(
+        id="c1",
+        call=DeedCall(
+            course=1, direction_text="N", bearing_azimuth_deg_from_north=0.0, distance_ft=10.0
+        ),
+    )
+    req = PlotRequest(title="P", calculation_id="calc1", calls=(call,))
+    geom = PlotGeometry(
+        id="calc1",
+        calculation_id="calc1",
+        frame_id="calc1:native",
+        geometry_hash="a" * 64,
+        completeness="unresolved",
+    )
+    plot = PreparedPlot(request=req, geometry=geom, input_hash="b" * 64)
+    base_pl = {
+        "id": "pl1",
+        "calculation_id": "calc1",
+        "geometry_hash": "a" * 64,
+        "scene_id": "grid",
+        "rationale": "manual",
+    }
+
+    # Placement unknown calculation/scene.
+    with pytest.raises(ValidationError, match="unknown calculation or scene"):
+        StandaloneWebMapInput.model_validate(
+            {
+                "title": "Map",
+                "scenes": [SCENE],
+                "plots": [plot],
+                "placements": [base_pl | {"scene_id": "absent"}],
+            }
+        )
+    # Scenario/baseline fields unsupported in standalone mode.
+    with pytest.raises(ValidationError, match="scenario or baseline fields"):
+        StandaloneWebMapInput.model_validate(
+            {
+                "title": "Map",
+                "scenes": [SCENE],
+                "plots": [plot],
+                "placements": [
+                    base_pl
+                    | {
+                        "scenario_id": "sc1",
+                        "baseline_geometry_hash": "c" * 64,
+                        "baseline_placement_id": "pl0",
+                    }
+                ],
+            }
+        )
+    # Dashboard evidence_ids unsupported in standalone mode.
+    with pytest.raises(ValidationError, match="unsupported dashboard evidence"):
+        StandaloneWebMapInput.model_validate(
+            {
+                "title": "Map",
+                "scenes": [SCENE],
+                "plots": [plot],
+                "placements": [base_pl | {"evidence_ids": ["ev1"]}],
+            }
+        )
+    # Referenced status unsupported in standalone mode without orientation frame.
+    with pytest.raises(ValidationError, match="explicit orientation frame"):
+        StandaloneWebMapInput.model_validate(
+            {
+                "title": "Map",
+                "scenes": [SCENE],
+                "plots": [plot],
+                "placements": [
+                    base_pl
+                    | {
+                        "status": "referenced",
+                        "position_evidence": ["monument"],
+                        "orientation_evidence": ["basis"],
+                    }
+                ],
+            }
+        )

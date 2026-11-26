@@ -160,22 +160,49 @@ def test_empty_addition_and_exception_tracts_blocked_in_export_and_review(tmp_pa
 
 
 @pytest.mark.parametrize(
-    "clause",
+    ("clause", "expected_match"),
     [
-        "THENCE N 45° E 100 feet and 2 stone cubits to a pin.",
-        "THENCE N 45° E 100 feet and 2 iron fathoms to a pin.",
-        "THENCE N 45° E 100 feet and 2 concrete km to a pin.",
-        "THENCE N 45° E 100 ft. and 50 yards to a pin.",
-        "THENCE N 45° E 100 feet, and 50 cubits to a pin.",
-        "THENCE N 45° E 100 feet and 50cm to a pin.",
-        "THENCE N 45° E 100m and 50cm to a pin.",
-        "THENCE N 45° E 10 rods 5 ft. and 2 cubits to a pin.",
-        "THENCE N 45° E 10 chains 50 links, and 2 cubits to a pin.",
+        (
+            "THENCE N 45° E 100 feet and 2 stone cubits to a pin.",
+            "Unsupported component in compound course distance",
+        ),
+        (
+            "THENCE N 45° E 100 feet and 2 iron fathoms to a pin.",
+            "Unsupported component in compound course distance",
+        ),
+        (
+            "THENCE N 45° E 100 feet and 2 concrete km to a pin.",
+            "Unsupported component in compound course distance",
+        ),
+        (
+            "THENCE N 45° E 100 ft. and 50 yards to a pin.",
+            "Missing boundary course distance",
+        ),
+        (
+            "THENCE N 45° E 100 feet, and 50 cubits to a pin.",
+            "Missing boundary course distance",
+        ),
+        (
+            "THENCE N 45° E 100 feet and 50cm to a pin.",
+            "Missing boundary course distance",
+        ),
+        (
+            "THENCE N 45° E 100m and 50cm to a pin.",
+            "Missing boundary course distance",
+        ),
+        (
+            "THENCE N 45° E 10 rods 5 ft. and 2 cubits to a pin.",
+            "Missing boundary course distance",
+        ),
+        (
+            "THENCE N 45° E 10 chains 50 links, and 2 cubits to a pin.",
+            "Missing boundary course distance",
+        ),
     ],
 )
-def test_compound_distance_variants_fail_closed(clause: str) -> None:
+def test_compound_distance_variants_fail_closed(clause: str, expected_match: str) -> None:
     normalized = normalize_legal_description(clause)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_match):
         extract_calls(normalized, strict=True)
 
 

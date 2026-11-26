@@ -8,9 +8,11 @@ Covers:
 - Indefinite call flagging
 """
 
+import math
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from metesparser.bearing_converter import BearingConverter
 from metesparser.call_extractor import CallExtractor
@@ -21,39 +23,10 @@ from metesparser.text_parser import TextParser
 
 
 class TestDeedCallPhase4Fields:
-    """Tests for new Phase 4 fields on DeedCall."""
+    """Tests for Phase 4 schema validation on DeedCall."""
 
-    def test_is_meander_default_false(self) -> None:
-        call = DeedCall(course=1, direction_text="N 45° E", distance_ft=100.0)
-        assert call.is_meander is False
-
-    def test_is_meander_set_true(self) -> None:
-        call = DeedCall(course=1, direction_text="N 45° E", distance_ft=100.0, is_meander=True)
-        assert call.is_meander is True
-
-    def test_is_tie_in_default_false(self) -> None:
-        call = DeedCall(course=1, direction_text="N 45° E", distance_ft=100.0)
-        assert call.is_tie_in is False
-
-    def test_is_tie_in_set_true(self) -> None:
-        call = DeedCall(course=1, direction_text="N 45° E", distance_ft=100.0, is_tie_in=True)
-        assert call.is_tie_in is True
-
-    def test_is_indefinite_default_false(self) -> None:
-        call = DeedCall(course=1, direction_text="N 45° E", distance_ft=100.0)
-        assert call.is_indefinite is False
-
-    def test_is_indefinite_set_true(self) -> None:
-        call = DeedCall(
-            course=1, direction_text="southwesterly", distance_ft=100.0, is_indefinite=True
-        )
-        assert call.is_indefinite is True
-
-    def test_curve_type_default_none(self) -> None:
-        call = DeedCall(course=1, direction_text="N 45° E", distance_ft=100.0)
-        assert call.curve_type is None
-
-    def test_curve_type_simple(self) -> None:
+    @pytest.mark.parametrize("curve_type", ["simple", "compound", "reverse", "spiral"])
+    def test_curve_type_valid_literals_accepted(self, curve_type: str) -> None:
         call = DeedCall(
             course=1,
             direction_text="N 45° E",
@@ -61,36 +34,12 @@ class TestDeedCallPhase4Fields:
             curve_dir="left",
             radius_ft=200.0,
             delta_deg=30.0,
-            curve_type="simple",
+            curve_type=curve_type,  # type: ignore[arg-type]
         )
-        assert call.curve_type == "simple"
-
-    def test_curve_type_compound(self) -> None:
-        call = DeedCall(
-            course=1,
-            direction_text="N 45° E",
-            distance_ft=100.0,
-            curve_dir="left",
-            radius_ft=200.0,
-            delta_deg=30.0,
-            curve_type="compound",
-        )
-        assert call.curve_type == "compound"
-
-    def test_curve_type_reverse(self) -> None:
-        call = DeedCall(
-            course=1,
-            direction_text="N 45° E",
-            distance_ft=100.0,
-            curve_dir="right",
-            radius_ft=200.0,
-            delta_deg=30.0,
-            curve_type="reverse",
-        )
-        assert call.curve_type == "reverse"
+        assert call.curve_type == curve_type
 
     def test_curve_type_invalid_rejected(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError, match="curve_type"):
             DeedCall(
                 course=1,
                 direction_text="N 45° E",
@@ -105,24 +54,15 @@ class TestDeedCallPhase4Fields:
 class TestPhase4CSVSchema:
     """Tests for Phase 4 CSV schema changes."""
 
-    def test_fieldnames_count_22(self) -> None:
+    def test_phase4_columns_in_canonical_order(self) -> None:
         assert len(CSVBuilder.FIELDNAMES) == 22
-
-    def test_is_meander_in_fieldnames(self) -> None:
-        assert "is_meander" in CSVBuilder.FIELDNAMES
-
-    def test_is_tie_in_in_fieldnames(self) -> None:
-        assert "is_tie_in" in CSVBuilder.FIELDNAMES
-
-    def test_is_meander_after_is_exception(self) -> None:
         exc_idx = CSVBuilder.FIELDNAMES.index("is_exception")
-        meander_idx = CSVBuilder.FIELDNAMES.index("is_meander")
-        assert meander_idx == exc_idx + 1
-
-    def test_is_tie_in_after_is_meander(self) -> None:
-        meander_idx = CSVBuilder.FIELDNAMES.index("is_meander")
-        tie_in_idx = CSVBuilder.FIELDNAMES.index("is_tie_in")
-        assert tie_in_idx == meander_idx + 1
+        assert CSVBuilder.FIELDNAMES[exc_idx : exc_idx + 3] == [
+            "is_exception",
+            "is_meander",
+            "is_tie_in",
+        ]
+        assert CSVBuilder.FIELDNAMES[-1] == "curve_type"
 
     def test_csv_round_trip_meander(self, tmp_path: Path) -> None:
         output_path = tmp_path / "meander.csv"
@@ -341,41 +281,41 @@ class TestCalculateMissingCurveElements:
             radius_ft=200.0,
             arc_length_ft=104.72,
         )
-        assert result["delta_deg"] == pytest.approx(30.0, abs=0.1)
-        assert result["chord_length_ft"] is not None
-        assert result["chord_length_ft"] > 0
+        expected_delta = math.degrees(104.72 / 200.0)
+        assert result["delta_deg"] == pytest.approx(expected_delta, abs=1e-6)
+        assert result["chord_length_ft"] == pytest.approx(103.527855, abs=1e-5)
 
     def test_radius_and_delta_gives_arc_and_chord(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
             radius_ft=200.0,
             delta_deg=30.0,
         )
-        assert result["arc_length_ft"] == pytest.approx(104.72, abs=0.1)
-        assert result["chord_length_ft"] is not None
+        assert result["arc_length_ft"] == pytest.approx(104.719755, abs=1e-5)
+        assert result["chord_length_ft"] == pytest.approx(103.527618, abs=1e-5)
 
     def test_radius_and_chord_gives_delta_and_arc(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
             radius_ft=200.0,
             chord_length_ft=103.53,
         )
-        assert result["delta_deg"] == pytest.approx(30.0, abs=0.5)
-        assert result["arc_length_ft"] is not None
+        assert result["delta_deg"] == pytest.approx(30.000706, abs=1e-5)
+        assert result["arc_length_ft"] == pytest.approx(104.722221, abs=1e-5)
 
     def test_arc_and_delta_gives_radius_and_chord(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
             arc_length_ft=104.72,
             delta_deg=30.0,
         )
-        assert result["radius_ft"] == pytest.approx(200.0, abs=0.1)
-        assert result["chord_length_ft"] is not None
+        assert result["radius_ft"] == pytest.approx(200.000468, abs=1e-5)
+        assert result["chord_length_ft"] == pytest.approx(103.527860, abs=1e-5)
 
     def test_chord_and_delta_gives_radius_and_arc(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(
             chord_length_ft=103.53,
             delta_deg=30.0,
         )
-        assert result["radius_ft"] == pytest.approx(200.0, abs=0.5)
-        assert result["arc_length_ft"] is not None
+        assert result["radius_ft"] == pytest.approx(200.004602, abs=1e-5)
+        assert result["arc_length_ft"] == pytest.approx(104.722165, abs=1e-5)
 
     def test_arc_and_zero_delta_raises(self) -> None:
         with pytest.raises(ValueError, match="Delta angle must be non-zero"):
@@ -421,8 +361,7 @@ class TestCalculateMissingCurveElements:
             radius_ft=200.0,
             delta_deg=30.0,
         )
-        assert "tangent_length_ft" in result
-        assert result["tangent_length_ft"] == pytest.approx(53.59, abs=0.1)
+        assert result["tangent_length_ft"] == pytest.approx(53.589838, abs=1e-5)
 
 
 # --- Step 6: Tie-In Call Separation ---
@@ -531,7 +470,11 @@ class TestTieInClosureFiltering:
             ),
         ]
         result = ClosureChecker.verify_closure(calls)
-        assert result.misclosure_ft < 0.01
+        assert result.closure_passed is True
+        assert result.geometry_verified is True
+        assert result.misclosure_ft == pytest.approx(0.0, abs=1e-6)
+        assert result.area_sq_ft == pytest.approx(10000.0, abs=1e-3)
+        assert result.perimeter_ft == pytest.approx(400.0, abs=1e-6)
 
 
 # --- Step 7: Indefinite Call Flagging ---

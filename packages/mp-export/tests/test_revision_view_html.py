@@ -210,3 +210,24 @@ def test_unresolved_corridor_view_retains_escaped_raw_input_without_boundary_plo
     assert "Corridor geometry unavailable" in rendered
     assert "&lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;" in rendered
     assert "<img src=x" not in rendered
+
+
+def test_revision_view_handles_null_call_unreferenced_page_and_mismatched_draft_bytes():
+    bundle, prepared = fixture()
+
+    # 1. Mismatched draft_bytes raises ValueError instead of offering inconsistent download.
+    other = prepared.revision.model_copy(update={"label": "Different label"})
+    with pytest.raises(ValueError, match="Download draft does not match"):
+        render_revision(bundle, prepared, draft_bytes=other.model_dump_json().encode())
+
+    # 2. A call with call=None (e.g., annotation/removed addition) and an unreferenced page.
+    null_record = prepared.prepared_calls[0].model_copy(update={"call": None})
+    updated_prepared = prepared.model_copy(
+        update={"prepared_calls": (null_record,) + prepared.prepared_calls[1:]}
+    )
+    extra_page = bundle.pages[0].model_copy(update={"id": "unreferenced-page", "number": 99})
+    updated_bundle = bundle.model_copy(update={"pages": bundle.pages + (extra_page,)})
+
+    rendered = render_revision(updated_bundle, updated_prepared)
+    assert "No parsed call: annotation, removed addition, or unresolved draft." in rendered
+    assert "unreferenced-page" not in rendered

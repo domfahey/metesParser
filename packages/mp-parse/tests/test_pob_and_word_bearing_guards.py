@@ -61,7 +61,7 @@ def test_single_call_course_after_closing_sentence_fails_closed() -> None:
         "N 80°00'00\" W 100 feet to the point of beginning. "
         "Thence S 10°00'00\" W 50.00 feet to a pin."
     )
-    with pytest.raises(MultipleCoursesError):
+    with pytest.raises(MultipleCoursesError, match="fragment contains multiple courses"):
         extract_single_call(text, 1)
 
 

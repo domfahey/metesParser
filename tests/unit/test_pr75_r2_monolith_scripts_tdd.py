@@ -149,7 +149,7 @@ def test_generate_traverse_plot_invalid_or_unpositioned_curve_returns_incomplete
     html = generate_traverse_plot(gt)
     assert "<svg" not in html
     assert "Incomplete traverse plot" in html
-    assert "7" in html
+    assert "missing or invalid geometry for course(s) 7." in html
 
 
 def test_generate_traverse_plot_chord_only_and_spiral_curve_render_line_fallback() -> None:
@@ -406,26 +406,35 @@ def test_extract_sample_deeds_easement_only_deed_does_not_report_closes(
 
 
 @pytest.mark.parametrize(
-    "wheels",
+    ("wheels", "expected_match"),
     [
-        [
-            Path("mp_models-1.0.0-py3-none-any.whl"),
-            Path("mp_models-1.0.0-cp312-none-any.whl"),
-        ],
-        [
-            Path("mp_models-1.0.0-py3-none-any.whl"),
-            Path("Mp.Models-1.0.0-py3-none-any.whl"),
-        ],
-        [
-            Path("mp.models-1.0.0-py3-none-any.whl"),
-            Path("mp_models-2.0.0-py3-none-any.whl"),
-        ],
+        (
+            [
+                Path("mp_models-1.0.0-py3-none-any.whl"),
+                Path("mp_models-1.0.0-cp312-none-any.whl"),
+            ],
+            "Duplicate wheel for mp-models:",
+        ),
+        (
+            [
+                Path("mp_models-1.0.0-py3-none-any.whl"),
+                Path("Mp.Models-1.0.0-py3-none-any.whl"),
+            ],
+            "Duplicate wheel for mp-models:",
+        ),
+        (
+            [
+                Path("mp.models-1.0.0-py3-none-any.whl"),
+                Path("mp_models-2.0.0-py3-none-any.whl"),
+            ],
+            r"Conflicting wheel versions for mp-models: 1\.0\.0 vs 2\.0\.0",
+        ),
     ],
 )
 def test_runtime_project_rejects_duplicate_and_pep503_equivalent_wheels(
-    wheels: list[Path],
+    wheels: list[Path], expected_match: str
 ) -> None:
     """Duplicate package names (even same version or PEP 503 variants) must raise ValueError."""
     builder = _load_script("build_claude_plugin.py")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_match):
         builder.runtime_project(wheels)

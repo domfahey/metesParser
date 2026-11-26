@@ -5,15 +5,16 @@ This guide describes the current test lanes and the commands that run them. Coun
 ## Running tests
 
 ```sh
-make test       # root tests/ suite, with the configured coverage report
-make check      # lint + format + mypy on src/metesparser + root tests
-make test-fast  # root tests; stop on the first failure
-make test-cov   # root tests and HTML/terminal coverage report
+make test              # root tests/ suite, with the configured coverage report
+make check             # lint + format + mypy on src/metesparser + root tests
+make test-fast         # root tests; stop on the first failure
+make test-cov          # root tests and HTML/terminal coverage report (95% floor)
+make test-packages-cov # workspace package tests and coverage report (95% floor)
 ```
 
-`make check` runs lint, `format` (which can modify files), mypy on `src/metesparser/`, and the root test suite. `make quality` uses the non-mutating format check. `make pre-commit` runs `lint-fix`, `format`, and `test`; it does not run mypy. `make ci` starts with `clean` (removing `.venv`, `dist/`, and other generated files), then runs quality and coverage tests; it does not run mypy.
+`make check` runs lint, `format` (which can modify files), mypy on `src/metesparser/`, and the root test suite. `make quality` uses the non-mutating format check. `make pre-commit` runs `lint-fix`, `format`, and `test`; it does not run mypy. `make ci` runs `check-tools`, `install`, `quality`, `test-cov`, and `test-packages-cov` (without `clean`); it does not run mypy.
 
-The root pytest configuration discovers `tests/` and measures `src/metesparser/` with a configured 80% coverage floor. The project aims for coverage above 90%; the configured floor is the enforced threshold. Coverage is not configured to measure the workspace packages, so disable it for package-only runs.
+The root pytest configuration discovers `tests/` and measures `src/metesparser/` with an enforced 95% coverage floor (`--cov-fail-under=95`). Use `make test-packages-cov` to measure all workspace packages (`packages/mp-*/src/`) with an enforced 95% floor (`PKG_COV_FLOOR ?= 95`); disable root coverage (`--no-cov`) for ad-hoc package-only runs that do not override `addopts`.
 
 ### Root suite
 
@@ -102,7 +103,7 @@ Root markers are `slow`, `integration`, `e2e`, `regression`, `curve`, and `valid
 
 ## Test workflow
 
-For a behavior change, add a focused regression for the expected behavior, run it first, then run the affected suite and the broader check when appropriate. Keep fixtures deterministic and synthetic unless a test explicitly documents a real source; ordinary tests should not make provider calls. Root coverage is measured against `src/metesparser/`, as configured in [pyproject.toml](../pyproject.toml); package coverage needs a package-specific configuration before it can be reported meaningfully.
+For a behavior change, add a focused regression for the expected behavior, run it first, then run the affected suite and the broader check when appropriate. Keep fixtures deterministic and synthetic unless a test explicitly documents a real source; ordinary tests should not make provider calls. Root coverage is measured against `src/metesparser/` (95% floor in [pyproject.toml](../pyproject.toml)); workspace package coverage is measured across `packages/mp-*/src/` via `make test-packages-cov` (95% floor).
 
 ## Skill and provider acceptance
 

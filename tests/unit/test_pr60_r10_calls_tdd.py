@@ -18,11 +18,9 @@ import math
 
 import pytest
 from mp_models import CheckResult
-from mp_parse import calls as package_calls
 from mp_parse.calls import extract_single_call as package_single_call
 from mp_verify.closure import verify_closure as package_verify
 
-from metesparser import call_extractor as monolith_calls
 from metesparser.call_extractor import CallExtractor
 from metesparser.closure_checker import ClosureChecker
 from tests.fixtures.package_parser import extract_calls as package_extract_calls
@@ -215,12 +213,3 @@ def test_inconsistent_tangent_chord_curve_never_passes_curve_check(impl):
     result = _triangle(impl, "99.93")
     assert result.curve_consistency_passed is False
     assert _curve_check(result).status in ("failed", "blocked")
-
-
-# --- 3. Dead reference-bearing helpers --------------------------------------------
-
-
-@pytest.mark.parametrize("module", [package_calls, monolith_calls])
-def test_unused_reference_helpers_are_removed(module):
-    assert not hasattr(module, "_without_chord_bearing")
-    assert not hasattr(module, "_without_radial_bearing")

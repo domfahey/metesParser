@@ -58,7 +58,7 @@ class TestCompoundDistanceFailClosed:
     def test_extract_single_call_rejects_unsupported_compound_distance(self, text: str) -> None:
         from mp_parse.calls import extract_single_call
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Unsupported component in compound course distance"):
             extract_single_call(text, 1)
 
     @pytest.mark.parametrize(
@@ -200,7 +200,7 @@ class TestNoFabricatedRadius:
             f"THENCE along a curve to the right having a delta angle of {delta_str} "
             "and an arc length of 157.08 feet to a point"
         )
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Curve delta angle out of range \(0, 360\]:"):
             extract_single_call(curve_text, 1)
 
     def test_non_course_curve_preamble_is_not_initial_course_prefix(self) -> None:

@@ -420,7 +420,11 @@ def test_unknown_scene_rejected():
 @pytest.mark.parametrize("kind", ["recorded_course", "pob"])
 def test_genuine_deed_bindings_are_accepted(kind):
     prepared, artifact = prepared_and_artifact()
-    render_online_map(prepared, deed_artifact(prepared, artifact, kind), view=MapboxViewOptions())
+    bound = deed_artifact(prepared, artifact, kind)
+    html = render_online_map(prepared, bound, view=MapboxViewOptions())
+    assert bound.features[0].id in html
+    assert f'"{kind}"' in html
+    assert "<!doctype html>" in html
 
 
 @pytest.mark.parametrize("field,value", [("source_id", "absent"), ("layer_id", "absent")])

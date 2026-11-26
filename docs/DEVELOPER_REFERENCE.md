@@ -52,13 +52,16 @@ make lint-fix      # Auto-fix linting issues
 make format        # Run ruff formatter
 make format-check  # Check formatter compliance (no changes)
 make type          # Run mypy type checks
-make test          # Run pytest
+make test          # Run pytest (95% root coverage floor on src/metesparser)
+make test-packages # Run composable package test suites
+make test-packages-cov # Run package tests with coverage report (95% floor on packages/mp-*/src)
+make test-plugin   # Run Claude plugin test suite
 make test-fast     # Run pytest with fail-fast
 make test-cov      # Tests with HTML coverage report (htmlcov/index.html)
 make quality       # Lint + format checks only (nonmutating)
 make pre-commit    # lint-fix, format, tests (no type checks; mutating)
 make check         # Root lint + mutating format + root typing/tests
-make ci            # check-tools, install, quality checks, root coverage tests (no clean or type)
+make ci            # check-tools, install, quality checks, root + package coverage tests (no clean or type)
 make clean         # Remove .venv, build/dist artifacts and caches
 make test-dashboard-browser # Opt-in offline dashboard Chromium/Node checks
 make test-mapbox-browser    # Local map adapter/pinned SDK checks; no provider credentials

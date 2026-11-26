@@ -38,8 +38,7 @@ class TestStatePlaneMetadata:
     def test_extract_state_plane_no_fips(self) -> None:
         text = "Based on the Pennsylvania State Plane Coordinate System, South Zone"
         system, fips = TextParser.extract_coordinate_system(text)
-        assert system is not None
-        assert "Pennsylvania" in system or "South Zone" in system
+        assert system == "State Plane Coordinate System, South Zone"
         assert fips is None
 
     def test_extract_fips_code_only(self) -> None:
@@ -57,4 +56,5 @@ class TestStatePlaneMetadata:
         text = "All coordinates based on NAD 83, State Plane Coordinate System, Florida East Zone, FIPS 0901"
         system, fips = TextParser.extract_coordinate_system(text)
         assert system is not None
+        assert "Florida East" in system
         assert fips == "0901"

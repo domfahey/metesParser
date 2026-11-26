@@ -167,40 +167,10 @@ class TestMonumentClassifierNewPatterns:
 
 
 class TestPrecisionRatio:
-    """Test precision_ratio field on ClosureResult."""
-
-    def test_precision_ratio_stored(self):
-        result = ClosureResult(
-            misclosure_x_ft=0.01,
-            misclosure_y_ft=0.01,
-            misclosure_ft=0.0141,
-            area_sq_ft=7500.0,
-            area_acres=0.1722,
-            perimeter_ft=350.0,
-            closure_passed=True,
-            angle_check_passed=True,
-            curve_consistency_passed=True,
-            precision_ratio=0.0141 / 350.0,
-        )
-        assert result.precision_ratio is not None
-        assert math.isclose(result.precision_ratio, 0.0141 / 350.0, rel_tol=1e-6)
-
-    def test_precision_ratio_defaults_to_none(self):
-        result = ClosureResult(
-            misclosure_x_ft=0.0,
-            misclosure_y_ft=0.0,
-            misclosure_ft=0.0,
-            area_sq_ft=0.0,
-            area_acres=0.0,
-            perimeter_ft=0.0,
-            closure_passed=True,
-            angle_check_passed=True,
-            curve_consistency_passed=True,
-        )
-        assert result.precision_ratio is None
+    """Test precision_ratio validation on ClosureResult."""
 
     def test_precision_ratio_rejects_negative(self):
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="greater than or equal to 0"):
             ClosureResult(
                 misclosure_x_ft=0.0,
                 misclosure_y_ft=0.0,
@@ -216,37 +186,7 @@ class TestPrecisionRatio:
 
 
 class TestNonTangentFields:
-    """Test non_tangent and radial_bearing fields on DeedCall."""
-
-    def test_non_tangent_defaults_false(self):
-        call = DeedCall(
-            course=1,
-            direction_text="N 45° E",
-            distance_ft=100.0,
-        )
-        assert call.non_tangent is False
-
-    def test_non_tangent_set_true(self):
-        call = DeedCall(
-            course=1,
-            direction_text="N 45° E",
-            distance_ft=100.0,
-            curve_dir="right",
-            radius_ft=356.37,
-            delta_deg=41.8,
-            non_tangent=True,
-            radial_bearing="N 15°22'00\" E",
-        )
-        assert call.non_tangent is True
-        assert call.radial_bearing == "N 15°22'00\" E"
-
-    def test_radial_bearing_defaults_none(self):
-        call = DeedCall(
-            course=1,
-            direction_text="N 45° E",
-            distance_ft=100.0,
-        )
-        assert call.radial_bearing is None
+    """Test non-obvious cross-field allowance for radial_bearing on DeedCall."""
 
     def test_radial_bearing_without_non_tangent_is_allowed(self):
         """radial_bearing can be set independently for informational purposes."""
@@ -258,3 +198,16 @@ class TestNonTangentFields:
         )
         assert call.radial_bearing == "N 15°22' E"
         assert call.non_tangent is False
+
+    def test_invalid_distance_unit_and_monument_type_rejected(self):
+        from metesparser.models import LegalDescription
+
+        with pytest.raises(ValidationError, match="distance_unit"):
+            LegalDescription(distance_unit="cubits")  # type: ignore[arg-type]
+        with pytest.raises(ValidationError, match="monument_type"):
+            DeedCall(
+                course=1,
+                direction_text="N 45° E",
+                distance_ft=100.0,
+                monument_type="invalid_monument",  # type: ignore[arg-type]
+            )

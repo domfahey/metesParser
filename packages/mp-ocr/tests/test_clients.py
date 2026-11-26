@@ -24,13 +24,11 @@ from mp_ocr import (
 def _install_fake_openai(monkeypatch: pytest.MonkeyPatch):
     module = ModuleType("openai")
     outputs = {"text": "ok"}
+    responses_calls: list[dict[str, object]] = []
 
     class FakeResponses:
-        def __init__(self) -> None:
-            self.calls: list[dict[str, object]] = []
-
         def create(self, **kwargs: object) -> SimpleNamespace:
-            self.calls.append(kwargs)
+            responses_calls.append(kwargs)
             return SimpleNamespace(output_text=outputs["text"])
 
     class FakeOpenAI:
@@ -39,7 +37,7 @@ def _install_fake_openai(monkeypatch: pytest.MonkeyPatch):
 
     module.OpenAI = FakeOpenAI  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "openai", module)
-    return outputs
+    return outputs, responses_calls
 
 
 def _install_fake_gemini(monkeypatch: pytest.MonkeyPatch, generate_content_handler):
@@ -114,26 +112,18 @@ def _install_fake_gemini(monkeypatch: pytest.MonkeyPatch, generate_content_handl
     return generate_calls, FakeClientError, FakeServerError
 
 
-def test_base_client_protocol() -> None:
-    assert hasattr(BaseLLMClient, "generate_text")
-    assert hasattr(BaseLLMClient, "generate_text_with_pdf")
-
-
-def test_llm_error_hierarchy_exported() -> None:
-    assert issubclass(LLMClientError, RuntimeError)
-    assert issubclass(LLMConfigurationError, LLMClientError)
-
-
 def test_openai_client_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    with pytest.raises(LLMConfigurationError, match="OPENAI_API_KEY"):
+    with pytest.raises(LLMConfigurationError, match="OPENAI_API_KEY") as exc_info:
         OpenAIClient()
+    assert isinstance(exc_info.value, LLMClientError)
+    assert isinstance(exc_info.value, RuntimeError)
 
 
 def test_openai_client_generates_text_and_pdf_and_hides_secret(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    outputs = _install_fake_openai(monkeypatch)
+    outputs, responses_calls = _install_fake_openai(monkeypatch)
     outputs["text"] = '{"calls": []}'
     pdf = tmp_path / "deed.pdf"
     pdf.write_bytes(b"%PDF-1.4")
@@ -143,8 +133,8 @@ def test_openai_client_generates_text_and_pdf_and_hides_secret(
     assert client.generate_text("extract", response_mime_type="application/json") == '{"calls": []}'
     assert client.generate_text_with_pdf("read", str(pdf)) == '{"calls": []}'
 
-    pdf_call = client._client.responses.calls[1]
-    file_data = pdf_call["input"][0]["content"][0]["file_data"]
+    pdf_call = responses_calls[1]
+    file_data = pdf_call["input"][0]["content"][0]["file_data"]  # type: ignore[index]
     assert base64.b64decode(file_data.split(",", 1)[1]) == b"%PDF-1.4"
 
 
@@ -381,45 +371,48 @@ def test_gemini_client_single_model_retries_with_backoff_and_validates_config(
     assert calls == ["gemini-3.6-flash"] * 3
     assert sleeps == [0.5, 1.0]
 
-    for bad_kwargs in (
-        {"timeout_ms": 0},
-        {"timeout_ms": True},
-        {"max_retries": -1},
-        {"retry_backoff_s": -0.1},
-        {"retry_backoff_s": float("nan")},
-        {"thinking_budget": -2},
-        {"thinking_level": "   "},
-        {"api_version": ""},
+    for bad_kwargs, expected_match in (
+        ({"timeout_ms": 0}, "timeout_ms must be a positive integer"),
+        ({"timeout_ms": True}, "timeout_ms must be a positive integer"),
+        ({"max_retries": -1}, "max_retries must be a non-negative integer"),
+        ({"retry_backoff_s": -0.1}, "retry_backoff_s must be a non-negative finite number"),
+        ({"retry_backoff_s": float("nan")}, "retry_backoff_s must be a non-negative finite number"),
+        ({"thinking_budget": -2}, "thinking_budget must be >= -1"),
+        ({"thinking_level": "   "}, "thinking_level must be a non-empty string or None"),
+        ({"api_version": ""}, "api_version must be a non-empty string or None"),
     ):
-        with pytest.raises(LLMConfigurationError):
+        with pytest.raises(LLMConfigurationError, match=expected_match):
             GeminiClient(api_key="gm-secret", **bad_kwargs)  # type: ignore[arg-type]
 
 
 def test_cached_client_separates_gemini_thinking_config(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    _install_fake_gemini(monkeypatch, lambda **kwargs: SimpleNamespace(text="ok", candidates=[]))
-    low_a = CachedLLMClient(
-        GeminiClient(api_key="k", thinking_level="low"), cache_dir=tmp_path / "cache"
+    calls, _, _ = _install_fake_gemini(
+        monkeypatch, lambda **kwargs: SimpleNamespace(text=f"resp-{len(calls)}", candidates=[])
     )
-    low_b = CachedLLMClient(
-        GeminiClient(api_key="k", thinking_level="LOW"), cache_dir=tmp_path / "cache"
-    )
-    high = CachedLLMClient(
-        GeminiClient(api_key="k", thinking_level="HIGH"), cache_dir=tmp_path / "cache"
-    )
-    budget = CachedLLMClient(
-        GeminiClient(api_key="k", thinking_budget=0), cache_dir=tmp_path / "cache"
-    )
+    cache_dir = tmp_path / "cache"
+    low_a = CachedLLMClient(GeminiClient(api_key="k", thinking_level="low"), cache_dir=cache_dir)
+    low_b = CachedLLMClient(GeminiClient(api_key="k", thinking_level="LOW"), cache_dir=cache_dir)
+    high = CachedLLMClient(GeminiClient(api_key="k", thinking_level="HIGH"), cache_dir=cache_dir)
+    budget = CachedLLMClient(GeminiClient(api_key="k", thinking_budget=0), cache_dir=cache_dir)
 
-    assert low_a._cache_key("p", None) == low_b._cache_key("p", None)
-    assert low_a._cache_key("p", None) != high._cache_key("p", None)
-    assert low_a._cache_key("p", None) != budget._cache_key("p", None)
+    assert low_a.generate_text("p") == "resp-1"
+    assert len(calls) == 1
+    # Normalized "low" and "LOW" share the same cache entry.
+    assert low_b.generate_text("p") == "resp-1"
+    assert len(calls) == 1
+    # Different thinking_level or thinking_budget misses and writes distinct entries.
+    assert high.generate_text("p") == "resp-2"
+    assert len(calls) == 2
+    assert budget.generate_text("p") == "resp-3"
+    assert len(calls) == 3
 
 
 def test_gemini_client_handles_real_sdk_error_code_attribute(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from google import genai
     from google.genai import errors as genai_errors
 
     seen_models: list[str] = []
@@ -432,8 +425,12 @@ def test_gemini_client_handles_real_sdk_error_code_attribute(
             )
         return SimpleNamespace(text="served by fallback", candidates=[])
 
+    class FakeGenaiClient:
+        def __init__(self, **kwargs: object) -> None:
+            self.models = SimpleNamespace(generate_content=fake_generate)
+
+    monkeypatch.setattr(genai, "Client", FakeGenaiClient)
     client = GeminiClient(api_key="test-key-unused-offline", max_retries=0)
-    monkeypatch.setattr(client._client.models, "generate_content", fake_generate)
     assert client.generate_text("hello") == "served by fallback"
     assert seen_models == ["gemini-3.6-flash", "gemini-3.8-flash"]
 
@@ -526,19 +523,22 @@ def test_openrouter_client_requires_api_key_and_validates_config(
             choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
         ),
     )
-    for bad_kwargs in (
-        {"model": "   "},
-        {"fallback_model": ""},
-        {"base_url": "ftp://openrouter.ai/api/v1"},
-        {"pdf_engine": "  "},
-        {"reasoning_effort": " "},
-        {"timeout_s": 0},
-        {"timeout_s": True},
-        {"timeout_s": float("nan")},
-        {"max_retries": -1},
-        {"retry_backoff_s": -0.5},
+    for bad_kwargs, expected_match in (
+        ({"model": "   "}, "model must be a non-empty string"),
+        ({"fallback_model": ""}, "fallback_model must be a non-empty string or None"),
+        (
+            {"base_url": "ftp://openrouter.ai/api/v1"},
+            "base_url must be a valid http:// or https:// URL",
+        ),
+        ({"pdf_engine": "  "}, "pdf_engine must be a non-empty string or None"),
+        ({"reasoning_effort": " "}, "reasoning_effort must be a non-empty string or None"),
+        ({"timeout_s": 0}, "timeout_s must be a positive finite number"),
+        ({"timeout_s": True}, "timeout_s must be a positive finite number"),
+        ({"timeout_s": float("nan")}, "timeout_s must be a positive finite number"),
+        ({"max_retries": -1}, "max_retries must be a non-negative integer"),
+        ({"retry_backoff_s": -0.5}, "retry_backoff_s must be a non-negative finite number"),
     ):
-        with pytest.raises(LLMConfigurationError):
+        with pytest.raises(LLMConfigurationError, match=expected_match):
             OpenRouterClient(api_key="or-secret", **bad_kwargs)  # type: ignore[arg-type]
 
 
@@ -574,7 +574,7 @@ def test_openrouter_client_text_pdf_plugins_headers_and_redaction(
     assert "or-secret-value" not in repr(client)
     assert "_client=" not in repr(client)
     assert client.reasoning_effort == "low"
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="unexpected keyword argument '_client'"):
         OpenRouterClient(api_key="or-secret-value", _client=object())  # type: ignore[call-arg]
 
     assert client_inits[0]["base_url"] == "https://openrouter.ai/api/v1"
@@ -665,26 +665,36 @@ def test_openrouter_client_retries_failover_and_propagates_non_retryable(
 def test_cached_client_separates_openrouter_pdf_engine_and_reasoning_effort(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    _install_fake_openrouter_openai(
+    _, create_calls, _, _ = _install_fake_openrouter_openai(
         monkeypatch,
         lambda **kwargs: SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
+            choices=[
+                SimpleNamespace(message=SimpleNamespace(content=f"or-resp-{len(create_calls)}"))
+            ]
         ),
     )
-    c_default = CachedLLMClient(OpenRouterClient(api_key="k"), cache_dir=tmp_path / "cache")
+    cache_dir = tmp_path / "cache"
+    c_default = CachedLLMClient(OpenRouterClient(api_key="k"), cache_dir=cache_dir)
     c_mistral = CachedLLMClient(
-        OpenRouterClient(api_key="k", pdf_engine="mistral-ocr"), cache_dir=tmp_path / "cache"
+        OpenRouterClient(api_key="k", pdf_engine="mistral-ocr"), cache_dir=cache_dir
     )
     c_none = CachedLLMClient(
-        OpenRouterClient(api_key="k", reasoning_effort=None), cache_dir=tmp_path / "cache"
+        OpenRouterClient(api_key="k", reasoning_effort=None), cache_dir=cache_dir
     )
     c_low_upper = CachedLLMClient(
-        OpenRouterClient(api_key="k", reasoning_effort="LOW"), cache_dir=tmp_path / "cache"
+        OpenRouterClient(api_key="k", reasoning_effort="LOW"), cache_dir=cache_dir
     )
 
-    assert c_default._cache_key("p", None) != c_mistral._cache_key("p", None)
-    assert c_default._cache_key("p", None) != c_none._cache_key("p", None)
-    assert c_default._cache_key("p", None) == c_low_upper._cache_key("p", None)
+    assert c_default.generate_text("p") == "or-resp-1"
+    assert len(create_calls) == 1
+    # Case-normalized reasoning_effort="LOW" shares the default "low" cache entry.
+    assert c_low_upper.generate_text("p") == "or-resp-1"
+    assert len(create_calls) == 1
+    # Distinct pdf_engine or reasoning_effort=None must miss and invoke the client.
+    assert c_mistral.generate_text("p") == "or-resp-2"
+    assert len(create_calls) == 2
+    assert c_none.generate_text("p") == "or-resp-3"
+    assert len(create_calls) == 3
 
 
 def test_openrouter_client_http200_response_error_retryable_fails_over(
@@ -1003,22 +1013,14 @@ def test_openrouter_client_fallback_dedup_single_model_and_omits_empty_extra_bod
     assert "extra_body" not in single_calls[-1]
 
 
-def test_openrouter_client_collect_response_text_edge_cases() -> None:
-    assert OpenRouterClient._collect_response_text(SimpleNamespace(choices=[])) == ""
-    assert (
-        OpenRouterClient._collect_response_text(
-            SimpleNamespace(choices=[SimpleNamespace(message=None)])
-        )
-        == ""
-    )
-    assert (
-        OpenRouterClient._collect_response_text(
-            SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=None))])
-        )
-        == ""
-    )
-    assert (
-        OpenRouterClient._collect_response_text(
+def test_openrouter_client_collect_response_text_edge_cases(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    responses = iter(
+        [
+            SimpleNamespace(choices=[]),
+            SimpleNamespace(choices=[SimpleNamespace(message=None)]),
+            SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=None))]),
             SimpleNamespace(
                 choices=[
                     SimpleNamespace(
@@ -1032,10 +1034,16 @@ def test_openrouter_client_collect_response_text_edge_cases() -> None:
                         )
                     )
                 ]
-            )
-        )
-        == "visible answer"
+            ),
+        ]
     )
+    _install_fake_openrouter_openai(monkeypatch, lambda **kwargs: next(responses))
+    client = OpenRouterClient(api_key="or-secret", max_retries=0)
+
+    assert client.generate_text("empty choices") == ""
+    assert client.generate_text("null message") == ""
+    assert client.generate_text("null content") == ""
+    assert client.generate_text("structured parts") == "visible answer"
 
 
 def test_openrouter_client_validation_hardening(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1066,49 +1074,89 @@ def test_openrouter_client_validation_hardening(monkeypatch: pytest.MonkeyPatch)
     assert client_inits[-1]["base_url"] == "https://openrouter.ai/api/v1"
 
     # Hostless URLs and non-int / bool max_retries rejected
-    for bad_kwargs in (
-        {"base_url": "https://"},
-        {"base_url": "http://"},
-        {"base_url": "https:///api/v1"},
-        {"max_retries": 1.5},
-        {"max_retries": True},
+    for bad_kwargs, expected_match in (
+        (
+            {"base_url": "https://"},
+            "base_url must be a valid http:// or https:// URL with a hostname",
+        ),
+        (
+            {"base_url": "http://"},
+            "base_url must be a valid http:// or https:// URL with a hostname",
+        ),
+        (
+            {"base_url": "https:///api/v1"},
+            "base_url must be a valid http:// or https:// URL with a hostname",
+        ),
+        ({"max_retries": 1.5}, "max_retries must be a non-negative integer"),
+        ({"max_retries": True}, "max_retries must be a non-negative integer"),
     ):
-        with pytest.raises(LLMConfigurationError):
+        with pytest.raises(LLMConfigurationError, match=expected_match):
             OpenRouterClient(api_key="or-secret", **bad_kwargs)  # type: ignore[arg-type]
 
 
 def test_cached_client_openrouter_base_url_and_cross_provider_isolation(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    _install_fake_openrouter_openai(
-        monkeypatch,
-        lambda **kwargs: SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
-        ),
-    )
+    module = ModuleType("openai")
+    openai_calls: list[dict[str, object]] = []
+    openrouter_calls: list[dict[str, object]] = []
+
+    class FakeResponses:
+        def create(self, **kwargs: object) -> SimpleNamespace:
+            openai_calls.append(kwargs)
+            return SimpleNamespace(output_text=f"openai-{len(openai_calls)}")
+
+    class FakeCompletions:
+        def create(self, **kwargs: object) -> SimpleNamespace:
+            openrouter_calls.append(kwargs)
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(content=f"openrouter-{len(openrouter_calls)}")
+                    )
+                ]
+            )
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs: object) -> None:
+            self.responses = FakeResponses()
+            self.chat = SimpleNamespace(completions=FakeCompletions())
+
+    module.OpenAI = FakeOpenAI  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "openai", module)
+
+    cache_dir = tmp_path / "cache"
     c_default = CachedLLMClient(
         OpenRouterClient(api_key="k", base_url="https://openrouter.ai/api/v1"),
-        cache_dir=tmp_path / "cache",
+        cache_dir=cache_dir,
     )
     c_slash = CachedLLMClient(
         OpenRouterClient(api_key="k", base_url="https://openrouter.ai/api/v1/"),
-        cache_dir=tmp_path / "cache",
+        cache_dir=cache_dir,
     )
     c_other_host = CachedLLMClient(
         OpenRouterClient(api_key="k", base_url="https://proxy.example.com/api/v1"),
-        cache_dir=tmp_path / "cache",
+        cache_dir=cache_dir,
     )
-    assert c_default._cache_key("p", None) == c_slash._cache_key("p", None)
-    assert c_default._cache_key("p", None) != c_other_host._cache_key("p", None)
+    assert c_default.generate_text("p") == "openrouter-1"
+    assert len(openrouter_calls) == 1
+    # Trailing slash normalization shares the same cache entry.
+    assert c_slash.generate_text("p") == "openrouter-1"
+    assert len(openrouter_calls) == 1
+    # Different base_url host misses and writes a separate entry.
+    assert c_other_host.generate_text("p") == "openrouter-2"
+    assert len(openrouter_calls) == 2
 
-    c_openai = CachedLLMClient(
-        OpenAIClient(api_key="k", model="gpt-5.2"), cache_dir=tmp_path / "cache"
-    )
+    c_openai = CachedLLMClient(OpenAIClient(api_key="k", model="gpt-5.2"), cache_dir=cache_dir)
     c_openrouter_same_slug = CachedLLMClient(
         OpenRouterClient(api_key="k", model="gpt-5.2", fallback_model=None, reasoning_effort=None),
-        cache_dir=tmp_path / "cache",
+        cache_dir=cache_dir,
     )
-    assert c_openai._cache_key("p", None) != c_openrouter_same_slug._cache_key("p", None)
+    assert c_openai.generate_text("p") == "openai-1"
+    assert len(openai_calls) == 1
+    # Same model slug on OpenRouter must not reuse the OpenAI cache entry.
+    assert c_openrouter_same_slug.generate_text("p") == "openrouter-3"
+    assert len(openrouter_calls) == 3
 
 
 def test_openrouter_client_strips_openai_org_project_headers_and_webhook_secret(
@@ -1156,37 +1204,65 @@ def test_openrouter_client_security_url_and_header_validation(
         assert c.base_url == loopback_url.rstrip("/")
 
     # Remote cleartext HTTP, embedded credentials, query/fragment, and control chars rejected
-    for bad_base_url in (
-        "http://openrouter.ai/api/v1",
-        "http://example.com/api/v1",
-        "https://user:pass@openrouter.ai/api/v1",
-        "https://user@openrouter.ai/api/v1",
-        "https://openrouter.ai/api/v1?foo=bar",
-        "https://openrouter.ai/api/v1#section",
-        "https://openrouter.ai/api/v1\nX-Injected: 1",
-        "https://openrouter.ai/api/v1\x7f",
+    for bad_base_url, expected_match in (
+        ("http://openrouter.ai/api/v1", "base_url must use https:// for non-loopback hosts"),
+        ("http://example.com/api/v1", "base_url must use https:// for non-loopback hosts"),
+        (
+            "https://user:pass@openrouter.ai/api/v1",
+            "base_url must not contain embedded credentials",
+        ),
+        ("https://user@openrouter.ai/api/v1", "base_url must not contain embedded credentials"),
+        (
+            "https://openrouter.ai/api/v1?foo=bar",
+            "base_url must not contain embedded credentials, query strings, or fragments",
+        ),
+        (
+            "https://openrouter.ai/api/v1#section",
+            "base_url must not contain embedded credentials, query strings, or fragments",
+        ),
+        (
+            "https://openrouter.ai/api/v1\nX-Injected: 1",
+            "base_url must not contain control characters",
+        ),
+        ("https://openrouter.ai/api/v1\x7f", "base_url must not contain control characters"),
     ):
-        with pytest.raises(LLMConfigurationError):
+        with pytest.raises(LLMConfigurationError, match=expected_match):
             OpenRouterClient(api_key="or-secret", base_url=bad_base_url)
 
     # Control characters / non-ASCII in api_key, site_url, app_name rejected fail-fast
     for bad_key in ("or-secret\r\nX-Evil: 1", "or-secret\x00", "or-secret-é"):
-        with pytest.raises(LLMConfigurationError):
+        with pytest.raises(
+            LLMConfigurationError, match="OpenRouter API key must contain only printable ASCII"
+        ):
             OpenRouterClient(api_key=bad_key)
 
-    for bad_site_url in (
-        "https://example.com\r\nX-Evil: 1",
-        "https://exämple.com",
-        "ftp://example.com",
-        "javascript:alert(1)",
-        "not-a-url",
-        "https://user:pass@example.com",
+    for bad_site_url, expected_match in (
+        (
+            "https://example.com\r\nX-Evil: 1",
+            "site_url must contain only printable ASCII characters",
+        ),
+        ("https://exämple.com", "site_url must contain only printable ASCII characters"),
+        (
+            "ftp://example.com",
+            "site_url must be a valid http:// or https:// URL without credentials",
+        ),
+        (
+            "javascript:alert(1)",
+            "site_url must be a valid http:// or https:// URL without credentials",
+        ),
+        ("not-a-url", "site_url must be a valid http:// or https:// URL without credentials"),
+        (
+            "https://user:pass@example.com",
+            "site_url must be a valid http:// or https:// URL without credentials",
+        ),
     ):
-        with pytest.raises(LLMConfigurationError):
+        with pytest.raises(LLMConfigurationError, match=expected_match):
             OpenRouterClient(api_key="or-secret", site_url=bad_site_url)
 
     for bad_app_name in ("MetesParser\r\nX-Evil: 1", "MetesParser\x7f", "MetesParser™"):
-        with pytest.raises(LLMConfigurationError):
+        with pytest.raises(
+            LLMConfigurationError, match="app_name must contain only printable ASCII characters"
+        ):
             OpenRouterClient(api_key="or-secret", app_name=bad_app_name)
 
 
@@ -1243,7 +1319,10 @@ def test_openrouter_client_http200_sdk_fidelity_edge_cases(
             lambda payload=bad_payload, **kwargs: payload,
         )
         c_exhaust = OpenRouterClient(api_key="or-secret", fallback_model=None, max_retries=0)
-        with pytest.raises(LLMClientError):
+        with pytest.raises(
+            LLMClientError,
+            match=f"unexpected response payload for anthropic/claude-haiku-5\\.5: {type(bad_payload).__name__}",
+        ):
             c_exhaust.generate_text("hello")
 
     # 3. Empty dict error ({"error": {}}) is still caught and raises LLMClientError (never "")
@@ -1252,7 +1331,9 @@ def test_openrouter_client_http200_sdk_fidelity_edge_cases(
         lambda **kwargs: SimpleNamespace(choices=[], error={}),
     )
     c_empty_err = OpenRouterClient(api_key="or-secret", max_retries=0)
-    with pytest.raises(LLMClientError):
+    with pytest.raises(
+        LLMClientError, match=r"OpenRouter error for anthropic/claude-haiku-5\.5: \{\}"
+    ):
         c_empty_err.generate_text("hello")
 
     # 4. Non-list truthy choices does not raise KeyError: 0
@@ -1264,25 +1345,25 @@ def test_openrouter_client_http200_sdk_fidelity_edge_cases(
     assert c_dict_choices.generate_text("hello") == ""
 
     # 5. Extended reasoning/thinking content block types are skipped
-    assert (
-        OpenRouterClient._collect_response_text(
-            SimpleNamespace(
-                choices=[
-                    SimpleNamespace(
-                        message=SimpleNamespace(
-                            content=[
-                                {"type": "reasoning_text", "text": "skip-1"},
-                                {"type": "reasoning_summary", "text": "skip-2"},
-                                {"type": "thinking_delta", "text": "skip-3"},
-                                {"type": "text", "text": "kept text"},
-                            ]
-                        )
+    _install_fake_openrouter_openai(
+        monkeypatch,
+        lambda **kwargs: SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(
+                        content=[
+                            {"type": "reasoning_text", "text": "skip-1"},
+                            {"type": "reasoning_summary", "text": "skip-2"},
+                            {"type": "thinking_delta", "text": "skip-3"},
+                            {"type": "text", "text": "kept text"},
+                        ]
                     )
-                ]
-            )
-        )
-        == "kept text"
+                )
+            ]
+        ),
     )
+    c_reasoning_blocks = OpenRouterClient(api_key="or-secret", max_retries=0)
+    assert c_reasoning_blocks.generate_text("hello") == "kept text"
 
 
 def test_cached_client_does_not_persist_empty_or_whitespace_responses(tmp_path: Path) -> None:
@@ -1349,29 +1430,53 @@ def test_openrouter_client_rejects_malformed_ipv6_invalid_ports_and_url_whitespa
     )
     assert valid.base_url == "https://openrouter.ai:443/api/v1"
 
-    for bad_base_url in (
-        "https://[::1/api/v1",
-        "https://openrouter.ai:abc/api/v1",
-        "https://openrouter.ai:0/api/v1",
-        "http://localhost:0/api/v1",
-        "https://openrouter.ai:99999/api/v1",
-        "https://openrouter.ai:-1/api/v1",
-        "https://openrouter.ai/api /v1",
-        "https://open router.ai/api/v1",
+    for bad_base_url, expected_match in (
+        (
+            "https://[::1/api/v1",
+            "base_url must be a valid http:// or https:// URL with a hostname",
+        ),
+        (
+            "https://openrouter.ai:abc/api/v1",
+            "base_url must be a valid http:// or https:// URL with a hostname",
+        ),
+        ("https://openrouter.ai:0/api/v1", "base_url port must be a positive integer"),
+        ("http://localhost:0/api/v1", "base_url port must be a positive integer"),
+        (
+            "https://openrouter.ai:99999/api/v1",
+            "base_url must be a valid http:// or https:// URL with a hostname",
+        ),
+        (
+            "https://openrouter.ai:-1/api/v1",
+            "base_url must be a valid http:// or https:// URL with a hostname",
+        ),
+        ("https://openrouter.ai/api /v1", "base_url must not contain whitespace"),
+        ("https://open router.ai/api/v1", "base_url must not contain whitespace"),
     ):
-        with pytest.raises(LLMConfigurationError):
+        with pytest.raises(LLMConfigurationError, match=expected_match):
             OpenRouterClient(api_key="or-secret", base_url=bad_base_url)
 
-    for bad_site_url in (
-        "https://[::1/app",
-        "https://example.com:abc",
-        "https://example.com:0",
-        "https://example.com:99999",
-        "https://example.com:-1",
-        "https://example.com/my app",
-        "https://exam ple.com",
+    for bad_site_url, expected_match in (
+        (
+            "https://[::1/app",
+            "site_url must be a valid http:// or https:// URL without credentials",
+        ),
+        (
+            "https://example.com:abc",
+            "site_url must be a valid http:// or https:// URL without credentials",
+        ),
+        ("https://example.com:0", "site_url port must be a positive integer"),
+        (
+            "https://example.com:99999",
+            "site_url must be a valid http:// or https:// URL without credentials",
+        ),
+        (
+            "https://example.com:-1",
+            "site_url must be a valid http:// or https:// URL without credentials",
+        ),
+        ("https://example.com/my app", "site_url must not contain whitespace"),
+        ("https://exam ple.com", "site_url must not contain whitespace"),
     ):
-        with pytest.raises(LLMConfigurationError):
+        with pytest.raises(LLMConfigurationError, match=expected_match):
             OpenRouterClient(api_key="or-secret", site_url=bad_site_url)
 
 
@@ -1420,27 +1525,201 @@ def test_cached_client_treats_preexisting_empty_or_whitespace_cache_file_as_miss
             self.calls += 1
             return "fresh pdf"
 
+    text_cache_dir = tmp_path / "text_cache"
+    client = CountingClient()
+    cached_text = CachedLLMClient(client, cache_dir=text_cache_dir)
+
+    assert cached_text.generate_text("prompt") == "fresh text"
+    assert client.calls == 1
+    [text_cache_file] = list(text_cache_dir.glob("*.json"))
+    text_cache_file.write_text(json.dumps({"response": poisoned_response}), encoding="utf-8")
+
+    assert cached_text.generate_text("prompt") == "fresh text"
+    assert client.calls == 2
+    assert cached_text.generate_text("prompt") == "fresh text"
+    assert client.calls == 2
+
+    pdf_cache_dir = tmp_path / "pdf_cache"
+    cached_pdf = CachedLLMClient(client, cache_dir=pdf_cache_dir)
+    pdf = tmp_path / "deed.pdf"
+    pdf.write_bytes(b"%PDF-1.4")
+
+    assert cached_pdf.generate_text_with_pdf("extract", str(pdf)) == "fresh pdf"
+    assert client.calls == 3
+    [pdf_cache_file] = list(pdf_cache_dir.glob("*.json"))
+    pdf_cache_file.write_text(json.dumps({"response": poisoned_response}), encoding="utf-8")
+
+    assert cached_pdf.generate_text_with_pdf("extract", str(pdf)) == "fresh pdf"
+    assert client.calls == 4
+    assert cached_pdf.generate_text_with_pdf("extract", str(pdf)) == "fresh pdf"
+    assert client.calls == 4
+
+
+def test_gemini_client_passes_response_mime_type_and_handles_empty_candidates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_configs: list[dict[str, object]] = []
+    responses: list[object] = [
+        SimpleNamespace(
+            text='{"calls": []}',
+            candidates=[
+                SimpleNamespace(content=None),
+                SimpleNamespace(content=SimpleNamespace(parts=[])),
+            ],
+        ),
+        SimpleNamespace(text="", candidates=[]),
+    ]
+
+    def handler(*, model, contents, config, client_error, server_error):
+        captured_configs.append(config)
+        return responses.pop(0)
+
+    _install_fake_gemini(monkeypatch, handler)
+    client: BaseLLMClient = GeminiClient(api_key="gm-secret")
+
+    assert (
+        client.generate_text("extract json", response_mime_type="application/json")
+        == '{"calls": []}'
+    )
+    assert captured_configs[0]["response_mime_type"] == "application/json"
+    assert client.generate_text("empty reply") == ""
+
+
+def test_openrouter_client_missing_sdk_class_and_non_numeric_error_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    broken_openai = ModuleType("openai")
+    monkeypatch.setitem(sys.modules, "openai", broken_openai)
+    with pytest.raises(LLMConfigurationError, match="openai package not installed"):
+        OpenRouterClient(api_key="or-secret")
+
+    _install_fake_openrouter_openai(
+        monkeypatch,
+        lambda **kwargs: SimpleNamespace(
+            choices=[],
+            error={"code": "non_numeric_code", "message": "provider rejected request"},
+        ),
+    )
+    client = OpenRouterClient(api_key="or-secret", max_retries=0)
+    with pytest.raises(LLMClientError, match="provider rejected request"):
+        client.generate_text("hello")
+
+
+def test_cached_client_model_name_unwrapping_and_cycle_guard(tmp_path: Path) -> None:
+    class ModelAttrClient:
+        model = "model-only-v1"
+
+        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+            return "ok"
+
+        def generate_text_with_pdf(
+            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+        ) -> str:
+            return "ok"
+
+    class ModelNameAttrClient(ModelAttrClient):
+        model_name = "explicit-model-name"
+
+    class AnonymousClient:
+        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+            return "ok"
+
+        def generate_text_with_pdf(
+            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+        ) -> str:
+            return "ok"
+
+    cached_model = CachedLLMClient(ModelAttrClient(), cache_dir=tmp_path / "c1")
+    nested_model = CachedLLMClient(cached_model, cache_dir=tmp_path / "c2")
+    assert cached_model.model_name == "model-only-v1"
+    assert nested_model.model_name == "model-only-v1"
+
+    cached_named = CachedLLMClient(ModelNameAttrClient(), cache_dir=tmp_path / "c3")
+    assert cached_named.model_name == "explicit-model-name"
+
+    cached_anon = CachedLLMClient(AnonymousClient(), cache_dir=tmp_path / "c4")
+    assert cached_anon.model_name is None
+
+    # Cyclic cache wrappers must terminate unwrapping safely and report no model name.
+    cyclic_a = CachedLLMClient(AnonymousClient(), cache_dir=tmp_path / "c5")
+    cyclic_b = CachedLLMClient(cyclic_a, cache_dir=tmp_path / "c6")
+    cyclic_a._client = cyclic_b
+    assert cyclic_a.model_name is None
+
+
+@pytest.mark.parametrize(
+    "raw_bytes",
+    [
+        b'["not", "a", "dict"]',
+        b"{invalid json",
+        b"\xff\xfe\xfd",
+    ],
+)
+def test_cached_client_recovers_from_corrupt_or_non_dict_cache_entries(
+    tmp_path: Path, raw_bytes: bytes
+) -> None:
+    class CountingClient:
+        model = "test-model"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+            self.calls += 1
+            return "recovered response"
+
+        def generate_text_with_pdf(
+            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+        ) -> str:
+            self.calls += 1
+            return "recovered pdf"
+
     cache_dir = tmp_path / "cache"
     client = CountingClient()
     cached = CachedLLMClient(client, cache_dir=cache_dir)
-
-    text_key = cached._cache_key("prompt", None)
-    cached._cache_path(text_key).write_text(
-        json.dumps({"response": poisoned_response}), encoding="utf-8"
-    )
-    assert cached.generate_text("prompt") == "fresh text"
+    assert cached.generate_text("prompt") == "recovered response"
     assert client.calls == 1
-    assert cached.generate_text("prompt") == "fresh text"
-    assert client.calls == 1
+    [cache_file] = list(cache_dir.glob("*.json"))
+    cache_file.write_bytes(raw_bytes)
 
-    pdf = tmp_path / "deed.pdf"
-    pdf_bytes = b"%PDF-1.4"
-    pdf.write_bytes(pdf_bytes)
-    pdf_key = cached._cache_key("extract", None, pdf_bytes)
-    cached._cache_path(pdf_key).write_text(
-        json.dumps({"response": poisoned_response}), encoding="utf-8"
-    )
-    assert cached.generate_text_with_pdf("extract", str(pdf)) == "fresh pdf"
+    assert cached.generate_text("prompt") == "recovered response"
     assert client.calls == 2
-    assert cached.generate_text_with_pdf("extract", str(pdf)) == "fresh pdf"
+    assert cached.generate_text("prompt") == "recovered response"
     assert client.calls == 2
+
+
+def test_cached_client_write_failure_is_non_fatal_and_cleans_temp_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    class StubClient:
+        model = "test-model"
+
+        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+            return "fresh response"
+
+        def generate_text_with_pdf(
+            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+        ) -> str:
+            return "fresh pdf"
+
+    cache_dir = tmp_path / "cache"
+    cached = CachedLLMClient(StubClient(), cache_dir=cache_dir)
+
+    def fail_replace(src: object, dst: object) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr("mp_ocr.cache.os.replace", fail_replace)
+    assert cached.generate_text("prompt-1") == "fresh response"
+    assert list(cache_dir.glob("*.tmp")) == []
+    assert list(cache_dir.glob("*.json")) == []
+
+    # Even if temp-file cleanup also hits OSError, the LLM response is still returned.
+    orig_unlink = Path.unlink
+
+    def fail_tmp_unlink(self: Path, *args: object, **kwargs: object) -> None:
+        if self.suffix == ".tmp":
+            raise OSError("cannot unlink")
+        orig_unlink(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "unlink", fail_tmp_unlink)
+    assert cached.generate_text("prompt-2") == "fresh response"

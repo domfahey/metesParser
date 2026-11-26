@@ -50,7 +50,7 @@ def test_out_of_range_bearing_in_multi_course_text_is_not_skipped() -> None:
     ],
 )
 def test_identifiers_are_not_bearings(text: str) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="No usable course could be parsed"):
         extract_single_call(text, 1)
 
 

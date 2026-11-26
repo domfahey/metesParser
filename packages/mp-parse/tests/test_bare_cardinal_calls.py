@@ -21,63 +21,61 @@ class TestBareCardinalNormalization:
 
     def test_thence_s_distance(self) -> None:
         """'thence S 289.81 feet' -> 'thence due South 289.81 feet'."""
-        result = expand_assessor_abbreviations("thence S 289.81 feet")
-        assert "due South" in result
-        assert "289.81" in result
+        assert (
+            expand_assessor_abbreviations("thence S 289.81 feet") == "thence due South 289.81 feet"
+        )
 
     def test_thence_w_distance(self) -> None:
         """'thence W 199.44 feet' -> 'thence due West 199.44 feet'."""
-        result = expand_assessor_abbreviations("thence W 199.44 feet")
-        assert "due West" in result
-        assert "199.44" in result
+        assert (
+            expand_assessor_abbreviations("thence W 199.44 feet") == "thence due West 199.44 feet"
+        )
 
     def test_thence_n_distance(self) -> None:
         """'thence N 45.00 feet' -> 'thence due North 45.00 feet'."""
-        result = expand_assessor_abbreviations("thence N 45.00 feet")
-        assert "due North" in result
-        assert "45.00" in result
+        assert expand_assessor_abbreviations("thence N 45.00 feet") == "thence due North 45.00 feet"
 
     def test_thence_e_distance(self) -> None:
         """'thence E 100.50 feet' -> 'thence due East 100.50 feet'."""
-        result = expand_assessor_abbreviations("thence E 100.50 feet")
-        assert "due East" in result
-        assert "100.50" in result
+        assert (
+            expand_assessor_abbreviations("thence E 100.50 feet") == "thence due East 100.50 feet"
+        )
 
     def test_thence_south_word_distance(self) -> None:
         """'thence South 289.81 feet' -> 'thence due South 289.81 feet'."""
-        result = expand_assessor_abbreviations("thence South 289.81 feet")
-        assert "due South" in result
-        assert "289.81" in result
+        assert (
+            expand_assessor_abbreviations("thence South 289.81 feet")
+            == "thence due South 289.81 feet"
+        )
 
     def test_thence_west_word_distance(self) -> None:
         """'thence West 199.44 feet' -> 'thence due West 199.44 feet'."""
-        result = expand_assessor_abbreviations("thence West 199.44 feet")
-        assert "due West" in result
-        assert "199.44" in result
+        assert (
+            expand_assessor_abbreviations("thence West 199.44 feet")
+            == "thence due West 199.44 feet"
+        )
 
     def test_thence_north_word_distance(self) -> None:
         """'thence North 45.00 feet' -> 'thence due North 45.00 feet'."""
-        result = expand_assessor_abbreviations("thence North 45.00 feet")
-        assert "due North" in result
-        assert "45.00" in result
+        assert (
+            expand_assessor_abbreviations("thence North 45.00 feet")
+            == "thence due North 45.00 feet"
+        )
 
     def test_thence_east_word_distance(self) -> None:
         """'thence East 100.50 feet' -> 'thence due East 100.50 feet'."""
-        result = expand_assessor_abbreviations("thence East 100.50 feet")
-        assert "due East" in result
-        assert "100.50" in result
+        assert (
+            expand_assessor_abbreviations("thence East 100.50 feet")
+            == "thence due East 100.50 feet"
+        )
 
     def test_integer_distance(self) -> None:
         """'thence S 100 feet' -> 'thence due South 100 feet' (no decimal)."""
-        result = expand_assessor_abbreviations("thence S 100 feet")
-        assert "due South" in result
-        assert "100" in result
+        assert expand_assessor_abbreviations("thence S 100 feet") == "thence due South 100 feet"
 
     def test_no_unit_suffix(self) -> None:
         """'thence S 289.81' (no unit) should still be normalized."""
-        result = expand_assessor_abbreviations("thence S 289.81")
-        assert "due South" in result
-        assert "289.81" in result
+        assert expand_assessor_abbreviations("thence S 289.81") == "thence due South 289.81"
 
 
 class TestBareCardinalNotFalsePositive:
@@ -127,14 +125,13 @@ class TestAmpersandAndSeparator:
         """'113.41 feet & N 69° 53' 23\" E 109.98 feet' -> inserts 'thence'."""
         text = "N 48° 03' 44\" E 113.41 feet & N 69° 53' 23\" E 109.98 feet"
         result = expand_assessor_abbreviations(text)
-        assert "thence" in result.lower()
+        assert result == "N 48° 03' 44\" E 113.41 feet thence N 69° 53' 23\" E 109.98 feet"
 
     def test_and_between_bearings(self) -> None:
         """'49.18 feet and N 48° 03' 44\" E 113.41 feet' -> inserts 'thence'."""
         text = "N 15° 21' 23\" E 49.18 feet and N 48° 03' 44\" E 113.41 feet"
         result = expand_assessor_abbreviations(text)
-        # The 'and' should become 'thence' between the two bearings
-        assert result.lower().count("thence") >= 1
+        assert result == "N 15° 21' 23\" E 49.18 feet thence N 48° 03' 44\" E 113.41 feet"
 
 
 class TestDeed50058FullText:
@@ -176,10 +173,11 @@ class TestDeed50058FullText:
             if c.bearing_azimuth_deg_from_north is not None
             and abs(c.bearing_azimuth_deg_from_north - 180.0) < 0.01
         ]
-        assert len(south_calls) >= 1, (
-            f"Missing due South call. Calls: "
+        assert len(south_calls) == 1, (
+            f"Expected 1 due South call. Calls: "
             f"{[(c.course, c.direction_text, c.bearing_azimuth_deg_from_north) for c in calls]}"
         )
+        assert south_calls[0].distance_ft == 289.81
 
     def test_bare_west_call_has_azimuth_270(self) -> None:
         """The bare 'W 199.44 ft' call should have azimuth 270.0 (due West)."""
@@ -190,15 +188,14 @@ class TestDeed50058FullText:
             if c.bearing_azimuth_deg_from_north is not None
             and abs(c.bearing_azimuth_deg_from_north - 270.0) < 0.01
         ]
-        assert len(west_calls) >= 1, (
-            f"Missing due West call. Calls: "
+        assert len(west_calls) == 1, (
+            f"Expected 1 due West call. Calls: "
             f"{[(c.course, c.direction_text, c.bearing_azimuth_deg_from_north) for c in calls]}"
         )
+        assert west_calls[0].distance_ft == 199.44
 
     def test_last_call_closes_to_pob(self) -> None:
         """The final call should reference 'point of beginning'."""
         calls, _tracts = extract_calls(self.FULL_TEXT)
-        assert len(calls) >= 1
-        last = calls[-1]
-        assert last.to is not None
-        assert "beginning" in last.to.lower() or "pob" in last.to.lower()
+        assert len(calls) == 7
+        assert calls[-1].to == "the point of beginning"

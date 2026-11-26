@@ -66,7 +66,7 @@ def test_tampered_baseline_late_generation_and_malformed_fail(bundle):
     with pytest.raises(ValueError, match="generation"):
         import_revision(bundle, data, expected_generation=2)
     data["made_up"] = True
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Extra inputs are not permitted"):
         import_revision(bundle, data)
 
 
@@ -230,7 +230,7 @@ def test_duplicate_json_nonfinite_unknown_and_cross_identity_rejected(bundle):
     data = edit(bundle, distance_ft="NaN")
     assert import_revision(bundle, data).state == "draft"
     data["edits"][0]["raw_fields"]["made_up"] = "something"
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="unsupported revision raw field"):
         import_revision(bundle, data)
 
 

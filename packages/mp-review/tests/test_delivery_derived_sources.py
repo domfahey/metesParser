@@ -110,12 +110,19 @@ def test_corridor_save_reopen_delivery_retains_raw_centerline_and_full_construct
     assert manifest["snapshot_sha256"] == _hash(restored.model_dump(mode="json"))
 
 
-@pytest.mark.parametrize("field", ["manifest_sha256", "input_sha256", "geometry_sha256"])
-def test_binding_rejects_wrong_or_stale_source_identity(tmp_path, field):
+@pytest.mark.parametrize(
+    ("field", "expected_error"),
+    [
+        ("manifest_sha256", "Derived source manifest hash differs from explicit binding"),
+        ("input_sha256", "Corridor input/geometry hash differs from explicit binding"),
+        ("geometry_sha256", "Corridor input/geometry hash differs from explicit binding"),
+    ],
+)
+def test_binding_rejects_wrong_or_stale_source_identity(tmp_path, field, expected_error):
     bundle, revision, req, _, _ = request(tmp_path, "corridor")
     data = req.model_dump(mode="json")
     data["source_bindings"][0][field] = "0" * 64
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_error):
         prepare_delivery(bundle, revision, DeliveryRequest.model_validate(data))
 
 
@@ -132,7 +139,7 @@ def test_changed_source_breaks_frozen_delivery_replay_even_with_existing_package
     assert publish_delivery(bundle, revision, req, tmp_path / "exports")["status"] == "needs_review"
     path = Path(req.source_bindings[0].artifact_dir) / "request.json"
     path.write_bytes(path.read_bytes() + b" ")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Corridor artifact content differs from its manifest"):
         load_delivery(bundle, revision, tmp_path / "exports/package")
 
 
@@ -386,7 +393,10 @@ def test_plss_does_not_accept_a_different_target_scene_or_a_forged_prepared_laye
     data = json.loads((source_dir / "prepared-layer.json").read_text())
     data["vector_layers"][0]["label"] = "forged unrelated reference"
     (source_dir / "prepared-layer.json").write_text(json.dumps(data))
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="PLSS artifact prepared-layer.json differs from fresh source/reference derivation",
+    ):
         replay_plss(source_dir)
 
 
@@ -569,8 +579,9 @@ def test_inspect_delivery_surfaces_rotation_omission(tmp_path, monkeypatch, caps
             str(tmp_path / "exports/package"),
         ],
     )
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as exit_info:
         main()
+    assert exit_info.value.code == 1
     payload = json.loads(capsys.readouterr().out)
     assert any("rotation" in o["reason"].lower() for o in payload["omissions"])
 

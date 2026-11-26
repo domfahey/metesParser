@@ -50,4 +50,4 @@ class TestCompassPointSystem:
 
     def test_extract_direction_prefers_quadrant_over_compass(self) -> None:
         result = CallExtractor.extract_direction("S 45°30' E along the North line 100 feet")
-        assert "45" in result  # quadrant bearing, not "North"
+        assert result == "S 45°30' E"

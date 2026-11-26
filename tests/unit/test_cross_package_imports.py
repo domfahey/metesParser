@@ -1,49 +1,149 @@
-"""Verify cross-package imports work correctly across the workspace."""
+"""Verify cross-package imports and core behaviors work across the workspace."""
 
 from __future__ import annotations
 
+import io
+import math
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import get_args
+
+import pytest
+
+
+def _square_calls():
+    from mp_models import DeedCall
+
+    return [
+        DeedCall(
+            course=1,
+            direction_text="N 0°00' E",
+            bearing_quadrant="N 0°00' E",
+            bearing_azimuth_deg_from_north=0.0,
+            distance_ft=100.0,
+        ),
+        DeedCall(
+            course=2,
+            direction_text="S 90°00' E",
+            bearing_quadrant="S 90°00' E",
+            bearing_azimuth_deg_from_north=90.0,
+            distance_ft=100.0,
+        ),
+        DeedCall(
+            course=3,
+            direction_text="S 0°00' W",
+            bearing_quadrant="S 0°00' W",
+            bearing_azimuth_deg_from_north=180.0,
+            distance_ft=100.0,
+        ),
+        DeedCall(
+            course=4,
+            direction_text="N 90°00' W",
+            bearing_quadrant="N 90°00' W",
+            bearing_azimuth_deg_from_north=270.0,
+            distance_ft=100.0,
+        ),
+    ]
+
 
 class TestMpModelsImports:
-    """mp-models package should export all core types."""
+    """mp-models package should export working core types."""
 
     def test_core_types(self) -> None:
-        from mp_models import AuditContext, ClosureResult, DeedCall, LegalDescription, Point
+        from mp_models import (
+            AuditContext,
+            ClosureResult,
+            DeedCall,
+            LegalDescription,
+            Point,
+            RunMetadata,
+        )
 
-        assert DeedCall is not None
-        assert LegalDescription is not None
-        assert ClosureResult is not None
-        assert Point is not None
-        assert AuditContext is not None
+        call = DeedCall(
+            course=1,
+            direction_text="N 45°00' E",
+            bearing_quadrant="N 45°00' E",
+            bearing_azimuth_deg_from_north=45.0,
+            distance_ft=100.0,
+        )
+        desc = LegalDescription(calls=[call], source_doc="sample.pdf")
+        pt = Point(x=10.0, y=20.0)
+        closure = ClosureResult(
+            misclosure_ft=0.0,
+            misclosure_x_ft=0.0,
+            misclosure_y_ft=0.0,
+            area_sq_ft=10000.0,
+            area_acres=10000.0 / 43560.0,
+            perimeter_ft=400.0,
+            closure_passed=True,
+            angle_check_passed=True,
+            curve_consistency_passed=True,
+        )
+        ctx = AuditContext(
+            run_metadata=RunMetadata(
+                parser_version="1.0.0",
+                llm_provider="openai",
+                llm_model="gpt-5.2",
+                prompt_hash="abc",
+                timestamp_utc=datetime(2026, 1, 1, tzinfo=UTC),
+                source_pdf="sample.pdf",
+                cache_enabled=False,
+            )
+        )
+
+        assert desc.num_calls() == 1
+        assert (pt.x, pt.y) == (10.0, 20.0)
+        assert closure.closure_passed is True
+        assert ctx.run_metadata.source_pdf == "sample.pdf"
 
     def test_envelope_types(self) -> None:
         from mp_models import RawTextMessage, parse_message, read_jsonl, write_jsonl
 
-        assert RawTextMessage is not None
-        assert read_jsonl is not None
-        assert write_jsonl is not None
-        assert parse_message is not None
+        msg = RawTextMessage(
+            source="deed.pdf",
+            text="BEGINNING at a point;",
+            llm_provider="openai",
+            llm_model="gpt-5.2",
+        )
+        buf = io.StringIO()
+        write_jsonl(buf, msg)
+        line = buf.getvalue().strip()
+
+        assert parse_message(line) == msg
+        buf.seek(0)
+        assert list(read_jsonl(buf)) == [msg]
 
     def test_unit_types(self) -> None:
         from mp_models import ConversionFactors, DistanceUnit
 
-        assert ConversionFactors is not None
-        assert DistanceUnit is not None
+        assert ConversionFactors.convert_to_feet(1.0, "chains") == pytest.approx(66.0, abs=1e-6)
+        assert ConversionFactors.convert_to_feet(2.0, "rods") == pytest.approx(33.0, abs=1e-6)
+        units = get_args(DistanceUnit)
+        assert {"feet", "chains", "rods", "varas"}.issubset(set(units))
 
     def test_tract_types(self) -> None:
         from mp_models import Tract, TractType
 
+        calls = _square_calls()
+        tract = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=calls)
         assert TractType.MAIN == "main"
-        assert Tract is not None
+        assert tract.label == "Tract 1"
+        assert tract.tract_type is TractType.MAIN
+        assert len(tract.calls) == 4
 
     def test_logging(self) -> None:
         from mp_models import configure_logging, get_log_format
 
-        assert configure_logging is not None
-        assert get_log_format is not None
+        previous_format = get_log_format()
+        try:
+            configure_logging(level="WARNING", log_format="json", stream=io.StringIO())
+            assert get_log_format() == "json"
+        finally:
+            configure_logging(log_format=previous_format, stream=io.StringIO())
 
 
 class TestMpBearingImports:
-    """mp-bearing package should export azimuth and curve functions."""
+    """mp-bearing package should export working azimuth and curve functions."""
 
     def test_azimuth_functions(self) -> None:
         from mp_bearing import (
@@ -53,49 +153,92 @@ class TestMpBearingImports:
             quadrant_to_azimuth,
         )
 
-        assert quadrant_to_azimuth is not None
-        assert parse_quadrant_bearing is not None
-        assert bearing_to_azimuth is not None
-        assert due_cardinal_to_azimuth is not None
+        assert quadrant_to_azimuth("N", 45.0, "E") == 45.0
+        assert parse_quadrant_bearing("S 56°40'30\" W") == (
+            "S",
+            pytest.approx(56.675, abs=1e-6),
+            "W",
+        )
+        assert bearing_to_azimuth("S 56°40'30\" W") == pytest.approx(236.675, abs=1e-6)
+        assert due_cardinal_to_azimuth("due West") == 270.0
 
     def test_curve_functions(self) -> None:
         from mp_bearing import calculate_curve_properties, calculate_missing_curve_elements
 
-        assert calculate_curve_properties is not None
-        assert calculate_missing_curve_elements is not None
+        props = calculate_curve_properties(100.0, delta_deg=90.0)
+        assert props["arc_length_ft"] == pytest.approx(50.0 * math.pi, abs=1e-6)
+        assert props["chord_length_ft"] == pytest.approx(100.0 * math.sqrt(2), abs=1e-6)
+
+        solved = calculate_missing_curve_elements(radius_ft=100.0, delta_deg=90.0)
+        assert solved["arc_length_ft"] == pytest.approx(50.0 * math.pi, abs=1e-6)
+        assert solved["chord_length_ft"] == pytest.approx(100.0 * math.sqrt(2), abs=1e-6)
 
     def test_delta_functions(self) -> None:
         from mp_bearing import calculate_deltas
 
-        assert calculate_deltas is not None
+        dx, dy = calculate_deltas(90.0, 100.0)
+        assert dx == pytest.approx(100.0, abs=1e-9)
+        assert dy == pytest.approx(0.0, abs=1e-9)
 
 
 class TestMpParseImports:
-    """mp-parse package should export call extraction and monument functions."""
+    """mp-parse package should export working call extraction and monument functions."""
 
     def test_call_functions(self) -> None:
+        from mp_models import DeedCall
         from mp_parse import enrich_calls_with_azimuths, extract_calls, mark_tie_in_calls
 
-        assert extract_calls is not None
-        assert mark_tie_in_calls is not None
-        assert enrich_calls_with_azimuths is not None
+        calls, tracts = extract_calls(
+            "BEGINNING at a point; THENCE N 45°00' E 100.00 feet to an iron pin."
+        )
+        assert tracts == []
+        assert len(calls) == 1
+        assert calls[0].bearing_azimuth_deg_from_north == pytest.approx(45.0, abs=1e-6)
+
+        unenriched = [
+            DeedCall(
+                course=1,
+                direction_text="N 45°00' E",
+                bearing_quadrant="N 45°00' E",
+                distance_ft=50.0,
+                to="the point of beginning",
+            ),
+            DeedCall(
+                course=2,
+                direction_text="S 45°00' E",
+                bearing_quadrant="S 45°00' E",
+                distance_ft=100.0,
+            ),
+        ]
+        enriched = enrich_calls_with_azimuths(unenriched)
+        assert [c.bearing_azimuth_deg_from_north for c in enriched] == [45.0, 135.0]
+
+        marked = mark_tie_in_calls(enriched, poc_description="NW corner of Section 12")
+        assert [c.is_tie_in for c in marked] == [True, False]
 
     def test_monument_functions(self) -> None:
         from mp_parse import classify_monument, classify_monument_status
 
-        assert classify_monument is not None
-        assert classify_monument_status is not None
+        assert classify_monument("iron pin found") == "iron_pin"
+        assert classify_monument_status("iron pin found") == "found"
 
     def test_normalizer_functions(self) -> None:
         from mp_parse import expand_assessor_abbreviations
 
-        assert expand_assessor_abbreviations is not None
+        assert expand_assessor_abbreviations("N 45 E 100 FT") == "N 45 E 100 feet"
 
     def test_strip_exception_functions(self) -> None:
         from mp_parse import detect_strip_exceptions, remove_strip_exceptions
 
-        assert detect_strip_exceptions is not None
-        assert remove_strip_exceptions is not None
+        text = (
+            "BEGINNING at a point; THENCE N 45 E 100 feet. "
+            "LESS AND EXCEPT the east 10 feet thereof."
+        )
+        strips = detect_strip_exceptions(text)
+        assert len(strips) == 1
+        assert strips[0]["direction"] == "East"
+        assert strips[0]["width_ft"] == 10.0
+        assert remove_strip_exceptions(text) == "BEGINNING at a point; THENCE N 45 E 100 feet."
 
     def test_parcel_functions(self) -> None:
         from mp_parse import (
@@ -105,36 +248,59 @@ class TestMpParseImports:
             split_into_parcels,
         )
 
-        assert ParcelInfo is not None
-        assert ParcelMarker is not None
-        assert detect_parcel_markers is not None
-        assert split_into_parcels is not None
+        text = "Parcel A: BEGINNING at a point. Parcel B: BEGINNING at another point."
+        markers: list[ParcelMarker] = detect_parcel_markers(text)
+        parcels: list[ParcelInfo] = split_into_parcels(text)
+
+        assert [m["label"] for m in markers] == ["Parcel A", "Parcel B"]
+        assert set(markers[0].keys()) == set(ParcelMarker.__annotations__)
+        assert [p["label"] for p in parcels] == ["Parcel A", "Parcel B"]
+        assert set(parcels[0].keys()) == set(ParcelInfo.__annotations__)
 
     def test_split_into_tracts(self) -> None:
+        from mp_models import TractType
         from mp_parse import split_into_tracts
 
-        assert callable(split_into_tracts)
+        text = (
+            "TRACT #1: BEGINNING at a point; THENCE N 0° E 100 feet. "
+            "TRACT #2: BEGINNING at a point; THENCE S 0° W 50 feet."
+        )
+        segments = split_into_tracts(text)
+        assert [(label, tract_type) for _seg_text, label, tract_type in segments] == [
+            ("Tract 1", TractType.MAIN),
+            ("Tract 2", TractType.MAIN),
+        ]
 
 
 class TestMpVerifyImports:
-    """mp-verify package should export verification functions."""
+    """mp-verify package should export working verification functions."""
 
     def test_verify_closure(self) -> None:
         from mp_verify import get_closure_summary, verify_closure
 
-        assert verify_closure is not None
-        assert get_closure_summary is not None
+        result = verify_closure(_square_calls())
+        assert result.closure_passed is True
+        assert result.area_sq_ft == pytest.approx(10000.0, abs=1e-6)
+        summary = get_closure_summary(result)
+        assert "FULLY VERIFIED" in summary
 
     def test_confidence_functions(self) -> None:
-        from mp_verify import calculate_confidence_score, score_call_quality
+        from mp_verify import calculate_confidence_score, score_call_quality, verify_closure
 
-        assert calculate_confidence_score is not None
-        assert score_call_quality is not None
+        calls = _square_calls()
+        result = verify_closure(calls)
+        assert score_call_quality(calls[0]) == "high"
+        assert calculate_confidence_score(result, calls) == pytest.approx(1.0, abs=1e-6)
 
     def test_verify_tract(self) -> None:
+        from mp_models import Tract, TractType
         from mp_verify import verify_tract
 
-        assert callable(verify_tract)
+        calls = _square_calls()
+        tract = Tract(label="Tract 1", tract_type=TractType.MAIN, calls=calls)
+        result = verify_tract(calls, tract=tract)
+        assert result.closure_passed is True
+        assert result.area_sq_ft == pytest.approx(10000.0, abs=1e-6)
 
     def test_relative_analysis_facade(self) -> None:
         from mp_models import RelativeDescription as PackageDescription
@@ -173,7 +339,7 @@ class TestMpVerifyImports:
 
 
 class TestMpExportImports:
-    """mp-export package should export CSV and audit HTML functions."""
+    """mp-export package should export working CSV and audit HTML functions."""
 
     def test_revision_facade_preserves_shared_implementations(self) -> None:
         from mp_models import DashboardRevision, revision_template
@@ -187,19 +353,49 @@ class TestMpExportImports:
         assert revisions.load_revision is load_revision
         assert revisions.publish_revision is publish_revision
 
-    def test_csv_functions(self) -> None:
+    def test_csv_functions(self, tmp_path: Path) -> None:
         from mp_export import FIELDNAMES, calls_to_csv, csv_to_calls, export_verified_csv
+        from mp_verify import verify_closure
 
-        assert calls_to_csv is not None
-        assert csv_to_calls is not None
-        assert export_verified_csv is not None
-        assert FIELDNAMES is not None
+        assert len(FIELDNAMES) == 22
+        assert FIELDNAMES[0] == "course"
+        assert FIELDNAMES[-1] == "curve_type"
 
-    def test_audit_html_functions(self) -> None:
+        calls = _square_calls()
+        raw_csv = tmp_path / "square.csv"
+        calls_to_csv(calls, str(raw_csv))
+        loaded = csv_to_calls(str(raw_csv))
+        assert len(loaded) == 4
+        assert [c.distance_ft for c in loaded] == [100.0, 100.0, 100.0, 100.0]
+
+        closure = verify_closure(calls)
+        written_paths = export_verified_csv(calls, closure, str(tmp_path / "out.csv"))
+        assert len(written_paths) == 1
+        assert written_paths[0].exists()
+        assert len(csv_to_calls(str(written_paths[0]))) == 4
+
+    def test_audit_html_functions(self, tmp_path: Path) -> None:
         from mp_export import generate_html, write_report
+        from mp_models import AuditContext, RunMetadata
 
-        assert generate_html is not None
-        assert write_report is not None
+        ctx = AuditContext(
+            run_metadata=RunMetadata(
+                parser_version="1.0.0",
+                llm_provider="openai",
+                llm_model="gpt-5.2",
+                prompt_hash="abc123",
+                timestamp_utc=datetime(2026, 1, 1, tzinfo=UTC),
+                source_pdf="cross_pkg.pdf",
+                cache_enabled=False,
+            )
+        )
+        html = generate_html(ctx)
+        assert "<!DOCTYPE html>" in html
+        assert "cross_pkg.pdf" in html
+
+        report_path = tmp_path / "report.audit.html"
+        write_report(ctx, report_path)
+        assert report_path.read_text(encoding="utf-8") == html
 
     def test_dashboard_facade(self) -> None:
         from mp_export import render_dashboard as package_render
@@ -221,20 +417,28 @@ class TestMpExportImports:
 
 
 class TestPipelineImport:
-    """metesparser orchestrator should export Pipeline."""
+    """metesparser orchestrator should export the same working Pipeline class."""
 
     def test_pipeline_from_package(self) -> None:
         from metesparser import Pipeline
+        from metesparser.pipeline import Pipeline as ModulePipeline
 
-        assert Pipeline is not None
+        assert Pipeline is ModulePipeline
+        pipe = Pipeline(provider="unsupported_provider", cache=False)
+        with pytest.raises(ValueError, match="Unsupported LLM provider 'unsupported_provider'"):
+            pipe.run(Path("unused.pdf"))
 
     def test_pipeline_from_module(self) -> None:
+        from metesparser import Pipeline as PackagePipeline
         from metesparser.pipeline import Pipeline
 
-        assert Pipeline is not None
+        assert Pipeline is PackagePipeline
+        pipe = Pipeline(provider="unsupported_provider", cache=False, audit=True)
+        with pytest.raises(ValueError, match="Unsupported LLM provider 'unsupported_provider'"):
+            pipe.run(Path("unused.pdf"))
 
 
-def test_online_map_facade_uses_package_implementations():
+def test_online_map_facade_uses_package_implementations() -> None:
     from mp_export import render_online_map as package_render
     from mp_models import WebMapRequest as PackageRequest
     from mp_review import prepare_web_map as package_prepare
@@ -246,7 +450,7 @@ def test_online_map_facade_uses_package_implementations():
     assert WebMapRequest is PackageRequest
 
 
-def test_mapbox_mcp_facade_uses_package_implementations():
+def test_mapbox_mcp_facade_uses_package_implementations() -> None:
     from mp_export import build_mapbox_mcp_handoff as package_build
     from mp_review import mapbox_mcp_file as package_file
 
@@ -256,7 +460,7 @@ def test_mapbox_mcp_facade_uses_package_implementations():
     assert mapbox_mcp_file is package_file
 
 
-def test_standalone_online_map_facade_uses_package_implementations():
+def test_standalone_online_map_facade_uses_package_implementations() -> None:
     from mp_models import StandaloneWebMapInput as PackageInput
     from mp_review import render_map_file as package_file
 
@@ -266,7 +470,7 @@ def test_standalone_online_map_facade_uses_package_implementations():
     assert render_map_file is package_file
 
 
-def test_corridor_and_plss_facades_reuse_shared_implementations():
+def test_corridor_and_plss_facades_reuse_shared_implementations() -> None:
     from mp_models.corridor import CorridorRequest
     from mp_models.plss import PLSSDerivationRequest
     from mp_review.corridor import analyze_corridor_file
@@ -285,7 +489,7 @@ def test_corridor_and_plss_facades_reuse_shared_implementations():
     assert plss.prepare_plss_file is prepare_plss_file
 
 
-def test_delivery_facade_reuses_shared_models_and_replay():
+def test_delivery_facade_reuses_shared_models_and_replay() -> None:
     from mp_models import DeliveryRequest
     from mp_review.delivery import (
         DeliveryReplay,
@@ -307,7 +511,7 @@ def test_delivery_facade_reuses_shared_models_and_replay():
     assert delivery.render_revision_file is render_revision_file
 
 
-def test_raster_picker_facade_reuses_shared_adapter():
+def test_raster_picker_facade_reuses_shared_adapter() -> None:
     from mp_review.raster_picker import prepare_raster_picker_file
 
     from metesparser.raster_picker import prepare_raster_picker_file as public

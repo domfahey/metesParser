@@ -101,15 +101,16 @@ def test_cli_extract_and_verify_railcar_flow_happy_path(monkeypatch, tmp_path, c
     assert metadata_txt.exists()
     assert len(verified_rows) == 4
     expected_verified = [
-        ("1", "North", 100.0),
-        ("2", "East", 100.0),
-        ("3", "South", 100.0),
-        ("4", "West", 100.0),
+        ("1", "North", 100.0, 0.0),
+        ("2", "East", 100.0, 90.0),
+        ("3", "South", 100.0, 180.0),
+        ("4", "West", 100.0, 270.0),
     ]
     for row, expected in zip(verified_rows, expected_verified, strict=True):
         assert row["course"] == expected[0]
         assert row["direction_text"] == expected[1]
-        assert float(row["distance_ft"]) == pytest.approx(expected[2], abs=0.001)
+        assert float(row["distance_ft"]) == pytest.approx(expected[2], abs=1e-9)
+        assert float(row["bearing_azimuth_deg_from_north"]) == pytest.approx(expected[3], abs=1e-9)
     assert "CLOSURE VERIFICATION SUMMARY" in extract_output
     assert "Status: FULLY VERIFIED ✓" in verification_txt.read_text(encoding="utf-8")
     assert "source_doc: parcel.pdf" in metadata_txt.read_text(encoding="utf-8")
@@ -141,13 +142,14 @@ def test_cli_extract_and_verify_open_traverse_is_rejected(monkeypatch, tmp_path,
     assert unverified_csv.exists()
     assert len(unverified_rows) == 2
     expected_unverified = [
-        ("1", "North", 100.0),
-        ("2", "East", 100.0),
+        ("1", "North", 100.0, 0.0),
+        ("2", "East", 100.0, 90.0),
     ]
     for row, expected in zip(unverified_rows, expected_unverified, strict=True):
         assert row["course"] == expected[0]
         assert row["direction_text"] == expected[1]
-        assert float(row["distance_ft"]) == pytest.approx(expected[2], abs=0.001)
+        assert float(row["distance_ft"]) == pytest.approx(expected[2], abs=1e-9)
+        assert float(row["bearing_azimuth_deg_from_north"]) == pytest.approx(expected[3], abs=1e-9)
 
     monkeypatch.setattr(sys, "argv", ["metesparser", "verify", str(unverified_csv)])
     with pytest.raises(SystemExit) as exc:

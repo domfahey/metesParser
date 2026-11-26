@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import sys
 from types import ModuleType, SimpleNamespace
 
@@ -8,6 +9,7 @@ import pytest
 
 from metesparser.llm_clients import (
     GeminiClient,
+    LLMClientError,
     LLMConfigurationError,
     OpenAIClient,
     OpenRouterClient,
@@ -343,23 +345,26 @@ def test_gemini_client_failover_and_retry_with_real_sdk_api_errors(monkeypatch):
     assert sleeps == [0.5]
 
 
-def test_gemini_client_validates_config_parameters(monkeypatch):
+@pytest.mark.parametrize(
+    ("bad_kwargs", "expected_match"),
+    [
+        ({"timeout_ms": 0}, "timeout_ms must be a positive integer"),
+        ({"timeout_ms": -5}, "timeout_ms must be a positive integer"),
+        ({"timeout_ms": True}, "timeout_ms must be a positive integer"),
+        ({"max_retries": -1}, "max_retries must be a non-negative integer"),
+        ({"max_retries": False}, "max_retries must be a non-negative integer"),
+        ({"retry_backoff_s": -1.0}, "retry_backoff_s must be a non-negative finite number"),
+        ({"retry_backoff_s": float("inf")}, "retry_backoff_s must be a non-negative finite number"),
+        ({"thinking_budget": -2}, "thinking_budget must be >= -1"),
+        ({"thinking_level": "  "}, "thinking_level must be a non-empty string or None"),
+        ({"api_version": " "}, "api_version must be a non-empty string or None"),
+    ],
+)
+def test_gemini_client_validates_config_parameters(monkeypatch, bad_kwargs, expected_match):
     _install_fake_gemini(monkeypatch, lambda **kwargs: SimpleNamespace(text="ok"))
     monkeypatch.setenv("GEMINI_API_KEY", "test-key")
-    for bad_kwargs in (
-        {"timeout_ms": 0},
-        {"timeout_ms": -5},
-        {"timeout_ms": True},
-        {"max_retries": -1},
-        {"max_retries": False},
-        {"retry_backoff_s": -1.0},
-        {"retry_backoff_s": float("inf")},
-        {"thinking_budget": -2},
-        {"thinking_level": "  "},
-        {"api_version": " "},
-    ):
-        with pytest.raises(LLMConfigurationError):
-            GeminiClient(**bad_kwargs)
+    with pytest.raises(LLMConfigurationError, match=expected_match):
+        GeminiClient(**bad_kwargs)
 
 
 def test_gemini_client_package_and_monolith_parity(monkeypatch, tmp_path):
@@ -456,3 +461,360 @@ def test_openrouter_client_monolith_pdf_failover_and_missing_key(monkeypatch, tm
         "plugins": [{"id": "file-parser", "pdf": {"engine": "native"}}],
         "reasoning": {"effort": "low"},
     }
+
+
+def _install_fake_openrouter_openai(monkeypatch, handler):
+    module = ModuleType("openai")
+    client_inits: list[dict[str, object]] = []
+    create_calls: list[dict[str, object]] = []
+
+    class FakeAPIStatusError(Exception):
+        def __init__(self, status_code: int) -> None:
+            super().__init__(f"status {status_code}")
+            self.status_code = status_code
+
+    class FakeAPITimeoutError(Exception):
+        pass
+
+    class FakeAPIConnectionError(Exception):
+        pass
+
+    class FakeCompletions:
+        def create(self, **kwargs: object) -> object:
+            create_calls.append(kwargs)
+            return handler(
+                kwargs=kwargs,
+                status_error=FakeAPIStatusError,
+                timeout_error=FakeAPITimeoutError,
+                connection_error=FakeAPIConnectionError,
+            )
+
+    class FakeOpenAI:
+        def __init__(self, **kwargs: object) -> None:
+            client_inits.append(kwargs)
+            self.chat = SimpleNamespace(completions=FakeCompletions())
+
+    module.OpenAI = FakeOpenAI  # type: ignore[attr-defined]
+    module.APIStatusError = FakeAPIStatusError  # type: ignore[attr-defined]
+    module.APITimeoutError = FakeAPITimeoutError  # type: ignore[attr-defined]
+    module.APIConnectionError = FakeAPIConnectionError  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "openai", module)
+    return client_inits, create_calls, FakeAPIStatusError, FakeAPITimeoutError
+
+
+def test_gemini_client_api_version_override_thinking_none_and_pdf_json(monkeypatch, tmp_path):
+    captured_contents: list[object] = []
+    captured_configs: list[dict[str, object]] = []
+
+    def handler(*, model, contents, config, client_error, server_error):
+        captured_contents.append(contents)
+        captured_configs.append(config)
+        return SimpleNamespace(text='{"calls": []}', candidates=[])
+
+    # Use real google.genai types to also exercise ThinkingConfig with thinking_level=None
+    client = GeminiClient(
+        api_key="test-key-unused-offline",
+        api_version=" v1beta ",
+        thinking_level=None,
+        fallback_model=None,
+    )
+    assert client.api_version == "v1beta"
+    assert client._resolve_api_version() == "v1beta"
+    assert client._client._api_client._http_options.api_version == "v1beta"
+    assert client._build_thinking_config() is None
+
+    calls, _, _ = _install_fake_gemini(monkeypatch, handler)
+    pdf = tmp_path / "deed.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
+
+    fake_client = GeminiClient(
+        api_key="gm-key",
+        api_version="v1",
+        thinking_level=None,
+    )
+    assert (
+        fake_client.generate_text_with_pdf(
+            "extract json", str(pdf), response_mime_type="application/json"
+        )
+        == '{"calls": []}'
+    )
+    assert calls == ["gemini-3.6-flash"]
+    parts = captured_contents[0][0].parts  # type: ignore[index,attr-defined]
+    assert parts[0].data == b"%PDF-1.4\n%%EOF\n"
+    assert parts[0].mime_type == "application/pdf"
+    assert parts[1].text == "extract json"
+    assert captured_configs[0]["response_mime_type"] == "application/json"
+    assert "thinking_config" not in captured_configs[0]
+
+    with pytest.raises(FileNotFoundError, match="PDF not found"):
+        fake_client.generate_text_with_pdf("extract", str(tmp_path / "missing.pdf"))
+
+
+def test_gemini_client_collect_response_text_skips_empty_candidates_and_empty_fallback(monkeypatch):
+    _install_fake_gemini(monkeypatch, lambda **kwargs: SimpleNamespace(text="ok"))
+    client = GeminiClient(api_key="gm-key")
+
+    mixed_response = SimpleNamespace(
+        text="unused",
+        candidates=[
+            SimpleNamespace(content=None),
+            SimpleNamespace(content=SimpleNamespace(parts=[])),
+            SimpleNamespace(content=SimpleNamespace(parts=[SimpleNamespace(text="kept")])),
+        ],
+    )
+    assert client._collect_response_text(mixed_response) == "kept"
+
+    empty_response = SimpleNamespace(
+        text=None,
+        candidates=[
+            SimpleNamespace(content=None),
+            SimpleNamespace(content=SimpleNamespace(parts=None)),
+        ],
+    )
+    assert client._collect_response_text(empty_response) == ""
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "match"),
+    [
+        ({"api_key": "or-secret\r\nX-Evil: 1"}, "printable ASCII"),
+        ({"api_key": "or-secret-é"}, "printable ASCII"),
+        ({"model": "   "}, "model must be a non-empty string"),
+        ({"fallback_model": "  "}, "fallback_model must be a non-empty string or None"),
+        ({"base_url": "https://openrouter.ai/api/v1\nX: 1"}, "control characters"),
+        ({"base_url": "https://openrouter.ai/api /v1"}, "whitespace"),
+        ({"base_url": "https://[::1/api/v1"}, "valid http:// or https:// URL"),
+        ({"base_url": "https://openrouter.ai:abc/api/v1"}, "valid http:// or https:// URL"),
+        ({"base_url": "https://openrouter.ai:0/api/v1"}, "port must be a positive integer"),
+        ({"base_url": "ftp://openrouter.ai/api/v1"}, "valid http:// or https:// URL"),
+        ({"base_url": "https://"}, "valid http:// or https:// URL"),
+        ({"base_url": "http://openrouter.ai/api/v1"}, "https:// for non-loopback"),
+        ({"base_url": "https://user:pass@openrouter.ai/api/v1"}, "embedded credentials"),
+        ({"base_url": "https://openrouter.ai/api/v1?foo=bar"}, "embedded credentials"),
+        ({"base_url": "https://openrouter.ai/api/v1#frag"}, "embedded credentials"),
+        ({"pdf_engine": "  "}, "pdf_engine must be a non-empty string or None"),
+        ({"reasoning_effort": "  "}, "reasoning_effort must be a non-empty string or None"),
+        ({"timeout_s": 0}, "timeout_s must be a positive finite number"),
+        ({"timeout_s": True}, "timeout_s must be a positive finite number"),
+        ({"timeout_s": float("nan")}, "timeout_s must be a positive finite number"),
+        ({"max_retries": -1}, "max_retries must be a non-negative integer"),
+        ({"max_retries": True}, "max_retries must be a non-negative integer"),
+        ({"max_retries": 1.5}, "max_retries must be a non-negative integer"),
+        ({"retry_backoff_s": -0.5}, "retry_backoff_s must be a non-negative finite number"),
+        ({"retry_backoff_s": True}, "retry_backoff_s must be a non-negative finite number"),
+        ({"retry_backoff_s": float("inf")}, "retry_backoff_s must be a non-negative finite number"),
+        ({"site_url": "https://example.com\r\nX: 1"}, "printable ASCII"),
+        ({"site_url": "https://exämple.com"}, "printable ASCII"),
+        ({"site_url": "https://example.com/my app"}, "whitespace"),
+        ({"site_url": "https://[::1/app"}, "valid http:// or https:// URL without credentials"),
+        ({"site_url": "https://example.com:0"}, "site_url port must be a positive integer"),
+        ({"site_url": "ftp://example.com"}, "valid http:// or https:// URL without credentials"),
+        (
+            {"site_url": "https://user:pass@example.com"},
+            "valid http:// or https:// URL without credentials",
+        ),
+        ({"app_name": "MetesParser\r\nX: 1"}, "printable ASCII"),
+        ({"app_name": "MetesParser™"}, "printable ASCII"),
+    ],
+)
+def test_openrouter_client_rejects_invalid_configuration(monkeypatch, kwargs, match):
+    _install_fake_openrouter_openai(
+        monkeypatch,
+        lambda **_: SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))]
+        ),
+    )
+    params: dict[str, object] = {"api_key": "or-secret", **kwargs}
+    with pytest.raises(LLMConfigurationError, match=match):
+        OpenRouterClient(**params)  # type: ignore[arg-type]
+
+
+def test_openrouter_client_site_url_headers_json_format_and_missing_sdk(monkeypatch):
+    client_inits, create_calls, _, _ = _install_fake_openrouter_openai(
+        monkeypatch,
+        lambda **_: SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content='{"ok": true}'))]
+        ),
+    )
+
+    client = OpenRouterClient(
+        api_key="or-secret",
+        base_url="http://localhost:8080/api/v1/",
+        site_url="https://example.com:8443/app",
+        app_name="MetesParser",
+    )
+    assert client.base_url == "http://localhost:8080/api/v1"
+    assert client_inits[0]["default_headers"] == {
+        "HTTP-Referer": "https://example.com:8443/app",
+        "X-Title": "MetesParser",
+    }
+    assert client.generate_text("parse", response_mime_type="application/json") == '{"ok": true}'
+    assert create_calls[0]["response_format"] == {"type": "json_object"}
+
+    # Missing OpenAI callable in openai module raises LLMConfigurationError
+    monkeypatch.setitem(sys.modules, "openai", ModuleType("openai"))
+    with pytest.raises(LLMConfigurationError, match="openai package not installed"):
+        OpenRouterClient(api_key="or-secret")
+
+
+def test_openrouter_client_json_decode_error_failover_and_exhaustion(monkeypatch):
+    def failover_handler(*, kwargs, status_error, timeout_error, connection_error):
+        if kwargs["model"] == "anthropic/claude-haiku-5.5":
+            raise json.JSONDecodeError("Expecting value", "<html>bad</html>", 0)
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="recovered json"))]
+        )
+
+    _, failover_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, failover_handler)
+    client = OpenRouterClient(api_key="or-secret", max_retries=0)
+    assert client.generate_text("hello") == "recovered json"
+    assert [c["model"] for c in failover_calls] == [
+        "anthropic/claude-haiku-5.5",
+        "anthropic/claude-sonnet-5.5",
+    ]
+
+    def always_bad_json(*, kwargs, status_error, timeout_error, connection_error):
+        raise json.JSONDecodeError("Expecting value", "<html>502</html>", 0)
+
+    _install_fake_openrouter_openai(monkeypatch, always_bad_json)
+    exhausted = OpenRouterClient(api_key="or-secret", fallback_model=None, max_retries=0)
+    with pytest.raises(LLMClientError, match="invalid JSON") as exc_info:
+        exhausted.generate_text("hello")
+    assert isinstance(exc_info.value.__cause__, json.JSONDecodeError)
+
+
+def test_openrouter_client_status_retry_backoff_and_non_retryable(monkeypatch):
+    sleeps: list[float] = []
+    monkeypatch.setattr("metesparser.llm_clients.time.sleep", sleeps.append)
+
+    # Non-retryable 400 raises immediately with no failover or sleep
+    _, err_calls, status_error, _ = _install_fake_openrouter_openai(
+        monkeypatch,
+        lambda *, status_error, **_: (_ for _ in ()).throw(status_error(400)),
+    )
+    client_400 = OpenRouterClient(api_key="or-secret", max_retries=2, retry_backoff_s=0.5)
+    with pytest.raises(status_error, match="status 400"):
+        client_400.generate_text("hello")
+    assert [c["model"] for c in err_calls] == ["anthropic/claude-haiku-5.5"]
+    assert sleeps == []
+
+    # Retryable 503 across retries sleeps with exponential backoff and re-raises on exhaustion
+    _, retry_calls, status_503, _ = _install_fake_openrouter_openai(
+        monkeypatch,
+        lambda *, status_error, **_: (_ for _ in ()).throw(status_error(503)),
+    )
+    client_503 = OpenRouterClient(api_key="or-secret", max_retries=2, retry_backoff_s=0.5)
+    with pytest.raises(status_503, match="status 503"):
+        client_503.generate_text("hello")
+    assert len(retry_calls) == 6
+    assert sleeps == [0.5, 1.0]
+
+
+@pytest.mark.parametrize(
+    ("bad_response", "expected_match", "should_failover"),
+    [
+        ("<html>502 Bad Gateway</html>", "unexpected response payload", True),
+        (None, "unexpected response payload", True),
+        ([], "unexpected response payload", True),
+        (
+            SimpleNamespace(choices=[], error={"code": 502, "message": "upstream bad gateway"}),
+            "code=502.*upstream bad gateway",
+            True,
+        ),
+        (
+            SimpleNamespace(
+                choices=[], error=SimpleNamespace(code="503", message="upstream unavailable")
+            ),
+            "code=503.*upstream unavailable",
+            True,
+        ),
+        (
+            SimpleNamespace(choices=[], error={"code": 400, "message": "invalid parameter"}),
+            "code=400.*invalid parameter",
+            False,
+        ),
+        (
+            SimpleNamespace(choices=[], error={"code": "ERR_BAD", "message": ""}),
+            "ERR_BAD",
+            False,
+        ),
+        (
+            SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        finish_reason="error",
+                        message=SimpleNamespace(content=""),
+                    )
+                ]
+            ),
+            "finish_reason=error.*upstream completion failed",
+            True,
+        ),
+    ],
+)
+def test_openrouter_client_http200_error_payload_handling(
+    monkeypatch, bad_response, expected_match, should_failover
+):
+    def failover_handler(*, kwargs, status_error, timeout_error, connection_error):
+        if kwargs["model"] == "anthropic/claude-haiku-5.5":
+            return bad_response
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content="fallback ok"))]
+        )
+
+    _, failover_calls, _, _ = _install_fake_openrouter_openai(monkeypatch, failover_handler)
+    client = OpenRouterClient(api_key="or-secret", max_retries=0)
+    if should_failover:
+        assert client.generate_text("hello") == "fallback ok"
+        assert [c["model"] for c in failover_calls] == [
+            "anthropic/claude-haiku-5.5",
+            "anthropic/claude-sonnet-5.5",
+        ]
+    else:
+        with pytest.raises(LLMClientError, match=expected_match):
+            client.generate_text("hello")
+        assert [c["model"] for c in failover_calls] == ["anthropic/claude-haiku-5.5"]
+
+    # Always returning the error exhausts and raises LLMClientError
+    _install_fake_openrouter_openai(monkeypatch, lambda **_: bad_response)
+    exhausted = OpenRouterClient(api_key="or-secret", fallback_model=None, max_retries=0)
+    with pytest.raises(LLMClientError, match=expected_match):
+        exhausted.generate_text("hello")
+
+
+def test_openrouter_client_collect_response_text_filters_reasoning_and_handles_empty():
+    assert OpenRouterClient._collect_response_text(SimpleNamespace(choices=[])) == ""
+    assert (
+        OpenRouterClient._collect_response_text(
+            SimpleNamespace(choices=[SimpleNamespace(message=None)])
+        )
+        == ""
+    )
+    assert (
+        OpenRouterClient._collect_response_text(
+            SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=None))])
+        )
+        == ""
+    )
+    assert (
+        OpenRouterClient._collect_response_text(
+            SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(
+                            content=[
+                                {"type": "thinking", "text": "skip-1"},
+                                {"type": "reasoning", "text": "skip-2"},
+                                {"type": "reasoning_text", "text": "skip-3"},
+                                {"type": "thinking_delta", "text": "skip-4"},
+                                SimpleNamespace(type="reasoning_summary", text="skip-5"),
+                                {"type": "text", "text": "clean "},
+                                SimpleNamespace(type="text", text="deed"),
+                            ]
+                        )
+                    )
+                ]
+            )
+        )
+        == "clean deed"
+    )

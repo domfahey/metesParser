@@ -919,7 +919,7 @@ def test_review_packet_as_bool_matches_public_mp_models_coerce_bool_field() -> N
 
     with pytest.raises(ValueError, match="Invalid boolean value: 'maybe'"):
         _as_bool("maybe")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="flag must be a boolean value"):
         coerce_bool_field("maybe")
 
 
@@ -953,7 +953,7 @@ def test_generate_traverse_plot_records_invalid_boolean_as_invalid_course(flag_f
     html = generate_traverse_plot(gt)
     assert "<svg" not in html
     assert "Incomplete traverse plot" in html
-    assert "1" in html
+    assert "missing or invalid geometry for course(s) 1." in html
 
 
 def test_generate_traverse_plot_single_call_with_invalid_tie_in_reports_incomplete() -> None:
@@ -971,7 +971,7 @@ def test_generate_traverse_plot_single_call_with_invalid_tie_in_reports_incomple
     }
     html = generate_traverse_plot(gt)
     assert "Incomplete traverse plot" in html
-    assert "3" in html
+    assert "missing or invalid geometry for course(s) 3." in html
 
 
 def test_generate_traverse_plot_renders_non_split_major_and_minor_arcs() -> None:

@@ -175,7 +175,7 @@ def test_offline_evidence_rejects_stale_plot_before_rendering():
 
     value = supplied()
     changed = value.plots[0].model_copy(update={"input_hash": "0" * 64})
-    with pytest.raises(ValueError, match="freshly|stale"):
+    with pytest.raises(ValueError, match="does not match freshly calculated input geometry"):
         render_map_evidence(value.model_copy(update={"plots": (changed,)}))
 
 

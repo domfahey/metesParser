@@ -37,9 +37,20 @@ def test_parse_number_reads_every_number_form(text: str, value: float) -> None:
     assert parse_number(text) == pytest.approx(value)
 
 
-@pytest.mark.parametrize("text", ["", "abc", "1/0", "100.5 1/2", "1/2/3", "100 1/2 3/4", "1/"])
-def test_parse_number_rejects_fragments(text: str) -> None:
-    with pytest.raises(ValueError):
+@pytest.mark.parametrize(
+    ("text", "expected_error"),
+    [
+        ("", "not a length number"),
+        ("abc", "not a length number"),
+        ("1/0", "zero denominator"),
+        ("100.5 1/2", "not a length number"),
+        ("1/2/3", "not a length number"),
+        ("100 1/2 3/4", "not a length number"),
+        ("1/", "not a length number"),
+    ],
+)
+def test_parse_number_rejects_fragments(text: str, expected_error: str) -> None:
+    with pytest.raises(ValueError, match=expected_error):
         parse_number(text)
 
 
@@ -111,23 +122,23 @@ def test_extract_distance_reads_fractions(text: str, value: float, unit: str) ->
 
 
 @pytest.mark.parametrize(
-    "length",
+    ("length", "expected_error"),
     [
-        "100.5 1/2 feet",
-        "100 1/2/3 feet",
-        "100 1/0 feet",
-        "1/2/3 mile",
-        "6 inches 10 feet",
-        "6 1/2 inches 10 feet",
-        '100 feet 15"',
-        '100 feet and 6"',
+        ("100.5 1/2 feet", "Missing boundary course distance"),
+        ("100 1/2/3 feet", "Missing boundary course distance"),
+        ("100 1/0 feet", "Missing boundary course distance"),
+        ("1/2/3 mile", "Missing boundary course distance"),
+        ("6 inches 10 feet", "course length ambiguous: 6 inches, 10 feet"),
+        ("6 1/2 inches 10 feet", "course length ambiguous: 6 1/2 inches, 10 feet"),
+        ('100 feet 15"', 'course length ambiguous: 100 feet, 15"'),
+        ('100 feet and 6"', 'course length ambiguous: 100 feet, and 6"'),
     ],
 )
-def test_unreadable_or_ascending_length_fails_closed(length: str) -> None:
+def test_unreadable_or_ascending_length_fails_closed(length: str, expected_error: str) -> None:
     text = f"thence {_BEARING} {length} to a point"
     reading = read_course_length(f"{_BEARING} {length} to a point")
     assert reading.value == 0.0
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_error):
         extract_single_call(text, 1)
 
 

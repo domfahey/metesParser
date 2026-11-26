@@ -169,7 +169,7 @@ class TestFeature:
 
 ### Coverage Goals
 
-- Aim for **> 90% coverage** on new features; the enforced root-suite floor is the configured 80% for `src/metesparser/` (see [Testing](TESTING.md)). Workspace package coverage is not included in that root threshold.
+- Maintain **≥ 95% coverage**; the enforced floors are **95%** for `src/metesparser/` (`make test` / `make test-cov`) and **95%** for `packages/mp-*/src/` via `make test-packages-cov` (see [Testing](TESTING.md)).
 - Bug fixes: **Add regression test**
 - Refactoring: **Maintain existing coverage**
 

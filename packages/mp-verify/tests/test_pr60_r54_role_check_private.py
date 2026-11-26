@@ -19,9 +19,9 @@ def _square() -> list[DeedCall]:
 
 def test_verify_closure_rejects_role_check() -> None:
     fake = CheckResult(name="non_boundary_tract", status="passed", detail="ok")
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="unexpected keyword argument 'role_check'"):
         verify_closure(_square(), role_check=fake)  # type: ignore[call-overload]
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="unexpected keyword argument 'role_check'"):
         verify_closure(
             [],
             tracts=[Tract(label="T", tract_type=TractType.MAIN, calls=_square())],
@@ -31,7 +31,10 @@ def test_verify_closure_rejects_role_check() -> None:
 
 def test_internal_helper_only_accepts_blocked_role_check() -> None:
     fake = CheckResult(name="non_boundary_tract", status="passed", detail="ok")
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="role_checks must be blocked non_boundary_tract or description_roles_inferred checks",
+    ):
         _verify_single(_square(), role_checks=[fake])
 
 

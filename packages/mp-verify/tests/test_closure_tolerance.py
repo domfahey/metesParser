@@ -205,15 +205,16 @@ class TestRelaxedTolerance:
         assert any("relaxed tolerance" in w.lower() for w in result.warnings)
 
     def test_relaxed_tolerance_warning_contains_misclosure_and_threshold(self):
-        """Warning message should mention the actual misclosure and the threshold."""
+        """Warning message must include both actual misclosure and relaxed threshold."""
         calls = _near_closing_calls(offset_ft=0.05)
         result = verify_closure(calls, closure_tolerance_ft=1.0)
         relaxed_warnings = [w for w in result.warnings if "relaxed tolerance" in w.lower()]
         assert len(relaxed_warnings) == 1
         warning = relaxed_warnings[0]
-        # Should contain the misclosure value and the threshold
-        assert "0.05" in warning or "misclosure" in warning.lower()
-        assert "1.0" in warning or "threshold" in warning.lower()
+        assert "0.0500 ft misclosure" in warning
+        assert "1.0000 ft threshold" in warning
+        # Relaxed tolerance emits a warning, so verified export remains blocked.
+        assert result.geometry_verified is False
 
     def test_no_relaxed_warning_when_would_pass_at_default(self):
         """If traverse would pass at default 0.01 anyway, no relaxed warning."""
@@ -274,48 +275,32 @@ class TestDeed50020Deed:
         assert result.misclosure_ft > CLOSURE_TOLERANCE_FT
 
     def test_misclosure_is_reasonable(self):
-        """Misclosure should be small (< 5 ft) -- it's a real deed, not garbage."""
+        """Deed 50020 misclosure is inherent (~0.1096 ft) and blocks verified export."""
         calls = _deed_50020_calls()
         result = verify_closure(calls)
-        assert result.misclosure_ft < 5.0
+        assert abs(result.misclosure_ft - 0.1096) < 0.001
+        assert result.geometry_verified is False
 
     def test_passes_with_relaxed_tolerance(self):
-        """With a sufficiently relaxed tolerance, deed 50020 should pass."""
+        """With a sufficiently relaxed tolerance, deed 50020 passes closure but stays unverified."""
         calls = _deed_50020_calls()
-        # First, find the actual misclosure
         result_default = verify_closure(calls)
         misclosure = result_default.misclosure_ft
 
-        # Use a tolerance slightly above the misclosure
         relaxed_tolerance = misclosure + 0.1
         result_relaxed = verify_closure(calls, closure_tolerance_ft=relaxed_tolerance)
         assert result_relaxed.closure_passed is True
+        assert any("relaxed tolerance" in w.lower() for w in result_relaxed.warnings)
+        assert result_relaxed.geometry_verified is False
 
-    def test_relaxed_tolerance_emits_warning(self):
-        """When deed 50020 passes with relaxed tolerance, warning is emitted."""
-        calls = _deed_50020_calls()
-        result_default = verify_closure(calls)
-        misclosure = result_default.misclosure_ft
-        relaxed_tolerance = misclosure + 0.1
-
-        result = verify_closure(calls, closure_tolerance_ft=relaxed_tolerance)
-        assert result.closure_passed is True
-        assert any("relaxed tolerance" in w.lower() for w in result.warnings)
-
-    def test_area_is_reasonable(self):
-        """Deed 50020 should compute a reasonable area (a residential parcel)."""
+    def test_area_is_computed_from_all_four_courses(self):
+        """Deed 50020 positions all 4 courses into a ~72,700 sq ft trapezoid."""
         calls = _deed_50020_calls()
         result = verify_closure(calls)
-        # Area should be positive and in a plausible residential range
-        assert result.area_sq_ft > 10_000
-        assert result.area_sq_ft < 500_000
-
-    def test_all_four_calls_used(self):
-        """All 4 calls should have bearings and contribute to the traverse."""
-        calls = _deed_50020_calls()
-        for call in calls:
-            assert call.bearing_azimuth_deg_from_north is not None
-            assert call.distance_ft > 0
+        assert result.misclosure_available is True
+        assert result.area_available is True
+        assert len(result.points) == 5
+        assert 70_000 < result.area_sq_ft < 75_000
 
     def test_perimeter_is_sum_of_distances(self):
         """Perimeter should match sum of all four distances."""

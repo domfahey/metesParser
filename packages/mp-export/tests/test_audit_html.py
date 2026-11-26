@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
 from mp_export.audit_html import generate_html as _gen
 from mp_models import CheckResult as _CR
 from mp_models import VerificationAudit as _VA
@@ -136,16 +137,34 @@ def test_write_report(tmp_path):
     assert "deed.pdf" in content
 
 
-def test_confidence_class_thresholds():
-    """_confidence_class should return correct CSS class for score thresholds."""
-    from mp_export.audit_html import _confidence_class
+@pytest.mark.parametrize(
+    ("score", "expected_cls", "expected_pct"),
+    [
+        (0.9, "confidence-high", "90%"),
+        (0.8, "confidence-high", "80%"),
+        (0.79, "confidence-medium", "79%"),
+        (0.5, "confidence-medium", "50%"),
+        (0.49, "confidence-low", "49%"),
+        (0.0, "confidence-low", "0%"),
+    ],
+)
+def test_confidence_class_thresholds(score: float, expected_cls: str, expected_pct: str) -> None:
+    """Extraction confidence badges should apply high/medium/low CSS classes at exact thresholds."""
+    from mp_export.audit_html import generate_html
+    from mp_models import ExtractionRecord
 
-    assert _confidence_class(0.9) == "confidence-high"
-    assert _confidence_class(0.8) == "confidence-high"
-    assert _confidence_class(0.79) == "confidence-medium"
-    assert _confidence_class(0.5) == "confidence-medium"
-    assert _confidence_class(0.49) == "confidence-low"
-    assert _confidence_class(0.0) == "confidence-low"
+    ctx = _make_audit_context(
+        extraction_record=ExtractionRecord(
+            raw_llm_response="raw",
+            normalized_text="norm",
+            llm_confidence=score,
+        )
+    )
+    html = generate_html(ctx)
+    assert (
+        f"Extraction Confidence: <span class='{expected_cls}' "
+        f"style='padding:2px 8px;border-radius:4px'>{expected_pct}</span>"
+    ) in html
 
 
 def _va(label, perimeter):
@@ -180,3 +199,71 @@ def test_single_verification_audit_output_unchanged():
         "<h4>Closure Summary</h4>\n<table>\n<tr><th>Metric</th><th>Value</th></tr>\n"
         "<tr><td>perimeter_ft</td><td>400.0</td></tr>\n</table>\n</details>\n</div>\n</body>"
     ) in out
+
+
+def test_generate_html_renders_confidence_badge_llm_stages_skipped_courses_and_empty_decisions():
+    from mp_export.audit_html import (
+        _build_extraction_section,
+        _build_verification_section,
+        generate_html,
+    )
+    from mp_models import CallAudit, ExtractionRecord, LLMStageRecord, SkippedCourse
+
+    # Empty optional sections return empty strings directly.
+    minimal = _make_audit_context()
+    assert _build_extraction_section(minimal) == ""
+    assert _build_verification_section(minimal) == ""
+
+    er = ExtractionRecord(
+        raw_llm_response="raw <desc>",
+        normalized_text="normalized <desc>",
+        llm_confidence=0.87,
+        confidence_signals={"has_pob": True},
+        llm_stages=[
+            LLMStageRecord(
+                stage="extract_legal_description",
+                provider="openrouter",
+                model="anthropic/claude-haiku-5.5",
+                prompt="Prompt with <script>alert(1)</script>",
+                prompt_sha256="a" * 64,
+                response="Response with <b>tag</b>",
+                response_sha256="b" * 64,
+            )
+        ],
+    )
+    ctx = _make_audit_context(
+        extraction_record=er,
+        call_audits=[
+            CallAudit(
+                course=1,
+                source_excerpt="Course without decisions",
+                transformations=[],
+                decisions=[],
+                flags=[],
+            )
+        ],
+        skipped_courses=[
+            SkippedCourse(
+                course=2,
+                source_course=2,
+                tract_label="Tract <1>",
+                source_excerpt="thence <garbled> feet",
+                error_type="ValueError",
+                error="unparseable <bearing>",
+            )
+        ],
+    )
+    out = generate_html(ctx)
+    assert "Extraction Confidence:" in out
+    assert "confidence-high" in out and "87%" in out
+    assert "LLM Stage Provenance" in out
+    assert "extract_legal_description" in out
+    assert "a" * 64 in out and "b" * 64 in out
+    assert "<script>alert(1)</script>" not in out
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in out
+    assert "&lt;b&gt;tag&lt;/b&gt;" in out
+    assert "<td class=''>N/A</td>" in out
+    assert "<h2>Skipped Courses</h2>" in out
+    assert "Tract &lt;1&gt;" in out
+    assert "thence &lt;garbled&gt; feet" in out
+    assert "ValueError: unparseable &lt;bearing&gt;" in out

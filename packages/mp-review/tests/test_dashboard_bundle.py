@@ -30,7 +30,7 @@ def test_absolute_record_calculation_and_verbatim_quotes():
     assert original.calls[0].quote == "  Course 1: 100 feet.  "
     assert original.occurrences[0].transcript.startswith("  BEGINNING")
     assert isinstance(original.calls, tuple)
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="Instance is frozen"):
         original.calls[0].quote = "modified"
 
 

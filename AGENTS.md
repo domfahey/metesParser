@@ -105,14 +105,15 @@ UV is required — never use pip, conda or poetry (`uv sync --all-extras --dev`,
 ```bash
 make quality       # Nonmutating root lint + format checks
 make type          # mypy
-make test          # Root pytest (tests/, 80% coverage on src/metesparser)
+make test          # Root pytest (tests/, 95% coverage floor on src/metesparser)
+make test-packages-cov # Package pytest (packages/mp-*/tests, 95% coverage floor on packages/mp-*/src)
 make pre-commit    # lint-fix, format, tests — MUTATING
 uv run pytest packages/mp-*/tests plugins/metesparser/tests --no-cov --import-mode=importlib
 ```
 
-- **`--no-cov`** for any package/plugin run: root coverage targets `src/metesparser`, so package-only runs fail the unrelated 80% threshold. Add **`--import-mode=importlib`** when collecting multiple package/plugin suites together.
+- **`--no-cov`** for any package/plugin run that does not override `addopts`: root coverage targets `src/metesparser`, so package-only runs fail the unrelated 95% threshold (use `make test-packages-cov` to measure and gate `packages/mp-*/src`). Add **`--import-mode=importlib`** when collecting multiple package/plugin suites together.
 - Makefile lint/format cover `src/metesparser` and `tests`; typing covers `src/metesparser`. Changed package/script files need explicit `uv run ruff`/`uv run mypy` runs.
-- `make check` and `make pre-commit` can change files. `make ci` runs `check-tools`, `install`, `quality`, and `test-cov` (without `clean`) and skips `type`.
+- `make check` and `make pre-commit` can change files. `make ci` runs `check-tools`, `install`, `quality`, `test-cov`, and `test-packages-cov` (without `clean`) and skips `type`.
 - Local browser/SDK and extracted-archive checks do not establish live Mapbox acceptance, native skill discovery or native document-reading accuracy. Keep these gates separate and report unrun gates explicitly.
 
 ## Bearing Convention (Critical for Calculations)

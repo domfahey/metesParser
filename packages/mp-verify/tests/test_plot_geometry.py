@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 from mp_models.dashboard import DashboardBundle
-from mp_verify.dashboard import _calculate
-from mp_verify.plot import arc_point, build_dashboard_plots
+from mp_verify.dashboard import calculate_dashboard
+from mp_verify.plot import arc_point
 
 FIXTURE = Path(__file__).parents[2] / "mp-review/tests/fixtures/dashboard-absolute.json"
 
@@ -34,9 +34,7 @@ def make_bundle(calls=None):
 
 
 def plot(bundle):
-    return build_dashboard_plots(
-        bundle, tuple(_calculate(bundle, s) for s in bundle.calculations)
-    ).geometries[0]
+    return calculate_dashboard(bundle).plots.geometries[0]
 
 
 def test_open_gap_is_not_closed_or_adjusted():

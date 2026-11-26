@@ -18,7 +18,6 @@ import pytest
 from mp_parse import calls as package_calls
 from mp_parse.calls import extract_single_call as package_single_call
 
-from metesparser import call_extractor as monolith_calls
 from metesparser import models as monolith_models
 from metesparser.call_extractor import CallExtractor
 from tests.fixtures.package_parser import extract_calls as package_extract_calls
@@ -246,12 +245,6 @@ def test_glued_word_bearing_parses_with_verbatim_text(parse, case):
 @pytest.mark.parametrize("text", ["North 45°Eighty", "N 45°30'Westerly", "N 45 dEasterly"], ids=str)
 def test_marked_dms_does_not_eat_other_words(text):
     assert package_calls._expand_marked_dms(text) == text
-
-
-def test_word_symbol_pass_is_removed():
-    for module in (package_calls, monolith_calls):
-        assert not hasattr(module, "_abbreviate_word_bearing")
-        assert not hasattr(module, "_WORD_SYMBOL_BEARING")
 
 
 # --- 4. A straight course that names the NEXT curve's radius point -------------

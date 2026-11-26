@@ -34,7 +34,10 @@ def backfill_mod() -> ModuleType:
 
 
 def test_build_calls_does_not_fabricate_zero_distance(backfill_mod: ModuleType) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="distance_ft may be None only for a spiral curve with no stated arc or chord length",
+    ):
         backfill_mod._build_calls([CALL_WITHOUT_DISTANCE])
 
 

@@ -100,8 +100,9 @@ class TestSplitExceptionClausesLotQualifier:
             "85.33 feet to the point of beginning."
         )
         result = split_exception_clauses(text)
-        exceptions = [r for r in result if r[1] is True]
-        assert len(exceptions) >= 1
+        assert [is_exc for _, is_exc in result] == [False, True]
+        assert "153.00 feet" in result[0][0]
+        assert "85.33 feet" in result[1][0]
 
     def test_structural_except_parts_of(self) -> None:
         """'EXCEPT parts of Lots...' is structural and should split."""
@@ -111,15 +112,17 @@ class TestSplitExceptionClausesLotQualifier:
             "thence S 16 degrees W 85 feet to the point of beginning."
         )
         result = split_exception_clauses(text)
-        exceptions = [r for r in result if r[1] is True]
-        assert len(exceptions) >= 1
+        assert [is_exc for _, is_exc in result] == [False, True]
+        assert "100 feet" in result[0][0]
+        assert "Lots 12 and 13" in result[1][0]
 
     def test_structural_less_and_except(self) -> None:
         """'LESS AND EXCEPT' is always structural."""
         text = "THENCE N 45 degrees E 100 feet. LESS AND EXCEPT a strip 10 feet wide."
         result = split_exception_clauses(text)
-        exceptions = [r for r in result if r[1] is True]
-        assert len(exceptions) >= 1
+        assert [is_exc for _, is_exc in result] == [False, True]
+        assert "100 feet" in result[0][0]
+        assert "strip 10 feet wide" in result[1][0]
 
     def test_structural_excepting(self) -> None:
         """'EXCEPTING' is always structural."""
@@ -129,8 +132,9 @@ class TestSplitExceptionClausesLotQualifier:
             "thence S 30 degrees W 50 feet."
         )
         result = split_exception_clauses(text)
-        exceptions = [r for r in result if r[1] is True]
-        assert len(exceptions) >= 1
+        assert [is_exc for _, is_exc in result] == [False, True]
+        assert "100 feet" in result[0][0]
+        assert "50 feet" in result[1][0]
 
 
 class TestLotExceptClauseClassification:
@@ -141,8 +145,8 @@ class TestLotExceptClauseClassification:
         result = split_exception_clauses(LOT_EXCEPT_TEXT)
         main_tracts = [r for r in result if r[1] is False]
         exception_tracts = [r for r in result if r[1] is True]
-        assert len(main_tracts) >= 1, "Expected at least one main tract"
-        assert len(exception_tracts) >= 1, "Expected at least one exception tract"
+        assert len(main_tracts) == 1, "Expected exactly one main tract"
+        assert len(exception_tracts) == 1, "Expected exactly one exception tract"
 
     def test_sample_main_tract_has_thence(self) -> None:
         """Main tract text should contain THENCE (the metes calls)."""
@@ -174,7 +178,7 @@ class TestLotExceptClauseClassification:
         """First main tract call should have distance 153.00 ft."""
         calls, _tracts = extract_calls(LOT_EXCEPT_TEXT)
         main_calls = [c for c in calls if not c.is_exception]
-        assert len(main_calls) >= 1
+        assert len(main_calls) == 4
         first = main_calls[0]
         assert first.distance_ft == pytest.approx(153.00, abs=0.01)
 
@@ -182,7 +186,7 @@ class TestLotExceptClauseClassification:
         """Last main tract call should close to POB."""
         calls, _tracts = extract_calls(LOT_EXCEPT_TEXT)
         main_calls = [c for c in calls if not c.is_exception]
-        assert len(main_calls) >= 1
+        assert len(main_calls) == 4
         last = main_calls[-1]
         assert last.to is not None
         assert "point of beginning" in last.to.lower()
@@ -191,7 +195,7 @@ class TestLotExceptClauseClassification:
         """First exception call should have distance 85.33 ft."""
         calls, _tracts = extract_calls(LOT_EXCEPT_TEXT)
         exception_calls = [c for c in calls if c.is_exception]
-        assert len(exception_calls) >= 1
+        assert len(exception_calls) == 11
         first = exception_calls[0]
         assert first.distance_ft == pytest.approx(85.33, abs=0.01)
 
@@ -265,8 +269,9 @@ class TestLotQualifierVariants:
         result = split_exception_clauses(text)
         main_tracts = [r for r in result if r[1] is False]
         exception_tracts = [r for r in result if r[1] is True]
-        assert len(main_tracts) >= 1, "Should have main tract"
-        assert len(exception_tracts) >= 1, "Should have exception tract"
-        # The main tract should contain the lot qualifier text and the THENCE
-        main_text = " ".join(t[0] for t in main_tracts)
-        assert "thence" in main_text.lower() or "THENCE" in main_text
+        assert len(main_tracts) == 1, "Should have main tract"
+        assert len(exception_tracts) == 1, "Should have exception tract"
+        main_text = main_tracts[0][0]
+        assert "except the South 43.65 feet of said Lot" in main_text
+        assert "THENCE N 45 degrees E 100 feet" in main_text
+        assert "THENCE S 30 degrees W 50 feet" in exception_tracts[0][0]

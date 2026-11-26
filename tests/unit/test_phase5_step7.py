@@ -22,6 +22,7 @@ class TestSubdivisionReference:
         assert ref is not None
         assert ref.lot == "5"
         assert ref.block is None
+        assert ref.subdivision_name == "OAKDALE SUBDIVISION"
 
     def test_lot_and_block_no_plat(self) -> None:
         text = "Lot 12, Block 7, SUNSET HILLS"
