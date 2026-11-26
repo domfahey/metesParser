@@ -172,6 +172,11 @@ class TestClassifyMonument:
             "the westerly line of Creek Road",
             "the northerly line of Stone St.",
             "corner of Euclid and Walnut Avenues",
+            "corner of Walnut and Ellis Streets",
+            "the easterly line of Walnut Creek Road",
+            "the southerly line of Oak Ridge Drive",
+            "the westerly line of Cedar Brook Lane",
+            "a point in line of lands now or formerly of the Delaware River Port Authority",
         ):
             assert classify_monument(text) is None, text
 
@@ -179,8 +184,11 @@ class TestClassifyMonument:
         from mp_parse.monuments import classify_monument
 
         assert classify_monument("a white oak at the corner of Walnut Street") == "tree"
+        assert classify_monument("a white oak near the road") == "tree"
         assert classify_monument("a found field stone on Creek Road") == "stone"
+        assert classify_monument("a stone at Walnut Creek Road") == "stone"
         assert classify_monument("top of the ridge near Oak Drive") == "natural_feature"
+        assert classify_monument("the creek bank") == "natural_feature"
 
 
 class TestClassifyMonumentStatus:

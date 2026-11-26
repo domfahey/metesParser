@@ -316,11 +316,16 @@ def test_populated_monument_type_matches_to_field(path):
 @pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
 def test_expected_closure_is_structured_dict(path):
     """Every ground truth stores a structured expected_closure with boolean closure_passed."""
-    closure = _load(path).get("expected_closure")
+    gt = _load(path)
+    closure = gt.get("expected_closure")
     assert isinstance(closure, dict), f"expected_closure must be a dict, got {closure!r}"
     assert isinstance(closure.get("closure_passed"), bool), (
         f"expected_closure.closure_passed must be bool, got {closure.get('closure_passed')!r}"
     )
+    if not (gt.get("expected_calls") or []):
+        assert closure["closure_passed"] is False, (
+            "zero-call ground truth cannot have closure_passed=True"
+        )
 
 
 def _single_figure(gt: dict) -> list[dict] | None:
@@ -1019,4 +1024,13 @@ class TestAdditionalGroundTruthGuards:
     ) -> None:
         gt_path = _write_gt(tmp_path, "bad_closure", {"expected_closure": bad_closure})
         with pytest.raises(AssertionError, match="expected_closure"):
+            test_expected_closure_is_structured_dict(gt_path)
+
+    def test_zero_call_closure_passed_true_fails(self, tmp_path: Path) -> None:
+        gt_path = _write_gt(
+            tmp_path,
+            "zero_call_true",
+            {"expected_calls": [], "expected_closure": {"closure_passed": True}},
+        )
+        with pytest.raises(AssertionError, match="zero-call"):
             test_expected_closure_is_structured_dict(gt_path)
