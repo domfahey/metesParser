@@ -237,6 +237,13 @@ def test_text_has_no_duplicate_words_or_line_break_hyphens(path):
         assert dup is None, f"{field}: duplicate consecutive word {dup.group(0)!r}"
         broken = re.search(r"[A-Za-z]+-\n[A-Za-z]+", text)
         assert broken is None, f"{field}: unjoined line-break hyphen {broken.group(0)!r}"
+        split_dir = re.search(
+            r"\b(?:North|South)-(?:east|west)(?:erly|wardly)?\b"
+            r"|\b(?:North|South)(?:east|west)-wardly\b",
+            text,
+            re.IGNORECASE,
+        )
+        assert split_dir is None, f"{field}: soft-hyphenated direction {split_dir.group(0)!r}"
 
 
 @pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
@@ -895,6 +902,18 @@ class TestAdditionalGroundTruthGuards:
             },
         )
         with pytest.raises(AssertionError, match="unjoined line-break hyphen"):
+            test_text_has_no_duplicate_words_or_line_break_hyphens(gt_path)
+
+    def test_soft_hyphenated_direction_fails(self, tmp_path: Path) -> None:
+        gt_path = _write_gt(
+            tmp_path,
+            "split_dir",
+            {
+                "expected_legal_description": "thence (1) Southwest-wardly 50 feet.",
+                "expected_normalized_text": "thence (1) Southwest-wardly 50 feet.",
+            },
+        )
+        with pytest.raises(AssertionError, match="soft-hyphenated direction"):
             test_text_has_no_duplicate_words_or_line_break_hyphens(gt_path)
 
     def test_truncated_bearing_quadrant_fails(self, tmp_path: Path) -> None:
