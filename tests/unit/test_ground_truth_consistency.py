@@ -8,6 +8,7 @@ establish that the description matches the recorded deed (the PDF checks did tha
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -145,7 +146,7 @@ def test_azimuth_matches_quadrant_bearing(path):
         expected = _quadrant_azimuth(quadrant)
         assert expected is not None, f"course {call['course']}: unparsed {quadrant!r}"
         difference = abs(azimuth - expected) % 360
-        assert min(difference, 360 - difference) < 0.02, f"course {call['course']}"
+        assert min(difference, 360 - difference) <= 30.5 / 3600, f"course {call['course']}"
 
 
 @pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
@@ -186,9 +187,9 @@ def test_bearing_appears_in_the_description(path):
             )
             expected_azimuth, _ = parsed
             difference = abs(azimuth - expected_azimuth) % 360
-            assert min(difference, 360 - difference) < 1e-3, (
+            assert min(difference, 360 - difference) < 1e-6, (
                 f"course {call['course']}: direction_text {direction!r} gives "
-                f"{expected_azimuth:.6f}° but bearing_azimuth_deg_from_north is {azimuth}"
+                f"{expected_azimuth:.8f}° but bearing_azimuth_deg_from_north is {azimuth}"
             )
         elif parsed is not None:
             raise AssertionError(
@@ -211,6 +212,62 @@ def test_along_and_to_are_quoted_from_the_description(path):
             value = call.get(field)
             if value and legal:
                 assert _squash(value) in legal, f"course {call['course']} {field}: {value!r}"
+
+
+@pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
+def test_pob_and_poc_are_quoted_from_the_description(path):
+    gt = _load(path)
+    legal = _squash(gt.get("expected_legal_description") or "")
+    if not legal:
+        return
+    for field in ("expected_pob", "expected_poc"):
+        value = gt.get(field)
+        if value:
+            assert _squash(value) in legal, f"{field} not found verbatim in legal description"
+
+
+@pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
+def test_text_has_no_duplicate_words_or_line_break_hyphens(path):
+    gt = _load(path)
+    for field in ("expected_legal_description", "expected_normalized_text"):
+        text = gt.get(field) or ""
+        if not text:
+            continue
+        dup = re.search(r"\b([A-Za-z]{2,})\s+\1\b", text, re.IGNORECASE)
+        assert dup is None, f"{field}: duplicate consecutive word {dup.group(0)!r}"
+        broken = re.search(r"[A-Za-z]+-\n[A-Za-z]+", text)
+        assert broken is None, f"{field}: unjoined line-break hyphen {broken.group(0)!r}"
+
+
+@pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
+def test_curve_parameters_appear_in_description_and_are_consistent(path):
+    gt = _load(path)
+    legal = _squash(gt.get("expected_legal_description") or "")
+    for call in gt.get("expected_calls") or []:
+        radius = call.get("radius_ft")
+        arc = call.get("arc_length_ft")
+        delta = call.get("delta_deg")
+        chord = call.get("chord_length_ft")
+        distance = call.get("distance_ft")
+        if arc is not None and distance is not None:
+            assert abs(arc - distance) <= 1e-4, (
+                f"course {call['course']}: distance_ft != arc_length_ft"
+            )
+        if legal:
+            for field, value in (
+                ("radius_ft", radius),
+                ("arc_length_ft", arc),
+                ("chord_length_ft", chord),
+            ):
+                if value is not None:
+                    assert any(form in legal for form in _printed_forms(value)), (
+                        f"course {call['course']} {field}: {value} not found in legal description"
+                    )
+        if radius is not None and arc is not None and delta is not None:
+            expected_arc = radius * math.radians(delta)
+            assert abs(expected_arc - arc) <= 0.05, (
+                f"course {call['course']}: R*delta={expected_arc:.4f} != arc={arc}"
+            )
 
 
 @pytest.mark.parametrize("path", GROUND_TRUTHS, ids=_ids(GROUND_TRUTHS))
@@ -286,7 +343,7 @@ def test_stored_closure_matches_the_courses(path):
     if area_sq_ft is not None:
         assert _is_number(area_sq_ft), f"area_sq_ft must be numeric, got {area_sq_ft!r}"
         assert result.area_available, "area_sq_ft stored but area is unavailable"
-        assert result.area_sq_ft == pytest.approx(area_sq_ft, abs=1.0)
+        assert result.area_sq_ft == pytest.approx(area_sq_ft, abs=0.05)
     area_acres = stored.get("area_acres")
     if area_acres is not None:
         assert _is_number(area_acres), f"area_acres must be numeric, got {area_acres!r}"
@@ -799,3 +856,82 @@ class TestOverrideFieldChecks:
         )
         with pytest.raises(AssertionError):
             test_ground_truth_records_printed_values_without_overrides(gt_path)
+
+
+class TestAdditionalGroundTruthGuards:
+    """Synthetic regression tests for POB/POC, duplicate words, hyphens, quadrants, and curves."""
+
+    def test_pob_missing_from_legal_description_fails(self, tmp_path: Path) -> None:
+        gt_path = _write_gt(
+            tmp_path,
+            "bad_pob",
+            {
+                "expected_legal_description": "BEGINNING at a point approved Dec 15, 1931.and adopted.",
+                "expected_pob": "a point approved Dec 15, 1931 and adopted",
+            },
+        )
+        with pytest.raises(AssertionError, match="expected_pob"):
+            test_pob_and_poc_are_quoted_from_the_description(gt_path)
+
+    def test_duplicate_word_in_normalized_text_fails(self, tmp_path: Path) -> None:
+        gt_path = _write_gt(
+            tmp_path,
+            "dup_word",
+            {
+                "expected_legal_description": "BEGINNING at a PK nail found.",
+                "expected_normalized_text": "BEGINNING at a pk nail nail found.",
+            },
+        )
+        with pytest.raises(AssertionError, match="duplicate consecutive word"):
+            test_text_has_no_duplicate_words_or_line_break_hyphens(gt_path)
+
+    def test_unjoined_line_break_hyphen_fails(self, tmp_path: Path) -> None:
+        gt_path = _write_gt(
+            tmp_path,
+            "broken_hyphen",
+            {
+                "expected_legal_description": "from the inter-\nsection of Main Street",
+                "expected_normalized_text": "from the intersection of Main Street",
+            },
+        )
+        with pytest.raises(AssertionError, match="unjoined line-break hyphen"):
+            test_text_has_no_duplicate_words_or_line_break_hyphens(gt_path)
+
+    def test_truncated_bearing_quadrant_fails(self, tmp_path: Path) -> None:
+        gt_path = _write_gt(
+            tmp_path,
+            "trunc_quad",
+            {
+                "expected_calls": [
+                    {
+                        "course": 1,
+                        "direction_text": "S 71°54'50\" E",
+                        "bearing_quadrant": "S 71°54' E",
+                        "bearing_azimuth_deg_from_north": 108.08611111111111,
+                        "distance_ft": 69.8,
+                    }
+                ]
+            },
+        )
+        with pytest.raises(AssertionError):
+            test_azimuth_matches_quadrant_bearing(gt_path)
+
+    def test_curve_radius_missing_from_description_fails(self, tmp_path: Path) -> None:
+        gt_path = _write_gt(
+            tmp_path,
+            "bad_curve",
+            {
+                "expected_legal_description": "curving right radius 500.00 feet arc 100.00 feet",
+                "expected_calls": [
+                    {
+                        "course": 1,
+                        "curve_dir": "right",
+                        "radius_ft": 550.0,
+                        "arc_length_ft": 100.0,
+                        "distance_ft": 100.0,
+                    }
+                ],
+            },
+        )
+        with pytest.raises(AssertionError, match="radius_ft"):
+            test_curve_parameters_appear_in_description_and_are_consistent(gt_path)

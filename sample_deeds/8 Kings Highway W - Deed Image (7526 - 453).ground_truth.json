@@ -44,7 +44,7 @@
       "course": 3,
       "direction_text": "N 28 degrees 36 minutes 51 seconds W",
       "bearing_quadrant": "N 28\u00b036'51\" W",
-      "bearing_azimuth_deg_from_north": 331.3858,
+      "bearing_azimuth_deg_from_north": 331.3858333333333,
       "distance_ft": 49.46,
       "along": "the division line of Lots 12.12 and 12.13 as shown on Plan hereinafter mentioned",
       "to": "a point in the division line of Lots 12.06 and 12.07",
@@ -54,7 +54,7 @@
       "course": 4,
       "direction_text": "N 61 degrees 23 minutes 09 seconds E",
       "bearing_quadrant": "N 61\u00b023'09\" E",
-      "bearing_azimuth_deg_from_north": 61.3858,
+      "bearing_azimuth_deg_from_north": 61.38583333333333,
       "distance_ft": 69.88,
       "along": "said division line",
       "to": "the point and place of beginning",
@@ -62,7 +62,7 @@
     }
   ],
   "expected_closure": {
-    "misclosure_ft": 0.0063,
+    "misclosure_ft": 0.0062,
     "misclosure_tolerance_ft": 0.01,
     "area_sq_ft": 3249.48,
     "area_acres": 0.0746,
