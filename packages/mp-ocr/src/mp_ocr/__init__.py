@@ -9,18 +9,43 @@ from .clients import (
     OpenAIClient,
     OpenRouterClient,
 )
-from .extract import PDFProcessor, compute_llm_confidence
+from .escalation import (
+    CourseDisagreement,
+    EscalationPolicy,
+    EscalationReport,
+    compare_call_readings,
+    select_escalation_outcome,
+    should_escalate_closure,
+)
+from .extract import PDFProcessor, compute_llm_confidence, verify_normalization_integrity
+from .preprocessing import (
+    count_pdf_pages,
+    preprocess_pdf_pages_for_ocr,
+    render_pdf_pages_to_pngs,
+    strip_green_watermark_and_crop,
+)
 
 __version__ = "1.0.1"
 
 __all__ = [
     "BaseLLMClient",
     "CachedLLMClient",
+    "CourseDisagreement",
+    "EscalationPolicy",
+    "EscalationReport",
     "GeminiClient",
     "LLMClientError",
     "LLMConfigurationError",
     "OpenAIClient",
     "OpenRouterClient",
     "PDFProcessor",
+    "compare_call_readings",
     "compute_llm_confidence",
+    "count_pdf_pages",
+    "preprocess_pdf_pages_for_ocr",
+    "render_pdf_pages_to_pngs",
+    "select_escalation_outcome",
+    "should_escalate_closure",
+    "strip_green_watermark_and_crop",
+    "verify_normalization_integrity",
 ]

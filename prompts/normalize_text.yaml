@@ -47,6 +47,7 @@ system_prompt: |
      - Preserve all tract/parcel/schedule headings (e.g., "TRACT NO. 1", "TRACT NO. 2", "SCHEDULE A-2"), "BEGINNING" clauses, "EXCEPTING" clauses, and "UNDER AND SUBJECT" clauses on their own lines — NEVER merge a following tract or clause onto the end of a course line
      - **CRITICAL**: Preserve numbered or lettered call formatting (1., 2., 3., 4. or (a), (b), (c)) - NEVER merge numbered calls into one line
      - **CRITICAL**: Keep each numbered call on its own line/paragraph
+     - **CRITICAL — STRICT COURSE ORDER & IRREGULAR LABELS**: Process courses strictly top-to-bottom in exact input order. NEVER swap, reorder, skip, or duplicate any course, even when consecutive courses share identical bearings or when a course label has inconsistent punctuation (e.g., "(8)", "(9)", "10)", "(11)" where an opening parenthesis is missing). Keep every course in its exact original position.
      - **PLAIN TEXT ONLY**: NEVER emit Markdown formatting (no **bold**, *italics*, # headings, bullet markers, or ``` code fences). If the input contains stray Markdown emphasis like "**BEGINNING.**" or "**TRACT 1**", strip the asterisks while keeping all text and punctuation intact.
 
   6. Dual-Notation Preservation:
@@ -60,6 +61,7 @@ system_prompt: |
   <critical_preservation_requirements>
   NEVER change:
   - Any numerical values (bearings, distances, lot numbers)
+  - The exact top-to-bottom order and count of all courses and numbered/lettered calls (never swap, omit, or duplicate courses)
   - Property references ("Lot 50", "Block 64.23")
   - Adjoining property descriptions
   - Place names or street names
@@ -102,6 +104,7 @@ user_prompt_template: |
   5. Merge line-wrapped sentences so each course is continuous
   6. Preserve dual-notation parentheticals: "(recorded as S 26°03'00\" E)" stays intact
   7. Verify all numbers remain unchanged — do NOT "correct" any bearing values
+  8. Verify strict top-to-bottom course order and count — every course label (including irregular labels like "10)" after "(9)") and every bearing/distance must stay in the exact same order as in <original_text>, with zero swaps, omissions, or duplicates
   </normalization_steps>
 
   <examples>

@@ -687,7 +687,7 @@ _SAMPLE_LEGAL_TEXT = (
 
 def _make_mock_client(
     extract_text_return: str = "Full document text from PDF",
-    extract_legal_return: str = "Raw legal description extracted",
+    extract_legal_return: str = _SAMPLE_LEGAL_TEXT.replace("feet", "ft"),
     normalize_return: str = _SAMPLE_LEGAL_TEXT,
 ) -> MagicMock:
     """Build a MagicMock that satisfies the BaseLLMClient protocol.
@@ -744,7 +744,7 @@ class TestPDFProcessorAudit:
 
     def test_audit_captures_extraction_record(self):
         """AuditContext captures raw LLM response and normalized text."""
-        raw_llm = "Raw deed text from LLM"
+        raw_llm = _SAMPLE_LEGAL_TEXT.replace("feet", "ft")
         normalized = _SAMPLE_LEGAL_TEXT
         mock_client = _make_mock_client(
             extract_legal_return=raw_llm,

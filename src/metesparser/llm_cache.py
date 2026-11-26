@@ -6,13 +6,14 @@ import hashlib
 import json
 import os
 import tempfile
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 import structlog
 
-from .llm_clients import BaseLLMClient, _read_pdf
+from .llm_clients import BaseLLMClient, _read_image, _read_pdf
 
 logger = structlog.get_logger(__name__)
 
@@ -80,6 +81,7 @@ class CachedLLMClient:
         prompt: str,
         response_mime_type: str | None,
         pdf_bytes: bytes | None = None,
+        image_bytes_list: Sequence[bytes] | None = None,
     ) -> str:
         target = _unwrap_client_chain(self)
         client_type = type(target)
@@ -90,7 +92,7 @@ class CachedLLMClient:
         client_config = {
             name: getattr(target, name) for name in _MODEL_CONFIG_FIELDS if hasattr(target, name)
         }
-        identity = {
+        identity: dict[str, object] = {
             "namespace": _CACHE_KEY_VERSION,
             "client": client_id,
             "config": client_config,
@@ -98,6 +100,10 @@ class CachedLLMClient:
             "response_mime_type": response_mime_type,
             "pdf_sha256": hashlib.sha256(pdf_bytes).hexdigest() if pdf_bytes is not None else None,
         }
+        if image_bytes_list is not None:
+            identity["image_sha256s"] = [
+                hashlib.sha256(raw).hexdigest() for raw in image_bytes_list
+            ]
         serialized = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
@@ -186,6 +192,40 @@ class CachedLLMClient:
         )
         if result and result.strip():
             self._write_cache(key, result, prompt, pdf_name=pdf_name)
+        return result
+
+    def generate_text_with_images(
+        self,
+        prompt: str,
+        image_paths: Sequence[str | Path],
+        *,
+        response_mime_type: str | None = None,
+    ) -> str:
+        if not image_paths:
+            raise ValueError("image_paths must contain at least one image")
+        image_names: list[str] = []
+        image_bytes_list: list[bytes] = []
+        for image_path in image_paths:
+            name, _, img_bytes = _read_image(image_path)
+            image_names.append(name)
+            image_bytes_list.append(img_bytes)
+
+        key = self._cache_key(prompt, response_mime_type, image_bytes_list=image_bytes_list)
+        cached = self._read_cache(key)
+        if cached is not None:
+            return cached
+
+        image_method = getattr(self._client, "generate_text_with_images", None)
+        if not callable(image_method):
+            raise NotImplementedError(
+                f"{type(self._client).__name__} does not support generate_text_with_images"
+            )
+        result = cast(
+            str,
+            image_method(prompt, image_paths, response_mime_type=response_mime_type),
+        )
+        if result and result.strip():
+            self._write_cache(key, result, prompt, pdf_name=",".join(image_names))
         return result
 
     def clear_cache(self) -> int:

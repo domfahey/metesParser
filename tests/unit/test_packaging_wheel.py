@@ -14,6 +14,7 @@ PROMPTS = (
     "extract_calls.yaml",
     "extract_legal_description.yaml",
     "extract_text_from_pdf.yaml",
+    "locate_legal_pages.yaml",
     "normalize_text.yaml",
 )
 

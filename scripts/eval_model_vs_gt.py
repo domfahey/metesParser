@@ -33,8 +33,19 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from mp_ocr import BaseLLMClient, GeminiClient, OpenAIClient, OpenRouterClient, PDFProcessor
+from mp_ocr import (
+    BaseLLMClient,
+    EscalationPolicy,
+    GeminiClient,
+    OpenAIClient,
+    OpenRouterClient,
+    PDFProcessor,
+    compare_call_readings,
+    select_escalation_outcome,
+    should_escalate_closure,
+)
 from mp_parse import extract_calls
+from mp_verify import verify_closure
 
 DEFAULT_SAMPLE_DIR = Path("sample_deeds")
 DEFAULT_OUTPUT_ROOT = Path("output/model_eval")
@@ -340,6 +351,9 @@ def evaluate_deed(
     cache_dir: Path | None,
     use_cache: bool = True,
     force: bool = False,
+    escalation_policy: EscalationPolicy = "never",
+    escalation_client_factory: Any | None = None,
+    escalation_dpi: int = 300,
 ) -> dict[str, Any]:
     """Run one deed PDF through the 3-stage OCR pipeline + parser and compare to ground truth."""
     stem = gt_path.name.removesuffix(".ground_truth.json")
@@ -374,10 +388,70 @@ def evaluate_deed(
         raw_text = stage_records[0].response if stage_records else ""
         # Stage 3
         norm_text = processor.normalize_legal_description(legal_text, audit=True)
-        elapsed_s = round(time.monotonic() - t0, 2)
 
         calls_norm, tracts_norm, skips_norm = extract_all_calls(norm_text)
         calls_legal, _tracts_legal, _skips_legal = extract_all_calls(legal_text)
+
+        escalation_meta: dict[str, Any] = {
+            "policy": escalation_policy,
+            "triggered": False,
+        }
+        if escalation_policy != "never" and calls_norm:
+            pri_results = (
+                verify_closure(calls_norm, tracts=tracts_norm)
+                if tracts_norm
+                else [verify_closure(calls_norm)]
+            )
+            should_esc, trigger_reasons = should_escalate_closure(
+                pri_results, policy=escalation_policy
+            )
+            if should_esc:
+                esc_factory = escalation_client_factory or client_factory
+                esc_client, esc_model = esc_factory()
+                _instrument_usage(esc_client, usage_totals)
+                esc_proc = PDFProcessor(client=esc_client, cache=use_cache, cache_dir=cache_dir)
+                esc_legal, esc_norm, legal_pages = esc_proc.extract_legal_description_from_images(
+                    str(pdf_path),
+                    dpi=escalation_dpi,
+                    strip_watermark=True,
+                    crop_margins=True,
+                    audit=True,
+                    locator_processor=processor,
+                )
+                esc_calls, esc_tracts, esc_skips = extract_all_calls(esc_norm)
+                esc_calls_legal, _, _ = extract_all_calls(esc_legal)
+                esc_results = (
+                    verify_closure(esc_calls, tracts=esc_tracts)
+                    if esc_tracts
+                    else ([verify_closure(esc_calls)] if esc_calls else [])
+                )
+                disagreements = compare_call_readings(calls_norm, esc_calls)
+                selected, selection_reason = select_escalation_outcome(
+                    primary_calls=calls_norm,
+                    escalated_calls=esc_calls,
+                    primary_results=pri_results,
+                    escalated_results=esc_results,
+                    disagreements=disagreements,
+                )
+                escalation_meta = {
+                    "policy": escalation_policy,
+                    "triggered": True,
+                    "trigger_reasons": trigger_reasons,
+                    "legal_pages": legal_pages,
+                    "escalation_model": esc_model,
+                    "agrees": not disagreements,
+                    "disagreement_count": len(disagreements),
+                    "disagreements": [d.format_warning() for d in disagreements],
+                    "selected": selected,
+                    "selection_reason": selection_reason,
+                }
+                if selected == "escalated":
+                    legal_text = esc_legal
+                    norm_text = esc_norm
+                    calls_norm, tracts_norm, skips_norm = esc_calls, esc_tracts, esc_skips
+                    calls_legal = esc_calls_legal
+
+        elapsed_s = round(time.monotonic() - t0, 2)
 
         cmp_norm = compare_calls(calls_norm, exp_calls)
         cmp_legal = compare_calls(calls_legal, exp_calls)
@@ -405,6 +479,7 @@ def evaluate_deed(
             "skips_norm": [str(s) for s in skips_norm[:5]],
             "strict_ok": strict_ok,
             "strict_err": strict_err,
+            "escalation": escalation_meta,
             "markdown": {
                 "raw": bool(_MARKDOWN_RE.search(raw_text)),
                 "legal": bool(_MARKDOWN_RE.search(legal_text)),
@@ -627,6 +702,23 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Retries per request on transient errors (default: 3)",
     )
     parser.add_argument(
+        "--escalate-policy",
+        choices=["never", "closure_failed", "unverified"],
+        default="never",
+        help="Optional blind high-DPI escalation policy (default: never)",
+    )
+    parser.add_argument(
+        "--escalate-model",
+        default=None,
+        help="Model ID for blind escalation passes (defaults to --model)",
+    )
+    parser.add_argument(
+        "--escalate-dpi",
+        type=int,
+        default=300,
+        help="Render DPI for cropped legal-page escalation images (default: 300)",
+    )
+    parser.add_argument(
         "--self-check",
         action="store_true",
         help="Offline self-check: score ground truths against themselves (0 API calls)",
@@ -660,9 +752,25 @@ def main(argv: list[str] | None = None) -> int:
             max_retries=args.max_retries,
         )
 
+    esc_model = (args.escalate_model or "").strip() or resolved_model
+
+    def _make_escalation_client() -> tuple[BaseLLMClient, str]:
+        return build_client(
+            provider=args.provider,
+            model=esc_model,
+            fallback_model=args.fallback_model,
+            reasoning_effort=args.reasoning_effort,
+            pdf_engine=args.pdf_engine,
+            thinking_level=args.thinking_level,
+            timeout_s=args.timeout_s,
+            max_retries=args.max_retries,
+        )
+
     # Validate client configuration eagerly before spawning workers
     try:
         _make_client()
+        if args.escalate_policy != "never":
+            _make_escalation_client()
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -693,6 +801,11 @@ def main(argv: list[str] | None = None) -> int:
                 cache_dir=cache_dir,
                 use_cache=not args.no_cache,
                 force=args.force,
+                escalation_policy=args.escalate_policy,
+                escalation_client_factory=(
+                    _make_escalation_client if args.escalate_policy != "never" else None
+                ),
+                escalation_dpi=args.escalate_dpi,
             ): gt_path
             for gt_path in gts
         }

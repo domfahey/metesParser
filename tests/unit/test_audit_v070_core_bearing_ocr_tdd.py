@@ -345,7 +345,12 @@ def test_monolith_calculate_missing_curve_elements_supports_degree_of_curvature(
 
 @pytest.mark.parametrize(
     "filename",
-    ["extract_legal_description.yaml", "extract_text_from_pdf.yaml", "normalize_text.yaml"],
+    [
+        "extract_legal_description.yaml",
+        "extract_text_from_pdf.yaml",
+        "locate_legal_pages.yaml",
+        "normalize_text.yaml",
+    ],
 )
 def test_prompt_copies_are_in_sync_and_reconciled(filename: str) -> None:
     repo_root = Path(__file__).resolve().parents[2]
