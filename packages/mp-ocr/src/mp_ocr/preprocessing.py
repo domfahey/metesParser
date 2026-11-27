@@ -9,6 +9,7 @@ from __future__ import annotations
 import math
 import shutil
 import subprocess
+import time
 import uuid
 from collections.abc import Sequence
 from pathlib import Path
@@ -17,11 +18,16 @@ from typing import Any
 from pypdf import PdfReader
 
 MAX_RENDER_DPI = 600
-_MAX_DPI = MAX_RENDER_DPI
+_MIN_RENDER_PIXELS = 100_000
 _DEFAULT_MAX_RENDER_PIXELS = 40_000_000
 DEFAULT_MAX_RENDER_PAGES = 100
 _DEFAULT_RENDER_TIMEOUT_S = 60.0
 _MAX_TOTAL_RUN_TIMEOUT_S = 600.0
+_WATERMARK_LUT_BLACK_POINT = 20.0
+_WATERMARK_LUT_SPAN = 165.0
+_CROP_DARK_LUMA_THRESHOLD = 215
+_CROP_MIN_DARK_PX = 8
+_CROP_RELATIVE_PAD_RATIO = 0.015
 
 
 def _validate_int(
@@ -107,12 +113,31 @@ def _effective_dpi_for_page(
             f"Invalid PDF mediabox dimensions ({raw_w!r}x{raw_h!r} pt, "
             f"UserUnit={user_unit!r}) on page {page_num}"
         )
-    width_in = max((abs(raw_w) * user_unit) / 72.0, 0.1)
-    height_in = max((abs(raw_h) * user_unit) / 72.0, 0.1)
+    width_in_raw = (abs(raw_w) * user_unit) / 72.0
+    height_in_raw = (abs(raw_h) * user_unit) / 72.0
+    if not (math.isfinite(width_in_raw) and math.isfinite(height_in_raw)):
+        raise ValueError(
+            f"PDF mediabox dimensions overflow finite range ({raw_w!r}x{raw_h!r} pt, "
+            f"UserUnit={user_unit!r}) on page {page_num}"
+        )
+    width_in = max(width_in_raw, 0.1)
+    height_in = max(height_in_raw, 0.1)
+    if width_in > max_render_pixels or height_in > max_render_pixels:
+        raise ValueError(
+            f"PDF page {page_num} ({width_in:.1f}x{height_in:.1f} in) exceeds "
+            f"max_render_pixels={max_render_pixels} even at 1 DPI"
+        )
 
     def _ceil_pixels(dpi_val: int) -> int:
+        w_px = width_in * dpi_val
+        h_px = height_in * dpi_val
+        if not (math.isfinite(w_px) and math.isfinite(h_px)):
+            raise ValueError(
+                f"PDF page {page_num} ({width_in!r}x{height_in!r} in at {dpi_val} DPI) "
+                "overflows finite pixel dimensions"
+            )
         # +1 px safety margin per axis for Poppler rounding on fractional inch sizes.
-        return (math.ceil(width_in * dpi_val) + 1) * (math.ceil(height_in * dpi_val) + 1)
+        return (math.ceil(w_px) + 1) * (math.ceil(h_px) + 1)
 
     if _ceil_pixels(requested_dpi) <= max_render_pixels:
         return requested_dpi
@@ -161,7 +186,9 @@ def render_pdf_pages_to_pngs(
 ) -> list[Path]:
     """Render selected 1-based pages (or all pages) of *pdf_path* to PNGs via ``pdftoppm``."""
     validated_dpi = validate_render_dpi(dpi, name="dpi")
-    validated_max_pixels = _validate_int(max_render_pixels, "max_render_pixels", min_value=100_000)
+    validated_max_pixels = _validate_int(
+        max_render_pixels, "max_render_pixels", min_value=_MIN_RENDER_PIXELS
+    )
     validated_max_pages = _validate_int(max_pages, "max_pages", min_value=1)
     if (
         isinstance(timeout_s, bool)
@@ -204,11 +231,19 @@ def render_pdf_pages_to_pngs(
     runs = _group_contiguous_pages(pages_with_dpi)
     run_token = uuid.uuid4().hex[:8]
     timeout_ceiling = max(float(timeout_s), _MAX_TOTAL_RUN_TIMEOUT_S)
+    deadline = time.monotonic() + timeout_ceiling
     rendered: list[Path] = []
     for run_start, run_end, run_dpi in runs:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise RuntimeError(
+                f"pdftoppm cumulative timeout ({timeout_ceiling:.1f}s) exceeded before "
+                f"rendering pages {run_start}-{run_end} of {path.name}"
+            )
         prefix_name = f"{run_token}_run_{run_start:04d}_{run_end:04d}"
         prefix = resolved_out / prefix_name
-        run_timeout = min(float(timeout_s) * max(1, run_end - run_start + 1), timeout_ceiling)
+        per_run_budget = float(timeout_s) * max(1, run_end - run_start + 1)
+        run_timeout = min(per_run_budget, remaining)
         cmd = [pdftoppm_bin, "-png"]
         if grayscale:
             cmd.append("-gray")
@@ -283,10 +318,9 @@ def strip_green_watermark_and_crop(
     validated_delta = _validate_int(
         watermark_green_delta, "watermark_green_delta", min_value=0, max_value=255
     )
-    validated_max_pixels = _validate_int(max_pixels, "max_pixels", min_value=100_000)
+    validated_max_pixels = _validate_int(max_pixels, "max_pixels", min_value=_MIN_RENDER_PIXELS)
 
     try:
-        import numpy as np
         from PIL import Image
     except ImportError as exc:  # pragma: no cover - optional image deps
         raise ImportError(
@@ -294,6 +328,30 @@ def strip_green_watermark_and_crop(
             "Install with: uv sync --extra vision (or pip install 'mp-ocr[vision]')."
         ) from exc
 
+    if not strip_watermark and not crop_margins:
+        with Image.open(image_path) as raw_img:
+            img_w, img_h = raw_img.size
+            if img_w * img_h > validated_max_pixels:
+                raise ValueError(
+                    f"Image {image_path.name} ({img_w}x{img_h} = {img_w * img_h} px) "
+                    f"exceeds max_pixels={validated_max_pixels}"
+                )
+            out_img: Any = raw_img.convert("L")
+        if max(out_img.size) > validated_max_dim:
+            out_img.thumbnail((validated_max_dim, validated_max_dim), Image.Resampling.LANCZOS)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        out_img.save(output_path, optimize=True)
+        return output_path
+
+    try:
+        import numpy as np
+    except ImportError as exc:  # pragma: no cover - optional image deps
+        raise ImportError(
+            "Pillow and numpy are required for OCR image preprocessing. "
+            "Install with: uv sync --extra vision (or pip install 'mp-ocr[vision]')."
+        ) from exc
+
+    arr: Any = None
     with Image.open(image_path) as raw_img:
         img_w, img_h = raw_img.size
         if img_w * img_h > validated_max_pixels:
@@ -301,48 +359,48 @@ def strip_green_watermark_and_crop(
                 f"Image {image_path.name} ({img_w}x{img_h} = {img_w * img_h} px) "
                 f"exceeds max_pixels={validated_max_pixels}"
             )
-        if not strip_watermark and not crop_margins:
-            out_img: Any = raw_img.convert("L")
-            if max(out_img.size) > validated_max_dim:
-                out_img.thumbnail((validated_max_dim, validated_max_dim), Image.Resampling.LANCZOS)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            out_img.save(output_path, optimize=True)
-            return output_path
         if not strip_watermark:
             clean: Any = np.array(raw_img.convert("L"), dtype=np.uint8)
         else:
             rgb_img = raw_img if raw_img.mode == "RGB" else raw_img.convert("RGB")
             clean = np.array(rgb_img.convert("L"), dtype=np.uint8)
-            arr: Any = np.asarray(rgb_img, dtype=np.uint8)
-            r = arr[:, :, 0]
-            g = arr[:, :, 1]
-            b = arr[:, :, 2]
-            max_rb = np.maximum(r, b)
-            green_mask = (g > max_rb) & ((g - max_rb) > validated_delta)
-            if green_mask.any():
-                lut = np.clip(
-                    np.arange(256, dtype=np.float32) * (255.0 / 165.0) - (20.0 * 255.0 / 165.0),
-                    0.0,
-                    255.0,
-                ).astype(np.uint8)
-                clean[green_mask] = lut[g[green_mask]]
-            del arr, r, g, b, max_rb, green_mask
+            arr = np.array(rgb_img, dtype=np.uint8)
+            if rgb_img is not raw_img:
+                rgb_img.close()
+
+    if arr is not None:
+        r = arr[:, :, 0]
+        g = arr[:, :, 1]
+        b = arr[:, :, 2]
+        buf = np.maximum(r, b)
+        green_mask = g > buf
+        np.subtract(g, buf, out=buf)
+        green_mask &= buf > validated_delta
+        if green_mask.any():
+            scale = 255.0 / _WATERMARK_LUT_SPAN
+            lut = np.clip(
+                np.arange(256, dtype=np.float32) * scale - (_WATERMARK_LUT_BLACK_POINT * scale),
+                0.0,
+                255.0,
+            ).astype(np.uint8)
+            clean[green_mask] = lut[g[green_mask]]
+        del arr, r, g, b, buf, green_mask
 
     if crop_margins:
         height, width = clean.shape
         # Inspect the full page (never slice off fixed outer percentage bands) with a
-        # generous <215 luminance threshold so narrow margins, shifted text, and faint
+        # generous luminance threshold so narrow margins, shifted text, and faint
         # gray text under stripped watermarks are preserved without truncation.
-        dark = clean < 215
-        row_has = dark.sum(axis=1) >= 8
-        col_has = dark.sum(axis=0) >= 8
+        dark = clean < _CROP_DARK_LUMA_THRESHOLD
+        row_has = dark.sum(axis=1) >= _CROP_MIN_DARK_PX
+        col_has = dark.sum(axis=0) >= _CROP_MIN_DARK_PX
         if row_has.any() and col_has.any():
             ry = np.where(row_has)[0]
             cx = np.where(col_has)[0]
             scaled_pad = (
                 0
                 if validated_pad == 0
-                else max(validated_pad, int(round(max(height, width) * 0.015)))
+                else max(validated_pad, int(round(max(height, width) * _CROP_RELATIVE_PAD_RATIO)))
             )
             top = max(0, int(ry[0]) - scaled_pad)
             bot = min(height, int(ry[-1]) + 1 + scaled_pad)

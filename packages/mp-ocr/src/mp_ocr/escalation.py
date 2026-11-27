@@ -13,7 +13,19 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Literal
 
-from mp_models import ClosureResult, DeedCall, Tract
+from mp_models import (
+    DESCRIPTION_ROLES_NOTE,
+    EASEMENT_TRACT_NOTE,
+    EXCEPTION_TRACT_NOTE,
+    INVALID_STATED_AREA_NOTE_PREFIX,
+    RIGHTS_RESERVED_NOTE_PREFIX,
+    SEPARATE_EASEMENT_NOTE_PREFIX,
+    UNAPPLIED_EXCEPTION_NOTE_PREFIX,
+    ClosureResult,
+    DeedCall,
+    Tract,
+    split_notes,
+)
 
 EscalationPolicy = Literal["never", "closure_failed", "unverified"]
 VALID_ESCALATION_POLICIES: tuple[EscalationPolicy, ...] = (
@@ -45,6 +57,127 @@ _DUE_BEARING_AZIMUTH: dict[str, float] = {
     "due west": 270.0,
     "due w": 270.0,
 }
+
+_EMBEDDED_BEARING_STRIP_RE = re.compile(
+    r"\b(?:North|South|[NS])\.?\s*\d{1,2}(?:\.\d+)?\s*(?:°|º|deg(?:rees?)?\.?)"
+    r"(?:\s*\d{1,2}\s*(?:'|\u2019|\u2032|min(?:utes?)?\.?)"
+    r"(?:\s*\d{1,2}(?:\.\d+)?\s*(?:\"|''|\u201d|\u2033|sec(?:onds?)?\.?)?)?)?"
+    r"\s*(?:East|West|[EW])\.?\b",
+    re.IGNORECASE,
+)
+_CARDINAL_WORD_RE = re.compile(
+    r"\b(?P<card>north(?:east|west)?|south(?:east|west)?|east|west)(?:erly|wardly)?\b",
+    re.IGNORECASE,
+)
+
+_TAIL_NOTE_EXACT_CATEGORIES: dict[str, str] = {
+    DESCRIPTION_ROLES_NOTE.lower(): "description_roles",
+    EASEMENT_TRACT_NOTE.lower(): "easement_tract",
+    EXCEPTION_TRACT_NOTE.lower(): "exception_tract",
+}
+_TAIL_NOTE_PREFIX_CATEGORIES: tuple[tuple[str, str], ...] = (
+    (UNAPPLIED_EXCEPTION_NOTE_PREFIX.lower(), "unapplied_exception"),
+    (INVALID_STATED_AREA_NOTE_PREFIX.lower(), "invalid_stated_area"),
+    (SEPARATE_EASEMENT_NOTE_PREFIX.lower(), "separate_easement"),
+    (RIGHTS_RESERVED_NOTE_PREFIX.lower(), "rights_reserved"),
+)
+_BLOCKING_TAIL_NOTE_CATEGORIES: frozenset[str] = frozenset(
+    {
+        "description_roles",
+        "easement_tract",
+        "exception_tract",
+        "unapplied_exception",
+        "invalid_stated_area",
+        "separate_easement",
+    }
+)
+
+
+def tail_note_categories(calls: Sequence[DeedCall]) -> set[str]:
+    """Return the set of distinct deed/tail blocking or reservation note categories on *calls*."""
+    categories: set[str] = set()
+    for call in calls:
+        for note in split_notes(call.notes):
+            lowered = note.strip().lower()
+            exact_cat = _TAIL_NOTE_EXACT_CATEGORIES.get(lowered)
+            if exact_cat is not None:
+                categories.add(exact_cat)
+                continue
+            for prefix, cat in _TAIL_NOTE_PREFIX_CATEGORIES:
+                if lowered.startswith(prefix):
+                    categories.add(cat)
+                    break
+    return categories
+
+
+def _effective_single_area(top_area: float | None, tracts: Sequence[Tract]) -> float | None:
+    """Resolve effective stated area for single-parcel comparisons across top-level or sole tract."""
+    if top_area is not None:
+        return top_area
+    if len(tracts) == 1:
+        return tracts[0].stated_area_sq_ft
+    return None
+
+
+def _has_dropped_area(
+    primary_stated_area_sq_ft: float | None,
+    escalated_stated_area_sq_ft: float | None,
+    pri_tracts: Sequence[Tract],
+    esc_tracts: Sequence[Tract],
+) -> bool:
+    """Return True if escalation dropped primary stated area, respecting multi-tract per-tract storage."""
+    if pri_tracts and esc_tracts:
+        if any(
+            pri_t.stated_area_sq_ft is not None and esc_t.stated_area_sq_ft is None
+            for pri_t, esc_t in zip(pri_tracts, esc_tracts, strict=False)
+        ):
+            return True
+    eff_pri = _effective_single_area(primary_stated_area_sq_ft, pri_tracts)
+    if eff_pri is None:
+        return False
+    # Multi-tract escalated deeds intentionally store area on Tract objects rather than top-level.
+    if len(esc_tracts) > 1 and escalated_stated_area_sq_ft is None:
+        return not any(t.stated_area_sq_ft is not None for t in esc_tracts)
+    eff_esc = _effective_single_area(escalated_stated_area_sq_ft, esc_tracts)
+    return eff_esc is None
+
+
+def is_escalated_subset_truncated(
+    *,
+    primary_calls: Sequence[DeedCall],
+    escalated_calls: Sequence[DeedCall],
+    primary_tracts: Sequence[Tract] | None = None,
+    escalated_tracts: Sequence[Tract] | None = None,
+    primary_stated_area_sq_ft: float | None = None,
+    escalated_stated_area_sq_ft: float | None = None,
+) -> bool:
+    """Return True if an escalated subset dropped tracts, calls, stated area, or tail note categories."""
+    pri_tracts = list(primary_tracts) if primary_tracts else []
+    esc_tracts = list(escalated_tracts) if escalated_tracts else []
+    if pri_tracts:
+        if len(esc_tracts) < len(pri_tracts):
+            return True
+        for pri_t, esc_t in zip(pri_tracts, esc_tracts, strict=False):
+            if pri_t.calls and len(esc_t.calls) < len(pri_t.calls):
+                return True
+    if primary_calls and len(escalated_calls) < len(primary_calls):
+        return True
+    if _has_dropped_area(
+        primary_stated_area_sq_ft, escalated_stated_area_sq_ft, pri_tracts, esc_tracts
+    ):
+        return True
+    if tail_note_categories(primary_calls) - tail_note_categories(escalated_calls):
+        return True
+    return False
+
+
+def _extract_curve_cardinal(text: str | None) -> str | None:
+    """Return canonical cardinal direction word outside embedded DMS bearings, or None."""
+    if not text:
+        return None
+    stripped = _EMBEDDED_BEARING_STRIP_RE.sub(" ", text)
+    match = _CARDINAL_WORD_RE.search(stripped)
+    return match.group("card").lower() if match else None
 
 
 def validate_escalation_policy(policy: object) -> EscalationPolicy:
@@ -340,6 +473,14 @@ def _compare_flat_calls(
                     f"direction_text: primary={pri.direction_text!r}, "
                     f"escalated={esc.direction_text!r}"
                 )
+        else:
+            pri_card = _extract_curve_cardinal(pri.direction_text)
+            esc_card = _extract_curve_cardinal(esc.direction_text)
+            if pri_card != esc_card:
+                issues.append(
+                    f"direction_text: primary={pri.direction_text!r}, "
+                    f"escalated={esc.direction_text!r}"
+                )
 
         pri_curve = getattr(pri.curve_dir, "value", pri.curve_dir)
         esc_curve = getattr(esc.curve_dir, "value", esc.curve_dir)
@@ -415,12 +556,30 @@ def compare_call_readings(
     esc_tracts = list(escalated_tracts) if escalated_tracts else []
     disagreements: list[CourseDisagreement] = []
 
+    # Single-parcel asymmetry (e.g. primary has 1 implicit tract while escalated has flat calls):
+    # resolve effective area before top-level metadata comparison so matching sole-tract vs flat
+    # area does not emit a spurious disagreement while drops and metadata diffs still surface.
+    single_parcel_asymmetry = (
+        len(pri_tracts) == 1 and not esc_tracts and bool(escalated_calls)
+    ) or (len(esc_tracts) == 1 and not pri_tracts and bool(primary_calls))
+
+    eff_pri_area = (
+        _effective_single_area(primary_stated_area_sq_ft, pri_tracts)
+        if single_parcel_asymmetry
+        else primary_stated_area_sq_ft
+    )
+    eff_esc_area = (
+        _effective_single_area(escalated_stated_area_sq_ft, esc_tracts)
+        if single_parcel_asymmetry
+        else escalated_stated_area_sq_ft
+    )
+
     top_meta: list[str] = []
-    if primary_stated_area_sq_ft is not None or escalated_stated_area_sq_ft is not None:
+    if eff_pri_area is not None or eff_esc_area is not None:
         _compare_optional_float(
             "stated_area_sq_ft",
-            primary_stated_area_sq_ft,
-            escalated_stated_area_sq_ft,
+            eff_pri_area,
+            eff_esc_area,
             distance_tol_ft,
             top_meta,
         )
@@ -438,11 +597,40 @@ def compare_call_readings(
             )
         )
 
-    # Single-parcel asymmetry (e.g. primary has 1 implicit tract while escalated has flat calls):
-    # compare the parcel's calls directly rather than suppressing course comparison.
-    single_parcel_asymmetry = (
-        len(pri_tracts) == 1 and not esc_tracts and bool(escalated_calls)
-    ) or (len(esc_tracts) == 1 and not pri_tracts and bool(primary_calls))
+    if single_parcel_asymmetry:
+        sole_t = pri_tracts[0] if pri_tracts else esc_tracts[0]
+        sole_is_pri = bool(pri_tracts)
+        asym_meta: list[str] = []
+        sole_tt = getattr(sole_t.tract_type, "value", sole_t.tract_type)
+        if sole_tt != "main":
+            asym_meta.append(
+                f"tract_type: primary={sole_tt if sole_is_pri else 'main'}, "
+                f"escalated={'main' if sole_is_pri else sole_tt}"
+            )
+        if sole_t.role_basis == "inferred":
+            asym_meta.append(
+                f"role_basis: primary={'inferred' if sole_is_pri else 'single'}, "
+                f"escalated={'single' if sole_is_pri else 'inferred'}"
+            )
+        flat_skips_seq = escalated_skipped_courses if sole_is_pri else primary_skipped_courses
+        sole_top_skips = primary_skipped_courses if sole_is_pri else escalated_skipped_courses
+        if sole_t.skipped_courses and sole_top_skips is None:
+            flat_skip_count = len(flat_skips_seq or ())
+            if len(sole_t.skipped_courses) != flat_skip_count:
+                asym_meta.append(
+                    f"skipped_courses: "
+                    f"primary={len(sole_t.skipped_courses) if sole_is_pri else flat_skip_count}, "
+                    f"escalated={flat_skip_count if sole_is_pri else len(sole_t.skipped_courses)}"
+                )
+        if asym_meta:
+            disagreements.append(
+                CourseDisagreement(
+                    course=None,
+                    kind="tract_metadata",
+                    details=tuple(asym_meta),
+                    tract_label=sole_t.label or "Tract 1",
+                )
+            )
     if (pri_tracts or esc_tracts) and not single_parcel_asymmetry:
         if len(pri_tracts) != len(esc_tracts):
             disagreements.append(
@@ -518,6 +706,42 @@ def compare_call_readings(
     return disagreements
 
 
+def _has_check(results: Sequence[ClosureResult], check_name: str) -> bool:
+    return any(
+        c.name == check_name and c.status in ("failed", "blocked")
+        for r in results
+        for c in r.checks
+    )
+
+
+def _has_quality_regression(
+    pri_seq: Sequence[ClosureResult], esc_seq: Sequence[ClosureResult]
+) -> bool:
+    """Return True if aligned tracts in *esc_seq* regressed availability, checks, misclosure, or confidence."""
+    pairs = list(zip(pri_seq, esc_seq, strict=False))
+    if not pairs:
+        return False
+    pri_avail = sum(1 for p, _ in pairs if p.misclosure_available)
+    esc_avail = sum(1 for _, e in pairs if e.misclosure_available)
+    pri_bad_checks = sum(_failed_or_blocked_count(p) for p, _ in pairs)
+    esc_bad_checks = sum(_failed_or_blocked_count(e) for _, e in pairs)
+    if esc_avail < pri_avail or esc_bad_checks > pri_bad_checks:
+        return True
+    worse_misclosure = any(
+        p.misclosure_available
+        and e.misclosure_available
+        and e.misclosure_ft > p.misclosure_ft + DEFAULT_DISTANCE_TOL_FT
+        for p, e in pairs
+    )
+    worse_confidence = any(
+        p.confidence_score is not None
+        and e.confidence_score is not None
+        and e.confidence_score < p.confidence_score - 1e-6
+        for p, e in pairs
+    )
+    return worse_misclosure or worse_confidence
+
+
 def select_escalation_outcome(
     *,
     primary_calls: Sequence[DeedCall],
@@ -527,16 +751,18 @@ def select_escalation_outcome(
     disagreements: Sequence[CourseDisagreement],
     primary_tracts: Sequence[Tract] | None = None,
     escalated_tracts: Sequence[Tract] | None = None,
+    primary_stated_area_sq_ft: float | None = None,
+    escalated_stated_area_sq_ft: float | None = None,
 ) -> tuple[Literal["primary", "escalated"], str]:
     """Deterministically choose between primary and escalated readings.
 
     Fail-closed invariants:
     - Never fabricates or merges individual courses from separate passes.
-    - Never lets a truncated pass (empty calls, fewer tracts, or per-tract call
-      drops) silently override a more complete primary reading.
+    - Never lets a truncated pass (empty calls, fewer tracts, per-tract call
+      drops, dropped stated area, or dropped blocking clauses) override primary.
     - Never selects an escalated pass that regresses any already-closed or
-      cleanly verified tract, or degrades misclosure/check/confidence quality
-      when neither pass improves closure.
+      cleanly verified tract, introduces ``description_roles_inferred``, or
+      degrades misclosure/check/confidence quality.
     """
     if primary_calls and not escalated_calls:
         return "primary", "escalated_empty_fallback_to_primary"
@@ -572,19 +798,32 @@ def select_escalation_outcome(
         if not _is_non_boundary_result(r, esc_tracts[i] if i < len(esc_tracts) else None)
     ]
 
+    # Omission-reward guard: never let dropping stated area (including sole-tract asymmetry) or
+    # blocking tail clauses (unapplied exceptions, invalid area, inferred roles, non-boundary notes)
+    # win selection.
+    dropped_area = _has_dropped_area(
+        primary_stated_area_sq_ft, escalated_stated_area_sq_ft, pri_tracts, esc_tracts
+    )
+    dropped_blocking_notes = bool(
+        (tail_note_categories(primary_calls) & _BLOCKING_TAIL_NOTE_CATEGORIES)
+        - (tail_note_categories(escalated_calls) & _BLOCKING_TAIL_NOTE_CATEGORIES)
+    )
+    if dropped_area or dropped_blocking_notes:
+        return "primary", "primary_preserved_escalated_regressed_verification"
+
+    # Never select an escalated pass that introduces inferred-role blocking where primary had none.
+    pri_roles_inferred = _has_check(pri_list, "description_roles_inferred")
+    esc_roles_inferred = _has_check(esc_list, "description_roles_inferred")
+    if esc_roles_inferred and not pri_roles_inferred:
+        return "primary", "primary_preserved_escalated_regressed_verification"
+
     # Never let reclassifying a conveyed boundary tract as non-boundary masquerade as closure.
     if len(esc_boundary) < len(pri_boundary):
         return "primary", "primary_preserved_escalated_regressed_verification"
 
-    # Pairwise tract regression guard across all aligned tracts (including sole/mixed non-boundary).
-    if len(pri_list) == len(esc_list):
-        for pri_r, esc_r in zip(pri_list, esc_list, strict=True):
-            if (pri_r.closure_passed and not esc_r.closure_passed) or (
-                _result_is_clean(pri_r) and not _result_is_clean(esc_r)
-            ):
-                return "primary", "primary_preserved_escalated_regressed_verification"
-    elif len(pri_boundary) == len(esc_boundary):
-        for pri_r, esc_r in zip(pri_boundary, esc_boundary, strict=True):
+    # Pairwise tract regression guard over aligned prefixes (even when escalated adds extra tracts).
+    for pri_seq, esc_seq in ((pri_list, esc_list), (pri_boundary, esc_boundary)):
+        for pri_r, esc_r in zip(pri_seq, esc_seq, strict=False):
             if (pri_r.closure_passed and not esc_r.closure_passed) or (
                 _result_is_clean(pri_r) and not _result_is_clean(esc_r)
             ):
@@ -592,6 +831,8 @@ def select_escalation_outcome(
 
     pri_closed_count = sum(1 for r in pri_boundary if r.closure_passed)
     esc_closed_count = sum(1 for r in esc_boundary if r.closure_passed)
+    aligned_esc_boundary = esc_boundary[: len(pri_boundary)]
+    aligned_esc_closed = sum(1 for r in aligned_esc_boundary if r.closure_passed)
     pri_clean_count = sum(1 for r in pri_boundary if _result_is_clean(r))
     esc_clean_count = sum(1 for r in esc_boundary if _result_is_clean(r))
     pri_total_closed = sum(1 for r in pri_list if r.closure_passed)
@@ -607,44 +848,46 @@ def select_escalation_outcome(
     ):
         return "primary", "primary_preserved_escalated_regressed_verification"
 
+    # Never reward dropping a blocking check (roles_inferred / non_boundary_tract) when aligned
+    # boundary closure did not actually improve.
+    pri_non_boundary = _has_check(pri_list, "non_boundary_tract")
+    esc_non_boundary = _has_check(esc_list, "non_boundary_tract")
+    if aligned_esc_closed <= pri_closed_count and (
+        (pri_roles_inferred and not esc_roles_inferred)
+        or (pri_non_boundary and not esc_non_boundary)
+    ):
+        return "primary", "primary_preserved_escalated_regressed_verification"
+
+    # Never let a spurious extra boundary tract mask quality regression on aligned primary tracts.
+    if (
+        len(esc_boundary) > len(pri_boundary)
+        and pri_boundary
+        and aligned_esc_closed <= pri_closed_count
+        and _has_quality_regression(pri_boundary, esc_boundary)
+    ):
+        return "primary", "primary_preserved_escalated_regressed_verification"
+
     pri_all_closed = bool(pri_boundary) and pri_closed_count == len(pri_boundary)
     esc_all_closed = bool(esc_boundary) and esc_closed_count == len(esc_boundary)
 
     if esc_all_closed and not pri_all_closed and esc_closed_count > pri_closed_count:
         return "escalated", "escalated_passed_closure_where_primary_failed"
 
-    if (
-        esc_closed_count > pri_closed_count
-        or esc_clean_count > pri_clean_count
-        or esc_total_closed > pri_total_closed
-    ):
+    if esc_closed_count > pri_closed_count or esc_clean_count > pri_clean_count:
+        return "escalated", "escalated_improved_closure_with_disagreement_warning"
+
+    if esc_total_closed > pri_total_closed:
+        if pri_boundary and _has_quality_regression(pri_boundary, esc_boundary):
+            return "primary", "primary_preserved_escalated_regressed_verification"
         return "escalated", "escalated_improved_closure_with_disagreement_warning"
 
     # Neither pass improved closed/clean counts: refuse escalated if it regressed quality.
     pri_q, esc_q = (
-        (pri_list, esc_list) if len(pri_list) == len(esc_list) else (pri_boundary, esc_boundary)
+        (pri_list, esc_list)
+        if (len(pri_list) == len(esc_list) or not pri_boundary)
+        else (pri_boundary, esc_boundary)
     )
-    if pri_q and esc_q:
-        pri_avail = sum(1 for r in pri_q if r.misclosure_available)
-        esc_avail = sum(1 for r in esc_q if r.misclosure_available)
-        pri_bad_checks = sum(_failed_or_blocked_count(r) for r in pri_q)
-        esc_bad_checks = sum(_failed_or_blocked_count(r) for r in esc_q)
-        if esc_avail < pri_avail or esc_bad_checks > pri_bad_checks:
-            return "primary", "primary_preserved_escalated_regressed_verification"
-        if esc_bad_checks == pri_bad_checks and len(pri_q) == len(esc_q):
-            worse_misclosure = any(
-                p.misclosure_available
-                and e.misclosure_available
-                and e.misclosure_ft > p.misclosure_ft + DEFAULT_DISTANCE_TOL_FT
-                for p, e in zip(pri_q, esc_q, strict=True)
-            )
-            worse_confidence = any(
-                p.confidence_score is not None
-                and e.confidence_score is not None
-                and e.confidence_score < p.confidence_score - 1e-6
-                for p, e in zip(pri_q, esc_q, strict=True)
-            )
-            if worse_misclosure or worse_confidence:
-                return "primary", "primary_preserved_escalated_regressed_verification"
+    if _has_quality_regression(pri_q, esc_q):
+        return "primary", "primary_preserved_escalated_regressed_verification"
 
     return "escalated", "escalated_high_dpi_selected_with_disagreement_warning"

@@ -24,8 +24,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -44,12 +46,13 @@ from mp_ocr import (
     PDFProcessor,
     compare_call_readings,
     count_pdf_pages,
+    is_escalated_subset_truncated,
     select_escalation_outcome,
     should_escalate_closure,
     validate_escalation_policy,
     validate_render_dpi,
 )
-from mp_parse import extract_calls
+from mp_parse import extract_area_statement, extract_calls
 from mp_verify import verify_closure
 
 DEFAULT_SAMPLE_DIR = Path("sample_deeds")
@@ -402,6 +405,42 @@ def _checkpoint_matches_escalation(
     return True
 
 
+def _extract_positive_stated_area_sq_ft(text: str, tracts: list[Any]) -> float | None:
+    if len(tracts) > 1:
+        return None
+    if len(tracts) == 1:
+        tract_area = getattr(tracts[0], "stated_area_sq_ft", None)
+        if tract_area is not None and tract_area > 0:
+            return float(tract_area)
+    if not text or not text.strip():
+        return None
+    area = extract_area_statement(text)
+    if area is not None and area.get("value_sq_ft", 0.0) > 0:
+        return float(area["value_sq_ft"])
+    return None
+
+
+def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.stem}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            tmp_path = Path(handle.name)
+            handle.write(json.dumps(payload, indent=2, ensure_ascii=False))
+        os.replace(tmp_path, path)
+        tmp_path = None
+    finally:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
+
+
 def evaluate_deed(
     gt_path: Path,
     *,
@@ -425,7 +464,14 @@ def evaluate_deed(
     result_file = results_dir / f"{stem}.json"
 
     if not force and result_file.exists():
-        cached = json.loads(result_file.read_text(encoding="utf-8"))
+        try:
+            cached = json.loads(result_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            print(
+                f"WARN: ignoring unreadable checkpoint {result_file.name}: {exc}",
+                file=sys.stderr,
+            )
+            cached = None
         if (
             isinstance(cached, dict)
             and cached.get("status") == "ok"
@@ -470,6 +516,7 @@ def evaluate_deed(
 
         calls_norm, tracts_norm, skips_norm = extract_all_calls(norm_text)
         calls_legal, _tracts_legal, _skips_legal = extract_all_calls(legal_text)
+        pri_stated_area = _extract_positive_stated_area_sq_ft(norm_text, tracts_norm)
 
         escalation_meta: dict[str, Any] = {
             "policy": validated_policy,
@@ -481,9 +528,20 @@ def evaluate_deed(
 
         if validated_policy != "never" and (calls_norm or skips_norm):
             pri_results = (
-                verify_closure(calls_norm, tracts=tracts_norm, skipped_courses=skips_norm)
+                verify_closure(
+                    calls_norm,
+                    tracts=tracts_norm,
+                    stated_area_sq_ft=pri_stated_area or 0.0,
+                    skipped_courses=skips_norm,
+                )
                 if tracts_norm
-                else [verify_closure(calls_norm, skipped_courses=skips_norm)]
+                else [
+                    verify_closure(
+                        calls_norm,
+                        stated_area_sq_ft=pri_stated_area or 0.0,
+                        skipped_courses=skips_norm,
+                    )
+                ]
             )
             should_esc, trigger_reasons = should_escalate_closure(
                 pri_results, policy=validated_policy, has_calls=bool(calls_norm or skips_norm)
@@ -496,51 +554,77 @@ def evaluate_deed(
                 else:
                     esc_model = resolved_model
                     esc_proc = processor
-                esc_legal, esc_norm, legal_pages = esc_proc.extract_legal_description_from_images(
-                    str(pdf_path),
-                    dpi=validated_dpi,
-                    strip_watermark=True,
-                    crop_margins=True,
-                    audit=True,
-                    locator_processor=processor,
-                )
-                esc_stages = esc_proc.pop_audit_stage_records()
-                esc_calls, esc_tracts, esc_skips = extract_all_calls(esc_norm)
-                esc_calls_legal, _, _ = extract_all_calls(esc_legal)
-
-                per_tract_truncated = bool(tracts_norm) and any(
-                    pri_t.calls and len(esc_t.calls) < len(pri_t.calls)
-                    for pri_t, esc_t in zip(tracts_norm, esc_tracts, strict=False)
-                )
-                truncated = (
-                    (bool(tracts_norm) and len(esc_tracts) < len(tracts_norm))
-                    or per_tract_truncated
-                    or (bool(calls_norm) and len(esc_calls) < len(calls_norm))
-                )
-                if truncated:
-                    total_pages = count_pdf_pages(str(pdf_path))
-                    if len(legal_pages) < total_pages:
-                        all_pages = list(range(1, total_pages + 1))
-                        esc_legal, esc_norm, legal_pages = (
-                            esc_proc.extract_legal_description_from_images(
-                                str(pdf_path),
-                                pages=all_pages,
-                                dpi=validated_dpi,
-                                strip_watermark=True,
-                                crop_margins=True,
-                                audit=True,
-                                stage_prefix="escalation_fallback_",
-                            )
+                locator = processor if processor.supports_images else esc_proc
+                rendered_by_page: dict[int, Path] = {}
+                with tempfile.TemporaryDirectory(prefix="mp_ocr_eval_esc_") as esc_tmpdir:
+                    esc_work_dir = Path(esc_tmpdir)
+                    esc_legal, esc_norm, legal_pages = (
+                        esc_proc.extract_legal_description_from_images(
+                            str(pdf_path),
+                            dpi=validated_dpi,
+                            strip_watermark=True,
+                            crop_margins=True,
+                            audit=True,
+                            locator_processor=locator,
+                            rendered_by_page=rendered_by_page,
+                            work_dir=esc_work_dir,
                         )
-                        esc_stages.extend(esc_proc.pop_audit_stage_records())
-                        esc_calls, esc_tracts, esc_skips = extract_all_calls(esc_norm)
-                        esc_calls_legal, _, _ = extract_all_calls(esc_legal)
+                    )
+                    esc_stages = esc_proc.pop_audit_stage_records()
+                    esc_calls, esc_tracts, esc_skips = extract_all_calls(esc_norm)
+                    esc_calls_legal, _, _ = extract_all_calls(esc_legal)
+                    esc_stated_area = _extract_positive_stated_area_sq_ft(esc_norm, esc_tracts)
+
+                    truncated = is_escalated_subset_truncated(
+                        primary_calls=calls_norm,
+                        escalated_calls=esc_calls,
+                        primary_tracts=tracts_norm or None,
+                        escalated_tracts=esc_tracts or None,
+                        primary_stated_area_sq_ft=pri_stated_area,
+                        escalated_stated_area_sq_ft=esc_stated_area,
+                    ) or (bool(skips_norm) and not calls_norm and not esc_calls and not esc_skips)
+                    if truncated:
+                        total_pages = count_pdf_pages(str(pdf_path))
+                        if len(legal_pages) < total_pages:
+                            all_pages = list(range(1, total_pages + 1))
+                            esc_legal, esc_norm, legal_pages = (
+                                esc_proc.extract_legal_description_from_images(
+                                    str(pdf_path),
+                                    pages=all_pages,
+                                    dpi=validated_dpi,
+                                    strip_watermark=True,
+                                    crop_margins=True,
+                                    audit=True,
+                                    stage_prefix="escalation_fallback_",
+                                    rendered_by_page=rendered_by_page,
+                                    work_dir=esc_work_dir,
+                                )
+                            )
+                            esc_stages.extend(esc_proc.pop_audit_stage_records())
+                            esc_calls, esc_tracts, esc_skips = extract_all_calls(esc_norm)
+                            esc_calls_legal, _, _ = extract_all_calls(esc_legal)
+                            esc_stated_area = _extract_positive_stated_area_sq_ft(
+                                esc_norm, esc_tracts
+                            )
 
                 esc_results = (
-                    verify_closure(esc_calls, tracts=esc_tracts, skipped_courses=esc_skips)
+                    verify_closure(
+                        esc_calls,
+                        tracts=esc_tracts,
+                        stated_area_sq_ft=esc_stated_area or 0.0,
+                        skipped_courses=esc_skips,
+                    )
                     if esc_tracts
                     else (
-                        [verify_closure(esc_calls, skipped_courses=esc_skips)] if esc_calls else []
+                        [
+                            verify_closure(
+                                esc_calls,
+                                stated_area_sq_ft=esc_stated_area or 0.0,
+                                skipped_courses=esc_skips,
+                            )
+                        ]
+                        if (esc_calls or esc_skips)
+                        else []
                     )
                 )
                 disagreements = compare_call_readings(
@@ -548,6 +632,8 @@ def evaluate_deed(
                     esc_calls,
                     primary_tracts=tracts_norm or None,
                     escalated_tracts=esc_tracts or None,
+                    primary_stated_area_sq_ft=pri_stated_area,
+                    escalated_stated_area_sq_ft=esc_stated_area,
                     primary_skipped_courses=skips_norm,
                     escalated_skipped_courses=esc_skips,
                 )
@@ -559,6 +645,8 @@ def evaluate_deed(
                     disagreements=disagreements,
                     primary_tracts=tracts_norm or None,
                     escalated_tracts=esc_tracts or None,
+                    primary_stated_area_sq_ft=pri_stated_area,
+                    escalated_stated_area_sq_ft=esc_stated_area,
                 )
                 escalation_meta = {
                     "policy": validated_policy,
@@ -645,10 +733,7 @@ def evaluate_deed(
         if esc_client is not None:
             _close_client(esc_client)
 
-    results_dir.mkdir(parents=True, exist_ok=True)
-    tmp = result_file.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(rec, indent=2, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(result_file)
+    _write_json_atomic(result_file, rec)
     return rec
 
 

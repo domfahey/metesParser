@@ -81,7 +81,6 @@ class CachedLLMClient:
         prompt: str,
         response_mime_type: str | None,
         pdf_bytes: bytes | None = None,
-        image_bytes_list: Sequence[bytes] | None = None,
         image_sha256s: Sequence[str] | None = None,
     ) -> str:
         target = _unwrap_client_chain(self)
@@ -103,10 +102,6 @@ class CachedLLMClient:
         }
         if image_sha256s is not None:
             identity["image_sha256s"] = list(image_sha256s)
-        elif image_bytes_list is not None:
-            identity["image_sha256s"] = [
-                hashlib.sha256(raw).hexdigest() for raw in image_bytes_list
-            ]
         serialized = json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 

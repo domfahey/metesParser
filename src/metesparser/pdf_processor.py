@@ -22,6 +22,7 @@ from .llm_clients import (
     LLMClientError,
     OpenAIClient,
     OpenRouterClient,
+    _validate_image_paths,
 )
 from .models import (
     PRIOR_CONVEYANCE_SIGNALS,
@@ -180,6 +181,12 @@ class PDFProcessor:
             return legal_desc_text
         return response
 
+    @property
+    def supports_images(self) -> bool:
+        """Return True if the underlying client implements ``generate_text_with_images``."""
+        inner = self._unwrap_client(self.client)
+        return callable(getattr(inner, "generate_text_with_images", None))
+
     def _generate_text_with_images(
         self,
         prompt: str,
@@ -225,24 +232,35 @@ class PDFProcessor:
         try:
             located: list[int] = []
             with tempfile.TemporaryDirectory(prefix="mp_ocr_locate_") as tmpdir:
-                thumbs = preprocess_pdf_pages_for_ocr(
-                    pdf_path,
-                    Path(tmpdir),
-                    dpi=thumbnail_dpi,
-                    strip_watermark=False,
-                    crop_margins=False,
-                    max_dim=thumbnail_max_dim,
-                )
-                for batch_start in range(0, len(thumbs), batch_size):
-                    batch = thumbs[batch_start : batch_start + batch_size]
-                    batch_len = (
-                        total_pages
-                        if batch_start == 0 and total_pages <= batch_size
-                        else len(batch)
+                for batch_start in range(0, total_pages, batch_size):
+                    batch_pages = list(
+                        range(batch_start + 1, min(batch_start + batch_size, total_pages) + 1)
                     )
+                    batch = preprocess_pdf_pages_for_ocr(
+                        pdf_path,
+                        Path(tmpdir),
+                        pages=batch_pages,
+                        dpi=thumbnail_dpi,
+                        strip_watermark=False,
+                        crop_margins=False,
+                        max_dim=thumbnail_max_dim,
+                    )
+                    if len(batch) != len(batch_pages):
+                        raise RuntimeError(
+                            f"Expected {len(batch_pages)} thumbnail PNG(s) for pages "
+                            f"{batch_pages[0]}-{batch_pages[-1]}, got {len(batch)}"
+                        )
+                    batch_len = len(batch_pages)
                     user_prompt = prompt_config["user_prompt_template"].replace(
                         "{total_pages}", str(batch_len)
                     )
+                    if batch_start > 0 or batch_len < total_pages:
+                        user_prompt = (
+                            f"{user_prompt}\n"
+                            f"(Note: these {batch_len} images correspond to PDF pages "
+                            f"{batch_pages[0]} through {batch_pages[-1]}; return positions "
+                            f"1 through {batch_len} within this batch, ignoring printed headers.)"
+                        )
                     combined_prompt = (
                         f"{system_prompt}\n\n{user_prompt}"
                         if isinstance(system_prompt, str) and system_prompt.strip()
@@ -276,11 +294,14 @@ class PDFProcessor:
         audit: bool = False,
         stage_name: str = "extract_text_from_images",
         max_images_per_call: int = 16,
+        max_bytes_per_call: int = 16 * 1024 * 1024,
+        _append_audit: bool = False,
     ) -> str:
         """Extract all text from preprocessed deed page images using Stage 1 prompt."""
+        items: list[str | Path] = list(_validate_image_paths(image_paths))
         if not audit:
             self._audit_stage_records = None
-        elif self._audit_stage_records is None:
+        elif not _append_audit or self._audit_stage_records is None:
             self._audit_stage_records = []
 
         prompt_config = self._load_prompt("extract_text_from_pdf")
@@ -292,21 +313,41 @@ class PDFProcessor:
             else user_prompt
         )
         response_mime_type = prompt_config.get("response_mime_type")
-        items = list(image_paths)
         batch_size = max(1, int(max_images_per_call))
+        byte_budget = max(1, int(max_bytes_per_call))
+
+        batches: list[list[str | Path]] = []
+        current_batch: list[str | Path] = []
+        current_bytes = 0
+        for item in items:
+            try:
+                item_size = Path(item).stat().st_size
+            except OSError:
+                item_size = 0
+            if current_batch and (
+                len(current_batch) >= batch_size or current_bytes + item_size > byte_budget
+            ):
+                batches.append(current_batch)
+                current_batch = []
+                current_bytes = 0
+            current_batch.append(item)
+            current_bytes += item_size
+        if current_batch:
+            batches.append(current_batch)
 
         try:
-            if len(items) <= batch_size:
+            if len(batches) <= 1:
                 response = self._generate_text_with_images(
-                    prompt_text, items, response_mime_type=response_mime_type
+                    prompt_text,
+                    batches[0] if batches else items,
+                    response_mime_type=response_mime_type,
                 )
                 if audit:
                     self._record_llm_stage(stage_name, prompt_text, response)
                 return response
 
             chunks: list[str] = []
-            for start in range(0, len(items), batch_size):
-                batch = items[start : start + batch_size]
+            for batch in batches:
                 chunk = self._generate_text_with_images(
                     prompt_text, batch, response_mime_type=response_mime_type
                 )
@@ -338,6 +379,8 @@ class PDFProcessor:
         audit: bool = False,
         stage_prefix: str = "escalation_",
         locator_processor: PDFProcessor | None = None,
+        rendered_by_page: dict[int, Path] | None = None,
+        work_dir: Path | None = None,
     ) -> tuple[str, str, list[int]]:
         """Run a blind 3-stage extraction on preprocessed high-DPI legal-page PNGs.
 
@@ -352,6 +395,9 @@ class PDFProcessor:
             validate_pdf_pages,
             verify_normalization_integrity,
         )
+
+        if rendered_by_page is not None and work_dir is None:
+            raise ValueError("work_dir is required when rendered_by_page is provided")
 
         collected_stages: list[LLMStageRecord] | None = [] if audit else None
         self._audit_stage_records = None
@@ -375,27 +421,35 @@ class PDFProcessor:
 
             self._audit_stage_records = collected_stages
 
-            with tempfile.TemporaryDirectory(prefix="mp_ocr_escalate_") as tmpdir:
-                rendered_by_page: dict[int, Path] = {}
+            owned_tmpdir: tempfile.TemporaryDirectory[str] | None = (
+                tempfile.TemporaryDirectory(prefix="mp_ocr_escalate_") if work_dir is None else None
+            )
+            try:
+                active_dir = Path(owned_tmpdir.name) if owned_tmpdir is not None else Path(work_dir)  # type: ignore[arg-type]
+                page_cache: dict[int, Path] = (
+                    rendered_by_page if rendered_by_page is not None else {}
+                )
 
                 def _get_page_pngs(target_pages: list[int]) -> list[Path]:
-                    missing = [p for p in target_pages if p not in rendered_by_page]
+                    missing = [p for p in target_pages if p not in page_cache]
                     if missing:
                         new_pngs = preprocess_pdf_pages_for_ocr(
                             pdf_path,
-                            Path(tmpdir),
+                            active_dir,
                             pages=missing,
                             dpi=dpi,
                             strip_watermark=strip_watermark,
                             crop_margins=crop_margins,
                             max_dim=max_dim,
                         )
-                        if len(new_pngs) == len(missing):
-                            for page_num, png_path in zip(missing, new_pngs, strict=True):
-                                rendered_by_page[page_num] = png_path
-                        else:
-                            return new_pngs
-                    return [rendered_by_page[p] for p in target_pages]
+                        if len(new_pngs) != len(missing):
+                            raise RuntimeError(
+                                f"Expected {len(missing)} preprocessed PNG(s) for pages "
+                                f"{missing}, got {len(new_pngs)}"
+                            )
+                        for page_num, png_path in zip(missing, new_pngs, strict=True):
+                            page_cache[page_num] = png_path
+                    return [page_cache[p] for p in target_pages]
 
                 def _run_on_pages(
                     target_pages: list[int],
@@ -408,6 +462,7 @@ class PDFProcessor:
                         clean_pngs,
                         audit=audit,
                         stage_name=f"{prefix}extract_text_from_images",
+                        _append_audit=True,
                     )
 
                     s2_config = self._load_prompt("extract_legal_description")
@@ -459,6 +514,9 @@ class PDFProcessor:
                         all_pages, f"{stage_prefix}fallback_"
                     )
                     resolved_pages = all_pages
+            finally:
+                if owned_tmpdir is not None:
+                    owned_tmpdir.cleanup()
         except Exception:
             if audit:
                 self._audit_stage_records = None

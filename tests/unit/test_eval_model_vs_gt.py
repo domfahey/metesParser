@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 from mp_models import DeedCall
@@ -431,3 +432,166 @@ def test_escalation_slug_checkpoint_isolation_raw_text_and_summary(
     assert summary["escalation_selected_escalated"] == 1
     md = mod.render_markdown_report(summary, [rec_esc])
     assert "Escalations (triggered / agreed / selected) | 1 / 0 / 1 |" in md
+
+
+def test_eval_deed_truncation_fallback_corrupt_checkpoint_and_primary_preserved(
+    tmp_path: Path,
+) -> None:
+    from unittest.mock import patch
+
+    from pypdf import PdfWriter
+
+    mod = _load_module()
+    assert (
+        mod._checkpoint_matches_escalation(
+            {"status": "ok", "model": "m"},
+            escalation_policy="never",
+            escalation_model=None,
+            escalation_dpi=300,
+            primary_model="m",
+        )
+        is True
+    )
+    assert (
+        mod._checkpoint_matches_escalation(
+            {"status": "ok", "model": "m"},
+            escalation_policy="closure_failed",
+            escalation_model="m",
+            escalation_dpi=300,
+            primary_model="m",
+        )
+        is False
+    )
+
+    broken = (
+        "BEGINNING at a pin; "
+        "THENCE N 0°00'00\" E, 100.00 feet; "
+        "THENCE S 90°00'00\" E, 100.00 feet; "
+        "THENCE S 0°00'00\" W, 100.00 feet; "
+        "THENCE N 90°00'00\" W, 99.00 feet to the point of beginning."
+    )
+    trunc = "BEGINNING at a pin; THENCE N 0°00'00\" E, 100.00 feet."
+    fixed = broken.replace("99.00", "100.00")
+    stem = "Fallback Test (1 - 1)"
+    pdf_path = tmp_path / f"{stem}.pdf"
+    w = PdfWriter()
+    for _ in range(3):
+        w.add_blank_page(width=612, height=792)
+    with pdf_path.open("wb") as h:
+        w.write(h)
+    gt_path = tmp_path / f"{stem}.ground_truth.json"
+    gt_path.write_text(
+        json.dumps(
+            {
+                "expected_legal_description": fixed,
+                "expected_calls": [
+                    {"course": 1, "bearing_azimuth_deg_from_north": 0.0, "distance_ft": 100.0},
+                    {"course": 2, "bearing_azimuth_deg_from_north": 90.0, "distance_ft": 100.0},
+                    {"course": 3, "bearing_azimuth_deg_from_north": 180.0, "distance_ft": 100.0},
+                    {"course": 4, "bearing_azimuth_deg_from_north": 270.0, "distance_ft": 100.0},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    png = tmp_path / "p.png"
+    png.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    # Pre-seed a corrupt checkpoint JSON; evaluate_deed must ignore it instead of crashing
+    results_dir = tmp_path / "res"
+    results_dir.mkdir()
+    (results_dir / f"{stem}.json").write_text("{corrupt json", encoding="utf-8")
+
+    seen_pages: list[list[int] | None] = []
+    text_replies = [broken, broken, trunc, trunc, fixed, fixed]
+    img_replies = ['{"pages": [2]}', "**SUBSET_RAW**", "FINAL_FALLBACK_RAW"]
+    client = SimpleNamespace(
+        model="fake/same",
+        generate_text_with_pdf=lambda *a, **k: broken,
+        generate_text=lambda *a, **k: text_replies.pop(0),
+        generate_text_with_images=lambda *a, **k: img_replies.pop(0),
+    )
+
+    def _track_pre(_p: Path, _d: Path, *, pages: Any = None, **kw: Any) -> list[Path]:
+        seen_pages.append(list(pages) if pages is not None else None)
+        return [png] * len(pages or [1])
+
+    with patch("mp_ocr.extract.preprocess_pdf_pages_for_ocr", side_effect=_track_pre):
+        rec = mod.evaluate_deed(
+            gt_path,
+            client_factory=lambda: (client, "fake/same"),
+            results_dir=results_dir,
+            cache_dir=None,
+            use_cache=False,
+            escalation_policy="closure_failed",
+        )
+    assert rec["escalation"]["legal_pages"] == [1, 2, 3]
+    assert rec["escalation"]["selected"] == "escalated"
+    assert rec["raw_len"] == len("FINAL_FALLBACK_RAW")
+    assert rec["markdown"]["raw"] is False
+    # Render cache reused page 2 across truncation fallback!
+    assert seen_pages == [[1, 2, 3], [2], [1, 3]]
+
+
+def test_evaluate_deed_multitract_under_escalation_does_not_crash_on_none_area(
+    tmp_path: Path,
+) -> None:
+    from unittest.mock import patch
+
+    from pypdf import PdfWriter
+
+    mod = _load_module()
+    two_tract_broken = (
+        "TRACT 1:\n"
+        "BEGINNING at a pin; "
+        "THENCE N 0°00'00\" E, 100.00 feet; "
+        "THENCE N 90°00'00\" E, 100.00 feet; "
+        "THENCE S 0°00'00\" W, 100.00 feet; "
+        "THENCE N 90°00'00\" W, 100.00 feet to the point of beginning.\n"
+        "TRACT 2:\n"
+        "BEGINNING at an iron pipe; "
+        "THENCE N 0°00'00\" E, 50.00 feet; "
+        "THENCE N 90°00'00\" E, 50.00 feet; "
+        "THENCE S 0°00'00\" W, 50.00 feet; "
+        "THENCE N 90°00'00\" W, 45.00 feet to the point of beginning."
+    )
+    two_tract_fixed = two_tract_broken.replace("45.00", "50.00")
+
+    stem = "MultiTract Test (1 - 2)"
+    pdf_path = tmp_path / f"{stem}.pdf"
+    w = PdfWriter()
+    w.add_blank_page(width=612, height=792)
+    with pdf_path.open("wb") as h:
+        w.write(h)
+    gt_path = tmp_path / f"{stem}.ground_truth.json"
+    gt_path.write_text(
+        json.dumps({"expected_legal_description": two_tract_fixed, "expected_calls": []}),
+        encoding="utf-8",
+    )
+    png = tmp_path / "p.png"
+    png.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    replies = [two_tract_broken, two_tract_broken, two_tract_fixed, two_tract_fixed]
+    client = SimpleNamespace(
+        model="fake/mt",
+        generate_text_with_pdf=lambda *a, **k: two_tract_broken,
+        generate_text=lambda *a, **k: replies.pop(0),
+        generate_text_with_images=lambda *a, **k: two_tract_fixed,
+    )
+    with patch("mp_ocr.extract.preprocess_pdf_pages_for_ocr", return_value=[png]):
+        rec = mod.evaluate_deed(
+            gt_path,
+            client_factory=lambda: (client, "fake/mt"),
+            results_dir=tmp_path / "res",
+            cache_dir=None,
+            use_cache=False,
+            escalation_policy="closure_failed",
+        )
+    assert rec["status"] == "ok", rec
+    assert rec["escalation"]["triggered"] is True
+    assert rec["escalation"]["selected"] == "escalated"
+
+    # Prefer single-tract stated area over conflicting whole-text recital
+    t_sole = SimpleNamespace(stated_area_sq_ft=12345.0)
+    assert mod._extract_positive_stated_area_sq_ft("containing 5.0 acres", [t_sole]) == 12345.0
+    assert mod._extract_positive_stated_area_sq_ft("containing 5.0 acres", [t_sole, t_sole]) is None

@@ -26,7 +26,14 @@ import yaml
 from mp_models import LLMStageRecord
 
 from .cache import CachedLLMClient, _unwrap_client_chain
-from .clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient, OpenRouterClient
+from .clients import (
+    BaseLLMClient,
+    GeminiClient,
+    LLMClientError,
+    OpenAIClient,
+    OpenRouterClient,
+    _validate_image_paths,
+)
 from .preprocessing import count_pdf_pages, preprocess_pdf_pages_for_ocr, validate_pdf_pages
 
 logger = structlog.get_logger(__name__)
@@ -125,27 +132,40 @@ _NORM_GUARD_MIN = r"(?:'|\u2018|\u2019|\u2032|`|min(?:utes?)?\.?|(?<=\d)[Mm](?=[
 _NORM_GUARD_SEC = r'(?:"|\u201c|\u201d|\u2033|\'\'|sec(?:onds?)?\.?|(?<=\d)[Ss](?=[\s\d-]))'
 # Possessive whitespace/punctuation quantifiers keep matching strictly O(n) on hostile input.
 _NORM_GUARD_SEP = r"(?:\s*+,\s*+and\s++|\s*+,\s*+|\s*+-\s*+|\s++and\s++|\s*+)"
+# Single-line-wrap separators permit Stage 3 line unwrapping across one newline without joining blank lines.
+_NORM_GUARD_WRAP = r"(?:[ \t]*+(?:\r?\n[ \t]*+)?)"
+_NORM_GUARD_WRAP_REQ = r"(?:[ \t]++(?:\r?\n[ \t]*+)?|\r?\n[ \t]*+)"
+_NORM_GUARD_UNIT_SEP = r"(?:[ \t-]*+(?:\r?\n[ \t]*+)?)"
 _NORM_GUARD_EW = r"(?P<ew>East|West|[EW])\b(?:\.(?!\w))?"
+_NORM_GUARD_DIST_UNIT_LOOKAHEAD = (
+    r"(?:u\.?s\.?\s+)?survey\s+(?:feet|foot|ft)|"
+    r"engineer(?:'s)?\s+(?:chains?|links?)|"
+    r"feet|foot|ft|inches?|poles?|rods?|perch(?:es)?|chains?|links?|varas?|"
+    r"arpents?|toises?|furlongs?|met(?:er|re)s?|miles?|acres?|sq(?:uare|\.)?\s+(?:feet|foot|ft)"
+)
 
 _NORM_GUARD_BEARING_RE = re.compile(
-    rf"\b(?:(?P<ns_word>[5S][oO0]uth|N[oO0]rth)\s++|(?P<ns_abbr>[NS])\.?\s*+)"
+    rf"\b(?:(?P<ns_word>[5S][oO0]uth|N[oO0]rth){_NORM_GUARD_WRAP_REQ}|(?P<ns_abbr>[NS])\.?{_NORM_GUARD_WRAP})"
     rf"(?:"
     rf"(?P<deg>\d{{1,2}}(?:\.\d{{1,6}})?)\s*+{_NORM_GUARD_DEG}"
     rf"(?:{_NORM_GUARD_SEP}"
     rf"(?:"
     rf"(?P<min1>\d{{1,2}})\s*+{_NORM_GUARD_MIN}"
     rf"(?:{_NORM_GUARD_SEP}(?P<sec1>\d{{1,2}}(?:\.\d{{1,6}})?)\s*+{_NORM_GUARD_SEC}?+)?"
-    rf"|(?P<min2>\d{{1,2}})\s++(?P<sec2>\d{{1,2}}(?:\.\d{{1,6}})?)(?:\s*+{_NORM_GUARD_SEC})?"
+    rf"|(?P<min2>\d{{1,2}})[ \t]++(?P<sec2>\d{{1,2}}(?:\.\d{{1,6}})?)(?:\s*+{_NORM_GUARD_SEC})?"
+    rf"|(?P<sec_only>\d{{1,2}}(?:\.\d{{1,6}})?)\s*+{_NORM_GUARD_SEC}"
     rf"))?"
     rf"(?:\s*+,\s*+|\s*+){_NORM_GUARD_EW}"
     rf"|(?P<hdeg>\d{{1,2}})-(?P<hmin>\d{{1,2}})(?:-(?P<hsec>\d{{1,2}}(?:\.\d{{1,6}})?))?"
-    rf"\s*+(?P<hew>East|West|[EW])\b(?:\.(?!\w))?"
+    rf"[ \t]*+(?P<hew>East|West|[EW])\b(?:\.(?!\w))?"
+    rf"|(?P<sdeg>\d{{1,2}})[ \t]++(?P<smin>\d{{1,2}})[ \t]++(?P<ssec>\d{{1,2}}(?:\.\d{{1,6}})?)"
+    rf"[ \t]++(?P<sew>East|West|[EW])\b(?:\.(?!\w))?"
     rf")",
     re.IGNORECASE,
 )
 
 _NORM_GUARD_DUE_CARDINAL_RE = re.compile(
-    r"\bdue\s++(?P<due_dir>North|South|East|West)\b",
+    rf"\bdue{_NORM_GUARD_WRAP_REQ}(?P<due_dir>North|South|East|West|[NSEW])\b(?:\.(?!\w))?",
     re.IGNORECASE,
 )
 
@@ -153,32 +173,70 @@ _NORM_GUARD_ANGLE_RE = re.compile(
     rf"(?<![A-Za-z0-9.])(?P<deg>\d{{1,3}})\s*+{_NORM_GUARD_DEG}"
     rf"(?:"
     rf"{_NORM_GUARD_SEP}(?P<min>\d{{1,2}})\s*+{_NORM_GUARD_MIN}"
-    rf"(?:{_NORM_GUARD_SEP}(?P<sec>\d{{1,2}}(?:\.\d{{1,6}})?)\s*+{_NORM_GUARD_SEC}?+)?"
-    rf"|(?:\s++|\s*+,\s*+)(?P<min2>\d{{1,2}})\s++(?P<sec2>\d{{1,2}}(?:\.\d{{1,6}})?)"
-    rf"(?:\s*+{_NORM_GUARD_SEC})?"
+    rf"(?:"
+    rf"{_NORM_GUARD_SEP}(?P<sec>\d{{1,2}}(?:\.\d{{1,6}})?)\s*+{_NORM_GUARD_SEC}"
+    rf"|[ \t]++(?P<sec_bare>\d{{1,2}}(?:\.\d{{1,6}})?)(?!\d|\.\d)"
+    rf"(?!{_NORM_GUARD_UNIT_SEP}(?:{_NORM_GUARD_DIST_UNIT_LOOKAHEAD})\b)(?!\s*['\u2032\u2019])"
+    rf")?"
+    rf"|[ \t]++(?P<min2>\d{{1,2}})[ \t]++(?P<sec2>\d{{1,2}}(?:\.\d{{1,6}})?)(?!\d|\.\d)"
+    rf"(?:\s*+{_NORM_GUARD_SEC}|(?!{_NORM_GUARD_UNIT_SEP}(?:{_NORM_GUARD_DIST_UNIT_LOOKAHEAD})\b)(?!\s*['\u2032\u2019]))"
     rf")",
     re.IGNORECASE,
 )
 
+_NORM_GUARD_DEG_ONLY_ANGLE_RE = re.compile(
+    rf"(?:\b(?:delta(?:\s+angle)?|central\s+angle|interior\s+angle|deflection\s+angle|arc(?:\s+angle)?)\b|Δ)"
+    rf"(?:(?:[ \t]*+of\b)?[ \t]*+[:=]{_NORM_GUARD_WRAP}|(?:{_NORM_GUARD_WRAP_REQ}of)?{_NORM_GUARD_WRAP_REQ})"
+    rf"(?P<deg>\d{{1,3}}(?:\.\d{{1,6}})?)\s*+{_NORM_GUARD_DEG}",
+    re.IGNORECASE,
+)
+
+_UNICODE_FRACTION_VALUES: dict[str, float] = {"¼": 0.25, "½": 0.5, "¾": 0.75}
+
 _NORM_GUARD_DISTANCE_RE = re.compile(
     r"(?<![A-Za-z0-9./,])(?<!\d-)"
-    r"(?:(?:(?P<whole>\d{1,12}(?:,\d{3})*)[\s-]+)?(?P<num>\d{1,12})/(?P<den>\d{1,12})"
+    r"(?:(?:(?P<whole>\d{1,12}(?:,\d{3})*)[ \t-]+)?(?P<num>\d{1,12})/(?P<den>\d{1,12})"
+    r"|(?:(?P<uwhole>\d{1,12}(?:,\d{3})*)[ \t-]*+)?(?P<ufrac>[¼½¾])"
     r"|(?P<val>\d{1,12}(?:,\d{3})*(?:\.\d{1,8})?|\.\d{1,8}))"
-    r"\.?+[\s-]*+"
+    rf"\.?+{_NORM_GUARD_UNIT_SEP}"
     r"(?P<unit>(?:u\.?s\.?\s+)?survey\s+(?:feet|foot|ft)|"
     r"engineer(?:'s)?\s+(?:chains?|links?)|"
-    r"feet|foot|ft|poles?|rods?|perch(?:es)?|chains?|links?|varas?|"
+    r"feet|foot|ft|inches?|poles?|rods?|perch(?:es)?|chains?|links?|varas?|"
     r"arpents?|toises?|furlongs?|met(?:er|re)s?|miles?)"
     r"(?:\.(?!\w))?(?!\w|\.\w)",
     re.IGNORECASE,
 )
 
 _NORM_GUARD_FOOT_MARK_RE = re.compile(
-    r"(?<![A-Za-z0-9./,])(?<!\d-)(?P<ftval>\d{1,9}(?:,\d{3})*\.\d{1,6})['\u2032\u2019](?!['\u2032\u2019])"
+    r"(?<![A-Za-z0-9./,])(?<!\d-)(?P<ftval>\d{1,9}(?:,\d{3})*(?:\.\d{1,6})?)['\u2032\u2019](?!['\u2032\u2019\w])"
+)
+
+_NORM_GUARD_UNITLESS_CURVE_DIM_RE = re.compile(
+    rf"\b(?:(?:radius|arc\s+length|chord\s+length|arc|chord)"
+    rf"(?:{_NORM_GUARD_WRAP_REQ}of\b)?(?:[ \t]*+[:=])?"
+    rf"|(?<![A-Za-z])[RL][ \t]*+=){_NORM_GUARD_WRAP}"
+    rf"(?P<cval>\d{{1,9}}(?:,\d{{3}})*(?:\.\d{{1,6}})?)(?!\d|\.\d|,\d)"
+    rf"(?!\s*(?:°|º|deg|min|'|\"|\u2032|\u2033))",
+    re.IGNORECASE,
+)
+
+_NORM_GUARD_AREA_RE = re.compile(
+    r"(?<![A-Za-z0-9./,])(?<!\d-)"
+    r"(?P<aval>\d{1,12}(?:,\d{3})*(?:\.\d{1,8})?|\.\d{1,8})"
+    rf"\.?+{_NORM_GUARD_UNIT_SEP}"
+    rf"(?P<aunit>acres?|ac\.?|sq\.{_NORM_GUARD_WRAP}ft\.?|"
+    rf"sq(?:uare|\.)?{_NORM_GUARD_WRAP_REQ}(?:feet|foot|ft\.?))"
+    r"(?:\.(?!\w))?(?!\w|\.\w)",
+    re.IGNORECASE,
 )
 
 _NORM_GUARD_CURVE_DIR_RE = re.compile(
-    r"\b(?:curv(?:e|ed|ing)|arc)\b[^.;]{0,40}?\b(?P<cdir>left|right(?!(?:\s*-\s*|\s+)of(?:\s*-\s*|\s+)way\b))\b",
+    r"\b(?:curv(?:e|ed|ing)|arc|turn(?:ing|ed)?)\b[^.;]{0,160}?\b(?P<cdir>left|right(?!(?:\s*-\s*|\s+)of(?:\s*-\s*|\s+)way\b))\b",
+    re.IGNORECASE,
+)
+
+_NORM_GUARD_CARDINAL_ONLY_RE = re.compile(
+    r"\b(?P<card>north(?:east|west)?|south(?:east|west)?|east|west)(?:erly|wardly)\b",
     re.IGNORECASE,
 )
 
@@ -206,8 +264,12 @@ def _canonicalize_unit(raw_unit: str) -> str:
             return "engineer_chains"
         if cleaned.endswith(("links", "link")):
             return "engineer_links"
+    if "survey" in cleaned and cleaned.endswith(("feet", "foot", "ft")):
+        return "us_survey_feet"
     if cleaned.endswith(("feet", "foot", "ft")):
         return "feet"
+    if cleaned in ("inch", "inches"):
+        return "inches"
     if cleaned.endswith(("chains", "chain")):
         return "chains"
     if cleaned.endswith(("links", "link")):
@@ -239,6 +301,11 @@ def _extract_bearing_signature(
             deg = float(int(match.group("hdeg")))
             mins = int(match.group("hmin"))
             secs = float(match.group("hsec")) if match.group("hsec") is not None else 0.0
+        elif match.group("sdeg") is not None:
+            ew = "E" if match.group("sew")[0].upper() == "E" else "W"
+            deg = float(int(match.group("sdeg")))
+            mins = int(match.group("smin"))
+            secs = float(match.group("ssec"))
         else:
             ew = "E" if match.group("ew")[0].upper() == "E" else "W"
             deg_val = float(match.group("deg"))
@@ -250,6 +317,10 @@ def _extract_bearing_signature(
                 deg = deg_val
                 mins = int(match.group("min2"))
                 secs = float(match.group("sec2"))
+            elif match.group("sec_only") is not None:
+                deg = deg_val
+                mins = 0
+                secs = float(match.group("sec_only"))
             else:
                 deg = deg_val
                 mins = 0
@@ -268,33 +339,44 @@ def _extract_bearing_signature(
 
 def _extract_standalone_angle_signature(
     text: str, excluded_spans: Sequence[tuple[int, int]]
-) -> tuple[list[tuple[int, int, float]], list[tuple[int, int]]]:
-    """Return ordered standalone DMS angles (deltas, interior/exterior angles) and spans."""
-    out: list[tuple[int, int, float]] = []
-    spans: list[tuple[int, int]] = []
+) -> tuple[list[tuple[float, int, float]], list[tuple[int, int]]]:
+    """Return ordered standalone DMS or degree-only curve angles and spans."""
+    entries: list[tuple[int, tuple[float, int, float], tuple[int, int]]] = []
     idx = 0
     for match in _NORM_GUARD_ANGLE_RE.finditer(text):
         start, end = match.span()
         overlaps, idx = _overlaps_sorted(start, end, excluded_spans, idx)
         if overlaps:
             continue
-        deg = int(match.group("deg"))
+        deg = float(int(match.group("deg")))
         if match.group("min") is not None:
             mins = int(match.group("min"))
-            secs = float(match.group("sec")) if match.group("sec") is not None else 0.0
+            sec_raw = match.group("sec") or match.group("sec_bare")
+            secs = float(sec_raw) if sec_raw is not None else 0.0
         else:
             mins = int(match.group("min2"))
             secs = float(match.group("sec2"))
-        out.append((deg, mins, round(secs, 4)))
-        spans.append((start, end))
-    return out, spans
+        entries.append((start, (round(deg, 6), mins, round(secs, 4)), (start, end)))
+
+    angle_spans_so_far = sorted([*excluded_spans, *(item[2] for item in entries)])
+    deg_idx = 0
+    for match in _NORM_GUARD_DEG_ONLY_ANGLE_RE.finditer(text):
+        start, end = match.span("deg")[0], match.end()
+        overlaps, deg_idx = _overlaps_sorted(start, end, angle_spans_so_far, deg_idx)
+        if overlaps:
+            continue
+        entries.append((start, (round(float(match.group("deg")), 6), 0, 0.0), (start, end)))
+
+    entries.sort(key=lambda item: item[0])
+    return [item[1] for item in entries], [item[2] for item in entries]
 
 
 def _extract_distance_signature(
     text: str, excluded_spans: Sequence[tuple[int, int]] = ()
 ) -> list[tuple[float, str]]:
-    """Return ordered canonical ``(value, unit)`` distance measurement tuples."""
+    """Return ordered canonical ``(value, unit)`` distance and unitless-curve measurement tuples."""
     entries: list[tuple[int, tuple[float, str]]] = []
+    dist_spans: list[tuple[int, int]] = []
     for match in _NORM_GUARD_DISTANCE_RE.finditer(text):
         try:
             if match.group("num") is not None:
@@ -304,12 +386,17 @@ def _extract_distance_signature(
                 whole_raw = match.group("whole")
                 whole = float(whole_raw.replace(",", "")) if whole_raw is not None else 0.0
                 val = whole + (float(match.group("num")) / float(den))
+            elif match.group("ufrac") is not None:
+                uwhole_raw = match.group("uwhole")
+                whole = float(uwhole_raw.replace(",", "")) if uwhole_raw is not None else 0.0
+                val = whole + _UNICODE_FRACTION_VALUES[match.group("ufrac")]
             else:
                 val = float(match.group("val").replace(",", ""))
         except (ValueError, OverflowError):
             continue
         unit = _canonicalize_unit(match.group("unit"))
         entries.append((match.start(), (round(val, 6), unit)))
+        dist_spans.append(match.span())
 
     idx = 0
     for match in _NORM_GUARD_FOOT_MARK_RE.finditer(text):
@@ -322,9 +409,37 @@ def _extract_distance_signature(
         except (ValueError, OverflowError):
             continue
         entries.append((start, (round(val, 6), "feet")))
+        dist_spans.append((start, end))
+
+    all_excluded = sorted([*excluded_spans, *dist_spans])
+    cidx = 0
+    for match in _NORM_GUARD_UNITLESS_CURVE_DIM_RE.finditer(text):
+        vstart, vend = match.span("cval")
+        overlaps, cidx = _overlaps_sorted(vstart, vend, all_excluded, cidx)
+        if overlaps:
+            continue
+        try:
+            val = float(match.group("cval").replace(",", ""))
+        except (ValueError, OverflowError):
+            continue
+        entries.append((vstart, (round(val, 6), "unitless_curve")))
 
     entries.sort(key=lambda item: item[0])
     return [item[1] for item in entries]
+
+
+def _extract_area_signature(text: str) -> list[tuple[float, str]]:
+    """Return ordered canonical ``(value, area_unit)`` stated-area tuples."""
+    out: list[tuple[float, str]] = []
+    for match in _NORM_GUARD_AREA_RE.finditer(text):
+        try:
+            val = float(match.group("aval").replace(",", ""))
+        except (ValueError, OverflowError):
+            continue
+        raw_u = match.group("aunit").lower().replace(".", "")
+        unit = "acres" if raw_u.startswith("ac") else "sq_ft"
+        out.append((round(val, 6), unit))
+    return out
 
 
 def _extract_curve_direction_signature(text: str) -> list[str]:
@@ -332,15 +447,30 @@ def _extract_curve_direction_signature(text: str) -> list[str]:
     return [match.group("cdir").lower() for match in _NORM_GUARD_CURVE_DIR_RE.finditer(text)]
 
 
+def _extract_cardinal_direction_signature(
+    text: str, excluded_spans: Sequence[tuple[int, int]]
+) -> list[str]:
+    """Return ordered non-due cardinal direction words outside bearing spans."""
+    out: list[str] = []
+    idx = 0
+    for match in _NORM_GUARD_CARDINAL_ONLY_RE.finditer(text):
+        start, end = match.span()
+        overlaps, idx = _overlaps_sorted(start, end, excluded_spans, idx)
+        if overlaps:
+            continue
+        out.append(match.group("card").lower())
+    return out
+
+
 def verify_normalization_integrity(
     source_text: str, normalized_text: str
 ) -> tuple[bool, list[str]]:
-    """Verify Stage 3 normalization preserved every bearing, angle, distance, and curve dir.
+    """Verify Stage 3 normalization preserved every bearing, angle, distance, area, and curve dir.
 
     Stage 3 is a format-only rewrite (symbols, abbreviations, line unwrapping).
     Any reordering, omission, duplication, or numeric change in bearings,
-    standalone DMS angles, distance measurements, or curve directions indicates
-    LLM copy drift and fails this check.
+    standalone angles, distance measurements, stated areas, curve directions,
+    or cardinal-only directions indicates LLM copy drift and fails this check.
     """
     reasons: list[str] = []
     if source_text.strip() and not normalized_text.strip():
@@ -371,11 +501,25 @@ def verify_normalization_integrity(
             f"normalized={len(norm_distances)})"
         )
 
+    src_areas = _extract_area_signature(source_text)
+    norm_areas = _extract_area_signature(normalized_text)
+    if src_areas != norm_areas:
+        reasons.append(
+            f"area_sequence_mismatch (source={len(src_areas)}, normalized={len(norm_areas)})"
+        )
+
     src_curves = _extract_curve_direction_signature(source_text)
     norm_curves = _extract_curve_direction_signature(normalized_text)
     if src_curves != norm_curves:
         reasons.append(
             f"curve_direction_mismatch (source={len(src_curves)}, normalized={len(norm_curves)})"
+        )
+
+    src_cards = _extract_cardinal_direction_signature(source_text, src_b_spans)
+    norm_cards = _extract_cardinal_direction_signature(normalized_text, norm_b_spans)
+    if src_cards != norm_cards:
+        reasons.append(
+            f"cardinal_direction_mismatch (source={len(src_cards)}, normalized={len(norm_cards)})"
         )
 
     return not reasons, reasons
@@ -415,8 +559,9 @@ def parse_located_pages(
     all_pages = list(range(1, total_pages + 1))
     cleaned = raw_response.strip()
     if cleaned.startswith("```"):
-        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
-        cleaned = re.sub(r"\s*```$", "", cleaned)
+        cleaned = re.sub(r"^```(?:json)?[ \t]*\r?\n?", "", cleaned, flags=re.IGNORECASE)
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3].rstrip()
     try:
         parsed = json.loads(cleaned)
     except json.JSONDecodeError:
@@ -434,13 +579,20 @@ def parse_located_pages(
         )
         return all_pages
 
-    valid = sorted(
-        {
-            p
-            for p in raw_pages
-            if isinstance(p, int) and not isinstance(p, bool) and 1 <= p <= total_pages
-        }
-    )
+    valid_items: list[int] = []
+    invalid_count = 0
+    for p in raw_pages:
+        if isinstance(p, int) and not isinstance(p, bool) and 1 <= p <= total_pages:
+            valid_items.append(p)
+        else:
+            invalid_count += 1
+    if invalid_count:
+        logger.warning(
+            "locate_legal_pages contained invalid/out-of-range page entries",
+            invalid_count=invalid_count,
+            total_pages=total_pages,
+        )
+    valid = sorted(set(valid_items))
     if not valid:
         if allow_empty and len(raw_pages) == 0:
             return []
@@ -633,6 +785,12 @@ class PDFProcessor:
             return legal_desc_text
         return response
 
+    @property
+    def supports_images(self) -> bool:
+        """Return True if the underlying client implements ``generate_text_with_images``."""
+        inner = self._unwrap_client(self.client)
+        return callable(getattr(inner, "generate_text_with_images", None))
+
     def _generate_text_with_images(
         self,
         prompt: str,
@@ -662,7 +820,8 @@ class PDFProcessor:
         """Identify 1-based page numbers in *pdf_path* containing legal descriptions.
 
         Returns all pages without an LLM call when the PDF has two or fewer pages.
-        Batches thumbnail requests when ``total_pages > max_pages_per_batch``.
+        Renders and submits thumbnail batches per chunk so PDFs larger than
+        ``DEFAULT_MAX_RENDER_PAGES`` still paginate cleanly.
         """
         total_pages = count_pdf_pages(pdf_path)
         if total_pages == 0:
@@ -680,24 +839,35 @@ class PDFProcessor:
         try:
             located: list[int] = []
             with tempfile.TemporaryDirectory(prefix="mp_ocr_locate_") as tmpdir:
-                thumbs = preprocess_pdf_pages_for_ocr(
-                    pdf_path,
-                    Path(tmpdir),
-                    dpi=thumbnail_dpi,
-                    strip_watermark=False,
-                    crop_margins=False,
-                    max_dim=thumbnail_max_dim,
-                )
-                for batch_start in range(0, len(thumbs), batch_size):
-                    batch = thumbs[batch_start : batch_start + batch_size]
-                    batch_len = (
-                        total_pages
-                        if batch_start == 0 and total_pages <= batch_size
-                        else len(batch)
+                for batch_start in range(0, total_pages, batch_size):
+                    batch_pages = list(
+                        range(batch_start + 1, min(batch_start + batch_size, total_pages) + 1)
                     )
+                    batch = preprocess_pdf_pages_for_ocr(
+                        pdf_path,
+                        Path(tmpdir),
+                        pages=batch_pages,
+                        dpi=thumbnail_dpi,
+                        strip_watermark=False,
+                        crop_margins=False,
+                        max_dim=thumbnail_max_dim,
+                    )
+                    if len(batch) != len(batch_pages):
+                        raise RuntimeError(
+                            f"Expected {len(batch_pages)} thumbnail PNG(s) for pages "
+                            f"{batch_pages[0]}-{batch_pages[-1]}, got {len(batch)}"
+                        )
+                    batch_len = len(batch_pages)
                     user_prompt = prompt_config["user_prompt_template"].replace(
                         "{total_pages}", str(batch_len)
                     )
+                    if batch_start > 0 or batch_len < total_pages:
+                        user_prompt = (
+                            f"{user_prompt}\n"
+                            f"(Note: these {batch_len} images correspond to PDF pages "
+                            f"{batch_pages[0]} through {batch_pages[-1]}; return positions "
+                            f"1 through {batch_len} within this batch, ignoring printed headers.)"
+                        )
                     combined_prompt = (
                         f"{system_prompt}\n\n{user_prompt}"
                         if isinstance(system_prompt, str) and system_prompt.strip()
@@ -731,11 +901,14 @@ class PDFProcessor:
         audit: bool = False,
         stage_name: str = "extract_text_from_images",
         max_images_per_call: int = 16,
+        max_bytes_per_call: int = 16 * 1024 * 1024,
+        _append_audit: bool = False,
     ) -> str:
         """Extract all text from preprocessed deed page images using Stage 1 prompt."""
+        items: list[str | Path] = list(_validate_image_paths(image_paths))
         if not audit:
             self._audit_stage_records = None
-        elif self._audit_stage_records is None:
+        elif not _append_audit or self._audit_stage_records is None:
             self._audit_stage_records = []
 
         prompt_config = self._load_prompt("extract_text_from_pdf")
@@ -747,21 +920,41 @@ class PDFProcessor:
             else user_prompt
         )
         response_mime_type = prompt_config.get("response_mime_type")
-        items = list(image_paths)
         batch_size = max(1, int(max_images_per_call))
+        byte_budget = max(1, int(max_bytes_per_call))
+
+        batches: list[list[str | Path]] = []
+        current_batch: list[str | Path] = []
+        current_bytes = 0
+        for item in items:
+            try:
+                item_size = Path(item).stat().st_size
+            except OSError:
+                item_size = 0
+            if current_batch and (
+                len(current_batch) >= batch_size or current_bytes + item_size > byte_budget
+            ):
+                batches.append(current_batch)
+                current_batch = []
+                current_bytes = 0
+            current_batch.append(item)
+            current_bytes += item_size
+        if current_batch:
+            batches.append(current_batch)
 
         try:
-            if len(items) <= batch_size:
+            if len(batches) <= 1:
                 response = self._generate_text_with_images(
-                    prompt_text, items, response_mime_type=response_mime_type
+                    prompt_text,
+                    batches[0] if batches else items,
+                    response_mime_type=response_mime_type,
                 )
                 if audit:
                     self._record_llm_stage(stage_name, prompt_text, response)
                 return response
 
             chunks: list[str] = []
-            for start in range(0, len(items), batch_size):
-                batch = items[start : start + batch_size]
+            for batch in batches:
                 chunk = self._generate_text_with_images(
                     prompt_text, batch, response_mime_type=response_mime_type
                 )
@@ -793,6 +986,8 @@ class PDFProcessor:
         audit: bool = False,
         stage_prefix: str = "escalation_",
         locator_processor: PDFProcessor | None = None,
+        rendered_by_page: dict[int, Path] | None = None,
+        work_dir: Path | None = None,
     ) -> tuple[str, str, list[int]]:
         """Run a blind 3-stage extraction on preprocessed high-DPI legal-page PNGs.
 
@@ -800,6 +995,9 @@ class PDFProcessor:
         receives closure errors or prior extraction guesses, and preserves any
         pre-existing audit records on *locator_processor* without stealing them.
         """
+        if rendered_by_page is not None and work_dir is None:
+            raise ValueError("work_dir is required when rendered_by_page is provided")
+
         collected_stages: list[LLMStageRecord] | None = [] if audit else None
         self._audit_stage_records = None
 
@@ -822,27 +1020,35 @@ class PDFProcessor:
 
             self._audit_stage_records = collected_stages
 
-            with tempfile.TemporaryDirectory(prefix="mp_ocr_escalate_") as tmpdir:
-                rendered_by_page: dict[int, Path] = {}
+            owned_tmpdir: tempfile.TemporaryDirectory[str] | None = (
+                tempfile.TemporaryDirectory(prefix="mp_ocr_escalate_") if work_dir is None else None
+            )
+            try:
+                active_dir = Path(owned_tmpdir.name) if owned_tmpdir is not None else Path(work_dir)  # type: ignore[arg-type]
+                page_cache: dict[int, Path] = (
+                    rendered_by_page if rendered_by_page is not None else {}
+                )
 
                 def _get_page_pngs(target_pages: list[int]) -> list[Path]:
-                    missing = [p for p in target_pages if p not in rendered_by_page]
+                    missing = [p for p in target_pages if p not in page_cache]
                     if missing:
                         new_pngs = preprocess_pdf_pages_for_ocr(
                             pdf_path,
-                            Path(tmpdir),
+                            active_dir,
                             pages=missing,
                             dpi=dpi,
                             strip_watermark=strip_watermark,
                             crop_margins=crop_margins,
                             max_dim=max_dim,
                         )
-                        if len(new_pngs) == len(missing):
-                            for page_num, png_path in zip(missing, new_pngs, strict=True):
-                                rendered_by_page[page_num] = png_path
-                        else:
-                            return new_pngs
-                    return [rendered_by_page[p] for p in target_pages]
+                        if len(new_pngs) != len(missing):
+                            raise RuntimeError(
+                                f"Expected {len(missing)} preprocessed PNG(s) for pages "
+                                f"{missing}, got {len(new_pngs)}"
+                            )
+                        for page_num, png_path in zip(missing, new_pngs, strict=True):
+                            page_cache[page_num] = png_path
+                    return [page_cache[p] for p in target_pages]
 
                 def _run_on_pages(
                     target_pages: list[int],
@@ -855,6 +1061,7 @@ class PDFProcessor:
                         clean_pngs,
                         audit=audit,
                         stage_name=f"{prefix}extract_text_from_images",
+                        _append_audit=True,
                     )
 
                     s2_config = self._load_prompt("extract_legal_description")
@@ -906,6 +1113,9 @@ class PDFProcessor:
                         all_pages, f"{stage_prefix}fallback_"
                     )
                     resolved_pages = all_pages
+            finally:
+                if owned_tmpdir is not None:
+                    owned_tmpdir.cleanup()
         except Exception:
             if audit:
                 self._audit_stage_records = None

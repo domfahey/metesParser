@@ -452,6 +452,114 @@ class TestPreprocessing:
         assert not r1.exists() and not r2.exists() and not r3.exists()
         assert not raw_dir.exists()
 
+    def test_preprocessing_cumulative_timeout_overflow_grayscale_invalid_mediabox_and_pad(
+        self, tmp_path: Path
+    ) -> None:
+        from pypdf.generic import FloatObject, NameObject
+
+        # 1. String pages rejected; grayscale=True passes '-gray'
+        pdf = _write_blank_pdf(tmp_path / "one.pdf", 1)
+        with pytest.raises(ValueError, match="sequence of 1-based"):
+            render_pdf_pages_to_pngs(pdf, tmp_path / "out", pages="1")  # type: ignore[arg-type]
+
+        seen_cmds: list[list[str]] = []
+
+        def _fake_run(cmd: list[str], **kwargs: Any) -> SimpleNamespace:
+            seen_cmds.append(cmd)
+            prefix = Path(cmd[-1])
+            prefix.with_name(f"{prefix.name}-1.png").write_bytes(b"\x89PNG")
+            return SimpleNamespace(returncode=0)
+
+        with (
+            patch("mp_ocr.preprocessing.shutil.which", return_value="/usr/bin/pdftoppm"),
+            patch("mp_ocr.preprocessing.subprocess.run", side_effect=_fake_run),
+        ):
+            render_pdf_pages_to_pngs(pdf, tmp_path / "out_gray", grayscale=True)
+        assert "-gray" in seen_cmds[0]
+
+        # 2. Cumulative monotonic timeout enforced across multiple non-contiguous runs
+        three_pdf = _write_blank_pdf(tmp_path / "three.pdf", 3)
+        clock = iter([100.0, 100.0, 800.0])  # start -> run 1 ok -> run 2 expired past 600s ceiling
+        with (
+            patch("mp_ocr.preprocessing.shutil.which", return_value="/usr/bin/pdftoppm"),
+            patch("mp_ocr.preprocessing.subprocess.run", side_effect=_fake_run),
+            patch("mp_ocr.preprocessing.time.monotonic", side_effect=lambda: next(clock)),
+        ):
+            with pytest.raises(RuntimeError, match="cumulative timeout"):
+                render_pdf_pages_to_pngs(
+                    three_pdf, tmp_path / "out_cum", pages=[1, 3], timeout_s=60.0
+                )
+
+        # 3. Huge MediaBox overflowing float (both with UserUnit=10 and default UserUnit=1.0)
+        #    fails closed with ValueError (never OverflowError)
+        huge_writer = PdfWriter()
+        huge_page = huge_writer.add_blank_page(width=1e308, height=792)
+        huge_page[NameObject("/UserUnit")] = FloatObject(10.0)
+        huge_pdf = tmp_path / "huge.pdf"
+        with huge_pdf.open("wb") as handle:
+            huge_writer.write(handle)
+        with patch("mp_ocr.preprocessing.shutil.which", return_value="/usr/bin/pdftoppm"):
+            with pytest.raises(ValueError, match="overflow|exceeds max_render_pixels"):
+                render_pdf_pages_to_pngs(huge_pdf, tmp_path / "out_huge")
+
+        huge_default_writer = PdfWriter()
+        huge_default_writer.add_blank_page(width=1e308, height=792)
+        huge_default_pdf = tmp_path / "huge_default.pdf"
+        with huge_default_pdf.open("wb") as handle:
+            huge_default_writer.write(handle)
+        with patch("mp_ocr.preprocessing.shutil.which", return_value="/usr/bin/pdftoppm"):
+            with pytest.raises(ValueError, match="overflow|exceeds max_render_pixels"):
+                render_pdf_pages_to_pngs(huge_default_pdf, tmp_path / "out_huge_default")
+
+        # 4. Zero-dimension MediaBox fails closed with ValueError
+        zero_writer = PdfWriter()
+        zero_writer.add_blank_page(width=0, height=792)
+        zero_pdf = tmp_path / "zero.pdf"
+        with zero_pdf.open("wb") as handle:
+            zero_writer.write(handle)
+        with patch("mp_ocr.preprocessing.shutil.which", return_value="/usr/bin/pdftoppm"):
+            with pytest.raises(ValueError, match="Invalid PDF mediabox"):
+                render_pdf_pages_to_pngs(zero_pdf, tmp_path / "out_zero")
+
+    def test_preprocessing_rgba_nonzero_pad_downscale_and_deferred_numpy(
+        self, tmp_path: Path
+    ) -> None:
+        np = pytest.importorskip("numpy")
+        Image = pytest.importorskip("PIL.Image")
+        rgba = np.full((300, 300, 4), 255, dtype=np.uint8)
+        rgba[100:200, 100:200] = [10, 10, 10, 255]
+        src = tmp_path / "rgba.png"
+        Image.fromarray(rgba, mode="RGBA").save(src)
+        out = strip_green_watermark_and_crop(
+            src,
+            tmp_path / "out.png",
+            strip_watermark=True,
+            crop_margins=True,
+            margin_pad_px=20,
+            max_dim=80,
+        )
+        with Image.open(out) as img:
+            assert img.mode == "L" and max(img.size) == 80
+
+        # Thumbnail fast-path (strip_watermark=False, crop_margins=False) works even if numpy is absent
+        orig_import = builtins.__import__
+
+        def _block_numpy(name: str, *args: Any, **kwargs: Any) -> Any:
+            if name == "numpy" or name.startswith("numpy."):
+                raise ImportError(name)
+            return orig_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=_block_numpy):
+            fast_out = strip_green_watermark_and_crop(
+                src,
+                tmp_path / "fast_no_np.png",
+                strip_watermark=False,
+                crop_margins=False,
+                max_dim=60,
+            )
+        with Image.open(fast_out) as img:
+            assert img.mode == "L" and max(img.size) == 60
+
 
 # ---------------------------------------------------------------------------
 # Image-capable LLM clients & cache tests
@@ -488,6 +596,9 @@ class TestClientImages:
         empty_png.write_bytes(b"")
         with pytest.raises(ValueError, match="empty"):
             client.generate_text_with_images("Read", [empty_png])
+        with patch("mp_ocr.clients._MAX_IMAGE_BYTES", 4):
+            with pytest.raises(ValueError, match="exceeds maximum size"):
+                client.generate_text_with_images("Read", [img])
         with pytest.raises(FileNotFoundError):
             client.generate_text_with_images("Read", [tmp_path / "missing.png"])
         with pytest.raises(ValueError, match="regular file"):
@@ -629,8 +740,9 @@ class TestPageLocatorAndImageExtraction:
 
         # Batching across 5 pages with max_pages_per_batch=2 -> 3 batches ([1,2], [3,4], [5])
         five_pdf = _write_blank_pdf(tmp_path / "five.pdf", 5)
-        fake_thumbs = [tmp_path / f"t{i}.png" for i in range(1, 6)]
+        fake_thumbs = {i: tmp_path / f"t{i}.png" for i in range(1, 6)}
         batch_sizes: list[int] = []
+        seen_render_batches: list[list[int]] = []
         replies = ['{"pages": [2]}', '{"pages": [1]}', '{"pages": [1]}']
 
         class _BatchLocatorClient:
@@ -648,14 +760,47 @@ class TestPageLocatorAndImageExtraction:
                 batch_sizes.append(len(image_paths))
                 return replies.pop(0)
 
+        def _fake_batch_pre(
+            pdf_path: Any, out_dir: Path, *, pages: Any = None, **kw: Any
+        ) -> list[Path]:
+            assert pages is not None
+            seen_render_batches.append(list(pages))
+            return [fake_thumbs[p] for p in pages]
+
         b_proc = PDFProcessor(client=_BatchLocatorClient(), cache=False)
-        with patch("mp_ocr.extract.preprocess_pdf_pages_for_ocr", return_value=fake_thumbs):
+        with patch("mp_ocr.extract.preprocess_pdf_pages_for_ocr", side_effect=_fake_batch_pre):
             pages = b_proc.locate_legal_description_pages(
                 str(five_pdf), max_pages_per_batch=2, audit=True
             )
+        assert seen_render_batches == [[1, 2], [3, 4], [5]]
         assert batch_sizes == [2, 2, 1]
         assert pages == [2, 3, 5]
         assert len(b_proc.pop_audit_stage_records()) == 3
+
+        # Per-batch rendering handles >100-page PDFs without tripping max_pages=100 upfront
+        big_pdf = _write_blank_pdf(tmp_path / "big105.pdf", 105)
+        big_batches: list[int] = []
+        big_proc = PDFProcessor(
+            client=SimpleNamespace(
+                generate_text=lambda *a, **k: "",
+                generate_text_with_pdf=lambda *a, **k: "",
+                generate_text_with_images=lambda p, imgs, response_mime_type=None: (
+                    big_batches.append(len(imgs))
+                    or ('{"pages": [1]}' if len(big_batches) == 7 else '{"pages": []}')
+                ),
+            ),
+            cache=False,
+        )
+        with patch(
+            "mp_ocr.extract.preprocess_pdf_pages_for_ocr",
+            side_effect=lambda _p, _d, pages=None, **kw: [
+                tmp_path / f"b{x}.png" for x in (pages or [])
+            ],
+        ):
+            assert big_proc.locate_legal_description_pages(
+                str(big_pdf), max_pages_per_batch=16
+            ) == [97]
+        assert big_batches == [16, 16, 16, 16, 16, 16, 9]
 
     def test_extract_text_from_images_batches_large_inputs(self, tmp_path: Path) -> None:
         imgs = [tmp_path / f"p{i}.png" for i in range(5)]
@@ -742,7 +887,10 @@ class TestPageLocatorAndImageExtraction:
         locator._audit_stage_records = [existing_stage]
         esc_proc = PDFProcessor(client=_EscStub(s3_swapped), cache=False)
 
-        with patch("mp_ocr.extract.preprocess_pdf_pages_for_ocr", return_value=[fake_png]):
+        with patch(
+            "mp_ocr.extract.preprocess_pdf_pages_for_ocr",
+            side_effect=lambda _p, _d, pages=None, **kw: [fake_png] * len(pages or [1]),
+        ):
             legal, norm, pages = esc_proc.extract_legal_description_from_images(
                 str(pdf), audit=True, locator_processor=locator
             )
@@ -764,7 +912,10 @@ class TestPageLocatorAndImageExtraction:
         # Clean normalization path succeeds and preserves normalized text
         s3_clean = "(1) N 32°36'00\" W, 143.00 feet."
         esc_clean = PDFProcessor(client=_EscStub(s3_clean), cache=False)
-        with patch("mp_ocr.extract.preprocess_pdf_pages_for_ocr", return_value=[fake_png]):
+        with patch(
+            "mp_ocr.extract.preprocess_pdf_pages_for_ocr",
+            side_effect=lambda _p, _d, pages=None, **kw: [fake_png] * len(pages or [1]),
+        ):
             _, norm_ok, explicit_pages = esc_clean.extract_legal_description_from_images(
                 str(pdf), pages=[5, 5], audit=False
             )
@@ -782,7 +933,10 @@ class TestPageLocatorAndImageExtraction:
                 return ""
 
         bad_proc = PDFProcessor(client=_NoImg(), cache=False)
-        with patch("mp_ocr.extract.preprocess_pdf_pages_for_ocr", return_value=[fake_png]):
+        with patch(
+            "mp_ocr.extract.preprocess_pdf_pages_for_ocr",
+            side_effect=lambda _p, _d, pages=None, **kw: [fake_png] * len(pages or [1]),
+        ):
             with pytest.raises(NotImplementedError):
                 bad_proc.extract_legal_description_from_images(str(pdf), pages=[1], audit=True)
         assert bad_proc.pop_audit_stage_records() == []
@@ -843,7 +997,7 @@ class TestPageLocatorAndImageExtraction:
         assert legal == good_legal
         assert norm == good_norm
         # Reuses rendered pages [1, 2, 7] and renders only missing pages [3, 4, 5, 6] on fallback!
-        assert seen_page_lists == [None, [1, 2, 7], [3, 4, 5, 6]]
+        assert seen_page_lists == [[1, 2, 3, 4, 5, 6, 7], [1, 2, 7], [3, 4, 5, 6]]
         stages = proc.pop_audit_stage_records()
         assert "escalation_fallback_extract_text_from_images" in [s.stage for s in stages]
         assert "escalation_normalize_text" not in [s.stage for s in stages]
@@ -872,7 +1026,7 @@ class TestPageLocatorAndImageExtraction:
         proc = PDFProcessor(client=_MultiBatchStub(), cache=False)
         with patch(
             "mp_ocr.extract.preprocess_pdf_pages_for_ocr",
-            return_value=[fake_png] * 20,
+            side_effect=lambda _p, _d, pages=None, **kw: [fake_png] * len(pages or []),
         ):
             pages = proc.locate_legal_description_pages(str(pdf), max_pages_per_batch=16)
         # First batch returned {"pages": []} -> NOT expanded to 1..16; only page 18 returned!
@@ -890,11 +1044,107 @@ class TestPageLocatorAndImageExtraction:
         )
         with patch(
             "mp_ocr.extract.preprocess_pdf_pages_for_ocr",
-            return_value=[fake_png] * 20,
+            side_effect=lambda _p, _d, pages=None, **kw: [fake_png] * len(pages or []),
         ):
             assert proc_empty.locate_legal_description_pages(
                 str(pdf), max_pages_per_batch=16
             ) == list(range(1, 21))
+
+    def test_parse_located_pages_allow_empty_zero_page_pdf_byte_budget_and_mismatch_fail_closed(
+        self, tmp_path: Path
+    ) -> None:
+        assert parse_located_pages('{"pages": []}', 4, allow_empty=True) == []
+        assert parse_located_pages("[]", 4, allow_empty=True) == []
+        assert parse_located_pages('{"pages": [18]}', 4, allow_empty=True) == [1, 2, 3, 4]
+        assert parse_located_pages('{"pages": [true, 0]}', 4, allow_empty=True) == [1, 2, 3, 4]
+        assert parse_located_pages("not json", 4, allow_empty=True) == [1, 2, 3, 4]
+
+        empty_pdf = _write_blank_pdf(tmp_path / "empty.pdf", 0)
+        noop_proc = PDFProcessor(
+            client=SimpleNamespace(
+                generate_text=lambda *a, **k: "",
+                generate_text_with_pdf=lambda *a, **k: "",
+            ),
+            cache=False,
+        )
+        with pytest.raises(ValueError, match="no pages"):
+            noop_proc.locate_legal_description_pages(str(empty_pdf))
+        with pytest.raises(ValueError, match="no pages"):
+            noop_proc.extract_legal_description_from_images(str(empty_pdf))
+
+        # Fail closed on render count mismatch in _get_page_pngs & mid-batch audit cleanup
+        four_pdf = _write_blank_pdf(tmp_path / "four.pdf", 4)
+        fake_png = _write_tiny_png(tmp_path / "p.png")
+
+        def _bad_fallback(
+            pdf_path: Any, out_dir: Path, *, pages: Any = None, **kw: Any
+        ) -> list[Path]:
+            if pages == [1, 2, 3, 4]:
+                return [fake_png] * 4
+            if pages == [2]:
+                return [fake_png]
+            return [fake_png]  # mismatch: 1 PNG for [1, 3, 4]
+
+        mismatch_proc = PDFProcessor(
+            client=SimpleNamespace(
+                model="stub",
+                generate_text=lambda *a, **k: "No legal description.",
+                generate_text_with_pdf=lambda *a, **k: "",
+                generate_text_with_images=lambda p, imgs, response_mime_type=None: (
+                    '{"pages": [2]}' if response_mime_type == "application/json" else "RAW"
+                ),
+            ),
+            cache=False,
+        )
+        with patch("mp_ocr.extract.preprocess_pdf_pages_for_ocr", side_effect=_bad_fallback):
+            with pytest.raises(RuntimeError, match="Expected 3 preprocessed PNG"):
+                mismatch_proc.extract_legal_description_from_images(str(four_pdf), audit=True)
+        assert mismatch_proc.pop_audit_stage_records() == []
+
+        # Mid-batch exception in locate_legal_description_pages clears audit records
+        bad_loc_proc = PDFProcessor(
+            client=SimpleNamespace(
+                generate_text=lambda *a, **k: "",
+                generate_text_with_pdf=lambda *a, **k: "",
+                generate_text_with_images=lambda *a, **k: (_ for _ in ()).throw(
+                    RuntimeError("api boom")
+                ),
+            ),
+            cache=False,
+        )
+        with patch(
+            "mp_ocr.extract.preprocess_pdf_pages_for_ocr",
+            side_effect=lambda _p, _d, pages=None, **kw: [fake_png] * len(pages or []),
+        ):
+            with pytest.raises(RuntimeError, match="api boom"):
+                bad_loc_proc.locate_legal_description_pages(str(four_pdf), audit=True)
+        assert bad_loc_proc.pop_audit_stage_records() == []
+
+        # extract_text_from_images splits by max_bytes_per_call and resets standalone audit records
+        big1 = tmp_path / "b1.png"
+        big2 = tmp_path / "b2.png"
+        big1.write_bytes(b"\x89PNG" + b"a" * 100)
+        big2.write_bytes(b"\x89PNG" + b"b" * 100)
+        seen_batches: list[int] = []
+        byte_proc = PDFProcessor(
+            client=SimpleNamespace(
+                model="byte-stub",
+                generate_text=lambda *a, **k: "",
+                generate_text_with_pdf=lambda *a, **k: "",
+                generate_text_with_images=lambda p, imgs, response_mime_type=None: (
+                    seen_batches.append(len(imgs)) or f"B{len(seen_batches)}"
+                ),
+            ),
+            cache=False,
+        )
+        assert (
+            byte_proc.extract_text_from_images([big1, big2], audit=True, max_bytes_per_call=150)
+            == "B1\n\nB2"
+        )
+        assert seen_batches == [1, 1]
+        # Second standalone call resets previous records instead of accumulating indefinitely
+        byte_proc.extract_text_from_images([big1], audit=True, max_bytes_per_call=500)
+        assert len(byte_proc.pop_audit_stage_records()) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -1366,3 +1616,431 @@ class TestEscalationPolicyAndDisagreement:
         c_46e = _call(1, chord_bearing="N 46°00'00\" E")
         assert len(compare_call_readings([c_bad_min], [c_46e])) == 1
         assert len(compare_call_readings([c_bad_dec_min], [c_46e])) == 1
+
+    def test_select_escalation_quality_omission_spurious_tract_and_asymmetry_guards(self) -> None:
+        from mp_models import DESCRIPTION_ROLES_NOTE, UNAPPLIED_EXCEPTION_NOTE_PREFIX, SkippedCourse
+
+        c1 = _call(1, dist=100.0)
+        c2 = _call(2, dist=100.0)
+        c2_alt = _call(2, dist=101.0)
+        dis = compare_call_readings([c1, c2], [c1, c2_alt])
+
+        # 1. Extra failed check, strictly worse misclosure (misclosure_available=True), and worse confidence
+        pri_base = _closure(passed=False, status="failed", misclosure_ft=0.05).model_copy(
+            update={"confidence_score": 0.80}
+        )
+        esc_more_bad = _closure(
+            passed=False,
+            status="failed",
+            misclosure_ft=0.05,
+            extra_checks=[
+                CheckResult(
+                    name="curve_consistency", status="failed", reason="bad_arc", detail="bad"
+                )
+            ],
+        ).model_copy(update={"confidence_score": 0.80})
+        assert select_escalation_outcome(
+            primary_calls=[c1, c2],
+            escalated_calls=[c1, c2_alt],
+            primary_results=pri_base,
+            escalated_results=esc_more_bad,
+            disagreements=dis,
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        esc_worse_misc = _closure(passed=False, status="failed", misclosure_ft=12.5).model_copy(
+            update={"confidence_score": 0.80}
+        )
+        assert select_escalation_outcome(
+            primary_calls=[c1, c2],
+            escalated_calls=[c1, c2_alt],
+            primary_results=pri_base,
+            escalated_results=esc_worse_misc,
+            disagreements=dis,
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        esc_worse_conf = _closure(passed=False, status="failed", misclosure_ft=0.05).model_copy(
+            update={"confidence_score": 0.50}
+        )
+        assert select_escalation_outcome(
+            primary_calls=[c1, c2],
+            escalated_calls=[c1, c2_alt],
+            primary_results=pri_base,
+            escalated_results=esc_worse_conf,
+            disagreements=dis,
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        # 2. Dropped curve/area lowering esc_bad_checks < pri_bad_checks must NOT bypass misclosure/confidence
+        pri_two_bad = _closure(
+            passed=False,
+            status="failed",
+            misclosure_ft=0.05,
+            extra_checks=[
+                CheckResult(name="curve_consistency", status="failed", reason="bad_arc", detail="x")
+            ],
+        ).model_copy(update={"confidence_score": 0.72})
+        esc_one_bad_huge_misc = _closure(
+            passed=False, status="failed", misclosure_ft=500.0
+        ).model_copy(update={"confidence_score": 0.25})
+        assert select_escalation_outcome(
+            primary_calls=[c1, c2],
+            escalated_calls=[c1, c2_alt],
+            primary_results=pri_two_bad,
+            escalated_results=esc_one_bad_huge_misc,
+            disagreements=dis,
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        # 3. Omission-reward guards: dropping unapplied exception, stated_area_sq_ft, or roles_inferred
+        closed_ok = _closure(passed=True, status="passed")
+        closed_warn = closed_ok.model_copy(
+            update={"warnings": [f"{UNAPPLIED_EXCEPTION_NOTE_PREFIX}easterly 10 feet"]}
+        )
+        c_exc_note = c2.model_copy(
+            update={"notes": f"{UNAPPLIED_EXCEPTION_NOTE_PREFIX}easterly 10 feet"}
+        )
+        assert select_escalation_outcome(
+            primary_calls=[c1, c_exc_note],
+            escalated_calls=[c1, c2],
+            primary_results=closed_warn,
+            escalated_results=closed_ok,
+            disagreements=compare_call_readings([c1, c_exc_note], [c1, c2]),
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        assert select_escalation_outcome(
+            primary_calls=[c1, c2],
+            escalated_calls=[c1, c2_alt],
+            primary_results=pri_base,
+            escalated_results=closed_ok,
+            disagreements=dis,
+            primary_stated_area_sq_ft=10000.0,
+            escalated_stated_area_sq_ft=None,
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        closed_inferred = _closure(
+            passed=True,
+            status="passed",
+            extra_checks=[
+                CheckResult(
+                    name="description_roles_inferred",
+                    status="blocked",
+                    reason="roles_inferred",
+                    detail="inferred",
+                )
+            ],
+        )
+        c_roles = c1.model_copy(update={"notes": DESCRIPTION_ROLES_NOTE})
+        assert select_escalation_outcome(
+            primary_calls=[c_roles, c2],
+            escalated_calls=[c1, c2],
+            primary_results=closed_inferred,
+            escalated_results=closed_ok,
+            disagreements=compare_call_readings([c_roles, c2], [c1, c2]),
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        # Introducing description_roles_inferred on a closing pass preserves primary
+        assert select_escalation_outcome(
+            primary_calls=[c1, c2],
+            escalated_calls=[c1, c2_alt],
+            primary_results=pri_base,
+            escalated_results=closed_inferred,
+            disagreements=dis,
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        # 4. Spurious 3rd tract breaking closed Tract 1 preserves primary
+        failed_50 = _closure(passed=False, status="failed", misclosure_ft=50.0)
+        t1 = Tract(label="T1", tract_type=TractType.MAIN, role_basis="heading", calls=[c1])
+        t2 = Tract(label="T2", tract_type=TractType.MAIN, role_basis="heading", calls=[c2])
+        t3 = Tract(label="T3", tract_type=TractType.MAIN, role_basis="heading", calls=[c2_alt])
+        assert select_escalation_outcome(
+            primary_calls=[c1, c2],
+            escalated_calls=[c1, c2_alt, c2_alt],
+            primary_results=[closed_ok, pri_base],
+            escalated_results=[failed_50, closed_ok, closed_ok],
+            disagreements=dis,
+            primary_tracts=[t1, t2],
+            escalated_tracts=[t1, t2, t3],
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        # 5. Closing an easement cannot override a wrecked MAIN boundary tract
+        t_ease = Tract(label="E1", tract_type=TractType.EASEMENT, role_basis="heading", calls=[c2])
+        ease_fail = _closure(
+            passed=False,
+            status="failed",
+            misclosure_ft=0.5,
+            extra_checks=[
+                CheckResult(
+                    name="non_boundary_tract", status="blocked", reason="non_boundary", detail="e"
+                )
+            ],
+        )
+        ease_ok = _closure(
+            passed=True,
+            status="passed",
+            extra_checks=[
+                CheckResult(
+                    name="non_boundary_tract", status="blocked", reason="non_boundary", detail="e"
+                )
+            ],
+        )
+        garbled_main = pri_base.model_copy(
+            update={"misclosure_available": False, "confidence_score": 0.1}
+        )
+        assert select_escalation_outcome(
+            primary_calls=[c1, c2],
+            escalated_calls=[c1, c2_alt],
+            primary_results=[pri_base, ease_fail],
+            escalated_results=[garbled_main, ease_ok],
+            disagreements=dis,
+            primary_tracts=[t1, t_ease],
+            escalated_tracts=[t1, t_ease],
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        # 6. Sole-easement unequal tract count still enforces quality regression guard
+        ease_garbled = ease_fail.model_copy(
+            update={"misclosure_available": False, "confidence_score": 0.0}
+        )
+        assert select_escalation_outcome(
+            primary_calls=[c1],
+            escalated_calls=[c1, c2_alt],
+            primary_results=[ease_fail.model_copy(update={"confidence_score": 0.7})],
+            escalated_results=[ease_garbled, ease_garbled],
+            disagreements=dis,
+            primary_tracts=[t_ease],
+            escalated_tracts=[t_ease, t_ease],
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        # 7. single_parcel_asymmetry emits tract_metadata for sole EASEMENT/inferred/area; paired_count==0;
+        #    and curve cardinal direction conflicts surface
+        ease_sole = Tract(
+            label="Easement",
+            tract_type=TractType.EASEMENT,
+            role_basis="inferred",
+            stated_area_sq_ft=5000.0,
+            calls=[c1],
+        )
+        diffs_asym = compare_call_readings(
+            [c1], [c1], primary_tracts=[ease_sole], escalated_tracts=None
+        )
+        assert any(
+            d.kind == "tract_metadata" and "tract_type" in ";".join(d.details) for d in diffs_asym
+        )
+        assert any(
+            d.kind == "tract_metadata" and "role_basis" in ";".join(d.details) for d in diffs_asym
+        )
+        assert any(
+            d.kind == "tract_metadata" and "stated_area_sq_ft" in ";".join(d.details)
+            for d in diffs_asym
+        )
+
+        t_meta_a = Tract(
+            label="T1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            stated_area_sq_ft=10000.0,
+            skipped_courses=[
+                SkippedCourse(
+                    course=2,
+                    source_course=2,
+                    source_excerpt="c2",
+                    error_type="ValueError",
+                    error="unparseable",
+                )
+            ],
+            calls=[c1],
+        )
+        t_meta_b = Tract(
+            label="T1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            stated_area_sq_ft=9500.0,
+            skipped_courses=[],
+            calls=[c1],
+        )
+        diffs_meta = compare_call_readings(
+            [c1], [c1], primary_tracts=[t_meta_a], escalated_tracts=[t_meta_b]
+        )
+        assert len(diffs_meta) == 1 and diffs_meta[0].kind == "tract_metadata"
+        assert "stated_area_sq_ft" in "; ".join(diffs_meta[0].details)
+        assert "skipped_courses" in "; ".join(diffs_meta[0].details)
+
+        diffs_zero_pair = compare_call_readings(
+            [c1, c2], [c1, c2_alt], primary_tracts=[t1, t2], escalated_tracts=[]
+        )
+        assert [d.kind for d in diffs_zero_pair] == ["tract_count", "value_mismatch"]
+
+        curve_n = _call(
+            1,
+            direction="curving northerly right",
+            az=None,
+            dist=50.0,
+            curve_dir="right",
+            radius_ft=100.0,
+            arc_length_ft=50.0,
+        )
+        curve_s = _call(
+            1,
+            direction="curving southerly right",
+            az=None,
+            dist=50.0,
+            curve_dir="right",
+            radius_ft=100.0,
+            arc_length_ft=50.0,
+        )
+        assert len(compare_call_readings([curve_n], [curve_s])) == 1
+
+    def test_spurious_extra_boundary_tract_asymmetric_area_and_work_dir_guard(
+        self, tmp_path: Path
+    ) -> None:
+        from mp_ocr.escalation import is_escalated_subset_truncated
+        from mp_ocr.extract import PDFProcessor
+
+        c1 = _call(1, dist=100.0)
+        c2 = _call(2, dist=100.0)
+        c2_alt = _call(2, dist=101.0)
+
+        # 1. Spurious extra closed boundary tract cannot mask regression on aligned primary tract
+        pri_fail = _closure(passed=False, status="failed", misclosure_ft=0.05).model_copy(
+            update={"confidence_score": 0.78}
+        )
+        esc_wrecked = _closure(
+            passed=False,
+            status="failed",
+            misclosure_ft=500.0,
+            extra_checks=[
+                CheckResult(name="curve_consistency", status="failed", reason="bad", detail="bad")
+            ],
+        ).model_copy(update={"misclosure_available": False, "confidence_score": 0.10})
+        esc_spurious = _closure(passed=True, status="passed", misclosure_ft=0.0)
+        t_pri = Tract(label="T1", tract_type=TractType.MAIN, role_basis="heading", calls=[c1, c2])
+        t_esc1 = Tract(
+            label="T1", tract_type=TractType.MAIN, role_basis="heading", calls=[c1, c2_alt]
+        )
+        t_esc2 = Tract(label="T2", tract_type=TractType.MAIN, role_basis="heading", calls=[c1])
+        dis_spurious = compare_call_readings(
+            [c1, c2], [c1, c2_alt, c1], primary_tracts=[t_pri], escalated_tracts=[t_esc1, t_esc2]
+        )
+        assert select_escalation_outcome(
+            primary_calls=[c1, c2],
+            escalated_calls=[c1, c2_alt, c1],
+            primary_results=[pri_fail],
+            escalated_results=[esc_wrecked, esc_spurious],
+            disagreements=dis_spurious,
+            primary_tracts=[t_pri],
+            escalated_tracts=[t_esc1, t_esc2],
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        # 2. Single-parcel asymmetry: sole-tract area dropped when escalated is flat without area -> preserve primary
+        t_with_area = Tract(
+            label="T1",
+            tract_type=TractType.MAIN,
+            role_basis="single",
+            stated_area_sq_ft=10000.0,
+            calls=[c1, c2],
+        )
+        dis_asym_drop = compare_call_readings(
+            [c1, c2], [c1, c2], primary_tracts=[t_with_area], escalated_tracts=None
+        )
+        assert len(dis_asym_drop) == 1 and dis_asym_drop[0].kind == "tract_metadata"
+        assert select_escalation_outcome(
+            primary_calls=[c1, c2],
+            escalated_calls=[c1, c2],
+            primary_results=pri_fail,
+            escalated_results=_closure(passed=True, status="passed", misclosure_ft=0.0),
+            disagreements=dis_asym_drop,
+            primary_tracts=[t_with_area],
+            escalated_tracts=None,
+        ) == ("primary", "primary_preserved_escalated_regressed_verification")
+
+        # Matching sole-tract area vs flat top-level area emits zero spurious disagreement
+        assert (
+            compare_call_readings(
+                [c1, c2],
+                [c1, c2],
+                primary_tracts=[t_with_area],
+                escalated_tracts=None,
+                escalated_stated_area_sq_ft=10000.0,
+            )
+            == []
+        )
+
+        # 3. Multi-tract recovery from 0/1-tract primary with stated area -> 2-tract escalated
+        #    (top-level area None, per-tract areas preserved) is neither truncated nor rejected
+        t_rec1 = Tract(
+            label="Tract 1",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            stated_area_sq_ft=10000.0,
+            calls=[c1, c2],
+        )
+        t_rec2 = Tract(
+            label="Tract 2",
+            tract_type=TractType.MAIN,
+            role_basis="heading",
+            stated_area_sq_ft=2500.0,
+            calls=[c1, c2],
+        )
+        t_rec1_no_area = t_rec1.model_copy(update={"stated_area_sq_ft": None})
+        t_rec2_no_area = t_rec2.model_copy(update={"stated_area_sq_ft": None})
+        assert (
+            is_escalated_subset_truncated(
+                primary_calls=[c1, c2],
+                escalated_calls=[c1, c2, c1, c2],
+                primary_tracts=None,
+                escalated_tracts=[t_rec1, t_rec2],
+                primary_stated_area_sq_ft=10000.0,
+                escalated_stated_area_sq_ft=None,
+            )
+            is False
+        )
+        dis_rec = compare_call_readings(
+            [c1, c2],
+            [c1, c2, c1, c2],
+            primary_tracts=None,
+            escalated_tracts=[t_rec1, t_rec2],
+            primary_stated_area_sq_ft=10000.0,
+            escalated_stated_area_sq_ft=None,
+        )
+        assert select_escalation_outcome(
+            primary_calls=[c1, c2],
+            escalated_calls=[c1, c2, c1, c2],
+            primary_results=[pri_fail],
+            escalated_results=[
+                _closure(passed=True, status="passed", misclosure_ft=0.0),
+                _closure(passed=True, status="passed", misclosure_ft=0.0),
+            ],
+            disagreements=dis_rec,
+            primary_tracts=None,
+            escalated_tracts=[t_rec1, t_rec2],
+            primary_stated_area_sq_ft=10000.0,
+            escalated_stated_area_sq_ft=None,
+        ) == ("escalated", "escalated_passed_closure_where_primary_failed")
+        # Dropping ALL per-tract areas still flags truncated and preserves primary
+        assert (
+            is_escalated_subset_truncated(
+                primary_calls=[c1, c2],
+                escalated_calls=[c1, c2, c1, c2],
+                primary_tracts=None,
+                escalated_tracts=[t_rec1_no_area, t_rec2_no_area],
+                primary_stated_area_sq_ft=10000.0,
+                escalated_stated_area_sq_ft=None,
+            )
+            is True
+        )
+
+        # 4. rendered_by_page without work_dir fails BEFORE locator LLM call; extract_text_from_images validates paths
+        pdf3 = _write_blank_pdf(tmp_path / "three.pdf", 3)
+        img_calls: list[Any] = []
+        stub_client = SimpleNamespace(
+            model="m",
+            generate_text=lambda *a, **k: "raw",
+            generate_text_with_pdf=lambda *a, **k: "raw",
+            generate_text_with_images=lambda *a, **k: img_calls.append(a) or "raw",
+        )
+        proc = PDFProcessor(client=stub_client, cache=False)  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="work_dir is required"):
+            proc.extract_legal_description_from_images(str(pdf3), rendered_by_page={})
+        assert img_calls == []
+        with pytest.raises(TypeError, match="sequence of image paths"):
+            proc.extract_text_from_images("/tmp/page.png")  # type: ignore[arg-type]
+        with pytest.raises(ValueError, match="at least one"):
+            proc.extract_text_from_images([])
+        assert img_calls == []

@@ -50,6 +50,7 @@ _IMAGE_MIME_TYPES: dict[str, str] = {
     ".webp": "image/webp",
     ".gif": "image/gif",
 }
+_MAX_IMAGE_BYTES = 20 * 1024 * 1024
 
 
 def _validate_image_paths(image_paths: Sequence[str | Path]) -> list[str | Path]:
@@ -70,6 +71,14 @@ def _read_image(image_path: str | Path) -> tuple[str, str, bytes]:
     mime = _IMAGE_MIME_TYPES.get(path.suffix.lower())
     if mime is None:
         raise ValueError(f"Unsupported image format '{path.suffix}' for {path.name}")
+    file_size = path.stat().st_size
+    if file_size == 0:
+        raise ValueError(f"Image file is empty: {path.name}")
+    if file_size > _MAX_IMAGE_BYTES:
+        raise ValueError(
+            f"Image file {path.name} ({file_size} bytes) exceeds maximum size "
+            f"of {_MAX_IMAGE_BYTES} bytes"
+        )
     data = path.read_bytes()
     if not data:
         raise ValueError(f"Image file is empty: {path.name}")

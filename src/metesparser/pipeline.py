@@ -2,29 +2,27 @@
 
 from __future__ import annotations
 
+import tempfile
 import threading
 from pathlib import Path
 from typing import Any
 
+import structlog
 from mp_models import (
-    DESCRIPTION_ROLES_NOTE,
-    INVALID_STATED_AREA_NOTE_PREFIX,
-    NON_BOUNDARY_NOTES,
-    RIGHTS_RESERVED_NOTE_PREFIX,
-    SEPARATE_EASEMENT_NOTE_PREFIX,
-    UNAPPLIED_EXCEPTION_NOTE_PREFIX,
     AuditContext,
     CheckResult,
     ClosureResult,
+    ExtractionRecord,
     LegalDescription,
+    LLMStageRecord,
     VerificationAudit,
-    split_notes,
 )
 from mp_ocr import (
     EscalationPolicy,
     EscalationReport,
     compare_call_readings,
     count_pdf_pages,
+    is_escalated_subset_truncated,
     select_escalation_outcome,
     should_escalate_closure,
     validate_escalation_policy,
@@ -38,6 +36,23 @@ from .models import LegalDescription as MonolithLegalDescription
 from .package_bridge import package_audit_context, package_legal_description
 from .pdf_processor import PDFProcessor
 
+logger = structlog.get_logger(__name__)
+
+_VALID_LLM_PROVIDERS: frozenset[str] = frozenset({"openai", "gemini", "openrouter"})
+
+
+def _normalize_provider(provider: str, *, name: str = "provider") -> str:
+    if not isinstance(provider, str) or not provider.strip():
+        raise ValueError(
+            f"Invalid {name} {provider!r}; expected one of: openai, gemini, openrouter"
+        )
+    normalized = provider.strip().lower()
+    if normalized not in _VALID_LLM_PROVIDERS:
+        raise ValueError(
+            f"Invalid {name} {provider!r}; expected one of: openai, gemini, openrouter"
+        )
+    return normalized
+
 
 def _safe_model_name(processor: Any) -> str | None:
     """Extract string ``model_name`` from a processor or stub without leaking mocks."""
@@ -45,36 +60,64 @@ def _safe_model_name(processor: Any) -> str | None:
     return name if isinstance(name, str) and name.strip() else None
 
 
-def _client_supports_images(client: Any) -> bool:
-    """Return True if the unwrapped client implements ``generate_text_with_images``."""
-    inner = PDFProcessor._unwrap_client(client)
-    return callable(getattr(inner, "generate_text_with_images", None))
-
-
-_TAIL_BLOCKING_EXACT_NOTES: frozenset[str] = frozenset(
-    note.lower() for note in (DESCRIPTION_ROLES_NOTE, *NON_BOUNDARY_NOTES)
-)
-_TAIL_BLOCKING_NOTE_PREFIXES: tuple[str, ...] = tuple(
-    prefix.lower()
-    for prefix in (
-        UNAPPLIED_EXCEPTION_NOTE_PREFIX,
-        INVALID_STATED_AREA_NOTE_PREFIX,
-        RIGHTS_RESERVED_NOTE_PREFIX,
-        SEPARATE_EASEMENT_NOTE_PREFIX,
+def _infer_processor_provider(processor: Any, fallback: str | None) -> str | None:
+    """Infer the real provider of *processor*'s client so injected clients do not collide with default ``provider='openai'``."""
+    from mp_ocr.clients import (
+        GeminiClient as PkgGeminiClient,
     )
-)
+    from mp_ocr.clients import (
+        OpenAIClient as PkgOpenAIClient,
+    )
+    from mp_ocr.clients import (
+        OpenRouterClient as PkgOpenRouterClient,
+    )
+
+    from .llm_clients import GeminiClient, OpenAIClient, OpenRouterClient
+
+    raw = getattr(processor, "client", None)
+    for _ in range(4):
+        if raw is None or not isinstance(getattr(raw, "_cache_dir", None), Path):
+            break
+        raw = getattr(raw, "_client", None)
+    if raw is None:
+        return fallback
+    if isinstance(raw, (OpenRouterClient, PkgOpenRouterClient)):
+        return "openrouter"
+    if isinstance(raw, (OpenAIClient, PkgOpenAIClient)):
+        return "openai"
+    if isinstance(raw, (GeminiClient, PkgGeminiClient)):
+        return "gemini"
+    return fallback
 
 
-def _has_tail_blocking_note(calls: list[Any]) -> bool:
-    """Return True if any call carries a deed/tail blocking or reservation/easement note."""
-    for call in calls:
-        for note in split_notes(call.notes):
-            lowered = note.strip().lower()
-            if lowered in _TAIL_BLOCKING_EXACT_NOTES or lowered.startswith(
-                _TAIL_BLOCKING_NOTE_PREFIXES
-            ):
-                return True
-    return False
+def _close_processor_client(processor: Any) -> None:
+    """Best-effort close of an SDK-backed HTTP client pool created by ``Pipeline.run()``."""
+    client = getattr(processor, "client", None)
+    # Unwrap bounded cache wrapper layers (real CachedLLMClient has a Path _cache_dir).
+    for _ in range(4):
+        if client is None or not isinstance(getattr(client, "_cache_dir", None), Path):
+            break
+        client = getattr(client, "_client", None)
+    if client is None:
+        return
+    for target in (client, getattr(client, "_client", None)):
+        close_fn = getattr(target, "close", None)
+        if callable(close_fn):
+            try:
+                close_fn()
+            except Exception:
+                pass
+
+
+def _coerce_package_llm_stages(stages: list[Any]) -> list[LLMStageRecord]:
+    """Convert monolith or package LLMStageRecord objects into ``mp_models.LLMStageRecord``."""
+    out: list[LLMStageRecord] = []
+    for stage in stages:
+        if isinstance(stage, LLMStageRecord):
+            out.append(stage)
+        else:
+            out.append(LLMStageRecord.model_validate(stage.model_dump()))
+    return out
 
 
 def _is_escalated_truncated(
@@ -83,20 +126,15 @@ def _is_escalated_truncated(
     esc_desc: LegalDescription,
     esc_calls: list[Any],
 ) -> bool:
-    """Return True if an escalated subset lost tracts, per-tract calls, area, or tail blocking notes."""
-    if primary_desc.tracts:
-        if len(esc_desc.tracts) < len(primary_desc.tracts):
-            return True
-        for pri_t, esc_t in zip(primary_desc.tracts, esc_desc.tracts, strict=False):
-            if pri_t.calls and len(esc_t.calls) < len(pri_t.calls):
-                return True
-    if primary_calls and len(esc_calls) < len(primary_calls):
-        return True
-    if primary_desc.stated_area_sq_ft is not None and esc_desc.stated_area_sq_ft is None:
-        return True
-    if _has_tail_blocking_note(primary_calls) and not _has_tail_blocking_note(esc_calls):
-        return True
-    return False
+    """Return True if an escalated subset lost tracts, per-tract calls, area, or tail note categories."""
+    return is_escalated_subset_truncated(
+        primary_calls=primary_calls,
+        escalated_calls=esc_calls,
+        primary_tracts=primary_desc.tracts or None,
+        escalated_tracts=esc_desc.tracts or None,
+        primary_stated_area_sq_ft=primary_desc.stated_area_sq_ft,
+        escalated_stated_area_sq_ft=esc_desc.stated_area_sq_ft,
+    )
 
 
 def _sync_verification_audit(v_audit: VerificationAudit, res: ClosureResult) -> VerificationAudit:
@@ -158,18 +196,28 @@ def _sync_audit_with_escalation(
     legal_desc: LegalDescription,
     report: EscalationReport,
     audit_ctx: AuditContext | None,
+    *,
+    failure_detail: str | None = None,
 ) -> ClosureResult | list[ClosureResult]:
-    """Attach OCR disagreement checks/warnings and keep VerificationAudit & RunMetadata in sync."""
-    extra_warnings = report.review_warnings
+    """Attach OCR disagreement/failure checks & warnings and keep VerificationAudit & RunMetadata in sync."""
+    extra_warnings = list(report.review_warnings)
+    check_reason = "ocr_escalation_disagreement"
+    if report.triggered and not report.agrees and not extra_warnings:
+        check_reason = report.selection_reason
+        suffix = f": {failure_detail}" if failure_detail else ""
+        extra_warnings.append(
+            f"OCR escalation did not complete agreement ({report.selection_reason}{suffix}) "
+            "— manual source verification required"
+        )
     final_results: ClosureResult | list[ClosureResult] = results
 
     if extra_warnings:
         disagreement_check = CheckResult(
             name="ocr_escalation_agreement",
             status="failed",
-            reason="ocr_escalation_disagreement",
+            reason=check_reason,
             detail="; ".join(extra_warnings),
-            inputs={"disagreement_count": len(extra_warnings)},
+            inputs={"disagreement_count": len(report.disagreements)},
         )
         if isinstance(results, ClosureResult):
             updated_single = _apply_disagreement_check(
@@ -206,6 +254,8 @@ def _sync_audit_with_escalation(
         cfg["escalation_selected"] = report.selected
         cfg["escalation_selection_reason"] = report.selection_reason
         cfg["escalation_disagreement_count"] = len(report.disagreements)
+        if failure_detail:
+            cfg["escalation_error"] = failure_detail
         if report.primary_model:
             cfg["primary_model"] = report.primary_model
         if report.escalation_model:
@@ -233,7 +283,7 @@ class Pipeline:
 
     def __init__(
         self,
-        provider: str = "openai",
+        provider: str | None = None,
         *,
         cache: bool = True,
         audit: bool = False,
@@ -247,12 +297,24 @@ class Pipeline:
     ) -> None:
         validated_policy = validate_escalation_policy(escalation_policy)
         validated_dpi = validate_render_dpi(escalation_dpi, name="escalation_dpi")
-        self.provider = provider
+        self._provider_explicit = provider is not None
+        raw_provider = "openai" if provider is None else provider
+        validated_provider = (
+            raw_provider.strip().lower()
+            if isinstance(raw_provider, str) and raw_provider.strip()
+            else raw_provider
+        )
+        validated_esc_provider = (
+            _normalize_provider(escalation_provider, name="escalation_provider")
+            if escalation_provider is not None
+            else None
+        )
+        self.provider = validated_provider
         self.cache = cache
         self.audit = audit
         self.client = client
         self.escalation_policy: EscalationPolicy = validated_policy
-        self.escalation_provider = escalation_provider
+        self.escalation_provider = validated_esc_provider
         self.escalation_client = escalation_client
         self.escalation_dpi = validated_dpi
         self.strip_watermark = strip_watermark
@@ -321,115 +383,230 @@ class Pipeline:
                 (list[ClosureResult], AuditContext) when audit=True
         """
         self.last_escalation_report = None
-        processor = (
-            PDFProcessor(provider=self.provider, cache=self.cache)
-            if self.client is None
-            else PDFProcessor(provider=self.provider, client=self.client, cache=self.cache)
-        )
-        primary_output = processor.process_deed_pdf(str(pdf_path), audit=self.audit)
-        legal_desc, audit_ctx = self._convert_processor_output(primary_output)
-        primary_results = _verify_legal_desc(legal_desc, audit_ctx)
-        primary_calls = legal_desc.all_calls if legal_desc.tracts else legal_desc.calls
+        owned_processors: list[Any] = []
+        try:
+            processor = (
+                PDFProcessor(provider=self.provider, cache=self.cache)
+                if self.client is None
+                else PDFProcessor(provider=self.provider, client=self.client, cache=self.cache)
+            )
+            if self.client is None:
+                owned_processors.append(processor)
+            primary_output = processor.process_deed_pdf(str(pdf_path), audit=self.audit)
+            legal_desc, audit_ctx = self._convert_processor_output(primary_output)
+            primary_results = _verify_legal_desc(legal_desc, audit_ctx)
+            primary_calls = legal_desc.all_calls if legal_desc.tracts else legal_desc.calls
 
-        should_esc, trigger_reasons = should_escalate_closure(
-            primary_results,
-            policy=self.escalation_policy,
-            has_calls=bool(primary_calls),
-        )
-        if not should_esc:
-            report = EscalationReport(
-                triggered=False,
+            should_esc, trigger_reasons = should_escalate_closure(
+                primary_results,
                 policy=self.escalation_policy,
-                primary_model=_safe_model_name(processor),
+                has_calls=bool(primary_calls),
             )
-            self.last_escalation_report = report
-            final_primary = _sync_audit_with_escalation(
-                primary_results, legal_desc, report, audit_ctx if self.audit else None
-            )
-            if self.audit:
-                assert audit_ctx is not None
-                return _return_with_audit(final_primary, audit_ctx)
-            return final_primary
-
-        esc_processor = (
-            processor
-            if self.escalation_client is None
-            and (self.escalation_provider is None or self.escalation_provider == self.provider)
-            else PDFProcessor(
-                provider=self.escalation_provider or self.provider,
-                client=self.escalation_client,
-                cache=self.cache,
-            )
-        )
-        locator = processor if _client_supports_images(processor.client) else esc_processor
-        esc_stages: list[Any] = []
-
-        def _run_escalation_pass(
-            *,
-            pages: list[int] | None,
-            stage_prefix: str,
-            pass_locator: PDFProcessor | None,
-        ) -> tuple[LegalDescription | None, AuditContext | None, list[int], Exception | None]:
-            esc_legal_text, esc_norm_text, pass_pages = (
-                esc_processor.extract_legal_description_from_images(
-                    str(pdf_path),
-                    pages=pages,
-                    dpi=self.escalation_dpi,
-                    strip_watermark=self.strip_watermark,
-                    crop_margins=self.crop_margins,
-                    audit=self.audit,
-                    stage_prefix=stage_prefix,
-                    locator_processor=pass_locator,
+            if not should_esc:
+                report = EscalationReport(
+                    triggered=False,
+                    policy=self.escalation_policy,
+                    primary_model=_safe_model_name(processor),
                 )
-            )
-            if self.audit:
-                esc_stages.extend(esc_processor.pop_audit_stage_records())
+                self.last_escalation_report = report
+                final_primary = _sync_audit_with_escalation(
+                    primary_results, legal_desc, report, audit_ctx if self.audit else None
+                )
+                if self.audit:
+                    assert audit_ctx is not None
+                    return _return_with_audit(final_primary, audit_ctx)
+                return final_primary
+
+            esc_processor: PDFProcessor | None = None
+            esc_stages: list[Any] = []
+            legal_pages: list[int] = []
+
+            def _fallback_primary_on_failure(
+                selection_reason: str,
+                exc: Exception,
+            ) -> (
+                ClosureResult
+                | list[ClosureResult]
+                | tuple[ClosureResult, AuditContext]
+                | tuple[list[ClosureResult], AuditContext]
+            ):
+                err_summary = f"{type(exc).__name__}: {str(exc)[:200]}"
+                logger.warning(
+                    "OCR escalation failed; preserving primary result fail-closed",
+                    selection_reason=selection_reason,
+                    error=err_summary,
+                )
+                fail_report = EscalationReport(
+                    triggered=True,
+                    policy=self.escalation_policy,
+                    trigger_reasons=tuple(trigger_reasons),
+                    legal_pages=tuple(legal_pages),
+                    primary_model=_safe_model_name(processor),
+                    escalation_model=_safe_model_name(esc_processor),
+                    agrees=False,
+                    disagreements=(),
+                    selected="primary",
+                    selection_reason=selection_reason,
+                )
+                self.last_escalation_report = fail_report
+                synced_primary = _sync_audit_with_escalation(
+                    primary_results,
+                    legal_desc,
+                    fail_report,
+                    audit_ctx if self.audit else None,
+                    failure_detail=err_summary,
+                )
+                if self.audit:
+                    assert audit_ctx is not None
+                    if audit_ctx.extraction_record is not None and esc_stages:
+                        merged = list(
+                            audit_ctx.extraction_record.llm_stages
+                        ) + _coerce_package_llm_stages(esc_stages)
+                        audit_ctx.extraction_record = ExtractionRecord.model_validate(
+                            {**audit_ctx.extraction_record.model_dump(), "llm_stages": merged}
+                        )
+                    return _return_with_audit(synced_primary, audit_ctx)
+                return synced_primary
+
             try:
-                esc_output = esc_processor.process_legal_text(
-                    str(pdf_path),
-                    legal_desc_text=esc_legal_text,
-                    normalized_text=esc_norm_text,
-                    llm_stage_records=list(esc_stages) if self.audit else None,
-                    audit=self.audit,
+                provider_fallback = (
+                    None
+                    if (self.client is not None and not self._provider_explicit)
+                    else str(self.provider).strip().lower()
                 )
-            except ValueError as exc:
-                return None, None, pass_pages, exc
-            desc, ctx_out = self._convert_processor_output(esc_output)
-            return desc, ctx_out, pass_pages, None
+                primary_provider = _infer_processor_provider(processor, provider_fallback)
+                if self.escalation_client is None and (
+                    self.escalation_provider is None or self.escalation_provider == primary_provider
+                ):
+                    esc_processor = processor
+                else:
+                    esc_processor = PDFProcessor(
+                        provider=self.escalation_provider or self.provider,
+                        client=self.escalation_client,
+                        cache=self.cache,
+                    )
+                    if self.escalation_client is None:
+                        owned_processors.append(esc_processor)
 
-        esc_legal_desc, esc_audit_ctx, legal_pages, parse_err = _run_escalation_pass(
-            pages=None,
-            stage_prefix="escalation_",
-            pass_locator=locator,
-        )
-        esc_calls = (
-            (esc_legal_desc.all_calls if esc_legal_desc.tracts else esc_legal_desc.calls)
-            if esc_legal_desc is not None
-            else []
-        )
+                locator = processor if processor.supports_images else esc_processor
+                rendered_by_page: dict[int, Path] = {}
 
-        # If a located page subset failed strict parsing or dropped tracts/calls/area/notes,
-        # retry across all pages before comparing against primary.
-        truncated = parse_err is not None or (
-            esc_legal_desc is not None
-            and _is_escalated_truncated(legal_desc, primary_calls, esc_legal_desc, esc_calls)
-        )
-        if truncated:
-            total_pages = count_pdf_pages(str(pdf_path))
-            if len(legal_pages) < total_pages:
-                all_pages = list(range(1, total_pages + 1))
-                esc_legal_desc, esc_audit_ctx, legal_pages, parse_err = _run_escalation_pass(
-                    pages=all_pages,
-                    stage_prefix="escalation_fallback_",
-                    pass_locator=None,
+                with tempfile.TemporaryDirectory(prefix="mp_ocr_pipe_esc_") as esc_tmpdir:
+                    esc_work_dir = Path(esc_tmpdir)
+
+                    def _run_escalation_pass(
+                        *,
+                        pages: list[int] | None,
+                        stage_prefix: str,
+                        pass_locator: PDFProcessor | None,
+                    ) -> tuple[
+                        LegalDescription | None, AuditContext | None, list[int], Exception | None
+                    ]:
+                        assert esc_processor is not None
+                        esc_legal_text, esc_norm_text, pass_pages = (
+                            esc_processor.extract_legal_description_from_images(
+                                str(pdf_path),
+                                pages=pages,
+                                dpi=self.escalation_dpi,
+                                strip_watermark=self.strip_watermark,
+                                crop_margins=self.crop_margins,
+                                audit=self.audit,
+                                stage_prefix=stage_prefix,
+                                locator_processor=pass_locator,
+                                rendered_by_page=rendered_by_page,
+                                work_dir=esc_work_dir,
+                            )
+                        )
+                        if self.audit:
+                            esc_stages.extend(esc_processor.pop_audit_stage_records())
+                        try:
+                            esc_output = esc_processor.process_legal_text(
+                                str(pdf_path),
+                                legal_desc_text=esc_legal_text,
+                                normalized_text=esc_norm_text,
+                                llm_stage_records=list(esc_stages) if self.audit else None,
+                                audit=self.audit,
+                            )
+                        except ValueError as exc:
+                            return None, None, pass_pages, exc
+                        desc, ctx_out = self._convert_processor_output(esc_output)
+                        return desc, ctx_out, pass_pages, None
+
+                    esc_legal_desc, esc_audit_ctx, legal_pages, parse_err = _run_escalation_pass(
+                        pages=None,
+                        stage_prefix="escalation_",
+                        pass_locator=locator,
+                    )
+                    esc_calls = (
+                        (
+                            esc_legal_desc.all_calls
+                            if esc_legal_desc.tracts
+                            else esc_legal_desc.calls
+                        )
+                        if esc_legal_desc is not None
+                        else []
+                    )
+
+                    # If a located page subset failed strict parsing or dropped tracts/calls/area/notes,
+                    # retry across all pages before comparing against primary.
+                    truncated = parse_err is not None or (
+                        esc_legal_desc is not None
+                        and _is_escalated_truncated(
+                            legal_desc, primary_calls, esc_legal_desc, esc_calls
+                        )
+                    )
+                    if truncated:
+                        total_pages = count_pdf_pages(str(pdf_path))
+                        if len(legal_pages) < total_pages:
+                            all_pages = list(range(1, total_pages + 1))
+                            esc_legal_desc, esc_audit_ctx, legal_pages, parse_err = (
+                                _run_escalation_pass(
+                                    pages=all_pages,
+                                    stage_prefix="escalation_fallback_",
+                                    pass_locator=None,
+                                )
+                            )
+                            esc_calls = (
+                                (
+                                    esc_legal_desc.all_calls
+                                    if esc_legal_desc.tracts
+                                    else esc_legal_desc.calls
+                                )
+                                if esc_legal_desc is not None
+                                else []
+                            )
+            except Exception as runtime_exc:
+                return _fallback_primary_on_failure(
+                    "escalated_runtime_error_fallback_to_primary", runtime_exc
                 )
-                esc_calls = (
-                    (esc_legal_desc.all_calls if esc_legal_desc.tracts else esc_legal_desc.calls)
-                    if esc_legal_desc is not None
-                    else []
+
+            if esc_legal_desc is None or parse_err is not None:
+                return _fallback_primary_on_failure(
+                    "escalated_parse_failed_fallback_to_primary",
+                    parse_err or ValueError("Escalation produced no legal description"),
                 )
 
-        if esc_legal_desc is None or parse_err is not None:
+            esc_results = _verify_legal_desc(esc_legal_desc, esc_audit_ctx)
+
+            disagreements = compare_call_readings(
+                primary_calls,
+                esc_calls,
+                primary_tracts=legal_desc.tracts or None,
+                escalated_tracts=esc_legal_desc.tracts or None,
+                primary_stated_area_sq_ft=legal_desc.stated_area_sq_ft,
+                escalated_stated_area_sq_ft=esc_legal_desc.stated_area_sq_ft,
+            )
+            selected, selection_reason = select_escalation_outcome(
+                primary_calls=primary_calls,
+                escalated_calls=esc_calls,
+                primary_results=primary_results,
+                escalated_results=esc_results,
+                disagreements=disagreements,
+                primary_tracts=legal_desc.tracts or None,
+                escalated_tracts=esc_legal_desc.tracts or None,
+                primary_stated_area_sq_ft=legal_desc.stated_area_sq_ft,
+                escalated_stated_area_sq_ft=esc_legal_desc.stated_area_sq_ft,
+            )
             report = EscalationReport(
                 triggered=True,
                 policy=self.escalation_policy,
@@ -437,86 +614,42 @@ class Pipeline:
                 legal_pages=tuple(legal_pages),
                 primary_model=_safe_model_name(processor),
                 escalation_model=_safe_model_name(esc_processor),
-                agrees=False,
-                disagreements=(),
-                selected="primary",
-                selection_reason="escalated_parse_failed_fallback_to_primary",
+                agrees=not disagreements,
+                disagreements=tuple(disagreements),
+                selected=selected,
+                selection_reason=selection_reason,
             )
             self.last_escalation_report = report
-            final_primary = _sync_audit_with_escalation(
-                primary_results, legal_desc, report, audit_ctx if self.audit else None
+
+            final_legal_desc = esc_legal_desc if selected == "escalated" else legal_desc
+            final_results = esc_results if selected == "escalated" else primary_results
+            final_ctx = (
+                (esc_audit_ctx if selected == "escalated" else audit_ctx) if self.audit else None
             )
+            final_results = _sync_audit_with_escalation(
+                final_results, final_legal_desc, report, final_ctx
+            )
+
             if self.audit:
-                assert audit_ctx is not None
-                if audit_ctx.extraction_record is not None and esc_stages:
-                    audit_ctx.extraction_record = audit_ctx.extraction_record.model_copy(
-                        update={
-                            "llm_stages": list(audit_ctx.extraction_record.llm_stages)
-                            + list(esc_stages)
-                        }
+                other_ctx = audit_ctx if selected == "escalated" else esc_audit_ctx
+                assert final_ctx is not None
+                if (
+                    final_ctx.extraction_record is not None
+                    and other_ctx is not None
+                    and other_ctx.extraction_record is not None
+                ):
+                    combined_stages = _coerce_package_llm_stages(
+                        list(other_ctx.extraction_record.llm_stages)
+                        + list(final_ctx.extraction_record.llm_stages)
+                        if selected == "escalated"
+                        else list(final_ctx.extraction_record.llm_stages)
+                        + list(other_ctx.extraction_record.llm_stages)
                     )
-                return _return_with_audit(final_primary, audit_ctx)
-            return final_primary
-
-        esc_results = _verify_legal_desc(esc_legal_desc, esc_audit_ctx)
-
-        disagreements = compare_call_readings(
-            primary_calls,
-            esc_calls,
-            primary_tracts=legal_desc.tracts or None,
-            escalated_tracts=esc_legal_desc.tracts or None,
-            primary_stated_area_sq_ft=legal_desc.stated_area_sq_ft,
-            escalated_stated_area_sq_ft=esc_legal_desc.stated_area_sq_ft,
-        )
-        selected, selection_reason = select_escalation_outcome(
-            primary_calls=primary_calls,
-            escalated_calls=esc_calls,
-            primary_results=primary_results,
-            escalated_results=esc_results,
-            disagreements=disagreements,
-            primary_tracts=legal_desc.tracts or None,
-            escalated_tracts=esc_legal_desc.tracts or None,
-        )
-        report = EscalationReport(
-            triggered=True,
-            policy=self.escalation_policy,
-            trigger_reasons=tuple(trigger_reasons),
-            legal_pages=tuple(legal_pages),
-            primary_model=_safe_model_name(processor),
-            escalation_model=_safe_model_name(esc_processor),
-            agrees=not disagreements,
-            disagreements=tuple(disagreements),
-            selected=selected,
-            selection_reason=selection_reason,
-        )
-        self.last_escalation_report = report
-
-        final_legal_desc = esc_legal_desc if selected == "escalated" else legal_desc
-        final_results = esc_results if selected == "escalated" else primary_results
-        final_ctx = (
-            (esc_audit_ctx if selected == "escalated" else audit_ctx) if self.audit else None
-        )
-        final_results = _sync_audit_with_escalation(
-            final_results, final_legal_desc, report, final_ctx
-        )
-
-        if self.audit:
-            other_ctx = audit_ctx if selected == "escalated" else esc_audit_ctx
-            assert final_ctx is not None
-            if (
-                final_ctx.extraction_record is not None
-                and other_ctx is not None
-                and other_ctx.extraction_record is not None
-            ):
-                combined_stages = (
-                    list(other_ctx.extraction_record.llm_stages)
-                    + list(final_ctx.extraction_record.llm_stages)
-                    if selected == "escalated"
-                    else list(final_ctx.extraction_record.llm_stages)
-                    + list(other_ctx.extraction_record.llm_stages)
-                )
-                final_ctx.extraction_record = final_ctx.extraction_record.model_copy(
-                    update={"llm_stages": combined_stages}
-                )
-            return _return_with_audit(final_results, final_ctx)
-        return final_results
+                    final_ctx.extraction_record = ExtractionRecord.model_validate(
+                        {**final_ctx.extraction_record.model_dump(), "llm_stages": combined_stages}
+                    )
+                return _return_with_audit(final_results, final_ctx)
+            return final_results
+        finally:
+            for proc in owned_processors:
+                _close_processor_client(proc)

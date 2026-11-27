@@ -89,7 +89,7 @@ class TestVerifyNormalizationIntegrity:
         )
         normalized = (
             "BEGINNING at a point;\n"
-            "(1) S 45°12'30\" W, 100.50 feet;\n"
+            "(1) S 45°12'30\" W, 100.50 U.S. survey feet;\n"
             "(2) N 26°05'09\" E, 0.50 feet along a 50 foot lane;\n"
             "(3) N 10°05'00\" E, 265.21 feet and 0.5 feet, 12.5 meters, 4 engineer's chains;\n"
             "(4) curve right delta 15°30'00\", radius 200.00 feet."
@@ -186,15 +186,239 @@ class TestVerifyNormalizationIntegrity:
     def test_redos_linear_time_and_large_fraction_overflow_safety(self) -> None:
         import time
 
-        hostile = "N 45° 10' 20" + (" " * 5000) + "X"
-        t0 = time.monotonic()
-        ok, _ = verify_normalization_integrity(hostile, hostile)
-        assert ok is True
-        assert (time.monotonic() - t0) < 0.2
+        from mp_ocr import parse_located_pages
+
+        for hostile in (
+            "N 45° 10' 20" + (" " * 5000) + "X",
+            "45° 10' 20" + (" " * 5000) + "X",
+            "100" + (" " * 5000) + "X",
+        ):
+            t0 = time.monotonic()
+            ok, _ = verify_normalization_integrity(hostile, hostile)
+            assert ok is True
+            # gstack-timing-ok: O(n^2) ReDoS regression guard on 5000-space hostile input
+            assert (time.monotonic() - t0) < 2.0
+
+        t_fence = time.monotonic()
+        assert parse_located_pages("```json\n1" + (" " * 10000) + "x", 3) == [1, 2, 3]
+        # gstack-timing-ok: O(n^2) fence-strip ReDoS regression guard on 10k-space hostile input
+        assert (time.monotonic() - t_fence) < 2.0
 
         huge_den = f"1/{'9' * 4500} feet"
         ok_big, _ = verify_normalization_integrity(huge_den, huge_den)
         assert ok_big is True
+
+        # Zero-denominator fraction ignored safely
+        ok_zero, reasons_zero = verify_normalization_integrity(
+            "1/0 feet and 10.00 feet", "10.00 feet"
+        )
+        assert ok_zero is True and reasons_zero == []
+
+    def test_greedy_seconds_us_survey_feet_areas_unitless_curves_and_formats(self) -> None:
+        # Red Team greedy-seconds fix: adjacent distance after comma is NEVER captured as seconds
+        src_delta = "curving left, delta 12° 30', 45 feet along the arc"
+        assert (
+            verify_normalization_integrity(
+                src_delta, "curving left, delta 12° 30' 45\", 45 feet along the arc"
+            )[0]
+            is False
+        )
+        assert (
+            verify_normalization_integrity(
+                src_delta, "curving left, delta 12° 30' 00\", 45 feet along the arc"
+            )[0]
+            is True
+        )
+        assert (
+            verify_normalization_integrity(
+                "curving left, delta 12° 30', 45.50' along the arc",
+                "curving left, delta 12° 30', 99.50' along the arc",
+            )[0]
+            is False
+        )
+
+        # U.S. Survey Feet must not silently collapse to international feet
+        assert (
+            verify_normalization_integrity("5000.00 U.S. survey feet", "5000.00 feet")[0] is False
+        )
+
+        # Degree-only central/delta angle drift caught
+        assert (
+            verify_normalization_integrity(
+                "delta angle of 45 degrees", "delta angle of 90 degrees"
+            )[0]
+            is False
+        )
+
+        # Unitless labelled curve dimensions (R=, radius of, arc length of) caught & format-tolerant
+        assert (
+            verify_normalization_integrity(
+                "radius of 500, arc length of 120", "radius of 50, arc length of 120"
+            )[0]
+            is False
+        )
+        assert (
+            verify_normalization_integrity("R = 250.00, L = 120.50", "R = 25.00, L = 120.50")[0]
+            is False
+        )
+        assert verify_normalization_integrity("R = 250.00", "radius of 250.00")[0] is True
+
+        # Stated area drift (acres & square feet) caught
+        assert (
+            verify_normalization_integrity("containing 2.50 acres", "containing 25.0 acres")[0]
+            is False
+        )
+        assert verify_normalization_integrity("10,500 square feet", "1,500 sq. ft.")[0] is False
+
+        # Curve direction flip beyond 40 chars and "turning to the left/right"
+        long_curve_l = "along a curve of the northerly line of Pennbrook Drive having a radius of 200 feet curving to the left"
+        long_curve_r = long_curve_l.replace("left", "right")
+        assert verify_normalization_integrity(long_curve_l, long_curve_r)[0] is False
+        assert (
+            verify_normalization_integrity(
+                "turning to the left 50 feet", "turning to the right 50 feet"
+            )[0]
+            is False
+        )
+
+        # Integer foot marks, due N, space-separated DMS, deg+sec without min, inches, Unicode fractions,
+        # horizontal-only mixed fractions, and cardinal-only swaps
+        assert verify_normalization_integrity("N 10° E 100'", "N 10° E 100 feet")[0] is True
+        assert verify_normalization_integrity("N 10° E 100'", "N 10° E 180'")[0] is False
+        assert verify_normalization_integrity("due N 100 feet", "due North 100 feet")[0] is True
+        assert verify_normalization_integrity("due N 100 feet", "due S 100 feet")[0] is False
+        assert (
+            verify_normalization_integrity("N 45 30 15 E, 100 feet", "N 45°30'15\" E, 100 feet")[0]
+            is True
+        )
+        assert verify_normalization_integrity('N 45° 30" E', 'N 45° 10" E')[0] is False
+        assert verify_normalization_integrity("100 feet 6 inches", "100 feet 8 inches")[0] is False
+        assert verify_normalization_integrity("100½ feet", "100.5 feet")[0] is True
+        assert (
+            verify_normalization_integrity("Section 12\n1/2 mile", "Section 12, 0.5 miles")[0]
+            is True
+        )
+        assert (
+            verify_normalization_integrity(
+                "THENCE northerly 100 feet", "THENCE southerly 100 feet"
+            )[0]
+            is False
+        )
+
+    def test_cycle2_deg_only_eq_backtracking_line_unwrapping_and_linear_unicode_regex(
+        self,
+    ) -> None:
+        import time
+
+        # 1. Degree-only delta with = / : / Δ separator
+        assert (
+            verify_normalization_integrity(
+                "curve to the right, R = 250.00, L = 120.50, delta = 27°",
+                "curve to the right, R = 250.00, L = 120.50, delta = 28°",
+            )[0]
+            is False
+        )
+        assert verify_normalization_integrity("Δ = 27°", "delta: 27°")[0] is True
+        assert verify_normalization_integrity("Δ = 27°", "Δ = 28°")[0] is False
+
+        # 2. No digit backtracking before negative lookaheads (silent bypass & false rejections)
+        assert (
+            verify_normalization_integrity(
+                "curving left, delta 12° 30' 45.50' along the arc",
+                "curving left, delta 12° 30' 45.59' along the arc",
+            )[0]
+            is False
+        )
+        assert (
+            verify_normalization_integrity(
+                "curving left, delta 12° 30' 45 feet along the arc",
+                "curving left, delta 12° 30' 00\", 45 feet along the arc",
+            )[0]
+            is True
+        )
+        assert verify_normalization_integrity("arc of 15°", "arc of 15°00'00\"")[0] is True
+
+        # 3. Stage 3 single-line unwrapping across value/unit, N/S, due, curve label, and area
+        assert (
+            verify_normalization_integrity(
+                "N 45°00'00\" E, 100.50\nfeet", "N 45°00'00\" E, 100.50 feet"
+            )[0]
+            is True
+        )
+        assert (
+            verify_normalization_integrity(
+                "North\n45° 12' 30\" East, 100.00 feet", "N 45°12'30\" E, 100.00 feet"
+            )[0]
+            is True
+        )
+        assert verify_normalization_integrity("due\nNorth 50 feet", "due North 50 feet")[0] is True
+        assert (
+            verify_normalization_integrity("containing 2.50\nacres", "containing 2.50 acres")[0]
+            is True
+        )
+        assert verify_normalization_integrity("10,500 square\nfeet", "10,500 sq. ft.")[0] is True
+        assert (
+            verify_normalization_integrity("radius of\n250.00 feet", "radius of 250.00 feet")[0]
+            is True
+        )
+
+        # 4. Unicode fraction regex must remain strictly O(n) on long space/hyphen runs
+        t0 = time.monotonic()
+        ok_spaces, _ = verify_normalization_integrity(" " * 20_000 + "X", " " * 20_000 + "X")
+        ok_hyphens, _ = verify_normalization_integrity("-" * 20_000 + "X", "-" * 20_000 + "X")
+        elapsed = time.monotonic() - t0
+        assert ok_spaces is True and ok_hyphens is True
+        assert elapsed < 1.0, f"Unicode fraction regex backtracking suspected: {elapsed:.3f}s"
+
+        # 5. Sentence-ending periods, comma-grouped curve dimensions, and space-free "sq.ft."
+        assert (
+            verify_normalization_integrity(
+                "Thence along a curve with a radius of 500. Thence N 10° E, 100 ft.",
+                "Thence along a curve with a radius of 999. Thence N 10° E, 100 ft.",
+            )[0]
+            is False
+        )
+        assert (
+            verify_normalization_integrity(
+                "Thence along a curve with a radius of 500. Thence N 10° E, 100 ft.",
+                "Thence along a curve with a radius of 500; Thence N 10° E, 100 ft.",
+            )[0]
+            is True
+        )
+        assert verify_normalization_integrity("R = 1,234.50.", "R = 1,999.99.")[0] is False
+        assert (
+            verify_normalization_integrity(
+                "having a central angle of 45° 30' 15. Thence...",
+                "having a central angle of 45° 30' 55. Thence...",
+            )[0]
+            is False
+        )
+        assert (
+            verify_normalization_integrity(
+                "having a central angle of 45° 30' 15. Thence...",
+                "having a central angle of 45°30'15\". Thence...",
+            )[0]
+            is True
+        )
+        assert (
+            verify_normalization_integrity(
+                "having a central angle of 45° 30 15. Thence...",
+                "having a central angle of 45°30'15\". Thence...",
+            )[0]
+            is True
+        )
+        assert (
+            verify_normalization_integrity(
+                "containing 10,000 sq.ft.", "containing 10,000 square feet"
+            )[0]
+            is True
+        )
+        assert (
+            verify_normalization_integrity("containing 10,000 sq.ft.", "containing 99,000 sq.ft.")[
+                0
+            ]
+            is False
+        )
 
     def test_detects_standalone_curve_delta_angle_drift(self) -> None:
         source = "Curving right with a central angle of 15°30'00\", radius 200.00 feet."
