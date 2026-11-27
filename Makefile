@@ -18,7 +18,7 @@ PY_SRC := src/metesparser
 PY_TESTS := tests
 PKG_COV_MODULES := $(sort $(notdir $(patsubst %/__init__.py,%,$(wildcard packages/*/src/*/__init__.py))))
 PKG_COV_ARGS := $(addprefix --cov=,$(PKG_COV_MODULES))
-PKG_COV_EXTRAS ?= --extra dev --extra delivery --extra geo --extra web-map --extra gemini
+PKG_COV_EXTRAS ?= --extra dev --extra delivery --extra geo --extra web-map --extra gemini --extra vision
 PKG_COV_FLOOR ?= 95
 
 # Cache/tooling behavior.

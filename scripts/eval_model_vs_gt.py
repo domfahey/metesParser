@@ -24,8 +24,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+import tempfile
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -33,8 +35,25 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
-from mp_ocr import BaseLLMClient, GeminiClient, OpenAIClient, OpenRouterClient, PDFProcessor
-from mp_parse import extract_calls
+from mp_ocr import (
+    MAX_RENDER_DPI,
+    VALID_ESCALATION_POLICIES,
+    BaseLLMClient,
+    EscalationPolicy,
+    GeminiClient,
+    OpenAIClient,
+    OpenRouterClient,
+    PDFProcessor,
+    compare_call_readings,
+    count_pdf_pages,
+    is_escalated_subset_truncated,
+    select_escalation_outcome,
+    should_escalate_closure,
+    validate_escalation_policy,
+    validate_render_dpi,
+)
+from mp_parse import extract_area_statement, extract_calls
+from mp_verify import verify_closure
 
 DEFAULT_SAMPLE_DIR = Path("sample_deeds")
 DEFAULT_OUTPUT_ROOT = Path("output/model_eval")
@@ -332,6 +351,96 @@ def run_self_check(sample_dir: Path) -> int:
     return 0 if not fails else 1
 
 
+def _default_output_slug(
+    *,
+    provider: str,
+    model: str,
+    escalation_policy: EscalationPolicy = "never",
+    escalation_model: str | None = None,
+    escalation_dpi: int = 300,
+) -> str:
+    """Build a collision-free output slug reflecting primary and escalation config."""
+    base = f"{provider}_{sanitize_slug(model)}"
+    if escalation_policy == "never":
+        return base
+    esc_slug = sanitize_slug(escalation_model or model)
+    return f"{base}__esc_{escalation_policy}_{esc_slug}_dpi{escalation_dpi}"
+
+
+def _close_client(client: Any) -> None:
+    """Close an SDK client's underlying HTTP pool if it exposes ``close()``."""
+    inner = getattr(client, "_client", None)
+    close_fn = getattr(inner, "close", None)
+    if callable(close_fn):
+        try:
+            close_fn()
+        except Exception:
+            pass
+
+
+def _checkpoint_matches_escalation(
+    cached: dict[str, Any],
+    *,
+    escalation_policy: EscalationPolicy,
+    escalation_model: str | None,
+    escalation_dpi: int,
+    primary_model: str | None = None,
+) -> bool:
+    """Return True only when a cached deed checkpoint matches the current model & escalation config."""
+    if primary_model is not None and cached.get("model") != primary_model:
+        return False
+    cached_esc = cached.get("escalation")
+    if not isinstance(cached_esc, dict):
+        return escalation_policy == "never"
+    if cached_esc.get("policy", "never") != escalation_policy:
+        return False
+    if escalation_policy == "never":
+        return True
+    if cached_esc.get("dpi") != escalation_dpi:
+        return False
+    cached_model = cached_esc.get("requested_model") or cached_esc.get("escalation_model")
+    expected_model = escalation_model or primary_model or cached.get("model")
+    if expected_model is not None and cached_model != expected_model:
+        return False
+    return True
+
+
+def _extract_positive_stated_area_sq_ft(text: str, tracts: list[Any]) -> float | None:
+    if len(tracts) > 1:
+        return None
+    if len(tracts) == 1:
+        tract_area = getattr(tracts[0], "stated_area_sq_ft", None)
+        if tract_area is not None and tract_area > 0:
+            return float(tract_area)
+    if not text or not text.strip():
+        return None
+    area = extract_area_statement(text)
+    if area is not None and area.get("value_sq_ft", 0.0) > 0:
+        return float(area["value_sq_ft"])
+    return None
+
+
+def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=path.parent,
+            prefix=f".{path.stem}.",
+            suffix=".tmp",
+            delete=False,
+        ) as handle:
+            tmp_path = Path(handle.name)
+            handle.write(json.dumps(payload, indent=2, ensure_ascii=False))
+        os.replace(tmp_path, path)
+        tmp_path = None
+    finally:
+        if tmp_path is not None:
+            tmp_path.unlink(missing_ok=True)
+
+
 def evaluate_deed(
     gt_path: Path,
     *,
@@ -340,21 +449,47 @@ def evaluate_deed(
     cache_dir: Path | None,
     use_cache: bool = True,
     force: bool = False,
+    escalation_policy: EscalationPolicy = "never",
+    escalation_client_factory: Any | None = None,
+    escalation_model: str | None = None,
+    escalation_dpi: int = 300,
+    expected_primary_model: str | None = None,
 ) -> dict[str, Any]:
     """Run one deed PDF through the 3-stage OCR pipeline + parser and compare to ground truth."""
+    validated_policy = validate_escalation_policy(escalation_policy)
+    validated_dpi = validate_render_dpi(escalation_dpi, name="escalation_dpi")
+
     stem = gt_path.name.removesuffix(".ground_truth.json")
     pdf_path = gt_path.with_name(f"{stem}.pdf")
     result_file = results_dir / f"{stem}.json"
 
     if not force and result_file.exists():
-        cached = json.loads(result_file.read_text(encoding="utf-8"))
-        if isinstance(cached, dict) and cached.get("status") == "ok":
+        try:
+            cached = json.loads(result_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            print(
+                f"WARN: ignoring unreadable checkpoint {result_file.name}: {exc}",
+                file=sys.stderr,
+            )
+            cached = None
+        if (
+            isinstance(cached, dict)
+            and cached.get("status") == "ok"
+            and _checkpoint_matches_escalation(
+                cached,
+                escalation_policy=validated_policy,
+                escalation_model=escalation_model,
+                escalation_dpi=validated_dpi,
+                primary_model=expected_primary_model,
+            )
+        ):
             return cached
 
     gt = json.loads(gt_path.read_text(encoding="utf-8"))
     exp_calls = gt.get("expected_calls") or []
 
     client, resolved_model = client_factory()
+    esc_client: Any | None = None
     usage_totals: dict[str, Any] = {
         "prompt_tokens": 0,
         "completion_tokens": 0,
@@ -364,20 +499,186 @@ def evaluate_deed(
     _instrument_usage(client, usage_totals)
 
     processor = PDFProcessor(client=client, cache=use_cache, cache_dir=cache_dir)
+    requested_esc_model = (
+        (escalation_model or resolved_model) if validated_policy != "never" else None
+    )
 
     t0 = time.monotonic()
     try:
         # Stage 1 + Stage 2 (extract_legal_description calls extract_text_from_pdf internally)
         legal_text = processor.extract_legal_description(str(pdf_path), audit=True)
-        # Retrieve Stage 1 raw text from audit records without repeating Stage 1
-        stage_records = list(processor._audit_stage_records or [])
+        # Retrieve Stage 1 raw text via public audit helper without repeating Stage 1
+        stage_records = processor.pop_audit_stage_records()
         raw_text = stage_records[0].response if stage_records else ""
         # Stage 3
         norm_text = processor.normalize_legal_description(legal_text, audit=True)
-        elapsed_s = round(time.monotonic() - t0, 2)
+        processor.pop_audit_stage_records()
 
         calls_norm, tracts_norm, skips_norm = extract_all_calls(norm_text)
         calls_legal, _tracts_legal, _skips_legal = extract_all_calls(legal_text)
+        pri_stated_area = _extract_positive_stated_area_sq_ft(norm_text, tracts_norm)
+
+        escalation_meta: dict[str, Any] = {
+            "policy": validated_policy,
+            "triggered": False,
+        }
+        if validated_policy != "never":
+            escalation_meta["requested_model"] = requested_esc_model
+            escalation_meta["dpi"] = validated_dpi
+
+        if validated_policy != "never" and (calls_norm or skips_norm):
+            pri_results = (
+                verify_closure(
+                    calls_norm,
+                    tracts=tracts_norm,
+                    stated_area_sq_ft=pri_stated_area or 0.0,
+                    skipped_courses=skips_norm,
+                )
+                if tracts_norm
+                else [
+                    verify_closure(
+                        calls_norm,
+                        stated_area_sq_ft=pri_stated_area or 0.0,
+                        skipped_courses=skips_norm,
+                    )
+                ]
+            )
+            should_esc, trigger_reasons = should_escalate_closure(
+                pri_results, policy=validated_policy, has_calls=bool(calls_norm or skips_norm)
+            )
+            if should_esc:
+                if escalation_client_factory is not None:
+                    esc_client, esc_model = escalation_client_factory()
+                    _instrument_usage(esc_client, usage_totals)
+                    esc_proc = PDFProcessor(client=esc_client, cache=use_cache, cache_dir=cache_dir)
+                else:
+                    esc_model = resolved_model
+                    esc_proc = processor
+                locator = processor if processor.supports_images else esc_proc
+                rendered_by_page: dict[int, Path] = {}
+                with tempfile.TemporaryDirectory(prefix="mp_ocr_eval_esc_") as esc_tmpdir:
+                    esc_work_dir = Path(esc_tmpdir)
+                    esc_legal, esc_norm, legal_pages = (
+                        esc_proc.extract_legal_description_from_images(
+                            str(pdf_path),
+                            dpi=validated_dpi,
+                            strip_watermark=True,
+                            crop_margins=True,
+                            audit=True,
+                            locator_processor=locator,
+                            rendered_by_page=rendered_by_page,
+                            work_dir=esc_work_dir,
+                        )
+                    )
+                    esc_stages = esc_proc.pop_audit_stage_records()
+                    esc_calls, esc_tracts, esc_skips = extract_all_calls(esc_norm)
+                    esc_calls_legal, _, _ = extract_all_calls(esc_legal)
+                    esc_stated_area = _extract_positive_stated_area_sq_ft(esc_norm, esc_tracts)
+
+                    truncated = is_escalated_subset_truncated(
+                        primary_calls=calls_norm,
+                        escalated_calls=esc_calls,
+                        primary_tracts=tracts_norm or None,
+                        escalated_tracts=esc_tracts or None,
+                        primary_stated_area_sq_ft=pri_stated_area,
+                        escalated_stated_area_sq_ft=esc_stated_area,
+                    ) or (bool(skips_norm) and not calls_norm and not esc_calls and not esc_skips)
+                    if truncated:
+                        total_pages = count_pdf_pages(str(pdf_path))
+                        if len(legal_pages) < total_pages:
+                            all_pages = list(range(1, total_pages + 1))
+                            esc_legal, esc_norm, legal_pages = (
+                                esc_proc.extract_legal_description_from_images(
+                                    str(pdf_path),
+                                    pages=all_pages,
+                                    dpi=validated_dpi,
+                                    strip_watermark=True,
+                                    crop_margins=True,
+                                    audit=True,
+                                    stage_prefix="escalation_fallback_",
+                                    rendered_by_page=rendered_by_page,
+                                    work_dir=esc_work_dir,
+                                )
+                            )
+                            esc_stages.extend(esc_proc.pop_audit_stage_records())
+                            esc_calls, esc_tracts, esc_skips = extract_all_calls(esc_norm)
+                            esc_calls_legal, _, _ = extract_all_calls(esc_legal)
+                            esc_stated_area = _extract_positive_stated_area_sq_ft(
+                                esc_norm, esc_tracts
+                            )
+
+                esc_results = (
+                    verify_closure(
+                        esc_calls,
+                        tracts=esc_tracts,
+                        stated_area_sq_ft=esc_stated_area or 0.0,
+                        skipped_courses=esc_skips,
+                    )
+                    if esc_tracts
+                    else (
+                        [
+                            verify_closure(
+                                esc_calls,
+                                stated_area_sq_ft=esc_stated_area or 0.0,
+                                skipped_courses=esc_skips,
+                            )
+                        ]
+                        if (esc_calls or esc_skips)
+                        else []
+                    )
+                )
+                disagreements = compare_call_readings(
+                    calls_norm,
+                    esc_calls,
+                    primary_tracts=tracts_norm or None,
+                    escalated_tracts=esc_tracts or None,
+                    primary_stated_area_sq_ft=pri_stated_area,
+                    escalated_stated_area_sq_ft=esc_stated_area,
+                    primary_skipped_courses=skips_norm,
+                    escalated_skipped_courses=esc_skips,
+                )
+                selected, selection_reason = select_escalation_outcome(
+                    primary_calls=calls_norm,
+                    escalated_calls=esc_calls,
+                    primary_results=pri_results,
+                    escalated_results=esc_results,
+                    disagreements=disagreements,
+                    primary_tracts=tracts_norm or None,
+                    escalated_tracts=esc_tracts or None,
+                    primary_stated_area_sq_ft=pri_stated_area,
+                    escalated_stated_area_sq_ft=esc_stated_area,
+                )
+                escalation_meta = {
+                    "policy": validated_policy,
+                    "requested_model": requested_esc_model or esc_model,
+                    "dpi": validated_dpi,
+                    "triggered": True,
+                    "trigger_reasons": trigger_reasons,
+                    "legal_pages": legal_pages,
+                    "escalation_model": esc_model,
+                    "agrees": not disagreements,
+                    "disagreement_count": len(disagreements),
+                    "disagreements": [d.format_warning() for d in disagreements],
+                    "selected": selected,
+                    "selection_reason": selection_reason,
+                }
+                if selected == "escalated":
+                    esc_raw_stages = [
+                        s for s in esc_stages if s.stage.endswith("extract_text_from_images")
+                    ]
+                    if esc_raw_stages:
+                        final_stage_name = esc_raw_stages[-1].stage
+                        raw_text = "\n\n".join(
+                            s.response
+                            for s in esc_raw_stages
+                            if s.stage == final_stage_name and s.response
+                        )
+                    legal_text = esc_legal
+                    norm_text = esc_norm
+                    calls_norm, tracts_norm, skips_norm = esc_calls, esc_tracts, esc_skips
+                    calls_legal = esc_calls_legal
+
+        elapsed_s = round(time.monotonic() - t0, 2)
 
         cmp_norm = compare_calls(calls_norm, exp_calls)
         cmp_legal = compare_calls(calls_legal, exp_calls)
@@ -405,6 +706,7 @@ def evaluate_deed(
             "skips_norm": [str(s) for s in skips_norm[:5]],
             "strict_ok": strict_ok,
             "strict_err": strict_err,
+            "escalation": escalation_meta,
             "markdown": {
                 "raw": bool(_MARKDOWN_RE.search(raw_text)),
                 "legal": bool(_MARKDOWN_RE.search(legal_text)),
@@ -426,11 +728,12 @@ def evaluate_deed(
             "n_exp": len(exp_calls),
             "error": f"{type(exc).__name__}: {exc}",
         }
+    finally:
+        _close_client(client)
+        if esc_client is not None:
+            _close_client(esc_client)
 
-    results_dir.mkdir(parents=True, exist_ok=True)
-    tmp = result_file.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(rec, indent=2, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(result_file)
+    _write_json_atomic(result_file, rec)
     return rec
 
 
@@ -460,6 +763,11 @@ def summarize_results(
     matched_norm = sum(r["norm"]["matched"] for r in ok)
     matched_legal = sum(r["legal"]["matched"] for r in ok)
     markdown_leaks = sum(1 for r in ok if r.get("markdown", {}).get("norm"))
+    escalated_runs = [r for r in ok if r.get("escalation", {}).get("triggered")]
+    escalation_agreed = sum(1 for r in escalated_runs if r.get("escalation", {}).get("agrees"))
+    escalation_selected = sum(
+        1 for r in escalated_runs if r.get("escalation", {}).get("selected") == "escalated"
+    )
 
     return {
         "provider": provider,
@@ -477,6 +785,10 @@ def summarize_results(
         "matched_courses_legal": matched_legal,
         "api_errors": len(errs),
         "markdown_leaks_norm": markdown_leaks,
+        "escalation_triggered": len(escalated_runs),
+        "escalation_agreed": escalation_agreed,
+        "escalation_disagreed": len(escalated_runs) - escalation_agreed,
+        "escalation_selected_escalated": escalation_selected,
         "classifications": buckets,
         "prompt_tokens": sum(r.get("usage", {}).get("prompt_tokens", 0) for r in results),
         "completion_tokens": sum(r.get("usage", {}).get("completion_tokens", 0) for r in results),
@@ -501,13 +813,23 @@ def render_markdown_report(summary: dict[str, Any], results: list[dict[str, Any]
         f"| Courses exact (legal stage) | {summary['matched_courses_legal']}/{summary['total_courses']} ({100 * summary['matched_courses_legal'] / n_courses:.1f}%) |",
         f"| API errors | {summary['api_errors']} |",
         f"| Markdown leaks (normalized) | {summary['markdown_leaks_norm']} |",
-        f"| Tokens (in / out) | {summary['prompt_tokens']:,} / {summary['completion_tokens']:,} |",
-        f"| Reported cost | ${summary['cost_usd']:.4f} |",
-        f"| Wall time | {summary['wall_s']}s |",
-        "",
-        "## Breakdown by Classification",
-        "",
     ]
+    if summary.get("escalation_triggered", 0) > 0:
+        lines.append(
+            "| Escalations (triggered / agreed / selected) | "
+            f"{summary['escalation_triggered']} / {summary['escalation_agreed']} / "
+            f"{summary['escalation_selected_escalated']} |"
+        )
+    lines.extend(
+        [
+            f"| Tokens (in / out) | {summary['prompt_tokens']:,} / {summary['completion_tokens']:,} |",
+            f"| Reported cost | ${summary['cost_usd']:.4f} |",
+            f"| Wall time | {summary['wall_s']}s |",
+            "",
+            "## Breakdown by Classification",
+            "",
+        ]
+    )
     for cls, count in sorted(summary["classifications"].items()):
         lines.append(f"- `{cls}`: {count}")
 
@@ -627,6 +949,23 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Retries per request on transient errors (default: 3)",
     )
     parser.add_argument(
+        "--escalate-policy",
+        choices=list(VALID_ESCALATION_POLICIES),
+        default="never",
+        help="Optional blind high-DPI escalation policy (default: never)",
+    )
+    parser.add_argument(
+        "--escalate-model",
+        default=None,
+        help="Model ID for blind escalation passes (defaults to --model)",
+    )
+    parser.add_argument(
+        "--escalate-dpi",
+        type=int,
+        default=300,
+        help="Render DPI for cropped legal-page escalation images (default: 300)",
+    )
+    parser.add_argument(
         "--self-check",
         action="store_true",
         help="Offline self-check: score ground truths against themselves (0 API calls)",
@@ -643,15 +982,31 @@ def main(argv: list[str] | None = None) -> int:
     load_dotenv(Path.cwd() / ".env")
 
     resolved_model = (args.model or "").strip() or _DEFAULT_MODELS[args.provider]
-    slug = f"{args.provider}_{sanitize_slug(resolved_model)}"
+    esc_model = (args.escalate_model or "").strip() or resolved_model
+    try:
+        validate_render_dpi(args.escalate_dpi, name="--escalate-dpi")
+    except ValueError:
+        print(
+            f"ERROR: --escalate-dpi must be between 1 and {MAX_RENDER_DPI}, got {args.escalate_dpi}",
+            file=sys.stderr,
+        )
+        return 2
+
+    slug = _default_output_slug(
+        provider=args.provider,
+        model=resolved_model,
+        escalation_policy=args.escalate_policy,
+        escalation_model=esc_model,
+        escalation_dpi=args.escalate_dpi,
+    )
     output_dir = args.output_dir or (DEFAULT_OUTPUT_ROOT / slug)
     results_dir = output_dir / "results"
     cache_dir = None if args.no_cache else (args.cache_dir or (output_dir / "cache"))
 
-    def _make_client() -> tuple[BaseLLMClient, str]:
+    def _make_client(model_id: str = resolved_model) -> tuple[BaseLLMClient, str]:
         return build_client(
             provider=args.provider,
-            model=resolved_model,
+            model=model_id,
             fallback_model=args.fallback_model,
             reasoning_effort=args.reasoning_effort,
             pdf_engine=args.pdf_engine,
@@ -660,9 +1015,19 @@ def main(argv: list[str] | None = None) -> int:
             max_retries=args.max_retries,
         )
 
+    esc_client_factory = (
+        (lambda: _make_client(esc_model))
+        if args.escalate_policy != "never" and esc_model != resolved_model
+        else None
+    )
+
     # Validate client configuration eagerly before spawning workers
     try:
-        _make_client()
+        probe_client, _ = _make_client()
+        _close_client(probe_client)
+        if esc_client_factory is not None:
+            probe_esc, _ = esc_client_factory()
+            _close_client(probe_esc)
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -693,6 +1058,11 @@ def main(argv: list[str] | None = None) -> int:
                 cache_dir=cache_dir,
                 use_cache=not args.no_cache,
                 force=args.force,
+                escalation_policy=args.escalate_policy,
+                escalation_client_factory=esc_client_factory,
+                escalation_model=(esc_model if args.escalate_policy != "never" else None),
+                escalation_dpi=args.escalate_dpi,
+                expected_primary_model=resolved_model,
             ): gt_path
             for gt_path in gts
         }

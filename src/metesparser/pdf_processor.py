@@ -6,6 +6,8 @@ import hashlib
 import json
 import os
 import re
+import tempfile
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
@@ -20,6 +22,7 @@ from .llm_clients import (
     LLMClientError,
     OpenAIClient,
     OpenRouterClient,
+    _validate_image_paths,
 )
 from .models import (
     PRIOR_CONVEYANCE_SIGNALS,
@@ -166,7 +169,360 @@ class PDFProcessor:
 
         response = self.client.generate_text(combined_prompt)
         self._record_llm_stage("normalize_text", combined_prompt, response)
+        from mp_ocr import verify_normalization_integrity
+
+        ok, reasons = verify_normalization_integrity(legal_desc_text, response)
+        if not ok:
+            logger.warning(
+                "Stage 3 normalization failed measurement integrity check; "
+                "preserving Stage 2 legal description text",
+                reasons=reasons,
+            )
+            return legal_desc_text
         return response
+
+    @property
+    def supports_images(self) -> bool:
+        """Return True if the underlying client implements ``generate_text_with_images``."""
+        inner = self._unwrap_client(self.client)
+        return callable(getattr(inner, "generate_text_with_images", None))
+
+    def _generate_text_with_images(
+        self,
+        prompt: str,
+        image_paths: Sequence[str | Path],
+        *,
+        response_mime_type: str | None = None,
+    ) -> str:
+        image_method = getattr(self.client, "generate_text_with_images", None)
+        if not callable(image_method):
+            raise NotImplementedError(
+                f"{type(self.client).__name__} does not support generate_text_with_images"
+            )
+        return cast(
+            str,
+            image_method(prompt, image_paths, response_mime_type=response_mime_type),
+        )
+
+    def locate_legal_description_pages(
+        self,
+        pdf_path: str,
+        *,
+        thumbnail_dpi: int = 100,
+        thumbnail_max_dim: int = 900,
+        max_pages_per_batch: int = 16,
+        audit: bool = False,
+    ) -> list[int]:
+        """Identify 1-based page numbers in *pdf_path* containing legal descriptions."""
+        from mp_ocr import count_pdf_pages, parse_located_pages, preprocess_pdf_pages_for_ocr
+
+        total_pages = count_pdf_pages(pdf_path)
+        if total_pages == 0:
+            raise ValueError(f"PDF has no pages: {pdf_path}")
+
+        self._audit_stage_records = [] if audit else None
+        if total_pages <= 2:
+            return list(range(1, total_pages + 1))
+
+        batch_size = max(1, int(max_pages_per_batch))
+        prompt_config = self._load_prompt("locate_legal_pages")
+        system_prompt = prompt_config.get("system_prompt")
+        response_mime_type = prompt_config.get("response_mime_type")
+
+        try:
+            located: list[int] = []
+            with tempfile.TemporaryDirectory(prefix="mp_ocr_locate_") as tmpdir:
+                for batch_start in range(0, total_pages, batch_size):
+                    batch_pages = list(
+                        range(batch_start + 1, min(batch_start + batch_size, total_pages) + 1)
+                    )
+                    batch = preprocess_pdf_pages_for_ocr(
+                        pdf_path,
+                        Path(tmpdir),
+                        pages=batch_pages,
+                        dpi=thumbnail_dpi,
+                        strip_watermark=False,
+                        crop_margins=False,
+                        max_dim=thumbnail_max_dim,
+                    )
+                    if len(batch) != len(batch_pages):
+                        raise RuntimeError(
+                            f"Expected {len(batch_pages)} thumbnail PNG(s) for pages "
+                            f"{batch_pages[0]}-{batch_pages[-1]}, got {len(batch)}"
+                        )
+                    batch_len = len(batch_pages)
+                    user_prompt = prompt_config["user_prompt_template"].replace(
+                        "{total_pages}", str(batch_len)
+                    )
+                    if batch_start > 0 or batch_len < total_pages:
+                        user_prompt = (
+                            f"{user_prompt}\n"
+                            f"(Note: these {batch_len} images correspond to PDF pages "
+                            f"{batch_pages[0]} through {batch_pages[-1]}; return positions "
+                            f"1 through {batch_len} within this batch, ignoring printed headers.)"
+                        )
+                    combined_prompt = (
+                        f"{system_prompt}\n\n{user_prompt}"
+                        if isinstance(system_prompt, str) and system_prompt.strip()
+                        else user_prompt
+                    )
+                    response = self._generate_text_with_images(
+                        combined_prompt, batch, response_mime_type=response_mime_type
+                    )
+                    if audit:
+                        self._record_llm_stage("locate_legal_pages", combined_prompt, response)
+                    local_pages = parse_located_pages(response, batch_len, allow_empty=True)
+                    located.extend(batch_start + p for p in local_pages)
+        except Exception:
+            if audit:
+                self._audit_stage_records = None
+            raise
+
+        deduped = sorted(dict.fromkeys(located))
+        if not deduped:
+            logger.warning(
+                "locate_legal_pages returned no pages across all batches; falling back to all pages",
+                total_pages=total_pages,
+            )
+            return list(range(1, total_pages + 1))
+        return deduped
+
+    def extract_text_from_images(
+        self,
+        image_paths: Sequence[str | Path],
+        *,
+        audit: bool = False,
+        stage_name: str = "extract_text_from_images",
+        max_images_per_call: int = 16,
+        max_bytes_per_call: int = 16 * 1024 * 1024,
+        _append_audit: bool = False,
+    ) -> str:
+        """Extract all text from preprocessed deed page images using Stage 1 prompt."""
+        items: list[str | Path] = list(_validate_image_paths(image_paths))
+        if not audit:
+            self._audit_stage_records = None
+        elif not _append_audit or self._audit_stage_records is None:
+            self._audit_stage_records = []
+
+        prompt_config = self._load_prompt("extract_text_from_pdf")
+        system_prompt = prompt_config.get("system_prompt")
+        user_prompt = prompt_config["user_prompt_template"]
+        prompt_text = (
+            f"{system_prompt}\n\n{user_prompt}"
+            if isinstance(system_prompt, str) and system_prompt.strip()
+            else user_prompt
+        )
+        response_mime_type = prompt_config.get("response_mime_type")
+        batch_size = max(1, int(max_images_per_call))
+        byte_budget = max(1, int(max_bytes_per_call))
+
+        batches: list[list[str | Path]] = []
+        current_batch: list[str | Path] = []
+        current_bytes = 0
+        for item in items:
+            try:
+                item_size = Path(item).stat().st_size
+            except OSError:
+                item_size = 0
+            if current_batch and (
+                len(current_batch) >= batch_size or current_bytes + item_size > byte_budget
+            ):
+                batches.append(current_batch)
+                current_batch = []
+                current_bytes = 0
+            current_batch.append(item)
+            current_bytes += item_size
+        if current_batch:
+            batches.append(current_batch)
+
+        try:
+            if len(batches) <= 1:
+                response = self._generate_text_with_images(
+                    prompt_text,
+                    batches[0] if batches else items,
+                    response_mime_type=response_mime_type,
+                )
+                if audit:
+                    self._record_llm_stage(stage_name, prompt_text, response)
+                return response
+
+            chunks: list[str] = []
+            for batch in batches:
+                chunk = self._generate_text_with_images(
+                    prompt_text, batch, response_mime_type=response_mime_type
+                )
+                if audit:
+                    self._record_llm_stage(stage_name, prompt_text, chunk)
+                if chunk:
+                    chunks.append(chunk)
+            return "\n\n".join(chunks)
+        except Exception:
+            if audit:
+                self._audit_stage_records = None
+            raise
+
+    def pop_audit_stage_records(self) -> list[LLMStageRecord]:
+        """Return and clear collected audit stage records on this processor."""
+        stages = list(self._audit_stage_records or [])
+        self._audit_stage_records = None
+        return stages
+
+    def extract_legal_description_from_images(
+        self,
+        pdf_path: str,
+        *,
+        pages: Sequence[int] | None = None,
+        dpi: int = 300,
+        strip_watermark: bool = True,
+        crop_margins: bool = True,
+        max_dim: int = 2200,
+        audit: bool = False,
+        stage_prefix: str = "escalation_",
+        locator_processor: PDFProcessor | None = None,
+        rendered_by_page: dict[int, Path] | None = None,
+        work_dir: Path | None = None,
+    ) -> tuple[str, str, list[int]]:
+        """Run a blind 3-stage extraction on preprocessed high-DPI legal-page PNGs.
+
+        Returns ``(legal_desc_text, normalized_text, resolved_pages)``. When
+        ``audit=True``, call :meth:`pop_audit_stage_records` to retrieve the
+        collected stage records.
+        """
+        from mp_ocr import (
+            count_pdf_pages,
+            has_legal_measurement_signals,
+            preprocess_pdf_pages_for_ocr,
+            validate_pdf_pages,
+            verify_normalization_integrity,
+        )
+
+        if rendered_by_page is not None and work_dir is None:
+            raise ValueError("work_dir is required when rendered_by_page is provided")
+
+        collected_stages: list[LLMStageRecord] | None = [] if audit else None
+        self._audit_stage_records = None
+
+        try:
+            total_pages = count_pdf_pages(pdf_path)
+            if total_pages == 0:
+                raise ValueError(f"PDF has no pages: {pdf_path}")
+
+            if pages is not None:
+                resolved_pages = validate_pdf_pages(pages, total_pages)
+            else:
+                locator = locator_processor or self
+                prev_locator_records = locator._audit_stage_records
+                try:
+                    resolved_pages = locator.locate_legal_description_pages(pdf_path, audit=audit)
+                    if audit and collected_stages is not None and locator._audit_stage_records:
+                        collected_stages.extend(locator._audit_stage_records)
+                finally:
+                    locator._audit_stage_records = prev_locator_records
+
+            self._audit_stage_records = collected_stages
+
+            owned_tmpdir: tempfile.TemporaryDirectory[str] | None = (
+                tempfile.TemporaryDirectory(prefix="mp_ocr_escalate_") if work_dir is None else None
+            )
+            try:
+                active_dir = Path(owned_tmpdir.name) if owned_tmpdir is not None else Path(work_dir)  # type: ignore[arg-type]
+                page_cache: dict[int, Path] = (
+                    rendered_by_page if rendered_by_page is not None else {}
+                )
+
+                def _get_page_pngs(target_pages: list[int]) -> list[Path]:
+                    missing = [p for p in target_pages if p not in page_cache]
+                    if missing:
+                        new_pngs = preprocess_pdf_pages_for_ocr(
+                            pdf_path,
+                            active_dir,
+                            pages=missing,
+                            dpi=dpi,
+                            strip_watermark=strip_watermark,
+                            crop_margins=crop_margins,
+                            max_dim=max_dim,
+                        )
+                        if len(new_pngs) != len(missing):
+                            raise RuntimeError(
+                                f"Expected {len(missing)} preprocessed PNG(s) for pages "
+                                f"{missing}, got {len(new_pngs)}"
+                            )
+                        for page_num, png_path in zip(missing, new_pngs, strict=True):
+                            page_cache[page_num] = png_path
+                    return [page_cache[p] for p in target_pages]
+
+                def _run_on_pages(
+                    target_pages: list[int],
+                    prefix: str,
+                    *,
+                    skip_norm_if_no_signals: bool = False,
+                ) -> tuple[str, str]:
+                    clean_pngs = _get_page_pngs(target_pages)
+                    raw_text = self.extract_text_from_images(
+                        clean_pngs,
+                        audit=audit,
+                        stage_name=f"{prefix}extract_text_from_images",
+                        _append_audit=True,
+                    )
+
+                    s2_config = self._load_prompt("extract_legal_description")
+                    s2_user = s2_config["user_prompt_template"].replace("{document_text}", raw_text)
+                    s2_prompt = f"{s2_config['system_prompt']}\n\n{s2_user}"
+                    legal_text = self.client.generate_text(s2_prompt)
+                    if audit:
+                        self._record_llm_stage(
+                            f"{prefix}extract_legal_description", s2_prompt, legal_text
+                        )
+
+                    if skip_norm_if_no_signals and not has_legal_measurement_signals(legal_text):
+                        return legal_text, legal_text
+
+                    s3_config = self._load_prompt("normalize_text")
+                    s3_user = s3_config["user_prompt_template"].replace(
+                        "{legal_description_text}", legal_text
+                    )
+                    s3_prompt = f"{s3_config['system_prompt']}\n\n{s3_user}"
+                    raw_norm = self.client.generate_text(s3_prompt)
+                    if audit:
+                        self._record_llm_stage(f"{prefix}normalize_text", s3_prompt, raw_norm)
+
+                    ok, reasons = verify_normalization_integrity(legal_text, raw_norm)
+                    if not ok:
+                        logger.warning(
+                            "Escalation Stage 3 normalization failed measurement integrity check; "
+                            "preserving Stage 2 legal description text",
+                            reasons=reasons,
+                        )
+                        return legal_text, legal_text
+                    return legal_text, raw_norm
+
+                can_fallback = pages is None and len(resolved_pages) < total_pages
+                legal_desc_text, normalized_text = _run_on_pages(
+                    resolved_pages,
+                    stage_prefix,
+                    skip_norm_if_no_signals=can_fallback,
+                )
+                if can_fallback and not has_legal_measurement_signals(legal_desc_text):
+                    all_pages = list(range(1, total_pages + 1))
+                    logger.warning(
+                        "Escalation on located pages produced no legal measurements; "
+                        "retrying across all PDF pages",
+                        located_pages=resolved_pages,
+                        total_pages=total_pages,
+                    )
+                    legal_desc_text, normalized_text = _run_on_pages(
+                        all_pages, f"{stage_prefix}fallback_"
+                    )
+                    resolved_pages = all_pages
+            finally:
+                if owned_tmpdir is not None:
+                    owned_tmpdir.cleanup()
+        except Exception:
+            if audit:
+                self._audit_stage_records = None
+            raise
+
+        return legal_desc_text, normalized_text, resolved_pages
 
     def _record_llm_stage(self, stage: str, prompt: str, response: str) -> None:
         """Capture rendered LLM evidence only during an audited pipeline run."""
@@ -232,9 +588,6 @@ class PDFProcessor:
                 with full pipeline provenance.  Defaults to False (returns
                 ``LegalDescription`` only, preserving existing behaviour).
         """
-        from .call_extractor import CallExtractor
-        from .text_parser import TextParser
-
         processing_logger = logger.bind(pdf_path=pdf_path)
 
         self._audit_stage_records = [] if audit else None
@@ -242,18 +595,41 @@ class PDFProcessor:
             processing_logger.info("Extracting legal description from PDF")
             legal_desc_text = self.extract_legal_description(pdf_path)
 
-            matched = [p.pattern for p in _PRIOR_CONVEYANCE_PATTERNS if p.search(legal_desc_text)]
-            if matched:
-                processing_logger.warning(
-                    "Extracted text may contain prior conveyance language",
-                    matched_patterns=matched,
-                )
-
             processing_logger.info("Normalizing text")
             normalized_text = self.normalize_legal_description(legal_desc_text)
             llm_stage_records = list(self._audit_stage_records or [])
         finally:
             self._audit_stage_records = None
+
+        return self.process_legal_text(
+            pdf_path,
+            legal_desc_text=legal_desc_text,
+            normalized_text=normalized_text,
+            llm_stage_records=llm_stage_records,
+            audit=audit,
+        )
+
+    def process_legal_text(
+        self,
+        pdf_path: str,
+        *,
+        legal_desc_text: str,
+        normalized_text: str,
+        llm_stage_records: list[LLMStageRecord] | None = None,
+        audit: bool = False,
+    ) -> LegalDescription | tuple[LegalDescription, AuditContext]:
+        """Parse already-extracted legal description text into structured output."""
+        from .call_extractor import CallExtractor
+        from .text_parser import TextParser
+
+        processing_logger = logger.bind(pdf_path=pdf_path)
+
+        matched = [p.pattern for p in _PRIOR_CONVEYANCE_PATTERNS if p.search(legal_desc_text)]
+        if matched:
+            processing_logger.warning(
+                "Extracted text may contain prior conveyance language",
+                matched_patterns=matched,
+            )
 
         processing_logger.info("Extracting PLSS metadata")
         plss_data = TextParser.extract_plss_metadata(normalized_text)

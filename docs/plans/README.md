@@ -1,6 +1,6 @@
 # Implementation plans
 
-Dated plans, design notes, evidence records and acceptance handoffs. Status is taken from each file's own status line or heading as of 2026-10-31. Local implementation gates are kept separate from live-provider and native Claude host acceptance.
+Dated plans, design notes, evidence records and acceptance handoffs. Status is taken from each file's own status line or heading as of 2026-11-25. Local implementation gates are kept separate from live-provider and native Claude host acceptance.
 
 | Date | Document | Topic | Status |
 |---|---|---|---|
@@ -12,6 +12,7 @@ Dated plans, design notes, evidence records and acceptance handoffs. Status is t
 | 2026-10-27 | [Plan 001: Mapbox online viewer](2026-10-27-mapbox-online-viewer.md) | Optional Mapbox viewer combining registered tax maps and recorded deed geometry | IMPLEMENTED — local gates passed; live token blocked, native-host acceptance not run |
 | 2026-10-28 | [Source evidence and skill improvements](2026-10-28-skill-evidence-and-review-improvements.md) | Source evidence, diagnostics, maps and composable skills | Local implementation passed; paired evaluations and live provider/native-client acceptance outstanding |
 | 2026-10-31 | [PR #60 review-loop handoff](2026-10-31-pr60-review-loop-handoff.md) | Paused review loop for PR #60 | Paused; superseded once PR #60 merges |
+| 2026-11-25 | [OCR prompt analysis and blind escalation](2026-11-25-ocr-prompt-improvements.md) | Stage 3 guard and closure-triggered high-DPI blind escalation | Implemented and benchmarked across all 87 deeds |
 
 Plan 001 separates deterministic implementation acceptance, live Mapbox acceptance, and native plugin-host acceptance. Update those gates separately; mocked browser tests do not complete the live gates. Do not mark the plan DONE while required acceptance remains outstanding.
 

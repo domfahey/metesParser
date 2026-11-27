@@ -14,6 +14,7 @@ PROMPTS = (
     "extract_calls.yaml",
     "extract_legal_description.yaml",
     "extract_text_from_pdf.yaml",
+    "locate_legal_pages.yaml",
     "normalize_text.yaml",
 )
 
@@ -42,3 +43,28 @@ def test_root_wheel_has_no_duplicate_entries_and_ships_prompts_and_license(tmp_p
     for prompt in PROMPTS:
         assert names.count(f"metesparser/prompts/{prompt}") == 1
     assert f"metesparser-{version}.dist-info/licenses/LICENSE" in names
+
+
+@pytest.mark.slow
+@pytest.mark.skipif(shutil.which("uv") is None, reason="uv is required to build the wheel")
+def test_mp_ocr_wheel_ships_prompts_and_vision_extra(tmp_path):
+    subprocess.run(
+        ["uv", "build", "--wheel", "--package", "mp-ocr", "--out-dir", str(tmp_path)],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    wheels = list(tmp_path.glob("mp_ocr-*.whl"))
+    assert len(wheels) == 1, f"expected one mp-ocr wheel, found {wheels}"
+    version = tomllib.loads((ROOT / "packages/mp-ocr/pyproject.toml").read_text(encoding="utf-8"))[
+        "project"
+    ]["version"]
+
+    with zipfile.ZipFile(wheels[0]) as archive:
+        names = archive.namelist()
+        metadata = archive.read(f"mp_ocr-{version}.dist-info/METADATA").decode("utf-8")
+
+    for prompt in PROMPTS:
+        assert names.count(f"mp_ocr/prompts/{prompt}") == 1
+    assert "Provides-Extra: vision" in metadata

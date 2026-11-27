@@ -894,6 +894,9 @@ gemini = [
 geo = [
     { name = "mp-review", extra = ["geo"] },
 ]
+vision = [
+    { name = "mp-ocr", extra = ["vision"] },
+]
 web-map = [
     { name = "mp-review", extra = ["web-map"] },
 ]
@@ -904,6 +907,7 @@ requires-dist = [
     { name = "mp-bearing", editable = "packages/mp-bearing" },
     { name = "mp-export", editable = "packages/mp-export" },
     { name = "mp-ocr", editable = "packages/mp-ocr" },
+    { name = "mp-ocr", extras = ["vision"], marker = "extra == 'vision'", editable = "packages/mp-ocr" },
     { name = "mp-parse", editable = "packages/mp-parse" },
     { name = "mp-review", editable = "packages/mp-review" },
     { name = "mp-review", extras = ["delivery"], marker = "extra == 'delivery'", editable = "packages/mp-review" },
@@ -925,7 +929,7 @@ requires-dist = [
     { name = "structlog", specifier = ">=24.4.0" },
     { name = "types-pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.12" },
 ]
-provides-extras = ["delivery", "geo", "web-map", "browser-test", "dev", "gemini"]
+provides-extras = ["delivery", "geo", "web-map", "vision", "browser-test", "dev", "gemini"]
 
 [[package]]
 name = "mp-bearing"
@@ -1031,19 +1035,25 @@ dev = [
 gemini = [
     { name = "google-genai" },
 ]
+vision = [
+    { name = "numpy" },
+    { name = "pillow" },
+]
 
 [package.metadata]
 requires-dist = [
     { name = "google-genai", marker = "extra == 'gemini'", specifier = ">=3.0.0" },
     { name = "mp-models", editable = "packages/mp-models" },
+    { name = "numpy", marker = "extra == 'vision'", specifier = ">=1.26,<3" },
     { name = "openai", specifier = ">=2.3.0" },
+    { name = "pillow", marker = "extra == 'vision'", specifier = ">=11,<13" },
     { name = "pypdf", specifier = ">=6.1.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
     { name = "structlog", specifier = ">=24.4.0" },
 ]
-provides-extras = ["gemini", "dev"]
+provides-extras = ["gemini", "vision", "dev"]
 
 [[package]]
 name = "mp-parse"

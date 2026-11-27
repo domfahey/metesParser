@@ -7,6 +7,7 @@ import json
 import math
 import os
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
@@ -40,6 +41,48 @@ def _read_pdf(pdf_path: str) -> tuple[str, bytes]:
     if not path.exists():
         raise FileNotFoundError(f"PDF not found at {pdf_path}")
     return path.name, path.read_bytes()
+
+
+_IMAGE_MIME_TYPES: dict[str, str] = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+}
+_MAX_IMAGE_BYTES = 20 * 1024 * 1024
+
+
+def _validate_image_paths(image_paths: Sequence[str | Path]) -> list[str | Path]:
+    if isinstance(image_paths, (str, bytes, Path)):
+        raise TypeError("image_paths must be a sequence of image paths, not a single path")
+    items = list(image_paths)
+    if not items:
+        raise ValueError("image_paths must contain at least one image")
+    return items
+
+
+def _read_image(image_path: str | Path) -> tuple[str, str, bytes]:
+    path = Path(image_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Image not found at {image_path}")
+    if not path.is_file():
+        raise ValueError(f"Image path is not a regular file: {image_path}")
+    mime = _IMAGE_MIME_TYPES.get(path.suffix.lower())
+    if mime is None:
+        raise ValueError(f"Unsupported image format '{path.suffix}' for {path.name}")
+    file_size = path.stat().st_size
+    if file_size == 0:
+        raise ValueError(f"Image file is empty: {path.name}")
+    if file_size > _MAX_IMAGE_BYTES:
+        raise ValueError(
+            f"Image file {path.name} ({file_size} bytes) exceeds maximum size "
+            f"of {_MAX_IMAGE_BYTES} bytes"
+        )
+    data = path.read_bytes()
+    if not data:
+        raise ValueError(f"Image file is empty: {path.name}")
+    return path.name, mime, data
 
 
 @runtime_checkable
@@ -131,6 +174,34 @@ class OpenAIClient:
         }
         generate_kwargs.update(self._response_format_kwargs(response_mime_type))
 
+        response = self._client.responses.create(**generate_kwargs)
+        return response.output_text or ""
+
+    def generate_text_with_images(
+        self,
+        prompt: str,
+        image_paths: Sequence[str | Path],
+        *,
+        response_mime_type: str | None = None,
+    ) -> str:
+        validated_paths = _validate_image_paths(image_paths)
+        content: list[dict[str, object]] = []
+        for image_path in validated_paths:
+            _, mime, img_bytes = _read_image(image_path)
+            b64 = base64.b64encode(img_bytes).decode("utf-8")
+            content.append(
+                {
+                    "type": "input_image",
+                    "image_url": f"data:{mime};base64,{b64}",
+                }
+            )
+        content.append({"type": "input_text", "text": prompt})
+        generate_kwargs: dict[str, object] = {
+            "model": self.model,
+            "temperature": 0,
+            "input": [{"role": "user", "content": content}],
+        }
+        generate_kwargs.update(self._response_format_kwargs(response_mime_type))
         response = self._client.responses.create(**generate_kwargs)
         return response.output_text or ""
 
@@ -265,6 +336,22 @@ class GeminiClient:
                 self._types.Part.from_text(text=prompt),
             ],
         )
+        return self._generate([content], response_mime_type=response_mime_type)
+
+    def generate_text_with_images(
+        self,
+        prompt: str,
+        image_paths: Sequence[str | Path],
+        *,
+        response_mime_type: str | None = None,
+    ) -> str:
+        validated_paths = _validate_image_paths(image_paths)
+        parts: list[object] = []
+        for image_path in validated_paths:
+            _, mime, img_bytes = _read_image(image_path)
+            parts.append(self._types.Part.from_bytes(data=img_bytes, mime_type=mime))
+        parts.append(self._types.Part.from_text(text=prompt))
+        content = self._types.Content(role="user", parts=parts)
         return self._generate([content], response_mime_type=response_mime_type)
 
     def _generate(self, contents: list[object], *, response_mime_type: str | None = None) -> str:
@@ -578,6 +665,30 @@ class OpenRouterClient:
         ]
         return self._create_completion(
             messages, response_mime_type=response_mime_type, include_pdf_plugin=True
+        )
+
+    def generate_text_with_images(
+        self,
+        prompt: str,
+        image_paths: Sequence[str | Path],
+        *,
+        response_mime_type: str | None = None,
+    ) -> str:
+        validated_paths = _validate_image_paths(image_paths)
+        content: list[dict[str, object]] = []
+        for image_path in validated_paths:
+            _, mime, img_bytes = _read_image(image_path)
+            b64 = base64.b64encode(img_bytes).decode("utf-8")
+            content.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{mime};base64,{b64}"},
+                }
+            )
+        content.append({"type": "text", "text": prompt})
+        messages: list[dict[str, object]] = [{"role": "user", "content": content}]
+        return self._create_completion(
+            messages, response_mime_type=response_mime_type, include_pdf_plugin=False
         )
 
     def _create_completion(

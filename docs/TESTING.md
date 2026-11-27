@@ -14,7 +14,7 @@ make test-packages-cov # workspace package tests and coverage report (95% aggreg
 
 `make check` runs lint, `format` (which can modify files), mypy on `src/metesparser/`, and the root test suite. `make quality` uses the non-mutating format check. `make pre-commit` runs `lint-fix`, `format`, and `test`; it does not run mypy. `make ci` runs `check-tools`, `install`, `quality`, `test-cov`, and `test-packages-cov` (without `clean`); it does not run mypy.
 
-The root pytest configuration discovers `tests/` and measures `src/metesparser/` with an enforced 95% coverage floor (`--cov-fail-under=95`, `precision = 2`, `core = "sysmon"`). Use `make test-packages-cov` to measure all workspace packages (`packages/*/src/`) with an enforced **95% aggregate and per-package floor** (`PKG_COV_FLOOR ?= 95`, provisioned with the `dev`, `delivery`, `geo`, `web-map`, and `gemini` extras; requires `node` on `PATH` for `mp-export` JS parity checks, which also applies to `make ci`); disable root coverage (`--no-cov`) for ad-hoc package-only or subset runs that do not override `addopts`.
+The root pytest configuration discovers `tests/` and measures `src/metesparser/` with an enforced 95% coverage floor (`--cov-fail-under=95`, `precision = 2`, `core = "sysmon"`). Use `make test-packages-cov` to measure all workspace packages (`packages/*/src/`) with an enforced **95% aggregate and per-package floor** (`PKG_COV_FLOOR ?= 95`, provisioned with the `dev`, `delivery`, `geo`, `web-map`, `gemini`, and `vision` extras; requires `node` on `PATH` for `mp-export` JS parity checks, which also applies to `make ci`); disable root coverage (`--no-cov`) for ad-hoc package-only or subset runs that do not override `addopts`.
 
 ### Root suite
 
