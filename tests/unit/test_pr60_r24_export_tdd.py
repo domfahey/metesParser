@@ -97,7 +97,10 @@ def test_single_export_honours_tract_skipped_courses(impl, tmp_path):
     ld = m.LegalDescription(calls=calls, tracts=[tract])
     result = verify(ld.calls)
     assert result.is_fully_verified()
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="Cannot export verified CSV: selected calls failed fresh verification",
+    ):
         export(ld.calls, result, str(tmp_path / "x.csv"), ld)
     assert not (tmp_path / "x_verified.csv").exists()
 

@@ -8,8 +8,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
-from mp_export.dashboard_html import _check_outcomes, render_dashboard, renderer_fingerprint
-from mp_models.closure import CheckResult
+from mp_export.dashboard_html import render_dashboard, renderer_fingerprint
 from mp_models.dashboard import DashboardBundle
 from mp_verify.dashboard import calculate_dashboard
 
@@ -115,26 +114,32 @@ def test_missing_assets_and_expected_pages_remain_explicit():
 
 
 @pytest.mark.parametrize(
-    "image",
+    ("image", "expected_match"),
     [
-        "https://example.test/image.png",
-        "javascript:alert(1)",
-        "data:image/svg+xml;base64,PHN2Zy8+",
-        "data:image/png;base64,aGVsbG8=",
+        (
+            "https://example.test/image.png",
+            "images must be embedded PNG, JPEG or WebP data URIs",
+        ),
+        ("javascript:alert(1)", "images must be embedded PNG, JPEG or WebP data URIs"),
+        (
+            "data:image/svg+xml;base64,PHN2Zy8+",
+            "images must be embedded PNG, JPEG or WebP data URIs",
+        ),
+        ("data:image/png;base64,aGVsbG8=", "image content does not match MIME type"),
     ],
 )
-def test_unsafe_and_broken_asset_inputs_rejected(image):
+def test_unsafe_and_broken_asset_inputs_rejected(image, expected_match):
     prepared = prepare()
     bad_page = prepared.bundle.pages[0].model_copy(update={"image": image})
     forged_bundle = prepared.bundle.model_copy(update={"pages": (bad_page,)})
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_match):
         render_dashboard(prepared.model_copy(update={"bundle": forged_bundle}))
 
 
 def test_forged_prepared_results_rejected():
     prepared = prepare()
     result = prepared.calculations[0].model_copy(update={"misclosure_ft": 123.0})
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="do not match deterministic inputs"):
         render_dashboard(prepared.model_copy(update={"calculations": (result,)}))
 
 
@@ -148,17 +153,48 @@ def test_render_is_identical_for_cold_and_warm_stage_cache():
     assert '"cache_reused"' not in rendered
 
 
-@pytest.mark.parametrize("status", ["passed", "failed", "not_applicable", "blocked"])
-def test_canonical_check_outcomes_preserve_all_four_statuses(status):
-    check = CheckResult(
-        name="Angles", status=status, reason=f"reason-{status}", detail="<source detail>"
+def test_canonical_check_outcomes_preserve_all_four_statuses_and_unavailable():
+    # Closed parcel produces passed and not_applicable canonical checks.
+    closed_html = render_dashboard(prepare())
+    assert '<tr><td>traverse_closure</td><td data-check-status="passed">passed</td>' in closed_html
+    assert '<td data-check-status="not_applicable">not_applicable</td>' in closed_html
+    assert 'data-check-status="failed"' not in closed_html
+    assert 'data-check-status="blocked"' not in closed_html
+
+    # Open traverse produces failed traverse_closure check (never rendered as passed).
+    open_data = bundle_data()
+    open_data["calls"][0]["call"]["distance_ft"] = 150.0
+    open_html = render_dashboard(prepare(open_data))
+    assert '<tr><td>traverse_closure</td><td data-check-status="failed">failed</td>' in open_html
+    assert (
+        '<tr><td>traverse_closure</td><td data-check-status="passed">passed</td>' not in open_html
     )
-    rendered = _check_outcomes((check,), "canonical")
-    assert f'data-check-status="{status}">{status}</td>' in rendered
-    assert f"reason-{status}" in rendered
-    assert "&lt;source detail&gt;" in rendered
-    if status != "passed":
-        assert 'data-check-status="passed"' not in rendered
+
+    # Incomplete bearing produces blocked traverse_closure check.
+    blocked_data = bundle_data()
+    blocked_data["calls"][0]["call"]["bearing_azimuth_deg_from_north"] = None
+    blocked_data["scenarios"] = []
+    blocked_html = render_dashboard(prepare(blocked_data))
+    assert (
+        '<tr><td>traverse_closure</td><td data-check-status="blocked">blocked</td>' in blocked_html
+    )
+    assert (
+        '<tr><td>traverse_closure</td><td data-check-status="passed">passed</td>'
+        not in blocked_html
+    )
+
+    # Unknown source call leaves canonical check outcomes unavailable.
+    null_call_data = bundle_data()
+    null_call_data["calls"][0]["call"] = None
+    null_call_data["calls"][0]["reading_status"] = "uncertain"
+    null_call_data["calls"][0]["reading_note"] = "illegible"
+    null_call_data["occurrences"][0]["source_review_status"] = "partial"
+    null_call_data["scenarios"] = []
+    unavailable_html = render_dashboard(prepare(null_call_data))
+    assert (
+        "Canonical check outcomes are unavailable; this is not a passing check result."
+        in unavailable_html
+    )
 
 
 def test_relative_analysis_does_not_claim_canonical_checks_ran():

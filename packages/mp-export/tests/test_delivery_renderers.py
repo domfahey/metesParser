@@ -95,8 +95,6 @@ def test_pdf_reader_svg_arc_and_deterministic_publication():
 
 
 def test_hypothetical_missing_bearing_never_falls_back_to_original_record():
-    from mp_export.delivery import _label, _rows
-
     value = snapshot()
     primitive = (
         value.items[0]
@@ -112,11 +110,15 @@ def test_hypothetical_missing_bearing_never_falls_back_to_original_record():
     value = value.model_copy(
         update={"items": (value.items[0].model_copy(update={"primitives": (primitive,)}),)}
     )
-    assert "bearing unavailable" in _label(value, primitive)
-    selected = next(row for row in _rows(value) if "hypothetical input:" in row)
+    root = ET.fromstring(render_delivery_svg(value))
+    texts = [el.text or "" for el in root.findall(".//{http://www.w3.org/2000/svg}text")]
+    label = next(t for t in texts if t.startswith("arc-course | "))
+    assert "bearing unavailable" in label
+    assert "0.000000 deg" not in label
+    selected = next(t for t in texts if "hypothetical input:" in t)
     assert "bearing unavailable" in selected
     assert "0.000000 deg" not in selected
-    assert any("Original recorded input: 0.000000 deg" in row for row in _rows(value))
+    assert any("Original recorded input: 0.000000 deg" in t for t in texts)
 
 
 def test_dxf_is_identical_across_fresh_process_hash_seeds():
@@ -183,3 +185,121 @@ def test_delivery_svg_and_pdf_embed_upright_raster():
     upright = _oriented_raster_snapshot(1)
     assert "data:image/jpeg;base64," in render_delivery_svg(upright)
     assert render_delivery_pdf(upright).startswith(b"%PDF")
+
+
+def test_delivery_full_circle_lines_vectors_hidden_layers_metrics_and_multipage_pdf():
+    import ezdxf
+    import pytest
+    from mp_models.delivery import DeliveryMetric
+    from mp_models.plot import VectorLayer
+    from pypdf import PdfReader
+
+    base = snapshot()
+    hidden_sel = base.items[0].selection.model_copy(update={"id": "hidden-layer", "visible": False})
+    line_sel = base.items[0].selection.model_copy(
+        update={"id": "line-and-circle", "visible": True, "opacity": 0.8}
+    )
+    vec_sel = base.items[0].selection.model_copy(
+        update={"id": "vector-layer", "kind": "vector", "visible": True, "opacity": 0.5}
+    )
+    line_prim = DeliveryPrimitive(
+        kind="line",
+        call_id="line-1",
+        layer_id="line-and-circle",
+        start=(0.0, 0.0),
+        end=(40.0, 0.0),
+        length=40.0,
+        recorded_bearing_deg=90.0,
+        recorded_distance_ft=40.0,
+    )
+    full_circle = DeliveryPrimitive(
+        kind="arc",
+        call_id="circle-1",
+        layer_id="line-and-circle",
+        start=(10.0, 0.0),
+        end=(10.0, 0.0),
+        center=(0.0, 0.0),
+        radius=10.0,
+        sweep_deg=360.0,
+        curve_dir="right",
+        length=20.0 * math.pi,
+        recorded_bearing_deg=180.0,
+        recorded_distance_ft=20.0 * math.pi,
+    )
+    polygon = VectorLayer(
+        id="poly-1",
+        label="Parcel context",
+        source_id="src",
+        scene_id="scene",
+        geometry_type="Polygon",
+        coordinates=(((0.0, 0.0), (50.0, 0.0), (50.0, 50.0), (0.0, 50.0), (0.0, 0.0)),),
+    )
+    multipolygon = VectorLayer(
+        id="mpoly-1",
+        label="Multi context",
+        source_id="src",
+        scene_id="scene",
+        geometry_type="MultiPolygon",
+        coordinates=((((60.0, 0.0), (70.0, 0.0), (70.0, 10.0), (60.0, 10.0), (60.0, 0.0)),),),
+    )
+    # Include enough metrics (both single-line and wrapped long calculation_ids) to trigger
+    # between-row and mid-row PDF pagination across multiple pages.
+    many_metrics = [
+        DeliveryMetric(
+            calculation_id=("long-calc-" + "x" * 180) if i in {6, 40} else f"calc-{i}",
+            misclosure_ft=0.001 * i if i % 2 == 0 else None,
+            area_sq_ft=1000.0 + i if i % 2 == 0 else None,
+            perimeter_ft=100.0,
+        )
+        for i in range(45)
+    ]
+    rich = base.model_copy(
+        update={
+            "scene_units": "m",
+            "items": (
+                DeliveryItem(selection=hidden_sel, primitives=(line_prim,)),
+                DeliveryItem(selection=line_sel, primitives=(line_prim, full_circle)),
+                DeliveryItem(selection=vec_sel, vector=polygon),
+                DeliveryItem(
+                    selection=vec_sel.model_copy(update={"id": "multi-vector-layer"}),
+                    vector=multipolygon,
+                ),
+            ),
+            "metrics": tuple(many_metrics),
+        }
+    )
+
+    svg = render_delivery_svg(rich)
+    assert 'data-layer-id="hidden-layer"' not in svg
+    assert 'data-call-id="line-1"' in svg
+    assert 'data-call-id="circle-1"' in svg
+    assert "calc-0 | misclosure 0.0 ft | area 1000.0 sq ft" in svg
+    assert "misclosure unavailable ft | area unavailable sq ft" in svg
+    # Full circle splits into two SVG arcs.
+    root = ET.fromstring(svg)
+    circle_path = next(
+        el.attrib["d"]
+        for el in root.findall(".//{http://www.w3.org/2000/svg}path")
+        if el.attrib.get("data-call-id") == "circle-1"
+    )
+    assert circle_path.count(" A ") == 2
+
+    pdf_bytes = render_delivery_pdf(rich)
+    reader = PdfReader(io.BytesIO(pdf_bytes))
+    assert len(reader.pages) == 3
+    full_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    assert "line-1" in full_text and "circle-1" in full_text
+
+    dxf_doc = ezdxf.read(io.StringIO(render_delivery_dxf(rich).decode()))
+    types = [e.dxftype() for e in dxf_doc.modelspace()]
+    assert "LINE" in types
+    assert "CIRCLE" in types
+    assert "LWPOLYLINE" in types
+    assert not any(e.dxf.layer.endswith("hidden-layer") for e in dxf_doc.modelspace())
+
+    # All-hidden snapshot has no drawing bounds and raises ValueError.
+    empty = base.model_copy(
+        update={"items": (DeliveryItem(selection=hidden_sel, primitives=(line_prim,)),)}
+    )
+    with pytest.raises(ValueError, match="No drawing bounds"):
+        render_delivery_svg(empty)

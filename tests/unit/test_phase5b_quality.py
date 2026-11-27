@@ -2,67 +2,51 @@
 
 from __future__ import annotations
 
+import pytest
+from pydantic import ValidationError
+
 from metesparser.closure_checker import ClosureChecker
 from metesparser.models import ClosureResult, DeedCall
 
 # ---------------------------------------------------------------------------
-# Step 1: Model field tests
+# Step 1: Quality & confidence schema validation
 # ---------------------------------------------------------------------------
 
 
 class TestModelFields:
-    """Verify quality/confidence fields exist on models."""
+    """Verify quality/confidence bounds and literal validation on models."""
 
-    def test_deed_call_has_quality_field_default_none(self) -> None:
-        call = DeedCall(
-            course=1,
-            direction_text="N 45° E",
-            bearing_quadrant="N 45° E",
-            bearing_azimuth_deg_from_north=45.0,
-            distance_ft=100.0,
-        )
-        assert call.quality is None
-
-    def test_deed_call_accepts_quality_values(self) -> None:
-        for quality in ("high", "medium", "low"):
-            call = DeedCall(
+    def test_deed_call_rejects_invalid_quality_literal(self) -> None:
+        with pytest.raises(ValidationError, match="quality"):
+            DeedCall(
                 course=1,
                 direction_text="N 45° E",
                 bearing_quadrant="N 45° E",
                 bearing_azimuth_deg_from_north=45.0,
                 distance_ft=100.0,
-                quality=quality,
+                quality="excellent",  # type: ignore[arg-type]
             )
-            assert call.quality == quality
 
-    def test_closure_result_has_confidence_score_default_none(self) -> None:
-        result = ClosureResult(
-            misclosure_x_ft=0.0,
-            misclosure_y_ft=0.0,
-            misclosure_ft=0.0,
-            area_sq_ft=1000.0,
-            area_acres=1000.0 / 43560.0,
-            perimeter_ft=200.0,
-            closure_passed=True,
-            angle_check_passed=True,
-            curve_consistency_passed=True,
-        )
-        assert result.confidence_score is None
-
-    def test_closure_result_accepts_confidence_score(self) -> None:
-        result = ClosureResult(
-            misclosure_x_ft=0.0,
-            misclosure_y_ft=0.0,
-            misclosure_ft=0.0,
-            area_sq_ft=1000.0,
-            area_acres=1000.0 / 43560.0,
-            perimeter_ft=200.0,
-            closure_passed=True,
-            angle_check_passed=True,
-            curve_consistency_passed=True,
-            confidence_score=0.95,
-        )
-        assert result.confidence_score == 0.95
+    @pytest.mark.parametrize(
+        ("bad_score", "expected_match"),
+        [(-0.01, "greater than or equal to 0"), (1.01, "less than or equal to 1")],
+    )
+    def test_closure_result_rejects_out_of_range_confidence_score(
+        self, bad_score: float, expected_match: str
+    ) -> None:
+        with pytest.raises(ValidationError, match=expected_match):
+            ClosureResult(
+                misclosure_x_ft=0.0,
+                misclosure_y_ft=0.0,
+                misclosure_ft=0.0,
+                area_sq_ft=1000.0,
+                area_acres=1000.0 / 43560.0,
+                perimeter_ft=200.0,
+                closure_passed=True,
+                angle_check_passed=True,
+                curve_consistency_passed=True,
+                confidence_score=bad_score,
+            )
 
 
 # ---------------------------------------------------------------------------

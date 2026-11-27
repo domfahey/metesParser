@@ -54,14 +54,16 @@ def test_deedcall_clamps_negative_tiny_azimuth_wrap_to_zero(_name: str, models: 
 @pytest.mark.parametrize("_name,models", MODEL_IMPLS)
 @pytest.mark.parametrize("bad_bool", [True, False])
 def test_deedcall_rejects_bool_azimuth_and_radius(_name: str, models: Any, bad_bool: bool) -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(
+        ValidationError, match="bearing_azimuth_deg_from_north must be a number, not a boolean"
+    ):
         models.DeedCall(
             course=1,
             direction_text="N 0° E",
             distance_ft=100.0,
             bearing_azimuth_deg_from_north=bad_bool,
         )
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="radius_ft must be a number, not a boolean"):
         models.DeedCall(
             course=1,
             direction_text="curve",
@@ -80,9 +82,13 @@ def test_deedcall_rejects_bool_azimuth_and_radius(_name: str, models: Any, bad_b
 @pytest.mark.parametrize("_name,models", MODEL_IMPLS)
 @pytest.mark.parametrize("bad_area", [0.0, -50.0])
 def test_stated_area_sq_ft_requires_gt_zero(_name: str, models: Any, bad_area: float) -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(
+        ValidationError, match=r"(?s)stated_area_sq_ft.*Input should be greater than 0"
+    ):
         models.LegalDescription(stated_area_sq_ft=bad_area)
-    with pytest.raises(ValidationError):
+    with pytest.raises(
+        ValidationError, match=r"(?s)stated_area_sq_ft.*Input should be greater than 0"
+    ):
         models.Tract(label="Tract 1", tract_type="main", stated_area_sq_ft=bad_area)
 
 
@@ -106,7 +112,9 @@ def test_closure_result_rejects_negative_measurements(
         "curve_consistency_passed": True,
     }
     kwargs[field_name] = -0.01
-    with pytest.raises(ValidationError):
+    with pytest.raises(
+        ValidationError, match=rf"(?s){field_name}.*Input should be greater than or equal to 0"
+    ):
         models.ClosureResult(**kwargs)
 
 
@@ -165,7 +173,7 @@ def test_closure_status_needs_review_when_check_blocked_without_warnings(
 
 @pytest.mark.parametrize("non_finite", [float("nan"), float("inf"), float("-inf")])
 def test_envelope_rejects_non_finite_floats(non_finite: float) -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match=r"(?s)confidence.*Input should be a finite number"):
         RawTextMessage(
             source="deed.pdf",
             text="hello",
@@ -173,20 +181,22 @@ def test_envelope_rejects_non_finite_floats(non_finite: float) -> None:
             llm_model="gpt-5.2",
             confidence=non_finite,
         )
-    with pytest.raises(ValidationError):
+    with pytest.raises(
+        ValidationError, match=r"(?s)misclosure_ft.*Input should be a finite number"
+    ):
         ClosureResultMessage(
             source="deed.pdf",
             is_verified=False,
             misclosure_ft=non_finite,
         )
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match=r"(?s)area_sq_ft.*Input should be a finite number"):
         ClosureResultMessage(
             source="deed.pdf",
             is_verified=False,
             misclosure_ft=0.0,
             area_sq_ft=non_finite,
         )
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match=r"(?s)confidence.*Input should be a finite number"):
         ClosureResultMessage(
             source="deed.pdf",
             is_verified=False,
@@ -263,13 +273,23 @@ def test_json_logging_exception_does_not_leak_local_secrets(
 
 
 @pytest.mark.parametrize(
-    "bad_value",
-    [-45.1631, -0.0001, 45.6000, 45.15999, 45.1560, float("nan"), float("inf")],
+    ("bad_value", "expected_match"),
+    [
+        (-45.1631, "Packed DMS value must be non-negative"),
+        (-0.0001, "Packed DMS value must be non-negative"),
+        (45.6000, r"Invalid packed DMS: minutes=60 \(must be 0-59\)"),
+        (45.15999, r"Invalid packed DMS: seconds=99\.9 \(must be 0-59\)"),
+        (45.1560, r"Invalid packed DMS: seconds=60 \(must be 0-59\)"),
+        (float("nan"), "Invalid packed DMS value: nan"),
+        (float("inf"), "Invalid packed DMS value: inf"),
+    ],
 )
-def test_parse_packed_dms_rejects_invalid_and_negative_values(bad_value: float) -> None:
-    with pytest.raises(ValueError):
+def test_parse_packed_dms_rejects_invalid_and_negative_values(
+    bad_value: float, expected_match: str
+) -> None:
+    with pytest.raises(ValueError, match=expected_match):
         mp_bearing.parse_packed_dms(bad_value)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_match):
         BearingConverter.parse_packed_dms(bad_value)
 
 
@@ -289,9 +309,9 @@ def test_quadrant_to_azimuth_normalizes_validates_and_clamps() -> None:
     assert BearingConverter.quadrant_to_azimuth("N", 1e-16, "W") == 0.0
 
     for bad_deg in (-0.1, 90.1, float("nan"), float("inf")):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Degrees must be finite and between 0 and 90"):
             mp_bearing.quadrant_to_azimuth("N", bad_deg, "E")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Degrees must be finite and between 0 and 90"):
             BearingConverter.quadrant_to_azimuth("N", bad_deg, "E")
 
 
@@ -307,25 +327,33 @@ def test_calculate_chord_bearing_validates_curve_dir_and_clamps() -> None:
 
 
 @pytest.mark.parametrize(
-    "kwargs",
+    ("kwargs", "expected_match"),
     [
-        {"radius_ft": -100.0, "delta_deg": 30.0},
-        {"radius_ft": 0.0, "delta_deg": 30.0},
-        {"radius_ft": 100.0, "arc_length_ft": -10.0},
-        {"radius_ft": 100.0, "arc_length_ft": 0.0},
-        {"radius_ft": 100.0, "chord_length_ft": -10.0},
-        {"radius_ft": 100.0, "chord_length_ft": 0.0},
-        {"radius_ft": 100.0, "delta_deg": -10.0},
-        {"radius_ft": 100.0, "delta_deg": 370.0},
-        {"radius_ft": 10.0, "arc_length_ft": 100.0},
-        {"radius_ft": float("nan"), "delta_deg": 30.0},
-        {"radius_ft": 100.0, "delta_deg": float("inf")},
+        ({"radius_ft": -100.0, "delta_deg": 30.0}, "Radius must be positive and finite"),
+        ({"radius_ft": 0.0, "delta_deg": 30.0}, "Radius must be positive and finite"),
+        ({"radius_ft": 100.0, "arc_length_ft": -10.0}, "Arc length must be positive and finite"),
+        ({"radius_ft": 100.0, "arc_length_ft": 0.0}, "Arc length must be positive and finite"),
+        (
+            {"radius_ft": 100.0, "chord_length_ft": -10.0},
+            "Chord length must be non-negative and finite",
+        ),
+        (
+            {"radius_ft": 100.0, "chord_length_ft": 0.0},
+            "Chord length must be positive when computing delta from radius",
+        ),
+        ({"radius_ft": 100.0, "delta_deg": -10.0}, "Delta angle must be 0-360 degrees"),
+        ({"radius_ft": 100.0, "delta_deg": 370.0}, "Delta angle must be 0-360 degrees"),
+        ({"radius_ft": 10.0, "arc_length_ft": 100.0}, "Computed delta angle .* exceeds 360"),
+        ({"radius_ft": float("nan"), "delta_deg": 30.0}, "Radius must be positive and finite"),
+        ({"radius_ft": 100.0, "delta_deg": float("inf")}, "Delta angle must be finite"),
     ],
 )
-def test_calculate_missing_curve_elements_validates_bounds(kwargs: dict[str, float]) -> None:
-    with pytest.raises(ValueError):
+def test_calculate_missing_curve_elements_validates_bounds(
+    kwargs: dict[str, float], expected_match: str
+) -> None:
+    with pytest.raises(ValueError, match=expected_match):
         mp_bearing.calculate_missing_curve_elements(**kwargs)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_match):
         BearingConverter.calculate_missing_curve_elements(**kwargs)
 
 
@@ -534,7 +562,7 @@ def test_openai_client_hides_api_key_and_internal_fields(
     client = client_cls(api_key="sk-secret-value-123")
     assert "sk-secret-value-123" not in repr(client)
     assert "_client=" not in repr(client)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="unexpected keyword argument '_client'"):
         client_cls(api_key="sk-secret-value-123", _client=object())
 
 
@@ -561,7 +589,7 @@ def test_gemini_client_hides_api_key_and_internal_fields(
     assert "_client=" not in repr(client)
     assert "_types=" not in repr(client)
     assert "_errors=" not in repr(client)
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="unexpected keyword argument '_client'"):
         client_cls(api_key="gm-secret-value-456", _client=object())
 
 

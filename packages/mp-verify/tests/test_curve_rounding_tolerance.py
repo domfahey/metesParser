@@ -5,17 +5,14 @@ from __future__ import annotations
 import math
 
 import pytest
-from mp_models import DeedCall
-from mp_verify import plot
+from mp_models import DeedCall, PlotCall, PlotRequest
 from mp_verify.checks import check_curve_consistency, tangent_chord_issue
+from mp_verify.plot import prepare_plot
 
 
 def _plots(call: DeedCall) -> bool:
-    try:
-        plot._arc(call, (0.0, 0.0), {"call_id": "c", "occurrence_id": None, "page_id": None})
-    except ValueError:
-        return False
-    return True
+    geom = prepare_plot(PlotRequest(title="curve", calls=(PlotCall(id="c", call=call),))).geometry
+    return bool(geom.primitives) and not geom.unresolved
 
 
 def test_delta_rounded_to_second_at_large_radius_passes():
@@ -80,7 +77,8 @@ def test_deflection_off_by_one_degree_fails():
         chord_bearing="N 21°00'00\" E",
         chord_length_ft=17.10,
     )
-    assert tangent_chord_issue(call) is not None
+    issue = tangent_chord_issue(call)
+    assert issue is not None and "inconsistent" in issue
     assert not check_curve_consistency([call])[0]
     assert not _plots(call)
 

@@ -105,7 +105,10 @@ def test_tracts_only_json_preserves_skipped_courses_blocker(tmp_path: Path) -> N
     result = review_file(src, output_dir=tmp_path / "out")
     assert result["status"] == "needs_review"
     assert not (tmp_path / "out" / "calls_verified.csv").exists()
-    assert len(result["verification"]["warnings"]) > 0
+    assert any(
+        "Course 5: skipped malformed course 'garbled course' (UnparsedCourse)" in warning
+        for warning in result["verification"]["warnings"]
+    )
 
 
 def test_tracts_only_json_preserves_tract_stated_area_blocker(tmp_path: Path) -> None:
@@ -456,8 +459,8 @@ def test_review_packet_arc_bounds_and_label_on_rendered_side_of_chord() -> None:
     label_match = re.search(r"<text x='([^']+)' y='([^']+)'[^>]*>#1 ", svg)
     assert label_match is not None
     label_x, label_y = float(label_match.group(1)), float(label_match.group(2))
-    assert label_x == pytest.approx(100.0, abs=1.0)
-    assert label_y == pytest.approx(-100.0, abs=1.0)
+    assert label_x == pytest.approx(100.0, abs=0.01)
+    assert label_y == pytest.approx(-100.0, abs=0.01)
 
 
 def test_review_packet_major_arc_includes_cardinal_extrema_in_viewbox() -> None:
@@ -520,8 +523,8 @@ def test_review_packet_left_hand_arc_bounds_and_label_on_rendered_side() -> None
     label_match = re.search(r"<text x='([^']+)' y='([^']+)'[^>]*>#1 ", svg)
     assert label_match is not None
     label_x, label_y = float(label_match.group(1)), float(label_match.group(2))
-    assert label_x == pytest.approx(-100.0, abs=1.0)
-    assert label_y == pytest.approx(-100.0, abs=1.0)
+    assert label_x == pytest.approx(-100.0, abs=0.01)
+    assert label_y == pytest.approx(-100.0, abs=0.01)
 
 
 def test_tracts_only_json_replay_review_matches_recorded_status(tmp_path: Path) -> None:

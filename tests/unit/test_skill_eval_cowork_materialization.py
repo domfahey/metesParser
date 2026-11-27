@@ -141,7 +141,7 @@ def test_absent_plss_reference_materializes_source_without_invented_dataset(tmp_
 
     candidate, _, manifest = prepared(tmp_path, "plss-no-reference-no-nominal-section")
     assert [a["kind"] for a in manifest["artifacts"]] == ["document-text"]
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"(?s)dataset.*Field required"):
         PLSSDerivationRequest.model_validate(json.loads((candidate / "request.json").read_text()))
 
 

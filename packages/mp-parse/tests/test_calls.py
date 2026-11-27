@@ -15,7 +15,7 @@ class TestExtractCalls:
             "125.00 feet to the POINT OF BEGINNING."
         )
         calls, _ = extract_calls(text)
-        assert len(calls) >= 4
+        assert len(calls) == 4
         assert calls[0].course == 1
 
     def test_course_numbers_sequential(self) -> None:
@@ -41,9 +41,7 @@ class TestExtractCalls:
             "125.00 feet to the POINT OF BEGINNING."
         )
         calls, _ = extract_calls(text)
-        assert calls[0].bearing_quadrant is not None
-        assert "S" in calls[0].bearing_quadrant
-        assert "W" in calls[0].bearing_quadrant
+        assert calls[0].bearing_quadrant == "S 56°40' W"
 
     def test_distance_extracted(self) -> None:
         from mp_parse.calls import extract_calls
@@ -108,8 +106,7 @@ class TestExtractDirection:
 
         # Standard DMS notation matches the QUADRANT_PATTERN
         result = extract_direction("S 56°40' W, 150.00 feet")
-        assert "S" in result
-        assert "W" in result
+        assert result == "S 56°40' W"
 
     def test_cardinal_words_direction(self) -> None:
         from mp_parse.calls import extract_direction
@@ -136,8 +133,7 @@ class TestExtractDirection:
 
         result = extract_direction("N 46.1631° E")
         # Should be converted to standard DMS format
-        assert "N" in result
-        assert "E" in result
+        assert result == "N 46°16'31\" E"
 
 
 class TestExtractCurveInfo:
@@ -167,8 +163,7 @@ class TestExtractCurveInfo:
             "arc length of 174.53 feet, the chord of which bears S 34°57' E"
         )
         info = extract_curve_info(text)
-        assert info.get("chord_bearing") is not None
-        assert "S" in info["chord_bearing"]
+        assert info.get("chord_bearing") == "S 34°57' E"
 
     def test_chord_bearing_phrasing(self) -> None:
         from mp_parse.calls import extract_curve_info

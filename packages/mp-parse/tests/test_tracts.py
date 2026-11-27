@@ -63,18 +63,7 @@ class TestSingleTract:
     def test_simple_single_tract(self):
         text = "THENCE N 45\u00b000' E 100 feet to the POINT OF BEGINNING."
         result = split_into_tracts(text)
-        assert len(result) == 1
-        assert result[0][1] == "Tract 1"
-        assert result[0][2] == TractType.MAIN
-
-    def test_return_type(self):
-        text = "THENCE N 45\u00b000' E 100 feet."
-        result = split_into_tracts(text)
-        assert isinstance(result, list)
-        text_val, label, tract_type = result[0]
-        assert isinstance(text_val, str)
-        assert isinstance(label, str)
-        assert isinstance(tract_type, TractType)
+        assert result == [(text, "Tract 1", TractType.MAIN)]
 
 
 class TestSplitOnMarkersExceptDetection:
@@ -136,10 +125,9 @@ class TestExtractCallsMultiTract:
             "THENCE South 10 degrees 00 minutes 00 seconds West, a distance of 50.00 feet"
         )
         calls, tracts = extract_calls(text)
-        assert len(tracts) >= 2
+        assert len(tracts) == 2
         types = [t.tract_type for t in tracts]
-        assert TractType.MAIN in types
-        assert TractType.EXCEPTION in types
+        assert types == [TractType.MAIN, TractType.EXCEPTION]
 
     def test_exception_calls_marked(self):
         """Exception tract calls should have is_exception=True."""
@@ -150,10 +138,10 @@ class TestExtractCallsMultiTract:
         )
         calls, tracts = extract_calls(text)
         exception_tracts = [t for t in tracts if t.tract_type == TractType.EXCEPTION]
-        assert len(exception_tracts) >= 1
-        for exc_tract in exception_tracts:
-            for call in exc_tract.calls:
-                assert call.is_exception is True
+        assert len(exception_tracts) == 1
+        assert exception_tracts[0].label == "Exception 1"
+        assert len(exception_tracts[0].calls) == 1
+        assert exception_tracts[0].calls[0].is_exception is True
 
 
 class TestNeighbourReferencesAreNotMarkers:

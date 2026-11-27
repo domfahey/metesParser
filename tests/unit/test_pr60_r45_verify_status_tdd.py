@@ -104,7 +104,7 @@ def test_curved_boundary_with_missing_bearing_is_blocked_not_not_applicable(impl
     angles = _check(result, "interior_angles")
     assert angles.status == "blocked"
     assert angles.reason == "missing_bearings"
-    assert "3" in angles.detail
+    assert angles.detail == "Required bearings missing for courses 3"
     assert not result.is_fully_verified()
 
 

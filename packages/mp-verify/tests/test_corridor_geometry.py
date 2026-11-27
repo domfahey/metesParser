@@ -108,7 +108,10 @@ def test_straight_asymmetric_strip_retains_full_canonical_definition():
 )
 def test_cap_construction_has_declared_effect_for_asymmetric_widths(cap, expected):
     result = analyze_corridor(request(cap=cap, error=0.0005))
-    assert area(result) == pytest.approx(expected, abs=0.1)
+    # Butt and square caps are exact straight polygons; round caps are chord-discretized
+    # along two semicircles of radius 15 ft, bounding area error by arc_length * total_bound.
+    area_tol = 2 * math.pi * 15 * result.error.total_bound if cap == "round" else 1e-9
+    assert area(result) == pytest.approx(expected, abs=area_tol)
     if cap == "square":
         assert min(p[0] for p in result.polygon) == pytest.approx(-15)
         assert max(p[0] for p in result.polygon) == pytest.approx(115)
@@ -135,7 +138,10 @@ def test_straight_taper_uses_endpoint_widths_without_per_course_average_geometry
 def test_circular_offsets_have_independently_computed_annular_sector_area():
     result = analyze_corridor(request([arc()], error=0.0005))
     expected = math.pi / 4 * (120**2 - 90**2)
-    assert area(result) == pytest.approx(expected, abs=0.2)
+    # Chord-discretized outer (R=120) and inner (R=90) quarter-circle arcs bound area
+    # error by curved_arc_length * total_bound.
+    area_tol = (math.pi / 2 * (120 + 90)) * result.error.total_bound
+    assert area(result) == pytest.approx(expected, abs=area_tol)
     assert result.error.linearization_bound > 0
     assert result.error.method == "second_derivative_chord_bound"
 
@@ -145,7 +151,9 @@ def test_curved_taper_has_declared_pointwise_error_bound():
     result = analyze_corridor(req)
     # Polar integration: 1/2 integral[(R+L)^2-(R-Rwidth)^2] dtheta.
     expected = math.pi / 4 * (2 * 100 * 30 + (10**2 + 10 * 30 + 30**2 - 5**2 - 5 * 15 - 15**2) / 3)
-    assert area(result) == pytest.approx(expected, abs=0.8)
+    # Pointwise chord deviation <= total_bound bounds polygon area error by perimeter * total_bound.
+    area_tol = result.boundary.geometry.perimeter_ft * result.error.total_bound
+    assert area(result) == pytest.approx(expected, abs=area_tol)
     assert result.error.total_bound <= 0.002
 
     # Distance of independent exact midpoint offsets to the output boundary.
@@ -176,7 +184,10 @@ def test_straight_corner_joins_trim_inside_without_self_intersection(join):
     )
     result = analyze_corridor(req)
     expected = 4000 if join == "miter" else 3950 if join == "bevel" else 3900 + math.pi * 25
-    assert area(result) == pytest.approx(expected, abs=0.1)
+    # Miter and bevel joins are exact straight polygons; round join discretizes a quarter-circle
+    # of radius 10 ft, bounding area error by (pi/2 * 10) * total_bound.
+    area_tol = (math.pi * 5) * result.error.total_bound if join == "round" else 1e-9
+    assert area(result) == pytest.approx(expected, abs=area_tol)
 
 
 @pytest.mark.parametrize("kind", ["missing", "overlap", "out_of_order", "zero_interval"])
@@ -330,4 +341,6 @@ def test_floating_point_end_fraction_on_arc_is_clamped_not_unsupported():
     )
     result = analyze_corridor(req)
     assert result.availability == "supported", result.limitations
-    assert result.boundary.geometry.area_sq_ft > 0
+    expected = 3000 + math.pi / 4 * (120**2 - 90**2)
+    area_tol = result.boundary.geometry.perimeter_ft * result.error.total_bound
+    assert result.boundary.geometry.area_sq_ft == pytest.approx(expected, abs=area_tol)

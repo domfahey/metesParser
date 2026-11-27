@@ -87,7 +87,10 @@ class TestPreamblePointOfBeginningIsNotAClosure:
         assert tracts[1].calls == []
         assert len(tracts[1].skipped_courses) == 1
         assert skipped == tracts[1].skipped_courses
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match="Malformed course 1: 'North along said line': Missing boundary course distance",
+        ):
             extract_calls(text)
 
     def test_gap_without_courses_is_not_a_tract(self):

@@ -96,7 +96,7 @@ def test_packed_dms_retains_minutes_and_seconds(
     ids=["package", "monolith"],
 )
 def test_invalid_packed_dms_is_rejected(extract_direction) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=r"Invalid packed DMS: seconds=60 \(must be 0-59\)"):
         extract_direction("THENCE N 12.5960° E 100 feet")
 
 

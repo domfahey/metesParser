@@ -181,3 +181,124 @@ def test_local_review_fallback_must_match_manifest(staged, tmp_path, filename, d
     result = mapbox_mcp_file(staged, output)
     assert result["status"] == "error"
     assert not output.exists()
+
+
+def test_mapbox_mcp_rejects_symlinks_bad_manifest_source_kind_and_tampered_standalone_raster(
+    staged, tmp_path
+):
+    from mp_review.mapbox_mcp import mapbox_mcp_file
+
+    # Missing source dir & symlink source dir
+    assert mapbox_mcp_file(tmp_path / "missing", tmp_path / "o1")["status"] == "error"
+    link_src = tmp_path / "link-src"
+    link_src.symlink_to(staged, target_is_directory=True)
+    assert mapbox_mcp_file(link_src, tmp_path / "o2")["status"] == "error"
+
+    # Existing output dir / symlink output dir
+    existing_out = tmp_path / "exists"
+    existing_out.mkdir()
+    assert mapbox_mcp_file(staged, existing_out)["status"] == "error"
+
+    # Missing stage JSON & symlink stage JSON -> _read_stage guard
+    (staged / "web-map-request.json").unlink()
+    assert mapbox_mcp_file(staged, tmp_path / "o3")["status"] == "error"
+
+    # Invalid manifest schema_version & unsupported source_kind
+    manifest_dir = tmp_path / "bad-manifest"
+    import shutil
+
+    shutil.copytree(staged, manifest_dir)
+    # Restore web-map-request.json in manifest_dir? Need fresh copy before deleting; let's rebuild from manifest
+    m_path = manifest_dir / "web-map-manifest.json"
+    # Actually staged had web-map-request.json unlinked above; let's recreate a tiny minimal valid set
+    (manifest_dir / "web-map-request.json").write_text('{"scene_id":"grid"}')
+    manifest = json.loads(m_path.read_text())
+    manifest["schema_version"] = "2.0"
+    m_path.write_text(json.dumps(manifest))
+    assert mapbox_mcp_file(manifest_dir, tmp_path / "o4")["status"] == "error"
+
+    manifest["schema_version"] = "1.0"
+    manifest["source_kind"] = "unknown_kind"
+    m_path.write_text(json.dumps(manifest))
+    assert mapbox_mcp_file(manifest_dir, tmp_path / "o5")["status"] == "error"
+
+    # Standalone missing source-map.json -> _read_stage_bytes guard
+    manifest["source_kind"] = "standalone"
+    m_path.write_text(json.dumps(manifest))
+    assert mapbox_mcp_file(manifest_dir, tmp_path / "o6")["status"] == "error"
+
+
+def test_mapbox_mcp_rejects_standalone_raster_bytes_mismatch(tmp_path):
+    pytest.importorskip("rasterio")
+    pytest.importorskip("pyproj")
+    Image = pytest.importorskip("PIL.Image")
+
+    from io import BytesIO
+
+    from mp_models.plot import PlotScene
+    from mp_models.raster import RasterControl
+    from mp_models.webmap import WebMapRequest
+    from mp_review.compose import compose_map_file
+    from mp_review.mapbox_mcp import mapbox_mcp_file
+    from mp_review.online_map import render_map_file
+    from mp_review.plot import plot_file
+    from mp_review.raster_registration import fit_affine, image_layer
+
+    calls_file = tmp_path / "calls.json"
+    calls_file.write_text(
+        json.dumps(
+            [
+                {
+                    "course": 1,
+                    "direction_text": "N 0 E",
+                    "bearing_azimuth_deg_from_north": 0,
+                    "distance_ft": 100,
+                }
+            ]
+        )
+    )
+    plot_dir = tmp_path / "plot"
+    assert plot_file(calls_file, plot_dir, input_format="calls")["status"] == "needs_review"
+
+    buf = BytesIO()
+    Image.new("RGB", (8, 8), "white").save(buf, format="PNG")
+    scene = PlotScene(id="grid", name="G", kind="projected", crs="EPSG:3857", units="m")
+    controls = (
+        RasterControl(id="a", pixel=(0, 0), scene=(0, 0)),
+        RasterControl(id="b", pixel=(8, 0), scene=(80, 0)),
+        RasterControl(id="c", pixel=(0, 8), scene=(0, 80)),
+    )
+    rlayer, rsource = image_layer(
+        buf.getvalue(), scene=scene, registration=fit_affine(controls), filename="scan.png"
+    )
+    layer_file = tmp_path / "layer.json"
+    layer_file.write_text(
+        json.dumps(
+            {
+                "scenes": [scene.model_dump(mode="json")],
+                "map_sources": [rsource.model_dump(mode="json")],
+                "raster_layers": [rlayer.model_dump(mode="json")],
+            }
+        )
+    )
+    composed = tmp_path / "composed"
+    assert compose_map_file(plot_dir, composed, layers=[layer_file])["status"] == "needs_review"
+    rendered = tmp_path / "rendered"
+    render_res = render_map_file(
+        composed / "map-input.json", rendered, online_map=WebMapRequest(scene_id="grid")
+    )
+    assert render_res["status"] == "needs_review", render_res
+
+    # Tamper the raster asset and update web-map-manifest files digest so file digest checks pass
+    # while artifact.rasters[0].sha256 disagrees.
+    wm = json.loads((rendered / "web-map.json").read_text())
+    assert wm["rasters"], "expected rendered standalone web-map to include the registered raster"
+    rpath = wm["rasters"][0]["path"]
+    tampered = b"not-the-original-png-bytes"
+    (rendered / rpath).write_bytes(tampered)
+    manifest = json.loads((rendered / "web-map-manifest.json").read_text())
+    manifest["files"][rpath] = hashlib.sha256(tampered).hexdigest()
+    (rendered / "web-map-manifest.json").write_text(json.dumps(manifest))
+    res = mapbox_mcp_file(rendered, tmp_path / "handoff-bad-raster")
+    assert res["status"] == "error"
+    assert res["errors"][0]["code"] == "invalid_mapbox_mcp_input"

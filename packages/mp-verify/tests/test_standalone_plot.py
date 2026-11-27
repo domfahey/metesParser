@@ -88,7 +88,7 @@ def test_supported_arc_is_not_replaced_by_chord():
 
 
 def test_prepare_freshly_validates_model_copy():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="at least 1 item"):
         prepare_plot(rectangle().model_copy(update={"calls": ()}))
 
 

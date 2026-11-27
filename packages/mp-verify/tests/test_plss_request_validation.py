@@ -76,7 +76,7 @@ def test_copied_duplicate_section_model_cannot_bypass_reference_identity_gate():
 
 def test_copied_invalid_derivation_rule_is_a_schema_error():
     changed = request().model_copy(update={"rule": "unpublished-legal-survey-rule"})
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Input should be 'rectangular_aliquot_v1'"):
         derive_plss(changed)
 
 

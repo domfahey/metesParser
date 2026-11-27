@@ -33,6 +33,7 @@ def test_baseline_matches_standalone_request_and_retains_source_identity():
     assert source.source_sha256 is None
     assert source.quote == bundle.calls[0].quote
     assert prepared.manifest.diagnostics_output_hash is not None
+    assert len(prepared.manifest.diagnostics_output_hash) == 64
 
 
 @pytest.mark.parametrize("kind", ["relative", "unknown"])

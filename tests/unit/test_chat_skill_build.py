@@ -324,6 +324,11 @@ def test_files_named_by_linked_json_records_count_as_linked(builder):
         "references/bundle/payload.txt": b"x",
     }
     builder._validate(files)
+    files["references/bundle/unreferenced.txt"] = b"y"
+    with pytest.raises(
+        ValueError, match="not linked from SKILL.md: references/bundle/unreferenced.txt"
+    ):
+        builder._validate(files)
 
 
 def test_real_archive_ships_only_linked_navigation_files(real, tmp_path):

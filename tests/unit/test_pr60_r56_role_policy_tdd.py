@@ -522,7 +522,9 @@ def test_stored_tract_without_role_basis_loads_as_unrecorded() -> None:
         {"calls": [], "tracts": [payload, {**payload, "label": "Tract 2"}]}
     )
     assert len(roles_need_review(stored.tracts)) == 2
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match=r"(?s)role_basis.*Input should be 'heading', 'single' or 'inferred'"
+    ):
         Tract.model_validate({**payload, "role_basis": "guessed"})
 
 

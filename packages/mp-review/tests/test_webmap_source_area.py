@@ -49,8 +49,9 @@ def test_utm_18n_far_zone_is_outside():
     projection = build_web_map_projection(scene("EPSG:32618", "m"), extent=around(32618, NJ))
     assert projection.covers(around(32618, NJ))
     assert not projection.covers(around(32618, LA))
-    with pytest.raises(WebMapUnavailable):
+    with pytest.raises(WebMapUnavailable, match="No coordinate operation covers") as caught:
         build_web_map_projection(scene("EPSG:32618", "m"), extent=around(32618, LA))
+    assert caught.value.code == "operation_unavailable"
 
 
 def test_missing_source_area_falls_back_to_operation_area():

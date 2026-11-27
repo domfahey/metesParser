@@ -122,12 +122,19 @@ def test_saved_revision_corridor_reloads_plots_and_exports_exact_construction(tm
     assert (tmp_path / "exports" / request.id / "drawing.pdf").is_file()
 
 
-@pytest.mark.parametrize("field", ["manifest_sha256", "input_sha256", "geometry_sha256"])
-def test_revision_corridor_delivery_rejects_changed_binding_hash(tmp_path, field):
+@pytest.mark.parametrize(
+    ("field", "expected_error"),
+    [
+        ("manifest_sha256", "Revision corridor manifest differs from explicit binding"),
+        ("input_sha256", "Revision corridor input/geometry hash differs from explicit binding"),
+        ("geometry_sha256", "Revision corridor input/geometry hash differs from explicit binding"),
+    ],
+)
+def test_revision_corridor_delivery_rejects_changed_binding_hash(tmp_path, field, expected_error):
     bundle, revision_dir, request, _, _ = _saved_revision(tmp_path)
     data = request.model_dump(mode="json")
     data["source_bindings"][0][field] = "0" * 64
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_error):
         prepare_delivery(bundle, revision_dir, DeliveryRequest.model_validate(data))
 
 

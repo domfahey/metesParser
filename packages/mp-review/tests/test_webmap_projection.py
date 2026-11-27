@@ -66,7 +66,7 @@ def test_metadata_is_immutable_and_records_database_identity():
     assert dict(projection.versions)["pyproj"] == pyproj.__version__
     assert len(dict(projection.versions)["proj_database_sha256"]) == 64
     assert not pyproj.network.is_network_enabled()
-    with pytest.raises(FrozenInstanceError):
+    with pytest.raises(FrozenInstanceError, match="cannot assign"):
         projection.pipeline = "changed"
 
 
@@ -245,3 +245,81 @@ def test_geographic_transformer_is_built_once_per_projection(monkeypatch):
         assert projection.covers(extent) is True
         assert projection.covers((1600000.0, 5400000.0, 1600100.0, 5400100.0)) is True
     assert len(constructed) == 1
+
+
+def test_projection_domain_axis_extent_and_unserializable_operation_errors(monkeypatch):
+    import pyproj
+    import pyproj.transformer
+    from mp_review.webmap_projection import (
+        WebMapProjection,
+        _covers,
+        _geographic_bounds,
+    )
+
+    # 1. from_mercator: _geographic raises and out-of-range lon/lat both raise projection_domain
+    exploding = WebMapProjection(
+        source_crs_wkt="",
+        pipeline="",
+        accuracy=None,
+        versions=(),
+        _forward=lambda x, y: (x, y),
+        _geographic=lambda x, y: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    with pytest.raises(WebMapUnavailable) as exc:
+        exploding.from_mercator((0.0, 0.0))
+    assert exc.value.code == "projection_domain"
+
+    out_of_range = WebMapProjection(
+        source_crs_wkt="",
+        pipeline="",
+        accuracy=None,
+        versions=(),
+        _forward=lambda x, y: (x, y),
+        _geographic=lambda x, y: (181.0, 0.0),
+    )
+    with pytest.raises(WebMapUnavailable) as exc:
+        out_of_range.from_mercator((0.0, 0.0))
+    assert exc.value.code == "projection_domain"
+
+    # 2. _geographic_bounds rejects non-finite extent and >180 deg span
+    to_geo = pyproj.Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
+    with pytest.raises(ValueError, match="not finite"):
+        _geographic_bounds(to_geo, (float("nan"), 0.0, 1.0, 1.0))
+    with pytest.raises(ValueError, match="unsupported longitude range"):
+        _geographic_bounds(to_geo, (-LIMIT * 0.9, 0.0, LIMIT * 0.9, 1000.0))
+
+    # 3. _covers(None, ...) returns False
+    assert _covers(None, (0.0, 0.0, 1.0, 1.0)) is False
+
+    # 4. Invalid local scene triggers invalid_scene (not missing_georeference)
+    bad_local = PlotScene.model_construct(
+        id="l", name="L", kind="local", crs="EPSG:3857", units="m", basis="local"
+    )
+    with pytest.raises(WebMapUnavailable) as exc:
+        build_web_map_projection(bad_local)
+    assert exc.value.code == "invalid_scene"
+
+    # 5. Projected CRS with unsupported axis directions (west, south) fails closed as invalid_scene
+    with pytest.raises(WebMapUnavailable) as exc:
+        build_web_map_projection(scene("EPSG:2054", "m"))
+    assert exc.value.code == "invalid_scene"
+
+    # 6. Nonfinite extent passed to build_web_map_projection raises projection_domain
+    with pytest.raises(WebMapUnavailable) as exc:
+        build_web_map_projection(scene(), extent=(float("nan"), 0.0, 10.0, 10.0))
+    assert exc.value.code == "projection_domain"
+
+    # 7. projection.covers() handles invalid extent by returning False
+    proj = build_web_map_projection(scene(), extent=(0.0, 0.0, 100.0, 100.0))
+    assert proj.covers((float("nan"), 0.0, 10.0, 10.0)) is False
+
+    # 8. Unserializable operation definition -> operation_unavailable
+    fake_t = SimpleNamespace(definition="unavailable", accuracy=0.0, area_of_use=None)
+    monkeypatch.setattr(
+        pyproj.transformer,
+        "TransformerGroup",
+        lambda *a, **k: SimpleNamespace(best_available=True, transformers=[fake_t]),
+    )
+    with pytest.raises(WebMapUnavailable) as exc:
+        build_web_map_projection(scene())
+    assert exc.value.code == "operation_unavailable"

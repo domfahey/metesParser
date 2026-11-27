@@ -186,7 +186,7 @@ CASES = [
     ),
     # --- radius role / radial clauses ------------------------------------------
     # No radius is stated, so the curve is not computable (never radius = 87.27).
-    ("repro3-radial-distance-of-no-radius", REPRO3, RAISES),
+    ("repro3-radial-distance-of-no-radius", REPRO3, (RAISES, "Curve geometry requires radius_ft")),
     (
         "repro3-radial-distance-of-stated-radius",
         "thence along a curve to the left having a radius of 500.00 feet, the radius point "
@@ -249,7 +249,11 @@ CASES = [
             "notes": [COMPUTED, "curve length ambiguous: 87.27 feet, 90.00 feet"],
         },
     ),
-    ("ambiguous-without-radius-delta", P + ", 87.27 feet, 90.00 feet" + TO, RAISES),
+    (
+        "ambiguous-without-radius-delta",
+        P + ", 87.27 feet, 90.00 feet" + TO,
+        (RAISES, "Missing boundary course distance"),
+    ),
     # --- spiral (5d3711f) ------------------------------------------------------
     (
         "spiral-without-length",
@@ -268,8 +272,8 @@ def _approx(value):
 @pytest.mark.parametrize(("text", "expected"), [c[1:] for c in CASES], ids=[c[0] for c in CASES])
 def test_curve_length_roles(entry, text, expected):
     parse = ENTRY_POINTS[entry]
-    if expected == RAISES:
-        with pytest.raises(ValueError):
+    if isinstance(expected, tuple) and expected[0] == RAISES:
+        with pytest.raises(ValueError, match=expected[1]):
             parse(text)
         return
     call = parse(text)

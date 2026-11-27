@@ -141,7 +141,7 @@ class TestLoadGroundTruth:
 
     def test_raises_on_missing_file(self) -> None:
         """Raise FileNotFoundError for nonexistent path."""
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(FileNotFoundError, match="Ground truth file not found"):
             load_ground_truth(Path("/nonexistent/file.json"))
 
     def test_raises_on_invalid_json(self, tmp_path: Path) -> None:
@@ -263,15 +263,15 @@ class TestBuildCallTable:
     def test_displays_course_number(self) -> None:
         """Each row shows the course number."""
         html = build_call_table(SIMPLE_GT)
-        assert ">1<" in html
-        assert ">2<" in html
+        assert "<td>1</td>" in html
+        assert "<td>2</td>" in html
 
     def test_displays_bearing_and_distance(self) -> None:
         """Each row shows direction text and distance."""
         html = build_call_table(SIMPLE_GT)
-        assert "S 33" in html
-        assert "60.0" in html
-        assert "125.0" in html
+        assert "<td>S 33°20&#x27;00&quot; E</td>" in html
+        assert "<td>60.0</td>" in html
+        assert "<td>125.0</td>" in html
 
     def test_displays_along_and_to(self) -> None:
         """Each row shows along and to fields."""
@@ -324,35 +324,34 @@ class TestBuildClosureSection:
     def test_displays_misclosure(self) -> None:
         """Output includes misclosure value."""
         html = build_closure_section(SIMPLE_GT)
-        assert "0.0" in html
+        assert "<tr><th>Misclosure (ft)</th><td>0.0</td>" in html
 
     def test_displays_area(self) -> None:
         """Output includes area in sq ft and acres."""
         html = build_closure_section(SIMPLE_GT)
-        assert "7500.0" in html or "7,500" in html
-        assert "0.172" in html
+        assert "<tr><th>Area (sq ft)</th><td>7500.0</td>" in html
+        assert "<tr><th>Area (acres)</th><td>0.172</td>" in html
 
     def test_displays_perimeter(self) -> None:
         """Output includes perimeter."""
         html = build_closure_section(SIMPLE_GT)
-        assert "370.0" in html
+        assert "<tr><th>Perimeter (ft)</th><td>370.0</td>" in html
 
     def test_displays_pass_status(self) -> None:
         """Output shows PASS for successful closure."""
         html = build_closure_section(SIMPLE_GT)
-        assert "PASS" in html
+        assert "<td class='pass'><strong>PASS</strong></td>" in html
 
     def test_displays_fail_status(self) -> None:
         """Output shows FAIL for unsuccessful closure."""
         html = build_closure_section(CARDINAL_ONLY_GT)
-        assert "FAIL" in html
+        assert "<td class='fail'><strong>FAIL</strong></td>" in html
 
     def test_handles_null_misclosure(self) -> None:
-        """Handles null misclosure (cardinal-only deed) gracefully."""
+        """Handles null misclosure (cardinal-only deed) by rendering N/A."""
         html = build_closure_section(CARDINAL_ONLY_GT)
-        # Should not crash and should show something meaningful
         assert "None" not in html
-        assert "closure" in html.lower() or "Closure" in html
+        assert "<tr><th>Misclosure (ft)</th><td>N/A</td>" in html
 
     def test_displays_critical_assertions(self) -> None:
         """Shows critical assertions when present in GT."""
@@ -379,8 +378,8 @@ class TestBuildClosureSection:
             },
         }
         html = build_closure_section(gt_scalar)
-        assert "total_calls" in html
-        assert "4" in html
+        assert "<tr><td>total_calls</td><td>4</td><td></td></tr>" in html
+        assert "<tr><td>has_curves</td><td>False</td><td></td></tr>" in html
 
     def test_includes_reviewer_fields(self) -> None:
         """Closure section has Correct? and Notes fields for reviewer."""
@@ -409,13 +408,17 @@ class TestBuildTextComparison:
     def test_handles_null_normalized_text(self) -> None:
         """Works when expected_normalized_text is None."""
         html = build_text_comparison(CARDINAL_ONLY_GT)
-        assert "N/A" in html or "Not available" in html
+        assert "<p class='na'>N/A</p>" in html
 
     def test_handles_null_poc(self) -> None:
         """Works when expected_poc is absent."""
         html = build_text_comparison(SIMPLE_GT)
         # Should not crash, SIMPLE_GT has no expected_poc key
-        assert "<div" in html
+        assert "Point of Commencement:" not in html
+        assert (
+            "<p><strong>Point of Beginning:</strong> a point at the southwesterly corner</p>"
+            in html
+        )
 
     def test_displays_poc_when_present(self) -> None:
         """Shows POC when the GT has one."""
@@ -476,14 +479,17 @@ class TestGenerateTraversePlot:
         assert "</svg>" in svg
 
     def test_contains_course_labels(self) -> None:
-        """SVG contains course number labels."""
+        """SVG contains course number and distance labels for every course."""
         svg = generate_traverse_plot(RECTANGLE_GT)
-        assert "#1" in svg or "C1" in svg or ">1<" in svg
+        for label in ("#1 60.0'", "#2 125.0'", "#3 60.0'", "#4 125.0'"):
+            assert f">{label}</text>" in svg
 
     def test_returns_message_for_cardinal_only(self) -> None:
-        """Returns a 'cannot plot' message when all bearings are cardinal-only."""
+        """Returns an incomplete-plot message when all bearings are cardinal-only."""
         result = generate_traverse_plot(CARDINAL_ONLY_GT)
-        assert "cannot" in result.lower() or "no plottable" in result.lower()
+        assert "<svg" not in result
+        assert "Incomplete traverse plot (cannot generate plot)" in result
+        assert "course(s) 1." in result
 
     def test_incomplete_middle_course_does_not_join_across_gap(self) -> None:
         """An unknown boundary call makes the traverse plot incomplete."""
@@ -498,9 +504,10 @@ class TestGenerateTraversePlot:
 
         result = generate_traverse_plot(gt)
 
-        assert "incomplete" in result.lower()
-        assert "2" in result
-        assert "<svg" not in result
+        assert result == (
+            "<p class='na'>Incomplete traverse plot (cannot generate plot): "
+            "missing or invalid geometry for course(s) 2.</p>"
+        )
 
     @pytest.mark.parametrize("distance", [None, -1, float("inf")])
     def test_invalid_distance_is_reported_as_incomplete(self, distance: float | None) -> None:
@@ -514,9 +521,10 @@ class TestGenerateTraversePlot:
 
         result = generate_traverse_plot(gt)
 
-        assert "incomplete" in result.lower()
-        assert "7" in result
-        assert "<svg" not in result
+        assert result == (
+            "<p class='na'>Incomplete traverse plot (cannot generate plot): "
+            "missing or invalid geometry for course(s) 7.</p>"
+        )
 
     def test_open_traverse_path_is_not_implicitly_closed(self) -> None:
         """A fully specified open traverse remains an open, unfilled path."""
@@ -547,17 +555,19 @@ class TestGenerateTraversePlot:
         """Returns graceful message for empty call list."""
         gt_empty = {**SIMPLE_GT, "expected_calls": []}
         result = generate_traverse_plot(gt_empty)
-        assert "no" in result.lower()
+        assert "<svg" not in result
+        assert "No plottable calls (cannot generate traverse plot)." in result
 
     def test_svg_has_viewbox(self) -> None:
         """SVG has a viewBox attribute for proper scaling."""
         svg = generate_traverse_plot(RECTANGLE_GT)
-        assert "viewBox" in svg
+        assert "viewBox='" in svg
 
     def test_contains_north_arrow(self) -> None:
-        """SVG contains a north arrow indicator."""
+        """SVG contains a north arrow indicator and arrowhead marker."""
         svg = generate_traverse_plot(RECTANGLE_GT)
-        assert "N" in svg  # North label
+        assert ">N</text>" in svg
+        assert "marker-end='url(#arrowhead)'" in svg
 
     def test_escapes_html_in_svg_labels(self) -> None:
         """Course labels in SVG are HTML-escaped to prevent XSS."""

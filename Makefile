@@ -16,6 +16,10 @@ chat-skill-build: ## Build the standalone Claude chat Skill ZIP and checksum.
 	$(UV_RUN) python scripts/build_claude_skill.py
 PY_SRC := src/metesparser
 PY_TESTS := tests
+PKG_COV_MODULES := $(sort $(notdir $(patsubst %/__init__.py,%,$(wildcard packages/*/src/*/__init__.py))))
+PKG_COV_ARGS := $(addprefix --cov=,$(PKG_COV_MODULES))
+PKG_COV_EXTRAS ?= --extra dev --extra delivery --extra geo --extra web-map --extra gemini
+PKG_COV_FLOOR ?= 95
 
 # Cache/tooling behavior.
 UV_CACHE_DIR ?= $(CURDIR)/.uv-cache
@@ -35,7 +39,8 @@ DOCTOR_REQUIRE_CONNECTIVITY ?= 0
 .DEFAULT_GOAL := help
 
 # Targets that are not real files.
-.PHONY: all help install install-minimal install-dev install-offline check-tools lockfile-check quality ci distclean test-fast lint lint-fix format format-check check test test-packages test-plugin test-cov clean run-extract run-verify dev-setup pre-commit doctor type review-corpus plugin-build chat-skill-build
+.PHONY: all help install install-minimal install-dev install-offline check-tools lockfile-check quality ci distclean test-fast lint lint-fix format format-check check test test-packages test-packages-cov test-plugin test-cov clean run-extract run-verify dev-setup pre-commit doctor type review-corpus plugin-build chat-skill-build
+.NOTPARALLEL:
 
 all: help
 
@@ -64,8 +69,9 @@ help: ## Show available development commands and their usage.
 	@echo ""
 	@echo "Testing:"
 	@echo "  make test          Run pytest test suite"
-	@echo "  make test-packages Run composable package test suites"
-	@echo "  make test-plugin   Run Claude plugin test suite"
+	@echo "  make test-packages     Run composable package test suites"
+	@echo "  make test-packages-cov Run composable package tests with coverage report"
+	@echo "  make test-plugin       Run Claude plugin test suite"
 	@echo "  make test-fast     Run tests with fail-fast behavior"
 	@echo "  make test-cov      Run tests with coverage report"
 	@echo "  make review-corpus Run reviewed deterministic pipeline fixtures without OCR"
@@ -215,11 +221,7 @@ doctor: check-tools lockfile-check ## Validate environment and dependency health
 lockfile-check: ## Ensure uv.lock is present and in sync with pyproject.toml.
 	@echo "Checking uv.lock freshness..."
 	@[ -f uv.lock ] || { echo "ERROR: uv.lock not found"; exit 1; }
-	@if [ pyproject.toml -nt uv.lock ]; then \
-		echo "ERROR: pyproject.toml was modified after uv.lock"; \
-		echo "Run 'uv lock' to refresh dependency resolution metadata."; \
-		exit 1; \
-	fi
+	@$(UV) lock --check || { echo "ERROR: uv.lock is out of sync with pyproject.toml; run 'uv lock' to refresh."; exit 1; }
 	@echo "✓ uv.lock present and up to date"
 
 lint: ## Run static analysis with Ruff.
@@ -260,8 +262,20 @@ test: ## Run full test suite.
 
 test-packages: ## Run composable package test suites.
 	@echo "Running package test suites..."
-	$(UV_RUN) pytest packages/mp-*/tests --no-cov --import-mode=importlib
+	$(UV_RUN) pytest packages/*/tests --no-cov --import-mode=importlib
 	@echo "✓ Package tests complete"
+
+test-packages-cov: ## Run composable package tests with per-package and aggregate coverage floors.
+	@echo "Running package test suites with coverage..."
+	@command -v node >/dev/null 2>&1 || { echo "ERROR: node is required for mp-export JS parity tests in test-packages-cov."; exit 1; }
+	@test -n "$(strip $(PKG_COV_MODULES))" || { echo "ERROR: PKG_COV_MODULES expanded empty; run from repository root."; exit 1; }
+	@for pkg in packages/*/pyproject.toml; do d=$${pkg%/pyproject.toml}; ls "$$d"/src/*/__init__.py >/dev/null 2>&1 || { echo "ERROR: $$d has no src/<module>/__init__.py for coverage discovery."; exit 1; }; done
+	@test -n "$(strip $(PKG_COV_FLOOR))" || { echo "ERROR: PKG_COV_FLOOR must be set."; exit 1; }
+	@mkdir -p htmlcov/packages
+	@rm -f htmlcov/packages/packages.coverage htmlcov/packages/packages.coverage.* htmlcov/packages/coverage.json
+	COVERAGE_FILE=htmlcov/packages/packages.coverage $(UV_RUN) $(PKG_COV_EXTRAS) pytest -o addopts="-v --strict-markers" packages/*/tests --import-mode=importlib $(PKG_COV_ARGS) --cov-report=html:htmlcov/packages --cov-report=term-missing --cov-report=json:htmlcov/packages/coverage.json --cov-fail-under="$(PKG_COV_FLOOR)"
+	@UV_NO_SYNC=1 $(UV_RUN) python -c 'import json, pathlib, re, sys; from coverage.results import display_covered, should_fail_under; data = json.loads(pathlib.Path("htmlcov/packages/coverage.json").read_text(encoding="utf-8")); floor = float(sys.argv[1]); mods = sys.argv[2:]; mod_set = set(mods); totals = {m: [0, 0] for m in mods}; unmatched = []; rx_sp = re.compile(r"(?:^|/)site-packages/([^/]+)/"); rx_pkg = re.compile(r"(?:^|/)packages/[^/]+/src/([^/]+)/"); resolve = lambda raw: (m1[-1] if (m1 := rx_sp.findall(raw)) else (m2[-1] if (m2 := rx_pkg.findall(raw)) else raw.split("/", 1)[0])); [totals.__setitem__(m, [totals[m][0] + info["summary"]["covered_lines"], totals[m][1] + info["summary"]["num_statements"]]) if (m := resolve(f.replace("\\", "/"))) in mod_set else unmatched.append((f, m)) for f, info in data["files"].items()]; unmatched and sys.exit(f"FAIL: coverage files did not map to a workspace package: {unmatched}"); failed = []; [print(f"  {m:12s} {c}/{t} ({display_covered(pct, 2)}%)") or ((not t or should_fail_under(pct, floor, 2)) and failed.append((m, c, t))) for m, (c, t) in totals.items() for pct in [100.0 * c / t if t else 0.0]]; sys.exit(f"FAIL: per-package coverage below {floor:.2f}%: {failed}") if failed else print(f"OK: all {len(mods)} workspace packages met >= {floor:.2f}% floor")' "$(PKG_COV_FLOOR)" $(PKG_COV_MODULES)
+	@echo "✓ Package coverage report generated in htmlcov/packages/"
 
 test-plugin: ## Run Claude plugin test suite.
 	@echo "Running plugin test suite..."
@@ -289,10 +303,12 @@ test-mapbox-live: ## Explicit provider acceptance; requires a runtime public tok
 
 test-cov: ## Run tests with HTML and terminal coverage reports.
 	@echo "Running tests with coverage..."
-	$(UV_RUN) pytest --cov=$(PY_SRC) --cov-report=html --cov-report=term-missing
+	@mkdir -p htmlcov
+	@rm -f htmlcov/root.coverage htmlcov/root.coverage.*
+	COVERAGE_FILE=htmlcov/root.coverage $(UV_RUN) pytest
 	@echo "✓ Coverage report generated in htmlcov/"
 
-ci: check-tools install quality test-cov ## CI-oriented end-to-end validation lane.
+ci: check-tools install quality test-cov test-packages-cov ## CI-oriented end-to-end validation lane.
 	@echo "✓ CI checks complete"
 
 clean: ## Remove generated artifacts and caches.
@@ -305,7 +321,7 @@ clean: ## Remove generated artifacts and caches.
 	rm -rf .ruff_cache/
 	rm -rf .mypy_cache/
 	rm -rf htmlcov/
-	rm -rf .coverage
+	rm -rf .coverage .coverage.*
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pyo" -delete

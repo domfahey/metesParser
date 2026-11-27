@@ -40,7 +40,8 @@ def test_compute_traverse_moves_curve_with_radius_and_arc_length_without_delta()
 
     points = ClosureChecker.compute_traverse([call])
     assert len(points) == 2
-    assert math.hypot(points[-1].x, points[-1].y) > 0.0
+    assert math.isclose(points[-1].x, 50.0 * math.sin(0.5), abs_tol=1e-6)
+    assert math.isclose(points[-1].y, -50.0 * (1.0 - math.cos(0.5)), abs_tol=1e-6)
 
 
 def test_compute_traverse_treats_zero_delta_curve_as_straight_distance() -> None:
@@ -68,8 +69,7 @@ def test_compute_traverse_treats_zero_delta_curve_as_straight_distance() -> None
 def test_to_the_right_of_intersection_preserved_in_to_field() -> None:
     """'to the right of intersection' is a spatial descriptor, not curve direction."""
     _along, to = TextParser.extract_along_to_fields("N 45° E 100 feet to the right of intersection")
-    assert to != ""
-    assert "right of intersection" in to
+    assert to == "the right of intersection"
 
 
 def test_to_the_left_of_centerline_preserved_in_to_field() -> None:
@@ -77,8 +77,7 @@ def test_to_the_left_of_centerline_preserved_in_to_field() -> None:
     _along, to = TextParser.extract_along_to_fields(
         "S 30° W 200 feet to the left of the centerline"
     )
-    assert to != ""
-    assert "left of the centerline" in to
+    assert to == "the left of the centerline"
 
 
 def test_bare_to_the_right_still_filtered_as_curve_direction() -> None:
@@ -147,7 +146,7 @@ def test_plss_numeric_ordinal_principal_meridian() -> None:
 def test_plss_numeric_ordinal_pm_abbreviation() -> None:
     text = "Section 5, Township 1 South, Range 4 West, 11TH P.M."
     result = TextParser.extract_plss_metadata(text)
-    assert result["principal_meridian"] is not None
+    assert result["principal_meridian"] == "11Th Principal Meridian"
 
 
 def test_plss_alphabetic_meridian_still_works() -> None:
@@ -164,22 +163,19 @@ def test_extract_direction_abbreviated_sw() -> None:
     result = CallExtractor.extract_direction(
         "SW, FORMING AN INTERIOR ANGLE OF 89°43'30\", 200 FEET"
     )
-    assert result != "", "Abbreviated 'SW' should be recognized as a direction"
-    assert "sw" in result.lower()
+    assert result.upper() == "SW"
 
 
 def test_extract_direction_abbreviated_ne() -> None:
     """extract_direction() must match abbreviated cardinal 'NE'."""
     result = CallExtractor.extract_direction("NE FORMING AN INTERIOR ANGLE")
-    assert result != ""
-    assert "ne" in result.lower()
+    assert result.upper() == "NE"
 
 
 def test_extract_direction_abbreviated_nw() -> None:
     """extract_direction() must match abbreviated cardinal 'NW'."""
     result = CallExtractor.extract_direction("NW ALONG THE SW LINE OF HADDON AVENUE 129 FEET")
-    assert result != ""
-    assert "nw" in result.lower()
+    assert result.upper() == "NW"
 
 
 def test_cardinal_only_pattern_matches_abbreviations() -> None:

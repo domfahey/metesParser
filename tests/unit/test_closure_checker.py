@@ -352,11 +352,11 @@ class TestAreaCalculation:
 
         result = ClosureChecker.verify_closure(calls)
 
-        assert math.isclose(result.area_sq_ft, 10000.0, abs_tol=1.0)
-        assert math.isclose(result.area_acres, 10000.0 / 43560.0, abs_tol=0.001)
+        assert math.isclose(result.area_sq_ft, 10000.0, abs_tol=1e-6)
+        assert math.isclose(result.area_acres, 10000.0 / 43560.0, abs_tol=1e-9)
 
     def test_18_pennbrook_area(self):
-        """18 Pennbrook: Parallelogram (not rectangle), area ≈ 2,971 sq ft."""
+        """18 Pennbrook: Parallelogram (not rectangle), area = 60 * 125 * sin(23°20')."""
         calls = [
             DeedCall(
                 course=1,
@@ -386,8 +386,9 @@ class TestAreaCalculation:
 
         result = ClosureChecker.verify_closure(calls)
 
-        assert math.isclose(result.area_sq_ft, 2970.6, abs_tol=10.0)
-        assert math.isclose(result.area_acres, 0.0682, abs_tol=0.001)
+        expected_area_sq_ft = 2970.598325
+        assert math.isclose(result.area_sq_ft, expected_area_sq_ft, abs_tol=1e-4)
+        assert math.isclose(result.area_acres, expected_area_sq_ft / 43560.0, abs_tol=1e-6)
 
     def test_triangle_area(self):
         """Right triangle: 100 ft base × 100 ft height / 2 = 5,000 sq ft."""
@@ -414,7 +415,7 @@ class TestAreaCalculation:
 
         result = ClosureChecker.verify_closure(calls)
 
-        assert math.isclose(result.area_sq_ft, 5000.0, abs_tol=10.0)
+        assert math.isclose(result.area_sq_ft, 5000.0, abs_tol=1e-6)
 
 
 class TestPerimeterCalculation:
@@ -451,7 +452,7 @@ class TestPerimeterCalculation:
 
         result = ClosureChecker.verify_closure(calls)
 
-        assert math.isclose(result.perimeter_ft, 400.0, abs_tol=0.1)
+        assert math.isclose(result.perimeter_ft, 400.0, abs_tol=1e-6)
 
     def test_perimeter_with_curve(self):
         """Perimeter uses arc length for curves."""
@@ -476,7 +477,7 @@ class TestPerimeterCalculation:
 
         result = ClosureChecker.verify_closure(calls)
 
-        assert math.isclose(result.perimeter_ft, 178.54, abs_tol=0.1)
+        assert math.isclose(result.perimeter_ft, 178.54, abs_tol=1e-6)
 
 
 class TestInteriorAngleCheck:
@@ -864,7 +865,6 @@ class TestDoubleEntryValidation:
 
         discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
 
-        assert len(discrepancies) > 0
         assert discrepancies == ["Course 1: Bearing mismatch - 'N 45° E' vs 'N 50° E'"]
 
     def test_distance_mismatch(self):
@@ -882,7 +882,6 @@ class TestDoubleEntryValidation:
 
         discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
 
-        assert len(discrepancies) > 0
         assert discrepancies == ["Course 1: Distance mismatch - 100.00 vs 105.00"]
 
     def test_different_call_count(self):
@@ -912,7 +911,6 @@ class TestDoubleEntryValidation:
 
         discrepancies = ClosureChecker.compare_double_entry(calls1, calls2)
 
-        assert len(discrepancies) > 0
         assert discrepancies == ["Different number of calls: 1 vs 2"]
 
     def test_curve_direction_and_radius_mismatches(self):
@@ -1237,3 +1235,64 @@ class TestDegenerateTraverseClosure:
         result = ClosureChecker.verify_closure(calls)
 
         assert result.is_fully_verified() is False
+
+
+class TestClosureCheckerFacadeHelpers:
+    """Test monolith ClosureChecker facade delegation helpers."""
+
+    def test_chord_positioned_delta_and_has_determined_direction(self):
+        chord_curve = DeedCall(
+            course=1,
+            direction_text="along a curve to the right",
+            bearing_azimuth_deg_from_north=None,
+            distance_ft=157.08,
+            curve_dir="right",
+            radius_ft=100.0,
+            delta_deg=90.0,
+            arc_length_ft=157.08,
+            chord_bearing="N 45°00' E",
+            chord_length_ft=141.421,
+        )
+        delta = ClosureChecker._chord_positioned_delta(chord_curve)
+        assert delta is not None
+        assert math.isclose(delta, 90.0, abs_tol=1e-6)
+        assert ClosureChecker._has_determined_direction(chord_curve) is True
+
+        incomplete_straight = DeedCall(
+            course=2,
+            direction_text="Northerly",
+            bearing_azimuth_deg_from_north=None,
+            distance_ft=50.0,
+        )
+        assert ClosureChecker._chord_positioned_delta(incomplete_straight) is None
+        assert ClosureChecker._has_determined_direction(incomplete_straight) is False
+
+    def test_evaluate_tract_role_blocks_non_boundary_tracts(self):
+        from metesparser.models import TractType
+
+        assert ClosureChecker.evaluate_tract_role("Tract 1", TractType.MAIN) is None
+        blocked = ClosureChecker.evaluate_tract_role("Easement 1", TractType.EASEMENT)
+        assert blocked is not None
+        assert blocked.name == "non_boundary_tract"
+        assert blocked.status == "blocked"
+
+    def test_tangent_chord_issue_detects_inconsistent_tangent_bearing(self):
+        consistent = DeedCall(
+            course=1,
+            direction_text="N 0°00' E",
+            bearing_quadrant="N 0°00' E",
+            bearing_azimuth_deg_from_north=0.0,
+            distance_ft=157.08,
+            curve_dir="right",
+            radius_ft=100.0,
+            delta_deg=90.0,
+            arc_length_ft=157.08,
+            chord_bearing="N 45°00' E",
+            chord_length_ft=141.421,
+        )
+        assert ClosureChecker._tangent_chord_issue(consistent) is None
+
+        conflicting = consistent.model_copy(update={"chord_bearing": "S 45°00' W"})
+        issue = ClosureChecker._tangent_chord_issue(conflicting)
+        assert issue is not None
+        assert "not on the right side of the tangent" in issue

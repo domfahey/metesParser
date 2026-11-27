@@ -13,67 +13,7 @@ from metesparser.run_registry import (
 )
 
 
-class TestPromptVersion:
-    def test_create_with_git_sha(self) -> None:
-        pv = PromptVersion(git_sha="abc1234", content_hash="sha256deadbeef")
-        assert pv.git_sha == "abc1234"
-        assert pv.content_hash == "sha256deadbeef"
-
-    def test_create_without_git_sha(self) -> None:
-        pv = PromptVersion(git_sha=None, content_hash="sha256deadbeef")
-        assert pv.git_sha is None
-
-
-class TestRunResults:
-    def test_create(self) -> None:
-        r = RunResults(
-            call_count=4,
-            closure_passed=True,
-            misclosure_ft=0.001,
-            area_sq_ft=2971.0,
-            confidence_score=0.85,
-            warnings=[],
-        )
-        assert r.call_count == 4
-        assert r.closure_passed is True
-
-    def test_with_warnings(self) -> None:
-        r = RunResults(
-            call_count=4,
-            closure_passed=False,
-            misclosure_ft=0.5,
-            area_sq_ft=2971.0,
-            confidence_score=0.6,
-            warnings=["Misclosure exceeds tolerance"],
-        )
-        assert len(r.warnings) == 1
-
-
 class TestRunManifest:
-    def test_create_full(self) -> None:
-        m = RunManifest(
-            run_id="test-uuid",
-            timestamp_utc=datetime(2026, 2, 16, tzinfo=UTC),
-            source_pdf="test.pdf",
-            llm_provider="openai",
-            llm_model="gpt-5.2",
-            cache_enabled=False,
-            prompt_versions={
-                "extract_text_from_pdf": PromptVersion(git_sha="aaa", content_hash="bbb"),
-            },
-            results=RunResults(
-                call_count=4,
-                closure_passed=True,
-                misclosure_ft=0.0,
-                area_sq_ft=10000.0,
-                confidence_score=0.9,
-                warnings=[],
-            ),
-            parser_version="0.4.0",
-        )
-        assert m.schema_version == "1.0.0"
-        assert m.source_pdf == "test.pdf"
-
     def test_roundtrip_json(self) -> None:
         m = RunManifest(
             run_id="test-uuid",
@@ -82,20 +22,23 @@ class TestRunManifest:
             llm_provider="openai",
             llm_model="gpt-5.2",
             cache_enabled=False,
-            prompt_versions={},
+            prompt_versions={
+                "extract_text_from_pdf": PromptVersion(git_sha="abc1234", content_hash="sha256a"),
+                "normalize_text": PromptVersion(git_sha=None, content_hash="sha256b"),
+            },
             results=RunResults(
                 call_count=4,
-                closure_passed=True,
-                misclosure_ft=0.0,
+                closure_passed=False,
+                misclosure_ft=0.5,
                 area_sq_ft=10000.0,
-                confidence_score=0.9,
-                warnings=[],
+                confidence_score=0.6,
+                warnings=["Misclosure exceeds tolerance"],
             ),
             parser_version="0.4.0",
         )
-        json_str = m.model_dump_json()
-        loaded = RunManifest.model_validate_json(json_str)
-        assert loaded.run_id == m.run_id
+        restored = RunManifest.model_validate_json(m.model_dump_json())
+        assert restored == m
+        assert restored.schema_version == "1.0.0"
 
 
 class TestGetPromptVersions:
@@ -227,6 +170,11 @@ class TestLoadRunManifests:
         manifests = load_run_manifests(tmp_path)
         assert manifests == []
 
+    def test_nonexistent_dir_returns_empty_list(self, tmp_path: Path) -> None:
+        from metesparser.run_registry import load_run_manifests
+
+        assert load_run_manifests(tmp_path / "missing_runs_dir") == []
+
 
 class TestFormatComparisonTable:
     def test_formats_grouped_by_pdf(self) -> None:
@@ -316,3 +264,30 @@ class TestFormatComparisonTable:
         output = format_comparison_table(manifests, pdf_filter="deed_a")
         assert "deed_a.pdf" in output
         assert "deed_b.pdf" not in output
+
+    def test_falls_back_to_content_hash_when_git_sha_missing(self) -> None:
+        from metesparser.run_registry import format_comparison_table
+
+        manifest = RunManifest(
+            run_id="uuid-no-sha",
+            timestamp_utc=datetime(2026, 2, 16, 15, 0, 0, tzinfo=UTC),
+            source_pdf="deed_c.pdf",
+            llm_provider="openai",
+            llm_model="gpt-5.2",
+            cache_enabled=False,
+            prompt_versions={
+                "normalize_text": PromptVersion(git_sha=None, content_hash="abcdef1234567890"),
+            },
+            results=RunResults(
+                call_count=4,
+                closure_passed=True,
+                misclosure_ft=0.0,
+                area_sq_ft=10000.0,
+                confidence_score=0.9,
+                warnings=[],
+            ),
+            parser_version="0.4.0",
+        )
+
+        output = format_comparison_table([manifest])
+        assert "abcdef1" in output

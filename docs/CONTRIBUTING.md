@@ -9,6 +9,7 @@ Guidelines for contributing to metesParser.
 - Python 3.11+
 - [UV package manager](https://github.com/astral-sh/uv)
 - Git
+- Node.js (required for `make test-packages-cov`, `make ci`, and offline browser checks)
 - OpenAI, Gemini, and/or OpenRouter API key (for PDF extraction, depending on provider)
 
 ### Initial Setup
@@ -68,8 +69,8 @@ This runs:
 Use `make check` for the root quality gate, including mypy. Both targets modify
 formatting; inspect the diff afterward. Package and plugin tests, package linting,
 and explicit browser checks are separate; see [Testing](TESTING.md#running-tests).
-`make ci` removes `.venv` and `dist` before reinstalling and running quality/coverage
-checks; it does not run mypy or the separate package/browser lanes.
+`make ci` runs `check-tools`, `install`, `quality`, `test-cov`, and `test-packages-cov`
+(without `clean`); it does not run mypy, plugin tests, or the opt-in browser lanes.
 
 ### 4. Commit Changes
 
@@ -169,7 +170,7 @@ class TestFeature:
 
 ### Coverage Goals
 
-- Aim for **> 90% coverage** on new features; the enforced root-suite floor is the configured 80% for `src/metesparser/` (see [Testing](TESTING.md)). Workspace package coverage is not included in that root threshold.
+- Maintain **≥ 95% coverage**; the enforced floors are **95%** for `src/metesparser/` (`make test` / `make test-cov`) and **95%** aggregate and per-package across `packages/*/src/` via `make test-packages-cov` (see [Testing](TESTING.md)).
 - Bug fixes: **Add regression test**
 - Refactoring: **Maintain existing coverage**
 
@@ -196,9 +197,9 @@ class TestFeature:
 # Run root tests (package/plugin suites are separate)
 make test
 
-# Run specific category
-uv run pytest tests/unit/ -v
-uv run pytest tests/integration/ -v
+# Run specific category (disable root 95% coverage floor for subset runs)
+uv run pytest tests/unit/ -v --no-cov
+uv run pytest tests/integration/ -v --no-cov
 
 # Run with coverage
 make test-cov
@@ -288,14 +289,18 @@ def my_fixture():
 
 ### Adding a New Test Marker
 
-```python
-# In tests/conftest.py
-def pytest_configure(config):
-    config.addinivalue_line(
-        "markers",
-        "newmarker: Description of marker"
-    )
+Register workspace markers in `[tool.pytest.ini_options].markers` in `pyproject.toml` so both root and package suites recognize them under `--strict-markers`:
 
+```toml
+# In pyproject.toml
+[tool.pytest.ini_options]
+markers = [
+    # ...existing markers...
+    "newmarker: Description of marker",
+]
+```
+
+```python
 # In test file
 @pytest.mark.newmarker
 def test_something():
@@ -329,7 +334,7 @@ class TestBugXYZ:
 
 - [ ] Root checks pass (`make check`)
 - [ ] Affected package/plugin checks pass (see [Testing](TESTING.md#per-package-and-plugin-tests))
-- [ ] Cross-package imports verified (`uv run pytest tests/unit/test_cross_package_imports.py -v`)
+- [ ] Cross-package imports verified (`uv run pytest tests/unit/test_cross_package_imports.py -v --no-cov`)
 - [ ] Formatting changes reviewed; affected package code linted/formatted separately
 - [ ] Relevant browser checks passed; live/native acceptance reported separately
 - [ ] Coverage meets requirements
@@ -360,7 +365,7 @@ Users requested ability to parse deeds using chains (1 chain = 66 ft).
 
 ## Testing
 ```bash
-uv run pytest tests/unit/test_text_parser.py::TestDistanceExtraction -v
+uv run pytest tests/unit/test_text_parser.py::TestDistanceExtraction -v --no-cov
 ```
 
 ## Breaking Changes

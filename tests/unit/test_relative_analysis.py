@@ -79,7 +79,10 @@ def test_relative_analysis_cannot_promote_canonical_export(tmp_path: Path, legac
     ]
     passed = verify(known)
     assert passed.is_fully_verified()
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="Cannot export verified CSV: selected calls failed fresh verification",
+    ):
         export(calls, passed, str(tmp_path / "substituted.csv"))
     assert not list(tmp_path.iterdir())
     assert [c.model_dump() for c in calls] == before

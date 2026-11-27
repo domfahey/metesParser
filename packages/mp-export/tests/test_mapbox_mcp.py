@@ -1,5 +1,6 @@
 """Vector-only upstream handoff preserves prepared evidence without GIS work."""
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -7,9 +8,19 @@ import pytest
 from mp_export.mapbox_mcp import build_mapbox_mcp_handoff
 from mp_models.dashboard import DashboardBundle
 from mp_models.webmap import WebMapArtifact, WebMapOptions
-from mp_verify.dashboard import _hash, calculate_dashboard
+from mp_verify.dashboard import calculate_dashboard
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
+def _compact_bytes(value) -> bytes:
+    return json.dumps(
+        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+    ).encode("utf-8")
+
+
+def _hash(value) -> str:
+    return hashlib.sha256(_compact_bytes(value)).hexdigest()
 
 
 def _features(geometry, prepared, placement):
@@ -334,7 +345,7 @@ def test_exact_budget_accounts_for_upstream_default_markers(monkeypatch):
     prepared, artifact = evidence()
     first = build_mapbox_mcp_handoff(prepared, artifact)
     payload = {**first["arguments"], "markers": []}
-    exact = len(adapter._compact(payload))
+    exact = len(_compact_bytes(payload))
     monkeypatch.setattr(adapter, "MAX_PAYLOAD_BYTES", exact)
     assert build_mapbox_mcp_handoff(prepared, artifact)["arguments"] is not None
     monkeypatch.setattr(adapter, "MAX_PAYLOAD_BYTES", exact - 1)

@@ -10,18 +10,6 @@ from metesparser.logging_config import configure_logging
 from metesparser.models import DeedCall
 
 
-def pytest_configure(config: pytest.Config) -> None:
-    """Register custom markers."""
-    config.addinivalue_line(
-        "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
-    )
-    config.addinivalue_line("markers", "integration: marks tests as integration tests")
-    config.addinivalue_line("markers", "e2e: marks tests as end-to-end tests")
-    config.addinivalue_line("markers", "regression: marks tests as regression tests (bug fixes)")
-    config.addinivalue_line("markers", "curve: marks tests related to curve calculations")
-    config.addinivalue_line("markers", "validation: marks tests related to input validation")
-
-
 @pytest.fixture
 def isolate_logging_state() -> None:
     """Reset logging configuration for tests that opt in to logging isolation."""

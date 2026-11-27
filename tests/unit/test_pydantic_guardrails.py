@@ -455,3 +455,104 @@ def test_deedcall_rejects_negative_radius_when_curve_direction_conflicts():
             radius_ft=-50.0,
             delta_deg=45.0,
         )
+
+
+@pytest.mark.parametrize("blank_status", ["", "   ", "none", "NONE"])
+def test_deedcall_monument_status_normalizes_blank_and_none_string(blank_status: str) -> None:
+    call = DeedCall(
+        course=1,
+        direction_text="N 45° E",
+        distance_ft=50.0,
+        monument_status=blank_status,  # type: ignore[arg-type]
+    )
+    assert call.monument_status is None
+
+
+def test_deedcall_rejects_non_string_monument_status_and_zero_radius() -> None:
+    with pytest.raises(ValidationError, match="monument_status must be a string"):
+        DeedCall(
+            course=1,
+            direction_text="N 45° E",
+            distance_ft=50.0,
+            monument_status=123,  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(ValidationError, match="radius_ft must be non-zero"):
+        DeedCall(
+            course=1,
+            direction_text="curve",
+            distance_ft=50.0,
+            curve_dir="left",
+            radius_ft=0.0,
+            delta_deg=30.0,
+        )
+
+
+def test_deedcall_negative_radius_without_curve_dir_preserves_spiral_or_fails_curve_dir() -> None:
+    spiral = DeedCall(
+        course=1,
+        direction_text="spiral curve",
+        distance_ft=50.0,
+        curve_type="spiral",
+        radius_ft=-100.0,
+        arc_length_ft=50.0,
+    )
+    assert spiral.radius_ft == -100.0
+
+    with pytest.raises(ValidationError, match="curve_dir is required"):
+        DeedCall(
+            course=2,
+            direction_text="curve",
+            distance_ft=50.0,
+            radius_ft=-100.0,
+            delta_deg=30.0,
+        )
+
+
+def test_legaldescription_and_closure_result_validator_error_paths() -> None:
+    with pytest.raises(ValidationError, match="distance_unit"):
+        LegalDescription(distance_unit=None)  # type: ignore[arg-type]
+
+    with pytest.raises(ValidationError, match="distance_unit must be a string"):
+        LegalDescription(distance_unit=42)  # type: ignore[arg-type]
+
+    with pytest.raises(ValidationError, match="stated_area_approximate must be a boolean value"):
+        LegalDescription(
+            stated_area_sq_ft=1000.0,
+            stated_area_approximate="maybe",  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(ValidationError, match="closure_passed must be a boolean value"):
+        ClosureResult(
+            misclosure_x_ft=0.0,
+            misclosure_y_ft=0.0,
+            misclosure_ft=0.0,
+            area_sq_ft=100.0,
+            area_acres=100.0 / 43560.0,
+            perimeter_ft=40.0,
+            closure_passed="maybe",  # type: ignore[arg-type]
+            angle_check_passed=True,
+            curve_consistency_passed=True,
+        )
+
+
+def test_package_bridge_monolith_skips_converts_package_records() -> None:
+    import mp_models
+
+    from metesparser import package_bridge
+    from metesparser.models import SkippedCourse
+
+    pkg_skip = mp_models.SkippedCourse(
+        course=2,
+        source_course=2,
+        source_excerpt="THENCE along a broken curve",
+        error_type="ValueError",
+        error="missing radius",
+        tract_label="Tract 1",
+    )
+    converted = package_bridge.monolith_skips([pkg_skip])
+    assert len(converted) == 1
+    assert isinstance(converted[0], SkippedCourse)
+    assert converted[0].course == 2
+    assert converted[0].source_excerpt == "THENCE along a broken curve"
+    assert converted[0].tract_label == "Tract 1"

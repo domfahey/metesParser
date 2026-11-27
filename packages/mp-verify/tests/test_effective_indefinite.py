@@ -8,6 +8,14 @@ parsed one (is_indefinite=True) by confidence, plot, diagnostics, comparison and
 from __future__ import annotations
 
 from mp_models import DeedCall
+from mp_models.comparison import (
+    BearingBasis,
+    ComparisonDescription,
+    ComparisonPair,
+    ComparisonRequest,
+    ComparisonSelection,
+    ComparisonTolerance,
+)
 from mp_models.corridor import CorridorRequest
 from mp_models.diagnostics import (
     ClosureDiagnosticRequest,
@@ -16,7 +24,7 @@ from mp_models.diagnostics import (
     diagnostic_input_hash,
 )
 from mp_models.plot_request import PlotCall, PlotRequest
-from mp_verify.comparison import _excluded_boundary
+from mp_verify.comparison import compare_descriptions
 from mp_verify.confidence import score_call_quality
 from mp_verify.corridor import analyze_corridor
 from mp_verify.diagnostics import diagnose_closure
@@ -52,10 +60,68 @@ def test_confidence_low_for_unflagged_conflict():
     assert score_call_quality(conflict(direction_text="southeasterly")) == "medium"
 
 
+def _compare_pair(call: DeedCall):
+    basis = BearingBasis(label="Grid", identity="NAD83", source_references=("deed p.1",))
+    tol = ComparisonTolerance(
+        length=0.5,
+        displacement=0.5,
+        position=0.5,
+        linear_unit="international_ft",
+        bearing_deg=0.5,
+        source_references=("review",),
+    )
+    req = ComparisonRequest(
+        left=ComparisonDescription(
+            id="left",
+            plot=PlotRequest(
+                title="L",
+                calculation_id="l",
+                foot_definition="international_ft",
+                calls=(PlotCall(id="c1", call=call),),
+            ),
+            bearing_basis=basis,
+        ),
+        right=ComparisonDescription(
+            id="right",
+            plot=PlotRequest(
+                title="R",
+                calculation_id="r",
+                foot_definition="international_ft",
+                calls=(
+                    PlotCall(
+                        id="c2",
+                        call=DeedCall(
+                            course=1,
+                            direction_text="S 45° E",
+                            bearing_azimuth_deg_from_north=135.0,
+                            distance_ft=100.0,
+                        ),
+                    ),
+                ),
+            ),
+            bearing_basis=basis,
+        ),
+        pairs=(
+            ComparisonPair(
+                id="p1",
+                left=ComparisonSelection(call_ids=("c1",), direction="forward"),
+                right=ComparisonSelection(call_ids=("c2",), direction="forward"),
+            ),
+        ),
+        tolerances=tol,
+    )
+    return compare_descriptions(req).pairs[0]
+
+
 def test_comparison_excludes_unflagged_conflict():
-    assert _excluded_boundary(conflict(is_indefinite=True)) is True
-    assert _excluded_boundary(conflict()) is True
-    assert _excluded_boundary(conflict(direction_text="southeasterly")) is False
+    flagged = _compare_pair(conflict(is_indefinite=True))
+    plain = _compare_pair(conflict())
+    agreeing = _compare_pair(conflict(direction_text="southeasterly"))
+    assert flagged.displacement.outcome == plain.displacement.outcome == "not_comparable"
+    assert "indefinite boundary unsupported" in flagged.displacement.reason
+    assert plain.displacement.reason == flagged.displacement.reason
+    # Agreeing cardinal is not excluded as indefinite (fails on missing sweep instead).
+    assert "indefinite boundary unsupported" not in agreeing.displacement.reason
 
 
 def _diag(call: DeedCall):

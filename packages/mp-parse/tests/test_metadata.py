@@ -144,8 +144,9 @@ class TestExtractDeedClauses:
 
         text = "SUBJECT TO all easements and restrictions of record."
         result = extract_deed_clauses(text)
-        assert len(result) >= 1
+        assert len(result) == 1
         assert result[0].clause_type == "subject_to"
+        assert result[0].text == "SUBJECT TO all easements and restrictions of record"
 
     def test_no_clauses(self) -> None:
         from mp_parse.metadata import extract_deed_clauses
@@ -177,8 +178,7 @@ class TestExtractWitnessTrees:
 
         text = "a white oak 12 inches bears N 45 E dist 20 links"
         result = extract_witness_trees(text)
-        assert len(result) >= 1
-        assert "oak" in result[0].lower()
+        assert result == ["a white oak 12 inches bears N 45 E dist 20 links"]
 
     def test_no_trees(self) -> None:
         from mp_parse.metadata import extract_witness_trees
@@ -377,10 +377,10 @@ class TestSplitExceptionClauses:
 
         text = "Main tract description. EXCEPT the southerly 10 feet"
         result = split_exception_clauses(text)
-        assert len(result) >= 2
-        # At least one should be an exception
-        exceptions = [r for r in result if r[1] is True]
-        assert len(exceptions) >= 1
+        assert result == [
+            ("Main tract description.", False),
+            ("the southerly 10 feet", True),
+        ]
 
 
 def test_extract_distance_compound_without_and():

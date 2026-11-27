@@ -323,7 +323,7 @@ def test_closure_tolerance_propagates_to_exception_area_and_intersections() -> N
 
     relaxed = verify_closure([*main, *exc], closure_tolerance_ft=0.05)
     assert relaxed.area_available is True
-    assert relaxed.area_sq_ft == pytest.approx(10000.0 - 400.0, abs=1.0)
+    assert relaxed.area_sq_ft == pytest.approx(10000.0 - 400.0, abs=1e-6)
 
     strict = verify_closure([*main, *exc])
     assert strict.area_available is False
@@ -386,7 +386,7 @@ def test_exception_area_requires_three_courses_unless_curved() -> None:
     ]
     circle_res = verify_closure([*main, *circle_exc])
     assert circle_res.area_available is True
-    assert circle_res.area_sq_ft == pytest.approx(10000.0 - math.pi * 100.0, abs=0.5)
+    assert circle_res.area_sq_ft == pytest.approx(10000.0 - math.pi * 100.0, abs=1e-6)
 
 
 def test_negative_net_area_clamped_to_zero_with_warning() -> None:
@@ -592,8 +592,8 @@ def test_export_verified_csv_empty_tract_results_does_not_fall_through(tmp_path:
 def test_audit_html_and_reporter_round_confidence_and_create_parent_dirs(tmp_path: Path) -> None:
     pkg_ctx = _pkg_audit_context()
     pkg_html = pkg_audit_html.generate_html(pkg_ctx)
-    assert "90%" in pkg_html
-    assert "89%" not in pkg_html
+    assert ">90%</span>" in pkg_html
+    assert ">89%</span>" not in pkg_html
 
     pkg_target = tmp_path / "pkg_nested" / "sub" / "audit.html"
     pkg_audit_html.write_report(pkg_ctx, pkg_target)
@@ -601,8 +601,8 @@ def test_audit_html_and_reporter_round_confidence_and_create_parent_dirs(tmp_pat
 
     mono_ctx = _mono_audit_context()
     mono_html = AuditReporter.generate_html(mono_ctx)
-    assert "90%" in mono_html
-    assert "89%" not in mono_html
+    assert ">90%</span>" in mono_html
+    assert ">89%</span>" not in mono_html
 
     mono_target = tmp_path / "mono_nested" / "sub" / "audit.html"
     AuditReporter.write_report(mono_ctx, mono_target)

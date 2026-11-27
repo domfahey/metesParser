@@ -138,7 +138,7 @@ def test_replay_detects_fully_rewritten_omission_against_geojson(tmp_path):
     manifest_path.write_text(json.dumps(manifest))
     for name in ("snapshot.json", "pending.json"):
         _rehash(directory, name)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Delivery artifact differs from fresh replay"):
         load_delivery(bundle, revision, directory)
 
 
