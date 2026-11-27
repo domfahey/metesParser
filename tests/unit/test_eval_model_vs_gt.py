@@ -261,12 +261,15 @@ def test_instrument_usage_tracks_openrouter_tokens_and_cost(
     assert "or-secret-never-logged" not in json.dumps(totals)
 
 
-def test_escalation_slug_checkpoint_isolation_raw_text_and_summary(tmp_path: Path) -> None:
+def test_escalation_slug_checkpoint_isolation_raw_text_and_summary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     from unittest.mock import patch
 
     from pypdf import PdfWriter
 
     mod = _load_module()
+    monkeypatch.setattr(mod, "load_dotenv", lambda *a, **kw: False)
     assert (
         mod._default_output_slug(
             provider="openrouter",
@@ -388,13 +391,33 @@ def test_escalation_slug_checkpoint_isolation_raw_text_and_summary(tmp_path: Pat
     )
     assert rec_resumed["escalation"]["selected"] == "escalated"
 
-    # Changed escalation_dpi invalidates checkpoint
+    # Changed escalation_dpi, primary model, or escalation_model=None vs stale model invalidate checkpoint
     assert (
         mod._checkpoint_matches_escalation(
             rec_esc,
             escalation_policy="closure_failed",
             escalation_model="fake/sonnet",
             escalation_dpi=400,
+        )
+        is False
+    )
+    assert (
+        mod._checkpoint_matches_escalation(
+            rec_esc,
+            escalation_policy="closure_failed",
+            escalation_model=None,
+            escalation_dpi=300,
+            primary_model="fake/haiku",
+        )
+        is False
+    )
+    assert (
+        mod._checkpoint_matches_escalation(
+            rec_esc,
+            escalation_policy="closure_failed",
+            escalation_model="fake/sonnet",
+            escalation_dpi=300,
+            primary_model="other/model",
         )
         is False
     )

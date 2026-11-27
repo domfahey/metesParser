@@ -216,8 +216,11 @@ def test_pipeline_escalation_fixes_closure_and_syncs_audit_and_export_gate(
         escalation_policy="closure_failed",
         escalation_client=escalated,
     )
-    with patch("mp_ocr.preprocessing.preprocess_pdf_pages_for_ocr", return_value=[png]):
+    with patch("mp_ocr.preprocess_pdf_pages_for_ocr", return_value=[png]) as mock_pre:
         res, ctx = pipe.run(pdf)
+    assert mock_pre.call_count == 2
+    assert mock_pre.call_args_list[-1].kwargs["pages"] == [2]
+    assert mock_pre.call_args_list[-1].kwargs["dpi"] == 300
 
     assert not isinstance(res, list)
     assert res.closure_passed is True
@@ -236,8 +239,17 @@ def test_pipeline_escalation_fixes_closure_and_syncs_audit_and_export_gate(
         c.name == "ocr_escalation_agreement" and c.status == "failed"
         for c in ctx.verification_audit.checks
     )
-    assert ctx.verification_audit.closure_summary["geometry_verified"] is False
+    assert bool(ctx.verification_audit.closure_summary["geometry_verified"]) is False
     assert ctx.verification_audit.closure_summary["confidence_score"] == res.confidence_score
+    import warnings
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        dumped = ctx.model_dump_json()
+    assert '"ocr_escalation_agreement"' in dumped
+    assert not [w for w in caught if "PydanticSerializationUnexpectedValue" in str(w.message)]
+    assert ctx.run_metadata.config["primary_model"] == "haiku-primary"
+    assert ctx.run_metadata.config["escalation_model"] == "sonnet-esc"
     assert ctx.run_metadata.config["escalation_triggered"] is True
     assert ctx.run_metadata.config["escalation_agrees"] is False
     assert ctx.run_metadata.config["escalation_selected"] == "escalated"
@@ -248,7 +260,7 @@ def test_pipeline_escalation_fixes_closure_and_syncs_audit_and_export_gate(
     from mp_parse import extract_calls
 
     closed_calls, _ = extract_calls(_CLOSED_SQUARE)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="verification checks failed"):
         export_verified_csv(closed_calls, res, tmp_path / "blocked.csv")
 
     report = pipe.last_escalation_report
@@ -284,8 +296,9 @@ def test_pipeline_escalation_confirms_real_deed_typo_and_keeps_primary_with_audi
         client=primary,
         escalation_policy="closure_failed",
     )
-    with patch("mp_ocr.preprocessing.preprocess_pdf_pages_for_ocr", return_value=[png]):
+    with patch("mp_ocr.preprocess_pdf_pages_for_ocr", return_value=[png]) as mock_pre:
         res, ctx = pipe.run(pdf)
+    assert mock_pre.called
 
     assert not isinstance(res, list)
     assert res.closure_passed is False
@@ -355,8 +368,9 @@ def test_pipeline_multi_tract_retries_all_pages_when_subset_drops_tract_and_sync
         escalation_policy="closure_failed",
         escalation_client=_TruncatedThenFullEscClient(),
     )
-    with patch("mp_ocr.preprocessing.preprocess_pdf_pages_for_ocr", return_value=[png]):
+    with patch("mp_ocr.preprocess_pdf_pages_for_ocr", return_value=[png]) as mock_pre:
         res_list, ctx = pipe.run(pdf)
+    assert mock_pre.called
 
     assert isinstance(res_list, list)
     assert len(res_list) == 2
@@ -372,7 +386,7 @@ def test_pipeline_multi_tract_retries_all_pages_when_subset_drops_tract_and_sync
         assert any(
             c.name == "ocr_escalation_agreement" and c.status == "failed" for c in t_audit.checks
         )
-        assert t_audit.closure_summary["geometry_verified"] is False
+        assert bool(t_audit.closure_summary["geometry_verified"]) is False
     assert ctx.extraction_record is not None
     assert "escalation_fallback_extract_text_from_images" in [
         s.stage for s in ctx.extraction_record.llm_stages
@@ -403,8 +417,9 @@ def test_pipeline_multi_tract_preserves_primary_if_all_page_escalation_still_dro
         escalation_policy="closure_failed",
         escalation_client=dropped_esc,
     )
-    with patch("mp_ocr.preprocessing.preprocess_pdf_pages_for_ocr", return_value=[png]):
+    with patch("mp_ocr.preprocess_pdf_pages_for_ocr", return_value=[png]) as mock_pre:
         res_list = pipe.run(pdf)
+    assert mock_pre.called
 
     assert isinstance(res_list, list)
     assert len(res_list) == 2
@@ -438,8 +453,9 @@ def test_pipeline_unverified_policy_escalates_blocked_cardinal_deed(tmp_path: Pa
         escalation_policy="unverified",
         escalation_client=escalated,
     )
-    with patch("mp_ocr.preprocessing.preprocess_pdf_pages_for_ocr", return_value=[png]):
+    with patch("mp_ocr.preprocess_pdf_pages_for_ocr", return_value=[png]) as mock_pre:
         res = pipe.run(pdf)
+    assert mock_pre.called
 
     assert not isinstance(res, list)
     assert res.closure_passed is False
@@ -460,22 +476,25 @@ def test_monolith_processor_image_extraction_stage3_guard_and_retry(tmp_path: Pa
         norm_text=_BROKEN_SQUARE,
     )
     proc = MonolithPDFProcessor(client=client, cache=False)
-    with patch("mp_ocr.preprocessing.preprocess_pdf_pages_for_ocr", return_value=[png]):
+    with patch("mp_ocr.preprocess_pdf_pages_for_ocr", return_value=[png]) as mock_pre:
         legal, norm, pages = proc.extract_legal_description_from_images(str(pdf), audit=True)
+    assert mock_pre.called
     stages = proc.pop_audit_stage_records()
     assert pages == [1, 2]
     assert legal == _CLOSED_SQUARE
     assert norm == _CLOSED_SQUARE
     assert len(stages) == 3
 
-    pdf5, _ = _make_pdf_and_png(tmp_path / "sub" if False else tmp_path, n_pages=5)
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    pdf5, _ = _make_pdf_and_png(sub, n_pages=5)
 
     class _SubsetRetryClient:
         model = "monolith-retry"
 
         def __init__(self) -> None:
             self._text_replies = [
-                "No legal description on pages 1 or 5.",
+                # Stage 2 on subset [1, 5] has no legal signals -> Stage 3 skipped, retries all pages
                 "No legal description on pages 1 or 5.",
                 _CLOSED_SQUARE,
                 _CLOSED_SQUARE,
@@ -497,13 +516,162 @@ def test_monolith_processor_image_extraction_stage3_guard_and_retry(tmp_path: Pa
             return "RAW"
 
     proc2 = MonolithPDFProcessor(client=_SubsetRetryClient(), cache=False)
-    with patch("mp_ocr.preprocessing.preprocess_pdf_pages_for_ocr", return_value=[png]):
+    with patch("mp_ocr.preprocess_pdf_pages_for_ocr", return_value=[png]) as mock_pre2:
         legal2, norm2, pages2 = proc2.extract_legal_description_from_images(str(pdf5), audit=True)
+    assert mock_pre2.called
     stages2 = proc2.pop_audit_stage_records()
     assert pages2 == [1, 2, 3, 4, 5]
     assert legal2 == _CLOSED_SQUARE
     assert norm2 == _CLOSED_SQUARE
     assert any(s.stage == "escalation_fallback_extract_text_from_images" for s in stages2)
+
+
+def test_pipeline_pdf_only_primary_client_uses_escalation_locator_and_thread_isolation(
+    tmp_path: Path,
+) -> None:
+    import threading
+
+    pdf3, png = _make_pdf_and_png(tmp_path, n_pages=3)
+
+    class _PdfOnlyPrimary:
+        model = "pdf-only-primary"
+
+        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+            return _BROKEN_SQUARE
+
+        def generate_text_with_pdf(
+            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+        ) -> str:
+            return _BROKEN_SQUARE
+
+    escalated = _StubClient(
+        model="vision-sonnet",
+        pdf_text=_CLOSED_SQUARE,
+        legal_text=_CLOSED_SQUARE,
+        norm_text=_CLOSED_SQUARE,
+        locate_json='{"pages": [2]}',
+    )
+    pipe = Pipeline(
+        provider="openrouter",
+        cache=False,
+        audit=False,
+        client=_PdfOnlyPrimary(),
+        escalation_policy="closure_failed",
+        escalation_client=escalated,
+    )
+    with patch("mp_ocr.preprocess_pdf_pages_for_ocr", return_value=[png]):
+        res = pipe.run(pdf3)
+    assert not isinstance(res, list)
+    assert res.closure_passed is True
+    main_report = pipe.last_escalation_report
+    assert main_report is not None and main_report.selected == "escalated"
+
+    # A second thread reading pipe.last_escalation_report does not see main thread's state.
+    other_thread_reports: list[Any] = []
+
+    def _worker() -> None:
+        other_thread_reports.append(pipe.last_escalation_report)
+
+    t = threading.Thread(target=_worker)
+    t.start()
+    t.join()
+    assert other_thread_reports == [None]
+    assert pipe.last_escalation_report == main_report
+
+
+def test_pipeline_subset_parse_error_retries_all_pages_and_falls_back_to_primary_on_failure(
+    tmp_path: Path,
+) -> None:
+    pdf3, png = _make_pdf_and_png(tmp_path, n_pages=3)
+    primary = _StubClient(
+        model="haiku-primary",
+        pdf_text=_BROKEN_SQUARE,
+        legal_text=_BROKEN_SQUARE,
+        norm_text=_BROKEN_SQUARE,
+        locate_json='{"pages": [2]}',
+    )
+
+    bad_text = "BEGINNING; THENCE N 10°00'00\" E, 100.00 feet BAD_SUBSET_MARKER"
+
+    class _BadSubsetThenGoodAll:
+        model = "sonnet-esc"
+
+        def __init__(self) -> None:
+            self._replies = [
+                bad_text,
+                bad_text,
+                _CLOSED_SQUARE,
+                _CLOSED_SQUARE,
+            ]
+
+        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+            return self._replies.pop(0)
+
+        def generate_text_with_pdf(
+            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+        ) -> str:
+            return ""
+
+        def generate_text_with_images(
+            self, prompt: str, image_paths: Any, *, response_mime_type: str | None = None
+        ) -> str:
+            return "RAW"
+
+    real_process_legal = MonolithPDFProcessor.process_legal_text
+
+    def _strict_fail_on_marker(self, *args: Any, **kwargs: Any) -> Any:
+        if "BAD_SUBSET_MARKER" in str(kwargs.get("normalized_text", "")):
+            raise ValueError("strict parse failure on truncated subset")
+        return real_process_legal(self, *args, **kwargs)
+
+    pipe = Pipeline(
+        provider="openrouter",
+        cache=False,
+        audit=True,
+        client=primary,
+        escalation_policy="closure_failed",
+        escalation_client=_BadSubsetThenGoodAll(),
+    )
+    with (
+        patch("mp_ocr.preprocess_pdf_pages_for_ocr", return_value=[png]),
+        patch.object(MonolithPDFProcessor, "process_legal_text", _strict_fail_on_marker),
+    ):
+        res, _ctx = pipe.run(pdf3)
+    assert not isinstance(res, list)
+    assert res.closure_passed is True
+    assert pipe.last_escalation_report is not None
+    assert pipe.last_escalation_report.legal_pages == (1, 2, 3)
+
+    # If escalated text fails strict parsing even on all pages, fail closed to primary without crashing.
+    bad_all = _StubClient(
+        model="sonnet-broken",
+        pdf_text=bad_text,
+        legal_text=bad_text,
+        norm_text=bad_text,
+    )
+    pipe_bad = Pipeline(
+        provider="openrouter",
+        cache=False,
+        audit=True,
+        client=primary,
+        escalation_policy="closure_failed",
+        escalation_client=bad_all,
+    )
+    with (
+        patch("mp_ocr.preprocess_pdf_pages_for_ocr", return_value=[png]),
+        patch.object(MonolithPDFProcessor, "process_legal_text", _strict_fail_on_marker),
+    ):
+        res_bad, ctx_bad = pipe_bad.run(pdf3)
+    assert not isinstance(res_bad, list)
+    assert res_bad.closure_passed is False
+    assert pipe_bad.last_escalation_report is not None
+    assert pipe_bad.last_escalation_report.selected == "primary"
+    assert (
+        pipe_bad.last_escalation_report.selection_reason
+        == "escalated_parse_failed_fallback_to_primary"
+    )
+    assert ctx_bad.extraction_record is not None
+    assert any(s.stage.startswith("escalation_") for s in ctx_bad.extraction_record.llm_stages)
 
 
 def test_monolith_clients_and_cache_generate_text_with_images_parity(tmp_path: Path) -> None:
@@ -576,3 +744,43 @@ def test_monolith_clients_and_cache_generate_text_with_images_parity(tmp_path: P
     cached_no_img = MonolithCachedLLMClient(_NoImg(), tmp_path / "cache")
     with pytest.raises(NotImplementedError, match="generate_text_with_images"):
         cached_no_img.generate_text_with_images("Read", [png])
+
+
+def test_is_escalated_truncated_distinguishes_resolved_bearing_notes_from_tail_blocking_notes() -> (
+    None
+):
+    from mp_models import DESCRIPTION_ROLES_NOTE, DeedCall, LegalDescription
+
+    from metesparser.pipeline import _is_escalated_truncated
+
+    pri_cardinal_call = DeedCall(
+        course=1,
+        direction_text="Northerly",
+        bearing_azimuth_deg_from_north=None,
+        distance_ft=100.0,
+        notes="incomplete bearing - cardinal only",
+    )
+    esc_fixed_call = DeedCall(
+        course=1,
+        direction_text="N 12°34'56\" E",
+        bearing_azimuth_deg_from_north=12.5822,
+        distance_ft=100.0,
+        notes=None,
+    )
+    pri_desc = LegalDescription(calls=[pri_cardinal_call])
+    esc_desc = LegalDescription(calls=[esc_fixed_call])
+    # Resolving an incomplete bearing note on located pages must NOT trigger an all-page retry
+    assert _is_escalated_truncated(pri_desc, pri_desc.calls, esc_desc, esc_desc.calls) is False
+
+    # Dropping a tail exception or description-role blocking note MUST trigger an all-page retry
+    for blocking_note in (
+        "exception not applied: easterly 10 feet thereof",
+        DESCRIPTION_ROLES_NOTE,
+    ):
+        pri_blocked = LegalDescription(
+            calls=[esc_fixed_call.model_copy(update={"notes": blocking_note})],
+        )
+        assert (
+            _is_escalated_truncated(pri_blocked, pri_blocked.calls, esc_desc, esc_desc.calls)
+            is True
+        )

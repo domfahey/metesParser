@@ -34,6 +34,8 @@ from typing import Any
 
 from dotenv import load_dotenv
 from mp_ocr import (
+    MAX_RENDER_DPI,
+    VALID_ESCALATION_POLICIES,
     BaseLLMClient,
     EscalationPolicy,
     GeminiClient,
@@ -45,6 +47,7 @@ from mp_ocr import (
     select_escalation_outcome,
     should_escalate_closure,
     validate_escalation_policy,
+    validate_render_dpi,
 )
 from mp_parse import extract_calls
 from mp_verify import verify_closure
@@ -361,14 +364,28 @@ def _default_output_slug(
     return f"{base}__esc_{escalation_policy}_{esc_slug}_dpi{escalation_dpi}"
 
 
+def _close_client(client: Any) -> None:
+    """Close an SDK client's underlying HTTP pool if it exposes ``close()``."""
+    inner = getattr(client, "_client", None)
+    close_fn = getattr(inner, "close", None)
+    if callable(close_fn):
+        try:
+            close_fn()
+        except Exception:
+            pass
+
+
 def _checkpoint_matches_escalation(
     cached: dict[str, Any],
     *,
     escalation_policy: EscalationPolicy,
     escalation_model: str | None,
     escalation_dpi: int,
+    primary_model: str | None = None,
 ) -> bool:
-    """Return True only when a cached deed checkpoint matches the current escalation config."""
+    """Return True only when a cached deed checkpoint matches the current model & escalation config."""
+    if primary_model is not None and cached.get("model") != primary_model:
+        return False
     cached_esc = cached.get("escalation")
     if not isinstance(cached_esc, dict):
         return escalation_policy == "never"
@@ -379,7 +396,8 @@ def _checkpoint_matches_escalation(
     if cached_esc.get("dpi") != escalation_dpi:
         return False
     cached_model = cached_esc.get("requested_model") or cached_esc.get("escalation_model")
-    if escalation_model is not None and cached_model != escalation_model:
+    expected_model = escalation_model or primary_model or cached.get("model")
+    if expected_model is not None and cached_model != expected_model:
         return False
     return True
 
@@ -396,18 +414,11 @@ def evaluate_deed(
     escalation_client_factory: Any | None = None,
     escalation_model: str | None = None,
     escalation_dpi: int = 300,
+    expected_primary_model: str | None = None,
 ) -> dict[str, Any]:
     """Run one deed PDF through the 3-stage OCR pipeline + parser and compare to ground truth."""
     validated_policy = validate_escalation_policy(escalation_policy)
-    if (
-        isinstance(escalation_dpi, bool)
-        or not isinstance(escalation_dpi, int)
-        or escalation_dpi < 1
-        or escalation_dpi > 600
-    ):
-        raise ValueError(
-            f"escalation_dpi must be an integer between 1 and 600, got {escalation_dpi!r}"
-        )
+    validated_dpi = validate_render_dpi(escalation_dpi, name="escalation_dpi")
 
     stem = gt_path.name.removesuffix(".ground_truth.json")
     pdf_path = gt_path.with_name(f"{stem}.pdf")
@@ -422,7 +433,8 @@ def evaluate_deed(
                 cached,
                 escalation_policy=validated_policy,
                 escalation_model=escalation_model,
-                escalation_dpi=escalation_dpi,
+                escalation_dpi=validated_dpi,
+                primary_model=expected_primary_model,
             )
         ):
             return cached
@@ -431,6 +443,7 @@ def evaluate_deed(
     exp_calls = gt.get("expected_calls") or []
 
     client, resolved_model = client_factory()
+    esc_client: Any | None = None
     usage_totals: dict[str, Any] = {
         "prompt_tokens": 0,
         "completion_tokens": 0,
@@ -464,25 +477,28 @@ def evaluate_deed(
         }
         if validated_policy != "never":
             escalation_meta["requested_model"] = requested_esc_model
-            escalation_meta["dpi"] = escalation_dpi
+            escalation_meta["dpi"] = validated_dpi
 
-        if validated_policy != "never" and calls_norm:
+        if validated_policy != "never" and (calls_norm or skips_norm):
             pri_results = (
                 verify_closure(calls_norm, tracts=tracts_norm, skipped_courses=skips_norm)
                 if tracts_norm
                 else [verify_closure(calls_norm, skipped_courses=skips_norm)]
             )
             should_esc, trigger_reasons = should_escalate_closure(
-                pri_results, policy=validated_policy, has_calls=bool(calls_norm)
+                pri_results, policy=validated_policy, has_calls=bool(calls_norm or skips_norm)
             )
             if should_esc:
-                esc_factory = escalation_client_factory or client_factory
-                esc_client, esc_model = esc_factory()
-                _instrument_usage(esc_client, usage_totals)
-                esc_proc = PDFProcessor(client=esc_client, cache=use_cache, cache_dir=cache_dir)
+                if escalation_client_factory is not None:
+                    esc_client, esc_model = escalation_client_factory()
+                    _instrument_usage(esc_client, usage_totals)
+                    esc_proc = PDFProcessor(client=esc_client, cache=use_cache, cache_dir=cache_dir)
+                else:
+                    esc_model = resolved_model
+                    esc_proc = processor
                 esc_legal, esc_norm, legal_pages = esc_proc.extract_legal_description_from_images(
                     str(pdf_path),
-                    dpi=escalation_dpi,
+                    dpi=validated_dpi,
                     strip_watermark=True,
                     crop_margins=True,
                     audit=True,
@@ -492,8 +508,14 @@ def evaluate_deed(
                 esc_calls, esc_tracts, esc_skips = extract_all_calls(esc_norm)
                 esc_calls_legal, _, _ = extract_all_calls(esc_legal)
 
-                truncated = (bool(tracts_norm) and len(esc_tracts) < len(tracts_norm)) or (
-                    bool(calls_norm) and len(esc_calls) < len(calls_norm)
+                per_tract_truncated = bool(tracts_norm) and any(
+                    pri_t.calls and len(esc_t.calls) < len(pri_t.calls)
+                    for pri_t, esc_t in zip(tracts_norm, esc_tracts, strict=False)
+                )
+                truncated = (
+                    (bool(tracts_norm) and len(esc_tracts) < len(tracts_norm))
+                    or per_tract_truncated
+                    or (bool(calls_norm) and len(esc_calls) < len(calls_norm))
                 )
                 if truncated:
                     total_pages = count_pdf_pages(str(pdf_path))
@@ -503,7 +525,7 @@ def evaluate_deed(
                             esc_proc.extract_legal_description_from_images(
                                 str(pdf_path),
                                 pages=all_pages,
-                                dpi=escalation_dpi,
+                                dpi=validated_dpi,
                                 strip_watermark=True,
                                 crop_margins=True,
                                 audit=True,
@@ -526,6 +548,8 @@ def evaluate_deed(
                     esc_calls,
                     primary_tracts=tracts_norm or None,
                     escalated_tracts=esc_tracts or None,
+                    primary_skipped_courses=skips_norm,
+                    escalated_skipped_courses=esc_skips,
                 )
                 selected, selection_reason = select_escalation_outcome(
                     primary_calls=calls_norm,
@@ -539,7 +563,7 @@ def evaluate_deed(
                 escalation_meta = {
                     "policy": validated_policy,
                     "requested_model": requested_esc_model or esc_model,
-                    "dpi": escalation_dpi,
+                    "dpi": validated_dpi,
                     "triggered": True,
                     "trigger_reasons": trigger_reasons,
                     "legal_pages": legal_pages,
@@ -555,7 +579,12 @@ def evaluate_deed(
                         s for s in esc_stages if s.stage.endswith("extract_text_from_images")
                     ]
                     if esc_raw_stages:
-                        raw_text = esc_raw_stages[-1].response
+                        final_stage_name = esc_raw_stages[-1].stage
+                        raw_text = "\n\n".join(
+                            s.response
+                            for s in esc_raw_stages
+                            if s.stage == final_stage_name and s.response
+                        )
                     legal_text = esc_legal
                     norm_text = esc_norm
                     calls_norm, tracts_norm, skips_norm = esc_calls, esc_tracts, esc_skips
@@ -611,6 +640,10 @@ def evaluate_deed(
             "n_exp": len(exp_calls),
             "error": f"{type(exc).__name__}: {exc}",
         }
+    finally:
+        _close_client(client)
+        if esc_client is not None:
+            _close_client(esc_client)
 
     results_dir.mkdir(parents=True, exist_ok=True)
     tmp = result_file.with_suffix(".json.tmp")
@@ -832,7 +865,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--escalate-policy",
-        choices=["never", "closure_failed", "unverified"],
+        choices=list(VALID_ESCALATION_POLICIES),
         default="never",
         help="Optional blind high-DPI escalation policy (default: never)",
     )
@@ -865,9 +898,11 @@ def main(argv: list[str] | None = None) -> int:
 
     resolved_model = (args.model or "").strip() or _DEFAULT_MODELS[args.provider]
     esc_model = (args.escalate_model or "").strip() or resolved_model
-    if args.escalate_dpi < 1 or args.escalate_dpi > 600:
+    try:
+        validate_render_dpi(args.escalate_dpi, name="--escalate-dpi")
+    except ValueError:
         print(
-            f"ERROR: --escalate-dpi must be between 1 and 600, got {args.escalate_dpi}",
+            f"ERROR: --escalate-dpi must be between 1 and {MAX_RENDER_DPI}, got {args.escalate_dpi}",
             file=sys.stderr,
         )
         return 2
@@ -883,10 +918,10 @@ def main(argv: list[str] | None = None) -> int:
     results_dir = output_dir / "results"
     cache_dir = None if args.no_cache else (args.cache_dir or (output_dir / "cache"))
 
-    def _make_client() -> tuple[BaseLLMClient, str]:
+    def _make_client(model_id: str = resolved_model) -> tuple[BaseLLMClient, str]:
         return build_client(
             provider=args.provider,
-            model=resolved_model,
+            model=model_id,
             fallback_model=args.fallback_model,
             reasoning_effort=args.reasoning_effort,
             pdf_engine=args.pdf_engine,
@@ -895,23 +930,19 @@ def main(argv: list[str] | None = None) -> int:
             max_retries=args.max_retries,
         )
 
-    def _make_escalation_client() -> tuple[BaseLLMClient, str]:
-        return build_client(
-            provider=args.provider,
-            model=esc_model,
-            fallback_model=args.fallback_model,
-            reasoning_effort=args.reasoning_effort,
-            pdf_engine=args.pdf_engine,
-            thinking_level=args.thinking_level,
-            timeout_s=args.timeout_s,
-            max_retries=args.max_retries,
-        )
+    esc_client_factory = (
+        (lambda: _make_client(esc_model))
+        if args.escalate_policy != "never" and esc_model != resolved_model
+        else None
+    )
 
     # Validate client configuration eagerly before spawning workers
     try:
-        _make_client()
-        if args.escalate_policy != "never":
-            _make_escalation_client()
+        probe_client, _ = _make_client()
+        _close_client(probe_client)
+        if esc_client_factory is not None:
+            probe_esc, _ = esc_client_factory()
+            _close_client(probe_esc)
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -943,11 +974,10 @@ def main(argv: list[str] | None = None) -> int:
                 use_cache=not args.no_cache,
                 force=args.force,
                 escalation_policy=args.escalate_policy,
-                escalation_client_factory=(
-                    _make_escalation_client if args.escalate_policy != "never" else None
-                ),
+                escalation_client_factory=esc_client_factory,
                 escalation_model=(esc_model if args.escalate_policy != "never" else None),
                 escalation_dpi=args.escalate_dpi,
+                expected_primary_model=resolved_model,
             ): gt_path
             for gt_path in gts
         }

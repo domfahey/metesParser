@@ -91,12 +91,110 @@ class TestVerifyNormalizationIntegrity:
             "BEGINNING at a point;\n"
             "(1) S 45°12'30\" W, 100.50 feet;\n"
             "(2) N 26°05'09\" E, 0.50 feet along a 50 foot lane;\n"
-            "(3) N 10°05'00\" E, 265.21 feet and 0.5 feet, 12.5 meters, 4 chains;\n"
+            "(3) N 10°05'00\" E, 265.21 feet and 0.5 feet, 12.5 meters, 4 engineer's chains;\n"
             "(4) curve right delta 15°30'00\", radius 200.00 feet."
         )
         ok, reasons = verify_normalization_integrity(source, normalized)
         assert ok is True, reasons
         assert reasons == []
+
+    def test_rejects_engineers_chain_collapse_quadrant_flip_curve_flip_and_foot_mark_drift(
+        self,
+    ) -> None:
+        # Engineer's chain (100 ft) must never collapse into Gunter's chain (66 ft)
+        ok_eng, _ = verify_normalization_integrity("4 engineer's chains", "4 chains")
+        assert ok_eng is False
+
+        # N./S. dotted bearings: valid format normalization passes; 180-deg quadrant flip fails
+        assert verify_normalization_integrity("N. 56° 40' 30\" W.", "N 56°40'30\" W")[0] is True
+        assert (
+            verify_normalization_integrity("N. 56° 40' 30\" W.", "S. 56° 40' 30\" E.")[0] is False
+        )
+
+        # Hyphenated DMS, assessor D/M/S, "and" separator, and hyphenated mixed fractions
+        assert (
+            verify_normalization_integrity(
+                "N 56°-40'-30\" W, 100-1/2 feet", "N 56°40'30\" W, 100.5 feet"
+            )[0]
+            is True
+        )
+        assert verify_normalization_integrity("N 56-40-30 W", "N 56°40'30\" W")[0] is True
+        assert verify_normalization_integrity("S 88D 25M 31S E", "S 88°25'31\" E")[0] is True
+        assert (
+            verify_normalization_integrity("North 45 degrees and 30 minutes East", "N 45°30' E")[0]
+            is True
+        )
+        assert verify_normalization_integrity("100-1/2 feet", "900-1/2 feet")[0] is False
+
+        # Due cardinal flip, curve direction flip, and foot-mark distance drift
+        assert (
+            verify_normalization_integrity("Due North 100.00 feet", "Due South 100.00 feet")[0]
+            is False
+        )
+        assert (
+            verify_normalization_integrity(
+                "curve to the left 50.00 feet", "curve to the right 50.00 feet"
+            )[0]
+            is False
+        )
+        assert verify_normalization_integrity("N 10° E 125.26'", "N 10° E 999.99'")[0] is False
+
+        # Cycle 2 regex edge cases: wrapped curve dir, right-of-way exclusion, Oxford comma,
+        # trailing period on E./W., hyphen-joined distance, and Unicode prime foot marks
+        assert (
+            verify_normalization_integrity(
+                "curving to the\nleft 50.00 feet", "curving to the\nright 50.00 feet"
+            )[0]
+            is False
+        )
+        assert (
+            verify_normalization_integrity(
+                "along a curve in the right-of-way line 50.00 feet",
+                "along a curve in the R/W line 50.00 feet",
+            )[0]
+            is True
+        )
+        assert (
+            verify_normalization_integrity(
+                "North 45 degrees, 12 minutes, and 30 seconds East, 100.00 feet",
+                "N 45°12'30\" E, 100.00 feet",
+            )[0]
+            is True
+        )
+        assert (
+            verify_normalization_integrity(
+                "N 45° E., 100.00 feet; N 56-40-30 W., 50.00 feet",
+                "N 45° E, 100.00 feet; N 56°40'30\" W, 50.00 feet",
+            )[0]
+            is True
+        )
+        assert (
+            verify_normalization_integrity(
+                "S 45°12'30\" E-125.50 feet",
+                "S 45°12'30\" E-999.00 feet",
+            )[0]
+            is False
+        )
+        assert (
+            verify_normalization_integrity(
+                "N 10° E 125.26\u2032; S 10° W 80.10\u2019",
+                "N 10° E 999.99\u2032; S 10° W 80.10\u2019",
+            )[0]
+            is False
+        )
+
+    def test_redos_linear_time_and_large_fraction_overflow_safety(self) -> None:
+        import time
+
+        hostile = "N 45° 10' 20" + (" " * 5000) + "X"
+        t0 = time.monotonic()
+        ok, _ = verify_normalization_integrity(hostile, hostile)
+        assert ok is True
+        assert (time.monotonic() - t0) < 0.2
+
+        huge_den = f"1/{'9' * 4500} feet"
+        ok_big, _ = verify_normalization_integrity(huge_den, huge_den)
+        assert ok_big is True
 
     def test_detects_standalone_curve_delta_angle_drift(self) -> None:
         source = "Curving right with a central angle of 15°30'00\", radius 200.00 feet."

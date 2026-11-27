@@ -168,7 +168,7 @@ class PDFProcessor:
 
         response = self.client.generate_text(combined_prompt)
         self._record_llm_stage("normalize_text", combined_prompt, response)
-        from mp_ocr.extract import verify_normalization_integrity
+        from mp_ocr import verify_normalization_integrity
 
         ok, reasons = verify_normalization_integrity(legal_desc_text, response)
         if not ok:
@@ -253,14 +253,21 @@ class PDFProcessor:
                     )
                     if audit:
                         self._record_llm_stage("locate_legal_pages", combined_prompt, response)
-                    local_pages = parse_located_pages(response, batch_len)
+                    local_pages = parse_located_pages(response, batch_len, allow_empty=True)
                     located.extend(batch_start + p for p in local_pages)
         except Exception:
             if audit:
                 self._audit_stage_records = None
             raise
 
-        return sorted(dict.fromkeys(located))
+        deduped = sorted(dict.fromkeys(located))
+        if not deduped:
+            logger.warning(
+                "locate_legal_pages returned no pages across all batches; falling back to all pages",
+                total_pages=total_pages,
+            )
+            return list(range(1, total_pages + 1))
+        return deduped
 
     def extract_text_from_images(
         self,
@@ -342,6 +349,7 @@ class PDFProcessor:
             count_pdf_pages,
             has_legal_measurement_signals,
             preprocess_pdf_pages_for_ocr,
+            validate_pdf_pages,
             verify_normalization_integrity,
         )
 
@@ -354,7 +362,7 @@ class PDFProcessor:
                 raise ValueError(f"PDF has no pages: {pdf_path}")
 
             if pages is not None:
-                resolved_pages = sorted(dict.fromkeys(int(p) for p in pages))
+                resolved_pages = validate_pdf_pages(pages, total_pages)
             else:
                 locator = locator_processor or self
                 prev_locator_records = locator._audit_stage_records
@@ -367,68 +375,90 @@ class PDFProcessor:
 
             self._audit_stage_records = collected_stages
 
-            def _run_on_pages(target_pages: list[int], prefix: str) -> tuple[str, str]:
-                with tempfile.TemporaryDirectory(prefix="mp_ocr_escalate_") as tmpdir:
-                    clean_pngs = preprocess_pdf_pages_for_ocr(
-                        pdf_path,
-                        Path(tmpdir),
-                        pages=target_pages,
-                        dpi=dpi,
-                        strip_watermark=strip_watermark,
-                        crop_margins=crop_margins,
-                        max_dim=max_dim,
-                    )
+            with tempfile.TemporaryDirectory(prefix="mp_ocr_escalate_") as tmpdir:
+                rendered_by_page: dict[int, Path] = {}
+
+                def _get_page_pngs(target_pages: list[int]) -> list[Path]:
+                    missing = [p for p in target_pages if p not in rendered_by_page]
+                    if missing:
+                        new_pngs = preprocess_pdf_pages_for_ocr(
+                            pdf_path,
+                            Path(tmpdir),
+                            pages=missing,
+                            dpi=dpi,
+                            strip_watermark=strip_watermark,
+                            crop_margins=crop_margins,
+                            max_dim=max_dim,
+                        )
+                        if len(new_pngs) == len(missing):
+                            for page_num, png_path in zip(missing, new_pngs, strict=True):
+                                rendered_by_page[page_num] = png_path
+                        else:
+                            return new_pngs
+                    return [rendered_by_page[p] for p in target_pages]
+
+                def _run_on_pages(
+                    target_pages: list[int],
+                    prefix: str,
+                    *,
+                    skip_norm_if_no_signals: bool = False,
+                ) -> tuple[str, str]:
+                    clean_pngs = _get_page_pngs(target_pages)
                     raw_text = self.extract_text_from_images(
                         clean_pngs,
                         audit=audit,
                         stage_name=f"{prefix}extract_text_from_images",
                     )
 
-                s2_config = self._load_prompt("extract_legal_description")
-                s2_user = s2_config["user_prompt_template"].replace("{document_text}", raw_text)
-                s2_prompt = f"{s2_config['system_prompt']}\n\n{s2_user}"
-                legal_text = self.client.generate_text(s2_prompt)
-                if audit:
-                    self._record_llm_stage(
-                        f"{prefix}extract_legal_description", s2_prompt, legal_text
+                    s2_config = self._load_prompt("extract_legal_description")
+                    s2_user = s2_config["user_prompt_template"].replace("{document_text}", raw_text)
+                    s2_prompt = f"{s2_config['system_prompt']}\n\n{s2_user}"
+                    legal_text = self.client.generate_text(s2_prompt)
+                    if audit:
+                        self._record_llm_stage(
+                            f"{prefix}extract_legal_description", s2_prompt, legal_text
+                        )
+
+                    if skip_norm_if_no_signals and not has_legal_measurement_signals(legal_text):
+                        return legal_text, legal_text
+
+                    s3_config = self._load_prompt("normalize_text")
+                    s3_user = s3_config["user_prompt_template"].replace(
+                        "{legal_description_text}", legal_text
                     )
+                    s3_prompt = f"{s3_config['system_prompt']}\n\n{s3_user}"
+                    raw_norm = self.client.generate_text(s3_prompt)
+                    if audit:
+                        self._record_llm_stage(f"{prefix}normalize_text", s3_prompt, raw_norm)
 
-                s3_config = self._load_prompt("normalize_text")
-                s3_user = s3_config["user_prompt_template"].replace(
-                    "{legal_description_text}", legal_text
-                )
-                s3_prompt = f"{s3_config['system_prompt']}\n\n{s3_user}"
-                raw_norm = self.client.generate_text(s3_prompt)
-                if audit:
-                    self._record_llm_stage(f"{prefix}normalize_text", s3_prompt, raw_norm)
+                    ok, reasons = verify_normalization_integrity(legal_text, raw_norm)
+                    if not ok:
+                        logger.warning(
+                            "Escalation Stage 3 normalization failed measurement integrity check; "
+                            "preserving Stage 2 legal description text",
+                            reasons=reasons,
+                        )
+                        return legal_text, legal_text
+                    return legal_text, raw_norm
 
-                ok, reasons = verify_normalization_integrity(legal_text, raw_norm)
-                if not ok:
-                    logger.warning(
-                        "Escalation Stage 3 normalization failed measurement integrity check; "
-                        "preserving Stage 2 legal description text",
-                        reasons=reasons,
-                    )
-                    return legal_text, legal_text
-                return legal_text, raw_norm
-
-            legal_desc_text, normalized_text = _run_on_pages(resolved_pages, stage_prefix)
-            if (
-                pages is None
-                and len(resolved_pages) < total_pages
-                and not has_legal_measurement_signals(legal_desc_text)
-            ):
-                all_pages = list(range(1, total_pages + 1))
-                logger.warning(
-                    "Escalation on located pages produced no legal measurements; "
-                    "retrying across all PDF pages",
-                    located_pages=resolved_pages,
-                    total_pages=total_pages,
-                )
+                can_fallback = pages is None and len(resolved_pages) < total_pages
                 legal_desc_text, normalized_text = _run_on_pages(
-                    all_pages, f"{stage_prefix}fallback_"
+                    resolved_pages,
+                    stage_prefix,
+                    skip_norm_if_no_signals=can_fallback,
                 )
-                resolved_pages = all_pages
+                if can_fallback and not has_legal_measurement_signals(legal_desc_text):
+                    all_pages = list(range(1, total_pages + 1))
+                    logger.warning(
+                        "Escalation on located pages produced no legal measurements; "
+                        "retrying across all PDF pages",
+                        located_pages=resolved_pages,
+                        total_pages=total_pages,
+                    )
+                    legal_desc_text, normalized_text = _run_on_pages(
+                        all_pages, f"{stage_prefix}fallback_"
+                    )
+                    resolved_pages = all_pages
         except Exception:
             if audit:
                 self._audit_stage_records = None

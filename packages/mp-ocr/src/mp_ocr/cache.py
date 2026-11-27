@@ -82,6 +82,7 @@ class CachedLLMClient:
         response_mime_type: str | None,
         pdf_bytes: bytes | None = None,
         image_bytes_list: Sequence[bytes] | None = None,
+        image_sha256s: Sequence[str] | None = None,
     ) -> str:
         target = _unwrap_client_chain(self)
         client_type = type(target)
@@ -100,7 +101,9 @@ class CachedLLMClient:
             "response_mime_type": response_mime_type,
             "pdf_sha256": hashlib.sha256(pdf_bytes).hexdigest() if pdf_bytes is not None else None,
         }
-        if image_bytes_list is not None:
+        if image_sha256s is not None:
+            identity["image_sha256s"] = list(image_sha256s)
+        elif image_bytes_list is not None:
             identity["image_sha256s"] = [
                 hashlib.sha256(raw).hexdigest() for raw in image_bytes_list
             ]
@@ -209,13 +212,14 @@ class CachedLLMClient:
             )
 
         image_names: list[str] = []
-        image_bytes_list: list[bytes] = []
+        image_sha256s: list[str] = []
         for image_path in validated_paths:
             name, _, img_bytes = _read_image(image_path)
             image_names.append(name)
-            image_bytes_list.append(img_bytes)
+            image_sha256s.append(hashlib.sha256(img_bytes).hexdigest())
+            del img_bytes
 
-        key = self._cache_key(prompt, response_mime_type, image_bytes_list=image_bytes_list)
+        key = self._cache_key(prompt, response_mime_type, image_sha256s=image_sha256s)
         cached = self._read_cache(key)
         if cached is not None:
             return cached

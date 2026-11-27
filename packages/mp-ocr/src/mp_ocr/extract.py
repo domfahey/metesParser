@@ -27,7 +27,7 @@ from mp_models import LLMStageRecord
 
 from .cache import CachedLLMClient, _unwrap_client_chain
 from .clients import BaseLLMClient, GeminiClient, LLMClientError, OpenAIClient, OpenRouterClient
-from .preprocessing import count_pdf_pages, preprocess_pdf_pages_for_ocr
+from .preprocessing import count_pdf_pages, preprocess_pdf_pages_for_ocr, validate_pdf_pages
 
 logger = structlog.get_logger(__name__)
 
@@ -120,32 +120,51 @@ def compute_llm_confidence(text: str) -> tuple[float, dict[str, bool]]:
 # Stage 3 normalization integrity guard
 # ---------------------------------------------------------------------------
 
-_NORM_GUARD_DEG = r"(?:°|º|deg(?:rees?)?\.?|decr(?:ees?)?\.?)"
-_NORM_GUARD_MIN = r"(?:'|\u2018|\u2019|\u2032|`|min(?:utes?)?\.?)"
-_NORM_GUARD_SEC = r'(?:"|\u201c|\u201d|\u2033|\'\'|sec(?:onds?)?\.?)'
+_NORM_GUARD_DEG = r"(?:°|º|deg(?:rees?)?\.?|decr(?:ees?)?\.?|(?<=\d)[Dd](?=[\s\d-]))"
+_NORM_GUARD_MIN = r"(?:'|\u2018|\u2019|\u2032|`|min(?:utes?)?\.?|(?<=\d)[Mm](?=[\s\d-]))"
+_NORM_GUARD_SEC = r'(?:"|\u201c|\u201d|\u2033|\'\'|sec(?:onds?)?\.?|(?<=\d)[Ss](?=[\s\d-]))'
+# Possessive whitespace/punctuation quantifiers keep matching strictly O(n) on hostile input.
+_NORM_GUARD_SEP = r"(?:\s*+,\s*+and\s++|\s*+,\s*+|\s*+-\s*+|\s++and\s++|\s*+)"
+_NORM_GUARD_EW = r"(?P<ew>East|West|[EW])\b(?:\.(?!\w))?"
+
 _NORM_GUARD_BEARING_RE = re.compile(
-    rf"\b(?:(?P<ns_word>[5S][oO0]uth|N[oO0]rth)\s+|(?P<ns_abbr>[NS])\s*)"
-    rf"(?P<deg>\d{{1,2}})\s*{_NORM_GUARD_DEG}\s*,?\s*"
+    rf"\b(?:(?P<ns_word>[5S][oO0]uth|N[oO0]rth)\s++|(?P<ns_abbr>[NS])\.?\s*+)"
     rf"(?:"
-    rf"(?P<min1>\d{{1,2}})\s*{_NORM_GUARD_MIN}\s*,?\s*"
-    rf"(?:(?:and\s+)?(?P<sec1>\d{{1,2}}(?:\.\d+)?)\s*{_NORM_GUARD_SEC}?\s*,?\s*)?"
-    rf"|(?P<min2>\d{{1,2}})\s+(?P<sec2>\d{{1,2}}(?:\.\d+)?)\s*,?\s*"
-    rf")?\s*(?P<ew>East|West|[EW])\b",
+    rf"(?P<deg>\d{{1,2}}(?:\.\d{{1,6}})?)\s*+{_NORM_GUARD_DEG}"
+    rf"(?:{_NORM_GUARD_SEP}"
+    rf"(?:"
+    rf"(?P<min1>\d{{1,2}})\s*+{_NORM_GUARD_MIN}"
+    rf"(?:{_NORM_GUARD_SEP}(?P<sec1>\d{{1,2}}(?:\.\d{{1,6}})?)\s*+{_NORM_GUARD_SEC}?+)?"
+    rf"|(?P<min2>\d{{1,2}})\s++(?P<sec2>\d{{1,2}}(?:\.\d{{1,6}})?)(?:\s*+{_NORM_GUARD_SEC})?"
+    rf"))?"
+    rf"(?:\s*+,\s*+|\s*+){_NORM_GUARD_EW}"
+    rf"|(?P<hdeg>\d{{1,2}})-(?P<hmin>\d{{1,2}})(?:-(?P<hsec>\d{{1,2}}(?:\.\d{{1,6}})?))?"
+    rf"\s*+(?P<hew>East|West|[EW])\b(?:\.(?!\w))?"
+    rf")",
+    re.IGNORECASE,
+)
+
+_NORM_GUARD_DUE_CARDINAL_RE = re.compile(
+    r"\bdue\s++(?P<due_dir>North|South|East|West)\b",
     re.IGNORECASE,
 )
 
 _NORM_GUARD_ANGLE_RE = re.compile(
-    rf"(?<![A-Za-z0-9.])(?P<deg>\d{{1,3}})\s*{_NORM_GUARD_DEG}\s*,?\s*"
-    rf"(?P<min>\d{{1,2}})\s*{_NORM_GUARD_MIN}\s*,?\s*"
-    rf"(?:(?:and\s+)?(?P<sec>\d{{1,2}}(?:\.\d+)?)\s*{_NORM_GUARD_SEC}?)?",
+    rf"(?<![A-Za-z0-9.])(?P<deg>\d{{1,3}})\s*+{_NORM_GUARD_DEG}"
+    rf"(?:"
+    rf"{_NORM_GUARD_SEP}(?P<min>\d{{1,2}})\s*+{_NORM_GUARD_MIN}"
+    rf"(?:{_NORM_GUARD_SEP}(?P<sec>\d{{1,2}}(?:\.\d{{1,6}})?)\s*+{_NORM_GUARD_SEC}?+)?"
+    rf"|(?:\s++|\s*+,\s*+)(?P<min2>\d{{1,2}})\s++(?P<sec2>\d{{1,2}}(?:\.\d{{1,6}})?)"
+    rf"(?:\s*+{_NORM_GUARD_SEC})?"
+    rf")",
     re.IGNORECASE,
 )
 
 _NORM_GUARD_DISTANCE_RE = re.compile(
-    r"(?<![A-Za-z0-9./,])"
-    r"(?:(?:(?P<whole>\d+)\s+)?(?P<num>\d+)/(?P<den>\d+)"
-    r"|(?P<val>\d+(?:,\d{3})*(?:\.\d+)?|\.\d+))"
-    r"\.?[\s-]*"
+    r"(?<![A-Za-z0-9./,])(?<!\d-)"
+    r"(?:(?:(?P<whole>\d{1,12}(?:,\d{3})*)[\s-]+)?(?P<num>\d{1,12})/(?P<den>\d{1,12})"
+    r"|(?P<val>\d{1,12}(?:,\d{3})*(?:\.\d{1,8})?|\.\d{1,8}))"
+    r"\.?+[\s-]*+"
     r"(?P<unit>(?:u\.?s\.?\s+)?survey\s+(?:feet|foot|ft)|"
     r"engineer(?:'s)?\s+(?:chains?|links?)|"
     r"feet|foot|ft|poles?|rods?|perch(?:es)?|chains?|links?|varas?|"
@@ -154,41 +173,39 @@ _NORM_GUARD_DISTANCE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_NORM_GUARD_FOOT_MARK_RE = re.compile(
+    r"(?<![A-Za-z0-9./,])(?<!\d-)(?P<ftval>\d{1,9}(?:,\d{3})*\.\d{1,6})['\u2032\u2019](?!['\u2032\u2019])"
+)
+
+_NORM_GUARD_CURVE_DIR_RE = re.compile(
+    r"\b(?:curv(?:e|ed|ing)|arc)\b[^.;]{0,40}?\b(?P<cdir>left|right(?!(?:\s*-\s*|\s+)of(?:\s*-\s*|\s+)way\b))\b",
+    re.IGNORECASE,
+)
+
 _LEGAL_COURSE_CUE_RE = re.compile(r"\b(?:BEGINNING|COMMENCING|THENCE)\b", re.IGNORECASE)
 
 _NORM_GUARD_UNIT_CANONICAL: dict[str, str] = {
-    "foot": "feet",
-    "ft": "feet",
-    "feet": "feet",
     "pole": "poles",
-    "poles": "poles",
     "rod": "rods",
-    "rods": "rods",
     "perch": "perches",
-    "perches": "perches",
-    "chain": "chains",
-    "chains": "chains",
-    "link": "links",
-    "links": "links",
     "vara": "varas",
-    "varas": "varas",
     "arpent": "arpents",
-    "arpents": "arpents",
     "toise": "toises",
-    "toises": "toises",
     "furlong": "furlongs",
-    "furlongs": "furlongs",
     "meter": "meters",
-    "meters": "meters",
     "metre": "meters",
     "metres": "meters",
     "mile": "miles",
-    "miles": "miles",
 }
 
 
 def _canonicalize_unit(raw_unit: str) -> str:
     cleaned = " ".join(raw_unit.lower().replace(".", "").split())
+    if cleaned.startswith(("engineer ", "engineer's ")):
+        if cleaned.endswith(("chains", "chain")):
+            return "engineer_chains"
+        if cleaned.endswith(("links", "link")):
+            return "engineer_links"
     if cleaned.endswith(("feet", "foot", "ft")):
         return "feet"
     if cleaned.endswith(("chains", "chain")):
@@ -198,73 +215,132 @@ def _canonicalize_unit(raw_unit: str) -> str:
     return _NORM_GUARD_UNIT_CANONICAL.get(cleaned, cleaned)
 
 
+def _overlaps_sorted(
+    start: int, end: int, sorted_spans: Sequence[tuple[int, int]], idx: int
+) -> tuple[bool, int]:
+    """Advance *idx* over *sorted_spans* and return ``(overlaps, new_idx)`` in amortized O(1)."""
+    n = len(sorted_spans)
+    while idx < n and sorted_spans[idx][1] <= start:
+        idx += 1
+    overlaps = idx < n and sorted_spans[idx][0] < end
+    return overlaps, idx
+
+
 def _extract_bearing_signature(
     text: str,
-) -> tuple[list[tuple[str, int, int, float, str]], list[tuple[int, int]]]:
-    """Return ordered canonical DMS bearings and their character spans."""
-    out: list[tuple[str, int, int, float, str]] = []
-    spans: list[tuple[int, int]] = []
+) -> tuple[list[tuple[str, float, int, float, str]], list[tuple[int, int]]]:
+    """Return ordered canonical DMS/due-cardinal bearings and their character spans."""
+    entries: list[tuple[int, tuple[str, float, int, float, str], tuple[int, int]]] = []
     for match in _NORM_GUARD_BEARING_RE.finditer(text):
         ns_raw = match.group("ns_word") or match.group("ns_abbr") or ""
         ns = "N" if ns_raw[0].upper() == "N" else "S"
-        ew = "E" if match.group("ew")[0].upper() == "E" else "W"
-        deg = int(match.group("deg"))
-        if match.group("min1") is not None:
-            mins = int(match.group("min1"))
-            secs = float(match.group("sec1")) if match.group("sec1") is not None else 0.0
-        elif match.group("min2") is not None:
-            mins = int(match.group("min2"))
-            secs = float(match.group("sec2"))
+        if match.group("hdeg") is not None:
+            ew = "E" if match.group("hew")[0].upper() == "E" else "W"
+            deg = float(int(match.group("hdeg")))
+            mins = int(match.group("hmin"))
+            secs = float(match.group("hsec")) if match.group("hsec") is not None else 0.0
         else:
-            mins = 0
-            secs = 0.0
-        out.append((ns, deg, mins, round(secs, 4), ew))
-        spans.append(match.span())
+            ew = "E" if match.group("ew")[0].upper() == "E" else "W"
+            deg_val = float(match.group("deg"))
+            if match.group("min1") is not None:
+                deg = deg_val
+                mins = int(match.group("min1"))
+                secs = float(match.group("sec1")) if match.group("sec1") is not None else 0.0
+            elif match.group("min2") is not None:
+                deg = deg_val
+                mins = int(match.group("min2"))
+                secs = float(match.group("sec2"))
+            else:
+                deg = deg_val
+                mins = 0
+                secs = 0.0
+        entries.append((match.start(), (ns, round(deg, 6), mins, round(secs, 4), ew), match.span()))
+
+    for match in _NORM_GUARD_DUE_CARDINAL_RE.finditer(text):
+        due_dir = match.group("due_dir")[0].upper()
+        entries.append((match.start(), ("DUE", 0.0, 0, 0.0, due_dir), match.span()))
+
+    entries.sort(key=lambda item: item[0])
+    out = [item[1] for item in entries]
+    spans = [item[2] for item in entries]
     return out, spans
 
 
 def _extract_standalone_angle_signature(
     text: str, excluded_spans: Sequence[tuple[int, int]]
-) -> list[tuple[int, int, float]]:
-    """Return ordered standalone DMS angles (deltas, interior/exterior angles)."""
+) -> tuple[list[tuple[int, int, float]], list[tuple[int, int]]]:
+    """Return ordered standalone DMS angles (deltas, interior/exterior angles) and spans."""
     out: list[tuple[int, int, float]] = []
+    spans: list[tuple[int, int]] = []
+    idx = 0
     for match in _NORM_GUARD_ANGLE_RE.finditer(text):
         start, end = match.span()
-        if any(start < b_end and end > b_start for b_start, b_end in excluded_spans):
+        overlaps, idx = _overlaps_sorted(start, end, excluded_spans, idx)
+        if overlaps:
             continue
         deg = int(match.group("deg"))
-        mins = int(match.group("min"))
-        secs = float(match.group("sec")) if match.group("sec") is not None else 0.0
-        out.append((deg, mins, round(secs, 4)))
-    return out
-
-
-def _extract_distance_signature(text: str) -> list[tuple[float, str]]:
-    """Return ordered canonical ``(value, unit)`` distance measurement tuples."""
-    out: list[tuple[float, str]] = []
-    for match in _NORM_GUARD_DISTANCE_RE.finditer(text):
-        if match.group("num") is not None:
-            den = int(match.group("den"))
-            if den == 0:
-                continue
-            whole = float(match.group("whole")) if match.group("whole") is not None else 0.0
-            val = whole + (float(match.group("num")) / den)
+        if match.group("min") is not None:
+            mins = int(match.group("min"))
+            secs = float(match.group("sec")) if match.group("sec") is not None else 0.0
         else:
-            val = float(match.group("val").replace(",", ""))
+            mins = int(match.group("min2"))
+            secs = float(match.group("sec2"))
+        out.append((deg, mins, round(secs, 4)))
+        spans.append((start, end))
+    return out, spans
+
+
+def _extract_distance_signature(
+    text: str, excluded_spans: Sequence[tuple[int, int]] = ()
+) -> list[tuple[float, str]]:
+    """Return ordered canonical ``(value, unit)`` distance measurement tuples."""
+    entries: list[tuple[int, tuple[float, str]]] = []
+    for match in _NORM_GUARD_DISTANCE_RE.finditer(text):
+        try:
+            if match.group("num") is not None:
+                den = int(match.group("den"))
+                if den == 0:
+                    continue
+                whole_raw = match.group("whole")
+                whole = float(whole_raw.replace(",", "")) if whole_raw is not None else 0.0
+                val = whole + (float(match.group("num")) / float(den))
+            else:
+                val = float(match.group("val").replace(",", ""))
+        except (ValueError, OverflowError):
+            continue
         unit = _canonicalize_unit(match.group("unit"))
-        out.append((round(val, 6), unit))
-    return out
+        entries.append((match.start(), (round(val, 6), unit)))
+
+    idx = 0
+    for match in _NORM_GUARD_FOOT_MARK_RE.finditer(text):
+        start, end = match.span()
+        overlaps, idx = _overlaps_sorted(start, end, excluded_spans, idx)
+        if overlaps:
+            continue
+        try:
+            val = float(match.group("ftval").replace(",", ""))
+        except (ValueError, OverflowError):
+            continue
+        entries.append((start, (round(val, 6), "feet")))
+
+    entries.sort(key=lambda item: item[0])
+    return [item[1] for item in entries]
+
+
+def _extract_curve_direction_signature(text: str) -> list[str]:
+    """Return ordered explicit curve directions (``left``/``right``) in curve clauses."""
+    return [match.group("cdir").lower() for match in _NORM_GUARD_CURVE_DIR_RE.finditer(text)]
 
 
 def verify_normalization_integrity(
     source_text: str, normalized_text: str
 ) -> tuple[bool, list[str]]:
-    """Verify Stage 3 normalization preserved every bearing, angle, and distance in order.
+    """Verify Stage 3 normalization preserved every bearing, angle, distance, and curve dir.
 
     Stage 3 is a format-only rewrite (symbols, abbreviations, line unwrapping).
     Any reordering, omission, duplication, or numeric change in bearings,
-    standalone DMS angles, or distance measurements indicates LLM copy drift
-    and fails this check.
+    standalone DMS angles, distance measurements, or curve directions indicates
+    LLM copy drift and fails this check.
     """
     reasons: list[str] = []
     if source_text.strip() and not normalized_text.strip():
@@ -278,19 +354,28 @@ def verify_normalization_integrity(
             f"normalized={len(norm_bearings)})"
         )
 
-    src_angles = _extract_standalone_angle_signature(source_text, src_b_spans)
-    norm_angles = _extract_standalone_angle_signature(normalized_text, norm_b_spans)
+    src_angles, src_a_spans = _extract_standalone_angle_signature(source_text, src_b_spans)
+    norm_angles, norm_a_spans = _extract_standalone_angle_signature(normalized_text, norm_b_spans)
     if src_angles != norm_angles:
         reasons.append(
             f"angle_sequence_mismatch (source={len(src_angles)}, normalized={len(norm_angles)})"
         )
 
-    src_distances = _extract_distance_signature(source_text)
-    norm_distances = _extract_distance_signature(normalized_text)
+    src_excluded = sorted([*src_b_spans, *src_a_spans])
+    norm_excluded = sorted([*norm_b_spans, *norm_a_spans])
+    src_distances = _extract_distance_signature(source_text, src_excluded)
+    norm_distances = _extract_distance_signature(normalized_text, norm_excluded)
     if src_distances != norm_distances:
         reasons.append(
             f"distance_sequence_mismatch (source={len(src_distances)}, "
             f"normalized={len(norm_distances)})"
+        )
+
+    src_curves = _extract_curve_direction_signature(source_text)
+    norm_curves = _extract_curve_direction_signature(normalized_text)
+    if src_curves != norm_curves:
+        reasons.append(
+            f"curve_direction_mismatch (source={len(src_curves)}, normalized={len(norm_curves)})"
         )
 
     return not reasons, reasons
@@ -299,22 +384,33 @@ def verify_normalization_integrity(
 def has_legal_measurement_signals(text: str) -> bool:
     """Return True if *text* contains bearings or metes-and-bounds course distances.
 
-    Requires at least one DMS bearing OR a legal course cue
+    Requires at least one DMS/due-cardinal bearing OR a legal course cue
     (``BEGINNING`` / ``COMMENCING`` / ``THENCE``) with at least two distance
     measurements so a stray boilerplate distance on a cover page does not
     suppress all-page fallback.
     """
-    bearings, _ = _extract_bearing_signature(text)
+    bearings, b_spans = _extract_bearing_signature(text)
     if bearings:
         return True
-    return bool(_LEGAL_COURSE_CUE_RE.search(text)) and len(_extract_distance_signature(text)) >= 2
+    _, a_spans = _extract_standalone_angle_signature(text, b_spans)
+    excluded = sorted([*b_spans, *a_spans])
+    return (
+        bool(_LEGAL_COURSE_CUE_RE.search(text))
+        and len(_extract_distance_signature(text, excluded)) >= 2
+    )
 
 
-def parse_located_pages(raw_response: str, total_pages: int) -> list[int]:
+def parse_located_pages(
+    raw_response: str, total_pages: int, *, allow_empty: bool = False
+) -> list[int]:
     """Parse 1-based legal-description page numbers from JSON LLM output.
 
-    Falls back to all pages ``1..total_pages`` whenever the response is empty,
-    malformed, or contains no valid page numbers so legal text is never dropped.
+    Falls back to all pages ``1..total_pages`` whenever the response is
+    malformed or non-list. When *allow_empty* is False (single-batch default),
+    an empty or out-of-range page list also falls back to ``1..total_pages``;
+    when *allow_empty* is True (multi-batch triage), an explicit valid empty
+    list ``[]`` / ``{"pages": []}`` returns ``[]`` so non-legal batches are not
+    expanded into all pages.
     """
     all_pages = list(range(1, total_pages + 1))
     cleaned = raw_response.strip()
@@ -346,16 +442,14 @@ def parse_located_pages(raw_response: str, total_pages: int) -> list[int]:
         }
     )
     if not valid:
+        if allow_empty and len(raw_pages) == 0:
+            return []
         logger.warning(
             "locate_legal_pages returned no valid page numbers; falling back to all pages",
             total_pages=total_pages,
         )
         return all_pages
     return valid
-
-
-_has_legal_measurement_signals = has_legal_measurement_signals
-_parse_located_pages = parse_located_pages
 
 
 # ---------------------------------------------------------------------------
@@ -614,14 +708,21 @@ class PDFProcessor:
                     )
                     if audit:
                         self._record_llm_stage("locate_legal_pages", combined_prompt, response)
-                    local_pages = parse_located_pages(response, batch_len)
+                    local_pages = parse_located_pages(response, batch_len, allow_empty=True)
                     located.extend(batch_start + p for p in local_pages)
         except Exception:
             if audit:
                 self._audit_stage_records = None
             raise
 
-        return sorted(dict.fromkeys(located))
+        deduped = sorted(dict.fromkeys(located))
+        if not deduped:
+            logger.warning(
+                "locate_legal_pages returned no pages across all batches; falling back to all pages",
+                total_pages=total_pages,
+            )
+            return list(range(1, total_pages + 1))
+        return deduped
 
     def extract_text_from_images(
         self,
@@ -708,7 +809,7 @@ class PDFProcessor:
                 raise ValueError(f"PDF has no pages: {pdf_path}")
 
             if pages is not None:
-                resolved_pages = sorted(dict.fromkeys(int(p) for p in pages))
+                resolved_pages = validate_pdf_pages(pages, total_pages)
             else:
                 locator = locator_processor or self
                 prev_locator_records = locator._audit_stage_records
@@ -721,68 +822,90 @@ class PDFProcessor:
 
             self._audit_stage_records = collected_stages
 
-            def _run_on_pages(target_pages: list[int], prefix: str) -> tuple[str, str]:
-                with tempfile.TemporaryDirectory(prefix="mp_ocr_escalate_") as tmpdir:
-                    clean_pngs = preprocess_pdf_pages_for_ocr(
-                        pdf_path,
-                        Path(tmpdir),
-                        pages=target_pages,
-                        dpi=dpi,
-                        strip_watermark=strip_watermark,
-                        crop_margins=crop_margins,
-                        max_dim=max_dim,
-                    )
+            with tempfile.TemporaryDirectory(prefix="mp_ocr_escalate_") as tmpdir:
+                rendered_by_page: dict[int, Path] = {}
+
+                def _get_page_pngs(target_pages: list[int]) -> list[Path]:
+                    missing = [p for p in target_pages if p not in rendered_by_page]
+                    if missing:
+                        new_pngs = preprocess_pdf_pages_for_ocr(
+                            pdf_path,
+                            Path(tmpdir),
+                            pages=missing,
+                            dpi=dpi,
+                            strip_watermark=strip_watermark,
+                            crop_margins=crop_margins,
+                            max_dim=max_dim,
+                        )
+                        if len(new_pngs) == len(missing):
+                            for page_num, png_path in zip(missing, new_pngs, strict=True):
+                                rendered_by_page[page_num] = png_path
+                        else:
+                            return new_pngs
+                    return [rendered_by_page[p] for p in target_pages]
+
+                def _run_on_pages(
+                    target_pages: list[int],
+                    prefix: str,
+                    *,
+                    skip_norm_if_no_signals: bool = False,
+                ) -> tuple[str, str]:
+                    clean_pngs = _get_page_pngs(target_pages)
                     raw_text = self.extract_text_from_images(
                         clean_pngs,
                         audit=audit,
                         stage_name=f"{prefix}extract_text_from_images",
                     )
 
-                s2_config = self._load_prompt("extract_legal_description")
-                s2_user = s2_config["user_prompt_template"].replace("{document_text}", raw_text)
-                s2_prompt = f"{s2_config['system_prompt']}\n\n{s2_user}"
-                legal_text = self.client.generate_text(s2_prompt)
-                if audit:
-                    self._record_llm_stage(
-                        f"{prefix}extract_legal_description", s2_prompt, legal_text
+                    s2_config = self._load_prompt("extract_legal_description")
+                    s2_user = s2_config["user_prompt_template"].replace("{document_text}", raw_text)
+                    s2_prompt = f"{s2_config['system_prompt']}\n\n{s2_user}"
+                    legal_text = self.client.generate_text(s2_prompt)
+                    if audit:
+                        self._record_llm_stage(
+                            f"{prefix}extract_legal_description", s2_prompt, legal_text
+                        )
+
+                    if skip_norm_if_no_signals and not has_legal_measurement_signals(legal_text):
+                        return legal_text, legal_text
+
+                    s3_config = self._load_prompt("normalize_text")
+                    s3_user = s3_config["user_prompt_template"].replace(
+                        "{legal_description_text}", legal_text
                     )
+                    s3_prompt = f"{s3_config['system_prompt']}\n\n{s3_user}"
+                    raw_norm = self.client.generate_text(s3_prompt)
+                    if audit:
+                        self._record_llm_stage(f"{prefix}normalize_text", s3_prompt, raw_norm)
 
-                s3_config = self._load_prompt("normalize_text")
-                s3_user = s3_config["user_prompt_template"].replace(
-                    "{legal_description_text}", legal_text
-                )
-                s3_prompt = f"{s3_config['system_prompt']}\n\n{s3_user}"
-                raw_norm = self.client.generate_text(s3_prompt)
-                if audit:
-                    self._record_llm_stage(f"{prefix}normalize_text", s3_prompt, raw_norm)
+                    ok, reasons = verify_normalization_integrity(legal_text, raw_norm)
+                    if not ok:
+                        logger.warning(
+                            "Escalation Stage 3 normalization failed measurement integrity check; "
+                            "preserving Stage 2 legal description text",
+                            reasons=reasons,
+                        )
+                        return legal_text, legal_text
+                    return legal_text, raw_norm
 
-                ok, reasons = verify_normalization_integrity(legal_text, raw_norm)
-                if not ok:
-                    logger.warning(
-                        "Escalation Stage 3 normalization failed measurement integrity check; "
-                        "preserving Stage 2 legal description text",
-                        reasons=reasons,
-                    )
-                    return legal_text, legal_text
-                return legal_text, raw_norm
-
-            legal_desc_text, normalized_text = _run_on_pages(resolved_pages, stage_prefix)
-            if (
-                pages is None
-                and len(resolved_pages) < total_pages
-                and not has_legal_measurement_signals(legal_desc_text)
-            ):
-                all_pages = list(range(1, total_pages + 1))
-                logger.warning(
-                    "Escalation on located pages produced no legal measurements; "
-                    "retrying across all PDF pages",
-                    located_pages=resolved_pages,
-                    total_pages=total_pages,
-                )
+                can_fallback = pages is None and len(resolved_pages) < total_pages
                 legal_desc_text, normalized_text = _run_on_pages(
-                    all_pages, f"{stage_prefix}fallback_"
+                    resolved_pages,
+                    stage_prefix,
+                    skip_norm_if_no_signals=can_fallback,
                 )
-                resolved_pages = all_pages
+                if can_fallback and not has_legal_measurement_signals(legal_desc_text):
+                    all_pages = list(range(1, total_pages + 1))
+                    logger.warning(
+                        "Escalation on located pages produced no legal measurements; "
+                        "retrying across all PDF pages",
+                        located_pages=resolved_pages,
+                        total_pages=total_pages,
+                    )
+                    legal_desc_text, normalized_text = _run_on_pages(
+                        all_pages, f"{stage_prefix}fallback_"
+                    )
+                    resolved_pages = all_pages
         except Exception:
             if audit:
                 self._audit_stage_records = None

@@ -27,10 +27,14 @@ from .extract import (
     verify_normalization_integrity,
 )
 from .preprocessing import (
+    DEFAULT_MAX_RENDER_PAGES,
+    MAX_RENDER_DPI,
     count_pdf_pages,
     preprocess_pdf_pages_for_ocr,
     render_pdf_pages_to_pngs,
     strip_green_watermark_and_crop,
+    validate_pdf_pages,
+    validate_render_dpi,
 )
 
 __version__ = "1.0.1"
@@ -39,11 +43,13 @@ __all__ = [
     "BaseLLMClient",
     "CachedLLMClient",
     "CourseDisagreement",
+    "DEFAULT_MAX_RENDER_PAGES",
     "EscalationPolicy",
     "EscalationReport",
     "GeminiClient",
     "LLMClientError",
     "LLMConfigurationError",
+    "MAX_RENDER_DPI",
     "OpenAIClient",
     "OpenRouterClient",
     "PDFProcessor",
@@ -59,5 +65,7 @@ __all__ = [
     "should_escalate_closure",
     "strip_green_watermark_and_crop",
     "validate_escalation_policy",
+    "validate_pdf_pages",
+    "validate_render_dpi",
     "verify_normalization_integrity",
 ]
