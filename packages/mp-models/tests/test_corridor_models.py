@@ -62,26 +62,26 @@ def test_full_width_endpoint_definition_and_provenance_are_lossless():
 def test_construction_choices_and_unit_evidence_are_explicit(field):
     data = payload()
     del data[field]
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=rf"{field}[\s\S]*Field required"):
         CorridorRequest.model_validate(data)
 
 
 @pytest.mark.parametrize(
-    "change",
+    ("change", "expected_match"),
     [
-        {"left_start": -1},
-        {"left_end": 21},
-        {"source_refs": []},
-        {"start": {"call_id": "unknown", "fraction": 0}},
-        {"end": {"call_id": "road", "fraction": 2}},
-        {"rule": "preferred_overlap"},
-        {"left_start": 0, "right_start": 0},
+        ({"left_start": -1}, "greater than or equal to 0"),
+        ({"left_end": 21}, "step widths must be constant"),
+        ({"source_refs": []}, "at least 1 item"),
+        ({"start": {"call_id": "unknown", "fraction": 0}}, "unknown centerline call"),
+        ({"end": {"call_id": "road", "fraction": 2}}, "less than or equal to 1"),
+        ({"rule": "preferred_overlap"}, "Input should be 'step' or 'linear_taper'"),
+        ({"left_start": 0, "right_start": 0}, "positive total width"),
     ],
 )
-def test_width_schema_rejects_implicit_or_invalid_geometry(change):
+def test_width_schema_rejects_implicit_or_invalid_geometry(change, expected_match):
     data = payload()
     data["widths"][0].update(change)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_match):
         CorridorRequest.model_validate(data)
 
 
@@ -95,13 +95,20 @@ def test_interval_identity_is_unique_but_order_and_coverage_are_engine_evidence(
 
 
 @pytest.mark.parametrize(
-    "change",
-    [{"max_error": 0}, {"max_error": float("inf")}, {"unit": "unknown_ft"}, {"max_segments": True}],
+    ("change", "expected_match"),
+    [
+        ({"max_error": 0}, "greater than 0"),
+        ({"max_error": float("inf")}, "finite number"),
+        ({"unit": "unknown_ft"}, "known linear units"),
+        ({"max_segments": True}, "valid integer"),
+    ],
 )
-def test_error_budget_requires_finite_known_linear_precision_and_bounded_work(change):
+def test_error_budget_requires_finite_known_linear_precision_and_bounded_work(
+    change, expected_match
+):
     data = payload()
     data["error_budget"].update(change)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_match):
         CorridorRequest.model_validate(data)
 
 
@@ -115,6 +122,66 @@ def test_computed_error_report_cannot_exceed_or_omit_error_allocations():
         "boundary_segments": 12,
     }
     assert CorridorErrorReport.model_validate(report).total_bound == 0.006
-    for update in ({"total_bound": 0.004}, {"requested_max_error": 0.005}):
-        with pytest.raises(ValueError):
+    for update, expected_match in (
+        ({"total_bound": 0.004}, "linearization and floating point bounds"),
+        ({"requested_max_error": 0.005}, "exceeds its declared error budget"),
+    ):
+        with pytest.raises(ValueError, match=expected_match):
             CorridorErrorReport.model_validate(report | update)
+
+
+def test_corridor_width_unit_and_result_availability_guards():
+    from mp_models.corridor import CorridorResult
+    from mp_models.plot import PlotGeometry, PlotPrimitive
+    from mp_models.plot_request import PreparedPlot
+
+    data = payload()
+    data["width_unit"] = "unknown_ft"
+    with pytest.raises(ValueError, match="known linear unit"):
+        CorridorRequest.model_validate(data)
+
+    req = CorridorRequest.model_validate(payload())
+    # Supported result missing required fields rejected.
+    with pytest.raises(ValueError, match="requires centerline, boundary, polygon and error"):
+        CorridorResult(request=req, input_sha256="a" * 64, availability="supported")
+
+    # Supported result whose boundary_edges count differs from boundary primitives rejected.
+    prim = PlotPrimitive(kind="line", call_id="b1", start=(0, 0), end=(1, 0), length_ft=1.0)
+    geom = PlotGeometry(
+        id="g",
+        calculation_id="c",
+        frame_id="f",
+        geometry_hash="a" * 64,
+        primitives=(prim,),
+        completeness="complete",
+    )
+    prep = PreparedPlot(request=req.centerline, geometry=geom, input_hash="b" * 64)
+    err = CorridorErrorReport(
+        unit="international_ft",
+        linearization_bound=0.0,
+        floating_point_bound=0.0,
+        total_bound=0.0,
+        requested_max_error=0.01,
+        boundary_segments=4,
+    )
+    with pytest.raises(ValueError, match="boundary edges must retain"):
+        CorridorResult(
+            request=req,
+            input_sha256="a" * 64,
+            availability="supported",
+            centerline=prep,
+            boundary=prep,
+            boundary_origin_in_centerline_frame=(0.0, 0.0),
+            polygon=((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)),
+            boundary_edges=(),
+            error=err,
+        )
+
+    # Unsupported result exposing polygon/boundary rejected.
+    with pytest.raises(ValueError, match="must not expose"):
+        CorridorResult(
+            request=req,
+            input_sha256="a" * 64,
+            availability="unsupported",
+            polygon=((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 0.0)),
+        )

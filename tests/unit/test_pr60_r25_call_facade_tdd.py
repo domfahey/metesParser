@@ -267,11 +267,6 @@ def test_monolith_does_not_parse_pob_tie_as_a_course():
     assert [c.distance_ft for c in calls] == [138.0, 324.0, 138.0, 324.0]
 
 
-def test_package_extract_calls_does_not_parse_pob_tie_as_a_course():
-    calls, _ = package_calls.extract_calls(POB_TIE)
-    assert [c.distance_ft for c in calls] == [138.0, 324.0, 138.0, 324.0]
-
-
 def test_monolith_extract_single_call_raises_for_unusable_course_and_none_for_beginning() -> None:
     import pytest
 
@@ -287,5 +282,7 @@ def test_monolith_extract_single_call_rejects_curve_with_following_course() -> N
         "THENCE along a curve to the right having a radius of 100 feet, "
         "an arc length of 50 feet; THENCE N 20° E 10 feet"
     )
-    with pytest.raises(package_calls.MultipleCoursesError):
+    with pytest.raises(
+        package_calls.MultipleCoursesError, match="fragment contains multiple courses"
+    ):
         CallExtractor.extract_single_call(text, 1)

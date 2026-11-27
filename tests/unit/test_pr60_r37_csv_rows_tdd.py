@@ -63,7 +63,10 @@ def test_truncated_row_non_strict_is_rejected_not_imported(read, lines):
     assert len(calls) == 3
     assert [r for r, _ in rejected] == [3]
     assert "expected 22 cells, got 5" in rejected[0][1]
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="invalid CSV row 3; non-strict import requires rejected_rows",
+    ):
         read(text, strict=False)
 
 

@@ -233,14 +233,14 @@ def test_unsupported_visible(change):
 
 
 def test_duplicate_dangling_pairs_and_nonfinite_rejected():
-    for mutate in [
-        lambda d: d["pairs"].append(copy.deepcopy(d["pairs"][0])),
-        lambda d: d["pairs"][0]["left"]["call_ids"].append("missing"),
-        lambda d: d["tolerances"].update(length=math.inf),
-    ]:
+    for mutate, expected_match in (
+        (lambda d: d["pairs"].append(copy.deepcopy(d["pairs"][0])), "pair IDs must be unique"),
+        (lambda d: d["pairs"][0]["left"]["call_ids"].append("missing"), "dangling call IDs"),
+        (lambda d: d["tolerances"].update(length=math.inf), "finite number"),
+    ):
         data = request()
         mutate(data)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=expected_match):
             run(data)
 
 

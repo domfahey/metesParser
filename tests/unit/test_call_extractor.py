@@ -135,9 +135,9 @@ class TestCurveExtraction:
         assert call.radius_ft is not None
         assert call.delta_deg is not None
         assert call.arc_length_ft is not None
-        assert math.isclose(call.radius_ft, 50.0, abs_tol=0.1)
-        assert math.isclose(call.delta_deg, 90.0, abs_tol=0.1)
-        assert math.isclose(call.arc_length_ft, 78.54, abs_tol=0.1)
+        assert math.isclose(call.radius_ft, 50.0, abs_tol=1e-6)
+        assert math.isclose(call.delta_deg, 90.0, abs_tol=1e-6)
+        assert math.isclose(call.arc_length_ft, 78.54, abs_tol=1e-6)
 
 
 class TestAlongToFields:

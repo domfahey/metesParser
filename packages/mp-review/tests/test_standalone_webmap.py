@@ -72,9 +72,24 @@ def test_standalone_without_dashboard_has_independent_coordinates_and_real_refs(
 
 
 @pytest.mark.parametrize(
-    "field", ["scenario_id", "baseline_geometry_hash", "baseline_placement_id", "evidence_ids"]
+    ("field", "expected_error"),
+    [
+        ("scenario_id", "scenario placement requires frozen baseline references"),
+        (
+            "baseline_geometry_hash",
+            "standalone placements do not support scenario or baseline fields",
+        ),
+        (
+            "baseline_placement_id",
+            "standalone placements do not support scenario or baseline fields",
+        ),
+        (
+            "evidence_ids",
+            "standalone placement evidence_ids require unsupported dashboard evidence",
+        ),
+    ],
 )
-def test_standalone_rejects_dashboard_evidence_fields(field):
+def test_standalone_rejects_dashboard_evidence_fields(field, expected_error):
     value = standalone()
     data = value.model_dump(mode="json")
     data["placements"][0][field] = {
@@ -83,7 +98,7 @@ def test_standalone_rejects_dashboard_evidence_fields(field):
         "baseline_placement_id": "b",
         "evidence_ids": ["invented"],
     }[field]
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match=expected_error):
         StandaloneWebMapInput.model_validate(data)
 
 

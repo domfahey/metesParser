@@ -165,8 +165,13 @@ def test_refuses_unsupported_or_conflicting_reference(change):
         data["rule"] = "legal-midpoint-survey"
     elif change == "selection":
         data["selected_dataset_id"] = "another-dataset"
-    if change in ("duplicate", "units", "rule"):
-        with pytest.raises(ValueError):
+    schema_errors = {
+        "duplicate": "duplicate or ambiguous section/reference identity",
+        "units": "projected scene requires explicit CRS and linear units",
+        "rule": "Input should be 'rectangular_aliquot_v1'",
+    }
+    if change in schema_errors:
+        with pytest.raises(ValueError, match=schema_errors[change]):
             PLSSDerivationRequest.model_validate(data)
     else:
         result = derive_plss(PLSSDerivationRequest.model_validate(data))

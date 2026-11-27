@@ -82,20 +82,26 @@ def test_header_count_mismatch_raises_in_strict(impl):
 
 
 @pytest.mark.parametrize("impl", IMPLS)
-@pytest.mark.parametrize("word", ["five", "three", "5", "three (3)"])
-def test_header_count_mismatch_is_flagged_non_strict(impl, word):
+@pytest.mark.parametrize(
+    ("word", "expected_stated"),
+    [("five", 5), ("three", 3), ("5", 5), ("three (3)", 3)],
+)
+def test_header_count_mismatch_is_flagged_non_strict(impl, word, expected_stated):
     text = INLINE.replace("four courses", f"{word} courses")
     calls, skipped = _run(impl, text, False)
     assert [c.course for c in calls] == [1, 2, 3, 4]
     assert [s.error_type for s in skipped] == ["CourseCountMismatch"]
     assert skipped[0].course == 5
-    assert "4" in skipped[0].error
+    assert f"states {expected_stated} courses but 4 were found" in skipped[0].error
 
 
 @pytest.mark.parametrize("impl", IMPLS)
 def test_header_count_mismatch_without_sink_raises_non_strict(impl):
     text = INLINE.replace("four courses", "five courses")
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="states 5 courses but 4 were found; skipped course not recorded",
+    ):
         EXTRACTORS[impl](text, strict=False)
 
 

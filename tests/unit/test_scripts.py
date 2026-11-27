@@ -1146,13 +1146,32 @@ class TestRepoConfigAndMakefile:
         assert "rm -rf .mypy_cache/" in content
         assert re.search(r"for dep in .*mypy", content)
         assert "test-packages:" in content
+        assert "test-packages-cov:" in content
         assert "test-plugin:" in content
+        assert re.search(r"^ci:.*\btest-cov\b.*\btest-packages-cov\b", content, re.MULTILINE)
         for target in (
             "review-corpus",
             "plugin-build",
             "chat-skill-build",
             "test-packages",
+            "test-packages-cov",
             "test-plugin",
         ):
             assert re.search(rf"^\.PHONY:.*\b{re.escape(target)}\b", content, re.MULTILINE), target
             assert f"make {target}" in content, target
+
+    def test_pyproject_and_makefile_enforce_95_percent_coverage_floors(self) -> None:
+        pyproject = (self.REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+        makefile = (self.REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+        assert '"--cov=metesparser"' in pyproject
+        assert '"--cov-fail-under=95"' in pyproject
+        assert 'core = "sysmon"' in pyproject
+        assert 'disable_warnings = ["no-sysmon"]' in pyproject
+        assert "precision = 2" in pyproject
+        assert "[tool.coverage.paths]" in pyproject
+        assert "PKG_COV_FLOOR ?= 95" in makefile
+        assert ".NOTPARALLEL:" in makefile
+        assert "COVERAGE_FILE=htmlcov/packages/packages.coverage" in makefile
+        assert "COVERAGE_FILE=htmlcov/root.coverage" in makefile
+        assert "--cov-report=json:htmlcov/packages/coverage.json" in makefile
+        assert "$(UV) lock --check" in makefile

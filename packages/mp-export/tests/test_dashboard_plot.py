@@ -174,7 +174,7 @@ def test_placed_vector_holes_and_escaped_map_provenance():
     baseline = re.search(r'<svg[^>]+data-baseline-plot="calc-one"(.*?)</svg>', result, re.S)[1]
     assert 'data-map-layer="map"' in baseline
     assert 'fill-rule="evenodd"' in baseline
-    assert re.search(r'class="map-polygon"', baseline)
+    assert 'class="map-polygon"' in baseline
     assert '<script>alert("map")</script>' not in result
     assert "&lt;script&gt;" in result
     assert "clockwise 90°" in result
@@ -253,3 +253,107 @@ def test_raster_pixel_center_edges_and_affine_are_embedded_offline():
     assert 'transform="scale(1 -1)"' in result
     assert "integer_pixel_centers" in result
     assert "Fit RMS" in result and "Checkpoint RMS" in result
+
+
+def test_dashboard_html_edge_paths_missing_calc_plots_scene_mismatch_and_comparison():
+    from mp_export.dashboard_html import (
+        _description_comparison_section,
+        _plot_views,
+        _raster_corners,
+    )
+    from mp_models.raster import RasterRegistration
+
+    # 1. Occurrence with no calculation supplied renders explicit unresolved warning via public render.
+    no_calc_data = data()
+    no_calc_data["occurrences"].append(
+        dict(no_calc_data["occurrences"][0], id="occ-two", version_label="Unanalyzed occurrence")
+    )
+    assert "Unresolved: no calculation supplied for this occurrence." in rendered(no_calc_data)
+
+    # 2. Prepared dashboard without plots renders explicit unavailable message (unreachable via calculate_dashboard).
+    prepared = calculate_dashboard(DashboardBundle.model_validate(data()))
+    assert "Plot geometry is unavailable." in _plot_views(
+        prepared.model_copy(update={"plots": None})
+    )
+
+    # 3. Overflowing raster matrix corners are rejected as non-finite.
+    base_raster_bundle = DashboardBundle.model_validate(raster_data())
+    huge_layer = base_raster_bundle.raster_layers[0].model_copy(
+        update={
+            "width": 10**145,
+            "registration": RasterRegistration(
+                method="supplied_affine",
+                matrix=(1e153, 0.0, 1.7976931348623157e308, 0.0, 1e153, 0.0),
+            ),
+        }
+    )
+    with pytest.raises(ValueError, match="finite scene range"):
+        _raster_corners(huge_layer)
+
+    # 4. Comparison source lacking occurrence_id raises ValueError cleanly.
+    cmp_prepared = calculate_dashboard(
+        DashboardBundle.model_validate_json((FIXTURES / "dashboard-comparison.json").read_bytes())
+    )
+    advisory = cmp_prepared.description_comparisons[0]
+    first_pair = advisory.comparison.pairs[0]
+    orphan_source = first_pair.left_sources[0].model_copy(update={"occurrence_id": None})
+    bad_pair = first_pair.model_copy(update={"left_sources": (orphan_source,)})
+    bad_advisory = advisory.model_copy(
+        update={
+            "comparison": advisory.comparison.model_copy(
+                update={"pairs": (bad_pair,) + advisory.comparison.pairs[1:]}
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="lacks occurrence identity"):
+        _description_comparison_section(
+            cmp_prepared.model_copy(update={"description_comparisons": (bad_advisory,)})
+        )
+
+
+def test_dashboard_html_skips_unrelated_scene_and_warns_on_exif_oriented_raster():
+    Image = pytest.importorskip("PIL.Image")
+
+    import base64
+    import hashlib
+    import io
+
+    # Raster on an unrelated scene is skipped in calc plot overlay, and EXIF-oriented
+    # raster emits a provenance omission warning.
+    value = raster_data()
+    value["scenes"].append(
+        {"id": "other-scene", "name": "Other scene", "kind": "local", "units": "international_ft"}
+    )
+    exif_img = Image.new("RGB", (4, 4))
+    exif = Image.Exif()
+    exif[274] = 6
+    buf = io.BytesIO()
+    exif_img.save(buf, format="JPEG", exif=exif.tobytes())
+    rot_bytes = buf.getvalue()
+    rot_sha = hashlib.sha256(rot_bytes).hexdigest()
+    value["map_sources"].append(
+        {
+            "id": "rot-source",
+            "label": "Rotated scan",
+            "sha256": rot_sha,
+            "filename": "rot.jpg",
+            "native_units": "international_ft",
+        }
+    )
+    value["raster_layers"].append(
+        {
+            "id": "other-scene-rot",
+            "label": "Rotated other scene",
+            "scene_id": "other-scene",
+            "source_id": "rot-source",
+            "mime_type": "image/jpeg",
+            "width": 4,
+            "height": 4,
+            "sha256": rot_sha,
+            "data_base64": base64.b64encode(rot_bytes).decode(),
+            "registration": {"matrix": [1, 0, 0, 0, 1, 0], "method": "supplied_affine"},
+        }
+    )
+    out = rendered(value)
+    assert 'data-omitted-raster="other-scene-rot"' in out
+    assert "Raster omitted (raster_orientation):" in out

@@ -87,7 +87,7 @@ def test_independent_units_rotation_axis_and_baseline(units, factor, native, foo
         update={"manifest": prepared.manifest.model_copy(update={"cache_reused": True})}
     )
     assert output(cached) == result
-    with pytest.raises(FrozenInstanceError):
+    with pytest.raises(FrozenInstanceError, match="cannot assign"):
         result.assets = ()
 
 
@@ -400,7 +400,7 @@ def test_tampered_raster_cannot_hide_behind_missing_georeference():
     from mp_verify.dashboard import calculate_dashboard
 
     forged = calculate_dashboard(DashboardBundle.model_validate(data["bundle"]))
-    with pytest.raises((ValueError, OSError)):
+    with pytest.raises(ValueError, match="Invalid raster content"):
         output(forged)
 
 

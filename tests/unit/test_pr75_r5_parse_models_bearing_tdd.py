@@ -770,13 +770,13 @@ class TestBearingAndCurveMathGuards:
     def test_calculate_curve_properties_rejects_bool_and_non_finite(
         self, _name: str, bearing_api: Any, bad: Any
     ) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Radius must be positive and finite"):
             bearing_api.calculate_curve_properties(bad, delta_deg=30.0)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Delta angle must be 0-360 degrees and finite"):
             bearing_api.calculate_curve_properties(100.0, delta_deg=bad)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Arc length must be non-negative and finite"):
             bearing_api.calculate_curve_properties(100.0, arc_length_ft=bad)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Arc length must be non-negative and finite"):
             bearing_api.calculate_curve_properties(100.0, delta_deg=30.0, arc_length_ft=bad)
 
     @pytest.mark.parametrize("_name,bearing_api", BEARING_IMPLS)
@@ -784,7 +784,9 @@ class TestBearingAndCurveMathGuards:
     def test_calculate_missing_curve_elements_rejects_bad_doc_even_with_radius(
         self, _name: str, bearing_api: Any, bad_doc: Any
     ) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError, match="Degree of curvature must be finite, positive and non-zero"
+        ):
             bearing_api.calculate_missing_curve_elements(
                 radius_ft=100.0, delta_deg=30.0, degree_of_curvature=bad_doc
             )
@@ -794,13 +796,13 @@ class TestBearingAndCurveMathGuards:
     def test_calculate_missing_curve_elements_rejects_bool_inputs(
         self, _name: str, bearing_api: Any, bad_bool: bool
     ) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Radius must be positive and finite"):
             bearing_api.calculate_missing_curve_elements(radius_ft=bad_bool, delta_deg=30.0)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Delta angle must be finite"):
             bearing_api.calculate_missing_curve_elements(radius_ft=100.0, delta_deg=bad_bool)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Arc length must be positive and finite"):
             bearing_api.calculate_missing_curve_elements(radius_ft=100.0, arc_length_ft=bad_bool)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Chord length must be non-negative and finite"):
             bearing_api.calculate_missing_curve_elements(radius_ft=100.0, chord_length_ft=bad_bool)
 
     @pytest.mark.parametrize("_name,bearing_api", BEARING_IMPLS)
@@ -808,11 +810,11 @@ class TestBearingAndCurveMathGuards:
     def test_parse_packed_dms_and_quadrant_to_azimuth_reject_bool_and_non_finite(
         self, _name: str, bearing_api: Any, bad: Any
     ) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid packed DMS value"):
             bearing_api.parse_packed_dms(bad)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Degrees must be finite and between 0 and 90"):
             bearing_api.quadrant_to_azimuth("N", bad, "E")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Azimuth must be finite"):
             bearing_api.azimuth_to_quadrant(bad)
 
     @pytest.mark.parametrize("_name,bearing_api", BEARING_IMPLS)
@@ -832,28 +834,28 @@ class TestBearingAndCurveMathGuards:
         ],
     )
     @pytest.mark.parametrize(
-        ("start_az", "radius", "delta", "curve_dir"),
+        ("start_az", "radius", "delta", "curve_dir", "expected_match"),
         [
-            (0.0, True, 30.0, "right"),
-            (0.0, False, 30.0, "right"),
-            (0.0, 0.0, 30.0, "right"),
-            (0.0, -50.0, 30.0, "right"),
-            (0.0, float("nan"), 30.0, "right"),
-            (0.0, float("inf"), 30.0, "right"),
-            (0.0, float("-inf"), 30.0, "right"),
-            (0.0, 100.0, True, "right"),
-            (0.0, 100.0, False, "right"),
-            (0.0, 100.0, float("nan"), "right"),
-            (0.0, 100.0, float("inf"), "right"),
-            (0.0, 100.0, float("-inf"), "right"),
-            (0.0, 100.0, -5.0, "right"),
-            (0.0, 100.0, 365.0, "right"),
-            (True, 100.0, 30.0, "right"),
-            (False, 100.0, 30.0, "right"),
-            (float("nan"), 100.0, 30.0, "right"),
-            (float("inf"), 100.0, 30.0, "right"),
-            (float("-inf"), 100.0, 30.0, "right"),
-            (0.0, 100.0, 30.0, "straight"),
+            (0.0, True, 30.0, "right", "Radius must be positive and finite"),
+            (0.0, False, 30.0, "right", "Radius must be positive and finite"),
+            (0.0, 0.0, 30.0, "right", "Radius must be positive and finite"),
+            (0.0, -50.0, 30.0, "right", "Radius must be positive and finite"),
+            (0.0, float("nan"), 30.0, "right", "Radius must be positive and finite"),
+            (0.0, float("inf"), 30.0, "right", "Radius must be positive and finite"),
+            (0.0, float("-inf"), 30.0, "right", "Radius must be positive and finite"),
+            (0.0, 100.0, True, "right", "Delta angle must be 0-360 degrees and finite"),
+            (0.0, 100.0, False, "right", "Delta angle must be 0-360 degrees and finite"),
+            (0.0, 100.0, float("nan"), "right", "Delta angle must be 0-360 degrees and finite"),
+            (0.0, 100.0, float("inf"), "right", "Delta angle must be 0-360 degrees and finite"),
+            (0.0, 100.0, float("-inf"), "right", "Delta angle must be 0-360 degrees and finite"),
+            (0.0, 100.0, -5.0, "right", "Delta angle must be 0-360 degrees and finite"),
+            (0.0, 100.0, 365.0, "right", "Delta angle must be 0-360 degrees and finite"),
+            (True, 100.0, 30.0, "right", "tangent_azimuth must be finite"),
+            (False, 100.0, 30.0, "right", "tangent_azimuth must be finite"),
+            (float("nan"), 100.0, 30.0, "right", "tangent_azimuth must be finite"),
+            (float("inf"), 100.0, 30.0, "right", "tangent_azimuth must be finite"),
+            (float("-inf"), 100.0, 30.0, "right", "tangent_azimuth must be finite"),
+            (0.0, 100.0, 30.0, "straight", "curve_dir must be 'left' or 'right'"),
         ],
     )
     def test_compute_curve_endpoint_rejects_invalid_inputs(
@@ -865,10 +867,11 @@ class TestBearingAndCurveMathGuards:
         radius: Any,
         delta: Any,
         curve_dir: str,
+        expected_match: str,
     ) -> None:
         del impl_name
         start = point_cls(x=0.0, y=0.0)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=expected_match):
             bearing_api.compute_curve_endpoint(start, start_az, radius, delta, curve_dir)
 
 
@@ -883,16 +886,18 @@ class TestModelsRejectBoolMeasurements:
     def test_deedcall_rejects_bool_on_all_numeric_fields_and_keeps_flag_coercion(
         self, _name: str, models: Any, bad_bool: bool
     ) -> None:
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="distance_ft must be a number, not a boolean"):
             models.DeedCall(course=1, direction_text="N 0° E", distance_ft=bad_bool)
-        with pytest.raises(ValidationError):
+        with pytest.raises(
+            ValidationError, match="bearing_azimuth_deg_from_north must be a number, not a boolean"
+        ):
             models.DeedCall(
                 course=1,
                 direction_text="N 0° E",
                 distance_ft=100.0,
                 bearing_azimuth_deg_from_north=bad_bool,
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="radius_ft must be a number, not a boolean"):
             models.DeedCall(
                 course=1,
                 direction_text="curve",
@@ -901,7 +906,7 @@ class TestModelsRejectBoolMeasurements:
                 radius_ft=bad_bool,
                 delta_deg=30.0,
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="delta_deg must be a number, not a boolean"):
             models.DeedCall(
                 course=1,
                 direction_text="curve",
@@ -910,7 +915,7 @@ class TestModelsRejectBoolMeasurements:
                 radius_ft=100.0,
                 delta_deg=bad_bool,
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="arc_length_ft must be a number, not a boolean"):
             models.DeedCall(
                 course=1,
                 direction_text="curve",
@@ -919,7 +924,9 @@ class TestModelsRejectBoolMeasurements:
                 radius_ft=100.0,
                 arc_length_ft=bad_bool,
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(
+            ValidationError, match="chord_length_ft must be a number, not a boolean"
+        ):
             models.DeedCall(
                 course=1,
                 direction_text="curve",
@@ -946,9 +953,13 @@ class TestModelsRejectBoolMeasurements:
     def test_legal_description_and_tract_reject_bool_stated_area(
         self, _name: str, models: Any, bad_bool: bool
     ) -> None:
-        with pytest.raises(ValidationError):
+        with pytest.raises(
+            ValidationError, match="stated_area_sq_ft must be a number, not a boolean"
+        ):
             models.LegalDescription(stated_area_sq_ft=bad_bool)
-        with pytest.raises(ValidationError):
+        with pytest.raises(
+            ValidationError, match="stated_area_sq_ft must be a number, not a boolean"
+        ):
             models.Tract(label="Tract 1", tract_type="main", stated_area_sq_ft=bad_bool)
 
     @pytest.mark.parametrize("_name,models", MODEL_IMPLS)
@@ -981,20 +992,20 @@ class TestModelsRejectBoolMeasurements:
             "curve_consistency_passed": True,
         }
         kwargs[field_name] = bad_bool
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match=rf"{field_name} must be a number, not a boolean"):
             models.ClosureResult(**kwargs)
 
     @pytest.mark.parametrize("_name,models", MODEL_IMPLS)
     @pytest.mark.parametrize("bad_bool", [True, False])
     def test_point_rejects_bool_coordinates(self, _name: str, models: Any, bad_bool: bool) -> None:
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="x must be a number, not a boolean"):
             models.Point(x=bad_bool, y=0.0)
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="y must be a number, not a boolean"):
             models.Point(x=0.0, y=bad_bool)
 
     @pytest.mark.parametrize("bad_bool", [True, False])
     def test_envelope_messages_reject_bool_and_negative_measurements(self, bad_bool: bool) -> None:
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="confidence must be a number, not a boolean"):
             RawTextMessage(
                 source="deed.pdf",
                 text="BEGINNING",
@@ -1002,7 +1013,7 @@ class TestModelsRejectBoolMeasurements:
                 llm_model="gpt-5",
                 confidence=bad_bool,
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="confidence must be a number, not a boolean"):
             parse_message(
                 json.dumps(
                     {
@@ -1015,27 +1026,27 @@ class TestModelsRejectBoolMeasurements:
                     }
                 )
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="misclosure_ft must be a number, not a boolean"):
             ClosureResultMessage(
                 source="deed.pdf",
                 is_verified=False,
                 misclosure_ft=bad_bool,
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="confidence must be a number, not a boolean"):
             ClosureResultMessage(
                 source="deed.pdf",
                 is_verified=False,
                 misclosure_ft=0.0,
                 confidence=bad_bool,
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="area_sq_ft must be a number, not a boolean"):
             ClosureResultMessage(
                 source="deed.pdf",
                 is_verified=False,
                 misclosure_ft=0.0,
                 area_sq_ft=bad_bool,
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(ValidationError, match="misclosure_ft must be a number, not a boolean"):
             parse_message(
                 json.dumps(
                     {
@@ -1046,13 +1057,17 @@ class TestModelsRejectBoolMeasurements:
                     }
                 )
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(
+            ValidationError, match=r"(?s)misclosure_ft.*Input should be greater than or equal to 0"
+        ):
             ClosureResultMessage(
                 source="deed.pdf",
                 is_verified=False,
                 misclosure_ft=-0.01,
             )
-        with pytest.raises(ValidationError):
+        with pytest.raises(
+            ValidationError, match=r"(?s)area_sq_ft.*Input should be greater than or equal to 0"
+        ):
             ClosureResultMessage(
                 source="deed.pdf",
                 is_verified=False,
@@ -1342,7 +1357,7 @@ class TestCycle3ScientificNotationRejection:
         )
         arc_info = extract_curve_info(arc_text)
         assert arc_info.get("arc_length_ft") is None
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Malformed curve element \(arc_length_ft\): '1e2'"):
             extract_calls(f"BEGINNING at a pin; {arc_text} to the point of beginning.", strict=True)
 
         chord_deed = (
@@ -1644,27 +1659,77 @@ class TestFollowUpMalformedCurveElementsFailClosed:
         assert "malformed_element_error" in info
 
     @pytest.mark.parametrize(
-        "curve_course",
+        ("curve_course", "expected_match"),
         [
-            "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, arc length -100 feet",
-            "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, arc length -50.00 feet",
-            "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, arc length 1e2 feet",
-            "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, arc length .5e2 feet",
-            "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, arc length = -50",
-            "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, chord bearing N 45°00'00\" E, chord length -500.00 feet",
-            "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, chord = -50",
-            "THENCE along a curve to the right having a radius of -100 feet, delta of 90 degrees, arc length of 157.08 feet",
-            "THENCE along a curve to the right having a radius of \u2212100 feet, delta of 90 degrees, arc length of 157.08 feet",
-            "THENCE along a curve to the right having a radius of - 100 feet, delta of 90 degrees, arc length of 157.08 feet",
-            "THENCE along a curve to the right having a radius of 100 feet, delta angle of -30 degrees, arc length of 52.36 feet",
-            "THENCE along a curve to the right having a radius of 100 feet, delta angle of 1e2 degrees, arc length of 174.53 feet",
-            "THENCE along a curve to the right having a radius of 100 feet, central angle of 9e90 degrees, arc length of 157.08 feet",
-            "THENCE along a curve to the right having a radius of 100 feet, delta of .5e2 degrees, arc length of 87.27 feet",
-            "THENCE along a curve to the right having a radius of 100 feet, .5e2 degrees, arc length of 87.27 feet",
-            "THENCE along a curve to the right, radius point bears N 90°00'00\" E -100 feet, delta of 90 degrees, arc length of 157.08 feet",
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, arc length -100 feet",
+                r"Malformed curve element \(arc_length_ft\): '-100'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, arc length -50.00 feet",
+                r"Malformed curve element \(arc_length_ft\): '-50\.00'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, arc length 1e2 feet",
+                r"Malformed curve element \(arc_length_ft\): '1e2'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, arc length .5e2 feet",
+                r"Malformed curve element \(arc_length_ft\): '\.5e2'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, arc length = -50",
+                r"Malformed curve element \(arc_length_ft\): '-50'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, chord bearing N 45°00'00\" E, chord length -500.00 feet",
+                r"Malformed curve element \(chord_length_ft\): '-500\.00'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, delta of 90 degrees, chord = -50",
+                r"Malformed curve element \(chord_length_ft\): '-50'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of -100 feet, delta of 90 degrees, arc length of 157.08 feet",
+                r"Malformed curve element \(radius_ft\): '-100'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of \u2212100 feet, delta of 90 degrees, arc length of 157.08 feet",
+                r"Malformed curve element \(radius_ft\): '\u2212100'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of - 100 feet, delta of 90 degrees, arc length of 157.08 feet",
+                r"Malformed curve element \(radius_ft\): '- 100'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, delta angle of -30 degrees, arc length of 52.36 feet",
+                r"Malformed curve element \(delta_deg\): '-30'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, delta angle of 1e2 degrees, arc length of 174.53 feet",
+                r"Malformed curve element \(delta_deg\): '1e2'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, central angle of 9e90 degrees, arc length of 157.08 feet",
+                r"Malformed curve element \(delta_deg\): '9e90'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, delta of .5e2 degrees, arc length of 87.27 feet",
+                r"Malformed curve element \(delta_deg\): '\.5e2'",
+            ),
+            (
+                "THENCE along a curve to the right having a radius of 100 feet, .5e2 degrees, arc length of 87.27 feet",
+                r"Malformed curve element \(delta_deg\): '\.5e2'",
+            ),
+            (
+                "THENCE along a curve to the right, radius point bears N 90°00'00\" E -100 feet, delta of 90 degrees, arc length of 157.08 feet",
+                r"Malformed curve length:.*-100 feet",
+            ),
         ],
     )
-    def test_malformed_curve_elements_fail_closed_end_to_end(self, curve_course: str) -> None:
+    def test_malformed_curve_elements_fail_closed_end_to_end(
+        self, curve_course: str, expected_match: str
+    ) -> None:
         deed = (
             "BEGINNING at an iron pin; "
             "THENCE N 0°00'00\" E, 100.00 feet; "
@@ -1672,7 +1737,7 @@ class TestFollowUpMalformedCurveElementsFailClosed:
             "THENCE S 0°00'00\" W, 100.00 feet; "
             "THENCE N 90°00'00\" W, 200.00 feet to the point of beginning."
         )
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=expected_match):
             extract_calls(deed, strict=True)
         skipped: list[mp_models.SkippedCourse] = []
         calls, _ = extract_calls(deed, strict=False, skipped_courses=skipped)

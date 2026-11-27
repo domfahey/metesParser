@@ -254,3 +254,26 @@ def test_preexisting_empty_and_whitespace_cache_entries_are_misses(
     assert fake.call_count == 2
     assert cached.generate_text_with_pdf("extract", str(pdf)) == "fresh response"
     assert fake.call_count == 2
+
+
+def test_write_cache_swallows_replace_and_temp_unlink_oserror(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    fake = FakeLLMClient(text_response="live result")
+    cached = CachedLLMClient(fake, cache_dir=tmp_path / "cache")
+
+    def _fail_replace(src: object, dst: object) -> None:
+        raise OSError("disk full")
+
+    orig_unlink = Path.unlink
+
+    def _fail_tmp_unlink(self: Path, missing_ok: bool = False) -> None:
+        if self.suffix == ".tmp":
+            raise OSError("permission denied")
+        orig_unlink(self, missing_ok=missing_ok)
+
+    monkeypatch.setattr("metesparser.llm_cache.os.replace", _fail_replace)
+    monkeypatch.setattr(Path, "unlink", _fail_tmp_unlink)
+
+    assert cached.generate_text("prompt") == "live result"
+    assert list((tmp_path / "cache").glob("*.json")) == []

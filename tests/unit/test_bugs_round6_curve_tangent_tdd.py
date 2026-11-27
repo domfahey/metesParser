@@ -69,7 +69,6 @@ class Case:
     arc_length_ft: float | None = None
     notes_in: tuple[str, ...] = ()
     notes_out: tuple[str, ...] = ()
-    raises: bool = False
     no_arc: bool = False
     indefinite: bool = False
     tol: float = 1e-6
@@ -270,10 +269,6 @@ CASES: dict[str, Case] = {
 def test_curve_tangent_comes_only_from_course_text(entry, case_id):
     case = CASES[case_id]
     parse = ENTRY_POINTS[entry]
-    if case.raises:
-        with pytest.raises(ValueError):
-            parse(case.text)
-        return
 
     call = parse(case.text)
     assert call is not None

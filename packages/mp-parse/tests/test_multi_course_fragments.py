@@ -203,7 +203,7 @@ MISCOUNTED = (
 
 
 def test_count_mismatch_strict_names_the_header_not_the_tract() -> None:
-    with pytest.raises(ValueError) as raised:
+    with pytest.raises(ValueError, match="states 3 courses but 2 were found") as raised:
         _run(MISCOUNTED, True)
     message = str(raised.value)
     assert "'THENCE the following three courses:'" in message

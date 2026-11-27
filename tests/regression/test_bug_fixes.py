@@ -49,7 +49,7 @@ class TestCriticalBug2UnboundVariable:
         """delta_rad should be in returned dict even for edge cases."""
         result = BearingConverter.calculate_curve_properties(radius_ft=50.0, delta_deg=90.0)
         assert "delta_rad" in result
-        assert math.isclose(result["delta_rad"], math.radians(90.0), abs_tol=0.0001)
+        assert math.isclose(result["delta_rad"], math.radians(90.0), abs_tol=1e-12)
 
 
 class TestHighBug3MinutesRounding:
@@ -125,8 +125,8 @@ class TestHighBug4And5InvalidDMS:
         [
             ("N 90°00' E", 90.0),
             ("S 00°00' W", 0.0),
-            ("N 45°59' E", 45.983333),
-            ("S 89°59'59\" W", 89.999722),
+            ("N 45°59' E", 45.0 + 59.0 / 60.0),
+            ("S 89°59'59\" W", 89.0 + 59.0 / 60.0 + 59.0 / 3600.0),
         ],
     )
     def test_accept_valid_edge_cases(self, bearing: str, expected_degrees: float):
@@ -134,7 +134,7 @@ class TestHighBug4And5InvalidDMS:
         result = BearingConverter.parse_quadrant_bearing(bearing)
         assert result is not None, f"Should accept valid bearing: {bearing}"
         _, degrees, _ = result
-        assert math.isclose(degrees, expected_degrees, abs_tol=0.001)
+        assert math.isclose(degrees, expected_degrees, abs_tol=1e-9)
 
 
 class TestHighBug6DeltaValidation:
@@ -284,14 +284,14 @@ class TestEdgeCases:
         result = BearingConverter.parse_quadrant_bearing("N 90°00' E")
         assert result is not None
         _, degrees, _ = result
-        assert math.isclose(degrees, 90.0, abs_tol=0.001)
+        assert math.isclose(degrees, 90.0, abs_tol=1e-12)
 
     def test_zero_degree_bearing(self):
         """0° bearing should parse correctly."""
         result = BearingConverter.parse_quadrant_bearing("N 00°00' E")
         assert result is not None
         _, degrees, _ = result
-        assert math.isclose(degrees, 0.0, abs_tol=0.001)
+        assert math.isclose(degrees, 0.0, abs_tol=1e-12)
 
     def test_zero_delta_curve(self):
         """Zero delta curve should work (straight line)."""
@@ -303,7 +303,7 @@ class TestEdgeCases:
         """360° curve (full circle) should work."""
         result = BearingConverter.calculate_curve_properties(radius_ft=50.0, delta_deg=360.0)
         expected_circumference = 2 * math.pi * 50.0
-        assert math.isclose(result["arc_length_ft"], expected_circumference, abs_tol=0.01)
+        assert math.isclose(result["arc_length_ft"], expected_circumference, abs_tol=1e-12)
 
     def test_negative_arc_length(self):
         """Negative arc length should raise ValueError."""

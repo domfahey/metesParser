@@ -509,11 +509,11 @@ class TestNormalizeLegalDescription:
         THENCE North 45 degrees East 100 feet.
         """
         result = TextParser.normalize_legal_description(text)
-        assert "S" in result and "W" in result
-        assert "56°40'" in result
-        assert "division line" in result
-        assert "div-\n" not in result
-        assert "N 45° E" in result
+        assert result == (
+            "BEGINNING at a point.\n"
+            "THENCE S 56°40' W 125 feet along the division line;\n"
+            "THENCE N 45° E 100 feet."
+        )
 
     def test_preserves_content(self):
         """Ensure normalization preserves essential content."""

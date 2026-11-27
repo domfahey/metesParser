@@ -54,20 +54,20 @@ class TestNormalizeDmsSymbols:
     def test_degree_symbol_variants(self) -> None:
         from mp_parse.normalizer import normalize_dms_symbols
 
-        assert "45\u00b0" in normalize_dms_symbols("45\u00ba")  # ordinal to degree
-        assert "45\u00b0" in normalize_dms_symbols("45\u00b0")  # already correct
+        assert normalize_dms_symbols("45\u00ba") == "45\u00b0"  # ordinal to degree
+        assert normalize_dms_symbols("45\u00b0") == "45\u00b0"  # already correct
 
     def test_single_quote_variants(self) -> None:
         from mp_parse.normalizer import normalize_dms_symbols
 
         result = normalize_dms_symbols("N 45\u00b030\u2018 E")
-        assert "'" in result  # left single quote -> straight quote
+        assert result == "N 45\u00b030' E"  # left single quote -> straight quote
 
     def test_double_quote_variants(self) -> None:
         from mp_parse.normalizer import normalize_dms_symbols
 
         result = normalize_dms_symbols("30\u201c")
-        assert '"' in result  # left double quote -> straight quote
+        assert result == '30"'  # left double quote -> straight quote
 
 
 class TestMergeLineWrappedCalls:
@@ -101,7 +101,7 @@ class TestStandardizeCardinalDirections:
 
         text = "North 45 degrees 30 minutes 15 seconds East"
         result = standardize_cardinal_directions(text)
-        assert "N 45\u00b030'15\"" in result or "N 45\u00b030'15" in result
+        assert result == "N 45\u00b030'15\" E"
 
     def test_written_out_dm(self) -> None:
         from mp_parse.normalizer import standardize_cardinal_directions
@@ -129,7 +129,7 @@ class TestCleanOcrErrors:
         from mp_parse.normalizer import clean_ocr_errors
 
         result = clean_ocr_errors("N 45 0 30' E")
-        assert "\u00b0" in result
+        assert result == "N 45\u00b030' E"
 
 
 class TestNormalizeLegalDescription:
@@ -138,11 +138,4 @@ class TestNormalizeLegalDescription:
 
         text = "5outh 45 degrees 30 minutes East to an IPF"
         result = normalize_legal_description(text)
-        assert "iron pin found" in result
-        assert "South" not in result or "S 45" in result
-
-    def test_returns_string(self) -> None:
-        from mp_parse.normalizer import normalize_legal_description
-
-        result = normalize_legal_description("simple text")
-        assert isinstance(result, str)
+        assert result == "S 45\u00b030' E to an iron pin found"

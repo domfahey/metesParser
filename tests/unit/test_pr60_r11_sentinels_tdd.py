@@ -85,18 +85,20 @@ def test_csv_rejection_messages_do_not_print_sentinel(impl, tmp_path):
     m, verify, export = IMPLS[impl]
     calls = _square(m)
     bad = verify(calls).model_copy(update=UNAVAILABLE)
-    with pytest.raises(ValueError) as caught:
+    with pytest.raises(
+        ValueError, match="Cannot export verified CSV:.*Misclosure: not determined"
+    ) as caught:
         export(calls, bad, str(tmp_path / "a.csv"))
     assert "0.0000" not in str(caught.value)
-    assert "not determined" in str(caught.value)
 
     # Fresh verification of the exported calls is what fails here.
     broken = _square(m, broken=True)
     assert not verify(broken).misclosure_available
-    with pytest.raises(ValueError) as caught:
+    with pytest.raises(
+        ValueError, match="Cannot export verified CSV:.*Misclosure: not determined"
+    ) as caught:
         export(broken, verify(calls), str(tmp_path / "b.csv"))
     assert "0.0000" not in str(caught.value)
-    assert "not determined" in str(caught.value)
 
 
 @pytest.mark.parametrize("impl", IMPLS)

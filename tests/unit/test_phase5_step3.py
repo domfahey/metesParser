@@ -27,10 +27,17 @@ class TestExtendedCurveProperties:
         assert abs(result["middle_ordinate_ft"] - 29.289) < 0.01
 
     def test_calculate_curve_properties_small_delta(self) -> None:
+        import math
+
         result = BearingConverter.calculate_curve_properties(500.0, delta_deg=10.0)
-        assert result["external_distance_ft"] < 5.0
-        assert result["middle_ordinate_ft"] < 5.0
-        assert result["tangent_length_ft"] < 50.0
+        half_rad = math.radians(5.0)
+        assert result["tangent_length_ft"] == pytest.approx(500.0 * math.tan(half_rad), rel=1e-6)
+        assert result["external_distance_ft"] == pytest.approx(
+            500.0 * (1.0 / math.cos(half_rad) - 1.0), rel=1e-6
+        )
+        assert result["middle_ordinate_ft"] == pytest.approx(
+            500.0 * (1.0 - math.cos(half_rad)), rel=1e-6
+        )
 
     def test_calculate_missing_curve_elements_includes_e_and_m(self) -> None:
         result = BearingConverter.calculate_missing_curve_elements(radius_ft=100.0, delta_deg=90.0)
@@ -41,12 +48,18 @@ class TestExtendedCurveProperties:
 
     def test_calculate_curve_properties_from_arc(self) -> None:
         """Properties should also work when computing from arc length."""
-        result = BearingConverter.calculate_curve_properties(100.0, arc_length_ft=157.08)
-        # arc=157.08 ≈ 100 * π/2 → delta ≈ 90°
-        assert "tangent_length_ft" in result
-        assert "external_distance_ft" in result
-        assert "middle_ordinate_ft" in result
-        assert abs(result["tangent_length_ft"] - 100.0) < 0.5
+        import math
+
+        arc = 100.0 * (math.pi / 2.0)
+        result = BearingConverter.calculate_curve_properties(100.0, arc_length_ft=arc)
+        assert result["delta_deg"] == pytest.approx(90.0, rel=1e-6)
+        assert result["tangent_length_ft"] == pytest.approx(100.0, rel=1e-6)
+        assert result["external_distance_ft"] == pytest.approx(
+            100.0 * (math.sqrt(2.0) - 1.0), rel=1e-6
+        )
+        assert result["middle_ordinate_ft"] == pytest.approx(
+            100.0 * (1.0 - math.sqrt(0.5)), rel=1e-6
+        )
 
     def test_calculate_curve_properties_180_degree_delta_returns_inf(self) -> None:
         """Delta of 180° makes tangent/external undefined — should return inf."""

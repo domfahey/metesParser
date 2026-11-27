@@ -41,7 +41,7 @@ def test_leading_decimal_never_starts_inside_another_number(text: str) -> None:
     for match in re.finditer(LENGTH_NUMBER, text):
         assert match.group(0) in ("100", "1", "5")  # never '.2', '.3', '.5' fragments
         assert not match.group(0).startswith(".")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Missing boundary course distance"):
         extract_single_call(_PREFIX + text, 1)
 
 
@@ -90,23 +90,20 @@ def test_course_wholly_in_inches(text: str, feet: float) -> None:
         "in a northerly direction",
         "6 in a northerly direction",
         "12 inches iron pipe",
-        "100 feet in a northerly direction",
     ],
 )
 def test_inch_guards_still_hold(text: str) -> None:
-    if text.startswith("100 feet") or text.startswith("12 inches iron"):
-        try:
-            call = extract_single_call(_PREFIX + text, 1)
-        except ValueError:
-            return
-        assert call.distance_ft == pytest.approx(100.0)
-        return
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Missing boundary course distance"):
         extract_single_call(_PREFIX + text, 1)
 
 
+def test_feet_before_in_a_northerly_direction_preserves_length() -> None:
+    call = extract_single_call(_PREFIX + "100 feet in a northerly direction", 1)
+    assert call.distance_ft == pytest.approx(100.0)
+
+
 def test_dms_seconds_mark_is_not_an_inch_length() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Missing boundary course distance"):
         extract_single_call("THENCE N 45°30'15\" E", 1)
 
 
@@ -175,12 +172,12 @@ def test_delta_d_label_is_not_read_as_delta() -> None:
 
 
 def test_unlabelled_values_never_guessed() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="No usable course could be parsed"):
         extract_single_call("THENCE along a curve to the right, 100.00', 52.36', 30°", 1)
 
 
 def test_labels_inside_words_are_not_labels() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="No usable course could be parsed"):
         extract_single_call("THENCE along a curve to the right, SR=100.00', XL=52.36'", 1)
 
 

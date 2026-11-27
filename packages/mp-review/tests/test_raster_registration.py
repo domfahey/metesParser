@@ -30,15 +30,18 @@ def test_rotated_affine_integer_pixel_centers_and_edges():
 
 
 @pytest.mark.parametrize(
-    "pairs",
+    ("pairs", "expected_error"),
     [
-        controls()[:2],
-        controls() + (controls()[0],),
-        tuple(RasterControl(id=str(i), pixel=(i, i), scene=(i, i)) for i in range(3)),
+        (controls()[:2], "At least three distinct named fit controls are required"),
+        (controls() + (controls()[0],), "At least three distinct named fit controls are required"),
+        (
+            tuple(RasterControl(id=str(i), pixel=(i, i), scene=(i, i)) for i in range(3)),
+            "Control points are collinear or ill-conditioned",
+        ),
     ],
 )
-def test_reject_insufficient_duplicate_collinear_controls(pairs):
-    with pytest.raises(ValueError):
+def test_reject_insufficient_duplicate_collinear_controls(pairs, expected_error):
+    with pytest.raises(ValueError, match=expected_error):
         fit_affine(pairs)
 
 
@@ -67,7 +70,7 @@ def test_image_content_hash_dimensions_and_no_deed_scaling():
     assert layer.sha256 == hashlib.sha256(data).hexdigest()
     assert base64.b64decode(layer.data_base64) == data
     assert source.sha256 == layer.sha256
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Invalid raster content: cannot identify image file"):
         image_layer(
             b"not an image", scene=scene, registration=fit_affine(controls()), filename="fake.png"
         )
@@ -77,8 +80,11 @@ def test_supplied_singular_nonfinite_and_forged_raster_rejected():
     from mp_review.raster_registration import supplied_affine, validate_raster_layer
     from PIL import Image
 
-    for matrix in [(1, 2, 0, 2, 4, 0), (1, 0, float("inf"), 0, 1, 0)]:
-        with pytest.raises(ValueError):
+    for matrix, expected_error in (
+        ((1, 2, 0, 2, 4, 0), "Raster affine matrix is singular or ill-conditioned"),
+        ((1, 0, float("inf"), 0, 1, 0), "Input should be a finite number"),
+    ):
+        with pytest.raises(ValueError, match=expected_error):
             supplied_affine(matrix)
     stream = BytesIO()
     Image.new("RGB", (10, 20)).save(stream, format="PNG")
@@ -197,13 +203,91 @@ def test_import_accepts_orientation_one_like_the_render_guard():
     from mp_export.raster_guard import require_upright_raster
     from mp_models.raster import RasterLayer
 
-    layer, _ = image_layer(
-        _oriented_image("JPEG", 1),
+    data = _oriented_image("JPEG", 1)
+    layer, source = image_layer(
+        data,
         scene=_import_scene(),
         registration=fit_affine(controls()),
         filename="s.jpg",
     )
-    require_upright_raster(RasterLayer.model_validate(layer.model_dump()))
+    assert (layer.width, layer.height) == (10, 20)
+    assert layer.mime_type == "image/jpeg"
+    assert layer.sha256 == source.sha256 == hashlib.sha256(data).hexdigest()
+    validated = RasterLayer.model_validate(layer.model_dump())
+    require_upright_raster(validated)
+    assert validated == layer
+
+
+def test_image_layer_rejects_oversized_bytes_and_missing_pillow(monkeypatch):
+    import sys
+
+    class _OversizedPayload:
+        def __len__(self) -> int:
+            return 20 * 1024 * 1024 + 1
+
+    scene = _import_scene()
+    reg = fit_affine(controls())
+
+    # > 20 MiB payload rejected before decoding (sized stub avoids 20 MiB allocation)
+    with pytest.raises(ValueError, match="20 MiB"):
+        image_layer(_OversizedPayload(), scene=scene, registration=reg, filename="big")
+
+    # Missing Pillow extra fails closed with clear message
+    monkeypatch.setitem(sys.modules, "PIL", None)
+    with pytest.raises(ValueError, match="mp-review\\[geo\\]"):
+        image_layer(b"png", scene=scene, registration=reg, filename="s.png")
+
+
+def test_image_layer_rejects_dimensions_format_and_animated():
+    Image = pytest.importorskip("PIL.Image")
+
+    scene = _import_scene()
+    reg = fit_affine(controls())
+
+    # Unsupported image format (BMP)
+    bmp_buf = BytesIO()
+    Image.new("RGB", (4, 4)).save(bmp_buf, format="BMP")
+    with pytest.raises(ValueError, match="PNG/JPEG/WebP"):
+        image_layer(bmp_buf.getvalue(), scene=scene, registration=reg, filename="scan.bmp")
+
+    # Animated WebP (n_frames > 1) rejected
+    anim_buf = BytesIO()
+    frames = [Image.new("RGB", (4, 4), "red"), Image.new("RGB", (4, 4), "blue")]
+    frames[0].save(anim_buf, format="WEBP", save_all=True, append_images=frames[1:])
+    with pytest.raises(ValueError, match="Animated"):
+        image_layer(anim_buf.getvalue(), scene=scene, registration=reg, filename="anim.webp")
+
+    # Exceeding 20,000 px width dimension limit rejected (20001x1 PNG is tiny & under pixel bomb cap)
+    wide_buf = BytesIO()
+    Image.new("1", (20001, 1)).save(wide_buf, format="PNG")
+    with pytest.raises(ValueError, match="dimensions exceed"):
+        image_layer(wide_buf.getvalue(), scene=scene, registration=reg, filename="wide.png")
+
+
+def test_validate_raster_layer_rejects_scene_matrix_and_residual_tampering():
+    Image = pytest.importorskip("PIL.Image")
+    from mp_review.raster_registration import validate_raster_layer
+
+    buf = BytesIO()
+    Image.new("RGB", (10, 20)).save(buf, format="PNG")
+    scene = _import_scene()
+    other_scene = PlotScene(id="other", name="other", kind="projected", crs="EPSG:3857", units="m")
+    layer, _ = image_layer(
+        buf.getvalue(), scene=scene, registration=fit_affine(controls()), filename="scan.png"
+    )
+
+    with pytest.raises(ValueError, match="scene reference mismatch"):
+        validate_raster_layer(layer, other_scene)
+
+    tampered_matrix = layer.registration.model_copy(
+        update={"matrix": (0.0, 3.0, 999.0, 2.0, 0.0, 200.0)}
+    )
+    with pytest.raises(ValueError, match="matrix does not match controls"):
+        validate_raster_layer(layer.model_copy(update={"registration": tampered_matrix}), scene)
+
+    tampered_rms = layer.registration.model_copy(update={"fit_rms": 12.5})
+    with pytest.raises(ValueError, match="residuals do not match controls"):
+        validate_raster_layer(layer.model_copy(update={"registration": tampered_rms}), scene)
 
 
 def test_import_orientation_comes_only_from_image_orientation(monkeypatch):

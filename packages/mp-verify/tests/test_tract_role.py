@@ -21,5 +21,7 @@ def test_non_boundary_tracts_are_blocked() -> None:
 
 
 def test_plain_string_tract_types_are_accepted() -> None:
-    assert evaluate_tract_role("Exception 1", "exception") is not None
+    exc = evaluate_tract_role("Exception 1", "exception")
+    assert exc is not None
+    assert (exc.name, exc.status, exc.reason) == ("non_boundary_tract", "blocked", "exception")
     assert evaluate_tract_role("Tract 1", "main") is None

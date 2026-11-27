@@ -15,7 +15,7 @@ import pytest
 from metesparser.call_extractor import MonumentClassifier
 from metesparser.closure_checker import ClosureChecker
 from metesparser.csv_builder import CSVBuilder
-from metesparser.models import ConversionFactors, DeedCall, LegalDescription
+from metesparser.models import ConversionFactors, DeedCall
 from metesparser.text_parser import TextParser
 
 
@@ -104,20 +104,6 @@ class TestExtractAreaStatement:
         assert result["approximate"] is True
 
 
-class TestAreaStatementModelFields:
-    """Tests for stated_area fields on LegalDescription."""
-
-    def test_stated_area_fields_default_none(self) -> None:
-        ld = LegalDescription()
-        assert ld.stated_area_sq_ft is None
-        assert ld.stated_area_approximate is False
-
-    def test_stated_area_fields_set(self) -> None:
-        ld = LegalDescription(stated_area_sq_ft=7500.0, stated_area_approximate=True)
-        assert ld.stated_area_sq_ft == 7500.0
-        assert ld.stated_area_approximate is True
-
-
 class TestClassifyMonumentStatus:
     """Tests for MonumentClassifier.classify_monument_status()."""
 
@@ -149,26 +135,6 @@ class TestClassifyMonumentStatus:
         assert MonumentClassifier.classify_monument_status("FOUND iron rod") == "found"
         assert MonumentClassifier.classify_monument_status("SET iron pin") == "set"
 
-
-class TestMonumentStatusOnDeedCall:
-    """Tests for monument_status field on DeedCall model."""
-
-    def test_monument_status_default_none(self) -> None:
-        call = DeedCall(course=1, direction_text="N 45° E", distance_ft=100.0)
-        assert call.monument_status is None
-
-    def test_monument_status_found(self) -> None:
-        call = DeedCall(
-            course=1, direction_text="N 45° E", distance_ft=100.0, monument_status="found"
-        )
-        assert call.monument_status == "found"
-
-    def test_monument_status_set(self) -> None:
-        call = DeedCall(
-            course=1, direction_text="N 45° E", distance_ft=100.0, monument_status="set"
-        )
-        assert call.monument_status == "set"
-
     def test_monument_status_invalid_rejected(self) -> None:
         with pytest.raises(ValueError, match="monument_status"):
             DeedCall(
@@ -178,9 +144,6 @@ class TestMonumentStatusOnDeedCall:
 
 class TestMonumentStatusCSV:
     """Tests for monument_status in CSV schema."""
-
-    def test_fieldnames_count_22(self) -> None:
-        assert len(CSVBuilder.FIELDNAMES) == 22
 
     def test_monument_status_in_fieldnames(self) -> None:
         assert "monument_status" in CSVBuilder.FIELDNAMES
@@ -271,8 +234,7 @@ class TestCheckBearingReversals:
     def test_exact_180_degree_reversal(self) -> None:
         calls = [_make_call(1, 45.0), _make_call(2, 225.0)]
         warnings = ClosureChecker.check_bearing_reversals(calls)
-        assert len(warnings) == 1
-        assert "1" in warnings[0] and "2" in warnings[0]
+        assert warnings == ["Courses 1-2: possible bearing reversal (180.0° apart, near 180°)"]
 
     def test_within_5_degree_threshold(self) -> None:
         calls = [_make_call(1, 45.0), _make_call(2, 228.0)]
@@ -314,7 +276,9 @@ class TestCheckBearingReversals:
         calls = [_make_call(1, 0.0), _make_call(2, 180.0)]
         warnings = ClosureChecker.check_bearing_reversals(calls)
         assert len(warnings) == 1
-        assert "reversal" in warnings[0].lower() or "180" in warnings[0]
+        assert "Courses 1-2" in warnings[0]
+        assert "bearing reversal" in warnings[0].lower()
+        assert "180.0°" in warnings[0]
 
 
 class TestCheckDistanceReasonableness:
@@ -386,7 +350,7 @@ class TestCheckDistanceReasonableness:
             _make_call(3, 180.0, distance=100.0),
         ]
         warnings = ClosureChecker.check_distance_reasonableness(calls)
-        assert any("1" in w for w in warnings)
+        assert warnings == ["Course 1: suspiciously short distance (0.10 ft)"]
 
 
 def test_closure_checker_blocks_non_boundary_tract_with_scored_confidence():

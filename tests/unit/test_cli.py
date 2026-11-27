@@ -628,6 +628,23 @@ class TestCompareRunsCommand:
         captured = capsys.readouterr()
         assert "No runs found." in captured.out
 
+    def test_main_dispatches_compare_runs_command(self, monkeypatch, tmp_path):
+        """CLI main() parses compare-runs flags and dispatches to compare_runs_command."""
+        dispatched: list[tuple[str | None, str | None]] = []
+        monkeypatch.setattr(
+            "metesparser.cli.compare_runs_command",
+            lambda runs_dir, pdf_filter: dispatched.append((runs_dir, pdf_filter)),
+        )
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["metesparser", "compare-runs", "--runs-dir", str(tmp_path), "--pdf", "pennbrook"],
+        )
+
+        cli.main()
+
+        assert dispatched == [(str(tmp_path), "pennbrook")]
+
 
 class TestExtractRunManifest:
     def test_extract_writes_run_manifest(self, monkeypatch, tmp_path):

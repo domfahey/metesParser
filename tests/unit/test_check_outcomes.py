@@ -140,7 +140,10 @@ def test_missing_bearing_blocks_check_and_export(api, tmp_path):
         }
     )
     assert not forged.is_fully_verified()
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="Cannot export verified CSV: verification checks failed.*not determined",
+    ):
         export(calls, forged, str(tmp_path / "blocked.csv"))
 
 

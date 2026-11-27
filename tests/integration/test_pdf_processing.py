@@ -55,7 +55,7 @@ PDF_CASES: tuple[PdfCase, ...] = (
         case_id="pennbrook-18",
         raw_text=sample_deeds.PENNBROOK_18,
         expected_distances=[60.0, 125.0, 60.0, 125.0],
-        expected_azimuths=[146.666667, 236.666667, 326.666667, 56.666667],
+        expected_azimuths=[146 + 40 / 60, 236 + 40 / 60, 326 + 40 / 60, 56 + 40 / 60],
         expected_area_sq_ft=7500.0,
         expected_perimeter_ft=370.0,
         expected_pob_substring="a point in the division line between lots 46 and 47",
@@ -64,7 +64,12 @@ PDF_CASES: tuple[PdfCase, ...] = (
         case_id="pennbrook-24",
         raw_text=sample_deeds.PENNBROOK_24,
         expected_distances=[125.0, 142.0, 125.0, 142.0],
-        expected_azimuths=[233.848889, 143.848889, 53.848889, 323.848889],
+        expected_azimuths=[
+            180 + 53 + 50 / 60 + 56 / 3600,
+            180 - (36 + 9 / 60 + 4 / 3600),
+            53 + 50 / 60 + 56 / 3600,
+            360 - (36 + 9 / 60 + 4 / 3600),
+        ],
         expected_area_sq_ft=17750.0,
         expected_perimeter_ft=534.0,
         expected_pob_substring="a point in the southwesterly line of pennbrook drive",
@@ -144,12 +149,12 @@ def test_process_deed_pdf_structures_calls(processed_case):
 
     distances = [call.distance_ft for call in legal_desc.calls]
     for distance, expected in zip(distances, case.expected_distances, strict=True):
-        assert math.isclose(distance, expected, abs_tol=0.01)
+        assert math.isclose(distance, expected, abs_tol=1e-9)
 
     azimuths = [call.bearing_azimuth_deg_from_north for call in legal_desc.calls]
     for azimuth, expected in zip(azimuths, case.expected_azimuths, strict=True):
         assert azimuth is not None
-        assert math.isclose(azimuth, expected, abs_tol=0.01)
+        assert math.isclose(azimuth, expected, abs_tol=1e-9)
 
 
 def test_process_deed_pdf_closure_metrics(processed_case):
@@ -159,6 +164,7 @@ def test_process_deed_pdf_closure_metrics(processed_case):
     closure = ClosureChecker.verify_closure(legal_desc.calls)
 
     assert closure.closure_passed
-    assert math.isclose(closure.area_sq_ft, case.expected_area_sq_ft, abs_tol=0.1)
-    assert math.isclose(closure.perimeter_ft, case.expected_perimeter_ft, abs_tol=0.1)
+    assert math.isclose(closure.misclosure_ft, 0.0, abs_tol=1e-9)
+    assert math.isclose(closure.area_sq_ft, case.expected_area_sq_ft, abs_tol=1e-6)
+    assert math.isclose(closure.perimeter_ft, case.expected_perimeter_ft, abs_tol=1e-9)
     assert not closure.warnings

@@ -109,7 +109,7 @@ class TestCallsFixes:
         from mp_parse.calls import extract_direction
 
         # Default strict=True rejects invalid packed DMS (minutes=75)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match=r"Invalid packed DMS: minutes=75 \(must be 0-59\)"):
             extract_direction("THENCE N 45.75° E 100 feet")
 
         # Direct strict=False returns non-fabricated verbatim packed token

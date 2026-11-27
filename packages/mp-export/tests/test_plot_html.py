@@ -60,7 +60,9 @@ def test_known_coordinates_open_closure_annotation_and_stable_input():
     assert 'class="plot-gap"' in output
     assert "0.200 ft" in output
     assert "not a recorded course" in output
-    assert "POB" in output and "Local +Y" in output
+    assert '<circle class="pob-marker" cx="0" cy="-0"' in output
+    assert '<text class="pob-label" x="0" y="-0" dy="1.5em">POB</text>' in output
+    assert '<p class="axis">↑ Local +Y · X east / Y north in the declared bearing frame' in output
     assert prepared.input_hash in output
 
 
@@ -116,10 +118,10 @@ def test_forged_geometry_and_bypassed_request_validation_rejected():
     geometry = prepared.geometry.model_copy(
         update={"primitives": (primitive,) + prepared.geometry.primitives[1:]}
     )
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="does not match freshly calculated input geometry"):
         render_plot(prepared.model_copy(update={"geometry": geometry}))
     forged = prepared.request.model_copy(update={"schema_version": "made-up"})
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="schema_version"):
         render_plot(prepared.model_copy(update={"request": forged}))
 
 
@@ -189,3 +191,27 @@ def test_chord_only_partial_notice_does_not_claim_prefix_only():
     assert "anchored prefix" not in notice
     assert "call-2" in notice
     assert "chord" in notice
+
+
+def test_full_circle_360_arc_splits_into_two_svg_semicircles():
+    from mp_export.plot_svg import primitive_svg_path
+    from mp_models.plot import PlotPrimitive
+
+    circle = PlotPrimitive(
+        call_id="full-circle",
+        kind="arc",
+        start=(0.0, 0.0),
+        end=(0.0, 0.0),
+        length_ft=2.0 * 3.141592653589793 * 50.0,
+        center=(50.0, 0.0),
+        radius_ft=50.0,
+        sweep_deg=360.0,
+        curve_dir="right",
+        start_tangent_deg=0.0,
+    )
+    path, bounds = primitive_svg_path(circle)
+    arcs = re.findall(r"A ([^ ]+) ([^ ]+) 0 0 1 ([^ ]+) ([^ ]+)", path)
+    assert len(arcs) == 2
+    assert list(map(float, arcs[0])) == pytest.approx([50.0, 50.0, 100.0, 0.0], abs=1e-9)
+    assert list(map(float, arcs[1])) == pytest.approx([50.0, 50.0, 0.0, 0.0], abs=1e-9)
+    assert (0.0, -50.0) in bounds and (100.0, 50.0) in bounds

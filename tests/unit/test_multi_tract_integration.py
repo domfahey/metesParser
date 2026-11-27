@@ -1,5 +1,6 @@
 """Integration tests for multi-tract support with real deed patterns."""
 
+import pytest
 from mp_models import TractType
 from mp_parse.calls import extract_calls
 from mp_parse.tracts import split_into_tracts
@@ -25,10 +26,10 @@ class TestSplitAndExtract:
             "to the POINT OF BEGINNING."
         )
         calls, tracts = extract_calls(text)
-        assert len(tracts) >= 2
-        types = {t.tract_type for t in tracts}
-        assert TractType.MAIN in types
-        assert TractType.EXCEPTION in types
+        assert [(t.label, t.tract_type, len(t.calls)) for t in tracts] == [
+            ("Tract 1", TractType.MAIN, 4),
+            ("Exception 1", TractType.EXCEPTION, 4),
+        ]
 
     def test_tract_markers_split_and_verify(self):
         """TRACT #N markers split into independent tracts that verify independently."""
@@ -55,9 +56,9 @@ class TestSplitAndExtract:
         results = verify_closure(calls, tracts=tracts)
         assert isinstance(results, list)
         assert len(results) == 2
-        for result in results:
-            assert result.closure_passed
-            assert result.area_sq_ft > 0
+        assert all(result.closure_passed for result in results)
+        assert results[0].area_sq_ft == pytest.approx(10000.0, abs=1e-6)
+        assert results[1].area_sq_ft == pytest.approx(2500.0, abs=1e-6)
 
     def test_single_tract_no_tracts_returned(self):
         """Single-tract deed returns empty tracts list and single ClosureResult."""
@@ -85,11 +86,12 @@ class TestSplitAndExtract:
             "EXCEPT THENCE South 10 degrees 00 minutes 00 seconds East, a distance of 50.00 feet"
         )
         calls, tracts = extract_calls(text)
-        exception_tracts = [t for t in tracts if t.tract_type == TractType.EXCEPTION]
-        assert len(exception_tracts) >= 1
-        for exc_tract in exception_tracts:
-            for call in exc_tract.calls:
-                assert call.is_exception is True
+        assert [(t.label, t.tract_type, len(t.calls)) for t in tracts] == [
+            ("Tract 1", TractType.MAIN, 2),
+            ("Exception 1", TractType.EXCEPTION, 1),
+        ]
+        assert [c.is_exception for c in tracts[0].calls] == [False, False]
+        assert [c.is_exception for c in tracts[1].calls] == [True]
 
     def test_multiple_beginning_blocks(self):
         """Multiple BEGINNING blocks split into separate tracts."""

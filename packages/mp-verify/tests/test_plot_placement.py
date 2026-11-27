@@ -78,7 +78,7 @@ def test_declared_units_convert_at_boundary():
 
 
 def test_nonfinite_arithmetic_is_rejected():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="nonfinite plot arithmetic"):
         transform_point((float("inf"), 0), placement())
 
 
@@ -100,8 +100,7 @@ def placed_bundle(*, translation=(0, 0), comparison_specs=()):
     from pathlib import Path
 
     from mp_models.dashboard import DashboardBundle
-    from mp_verify.dashboard import _calculate
-    from mp_verify.plot import build_dashboard_plots
+    from mp_verify.dashboard import calculate_dashboard
 
     data = json.loads(
         (Path(__file__).parents[2] / "mp-review/tests/fixtures/dashboard-absolute.json").read_text()
@@ -109,8 +108,9 @@ def placed_bundle(*, translation=(0, 0), comparison_specs=()):
     data["schema_version"] = "1.1"
     data["calculations"][0]["frame"]["foot_definition"] = "international_ft"
     bundle = DashboardBundle.model_validate(data)
-    results = tuple(_calculate(bundle, s) for s in bundle.calculations)
-    geom = build_dashboard_plots(bundle, results).geometries[0]
+    prepared = calculate_dashboard(bundle)
+    results = prepared.calculations
+    geom = prepared.plots.geometries[0]
     data["scenes"] = [
         {"id": "scene", "name": "explicit local", "kind": "local", "units": "international_ft"}
     ]

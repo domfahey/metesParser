@@ -99,9 +99,13 @@ def test_inspect_artifacts_reports_deep_json_without_internal_recursion(
     (tmp_path / "source.json").write_text(DEEP)
     argv = ["inspect-artifacts", str(tmp_path), "--requested-stage", "plot"]
     monkeypatch.setattr("sys.argv", ["metes-review", *argv])
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as exit_info:
         cli.main()
-    assert "internal_recursion_error" not in capsys.readouterr().out
+    assert exit_info.value.code == 1
+    out = capsys.readouterr().out
+    assert "internal_recursion_error" not in out
+    payload = json.loads(out)
+    assert payload["status"] == "needs_review"
 
 
 def test_validate_source_reports_deep_file_in_root_as_finding(tmp_path, monkeypatch, capsys):

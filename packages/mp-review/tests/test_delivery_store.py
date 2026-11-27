@@ -440,7 +440,9 @@ def test_required_raster_stale_placement_and_unknown_units_block(tmp_path):
         prepare_delivery(bundle, revision, data)
     data = request.model_dump(mode="json")
     data["units"] = "unknown_ft"
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError, match="unknown foot definition blocks comparison with declared map units"
+    ):
         prepare_delivery(bundle, revision, data)
     data = request.model_dump(mode="json")
     data["required_appearance"] = True

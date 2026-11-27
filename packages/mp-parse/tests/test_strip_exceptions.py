@@ -58,7 +58,7 @@ class TestDetectStripExceptions:
         strip = result[0]
         assert strip["direction"] == "West"
         assert strip["width_ft"] == 30.0
-        assert "easement" in strip["purpose"].lower() or "road" in strip["purpose"].lower()
+        assert strip["purpose"] == "Easement for Private Road Purposes"
 
     def test_less_and_except(self) -> None:
         """'LESS AND EXCEPT the North 15 feet thereof'."""

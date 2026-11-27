@@ -23,68 +23,39 @@ class TestExtractDirectionDueCardinal:
     """extract_direction() should recognise 'due {cardinal}' as a direction."""
 
     def test_due_north(self) -> None:
-        result = extract_direction("thence due North 120.59 feet")
-        assert result is not None
-        assert result != ""
-        assert "north" in result.lower()
+        assert extract_direction("thence due North 120.59 feet") == "due north"
 
     def test_due_south(self) -> None:
-        result = extract_direction("thence due South 599.89 feet")
-        assert result is not None
-        assert result != ""
-        assert "south" in result.lower()
+        assert extract_direction("thence due South 599.89 feet") == "due south"
 
     def test_due_east(self) -> None:
-        result = extract_direction("thence due East 256.40 feet")
-        assert result is not None
-        assert result != ""
-        assert "east" in result.lower()
+        assert extract_direction("thence due East 256.40 feet") == "due east"
 
     def test_due_west(self) -> None:
-        result = extract_direction("thence due west 134.64 feet")
-        assert result is not None
-        assert result != ""
-        assert "west" in result.lower()
+        assert extract_direction("thence due west 134.64 feet") == "due west"
 
 
 class TestExtractSingleCallDueCardinal:
-    """extract_single_call() should produce a DeedCall with azimuth for due-cardinal bearings."""
+    """extract_single_call() should produce a DeedCall with exact azimuth and no incomplete note."""
 
-    def test_due_north_call(self) -> None:
-        call = extract_single_call("due North 120.59 feet", course=1)
+    @pytest.mark.parametrize(
+        ("text", "expected_dist", "expected_az"),
+        [
+            ("due North 120.59 feet", 120.59, 0.0),
+            ("due South 599.89 feet", 599.89, 180.0),
+            ("due East 256.40 feet", 256.40, 90.0),
+            ("due west 134.64 feet", 134.64, 270.0),
+            ("DUE SOUTH 599.89 FT", 599.89, 180.0),
+        ],
+    )
+    def test_due_cardinal_call_extracts_exact_azimuth_without_incomplete_note(
+        self, text: str, expected_dist: float, expected_az: float
+    ) -> None:
+        call = extract_single_call(text, course=1)
         assert call is not None
-        assert call.distance_ft == pytest.approx(120.59)
-        assert call.bearing_azimuth_deg_from_north == pytest.approx(0.0)
-        assert call.notes is None or "incomplete" not in (call.notes or "")
-
-    def test_due_south_call(self) -> None:
-        call = extract_single_call("due South 599.89 feet", course=1)
-        assert call is not None
-        assert call.distance_ft == pytest.approx(599.89)
-        assert call.bearing_azimuth_deg_from_north == pytest.approx(180.0)
-        assert call.notes is None or "incomplete" not in (call.notes or "")
-
-    def test_due_east_call(self) -> None:
-        call = extract_single_call("due East 256.40 feet", course=1)
-        assert call is not None
-        assert call.distance_ft == pytest.approx(256.40)
-        assert call.bearing_azimuth_deg_from_north == pytest.approx(90.0)
-        assert call.notes is None or "incomplete" not in (call.notes or "")
-
-    def test_due_west_call(self) -> None:
-        call = extract_single_call("due west 134.64 feet", course=1)
-        assert call is not None
-        assert call.distance_ft == pytest.approx(134.64)
-        assert call.bearing_azimuth_deg_from_north == pytest.approx(270.0)
-        assert call.notes is None or "incomplete" not in (call.notes or "")
-
-    def test_due_south_with_feet(self) -> None:
-        """Uppercase cardinal with abbreviated unit remains a complete due course."""
-        call = extract_single_call("DUE SOUTH 599.89 FT", course=1)
-
-        assert call is not None
-        assert call.distance_ft == pytest.approx(599.89)
-        assert call.bearing_azimuth_deg_from_north == pytest.approx(180.0)
+        assert call.distance_ft == pytest.approx(expected_dist)
+        assert call.bearing_azimuth_deg_from_north == pytest.approx(expected_az)
+        assert call.notes is None
 
     def test_due_cardinal_direction_text_preserved(self) -> None:
         """The direction_text should reflect 'due North' rather than just 'north'."""
@@ -117,12 +88,14 @@ class TestExtractCallsDueCardinal:
         due_south_calls = [
             c for c in calls if c.bearing_azimuth_deg_from_north == pytest.approx(180.0)
         ]
-        assert len(due_south_calls) >= 1, "Missing due South call"
+        assert len(due_south_calls) == 1, "Expected exactly 1 due South call"
+        assert due_south_calls[0].distance_ft == pytest.approx(599.89)
 
         due_north_calls = [
             c for c in calls if c.bearing_azimuth_deg_from_north == pytest.approx(0.0)
         ]
-        assert len(due_north_calls) >= 1, "Missing due North call"
+        assert len(due_north_calls) == 1, "Expected exactly 1 due North call"
+        assert due_north_calls[0].distance_ft == pytest.approx(599.89)
 
     def test_deed_50248_4_calls(self) -> None:
         """Deed 50248-00913: 4 calls expected (was 2 -- due west/East dropped)."""
@@ -142,12 +115,14 @@ class TestExtractCallsDueCardinal:
         due_west_calls = [
             c for c in calls if c.bearing_azimuth_deg_from_north == pytest.approx(270.0)
         ]
-        assert len(due_west_calls) >= 1, "Missing due west call"
+        assert len(due_west_calls) == 1, "Expected exactly 1 due west call"
+        assert due_west_calls[0].distance_ft == pytest.approx(134.64)
 
         due_east_calls = [
             c for c in calls if c.bearing_azimuth_deg_from_north == pytest.approx(90.0)
         ]
-        assert len(due_east_calls) >= 1, "Missing due East call"
+        assert len(due_east_calls) == 1, "Expected exactly 1 due East call"
+        assert due_east_calls[0].distance_ft == pytest.approx(256.40)
 
     def test_deed_50872_4_calls_with_azimuth(self) -> None:
         """Deed 50872-00130: 4 calls, last one 'due North' must have azimuth 0.0."""
@@ -167,35 +142,23 @@ class TestExtractCallsDueCardinal:
         last_call = calls[-1]
         assert last_call.bearing_azimuth_deg_from_north == pytest.approx(0.0)
         assert last_call.distance_ft == pytest.approx(120.59)
-        assert last_call.notes is None or "incomplete" not in (last_call.notes or "")
+        assert last_call.notes is None
 
 
 class TestEnrichCallsDueCardinal:
-    """enrich_calls_with_azimuths() should handle due-cardinal calls."""
+    """enrich_calls_with_azimuths() should enrich un-resolved due-cardinal calls."""
 
-    def test_enrichment_adds_azimuth_to_due_cardinal(self) -> None:
-        """If extract_single_call already sets azimuth, enrichment should preserve it."""
-        call = extract_single_call("due North 120.59 feet", course=1)
-        assert call is not None
+    def test_enrichment_adds_azimuth_and_clears_incomplete_note(self) -> None:
+        from mp_models import DeedCall
+
+        call = DeedCall(
+            course=1,
+            direction_text="due North",
+            bearing_azimuth_deg_from_north=None,
+            distance_ft=120.59,
+            notes="incomplete bearing - cardinal only",
+        )
         enriched = enrich_calls_with_azimuths([call])
         assert len(enriched) == 1
         assert enriched[0].bearing_azimuth_deg_from_north == pytest.approx(0.0)
-
-
-class TestDueCardinalNotIncomplete:
-    """Due-cardinal bearings should NOT be flagged as 'incomplete bearing'."""
-
-    @pytest.mark.parametrize(
-        "text",
-        [
-            "due North 100.00 feet",
-            "due South 200.00 feet",
-            "due East 300.00 feet",
-            "due West 400.00 feet",
-        ],
-    )
-    def test_no_incomplete_note(self, text: str) -> None:
-        call = extract_single_call(text, course=1)
-        assert call is not None
-        if call.notes:
-            assert "incomplete" not in call.notes, f"Unexpected 'incomplete' note: {call.notes}"
+        assert enriched[0].notes is None

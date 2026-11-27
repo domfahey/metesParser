@@ -267,7 +267,7 @@ def test_failed_audit_cannot_leak_into_later_non_audited_calls(monkeypatch: Any)
         lambda _name: (_ for _ in ()).throw(FileNotFoundError("missing prompt")),
     )
 
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError, match="missing prompt"):
         processor.normalize_legal_description("input", audit=True)
 
     processor._load_prompt = lambda _name: {

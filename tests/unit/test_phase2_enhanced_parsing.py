@@ -63,8 +63,7 @@ class TestChordBearingExtraction:
             "chord of which bears S 34°57'37\" E, 254.22 feet"
         )
         info = CallExtractor.extract_curve_info(text)
-        assert info.get("chord_bearing") is not None
-        assert "34" in info["chord_bearing"]
+        assert info.get("chord_bearing") == "S 34°57'37\" E"
 
     def test_chord_bears_degrees_minutes(self) -> None:
         text = (
@@ -73,8 +72,7 @@ class TestChordBearingExtraction:
             "chord of which bears N 45°30' W"
         )
         info = CallExtractor.extract_curve_info(text)
-        assert info.get("chord_bearing") is not None
-        assert "45" in info["chord_bearing"]
+        assert info.get("chord_bearing") == "N 45°30' W"
 
     def test_chord_bearing_spelled_out_cardinals(self) -> None:
         text = (
@@ -83,7 +81,7 @@ class TestChordBearingExtraction:
             "chord of which bears South 12 degrees 30 minutes East"
         )
         info = CallExtractor.extract_curve_info(text)
-        assert info.get("chord_bearing") is not None
+        assert info.get("chord_bearing") == "S 12°30' E"
 
     def test_chord_length_extracted(self) -> None:
         text = (
@@ -92,8 +90,7 @@ class TestChordBearingExtraction:
             "chord of which bears S 34°57' E, 254.22 feet"
         )
         info = CallExtractor.extract_curve_info(text)
-        assert info.get("chord_length_ft") is not None
-        assert info["chord_length_ft"] == pytest.approx(254.22, abs=0.5)
+        assert info.get("chord_length_ft") == pytest.approx(254.22, abs=1e-6)
 
     def test_no_chord_bearing_no_match(self) -> None:
         text = (
@@ -111,7 +108,8 @@ class TestChordBearingExtraction:
         )
         call = CallExtractor.extract_single_call(text, course=1)
         assert call is not None
-        assert call.chord_bearing is not None
+        assert call.chord_bearing == "S 34°57'37\" E"
+        assert call.chord_length_ft == pytest.approx(254.22)
 
     def test_chord_bearing_with_chord_keyword_only(self) -> None:
         text = (
@@ -120,7 +118,7 @@ class TestChordBearingExtraction:
             "the chord bears N 80°15' E"
         )
         info = CallExtractor.extract_curve_info(text)
-        assert info.get("chord_bearing") is not None
+        assert info.get("chord_bearing") == "N 80°15' E"
 
     def test_chord_bearing_case_insensitive(self) -> None:
         text = (
@@ -129,7 +127,7 @@ class TestChordBearingExtraction:
             "CHORD OF WHICH BEARS N 45°00' W"
         )
         info = CallExtractor.extract_curve_info(text)
-        assert info.get("chord_bearing") is not None
+        assert info.get("chord_bearing") == "N 45°00' W"
 
 
 class TestNonTangentCurveDetection:
@@ -158,8 +156,7 @@ class TestNonTangentCurveDetection:
         )
         info = CallExtractor.extract_curve_info(text)
         assert info.get("non_tangent") is True
-        assert info.get("radial_bearing") is not None
-        assert "15" in info["radial_bearing"]
+        assert info.get("radial_bearing") == "N 15°22' E"
 
     def test_radial_bearing_of(self) -> None:
         text = (
@@ -168,8 +165,7 @@ class TestNonTangentCurveDetection:
         )
         info = CallExtractor.extract_curve_info(text)
         assert info.get("non_tangent") is True
-        assert info.get("radial_bearing") is not None
-        assert "45" in info["radial_bearing"]
+        assert info.get("radial_bearing") == "S 45°00' W"
 
     def test_case_insensitive_nontangent(self) -> None:
         text = (
@@ -196,7 +192,7 @@ class TestNonTangentCurveDetection:
         call = CallExtractor.extract_single_call(text, course=1)
         assert call is not None
         assert call.non_tangent is True
-        assert call.radial_bearing is not None
+        assert call.radial_bearing == "N 15°22' E"
 
     def test_tangent_curve_deed_call_no_flag(self) -> None:
         text = (
@@ -215,7 +211,7 @@ class TestNonTangentCurveDetection:
         )
         info = CallExtractor.extract_curve_info(text)
         assert info.get("non_tangent") is True
-        assert info.get("radial_bearing") is not None
+        assert info.get("radial_bearing") == "N 15°22'30\" E"
 
 
 class TestBasisOfBearingExtraction:
@@ -242,18 +238,15 @@ class TestBasisOfBearingExtraction:
     def test_blm_style(self) -> None:
         text = "Bearings based on BLM Dependent Resurvey of Township 15 North."
         result = TextParser.extract_basis_of_bearing(text)
-        assert result is not None
-        assert "BLM" in result
+        assert result == "BLM Dependent Resurvey of Township 15 North"
 
     def test_magnetic_bearing(self) -> None:
         text = "All bearings herein are magnetic."
-        result = TextParser.extract_basis_of_bearing(text)
-        assert result is not None
+        assert TextParser.extract_basis_of_bearing(text) == "magnetic"
 
     def test_assumed_bearing(self) -> None:
         text = "Bearings are assumed for this survey."
-        result = TextParser.extract_basis_of_bearing(text)
-        assert result is not None
+        assert TextParser.extract_basis_of_bearing(text) == "assumed"
 
     def test_no_basis_found(self) -> None:
         text = "THENCE S 56°40' W 100.00 feet to an iron pin."
@@ -262,8 +255,7 @@ class TestBasisOfBearingExtraction:
 
     def test_case_insensitive(self) -> None:
         text = "basis of bearings: magnetic north."
-        result = TextParser.extract_basis_of_bearing(text)
-        assert result is not None
+        assert TextParser.extract_basis_of_bearing(text) == "magnetic north"
 
 
 class TestSurveyorCertificationExtraction:
@@ -277,8 +269,10 @@ class TestSurveyorCertificationExtraction:
 
     def test_i_hereby_certify(self) -> None:
         text = "I hereby certify that this survey was conducted on January 1, 2024."
-        result = TextParser.extract_surveyor_certification(text)
-        assert result is not None
+        assert (
+            TextParser.extract_surveyor_certification(text)
+            == "I hereby certify that this survey was conducted on January 1, 2024"
+        )
 
     def test_certified_by(self) -> None:
         text = "Certified by: Jane Doe, PLS No. 12345"
@@ -289,23 +283,12 @@ class TestSurveyorCertificationExtraction:
     def test_surveyed_by(self) -> None:
         text = "Surveyed by Robert Brown, Registered Land Surveyor, License No. 5678"
         result = TextParser.extract_surveyor_certification(text)
-        assert result is not None
+        assert result == "Robert Brown, Registered Land Surveyor, License No"
 
     def test_no_certification_found(self) -> None:
         text = "THENCE S 56°40' W 100.00 feet to an iron pin."
         result = TextParser.extract_surveyor_certification(text)
         assert result is None
-
-    def test_model_field_exists(self) -> None:
-        ld = LegalDescription(
-            calls=[],
-            surveyor_certification="John Smith, PLS",
-        )
-        assert ld.surveyor_certification == "John Smith, PLS"
-
-    def test_model_field_default_none(self) -> None:
-        ld = LegalDescription(calls=[])
-        assert ld.surveyor_certification is None
 
 
 class TestPriorConveyanceExtraction:
@@ -331,24 +314,12 @@ class TestPriorConveyanceExtraction:
 
     def test_official_records_book(self) -> None:
         text = "As recorded in Official Records Book 789, Page 12."
-        result = TextParser.extract_prior_conveyance(text)
-        assert result is not None
+        assert TextParser.extract_prior_conveyance(text) == "Official Records Book 789, Page 12"
 
     def test_no_conveyance_found(self) -> None:
         text = "THENCE S 56°40' W 100.00 feet to an iron pin."
         result = TextParser.extract_prior_conveyance(text)
         assert result is None
-
-    def test_model_field_exists(self) -> None:
-        ld = LegalDescription(
-            calls=[],
-            prior_conveyance="Deed Book 1234, Page 567",
-        )
-        assert ld.prior_conveyance == "Deed Book 1234, Page 567"
-
-    def test_model_field_default_none(self) -> None:
-        ld = LegalDescription(calls=[])
-        assert ld.prior_conveyance is None
 
 
 class TestExtendedDistanceExtraction:
@@ -381,7 +352,7 @@ class TestExtendedDistanceExtraction:
         self, text: str, expected_value: float, expected_unit: str
     ) -> None:
         value, unit = TextParser.extract_distance(text)
-        assert value == pytest.approx(expected_value, abs=0.01)
+        assert value == pytest.approx(expected_value, abs=1e-6)
         assert unit == expected_unit
 
     def test_existing_units_still_work(self) -> None:
@@ -436,7 +407,30 @@ class TestCSVSchemaExpansion:
         assert "radial_bearing" in CSVBuilder.FIELDNAMES
 
     def test_fieldnames_count(self) -> None:
-        assert len(CSVBuilder.FIELDNAMES) == 22
+        assert CSVBuilder.FIELDNAMES == [
+            "course",
+            "direction_text",
+            "bearing_quadrant",
+            "bearing_azimuth_deg_from_north",
+            "distance_ft",
+            "curve_dir",
+            "radius_ft",
+            "delta_deg",
+            "arc_length_ft",
+            "chord_bearing",
+            "chord_length_ft",
+            "along",
+            "to",
+            "monument_type",
+            "monument_status",
+            "is_exception",
+            "is_meander",
+            "is_tie_in",
+            "non_tangent",
+            "radial_bearing",
+            "notes",
+            "curve_type",
+        ]
 
     def test_non_tangent_in_exported_row(self) -> None:
         call = DeedCall(
@@ -514,22 +508,6 @@ class TestPipelineWiring:
         metadata_path = tmp_path / "test.metadata.txt"
         assert metadata_path.exists()
         content = metadata_path.read_text()
-        assert "basis_of_bearing" in content
-        assert "surveyor_certification" in content
-        assert "prior_conveyance" in content
-
-    def test_new_fields_in_legal_description(self) -> None:
-        ld = LegalDescription(
-            calls=[],
-            surveyor_certification="Jane Doe",
-            prior_conveyance="Instrument 12345",
-        )
-        assert ld.surveyor_certification == "Jane Doe"
-        assert ld.prior_conveyance == "Instrument 12345"
-
-    def test_basis_of_bearing_field_used(self) -> None:
-        ld = LegalDescription(
-            calls=[],
-            basis_of_bearing="NAD 83 State Plane",
-        )
-        assert ld.basis_of_bearing == "NAD 83 State Plane"
+        assert "basis_of_bearing: True North" in content
+        assert "surveyor_certification: John Smith, PLS" in content
+        assert "prior_conveyance: Deed Book 1234, Page 567" in content

@@ -85,23 +85,23 @@ def test_missing_width_is_completed_advisory_without_polygon(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "name",
+    ("name", "expected_error"),
     [
-        "request.json",
-        "corridor-request.json",
-        "corridor.json",
-        "boundary-prepared.json",
-        "boundary.html",
+        ("request.json", "Corridor artifact content differs from its manifest"),
+        ("corridor-request.json", "Corridor artifact content differs from its manifest"),
+        ("corridor.json", "Corridor artifact content differs from its manifest"),
+        ("boundary-prepared.json", "Corridor prepared plot differs from fresh geometry"),
+        ("boundary.html", "Corridor display differs from fresh boundary geometry"),
     ],
 )
-def test_changed_retained_input_or_geometry_fails_replay(tmp_path, name):
+def test_changed_retained_input_or_geometry_fails_replay(tmp_path, name, expected_error):
     source = tmp_path / "input.json"
     source.write_text(json.dumps(payload()))
     output = tmp_path / "output"
     assert analyze_corridor_file(source, output)["status"] == "needs_review"
     target = output / name
     target.write_bytes(target.read_bytes() + b" ")
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match=expected_error):
         replay_corridor(output)
 
 

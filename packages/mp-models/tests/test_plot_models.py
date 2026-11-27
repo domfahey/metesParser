@@ -42,7 +42,7 @@ def test_v1_rejects_v11_overlay_fields():
 
 def test_plot_inputs_are_immutable():
     scene = PlotScene(id="scene", name="Local", kind="local", units="unknown_ft")
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="Instance is frozen"):
         scene.name = "changed"
     assert isinstance(layer().coordinates, tuple)
 
@@ -53,19 +53,28 @@ def test_local_scene_rejects_a_crs():
 
 
 @pytest.mark.parametrize(
-    "coords",
+    ("coords", "expected_match"),
     [
-        [[[0, 0], [10, 0], [10, 10], [0, 10]]],
-        [[[0, 0], [10, 10], [0, 10], [10, 0], [0, 0]]],
-        [[[0, 0], [1, 0], [2, 0], [0, 0]]],
-        [[[0, 0], [float("nan"), 0], [10, 10], [0, 0]]],
-        [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]], [[20, 20], [21, 20], [21, 21], [20, 20]]],
+        ([[[0, 0], [10, 0], [10, 10], [0, 10]]], "closed with at least three distinct vertices"),
+        ([[[0, 0], [10, 10], [0, 10], [5, 0], [0, 0]]], "self-intersecting ring"),
+        ([[[0, 0], [1, 0], [2, 0], [0, 0]]], "degenerate ring has zero area"),
+        ([[[0, 0], [float("nan"), 0], [10, 10], [0, 0]]], "finite number"),
+        (
+            [
+                [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
+                [[20, 20], [21, 20], [21, 21], [20, 20]],
+            ],
+            "hole must be strictly inside its exterior",
+        ),
     ],
 )
-def test_layer_rejects_nonfinite_invalid_rings_and_unknown_units(coords):
-    with pytest.raises(ValidationError):
+def test_layer_rejects_nonfinite_and_invalid_rings(coords, expected_match):
+    with pytest.raises(ValidationError, match=expected_match):
         layer(coordinates=coords)
-    with pytest.raises(ValidationError):
+
+
+def test_scene_rejects_unknown_units():
+    with pytest.raises(ValidationError, match="Input should be"):
         PlotScene(id="scene", name="Bad", kind="local", units="furlong")
 
 
@@ -111,7 +120,7 @@ def test_referenced_placement_requires_position_and_orientation_evidence():
 
 @pytest.mark.parametrize("field", ["scale", "shear", "reflection"])
 def test_placement_rejects_scale_shear_reflection(field):
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         PlotPlacement(
             id="p",
             calculation_id="calc",
@@ -190,3 +199,89 @@ def test_v1_rejects_comparison_specs_even_when_empty():
     data["comparison_specs"] = []
     with pytest.raises(ValidationError, match="1.1"):
         DashboardBundle.model_validate(data)
+
+
+def test_plot_model_edge_guards_for_map_source_polygons_primitives_and_specs():
+    from mp_models.plot import (
+        MapSource,
+        PlotComparisonSpec,
+        PlotGeometry,
+        PlotPrimitive,
+        PointCorrespondence,
+        plot_point_of_beginning,
+        validate_polygon,
+    )
+
+    # MapSource rejects invalid base64.
+    with pytest.raises(ValidationError, match="valid base64"):
+        MapSource(id="m", label="M", sha256="a" * 64, data_base64="not-valid-b64!!!")
+
+    # validate_polygon rejects nonfinite cross-product overflow and boundary-touching holes.
+    with pytest.raises(ValueError, match="nonfinite polygon arithmetic"):
+        validate_polygon((((0.0, 0.0), (1e200, 0.0), (0.0, 1e200), (0.0, 0.0)),))
+
+    sq = ((0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0))
+    touching_hole = ((5.0, 0.0), (6.0, 1.0), (4.0, 1.0), (5.0, 0.0))
+    with pytest.raises(ValueError, match="hole must be strictly inside its exterior"):
+        validate_polygon((sq, touching_hole))
+
+    # validate_polygon: empty polygon, duplicate adjacent vertices, overlapping/nested holes.
+    with pytest.raises(ValueError, match="exterior ring"):
+        validate_polygon(())
+    with pytest.raises(ValueError, match="duplicate adjacent vertices"):
+        validate_polygon((((0.0, 0.0), (5.0, 0.0), (5.0, 0.0), (0.0, 5.0), (0.0, 0.0)),))
+    hole_a = ((1.0, 1.0), (6.0, 1.0), (6.0, 6.0), (1.0, 6.0), (1.0, 1.0))
+    hole_b = ((2.0, 2.0), (4.0, 2.0), (4.0, 4.0), (2.0, 4.0), (2.0, 2.0))
+    with pytest.raises(ValueError, match="holes must not overlap or nest"):
+        validate_polygon((sq, hole_a, hole_b))
+
+    # VectorLayer: empty MultiPolygon and wrong nesting depth.
+    with pytest.raises(ValidationError, match="requires polygon coordinates"):
+        layer(geometry_type="MultiPolygon", coordinates=())
+    with pytest.raises(ValidationError, match="nesting must match geometry_type"):
+        layer(geometry_type="MultiPolygon", coordinates=(sq,))
+
+    # PlotPlacement scenario requires frozen baseline refs.
+    with pytest.raises(ValidationError, match="frozen baseline references"):
+        PlotPlacement(
+            id="p",
+            calculation_id="c",
+            geometry_hash="a" * 64,
+            scene_id="s",
+            rationale="r",
+            scenario_id="sc-1",
+        )
+
+    # PlotPrimitive arc requires all analytic circular fields.
+    with pytest.raises(ValidationError, match="analytic circular geometry"):
+        PlotPrimitive(kind="arc", call_id="c1", start=(0, 0), end=(1, 1), length_ft=1.5)
+
+    # plot_point_of_beginning: explicit POB, fallback to first primitive start, empty -> None.
+    prim = PlotPrimitive(kind="line", call_id="c1", start=(2.0, 3.0), end=(4.0, 5.0), length_ft=3.0)
+    geom_explicit = PlotGeometry(
+        id="g",
+        calculation_id="c",
+        frame_id="f",
+        geometry_hash="a" * 64,
+        primitives=(prim,),
+        completeness="complete",
+        point_of_beginning=(0.0, 0.0),
+    )
+    assert plot_point_of_beginning(geom_explicit) == (0.0, 0.0)
+    assert plot_point_of_beginning(
+        geom_explicit.model_copy(update={"point_of_beginning": None})
+    ) == (
+        2.0,
+        3.0,
+    )
+    assert (
+        plot_point_of_beginning(
+            geom_explicit.model_copy(update={"point_of_beginning": None, "primitives": ()})
+        )
+        is None
+    )
+
+    # PlotComparisonSpec rejects duplicate point IDs.
+    pt = PointCorrespondence(id="pt1", deed_point=(0, 0), map_point=(1, 1))
+    with pytest.raises(ValidationError, match="must be unique"):
+        PlotComparisonSpec(id="cmp", placement_id="pl", correspondences=(pt, pt))

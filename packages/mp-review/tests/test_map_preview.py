@@ -1,5 +1,6 @@
 """Preview serves only hashed display files over an explicit loopback origin."""
 
+import contextlib
 import hashlib
 import http.client
 import json
@@ -83,9 +84,92 @@ def test_preview_http_host_paths_headers_and_no_file_changes(tmp_path):
             assert request(path)[0] in (400, 404)
         assert request("/online-map.html", host="example.com")[0] == 403
         assert request("/online-map.html", method="POST")[0] == 405
-        with pytest.raises(OSError):
+        import errno
+
+        with pytest.raises(OSError, match="Address already in use") as exc:
             create_preview_server(root, port=port)
+        assert exc.value.errno == errno.EADDRINUSE
     finally:
         server.shutdown()
         server.server_close()
         thread.join(timeout=3)
+
+
+def test_preview_validation_edges_root_head_and_serve_interrupt(tmp_path, monkeypatch, capsys):
+    import socket
+
+    import mp_review.map_preview as preview_mod
+
+    (tmp_path / "dir").mkdir()
+    root = staged(tmp_path / "dir")
+    # Symlink directory refused
+    link_dir = tmp_path / "link"
+    link_dir.symlink_to(root, target_is_directory=True)
+    with pytest.raises(ValueError, match="symlink"):
+        create_preview_server(link_dir, port=8765)
+
+    # Symlink manifest refused
+    manifest_real = tmp_path / "ext-manifest.json"
+    manifest_real.write_bytes((root / "web-map-manifest.json").read_bytes())
+    (root / "web-map-manifest.json").unlink()
+    (root / "web-map-manifest.json").symlink_to(manifest_real)
+    with pytest.raises(ValueError, match="symlink"):
+        create_preview_server(root, port=8765)
+    (root / "web-map-manifest.json").unlink()
+
+    # Invalid schema_version, invalid source_kind, incomplete allowlist, missing keys
+    for bad_manifest, match in (
+        ({"schema_version": "2.0", "files": {}}, "Invalid preview manifest"),
+        ({"schema_version": "1.0", "source_kind": "unknown", "files": {}}, "source kind"),
+        ({"schema_version": "1.0", "files": {"online-map.html": "0" * 64}}, "Incomplete"),
+        ({"schema_version": "1.0"}, "Invalid preview manifest"),
+    ):
+        (root / "web-map-manifest.json").write_text(json.dumps(bad_manifest))
+        with pytest.raises(ValueError, match=match):
+            create_preview_server(root, port=8765)
+
+    # Restore valid staged dir and test memory budget guard
+    (tmp_path / "dir2").mkdir()
+    root = staged(tmp_path / "dir2")
+    monkeypatch.setattr(preview_mod, "_MAX_BYTES", 5)
+    with pytest.raises(ValueError, match="memory budget"):
+        create_preview_server(root, port=8765)
+    monkeypatch.undo()
+
+    # GET / resolves to /online-map.html and HEAD returns 200 with empty body
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    server = create_preview_server(root, port=port)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with contextlib.closing(http.client.HTTPConnection("127.0.0.1", port, timeout=3)) as conn:
+            conn.request("GET", "/", headers={"Host": f"localhost:{port}"})
+            resp = conn.getresponse()
+            assert resp.status == 200 and resp.read() == b"<html>online</html>"
+
+        with contextlib.closing(http.client.HTTPConnection("127.0.0.1", port, timeout=3)) as conn:
+            conn.request("HEAD", "/online-map.html", headers={"Host": f"localhost:{port}"})
+            resp = conn.getresponse()
+            assert resp.status == 200 and resp.read() == b""
+            assert resp.getheader("Content-Length") == str(len(b"<html>online</html>"))
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=3)
+
+    # serve_map_preview prints URL and handles KeyboardInterrupt cleanly
+    class FakeServer:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def serve_forever(self):
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(preview_mod, "create_preview_server", lambda d, port=8765: FakeServer())
+    preview_mod.serve_map_preview(root, port=9123)
+    assert "http://localhost:9123/online-map.html" in capsys.readouterr().out
