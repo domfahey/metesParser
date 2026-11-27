@@ -556,9 +556,9 @@ class TestAuditReporter:
         """Confidence signals table, transformation rule, and None-section guards render cleanly."""
         from metesparser.audit_reporter import AuditReporter
 
-        empty_ctx = _make_audit_context()
-        assert AuditReporter._build_extraction_section(empty_ctx) == ""
-        assert AuditReporter._build_verification_section(empty_ctx) == ""
+        empty_html = AuditReporter.generate_html(_make_audit_context())
+        assert "<summary>Extraction</summary>" not in empty_html
+        assert "<summary>Verification</summary>" not in empty_html
 
         ctx = AuditContext(
             run_metadata=RunMetadata(

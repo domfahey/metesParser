@@ -16,60 +16,31 @@ SQUARE_TEXT = (
 )
 
 
-def _square_calls() -> list[dict[str, object]]:
+def _square_calls(side: float = 100.0) -> list[dict[str, object]]:
     return [
         {
             "course": 1,
             "direction_text": "N 0° E",
             "bearing_azimuth_deg_from_north": 0.0,
-            "distance_ft": 100.0,
+            "distance_ft": side,
         },
         {
             "course": 2,
             "direction_text": "N 90° E",
             "bearing_azimuth_deg_from_north": 90.0,
-            "distance_ft": 100.0,
+            "distance_ft": side,
         },
         {
             "course": 3,
             "direction_text": "S 0° E",
             "bearing_azimuth_deg_from_north": 180.0,
-            "distance_ft": 100.0,
+            "distance_ft": side,
         },
         {
             "course": 4,
             "direction_text": "N 90° W",
             "bearing_azimuth_deg_from_north": 270.0,
-            "distance_ft": 100.0,
-        },
-    ]
-
-
-def _small_square_calls() -> list[dict[str, object]]:
-    return [
-        {
-            "course": 1,
-            "direction_text": "N 0° E",
-            "bearing_azimuth_deg_from_north": 0.0,
-            "distance_ft": 20.0,
-        },
-        {
-            "course": 2,
-            "direction_text": "N 90° E",
-            "bearing_azimuth_deg_from_north": 90.0,
-            "distance_ft": 20.0,
-        },
-        {
-            "course": 3,
-            "direction_text": "S 0° E",
-            "bearing_azimuth_deg_from_north": 180.0,
-            "distance_ft": 20.0,
-        },
-        {
-            "course": 4,
-            "direction_text": "N 90° W",
-            "bearing_azimuth_deg_from_north": 270.0,
-            "distance_ft": 20.0,
+            "distance_ft": side,
         },
     ]
 
@@ -175,7 +146,7 @@ def test_json_legal_description_tracts_exceptions_easements_and_area_rules(tmp_p
                 "label": "Tract 2",
                 "tract_type": "addition",
                 "role_basis": "heading",
-                "calls": _small_square_calls(),
+                "calls": _square_calls(20.0),
             },
         ]
     }
@@ -200,13 +171,13 @@ def test_json_legal_description_tracts_exceptions_easements_and_area_rules(tmp_p
                 "label": "Exception",
                 "tract_type": "exception",
                 "role_basis": "heading",
-                "calls": _small_square_calls(),
+                "calls": _square_calls(20.0),
             },
             {
                 "label": "Easement",
                 "tract_type": "easement",
                 "role_basis": "heading",
-                "calls": _small_square_calls(),
+                "calls": _square_calls(20.0),
             },
         ]
     }
@@ -256,7 +227,7 @@ def test_json_legal_description_tracts_exceptions_easements_and_area_rules(tmp_p
     assert any(e["code"] == "incomplete_exception_tract" for e in empty_exc_res["errors"])
 
     # 6. Easement-only tract with matching calls keeps easement calls (marked non-boundary).
-    easement_calls = _small_square_calls()
+    easement_calls = _square_calls(20.0)
     easement_only = {
         "calls": easement_calls,
         "tracts": [
@@ -274,7 +245,7 @@ def test_json_legal_description_tracts_exceptions_easements_and_area_rules(tmp_p
 
     # 7. Mismatched top-level calls vs tracts fails closed.
     mismatched = {
-        "calls": _small_square_calls(),
+        "calls": _square_calls(20.0),
         "tracts": [
             {
                 "label": "Tract 1",
@@ -332,7 +303,7 @@ def test_inferred_description_roles_fail_closed_and_stay_blocked_on_rereview(tmp
                 "label": "Easement",
                 "tract_type": "easement",
                 "role_basis": "inferred",
-                "calls": _small_square_calls(),
+                "calls": _square_calls(20.0),
             },
         ],
     }
@@ -354,7 +325,7 @@ def test_prepare_text_tracts_poc_and_area_branches(monkeypatch):
     import mp_review.text as text_mod
 
     square_models = [DeedCall.model_validate(c) for c in _square_calls()]
-    small_models = [DeedCall.model_validate(c) for c in _small_square_calls()]
+    small_models = [DeedCall.model_validate(c) for c in _square_calls(20.0)]
 
     # 1. Single-tract with poc_description=None on tract + POC in text + approximate stated area
     headed_with_poc = (

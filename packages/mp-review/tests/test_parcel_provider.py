@@ -189,27 +189,19 @@ def test_official_blank_qualifier_is_retained_exactly(qualifier):
 
 
 def test_provider_http_helper_identifier_schema_and_response_guardrails(monkeypatch):
+    import io
+
     import mp_review.parcel_provider as mod
 
-    # _get() bounded read accepts small responses and rejects > 20 MiB
-    class FakeResp:
-        def __init__(self, payload: bytes):
-            self._payload = payload
+    assert mod.MAX_IMPORT_BYTES == 20 * 1024 * 1024
+    monkeypatch.setattr(mod, "MAX_IMPORT_BYTES", 1024)
 
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            return False
-
-        def read(self, n=-1):
-            return self._payload[:n] if n >= 0 else self._payload
-
-    monkeypatch.setattr(mod, "urlopen", lambda url, timeout=30: FakeResp(b'{"ok":true}'))
+    # _get() bounded read accepts small responses and rejects > limit
+    monkeypatch.setattr(mod, "urlopen", lambda url, timeout=30: io.BytesIO(b'{"ok":true}'))
     assert mod._get("https://example.invalid/s", {"f": "json"}) == b'{"ok":true}'
 
     monkeypatch.setattr(
-        mod, "urlopen", lambda url, timeout=30: FakeResp(b"a" * (mod.MAX_IMPORT_BYTES + 1))
+        mod, "urlopen", lambda url, timeout=30: io.BytesIO(b"a" * (mod.MAX_IMPORT_BYTES + 1))
     )
     with pytest.raises(ValueError, match="20 MiB"):
         mod._get("https://example.invalid/s", {"f": "json"})

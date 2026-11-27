@@ -1,5 +1,6 @@
 """Preview serves only hashed display files over an explicit loopback origin."""
 
+import contextlib
 import hashlib
 import http.client
 import json
@@ -143,18 +144,16 @@ def test_preview_validation_edges_root_head_and_serve_interrupt(tmp_path, monkey
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
-        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
-        conn.request("GET", "/", headers={"Host": f"localhost:{port}"})
-        resp = conn.getresponse()
-        assert resp.status == 200 and resp.read() == b"<html>online</html>"
-        conn.close()
+        with contextlib.closing(http.client.HTTPConnection("127.0.0.1", port, timeout=3)) as conn:
+            conn.request("GET", "/", headers={"Host": f"localhost:{port}"})
+            resp = conn.getresponse()
+            assert resp.status == 200 and resp.read() == b"<html>online</html>"
 
-        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
-        conn.request("HEAD", "/online-map.html", headers={"Host": f"localhost:{port}"})
-        resp = conn.getresponse()
-        assert resp.status == 200 and resp.read() == b""
-        assert resp.getheader("Content-Length") == str(len(b"<html>online</html>"))
-        conn.close()
+        with contextlib.closing(http.client.HTTPConnection("127.0.0.1", port, timeout=3)) as conn:
+            conn.request("HEAD", "/online-map.html", headers={"Host": f"localhost:{port}"})
+            resp = conn.getresponse()
+            assert resp.status == 200 and resp.read() == b""
+            assert resp.getheader("Content-Length") == str(len(b"<html>online</html>"))
     finally:
         server.shutdown()
         server.server_close()

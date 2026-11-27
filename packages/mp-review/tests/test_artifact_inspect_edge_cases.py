@@ -109,7 +109,7 @@ def test_source_records_legacy_uncertainties_selection_fallbacks_and_recommendat
     assert _nodes(res1, "selection")[0]["status"] == "invalid"
 
     # 2. Selection with acquisition_sha256 mismatch still resolves parent by acquisition_id
-    #    AND declared source uncertainties are carried into limitations (lines 278, 332-333)
+    # AND declared source uncertainties are carried into limitations
     b2 = tmp_path / "changed-acq"
     shutil.copytree(SOURCE_FIXTURES, b2)
     acq = json.loads((b2 / "source-acquisition.json").read_text())
@@ -128,14 +128,14 @@ def test_source_records_legacy_uncertainties_selection_fallbacks_and_recommendat
     sel_node = _nodes(res2, "selection")[0]
     assert sel_node["dependency_ids"] == [acq_node["id"]]
 
-    # 3. Selection without any acquisition -> missing_acquisition (lines 311-319)
+    # 3. Selection without any acquisition -> missing_acquisition
     b3 = tmp_path / "no-acq"
     shutil.copytree(SOURCE_FIXTURES, b3)
     (b3 / "source-acquisition.json").unlink()
     res3 = inspect_artifacts(b3, requested_stage="extract")
     assert "missing_acquisition" in _codes(_nodes(res3, "selection")[0])
 
-    # 4. Legacy 1.0 acquisition record -> legacy_source_schema (line 369)
+    # 4. Legacy 1.0 acquisition record -> legacy_source_schema
     b4 = tmp_path / "legacy-acq"
     shutil.copytree(SOURCE_FIXTURES, b4)
     legacy = json.loads((b4 / "source-acquisition.json").read_text())
@@ -145,8 +145,8 @@ def test_source_records_legacy_uncertainties_selection_fallbacks_and_recommendat
     assert "legacy_source_schema" in _codes(_nodes(res4, "acquisition")[0])
 
     # 5. Requesting stage="plot" when only a valid .txt selection exists:
-    #    - finish() pulls selection/acquisition into reachable (lines 1486-1487)
-    #    - command() recommends `plot <txt> --output-dir ... --input-format text` (line 1679)
+    # - finish pulls selection/acquisition into reachable
+    # - command recommends `plot <txt> --output-dir ... --input-format text`
     b5 = tmp_path / "only-source"
     shutil.copytree(SOURCE_FIXTURES, b5)
     res5 = inspect_artifacts(b5, requested_stage="plot")
@@ -154,7 +154,7 @@ def test_source_records_legacy_uncertainties_selection_fallbacks_and_recommendat
     assert cmd is not None
     assert "--input-format" in cmd["arguments"] and "text" in cmd["arguments"]
 
-    # 6. Two valid selections -> command() refuses to guess and returns None (line 1638)
+    # 6. Two valid selections -> command refuses to guess and returns None
     b6 = tmp_path / "two-sels"
     shutil.copytree(SOURCE_FIXTURES, b6)
     sel_data = json.loads((b6 / "description-selection.json").read_text())
@@ -165,7 +165,7 @@ def test_source_records_legacy_uncertainties_selection_fallbacks_and_recommendat
     res6 = inspect_artifacts(b6, requested_stage="review")
     assert res6["recommendations"][0]["command"] is None
 
-    # 7. Unlinked text review when selections exist -> unlinked_source_occurrence (lines 1382-1383)
+    # 7. Unlinked text review when selections exist -> unlinked_source_occurrence
     b7 = tmp_path / "unlinked-rev"
     shutil.copytree(SOURCE_FIXTURES, b7)
     other_txt = b7 / "unrelated.txt"
@@ -177,8 +177,8 @@ def test_source_records_legacy_uncertainties_selection_fallbacks_and_recommendat
 
 
 def test_review_plot_diagnostics_comparison_and_direct_input_error_paths(tmp_path):
-    # 1. Review manifest invalid kind/status (401), missing required artifacts (461), replay error (485)
-    #    and root calls.json skipped when review-manifest.json exists (967)
+    # 1. Review manifest invalid kind/status, missing required artifacts, replay error
+    # and root calls.json skipped when review-manifest.json exists
     r_root = tmp_path / "rev-cases"
     r_root.mkdir()
     bad_json = r_root / "bad.json"
@@ -207,15 +207,15 @@ def test_review_plot_diagnostics_comparison_and_direct_input_error_paths(tmp_pat
         _nodes(inspect_artifacts(r_miss_art, requested_stage="review"), "review")[0]
     )
 
-    # Direct input invalid_direct_input (line 979)
+    # Direct input invalid_direct_input
     di_root = tmp_path / "direct-bad"
     di_root.mkdir()
     (di_root / "calls.json").write_text('{"invalid": 1}')
     di_res = inspect_artifacts(di_root, requested_stage="verify")
     assert "invalid_direct_input" in _codes(_nodes(di_res, "direct_input")[0])
 
-    # 2. Plot errors: geometry_hash_mismatch (543), ambiguous_plot_source (555),
-    #    plot_replay_parameters_unavailable (576), algorithm_version_mismatch (583)
+    # 2. Plot errors: geometry_hash_mismatch, ambiguous_plot_source,
+    # plot_replay_parameters_unavailable, algorithm_version_mismatch
     p_src = tmp_path / "square.json"
     p_src.write_text(
         json.dumps(
@@ -270,7 +270,7 @@ def test_review_plot_diagnostics_comparison_and_direct_input_error_paths(tmp_pat
         _nodes(inspect_artifacts(p4, requested_stage="plot"), "plot")[0]
     )
 
-    # 3. Diagnostics errors: algorithm_version_mismatch (626) & replay_mismatch (637)
+    # 3. Diagnostics errors: algorithm_version_mismatch & replay_mismatch
     d_base = tmp_path / "diag-base"
     assert (
         diagnose_closure_file(FIXTURES / "diagnostics/request.json", d_base)["status"]
@@ -295,7 +295,7 @@ def test_review_plot_diagnostics_comparison_and_direct_input_error_paths(tmp_pat
         _nodes(inspect_artifacts(d2, requested_stage="verify"), "diagnostics")[0]
     )
 
-    # 4. Comparison algorithm_version_mismatch (1250-1256)
+    # 4. Comparison algorithm_version_mismatch
     c_base = tmp_path / "comp-base"
     assert (
         compare_descriptions_file(FIXTURES / "comparison-synthetic.json", c_base)["status"]
@@ -310,7 +310,7 @@ def test_review_plot_diagnostics_comparison_and_direct_input_error_paths(tmp_pat
 
 
 def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
-    # 1. Broken dashboard prerequisite (746-753)
+    # 1. Broken dashboard prerequisite
     broken_dash = tmp_path / "broken-dash"
     broken_dash.mkdir()
     (broken_dash / "stage-manifest.json").write_text('{"schema_version": "1.0"}')
@@ -360,8 +360,8 @@ def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
     assert om_node["status"] == "present_valid", om_node["reasons"]
     assert om_node["dependency_ids"]
 
-    # 3. Online map mismatches: map_source_unavailable (1025), map_input_mismatch (1044),
-    #    map_stage_mismatch (1053), presentation_changed (1060), missing_display_files (1068)
+    # 3. Online map mismatches: map_source_unavailable, map_input_mismatch,
+    # map_stage_mismatch, presentation_changed, missing_display_files
     om_orphan = tmp_path / "om-orphan"
     shutil.copytree(dash_dir, om_orphan)
     (om_orphan / "stage-manifest.json").unlink()
@@ -384,8 +384,8 @@ def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
             _nodes(inspect_artifacts(d, requested_stage="render-map"), "online_map")[0]
         )
 
-    # 4. Dashboard composition + standalone composition + online_map linking to composition (1166-1179, 1401-1404)
-    #    + composition error guards (1116, 1145, 1156, 1187, 1193, 1211)
+    # 4. Dashboard composition + standalone composition + online_map linking to composition
+    # + composition error guards
     layer_path = tmp_path / "layer.json"
     _wjson(layer_path, {"scenes": [scene.model_dump(mode="json")]})
     comp_dash = tmp_path / "comp-dash"
@@ -398,7 +398,7 @@ def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
     insp_cd = inspect_artifacts(comp_dash, requested_stage="render-map")
     assert _nodes(insp_cd, "composition")[0]["status"] == "present_valid"
 
-    # Dashboard composition missing inputs/base-bundle.json (1170) and unknown kind (1179)
+    # Dashboard composition missing inputs/base-bundle.json and unknown kind
     for mutate_cm, expected_code in (
         (lambda m: m.__setitem__("inputs", "bad"), "missing_composition_inputs"),
         (lambda m: m["inputs"].pop("inputs/base-bundle.json"), "missing_composition_inputs"),
@@ -427,8 +427,8 @@ def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
             _nodes(inspect_artifacts(d, requested_stage="render-map"), "composition")[0]
         )
 
-    # Standalone composition: missing plot files (1145), broken retained plot (1156),
-    # and online_map linked to composition (1401-1404) + ambiguous plot identity (1416-1417)
+    # Standalone composition: missing plot files, broken retained plot,
+    # and online_map linked to composition + ambiguous plot identity
     chain_root = tmp_path / "standalone-chain"
     chain_root.mkdir()
     c_src = chain_root / "calls.json"
@@ -464,7 +464,7 @@ def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
     comp_sc = _nodes(insp_sc, "composition")[0]
     assert comp_sc["id"] in om_sc["dependency_ids"]
 
-    # Standalone composition missing plot-manifest in inputs (1145)
+    # Standalone composition missing plot-manifest in inputs
     sc_miss = tmp_path / "sc-miss"
     shutil.copytree(chain_root / "comp-1", sc_miss)
     cm = json.loads((sc_miss / "composition-manifest.json").read_text())
@@ -474,7 +474,7 @@ def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
         _nodes(inspect_artifacts(sc_miss, requested_stage="render-map"), "composition")[0]
     )
 
-    # Standalone composition whose retained plot fails validation -> plot_prerequisite_unavailable (1156)
+    # Standalone composition whose retained plot fails validation -> plot_prerequisite_unavailable
     sc_bad_plot = tmp_path / "sc-bad-plot"
     shutil.copytree(chain_root / "comp-1", sc_bad_plot)
     bad_pi = sc_bad_plot / "inputs/plot/plot-input.json"
@@ -486,7 +486,7 @@ def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
         _nodes(inspect_artifacts(sc_bad_plot, requested_stage="render-map"), "composition")[0]
     )
 
-    # Ambiguous plot identity (1416-1417): online_map without composition alongside 2 identical plots
+    # Ambiguous plot identity: online_map without composition alongside 2 identical plots
     amb_plot_root = tmp_path / "amb-plot"
     amb_plot_root.mkdir()
     shutil.copytree(chain_root / "plot-1", amb_plot_root / "plot-1")
@@ -497,8 +497,8 @@ def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
 
 
 def test_source_ref_linking_ambiguous_and_unlinked_acquisitions(tmp_path):
-    # Two acquisitions with identical source ID/hash + dashboard referencing that doc -> ambiguous_source_occurrence (1339-1348)
-    # One acquisition with non-matching doc hash + dashboard -> unlinked_source_identity (1349-1358)
+    # Two acquisitions with identical source ID/hash + dashboard referencing that doc -> ambiguous_source_occurrence
+    # One acquisition with non-matching doc hash + dashboard -> unlinked_source_identity
     acq_src = json.loads((SOURCE_FIXTURES / "source-acquisition.json").read_text())
     doc_id = acq_src["sources"][0]["id"]
     doc_sha = acq_src["sources"][0]["sha256"]

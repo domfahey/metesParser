@@ -72,13 +72,62 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "slow: slow tests that take longer to run",
+    "integration: integration tests across modules",
+    "e2e: end-to-end pipeline and CLI tests",
+    "regression: regression tests for fixed bugs",
+    "curve: curve geometry and parsing tests",
+    "validation: ground-truth and schema validation tests",
+]
 addopts = [
     "-v",
     "--strict-markers",
-    "--cov=src/metesparser",
+    "--cov=metesparser",
     "--cov-report=html",
     "--cov-report=term-missing",
     "--cov-fail-under=95",
+]
+
+[tool.coverage.run]
+core = "sysmon"
+disable_warnings = ["no-sysmon"]
+
+[tool.coverage.report]
+precision = 2
+
+[tool.coverage.paths]
+metesparser = [
+    "src/metesparser",
+    "**/site-packages/metesparser",
+]
+mp_bearing = [
+    "packages/mp-bearing/src/mp_bearing",
+    "**/site-packages/mp_bearing",
+]
+mp_export = [
+    "packages/mp-export/src/mp_export",
+    "**/site-packages/mp_export",
+]
+mp_models = [
+    "packages/mp-models/src/mp_models",
+    "**/site-packages/mp_models",
+]
+mp_ocr = [
+    "packages/mp-ocr/src/mp_ocr",
+    "**/site-packages/mp_ocr",
+]
+mp_parse = [
+    "packages/mp-parse/src/mp_parse",
+    "**/site-packages/mp_parse",
+]
+mp_review = [
+    "packages/mp-review/src/mp_review",
+    "**/site-packages/mp_review",
+]
+mp_verify = [
+    "packages/mp-verify/src/mp_verify",
+    "**/site-packages/mp_verify",
 ]
 
 [tool.mypy]

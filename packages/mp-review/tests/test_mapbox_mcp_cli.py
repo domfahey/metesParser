@@ -288,16 +288,16 @@ def test_mapbox_mcp_rejects_standalone_raster_bytes_mismatch(tmp_path, monkeypat
     )
     assert render_res["status"] == "needs_review", render_res
 
-    # Tamper the raster asset AND update web-map-manifest files digest so _display_files passes
-    # but artifact.rasters[0].sha256 disagrees -> hits lines 133-135!
+    # Tamper the raster asset and update web-map-manifest files digest so file digest checks pass
+    # while artifact.rasters[0].sha256 disagrees.
     wm = json.loads((rendered / "web-map.json").read_text())
-    if wm["rasters"]:
-        rpath = wm["rasters"][0]["path"]
-        tampered = b"not-the-original-png-bytes"
-        (rendered / rpath).write_bytes(tampered)
-        manifest = json.loads((rendered / "web-map-manifest.json").read_text())
-        manifest["files"][rpath] = hashlib.sha256(tampered).hexdigest()
-        (rendered / "web-map-manifest.json").write_text(json.dumps(manifest))
-        res = mapbox_mcp_file(rendered, tmp_path / "handoff-bad-raster")
-        assert res["status"] == "error"
-        assert res["errors"][0]["code"] == "invalid_mapbox_mcp_input"
+    assert wm["rasters"], "expected rendered standalone web-map to include the registered raster"
+    rpath = wm["rasters"][0]["path"]
+    tampered = b"not-the-original-png-bytes"
+    (rendered / rpath).write_bytes(tampered)
+    manifest = json.loads((rendered / "web-map-manifest.json").read_text())
+    manifest["files"][rpath] = hashlib.sha256(tampered).hexdigest()
+    (rendered / "web-map-manifest.json").write_text(json.dumps(manifest))
+    res = mapbox_mcp_file(rendered, tmp_path / "handoff-bad-raster")
+    assert res["status"] == "error"
+    assert res["errors"][0]["code"] == "invalid_mapbox_mcp_input"

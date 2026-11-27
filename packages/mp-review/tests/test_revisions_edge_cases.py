@@ -383,7 +383,9 @@ def test_relative_edits_angle_guards_and_placement_comparison_invalidation():
 
 def test_corridor_inventory_edges_and_last_valid_parent_mismatch(tmp_path):
     bundle = _abs_bundle()
-    corridor_raw = (PLUGIN / "skills/plot-corridor/references/example.json").read_text()
+    cor_data = json.loads((PLUGIN / "skills/plot-corridor/references/example.json").read_text())
+    cor_data["error_budget"]["max_error"] = 0.1
+    corridor_raw = json.dumps(cor_data)
     corridor_obj = json.loads(corridor_raw)
     cid = corridor_obj["id"]
 
@@ -492,7 +494,7 @@ def test_write_once_symlinks_source_correction_remove_and_load_tamper_checks(tmp
     assert any("artifact conflict" in e for e in res_race["errors"])
     monkeypatch.setattr(os, "link", real_link)
 
-    # Source correction with a removed call exercises line 1069 (`if call.removed: continue`)
+    # Source correction with a removed call (`if call.removed: continue`)
     sc = revision_template(bundle, revision_id="sc-rm").model_dump(mode="json")
     sc["kind"] = "source_correction"
     sc["tracts"][0]["call_order"].remove("call-four")

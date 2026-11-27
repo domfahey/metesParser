@@ -355,9 +355,11 @@ def test_prepare_delivery_validation_errors_for_version_scenes_placements_and_la
 
 
 def test_revision_corridor_binding_checks_in_prepare_delivery(tmp_path, monkeypatch):
-    bundle, rev_dir, req = _abs_setup(tmp_path)
+    bundle, _, req = _abs_setup(tmp_path)
     cor_src = tmp_path / "cor.json"
-    cor_src.write_bytes((PLUGIN / "skills/plot-corridor/references/example.json").read_bytes())
+    cor_data = json.loads((PLUGIN / "skills/plot-corridor/references/example.json").read_text())
+    cor_data["error_budget"]["max_error"] = 0.1
+    cor_src.write_text(json.dumps(cor_data))
     cor_out = tmp_path / "cor-out"
     assert analyze_corridor_file(cor_src, cor_out)["status"] == "needs_review"
     cor_res = replay_corridor(cor_out)
@@ -399,7 +401,7 @@ def test_revision_corridor_binding_checks_in_prepare_delivery(tmp_path, monkeypa
         }
     )
 
-    # 1. Wrong layer_id in binding -> line 169
+    # 1. Wrong layer_id in binding
     bad_layer_b = good_binding.model_copy(update={"layer_id": "wrong-boundary"})
     with pytest.raises(ValueError, match="layer identity differs"):
         prepare_delivery(
@@ -421,7 +423,7 @@ def test_revision_corridor_binding_checks_in_prepare_delivery(tmp_path, monkeypa
             ),
         )
 
-    # 2. Unsupported prepared corridor result -> line 160
+    # 2. Unsupported prepared corridor result
     real_load = dmod.load_revision
 
     def unsupported_cor_load(b, d):
@@ -436,7 +438,7 @@ def test_revision_corridor_binding_checks_in_prepare_delivery(tmp_path, monkeypa
     with pytest.raises(ValueError, match="identity or geometry is unsupported"):
         prepare_delivery(bundle, rc_dir, cor_req)
 
-    # 3. Missing manifest.json on disk while load_revision returns parsed -> line 132
+    # 3. Missing manifest.json on disk while load_revision returns parsed
     monkeypatch.setattr(dmod, "load_revision", lambda b, d: real_load(b, rc_dir))
     with pytest.raises(ValueError, match="requires its published manifest"):
         prepare_delivery(bundle, tmp_path / "empty-dir", cor_req)
@@ -776,6 +778,7 @@ def test_publish_staging_cleanup_and_replay_security_guards(tmp_path, monkeypatc
 
 
 def test_recorded_geojson_and_recorded_area_edge_cases(tmp_path, monkeypatch):
+    pytest.importorskip("pyproj")
     import mp_review.webmap_projection as wp
     import pyproj
 

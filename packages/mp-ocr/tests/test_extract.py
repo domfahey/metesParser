@@ -103,14 +103,6 @@ def test_package_pdf_processor_openrouter_env_overrides(monkeypatch: pytest.Monk
         def __init__(self, **kwargs: object) -> None:
             created.update(kwargs)
 
-        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
-            return ""
-
-        def generate_text_with_pdf(
-            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
-        ) -> str:
-            return ""
-
     monkeypatch.setenv("METESPARSER_LLM_PROVIDER", "openrouter")
     monkeypatch.setenv("OPENROUTER_API_KEY", "or-test-key")
     monkeypatch.setenv("OPENROUTER_MODEL", "anthropic/claude-sonnet-5.5")
@@ -139,14 +131,6 @@ def test_package_pdf_processor_openrouter_env_escape_hatches(
         def __init__(self, **kwargs: object) -> None:
             created.clear()
             created.update(kwargs)
-
-        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
-            return ""
-
-        def generate_text_with_pdf(
-            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
-        ) -> str:
-            return ""
 
     monkeypatch.setattr("mp_ocr.extract.OpenRouterClient", DummyOpenRouter)
     for var in (
@@ -544,47 +528,16 @@ def test_build_audit_context_provider_detection_model_name_and_prompt_hash(
     assert anon_ctx.run_metadata.prompt_hash == "unknown"
 
     # 3. Real provider subclasses map to canonical provider names in audit metadata & stage records.
-    class FakeOpenAI(OpenAIClient):
-        def __init__(self) -> None:
-            object.__setattr__(self, "model", "gpt-5.2")
+    from unittest.mock import MagicMock
 
-        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
-            return "ok"
-
-        def generate_text_with_pdf(
-            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
-        ) -> str:
-            return "ok"
-
-    class FakeGemini(GeminiClient):
-        def __init__(self) -> None:
-            object.__setattr__(self, "model", "gemini-3.6-flash")
-
-        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
-            return "ok"
-
-        def generate_text_with_pdf(
-            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
-        ) -> str:
-            return "ok"
-
-    class FakeOpenRouter(OpenRouterClient):
-        def __init__(self) -> None:
-            object.__setattr__(self, "model", "anthropic/claude-haiku-5.5")
-
-        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
-            return "ok"
-
-        def generate_text_with_pdf(
-            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
-        ) -> str:
-            return "ok"
-
-    for fake_client, expected_provider in (
-        (FakeOpenAI(), "openai"),
-        (FakeGemini(), "gemini"),
-        (FakeOpenRouter(), "openrouter"),
+    for provider_cls, model_name, expected_provider in (
+        (OpenAIClient, "gpt-5.2", "openai"),
+        (GeminiClient, "gemini-3.6-flash", "gemini"),
+        (OpenRouterClient, "anthropic/claude-haiku-5.5", "openrouter"),
     ):
+        fake_client = MagicMock(spec=provider_cls)
+        fake_client.model = model_name
+        fake_client.generate_text.return_value = "ok"
         proc = PDFProcessor(client=fake_client, cache=False)
         proc.normalize_legal_description("BEGINNING at corner", audit=True)
         audit_ctx = proc._build_audit_context(

@@ -62,7 +62,7 @@ Other directories:
 1. Modify the package code (e.g., `packages/mp-parse/`)
 2. In `src/metesparser/`, `call_extractor.py`, `closure_checker.py`, `csv_builder.py` and `text_parser.py` are facades over the packages via `package_bridge.py` (no manual sync). Only `models.py` (vs `mp_models`), `bearing_converter.py` (vs `mp_bearing`), `audit_reporter.py` (vs `mp_export`), and `pdf_processor.py`/`llm_clients.py`/`llm_cache.py` (vs `mp_ocr`) hold their own logic; mirror changes there by hand. For shared review features, extend the facade rather than duplicating the implementation
 3. Run per-package tests: `uv run pytest packages/mp-parse/tests/ -v --no-cov`
-4. Run cross-package import verification: `uv run pytest tests/unit/test_cross_package_imports.py -v`
+4. Run cross-package import verification: `uv run pytest tests/unit/test_cross_package_imports.py -v --no-cov`
 
 ## Plugin and Review Workflow Rules
 
@@ -106,12 +106,12 @@ UV is required — never use pip, conda or poetry (`uv sync --all-extras --dev`,
 make quality       # Nonmutating root lint + format checks
 make type          # mypy
 make test          # Root pytest (tests/, 95% coverage floor on src/metesparser)
-make test-packages-cov # Package pytest (packages/mp-*/tests, 95% coverage floor on packages/mp-*/src)
+make test-packages-cov # Package pytest (packages/*/tests, 95% aggregate + per-package floor)
 make pre-commit    # lint-fix, format, tests — MUTATING
-uv run pytest packages/mp-*/tests plugins/metesparser/tests --no-cov --import-mode=importlib
+uv run pytest packages/*/tests plugins/metesparser/tests --no-cov --import-mode=importlib
 ```
 
-- **`--no-cov`** for any package/plugin run that does not override `addopts`: root coverage targets `src/metesparser`, so package-only runs fail the unrelated 95% threshold (use `make test-packages-cov` to measure and gate `packages/mp-*/src`). Add **`--import-mode=importlib`** when collecting multiple package/plugin suites together.
+- **`--no-cov`** for any package/plugin run that does not override `addopts`: root coverage targets `metesparser` (`src/metesparser`), so package-only runs fail the unrelated 95% threshold (use `make test-packages-cov` to measure and gate every workspace package under `packages/*/src` with aggregate and per-package 95% floors). Add **`--import-mode=importlib`** when collecting multiple package/plugin suites together.
 - Makefile lint/format cover `src/metesparser` and `tests`; typing covers `src/metesparser`. Changed package/script files need explicit `uv run ruff`/`uv run mypy` runs.
 - `make check` and `make pre-commit` can change files. `make ci` runs `check-tools`, `install`, `quality`, `test-cov`, and `test-packages-cov` (without `clean`) and skips `type`.
 - Local browser/SDK and extracted-archive checks do not establish live Mapbox acceptance, native skill discovery or native document-reading accuracy. Keep these gates separate and report unrun gates explicitly.

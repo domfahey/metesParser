@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -34,7 +35,9 @@ def _bundle() -> DashboardBundle:
 
 def _corridor_dir(tmp_path: Path):
     src = tmp_path / "corridor.json"
-    src.write_bytes((PLUGIN / "skills/plot-corridor/references/example.json").read_bytes())
+    cor_data = json.loads((PLUGIN / "skills/plot-corridor/references/example.json").read_text())
+    cor_data["error_budget"]["max_error"] = 0.1
+    src.write_text(json.dumps(cor_data))
     out = tmp_path / "corridor-out"
     assert analyze_corridor_file(src, out)["status"] == "needs_review"
     result = replay_corridor(out)
@@ -103,7 +106,7 @@ def test_read_scene_and_binding_helpers_fail_closed(tmp_path):
     import shutil
 
     bundle = _bundle()
-    out, result, binding, layer = _corridor_dir(tmp_path)
+    out, _, binding, layer = _corridor_dir(tmp_path)
     req = _base_request(bundle, binding, layer)
 
     # Missing artifact manifest fails closed via prepare_delivery_source
@@ -156,7 +159,7 @@ def test_read_scene_and_binding_helpers_fail_closed(tmp_path):
 
 def test_corridor_binding_revision_standalone_placement_and_toctou_checks(tmp_path, monkeypatch):
     bundle = _bundle()
-    out, result, binding, layer = _corridor_dir(tmp_path)
+    _, result, binding, layer = _corridor_dir(tmp_path)
     req = _base_request(bundle, binding, layer)
 
     # Revision corridor binding missing corridor_result / raw request
@@ -296,7 +299,7 @@ def test_corridor_binding_revision_standalone_placement_and_toctou_checks(tmp_pa
 
 def test_plss_binding_and_delivery_source_features_edge_cases(tmp_path, monkeypatch):
     bundle = _bundle()
-    out, plss, binding, layer = _plss_dir(tmp_path)
+    _, plss, binding, layer = _plss_dir(tmp_path)
     scene = plss.scenes[0]
     req = _base_request(
         bundle,
@@ -354,6 +357,7 @@ def test_plss_binding_and_delivery_source_features_edge_cases(tmp_path, monkeypa
     monkeypatch.undo()
 
     # corridor_export_ring requires plot and placement
+    pytest.importorskip("pyproj")
     proj = build_web_map_projection(
         PlotScene(id="g", name="G", kind="projected", crs="EPSG:3857", units="m")
     )

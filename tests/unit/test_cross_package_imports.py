@@ -132,14 +132,48 @@ class TestMpModelsImports:
         assert len(tract.calls) == 4
 
     def test_logging(self) -> None:
+        import logging
+
+        import mp_models.logging as mp_logging
+        import structlog
         from mp_models import configure_logging, get_log_format
 
-        previous_format = get_log_format()
+        root_logger = logging.getLogger()
+        orig_root_handlers = list(root_logger.handlers)
+        orig_root_level = root_logger.level
+        orig_pkg_state = {
+            name: (
+                list(logging.getLogger(name).handlers),
+                logging.getLogger(name).level,
+                logging.getLogger(name).propagate,
+            )
+            for name in mp_logging._PACKAGE_LOGGER_NAMES
+        }
+        orig_structlog_config = dict(structlog.get_config())
+        orig_format = mp_logging._CURRENT_FORMAT
+        orig_owns_warnings = mp_logging._OWNS_WARNING_CAPTURE
+        orig_warnings_captured = getattr(logging, "_warnings_showwarning", None) is not None
         try:
             configure_logging(level="WARNING", log_format="json", stream=io.StringIO())
             assert get_log_format() == "json"
         finally:
-            configure_logging(log_format=previous_format, stream=io.StringIO())
+            for h in list(root_logger.handlers):
+                root_logger.removeHandler(h)
+            for h in orig_root_handlers:
+                root_logger.addHandler(h)
+            root_logger.setLevel(orig_root_level)
+            for name, (handlers, level, propagate) in orig_pkg_state.items():
+                pkg_logger = logging.getLogger(name)
+                for h in list(pkg_logger.handlers):
+                    pkg_logger.removeHandler(h)
+                for h in handlers:
+                    pkg_logger.addHandler(h)
+                pkg_logger.setLevel(level)
+                pkg_logger.propagate = propagate
+            structlog.configure(**orig_structlog_config)
+            mp_logging._CURRENT_FORMAT = orig_format
+            mp_logging._OWNS_WARNING_CAPTURE = orig_owns_warnings
+            logging.captureWarnings(orig_warnings_captured)
 
 
 class TestMpBearingImports:

@@ -39,7 +39,7 @@ _TRACT_WITH_EASEMENT_DEED = (
     "THENCE South 90 degrees 00 minutes East 100.00 feet; "
     "THENCE South 0 degrees 00 minutes West 100.00 feet; "
     "THENCE North 90 degrees 00 minutes West 100.00 feet to the POINT OF BEGINNING. "
-    "CONTAINING 10,000 square feet. "
+    "CONTAINING 50,000 square feet. "
     "TOGETHER WITH AN EASEMENT: BEGINNING at a point; "
     "THENCE North 0 degrees 00 minutes East 20.00 feet; "
     "THENCE South 90 degrees 00 minutes East 20.00 feet; "
@@ -202,6 +202,8 @@ class TestPipelineMultiTract:
     def test_multi_tract_with_single_boundary_stated_area_passes_area_to_verify(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
+        import metesparser.pipeline as pipeline_mod
+
         call_log: list[tuple[str, str]] = []
         fake_openai = _make_fake_provider_cls(
             legal_description=_TRACT_WITH_EASEMENT_DEED,
@@ -210,6 +212,15 @@ class TestPipelineMultiTract:
         )
         monkeypatch.setattr("metesparser.pdf_processor.OpenAIClient", fake_openai)
 
+        forwarded_stated_areas: list[float | None] = []
+        real_verify = pipeline_mod.verify_closure
+
+        def _spy_verify(*args: Any, **kwargs: Any) -> Any:
+            forwarded_stated_areas.append(kwargs.get("stated_area_sq_ft"))
+            return real_verify(*args, **kwargs)
+
+        monkeypatch.setattr(pipeline_mod, "verify_closure", _spy_verify)
+
         pdf_path = tmp_path / "tract_with_easement.pdf"
         pdf_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
 
@@ -217,6 +228,7 @@ class TestPipelineMultiTract:
         assert isinstance(results, list)
         assert len(results) == 2
         main_result, easement_result = results
+        assert forwarded_stated_areas == [50000.0]
         assert main_result.closure_passed is True
         assert main_result.area_sq_ft == pytest.approx(10000.0, abs=1e-6)
         assert easement_result.closure_passed is True
@@ -227,5 +239,14 @@ class TestPipelineMultiTract:
         assert any(
             c.name == "description_roles_inferred" and c.status == "blocked"
             for c in main_result.checks
+        )
+        # Single-boundary stated area (50,000 sq ft vs 10,000 sq ft computed) must fail
+        # area_reasonableness on the boundary tract and remain not_applicable on the easement.
+        assert any(
+            c.name == "area_reasonableness" and c.status == "failed" for c in main_result.checks
+        )
+        assert any(
+            c.name == "area_reasonableness" and c.status == "not_applicable"
+            for c in easement_result.checks
         )
         assert list(tmp_path.glob("*.csv")) == []

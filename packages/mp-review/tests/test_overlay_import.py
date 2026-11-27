@@ -166,15 +166,18 @@ def test_missing_grids_and_nonfinite_operations_fail_closed(monkeypatch):
 
 
 def test_overlay_input_size_json_format_coordinate_and_crs_guardrails(monkeypatch):
-    import builtins
+    import sys
 
     import mp_review.overlays as module
 
-    # Size limit
+    # Size limit (verify default constant, then monkeypatch to avoid 20 MiB test allocation)
+    assert module.MAX_IMPORT_BYTES == 20 * 1024 * 1024
+    monkeypatch.setattr(module, "MAX_IMPORT_BYTES", 1024)
     with pytest.raises(ValueError, match="20 MiB"):
         import_overlay(
             b"x" * (module.MAX_IMPORT_BYTES + 1), input_format="geojson", target_crs="EPSG:3857"
         )
+    monkeypatch.undo()
 
     # Malformed JSON & non-object JSON
     with pytest.raises(ValueError, match="JSON"):
@@ -270,13 +273,6 @@ def test_overlay_input_size_json_format_coordinate_and_crs_guardrails(monkeypatc
 
     # Missing pyproj inside real _projection()
     monkeypatch.undo()
-    real_import = builtins.__import__
-
-    def no_pyproj(name, *args, **kwargs):
-        if name == "pyproj" or name.startswith("pyproj."):
-            raise ImportError("missing pyproj")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", no_pyproj)
+    monkeypatch.setitem(sys.modules, "pyproj", None)
     with pytest.raises(ValueError, match="mp-review\\[geo\\]"):
         module._projection()

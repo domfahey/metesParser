@@ -70,7 +70,10 @@ def _install_fake_gemini(monkeypatch, generate_content_handler):
             self.parts = parts
 
     class FakeClient:
-        def __init__(self, api_key: str):
+        def __init__(self, api_key: str, http_options=None):
+            self.api_key = api_key
+            self.http_options = http_options
+            init_options.append(http_options)
             self.models = SimpleNamespace(
                 generate_content=lambda *, model, contents, config: _handle_generate(
                     model=model,
@@ -81,6 +84,8 @@ def _install_fake_gemini(monkeypatch, generate_content_handler):
                     server_error=FakeServerError,
                 )
             )
+
+    init_options: list[object] = []
 
     def _handle_generate(*, model, contents, config, generate_calls, client_error, server_error):
         generate_calls.append(model)
@@ -97,10 +102,12 @@ def _install_fake_gemini(monkeypatch, generate_content_handler):
     types_module.Part = FakePart
     types_module.Content = FakeContent
     types_module.GenerateContentConfig = lambda **kwargs: kwargs
+    types_module.HttpOptions = lambda **kwargs: SimpleNamespace(**kwargs)
 
     genai_module.Client = FakeClient
     genai_module.errors = errors_module
     genai_module.types = types_module
+    genai_module._captured_http_options = init_options
 
     google_module.genai = genai_module
     google_module.__path__ = []
@@ -512,18 +519,20 @@ def test_gemini_client_api_version_override_thinking_none_and_pdf_json(monkeypat
         return SimpleNamespace(text='{"calls": []}', candidates=[])
 
     # Use real google.genai types to also exercise ThinkingConfig with thinking_level=None
-    client = GeminiClient(
-        api_key="test-key-unused-offline",
+    calls, _, _ = _install_fake_gemini(monkeypatch, handler)
+    captured_http_options = sys.modules["google.genai"]._captured_http_options
+
+    explicit_beta = GeminiClient(
+        api_key="gm-key",
         api_version=" v1beta ",
         thinking_level=None,
         fallback_model=None,
     )
-    assert client.api_version == "v1beta"
-    assert client._resolve_api_version() == "v1beta"
-    assert client._client._api_client._http_options.api_version == "v1beta"
-    assert client._build_thinking_config() is None
+    assert explicit_beta.api_version == "v1beta"
+    assert captured_http_options[-1].api_version == "v1beta"
+    assert explicit_beta.generate_text("hello") == '{"calls": []}'
+    assert "thinking_config" not in captured_configs[-1]
 
-    calls, _, _ = _install_fake_gemini(monkeypatch, handler)
     pdf = tmp_path / "deed.pdf"
     pdf.write_bytes(b"%PDF-1.4\n%%EOF\n")
 
@@ -532,46 +541,50 @@ def test_gemini_client_api_version_override_thinking_none_and_pdf_json(monkeypat
         api_version="v1",
         thinking_level=None,
     )
+    assert captured_http_options[-1].api_version == "v1"
     assert (
         fake_client.generate_text_with_pdf(
             "extract json", str(pdf), response_mime_type="application/json"
         )
         == '{"calls": []}'
     )
-    assert calls == ["gemini-3.6-flash"]
-    parts = captured_contents[0][0].parts  # type: ignore[index,attr-defined]
+    assert calls == ["gemini-3.6-flash", "gemini-3.6-flash"]
+    parts = captured_contents[-1][0].parts  # type: ignore[index,attr-defined]
     assert parts[0].data == b"%PDF-1.4\n%%EOF\n"
     assert parts[0].mime_type == "application/pdf"
     assert parts[1].text == "extract json"
-    assert captured_configs[0]["response_mime_type"] == "application/json"
-    assert "thinking_config" not in captured_configs[0]
+    assert captured_configs[-1]["response_mime_type"] == "application/json"
+    assert "thinking_config" not in captured_configs[-1]
 
     with pytest.raises(FileNotFoundError, match="PDF not found"):
         fake_client.generate_text_with_pdf("extract", str(tmp_path / "missing.pdf"))
 
 
 def test_gemini_client_collect_response_text_skips_empty_candidates_and_empty_fallback(monkeypatch):
-    _install_fake_gemini(monkeypatch, lambda **kwargs: SimpleNamespace(text="ok"))
-    client = GeminiClient(api_key="gm-key")
-
-    mixed_response = SimpleNamespace(
-        text="unused",
-        candidates=[
-            SimpleNamespace(content=None),
-            SimpleNamespace(content=SimpleNamespace(parts=[])),
-            SimpleNamespace(content=SimpleNamespace(parts=[SimpleNamespace(text="kept")])),
-        ],
+    responses = iter(
+        [
+            SimpleNamespace(
+                text="unused",
+                candidates=[
+                    SimpleNamespace(content=None),
+                    SimpleNamespace(content=SimpleNamespace(parts=[])),
+                    SimpleNamespace(content=SimpleNamespace(parts=[SimpleNamespace(text="kept")])),
+                ],
+            ),
+            SimpleNamespace(
+                text=None,
+                candidates=[
+                    SimpleNamespace(content=None),
+                    SimpleNamespace(content=SimpleNamespace(parts=None)),
+                ],
+            ),
+        ]
     )
-    assert client._collect_response_text(mixed_response) == "kept"
+    _install_fake_gemini(monkeypatch, lambda **kwargs: next(responses))
+    client = GeminiClient(api_key="gm-key", fallback_model=None)
 
-    empty_response = SimpleNamespace(
-        text=None,
-        candidates=[
-            SimpleNamespace(content=None),
-            SimpleNamespace(content=SimpleNamespace(parts=None)),
-        ],
-    )
-    assert client._collect_response_text(empty_response) == ""
+    assert client.generate_text("first") == "kept"
+    assert client.generate_text("second") == ""
 
 
 @pytest.mark.parametrize(
@@ -782,22 +795,12 @@ def test_openrouter_client_http200_error_payload_handling(
         exhausted.generate_text("hello")
 
 
-def test_openrouter_client_collect_response_text_filters_reasoning_and_handles_empty():
-    assert OpenRouterClient._collect_response_text(SimpleNamespace(choices=[])) == ""
-    assert (
-        OpenRouterClient._collect_response_text(
-            SimpleNamespace(choices=[SimpleNamespace(message=None)])
-        )
-        == ""
-    )
-    assert (
-        OpenRouterClient._collect_response_text(
-            SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=None))])
-        )
-        == ""
-    )
-    assert (
-        OpenRouterClient._collect_response_text(
+def test_openrouter_client_collect_response_text_filters_reasoning_and_handles_empty(monkeypatch):
+    responses = iter(
+        [
+            SimpleNamespace(choices=[]),
+            SimpleNamespace(choices=[SimpleNamespace(message=None)]),
+            SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=None))]),
             SimpleNamespace(
                 choices=[
                     SimpleNamespace(
@@ -814,7 +817,12 @@ def test_openrouter_client_collect_response_text_filters_reasoning_and_handles_e
                         )
                     )
                 ]
-            )
-        )
-        == "clean deed"
+            ),
+        ]
     )
+    _install_fake_openrouter_openai(monkeypatch, lambda **_: next(responses))
+    client = OpenRouterClient(api_key="or-secret", fallback_model=None, max_retries=0)
+    assert client.generate_text("p1") == ""
+    assert client.generate_text("p2") == ""
+    assert client.generate_text("p3") == ""
+    assert client.generate_text("p4") == "clean deed"

@@ -1606,42 +1606,31 @@ def test_openrouter_client_missing_sdk_class_and_non_numeric_error_code(
 
 
 def test_cached_client_model_name_unwrapping_and_cycle_guard(tmp_path: Path) -> None:
-    class ModelAttrClient:
-        model = "model-only-v1"
-
-        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
-            return "ok"
-
-        def generate_text_with_pdf(
-            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
-        ) -> str:
-            return "ok"
-
-    class ModelNameAttrClient(ModelAttrClient):
-        model_name = "explicit-model-name"
-
-    class AnonymousClient:
-        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
-            return "ok"
-
-        def generate_text_with_pdf(
-            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
-        ) -> str:
-            return "ok"
-
-    cached_model = CachedLLMClient(ModelAttrClient(), cache_dir=tmp_path / "c1")
+    cached_model = CachedLLMClient(
+        SimpleNamespace(model="model-only-v1"),  # type: ignore[arg-type]
+        cache_dir=tmp_path / "c1",
+    )
     nested_model = CachedLLMClient(cached_model, cache_dir=tmp_path / "c2")
     assert cached_model.model_name == "model-only-v1"
     assert nested_model.model_name == "model-only-v1"
 
-    cached_named = CachedLLMClient(ModelNameAttrClient(), cache_dir=tmp_path / "c3")
+    cached_named = CachedLLMClient(
+        SimpleNamespace(model="model-only-v1", model_name="explicit-model-name"),  # type: ignore[arg-type]
+        cache_dir=tmp_path / "c3",
+    )
     assert cached_named.model_name == "explicit-model-name"
 
-    cached_anon = CachedLLMClient(AnonymousClient(), cache_dir=tmp_path / "c4")
+    cached_anon = CachedLLMClient(
+        SimpleNamespace(),  # type: ignore[arg-type]
+        cache_dir=tmp_path / "c4",
+    )
     assert cached_anon.model_name is None
 
     # Cyclic cache wrappers must terminate unwrapping safely and report no model name.
-    cyclic_a = CachedLLMClient(AnonymousClient(), cache_dir=tmp_path / "c5")
+    cyclic_a = CachedLLMClient(
+        SimpleNamespace(),  # type: ignore[arg-type]
+        cache_dir=tmp_path / "c5",
+    )
     cyclic_b = CachedLLMClient(cyclic_a, cache_dir=tmp_path / "c6")
     cyclic_a._client = cyclic_b
     assert cyclic_a.model_name is None
@@ -1691,19 +1680,9 @@ def test_cached_client_recovers_from_corrupt_or_non_dict_cache_entries(
 def test_cached_client_write_failure_is_non_fatal_and_cleans_temp_file(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    class StubClient:
-        model = "test-model"
-
-        def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
-            return "fresh response"
-
-        def generate_text_with_pdf(
-            self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
-        ) -> str:
-            return "fresh pdf"
-
+    stub = SimpleNamespace(model="test-model", generate_text=lambda *a, **k: "fresh response")
     cache_dir = tmp_path / "cache"
-    cached = CachedLLMClient(StubClient(), cache_dir=cache_dir)
+    cached = CachedLLMClient(stub, cache_dir=cache_dir)  # type: ignore[arg-type]
 
     def fail_replace(src: object, dst: object) -> None:
         raise OSError("disk full")

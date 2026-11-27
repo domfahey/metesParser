@@ -27,9 +27,11 @@ def _sha(data: bytes) -> str:
 
 def test_corridor_replay_and_symlink_tamper_guards(tmp_path):
     src = tmp_path / "corridor.json"
-    src.write_bytes((PLUGIN / "skills/plot-corridor/references/example.json").read_bytes())
+    cor_data = json.loads((PLUGIN / "skills/plot-corridor/references/example.json").read_text())
+    cor_data["error_budget"]["max_error"] = 0.1
+    src.write_text(json.dumps(cor_data))
 
-    # Symlink / missing input fails closed (line 28)
+    # Symlink / missing input fails closed
     sym_in = tmp_path / "sym-in.json"
     sym_in.symlink_to(src)
     assert analyze_corridor_file(sym_in, tmp_path / "o1")["status"] == "error"
@@ -37,13 +39,13 @@ def test_corridor_replay_and_symlink_tamper_guards(tmp_path):
     base = tmp_path / "cor-base"
     assert analyze_corridor_file(src, base)["status"] == "needs_review"
 
-    # Symlink / missing bundle dir refused (line 110)
+    # Symlink / missing bundle dir refused
     sym_dir = tmp_path / "sym-dir"
     sym_dir.symlink_to(base, target_is_directory=True)
     with pytest.raises(ValueError, match="regular directory"):
         replay_corridor(sym_dir)
 
-    # Canonical request disagrees with exact source request (line 125)
+    # Canonical request disagrees with exact source request
     d1 = tmp_path / "cor-canon-diff"
     shutil.copytree(base, d1)
     canon = json.loads((d1 / "corridor-request.json").read_text())
@@ -56,7 +58,7 @@ def test_corridor_replay_and_symlink_tamper_guards(tmp_path):
     with pytest.raises(ValueError, match="differs from its exact source input"):
         replay_corridor(d1)
 
-    # Result identity mismatch vs manifest input_sha256 (line 128)
+    # Result identity mismatch vs manifest input_sha256
     d2 = tmp_path / "cor-id-diff"
     shutil.copytree(base, d2)
     m2 = json.loads((d2 / "corridor-manifest.json").read_text())
@@ -65,7 +67,7 @@ def test_corridor_replay_and_symlink_tamper_guards(tmp_path):
     with pytest.raises(ValueError, match="identities differ"):
         replay_corridor(d2)
 
-    # Supported corridor missing boundary_html_sha256 in manifest (line 156)
+    # Supported corridor missing boundary_html_sha256 in manifest
     d3 = tmp_path / "cor-no-html"
     shutil.copytree(base, d3)
     m3 = json.loads((d3 / "corridor-manifest.json").read_text())
@@ -74,31 +76,32 @@ def test_corridor_replay_and_symlink_tamper_guards(tmp_path):
     with pytest.raises(ValueError, match="display identity is missing or unexpected"):
         replay_corridor(d3)
 
-    # Unsupported corridor with stray boundary-prepared.json on disk (line 136)
+    # Unsupported corridor with stray boundary-prepared.json on disk fails closed
     unsup_data = json.loads(src.read_text())
-    unsup_data["widths"][0]["start_left_ft"] = 5000.0
-    unsup_data["widths"][0]["end_left_ft"] = 5000.0
+    unsup_data["widths"][0]["right_start"] = 200.0
+    unsup_data["widths"][0]["right_end"] = 200.0
     unsup_src = tmp_path / "unsup.json"
     unsup_src.write_text(json.dumps(unsup_data))
     unsup_dir = tmp_path / "cor-unsup"
     res = analyze_corridor_file(unsup_src, unsup_dir)
-    if res["status"] == "needs_review" and res["corridor"]["boundary"] is None:
-        (unsup_dir / "boundary-prepared.json").write_text("{}")
-        with pytest.raises(ValueError, match="Unexpected prepared geometry"):
-            replay_corridor(unsup_dir)
+    assert res["status"] == "needs_review"
+    assert res["corridor"]["boundary"] is None
+    (unsup_dir / "boundary-prepared.json").write_text("{}")
+    with pytest.raises(ValueError, match="Unexpected prepared geometry"):
+        replay_corridor(unsup_dir)
 
 
 def test_plss_symlink_missing_and_unexpected_prepared_layer_guards(tmp_path):
     src = tmp_path / "plss.json"
     src.write_bytes((PLUGIN / "skills/plot-plss-reference/references/example.json").read_bytes())
 
-    # Symlink / missing input (line 84)
+    # Symlink / missing input
     assert prepare_plss_file(tmp_path / "missing.json", tmp_path / "o1")["status"] == "error"
 
     base = tmp_path / "plss-base"
     assert prepare_plss_file(src, base)["status"] == "needs_review"
 
-    # Symlink bundle dir (line 115) & missing artifact file (line 120)
+    # Symlink bundle dir & missing artifact file
     sym_dir = tmp_path / "sym-plss"
     sym_dir.symlink_to(base, target_is_directory=True)
     with pytest.raises(ValueError, match="regular directory"):
@@ -110,7 +113,7 @@ def test_plss_symlink_missing_and_unexpected_prepared_layer_guards(tmp_path):
     with pytest.raises(ValueError, match="regular, complete artifact files"):
         replay_plss(d_miss)
 
-    # Unsupported PLSS result with stray prepared-layer.json on disk (line 134)
+    # Unsupported PLSS result with stray prepared-layer.json on disk
     unsup = json.loads(src.read_text())
     unsup["selected_reference_id"] = "no-such-section"
     unsup_src = tmp_path / "plss-unsup.json"
@@ -135,18 +138,18 @@ def test_raster_picker_input_validation_matrix_and_exif_guard(tmp_path, monkeypa
     cfg = tmp_path / "controls.json"
     cfg.write_text(json.dumps(base_cfg))
 
-    # Missing image (line 28)
+    # Missing image
     assert (
         prepare_raster_picker_file(tmp_path / "missing.png", cfg, tmp_path / "p0")["status"]
         == "error"
     )
 
-    # Non-dict controls JSON (line 58)
+    # Non-dict controls JSON
     arr_cfg = tmp_path / "arr.json"
     arr_cfg.write_text("[]")
     assert prepare_raster_picker_file(img, arr_cfg, tmp_path / "p1")["status"] == "error"
 
-    # Duplicate control names (line 64)
+    # Duplicate control names
     dup_cfg = tmp_path / "dup.json"
     dup_cfg.write_text(
         json.dumps(
@@ -161,13 +164,13 @@ def test_raster_picker_input_validation_matrix_and_exif_guard(tmp_path, monkeypa
     )
     assert prepare_raster_picker_file(img, dup_cfg, tmp_path / "p2")["status"] == "error"
 
-    # Optional supplied matrix validated (line 66)
+    # Optional supplied matrix validated
     mat_cfg = tmp_path / "mat.json"
     mat_cfg.write_text(json.dumps({**base_cfg, "matrix": [1, 0, 0, 0, 1, 0]}))
     ok = prepare_raster_picker_file(img, mat_cfg, tmp_path / "p3")
     assert ok["status"] == "needs_review"
 
-    # EXIF orientation != 1 caught by picker's own PIL check even if image_orientation bypassed (line 78)
+    # EXIF orientation != 1 caught by picker's own PIL check even if image_orientation bypassed
     exif_img = tmp_path / "oriented.jpg"
     im = Image.new("RGB", (10, 10), "white")
     exif = Image.Exif()
@@ -180,7 +183,7 @@ def test_raster_picker_input_validation_matrix_and_exif_guard(tmp_path, monkeypa
 
 
 def test_relative_and_dashboard_atomic_and_error_guards(tmp_path, monkeypatch):
-    # relative.py output_error (111-112) and artifact_error (159-160)
+    # relative.py output_error and artifact_error
     rel_src = PLUGIN / "skills/deed-closure-dashboard/references/relative-rectangle.json"
     blocker = tmp_path / "blocker"
     blocker.write_text("file")
@@ -198,7 +201,7 @@ def test_relative_and_dashboard_atomic_and_error_guards(tmp_path, monkeypatch):
     assert any(e["code"] == "artifact_error" for e in res_art_err["errors"])
     monkeypatch.undo()
 
-    # dashboard.py atomic symlink refusal (37), fsync cleanup (44-46), symlink cache_dir (87)
+    # dashboard.py atomic symlink refusal, fsync cleanup, symlink cache_dir
     bundle = DashboardBundle.model_validate_json((FIXTURES / "dashboard-absolute.json").read_text())
 
     sym_cache_out = tmp_path / "cache-sym-file"

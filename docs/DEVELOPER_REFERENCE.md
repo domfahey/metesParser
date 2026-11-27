@@ -54,7 +54,7 @@ make format-check  # Check formatter compliance (no changes)
 make type          # Run mypy type checks
 make test          # Run pytest (95% root coverage floor on src/metesparser)
 make test-packages # Run composable package test suites
-make test-packages-cov # Run package tests with coverage report (95% floor on packages/mp-*/src)
+make test-packages-cov # Run package tests with coverage report (95% aggregate + per-package floor on packages/*/src)
 make test-plugin   # Run Claude plugin test suite
 make test-fast     # Run pytest with fail-fast
 make test-cov      # Tests with HTML coverage report (htmlcov/index.html)

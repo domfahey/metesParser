@@ -9,12 +9,12 @@ make test              # root tests/ suite, with the configured coverage report
 make check             # lint + format + mypy on src/metesparser + root tests
 make test-fast         # root tests; stop on the first failure
 make test-cov          # root tests and HTML/terminal coverage report (95% floor)
-make test-packages-cov # workspace package tests and coverage report (95% floor)
+make test-packages-cov # workspace package tests and coverage report (95% aggregate + per-package floor)
 ```
 
 `make check` runs lint, `format` (which can modify files), mypy on `src/metesparser/`, and the root test suite. `make quality` uses the non-mutating format check. `make pre-commit` runs `lint-fix`, `format`, and `test`; it does not run mypy. `make ci` runs `check-tools`, `install`, `quality`, `test-cov`, and `test-packages-cov` (without `clean`); it does not run mypy.
 
-The root pytest configuration discovers `tests/` and measures `src/metesparser/` with an enforced 95% coverage floor (`--cov-fail-under=95`). Use `make test-packages-cov` to measure all workspace packages (`packages/mp-*/src/`) with an enforced 95% floor (`PKG_COV_FLOOR ?= 95`); disable root coverage (`--no-cov`) for ad-hoc package-only runs that do not override `addopts`.
+The root pytest configuration discovers `tests/` and measures `src/metesparser/` with an enforced 95% coverage floor (`--cov-fail-under=95`, `precision = 2`, `core = "sysmon"`). Use `make test-packages-cov` to measure all workspace packages (`packages/*/src/`) with an enforced **95% aggregate and per-package floor** (`PKG_COV_FLOOR ?= 95`, provisioned with the `dev`, `delivery`, `geo`, `web-map`, and `gemini` extras); disable root coverage (`--no-cov`) for ad-hoc package-only or subset runs that do not override `addopts`.
 
 ### Root suite
 
@@ -34,7 +34,7 @@ The default root run also collects `tests/browser/`, where browser tests skip un
 
 ```sh
 # Workspace package suites (run together or select one package)
-uv run pytest packages/mp-*/tests/ --no-cov --import-mode=importlib
+uv run pytest packages/*/tests/ --no-cov --import-mode=importlib
 uv run pytest packages/mp-review/tests/test_source_handoff.py --no-cov --import-mode=importlib
 
 # Plugin runtime/packaging tests
@@ -103,7 +103,7 @@ Root markers are `slow`, `integration`, `e2e`, `regression`, `curve`, and `valid
 
 ## Test workflow
 
-For a behavior change, add a focused regression for the expected behavior, run it first, then run the affected suite and the broader check when appropriate. Keep fixtures deterministic and synthetic unless a test explicitly documents a real source; ordinary tests should not make provider calls. Root coverage is measured against `src/metesparser/` (95% floor in [pyproject.toml](../pyproject.toml)); workspace package coverage is measured across `packages/mp-*/src/` via `make test-packages-cov` (95% floor).
+For a behavior change, add a focused regression for the expected behavior, run it first, then run the affected suite and the broader check when appropriate. Keep fixtures deterministic and synthetic unless a test explicitly documents a real source; ordinary tests should not make provider calls. Root coverage is measured against `metesparser` (`src/metesparser/`, 95% floor in [pyproject.toml](../pyproject.toml)); workspace package coverage is measured across every package under `packages/*/src/` via `make test-packages-cov` (95% aggregate and per-package floor).
 
 ## Skill and provider acceptance
 

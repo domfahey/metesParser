@@ -221,8 +221,6 @@ def test_import_accepts_orientation_one_like_the_render_guard():
 def test_image_layer_rejects_oversized_bytes_dimensions_format_animated_and_missing_pillow(
     monkeypatch,
 ):
-    import builtins
-
     from PIL import Image
 
     scene = _import_scene()
@@ -252,14 +250,9 @@ def test_image_layer_rejects_oversized_bytes_dimensions_format_animated_and_miss
         image_layer(wide_buf.getvalue(), scene=scene, registration=reg, filename="wide.png")
 
     # Missing Pillow extra fails closed with clear message
-    real_import = builtins.__import__
+    import sys
 
-    def no_pil(name, *args, **kwargs):
-        if name == "PIL" or name.startswith("PIL."):
-            raise ImportError("no pillow")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", no_pil)
+    monkeypatch.setitem(sys.modules, "PIL", None)
     with pytest.raises(ValueError, match="mp-review\\[geo\\]"):
         image_layer(b"png", scene=scene, registration=reg, filename="s.png")
 

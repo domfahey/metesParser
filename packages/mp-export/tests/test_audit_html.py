@@ -202,17 +202,13 @@ def test_single_verification_audit_output_unchanged():
 
 
 def test_generate_html_renders_confidence_badge_llm_stages_skipped_courses_and_empty_decisions():
-    from mp_export.audit_html import (
-        _build_extraction_section,
-        _build_verification_section,
-        generate_html,
-    )
+    from mp_export.audit_html import generate_html
     from mp_models import CallAudit, ExtractionRecord, LLMStageRecord, SkippedCourse
 
-    # Empty optional sections return empty strings directly.
-    minimal = _make_audit_context()
-    assert _build_extraction_section(minimal) == ""
-    assert _build_verification_section(minimal) == ""
+    # Minimal context omits optional Extraction and Verification sections.
+    minimal_html = generate_html(_make_audit_context())
+    assert "<summary>Extraction</summary>" not in minimal_html
+    assert "<summary>Verification</summary>" not in minimal_html
 
     er = ExtractionRecord(
         raw_llm_response="raw <desc>",

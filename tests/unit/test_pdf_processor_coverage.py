@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import structlog
 
 from metesparser.llm_clients import BaseLLMClient, LLMClientError
 from metesparser.pdf_processor import PDFProcessor
@@ -19,30 +20,16 @@ _CLEAN_SQUARE = (
 class _DeterministicLLMClient(BaseLLMClient):
     """Deterministic fake BaseLLMClient for exercising real PDFProcessor parsing."""
 
-    def __init__(
-        self,
-        *,
-        legal_description: str,
-        normalized_text: str | None = None,
-        pdf_text: str = "RAW DEED DOCUMENT",
-    ) -> None:
-        self._pdf_text = pdf_text
+    def __init__(self, *, legal_description: str) -> None:
         self._legal_description = legal_description
-        self._normalized_text = legal_description if normalized_text is None else normalized_text
-        self.text_prompts: list[str] = []
-        self.pdf_calls: list[tuple[str, str]] = []
 
     def generate_text_with_pdf(
         self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
     ) -> str:
-        self.pdf_calls.append((prompt, pdf_path))
-        return self._pdf_text
+        return "RAW DEED DOCUMENT"
 
     def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
-        self.text_prompts.append(prompt)
-        if len(self.text_prompts) == 1:
-            return self._legal_description
-        return self._normalized_text
+        return self._legal_description
 
 
 def test_normalize_legal_description_uses_prompt_template(tmp_path: Path) -> None:
@@ -150,7 +137,6 @@ class TestPriorConveyanceWarning:
         self,
         conveyance_clause: str,
         expected_pattern: str,
-        monkeypatch: pytest.MonkeyPatch,
         tmp_path: Path,
     ) -> None:
         """Should emit structlog warning while still parsing real calls."""
@@ -162,32 +148,18 @@ class TestPriorConveyanceWarning:
         pdf_path = tmp_path / "deed.pdf"
         pdf_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
 
-        warnings: list[tuple[str, dict[str, object]]] = []
+        with structlog.testing.capture_logs() as logs:
+            legal_desc = processor.process_deed_pdf(str(pdf_path))
 
-        class RecordingLogger:
-            def bind(self, **kwargs: object) -> RecordingLogger:
-                return self
-
-            def info(self, event: str, **kwargs: object) -> None:
-                pass
-
-            def warning(self, event: str, **kwargs: object) -> None:
-                warnings.append((event, kwargs))
-
-        monkeypatch.setattr("metesparser.pdf_processor.logger", RecordingLogger())
-
-        legal_desc = processor.process_deed_pdf(str(pdf_path))
-
+        warnings = [e for e in logs if e.get("log_level") == "warning"]
         assert legal_desc.num_calls() == 4
         assert len(warnings) == 1
-        assert warnings[0][0] == "Extracted text may contain prior conveyance language"
-        matched_patterns = warnings[0][1]["matched_patterns"]
+        assert warnings[0]["event"] == "Extracted text may contain prior conveyance language"
+        matched_patterns = warnings[0]["matched_patterns"]
         assert isinstance(matched_patterns, list)
         assert any(expected_pattern in str(p) for p in matched_patterns)
 
-    def test_no_warning_for_clean_description(
-        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-    ) -> None:
+    def test_no_warning_for_clean_description(self, tmp_path: Path) -> None:
         """Should not warn when extracted text has no prior conveyance language."""
         processor = PDFProcessor(
             client=_DeterministicLLMClient(legal_description=_CLEAN_SQUARE),
@@ -196,24 +168,11 @@ class TestPriorConveyanceWarning:
         pdf_path = tmp_path / "deed.pdf"
         pdf_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
 
-        warnings: list[tuple[str, dict[str, object]]] = []
-
-        class RecordingLogger:
-            def bind(self, **kwargs: object) -> RecordingLogger:
-                return self
-
-            def info(self, event: str, **kwargs: object) -> None:
-                pass
-
-            def warning(self, event: str, **kwargs: object) -> None:
-                warnings.append((event, kwargs))
-
-        monkeypatch.setattr("metesparser.pdf_processor.logger", RecordingLogger())
-
-        legal_desc = processor.process_deed_pdf(str(pdf_path))
+        with structlog.testing.capture_logs() as logs:
+            legal_desc = processor.process_deed_pdf(str(pdf_path))
 
         assert legal_desc.num_calls() == 4
-        assert warnings == []
+        assert [e for e in logs if e.get("log_level") == "warning"] == []
 
 
 def test_process_deed_pdf_logs_progress_without_print(
@@ -226,30 +185,19 @@ def test_process_deed_pdf_logs_progress_without_print(
     pdf_path = tmp_path / "deed.pdf"
     pdf_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
 
-    captured_events: list[tuple[str, dict[str, object]]] = []
-
-    class RecordingLogger:
-        def bind(self, **kwargs: object) -> RecordingLogger:
-            return self
-
-        def info(self, event: str, **kwargs: object) -> None:
-            captured_events.append((event, kwargs))
-
-        def warning(self, event: str, **kwargs: object) -> None:
-            raise AssertionError(f"Unexpected warning: {event} {kwargs}")
-
-    monkeypatch.setattr("metesparser.pdf_processor.logger", RecordingLogger())
-
     def _unexpected_print(*args: object, **kwargs: object) -> None:
         raise AssertionError("process_deed_pdf should not call print")
 
     monkeypatch.setattr("builtins.print", _unexpected_print)
 
-    legal_desc = processor.process_deed_pdf(str(pdf_path))
+    with structlog.testing.capture_logs() as logs:
+        legal_desc = processor.process_deed_pdf(str(pdf_path))
 
     assert legal_desc.num_calls() == 4
     assert [c.distance_ft for c in legal_desc.calls] == [100.0, 100.0, 100.0, 100.0]
-    assert [event for event, _ in captured_events] == [
+    assert [e for e in logs if e.get("log_level") == "warning"] == []
+    info_events = [e for e in logs if e.get("log_level") == "info"]
+    assert [e["event"] for e in info_events] == [
         "Extracting legal description from PDF",
         "Normalizing text",
         "Extracting PLSS metadata",
@@ -265,33 +213,22 @@ def test_process_deed_pdf_logs_progress_without_print(
         "Extracting coordinate system",
         "Extracted calls",
     ]
-    assert captured_events[-1][1]["count"] == 4
+    assert info_events[-1]["count"] == 4
 
 
 def test_load_prompt_falls_back_to_packaged_resource_and_handles_missing_package(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     processor = PDFProcessor(client=_DeterministicLLMClient(legal_description=""), cache=False)
-    processor.prompts_dir = tmp_path
+    processor.prompts_dir = tmp_path / "empty_prompts"
+    processor.prompts_dir.mkdir()
 
-    class FakeResource:
-        def __init__(self, text: str | None) -> None:
-            self._text = text
-
-        def joinpath(self, *_parts: str) -> FakeResource:
-            return self
-
-        def is_file(self) -> bool:
-            return self._text is not None
-
-        def read_text(self, encoding: str = "utf-8") -> str:
-            assert self._text is not None
-            return self._text
-
-    monkeypatch.setattr(
-        "metesparser.pdf_processor.resources.files",
-        lambda _pkg: FakeResource("system_prompt: packaged\nuser_prompt_template: body\n"),
+    pkg_dir = tmp_path / "pkg"
+    (pkg_dir / "prompts").mkdir(parents=True)
+    (pkg_dir / "prompts" / "packaged_only_prompt.yaml").write_text(
+        "system_prompt: packaged\nuser_prompt_template: body\n", encoding="utf-8"
     )
+    monkeypatch.setattr("metesparser.pdf_processor.resources.files", lambda _pkg: pkg_dir)
     loaded = processor._load_prompt("packaged_only_prompt")
     assert loaded == {"system_prompt": "packaged", "user_prompt_template": "body"}
 
@@ -342,32 +279,21 @@ def test_process_deed_pdf_applies_supported_inferred_unit_and_warns_on_unsupport
     assert legal_varas.calls[0].distance_ft == pytest.approx(277.8, abs=1e-6)
 
     # Unsupported inferred unit logs a warning and falls back to feet while parsing real calls.
-    warnings: list[tuple[str, dict[str, object]]] = []
-
-    class RecordingLogger:
-        def bind(self, **kwargs: object) -> RecordingLogger:
-            return self
-
-        def info(self, event: str, **kwargs: object) -> None:
-            pass
-
-        def warning(self, event: str, **kwargs: object) -> None:
-            warnings.append((event, kwargs))
-
     fallback_processor = PDFProcessor(
         client=_DeterministicLLMClient(legal_description=_CLEAN_SQUARE),
         cache=False,
     )
-    monkeypatch.setattr("metesparser.pdf_processor.logger", RecordingLogger())
     monkeypatch.setattr(
         "metesparser.text_parser.TextParser.infer_distance_unit", lambda _: "cubits"
     )
-    legal_fallback = fallback_processor.process_deed_pdf(str(pdf_path))
+    with structlog.testing.capture_logs() as logs:
+        legal_fallback = fallback_processor.process_deed_pdf(str(pdf_path))
+    warnings = [e for e in logs if e.get("log_level") == "warning"]
     assert legal_fallback.distance_unit == "feet"
     assert legal_fallback.num_calls() == 4
     assert len(warnings) == 1
-    assert "Unsupported inferred distance unit" in warnings[0][0]
-    assert warnings[0][1]["inferred_unit"] == "cubits"
+    assert "Unsupported inferred distance unit" in warnings[0]["event"]
+    assert warnings[0]["inferred_unit"] == "cubits"
 
 
 def test_compute_prompt_hash_returns_unknown_when_prompt_missing() -> None:

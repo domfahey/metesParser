@@ -442,16 +442,41 @@ class TestParsingGuardsAndValidationCleanup:
 
         # Non-strict with audit_context records skip and logs full call_text under DEBUG
         audit = _make_audit_context()
-        with caplog.at_level(logging.DEBUG, logger="mp_parse.calls"):
+        with (
+            caplog.at_level(logging.DEBUG, logger="mp_parse.calls"),
+            structlog.testing.capture_logs() as debug_logs,
+        ):
             calls, _ = extract_calls(deed, strict=False, audit_context=audit)
+            with pytest.raises(ValueError, match="No usable course"):
+                extract_single_call("100.00 feet to a point", 1)
         assert len(calls) == 2
         assert len(audit.skipped_courses) == 1
         assert audit.skipped_courses[0].course == 2
+        skip_ev = next(e for e in debug_logs if e.get("event") == "Skipping malformed call")
+        assert (
+            skip_ev["call_text"]
+            == "along a curve to the right, radius of -50 feet, arc length of 20 feet to a pin"
+        )
+        rej_ev = next(
+            e for e in debug_logs if e.get("event") == "Rejecting bearingless non-curve call"
+        )
+        assert rej_ev["call_text"] == "100.00 feet to a point"
 
-        # Bearingless non-curve call rejection logs under DEBUG
-        with caplog.at_level(logging.DEBUG, logger="mp_parse.calls"):
+        # Under WARNING level, full call_text is omitted from structured logs
+        audit_warn = _make_audit_context()
+        with (
+            caplog.at_level(logging.WARNING, logger="mp_parse.calls"),
+            structlog.testing.capture_logs() as warn_logs,
+        ):
+            extract_calls(deed, strict=False, audit_context=audit_warn)
             with pytest.raises(ValueError, match="No usable course"):
                 extract_single_call("100.00 feet to a point", 1)
+        warn_skip = next(e for e in warn_logs if e.get("event") == "Skipping malformed call")
+        assert "call_text" not in warn_skip
+        warn_rej = next(
+            e for e in warn_logs if e.get("event") == "Rejecting bearingless non-curve call"
+        )
+        assert "call_text" not in warn_rej
 
     def test_initial_course_prefix_and_packed_dms_edges(self) -> None:
         # Packed DMS course before first THENCE is preserved as Course 1

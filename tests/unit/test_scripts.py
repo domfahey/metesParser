@@ -1163,5 +1163,15 @@ class TestRepoConfigAndMakefile:
     def test_pyproject_and_makefile_enforce_95_percent_coverage_floors(self) -> None:
         pyproject = (self.REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
         makefile = (self.REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+        assert '"--cov=metesparser"' in pyproject
         assert '"--cov-fail-under=95"' in pyproject
+        assert 'core = "sysmon"' in pyproject
+        assert 'disable_warnings = ["no-sysmon"]' in pyproject
+        assert "precision = 2" in pyproject
+        assert "[tool.coverage.paths]" in pyproject
         assert "PKG_COV_FLOOR ?= 95" in makefile
+        assert ".NOTPARALLEL:" in makefile
+        assert "COVERAGE_FILE=htmlcov/packages/packages.coverage" in makefile
+        assert "COVERAGE_FILE=htmlcov/root.coverage" in makefile
+        assert "--cov-report=json:htmlcov/packages/coverage.json" in makefile
+        assert "$(UV) lock --check" in makefile

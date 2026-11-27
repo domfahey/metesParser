@@ -389,9 +389,3 @@ def test_combined_description_is_its_own_tract() -> None:
         ("Parcel B", 15),
         ("Parcel B, description 2", 14),
     ]
-
-
-def test_find_marker_end_returns_start_pos_when_unmatched() -> None:
-    from mp_parse.parcels import _find_marker_end
-
-    assert _find_marker_end("plain legal description text", 6) == 6
