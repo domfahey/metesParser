@@ -229,47 +229,7 @@ def test_prepare_delivery_validation_errors_for_version_scenes_placements_and_la
         )
     monkeypatch.undo()
 
-    # Placed calculation with missing placement_id and mismatched placement calculation/scene
-    b_p, r_p, req_p, placement = _placed_setup(tmp_path)
-    req_no_pl = req_p.model_copy(
-        update={
-            "layers": (
-                DeliveryLayer(
-                    id="calc-one",
-                    kind="calculation",
-                    visible=True,
-                    opacity=1.0,
-                    required=True,
-                    placement_id="missing",
-                    placement_sha256="0" * 64,
-                ),
-            )
-        }
-    )
-    with pytest.raises(ValueError, match="Explicit fresh placement identity"):
-        prepare_delivery(b_p, r_p, req_no_pl)
-
-    bad_p = placement.model_copy(update={"status": "unplaced"})
-    req_bad_p = req_p.model_copy(
-        update={
-            "placements": (bad_p,),
-            "layers": (
-                DeliveryLayer(
-                    id="calc-one",
-                    kind="calculation",
-                    visible=True,
-                    opacity=1.0,
-                    required=True,
-                    placement_id=bad_p.id,
-                    placement_sha256=_hash(bad_p.model_dump(mode="json")),
-                ),
-            ),
-        }
-    )
-    with pytest.raises(ValueError, match="calculation/scene/status mismatch"):
-        prepare_delivery(b_p, r_p, req_bad_p)
-
-    # Context vector/raster layer errors: local mode, placement_id set, unknown vector, unknown raster
+    # Context vector layer error in local mode
     with pytest.raises(ValueError, match="explicit placed scene"):
         prepare_delivery(
             bundle,
@@ -279,54 +239,6 @@ def test_prepare_delivery_validation_errors_for_version_scenes_placements_and_la
                     "layers": (
                         DeliveryLayer(
                             id="v1", kind="vector", visible=True, opacity=1.0, required=True
-                        ),
-                    )
-                }
-            ),
-        )
-    with pytest.raises(ValueError, match="not deed placement"):
-        prepare_delivery(
-            b_p,
-            r_p,
-            req_p.model_copy(
-                update={
-                    "layers": (
-                        DeliveryLayer(
-                            id="v1",
-                            kind="vector",
-                            visible=True,
-                            opacity=1.0,
-                            required=True,
-                            placement_id="pl-1",
-                            placement_sha256="0" * 64,
-                        ),
-                    )
-                }
-            ),
-        )
-    with pytest.raises(ValueError, match="cross-scene vector"):
-        prepare_delivery(
-            b_p,
-            r_p,
-            req_p.model_copy(
-                update={
-                    "layers": (
-                        DeliveryLayer(
-                            id="v-missing", kind="vector", visible=True, opacity=1.0, required=True
-                        ),
-                    )
-                }
-            ),
-        )
-    with pytest.raises(ValueError, match="cross-scene raster"):
-        prepare_delivery(
-            b_p,
-            r_p,
-            req_p.model_copy(
-                update={
-                    "layers": (
-                        DeliveryLayer(
-                            id="r-missing", kind="raster", visible=True, opacity=1.0, required=True
                         ),
                     )
                 }
@@ -455,7 +367,100 @@ def _rehash_delivery_artifact(directory: Path, name: str) -> None:
     manifest_path.write_text(json.dumps(manifest))
 
 
+def test_prepare_delivery_rejects_missing_or_mismatched_placed_placement(tmp_path):
+    pytest.importorskip("pyproj")
+    b_p, r_p, req_p, placement = _placed_setup(tmp_path)
+    req_no_pl = req_p.model_copy(
+        update={
+            "layers": (
+                DeliveryLayer(
+                    id="calc-one",
+                    kind="calculation",
+                    visible=True,
+                    opacity=1.0,
+                    required=True,
+                    placement_id="missing",
+                    placement_sha256="0" * 64,
+                ),
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="Explicit fresh placement identity"):
+        prepare_delivery(b_p, r_p, req_no_pl)
+
+    bad_p = placement.model_copy(update={"status": "unplaced"})
+    req_bad_p = req_p.model_copy(
+        update={
+            "placements": (bad_p,),
+            "layers": (
+                DeliveryLayer(
+                    id="calc-one",
+                    kind="calculation",
+                    visible=True,
+                    opacity=1.0,
+                    required=True,
+                    placement_id=bad_p.id,
+                    placement_sha256=_hash(bad_p.model_dump(mode="json")),
+                ),
+            ),
+        }
+    )
+    with pytest.raises(ValueError, match="calculation/scene/status mismatch"):
+        prepare_delivery(b_p, r_p, req_bad_p)
+
+    # Placed context vector/raster layer errors: placement_id set, unknown vector, unknown raster
+    with pytest.raises(ValueError, match="not deed placement"):
+        prepare_delivery(
+            b_p,
+            r_p,
+            req_p.model_copy(
+                update={
+                    "layers": (
+                        DeliveryLayer(
+                            id="v1",
+                            kind="vector",
+                            visible=True,
+                            opacity=1.0,
+                            required=True,
+                            placement_id="pl-1",
+                            placement_sha256="0" * 64,
+                        ),
+                    )
+                }
+            ),
+        )
+    with pytest.raises(ValueError, match="cross-scene vector"):
+        prepare_delivery(
+            b_p,
+            r_p,
+            req_p.model_copy(
+                update={
+                    "layers": (
+                        DeliveryLayer(
+                            id="v-missing", kind="vector", visible=True, opacity=1.0, required=True
+                        ),
+                    )
+                }
+            ),
+        )
+    with pytest.raises(ValueError, match="cross-scene raster"):
+        prepare_delivery(
+            b_p,
+            r_p,
+            req_p.model_copy(
+                update={
+                    "layers": (
+                        DeliveryLayer(
+                            id="r-missing", kind="raster", visible=True, opacity=1.0, required=True
+                        ),
+                    )
+                }
+            ),
+        )
+
+
 def test_geojson_rfc7946_hypothetical_kind_and_omission_helpers(tmp_path, monkeypatch):
+    pytest.importorskip("pyproj")
     # MultiPolygon winding orientation (exterior CW -> CCW; hole CCW -> CW) via public publish_delivery
     raw = json.loads((FIXTURES / "dashboard-absolute.json").read_text())
     raw["schema_version"] = "1.1"

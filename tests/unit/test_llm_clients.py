@@ -103,6 +103,7 @@ def _install_fake_gemini(monkeypatch, generate_content_handler):
     types_module.Content = FakeContent
     types_module.GenerateContentConfig = lambda **kwargs: kwargs
     types_module.HttpOptions = lambda **kwargs: SimpleNamespace(**kwargs)
+    types_module.ThinkingConfig = lambda **kwargs: SimpleNamespace(**kwargs)
 
     genai_module.Client = FakeClient
     genai_module.errors = errors_module
@@ -518,9 +519,18 @@ def test_gemini_client_api_version_override_thinking_none_and_pdf_json(monkeypat
         captured_configs.append(config)
         return SimpleNamespace(text='{"calls": []}', candidates=[])
 
-    # Use real google.genai types to also exercise ThinkingConfig with thinking_level=None
+    # Fake google.genai defines ThinkingConfig so thinking_level="LOW" vs None is genuinely exercised
     calls, _, _ = _install_fake_gemini(monkeypatch, handler)
     captured_http_options = sys.modules["google.genai"]._captured_http_options
+
+    with_thinking = GeminiClient(
+        api_key="gm-key",
+        api_version="v1beta",
+        thinking_level="LOW",
+        fallback_model=None,
+    )
+    assert with_thinking.generate_text("think") == '{"calls": []}'
+    assert captured_configs[-1]["thinking_config"].thinking_level == "LOW"
 
     explicit_beta = GeminiClient(
         api_key="gm-key",
@@ -548,7 +558,7 @@ def test_gemini_client_api_version_override_thinking_none_and_pdf_json(monkeypat
         )
         == '{"calls": []}'
     )
-    assert calls == ["gemini-3.6-flash", "gemini-3.6-flash"]
+    assert calls == ["gemini-3.6-flash", "gemini-3.6-flash", "gemini-3.6-flash"]
     parts = captured_contents[-1][0].parts  # type: ignore[index,attr-defined]
     assert parts[0].data == b"%PDF-1.4\n%%EOF\n"
     assert parts[0].mime_type == "application/pdf"

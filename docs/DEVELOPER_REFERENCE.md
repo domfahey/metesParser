@@ -82,7 +82,7 @@ tests/unit/test_cross_package_imports.py  # Cross-package import verification
 tests/unit/test_pipeline.py               # Pipeline orchestrator tests
 tests/integration/test_integration.py     # Full pipeline (known parcels)
 tests/e2e/test_cli_end_to_end.py          # CLI end-to-end
-tests/conftest.py                         # Custom markers, logging isolation, deed_call_factory
+tests/conftest.py                         # Shared fixtures (logging isolation, deed_call_factory); markers live in pyproject.toml
 tests/fixtures/sample_deeds.py            # Shared DeedCall fixtures
 packages/mp-*/tests/                      # Per-package unit tests
 plugins/metesparser/tests/                # Plugin runtime/packaging tests

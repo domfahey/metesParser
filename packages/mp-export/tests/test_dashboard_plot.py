@@ -255,18 +255,13 @@ def test_raster_pixel_center_edges_and_affine_are_embedded_offline():
     assert "Fit RMS" in result and "Checkpoint RMS" in result
 
 
-def test_dashboard_html_edge_paths_missing_calc_plots_scene_mismatch_and_oriented_raster():
-    import base64
-    import hashlib
-    import io
-
+def test_dashboard_html_edge_paths_missing_calc_plots_scene_mismatch_and_comparison():
     from mp_export.dashboard_html import (
         _description_comparison_section,
         _plot_views,
         _raster_corners,
     )
     from mp_models.raster import RasterRegistration
-    from PIL import Image
 
     # 1. Occurrence with no calculation supplied renders explicit unresolved warning via public render.
     no_calc_data = data()
@@ -295,8 +290,36 @@ def test_dashboard_html_edge_paths_missing_calc_plots_scene_mismatch_and_oriente
     with pytest.raises(ValueError, match="finite scene range"):
         _raster_corners(huge_layer)
 
-    # 4. Raster on an unrelated scene is skipped in calc plot overlay, and EXIF-oriented
-    #    raster emits a provenance omission warning.
+    # 4. Comparison source lacking occurrence_id raises ValueError cleanly.
+    cmp_prepared = calculate_dashboard(
+        DashboardBundle.model_validate_json((FIXTURES / "dashboard-comparison.json").read_bytes())
+    )
+    advisory = cmp_prepared.description_comparisons[0]
+    first_pair = advisory.comparison.pairs[0]
+    orphan_source = first_pair.left_sources[0].model_copy(update={"occurrence_id": None})
+    bad_pair = first_pair.model_copy(update={"left_sources": (orphan_source,)})
+    bad_advisory = advisory.model_copy(
+        update={
+            "comparison": advisory.comparison.model_copy(
+                update={"pairs": (bad_pair,) + advisory.comparison.pairs[1:]}
+            )
+        }
+    )
+    with pytest.raises(ValueError, match="lacks occurrence identity"):
+        _description_comparison_section(
+            cmp_prepared.model_copy(update={"description_comparisons": (bad_advisory,)})
+        )
+
+
+def test_dashboard_html_skips_unrelated_scene_and_warns_on_exif_oriented_raster():
+    Image = pytest.importorskip("PIL.Image")
+
+    import base64
+    import hashlib
+    import io
+
+    # Raster on an unrelated scene is skipped in calc plot overlay, and EXIF-oriented
+    # raster emits a provenance omission warning.
     value = raster_data()
     value["scenes"].append(
         {"id": "other-scene", "name": "Other scene", "kind": "local", "units": "international_ft"}
@@ -334,23 +357,3 @@ def test_dashboard_html_edge_paths_missing_calc_plots_scene_mismatch_and_oriente
     out = rendered(value)
     assert 'data-omitted-raster="other-scene-rot"' in out
     assert "Raster omitted (raster_orientation):" in out
-
-    # 5. Comparison source lacking occurrence_id raises ValueError cleanly.
-    cmp_prepared = calculate_dashboard(
-        DashboardBundle.model_validate_json((FIXTURES / "dashboard-comparison.json").read_bytes())
-    )
-    advisory = cmp_prepared.description_comparisons[0]
-    first_pair = advisory.comparison.pairs[0]
-    orphan_source = first_pair.left_sources[0].model_copy(update={"occurrence_id": None})
-    bad_pair = first_pair.model_copy(update={"left_sources": (orphan_source,)})
-    bad_advisory = advisory.model_copy(
-        update={
-            "comparison": advisory.comparison.model_copy(
-                update={"pairs": (bad_pair,) + advisory.comparison.pairs[1:]}
-            )
-        }
-    )
-    with pytest.raises(ValueError, match="lacks occurrence identity"):
-        _description_comparison_section(
-            cmp_prepared.model_copy(update={"description_comparisons": (bad_advisory,)})
-        )

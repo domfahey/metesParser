@@ -381,7 +381,7 @@ def test_relative_edits_angle_guards_and_placement_comparison_invalidation():
     assert "placement-dependent" in comp_rev.comparisons[0].unavailable_reason
 
 
-def test_corridor_inventory_edges_and_last_valid_parent_mismatch(tmp_path):
+def test_corridor_inventory_edges_and_last_valid_parent_mismatch():
     bundle = _abs_bundle()
     cor_data = json.loads((PLUGIN / "skills/plot-corridor/references/example.json").read_text())
     cor_data["error_budget"]["max_error"] = 0.1

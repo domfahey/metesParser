@@ -34,6 +34,8 @@ def _restore_logging_state():
     finally:
         for h in list(root_logger.handlers):
             root_logger.removeHandler(h)
+            if h not in orig_root_handlers:
+                h.close()
         for h in orig_root_handlers:
             root_logger.addHandler(h)
         root_logger.setLevel(orig_root_level)
@@ -41,6 +43,8 @@ def _restore_logging_state():
             pkg_logger = logging.getLogger(name)
             for h in list(pkg_logger.handlers):
                 pkg_logger.removeHandler(h)
+                if h not in handlers:
+                    h.close()
             for h in handlers:
                 pkg_logger.addHandler(h)
             pkg_logger.setLevel(level)
@@ -105,30 +109,24 @@ def test_configure_logging_debug_adds_callsite_and_rejects_invalid_inputs():
 
 def test_configure_logging_take_over_root_and_restore_package_scoped():
     root_logger = logging.getLogger()
-    orig_handlers = list(root_logger.handlers)
-    orig_level = root_logger.level
-    try:
-        buf = io.StringIO()
-        configure_logging(level="INFO", log_format="json", stream=buf, take_over_root=True)
-        assert root_logger.level == logging.INFO
-        pkg_logger = logging.getLogger("mp_models")
-        assert pkg_logger.handlers == []
-        assert pkg_logger.propagate is True
+    # Detach pytest's root handlers (e.g., --log-file) without closing them before take_over_root=True
+    # clears root handlers; _restore_logging_state re-attaches them in teardown.
+    root_logger.handlers.clear()
+    buf = io.StringIO()
+    configure_logging(level="INFO", log_format="json", stream=buf, take_over_root=True)
+    assert root_logger.level == logging.INFO
+    pkg_logger = logging.getLogger("mp_models")
+    assert pkg_logger.handlers == []
+    assert pkg_logger.propagate is True
 
-        structlog.get_logger("mp_models.root_check").info("via_root")
-        assert json.loads(buf.getvalue().strip())["event"] == "via_root"
+    structlog.get_logger("mp_models.root_check").info("via_root")
+    assert json.loads(buf.getvalue().strip())["event"] == "via_root"
 
-        # Switching back to package-scoped disables root warning capture and stops propagation.
-        buf2 = io.StringIO()
-        configure_logging(level="WARNING", log_format="console", stream=buf2, take_over_root=False)
-        assert pkg_logger.propagate is False
-        assert len(pkg_logger.handlers) == 1
-    finally:
-        for h in list(root_logger.handlers):
-            root_logger.removeHandler(h)
-        for h in orig_handlers:
-            root_logger.addHandler(h)
-        root_logger.setLevel(orig_level)
+    # Switching back to package-scoped disables root warning capture and stops propagation.
+    buf2 = io.StringIO()
+    configure_logging(level="WARNING", log_format="console", stream=buf2, take_over_root=False)
+    assert pkg_logger.propagate is False
+    assert len(pkg_logger.handlers) == 1
 
 
 def test_logging_tests_do_not_break_caplog_propagation(caplog: pytest.LogCaptureFixture) -> None:

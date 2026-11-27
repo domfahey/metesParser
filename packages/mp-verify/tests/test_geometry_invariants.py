@@ -90,7 +90,7 @@ class TestSceneValidationInvariants:
         with pytest.raises(ValueError, match="unsupported, ambiguous, or differing"):
             projected_crs_unit(unsupported_crs)
 
-    def test_validate_scene_rejects_bad_axis_order_local_crs_and_unit_mismatch(self):
+    def test_validate_scene_rejects_bad_axis_order_and_local_crs(self):
         bad_axis = PlotScene.model_construct(
             id="s", name="S", kind="local", crs=None, units="m", axis_order="yx", basis="local"
         )
@@ -109,6 +109,7 @@ class TestSceneValidationInvariants:
         with pytest.raises(ValueError, match="Local scenes cannot declare"):
             validate_scene(local_with_crs)
 
+    def test_validate_scene_rejects_projected_crs_unit_mismatch_and_geographic_crs(self):
         pytest.importorskip("pyproj")
         # EPSG:3857 (meters) conflicts with declared international_ft.
         projected_ft = PlotScene(

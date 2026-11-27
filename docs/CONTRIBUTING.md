@@ -9,6 +9,7 @@ Guidelines for contributing to metesParser.
 - Python 3.11+
 - [UV package manager](https://github.com/astral-sh/uv)
 - Git
+- Node.js (required for `make test-packages-cov`, `make ci`, and offline browser checks)
 - OpenAI, Gemini, and/or OpenRouter API key (for PDF extraction, depending on provider)
 
 ### Initial Setup
@@ -288,14 +289,18 @@ def my_fixture():
 
 ### Adding a New Test Marker
 
-```python
-# In tests/conftest.py
-def pytest_configure(config):
-    config.addinivalue_line(
-        "markers",
-        "newmarker: Description of marker"
-    )
+Register workspace markers in `[tool.pytest.ini_options].markers` in `pyproject.toml` so both root and package suites recognize them under `--strict-markers`:
 
+```toml
+# In pyproject.toml
+[tool.pytest.ini_options]
+markers = [
+    # ...existing markers...
+    "newmarker: Description of marker",
+]
+```
+
+```python
 # In test file
 @pytest.mark.newmarker
 def test_something():

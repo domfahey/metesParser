@@ -304,13 +304,15 @@ def test_text_plot_composes_map_with_verbatim_source_txt(tmp_path):
 
 
 def test_compose_in_process_dashboard_raster_and_fail_closed_validation(tmp_path):
+    pytest.importorskip("pyproj")
+    Image = pytest.importorskip("PIL.Image")
+
     from io import BytesIO
 
     from mp_models.plot import PlotScene
     from mp_models.raster import RasterControl
     from mp_review.compose import compose_dashboard_file, compose_map_file
     from mp_review.raster_registration import fit_affine, image_layer
-    from PIL import Image
 
     # 1. In-process compose_dashboard_file with valid layer succeeds.
     dash_out = tmp_path / "composed-dash"

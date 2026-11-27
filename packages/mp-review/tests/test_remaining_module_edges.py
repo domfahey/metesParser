@@ -15,7 +15,6 @@ from mp_review.dashboard import prepare_dashboard
 from mp_review.plss import prepare_plss_file, replay_plss
 from mp_review.raster_picker import prepare_raster_picker_file
 from mp_review.relative import review_relative_file
-from PIL import Image
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PLUGIN = Path(__file__).resolve().parents[3] / "plugins/metesparser"
@@ -127,6 +126,7 @@ def test_plss_symlink_missing_and_unexpected_prepared_layer_guards(tmp_path):
 
 
 def test_raster_picker_input_validation_matrix_and_exif_guard(tmp_path, monkeypatch):
+    Image = pytest.importorskip("PIL.Image")
     import mp_review.raster_registration as reg_mod
 
     img = tmp_path / "scan.png"

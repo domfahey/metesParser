@@ -132,7 +132,7 @@ def test_review_text_flags_historical_units_nonpositive_area_unresolved_poc_and_
     assert any(e["code"] == "unresolved_poc" for e in bad_poc["errors"])
 
 
-def test_json_legal_description_tracts_exceptions_easements_and_area_rules(tmp_path):
+def test_json_legal_description_tracts_exceptions_easements_and_area_rules():
     # 1. Multiple boundary tracts fail closed with MULTIPLE_PARCELS.
     two_mains = {
         "tracts": [

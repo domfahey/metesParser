@@ -218,17 +218,31 @@ def test_import_accepts_orientation_one_like_the_render_guard():
     assert validated == layer
 
 
-def test_image_layer_rejects_oversized_bytes_dimensions_format_animated_and_missing_pillow(
-    monkeypatch,
-):
-    from PIL import Image
+def test_image_layer_rejects_oversized_bytes_and_missing_pillow(monkeypatch):
+    import sys
+
+    class _OversizedPayload:
+        def __len__(self) -> int:
+            return 20 * 1024 * 1024 + 1
 
     scene = _import_scene()
     reg = fit_affine(controls())
 
-    # > 20 MiB payload rejected before decoding
+    # > 20 MiB payload rejected before decoding (sized stub avoids 20 MiB allocation)
     with pytest.raises(ValueError, match="20 MiB"):
-        image_layer(b"\x00" * (20 * 1024 * 1024 + 1), scene=scene, registration=reg, filename="big")
+        image_layer(_OversizedPayload(), scene=scene, registration=reg, filename="big")
+
+    # Missing Pillow extra fails closed with clear message
+    monkeypatch.setitem(sys.modules, "PIL", None)
+    with pytest.raises(ValueError, match="mp-review\\[geo\\]"):
+        image_layer(b"png", scene=scene, registration=reg, filename="s.png")
+
+
+def test_image_layer_rejects_dimensions_format_and_animated():
+    Image = pytest.importorskip("PIL.Image")
+
+    scene = _import_scene()
+    reg = fit_affine(controls())
 
     # Unsupported image format (BMP)
     bmp_buf = BytesIO()
@@ -249,17 +263,10 @@ def test_image_layer_rejects_oversized_bytes_dimensions_format_animated_and_miss
     with pytest.raises(ValueError, match="dimensions exceed"):
         image_layer(wide_buf.getvalue(), scene=scene, registration=reg, filename="wide.png")
 
-    # Missing Pillow extra fails closed with clear message
-    import sys
-
-    monkeypatch.setitem(sys.modules, "PIL", None)
-    with pytest.raises(ValueError, match="mp-review\\[geo\\]"):
-        image_layer(b"png", scene=scene, registration=reg, filename="s.png")
-
 
 def test_validate_raster_layer_rejects_scene_matrix_and_residual_tampering():
+    Image = pytest.importorskip("PIL.Image")
     from mp_review.raster_registration import validate_raster_layer
-    from PIL import Image
 
     buf = BytesIO()
     Image.new("RGB", (10, 20)).save(buf, format="PNG")

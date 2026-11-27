@@ -8,6 +8,7 @@ import shutil
 from io import BytesIO
 from pathlib import Path
 
+import pytest
 from mp_models.dashboard import DashboardBundle
 from mp_models.plot import PlotScene
 from mp_models.raster import RasterControl
@@ -21,7 +22,6 @@ from mp_review.diagnostics import diagnose_closure_file
 from mp_review.online_map import render_map_file
 from mp_review.plot import plot_file
 from mp_review.raster_registration import fit_affine, image_layer
-from PIL import Image
 
 FIXTURES = Path(__file__).parent / "fixtures"
 SOURCE_FIXTURES = FIXTURES / "source_handoff"
@@ -309,8 +309,7 @@ def test_review_plot_diagnostics_comparison_and_direct_input_error_paths(tmp_pat
     )
 
 
-def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
-    # 1. Broken dashboard prerequisite
+def test_broken_dashboard_prerequisite_reports_unavailable(tmp_path):
     broken_dash = tmp_path / "broken-dash"
     broken_dash.mkdir()
     (broken_dash / "stage-manifest.json").write_text('{"schema_version": "1.0"}')
@@ -318,7 +317,12 @@ def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
     res_bd = inspect_artifacts(broken_dash, requested_stage="dashboard")
     assert "dashboard_prerequisite_unavailable" in _codes(_nodes(res_bd, "dashboard")[0])
 
-    # 2. Dashboard with raster_layer + online_map (hits 776-780, 1016-1023, 1087)
+
+def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
+    Image = pytest.importorskip("PIL.Image")
+    pytest.importorskip("pyproj")
+
+    # Dashboard with raster_layer + online_map
     data = json.loads((FIXTURES / "dashboard-absolute.json").read_text())
     data["schema_version"] = "1.1"
     data["calculations"][0]["frame"]["foot_definition"] = "international_ft"
@@ -414,7 +418,7 @@ def test_dashboard_online_map_composition_and_linking_edge_cases(tmp_path):
             _nodes(inspect_artifacts(d, requested_stage="render-map"), "composition")[0]
         )
 
-    # Composition invalid layer shapes (1187 non-dict, 1193 non-list)
+    # Composition invalid layer shapes (non-dict and non-list)
     for layer_content, tag in ("[]", "nondict"), ('{"scenes": "bad"}', "nonlist"):
         d = tmp_path / f"cd-layer-{tag}"
         shutil.copytree(comp_dash, d)

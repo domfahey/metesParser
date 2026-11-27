@@ -211,6 +211,44 @@ def test_corridor_binding_revision_standalone_placement_and_toctou_checks(tmp_pa
         ds.prepare_delivery_source(binding, layer, req, bundle)
     monkeypatch.undo()
 
+    # TOCTOU: request.json changed after replay_corridor
+    real_read = ds._read
+    monkeypatch.setattr(
+        ds,
+        "_read",
+        lambda p: b'{"tampered":true}' if p.name == "request.json" else real_read(p),
+    )
+    with pytest.raises(ValueError, match="changed during replay"):
+        ds.prepare_delivery_source(binding, layer, req, bundle)
+    monkeypatch.undo()
+
+    # TOCTOU: manifest changed during replay (second read differs)
+    reads = {"n": 0}
+
+    def flipping_read(p: Path) -> bytes:
+        data = real_read(p)
+        if p.name == "corridor-manifest.json":
+            reads["n"] += 1
+            if reads["n"] > 1:
+                return data + b" "
+        return data
+
+    monkeypatch.setattr(ds, "_read", flipping_read)
+    with pytest.raises(ValueError, match="manifest changed during replay"):
+        ds.prepare_delivery_source(binding, layer, req, bundle)
+    monkeypatch.undo()
+
+    # OSError wrapped cleanly
+    monkeypatch.setattr(ds, "_read", lambda p: (_ for _ in ()).throw(OSError("io fail")))
+    with pytest.raises(ValueError, match="unavailable for fresh replay"):
+        ds.prepare_delivery_source(binding, layer, req, bundle)
+
+
+def test_corridor_binding_placed_placement_validation_errors(tmp_path):
+    pytest.importorskip("pyproj")
+    bundle = _bundle()
+    _, result, binding, layer = _corridor_dir(tmp_path)
+
     # Placed corridor errors: unplaced/missing placement, wrong placement hash, wrong calculation/scene
     scene = PlotScene(id="g1", name="G1", kind="projected", crs="EPSG:3857", units="m")
     placed_req = DeliveryRequest.model_construct(
@@ -264,40 +302,9 @@ def test_corridor_binding_revision_standalone_placement_and_toctou_checks(tmp_pa
     with pytest.raises(ValueError, match="original centerline and selected scene"):
         ds.prepare_delivery_source(binding, layer_wrong_calc, placed_req_wrong, bundle)
 
-    # TOCTOU: request.json changed after replay_corridor
-    real_read = ds._read
-    monkeypatch.setattr(
-        ds,
-        "_read",
-        lambda p: b'{"tampered":true}' if p.name == "request.json" else real_read(p),
-    )
-    with pytest.raises(ValueError, match="changed during replay"):
-        ds.prepare_delivery_source(binding, layer, req, bundle)
-    monkeypatch.undo()
-
-    # TOCTOU: manifest changed during replay (second read differs)
-    reads = {"n": 0}
-
-    def flipping_read(p: Path) -> bytes:
-        data = real_read(p)
-        if p.name == "corridor-manifest.json":
-            reads["n"] += 1
-            if reads["n"] > 1:
-                return data + b" "
-        return data
-
-    monkeypatch.setattr(ds, "_read", flipping_read)
-    with pytest.raises(ValueError, match="manifest changed during replay"):
-        ds.prepare_delivery_source(binding, layer, req, bundle)
-    monkeypatch.undo()
-
-    # OSError wrapped cleanly
-    monkeypatch.setattr(ds, "_read", lambda p: (_ for _ in ()).throw(OSError("io fail")))
-    with pytest.raises(ValueError, match="unavailable for fresh replay"):
-        ds.prepare_delivery_source(binding, layer, req, bundle)
-
 
 def test_plss_binding_and_delivery_source_features_edge_cases(tmp_path, monkeypatch):
+    pytest.importorskip("pyproj")
     bundle = _bundle()
     _, plss, binding, layer = _plss_dir(tmp_path)
     scene = plss.scenes[0]
@@ -357,7 +364,6 @@ def test_plss_binding_and_delivery_source_features_edge_cases(tmp_path, monkeypa
     monkeypatch.undo()
 
     # corridor_export_ring requires plot and placement
-    pytest.importorskip("pyproj")
     proj = build_web_map_projection(
         PlotScene(id="g", name="G", kind="projected", crs="EPSG:3857", units="m")
     )

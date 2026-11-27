@@ -228,7 +228,11 @@ def test_mapbox_mcp_rejects_symlinks_bad_manifest_source_kind_and_tampered_stand
     assert mapbox_mcp_file(manifest_dir, tmp_path / "o6")["status"] == "error"
 
 
-def test_mapbox_mcp_rejects_standalone_raster_bytes_mismatch(tmp_path, monkeypatch):
+def test_mapbox_mcp_rejects_standalone_raster_bytes_mismatch(tmp_path):
+    pytest.importorskip("rasterio")
+    pytest.importorskip("pyproj")
+    Image = pytest.importorskip("PIL.Image")
+
     from io import BytesIO
 
     from mp_models.plot import PlotScene
@@ -239,9 +243,6 @@ def test_mapbox_mcp_rejects_standalone_raster_bytes_mismatch(tmp_path, monkeypat
     from mp_review.online_map import render_map_file
     from mp_review.plot import plot_file
     from mp_review.raster_registration import fit_affine, image_layer
-    from PIL import Image
-
-    pytest.importorskip("rasterio")
 
     calls_file = tmp_path / "calls.json"
     calls_file.write_text(
