@@ -560,6 +560,58 @@ class TestPreprocessing:
         with Image.open(fast_out) as img:
             assert img.mode == "L" and max(img.size) == 60
 
+    def test_strip_green_watermark_enforces_png_allowlist_and_rejects_eps_and_jpeg(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        Image = pytest.importorskip("PIL.Image")
+        EpsImagePlugin = pytest.importorskip("PIL.EpsImagePlugin")
+        from PIL import UnidentifiedImageError
+
+        eps_bytes = b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n%%EOF\n"
+        eps_path = tmp_path / "malicious.eps"
+        eps_path.write_bytes(eps_bytes)
+        eps_as_png = tmp_path / "disguised.png"
+        eps_as_png.write_bytes(eps_bytes)
+
+        jpg_path = tmp_path / "photo.jpg"
+        Image.new("RGB", (20, 20), "white").save(jpg_path, format="JPEG")
+
+        seen_formats: list[object] = []
+        orig_open = Image.open
+
+        def _spy_open(*args: Any, **kwargs: Any) -> Any:
+            seen_formats.append(kwargs.get("formats"))
+            return orig_open(*args, **kwargs)
+
+        def _forbid_eps(*args: Any, **kwargs: Any) -> Any:
+            raise AssertionError("EpsImageFile must never be invoked")
+
+        monkeypatch.setattr(Image, "open", _spy_open)
+        monkeypatch.setattr(EpsImagePlugin.EpsImageFile, "_open", _forbid_eps)
+
+        for bad_path in (eps_path, eps_as_png, jpg_path):
+            for strip_wm, crop in ((False, False), (True, True)):
+                with pytest.raises(UnidentifiedImageError):
+                    strip_green_watermark_and_crop(
+                        bad_path,
+                        tmp_path / "out.png",
+                        strip_watermark=strip_wm,
+                        crop_margins=crop,
+                    )
+
+        assert seen_formats
+        assert all(fmt == ("PNG",) for fmt in seen_formats)
+
+        # Valid PNG continues to succeed on both paths
+        png_path = _write_tiny_png(tmp_path / "valid.png")
+        fast_out = strip_green_watermark_and_crop(
+            png_path, tmp_path / "valid_fast.png", strip_watermark=False, crop_margins=False
+        )
+        full_out = strip_green_watermark_and_crop(
+            png_path, tmp_path / "valid_full.png", strip_watermark=True, crop_margins=True
+        )
+        assert fast_out.exists() and full_out.exists()
+
 
 # ---------------------------------------------------------------------------
 # Image-capable LLM clients & cache tests

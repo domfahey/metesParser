@@ -116,3 +116,50 @@ def test_picker_script_payload_cannot_be_closed_by_source_names(tmp_path):
     payload = seed(output / "picker.html")
     assert payload["config"]["scene"]["name"] == config["scene"]["name"]
     assert "</script><script>alert" not in (output / "picker.html").read_text()
+
+
+def test_picker_rejects_eps_bytes_without_invoking_eps_plugin(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    import mp_review.raster_picker as picker_module
+    from PIL import EpsImagePlugin
+
+    eps_bytes = b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n%%EOF\n"
+    eps_image = tmp_path / "malicious.eps"
+    eps_image.write_bytes(eps_bytes)
+    _, controls, _ = inputs(tmp_path)
+
+    seen_formats = []
+    orig_open = Image.open
+
+    def _spy_open(*args, **kwargs):
+        seen_formats.append(kwargs.get("formats"))
+        return orig_open(*args, **kwargs)
+
+    def _forbid_eps(*args, **kwargs):
+        raise AssertionError("EpsImagePlugin must never be invoked")
+
+    monkeypatch.setattr(Image, "open", _spy_open)
+    monkeypatch.setattr(EpsImagePlugin.EpsImageFile, "_open", _forbid_eps)
+
+    # Full path: rejected by image_layer() without invoking EPS plugin
+    out_full = tmp_path / "eps_full"
+    res_full = prepare_raster_picker_file(eps_image, controls, out_full)
+    assert res_full["status"] == "error"
+    assert not out_full.exists()
+
+    # Direct line-76 guard: bypass image_layer() so Image.open(..., formats=SUPPORTED_RASTER_FORMATS) runs directly
+    monkeypatch.setattr(
+        picker_module,
+        "image_layer",
+        lambda *args, **kwargs: (
+            SimpleNamespace(mime_type="image/png", width=10, height=10),
+            SimpleNamespace(),
+        ),
+    )
+    seen_formats.clear()
+    out_direct = tmp_path / "eps_direct"
+    res_direct = prepare_raster_picker_file(eps_image, controls, out_direct)
+    assert res_direct["status"] == "error"
+    assert not out_direct.exists()
+    assert seen_formats == [("PNG", "JPEG", "WEBP")]

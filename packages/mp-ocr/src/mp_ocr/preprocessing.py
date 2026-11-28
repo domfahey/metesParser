@@ -28,6 +28,8 @@ _WATERMARK_LUT_SPAN = 165.0
 _CROP_DARK_LUMA_THRESHOLD = 215
 _CROP_MIN_DARK_PX = 8
 _CROP_RELATIVE_PAD_RATIO = 0.015
+# Restrict Pillow decoders to PNG so rendered PDF page inputs cannot invoke EPS/etc. plugins.
+_ALLOWED_OCR_IMAGE_FORMATS = ("PNG",)
 
 
 def _validate_int(
@@ -329,7 +331,7 @@ def strip_green_watermark_and_crop(
         ) from exc
 
     if not strip_watermark and not crop_margins:
-        with Image.open(image_path) as raw_img:
+        with Image.open(image_path, formats=_ALLOWED_OCR_IMAGE_FORMATS) as raw_img:
             img_w, img_h = raw_img.size
             if img_w * img_h > validated_max_pixels:
                 raise ValueError(
@@ -352,7 +354,7 @@ def strip_green_watermark_and_crop(
         ) from exc
 
     arr: Any = None
-    with Image.open(image_path) as raw_img:
+    with Image.open(image_path, formats=_ALLOWED_OCR_IMAGE_FORMATS) as raw_img:
         img_w, img_h = raw_img.size
         if img_w * img_h > validated_max_pixels:
             raise ValueError(

@@ -312,3 +312,40 @@ def test_import_orientation_comes_only_from_image_orientation(monkeypatch):
             registration=fit_affine(controls()),
             filename="s.jpg",
         )
+
+
+def test_image_layer_rejects_eps_and_tiff_without_invoking_eps_plugin(monkeypatch):
+    from PIL import EpsImagePlugin, Image
+
+    eps_bytes = b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n%%EOF\n"
+    tiff_buf = BytesIO()
+    Image.new("RGB", (8, 8)).save(tiff_buf, format="TIFF")
+
+    seen_formats = []
+    orig_open = Image.open
+
+    def _spy_open(*args, **kwargs):
+        seen_formats.append(kwargs.get("formats"))
+        return orig_open(*args, **kwargs)
+
+    def _forbid_eps(*args, **kwargs):
+        raise AssertionError("EpsImagePlugin must never be invoked")
+
+    monkeypatch.setattr(Image, "open", _spy_open)
+    monkeypatch.setattr(EpsImagePlugin.EpsImageFile, "_open", _forbid_eps)
+
+    scene = _import_scene()
+    reg = fit_affine(controls())
+
+    for payload, name in ((eps_bytes, "scan.eps"), (tiff_buf.getvalue(), "scan.tif")):
+        with pytest.raises(ValueError, match="PNG/JPEG/WebP"):
+            image_layer(payload, scene=scene, registration=reg, filename=name)
+
+    assert seen_formats
+    assert all(fmt == ("PNG", "JPEG", "WEBP") for fmt in seen_formats)
+
+    for fmt, ext in (("PNG", "png"), ("JPEG", "jpg"), ("WEBP", "webp")):
+        buf = BytesIO()
+        Image.new("RGB", (10, 20)).save(buf, format=fmt)
+        layer, _ = image_layer(buf.getvalue(), scene=scene, registration=reg, filename=f"ok.{ext}")
+        assert (layer.width, layer.height) == (10, 20)

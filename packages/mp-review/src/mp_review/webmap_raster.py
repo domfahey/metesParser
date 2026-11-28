@@ -16,7 +16,7 @@ from mp_models.raster import RasterLayer
 from mp_models.webmap import WebMapOptions, WebMapProjectionRecord, WebMapRaster
 from mp_verify.dashboard import _hash
 
-from .raster_registration import transform_pixel, validate_raster_layer
+from .raster_registration import SUPPORTED_RASTER_FORMATS, transform_pixel, validate_raster_layer
 from .webmap_projection import WebMapProjection, WebMapUnavailable, build_web_map_projection
 
 
@@ -197,7 +197,7 @@ def prepare_web_map_raster(
     source_affine = Affine(a, b, c - 0.5 * a - 0.5 * b, d, e, f - 0.5 * d - 0.5 * e)
     data = base64.b64decode(layer.data_base64, validate=True)
     try:
-        with Image.open(BytesIO(data)) as image:
+        with Image.open(BytesIO(data), formats=SUPPORTED_RASTER_FORMATS) as image:
             rgba = np.asarray(image.convert("RGBA"), dtype="float32") / 255.0
         # Interpolate premultiplied colors and opacity independently. Hidden RGB
         # in transparent source pixels cannot create dark or colored fringes.

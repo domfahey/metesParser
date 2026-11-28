@@ -14,7 +14,7 @@ dependencies = [
 
 [project.optional-dependencies]
 gemini = ["google-genai>=3.0.0"]
-vision = ["pillow>=11,<13", "numpy>=1.26,<3"]
+vision = ["pillow>=13.0.0,<14", "numpy>=1.26,<3"]
 dev = ["pytest>=8.3.0", "ruff>=0.8.0"]
 
 [build-system]

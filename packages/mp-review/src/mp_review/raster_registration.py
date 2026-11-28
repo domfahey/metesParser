@@ -18,6 +18,9 @@ from mp_models.raster import (
     image_orientation,
 )
 
+# Restrict Pillow decoders so disallowed plugins (e.g., EPS/TIFF) are never invoked.
+SUPPORTED_RASTER_FORMATS: tuple[str, ...] = ("PNG", "JPEG", "WEBP")
+
 
 def transform_pixel(registration: RasterRegistration, pixel: XY) -> XY:
     a, b, c, d, e, f = registration.matrix
@@ -124,16 +127,16 @@ def image_layer(
     if scene.units == "unknown_ft":
         raise ValueError("Raster registration requires explicit scene linear units")
     try:
-        from PIL import Image
+        from PIL import Image, UnidentifiedImageError
     except ImportError as exc:
         raise ValueError("Install mp-review[geo] for raster image validation") from exc
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
-            with Image.open(BytesIO(data)) as image:
+            with Image.open(BytesIO(data), formats=SUPPORTED_RASTER_FORMATS) as image:
                 image.verify()
-            with Image.open(BytesIO(data)) as image:
-                if image.format not in ("PNG", "JPEG", "WEBP"):
+            with Image.open(BytesIO(data), formats=SUPPORTED_RASTER_FORMATS) as image:
+                if image.format not in SUPPORTED_RASTER_FORMATS:
                     raise ValueError("Only PNG/JPEG/WebP images are supported")
                 if getattr(image, "n_frames", 1) != 1:
                     raise ValueError("Animated images are unsupported")
@@ -146,6 +149,10 @@ def image_layer(
                 mime = {"PNG": "image/png", "JPEG": "image/jpeg", "WEBP": "image/webp"}[
                     image.format
                 ]
+    except UnidentifiedImageError as exc:
+        raise ValueError(
+            f"Invalid raster content: {exc}; only PNG/JPEG/WebP images are supported"
+        ) from exc
     except Exception as exc:
         raise ValueError(f"Invalid raster content: {exc}") from exc
     digest = hashlib.sha256(data).hexdigest()
