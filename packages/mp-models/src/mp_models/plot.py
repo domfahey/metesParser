@@ -3,6 +3,7 @@
 import base64
 import hashlib
 import math
+from collections.abc import Iterator
 from typing import Annotated, Literal, Self, cast
 
 from pydantic import (
@@ -77,18 +78,25 @@ def _cross(a: XY, b: XY, c: XY) -> float:
     return value
 
 
+def _point_in_box(a: XY, b: XY, p: XY) -> bool:
+    min_x, max_x = (a[0], b[0]) if a[0] <= b[0] else (b[0], a[0])
+    min_y, max_y = (a[1], b[1]) if a[1] <= b[1] else (b[1], a[1])
+    return min_x <= p[0] <= max_x and min_y <= p[1] <= max_y
+
+
 def _on(a: XY, b: XY, p: XY) -> bool:
-    return (
-        _cross(a, b, p) == 0
-        and min(a[0], b[0]) <= p[0] <= max(a[0], b[0])
-        and min(a[1], b[1]) <= p[1] <= max(a[1], b[1])
-    )
+    return _cross(a, b, p) == 0 and _point_in_box(a, b, p)
 
 
 def _intersects(a: XY, b: XY, c: XY, d: XY) -> bool:
     x, y, z, w = _cross(a, b, c), _cross(a, b, d), _cross(c, d, a), _cross(c, d, b)
-    return (x * y < 0 and z * w < 0) or any(
-        (_on(a, b, c), _on(a, b, d), _on(c, d, a), _on(c, d, b))
+    if x * y < 0 and z * w < 0:
+        return True
+    return (
+        (x == 0 and _point_in_box(a, b, c))
+        or (y == 0 and _point_in_box(a, b, d))
+        or (z == 0 and _point_in_box(c, d, a))
+        or (w == 0 and _point_in_box(c, d, b))
     )
 
 
@@ -112,6 +120,33 @@ def _rings_intersect(a: Ring, b: Ring) -> bool:
     )
 
 
+def _ring_candidate_pairs(ring: Ring, eps: float = 0.0) -> Iterator[tuple[XY, XY, XY, XY]]:
+    """Yield non-adjacent ring edge pairs whose expanded AABBs overlap."""
+    if not math.isfinite(eps) or eps < 0:
+        raise ValueError("sweep tolerance must be finite and non-negative")
+    records: list[tuple[float, float, float, float, int, XY, XY]] = []
+    for idx, (a, b) in enumerate(zip(ring, ring[1:], strict=False)):
+        min_x, max_x = (a[0], b[0]) if a[0] <= b[0] else (b[0], a[0])
+        min_y, max_y = (a[1], b[1]) if a[1] <= b[1] else (b[1], a[1])
+        records.append((min_x, max_x, min_y, max_y, idx, a, b))
+    records.sort()
+    last_idx = len(records) - 1
+    for k in range(len(records)):
+        _a_min_x, a_max_x, a_min_y, a_max_y, i, a, b = records[k]
+        limit_x = a_max_x + eps
+        a_hi_y = a_max_y + eps
+        for m in range(k + 1, len(records)):
+            b_min_x, _b_max_x, b_min_y, b_max_y, j, c, d = records[m]
+            if limit_x < b_min_x:
+                break
+            if a_hi_y < b_min_y or b_max_y + eps < a_min_y:
+                continue
+            delta = i - j if i > j else j - i
+            if delta <= 1 or delta == last_idx:
+                continue
+            yield (a, b, c, d) if i < j else (c, d, a, b)
+
+
 def validate_polygon(polygon: Polygon) -> None:
     """Reject unsupported topology instead of silently repairing supplied evidence."""
     if not polygon:
@@ -126,13 +161,9 @@ def validate_polygon(polygon: Polygon) -> None:
         area = sum(_cross(origin, a, b) for a, b in zip(ring, ring[1:], strict=False))
         if area == 0:
             raise ValueError("degenerate ring has zero area")
-        edges = list(zip(ring, ring[1:], strict=False))
-        for i, (a, b) in enumerate(edges):
-            for j, (c, d) in enumerate(edges):
-                if j <= i + 1 or (i == 0 and j == len(edges) - 1):
-                    continue
-                if _intersects(a, b, c, d):
-                    raise ValueError("self-intersecting ring")
+        for a, b, c, d in _ring_candidate_pairs(ring):
+            if _intersects(a, b, c, d):
+                raise ValueError("self-intersecting ring")
     exterior, *holes = polygon
     for i, hole in enumerate(holes):
         if not _inside(hole[0], exterior) or _rings_intersect(hole, exterior):

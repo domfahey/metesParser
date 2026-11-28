@@ -20,7 +20,7 @@ from mp_models.corridor import (
     CorridorWidthInterval,
 )
 from mp_models.deed_call import DeedCall
-from mp_models.plot import XY, PlotPrimitive, _intersects, validate_polygon
+from mp_models.plot import XY, PlotPrimitive, _intersects, _ring_candidate_pairs, validate_polygon
 from mp_models.plot_request import PlotCall, PlotRequest
 
 from .diagnostics import _curve_evidence, _supported_circular_arc
@@ -413,32 +413,21 @@ def _topology(ring: tuple[XY, ...], uncertainty: float) -> None:
         raise _Unavailable(f"corridor boundary topology failed: {exc}", "topology_failed") from exc
     if uncertainty == 0:
         return
-    segments = list(zip(ring, ring[1:], strict=False))
-    for i, (a, b) in enumerate(segments):
-        for j in range(i + 2, len(segments)):
-            if i == 0 and j == len(segments) - 1:
-                continue
-            c, d = segments[j]
-            if (
-                max(a[0], b[0]) + 2 * uncertainty < min(c[0], d[0])
-                or max(c[0], d[0]) + 2 * uncertainty < min(a[0], b[0])
-                or max(a[1], b[1]) + 2 * uncertainty < min(c[1], d[1])
-                or max(c[1], d[1]) + 2 * uncertainty < min(a[1], b[1])
-            ):
-                continue
-            if _intersects(a, b, c, d):
-                raise _Unavailable("corridor boundary intersects", "topology_failed")
-            distance = min(
-                _point_segment_distance(a, c, d),
-                _point_segment_distance(b, c, d),
-                _point_segment_distance(c, a, b),
-                _point_segment_distance(d, a, b),
+    clearance = 2 * uncertainty
+    for a, b, c, d in _ring_candidate_pairs(ring, eps=clearance):
+        if _intersects(a, b, c, d):
+            raise _Unavailable("corridor boundary intersects", "topology_failed")
+        distance = min(
+            _point_segment_distance(a, c, d),
+            _point_segment_distance(b, c, d),
+            _point_segment_distance(c, a, b),
+            _point_segment_distance(d, a, b),
+        )
+        if distance <= clearance:
+            raise _Unavailable(
+                "topology clearance is within the declared approximation error; tighter budget required",
+                "topology_unavailable",
             )
-            if distance <= 2 * uncertainty:
-                raise _Unavailable(
-                    "topology clearance is within the declared approximation error; tighter budget required",
-                    "topology_unavailable",
-                )
 
 
 def analyze_corridor(request: CorridorRequest) -> CorridorResult:

@@ -1,6 +1,9 @@
 """Independent contract tests for immutable plotting and supplied map evidence."""
 
 import json
+import math
+import random
+import time
 from pathlib import Path
 
 import pytest
@@ -285,3 +288,157 @@ def test_plot_model_edge_guards_for_map_source_polygons_primitives_and_specs():
     pt = PointCorrespondence(id="pt1", deed_point=(0, 0), map_point=(1, 1))
     with pytest.raises(ValidationError, match="must be unique"):
         PlotComparisonSpec(id="cmp", placement_id="pl", correspondences=(pt, pt))
+
+
+def _brute_force_candidate_pairs(ring, eps=0.0):
+    edges = list(zip(ring, ring[1:], strict=False))
+    last = len(edges) - 1
+    pairs = []
+    for i, (a, b) in enumerate(edges):
+        a_min_x, a_max_x = (a[0], b[0]) if a[0] <= b[0] else (b[0], a[0])
+        a_min_y, a_max_y = (a[1], b[1]) if a[1] <= b[1] else (b[1], a[1])
+        for j in range(i + 2, len(edges)):
+            if i == 0 and j == last:
+                continue
+            c, d = edges[j]
+            b_min_x, b_max_x = (c[0], d[0]) if c[0] <= d[0] else (d[0], c[0])
+            b_min_y, b_max_y = (c[1], d[1]) if c[1] <= d[1] else (d[1], c[1])
+            if (
+                a_max_x + eps < b_min_x
+                or b_max_x + eps < a_min_x
+                or a_max_y + eps < b_min_y
+                or b_max_y + eps < a_min_y
+            ):
+                continue
+            pairs.append((a, b, c, d))
+    return pairs
+
+
+def _brute_force_self_intersects(ring):
+    from mp_models.plot import _intersects
+
+    edges = list(zip(ring, ring[1:], strict=False))
+    last = len(edges) - 1
+    for i, (a, b) in enumerate(edges):
+        for j in range(i + 2, len(edges)):
+            if i == 0 and j == last:
+                continue
+            c, d = edges[j]
+            if _intersects(a, b, c, d):
+                return True
+    return False
+
+
+def test_validate_polygon_matches_bruteforce_oracle_on_edge_cases_and_seeded_rings():
+    from mp_models.plot import validate_polygon
+
+    rings = [
+        # Horizontal collinear overlap
+        ((0, 0), (5, 0), (5, 2), (2, 2), (2, 0), (4, 0), (4, -2), (0, -2), (0, 0)),
+        # Vertical collinear overlap
+        ((0, 0), (0, 5), (2, 5), (2, 2), (0, 2), (0, 4), (-2, 4), (-2, 0), (0, 0)),
+        # Diagonal collinear overlap
+        ((0, 0), (5, 5), (5, 7), (2, 4), (1, 1), (3, 3), (0, 4), (0, 0)),
+        # T-junction (vertex touches interior of non-adjacent edge)
+        ((0, 0), (6, 0), (6, 4), (3, 4), (3, 0), (2, 2), (0, 4), (0, 0)),
+        # Non-adjacent vertex touch (figure-8 pinch at (2, 2))
+        ((0, 0), (4, 0), (2, 2), (4, 4), (0, 4), (2, 2), (0, 0)),
+        # Valid rings exercising closing-edge exemption
+        ((0, 0), (4, 0), (2, 2), (0, 0)),
+        ((0, 0), (4, 0), (4, 4), (2, 1), (0, 4), (0, 0)),
+    ]
+    rng = random.Random(42)
+    for _ in range(80):
+        count = rng.randint(5, 16)
+        pts = [
+            (round(rng.uniform(-10, 10), 2), round(rng.uniform(-10, 10), 2)) for _ in range(count)
+        ]
+        ring = (*pts, pts[0])
+        if len(set(ring[:-1])) < 3 or any(a == b for a, b in zip(ring, ring[1:], strict=False)):
+            continue
+        origin = ring[0]
+        area = sum(
+            (a[0] - origin[0]) * (b[1] - origin[1]) - (a[1] - origin[1]) * (b[0] - origin[0])
+            for a, b in zip(ring, ring[1:], strict=False)
+        )
+        if area != 0:
+            rings.append(ring)
+
+    for ring in rings:
+        expected_intersects = _brute_force_self_intersects(ring)
+        if expected_intersects:
+            with pytest.raises(ValueError, match="self-intersecting ring"):
+                validate_polygon((ring,))
+        else:
+            validate_polygon((ring,))
+
+
+@pytest.mark.parametrize("eps", [0.0, 1e-9, 0.25])
+def test_ring_candidate_pairs_matches_bruteforce_aabb_oracle(eps):
+    from mp_models.plot import _ring_candidate_pairs
+
+    rings = [
+        # Zero-length segment and near-epsilon vertical segments
+        ((0.0, 0.0), (0.0, 0.0), (0.0, 1.0), (1e-10, 1.0), (1e-10, 0.0), (0.0, 0.0)),
+        # Horizontal parallel edges at exact 0.25 vertical spacing
+        (
+            (0.0, 0.0),
+            (2.0, 0.0),
+            (2.0, 0.25),
+            (0.0, 0.25),
+            (0.0, 0.5),
+            (2.0, 0.5),
+            (2.0, 1.0),
+            (0.0, 1.0),
+            (0.0, 0.0),
+        ),
+        # Square verifying closing edge exemption
+        ((0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.0, 0.0)),
+    ]
+    rng = random.Random(42)
+    for _ in range(80):
+        count = rng.randint(4, 18)
+        pts = [
+            (
+                rng.choice([0.0, 1.0, 1.0 + 1e-10, rng.uniform(-5, 5)]),
+                rng.choice([0.0, 0.25, rng.uniform(-5, 5)]),
+            )
+            for _ in range(count)
+        ]
+        rings.append((*pts, pts[0]))
+
+    for ring in rings:
+        actual = sorted(_ring_candidate_pairs(ring, eps=eps))
+        expected = sorted(_brute_force_candidate_pairs(ring, eps=eps))
+        assert actual == expected
+
+
+@pytest.mark.parametrize("bad_eps", [-1e-12, -1.0, float("nan"), float("inf"), float("-inf")])
+def test_ring_candidate_pairs_rejects_invalid_eps(bad_eps):
+    from mp_models.plot import _ring_candidate_pairs
+
+    sq = ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.0, 0.0))
+    with pytest.raises(ValueError, match="sweep tolerance"):
+        list(_ring_candidate_pairs(sq, eps=bad_eps))
+
+
+def test_validate_polygon_large_ring_scaling_bound():
+    from mp_models.plot import validate_polygon
+
+    n = 4000
+    pts = [
+        (100.0 * math.cos(2.0 * math.pi * k / n), 100.0 * math.sin(2.0 * math.pi * k / n))
+        for k in range(n)
+    ]
+    valid_ring = (*pts, pts[0])
+    t0 = time.perf_counter()
+    validate_polygon((valid_ring,))
+    assert time.perf_counter() - t0 < 1.0
+
+    crossing_pts = list(pts)
+    crossing_pts[1], crossing_pts[n // 2] = crossing_pts[n // 2], crossing_pts[1]
+    crossing_ring = (*crossing_pts, crossing_pts[0])
+    t0 = time.perf_counter()
+    with pytest.raises(ValueError, match="self-intersecting ring"):
+        validate_polygon((crossing_ring,))
+    assert time.perf_counter() - t0 < 1.0

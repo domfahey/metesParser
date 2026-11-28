@@ -2,6 +2,8 @@
 
 import copy
 import math
+import random
+import time
 
 import pytest
 from mp_models.corridor import CorridorRequest, CorridorResult
@@ -344,3 +346,93 @@ def test_floating_point_end_fraction_on_arc_is_clamped_not_unsupported():
     expected = 3000 + math.pi / 4 * (120**2 - 90**2)
     area_tol = result.boundary.geometry.perimeter_ft * result.error.total_bound
     assert result.boundary.geometry.area_sq_ft == pytest.approx(expected, abs=area_tol)
+
+
+def _topology_oracle(ring, uncertainty):
+    from mp_models.plot import _intersects, validate_polygon
+    from mp_verify.corridor import _point_segment_distance
+
+    try:
+        validate_polygon((ring,))
+    except ValueError:
+        return "topology_failed"
+    if uncertainty == 0:
+        return "ok"
+    segments = list(zip(ring, ring[1:], strict=False))
+    for i, (a, b) in enumerate(segments):
+        for j in range(i + 2, len(segments)):
+            if i == 0 and j == len(segments) - 1:
+                continue
+            c, d = segments[j]
+            if _intersects(a, b, c, d):
+                return "topology_failed"
+            distance = min(
+                _point_segment_distance(a, c, d),
+                _point_segment_distance(b, c, d),
+                _point_segment_distance(c, a, b),
+                _point_segment_distance(d, a, b),
+            )
+            if distance <= 2 * uncertainty:
+                return "topology_unavailable"
+    return "ok"
+
+
+def _topology_status(ring, uncertainty):
+    from mp_verify.corridor import _topology, _Unavailable
+
+    try:
+        _topology(ring, uncertainty)
+    except _Unavailable as exc:
+        return exc.availability
+    return "ok"
+
+
+def test_topology_matches_bruteforce_clearance_oracle():
+    # Folded C-shaped ring whose minimum non-adjacent edge gap is exactly 1.0.
+    c_ring = (
+        (0.0, 0.0),
+        (10.0, 0.0),
+        (10.0, 3.0),
+        (2.0, 3.0),
+        (2.0, 2.0),
+        (8.0, 2.0),
+        (8.0, 1.0),
+        (0.0, 1.0),
+        (0.0, 0.0),
+    )
+    crossing_ring = ((0.0, 0.0), (4.0, 4.0), (0.0, 4.0), (4.0, 0.0), (0.0, 0.0))
+
+    cases = [
+        (c_ring, 0.6, "topology_unavailable"),  # gap < 2*u
+        (c_ring, 0.5, "topology_unavailable"),  # gap == 2*u
+        (c_ring, 0.49, "ok"),  # gap > 2*u
+        (c_ring, 0.0, "ok"),  # u == 0 early return
+        (crossing_ring, 0.5, "topology_failed"),  # exact self-intersection with u > 0
+        (crossing_ring, 0.0, "topology_failed"),
+    ]
+    for ring, uncertainty, expected in cases:
+        assert _topology_oracle(ring, uncertainty) == expected
+        assert _topology_status(ring, uncertainty) == expected
+
+    rng = random.Random(42)
+    for _ in range(25):
+        n = rng.randint(5, 12)
+        pts = [(round(rng.uniform(-10, 10), 2), round(rng.uniform(-10, 10), 2)) for _ in range(n)]
+        ring = (*pts, pts[0])
+        for uncertainty in (0.0, 0.1, 0.5):
+            assert _topology_status(ring, uncertainty) == _topology_oracle(ring, uncertainty)
+
+
+def test_dense_curved_corridor_performance_and_area():
+    data = request([arc()], error=2e-5).model_dump()
+    data["error_budget"]["max_segments"] = 8192
+    req = CorridorRequest.model_validate(data)
+    t0 = time.perf_counter()
+    result = analyze_corridor(req)
+    elapsed = time.perf_counter() - t0
+    assert result.availability == "supported", result.limitations
+    assert len(result.boundary_edges) >= 2000
+    expected = math.pi / 4 * (120**2 - 90**2)
+    area_tol = (math.pi / 2 * (120 + 90)) * result.error.total_bound
+    assert result.boundary.geometry.area_sq_ft == pytest.approx(expected, abs=area_tol)
+    assert elapsed < 2.0
