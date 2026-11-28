@@ -112,8 +112,8 @@ uv run pytest packages/*/tests plugins/metesparser/tests --no-cov --import-mode=
 ```
 
 - **`--no-cov`** for any package/plugin run that does not override `addopts`: root coverage targets `metesparser` (`src/metesparser`), so package-only runs fail the unrelated 95% threshold (use `make test-packages-cov` to measure and gate every workspace package under `packages/*/src` with aggregate and per-package 95% floors). Add **`--import-mode=importlib`** when collecting multiple package/plugin suites together.
-- Makefile lint/format cover `src/metesparser` and `tests`; typing covers `src/metesparser`. Changed package/script files need explicit `uv run ruff`/`uv run mypy` runs.
-- `make check` and `make pre-commit` can change files. `make ci` runs `check-tools`, `install`, `quality`, `test-cov`, and `test-packages-cov` (without `clean`) and skips `type`.
+- Makefile `lint`/`format` (`make quality`) cover `src/metesparser`, `tests`, `packages`, `scripts`, and `plugins`; `make type` covers `src/metesparser` and `packages/*/src` (legacy scripts and plugin files are excluded from `mypy` until typed).
+- `make check` and `make pre-commit` can change files. `make ci` runs `check-tools`, `install`, `lockfile-check`, `quality`, `type`, `test-cov`, `test-packages-cov`, `test-plugin`, and `review-corpus` (without `clean`).
 - Local browser/SDK and extracted-archive checks do not establish live Mapbox acceptance, native skill discovery or native document-reading accuracy. Keep these gates separate and report unrun gates explicitly.
 
 ## Bearing Convention (Critical for Calculations)

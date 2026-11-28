@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
 from pathlib import Path
 from typing import Any
 
@@ -9,7 +10,7 @@ import pytest
 from mp_models import AuditContext, ClosureResult
 
 from metesparser.llm_clients import BaseLLMClient
-from metesparser.pipeline import Pipeline
+from metesparser.pipeline import Pipeline, PipelineResult
 
 _SQUARE_100_DEED = (
     "BEGINNING at an iron pin found at the southwest corner; "
@@ -250,3 +251,99 @@ class TestPipelineMultiTract:
             for c in easement_result.checks
         )
         assert list(tmp_path.glob("*.csv")) == []
+
+
+class TestPipelineRunDetailed:
+    """Pipeline.run_detailed() returns a frozen PipelineResult matching Pipeline.run()."""
+
+    def test_run_detailed_returns_frozen_pipeline_result_and_matches_run_single_tract(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        call_log: list[tuple[str, str]] = []
+        fake_openai = _make_fake_provider_cls(
+            legal_description=_SQUARE_100_DEED,
+            model_name="fake-openai-model",
+            call_log=call_log,
+        )
+        monkeypatch.setattr("metesparser.pdf_processor.OpenAIClient", fake_openai)
+
+        pdf_path = tmp_path / "square_deed.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
+
+        pipe = Pipeline(provider="openai", cache=False, audit=False)
+        detailed = pipe.run_detailed(pdf_path)
+
+        assert isinstance(detailed, PipelineResult)
+        with pytest.raises(FrozenInstanceError):
+            detailed.provider = "gemini"  # type: ignore[misc]
+
+        assert detailed.pdf_path == pdf_path
+        assert detailed.is_multi_tract is False
+        assert isinstance(detailed.closure, ClosureResult)
+        assert detailed.closure.closure_passed is True
+        assert detailed.closure.is_fully_verified() is True
+        assert detailed.closure_results == (detailed.closure,)
+        assert isinstance(detailed.calls, tuple)
+        assert len(detailed.calls) == 4
+        assert detailed.tract_results == ()
+        assert detailed.audit_context is None
+        assert detailed.raw_llm_response is None
+        assert detailed.normalized_text is None
+        assert detailed.escalation_report is not None
+        assert detailed.escalation_report.triggered is False
+        assert detailed.escalation_report.policy == "never"
+        assert pipe.last_escalation_report == detailed.escalation_report
+        assert detailed.provider == "openai"
+        assert detailed.primary_model == "fake-openai-model"
+        assert detailed.prompts_dir is not None and detailed.prompts_dir.exists()
+
+        legacy = pipe.run(pdf_path)
+        assert isinstance(legacy, ClosureResult)
+        assert legacy == detailed.closure
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["square_deed.pdf"]
+
+    def test_run_detailed_with_audit_and_multi_tract_exposes_tracts_and_text(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        call_log: list[tuple[str, str]] = []
+        fake_gemini = _make_fake_provider_cls(
+            legal_description=_TWO_TRACT_DEED,
+            model_name="fake-gemini-model",
+            call_log=call_log,
+        )
+        monkeypatch.setattr("metesparser.pdf_processor.GeminiClient", fake_gemini)
+
+        pdf_path = tmp_path / "two_tracts.pdf"
+        pdf_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
+
+        pipe = Pipeline(provider="gemini", cache=False, audit=True)
+        detailed = pipe.run_detailed(str(pdf_path))
+
+        assert isinstance(detailed, PipelineResult)
+        assert detailed.pdf_path == pdf_path
+        assert detailed.is_multi_tract is True
+        assert isinstance(detailed.closure, tuple)
+        assert len(detailed.closure) == 2
+        assert detailed.closure_results == detailed.closure
+        assert isinstance(detailed.calls, tuple)
+        assert len(detailed.calls) == 8
+        assert len(detailed.tract_results) == 2
+        assert [t.label for t, _ in detailed.tract_results] == ["Tract 1", "Tract 2"]
+        assert all(res.closure_passed is True for _, res in detailed.tract_results)
+        assert detailed.audit_context is not None
+        assert detailed.audit_context.run_metadata.llm_provider == "gemini"
+        assert detailed.audit_context.run_metadata.llm_model == "fake-gemini-model"
+        assert detailed.raw_llm_response is not None and "TRACT #1" in detailed.raw_llm_response
+        assert detailed.normalized_text is not None and "TRACT #1" in detailed.normalized_text
+        assert detailed.provider == "gemini"
+        assert detailed.primary_model == "fake-gemini-model"
+        assert detailed.escalation_report is not None
+        assert detailed.escalation_report.triggered is False
+
+        legacy = pipe.run(pdf_path)
+        assert isinstance(legacy, tuple)
+        legacy_closures, legacy_ctx = legacy
+        assert isinstance(legacy_closures, list)
+        assert legacy_closures == list(detailed.closure)
+        assert legacy_ctx.run_metadata.llm_provider == "gemini"
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["two_tracts.pdf"]

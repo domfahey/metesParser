@@ -13,7 +13,7 @@ from mp_models.raster import RasterControl
 
 from .dashboard import _atomic
 from .json_input import parse_json
-from .raster_registration import image_layer, supplied_affine
+from .raster_registration import SUPPORTED_RASTER_FORMATS, image_layer, supplied_affine
 from .relative import _invalid_number, _unique_object
 
 
@@ -73,7 +73,7 @@ def prepare_raster_picker_file(
         )
         from PIL import Image
 
-        with Image.open(BytesIO(image_bytes)) as image:
+        with Image.open(BytesIO(image_bytes), formats=SUPPORTED_RASTER_FORMATS) as image:
             if image.getexif().get(274, 1) != 1:
                 raise ValueError(
                     "EXIF-oriented images are unsupported; supply an already oriented scan with documented provenance"

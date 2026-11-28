@@ -784,3 +784,418 @@ class TestExtractRunManifest:
         assert len(manifests) == 1
         assert manifests[0].llm_provider == "openrouter"
         assert manifests[0].llm_model == "anthropic/claude-haiku-5.5"
+
+
+class TestExtractAuditAndEscalationFlags:
+    """CLI --audit and --escalate-* flag parsing, validation, and Pipeline wiring."""
+
+    _CLOSED_SQUARE = (
+        "BEGINNING at a point; "
+        "THENCE N 0°00'00\" E 100.00 feet to a point; "
+        "THENCE S 90°00'00\" E 100.00 feet to a point; "
+        "THENCE S 0°00'00\" W 100.00 feet to a point; "
+        "THENCE N 90°00'00\" W 100.00 feet to the point of beginning."
+    )
+    _BROKEN_SQUARE = (
+        "BEGINNING at a point; "
+        "THENCE N 0°00'00\" E 100.00 feet to a point; "
+        "THENCE S 90°00'00\" E 100.00 feet to a point; "
+        "THENCE S 0°00'00\" W 100.00 feet to a point; "
+        "THENCE N 90°00'00\" W 99.00 feet to the point of beginning."
+    )
+    _TWO_TRACT_CLOSED = (
+        "TRACT #1: BEGINNING at a point; "
+        "THENCE N 0°00'00\" E 100.00 feet; "
+        "THENCE S 90°00'00\" E 100.00 feet; "
+        "THENCE S 0°00'00\" W 100.00 feet; "
+        "THENCE N 90°00'00\" W 100.00 feet to the point of beginning. "
+        "TRACT #2: BEGINNING at a point; "
+        "THENCE N 0°00'00\" E 50.00 feet; "
+        "THENCE S 90°00'00\" E 50.00 feet; "
+        "THENCE S 0°00'00\" W 50.00 feet; "
+        "THENCE N 90°00'00\" W 50.00 feet to the point of beginning."
+    )
+    _TWO_TRACT_BROKEN = (
+        "TRACT #1: BEGINNING at a point; "
+        "THENCE N 0°00'00\" E 100.00 feet; "
+        "THENCE S 90°00'00\" E 100.00 feet; "
+        "THENCE S 0°00'00\" W 100.00 feet; "
+        "THENCE N 90°00'00\" W 98.00 feet to the point of beginning. "
+        "TRACT #2: BEGINNING at a point; "
+        "THENCE N 0°00'00\" E 50.00 feet; "
+        "THENCE S 90°00'00\" E 50.00 feet; "
+        "THENCE S 0°00'00\" W 50.00 feet; "
+        "THENCE N 90°00'00\" W 48.00 feet to the point of beginning."
+    )
+
+    @staticmethod
+    def _make_fake_client_cls(
+        *,
+        model: str,
+        text: str,
+        locate_json: str = '{"pages": [1]}',
+    ):
+        from metesparser.llm_clients import BaseLLMClient
+
+        class _FakeClient(BaseLLMClient):
+            def __init__(self, api_key: str | None = None, **_kwargs: object) -> None:
+                self.api_key = api_key
+                self.model = model
+
+            def generate_text_with_pdf(
+                self, prompt: str, pdf_path: str, *, response_mime_type: str | None = None
+            ) -> str:
+                return text
+
+            def generate_text(self, prompt: str, *, response_mime_type: str | None = None) -> str:
+                return text
+
+            def generate_text_with_images(
+                self, prompt: str, image_paths: object, *, response_mime_type: str | None = None
+            ) -> str:
+                if response_mime_type == "application/json":
+                    return locate_json
+                return text
+
+        return _FakeClient
+
+    def test_main_dispatches_audit_and_escalation_flags(self, monkeypatch, tmp_path):
+        pdf = tmp_path / "input.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        out = tmp_path / "out.csv"
+
+        recorded: list[tuple[tuple[object, ...], dict[str, object]]] = []
+        monkeypatch.setattr(
+            "metesparser.cli.extract_command",
+            lambda *args, **kwargs: recorded.append((args, kwargs)),
+        )
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "metesparser",
+                "extract",
+                str(pdf),
+                "-o",
+                str(out),
+                "--llm-provider",
+                "openrouter",
+                "--no-cache",
+                "--audit",
+                "--escalate-policy",
+                "closure_failed",
+                "--escalate-provider",
+                "gemini",
+                "--escalate-dpi",
+                "400",
+            ],
+        )
+        cli.main()
+
+        assert recorded == [
+            (
+                (str(pdf), str(out), "openrouter"),
+                {
+                    "no_cache": True,
+                    "audit": True,
+                    "escalate_policy": "closure_failed",
+                    "escalate_provider": "gemini",
+                    "escalate_dpi": 400,
+                },
+            )
+        ]
+
+        recorded.clear()
+        monkeypatch.setattr(sys, "argv", ["metesparser", "extract", str(pdf)])
+        cli.main()
+        assert recorded == [((str(pdf), None, None), {"no_cache": False})]
+
+    @pytest.mark.parametrize(
+        "extra_args",
+        [
+            ["--escalate-policy", "always"],
+            ["--escalate-policy", "closure_failed", "--escalate-provider", "anthropic"],
+            ["--escalate-policy", "never", "--escalate-provider", "gemini"],
+            ["--escalate-policy", "never", "--escalate-dpi", "400"],
+            ["--escalate-policy", "closure_failed", "--escalate-dpi", "0"],
+            ["--escalate-policy", "closure_failed", "--escalate-dpi", "601"],
+        ],
+    )
+    def test_main_rejects_inconsistent_and_out_of_range_escalation_flags(
+        self, monkeypatch, tmp_path, capsys, extra_args
+    ):
+        pdf = tmp_path / "input.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["metesparser", "extract", str(pdf), *extra_args],
+        )
+        with pytest.raises(SystemExit) as exc:
+            cli.main()
+
+        assert exc.value.code == 2
+        captured = capsys.readouterr()
+        assert captured.err
+
+    def test_extract_command_rejects_invalid_escalation_args_and_missing_api_key(
+        self, monkeypatch, tmp_path
+    ):
+        pdf = tmp_path / "deed.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        monkeypatch.setattr("metesparser.cli.RUNS_DIR", tmp_path / "runs")
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.setattr(
+            "metesparser.pdf_processor.PDFProcessor",
+            lambda **_kw: pytest.fail("PDFProcessor must not run on invalid escalation config"),
+        )
+
+        invalid_calls = [
+            {"escalate_policy": "always"},
+            {"escalate_policy": "never", "escalate_dpi": 400},
+            {"escalate_policy": "closure_failed", "escalate_provider": "bogus"},
+            {"escalate_policy": "closure_failed", "escalate_provider": "gemini"},
+        ]
+        for kwargs in invalid_calls:
+            with pytest.raises(SystemExit) as exc:
+                cli.extract_command(str(pdf), output=str(tmp_path / "out.csv"), **kwargs)
+            assert exc.value.code == 1
+
+    def test_extract_command_audit_writes_verified_audit_sidecars(self, monkeypatch, tmp_path):
+        monkeypatch.setattr("metesparser.cli.RUNS_DIR", tmp_path / "runs")
+
+        # Single-tract verified
+        pdf_single = tmp_path / "single.pdf"
+        pdf_single.write_bytes(b"%PDF-1.4\n")
+        out_single = tmp_path / "single.csv"
+        monkeypatch.setattr(
+            "metesparser.pdf_processor.OpenAIClient",
+            self._make_fake_client_cls(model="gpt-5.2", text=self._CLOSED_SQUARE),
+        )
+        cli.extract_command(
+            str(pdf_single),
+            output=str(out_single),
+            llm_provider="openai",
+            no_cache=True,
+            audit=True,
+        )
+
+        verified_csv = tmp_path / "single_verified.csv"
+        audit_json = tmp_path / "single_verified.audit.json"
+        audit_html = tmp_path / "single_verified.audit.html"
+        assert verified_csv.exists()
+        assert audit_json.exists()
+        assert audit_html.exists()
+        payload = json.loads(audit_json.read_text(encoding="utf-8"))
+        assert payload["run_metadata"]["llm_provider"] == "openai"
+        assert payload["verification_audit"] is not None
+        assert "<!DOCTYPE html>" in audit_html.read_text(encoding="utf-8")
+
+        # Multi-tract verified
+        pdf_multi = tmp_path / "multi.pdf"
+        pdf_multi.write_bytes(b"%PDF-1.4\n")
+        out_multi = tmp_path / "multi.csv"
+        monkeypatch.setattr(
+            "metesparser.pdf_processor.OpenAIClient",
+            self._make_fake_client_cls(model="gpt-5.2", text=self._TWO_TRACT_CLOSED),
+        )
+        cli.extract_command(
+            str(pdf_multi),
+            output=str(out_multi),
+            llm_provider="openai",
+            no_cache=True,
+            audit=True,
+        )
+
+        assert (tmp_path / "multi_verified_tract1.csv").exists()
+        assert (tmp_path / "multi_verified_tract2.csv").exists()
+        multi_json = tmp_path / "multi_verified.audit.json"
+        multi_html = tmp_path / "multi_verified.audit.html"
+        assert multi_json.exists()
+        assert multi_html.exists()
+        multi_payload = json.loads(multi_json.read_text(encoding="utf-8"))
+        assert len(multi_payload["tract_verification_audits"]) == 2
+        assert "<!DOCTYPE html>" in multi_html.read_text(encoding="utf-8")
+
+    def test_extract_command_audit_writes_unverified_audit_sidecars_without_verified_suffix(
+        self, monkeypatch, tmp_path
+    ):
+        monkeypatch.setattr("metesparser.cli.RUNS_DIR", tmp_path / "runs")
+
+        # Single-tract unverified
+        single_dir = tmp_path / "single"
+        single_dir.mkdir()
+        pdf_single = single_dir / "bad.pdf"
+        pdf_single.write_bytes(b"%PDF-1.4\n")
+        out_single = single_dir / "out.csv"
+        monkeypatch.setattr(
+            "metesparser.pdf_processor.OpenAIClient",
+            self._make_fake_client_cls(model="gpt-5.2", text=self._BROKEN_SQUARE),
+        )
+        cli.extract_command(
+            str(pdf_single),
+            output=str(out_single),
+            llm_provider="openai",
+            no_cache=True,
+            audit=True,
+        )
+
+        assert out_single.exists()
+        assert (single_dir / "out.audit.json").exists()
+        assert (single_dir / "out.audit.html").exists()
+        assert list(single_dir.glob("*_verified*")) == []
+        assert "<!DOCTYPE html>" in (single_dir / "out.audit.html").read_text(encoding="utf-8")
+
+        # Multi-tract unverified
+        multi_dir = tmp_path / "multi"
+        multi_dir.mkdir()
+        pdf_multi = multi_dir / "bad_multi.pdf"
+        pdf_multi.write_bytes(b"%PDF-1.4\n")
+        out_multi = multi_dir / "multi_out.csv"
+        monkeypatch.setattr(
+            "metesparser.pdf_processor.OpenAIClient",
+            self._make_fake_client_cls(model="gpt-5.2", text=self._TWO_TRACT_BROKEN),
+        )
+        cli.extract_command(
+            str(pdf_multi),
+            output=str(out_multi),
+            llm_provider="openai",
+            no_cache=True,
+            audit=True,
+        )
+
+        assert out_multi.exists()
+        assert (multi_dir / "multi_out.audit.json").exists()
+        assert (multi_dir / "multi_out.audit.html").exists()
+        assert list(multi_dir.glob("*_verified*")) == []
+
+    def test_extract_command_escalation_policy_runs_through_pipeline_and_fails_closed_on_disagreement(
+        self, monkeypatch, tmp_path
+    ):
+        import base64
+
+        from pypdf import PdfWriter
+
+        monkeypatch.setattr("metesparser.cli.RUNS_DIR", tmp_path / "runs")
+        secret_key = "secret-gemini-api-key-never-persist"
+        monkeypatch.setenv("GEMINI_API_KEY", secret_key)
+
+        pdf = tmp_path / "esc.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=612, height=792)
+        writer.add_blank_page(width=612, height=792)
+        with pdf.open("wb") as handle:
+            writer.write(handle)
+
+        png = tmp_path / "page.png"
+        png.write_bytes(
+            base64.b64decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC"
+            )
+        )
+
+        monkeypatch.setattr(
+            "metesparser.pdf_processor.OpenAIClient",
+            self._make_fake_client_cls(
+                model="gpt-primary", text=self._BROKEN_SQUARE, locate_json='{"pages": [1]}'
+            ),
+        )
+        monkeypatch.setattr(
+            "metesparser.pdf_processor.GeminiClient",
+            self._make_fake_client_cls(
+                model="gemini-esc", text=self._CLOSED_SQUARE, locate_json='{"pages": [1]}'
+            ),
+        )
+        monkeypatch.setattr(
+            "mp_ocr.preprocess_pdf_pages_for_ocr",
+            lambda _pdf, _out, *, pages=None, **_kw: [png] * (len(pages) if pages else 2),
+        )
+
+        out = tmp_path / "esc.csv"
+        cli.extract_command(
+            str(pdf),
+            output=str(out),
+            llm_provider="openai",
+            no_cache=True,
+            audit=True,
+            escalate_policy="closure_failed",
+            escalate_provider="gemini",
+            escalate_dpi=300,
+        )
+
+        assert out.exists()
+        assert list(tmp_path.glob("*_verified*")) == []
+        audit_json = tmp_path / "esc.audit.json"
+        audit_html = tmp_path / "esc.audit.html"
+        assert audit_json.exists()
+        assert audit_html.exists()
+        raw_json = audit_json.read_text(encoding="utf-8")
+        raw_html = audit_html.read_text(encoding="utf-8")
+        assert secret_key not in raw_json
+        assert secret_key not in raw_html
+        payload = json.loads(raw_json)
+        cfg = payload["run_metadata"]["config"]
+        assert cfg["escalation_policy"] == "closure_failed"
+        assert cfg["escalation_triggered"] is True
+        assert cfg["escalation_selected"] == "escalated"
+        assert cfg["escalation_agrees"] is False
+        assert cfg["escalation_disagreement_count"] == 1
+        assert "<!DOCTYPE html>" in raw_html
+
+    def test_extract_command_respects_metesparser_llm_provider_env_when_flag_omitted(
+        self, monkeypatch, tmp_path
+    ):
+        from metesparser.run_registry import load_run_manifests
+
+        pdf = tmp_path / "env_provider.pdf"
+        pdf.write_bytes(b"%PDF-1.4\n")
+        out = tmp_path / "out.csv"
+        runs_dir = tmp_path / "runs"
+        monkeypatch.setattr("metesparser.cli.RUNS_DIR", runs_dir)
+        monkeypatch.setenv("METESPARSER_LLM_PROVIDER", "gemini")
+
+        legal_desc = LegalDescription(
+            calls=[
+                DeedCall(
+                    course=1,
+                    direction_text="N 90° E",
+                    bearing_quadrant="N 90° E",
+                    bearing_azimuth_deg_from_north=90.0,
+                    distance_ft=10.0,
+                )
+            ],
+            source_doc="env_provider.pdf",
+        )
+        seen_providers: list[str | None] = []
+
+        def _fake_processor(*, provider=None, cache=True):
+            seen_providers.append(provider)
+            return SimpleNamespace(
+                process_deed_pdf=lambda _: legal_desc,
+                prompts_dir=tmp_path,
+                model_name="gemini-test",
+            )
+
+        monkeypatch.setattr("metesparser.pdf_processor.PDFProcessor", _fake_processor)
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.verify_closure",
+            lambda calls, stated_area_sq_ft=0.0, **kwargs: _verified_result(),
+        )
+        monkeypatch.setattr(
+            "metesparser.closure_checker.ClosureChecker.get_closure_summary",
+            lambda result, **kwargs: "VERIFIED",
+        )
+        monkeypatch.setattr(
+            "metesparser.csv_builder.CSVBuilder.export_verified_csv",
+            lambda calls, closure_result, output_path, legal_desc_obj: None,
+        )
+
+        cli.extract_command(str(pdf), output=str(out))
+
+        assert seen_providers == ["gemini"]
+        manifests = load_run_manifests(runs_dir)
+        assert len(manifests) == 1
+        assert manifests[0].llm_provider == "gemini"
+        assert manifests[0].llm_model == "gemini-test"

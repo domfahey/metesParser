@@ -322,3 +322,38 @@ def test_unequal_radius_arc_crossing_is_reported_by_both_verifiers(geometry):
     assert any(
         "Courses 1-3" in warning and "self-intersection" in warning for warning in result.warnings
     )
+
+
+def test_sub_tolerance_curved_closing_junction_verifies_and_exports(geometry, tmp_path):
+    call_type, verify, export = geometry
+    calls = [
+        arc(call_type, 1, 0, delta=90),
+        line(call_type, 2, 90, 100),
+        line(call_type, 3, 180, 99.995),
+        line(call_type, 4, 270, 200.002),
+    ]
+    result = verify(calls)
+    assert result.closure_passed
+    assert result.is_fully_verified(), result.warnings
+    assert not any("self-intersection" in warning.lower() for warning in result.warnings)
+    export(calls, result, str(tmp_path / "sub_tolerance_curved.csv"))
+    assert (tmp_path / "sub_tolerance_curved_verified.csv").exists()
+
+
+def test_super_tolerance_curved_closing_crossing_still_blocks_export(geometry, tmp_path):
+    call_type, verify, export = geometry
+    calls = [
+        arc(call_type, 1, 0, delta=90),
+        line(call_type, 2, 90, 100),
+        line(call_type, 3, 180, 99.95),
+        line(call_type, 4, 270, 200.002),
+    ]
+    result = verify(calls)
+    assert not result.closure_passed
+    assert any(
+        "Courses 1-4" in warning and "self-intersection" in warning for warning in result.warnings
+    )
+    assert not result.is_fully_verified()
+    with pytest.raises(ValueError, match="verification checks failed"):
+        export(calls, result, str(tmp_path / "super_tolerance_curved.csv"))
+    assert not list(tmp_path.iterdir())

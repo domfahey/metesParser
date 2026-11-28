@@ -490,8 +490,31 @@ class TestPreprocessing:
                     three_pdf, tmp_path / "out_cum", pages=[1, 3], timeout_s=60.0
                 )
 
-        # 3. Huge MediaBox overflowing float (both with UserUnit=10 and default UserUnit=1.0)
-        #    fails closed with ValueError (never OverflowError)
+        # 3. Huge MediaBox overflowing float (1e308 * 10.0) fails closed in
+        #    _effective_dpi_for_page, 1e20 fails closed end-to-end with ValueError,
+        #    and 309-byte 1e308 PDF fails closed under pypdf's 64-byte number limit
+        from mp_ocr.preprocessing import _effective_dpi_for_page
+        from pypdf.errors import LimitReachedError
+
+        class _StubPage:
+            mediabox = SimpleNamespace(width=1e308, height=792)
+
+            def get(self, key: str, default: Any = None) -> Any:
+                return 10.0 if key == "/UserUnit" else default
+
+        stub_reader = SimpleNamespace(pages=[_StubPage()])
+        with pytest.raises(ValueError, match="overflow"):
+            _effective_dpi_for_page(stub_reader, 1, 300, 100_000_000)
+
+        huge_default_writer = PdfWriter()
+        huge_default_writer.add_blank_page(width=1e20, height=792)
+        huge_default_pdf = tmp_path / "huge_default.pdf"
+        with huge_default_pdf.open("wb") as handle:
+            huge_default_writer.write(handle)
+        with patch("mp_ocr.preprocessing.shutil.which", return_value="/usr/bin/pdftoppm"):
+            with pytest.raises(ValueError, match="exceeds max_render_pixels"):
+                render_pdf_pages_to_pngs(huge_default_pdf, tmp_path / "out_huge_default")
+
         huge_writer = PdfWriter()
         huge_page = huge_writer.add_blank_page(width=1e308, height=792)
         huge_page[NameObject("/UserUnit")] = FloatObject(10.0)
@@ -499,17 +522,8 @@ class TestPreprocessing:
         with huge_pdf.open("wb") as handle:
             huge_writer.write(handle)
         with patch("mp_ocr.preprocessing.shutil.which", return_value="/usr/bin/pdftoppm"):
-            with pytest.raises(ValueError, match="overflow|exceeds max_render_pixels"):
+            with pytest.raises(LimitReachedError):
                 render_pdf_pages_to_pngs(huge_pdf, tmp_path / "out_huge")
-
-        huge_default_writer = PdfWriter()
-        huge_default_writer.add_blank_page(width=1e308, height=792)
-        huge_default_pdf = tmp_path / "huge_default.pdf"
-        with huge_default_pdf.open("wb") as handle:
-            huge_default_writer.write(handle)
-        with patch("mp_ocr.preprocessing.shutil.which", return_value="/usr/bin/pdftoppm"):
-            with pytest.raises(ValueError, match="overflow|exceeds max_render_pixels"):
-                render_pdf_pages_to_pngs(huge_default_pdf, tmp_path / "out_huge_default")
 
         # 4. Zero-dimension MediaBox fails closed with ValueError
         zero_writer = PdfWriter()
@@ -559,6 +573,58 @@ class TestPreprocessing:
             )
         with Image.open(fast_out) as img:
             assert img.mode == "L" and max(img.size) == 60
+
+    def test_strip_green_watermark_enforces_png_allowlist_and_rejects_eps_and_jpeg(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        Image = pytest.importorskip("PIL.Image")
+        EpsImagePlugin = pytest.importorskip("PIL.EpsImagePlugin")
+        from PIL import UnidentifiedImageError
+
+        eps_bytes = b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n%%EOF\n"
+        eps_path = tmp_path / "malicious.eps"
+        eps_path.write_bytes(eps_bytes)
+        eps_as_png = tmp_path / "disguised.png"
+        eps_as_png.write_bytes(eps_bytes)
+
+        jpg_path = tmp_path / "photo.jpg"
+        Image.new("RGB", (20, 20), "white").save(jpg_path, format="JPEG")
+
+        seen_formats: list[object] = []
+        orig_open = Image.open
+
+        def _spy_open(*args: Any, **kwargs: Any) -> Any:
+            seen_formats.append(kwargs.get("formats"))
+            return orig_open(*args, **kwargs)
+
+        def _forbid_eps(*args: Any, **kwargs: Any) -> Any:
+            raise AssertionError("EpsImageFile must never be invoked")
+
+        monkeypatch.setattr(Image, "open", _spy_open)
+        monkeypatch.setattr(EpsImagePlugin.EpsImageFile, "_open", _forbid_eps)
+
+        for bad_path in (eps_path, eps_as_png, jpg_path):
+            for strip_wm, crop in ((False, False), (True, True)):
+                with pytest.raises(UnidentifiedImageError):
+                    strip_green_watermark_and_crop(
+                        bad_path,
+                        tmp_path / "out.png",
+                        strip_watermark=strip_wm,
+                        crop_margins=crop,
+                    )
+
+        assert seen_formats
+        assert all(fmt == ("PNG",) for fmt in seen_formats)
+
+        # Valid PNG continues to succeed on both paths
+        png_path = _write_tiny_png(tmp_path / "valid.png")
+        fast_out = strip_green_watermark_and_crop(
+            png_path, tmp_path / "valid_fast.png", strip_watermark=False, crop_margins=False
+        )
+        full_out = strip_green_watermark_and_crop(
+            png_path, tmp_path / "valid_full.png", strip_watermark=True, crop_margins=True
+        )
+        assert fast_out.exists() and full_out.exists()
 
 
 # ---------------------------------------------------------------------------

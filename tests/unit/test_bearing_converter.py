@@ -1,10 +1,19 @@
 """Tests for bearing_converter.py - Critical coordinate calculations."""
 
 import math
+from pathlib import Path
 
 import pytest
+from mp_models import (
+    DESCRIPTION_ROLES_CHECK,
+    DESCRIPTION_ROLES_NOTE,
+    EASEMENT_TRACT_NOTE,
+    EXCEPTION_TRACT_NOTE,
+)
 
 from metesparser.bearing_converter import BearingConverter
+from metesparser.closure_checker import ClosureChecker
+from metesparser.csv_builder import CSVBuilder
 from metesparser.models import DeedCall, Point
 
 
@@ -396,3 +405,120 @@ class TestBearingEdgeCasesAndEnrichment:
             distance_ft=60.0,
         )
         assert BearingConverter.enrich_call_with_azimuth(already_populated) is already_populated
+
+    @pytest.mark.parametrize(
+        ("direction_text", "expected_azimuth", "note"),
+        [
+            ("due North", 0.0, "incomplete bearing - cardinal only"),
+            ("due East", 90.0, "incomplete bearing"),
+            ("due South", 180.0, "incomplete bearing - ambiguous decimal degrees"),
+        ],
+    )
+    def test_enrich_due_cardinal_clears_only_incomplete_bearing_note(
+        self, direction_text: str, expected_azimuth: float, note: str
+    ) -> None:
+        call = DeedCall(
+            course=1,
+            direction_text=direction_text,
+            distance_ft=100.0,
+            notes=note,
+        )
+        enriched = BearingConverter.enrich_call_with_azimuth(call)
+        assert enriched.bearing_azimuth_deg_from_north == expected_azimuth
+        assert enriched.notes is None
+
+    @pytest.mark.parametrize(
+        ("initial_notes", "expected_notes"),
+        [
+            (
+                f"incomplete bearing - cardinal only; {DESCRIPTION_ROLES_NOTE}",
+                DESCRIPTION_ROLES_NOTE,
+            ),
+            (
+                f"{DESCRIPTION_ROLES_NOTE}; incomplete bearing - cardinal only",
+                DESCRIPTION_ROLES_NOTE,
+            ),
+            (
+                f"incomplete bearing - cardinal only; {EASEMENT_TRACT_NOTE}",
+                EASEMENT_TRACT_NOTE,
+            ),
+            (
+                f"incomplete bearing - cardinal only; {EXCEPTION_TRACT_NOTE}",
+                EXCEPTION_TRACT_NOTE,
+            ),
+            (
+                "meander / approximate; incomplete bearing - cardinal only; "
+                "record call: (deed N 44° E; 99 feet)",
+                "meander / approximate; record call: (deed N 44° E; 99 feet)",
+            ),
+            (
+                "along incomplete fence line",
+                "along incomplete fence line",
+            ),
+        ],
+    )
+    def test_enrich_due_cardinal_preserves_blocking_and_verbatim_notes(
+        self, initial_notes: str, expected_notes: str
+    ) -> None:
+        call = DeedCall(
+            course=1,
+            direction_text="due North",
+            distance_ft=100.0,
+            notes=initial_notes,
+        )
+        enriched = BearingConverter.enrich_call_with_azimuth(call)
+        assert enriched.bearing_azimuth_deg_from_north == 0.0
+        assert enriched.notes == expected_notes
+
+    def test_enrich_due_cardinal_preserves_role_gate_through_closure_and_export(
+        self, tmp_path: Path
+    ) -> None:
+        calls = [
+            DeedCall(
+                course=1,
+                direction_text="due North",
+                distance_ft=100.0,
+                notes=f"incomplete bearing - cardinal only; {DESCRIPTION_ROLES_NOTE}",
+            ),
+            DeedCall(
+                course=2,
+                direction_text="due East",
+                distance_ft=100.0,
+                notes=DESCRIPTION_ROLES_NOTE,
+            ),
+            DeedCall(
+                course=3,
+                direction_text="due South",
+                distance_ft=100.0,
+                notes=DESCRIPTION_ROLES_NOTE,
+            ),
+            DeedCall(
+                course=4,
+                direction_text="due West",
+                distance_ft=100.0,
+                notes=DESCRIPTION_ROLES_NOTE,
+            ),
+        ]
+
+        enriched_calls = [BearingConverter.enrich_call_with_azimuth(call) for call in calls]
+        assert enriched_calls[0].bearing_azimuth_deg_from_north == 0.0
+        assert enriched_calls[0].notes == DESCRIPTION_ROLES_NOTE
+
+        result = ClosureChecker.verify_closure(enriched_calls)
+        assert result.closure_passed is True
+        assert result.is_fully_verified() is False
+        assert result.geometry_verified is False
+        role_checks = [c for c in result.checks if c.name == DESCRIPTION_ROLES_CHECK]
+        assert len(role_checks) == 1
+        assert role_checks[0].status == "blocked"
+        assert role_checks[0].reason == "roles_need_review"
+
+        with pytest.raises(
+            ValueError,
+            match="Cannot export verified CSV:.*description roles need review",
+        ):
+            CSVBuilder.export_verified_csv(
+                enriched_calls,
+                result,
+                str(tmp_path / "out.csv"),
+            )

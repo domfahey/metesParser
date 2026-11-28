@@ -471,6 +471,13 @@ class TestPipelineImport:
         with pytest.raises(ValueError, match="Unsupported LLM provider 'unsupported_provider'"):
             pipe.run(Path("unused.pdf"))
 
+    def test_pipeline_result_exported_from_package(self) -> None:
+        import metesparser
+        import metesparser.pipeline as pipeline_mod
+
+        assert metesparser.PipelineResult is pipeline_mod.PipelineResult
+        assert "PipelineResult" in metesparser.__all__
+
 
 def test_online_map_facade_uses_package_implementations() -> None:
     from mp_export import render_online_map as package_render

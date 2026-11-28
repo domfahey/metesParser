@@ -278,3 +278,189 @@ class TestCurvedBoundaryIntersections:
         assert warnings == [
             "Boundary intersection check unavailable: incomplete traverse coordinates"
         ]
+
+
+class TestClosingJunctionSubTolerance:
+    def test_arc_first_line_last_sub_tolerance_closing(self):
+        calls = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=90.0, curve_dir="right"),
+            _line_call(2, 90.0, 100.0),
+            _line_call(3, 180.0, 99.995),
+            _line_call(4, 270.0, 200.002),
+        ]
+        assert check_curved_boundary_intersections(calls, compute_traverse(calls)) == []
+        result = verify_closure(calls)
+        assert result.closure_passed is True
+        assert result.geometry_verified is True
+        assert not any("self-intersection" in w.lower() for w in result.warnings)
+
+    def test_line_first_arc_last_sub_tolerance_closing(self):
+        calls = [
+            _line_call(1, 90.0, 100.002),
+            _line_call(2, 0.0, 99.995),
+            _arc_call(3, tangent_deg=270.0, radius=100.0, delta_deg=90.0, curve_dir="left"),
+        ]
+        assert check_curved_boundary_intersections(calls, compute_traverse(calls)) == []
+        result = verify_closure(calls)
+        assert result.geometry_verified is True
+        assert not any("self-intersection" in w.lower() for w in result.warnings)
+
+    def test_arc_arc_sub_tolerance_closing(self):
+        calls_five = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=90.0, curve_dir="right"),
+            _line_call(2, 90.0, 100.0),
+            _line_call(3, 180.0, 199.995),
+            _line_call(4, 270.0, 100.0),
+            _arc_call(5, tangent_deg=0.0, radius=100.0, delta_deg=90.0, curve_dir="left"),
+        ]
+        assert check_curved_boundary_intersections(calls_five, compute_traverse(calls_five)) == []
+        res_five = verify_closure(calls_five)
+        assert res_five.geometry_verified is True
+        assert not any("self-intersection" in w.lower() for w in res_five.warnings)
+
+        calls_two = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=180.0, curve_dir="right"),
+            _arc_call(2, tangent_deg=180.001, radius=100.0, delta_deg=180.0, curve_dir="right"),
+        ]
+        assert check_curved_boundary_intersections(calls_two, compute_traverse(calls_two)) == []
+        res_two = verify_closure(calls_two)
+        assert res_two.geometry_verified is True
+        assert not any("self-intersection" in w.lower() for w in res_two.warnings)
+
+    def test_oblique_45_deg_line_arc_sub_tolerance_closing(self):
+        calls = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=90.0, curve_dir="right"),
+            _line_call(2, 180.0, 200.0),
+            _line_call(
+                3,
+                math.degrees(math.atan2(-100.003, 100.004)) % 360.0,
+                math.hypot(-100.003, 100.004),
+            ),
+        ]
+        assert check_curved_boundary_intersections(calls, compute_traverse(calls)) == []
+        result = verify_closure(calls)
+        assert result.geometry_verified is True
+
+    def test_distant_crossing_on_closing_pair_still_flags(self):
+        # Line-Arc distant crossing on (0, n - 1)
+        dx, dy = -200.003, -49.996
+        calls_line_arc = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=180.0, curve_dir="right"),
+            _line_call(2, 0.0, 50.0),
+            _line_call(3, math.degrees(math.atan2(dx, dy)) % 360.0, math.hypot(dx, dy)),
+        ]
+        res_line_arc = verify_closure(calls_line_arc)
+        assert any(
+            "Courses 1-3" in w and "curved boundary self-intersection" in w
+            for w in res_line_arc.warnings
+        )
+        assert res_line_arc.geometry_verified is False
+
+        # Arc-Arc distant crossing on (0, n - 1)
+        calls_arc_arc = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=180.0, curve_dir="right"),
+            _line_call(2, 0.0, 199.995),
+            _line_call(3, 270.0, 200.0),
+            _arc_call(4, tangent_deg=90.0, radius=100.0, delta_deg=180.0, curve_dir="right"),
+        ]
+        res_arc_arc = verify_closure(calls_arc_arc)
+        assert any(
+            "Courses 1-4" in w and "curved boundary self-intersection" in w
+            for w in res_arc_arc.warnings
+        )
+        assert res_arc_arc.geometry_verified is False
+
+    def test_overlapping_coincident_arcs_on_closing_pair_still_flag(self):
+        # 2-course sub-tolerance overshoot (0.005 ft)
+        calls_overshoot = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=180.0, curve_dir="right"),
+            _arc_call(
+                2,
+                tangent_deg=180.0,
+                radius=100.0,
+                delta_deg=180.0 + math.degrees(0.005 / 100.0),
+                curve_dir="right",
+            ),
+        ]
+        res_overshoot = verify_closure(calls_overshoot)
+        assert any(
+            "Courses 1-2" in w and "curved boundary self-intersection" in w
+            for w in res_overshoot.warnings
+        )
+        assert res_overshoot.geometry_verified is False
+
+        # 3-course backtracking arc on (0, 2)
+        dx = -100.0 * math.cos(math.radians(45.0))
+        dy = 100.0 * math.sin(math.radians(45.0)) - 100.0
+        calls_backtrack = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=90.0, curve_dir="right"),
+            _line_call(2, math.degrees(math.atan2(dx, dy)) % 360.0, math.hypot(dx, dy)),
+            _arc_call(3, tangent_deg=225.0, radius=100.0, delta_deg=45.0, curve_dir="left"),
+        ]
+        res_backtrack = verify_closure(calls_backtrack)
+        assert any(
+            "Courses 1-3" in w and "curved boundary self-intersection" in w
+            for w in res_backtrack.warnings
+        )
+        assert res_backtrack.geometry_verified is False
+
+    def test_super_tolerance_misclosure_default_vs_relaxed(self):
+        calls = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=90.0, curve_dir="right"),
+            _line_call(2, 90.0, 100.0),
+            _line_call(3, 180.0, 99.95),
+            _line_call(4, 270.0, 200.002),
+        ]
+        res_default = verify_closure(calls)
+        assert res_default.closure_passed is False
+        assert any(
+            "Courses 1-4" in w and "curved boundary self-intersection" in w
+            for w in res_default.warnings
+        )
+
+        assert (
+            check_curved_boundary_intersections(
+                calls, compute_traverse(calls), closure_tolerance_ft=0.1
+            )
+            == []
+        )
+        res_relaxed = verify_closure(calls, closure_tolerance_ft=0.1)
+        assert res_relaxed.geometry_verified is False
+        assert any("tolerance" in w.lower() for w in res_relaxed.warnings)
+
+    def test_exact_closure_under_relaxed_tolerance_does_not_exempt_distant_crossing(self):
+        dx, dy = -15.0, -150.0
+        calls = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=180.0, curve_dir="right"),
+            _line_call(2, 0.0, 150.0),
+            _line_call(3, 270.0, 185.0),
+            _line_call(4, math.degrees(math.atan2(dx, dy)) % 360.0, math.hypot(dx, dy)),
+        ]
+        result = verify_closure(calls, closure_tolerance_ft=50.0)
+        assert any(
+            "Courses 1-4" in w and "curved boundary self-intersection" in w for w in result.warnings
+        )
+        assert result.geometry_verified is False
+
+    def test_boundary_tolerance_checks(self):
+        semicircles = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=180.0, curve_dir="right"),
+            _arc_call(2, tangent_deg=180.0, radius=100.0, delta_deg=180.0, curve_dir="right"),
+        ]
+        assert (
+            check_curved_boundary_intersections(
+                semicircles, compute_traverse(semicircles), closure_tolerance_ft=1e-9
+            )
+            == []
+        )
+
+        exact_quad = [
+            _arc_call(1, tangent_deg=0.0, radius=100.0, delta_deg=90.0, curve_dir="right"),
+            _line_call(2, 90.0, 100.0),
+            _line_call(3, 180.0, 100.0),
+            _line_call(4, 270.0, 200.0),
+        ]
+        warnings = check_curved_boundary_intersections(
+            exact_quad, compute_traverse(exact_quad), closure_tolerance_ft=0.0
+        )
+        assert any("Courses 1-4" in w for w in warnings)

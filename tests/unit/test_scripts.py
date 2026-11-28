@@ -7,6 +7,8 @@ import json
 import re
 from pathlib import Path
 
+import yaml
+
 
 def _load_audit_module():
     """Import the audit_gt_vs_md script as a module."""
@@ -1159,6 +1161,73 @@ class TestRepoConfigAndMakefile:
         ):
             assert re.search(rf"^\.PHONY:.*\b{re.escape(target)}\b", content, re.MULTILINE), target
             assert f"make {target}" in content, target
+
+    def test_makefile_workspace_lint_type_and_ci_gates(self) -> None:
+        content = (self.REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+        assert re.search(
+            r"^PY_RUFF_PATHS\s*:=\s*\$\(PY_SRC\)\s+\$\(PY_TESTS\)\s+\$\(PY_PACKAGES\)\s+\$\(PY_SCRIPTS\)\s+\$\(PY_PLUGINS\)",
+            content,
+            re.MULTILINE,
+        )
+        assert "PY_PACKAGES := packages" in content
+        assert "PY_SCRIPTS := scripts" in content
+        assert "PY_PLUGINS := plugins" in content
+        assert re.search(
+            r"^PY_MYPY_PATHS\s*:=\s*\$\(PY_SRC\)\s+packages/\*/src\b",
+            content,
+            re.MULTILINE,
+        )
+        for target, command in (
+            ("lint", r"ruff check \$\(PY_RUFF_PATHS\)"),
+            ("format", r"ruff format \$\(PY_RUFF_PATHS\)"),
+            ("lint-fix", r"ruff check \$\(PY_RUFF_PATHS\) --fix"),
+            ("format-check", r"ruff format \$\(PY_RUFF_PATHS\) --check"),
+            ("type", r"mypy \$\(PY_MYPY_PATHS\)"),
+        ):
+            assert re.search(
+                rf"^{re.escape(target)}:.*?\n(?:\t.*\n)*?\t\$\(UV_RUN\)\s+{command}",
+                content,
+                re.MULTILINE,
+            ), target
+        ci_match = re.search(r"^ci:\s+([^\n#]+)", content, re.MULTILINE)
+        assert ci_match is not None
+        ci_prereqs = ci_match.group(1).split()
+        assert "clean" not in ci_prereqs
+        for gate in (
+            "lockfile-check",
+            "quality",
+            "type",
+            "test-cov",
+            "test-packages-cov",
+            "test-plugin",
+            "review-corpus",
+        ):
+            assert gate in ci_prereqs, gate
+
+    def test_github_ci_workflow_gates_workspace(self) -> None:
+        workflow_path = self.REPO_ROOT / ".github" / "workflows" / "ci.yml"
+        data = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+        triggers = data.get("on") if "on" in data else data[True]
+        assert "main" in triggers["push"]["branches"]
+        assert "pull_request" in triggers
+
+        steps = data["jobs"]["ci"]["steps"]
+        uses_list = [step.get("uses", "") for step in steps]
+        assert any(u.startswith("astral-sh/setup-uv@") for u in uses_list)
+        assert any(u.startswith("actions/setup-node@") for u in uses_list)
+
+        runs = [step.get("run", "").strip() for step in steps if "run" in step]
+        for cmd in (
+            "uv lock --check",
+            "uv sync --all-extras --dev --frozen",
+            "make quality",
+            "make type",
+            "make test-cov",
+            "make test-packages-cov",
+            "make test-plugin",
+            "make review-corpus",
+        ):
+            assert cmd in runs, cmd
 
     def test_pyproject_and_makefile_enforce_95_percent_coverage_floors(self) -> None:
         pyproject = (self.REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")

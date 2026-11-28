@@ -33,13 +33,13 @@ def wheel_fixture(chat, tmp_path, monkeypatch, *, corrupt=False):
     module, _ = chat
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
-        archive.writestr("uv-0.9.6.data/scripts/uv", b"fake executable")
+        archive.writestr(f"uv-{module.UV_VERSION}.data/scripts/uv", b"fake executable")
     data = buffer.getvalue()
     manifest = tmp_path / "uv-bootstrap.json"
     manifest.write_text(
         json.dumps(
             {
-                "version": "0.9.6",
+                "version": module.UV_VERSION,
                 "wheels": {
                     "darwin-arm64": {
                         "url": "https://files.pythonhosted.org/packages/test.whl",
@@ -280,3 +280,20 @@ def test_explicit_settings_argument_is_preserved(chat, monkeypatch, form):
     launcher.main = lambda args: seen.append(args) or 0
     assert module.main(["verify", "calls.csv", *form]) == 0
     assert seen[0] == ["verify", "calls.csv", *form]
+
+
+def test_bootstrap_manifest_matches_pinned_uv_version(chat):
+    module, _ = chat
+    manifest = json.loads(module.MANIFEST.read_text(encoding="utf-8"))
+    assert manifest["version"] == module.UV_VERSION
+    assert tuple(int(p) for p in module.UV_VERSION.split(".")[:3]) >= (0, 11, 6)
+    assert manifest["source"] == f"https://pypi.org/pypi/uv/{module.UV_VERSION}/json"
+    expected_platforms = {"linux-x86_64", "linux-aarch64", "darwin-x86_64", "darwin-arm64"}
+    assert set(manifest["wheels"]) == expected_platforms
+    hex_chars = set("0123456789abcdef")
+    for wheel in manifest["wheels"].values():
+        assert wheel["script"] == f"uv-{module.UV_VERSION}.data/scripts/uv"
+        assert 0 < wheel["size"] < 100_000_000
+        assert len(wheel["sha256"]) == 64 and set(wheel["sha256"]) <= hex_chars
+        assert len(wheel["binary_sha256"]) == 64 and set(wheel["binary_sha256"]) <= hex_chars
+        assert wheel["url"].startswith("https://files.pythonhosted.org/")

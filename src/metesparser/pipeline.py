@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import inspect
 import tempfile
 import threading
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -12,9 +14,11 @@ from mp_models import (
     AuditContext,
     CheckResult,
     ClosureResult,
+    DeedCall,
     ExtractionRecord,
     LegalDescription,
     LLMStageRecord,
+    Tract,
     VerificationAudit,
 )
 from mp_ocr import (
@@ -30,11 +34,24 @@ from mp_ocr import (
 )
 from mp_verify import calculate_confidence_score, verify_closure
 
+from . import pdf_processor as _pdf_processor_module
+from .closure_checker import ClosureChecker
 from .llm_clients import BaseLLMClient
 from .models import AuditContext as MonolithAuditContext
+from .models import ClosureResult as MonolithClosureResult
 from .models import LegalDescription as MonolithLegalDescription
-from .package_bridge import package_audit_context, package_legal_description
+from .package_bridge import (
+    monolith_audit_context,
+    monolith_legal_description,
+    package_audit_context,
+    package_legal_description,
+    package_result,
+)
 from .pdf_processor import PDFProcessor
+
+_ORIGINAL_PDF_PROCESSOR: Any = _pdf_processor_module.PDFProcessor
+_ORIGINAL_VERIFY_CLOSURE: Any = verify_closure
+_ORIGINAL_CLOSURE_CHECKER_VERIFY: Any = ClosureChecker.__dict__["verify_closure"]
 
 logger = structlog.get_logger(__name__)
 
@@ -55,9 +72,43 @@ def _normalize_provider(provider: str, *, name: str = "provider") -> str:
 
 
 def _safe_model_name(processor: Any) -> str | None:
-    """Extract string ``model_name`` from a processor or stub without leaking mocks."""
+    """Extract string model identifier from a processor or wrapped client without leaking mocks."""
     name = getattr(processor, "model_name", None)
-    return name if isinstance(name, str) and name.strip() else None
+    if isinstance(name, str) and name.strip():
+        return name
+    client: Any = getattr(processor, "client", None)
+    seen: set[int] = set()
+    for _ in range(8):
+        if client is None or id(client) in seen:
+            break
+        seen.add(id(client))
+        for attr in ("model_name", "model"):
+            val = getattr(client, attr, None)
+            if isinstance(val, str) and val.strip():
+                return val
+        client = getattr(client, "_client", None)
+    return None
+
+
+def _resolve_pdf_processor_cls() -> Any:
+    """Honor direct monkeypatches on pipeline.PDFProcessor, else resolve pdf_processor.PDFProcessor."""
+    if PDFProcessor is not _ORIGINAL_PDF_PROCESSOR:
+        return PDFProcessor
+    return _pdf_processor_module.PDFProcessor
+
+
+def _call_process_deed_pdf(processor: Any, pdf_path: str, *, audit: bool) -> Any:
+    """Invoke ``processor.process_deed_pdf``, preserving compatibility with legacy 1-arg test stubs."""
+    fn = processor.process_deed_pdf
+    if audit:
+        return fn(pdf_path, audit=True)
+    try:
+        params = inspect.signature(fn).parameters
+    except (TypeError, ValueError):
+        return fn(pdf_path, audit=False)
+    if "audit" in params or any(p.kind is inspect.Parameter.VAR_KEYWORD for p in params.values()):
+        return fn(pdf_path, audit=False)
+    return fn(pdf_path)
 
 
 def _infer_processor_provider(processor: Any, fallback: str | None) -> str | None:
@@ -150,10 +201,40 @@ def _sync_verification_audit(v_audit: VerificationAudit, res: ClosureResult) -> 
     )
 
 
+def _to_package_result(res: ClosureResult | MonolithClosureResult) -> ClosureResult:
+    return res if isinstance(res, ClosureResult) else package_result(res)
+
+
 def _verify_legal_desc(
     legal_desc: LegalDescription,
     audit_ctx: AuditContext | None,
 ) -> ClosureResult | list[ClosureResult]:
+    if (
+        verify_closure is _ORIGINAL_VERIFY_CLOSURE
+        and ClosureChecker.__dict__.get("verify_closure") is not _ORIGINAL_CLOSURE_CHECKER_VERIFY
+    ):
+        mono_ld = monolith_legal_description(legal_desc)
+        mono_audit = monolith_audit_context(audit_ctx) if audit_ctx is not None else None
+        verify_kwargs: dict[str, Any] = {
+            "stated_area_sq_ft": mono_ld.stated_area_sq_ft or 0.0,
+        }
+        if mono_audit is not None:
+            verify_kwargs["audit_context"] = mono_audit
+        if mono_ld.tracts:
+            verify_kwargs["tracts"] = mono_ld.tracts
+            mono_calls = mono_ld.all_calls
+        else:
+            mono_calls = mono_ld.calls
+        checker_fn: Any = ClosureChecker.verify_closure
+        raw_res: Any = checker_fn(mono_calls, **verify_kwargs)
+        if audit_ctx is not None and mono_audit is not None:
+            synced = package_audit_context(mono_audit)
+            audit_ctx.verification_audit = synced.verification_audit
+            audit_ctx.tract_verification_audits = synced.tract_verification_audits
+        if isinstance(raw_res, list):
+            return [_to_package_result(r) for r in raw_res]
+        return _to_package_result(raw_res)
+
     if legal_desc.tracts:
         stated_area: float | None = getattr(legal_desc, "stated_area_sq_ft", None)
         if stated_area is not None:
@@ -278,6 +359,60 @@ def _return_with_audit(
     return results, audit_ctx
 
 
+@dataclass(frozen=True)
+class PipelineResult:
+    """Immutable, structured output of ``Pipeline.run_detailed()``.
+
+    Exposes all stage outputs without writing CSV or audit files.
+    """
+
+    pdf_path: Path
+    legal_description: LegalDescription
+    closure: ClosureResult | tuple[ClosureResult, ...]
+    audit_context: AuditContext | None = None
+    escalation_report: EscalationReport | None = None
+    provider: str | None = None
+    primary_model: str | None = None
+    prompts_dir: Path | None = None
+
+    @property
+    def is_multi_tract(self) -> bool:
+        return isinstance(self.closure, tuple)
+
+    @property
+    def closure_results(self) -> tuple[ClosureResult, ...]:
+        if isinstance(self.closure, tuple):
+            return self.closure
+        return (self.closure,)
+
+    @property
+    def calls(self) -> tuple[DeedCall, ...]:
+        raw_calls = (
+            self.legal_description.all_calls
+            if self.legal_description.tracts
+            else self.legal_description.calls
+        )
+        return tuple(raw_calls)
+
+    @property
+    def tract_results(self) -> tuple[tuple[Tract, ClosureResult], ...]:
+        if isinstance(self.closure, tuple):
+            return tuple(zip(self.legal_description.tracts, self.closure, strict=True))
+        return ()
+
+    @property
+    def raw_llm_response(self) -> str | None:
+        if self.audit_context is None or self.audit_context.extraction_record is None:
+            return None
+        return self.audit_context.extraction_record.raw_llm_response
+
+    @property
+    def normalized_text(self) -> str | None:
+        if self.audit_context is None or self.audit_context.extraction_record is None:
+            return None
+        return self.audit_context.extraction_record.normalized_text
+
+
 class Pipeline:
     """Chain mp-ocr → mp-parse → mp-verify → mp-export."""
 
@@ -361,41 +496,69 @@ class Pipeline:
         )
         return legal_desc, audit_ctx
 
-    def run(
-        self, pdf_path: Path
-    ) -> (
-        ClosureResult
-        | list[ClosureResult]
-        | tuple[ClosureResult, AuditContext]
-        | tuple[list[ClosureResult], AuditContext]
-    ):
-        """Run the full pipeline on a PDF.
+    def run_detailed(self, pdf_path: Path | str) -> PipelineResult:
+        """Run the full pipeline on a PDF and return a structured ``PipelineResult``.
+
+        Executes OCR -> parse -> verify (plus optional blind escalation) without
+        writing CSV, audit, or manifest files.
 
         Args:
             pdf_path: Path to the deed PDF file.
 
         Returns:
-            For single-tract deeds:
-                ClosureResult when audit=False
-                (ClosureResult, AuditContext) when audit=True
-            For multi-tract deeds:
-                list[ClosureResult] when audit=False
-                (list[ClosureResult], AuditContext) when audit=True
+            Frozen ``PipelineResult`` with legal description, closure result(s),
+            optional audit context, escalation report, and provider/model metadata.
         """
+        pdf_path_obj = Path(pdf_path)
         self.last_escalation_report = None
         owned_processors: list[Any] = []
         try:
+            processor_cls = _resolve_pdf_processor_cls()
             processor = (
-                PDFProcessor(provider=self.provider, cache=self.cache)
+                processor_cls(provider=self.provider, cache=self.cache)
                 if self.client is None
-                else PDFProcessor(provider=self.provider, client=self.client, cache=self.cache)
+                else processor_cls(provider=self.provider, client=self.client, cache=self.cache)
             )
             if self.client is None:
                 owned_processors.append(processor)
-            primary_output = processor.process_deed_pdf(str(pdf_path), audit=self.audit)
+            primary_output = _call_process_deed_pdf(processor, str(pdf_path_obj), audit=self.audit)
+            raw_prompts_dir = getattr(processor, "prompts_dir", None)
+            prompts_dir = raw_prompts_dir if isinstance(raw_prompts_dir, Path) else None
             legal_desc, audit_ctx = self._convert_processor_output(primary_output)
             primary_results = _verify_legal_desc(legal_desc, audit_ctx)
             primary_calls = legal_desc.all_calls if legal_desc.tracts else legal_desc.calls
+
+            provider_fallback = (
+                str(self.provider).strip().lower()
+                if self._provider_explicit or self.client is None
+                else None
+            )
+            primary_provider = _infer_processor_provider(processor, provider_fallback)
+            resolved_provider = (
+                primary_provider if primary_provider is not None else str(self.provider)
+            )
+            primary_model = _safe_model_name(processor)
+
+            def _build_result(
+                final_legal_desc: LegalDescription,
+                final_results: ClosureResult | list[ClosureResult],
+                final_ctx: AuditContext | None,
+                report: EscalationReport,
+            ) -> PipelineResult:
+                self.last_escalation_report = report
+                closure_out: ClosureResult | tuple[ClosureResult, ...] = (
+                    tuple(final_results) if isinstance(final_results, list) else final_results
+                )
+                return PipelineResult(
+                    pdf_path=pdf_path_obj,
+                    legal_description=final_legal_desc,
+                    closure=closure_out,
+                    audit_context=final_ctx,
+                    escalation_report=report,
+                    provider=resolved_provider,
+                    primary_model=primary_model,
+                    prompts_dir=prompts_dir,
+                )
 
             should_esc, trigger_reasons = should_escalate_closure(
                 primary_results,
@@ -406,30 +569,26 @@ class Pipeline:
                 report = EscalationReport(
                     triggered=False,
                     policy=self.escalation_policy,
-                    primary_model=_safe_model_name(processor),
+                    primary_model=primary_model,
                 )
-                self.last_escalation_report = report
                 final_primary = _sync_audit_with_escalation(
                     primary_results, legal_desc, report, audit_ctx if self.audit else None
                 )
-                if self.audit:
-                    assert audit_ctx is not None
-                    return _return_with_audit(final_primary, audit_ctx)
-                return final_primary
+                return _build_result(
+                    legal_desc,
+                    final_primary,
+                    audit_ctx if self.audit else None,
+                    report,
+                )
 
-            esc_processor: PDFProcessor | None = None
+            esc_processor: Any = None
             esc_stages: list[Any] = []
             legal_pages: list[int] = []
 
             def _fallback_primary_on_failure(
                 selection_reason: str,
                 exc: Exception,
-            ) -> (
-                ClosureResult
-                | list[ClosureResult]
-                | tuple[ClosureResult, AuditContext]
-                | tuple[list[ClosureResult], AuditContext]
-            ):
+            ) -> PipelineResult:
                 err_summary = f"{type(exc).__name__}: {str(exc)[:200]}"
                 logger.warning(
                     "OCR escalation failed; preserving primary result fail-closed",
@@ -441,14 +600,13 @@ class Pipeline:
                     policy=self.escalation_policy,
                     trigger_reasons=tuple(trigger_reasons),
                     legal_pages=tuple(legal_pages),
-                    primary_model=_safe_model_name(processor),
+                    primary_model=primary_model,
                     escalation_model=_safe_model_name(esc_processor),
                     agrees=False,
                     disagreements=(),
                     selected="primary",
                     selection_reason=selection_reason,
                 )
-                self.last_escalation_report = fail_report
                 synced_primary = _sync_audit_with_escalation(
                     primary_results,
                     legal_desc,
@@ -456,6 +614,7 @@ class Pipeline:
                     audit_ctx if self.audit else None,
                     failure_detail=err_summary,
                 )
+                final_ctx: AuditContext | None = None
                 if self.audit:
                     assert audit_ctx is not None
                     if audit_ctx.extraction_record is not None and esc_stages:
@@ -465,22 +624,16 @@ class Pipeline:
                         audit_ctx.extraction_record = ExtractionRecord.model_validate(
                             {**audit_ctx.extraction_record.model_dump(), "llm_stages": merged}
                         )
-                    return _return_with_audit(synced_primary, audit_ctx)
-                return synced_primary
+                    final_ctx = audit_ctx
+                return _build_result(legal_desc, synced_primary, final_ctx, fail_report)
 
             try:
-                provider_fallback = (
-                    None
-                    if (self.client is not None and not self._provider_explicit)
-                    else str(self.provider).strip().lower()
-                )
-                primary_provider = _infer_processor_provider(processor, provider_fallback)
                 if self.escalation_client is None and (
                     self.escalation_provider is None or self.escalation_provider == primary_provider
                 ):
                     esc_processor = processor
                 else:
-                    esc_processor = PDFProcessor(
+                    esc_processor = processor_cls(
                         provider=self.escalation_provider or self.provider,
                         client=self.escalation_client,
                         cache=self.cache,
@@ -498,14 +651,14 @@ class Pipeline:
                         *,
                         pages: list[int] | None,
                         stage_prefix: str,
-                        pass_locator: PDFProcessor | None,
+                        pass_locator: Any,
                     ) -> tuple[
                         LegalDescription | None, AuditContext | None, list[int], Exception | None
                     ]:
                         assert esc_processor is not None
                         esc_legal_text, esc_norm_text, pass_pages = (
                             esc_processor.extract_legal_description_from_images(
-                                str(pdf_path),
+                                str(pdf_path_obj),
                                 pages=pages,
                                 dpi=self.escalation_dpi,
                                 strip_watermark=self.strip_watermark,
@@ -521,7 +674,7 @@ class Pipeline:
                             esc_stages.extend(esc_processor.pop_audit_stage_records())
                         try:
                             esc_output = esc_processor.process_legal_text(
-                                str(pdf_path),
+                                str(pdf_path_obj),
                                 legal_desc_text=esc_legal_text,
                                 normalized_text=esc_norm_text,
                                 llm_stage_records=list(esc_stages) if self.audit else None,
@@ -556,7 +709,7 @@ class Pipeline:
                         )
                     )
                     if truncated:
-                        total_pages = count_pdf_pages(str(pdf_path))
+                        total_pages = count_pdf_pages(str(pdf_path_obj))
                         if len(legal_pages) < total_pages:
                             all_pages = list(range(1, total_pages + 1))
                             esc_legal_desc, esc_audit_ctx, legal_pages, parse_err = (
@@ -612,14 +765,13 @@ class Pipeline:
                 policy=self.escalation_policy,
                 trigger_reasons=tuple(trigger_reasons),
                 legal_pages=tuple(legal_pages),
-                primary_model=_safe_model_name(processor),
+                primary_model=primary_model,
                 escalation_model=_safe_model_name(esc_processor),
                 agrees=not disagreements,
                 disagreements=tuple(disagreements),
                 selected=selected,
                 selection_reason=selection_reason,
             )
-            self.last_escalation_report = report
 
             final_legal_desc = esc_legal_desc if selected == "escalated" else legal_desc
             final_results = esc_results if selected == "escalated" else primary_results
@@ -648,8 +800,37 @@ class Pipeline:
                     final_ctx.extraction_record = ExtractionRecord.model_validate(
                         {**final_ctx.extraction_record.model_dump(), "llm_stages": combined_stages}
                     )
-                return _return_with_audit(final_results, final_ctx)
-            return final_results
+            return _build_result(final_legal_desc, final_results, final_ctx, report)
         finally:
             for proc in owned_processors:
                 _close_processor_client(proc)
+
+    def run(
+        self, pdf_path: Path
+    ) -> (
+        ClosureResult
+        | list[ClosureResult]
+        | tuple[ClosureResult, AuditContext]
+        | tuple[list[ClosureResult], AuditContext]
+    ):
+        """Run the full pipeline on a PDF.
+
+        Args:
+            pdf_path: Path to the deed PDF file.
+
+        Returns:
+            For single-tract deeds:
+                ClosureResult when audit=False
+                (ClosureResult, AuditContext) when audit=True
+            For multi-tract deeds:
+                list[ClosureResult] when audit=False
+                (list[ClosureResult], AuditContext) when audit=True
+        """
+        detailed = self.run_detailed(pdf_path)
+        results: ClosureResult | list[ClosureResult] = (
+            list(detailed.closure) if isinstance(detailed.closure, tuple) else detailed.closure
+        )
+        if self.audit:
+            assert detailed.audit_context is not None
+            return _return_with_audit(results, detailed.audit_context)
+        return results

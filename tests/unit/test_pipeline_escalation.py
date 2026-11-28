@@ -12,7 +12,7 @@ import pytest
 from mp_export import export_verified_csv
 from pypdf import PdfWriter
 
-from metesparser import Pipeline
+from metesparser import Pipeline, PipelineResult
 from metesparser.llm_cache import CachedLLMClient as MonolithCachedLLMClient
 from metesparser.llm_clients import (
     GeminiClient as MonolithGeminiClient,
@@ -1129,3 +1129,98 @@ def test_pipeline_injected_non_openai_client_respects_explicit_openai_escalation
     with pytest.raises(ValueError, match="at least one"):
         proc.extract_text_from_images([])
     assert calls_seen == []
+
+
+def test_run_detailed_exposes_escalation_report_selected_legal_desc_and_failure_fallback(
+    tmp_path: Path,
+) -> None:
+    pdf, png = _make_pdf_and_png(tmp_path, n_pages=4)
+    primary = _StubClient(
+        model="haiku-primary",
+        pdf_text=_BROKEN_SQUARE,
+        legal_text=_BROKEN_SQUARE,
+        norm_text=_BROKEN_SQUARE,
+        locate_json='{"pages": [2]}',
+    )
+    escalated = _StubClient(
+        model="sonnet-esc",
+        pdf_text=_CLOSED_SQUARE,
+        legal_text=_CLOSED_SQUARE,
+        norm_text=_CLOSED_SQUARE,
+    )
+    pipe = Pipeline(
+        provider="openrouter",
+        cache=False,
+        audit=True,
+        client=primary,
+        escalation_policy="closure_failed",
+        escalation_client=escalated,
+    )
+    with patch("mp_ocr.preprocess_pdf_pages_for_ocr", side_effect=_fake_preprocess(png, 4)):
+        detailed = pipe.run_detailed(pdf)
+
+    assert isinstance(detailed, PipelineResult)
+    assert detailed.pdf_path == pdf
+    assert detailed.is_multi_tract is False
+    assert not isinstance(detailed.closure, tuple)
+    assert detailed.closure.closure_passed is True
+    assert detailed.closure.geometry_verified is False
+    assert detailed.escalation_report is not None
+    assert detailed.escalation_report == pipe.last_escalation_report
+    assert detailed.escalation_report.triggered is True
+    assert detailed.escalation_report.agrees is False
+    assert detailed.escalation_report.selected == "escalated"
+    assert len(detailed.escalation_report.disagreements) == 1
+    assert detailed.primary_model == "haiku-primary"
+    assert detailed.escalation_report.escalation_model == "sonnet-esc"
+    assert detailed.legal_description.calls[3].distance_ft == pytest.approx(100.0)
+    assert detailed.calls[3].distance_ft == pytest.approx(100.0)
+    assert detailed.audit_context is not None
+    assert detailed.audit_context.run_metadata.config["escalation_selected"] == "escalated"
+    assert detailed.raw_llm_response is not None
+    assert list(tmp_path.glob("*.csv")) == []
+    assert list(tmp_path.glob("*.audit.*")) == []
+
+    # Runtime failure during escalation preserves primary legal_desc fail-closed.
+    class _FailingImageClient(_StubClient):
+        def generate_text_with_images(
+            self, prompt: str, image_paths: Any, *, response_mime_type: str | None = None
+        ) -> str:
+            raise RuntimeError("vision api timeout")
+
+    failing_esc = _FailingImageClient(
+        model="sonnet-fail",
+        pdf_text=_CLOSED_SQUARE,
+        legal_text=_CLOSED_SQUARE,
+        norm_text=_CLOSED_SQUARE,
+    )
+    pipe_fail = Pipeline(
+        provider="openrouter",
+        cache=False,
+        audit=True,
+        client=primary,
+        escalation_policy="closure_failed",
+        escalation_client=failing_esc,
+    )
+    with patch("mp_ocr.preprocess_pdf_pages_for_ocr", side_effect=_fake_preprocess(png, 4)):
+        detailed_fail = pipe_fail.run_detailed(pdf)
+
+    assert isinstance(detailed_fail, PipelineResult)
+    assert not isinstance(detailed_fail.closure, tuple)
+    assert detailed_fail.closure.closure_passed is False
+    assert detailed_fail.escalation_report is not None
+    assert detailed_fail.escalation_report == pipe_fail.last_escalation_report
+    assert detailed_fail.escalation_report.triggered is True
+    assert detailed_fail.escalation_report.agrees is False
+    assert detailed_fail.escalation_report.selected == "primary"
+    assert (
+        detailed_fail.escalation_report.selection_reason
+        == "escalated_runtime_error_fallback_to_primary"
+    )
+    assert detailed_fail.legal_description.calls[3].distance_ft == pytest.approx(99.0)
+    assert detailed_fail.audit_context is not None
+    assert "vision api timeout" in str(
+        detailed_fail.audit_context.run_metadata.config.get("escalation_error", "")
+    )
+    assert list(tmp_path.glob("*.csv")) == []
+    assert list(tmp_path.glob("*.audit.*")) == []

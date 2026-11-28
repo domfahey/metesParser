@@ -7,14 +7,14 @@ license = "AGPL-3.0-only"
 dependencies = [
     "mp-models>=2.0.0",
     "openai>=2.3.0",
-    "pypdf>=6.1.1",
+    "pypdf>=6.9.2",
     "pyyaml>=6.0.2",
     "structlog>=24.4.0",
 ]
 
 [project.optional-dependencies]
 gemini = ["google-genai>=3.0.0"]
-vision = ["pillow>=11,<13", "numpy>=1.26,<3"]
+vision = ["pillow>=13.0.0,<14", "numpy>=1.26,<3"]
 dev = ["pytest>=8.3.0", "ruff>=0.8.0"]
 
 [build-system]

@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Workspace Quality, Typing & Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify uv.lock is in sync
+        run: uv lock --check
+
+      - name: Install workspace dependencies
+        run: uv sync --all-extras --dev --frozen
+
+      - name: Lint and format check (ruff)
+        env:
+          UV_NO_SYNC: "1"
+        run: make quality
+
+      - name: Type check (mypy)
+        env:
+          UV_NO_SYNC: "1"
+        run: make type
+
+      - name: Root test suite (95% coverage floor)
+        env:
+          UV_NO_SYNC: "1"
+        run: make test-cov
+
+      - name: Workspace package test suites (95% per-package floor)
+        env:
+          UV_NO_SYNC: "1"
+        run: make test-packages-cov
+
+      - name: Claude plugin test suite
+        env:
+          UV_NO_SYNC: "1"
+        run: make test-plugin
+
+      - name: Deterministic review corpus
+        env:
+          UV_NO_SYNC: "1"
+        run: make review-corpus

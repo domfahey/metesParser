@@ -282,3 +282,53 @@ def test_exif_rotated_raster_is_omittable_not_warped():
         prepare(rotated)
     assert excinfo.value.code == "raster_orientation"
     assert str(excinfo.value) == RASTER_ORIENTATION_MESSAGE
+
+
+def test_webmap_raster_rejects_eps_bytes_via_validation_and_direct_open(monkeypatch):
+    import base64
+
+    import mp_review.webmap_raster as webmap_raster_module
+    from mp_models.raster import RasterLayer
+    from PIL import EpsImagePlugin
+
+    eps_bytes = b"%!PS-Adobe-3.0 EPSF-3.0\n%%BoundingBox: 0 0 10 10\nshowpage\n%%EOF\n"
+    seen_formats = []
+    orig_open = Image.open
+
+    def _spy_open(*args, **kwargs):
+        seen_formats.append(kwargs.get("formats"))
+        return orig_open(*args, **kwargs)
+
+    def _forbid_eps(*args, **kwargs):
+        raise AssertionError("EpsImagePlugin must never be invoked")
+
+    monkeypatch.setattr(Image, "open", _spy_open)
+    monkeypatch.setattr(EpsImagePlugin.EpsImageFile, "_open", _forbid_eps)
+
+    base = layer_for(np.full((3, 3, 4), 255, dtype="uint8"))
+    eps_layer = base.model_copy(
+        update={
+            "data_base64": base64.b64encode(eps_bytes).decode(),
+            "sha256": hashlib.sha256(eps_bytes).hexdigest(),
+        }
+    )
+
+    # Full path: RasterLayer revalidation rejects malformed/EPS header before Pillow runs
+    with pytest.raises(ValueError, match="Unsupported or malformed raster image header"):
+        prepare(eps_layer)
+
+    # Bypass RasterLayer.model_validate so validate_raster_layer -> image_layer runs
+    monkeypatch.setattr(RasterLayer, "model_validate", classmethod(lambda cls, data: eps_layer))
+    with pytest.raises(ValueError, match="PNG/JPEG/WebP"):
+        prepare(eps_layer)
+    assert seen_formats
+    assert all(fmt == ("PNG", "JPEG", "WEBP") for fmt in seen_formats)
+
+    # Bypass earlier validation so line 200's Image.open(..., formats=SUPPORTED_RASTER_FORMATS) runs directly
+    monkeypatch.setattr(webmap_raster_module, "require_upright_raster", lambda layer: None)
+    monkeypatch.setattr(webmap_raster_module, "validate_raster_layer", lambda layer, scene: None)
+    seen_formats.clear()
+    with pytest.raises(WebMapUnavailable) as excinfo:
+        prepare(eps_layer)
+    assert excinfo.value.code == "operation_unavailable"
+    assert seen_formats == [("PNG", "JPEG", "WEBP")]

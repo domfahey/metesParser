@@ -1,38 +1,38 @@
 {
-  "version": "0.9.6",
-  "source": "https://pypi.org/pypi/uv/0.9.6/json",
+  "version": "0.13.10",
+  "source": "https://pypi.org/pypi/uv/0.13.10/json",
   "wheels": {
     "linux-x86_64": {
-      "filename": "uv-0.9.6-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
-      "url": "https://files.pythonhosted.org/packages/e4/29/9cbafd47012a68b39902ff022bd1c7051384fcc23392b2d813d0f418e61f/uv-0.9.6-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
-      "sha256": "3c2c2b2b093330e603d838fec26941ab6f62e8d62a012f9fa0d5ed88da39d907",
-      "size": 21384698,
-      "script": "uv-0.9.6.data/scripts/uv",
-      "binary_sha256": "bba9038d0486f71861a039215cffc5303909747ac1ce65da67a529d547a0b6da"
+      "filename": "uv-0.13.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "url": "https://files.pythonhosted.org/packages/8b/99/fad906311e48fce22e4db71ee4c3df29bdb17b29eb36878f52b8dcd79237/uv-0.13.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "sha256": "7cc9c41b43d583e34c781fd3446405b06e9c5fa2db468ce2a534d353db6429e5",
+      "size": 17653768,
+      "script": "uv-0.13.10.data/scripts/uv",
+      "binary_sha256": "bfe31619b549d39d9031cb2cadc5a95d1258efcad746628a3a6212da4ae5dfbf"
     },
     "linux-aarch64": {
-      "filename": "uv-0.9.6-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl",
-      "url": "https://files.pythonhosted.org/packages/eb/0b/597719ad347610588954730f1124761184a6b71cf5aa1600f0a992939ef4/uv-0.9.6-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl",
-      "sha256": "0169a85d3ba5ef1c37089d64ff26de573439ca84ecf549276a2eee42d7f833f2",
-      "size": 20144462,
-      "script": "uv-0.9.6.data/scripts/uv",
-      "binary_sha256": "d916a2cf416ea896882700132072e868893867e30433380be5ee0a083b4d3fc9"
+      "filename": "uv-0.13.10-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl",
+      "url": "https://files.pythonhosted.org/packages/97/4b/12a9e73be39829da3ece358385c3c019ecdea91a5fc704381d584ad9a387/uv-0.13.10-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.musllinux_1_1_aarch64.whl",
+      "sha256": "e89dd26ea831dde70639ba0a798fa04a4c7c0226fd2b241da86218bfa370e495",
+      "size": 18137926,
+      "script": "uv-0.13.10.data/scripts/uv",
+      "binary_sha256": "9d6f95eef03cdbae753ef3d4ec7a400bff46071a6cc8406448c5eeb2ad69a3b4"
     },
     "darwin-x86_64": {
-      "filename": "uv-0.9.6-py3-none-macosx_10_12_x86_64.whl",
-      "url": "https://files.pythonhosted.org/packages/0e/d8/eba09583108476b9c21f4e09427553af7c5516a21ac01a18c63c357bcd72/uv-0.9.6-py3-none-macosx_10_12_x86_64.whl",
-      "sha256": "a7c6067919d87208c4a6092033c3bc9799cb8be1c8bc6ef419a1f6d42a755329",
-      "size": 19666984,
-      "script": "uv-0.9.6.data/scripts/uv",
-      "binary_sha256": "49e5a64e858a4133e7233e26d07979b10d390dd0c1f07f3d57c31087da75f0f0"
+      "filename": "uv-0.13.10-py3-none-macosx_10_12_x86_64.whl",
+      "url": "https://files.pythonhosted.org/packages/77/0d/178749e47a7ea76ad7c4a0c736b11615f2b4a1af94a9983c987b724e20c1/uv-0.13.10-py3-none-macosx_10_12_x86_64.whl",
+      "sha256": "19a76fd50a6a2bba38ee088d8336566856569be08196865f98132a08806581fc",
+      "size": 17658690,
+      "script": "uv-0.13.10.data/scripts/uv",
+      "binary_sha256": "4ae0c9d36977fe47218549301930c4f7f9cf6706a9a30d75ad23ed496769d589"
     },
     "darwin-arm64": {
-      "filename": "uv-0.9.6-py3-none-macosx_11_0_arm64.whl",
-      "url": "https://files.pythonhosted.org/packages/f4/a3/8d7da102542995ed8b16ae6079ae853221e17a5eec1fff442e6eacf5760c/uv-0.9.6-py3-none-macosx_11_0_arm64.whl",
-      "sha256": "95a62c1f668272555ad0c446bf44a9924dee06054b831d04c162e0bad736dc28",
-      "size": 18335059,
-      "script": "uv-0.9.6.data/scripts/uv",
-      "binary_sha256": "b517d8865e8d65e274a53552f87b76efce4e308ea0e5b6284679f2bb44605c72"
+      "filename": "uv-0.13.10-py3-none-macosx_11_0_arm64.whl",
+      "url": "https://files.pythonhosted.org/packages/5b/d6/78204b698ed27b425b9660105af4b388a379b0435ea2e77e783feca3f180/uv-0.13.10-py3-none-macosx_11_0_arm64.whl",
+      "sha256": "2a9ff188b442419c7aadebc445fcc1f287b25f99af50fa6d563b90cc0047b7cf",
+      "size": 14807398,
+      "script": "uv-0.13.10.data/scripts/uv",
+      "binary_sha256": "4ff271e49765b1d8ed72cfbf720401941efccac6b2997ce87bb05ee790312ab3"
     }
   }
 }

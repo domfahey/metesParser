@@ -9,7 +9,7 @@ from .closure_checker import ClosureChecker
 from .csv_builder import CSVBuilder
 from .models import AuditContext, LegalDescription
 from .pdf_processor import PDFProcessor
-from .pipeline import Pipeline
+from .pipeline import Pipeline, PipelineResult
 from .relative import analyze_relative
 from .text_parser import TextParser
 
@@ -25,6 +25,7 @@ __all__ = [
     "LegalDescription",
     "PDFProcessor",
     "Pipeline",
+    "PipelineResult",
     "TextParser",
     "analyze_relative",
 ]

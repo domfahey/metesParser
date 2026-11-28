@@ -158,6 +158,24 @@ def _arc_arc(first: _Arc, second: _Arc) -> tuple[list[XY], bool]:
     return [p for p in candidates if first.contains(p) and second.contains(p)], False
 
 
+def _is_closing_junction_contact(
+    point: XY,
+    start: XY,
+    end: XY,
+    closing_tolerance_ft: float,
+) -> bool:
+    """Return True when ``point`` is localized to the closing junction of a closed traverse.
+
+    Requires ``point`` to lie within ``closing_tolerance_ft`` of both the first course's
+    start (POB) and the final course's computed end, preventing distant crossings along
+    the closing pair ``(0, n - 1)`` from being exempted.
+    """
+    return (
+        _distance(point, start) <= closing_tolerance_ft
+        and _distance(point, end) <= closing_tolerance_ft
+    )
+
+
 def check_curved_boundary_intersections(
     calls: list[DeedCall],
     coordinates: list[Point],
@@ -189,7 +207,13 @@ def check_curved_boundary_intersections(
                 warnings.append(
                     f"Course {call.course}: boundary intersection check unavailable ({exc})"
                 )
-    closed = _distance(points[0], points[-1]) < closure_tolerance_ft
+    misclosure = _distance(points[0], points[-1])
+    closed = misclosure < closure_tolerance_ft
+    # Bound the closing-junction neighborhood by both closure_tolerance_ft and 2x the
+    # measured misclosure (plus construction roundoff _TOL): covers corners down to
+    # 30 deg (1/sin(30 deg) = 2), collapses to _TOL on exact closure even under a
+    # relaxed closure_tolerance_ft, and never exceeds closure_tolerance_ft + _TOL.
+    closing_tol = min(closure_tolerance_ft, 2.0 * misclosure) + _TOL if closed else 0.0
     for i, first in enumerate(calls):
         for j in range(i + 1, len(calls)):
             second = calls[j]
@@ -204,13 +228,16 @@ def check_curved_boundary_intersections(
                 intersections = _line_arc(points[j], points[j + 1], arcs[i])
             else:
                 intersections = _line_arc(points[i], points[i + 1], arcs[j])
-            shared = []
-            if j == i + 1:
-                shared.append(points[j])
-            if closed and i == 0 and j == len(calls) - 1:
-                shared.append(points[0])
+            is_adjacent = j == i + 1
+            is_closing = closed and i == 0 and j == len(calls) - 1
             if overlap or any(
-                not any(_distance(p, endpoint) <= _TOL for endpoint in shared)
+                not (
+                    (is_adjacent and _distance(p, points[j]) <= _TOL)
+                    or (
+                        is_closing
+                        and _is_closing_junction_contact(p, points[0], points[-1], closing_tol)
+                    )
+                )
                 for p in intersections
             ):
                 warnings.append(
