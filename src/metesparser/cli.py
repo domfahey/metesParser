@@ -12,15 +12,73 @@ from typing import TYPE_CHECKING, Any
 
 import structlog
 import structlog.contextvars
+from mp_export import write_report
+from mp_ocr import (
+    VALID_ESCALATION_POLICIES,
+    EscalationPolicy,
+    validate_escalation_policy,
+    validate_render_dpi,
+)
 
 from .logging_config import configure_logging, get_log_format
 
 if TYPE_CHECKING:
-    from .models import ClosureResult
+    from mp_models import AuditContext as PkgAuditContext
 
 logger = structlog.get_logger(__name__)
 
 RUNS_DIR = Path("output/runs")
+
+_PROVIDER_API_KEY_ENV: dict[str, str] = {
+    "openai": "OPENAI_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+}
+
+
+def _validate_escalation_args(
+    escalate_policy: str,
+    escalate_provider: str | None,
+    escalate_dpi: int | None,
+) -> tuple[EscalationPolicy, str | None, int]:
+    """Validate and normalize CLI escalation flags."""
+    validated_policy = validate_escalation_policy(escalate_policy)
+    validated_dpi = (
+        validate_render_dpi(escalate_dpi, name="--escalate-dpi")
+        if escalate_dpi is not None
+        else 300
+    )
+    normalized_provider: str | None = None
+    if escalate_provider is not None:
+        normalized_provider = escalate_provider.strip().lower()
+        if normalized_provider not in _PROVIDER_API_KEY_ENV:
+            raise ValueError(
+                f"Invalid --escalate-provider {escalate_provider!r}; "
+                f"expected one of: {', '.join(_PROVIDER_API_KEY_ENV)}"
+            )
+    if validated_policy == "never" and (escalate_provider is not None or escalate_dpi is not None):
+        raise ValueError(
+            "--escalate-provider and --escalate-dpi require --escalate-policy other than 'never'"
+        )
+    return validated_policy, normalized_provider, validated_dpi
+
+
+def _write_unverified_audit(
+    audit_ctx: PkgAuditContext,
+    output_csv: str,
+    command_logger: structlog.stdlib.BoundLogger,
+) -> None:
+    """Write unverified audit sidecars at ``<stem>.audit.json`` and ``<stem>.audit.html``."""
+    output_file = Path(output_csv)
+    base = output_file.with_stem(output_file.stem.removesuffix("_verified") or "unverified")
+    audit_json_path = base.with_suffix(".audit.json")
+    audit_json_path.parent.mkdir(parents=True, exist_ok=True)
+    audit_json_path.write_text(audit_ctx.model_dump_json(indent=2), encoding="utf-8")
+    command_logger.info("Audit trail written", path=str(audit_json_path))
+
+    audit_html_path = base.with_suffix(".audit.html")
+    write_report(audit_ctx, audit_html_path)
+    command_logger.info("Audit HTML report written", path=str(audit_html_path))
 
 
 def _unwrap_llm_model(processor: object) -> str:
@@ -136,6 +194,10 @@ def extract_command(
     llm_provider: str | None = None,
     *,
     no_cache: bool = False,
+    audit: bool = False,
+    escalate_policy: EscalationPolicy = "never",
+    escalate_provider: str | None = None,
+    escalate_dpi: int | None = None,
 ) -> None:
     """Extract legal description from PDF and save to CSV.
 
@@ -143,12 +205,27 @@ def extract_command(
         pdf_path: Path to input PDF file
         output: Output CSV path (default: derived from input filename)
         llm_provider: Optional LLM provider override
+        no_cache: Disable LLM response caching
+        audit: Record full audit trail and write .audit.json/.audit.html sidecars
+        escalate_policy: Blind high-DPI OCR escalation policy
+        escalate_provider: Optional LLM provider override for escalation pass
+        escalate_dpi: Optional render DPI for escalated OCR images (1-600)
     """
-    from mp_models import mark_roles_review, roles_need_review, roles_review_detail
+    from mp_models import (
+        is_boundary_tract,
+        mark_roles_review,
+        roles_need_review,
+        roles_review_detail,
+    )
 
     from .closure_checker import ClosureChecker
     from .csv_builder import CSVBuilder
-    from .pdf_processor import PDFProcessor
+    from .package_bridge import (
+        monolith_audit_context,
+        monolith_legal_description,
+        monolith_result,
+    )
+    from .pipeline import Pipeline
 
     pdf_file = Path(pdf_path)
     if not pdf_file.exists():
@@ -158,6 +235,24 @@ def extract_command(
     if not output:
         output = str(pdf_file.with_suffix(".csv"))
 
+    try:
+        validated_policy, normalized_esc_provider, validated_dpi = _validate_escalation_args(
+            escalate_policy, escalate_provider, escalate_dpi
+        )
+    except ValueError as exc:
+        logger.error("Invalid escalation arguments", error=str(exc))
+        sys.exit(1)
+
+    if normalized_esc_provider is not None:
+        required_env = _PROVIDER_API_KEY_ENV[normalized_esc_provider]
+        if not (os.getenv(required_env) or "").strip():
+            logger.error(
+                "Missing API key for escalation provider",
+                escalate_provider=normalized_esc_provider,
+                required_env=required_env,
+            )
+            sys.exit(1)
+
     run_id = str(uuid.uuid4())
     ctx = {"command": "extract", "input_pdf": pdf_path, "output_csv": output, "run_id": run_id}
     structlog.contextvars.bind_contextvars(**ctx)
@@ -165,10 +260,39 @@ def extract_command(
     command_logger.info("Processing deed PDF")
 
     try:
-        processor = PDFProcessor(provider=llm_provider, cache=not no_cache)
-        result = processor.process_deed_pdf(pdf_path)
-        assert not isinstance(result, tuple)  # audit=False (default)
-        legal_desc = result
+        effective_provider = (
+            llm_provider or (os.getenv("METESPARSER_LLM_PROVIDER") or "").strip() or "openai"
+        )
+        pipe = Pipeline(
+            provider=effective_provider,
+            cache=not no_cache,
+            audit=audit,
+            escalation_policy=validated_policy,
+            escalation_provider=normalized_esc_provider,
+            escalation_dpi=validated_dpi,
+        )
+        detailed = pipe.run_detailed(pdf_file)
+
+        esc_report = detailed.escalation_report
+        if esc_report is not None and esc_report.triggered:
+            command_logger.warning(
+                "OCR escalation triggered",
+                policy=esc_report.policy,
+                selected=esc_report.selected,
+                selection_reason=esc_report.selection_reason,
+                agrees=esc_report.agrees,
+                disagreements=len(esc_report.disagreements),
+                legal_pages=list(esc_report.legal_pages),
+                primary_model=esc_report.primary_model,
+                escalation_model=esc_report.escalation_model,
+            )
+
+        legal_desc = monolith_legal_description(detailed.legal_description)
+        monolith_audit_ctx = (
+            monolith_audit_context(detailed.audit_context)
+            if detailed.audit_context is not None
+            else None
+        )
 
         # Guessed description roles (several descriptions, a role inferred from
         # wording) are never verified or exported, whatever the flat geometry: the
@@ -186,27 +310,11 @@ def extract_command(
                 }
             )
 
-        from mp_models import is_boundary_tract
+        calls_for_verify = legal_desc.all_calls if legal_desc.tracts else legal_desc.calls
 
-        tracts_arg = legal_desc.tracts or None
-        calls_for_verify = legal_desc.all_calls if tracts_arg else legal_desc.calls
-
-        command_logger.info("Verifying closure")
-        closure_result: ClosureResult | list[ClosureResult]
-        if tracts_arg is not None:
-            closure_result = ClosureChecker.verify_closure(
-                calls_for_verify,
-                stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0,
-                tracts=tracts_arg,
-            )
-        else:
-            closure_result = ClosureChecker.verify_closure(
-                calls_for_verify,
-                stated_area_sq_ft=legal_desc.stated_area_sq_ft or 0.0,
-            )
-
-        if isinstance(closure_result, list):
-            tract_results = list(zip(legal_desc.tracts, closure_result, strict=True))
+        if isinstance(detailed.closure, tuple):
+            closure_list = [monolith_result(r) for r in detailed.closure]
+            tract_results = list(zip(legal_desc.tracts, closure_list, strict=True))
             summary = "\n\n".join(
                 f"--- {tract.label} ---\n"
                 + ClosureChecker.get_closure_summary(tract_res, calls=tract.calls)
@@ -219,61 +327,88 @@ def extract_command(
             )
             if any_exportable:
                 command_logger.info("Exporting verified CSV")
-                CSVBuilder.export_verified_csv(
-                    calls_for_verify,
-                    closure_result[0],
-                    output,
-                    legal_desc,
-                    tract_results=tract_results,
-                )
+                if monolith_audit_ctx is not None:
+                    CSVBuilder.export_verified_csv(
+                        calls_for_verify,
+                        closure_list[0],
+                        output,
+                        legal_desc,
+                        tract_results=tract_results,
+                        audit_context=monolith_audit_ctx,
+                    )
+                else:
+                    CSVBuilder.export_verified_csv(
+                        calls_for_verify,
+                        closure_list[0],
+                        output,
+                        legal_desc,
+                        tract_results=tract_results,
+                    )
             else:
                 command_logger.warning(
                     "Verification did not pass completely; exporting unverified CSV"
                 )
                 CSVBuilder.legal_description_to_csv(legal_desc, output)
                 command_logger.info("Exported unverified CSV")
+                if detailed.audit_context is not None:
+                    _write_unverified_audit(detailed.audit_context, output, command_logger)
             manifest_closure = aggregate_tract_closure(tract_results)
         else:
+            closure_result = monolith_result(detailed.closure)
             summary = ClosureChecker.get_closure_summary(closure_result, calls=calls_for_verify)
             _emit_closure_summary(summary, command_logger)
 
             if closure_result.is_fully_verified() and not role_review:
                 command_logger.info("Exporting verified CSV")
-                CSVBuilder.export_verified_csv(legal_desc.calls, closure_result, output, legal_desc)
+                if monolith_audit_ctx is not None:
+                    CSVBuilder.export_verified_csv(
+                        legal_desc.calls,
+                        closure_result,
+                        output,
+                        legal_desc,
+                        audit_context=monolith_audit_ctx,
+                    )
+                else:
+                    CSVBuilder.export_verified_csv(
+                        legal_desc.calls, closure_result, output, legal_desc
+                    )
             else:
                 command_logger.warning(
                     "Verification did not pass completely; exporting unverified CSV"
                 )
                 CSVBuilder.legal_description_to_csv(legal_desc, output)
                 command_logger.info("Exported unverified CSV")
+                if detailed.audit_context is not None:
+                    _write_unverified_audit(detailed.audit_context, output, command_logger)
             manifest_closure = closure_result
 
         # Write run manifest (never fails the main extract flow)
-        try:
-            import metesparser
+        if detailed.prompts_dir is not None:
+            try:
+                import metesparser
 
-            from .run_registry import (
-                RunManifest,
-                RunResults,
-                get_prompt_versions,
-                write_run_manifest,
-            )
+                from .run_registry import (
+                    RunManifest,
+                    RunResults,
+                    get_prompt_versions,
+                    write_run_manifest,
+                )
 
-            prompt_versions = get_prompt_versions(processor.prompts_dir)
-            manifest = RunManifest(
-                run_id=run_id,
-                timestamp_utc=datetime.now(UTC),
-                source_pdf=pdf_file.name,
-                llm_provider=llm_provider or os.getenv("METESPARSER_LLM_PROVIDER") or "openai",
-                llm_model=_unwrap_llm_model(processor),
-                cache_enabled=not no_cache,
-                prompt_versions=prompt_versions,
-                results=RunResults.from_closure(manifest_closure, len(calls_for_verify)),
-                parser_version=metesparser.__version__,
-            )
-            write_run_manifest(manifest, RUNS_DIR)
-        except Exception:
-            command_logger.warning("Failed to write run manifest", exc_info=True)
+                prompt_versions = get_prompt_versions(detailed.prompts_dir)
+                manifest = RunManifest(
+                    run_id=run_id,
+                    timestamp_utc=datetime.now(UTC),
+                    source_pdf=pdf_file.name,
+                    llm_provider=detailed.provider or effective_provider,
+                    llm_model=detailed.primary_model or "unknown",
+                    cache_enabled=not no_cache,
+                    prompt_versions=prompt_versions,
+                    results=RunResults.from_closure(manifest_closure, len(calls_for_verify)),
+                    parser_version=metesparser.__version__,
+                )
+                write_run_manifest(manifest, RUNS_DIR)
+            except Exception:
+                command_logger.warning("Failed to write run manifest", exc_info=True)
 
     except Exception:
         command_logger.exception("Failed to process PDF")
@@ -405,6 +540,30 @@ def main() -> None:
         default=False,
         help="Disable LLM response caching (re-query the LLM for every call)",
     )
+    extract_parser.add_argument(
+        "--audit",
+        action="store_true",
+        default=False,
+        help="Record full audit trail and write .audit.json and .audit.html sidecars",
+    )
+    extract_parser.add_argument(
+        "--escalate-policy",
+        choices=list(VALID_ESCALATION_POLICIES),
+        default="never",
+        help="Blind high-DPI OCR escalation policy (default: never)",
+    )
+    extract_parser.add_argument(
+        "--escalate-provider",
+        choices=list(_PROVIDER_API_KEY_ENV),
+        default=None,
+        help="LLM provider override for escalated OCR pass (requires --escalate-policy != never)",
+    )
+    extract_parser.add_argument(
+        "--escalate-dpi",
+        type=int,
+        default=None,
+        help="Render DPI for escalated OCR images (1-600; default 300 when escalating)",
+    )
 
     verify_parser = subparsers.add_parser("verify", help="Verify a CSV file of calls")
     verify_parser.add_argument("csv", help="Path to CSV file")
@@ -442,7 +601,33 @@ def main() -> None:
         sys.exit(0)
 
     if args.command == "extract":
-        extract_command(args.pdf, args.output, args.llm_provider, no_cache=args.no_cache)
+        try:
+            validated_policy, normalized_esc_provider, _ = _validate_escalation_args(
+                args.escalate_policy, args.escalate_provider, args.escalate_dpi
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+
+        extra_kwargs: dict[str, Any] = {}
+        if args.audit:
+            extra_kwargs["audit"] = True
+        if validated_policy != "never":
+            extra_kwargs["escalate_policy"] = validated_policy
+        if normalized_esc_provider is not None:
+            extra_kwargs["escalate_provider"] = normalized_esc_provider
+        if args.escalate_dpi is not None:
+            extra_kwargs["escalate_dpi"] = args.escalate_dpi
+
+        if extra_kwargs:
+            extract_command(
+                args.pdf,
+                args.output,
+                args.llm_provider,
+                no_cache=args.no_cache,
+                **extra_kwargs,
+            )
+        else:
+            extract_command(args.pdf, args.output, args.llm_provider, no_cache=args.no_cache)
     elif args.command == "verify":
         if args.area is not None and (not math.isfinite(args.area) or args.area <= 0):
             parser.error("--area must be a finite positive number")

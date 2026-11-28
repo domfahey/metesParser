@@ -90,6 +90,7 @@ def package_tract(tract: Tract) -> mp_models.Tract:
         _fields_set=tract.model_fields_set,
         **{
             **dict(tract),
+            "tract_type": mp_models.TractType(tract.tract_type.value),
             "calls": package_calls(tract.calls),
             "skipped_courses": package_skips(tract.skipped_courses),
             "closure_result": (
@@ -129,3 +130,18 @@ def package_legal_description(legal_desc: LegalDescription) -> mp_models.LegalDe
 
 def package_audit_context(context: AuditContext) -> mp_models.AuditContext:
     return _mirror(context, mp_models.AuditContext)
+
+
+def monolith_result(result: mp_models.ClosureResult) -> ClosureResult:
+    """Mirror a package closure result back as a monolith closure result."""
+    return _mirror(result, ClosureResult)
+
+
+def monolith_legal_description(legal_desc: mp_models.LegalDescription) -> LegalDescription:
+    """Mirror a package legal description back as a monolith legal description."""
+    return LegalDescription.model_validate(legal_desc.model_dump(exclude_unset=True))
+
+
+def monolith_audit_context(context: mp_models.AuditContext) -> AuditContext:
+    """Mirror a package audit context back as a monolith audit context."""
+    return _mirror(context, AuditContext)
