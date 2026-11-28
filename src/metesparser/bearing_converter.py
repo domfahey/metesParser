@@ -8,7 +8,23 @@ import math
 import re
 from decimal import Decimal, InvalidOperation
 
+from mp_models import split_notes
+
 from .models import DeedCall, Point
+
+_INCOMPLETE_BEARING_NOTES: frozenset[str] = frozenset(
+    {
+        "incomplete bearing",
+        "incomplete bearing - cardinal only",
+        "incomplete bearing - ambiguous decimal degrees",
+    }
+)
+
+
+def _without_incomplete_bearing_note(notes: str) -> str | None:
+    """Return ``notes`` without incomplete-bearing tokens, preserving all other notes."""
+    parts = [part for part in split_notes(notes) if part and part not in _INCOMPLETE_BEARING_NOTES]
+    return "; ".join(parts) or None
 
 
 class BearingConverter:
@@ -640,8 +656,8 @@ class BearingConverter:
                 updates: dict[str, object] = {
                     "bearing_azimuth_deg_from_north": due_az,
                 }
-                if call.notes and "incomplete" in call.notes:
-                    updates["notes"] = None
+                if call.notes:
+                    updates["notes"] = _without_incomplete_bearing_note(call.notes)
                 return call.model_copy(update=updates)
 
         return call
