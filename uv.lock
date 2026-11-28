@@ -18,6 +18,7 @@ members = [
     "mp-review",
     "mp-verify",
 ]
+constraints = [{ name = "urllib3", specifier = ">=2.6.0" }]
 
 [[package]]
 name = "affine"
@@ -918,7 +919,7 @@ requires-dist = [
     { name = "openai", specifier = ">=2.3.0" },
     { name = "playwright", marker = "extra == 'browser-test'", specifier = ">=1.49,<2" },
     { name = "pydantic", specifier = ">=2.10.0" },
-    { name = "pypdf", specifier = ">=6.1.1" },
+    { name = "pypdf", specifier = ">=6.9.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
@@ -1047,7 +1048,7 @@ requires-dist = [
     { name = "numpy", marker = "extra == 'vision'", specifier = ">=1.26,<3" },
     { name = "openai", specifier = ">=2.3.0" },
     { name = "pillow", marker = "extra == 'vision'", specifier = ">=13.0.0,<14" },
-    { name = "pypdf", specifier = ">=6.1.1" },
+    { name = "pypdf", specifier = ">=6.9.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
@@ -1682,11 +1683,11 @@ wheels = [
 
 [[package]]
 name = "pypdf"
-version = "6.1.1"
+version = "7.2.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/a6/85/4c0f12616db83c2e3ef580c3cfa98bd082e88fc8d02e136bad3bede1e3fa/pypdf-6.1.1.tar.gz", hash = "sha256:10f44d49bf2a82e54c3c5ba3cdcbb118f2a44fc57df8ce51d6fb9b1ed9bfbe8b", size = 5074507, upload-time = "2025-09-28T13:29:16.165Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/89/7b/5dff016bef001c3556c5fdd7645ec80251b78bb496b049d2ab9ec497b087/pypdf-7.2.0.tar.gz", hash = "sha256:b2c637b6f0be3def1f762fd8be20118736bafdffc75badab80db003d7a9ed110", size = 7253070, upload-time = "2026-11-26T15:38:53.825Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/ed/adae13756d9dabdddee483fc7712905bb5585fbf6e922b1a19aca3a29cd1/pypdf-6.1.1-py3-none-any.whl", hash = "sha256:7781f99493208a37a7d4275601d883e19af24e62a525c25844d22157c2e4cde7", size = 323455, upload-time = "2025-09-28T13:29:14.392Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/b5/36b52010264f40f35fcd469f62586c0d88753c16682f2e156c42347f884b/pypdf-7.2.0-py3-none-any.whl", hash = "sha256:5edb9b033dd55cecead9303370e6854c1a3b979669bde1c46024cde0228405b1", size = 428449, upload-time = "2026-11-26T15:38:52.262Z" },
 ]
 
 [[package]]
@@ -2241,11 +2242,11 @@ wheels = [
 
 [[package]]
 name = "urllib3"
-version = "2.5.0"
+version = "2.8.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/15/22/9ee70a2574a4f4599c47dd506532914ce044817c7752a79b6a51286319bc/urllib3-2.5.0.tar.gz", hash = "sha256:3fc47733c7e419d4bc3f6b3dc2b4f890bb743906a30d56ba4a5bfa4bbff92760", size = 393185, upload-time = "2025-06-18T14:07:41.644Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz", hash = "sha256:63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63", size = 458972, upload-time = "2026-09-15T19:29:36.253Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a7/c2/fe1e52489ae3122415c51f387e221dd0773709bad6c6cdaa599e8a2c5185/urllib3-2.5.0-py3-none-any.whl", hash = "sha256:e6b01673c0fa6a13e374b50871808eb3bf7046c4b125b216f6bf1cc604cff0dc", size = 129795, upload-time = "2025-06-18T14:07:40.39Z" },
+    { url = "https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl", hash = "sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3", size = 135717, upload-time = "2026-09-15T19:29:34.577Z" },
 ]
 
 [[package]]

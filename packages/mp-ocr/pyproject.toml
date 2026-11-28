@@ -7,7 +7,7 @@ license = "AGPL-3.0-only"
 dependencies = [
     "mp-models>=2.0.0",
     "openai>=2.3.0",
-    "pypdf>=6.1.1",
+    "pypdf>=6.9.2",
     "pyyaml>=6.0.2",
     "structlog>=24.4.0",
 ]

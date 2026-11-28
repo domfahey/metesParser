@@ -17,7 +17,7 @@ METESPARSER_SKILL_ROOT="/actual/extracted/path"
 python3 "$METESPARSER_SKILL_ROOT/scripts/run-chat.py" --setup
 ```
 
-The wrapper uses a `uv` already on `PATH` as found (it is not verified against the pin), otherwise the cached pinned `uv` 0.9.6 after checking its hash, otherwise downloads the pinned wheel (see [`uv-bootstrap.json`](uv-bootstrap.json)), verifies its size and hashes and caches it, then runs a locked dependency sync. For an offline setup, use:
+The wrapper uses a `uv` already on `PATH` as found (it is not verified against the pin), otherwise the cached pinned `uv` 0.13.10 after checking its hash, otherwise downloads the pinned wheel (see [`uv-bootstrap.json`](uv-bootstrap.json)), verifies its size and hashes and caches it, then runs a locked dependency sync. For an offline setup, use:
 
 ```sh
 METESPARSER_SKILL_ROOT="/actual/extracted/path"

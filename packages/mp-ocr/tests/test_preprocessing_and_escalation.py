@@ -490,8 +490,31 @@ class TestPreprocessing:
                     three_pdf, tmp_path / "out_cum", pages=[1, 3], timeout_s=60.0
                 )
 
-        # 3. Huge MediaBox overflowing float (both with UserUnit=10 and default UserUnit=1.0)
-        #    fails closed with ValueError (never OverflowError)
+        # 3. Huge MediaBox overflowing float (1e308 * 10.0) fails closed in
+        #    _effective_dpi_for_page, 1e20 fails closed end-to-end with ValueError,
+        #    and 309-byte 1e308 PDF fails closed under pypdf's 64-byte number limit
+        from mp_ocr.preprocessing import _effective_dpi_for_page
+        from pypdf.errors import LimitReachedError
+
+        class _StubPage:
+            mediabox = SimpleNamespace(width=1e308, height=792)
+
+            def get(self, key: str, default: Any = None) -> Any:
+                return 10.0 if key == "/UserUnit" else default
+
+        stub_reader = SimpleNamespace(pages=[_StubPage()])
+        with pytest.raises(ValueError, match="overflow"):
+            _effective_dpi_for_page(stub_reader, 1, 300, 100_000_000)
+
+        huge_default_writer = PdfWriter()
+        huge_default_writer.add_blank_page(width=1e20, height=792)
+        huge_default_pdf = tmp_path / "huge_default.pdf"
+        with huge_default_pdf.open("wb") as handle:
+            huge_default_writer.write(handle)
+        with patch("mp_ocr.preprocessing.shutil.which", return_value="/usr/bin/pdftoppm"):
+            with pytest.raises(ValueError, match="exceeds max_render_pixels"):
+                render_pdf_pages_to_pngs(huge_default_pdf, tmp_path / "out_huge_default")
+
         huge_writer = PdfWriter()
         huge_page = huge_writer.add_blank_page(width=1e308, height=792)
         huge_page[NameObject("/UserUnit")] = FloatObject(10.0)
@@ -499,17 +522,8 @@ class TestPreprocessing:
         with huge_pdf.open("wb") as handle:
             huge_writer.write(handle)
         with patch("mp_ocr.preprocessing.shutil.which", return_value="/usr/bin/pdftoppm"):
-            with pytest.raises(ValueError, match="overflow|exceeds max_render_pixels"):
+            with pytest.raises(LimitReachedError):
                 render_pdf_pages_to_pngs(huge_pdf, tmp_path / "out_huge")
-
-        huge_default_writer = PdfWriter()
-        huge_default_writer.add_blank_page(width=1e308, height=792)
-        huge_default_pdf = tmp_path / "huge_default.pdf"
-        with huge_default_pdf.open("wb") as handle:
-            huge_default_writer.write(handle)
-        with patch("mp_ocr.preprocessing.shutil.which", return_value="/usr/bin/pdftoppm"):
-            with pytest.raises(ValueError, match="overflow|exceeds max_render_pixels"):
-                render_pdf_pages_to_pngs(huge_default_pdf, tmp_path / "out_huge_default")
 
         # 4. Zero-dimension MediaBox fails closed with ValueError
         zero_writer = PdfWriter()

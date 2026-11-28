@@ -9,7 +9,7 @@ Use the shared deterministic MetesParser engine for parsing, geometry, verificat
 
 ## Runtime
 
-This archive includes `scripts/run-chat.py` and the pinned MetesParser runtime files. The host must provide Python 3.11+, permission to run Python, writable temporary/output storage, and either network access to pinned dependencies or a warm compatible cache. Setup uses a `uv` already on `PATH` (used as found, not verified against the pin), otherwise a cached pinned `uv` 0.9.6 whose hash is verified, otherwise downloads that pinned copy and verifies it; users do not need to preinstall `uv`. Do not assume laptop tools, repository `.env`, credentials, a persistent shell, or a cache shared with another session.
+This archive includes `scripts/run-chat.py` and the pinned MetesParser runtime files. The host must provide Python 3.11+, permission to run Python, writable temporary/output storage, and either network access to pinned dependencies or a warm compatible cache. Setup uses a `uv` already on `PATH` (used as found, not verified against the pin), otherwise a cached pinned `uv` 0.13.10 whose hash is verified, otherwise downloads that pinned copy and verifies it; users do not need to preinstall `uv`. Do not assume laptop tools, repository `.env`, credentials, a persistent shell, or a cache shared with another session.
 
 Before each run, set `METESPARSER_SKILL_ROOT` to the absolute path of the directory from which you read this `SKILL.md`; do not use an inherited or guessed root variable. In the same execution request, invoke the launcher through its full path, for example:
 
