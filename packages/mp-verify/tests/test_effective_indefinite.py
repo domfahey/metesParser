@@ -7,6 +7,7 @@ parsed one (is_indefinite=True) by confidence, plot, diagnostics, comparison and
 
 from __future__ import annotations
 
+import pytest
 from mp_models import DeedCall
 from mp_models.comparison import (
     BearingBasis,
@@ -151,14 +152,137 @@ def test_diagnostics_same_for_flagged_and_unflagged_conflict():
     assert _without_request(plain) == _without_request(flagged)
 
 
-def test_plot_identical_for_flagged_and_unflagged_conflict():
-    def plot(call):
-        request = PlotRequest(title="t", calls=(PlotCall(id="c", call=call),))
-        geometry = prepare_plot(request).geometry.model_dump(mode="json")
-        geometry.pop("geometry_hash", None)
-        return geometry
+def _north_line(course: int = 2) -> DeedCall:
+    return DeedCall(
+        course=course,
+        direction_text="N 0° E",
+        bearing_azimuth_deg_from_north=0.0,
+        distance_ft=50.0,
+    )
 
-    assert plot(conflict()) == plot(conflict(is_indefinite=True))
+
+def test_plot_identical_for_flagged_and_unflagged_conflict():
+    def plot(call: DeedCall):
+        request = PlotRequest(
+            title="t",
+            calls=(PlotCall(id="c1", call=call), PlotCall(id="c2", call=_north_line())),
+        )
+        return prepare_plot(request).geometry
+
+    dumped = []
+    for call in (conflict(), conflict(is_indefinite=True)):
+        geometry = plot(call)
+        assert geometry.completeness == "unresolved"
+        assert geometry.primitives == ()
+        assert len(geometry.unresolved) == 2
+        assert geometry.unresolved[0].call_id == "c1"
+        assert geometry.unresolved[0].positioned is False
+        assert "incomplete bearing" in geometry.unresolved[0].reason
+        assert geometry.unresolved[1].call_id == "c2"
+        assert geometry.unresolved[1].positioned is False
+        assert geometry.unresolved[1].reason == "unpositioned after unresolved displacement"
+        data = geometry.model_dump(mode="json")
+        data.pop("geometry_hash", None)
+        dumped.append(data)
+
+    assert dumped[0] == dumped[1]
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(
+            DeedCall(
+                course=1,
+                direction_text="recorded",
+                bearing_azimuth_deg_from_north=0.0,
+                distance_ft=157.08,
+                curve_dir="right",
+                radius_ft=100.0,
+                delta_deg=90.0,
+                is_indefinite=True,
+            ),
+            id="arc-flagged-indefinite",
+        ),
+        pytest.param(
+            DeedCall(
+                course=1,
+                direction_text="northerly",
+                bearing_azimuth_deg_from_north=None,
+                distance_ft=104.72,
+                curve_dir="right",
+                radius_ft=200.0,
+                delta_deg=30.0,
+                chord_bearing="S 45° E",
+                chord_length_ft=100.0,
+                is_indefinite=False,
+            ),
+            id="arc-cardinal-chord-conflict",
+        ),
+        pytest.param(
+            DeedCall(
+                course=1,
+                direction_text="northerly",
+                distance_ft=100.0,
+                curve_type="spiral",
+                chord_bearing="S 45° E",
+                chord_length_ft=100.0,
+                is_indefinite=False,
+            ),
+            id="spiral-conflict-unflagged",
+        ),
+        pytest.param(
+            DeedCall(
+                course=1,
+                direction_text="northerly",
+                distance_ft=100.0,
+                curve_type="spiral",
+                chord_bearing="S 45° E",
+                chord_length_ft=100.0,
+                is_indefinite=True,
+            ),
+            id="spiral-conflict-flagged",
+        ),
+        pytest.param(
+            DeedCall(
+                course=1,
+                direction_text="recorded",
+                bearing_azimuth_deg_from_north=90.0,
+                distance_ft=100.0,
+                is_indefinite=True,
+            ),
+            id="line-flagged-indefinite",
+        ),
+    ],
+)
+def test_plot_rejects_effectively_indefinite_arc_spiral_and_line(call: DeedCall):
+    geometry = prepare_plot(PlotRequest(title="t", calls=(PlotCall(id="c1", call=call),))).geometry
+    assert geometry.completeness == "unresolved"
+    assert geometry.primitives == ()
+    assert geometry.unresolved[0].positioned is False
+    assert "incomplete bearing" in geometry.unresolved[0].reason
+
+
+def test_plot_keeps_non_conflicting_legacy_chord_only_positioned():
+    call = DeedCall(
+        course=1,
+        direction_text="curve",
+        distance_ft=50.0,
+        curve_dir="right",
+        radius_ft=100.0,
+        chord_bearing="N 90°00' E",
+        chord_length_ft=50.0,
+        is_indefinite=True,
+    )
+    geometry = prepare_plot(
+        PlotRequest(
+            title="t",
+            calls=(PlotCall(id="c1", call=call), PlotCall(id="c2", call=_north_line())),
+        )
+    ).geometry
+    assert geometry.unresolved[0].positioned is True
+    assert "positioned by chord only" in geometry.unresolved[0].reason
+    assert len(geometry.primitives) == 1
 
 
 def _corridor(call: DeedCall):

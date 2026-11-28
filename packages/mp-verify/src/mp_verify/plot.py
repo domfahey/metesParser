@@ -12,6 +12,7 @@ from mp_bearing import (
     bearing_to_azimuth,
     calculate_curve_properties,
     calculate_deltas,
+    cardinal_conflicts_bearing,
     chord_length_tolerance_ft,
 )
 from mp_models.plot import (
@@ -66,6 +67,17 @@ def _finite(point: XY) -> XY:
     return point
 
 
+def _curve_orientation_issue(call: DeedCall) -> str | None:
+    for issue in (
+        tangent_chord_issue(call),
+        radial_chord_issue(call),
+        radial_tangent_issue(call),
+    ):
+        if issue is not None:
+            return issue
+    return None
+
+
 def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
     if call.radius_ft is None or call.curve_dir is None:
         raise ValueError("curve radius and direction unresolved")
@@ -93,13 +105,9 @@ def _arc(call: DeedCall, start: XY, source: _Source) -> PlotPrimitive:
     sign = 1 if call.curve_dir == "right" else -1
     # The same shared rules verification applies to stated tangent, chord and radial
     # bearings: a curve they reject is unresolved here, never drawn.
-    for issue in (
-        tangent_chord_issue(call),
-        radial_chord_issue(call),
-        radial_tangent_issue(call),
-    ):
-        if issue is not None:
-            raise ValueError(issue)
+    issue = _curve_orientation_issue(call)
+    if issue is not None:
+        raise ValueError(issue)
     if call.chord_bearing is not None:
         chord = bearing_to_azimuth(call.chord_bearing)
         if chord is None:
@@ -189,6 +197,14 @@ def _build_geometry(
             elif not spiral and not chord_is_feasible(call):
                 # No circle of this radius has such a chord; never position by it.
                 reason = "curve chord length exceeds twice the radius"
+            elif (
+                call.bearing_azimuth_deg_from_north is None
+                and call.direction_text
+                and cardinal_conflicts_bearing(call.direction_text, chord)
+            ):
+                reason = "incomplete bearing - cardinal only or unresolved orientation"
+            elif not spiral and (issue := _curve_orientation_issue(call)) is not None:
+                reason = issue
             else:
                 try:
                     dx, dy = calculate_deltas(chord, call.chord_length_ft)
@@ -210,6 +226,8 @@ def _build_geometry(
                 continue
         if reason is None and call is not None:
             try:
+                if effective_indefinite(call):
+                    raise ValueError("incomplete bearing - cardinal only or unresolved orientation")
                 if call.is_curve():
                     primitive = _arc(call, current, source)
                 else:
@@ -218,7 +236,7 @@ def _build_geometry(
                         if relative is not None and record.id in relative
                         else call.bearing_azimuth_deg_from_north
                     )
-                    if bearing is None or effective_indefinite(call):
+                    if bearing is None:
                         raise ValueError(
                             "incomplete bearing - cardinal only or unresolved orientation"
                         )
