@@ -16,6 +16,11 @@ chat-skill-build: ## Build the standalone Claude chat Skill ZIP and checksum.
 	$(UV_RUN) python scripts/build_claude_skill.py
 PY_SRC := src/metesparser
 PY_TESTS := tests
+PY_PACKAGES := packages
+PY_SCRIPTS := scripts
+PY_PLUGINS := plugins
+PY_RUFF_PATHS := $(PY_SRC) $(PY_TESTS) $(PY_PACKAGES) $(PY_SCRIPTS) $(PY_PLUGINS)
+PY_MYPY_PATHS := $(PY_SRC) packages/*/src
 PKG_COV_MODULES := $(sort $(notdir $(patsubst %/__init__.py,%,$(wildcard packages/*/src/*/__init__.py))))
 PKG_COV_ARGS := $(addprefix --cov=,$(PKG_COV_MODULES))
 PKG_COV_EXTRAS ?= --extra dev --extra delivery --extra geo --extra web-map --extra gemini --extra vision
@@ -59,11 +64,11 @@ help: ## Show available development commands and their usage.
 	@echo "  make dev-setup     Bootstrap repo and create .env"
 	@echo ""
 	@echo "Code Quality:"
-	@echo "  make lint          Run ruff linter"
+	@echo "  make lint          Run ruff linter across workspace, scripts, and plugins"
 	@echo "  make lint-fix      Run ruff with auto-fix"
-	@echo "  make format        Format code with ruff"
+	@echo "  make format        Format code across workspace, scripts, and plugins with ruff"
 	@echo "  make format-check  Check formatter compliance"
-	@echo "  make type          Run mypy type checks"
+	@echo "  make type          Run mypy type checks across src/metesparser and packages/*/src"
 	@echo "  make check         Run all checks (lint + format + type + test)"
 	@echo "  make quality       Run lint + formatting checks"
 	@echo ""
@@ -75,7 +80,7 @@ help: ## Show available development commands and their usage.
 	@echo "  make test-fast     Run tests with fail-fast behavior"
 	@echo "  make test-cov      Run tests with coverage report"
 	@echo "  make review-corpus Run reviewed deterministic pipeline fixtures without OCR"
-	@echo "  make ci            Run the CI-style full check workflow"
+	@echo "  make ci            Run full workspace CI validation (lockfile, quality, type, coverage, plugin, corpus)"
 	@echo ""
 	@echo "Utility:"
 	@echo "  make clean         Remove build artifacts and cache"
@@ -226,22 +231,22 @@ lockfile-check: ## Ensure uv.lock is present and in sync with pyproject.toml.
 
 lint: ## Run static analysis with Ruff.
 	@echo "Running ruff linter..."
-	$(UV_RUN) ruff check $(PY_SRC) $(PY_TESTS)
+	$(UV_RUN) ruff check $(PY_RUFF_PATHS)
 	@echo "✓ Linting complete"
 
 format: ## Format source files with Ruff.
 	@echo "Formatting code with ruff..."
-	$(UV_RUN) ruff format $(PY_SRC) $(PY_TESTS)
+	$(UV_RUN) ruff format $(PY_RUFF_PATHS)
 	@echo "✓ Formatting complete"
 
 lint-fix: ## Auto-fix Ruff-detected issues.
 	@echo "Running ruff linter with auto-fix..."
-	$(UV_RUN) ruff check $(PY_SRC) $(PY_TESTS) --fix
+	$(UV_RUN) ruff check $(PY_RUFF_PATHS) --fix
 	@echo "✓ Auto-fix complete"
 
 format-check: ## Verify formatting without making changes.
 	@echo "Checking code formatting..."
-	$(UV_RUN) ruff format $(PY_SRC) $(PY_TESTS) --check
+	$(UV_RUN) ruff format $(PY_RUFF_PATHS) --check
 	@echo "✓ All checks passed"
 
 quality: lint format-check ## Run lint + format checks.
@@ -252,7 +257,7 @@ check: lint format type test ## Run lint, format, type checks, and tests.
 
 type: ## Run mypy static type checking.
 	@echo "Running mypy checks..."
-	$(UV_RUN) mypy src/metesparser
+	$(UV_RUN) mypy $(PY_MYPY_PATHS)
 	@echo "✓ Type checks complete"
 
 test: ## Run full test suite.
@@ -308,7 +313,7 @@ test-cov: ## Run tests with HTML and terminal coverage reports.
 	COVERAGE_FILE=htmlcov/root.coverage $(UV_RUN) pytest
 	@echo "✓ Coverage report generated in htmlcov/"
 
-ci: check-tools install quality test-cov test-packages-cov ## CI-oriented end-to-end validation lane.
+ci: check-tools install lockfile-check quality type test-cov test-packages-cov test-plugin review-corpus ## CI-oriented end-to-end validation lane.
 	@echo "✓ CI checks complete"
 
 clean: ## Remove generated artifacts and caches.
